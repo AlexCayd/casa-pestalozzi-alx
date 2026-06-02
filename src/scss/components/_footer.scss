@@ -1,0 +1,71 @@
+// ── Footer ────────────────────────────────────────────────────
+footer.foot {
+  background: var(--ink);
+  border-top: 1px solid var(--line);
+  padding: clamp(4rem, 8vh, 7rem) var(--pad) 2.5rem;
+}
+
+.foot__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 3rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.foot__brand {
+  .bm {
+    font-family: var(--logo);
+    color: var(--accent);
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1;
+    word-spacing: -0.8rem;
+  }
+  p {
+    font-family: var(--crimson);
+    font-style: italic;
+    color: var(--beige);
+    margin-top: 0.8rem;
+    opacity: 0.85;
+  }
+}
+
+.foot__cols {
+  display: flex;
+  gap: clamp(2rem, 5vw, 5rem);
+  flex-wrap: wrap;
+}
+
+.foot__col {
+  h6 {
+    font-size: 0.62rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  a,
+  span {
+    display: block;
+    font-size: 0.84rem;
+    color: var(--txt-mute);
+    padding: 0.3rem 0;
+    transition: color 0.3s;
+  }
+
+  a:hover { color: var(--beige); }
+}
+
+.foot__bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: clamp(3rem, 6vh, 5rem);
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.7rem;
+  color: var(--txt-faint);
+  letter-spacing: 0.05em;
+}

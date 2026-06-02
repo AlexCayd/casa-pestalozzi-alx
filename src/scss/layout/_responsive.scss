@@ -1,0 +1,73 @@
+// ── Mobile polish — overrides multi-componente ────────────────
+@media (max-width: 980px) {
+  .dish {
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem 0;
+  }
+  .dish__idx { display: none; }
+  .dish__thumb { display: block; }
+  .dish:hover,
+  .dish.active { padding-left: 0; }
+  .dish:hover::before,
+  .dish.active::before { transform: scaleY(0); }
+}
+
+@media (max-width: 760px) {
+  :root { --pad: 1.3rem; }
+
+  .section { padding: clamp(3.5rem, 9vh, 6rem) var(--pad); }
+  .brand-mark { font-size: 1.1rem; }
+  .nav-toggle { width: 52px; height: 52px; }
+
+  .hero {
+    padding-top: 5.5rem;
+    padding-bottom: 4rem;
+    align-items: center;
+  }
+  .hero__meta { gap: 1.2rem 2rem; }
+  .hero__meta .mi { flex: 1 1 40%; }
+  .scroll-cue { display: none; }
+
+  .about__media { height: auto; grid-template-rows: 200px 200px; }
+  .about__media .m:nth-child(1) { grid-row: span 1; grid-column: span 2; height: 220px; }
+
+  .menu__tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+  .menu__tab { flex: 0 0 auto; }
+  .dish__main p { font-size: 0.8rem; -webkit-line-clamp: 3; }
+  .dish__price { font-size: 1rem; }
+
+  .reserve-fab { padding: 0.8rem 1.3rem; font-size: 0.66rem; }
+
+  .pair { min-height: 360px; }
+  .pair__body p { max-height: 200px; opacity: 1; margin-top: 0.5rem; }
+
+  .gcard { flex: 0 0 78vw; }
+
+  .testi blockquote .o { font-size: 1.25rem; }
+
+  .reserva__hours .row { font-size: 0.78rem; }
+  .loc__map { min-height: 380px; }
+  .map2__parklabel { font-size: 0.8rem; }
+  .foot__top { flex-direction: column; gap: 2rem; }
+}
+
+@media (max-width: 420px) {
+  .hero__title { font-size: clamp(2.3rem, 14vw, 3.6rem); }
+  .dish__thumb { width: 54px; height: 54px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,54 @@
+// ── Variables originales del proyecto ──────────────────────────
+$fuente-principal: 'Outfit', sans-serif;
+
+$telefono:   480px;
+$tablet:     768px;
+$desktop:    1024px;
+$xl_desktop: 1200px;
+
+$azul:       #007df4;
+$secundario: #00c8c2;
+$negro:      #1a1b15;
+$blanco:     #FFFFFF;
+$gris:       #64748B;
+$gris-claro: #F8FAFC;
+$gris-oscuro:#1E293B;
+$rojo:       rgb(169, 0, 0);
+$verde:      #02db02;
+
+$delgada: 300;
+$regular: 400;
+$bold:    700;
+$black:   900;
+
+// ── Tokens Casa Pestalozzi ──────────────────────────────────────
+// Paleta
+$cp-gold:      #cca352;
+$cp-gold-soft: #e0c184;
+$cp-gold-deep: #a07e36;
+$cp-terra:     #7c3d1d;
+$cp-sage:      #5f7d56;
+$cp-sage-deep: #4e6148;
+$cp-beige:     #fff9e4;
+$cp-white:     #f5f5f5;
+$cp-ink:       #0b0c0d;
+$cp-ink-2:     #101213;
+$cp-surface:   #15181a;
+$cp-surface-2: #1c2023;
+$cp-txt:       #ede9df;
+
+// Tipografía
+$cp-serif:   "Playfair Display", Georgia, serif;
+$cp-crimson: "Crimson Text", Georgia, serif;
+$cp-sans:    "Montserrat", "Helvetica Neue", Arial, sans-serif;
+$cp-logo:    "KudosKaps", "Playfair Display", serif;
+
+// Layout
+$cp-maxw: 1320px;
+
+// Breakpoints
+$cp-xs: 420px;
+$cp-sm: 480px;
+$cp-md: 760px;
+$cp-lg: 900px;
+$cp-xl: 1100px;

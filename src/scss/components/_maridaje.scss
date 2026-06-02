@@ -1,0 +1,102 @@
+// ── Maridaje ──────────────────────────────────────────────────
+.maridaje {
+  background: linear-gradient(180deg, var(--ink), var(--ink-2));
+}
+
+.maridaje__head {
+  text-align: center;
+  max-width: 620px;
+  margin: 0 auto clamp(3rem, 7vh, 5rem);
+}
+
+.maridaje__title {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  margin: 1.2rem 0;
+}
+
+.maridaje__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 880px) { .maridaje__grid { grid-template-columns: 1fr; } }
+
+.pair {
+  position: relative;
+  overflow: hidden;
+  min-height: clamp(420px, 52vw, 600px);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: flex-end;
+
+  img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 1s var(--ease), filter 0.6s;
+    filter: grayscale(0.35) brightness(0.7);
+  }
+
+  &:hover img { transform: scale(1.07); filter: grayscale(0) brightness(0.85); }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 30%, rgba(11,12,13,0.92));
+  }
+}
+
+.pair__body {
+  position: relative;
+  z-index: 2;
+  padding: clamp(1.6rem, 3vw, 2.6rem);
+
+  p {
+    font-size: 0.86rem;
+    color: var(--txt-mute);
+    max-width: 34ch;
+    margin: 0;
+  }
+}
+
+// Grid-rows trick: expansión pixel-perfecta sin max-height estimado
+.pair__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 1s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+
+  > p {
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.7s 0.3s ease;
+  }
+}
+
+.pair:hover .pair__reveal { grid-template-rows: 1fr; }
+.pair:hover .pair__reveal > p { opacity: 1; }
+
+.pair__num {
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+}
+
+.pair__body h3 {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  color: var(--beige);
+  margin: 0.8rem 0;
+}
+
+.pair__wine {
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-top: 1rem;
+  display: inline-block;
+}

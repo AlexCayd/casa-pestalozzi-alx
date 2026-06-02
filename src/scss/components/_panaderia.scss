@@ -1,0 +1,52 @@
+// ── Panadería ─────────────────────────────────────────────────
+.pan { position: relative; }
+
+.pan__title {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  margin: 1.2rem 0;
+}
+
+// ── Mosaico compacto: columna alta + 2 paisajes ───────────────
+.pan__mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  grid-template-rows: auto auto;
+  gap: 1rem;
+  margin-bottom: clamp(2.5rem, 5vh, 4rem);
+
+  .pm {
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--line);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 1.2s var(--ease);
+      display: block;
+    }
+
+    &:hover img { transform: scale(1.06); }
+  }
+
+  .pm--tall { grid-row: 1 / span 2; aspect-ratio: 2/3; }
+  .pm--wide { aspect-ratio: 5/3; }
+  .pm--sq   { aspect-ratio: 5/3; }
+}
+
+@media (max-width: 640px) {
+  .pan__mosaic {
+    grid-template-columns: 1fr;
+    .pm--tall { aspect-ratio: 4/3; grid-row: auto; }
+  }
+}
+
+// ── Texto encima, centrado ────────────────────────────────────
+.pan__text {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto clamp(2rem, 4vh, 3rem);
+}
+
+.pan__mosaic { margin-bottom: 0; }

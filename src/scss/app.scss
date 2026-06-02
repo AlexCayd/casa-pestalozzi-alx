@@ -1,0 +1,29 @@
+// ── Casa Pestalozzi — Entry point SCSS ───────────────────────
+// Se incluye normalize de base pero NO _globales (pone font-size:62.5%)
+// ni _tipografia (conflictos con tokens CP). Las variables y mixins de
+// base sí se aprovechan donde corresponde.
+@use 'base/normalize';
+
+// Layout
+@use 'layout/fonts';
+@use 'layout/reset';
+@use 'layout/nav';
+@use 'layout/rail';
+@use 'layout/responsive';
+
+// Componentes
+@use 'components/cursor';
+@use 'components/buttons';
+@use 'components/hero';
+@use 'components/nosotros';
+@use 'components/menu';
+@use 'components/maridaje';
+@use 'components/galeria';
+@use 'components/chef';
+@use 'components/panaderia';
+@use 'components/eventos';
+@use 'components/reserva';
+@use 'components/ubicacion';
+@use 'components/footer';
+@use 'components/lightbox';
+@use 'components/tweaks';

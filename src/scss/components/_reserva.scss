@@ -1,0 +1,387 @@
+// ── Reserva (formulario) ──────────────────────────────────────
+.reserva { background: var(--ink); }
+
+.reserva__grid {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: start;
+}
+@media (max-width: 900px) { .reserva__grid { grid-template-columns: 1fr; } }
+
+.reserva__title {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  margin: 1.2rem 0;
+}
+
+.reserva__hours {
+  margin-top: 2.5rem;
+
+  h5 {
+    font-size: 0.66rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 0.82rem;
+    color: var(--txt-mute);
+
+    &.today { color: var(--beige); }
+    &.today b { color: var(--accent); font-weight: 400; }
+  }
+}
+
+// Formulario
+.form { display: grid; gap: 1.6rem; }
+
+.form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6rem;
+}
+@media (max-width: 560px) { .form__row { grid-template-columns: 1fr; } }
+
+.field {
+  position: relative;
+
+  label {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--txt-mute);
+    display: block;
+    margin-bottom: 0.6rem;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--beige);
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    padding: 0.6rem 0;
+    transition: border-color 0.4s;
+    cursor: none;
+
+    &:focus { outline: none; border-color: var(--accent); }
+  }
+
+  textarea {
+    resize: none;
+    min-height: 60px;
+    font-family: var(--sans);
+    font-size: 0.95rem;
+  }
+
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+
+    option { background: var(--surface); color: var(--beige); }
+  }
+
+  input::placeholder,
+  textarea::placeholder { color: var(--txt-faint); }
+}
+
+// Pastillas de comensales
+.pills { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 50px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  color: var(--txt-mute);
+  transition: all 0.3s;
+  font-family: var(--serif);
+
+  &:hover { border-color: var(--accent); color: var(--beige); }
+  &.sel { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+}
+
+.form__submit {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.form__msg {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-family: var(--crimson);
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.4s;
+
+  &.show { opacity: 1; }
+}
+
+// Confirmación
+.reserva__confirm {
+  border: 1px solid var(--accent);
+  padding: clamp(2rem, 4vw, 3rem);
+  text-align: center;
+  display: none;
+
+  &.show {
+    display: block;
+    animation: fade-in-up 0.6s var(--ease);
+  }
+
+  .mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    color: var(--accent);
+    font-size: 1.5rem;
+  }
+
+  h3 { font-size: 2rem; color: var(--beige); margin-bottom: 1rem; }
+  p  { color: var(--txt-mute); font-size: 0.9rem; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+// ── Comensales extra ──────────────────────────────────
+.guests-extra {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.5s ease, opacity 0.4s 0.1s;
+
+  &.show { max-height: 80px; opacity: 1; }
+}
+
+.guests-stepper {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.step-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  &:disabled { opacity: 0.3; cursor: default; }
+}
+
+.step-val {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: var(--beige);
+  min-width: 2ch;
+  text-align: center;
+}
+
+// ── Hora picker ───────────────────────────────────────
+.hour-picker-wrap { position: relative; }
+
+.hour-display {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  transition: border-color 0.4s;
+
+  &:focus { outline: none; border-color: var(--accent); }
+}
+
+.hour-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 0;
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  max-height: 220px;
+  overflow-y: auto;
+  min-width: 160px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+
+  &.open {
+    display: block;
+    animation: fade-in-up 0.25s var(--ease);
+  }
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+}
+
+.hour-option {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 1.2rem;
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 0.88rem;
+  color: var(--txt-mute);
+  transition: background 0.2s, color 0.2s;
+
+  &:hover { background: var(--surface-2); color: var(--beige); }
+  &.sel { color: var(--accent); }
+}
+
+// ── Calendario personalizado ──────────────────────────
+.date-picker-wrap { position: relative; }
+
+.date-display {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  transition: border-color 0.4s;
+
+  &:focus { outline: none; border-color: var(--accent); }
+}
+
+.cp-calendar {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 0;
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 1.2rem;
+  min-width: 280px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+
+  &.open {
+    display: block;
+    animation: fade-in-up 0.25s var(--ease);
+  }
+}
+
+.cpc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.cpc-label {
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  color: var(--beige);
+  letter-spacing: 0.05em;
+  text-align: center;
+  flex: 1;
+}
+
+.cpc-nav {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  color: var(--accent);
+  line-height: 1;
+  padding: 0.2rem 0.5rem;
+  transition: color 0.3s;
+
+  &:hover { color: var(--accent-soft); }
+}
+
+.cpc-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 0.5rem;
+
+  span {
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    text-align: center;
+    padding: 0.2rem 0;
+  }
+}
+
+.cpc-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cpc-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 0.82rem;
+  color: var(--txt-mute);
+  border-radius: 50%;
+  transition: background 0.2s, color 0.2s;
+
+  &:hover:not(.disabled):not(.empty) {
+    background: var(--surface-2);
+    color: var(--beige);
+  }
+
+  &.today {
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  &.selected {
+    background: var(--accent);
+    color: var(--ink);
+    border-color: transparent;
+  }
+
+  &.disabled {
+    color: var(--txt-faint);
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  &.empty { visibility: hidden; pointer-events: none; }
+}

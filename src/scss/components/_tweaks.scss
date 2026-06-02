@@ -1,0 +1,107 @@
+// ── Panel de Tweaks ───────────────────────────────────────────
+#tweaks {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 320px;
+  max-width: 88vw;
+  z-index: 10000;
+  background: rgba(12,14,15,0.97);
+  border-left: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  transform: translateX(100%);
+  transition: transform 0.5s var(--ease);
+  display: flex;
+  flex-direction: column;
+  padding: 1.6rem;
+  overflow-y: auto;
+  cursor: auto;
+
+  &.open { transform: translateX(0); }
+
+  * { cursor: auto; }
+
+  h3 { font-family: var(--serif); font-size: 1.4rem; color: var(--beige); }
+}
+
+#tweaks .tw-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+#tweaks .tw-close { font-size: 1.4rem; color: var(--txt-mute); }
+
+.tw-group {
+  margin-bottom: 1.6rem;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 1.2rem;
+
+  > label {
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.8rem;
+  }
+}
+
+.tw-opts { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.tw-opt {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.72rem;
+  color: var(--txt-mute);
+  transition: all 0.3s;
+
+  &.sel { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+}
+
+.tw-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: transform 0.2s;
+
+  &.sel { border-color: var(--beige); transform: scale(1.12); }
+}
+
+.tw-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--txt);
+  padding: 0.4rem 0;
+}
+
+.tw-switch {
+  width: 42px;
+  height: 22px;
+  border-radius: 50px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  position: relative;
+  transition: background 0.3s;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--txt-mute);
+    transition: transform 0.3s, background 0.3s;
+  }
+
+  &.on { background: var(--accent); }
+  &.on::after { transform: translateX(20px); background: var(--ink); }
+}

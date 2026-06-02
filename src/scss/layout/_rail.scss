@@ -1,0 +1,95 @@
+// ── Rail de secciones ─────────────────────────────────────────
+.rail {
+  position: fixed;
+  right: clamp(1rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 180;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  align-items: flex-end;
+  mix-blend-mode: difference;
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(245, 245, 245, 0.5);
+    transition: color 0.3s;
+
+    .tick {
+      width: 16px;
+      height: 1px;
+      background: rgba(245, 245, 245, 0.4);
+      transition: width 0.4s var(--ease), background 0.3s;
+    }
+
+    .rlabel {
+      opacity: 0;
+      transform: translateX(8px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    &:hover .rlabel,
+    &.active .rlabel { opacity: 1; transform: translateX(0); }
+
+    &.active { color: var(--beige); }
+    &.active .tick { width: 34px; background: var(--accent); }
+  }
+}
+
+@media (max-width: 1100px) { .rail { display: none; } }
+
+// ── FAB de reserva ────────────────────────────────────────────
+.reserve-fab {
+  position: fixed;
+  bottom: clamp(1.2rem, 3vw, 2.2rem);
+  right: var(--pad);
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.95rem 1.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 50px;
+  background: rgba(20, 22, 24, 0.55);
+  backdrop-filter: blur(8px);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--beige);
+  transition: background 0.4s, color 0.4s, transform 0.5s var(--ease);
+  opacity: 0;
+
+  &.show { opacity: 1; }
+  &:hover { background: var(--accent); color: var(--ink); }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  &:hover .dot { background: var(--ink); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.6); }
+}
+
+@media (max-width: 600px) {
+  .reserve-fab {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+
+    &.show:hover { transform: translateX(-50%); }
+  }
+}
