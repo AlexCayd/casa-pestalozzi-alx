@@ -5,11 +5,15 @@ require_once __DIR__ . '/../includes/app.php';
 use MVC\Router;
 use Controllers\AuthController;
 use Controllers\HomeController;
+use Controllers\ReservacionController;
 
 $router = new Router();
 
 // Home
 $router->get('/', [HomeController::class, 'index']);
+
+// Reservaciones
+$router->post('/reservar', [ReservacionController::class, 'crear']);
 
 
 // Login

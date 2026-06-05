@@ -21,7 +21,7 @@
       <form class="form" id="reservaForm" novalidate>
         <div class="form__row">
           <div class="field"><label>Nombre</label><input type="text" name="nombre" placeholder="Tu nombre" required /></div>
-          <div class="field"><label>Teléfono</label><input type="tel" name="tel" placeholder="55 0000 0000" required /></div>
+          <div class="field"><label>Correo electrónico</label><input type="email" name="email" placeholder="tu@correo.com" required /></div>
         </div>
         <div class="form__row">
           <div class="field">
@@ -79,8 +79,7 @@
       <div class="reserva__confirm" id="reservaConfirm">
         <div class="mark">✓</div>
         <h3>¡Mesa reservada!</h3>
-        <p id="confirmText">Te esperamos. Recibirás una confirmación por WhatsApp.</p>
-        <div style="margin-top:1.5rem"><a class="btn-text" href="https://wa.me/525614818297" target="_blank" rel="noopener">Confirmar por WhatsApp →</a></div>
+        <p id="confirmText">Te esperamos. Pronto recibirás más detalles en tu correo.</p>
       </div>
     </div>
   </div>

@@ -155,24 +155,47 @@ function initForm() {
   form.addEventListener("submit", function(e) {
     e.preventDefault();
     var nombre = form.nombre.value.trim();
-    var tel    = form.tel.value.trim();
+    var email  = form.email.value.trim();
     var fecha  = $("#fechaHidden").value;
     var hora   = $("#horaHidden").value;
 
-    if (!nombre || !tel || !fecha || !hora) {
-      msg.textContent = "Completa nombre, teléfono, fecha y hora.";
+    if (!nombre || !email || !fecha || !hora) {
+      msg.textContent = "Completa nombre, correo, fecha y hora.";
       msg.classList.add("show");
       if (!reduce) gsap.fromTo(form, { x: -6 }, { x: 0, duration: 0.4, ease: "elastic.out(1,0.3)" });
       return;
     }
 
     msg.classList.remove("show");
-    var fd  = new Date(fecha + "T00:00:00");
-    var fmt = fd.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
-    $("#confirmText").innerHTML = 'Gracias, <b style="color:var(--accent);font-weight:400">' + nombre + '</b>. Mesa para <b style="color:var(--accent);font-weight:400">' + guests + '</b> el <b style="color:var(--accent);font-weight:400">' + fmt + '</b> a las <b style="color:var(--accent);font-weight:400">' + hora + '</b>. Te esperamos.';
-    form.style.display = "none";
-    var confirm = $("#reservaConfirm");
-    confirm.classList.add("show");
-    if (window.ScrollTrigger) ScrollTrigger.refresh();
+
+    var data = new FormData();
+    data.append("nombre", nombre);
+    data.append("email", email);
+    data.append("fecha", fecha);
+    data.append("hora", hora);
+    data.append("comensales", guests);
+    data.append("nota", form.nota ? form.nota.value.trim() : "");
+
+    fetch("/reservar", { method: "POST", body: data })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.ok) {
+          var fd  = new Date(fecha + "T00:00:00");
+          var fmt = fd.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+          $("#confirmText").innerHTML = 'Gracias, <b style="color:var(--accent);font-weight:400">' + nombre + '</b>. Mesa para <b style="color:var(--accent);font-weight:400">' + guests + '</b> el <b style="color:var(--accent);font-weight:400">' + fmt + '</b> a las <b style="color:var(--accent);font-weight:400">' + hora + '</b>. Te esperamos.';
+          form.style.display = "none";
+          var confirm = $("#reservaConfirm");
+          confirm.classList.add("show");
+          if (window.ScrollTrigger) ScrollTrigger.refresh();
+        } else {
+          msg.textContent = res.msg || "Error al guardar la reservación.";
+          msg.classList.add("show");
+          if (!reduce) gsap.fromTo(form, { x: -6 }, { x: 0, duration: 0.4, ease: "elastic.out(1,0.3)" });
+        }
+      })
+      .catch(function() {
+        msg.textContent = "Error de conexión. Intenta de nuevo.";
+        msg.classList.add("show");
+      });
   });
 }
