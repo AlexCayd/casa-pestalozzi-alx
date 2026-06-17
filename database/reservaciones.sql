@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS categorias (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   nombre        VARCHAR(40) NOT NULL,
+  img           VARCHAR(200),
   activo        TINYINT(1) NOT NULL DEFAULT 1
 );
 
@@ -49,15 +50,15 @@ CREATE TABLE IF NOT EXISTS reservaciones (
 -- -------------------------------------------------------
 -- Seed: categorías del menú
 -- -------------------------------------------------------
-INSERT INTO categorias (id, nombre) VALUES
-(1, 'Desayunos'),
-(2, 'Entradas'),
-(3, 'Sopas & Cremas'),
-(4, 'Pastas'),
-(5, 'Platos Fuertes'),
-(6, 'Ensaladas'),
-(7, 'Pizzas'),
-(8, 'Para Picar');
+INSERT INTO categorias (id, nombre, img) VALUES
+(1, 'Desayunos',     'build/images/comida-4.webp'),
+(2, 'Entradas',      'build/images/comida-9.webp'),
+(3, 'Sopas & Cremas','build/images/comida-7.webp'),
+(4, 'Pastas',        'build/images/mejor-2.webp'),
+(5, 'Platos Fuertes','build/images/mejor-6.webp'),
+(6, 'Ensaladas',     'build/images/comida-2.webp'),
+(7, 'Pizzas',        'build/images/pizza-3.webp'),
+(8, 'Para Picar',    'build/images/comida-6.webp');
 
 -- -------------------------------------------------------
 -- Seed: platillos del menú
