@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/app.php';
 use MVC\Router;
 use Controllers\AuthController;
 use Controllers\HomeController;
+use Controllers\MenuController;
 use Controllers\ReservacionController;
 
 $router = new Router();
@@ -37,5 +38,7 @@ $router->post('/reestablecer', [AuthController::class, 'reestablecer']);
 $router->get('/mensaje', [AuthController::class, 'mensaje']);
 $router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
+// Leer menu de la base de datos
+$router->get('/menu', [MenuController::class, 'index']);
 
 $router->comprobarRutas();
