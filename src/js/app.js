@@ -31,7 +31,8 @@ function applyAccent(key) {
 
 // ── Boot ──────────────────────────────────────────────────────
 function boot() {
-  document.getElementById("year").textContent = new Date().getFullYear();
+  var yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
   if (window.gsap && window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
 
   applyAccent(T.accent);
