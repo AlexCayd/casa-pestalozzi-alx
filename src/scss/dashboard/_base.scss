@@ -1,0 +1,21 @@
+// ── Dashboard · Base ──────────────────────────────────────────
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+a { color: var(--brand-dark); }
+
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.muted { color: var(--muted); font-size: 0.85rem; }
+.empty { color: var(--muted); font-style: italic; padding: 1rem 0; }

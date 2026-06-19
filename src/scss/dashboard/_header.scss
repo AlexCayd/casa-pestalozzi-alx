@@ -1,0 +1,21 @@
+// ── Dashboard · Header ────────────────────────────────────────
+header.dash-top {
+  background: var(--ink);
+  color: #f6f1e8;
+  padding: 1.1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h1 {
+    font-size: 1.15rem;
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+
+  a {
+    color: #d9c7a8;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+}

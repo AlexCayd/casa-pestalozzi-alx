@@ -1,0 +1,16 @@
+// ── Dashboard · Alertas y flashes ─────────────────────────────
+.flash,
+.alerta {
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+  font-size: 0.9rem;
+
+  &.exito { background: var(--ok-bg); color: var(--ok-ink); }
+  &.error { background: var(--err-bg); color: var(--err-ink); }
+}
+
+.alerta ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+}

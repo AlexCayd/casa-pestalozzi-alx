@@ -5,8 +5,10 @@ require_once __DIR__ . '/../includes/app.php';
 use MVC\Router;
 use Controllers\AuthController;
 use Controllers\HomeController;
-use Controllers\MapaController;
+use Controllers\MenuController;
 use Controllers\ReservacionController;
+use Controllers\DashboardController;
+use Controllers\MapaController;
 use Controllers\AreaController;
 
 $router = new Router();
@@ -59,5 +61,24 @@ $router->post('/reestablecer', [AuthController::class, 'reestablecer']);
 $router->get('/mensaje', [AuthController::class, 'mensaje']);
 $router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
+// Leer menu de la base de datos
+$router->get('/menu', [MenuController::class, 'index']);
+
+// Rutas del dashboard
+$router->get('/dashboard', [DashboardController::class, 'index']);
+
+// CRUD Categorías
+$router->get('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
+$router->post('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
+$router->get('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
+$router->post('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
+$router->post('/dashboard/categorias/eliminar', [DashboardController::class, 'categoriaEliminar']);
+
+// CRUD Platillos (Menú)
+$router->get('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
+$router->post('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
+$router->get('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
+$router->post('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
+$router->post('/dashboard/menu/eliminar', [DashboardController::class, 'menuEliminar']);
 
 $router->comprobarRutas();
