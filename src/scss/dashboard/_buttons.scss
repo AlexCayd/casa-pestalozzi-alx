@@ -1,0 +1,37 @@
+// ── Dashboard · Botones ───────────────────────────────────────
+.btn {
+  display: inline-block;
+  cursor: pointer;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+
+  &:hover { background: var(--brand-dark); }
+}
+
+.btn-light { background: #efeae1; color: var(--ink); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+
+  &:hover { background: var(--danger); color: #fff; }
+}
+
+.btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+
+.actions {
+  display: flex;
+  gap: 0.4rem;
+
+  form { margin: 0; }
+}
