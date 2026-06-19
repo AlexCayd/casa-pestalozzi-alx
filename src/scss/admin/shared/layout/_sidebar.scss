@@ -1,0 +1,138 @@
+/*
+ * Presentación y comportamiento responsive del sidebar administrativo.
+ * Conserva navegación fija en desktop y drawer en pantallas reducidas.
+ */
+@use "../abstracts/variables" as vars;
+@use "../abstracts/mixins" as mixins;
+
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
+  padding: 24px 28px;
+  background: var(--admin-sidebar);
+  color: var(--admin-text-inverse);
+}
+
+.admin-sidebar__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 10px 24px;
+  text-decoration: none;
+  font-family: var(--admin-logo);
+  font-size: 28px;
+  font-weight: normal;
+
+  > span {
+    display: block;
+    font-family: "KudosKaps", sans-serif;
+    line-height: 1;
+    color: var(--admin-gold) !important;
+  }
+}
+
+.admin-sidebar__nav {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-sidebar__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  color: rgba(248, 239, 226, 0.78);
+  font-size: 15px;
+  text-decoration: none;
+
+  &:hover,
+  &.is-active {
+    background: rgba(248, 239, 226, 0.1);
+    color: #fff;
+  }
+
+  &.is-active {
+    box-shadow: inset 3px 0 0 #b9863f;
+    font-weight: 700;
+  }
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+}
+
+@include mixins.down(vars.$breakpoint-drawer) {
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(vars.$admin-drawer-width, calc(100vw - 48px));
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 18px;
+    overflow-y: auto;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition:
+      transform 180ms ease,
+      visibility 180ms ease;
+    box-shadow: 20px 0 48px rgba(33, 31, 27, 0.28);
+  }
+
+  .admin-sidebar__brand {
+    min-width: 0;
+    padding: 4px 0 20px;
+  }
+
+  .admin-sidebar__link {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .admin-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: rgba(33, 31, 27, 0.5);
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .admin-body.is-sidebar-open {
+    overflow: hidden;
+  }
+
+  .admin-body.is-sidebar-open .admin-sidebar {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .admin-body.is-sidebar-open .admin-sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@include mixins.reduced-motion {
+  .admin-sidebar,
+  .admin-sidebar-backdrop {
+    transition: none;
+  }
+}

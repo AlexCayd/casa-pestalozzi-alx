@@ -1,0 +1,639 @@
+@charset "UTF-8";
+/*
+ * Entrada SCSS compartida del panel de administración.
+ * Compone bases, layout y componentes reutilizables sin incluir la landing.
+ */
+/*
+ * Base visual aislada del panel de administración.
+ * Define tokens de color, superficies y normalización local del módulo admin.
+ */
+.admin-body {
+  /* Base */
+  --admin-bg: #f6f1e7;
+  --admin-surface: #fdfcfb;
+  --admin-surface-soft: #fbf9f4;
+  /* Sidebar */
+  --admin-sidebar: #101213;
+  --admin-sidebar-soft: #15181a;
+  /* Texto */
+  --admin-text: #0b0c0d;
+  --admin-muted: rgba(11, 12, 13, 0.58);
+  /* Texto sobre fondo oscuro */
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  /* Marca */
+  --admin-gold: #cca352;
+  --admin-gold-deep: #a07e36;
+  --admin-sage: #5f7d56;
+  --admin-sage-deep: #4e6148;
+  --admin-terra: #7c3d1d;
+  /* Bordes */
+  --admin-border: rgba(204, 163, 82, 0.22);
+  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  /* Estados */
+  --admin-success: #5f7d56;
+  --admin-warning: #cca352;
+  --admin-danger: #a94b3f;
+  /* Layout */
+  --admin-radius: 1.4rem;
+  --admin-sidebar-width: 28rem;
+  /* Layout */
+  --admin-radius-sm: 12px;
+  --admin-radius-md: 16px;
+  --admin-radius-lg: 20px;
+  --admin-header-height: 88px;
+  --admin-sidebar-width: 280px;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  cursor: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-body,
+.admin-body *,
+.admin-body *::before,
+.admin-body *::after {
+  box-sizing: border-box;
+}
+
+.admin-body * {
+  margin: 0;
+  padding: 0;
+}
+
+.admin-body main {
+  display: block;
+}
+
+.admin-body a {
+  background-color: transparent;
+  color: inherit;
+}
+
+.admin-body button,
+.admin-body select {
+  margin: 0;
+  font: inherit;
+  text-transform: none;
+}
+
+/*
+ * Tipografía exclusiva del panel de administración.
+ * Registra fuentes y jerarquías de texto para títulos y contenido de admin.
+ */
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/build/fonts/PlayfairDisplay-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "KudosKaps";
+  src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+.admin-body {
+  --admin-font-body:
+    "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --admin-font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
+  --admin-logo: "KudosKaps", sans-serif;
+  font-family: var(--admin-font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.admin-body h1,
+.admin-body h2,
+.admin-body h3,
+.admin-body h4 {
+  font-family: var(--admin-font-heading);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.admin-body h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.admin-body h2 {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+
+.admin-body h3 {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+}
+
+.admin-body h4 {
+  font-size: 1.1rem;
+}
+
+.admin-body p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-body strong {
+  font-weight: 700;
+}
+
+.admin-body small {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+/*
+ * Mixins compartidos del SCSS administrativo.
+ * Encapsula media queries y preferencias de movimiento del módulo admin.
+ */
+.admin-shell {
+  display: grid;
+  width: 100%;
+  min-height: 100vh;
+  grid-template-columns: clamp(240px, 20vw, 280px) minmax(0, 1fr);
+}
+
+.admin-main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(28px, 3.5vw, 40px);
+}
+
+@media (max-width: 992px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-content {
+    padding: 28px;
+  }
+}
+@media (max-width: 768px) {
+  .admin-content {
+    padding: 22px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-content {
+    padding: 16px;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Presentación y comportamiento responsive del sidebar administrativo.
+ * Conserva navegación fija en desktop y drawer en pantallas reducidas.
+ */
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
+  padding: 24px 28px;
+  background: var(--admin-sidebar);
+  color: var(--admin-text-inverse);
+}
+
+.admin-sidebar__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 10px 24px;
+  text-decoration: none;
+  font-family: var(--admin-logo);
+  font-size: 28px;
+  font-weight: normal;
+}
+.admin-sidebar__brand > span {
+  display: block;
+  font-family: "KudosKaps", sans-serif;
+  line-height: 1;
+  color: var(--admin-gold) !important;
+}
+
+.admin-sidebar__nav {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-sidebar__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  color: rgba(248, 239, 226, 0.78);
+  font-size: 15px;
+  text-decoration: none;
+}
+.admin-sidebar__link:hover, .admin-sidebar__link.is-active {
+  background: rgba(248, 239, 226, 0.1);
+  color: #fff;
+}
+.admin-sidebar__link.is-active {
+  box-shadow: inset 3px 0 0 #b9863f;
+  font-weight: 700;
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 992px) {
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(320px, 100vw - 48px);
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 18px;
+    overflow-y: auto;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 180ms ease, visibility 180ms ease;
+    box-shadow: 20px 0 48px rgba(33, 31, 27, 0.28);
+  }
+  .admin-sidebar__brand {
+    min-width: 0;
+    padding: 4px 0 20px;
+  }
+  .admin-sidebar__link {
+    width: 100%;
+    white-space: normal;
+  }
+  .admin-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: rgba(33, 31, 27, 0.5);
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+  .admin-body.is-sidebar-open {
+    overflow: hidden;
+  }
+  .admin-body.is-sidebar-open .admin-sidebar {
+    visibility: visible;
+    transform: translateX(0);
+  }
+  .admin-body.is-sidebar-open .admin-sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar,
+  .admin-sidebar-backdrop {
+    transition: none;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Presentación de la barra superior del panel administrativo.
+ * Define contexto, usuario y adaptación visual para tablet y móvil.
+ */
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 52px;
+  padding: 6px 24px;
+  backdrop-filter: blur(20px);
+  background: rgba(245, 245, 245, 0.55);
+  border-bottom: 1px solid var(--admin-border);
+}
+.admin-topbar h1 {
+  color: var(--admin-text) !important;
+  position: absolute;
+  left: 50%;
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.admin-topbar__heading {
+  display: contents;
+  min-width: 0;
+}
+.admin-topbar__heading h1 {
+  color: var(--admin-text);
+  overflow-wrap: anywhere;
+}
+
+.admin-topbar__eyebrow {
+  flex: 0 0 auto;
+  color: var(--admin-muted) !important;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.admin-topbar__eyebrow--breadcrumb {
+  color: var(--admin-muted) !important;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.admin-topbar__eyebrow--breadcrumb span {
+  margin-inline: 6px;
+  color: var(--admin-gold-deep);
+}
+
+.admin-topbar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.admin-topbar__user strong {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--admin-sage-deep);
+  color: #fff;
+  font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .admin-topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: auto;
+    gap: 10px;
+    padding: 6px 16px;
+  }
+  .admin-topbar h1 {
+    font-size: 16px;
+  }
+  .admin-topbar__user {
+    grid-column: 3;
+    justify-self: end;
+    gap: 8px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-topbar {
+    min-height: 52px;
+    padding: 5px 12px;
+  }
+  .admin-topbar__eyebrow,
+  .admin-topbar__user span {
+    display: none;
+  }
+  .admin-topbar__user strong {
+    width: 32px;
+    height: 32px;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Controles reutilizables de navegación del panel administrativo.
+ * Estiliza apertura, cierre y backdrop del sidebar responsive.
+ */
+.admin-sidebar__close,
+.admin-menu-toggle,
+.admin-sidebar-backdrop {
+  border: 0;
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle {
+  display: none;
+  cursor: pointer;
+}
+.admin-sidebar__close:focus-visible,
+.admin-menu-toggle:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+
+.admin-sidebar__close {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 8px;
+  background: rgba(248, 239, 226, 0.1);
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.admin-menu-toggle {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--admin-surface-strong);
+  box-shadow: 0 0 0 1px var(--admin-line);
+}
+.admin-menu-toggle span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  margin: 4px 0;
+  background: var(--admin-text);
+}
+
+@media (max-width: 992px) {
+  .admin-menu-toggle,
+  .admin-sidebar__close {
+    display: block;
+  }
+}
+/*
+ * Superficie reutilizable para paneles del contenido administrativo.
+ * Unifica fondo, borde y radio de cards, gráficas y tablas.
+ */
+.admin-panel {
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}
+
+/*
+ * Tabla reutilizable para información operativa de administración.
+ * Mantiene legibilidad y desplazamiento interno en pantallas estrechas.
+ */
+.admin-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.admin-table th,
+.admin-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  text-align: left;
+}
+.admin-table th {
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.admin-table td:last-child,
+.admin-table th:last-child {
+  text-align: right;
+}
+
+/*
+ * Badges de estado para la actividad operativa de analytics.
+ * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
+ */
+.admin-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(71, 111, 88, 0.12);
+  color: var(--admin-sage-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-status--open {
+  background: rgba(185, 134, 63, 0.14);
+  color: #75511f;
+}
+
+.admin-status--cancelled {
+  background: rgba(185, 80, 67, 0.13);
+  color: var(--admin-danger);
+}
+
+/*
+ * Estado provisional para módulos administrativos pendientes.
+ * Presenta el nombre del módulo dentro de una superficie consistente.
+ */
+.admin-placeholder {
+  display: grid;
+  min-height: 360px;
+  align-content: center;
+  justify-items: center;
+  padding: 48px 24px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  text-align: center;
+}
+.admin-placeholder h2 {
+  margin: 14px 0 8px;
+  font-size: 30px;
+}
+.admin-placeholder p {
+  max-width: 440px;
+  color: var(--admin-muted);
+}
+
+.admin-placeholder__status {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(185, 134, 63, 0.35);
+  border-radius: 999px;
+  background: rgba(185, 134, 63, 0.12);
+  color: #75511f;
+  font-size: 13px;
+  font-weight: 700;
+}
