@@ -15,11 +15,20 @@
       <div class="pm pm--tall" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Pan artesanal">
         <img src="/build/images/galeria-2.webp" alt="Pan artesanal de masa madre" loading="lazy" />
       </div>
-      <div class="pm pm--wide" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Repostería de la casa">
+      <div class="pm pm--sq" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Repostería de la casa">
         <img src="/build/images/galeria-4.webp" alt="Repostería artesanal" loading="lazy" />
       </div>
-      <div class="pm pm--sq" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Croissants">
+      <div class="pm pm--sq" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Horno artesanal">
+        <img src="/build/images/galeria-6.webp" alt="Horno artesanal" loading="lazy" />
+      </div>
+      <div class="pm pm--tall pm--right" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Croissants">
         <img src="/build/images/panaderia-1.webp" alt="Croissants recién horneados" loading="lazy" />
+      </div>
+      <div class="pm pm--sq" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Panadería tradicional">
+        <img src="/build/images/galeria-1.webp" alt="Panadería tradicional" loading="lazy" />
+      </div>
+      <div class="pm pm--sq" data-parallax-img data-zoom data-zoom-cat="Panadería" data-zoom-name="Panes del día">
+        <img src="/build/images/galeria-7.webp" alt="Panes artesanales del día" loading="lazy" />
       </div>
     </div>
 

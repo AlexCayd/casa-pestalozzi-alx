@@ -31,21 +31,31 @@ class ActiveRecord {
         return static::$alertas;
     }
 
+    // Ejecuta SQL sin retorno de filas (INSERT, UPDATE, DELETE)
+    public static function ejecutarSQL($query) {
+        return self::$db->query($query);
+    }
+
+    // Escapa un string para uso en consultas SQL crudas
+    public static function escaparString($str) {
+        return self::$db->real_escape_string((string)$str);
+    }
+
     // Consulta SQL para crear un objeto en Memoria (Active Record)
     public static function consultarSQL($query) {
-        // Consultar la base de datos
         $resultado = self::$db->query($query);
 
-        // Iterar los resultados
+        if ($resultado === false) {
+            throw new \RuntimeException(self::$db->error . ' — Query: ' . $query);
+        }
+
         $array = [];
         while($registro = $resultado->fetch_assoc()) {
             $array[] = static::crearObjeto($registro);
         }
 
-        // liberar la memoria
         $resultado->free();
 
-        // retornar los resultados
         return $array;
     }
 

@@ -13,6 +13,9 @@ class Reservacion extends ActiveRecord {
     public $comensales = 2;
     public $nota;
     public $estado = 'pendiente';
+    // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
+    public $mesa_id            = null;
+    public $mesa_secundaria_id = null;
 
     public function validar() {
         static::$alertas = [];
