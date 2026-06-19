@@ -11,5 +11,14 @@ class CategoriasMenu extends ActiveRecord {
     public $img;
     public $activo = 1;
 
+    // Funcion para validaciones de categorias
+    public function validar() {
+        static::$alertas = [];
 
+        if (!$this->nombre) {
+            static::setAlerta('error', 'El nombre de la categoría es obligatorio');
+        }
+
+        return static::$alertas;
+    }
 }
