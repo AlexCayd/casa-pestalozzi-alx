@@ -7,6 +7,7 @@ use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
+use Controllers\DashboardController;
 
 $router = new Router();
 
@@ -40,5 +41,22 @@ $router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
 // Leer menu de la base de datos
 $router->get('/menu', [MenuController::class, 'index']);
+
+// Rutas del dashboard
+$router->get('/dashboard', [DashboardController::class, 'index']);
+
+// CRUD Categorías
+$router->get('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
+$router->post('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
+$router->get('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
+$router->post('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
+$router->post('/dashboard/categorias/eliminar', [DashboardController::class, 'categoriaEliminar']);
+
+// CRUD Platillos (Menú)
+$router->get('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
+$router->post('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
+$router->get('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
+$router->post('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
+$router->post('/dashboard/menu/eliminar', [DashboardController::class, 'menuEliminar']);
 
 $router->comprobarRutas();
