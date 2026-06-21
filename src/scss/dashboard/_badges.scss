@@ -1,0 +1,18 @@
+// ── Dashboard · Tags y badges ─────────────────────────────────
+.tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  background: #efe6d8;
+  color: var(--brand-dark);
+  border-radius: 999px;
+}
+
+.badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+
+  &.on  { background: var(--ok-bg); color: var(--ok-ink); }
+  &.off { background: #ece8e1; color: var(--muted); }
+}
