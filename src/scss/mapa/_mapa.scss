@@ -40,25 +40,13 @@
 }
 
 .mapa-logo {
-  display: flex;
-  align-items: baseline;
-  gap: .35rem;
+  font-family: var(--logo);
+  color: var(--gold);
+  font-size: 1.05rem;
   text-decoration: none;
-  color: var(--txt);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  font-size: .7rem;
-  font-weight: 700;
   white-space: nowrap;
-
-  &__word--serif {
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: .85rem;
-    letter-spacing: .04em;
-    text-transform: none;
-    color: var(--gold);
-  }
+  word-spacing: -.55rem;
+  line-height: 1;
 }
 
 .mapa-header-center {

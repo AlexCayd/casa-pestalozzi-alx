@@ -14,10 +14,7 @@
 
     <!-- ── Header ─────────────────────────────────────────── -->
     <header class="mapa-header">
-      <a href="/" class="mapa-logo">
-        <span class="mapa-logo__word">Casa</span>
-        <span class="mapa-logo__word mapa-logo__word--serif">Pestalozzi</span>
-      </a>
+      <a href="/" class="mapa-logo">Casa Pestalozzi</a>
 
       <div class="mapa-header-center">
         <h1 class="mapa-title">Mapa de Mesas</h1>
@@ -84,37 +81,6 @@
 
     </div>
 
-    <!-- ── Controlador de tiempo ───────────────────────────── -->
-    <div class="mapa-time-ctrl">
-      <span class="mapa-time-bound" id="mapa-time-start">08:30</span>
-
-      <div class="mapa-slider-wrap">
-        <div class="mapa-slider-track">
-          <div class="mapa-slider-progress" id="mapa-slider-progress"></div>
-        </div>
-        <?php
-          $nowMin  = (int)date('H') * 60 + (int)date('i');
-          $snapped = (int)round($nowMin / 30) * 30;
-          $initVal = max(510, min(1320, $snapped));
-        ?>
-        <input type="range" id="mapa-time-slider"
-               class="mapa-slider"
-               min="510" max="1320" step="30"
-               value="<?php echo $initVal; ?>" />
-        <div class="mapa-slider-tooltip" id="mapa-slider-tooltip">--:--</div>
-      </div>
-
-      <span class="mapa-time-bound" id="mapa-time-end">22:00</span>
-
-      <div class="mapa-time-actions">
-        <button class="mapa-ahora-btn" id="mapa-ahora-btn">
-          <span class="mapa-ahora-dot"></span>
-          Ahora
-        </button>
-        <span class="mapa-current-time" id="mapa-current-time">--:--</span>
-      </div>
-    </div>
-
     <!-- ── Modal de acción de mesa ───────────────────────── -->
     <div class="mesa-modal" id="mesa-modal">
       <div class="mesa-modal__bd" id="mesa-modal-bd"></div>
@@ -136,6 +102,7 @@
       anim:   false
     };
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
 
 </body>

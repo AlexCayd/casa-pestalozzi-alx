@@ -182,19 +182,33 @@ class MapaController {
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
-        $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
+        $data       = json_decode(file_get_contents('php://input'), true) ?: [];
+        $ticketId   = isset($data['ticket_id'])   ? (int)$data['ticket_id']              : 0;
+        $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
 
         if (!$ticketId) {
             echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
             return;
         }
 
+        $allowedMetodos = ['efectivo', 'tarjeta'];
+        if (!in_array($metodoPago, $allowedMetodos, true)) {
+            echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
+            return;
+        }
+
         try {
+            $mp = Ticket::escaparString($metodoPago);
             Ticket::ejecutarSQL(
-                "UPDATE tickets SET estado = 'cerrado' WHERE id = {$ticketId}"
+                "UPDATE tickets SET estado = 'cerrado', metodo_pago = '{$mp}' WHERE id = {$ticketId}"
             );
-            echo json_encode(['ok' => true]);
+
+            $token = bin2hex(random_bytes(16));
+            Ticket::ejecutarSQL(
+                "INSERT INTO feedback_tokens (ticket_id, token) VALUES ({$ticketId}, '{$token}')"
+            );
+
+            echo json_encode(['ok' => true, 'token' => $token]);
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
         }

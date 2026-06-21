@@ -57,12 +57,6 @@ function initMapa() {
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  function sliderPct() {
-    var lo = parseInt(slider.min, 10);
-    var hi = parseInt(slider.max, 10);
-    return ((sliderMin - lo) / (hi - lo)) * 100;
-  }
-
   function snapTo30(min) { return Math.round(min / 30) * 30; }
 
   function mesaPorId(id) {
@@ -176,13 +170,6 @@ function initMapa() {
       pin.classList.add('mesa-pin--' + estado);
       pin.dataset.estado = estado;
     }
-    var pct = sliderPct();
-    sliderProg.style.width = pct + '%';
-    sliderTip.textContent  = formatTime(sliderMin);
-    sliderTip.style.setProperty('--thumb-pct', pct + '%');
-    var trackW = slider.offsetWidth;
-    sliderTip.style.left = ((pct / 100) * (trackW - 18) + 9) + 'px';
-    currentTimeEl.textContent = formatTime(sliderMin);
   }
 
   // ── Render: pines en el canvas ────────────────────────────
@@ -925,46 +912,115 @@ function initMapa() {
   }
 
   // ── Confirmación estilizada de cierre ────────────────────
-  function showCerrarConfirm(mesa, ticket) {
-    var h = '';
-    h += '<div class="mmodal-header"><div class="mmodal-header-id">';
+  function buildCerrarHeader(mesa, ticket) {
+    var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(mesa.nombre) + '</span>';
     if (ticket.nombre) {
       h += '<span class="mmodal-title-cliente">— ' + escHtml(ticket.nombre) + '</span>';
     }
     h += '</div></div>';
+    return h;
+  }
 
+  function showCerrarConfirm(mesa, ticket) {
+    showPagoSelect(mesa, ticket);
+  }
+
+  function showPagoSelect(mesa, ticket) {
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-cerrar-confirm">';
+    h += '<p class="mmodal-cerrar-confirm__msg">¿Cómo pagó el cliente?</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub">Selecciona el método de pago para cerrar el ticket.</p>';
+    h += '<div class="mmodal-pago-btns">';
+    h += '<button class="mmodal-pago-btn" id="pago-efectivo">';
+    h += '<span class="mmodal-pago-btn__icon">💵</span>';
+    h += '<span class="mmodal-pago-btn__label">Efectivo</span>';
+    h += '</button>';
+    h += '<button class="mmodal-pago-btn" id="pago-tarjeta">';
+    h += '<span class="mmodal-pago-btn__icon">💳</span>';
+    h += '<span class="mmodal-pago-btn__label">Tarjeta</span>';
+    h += '</button>';
+    h += '</div>';
+    h += '<div class="mmodal-cerrar-confirm__btns" style="margin-top:0">';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-ticket">← Volver</button>';
+    h += '</div>';
+    h += '</div>';
+
+    modalContent.innerHTML = h;
+
+    modalContent.querySelector('#pago-efectivo').addEventListener('click', function() {
+      showPagoConfirm(mesa, ticket, 'efectivo');
+    });
+    modalContent.querySelector('#pago-tarjeta').addEventListener('click', function() {
+      showPagoConfirm(mesa, ticket, 'tarjeta');
+    });
+    modalContent.querySelector('#cc-volver-ticket').addEventListener('click', function() {
+      commandaItems    = [];
+      selectedComensal = 0;
+      modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
+      bindModalActions(mesa, null, ticket);
+    });
+  }
+
+  function showPagoConfirm(mesa, ticket, metodoPago) {
+    var label = metodoPago === 'efectivo' ? 'Efectivo' : 'Tarjeta';
+    var h = buildCerrarHeader(mesa, ticket);
     h += '<div class="mmodal-cerrar-confirm">';
     h += '<div class="mmodal-cerrar-confirm__icon">⚠</div>';
     h += '<p class="mmodal-cerrar-confirm__msg">¿Cerrar el ticket de <strong>' +
          escHtml(mesa.nombre) + '</strong>?</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub">Esta acción no se puede deshacer.</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub">Método de pago: <span class="mmodal-pago-badge">' +
+         escHtml(label) + '</span></p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:4px">Esta acción no se puede deshacer.</p>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-pago">← Volver</button>';
     h += '<button class="mmodal-btn mmodal-btn--danger" id="cc-confirm">Cerrar ticket</button>';
     h += '</div>';
     h += '</div>';
 
     modalContent.innerHTML = h;
 
-    var volverBtn = modalContent.querySelector('#cc-volver');
-    if (volverBtn) {
-      volverBtn.addEventListener('click', function() {
-        commandaItems    = [];
-        selectedComensal = 0;
-        modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
-        bindModalActions(mesa, null, ticket);
+    modalContent.querySelector('#cc-volver-pago').addEventListener('click', function() {
+      showPagoSelect(mesa, ticket);
+    });
+
+    (function(tid, mp, m) {
+      modalContent.querySelector('#cc-confirm').addEventListener('click', function() {
+        apiCerrarTicket(tid, mp, m);
       });
+    })(ticket.id, metodoPago, mesa);
+  }
+
+  // ── Pantalla QR de feedback ───────────────────────────────
+  function showFeedbackQR(token, mesaNombre) {
+    var url = window.location.origin + '/feedback?token=' + token;
+    var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
+    h += '<span class="mmodal-title">' + escHtml(mesaNombre) + '</span>';
+    h += '<span class="mmodal-title-cliente">— Ticket cerrado</span>';
+    h += '</div></div>';
+    h += '<div class="mmodal-feedback-qr">';
+    h += '<p class="mmodal-feedback-qr__title">Invita al comensal a dejar su reseña</p>';
+    h += '<div class="mmodal-feedback-qr__canvas" id="qr-canvas"></div>';
+    h += '<p class="mmodal-feedback-qr__url">' + escHtml(url) + '</p>';
+    h += '<div class="mmodal-cerrar-confirm__btns">';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="qr-cerrar">Cerrar</button>';
+    h += '</div>';
+    h += '</div>';
+
+    modalContent.innerHTML = h;
+
+    if (typeof qrcode === 'function') {
+      var qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      var qrEl = document.getElementById('qr-canvas');
+      if (qrEl) qrEl.innerHTML = qr.createImgTag(5, 8);
     }
 
-    var confirmBtn = modalContent.querySelector('#cc-confirm');
-    if (confirmBtn) {
-      (function(tid) {
-        confirmBtn.addEventListener('click', function() {
-          apiCerrarTicket(tid);
-        });
-      })(ticket.id);
-    }
+    modalContent.querySelector('#qr-cerrar').addEventListener('click', function() {
+      closeModal();
+      silentRefresh();
+    });
   }
 
   // ── Llamadas API ──────────────────────────────────────────
@@ -1032,8 +1088,21 @@ function initMapa() {
     apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
-  function apiCerrarTicket(ticketId) {
-    apiPost('/api/cerrar-ticket', { ticket_id: ticketId });
+  function apiCerrarTicket(ticketId, metodoPago, mesa) {
+    fetch('/api/cerrar-ticket', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ticket_id: ticketId, metodo_pago: metodoPago })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.ok) {
+        showFeedbackQR(result.token, mesa ? mesa.nombre : '');
+      } else {
+        alert(result.msg || 'Error al cerrar el ticket');
+      }
+    })
+    .catch(function() { alert('Error de conexión'); });
   }
 
   function apiEnviarComanda(ticketId) {
@@ -1243,8 +1312,7 @@ function initMapa() {
   function syncLive() {
     var min = snapTo30(new Date().getHours() * 60 + new Date().getMinutes());
     min = Math.max(510, Math.min(1320, min));
-    slider.value = min;
-    sliderMin     = min;
+    sliderMin = min;
     renderEstados();
     renderSidebar();
   }
@@ -1267,17 +1335,6 @@ function initMapa() {
   }
 
   // ── Eventos ───────────────────────────────────────────────
-  slider.addEventListener('input', function() {
-    sliderMin = parseInt(this.value, 10);
-    deactivateLive();
-    renderEstados();
-    renderSidebar();
-  });
-
-  if (ahoraBtn) {
-    ahoraBtn.addEventListener('click', activateLive);
-  }
-
   initMapaCalendar();
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);
@@ -1287,7 +1344,7 @@ function initMapa() {
   });
 
   // ── Init ──────────────────────────────────────────────────
-  sliderMin = parseInt(slider.value, 10);
+  sliderMin = Math.max(510, Math.min(1320, snapTo30(new Date().getHours() * 60 + new Date().getMinutes())));
   fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
   activateLive();
 }

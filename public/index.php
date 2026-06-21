@@ -8,6 +8,7 @@ use Controllers\HomeController;
 use Controllers\MapaController;
 use Controllers\ReservacionController;
 use Controllers\AreaController;
+use Controllers\FeedbackController;
 
 $router = new Router();
 
@@ -37,6 +38,10 @@ $router->get('/api/area-items',       [AreaController::class, 'areaItems']);
 $router->post('/api/avanzar-item',    [AreaController::class, 'avanzarItem']);
 $router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem']);
 
+
+// Feedback de clientes
+$router->get('/feedback',      [FeedbackController::class, 'index']);
+$router->post('/api/feedback', [FeedbackController::class, 'guardar']);
 
 // Login
 $router->get('/login', [AuthController::class, 'login']);

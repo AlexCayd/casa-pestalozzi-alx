@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
+  metodo_pago        ENUM('efectivo','tarjeta') NULL,
   reservacion_id     INT NULL,
   FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
   FOREIGN KEY (mesa_secundaria_id) REFERENCES mesas(id) ON DELETE SET NULL,
@@ -265,6 +266,28 @@ INSERT INTO productos (nombre, categoria, precio, area_id) VALUES
 ('Limonada Natural',                                    'Jugos & Smoothies', 75.00, 2),
 ('Smoothie de Fresa',                                   'Jugos & Smoothies',100.00, 2),
 ('Agua de Coco',                                        'Jugos & Smoothies', 90.00, 2);
+
+CREATE TABLE IF NOT EXISTS feedback_tokens (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id  INT NOT NULL,
+  token      VARCHAR(64) NOT NULL UNIQUE,
+  usado      TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+  id                 INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  token_id           INT UNSIGNED NULL,
+  ticket_id          INT NULL,
+  calidad_sabor      TINYINT UNSIGNED NOT NULL,
+  atencion_mesero    TINYINT UNSIGNED NOT NULL,
+  tiempo_espera      TINYINT UNSIGNED NOT NULL,
+  experiencia_global TINYINT UNSIGNED NOT NULL,
+  comentario         TEXT NULL,
+  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (token_id) REFERENCES feedback_tokens(id) ON DELETE SET NULL
+);
 
 -- Reservaciones de ejemplo — escenario viernes 2026-06-19
 -- Actualizar la fecha al día actual antes de usar en producción

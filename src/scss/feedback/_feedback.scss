@@ -1,0 +1,410 @@
+// ── Formulario de Feedback — Casa Pestalozzi ──────────────────
+@use 'sass:color';
+
+// ── Tokens ───────────────────────────────────────────────────
+$fb-bg:      #0d0d0d;
+$fb-card-bg: #161616;
+$fb-border:  rgba(255,255,255,.08);
+$fb-text:    #e8e0d4;
+$fb-muted:   rgba(232,224,212,.5);
+
+// Colores de caras 1→5
+$face-1: #e53935;
+$face-2: #F57C00;
+$face-3: #F9A825;
+$face-4: #43A047;
+$face-5: #29B6F6;
+
+// ── Cursor (override global cursor:none del reset) ────────────
+.fb-page,
+.fb-page *,
+.fb-page button,
+.fb-page a,
+.fb-page textarea {
+  cursor: auto;
+}
+.fb-page button  { cursor: pointer; }
+.fb-page textarea { cursor: text; }
+.fb-page button:disabled { cursor: not-allowed; }
+
+// ── Layout base ───────────────────────────────────────────────
+.fb-page {
+  min-height: 100vh;
+  background: $fb-bg;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem 4rem;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+.fb-shell {
+  width: 100%;
+  max-width: 540px;
+}
+
+// ── Tarjeta contenedora ───────────────────────────────────────
+.fb-card {
+  background: $fb-card-bg;
+  border: 1px solid $fb-border;
+  border-radius: 16px;
+  padding: 2rem 1.75rem;
+  width: 100%;
+
+  &--done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3.5rem 2rem;
+    gap: 1rem;
+  }
+}
+
+// ── Logo (replica brand-mark del landing) ────────────────────
+.fb-brand-mark {
+  display: block;
+  text-align: center;
+  font-family: var(--logo, 'KudosKaps', 'Playfair Display', serif);
+  color: var(--accent, #cca352);
+  font-size: clamp(1.6rem, 5vw, 2rem);
+  text-decoration: none;
+  margin-bottom: .5rem;
+  word-spacing: -0.8rem;
+  line-height: 1;
+}
+
+// ── Header ────────────────────────────────────────────────────
+.fb-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.fb-header__sub {
+  font-size: .85rem;
+  color: $fb-muted;
+  margin: .35rem 0 0;
+  letter-spacing: .04em;
+}
+
+// ── Progress bar ──────────────────────────────────────────────
+.fb-progress {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-top: 1.25rem;
+}
+
+.fb-progress__bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.fb-progress__fill {
+  height: 100%;
+  background: var(--accent, #cca352);
+  border-radius: 99px;
+  width: 0%;
+  transition: width .35s cubic-bezier(.4,0,.2,1);
+}
+
+.fb-progress__label {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: $fb-muted;
+  white-space: nowrap;
+  min-width: 3.5rem;
+  text-align: right;
+}
+
+// ── Pasos ─────────────────────────────────────────────────────
+.fb-step {
+  display: none;
+
+  &--active { display: block; }
+}
+
+.fb-step__label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: $fb-text;
+  margin: 0 0 1.75rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+// ── Escala de caras ───────────────────────────────────────────
+.fb-escala {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: 2rem;
+}
+
+.fb-face {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  border: none;
+  background: transparent;
+  padding: .5rem .25rem;
+  border-radius: 12px;
+  transition: transform .12s ease;
+
+  svg {
+    width: clamp(44px, 10vw, 58px);
+    height: clamp(44px, 10vw, 58px);
+    filter: grayscale(55%) brightness(.65);
+    transition: filter .2s ease, transform .15s ease;
+  }
+
+  &__label {
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: rgba(232,224,212,.3);
+    text-transform: uppercase;
+    transition: color .15s ease;
+    white-space: nowrap;
+  }
+
+  &:hover svg        { filter: grayscale(10%) brightness(.9); transform: scale(1.1); }
+  &:hover &__label   { color: rgba(232,224,212,.65); }
+
+  &--active svg      { filter: none; transform: scale(1.18); }
+  &--active &__label { color: rgba(232,224,212,.95); }
+
+  &--1.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-1}99); }
+  &--2.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-2}99); }
+  &--3.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-3}99); }
+  &--4.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-4}99); }
+  &--5.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-5}99); }
+}
+
+// ── Navegación Anterior / Siguiente ──────────────────────────
+.fb-nav {
+  display: flex;
+  gap: .75rem;
+  margin: .25rem 0 .75rem;
+}
+
+.fb-nav__prev,
+.fb-nav__next {
+  flex: 1;
+  padding: .8rem 1rem;
+  border-radius: 50px;
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+
+.fb-nav__prev {
+  border: 2px solid $fb-border;
+  background: transparent;
+  color: $fb-muted;
+
+  &:hover {
+    border-color: rgba(255,255,255,.2);
+    color: $fb-text;
+    transform: translateX(-2px);
+  }
+}
+
+.fb-nav__next {
+  border: 2px solid var(--accent, #cca352);
+  background: rgba(204,163,82,.12);
+  color: var(--accent, #cca352);
+
+  &:hover {
+    background: rgba(204,163,82,.22);
+    transform: translateX(2px);
+  }
+}
+
+// ── Textarea ──────────────────────────────────────────────────
+.fb-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,.04);
+  border: 1px solid $fb-border;
+  border-radius: 10px;
+  color: $fb-text;
+  font-size: .88rem;
+  font-family: inherit;
+  padding: .85rem 1rem;
+  resize: vertical;
+  transition: border-color .15s ease;
+  outline: none;
+  margin-bottom: 1.5rem;
+
+  &::placeholder { color: $fb-muted; }
+  &:focus        { border-color: var(--accent, #cca352); }
+}
+
+// ── Mensaje de error ──────────────────────────────────────────
+.fb-error {
+  font-size: .8rem;
+  color: #e74c3c;
+  background: rgba(231,76,60,.12);
+  border: 1px solid rgba(231,76,60,.25);
+  border-radius: 8px;
+  padding: .6rem .9rem;
+  margin-bottom: .75rem;
+  display: none;
+
+  &--visible { display: block; }
+}
+
+// ── Botón de envío ────────────────────────────────────────────
+.fb-submit {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  margin-top: .5rem;
+  border: none;
+  border-radius: 50px;
+  background: var(--accent, #cca352);
+  color: #0d0d0d;
+  font-size: .9rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: background .15s ease, transform .12s ease, box-shadow .15s ease;
+
+  &:hover:not(:disabled) {
+    background: color.adjust(#cca352, $lightness: -8%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(204,163,82,.35);
+  }
+
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: .55; }
+}
+
+// ── Estado de éxito / ya respondió ───────────────────────────
+.fb-done-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(39,174,96,.15);
+  border: 2px solid #27ae60;
+  color: #27ae60;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: .5rem;
+}
+
+.fb-done-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: $fb-text;
+  margin: 0;
+}
+
+.fb-done-sub {
+  font-size: .88rem;
+  color: $fb-muted;
+  max-width: 320px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+// ── Botones de pago en el modal del mapa ─────────────────────
+.mmodal-pago-btns {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  margin: 1.25rem 0 .75rem;
+}
+
+.mmodal-pago-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 1.25rem;
+  border: 2px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  background: rgba(255,255,255,.04);
+  color: rgba(232,224,212,.75);
+  transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
+
+  &__icon {
+    font-size: 1.75rem;
+    line-height: 1;
+  }
+
+  &__label {
+    font-size: .9rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+
+  &:hover {
+    border-color: var(--accent, #cca352);
+    background: rgba(204,163,82,.1);
+    color: var(--accent, #cca352);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px rgba(204,163,82,.18);
+  }
+
+  &:active { transform: translateY(0); }
+}
+
+.mmodal-pago-badge {
+  display: inline-block;
+  background: rgba(204,163,82,.15);
+  border: 1px solid rgba(204,163,82,.3);
+  color: var(--accent, #cca352);
+  border-radius: 50px;
+  padding: .1rem .65rem;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+// ── Panel QR en el modal del mapa ────────────────────────────
+.mmodal-feedback-qr {
+  padding: 1rem 0 .5rem;
+  text-align: center;
+
+  &__title {
+    font-size: .82rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: rgba(232,224,212,.6);
+    margin: 0 0 1.25rem;
+  }
+
+  &__canvas {
+    display: inline-block;
+    background: #fff;
+    border-radius: 10px;
+    padding: .75rem;
+    margin-bottom: 1rem;
+
+    img { display: block; }
+  }
+
+  &__url {
+    font-size: .72rem;
+    color: rgba(232,224,212,.4);
+    word-break: break-all;
+    margin: 0 0 1.25rem;
+    font-family: 'Courier New', monospace;
+  }
+}

@@ -197,7 +197,7 @@ function initArea() {
 
   // ── Init + polling ─────────────────────────────────────────
   loadItems();
-  pollTimer = setInterval(loadItems, 10000);
+  pollTimer = setInterval(loadItems, 1000);
 }
 
 (function() {
