@@ -1,0 +1,380 @@
+// ── KDS — Área de Producción · Casa Pestalozzi ───────────────
+
+.area-page { background: var(--ink-2); }
+
+// ── Cursor override (previene cursor:none del cursor.js) ──────
+.area-page,
+.area-page * {
+  cursor: auto;
+}
+.area-page button,
+.area-page a {
+  cursor: pointer;
+}
+
+// ── Shell ─────────────────────────────────────────────────────
+.area-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--ink-2);
+  color: var(--txt);
+  font-family: var(--sans);
+  overflow: hidden;
+}
+
+// ── Header ────────────────────────────────────────────────────
+.area-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.5rem;
+  height: 56px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.area-back {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  text-decoration: none;
+  padding: .35rem .75rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color .15s, border-color .15s;
+
+  &:hover { color: var(--txt); border-color: var(--line); }
+}
+
+.area-title {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  color: var(--txt);
+  letter-spacing: .04em;
+  flex: 1;
+}
+
+.area-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.area-header-right { margin-left: auto; }
+
+.area-refresh-info {
+  font-size: .65rem;
+  letter-spacing: .07em;
+  color: var(--txt-faint);
+  white-space: nowrap;
+}
+
+// ── Body: 3 columnas ──────────────────────────────────────────
+.area-body {
+  display: flex;
+  flex: 1;
+  gap: 1rem;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+// ── Columna ───────────────────────────────────────────────────
+.area-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+
+  &--listo { opacity: .8; }
+}
+
+.area-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .65rem;
+  flex-shrink: 0;
+}
+
+.area-col-label {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+}
+
+.area-col-count {
+  font-size: .65rem;
+  font-weight: 700;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: .08rem .45rem;
+  color: var(--txt-faint);
+  min-width: 22px;
+  text-align: center;
+}
+
+.area-col--enviados .area-col-count {
+  background: rgba(232,160,96,.12);
+  color: #e8a060;
+  border-color: rgba(232,160,96,.25);
+}
+
+.area-col--prep .area-col-count {
+  background: rgba(204,163,82,.12);
+  color: var(--gold);
+  border-color: rgba(204,163,82,.28);
+}
+
+.area-col--listo .area-col-count {
+  background: rgba(139,191,126,.1);
+  color: #8bbf7e;
+  border-color: rgba(139,191,126,.25);
+}
+
+.area-col-items {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,163,82,.25) transparent;
+
+  &::-webkit-scrollbar       { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.25); border-radius: 2px; }
+}
+
+// ── Empty state ───────────────────────────────────────────────
+.area-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  padding: 2rem 1rem;
+  color: var(--txt-faint);
+  font-size: .75rem;
+  opacity: .5;
+  text-align: center;
+
+  &__icon { font-size: 1.4rem; }
+}
+
+// ── Ticket card ───────────────────────────────────────────────
+.area-card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: .85rem 1rem;
+  margin-bottom: .65rem;
+  border-left: 3px solid var(--line-soft);
+  transition: border-color .2s;
+
+  &--alerta  { border-left-color: rgba(232,160,96,.7); }
+  &--urgente { border-left-color: rgba(232, 87, 80,.8); }
+}
+
+.area-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .6rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.area-card__mesa {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--txt);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-card__cliente {
+  font-family: var(--serif);
+  font-size: .8rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--gold-soft);
+}
+
+.area-card__time {
+  font-size: .62rem;
+  color: var(--txt-faint);
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  .area-card--alerta  & { color: #e8a060; }
+  .area-card--urgente & { color: #e87060; }
+}
+
+// ── Items dentro del card ─────────────────────────────────────
+.area-card__items {
+  display: flex;
+  flex-direction: column;
+}
+
+.area-card__item {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--line-soft);
+
+  &:last-child { border-bottom: none; }
+}
+
+.area-card__item-info {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.area-card__item-btns {
+  display: flex;
+  gap: .4rem;
+}
+
+.area-card__qty {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 28px;
+  flex-shrink: 0;
+}
+
+.area-card__name {
+  flex: 1;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--txt);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area-card__com {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: .1rem .35rem;
+  flex-shrink: 0;
+}
+
+// ── Botones de acción ─────────────────────────────────────────
+.area-card__btn {
+  font-family: var(--sans);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: .8rem 1rem;
+  min-height: 52px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  transition: background .15s, opacity .15s, transform .08s;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active { transform: scale(.97); }
+
+  &:disabled {
+    opacity: .4;
+    cursor: default;
+  }
+
+  // Devolver al estado anterior
+  &--back {
+    flex: 0 0 auto;
+    font-size: .72rem;
+    padding: .8rem .9rem;
+    background: rgba(255,255,255,.04);
+    color: var(--txt-faint);
+    border: 1px solid var(--line-soft);
+
+    &:hover:not(:disabled) { background: rgba(255,255,255,.09); color: var(--txt-mute); }
+  }
+
+  // Enviado → En preparación
+  &--prep {
+    background: rgba(232,160,96,.18);
+    color: #e8a060;
+    border: 1px solid rgba(232,160,96,.4);
+
+    &:hover:not(:disabled) { background: rgba(232,160,96,.28); }
+  }
+
+  // En preparación → Listo
+  &--listo {
+    background: rgba(139,191,126,.18);
+    color: #8bbf7e;
+    border: 1px solid rgba(139,191,126,.38);
+
+    &:hover:not(:disabled) { background: rgba(139,191,126,.28); }
+  }
+
+  &--loading {
+    opacity: .55;
+  }
+}
+
+// ── Responsive: tablet vertical / móvil ──────────────────────
+@media (max-width: 768px) {
+  .area-header { padding: 0 1rem; }
+
+  .area-body {
+    flex-direction: column;
+    padding: .75rem;
+    gap: .75rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .area-col {
+    flex: none;
+    min-height: auto;
+
+    &--listo {
+      flex: none;
+      opacity: .7;
+    }
+  }
+
+  .area-col-items {
+    overflow: visible;
+    max-height: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .area-header { height: auto; min-height: 52px; padding: .6rem 1rem; flex-wrap: wrap; }
+  .area-back { font-size: .62rem; }
+  .area-title { font-size: .9rem; }
+}

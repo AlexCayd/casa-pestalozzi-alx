@@ -1,0 +1,1989 @@
+// ── Mapa de Mesas — Casa Pestalozzi ──────────────────────────
+
+// ── Cursor override ───────────────────────────────────────────
+.mapa-page,
+.mapa-page button,
+.mapa-page input,
+.mapa-page select,
+.mapa-page a {
+  cursor: default;
+}
+.mapa-page button,
+.mapa-page input[type="range"],
+.mapa-page .mesa-pin[data-reservable="1"],
+.mapa-page .mesa-pin[data-ticketable="1"],
+.mapa-page .reserva-card {
+  cursor: pointer;
+}
+
+// ── Shell ─────────────────────────────────────────────────────
+.mapa-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--ink-2);
+  color: var(--txt);
+  font-family: var(--sans);
+}
+
+// ── Header ────────────────────────────────────────────────────
+.mapa-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.mapa-logo {
+  font-family: var(--logo);
+  color: var(--gold);
+  font-size: 1.05rem;
+  text-decoration: none;
+  white-space: nowrap;
+  word-spacing: -.55rem;
+  line-height: 1;
+}
+
+.mapa-header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.mapa-title {
+  font-family: var(--serif);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: .1em;
+  color: var(--txt-mute);
+  text-transform: uppercase;
+}
+
+.mapa-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  white-space: nowrap;
+}
+
+.mapa-date-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: .3rem .75rem;
+  color: var(--txt-mute);
+
+  svg { flex-shrink: 0; }
+}
+
+.mapa-date-btn {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: .8rem;
+  letter-spacing: .04em;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+  transition: color .15s;
+
+  &:hover { color: var(--gold); }
+}
+
+// ── Calendario dropdown ───────────────────────────────────────
+.mapa-cal {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 500;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .85rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .6);
+  min-width: 232px;
+
+  &--open { display: block; }
+}
+
+.mapa-cal__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .7rem;
+}
+
+.mapa-cal__label {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+}
+
+.mapa-cal__nav-btn {
+  background: none;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  color: var(--txt-mute);
+  font-size: 1rem;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+
+  &:hover { color: var(--gold); border-color: rgba(204, 163, 82, .4); }
+}
+
+.mapa-cal__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: .3rem;
+
+  span {
+    text-align: center;
+    font-size: .57rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    padding-bottom: .3rem;
+  }
+}
+
+.mapa-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.mapa-cal__day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: none;
+  background: none;
+  color: var(--txt-mute);
+  font-size: .75rem;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+  font-family: var(--sans);
+
+  &:hover:not(&--empty) { background: rgba(204, 163, 82, .12); color: var(--txt); }
+
+  &--empty { pointer-events: none; }
+
+  &--today { color: var(--gold); font-weight: 700; }
+
+  &--selected {
+    background: var(--gold) !important;
+    color: var(--ink) !important;
+    font-weight: 700;
+  }
+}
+
+.mapa-live-badge {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: .25rem .75rem;
+  transition: color .3s, border-color .3s;
+
+  &--active {
+    color: #4cde80;
+    border-color: rgba(76, 222, 128, .3);
+  }
+}
+
+.mapa-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: background .3s;
+
+  .mapa-live-badge--active & {
+    animation: pulse-dot 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .35; }
+}
+
+// ── Body ──────────────────────────────────────────────────────
+.mapa-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────
+.mapa-sidebar {
+  width: clamp(220px, 22vw, 300px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.mapa-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem .75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.mapa-sidebar-title {
+  font-size: .7rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  font-weight: 600;
+}
+
+.mapa-reserva-count {
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(204, 163, 82, .12);
+  border: 1px solid rgba(204, 163, 82, .2);
+  border-radius: 999px;
+  padding: .1rem .55rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+// ── Leyenda ───────────────────────────────────────────────────
+.mapa-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.mapa-leyenda-item {
+  font-size: .6rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .15rem .5rem;
+  border-radius: 4px;
+  font-weight: 600;
+
+  &--libre {
+    background: var(--surface-2);
+    color: var(--txt-faint);
+    border: 1px solid var(--line-soft);
+  }
+  &--proxima {
+    background: rgba(124, 61, 29, .25);
+    color: #e8a060;
+    border: 1px solid rgba(124, 61, 29, .4);
+  }
+  &--bloqueada {
+    background: rgba(180, 60, 40, .2);
+    color: #e87060;
+    border: 1px solid rgba(180, 60, 40, .4);
+  }
+  &--ocupada {
+    background: rgba(204, 163, 82, .2);
+    color: var(--gold);
+    border: 1px solid rgba(204, 163, 82, .35);
+  }
+}
+
+// ── Lista de reservaciones ────────────────────────────────────
+.mapa-reservas-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: .5rem 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+
+  &::-webkit-scrollbar       { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+}
+
+.mapa-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: 2.5rem 1rem;
+  color: var(--txt-faint);
+  font-size: .8rem;
+  text-align: center;
+
+  &--error { color: #e87060; }
+}
+
+.mapa-empty-icon {
+  font-size: 1.5rem;
+  opacity: .4;
+}
+
+// ── Tarjeta de reservación ────────────────────────────────────
+.reserva-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background .2s;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: transparent;
+    transition: background .2s;
+  }
+
+  &:hover {
+    background: rgba(245, 245, 245, .03);
+  }
+
+  &--selected {
+    background: rgba(204, 163, 82, .07);
+
+    &::before { background: var(--gold); }
+  }
+
+  &--activa   { &::before { background: var(--gold); } }
+  &--proxima  { &::before { background: #e8a060; } }
+  &--pasada   { opacity: .4; }
+}
+
+.reserva-card__hora {
+  font-family: var(--serif);
+  font-size: 1rem;
+  color: var(--gold);
+  min-width: 40px;
+  line-height: 1.2;
+  padding-top: .05rem;
+}
+
+.reserva-card__info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+
+.reserva-card__nombre {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reserva-card__meta {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.reserva-card__comensales,
+.reserva-card__mesa {
+  font-size: .7rem;
+  color: var(--txt-mute);
+}
+
+.reserva-card__mesa {
+  color: var(--gold-soft);
+  font-weight: 500;
+}
+
+.reserva-card__estado {
+  font-size: .6rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+
+  &--pendiente   { background: rgba(204, 163, 82, .12); color: #d4b06a; }
+  &--confirmada  { background: rgba(95, 125, 86, .2);   color: #8bbf7e; }
+  &--cancelada   { background: rgba(180, 60, 40, .15);  color: #e87060; }
+}
+
+// ── Canvas wrap ───────────────────────────────────────────────
+.mapa-canvas-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-2);
+  overflow: hidden;
+  padding: 2rem;
+}
+
+// ── Canvas del plano ──────────────────────────────────────────
+.mapa-canvas {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 1.85 / 1;
+  background:
+    linear-gradient(rgba(245,245,245,.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,245,245,.015) 1px, transparent 1px),
+    var(--surface);
+  background-size: 60px 60px, 60px 60px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(204,163,82,.06),
+    0 32px 80px rgba(0,0,0,.5);
+}
+
+// ── Overlay de carga ──────────────────────────────────────────
+.mapa-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 12, 13, .65);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+  transition: opacity .4s;
+  z-index: 10;
+
+  &.hidden { opacity: 0; pointer-events: none; }
+}
+
+.mapa-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--line);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// ── Pines de mesa ─────────────────────────────────────────────
+.mesa-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width:  clamp(80px, 10.5%, 122px);
+  height: clamp(54px,  6.8%,  80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1.5px solid transparent;
+  transition:
+    background .35s var(--ease),
+    border-color .35s var(--ease),
+    box-shadow .35s var(--ease),
+    transform .2s var(--ease-out);
+  user-select: none;
+
+  // Tipo barra: pill más ancho
+  &--tipo-barra {
+    width: clamp(124px, 16%, 188px);
+    border-radius: 999px;
+  }
+
+  // Tipo especial: pill estándar
+  &--tipo-especial {
+    width: clamp(96px, 12.5%, 150px);
+    border-radius: 999px;
+  }
+}
+
+.mesa-pin__label {
+  font-size: clamp(.58rem, .9cqw, .75rem);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.25;
+  pointer-events: none;
+  padding: 0 .4rem;
+  white-space: nowrap;
+}
+
+// ── Estados de mesa ───────────────────────────────────────────
+.mesa-pin--zona {
+  background: var(--surface-2);
+  border-color: var(--line-soft);
+  color: var(--txt-faint);
+
+  &.mesa-pin--tipo-especial {
+    background: rgba(204, 163, 82, .15);
+    border-color: rgba(204, 163, 82, .25);
+    color: var(--gold-soft);
+  }
+}
+
+.mesa-pin--libre {
+  background: var(--surface-2);
+  border-color: var(--line-soft);
+  color: var(--txt-mute);
+
+  &:hover {
+    background: var(--surface);
+    border-color: rgba(204, 163, 82, .3);
+    color: var(--txt);
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+}
+
+.mesa-pin--proxima {
+  background: rgba(124, 61, 29, .18);
+  border-color: rgba(232, 160, 96, .4);
+  color: #e8a060;
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 4px 20px rgba(124,61,29,.35);
+  }
+}
+
+.mesa-pin--bloqueada {
+  background: rgba(180, 60, 40, .18);
+  border-color: rgba(232, 112, 96, .5);
+  color: #e87060;
+  animation: pulse-ring 1.8s ease-in-out infinite;
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 4px 20px rgba(180,60,40,.4);
+  }
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 112, 96, .3); }
+  50%       { box-shadow: 0 0 0 6px rgba(232, 112, 96, 0); }
+}
+
+.mesa-pin--ocupada {
+  background: rgba(204, 163, 82, .22);
+  border-color: rgba(204, 163, 82, .6);
+  color: var(--gold);
+  box-shadow: 0 0 16px rgba(204, 163, 82, .15);
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 4px 24px rgba(204, 163, 82, .3);
+  }
+}
+
+.mesa-pin--con-ticket {
+  background: rgba(95, 125, 86, .22);
+  border-color: rgba(139, 191, 126, .55);
+  color: #8bbf7e;
+  box-shadow: 0 0 16px rgba(95, 125, 86, .15);
+
+  &:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+    box-shadow: 0 4px 24px rgba(95, 125, 86, .3);
+  }
+}
+
+.mapa-leyenda-item--con-ticket::before { background: #8bbf7e; }
+
+.mesa-pin--highlight {
+  box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
+  z-index: 5;
+}
+
+// ── Controlador de tiempo ─────────────────────────────────────
+.mapa-time-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .85rem 1.75rem;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.mapa-time-bound {
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: var(--txt-faint);
+  min-width: 36px;
+  text-align: center;
+}
+
+.mapa-slider-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px;
+}
+
+.mapa-slider-track {
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mapa-slider-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  border-radius: 3px;
+  width: 0%;
+  transition: width .05s;
+}
+
+.mapa-slider {
+  position: relative;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  outline: none;
+  height: 36px;
+  z-index: 2;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid var(--ink);
+    box-shadow: 0 0 8px rgba(204, 163, 82, .5);
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+
+    &:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 16px rgba(204, 163, 82, .7);
+    }
+  }
+
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid var(--ink);
+    box-shadow: 0 0 8px rgba(204, 163, 82, .5);
+    cursor: pointer;
+    border: none;
+  }
+
+  &::-webkit-slider-runnable-track { background: transparent; }
+  &::-moz-range-track               { background: transparent; }
+}
+
+.mapa-slider-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: var(--thumb-pct, 50%);
+  transform: translateX(-50%);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--gold);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: .2rem .5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 10;
+
+  .mapa-slider-wrap:hover & { opacity: 1; }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--line);
+  }
+}
+
+.mapa-time-actions {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+}
+
+.mapa-ahora-btn {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-family: var(--sans);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: .35rem .85rem;
+  transition: color .2s, border-color .2s, background .2s;
+
+  &:hover {
+    color: var(--txt);
+    border-color: rgba(204, 163, 82, .3);
+    background: rgba(204, 163, 82, .07);
+  }
+
+  &--active {
+    color: #4cde80;
+    border-color: rgba(76, 222, 128, .3);
+    background: rgba(76, 222, 128, .07);
+  }
+}
+
+.mapa-ahora-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.mapa-current-time {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  color: var(--gold);
+  min-width: 52px;
+  text-align: right;
+  letter-spacing: .04em;
+}
+
+// ── Canvas: container query para pines ────────────────────────
+.mapa-canvas {
+  container-type: inline-size;
+}
+
+// ── Responsive — tablet (< 900px) ────────────────────────────
+@media (max-width: 900px) {
+  .mapa-sidebar {
+    width: clamp(180px, 28vw, 240px);
+  }
+
+  .mapa-header { padding: 0 1rem; gap: 1rem; }
+  .mapa-title  { font-size: .85rem; }
+
+  .mapa-time-ctrl { padding: .7rem 1rem; gap: .75rem; }
+  .mapa-current-time { font-size: 1.1rem; min-width: 44px; }
+}
+
+// ── Responsive — mobile (< 640px) ────────────────────────────
+@media (max-width: 640px) {
+
+  // Header compacto
+  .mapa-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: .6rem 1rem;
+    gap: .5rem;
+  }
+  .mapa-header-center { order: 3; width: 100%; text-align: left; }
+  .mapa-header-controls { margin-left: auto; }
+  .mapa-title { font-size: .75rem; }
+
+  // Layout vertical: canvas arriba, sidebar abajo
+  .mapa-body {
+    flex-direction: column;
+  }
+
+  .mapa-canvas-wrap {
+    order: 1;
+    flex: 0 0 auto;
+    padding: .5rem;
+    overflow: visible;
+  }
+
+  .mapa-canvas {
+    width: 100%;
+  }
+
+  // Sidebar como panel inferior fijo
+  .mapa-sidebar {
+    order: 2;
+    width: 100%;
+    flex: 1;
+    max-height: 38vh;
+    border-right: none;
+    border-top: 1px solid var(--line);
+    overflow-y: auto;
+  }
+
+  .mapa-leyenda { display: none; } // quitar en mobile para ahorrar espacio
+
+  // Sidebar head más compacto
+  .mapa-sidebar-head { padding: .6rem 1rem .5rem; }
+
+  // Tarjetas más compactas
+  .reserva-card { padding: .6rem 1rem; }
+  .reserva-card__hora { font-size: .9rem; min-width: 36px; }
+  .reserva-card__nombre { font-size: .8rem; }
+
+  // Time controller
+  .mapa-time-ctrl {
+    padding: .6rem .75rem;
+    gap: .5rem;
+    flex-wrap: nowrap;
+  }
+  .mapa-time-bound { font-size: .65rem; min-width: 30px; }
+  .mapa-current-time { font-size: 1rem; min-width: 40px; }
+  .mapa-ahora-btn { font-size: .65rem; padding: .3rem .6rem; }
+}
+
+// ── Modal de mesa (POS) ───────────────────────────────────────
+@keyframes mm-fade  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mm-slide { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes mm-scale {
+  from { opacity: 0; transform: translate(-50%, -52%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+.mesa-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+
+  &--open { display: block; }
+}
+
+.mesa-modal__bd {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 12, 13, .7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: mm-fade .2s ease forwards;
+}
+
+.mesa-modal__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  padding: .5rem 1.5rem calc(1.75rem + env(safe-area-inset-bottom));
+  animation: mm-slide .28s cubic-bezier(.25,.46,.45,.94) forwards;
+  max-height: 88vh;
+  overflow-y: auto;
+
+  @media (min-width: 640px) {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: min(400px, 90vw);
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    padding: 1.5rem;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, .55);
+    animation: mm-scale .2s cubic-bezier(.25,.46,.45,.94) forwards;
+  }
+}
+
+.mesa-modal__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  margin: 0 auto .75rem;
+
+  @media (min-width: 640px) { display: none; }
+}
+
+.mesa-modal__close {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  color: var(--txt-mute);
+  font-size: .75rem;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+
+  &:hover { background: var(--line); color: var(--txt); }
+}
+
+// ── Contenido del modal ───────────────────────────────────────
+.mmodal-header {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+  margin-bottom: .85rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.mmodal-header-id {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.mmodal-title {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  color: var(--txt);
+  flex-shrink: 0;
+}
+
+.mmodal-title-cliente {
+  font-family: var(--serif);
+  font-size: .9rem;
+  color: var(--gold-soft);
+  font-style: italic;
+  opacity: .85;
+}
+
+// ── Confirmación de cierre de ticket ─────────────────────────
+.mmodal-cerrar-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 1rem 1rem;
+  text-align: center;
+}
+
+.mmodal-cerrar-confirm__icon {
+  font-size: 2rem;
+  opacity: .7;
+}
+
+.mmodal-cerrar-confirm__msg {
+  font-size: .95rem;
+  color: var(--txt);
+  line-height: 1.5;
+  margin: 0;
+
+  strong { color: var(--gold-soft); }
+}
+
+.mmodal-cerrar-confirm__sub {
+  font-size: .75rem;
+  color: var(--txt-faint);
+  margin: -.5rem 0 0;
+}
+
+.mmodal-cerrar-confirm__btns {
+  display: flex;
+  gap: .65rem;
+  width: 100%;
+  margin-top: .5rem;
+}
+
+.mmodal-cap {
+  font-size: .65rem;
+  letter-spacing: .08em;
+  color: var(--txt-faint);
+  text-transform: uppercase;
+}
+
+.mmodal-chip {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  margin-bottom: .85rem;
+
+  &--bloqueada, &--ocupada {
+    background: rgba(232, 112, 96, .15);
+    color: #e87060;
+    border: 1px solid rgba(232, 112, 96, .3);
+  }
+  &--proxima {
+    background: rgba(204, 163, 82, .15);
+    color: var(--gold);
+    border: 1px solid rgba(204, 163, 82, .3);
+  }
+  &--ticket {
+    background: rgba(95, 125, 86, .18);
+    color: #8bbf7e;
+    border: 1px solid rgba(95, 125, 86, .3);
+  }
+}
+
+.mmodal-info {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: .75rem;
+  margin-bottom: 1.15rem;
+}
+
+.mmodal-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  font-size: .82rem;
+  color: var(--txt-mute);
+  line-height: 1.4;
+
+  span:first-child { flex-shrink: 0; }
+}
+
+// ── Vista de reservación — 3 columnas ────────────────────────
+.mmodal-reserva-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+
+  @media (min-width: 768px) {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr .85fr;
+    gap: 1rem;
+    min-height: 160px;
+  }
+}
+
+.mmodal-reserva-col {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .85rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+
+  &__label {
+    font-size: .56rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    font-weight: 700;
+    margin-bottom: .1rem;
+  }
+
+  &--actions {
+    justify-content: center;
+    gap: .55rem;
+    border-color: transparent;
+    background: transparent;
+    padding-left: 0;
+    padding-right: 0;
+
+    @media (min-width: 768px) {
+      border-color: var(--line);
+      background: var(--surface-2);
+      padding: .85rem;
+    }
+  }
+}
+
+.mmodal-reserva-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  margin-bottom: .5rem;
+
+  .mmodal-chip { margin: 0; }
+}
+
+.mmodal-reserva-nombre {
+  font-family: var(--serif);
+  font-size: 1.65rem;
+  color: var(--txt);
+  line-height: 1.15;
+}
+
+.mmodal-reserva-stats {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.mmodal-reserva-stat {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  flex: 1;
+
+  & + & {
+    border-left: 1px solid var(--line-soft);
+    padding-left: 1.1rem;
+    margin-left: 1.1rem;
+  }
+
+  &__label {
+    font-size: .54rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    font-weight: 700;
+  }
+
+  &__val {
+    font-family: var(--serif);
+    line-height: 1;
+  }
+
+  &--hora &__val {
+    font-size: 2.2rem;
+    color: var(--gold);
+    letter-spacing: .02em;
+  }
+
+  &--pax &__val {
+    font-size: 2rem;
+    color: var(--txt);
+  }
+}
+
+.mmodal-reserva-nota {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  margin-top: auto;
+  background: rgba(204, 163, 82, .07);
+  border: 1px solid rgba(204, 163, 82, .2);
+  border-radius: 6px;
+  padding: .5rem .65rem;
+  line-height: 1.45;
+  font-size: .78rem;
+  color: var(--txt-mute);
+
+  &__label {
+    font-size: .52rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--gold-soft);
+    font-weight: 700;
+  }
+}
+
+// ── Input nombre de cliente al abrir ticket ───────────────────
+.mmodal-name-wrap {
+  margin-bottom: .85rem;
+}
+
+.mmodal-name-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: .65rem .85rem;
+  font-family: var(--sans);
+  font-size: .85rem;
+  color: var(--txt);
+  outline: none;
+  transition: border-color .15s;
+
+  &::placeholder { color: var(--txt-faint); }
+  &:focus { border-color: rgba(204,163,82,.45); }
+}
+
+// ── Input nombre editable en ticket abierto ───────────────────
+.mmodal-nombre-edit {
+  display: flex;
+  gap: .45rem;
+  margin-bottom: .75rem;
+}
+
+.mmodal-nombre-save {
+  flex-shrink: 0;
+  padding: .38rem .7rem;
+  border-radius: 6px;
+  border: 1px solid var(--gold-soft);
+  background: rgba(204,163,82,.1);
+  color: var(--gold);
+  font-size: .9rem;
+  cursor: pointer;
+  transition: background .15s;
+  line-height: 1;
+  &:hover { background: rgba(204,163,82,.22); }
+}
+
+// ── Lista de pedidos Llevar ───────────────────────────────────
+.mmodal-llevar-count {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: rgba(204,163,82,.12);
+  border: 1px solid rgba(204,163,82,.28);
+  border-radius: 999px;
+  padding: .18rem .6rem;
+}
+
+.mmodal-llevar-list {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  margin-bottom: 1.1rem;
+}
+
+.mmodal-llevar-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .85rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--line-soft);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+
+  &:hover { border-color: var(--gold-soft); background: rgba(204,163,82,.06); }
+  &:active { transform: scale(.99); }
+}
+
+.mmodal-llevar-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.mmodal-llevar-row__nombre {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--txt);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mmodal-llevar-row__meta {
+  font-size: .7rem;
+  color: var(--txt-mute);
+}
+
+.mmodal-llevar-row__arrow {
+  color: var(--txt-faint);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.mmodal-stepper-wrap {
+  margin-bottom: 1.15rem;
+}
+
+.mmodal-label {
+  font-size: .65rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  margin-bottom: .5rem;
+}
+
+.mmodal-stepper {
+  display: flex;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.mmodal-step {
+  flex: 1;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: var(--txt-mute);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover { background: var(--surface); color: var(--txt); }
+  &:active { background: var(--line); }
+}
+
+.mmodal-step-val {
+  font-family: var(--serif);
+  font-size: 1.9rem;
+  color: var(--gold);
+  flex: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.mmodal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.mmodal-btn {
+  width: 100%;
+  padding: .9rem 1rem;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: background .2s, opacity .2s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active { transform: scale(.98); }
+
+  &--primary {
+    background: var(--gold);
+    color: var(--ink);
+    &:hover { opacity: .9; }
+  }
+  &--danger {
+    background: rgba(180, 60, 40, .14);
+    color: #e87060;
+    border: 1px solid rgba(180, 60, 40, .28);
+    &:hover { background: rgba(180, 60, 40, .22); }
+  }
+  &--ghost {
+    background: var(--surface-2);
+    color: var(--txt-mute);
+    border: 1px solid var(--line-soft);
+    &:hover { color: var(--txt); border-color: var(--line); }
+  }
+}
+
+// ── Ticket: meta y selección de productos ─────────────────────
+.mmodal-ticket-meta {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: .85rem;
+  font-size: .78rem;
+  color: var(--txt-faint);
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: .75rem;
+}
+
+.mmodal-section-label {
+  font-size: .6rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  font-weight: 700;
+  margin-bottom: .4rem;
+}
+
+// ── Grid de categorías ────────────────────────────────────────
+.mmodal-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .45rem;
+  margin-bottom: .65rem;
+}
+
+.mmodal-cat-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: .4rem .55rem;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.25;
+  border-radius: 8px;
+  border: 1.5px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover { border-color: rgba(204,163,82,.4); color: var(--txt); }
+
+  &--active {
+    background: rgba(204,163,82,.18);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+}
+
+.mmodal-dishes {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  margin-bottom: .65rem;
+  scrollbar-width: thin;
+}
+
+.mmodal-dish-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--line-soft);
+  &:last-child { border-bottom: none; }
+}
+
+.mmodal-dish-name {
+  flex: 1;
+  font-size: .78rem;
+  color: var(--txt-mute);
+  line-height: 1.3;
+}
+
+.mmodal-dish-price {
+  font-size: .72rem;
+  color: var(--txt-faint);
+  min-width: 38px;
+  text-align: right;
+}
+
+.mmodal-dish-add {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(204, 163, 82, .4);
+  background: none;
+  color: var(--gold);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
+  &:hover { background: rgba(204, 163, 82, .12); }
+}
+
+.mmodal-cart {
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: .4rem .6rem;
+  margin-bottom: .5rem;
+  min-height: 36px;
+  max-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.mmodal-cart-empty {
+  font-size: .72rem;
+  color: var(--txt-faint);
+  text-align: center;
+  padding: .4rem 0;
+}
+
+.mmodal-cart-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  &:last-child { border-bottom: none; }
+}
+
+.mmodal-cart-name {
+  flex: 1;
+  font-size: .73rem;
+  color: var(--txt-mute);
+}
+
+.mmodal-cart-controls {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .73rem;
+  color: var(--txt);
+
+  button {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--txt-mute);
+    font-size: .9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    transition: background .15s;
+    -webkit-tap-highlight-color: transparent;
+    &:hover { color: var(--txt); }
+  }
+}
+
+.mmodal-cart-subtotal {
+  font-size: .72rem;
+  color: var(--txt-faint);
+  min-width: 40px;
+  text-align: right;
+}
+
+.mmodal-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .65rem .75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: .85rem;
+}
+
+.mmodal-total-label {
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+}
+
+.mmodal-total-amount {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  color: var(--gold);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Sistema de comandas — estilos nuevos
+// ═══════════════════════════════════════════════════════════════
+
+// ── Badge temporal en tarjetas del sidebar ────────────────────
+.reserva-card__temporal {
+  display: inline-block;
+  font-size: .57rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .1rem .42rem;
+  border-radius: 3px;
+  margin-top: .2rem;
+
+  &--en-curso  { background: rgba(204,163,82,.15); color: var(--gold); }
+  &--proxima   { background: rgba(232,160,96,.13); color: #e8a060; }
+  &--vencida   { background: rgba(120,120,120,.1); color: var(--txt-faint); }
+  &--cancelada { background: rgba(180,60,40,.1);  color: #e87060; }
+}
+
+// ── Tabs principales del modal (Agregar / Resumen) ────────────
+.mmodal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: .6rem;
+}
+
+.mmodal-tab {
+  flex: 1;
+  padding: .55rem 0;
+  font-family: var(--sans);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  background: none;
+  border: none;
+  color: var(--txt-faint);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .18s, border-color .18s;
+  position: relative;
+
+  &--active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+}
+
+.mmodal-tab-badge {
+  display: inline-block;
+  background: rgba(204,163,82,.18);
+  color: var(--gold);
+  border-radius: 999px;
+  font-size: .57rem;
+  padding: .05rem .32rem;
+  margin-left: .28rem;
+  vertical-align: middle;
+}
+
+.mmodal-tab-panel {
+  display: none;
+  &--active { display: block; }
+}
+
+// ── Grid de comensales ────────────────────────────────────────
+.mmodal-comensal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: .4rem;
+  margin-bottom: .55rem;
+}
+
+.mmodal-comensal-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  border: 1.5px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  cursor: pointer;
+  transition: background .14s, color .14s, border-color .14s;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover { border-color: rgba(204,163,82,.4); color: var(--txt); }
+
+  &--active {
+    background: rgba(204,163,82,.18);
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+}
+
+// ── Lista de platos con badge de área ─────────────────────────
+.mmodal-dish-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: .16rem;
+  min-width: 0;
+}
+
+.mmodal-area-badge {
+  display: inline-block;
+  font-size: .53rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: .06rem .36rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  align-self: flex-start;
+  white-space: nowrap;
+}
+
+// ── Chip de comensal en filas del carrito ─────────────────────
+.mmodal-cart-comensal {
+  display: inline-block;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  padding: .06rem .32rem;
+  flex-shrink: 0;
+}
+
+// ── Overlay de confirmación de comanda ────────────────────────
+.mmodal-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  border-radius: inherit;
+  padding: 1.1rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.mmodal-confirm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .4rem;
+
+  .mmodal-btn {
+    width: auto;
+    padding: .55rem .9rem;
+  }
+}
+
+.mmodal-confirm-back {
+  font-family: var(--sans);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: .4rem 0;
+  transition: color .15s;
+
+  &:hover { color: var(--txt); }
+}
+
+.mmodal-confirm-area-header {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  border-left: 3px solid;
+  padding-left: .55rem;
+  margin: .65rem 0 .3rem;
+}
+
+.mmodal-confirm-item {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .28rem 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: .77rem;
+
+  &:last-child { border-bottom: none; }
+}
+
+.mmodal-confirm-item-name {
+  flex: 1;
+  color: var(--txt-mute);
+  min-width: 0;
+}
+
+.mmodal-confirm-item-qty {
+  font-size: .7rem;
+  color: var(--txt-faint);
+  flex-shrink: 0;
+}
+
+.mmodal-confirm-item-price {
+  color: var(--txt-faint);
+  font-size: .72rem;
+  min-width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+// ── Dot de estado en resumen ──────────────────────────────────
+.mmodal-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+// ── Permite que el overlay hijo use inset:0 ───────────────────
+@media (min-width: 640px) {
+  .mesa-modal__panel { position: relative; }
+}
+
+// ── Estructura interna de cada panel (flex column) ────────────
+// Mobile: solo el panel activo se muestra
+// Desktop: los 3 paneles se muestran en columnas paralelas
+.mmodal-tab-panel {
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  &--active { display: flex; }
+}
+
+// El scroll de cada columna vive aquí; los botones quedan fuera
+.mmodal-panel-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,163,82,.4) transparent;
+  &::-webkit-scrollbar       { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.4); border-radius: 2px; }
+}
+
+// Los botones de acción SIEMPRE visibles — no son parte del scroll
+.mmodal-panel-actions {
+  flex-shrink: 0;
+  padding-top: .6rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  border-top: 1px solid var(--line-soft);
+  margin-top: .5rem;
+}
+
+// Encabezado de columna (oculto en mobile, visible en desktop)
+.mmodal-panel-label {
+  display: none;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  padding-bottom: .45rem;
+  margin-bottom: .6rem;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+// Botón "✓ Entregar" en resumen
+.mmodal-entregar-btn {
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: .18rem .5rem;
+  border-radius: 3px;
+  border: 1px solid rgba(91,164,207,.5);
+  background: rgba(91,164,207,.1);
+  color: #5ba4cf;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .14s;
+  white-space: nowrap;
+  &:hover { background: rgba(91,164,207,.22); }
+}
+
+// ── Empty state de columnas (más visible que mmodal-cart-empty) ─
+.mmodal-col-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  padding: 1.5rem .75rem;
+  text-align: center;
+  color: var(--txt-faint);
+  font-size: .75rem;
+  opacity: .65;
+}
+
+.mmodal-col-empty__icon {
+  font-size: 1.4rem;
+  opacity: .4;
+}
+
+// ── 3 columnas en tablet/desktop ─────────────────────────────
+@media (min-width: 768px) {
+  // El panel del modal ocupa altura fija para que las columnas
+  // internas puedan usar height: 100%
+  .mesa-modal__panel {
+    width: min(1100px, 98vw);
+    max-height: none;                       // quitar el max-height anterior
+    overflow: hidden;
+  }
+
+  .mmodal-tabs { display: none; }
+
+  // Contenedor de 3 columnas con altura explícita
+  .mmodal-panels {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr .9fr;
+    gap: 1rem;
+    height: clamp(380px, calc(78vh - 110px), 580px);
+  }
+
+  .mmodal-panel-label { display: block; }
+
+  // Cada columna ocupa toda la altura del grid y se muestra siempre
+  .mmodal-panels > .mmodal-tab-panel {
+    display: flex !important;
+    height: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: .9rem .85rem .8rem;
+    background: var(--surface-2);
+  }
+
+  // Dishes sin max-height propio; la columna entera scrollea
+  .mmodal-dishes {
+    max-height: none;
+    overflow-y: visible;
+    border: none;
+    margin-bottom: 0;
+  }
+
+  // Cart sin scroll interno: el panel-scroll de la columna se encarga
+  .mmodal-cart {
+    max-height: none;
+    overflow: visible;
+    background: none;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 0;
+  }
+}

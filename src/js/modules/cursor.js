@@ -37,8 +37,10 @@ function initCursor() {
 
 function setCursorEnabled(on) {
   body.classList.toggle("no-cursor", !on);
-  $(".cursor-dot").style.display = on && !isTouch ? "" : "none";
-  $(".cursor-ring").style.display = on && !isTouch ? "" : "none";
+  var dot  = document.querySelector(".cursor-dot");
+  var ring = document.querySelector(".cursor-ring");
+  if (dot)  dot.style.display  = on && !isTouch ? "" : "none";
+  if (ring) ring.style.display = on && !isTouch ? "" : "none";
   document.documentElement.style.setProperty("cursor", on && !isTouch ? "none" : "auto");
   body.style.cursor = on && !isTouch ? "none" : "auto";
 }

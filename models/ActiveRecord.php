@@ -31,21 +31,31 @@ class ActiveRecord {
         return static::$alertas;
     }
 
+    // Ejecuta SQL sin retorno de filas (INSERT, UPDATE, DELETE)
+    public static function ejecutarSQL($query) {
+        return self::$db->query($query);
+    }
+
+    // Escapa un string para uso en consultas SQL crudas
+    public static function escaparString($str) {
+        return self::$db->real_escape_string((string)$str);
+    }
+
     // Consulta SQL para crear un objeto en Memoria (Active Record)
     public static function consultarSQL($query) {
-        // Consultar la base de datos
         $resultado = self::$db->query($query);
 
-        // Iterar los resultados
+        if ($resultado === false) {
+            throw new \RuntimeException(self::$db->error . ' — Query: ' . $query);
+        }
+
         $array = [];
         while($registro = $resultado->fetch_assoc()) {
             $array[] = static::crearObjeto($registro);
         }
 
-        // liberar la memoria
         $resultado->free();
 
-        // retornar los resultados
         return $array;
     }
 
@@ -110,6 +120,26 @@ class ActiveRecord {
         return $resultado;
     }
 
+    // Cuenta el total de registros 
+    public static function total($columna = '', $valor = '') {
+        $query = "SELECT COUNT(*) FROM " . static::$tabla;
+        if (!empty($columna)) {
+            $query .= " WHERE {$columna} = '{$valor}'";
+        }
+        $resultado = self::$db->query($query);
+        $total = $resultado->fetch_array();
+        $resultado->free();
+        return array_shift($total);
+    }
+
+    // Obtener platillos para paginacion
+    public static function paginar($por_pagina, $offset) {
+        $por_pagina = (int) $por_pagina;
+        $offset     = (int) $offset;
+        $query = "SELECT * FROM " . static::$tabla . " ORDER BY id ASC LIMIT {$por_pagina} OFFSET {$offset}";
+        return self::consultarSQL($query);
+    }
+
     // Busca un registro por su id
     public static function find($id) {
         $query = "SELECT * FROM " . static::$tabla  ." WHERE id = {$id}";
@@ -139,9 +169,9 @@ class ActiveRecord {
         // Insertar en la base de datos
         $query = " INSERT INTO " . static::$tabla . " ( ";
         $query .= join(', ', array_keys($atributos));
-        $query .= " ) VALUES (' "; 
+        $query .= " ) VALUES ('";
         $query .= join("', '", array_values($atributos));
-        $query .= " ') ";
+        $query .= "') ";
 
         // debuguear($query); // Descomentar si no te funciona algo
 

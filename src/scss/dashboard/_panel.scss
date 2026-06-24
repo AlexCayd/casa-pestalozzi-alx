@@ -1,0 +1,19 @@
+// ── Dashboard · Panel ─────────────────────────────────────────
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.5rem;
+  // Centrado horizontal: en paneles con max-width (formularios) los
+  // deja al centro del .wrap; en paneles a todo el ancho no tiene efecto.
+  margin: 0 auto 2rem;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  h2 { margin: 0; font-size: 1.25rem; }
+}
