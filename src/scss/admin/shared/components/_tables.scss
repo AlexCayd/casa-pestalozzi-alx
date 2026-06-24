@@ -1,0 +1,36 @@
+/*
+ * Tabla reutilizable para información operativa de administración.
+ * Mantiene legibilidad y desplazamiento interno en pantallas estrechas.
+ */
+.admin-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--admin-border-soft);
+    text-align: left;
+  }
+
+  th {
+    color: var(--admin-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  td:last-child,
+  th:last-child {
+    text-align: right;
+  }
+}

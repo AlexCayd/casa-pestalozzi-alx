@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
+use Controllers\AdminController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
@@ -20,6 +21,17 @@ $router->get('/', [HomeController::class, 'index']);
 // Reservaciones
 $router->post('/reservar', [ReservacionController::class, 'crear']);
 
+// Admin
+$router->get('/admin', [AdminController::class, 'index']);
+$router->get('/admin/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/reservations', [AdminController::class, 'reservations']);
+$router->get('/admin/tables', [AdminController::class, 'tables']);
+$router->get('/admin/products', [AdminController::class, 'products']);
+$router->get('/admin/categories', [AdminController::class, 'categories']);
+$router->get('/admin/tickets', [AdminController::class, 'tickets']);
+$router->get('/admin/payments', [AdminController::class, 'payments']);
+$router->get('/admin/printers', [AdminController::class, 'printers']);
+$router->get('/admin/users', [AdminController::class, 'users']);
 // Mapa de mesas (herramienta interna)
 $router->get('/mapa',     [MapaController::class, 'index']);
 $router->get('/api/mapa', [MapaController::class, 'api']);

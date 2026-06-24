@@ -1,0 +1,9 @@
+/*
+ * Superficie reutilizable para paneles del contenido administrativo.
+ * Unifica fondo, borde y radio de cards, gráficas y tablas.
+ */
+.admin-panel {
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}

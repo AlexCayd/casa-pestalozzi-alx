@@ -359,7 +359,7 @@ template {
   --surface: #15181a;
   --surface-2: #1c2023;
   --line: rgba(204, 163, 82, 0.18);
-  --line-soft: rgba(245, 245, 245, 0.10);
+  --line-soft: rgba(245, 245, 245, 0.1);
   --txt: #ede9df;
   --txt-mute: rgba(237, 233, 223, 0.58);
   --txt-faint: rgba(237, 233, 223, 0.32);
@@ -459,7 +459,10 @@ body::after {
   display: none;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   font-family: var(--serif);
   font-weight: 400;
   line-height: 1.02;

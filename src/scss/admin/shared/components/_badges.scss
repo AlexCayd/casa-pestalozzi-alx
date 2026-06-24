@@ -1,0 +1,25 @@
+/*
+ * Badges de estado para la actividad operativa de analytics.
+ * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
+ */
+.admin-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(71, 111, 88, 0.12);
+  color: var(--admin-sage-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-status--open {
+  background: rgba(185, 134, 63, 0.14);
+  color: #75511f;
+}
+
+.admin-status--cancelled {
+  background: rgba(185, 80, 67, 0.13);
+  color: var(--admin-danger);
+}

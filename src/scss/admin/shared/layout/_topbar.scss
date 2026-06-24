@@ -1,0 +1,125 @@
+/*
+ * Presentación de la barra superior del panel administrativo.
+ * Define contexto, usuario y adaptación visual para tablet y móvil.
+ */
+@use "../abstracts/variables" as vars;
+@use "../abstracts/mixins" as mixins;
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 52px;
+  padding: 6px 24px;
+  backdrop-filter: blur(20px);
+  background: rgba(245, 245, 245, 0.55);
+  border-bottom: 1px solid var(--admin-border);
+  h1 {
+    color: var(--admin-text) !important;
+    position: absolute;
+    left: 50%;
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.2;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+}
+
+.admin-topbar__heading {
+  display: contents;
+  min-width: 0;
+
+  h1 {
+    color: var(--admin-text);
+    overflow-wrap: anywhere;
+  }
+}
+
+.admin-topbar__eyebrow {
+  flex: 0 0 auto;
+  color: var(--admin-muted) !important;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.admin-topbar__eyebrow--breadcrumb {
+  color: var(--admin-muted) !important;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+
+  span {
+    margin-inline: 6px;
+    color: var(--admin-gold-deep);
+  }
+}
+
+.admin-topbar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+
+  strong {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--admin-sage-deep);
+    color: #fff;
+    font-size: 11px;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-tablet) {
+  .admin-topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-height: auto;
+    gap: 10px;
+    padding: 6px 16px;
+
+    h1 {
+      font-size: 16px;
+    }
+  }
+
+  .admin-topbar__user {
+    grid-column: 3;
+    justify-self: end;
+    gap: 8px;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .admin-topbar {
+    min-height: 52px;
+    padding: 5px 12px;
+  }
+
+  .admin-topbar__eyebrow,
+  .admin-topbar__user span {
+    display: none;
+  }
+
+  .admin-topbar__user strong {
+    width: 32px;
+    height: 32px;
+  }
+}

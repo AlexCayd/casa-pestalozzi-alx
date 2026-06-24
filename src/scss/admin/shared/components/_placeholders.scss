@@ -1,0 +1,38 @@
+/*
+ * Estado provisional para módulos administrativos pendientes.
+ * Presenta el nombre del módulo dentro de una superficie consistente.
+ */
+.admin-placeholder {
+    display: grid;
+    min-height: 360px;
+    align-content: center;
+    justify-items: center;
+    padding: 48px 24px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+    text-align: center;
+
+    h2 {
+        margin: 14px 0 8px;
+        font-size: 30px;
+    }
+
+    p {
+        max-width: 440px;
+        color: var(--admin-muted);
+    }
+}
+
+.admin-placeholder__status {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid rgba(185, 134, 63, 0.35);
+    border-radius: 999px;
+    background: rgba(185, 134, 63, 0.12);
+    color: #75511f;
+    font-size: 13px;
+    font-weight: 700;
+}

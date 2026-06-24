@@ -1,0 +1,16 @@
+/*
+ * Entrada SCSS compartida del panel de administración.
+ * Compone bases, layout y componentes reutilizables sin incluir la landing.
+ */
+@use 'base/globals';
+@use 'base/typography';
+
+@use 'layout/admin-layout';
+@use 'layout/sidebar';
+@use 'layout/topbar';
+
+@use 'components/buttons';
+@use 'components/cards';
+@use 'components/tables';
+@use 'components/badges';
+@use 'components/placeholders';

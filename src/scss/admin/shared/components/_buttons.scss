@@ -1,0 +1,58 @@
+/*
+ * Controles reutilizables de navegación del panel administrativo.
+ * Estiliza apertura, cierre y backdrop del sidebar responsive.
+ */
+@use '../abstracts/variables' as vars;
+@use '../abstracts/mixins' as mixins;
+
+.admin-sidebar__close,
+.admin-menu-toggle,
+.admin-sidebar-backdrop {
+    border: 0;
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle {
+    display: none;
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid var(--admin-gold);
+        outline-offset: 2px;
+    }
+}
+
+.admin-sidebar__close {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 8px;
+    background: rgba(248, 239, 226, 0.1);
+    color: #fff;
+    font-size: 28px;
+    line-height: 1;
+}
+
+.admin-menu-toggle {
+    width: 42px;
+    height: 42px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--admin-surface-strong);
+    box-shadow: 0 0 0 1px var(--admin-line);
+
+    span {
+        display: block;
+        width: 100%;
+        height: 2px;
+        margin: 4px 0;
+        background: var(--admin-text);
+    }
+}
+
+@include mixins.down(vars.$breakpoint-drawer) {
+    .admin-menu-toggle,
+    .admin-sidebar__close {
+        display: block;
+    }
+}
