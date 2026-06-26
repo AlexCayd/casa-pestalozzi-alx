@@ -10,10 +10,22 @@ use MVC\Router;
 
 class AdminController
 {
-    private const MODULES = [
+    public const MODULES = [
         'analytics' => [
             'title' => 'Análisis de datos',
             'path' => '/admin/analytics'
+        ],
+        'menu' => [
+            'title' => 'Gestión de menú',
+            'path' => '/admin/menu'
+        ],
+        'map' => [
+            'title' => 'Mapa / Mesas',
+            'path' => '/admin/map'
+        ],
+        'area' => [
+            'title' => 'Produccion',
+            'path' => '/admin/area'
         ],
         'reservations' => [
             'title' => 'Reservaciones',
@@ -51,6 +63,7 @@ class AdminController
 
     public static function index(Router $router): void
     {
+        // Fase 1: /admin usa analytics como pantalla inicial del shell interno.
         self::analytics($router);
     }
 
@@ -124,7 +137,7 @@ class AdminController
         ]);
     }
 
-    private static function render(string $view, array $data = []): void
+    public static function render(string $view, array $data = []): void
     {
         $modules = self::MODULES;
         $styles = [];

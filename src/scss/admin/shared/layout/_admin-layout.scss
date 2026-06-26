@@ -9,7 +9,12 @@
     display: grid;
     width: 100%;
     min-height: 100vh;
-    grid-template-columns: clamp(vars.$admin-sidebar-min, 20vw, vars.$admin-sidebar-max) minmax(0, 1fr);
+    grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
+    transition: grid-template-columns var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-shell {
+    transition: none !important;
 }
 
 .admin-main {
@@ -25,8 +30,17 @@
     padding: clamp(28px, 3.5vw, 40px);
 }
 
+.admin-sidebar-collapsed .admin-shell,
+.admin-body.is-sidebar-collapsed .admin-shell {
+    grid-template-columns: var(--admin-sidebar-collapsed-width) minmax(0, 1fr);
+}
+
 @include mixins.down(vars.$breakpoint-drawer) {
     .admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-body.is-sidebar-collapsed .admin-shell {
         grid-template-columns: 1fr;
     }
 

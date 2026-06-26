@@ -1,5 +1,68 @@
 /* ── Mapa de Mesas — Casa Pestalozzi ───────────────────────── */
 
+var $ = window.AdminMapQuery || function(selector, root) {
+  return (root || document).querySelector(selector);
+};
+
+var $$ = window.AdminMapQueryAll || function(selector, root) {
+  return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+};
+
+window.CP_AREAS = window.CP_AREAS || {
+  cafe: { id: 1, label: 'Barra de Cafe', color: '#7b5e3a' },
+  jugos: { id: 2, label: 'Barra de Jugos', color: '#e8a920' },
+  cocina: { id: 3, label: 'Cocina', color: '#b03a2e' },
+  horno: { id: 4, label: 'Horno Napolitano', color: '#1a5276' }
+};
+
+function inferAreaSlug(categoryLabel, dishName) {
+  var source = (String(categoryLabel || '') + ' ' + String(dishName || '')).toLowerCase();
+
+  if (source.indexOf('cafe') !== -1 || source.indexOf('café') !== -1 || source.indexOf('bebida') !== -1) return 'cafe';
+  if (source.indexOf('jugo') !== -1 || source.indexOf('smoothie') !== -1 || source.indexOf('fruta') !== -1) return 'jugos';
+  if (source.indexOf('pizza') !== -1 || source.indexOf('horno') !== -1) return 'horno';
+
+  return 'cocina';
+}
+
+function normalizeMenuForMap(categories) {
+  if (!Array.isArray(categories)) return [];
+
+  return categories.map(function(category) {
+    var label = category.label || category.nombre || 'Categoria';
+    var dishes = Array.isArray(category.dishes) ? category.dishes : [];
+
+    return {
+      id: category.id,
+      label: label,
+      img: category.img || '',
+      dishes: dishes.map(function(dish) {
+        var name = dish.n || dish.nombre || '';
+        return {
+          n: name,
+          d: dish.d || dish.descripcion || '',
+          p: Number(dish.p || dish.precio || 0),
+          tags: dish.tags || (dish.tag ? [dish.tag] : []),
+          area: dish.area || inferAreaSlug(label, name)
+        };
+      })
+    };
+  });
+}
+
+function loadOperationalMenu() {
+  return fetch('/menu')
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      window.CP_MENU = normalizeMenuForMap(data);
+      return window.CP_MENU;
+    })
+    .catch(function() {
+      window.CP_MENU = window.CP_MENU || [];
+      return window.CP_MENU;
+    });
+}
+
 function initMapa() {
   if (initMapa._done) return;
   initMapa._done = true;
@@ -698,7 +761,7 @@ function initMapa() {
     if (!resumenEl) return;
     resumenEl.innerHTML = '<div class="mmodal-cart-empty">Cargando…</div>';
 
-    fetch('/api/ticket-items?ticket_id=' + ticketId)
+    fetch('/admin/api/ticket-items?ticket_id=' + ticketId)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (!data.ok || !data.items || !data.items.length) {
@@ -1043,7 +1106,7 @@ function initMapa() {
   }
 
   function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre) {
-    apiPost('/api/abrir-ticket', {
+    apiPost('/admin/api/open-ticket', {
       mesa_id: mesaId, mesa2_id: mesa2Id,
       comensales: comensales, reservacion_id: reservaId,
       nombre: nombre || null
@@ -1052,7 +1115,7 @@ function initMapa() {
 
   // Abre un ticket de Llevar y va directo al POS sin cerrar el modal
   function apiAbrirLlevarTicket(mesa, comensales, nombre) {
-    fetch('/api/abrir-ticket', {
+    fetch('/admin/api/open-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
@@ -1085,11 +1148,11 @@ function initMapa() {
   }
 
   function apiLiberarReservacion(reservaId) {
-    apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
+    apiPost('/admin/api/release-reservation', { reservacion_id: reservaId });
   }
 
   function apiCerrarTicket(ticketId, metodoPago, mesa) {
-    fetch('/api/cerrar-ticket', {
+    fetch('/admin/api/close-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ ticket_id: ticketId, metodo_pago: metodoPago })
@@ -1119,7 +1182,7 @@ function initMapa() {
       });
     }
 
-    fetch('/api/enviar-comanda', {
+    fetch('/admin/api/send-order', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload)
@@ -1143,7 +1206,7 @@ function initMapa() {
   }
 
   function apiEntregarItem(itemId, ticketId) {
-    fetch('/api/entregar-item', {
+    fetch('/admin/api/deliver-item', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ item_id: itemId })
@@ -1262,7 +1325,7 @@ function initMapa() {
       reservasList.innerHTML =
         '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
     }
-    fetch('/api/mapa?fecha=' + encodeURIComponent(fecha))
+    fetch('/admin/api/map?fecha=' + encodeURIComponent(fecha))
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (data.ok === false) {
@@ -1345,8 +1408,10 @@ function initMapa() {
 
   // ── Init ──────────────────────────────────────────────────
   sliderMin = Math.max(510, Math.min(1320, snapTo30(new Date().getHours() * 60 + new Date().getMinutes())));
-  fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
-  activateLive();
+  loadOperationalMenu().then(function() {
+    fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
+    activateLive();
+  });
 }
 
 // Auto-inicializar independientemente de boot()
@@ -1360,3 +1425,4 @@ function initMapa() {
     tryInitMapa();
   }
 })();
+

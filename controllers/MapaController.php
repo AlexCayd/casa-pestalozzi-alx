@@ -9,11 +9,7 @@ use MVC\Router;
 
 class MapaController {
 
-    public static function index(Router $router) {
-        include_once __DIR__ . '/../views/mapa/index.php';
-    }
-
-    // GET /api/mapa?fecha=YYYY-MM-DD
+    // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
         header('Content-Type: application/json');
 
@@ -94,7 +90,7 @@ class MapaController {
         ]);
     }
 
-    // POST /api/abrir-ticket
+    // POST /admin/api/open-ticket
     public static function abrirTicket(Router $router) {
         header('Content-Type: application/json');
 
@@ -154,7 +150,7 @@ class MapaController {
         }
     }
 
-    // POST /api/liberar-reservacion
+    // POST /admin/api/release-reservation
     public static function liberarReservacion(Router $router) {
         header('Content-Type: application/json');
 
@@ -178,7 +174,7 @@ class MapaController {
         }
     }
 
-    // POST /api/cerrar-ticket
+    // POST /admin/api/close-ticket
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
 
@@ -214,7 +210,7 @@ class MapaController {
         }
     }
 
-    // POST /api/enviar-comanda
+    // POST /admin/api/send-order
     public static function enviarComanda(Router $router) {
         header('Content-Type: application/json');
 
@@ -264,7 +260,7 @@ class MapaController {
         }
     }
 
-    // POST /api/entregar-item  { item_id: X }
+    // POST /admin/api/deliver-item  { item_id: X }
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
@@ -287,7 +283,7 @@ class MapaController {
         }
     }
 
-    // POST /api/actualizar-ticket { ticket_id, nombre }
+    // POST /admin/api/update-ticket { ticket_id, nombre }
     public static function actualizarTicket(Router $router) {
         header('Content-Type: application/json');
 
@@ -312,7 +308,7 @@ class MapaController {
         }
     }
 
-    // GET /api/ticket-items?ticket_id=X
+    // GET /admin/api/ticket-items?ticket_id=X
     public static function ticketItems(Router $router) {
         header('Content-Type: application/json');
 

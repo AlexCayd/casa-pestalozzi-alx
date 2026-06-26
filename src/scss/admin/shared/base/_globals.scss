@@ -7,6 +7,7 @@
   --admin-bg: #f6f1e7;
   --admin-surface: #fdfcfb;
   --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
 
   /* Sidebar */
   --admin-sidebar: #101213;
@@ -30,6 +31,7 @@
   /* Bordes */
   --admin-border: rgba(204, 163, 82, 0.22);
   --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
 
   /* Estados */
   --admin-success: #5f7d56;
@@ -38,15 +40,14 @@
 
   /* Layout */
   --admin-radius: 1.4rem;
-  --admin-sidebar-width: 28rem;
-
-  /* Layout */
   --admin-radius-sm: 12px;
   --admin-radius-md: 16px;
   --admin-radius-lg: 20px;
 
   --admin-header-height: 88px;
   --admin-sidebar-width: 280px;
+  --admin-sidebar-collapsed-width: 88px;
+  --admin-layout-transition: 180ms ease;
 
   min-height: 100vh;
   margin: 0;

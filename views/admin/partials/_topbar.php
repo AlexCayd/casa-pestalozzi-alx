@@ -1,14 +1,17 @@
 <?php
 /**
- * Barra superior compartida del panel de administración.
- * Muestra contexto de navegación, usuario y acceso al menú responsive.
+ * Barra superior compartida del panel de administracion.
+ * Muestra el control del sidebar, el nombre actual y el usuario.
  */
+$currentModuleTitle = $topbarTitle
+    ?? $title
+    ?? ($modules[$activeModule]['title'] ?? 'Panel');
 ?>
 <header class="admin-topbar">
     <button
         class="admin-menu-toggle"
         type="button"
-        aria-label="Abrir navegación"
+        aria-label="Abrir navegacion"
         aria-controls="admin-sidebar"
         aria-expanded="false"
         data-admin-sidebar-toggle
@@ -19,15 +22,9 @@
     </button>
 
     <div class="admin-topbar__heading">
-        <p class="admin-topbar__eyebrow <?php echo !empty($topbarSection) ? 'admin-topbar__eyebrow--breadcrumb' : ''; ?>">
-            Panel de administración
-            <?php if (!empty($topbarSection)): ?>
-                <span aria-hidden="true">/</span> <?php echo htmlspecialchars($topbarSection, ENT_QUOTES, 'UTF-8'); ?>
-            <?php endif; ?>
+        <p class="admin-topbar__module">
+            <?php echo htmlspecialchars($currentModuleTitle, ENT_QUOTES, 'UTF-8'); ?>
         </p>
-        <?php if (empty($compactTopbar)): ?>
-            <h1><?php echo $title ?? 'Panel'; ?></h1>
-        <?php endif; ?>
     </div>
 
     <div class="admin-topbar__user" aria-label="Usuario actual">

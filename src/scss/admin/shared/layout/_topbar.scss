@@ -1,6 +1,6 @@
 /*
- * Presentación de la barra superior del panel administrativo.
- * Define contexto, usuario y adaptación visual para tablet y móvil.
+ * Presentacion de la barra superior del panel administrativo.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual.
  */
 @use "../abstracts/variables" as vars;
 @use "../abstracts/mixins" as mixins;
@@ -9,63 +9,37 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 52px;
-  padding: 6px 24px;
+  gap: 16px;
+  min-height: 56px;
+  padding: 7px 24px;
   backdrop-filter: blur(20px);
-  background: rgba(245, 245, 245, 0.55);
+  background: rgba(245, 245, 245, 0.78);
   border-bottom: 1px solid var(--admin-border);
-  h1 {
-    color: var(--admin-text) !important;
-    position: absolute;
-    left: 50%;
-    margin: 0;
-    font-size: 24px;
-    line-height: 1.2;
-    transform: translateX(-50%);
-    white-space: nowrap;
-  }
 }
 
 .admin-topbar__heading {
-  display: contents;
   min-width: 0;
-
-  h1 {
-    color: var(--admin-text);
-    overflow-wrap: anywhere;
-  }
 }
 
-.admin-topbar__eyebrow {
-  flex: 0 0 auto;
-  color: var(--admin-muted) !important;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.admin-topbar__eyebrow--breadcrumb {
-  color: var(--admin-muted) !important;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  text-transform: none;
-
-  span {
-    margin-inline: 6px;
-    color: var(--admin-gold-deep);
-  }
+.admin-topbar__module {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-topbar__user {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 3px 4px 3px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
@@ -89,19 +63,16 @@
 
 @include mixins.down(vars.$breakpoint-tablet) {
   .admin-topbar {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    min-height: auto;
     gap: 10px;
+    min-height: 54px;
     padding: 6px 16px;
+  }
 
-    h1 {
-      font-size: 16px;
-    }
+  .admin-topbar__module {
+    font-size: 14px;
   }
 
   .admin-topbar__user {
-    grid-column: 3;
     justify-self: end;
     gap: 8px;
   }
@@ -109,11 +80,9 @@
 
 @include mixins.down(vars.$breakpoint-mobile) {
   .admin-topbar {
-    min-height: 52px;
-    padding: 5px 12px;
+    padding: 6px 12px;
   }
 
-  .admin-topbar__eyebrow,
   .admin-topbar__user span {
     display: none;
   }

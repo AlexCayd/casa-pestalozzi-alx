@@ -10,6 +10,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Casa Pestalozzi Admin - <?php echo $title ?? 'Panel'; ?></title>
+    <script>
+        (function () {
+            var root = document.documentElement;
+            var storageKey = 'cp-admin-sidebar-collapsed';
+
+            root.classList.add('admin-sidebar-preload');
+
+            try {
+                if (window.localStorage.getItem(storageKey) === '1') {
+                    root.classList.add('admin-sidebar-collapsed');
+                }
+            } catch (error) {
+                // localStorage puede no estar disponible en contextos restringidos.
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="/build/css/admin.css">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">

@@ -27,6 +27,8 @@ const paths = {
         'src/js/admin/analytics/analytics-page.js',
         'src/js/admin/analytics/analytics.js'
     ],
+    adminMapJs: 'src/js/admin/map/map.js',
+    adminAreaJs: 'src/js/admin/area/area.js',
     imagenes: 'src/img/**/*',
     chartJs: 'node_modules/chart.js/dist/chart.umd.min.js'
 };
@@ -77,6 +79,24 @@ function adminAnalyticsJavascript() {
     return src(paths.adminAnalyticsJs)
         .pipe(sourcemaps.init())
         .pipe(concat('analytics.js'))
+        .pipe(terser())
+        .pipe(sourcemaps.write('.'))
+        .pipe(dest('./public/build/js/admin'));
+}
+
+function adminMapJavascript() {
+    return src(paths.adminMapJs)
+        .pipe(sourcemaps.init())
+        .pipe(concat('map.js'))
+        .pipe(terser())
+        .pipe(sourcemaps.write('.'))
+        .pipe(dest('./public/build/js/admin'));
+}
+
+function adminAreaJavascript() {
+    return src(paths.adminAreaJs)
+        .pipe(sourcemaps.init())
+        .pipe(concat('area.js'))
         .pipe(terser())
         .pipe(sourcemaps.write('.'))
         .pipe(dest('./public/build/js/admin'));
@@ -136,6 +156,8 @@ function devWatch(done) {
     watch(paths.js, javascript);
     watch(paths.adminJs, adminJavascript);
     watch('src/js/admin/analytics/**/*.js', adminAnalyticsJavascript);
+    watch('src/js/admin/map/**/*.js', adminMapJavascript);
+    watch('src/js/admin/area/**/*.js', adminAreaJavascript);
     watch(paths.chartJs, copyChartJs);
     watch(paths.imagenes, imagenes);
     watch(paths.imagenes, versionWebp);
@@ -151,6 +173,8 @@ exports.adminModuleCss = adminModuleCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
+exports.adminMapJs = adminMapJavascript;
+exports.adminAreaJs = adminAreaJavascript;
 exports.copyChartJs = copyChartJs;
 exports.imagenes = imagenes;
 exports.versionWebp = versionWebp;
@@ -167,6 +191,8 @@ exports.dev = parallel(
     javascript,
     adminJavascript,
     adminAnalyticsJavascript,
+    adminMapJavascript,
+    adminAreaJavascript,
     copyChartJs,
     copyFonts,
     copyImages,

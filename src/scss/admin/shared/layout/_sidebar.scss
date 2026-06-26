@@ -1,6 +1,6 @@
 /*
- * Presentación y comportamiento responsive del sidebar administrativo.
- * Conserva navegación fija en desktop y drawer en pantallas reducidas.
+ * Presentacion y comportamiento responsive del sidebar administrativo.
+ * Conserva navegacion fija en desktop y drawer en pantallas reducidas.
  */
 @use "../abstracts/variables" as vars;
 @use "../abstracts/mixins" as mixins;
@@ -9,10 +9,25 @@
   position: sticky;
   top: 0;
   align-self: start;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
-  padding: 24px 28px;
+  max-height: 100vh;
+  padding: 22px 18px;
   background: var(--admin-sidebar);
   color: var(--admin-text-inverse);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition:
+    padding var(--admin-layout-transition),
+    width var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-sidebar,
+.admin-sidebar-preload .admin-sidebar__brand-text,
+.admin-sidebar-preload .admin-sidebar__link-text,
+.admin-sidebar-preload .admin-sidebar-backdrop {
+  transition: none !important;
 }
 
 .admin-sidebar__header {
@@ -25,52 +40,164 @@
 .admin-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 8px 10px 24px;
+  gap: 10px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 4px 18px;
   text-decoration: none;
   font-family: var(--admin-logo);
-  font-size: 28px;
   font-weight: normal;
 
-  > span {
+  .admin-sidebar__brand-text {
     display: block;
-    font-family: "KudosKaps", sans-serif;
-    line-height: 1;
+    max-width: 210px;
     color: var(--admin-gold) !important;
+    font-family: "KudosKaps", sans-serif;
+    font-size: 22px;
+    line-height: 0.98;
+    white-space: normal;
+    overflow-wrap: normal;
+    transition:
+      opacity var(--admin-layout-transition),
+      width var(--admin-layout-transition);
   }
 }
 
-.admin-sidebar__nav {
-  margin-top: 10px;
+.admin-sidebar__brand-mark,
+.admin-sidebar__link-mark {
   display: grid;
-  gap: 10px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(248, 239, 226, 0.08);
+  color: var(--admin-gold);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-sidebar__brand-mark {
+  display: none;
+  width: 40px;
+  height: 40px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.admin-sidebar__link-mark {
+  width: 36px;
+  height: 36px;
+  color: rgba(248, 239, 226, 0.78);
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+}
+
+.admin-sidebar__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    opacity var(--admin-layout-transition),
+    width var(--admin-layout-transition);
+}
+
+.admin-sidebar__nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .admin-sidebar__link {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 4px 10px;
   border-radius: 8px;
   color: rgba(248, 239, 226, 0.78);
   font-size: 15px;
   text-decoration: none;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 
-  &:hover,
-  &.is-active {
+  &:hover {
     background: rgba(248, 239, 226, 0.1);
     color: #fff;
+
+    .admin-sidebar__link-mark {
+      color: #fff;
+    }
   }
 
   &.is-active {
+    background: rgba(248, 239, 226, 0.12);
+    color: #fff;
     box-shadow: inset 3px 0 0 #b9863f;
     font-weight: 700;
+
+    .admin-sidebar__link-mark {
+      background: var(--admin-gold);
+      color: #101213;
+    }
   }
 }
 
 .admin-sidebar-backdrop {
   display: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar,
+.admin-body.is-sidebar-collapsed .admin-sidebar {
+  width: var(--admin-sidebar-collapsed-width);
+  padding-inline: 14px;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__header,
+.admin-body.is-sidebar-collapsed .admin-sidebar__header {
+  justify-content: center;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-mark,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-mark {
+  display: grid;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-sidebar-collapsed .admin-sidebar__link-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link-text {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link.is-active,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link.is-active {
+  box-shadow: inset 0 -3px 0 #b9863f;
 }
 
 @include mixins.down(vars.$breakpoint-drawer) {
@@ -96,9 +223,30 @@
     padding: 4px 0 20px;
   }
 
+  .admin-sidebar__header {
+    justify-content: space-between !important;
+  }
+
+  .admin-sidebar__brand-text,
+  .admin-sidebar__link-text {
+    width: auto !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .admin-sidebar__brand-mark {
+    display: none !important;
+  }
+
   .admin-sidebar__link {
     width: 100%;
+    justify-content: flex-start !important;
+    padding-inline: 10px !important;
     white-space: normal;
+  }
+
+  .admin-sidebar__link-mark {
+    display: grid !important;
   }
 
   .admin-sidebar-backdrop {

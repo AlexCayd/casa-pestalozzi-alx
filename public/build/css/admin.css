@@ -12,6 +12,7 @@
   --admin-bg: #f6f1e7;
   --admin-surface: #fdfcfb;
   --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
   /* Sidebar */
   --admin-sidebar: #101213;
   --admin-sidebar-soft: #15181a;
@@ -30,19 +31,20 @@
   /* Bordes */
   --admin-border: rgba(204, 163, 82, 0.22);
   --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
   /* Estados */
   --admin-success: #5f7d56;
   --admin-warning: #cca352;
   --admin-danger: #a94b3f;
   /* Layout */
   --admin-radius: 1.4rem;
-  --admin-sidebar-width: 28rem;
-  /* Layout */
   --admin-radius-sm: 12px;
   --admin-radius-md: 16px;
   --admin-radius-lg: 20px;
   --admin-header-height: 88px;
   --admin-sidebar-width: 280px;
+  --admin-sidebar-collapsed-width: 88px;
+  --admin-layout-transition: 180ms ease;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -197,7 +199,12 @@
   display: grid;
   width: 100%;
   min-height: 100vh;
-  grid-template-columns: clamp(240px, 20vw, 280px) minmax(0, 1fr);
+  grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-shell {
+  transition: none !important;
 }
 
 .admin-main {
@@ -213,8 +220,16 @@
   padding: clamp(28px, 3.5vw, 40px);
 }
 
+.admin-sidebar-collapsed .admin-shell,
+.admin-body.is-sidebar-collapsed .admin-shell {
+  grid-template-columns: var(--admin-sidebar-collapsed-width) minmax(0, 1fr);
+}
+
 @media (max-width: 992px) {
   .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-body.is-sidebar-collapsed .admin-shell {
     grid-template-columns: 1fr;
   }
   .admin-content {
@@ -236,17 +251,30 @@
  * Distribuye navegación y contenido, ajustando paddings según el viewport.
  */
 /*
- * Presentación y comportamiento responsive del sidebar administrativo.
- * Conserva navegación fija en desktop y drawer en pantallas reducidas.
+ * Presentacion y comportamiento responsive del sidebar administrativo.
+ * Conserva navegacion fija en desktop y drawer en pantallas reducidas.
  */
 .admin-sidebar {
   position: sticky;
   top: 0;
   align-self: start;
+  width: 100%;
+  min-width: 0;
   min-height: 100vh;
-  padding: 24px 28px;
+  max-height: 100vh;
+  padding: 22px 18px;
   background: var(--admin-sidebar);
   color: var(--admin-text-inverse);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: padding var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-sidebar,
+.admin-sidebar-preload .admin-sidebar__brand-text,
+.admin-sidebar-preload .admin-sidebar__link-text,
+.admin-sidebar-preload .admin-sidebar-backdrop {
+  transition: none !important;
 }
 
 .admin-sidebar__header {
@@ -259,48 +287,151 @@
 .admin-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 8px 10px 24px;
+  gap: 10px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 4px 18px;
   text-decoration: none;
   font-family: var(--admin-logo);
-  font-size: 28px;
   font-weight: normal;
 }
-.admin-sidebar__brand > span {
+.admin-sidebar__brand .admin-sidebar__brand-text {
   display: block;
-  font-family: "KudosKaps", sans-serif;
-  line-height: 1;
+  max-width: 210px;
   color: var(--admin-gold) !important;
+  font-family: "KudosKaps", sans-serif;
+  font-size: 22px;
+  line-height: 0.98;
+  white-space: normal;
+  overflow-wrap: normal;
+  transition: opacity var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+
+.admin-sidebar__brand-mark,
+.admin-sidebar__link-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(248, 239, 226, 0.08);
+  color: var(--admin-gold);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-sidebar__brand-mark {
+  display: none;
+  width: 40px;
+  height: 40px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.admin-sidebar__link-mark {
+  width: 36px;
+  height: 36px;
+  color: rgba(248, 239, 226, 0.78);
+}
+.admin-sidebar__link-mark svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.admin-sidebar__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity var(--admin-layout-transition), width var(--admin-layout-transition);
 }
 
 .admin-sidebar__nav {
-  margin-top: 10px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .admin-sidebar__link {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 4px 10px;
   border-radius: 8px;
   color: rgba(248, 239, 226, 0.78);
   font-size: 15px;
   text-decoration: none;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
-.admin-sidebar__link:hover, .admin-sidebar__link.is-active {
+.admin-sidebar__link:hover {
   background: rgba(248, 239, 226, 0.1);
   color: #fff;
 }
+.admin-sidebar__link:hover .admin-sidebar__link-mark {
+  color: #fff;
+}
 .admin-sidebar__link.is-active {
+  background: rgba(248, 239, 226, 0.12);
+  color: #fff;
   box-shadow: inset 3px 0 0 #b9863f;
   font-weight: 700;
+}
+.admin-sidebar__link.is-active .admin-sidebar__link-mark {
+  background: var(--admin-gold);
+  color: #101213;
 }
 
 .admin-sidebar-backdrop {
   display: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar,
+.admin-body.is-sidebar-collapsed .admin-sidebar {
+  width: var(--admin-sidebar-collapsed-width);
+  padding-inline: 14px;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__header,
+.admin-body.is-sidebar-collapsed .admin-sidebar__header {
+  justify-content: center;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-mark,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-mark {
+  display: grid;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-sidebar-collapsed .admin-sidebar__link-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link-text {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link.is-active,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link.is-active {
+  box-shadow: inset 0 -3px 0 #b9863f;
 }
 
 @media (max-width: 992px) {
@@ -322,9 +453,26 @@
     min-width: 0;
     padding: 4px 0 20px;
   }
+  .admin-sidebar__header {
+    justify-content: space-between !important;
+  }
+  .admin-sidebar__brand-text,
+  .admin-sidebar__link-text {
+    width: auto !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  .admin-sidebar__brand-mark {
+    display: none !important;
+  }
   .admin-sidebar__link {
     width: 100%;
+    justify-content: flex-start !important;
+    padding-inline: 10px !important;
     white-space: normal;
+  }
+  .admin-sidebar__link-mark {
+    display: grid !important;
   }
   .admin-sidebar-backdrop {
     position: fixed;
@@ -360,68 +508,44 @@
  * Distribuye navegación y contenido, ajustando paddings según el viewport.
  */
 /*
- * Presentación de la barra superior del panel administrativo.
- * Define contexto, usuario y adaptación visual para tablet y móvil.
+ * Presentacion de la barra superior del panel administrativo.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual.
  */
 .admin-topbar {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 52px;
-  padding: 6px 24px;
+  gap: 16px;
+  min-height: 56px;
+  padding: 7px 24px;
   backdrop-filter: blur(20px);
-  background: rgba(245, 245, 245, 0.55);
+  background: rgba(245, 245, 245, 0.78);
   border-bottom: 1px solid var(--admin-border);
-}
-.admin-topbar h1 {
-  color: var(--admin-text) !important;
-  position: absolute;
-  left: 50%;
-  margin: 0;
-  font-size: 24px;
-  line-height: 1.2;
-  transform: translateX(-50%);
-  white-space: nowrap;
 }
 
 .admin-topbar__heading {
-  display: contents;
   min-width: 0;
 }
-.admin-topbar__heading h1 {
+
+.admin-topbar__module {
+  max-width: 100%;
+  overflow: hidden;
   color: var(--admin-text);
-  overflow-wrap: anywhere;
-}
-
-.admin-topbar__eyebrow {
-  flex: 0 0 auto;
-  color: var(--admin-muted) !important;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.admin-topbar__eyebrow--breadcrumb {
-  color: var(--admin-muted) !important;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-.admin-topbar__eyebrow--breadcrumb span {
-  margin-inline: 6px;
-  color: var(--admin-gold-deep);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-topbar__user {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 3px 4px 3px 12px;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
@@ -444,27 +568,22 @@
 
 @media (max-width: 768px) {
   .admin-topbar {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    min-height: auto;
     gap: 10px;
+    min-height: 54px;
     padding: 6px 16px;
   }
-  .admin-topbar h1 {
-    font-size: 16px;
+  .admin-topbar__module {
+    font-size: 14px;
   }
   .admin-topbar__user {
-    grid-column: 3;
     justify-self: end;
     gap: 8px;
   }
 }
 @media (max-width: 576px) {
   .admin-topbar {
-    min-height: 52px;
-    padding: 5px 12px;
+    padding: 6px 12px;
   }
-  .admin-topbar__eyebrow,
   .admin-topbar__user span {
     display: none;
   }
@@ -478,9 +597,140 @@
  * Distribuye navegación y contenido, ajustando paddings según el viewport.
  */
 /*
- * Controles reutilizables de navegación del panel administrativo.
- * Estiliza apertura, cierre y backdrop del sidebar responsive.
+ * Controles reutilizables del panel administrativo.
+ * Define botones globales y controles de navegacion del sidebar.
  */
+.admin-btn,
+.admin-menu__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.04);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+.admin-btn:hover,
+.admin-menu__button:hover {
+  border-color: rgba(160, 126, 54, 0.42);
+  background: var(--admin-surface-strong);
+  box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+}
+.admin-btn:focus-visible,
+.admin-menu__button:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-btn:active,
+.admin-menu__button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05);
+}
+
+.admin-btn--primary,
+.admin-menu__button--primary {
+  border-color: var(--admin-terra);
+  background: var(--admin-terra);
+  color: #fff;
+}
+.admin-btn--primary:hover,
+.admin-menu__button--primary:hover {
+  border-color: #632f16;
+  background: #632f16;
+  color: #fff;
+}
+
+.admin-btn--secondary,
+.admin-menu__button--light {
+  border-color: rgba(160, 126, 54, 0.36);
+  background: #fffaf0;
+  color: var(--admin-text);
+}
+
+.admin-btn--ghost {
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+}
+.admin-btn--ghost:hover {
+  color: var(--admin-text);
+}
+
+.admin-btn--danger,
+.admin-menu__button--danger {
+  border-color: rgba(169, 75, 63, 0.34);
+  background: rgba(169, 75, 63, 0.1);
+  color: #81382f;
+}
+.admin-btn--danger:hover,
+.admin-menu__button--danger:hover {
+  border-color: rgba(169, 75, 63, 0.52);
+  background: rgba(169, 75, 63, 0.16);
+  color: #6d2f28;
+}
+
+.admin-btn--small,
+.admin-menu__button--small {
+  min-height: 34px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+.admin-btn--disabled,
+.admin-menu__button--disabled {
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.admin-body .admin-btn,
+.admin-body .admin-menu__button {
+  background-color: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-body .admin-btn--primary,
+.admin-body .admin-menu__button--primary {
+  background-color: var(--admin-terra);
+  color: #fff;
+}
+
+.admin-body .admin-btn--secondary,
+.admin-body .admin-menu__button--light {
+  background-color: #fffaf0;
+  color: var(--admin-text);
+}
+
+.admin-body .admin-btn--ghost {
+  background-color: transparent;
+  color: var(--admin-muted);
+}
+
+.admin-body .admin-btn--danger,
+.admin-body .admin-menu__button--danger {
+  background-color: rgba(169, 75, 63, 0.1);
+  color: #81382f;
+}
+
+.admin-body .admin-btn--disabled,
+.admin-body .admin-menu__button--disabled {
+  background-color: var(--admin-surface-soft);
+  color: var(--admin-muted);
+}
+
 .admin-sidebar__close,
 .admin-menu-toggle,
 .admin-sidebar-backdrop {
@@ -489,7 +739,6 @@
 
 .admin-sidebar__close,
 .admin-menu-toggle {
-  display: none;
   cursor: pointer;
 }
 .admin-sidebar__close:focus-visible,
@@ -499,17 +748,19 @@
 }
 
 .admin-sidebar__close {
+  display: none;
   width: 42px;
   height: 42px;
   flex: 0 0 42px;
   border-radius: 8px;
   background: rgba(248, 239, 226, 0.1);
   color: #fff;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .admin-menu-toggle {
+  display: block;
   width: 42px;
   height: 42px;
   padding: 10px;
@@ -524,9 +775,11 @@
   margin: 4px 0;
   background: var(--admin-text);
 }
+.admin-menu-toggle:hover {
+  box-shadow: 0 0 0 1px rgba(160, 126, 54, 0.4), 0 6px 18px rgba(11, 12, 13, 0.08);
+}
 
 @media (max-width: 992px) {
-  .admin-menu-toggle,
   .admin-sidebar__close {
     display: block;
   }
@@ -541,6 +794,100 @@
   background: var(--admin-surface);
 }
 
+.admin-page {
+  min-width: 0;
+}
+
+.admin-page__header,
+.admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-page__intro,
+.admin-page-header__intro {
+  min-width: 0;
+}
+
+.admin-page__eyebrow,
+.admin-page-eyebrow {
+  color: var(--admin-sage-deep);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-page__title,
+.admin-page-title-row h2 {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.05;
+}
+
+.admin-page__subtitle,
+.admin-page-summary {
+  max-width: 720px;
+  margin-top: 9px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-toolbar,
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-card {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: 0 18px 44px rgba(11, 12, 13, 0.07);
+}
+
+.admin-empty {
+  padding: 18px;
+  border: 1px dashed var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .admin-page__header,
+  .admin-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-page__title,
+  .admin-page-title-row h2 {
+    font-size: 27px;
+  }
+  .admin-toolbar,
+  .admin-actions {
+    width: 100%;
+  }
+}
 /*
  * Tabla reutilizable para información operativa de administración.
  * Mantiene legibilidad y desplazamiento interno en pantallas estrechas.
@@ -601,6 +948,10 @@
   color: var(--admin-danger);
 }
 
+/*
+ * Base reservada para formularios del admin.
+ * Los modulos futuros pueden extender estos estilos sin importar la landing.
+ */
 /*
  * Estado provisional para módulos administrativos pendientes.
  * Presenta el nombre del módulo dentro de una superficie consistente.
