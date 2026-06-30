@@ -12,6 +12,7 @@ use Controllers\HomeController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
+use Controllers\MapaController;
 
 $router = new Router();
 
