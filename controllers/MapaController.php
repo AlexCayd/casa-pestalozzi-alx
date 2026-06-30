@@ -245,15 +245,18 @@ class MapaController {
                 $cantidad  = max(1, (int)($item['cantidad'] ?? 1));
                 $comensal  = isset($item['comensal']) && $item['comensal'] !== null
                              ? (int)$item['comensal'] : null;
+                $nota      = isset($item['nota']) && trim($item['nota'] ?? '') !== ''
+                             ? TicketItem::escaparString(trim($item['nota'])) : null;
 
                 if (!$nombre || $precio <= 0) continue;
 
                 $comensalSql = $comensal !== null ? $comensal : 'NULL';
+                $notaSql     = $nota !== null ? "'" . $nota . "'" : 'NULL';
                 TicketItem::ejecutarSQL(
                     "INSERT INTO ticket_items
-                     (ticket_id, nombre, precio, categoria, area_id, comensal, cantidad, estado)
+                     (ticket_id, nombre, precio, categoria, area_id, comensal, cantidad, nota, estado)
                      VALUES ({$ticketId}, '{$nombre}', {$precio}, '{$categoria}',
-                             {$areaId}, {$comensalSql}, {$cantidad}, 'enviado')"
+                             {$areaId}, {$comensalSql}, {$cantidad}, {$notaSql}, 'enviado')"
                 );
                 $count++;
             }
@@ -261,6 +264,29 @@ class MapaController {
             echo json_encode(['ok' => true, 'count' => $count]);
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    // POST /api/cancelar-item  { item_id: X }
+    public static function cancelarItem(Router $router) {
+        header('Content-Type: application/json');
+
+        $data   = json_decode(file_get_contents('php://input'), true) ?: [];
+        $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
+
+        if (!$itemId) {
+            echo json_encode(['ok' => false, 'msg' => 'item_id requerido']);
+            return;
+        }
+
+        try {
+            TicketItem::ejecutarSQL(
+                "UPDATE ticket_items SET estado = 'cancelado'
+                 WHERE id = {$itemId} AND estado NOT IN ('entregado','cancelado')"
+            );
+            echo json_encode(['ok' => true]);
+        } catch (\Throwable $e) {
+            echo json_encode(['ok' => false, 'msg' => $e->getMessage()]);
         }
     }
 
@@ -343,6 +369,7 @@ class MapaController {
                     'area_color'  => $r->area_color,
                     'comensal'    => $r->comensal !== null ? (int)$r->comensal : null,
                     'cantidad'    => (int)$r->cantidad,
+                    'nota'        => $r->nota ?? null,
                     'estado'      => $r->estado,
                     'created_at'  => $r->created_at,
                 ];

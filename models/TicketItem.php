@@ -7,7 +7,7 @@ class TicketItem extends ActiveRecord {
 
     protected static $columnasDB = [
         'id', 'ticket_id', 'nombre', 'precio', 'categoria',
-        'area_id', 'comensal', 'cantidad', 'estado'
+        'area_id', 'comensal', 'cantidad', 'nota', 'estado'
     ];
 
     public $id;
@@ -18,6 +18,7 @@ class TicketItem extends ActiveRecord {
     public $area_id;
     public $comensal   = null;
     public $cantidad   = 1;
+    public $nota       = null;
     public $estado     = 'enviado';
     public $created_at = null;
 

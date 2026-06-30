@@ -32,9 +32,9 @@ $face-5: #29B6F6;
   min-height: 100vh;
   background: $fb-bg;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 2rem 1rem 4rem;
+  padding: 1rem;
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -70,7 +70,7 @@ $face-5: #29B6F6;
   font-size: clamp(1.6rem, 5vw, 2rem);
   text-decoration: none;
   margin-bottom: .5rem;
-  word-spacing: -0.8rem;
+  word-spacing: -1.0rem;
   line-height: 1;
 }
 
@@ -289,6 +289,107 @@ $face-5: #29B6F6;
   &:disabled { opacity: .55; }
 }
 
+// ── Resumen de respuestas ─────────────────────────────────────
+.fb-resumen {
+  margin-bottom: 1.5rem;
+}
+
+.fb-resumen-row {
+  padding: .65rem 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+
+  &__label {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    color: rgba(232,224,212,.45);
+    text-transform: uppercase;
+    margin-bottom: .45rem;
+  }
+
+  &__faces {
+    display: flex;
+    gap: .25rem;
+    align-items: flex-end;
+  }
+}
+
+.fb-resumen-face {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2rem;
+  background: transparent;
+  border: none;
+  padding: .35rem .1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s ease;
+
+  &:hover {
+    background: rgba(255,255,255,.04);
+    svg { filter: grayscale(20%) brightness(.8); transform: scale(1.08); }
+    .fb-resumen-face__lbl { color: rgba(232,224,212,.5); }
+  }
+
+  svg {
+    width: 32px;
+    height: 32px;
+    filter: grayscale(70%) brightness(.45);
+    transition: filter .2s ease, transform .2s ease;
+    display: block;
+  }
+
+  &__lbl {
+    font-size: .48rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: rgba(232,224,212,.2);
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color .2s ease;
+  }
+
+  &--active {
+    svg { filter: none; transform: scale(1.22); }
+    .fb-resumen-face__lbl { color: rgba(232,224,212,.9); }
+
+    &:hover svg { transform: scale(1.28); }
+  }
+
+  &--1.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-1}99); }
+  &--2.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-2}99); }
+  &--3.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-3}99); }
+  &--4.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-4}99); }
+  &--5.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-5}99); }
+}
+
+// ── Fila de comentario en el resumen ─────────────────────────
+.fb-resumen-comment {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .65rem 0;
+
+  &__label {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    color: rgba(232,224,212,.45);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-size: .82rem;
+    color: $fb-text;
+    text-align: right;
+    font-style: italic;
+    opacity: .75;
+  }
+}
+
 // ── Estado de éxito / ya respondió ───────────────────────────
 .fb-done-icon {
   width: 56px;
@@ -321,8 +422,8 @@ $face-5: #29B6F6;
 
 // ── Botones de pago en el modal del mapa ─────────────────────
 .mmodal-pago-btns {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: .75rem;
   margin: 1.25rem 0 .75rem;
 }

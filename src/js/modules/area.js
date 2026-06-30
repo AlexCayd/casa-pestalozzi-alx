@@ -131,9 +131,15 @@ function initArea() {
       var hasForward = colType === 'enviado' || colType === 'prep';
 
       h += '<div class="area-card__item">';
+      var notaHtml = it.nota
+        ? '<span class="area-card__nota">' + escHtml(it.nota) + '</span>'
+        : '';
       h += '<div class="area-card__item-info">';
       h += '<span class="area-card__qty">×' + it.cantidad + '</span>';
+      h += '<div class="area-card__name-wrap">';
       h += '<span class="area-card__name">' + escHtml(it.nombre) + '</span>';
+      h += notaHtml;
+      h += '</div>';
       h += '<span class="area-card__com">' + comLabel + '</span>';
       h += '</div>';
 

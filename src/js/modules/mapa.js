@@ -13,6 +13,8 @@ function initMapa() {
   var tickets       = [];
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
   var selectedComensal = 0;  // 0 = General
+  var SUGERENCIAS         = []; // se llenan al abrir cada ticket (ver buildModalContent)
+  var sugComensalesCount  = 0;
   var sliderMin     = 0;
   var isLive        = false;
   var liveInterval  = null;
@@ -72,6 +74,35 @@ function initMapa() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ── Pool de sugerencias (aleatorio desde el menú, de momento) ──
+  function buildSuggestionPool() {
+    var pool = [];
+    if (!window.CP_MENU) return pool;
+    for (var ci = 0; ci < window.CP_MENU.length; ci++) {
+      var cat = window.CP_MENU[ci];
+      for (var di = 0; di < cat.dishes.length; di++) {
+        var dish     = cat.dishes[di];
+        var areaSlug = dish.area || 'cocina';
+        var areaInfo = window.CP_AREAS ? window.CP_AREAS[areaSlug] : null;
+        pool.push({
+          n: dish.n, p: dish.p, area: areaSlug,
+          area_id: areaInfo ? areaInfo.id : 3,
+          categoria: cat.label,
+          areaNombre: areaInfo ? areaInfo.label : ''
+        });
+      }
+    }
+    return pool;
+  }
+
+  function pickRandomSuggestion(excludeNames) {
+    var pool = buildSuggestionPool().filter(function(s) {
+      return excludeNames.indexOf(s.n) === -1;
+    });
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   // Estado temporal de una reserva respecto al slider
@@ -412,6 +443,14 @@ function initMapa() {
 
     if (estado === 'con-ticket' && ticket) {
       // ── Vista de ticket abierto con sistema de comandas ────
+
+      // Poblar sugerencias aleatorias (2 ítems) para este ticket
+      sugComensalesCount = ticket.comensales;
+      SUGERENCIAS = [];
+      var sugUsed = [];
+      var sgPick = pickRandomSuggestion(sugUsed);
+      if (sgPick) { SUGERENCIAS.push(sgPick); }
+
       var horaAp = ticket.hora_apertura
         ? String(ticket.hora_apertura).substring(11, 16)
         : '--:--';
@@ -430,6 +469,7 @@ function initMapa() {
       h += '<button class="mmodal-tab" data-tab="resumen">Ticket';
       h += ' <span class="mmodal-tab-badge" id="mmodal-resumen-badge" style="display:none">0</span>';
       h += '</button>';
+      h += '<button class="mmodal-tab" data-tab="sugerencias">Sugerencias</button>';
       h += '</div>';
 
       // ── Panels wrapper (3 cols en desktop) ────────────────
@@ -498,6 +538,16 @@ function initMapa() {
       h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar">Cerrar ticket</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-resumen
+
+      // ── Panel 4: Sugerencias ─────────────────────────────────
+      h += '<div id="mmodal-panel-sugerencias" class="mmodal-tab-panel">';
+      h += '<div class="mmodal-panel-label">Sugerencias</div>';
+      h += '<div class="mmodal-panel-scroll" id="mmodal-sug-list">';
+      for (var si = 0; si < SUGERENCIAS.length; si++) {
+        h += buildSuggestionCardHtml(si, SUGERENCIAS[si]);
+      }
+      h += '</div>'; // fin panel-scroll
+      h += '</div>'; // fin panel-sugerencias
 
       h += '</div>'; // fin mmodal-panels
 
@@ -620,11 +670,113 @@ function initMapa() {
     if (!found) {
       commandaItems.push({
         n: name, p: price, area: areaSlug, area_id: areaId,
-        categoria: categoria, comensal: selectedComensal, qty: 1
+        categoria: categoria, comensal: selectedComensal, qty: 1, nota: ''
       });
     }
     renderComandaCart();
     updateEnviarBtn();
+  }
+
+  function addSuggestionItem(sug, comensal) {
+    for (var i = 0; i < commandaItems.length; i++) {
+      if (commandaItems[i].n === sug.n && commandaItems[i].comensal === comensal) {
+        commandaItems[i].qty++;
+        renderComandaCart();
+        return;
+      }
+    }
+    commandaItems.push({
+      n: sug.n, p: sug.p, area: sug.area, area_id: sug.area_id,
+      categoria: sug.categoria, comensal: comensal, qty: 1, nota: ''
+    });
+    renderComandaCart();
+  }
+
+  function removeSuggestionItem(nombre, comensal) {
+    for (var i = 0; i < commandaItems.length; i++) {
+      if (commandaItems[i].n === nombre && commandaItems[i].comensal === comensal) {
+        commandaItems.splice(i, 1);
+        renderComandaCart();
+        return;
+      }
+    }
+  }
+
+  function buildSuggestionCardHtml(idx, sug) {
+    var h = '<div class="mmodal-sug-card" data-sug-card="' + idx + '">';
+    h += '<div class="mmodal-sug-header">';
+    h += '<span class="mmodal-sug-name">' + escHtml(sug.n) + '</span>';
+    h += '<span class="mmodal-sug-price">$' + sug.p + '</span>';
+    h += '</div>';
+    h += '<div class="mmodal-sug-area">' + escHtml(sug.areaNombre) + '</div>';
+    h += '<div class="mmodal-sug-divider"></div>';
+    h += '<div class="mmodal-sug-question">¿Quién acepta?</div>';
+    h += '<div class="mmodal-sug-chips">';
+    h += '<button class="mmodal-sug-chip" data-sug="' + idx + '" data-c="0">Gral</button>';
+    for (var sc = 1; sc <= sugComensalesCount; sc++) {
+      h += '<button class="mmodal-sug-chip" data-sug="' + idx + '" data-c="' + sc + '">C.' + sc + '</button>';
+    }
+    h += '</div>';
+    h += '<div class="mmodal-sug-footer">';
+    h += '<button class="mmodal-sug-swap" data-swap="' + idx + '">↻ Otra sugerencia</button>';
+    h += '</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function swapSuggestion(idx) {
+    var oldSug = SUGERENCIAS[idx];
+    // Limpiar del carrito si se había aceptado antes
+    for (var i = commandaItems.length - 1; i >= 0; i--) {
+      if (commandaItems[i].n === oldSug.n) commandaItems.splice(i, 1);
+    }
+    var used  = SUGERENCIAS.map(function(s) { return s.n; });
+    var nueva = pickRandomSuggestion(used);
+    if (!nueva) return;
+    SUGERENCIAS[idx] = nueva;
+
+    var card = modalContent && modalContent.querySelector('.mmodal-sug-card[data-sug-card="' + idx + '"]');
+    if (card) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = buildSuggestionCardHtml(idx, nueva);
+      card.parentNode.replaceChild(tmp.firstChild, card);
+      bindSuggestionCard(idx);
+    }
+    renderComandaCart();
+    updateEnviarBtn();
+  }
+
+  function bindSuggestionCard(idx) {
+    var card = modalContent && modalContent.querySelector('.mmodal-sug-card[data-sug-card="' + idx + '"]');
+    if (!card) return;
+
+    var chips = card.querySelectorAll('.mmodal-sug-chip');
+    for (var c = 0; c < chips.length; c++) {
+      (function(chip) {
+        chip.addEventListener('click', function() {
+          var isOn     = chip.classList.contains('mmodal-sug-chip--on');
+          var comensal = parseInt(chip.dataset.c, 10);
+          var sug      = SUGERENCIAS[idx];
+          if (isOn) {
+            chip.classList.remove('mmodal-sug-chip--on');
+            removeSuggestionItem(sug.n, comensal);
+          } else {
+            chip.classList.add('mmodal-sug-chip--on');
+            addSuggestionItem(sug, comensal);
+          }
+          updateEnviarBtn();
+        });
+      })(chips[c]);
+    }
+
+    var swapBtn = card.querySelector('.mmodal-sug-swap');
+    if (swapBtn) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          swapSuggestion(idx);
+        });
+      })(swapBtn);
+    }
   }
 
   function renderComandaCart() {
@@ -639,7 +791,7 @@ function initMapa() {
     cartEl.innerHTML = '';
     for (var i = 0; i < commandaItems.length; i++) {
       (function(item, idx) {
-        var comLabel = item.comensal === 0 ? 'General' : 'C.' + item.comensal;
+        var comLabel = item.comensal === 0 ? 'G' : 'C.' + item.comensal;
         var row = document.createElement('div');
         row.className = 'mmodal-cart-row';
         row.innerHTML =
@@ -651,6 +803,34 @@ function initMapa() {
             '<button data-idx="' + idx + '" data-op="inc">+</button>' +
           '</div>' +
           '<span class="mmodal-cart-subtotal">$' + (item.p * item.qty) + '</span>';
+
+        // Nota toggle
+        var noteToggle = document.createElement('button');
+        noteToggle.className = 'mmodal-cart-nota-btn' + (item.nota ? ' mmodal-cart-nota-btn--active' : '');
+        noteToggle.type = 'button';
+        noteToggle.textContent = item.nota ? '✎ Nota ✓' : '✎ Nota';
+        row.appendChild(noteToggle);
+
+        var noteWrap = document.createElement('div');
+        noteWrap.className = 'mmodal-cart-nota-wrap';
+        if (!item.nota) noteWrap.style.display = 'none';
+        var noteTA = document.createElement('textarea');
+        noteTA.className = 'mmodal-cart-nota-input';
+        noteTA.placeholder = 'Ej: sin cebolla, término medio…';
+        noteTA.maxLength = 280;
+        noteTA.rows = 2;
+        noteTA.value = item.nota || '';
+        (function(capturedIdx, ta, toggle) {
+          ta.addEventListener('input', function() { commandaItems[capturedIdx].nota = ta.value; });
+          toggle.addEventListener('click', function() {
+            var open = noteWrap.style.display !== 'none';
+            noteWrap.style.display = open ? 'none' : 'block';
+            toggle.textContent = !open ? '✎ Nota ↑' : (commandaItems[capturedIdx].nota ? '✎ Nota ✓' : '✎ Nota');
+          });
+        })(idx, noteTA, noteToggle);
+        noteWrap.appendChild(noteTA);
+        row.appendChild(noteWrap);
+
         cartEl.appendChild(row);
       })(commandaItems[i], i);
     }
@@ -718,7 +898,7 @@ function initMapa() {
             byArea[key] = { label: it.area_nombre, color: it.area_color, items: [] };
           }
           byArea[key].items.push(it);
-          grandTotal += it.precio * it.cantidad;
+          if (it.estado !== 'cancelado') grandTotal += it.precio * it.cantidad;
         }
 
         var html = '';
@@ -729,23 +909,36 @@ function initMapa() {
                   escHtml(ag.label) + '</div>';
           for (var j = 0; j < ag.items.length; j++) {
             var row = ag.items[j];
-            var statusColor = row.estado === 'entregado'     ? '#5ba4cf'
+            var statusColor = row.estado === 'cancelado'      ? '#555'
+                            : row.estado === 'entregado'      ? '#5ba4cf'
                             : row.estado === 'listo'          ? '#8bbf7e'
                             : row.estado === 'en_preparacion' ? '#e8a920' : '#9a9a9a';
-            var statusLabel = row.estado === 'entregado'     ? 'Entregado ✓'
+            var statusLabel = row.estado === 'cancelado'      ? 'Cancelado'
+                            : row.estado === 'entregado'      ? 'Entregado ✓'
                             : row.estado === 'listo'          ? 'Listo'
                             : row.estado === 'en_preparacion' ? 'En preparación' : 'Enviado';
             var com = row.comensal !== null ? 'C.' + row.comensal : 'Gral';
             var entBtn = row.estado === 'listo'
               ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">✓ Entregar</button>'
               : '';
-            html += '<div class="mmodal-confirm-item">' +
+            var cancelBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
+              ? '<button class="mmodal-cancel-btn" data-id="' + row.id +
+                '" data-nombre="' + escHtml(row.nombre) + '">×</button>'
+              : '';
+            var notaHtml = row.nota
+              ? '<span class="mmodal-resumen-nota">' + escHtml(row.nota) + '</span>'
+              : '';
+            var itemClass = row.estado === 'cancelado'
+              ? 'mmodal-confirm-item mmodal-confirm-item--cancelado'
+              : 'mmodal-confirm-item';
+            html += '<div class="' + itemClass + '">' +
                     '<span class="mmodal-status-dot" style="background:' + statusColor + '" title="' + statusLabel + '"></span>' +
                     '<span class="mmodal-confirm-item-name">' + escHtml(row.nombre) +
-                    ' <span class="mmodal-cart-comensal">' + com + '</span></span>' +
+                    ' <span class="mmodal-cart-comensal">' + com + '</span>' +
+                    notaHtml + '</span>' +
                     '<span class="mmodal-confirm-item-qty">\xD7' + row.cantidad + '</span>' +
                     '<span class="mmodal-confirm-item-price">$' + Math.round(row.precio * row.cantidad) + '</span>' +
-                    entBtn +
+                    cancelBtn + entBtn +
                     '</div>';
           }
         }
@@ -767,10 +960,21 @@ function initMapa() {
           })(entBtns[eb]);
         }
 
+        // Bind botones "× Cancelar"
+        var cancelBtns = resumenEl.querySelectorAll('.mmodal-cancel-btn');
+        for (var cb = 0; cb < cancelBtns.length; cb++) {
+          (function(btn) {
+            btn.addEventListener('click', function() {
+              showCancelItemConfirm(parseInt(btn.dataset.id, 10), btn.dataset.nombre, ticketId);
+            });
+          })(cancelBtns[cb]);
+        }
+
         // Actualizar badge en tab
         var badge = modalContent.querySelector('#mmodal-resumen-badge');
         if (badge) {
-          badge.textContent   = data.items.length;
+          var activeCount = data.items.filter(function(x) { return x.estado !== 'cancelado'; }).length;
+          badge.textContent   = activeCount;
           badge.style.display = 'inline';
         }
       })
@@ -807,12 +1011,13 @@ function initMapa() {
       })(chips[ci]);
     }
 
-    // Tabs principales: Menú / Pedido / Ticket
-    var mainTabs     = modalContent.querySelectorAll('.mmodal-tab');
-    var panelMenu    = modalContent.querySelector('#mmodal-panel-menu');
-    var panelCart    = modalContent.querySelector('#mmodal-panel-cart');
-    var panelResumen = modalContent.querySelector('#mmodal-panel-resumen');
-    var allPanels    = [panelMenu, panelCart, panelResumen];
+    // Tabs principales: Menú / Pedido / Ticket / Sugerencias
+    var mainTabs          = modalContent.querySelectorAll('.mmodal-tab');
+    var panelMenu         = modalContent.querySelector('#mmodal-panel-menu');
+    var panelCart         = modalContent.querySelector('#mmodal-panel-cart');
+    var panelResumen      = modalContent.querySelector('#mmodal-panel-resumen');
+    var panelSugerencias  = modalContent.querySelector('#mmodal-panel-sugerencias');
+    var allPanels         = [panelMenu, panelCart, panelResumen, panelSugerencias];
 
     function activatePanel(targetTab) {
       for (var k = 0; k < mainTabs.length; k++) mainTabs[k].classList.remove('mmodal-tab--active');
@@ -821,9 +1026,10 @@ function initMapa() {
         if (allPanels[p]) allPanels[p].classList.remove('mmodal-tab-panel--active');
       }
       var panel = null;
-      if (targetTab.dataset.tab === 'menu')    panel = panelMenu;
-      if (targetTab.dataset.tab === 'cart')    panel = panelCart;
-      if (targetTab.dataset.tab === 'resumen') { panel = panelResumen; renderResumen(ticket.id); }
+      if (targetTab.dataset.tab === 'menu')         panel = panelMenu;
+      if (targetTab.dataset.tab === 'cart')         panel = panelCart;
+      if (targetTab.dataset.tab === 'resumen')      { panel = panelResumen; renderResumen(ticket.id); }
+      if (targetTab.dataset.tab === 'sugerencias')  panel = panelSugerencias;
       if (panel) panel.classList.add('mmodal-tab-panel--active');
     }
 
@@ -844,9 +1050,14 @@ function initMapa() {
       })(ticket.id);
     }
 
-    // En desktop las 3 columnas son visibles desde el inicio
+    // En desktop las 4 columnas son visibles desde el inicio
     if (window.innerWidth >= 768) {
       renderResumen(ticket.id);
+    }
+
+    // Sugerencias: bind inicial de todas las cards
+    for (var sgIdx = 0; sgIdx < SUGERENCIAS.length; sgIdx++) {
+      bindSuggestionCard(sgIdx);
     }
   }
 
@@ -1115,7 +1326,8 @@ function initMapa() {
         categoria: ci.categoria,
         area_id:   ci.area_id,
         comensal:  ci.comensal === 0 ? null : ci.comensal,
-        cantidad:  ci.qty
+        cantidad:  ci.qty,
+        nota:      ci.nota && ci.nota.trim() ? ci.nota.trim() : null
       });
     }
 
@@ -1150,6 +1362,41 @@ function initMapa() {
     })
     .then(function(r) { return r.json(); })
     .then(function(result) { if (result.ok) renderResumen(ticketId); });
+  }
+
+  function showCancelItemConfirm(itemId, nombre, ticketId) {
+    var overlay = document.createElement('div');
+    overlay.className = 'mmodal-cancel-confirm-overlay';
+    overlay.innerHTML =
+      '<div class="mmodal-cancel-confirm">' +
+        '<p class="mmodal-cancel-confirm__msg">¿Cancelar <strong>' + escHtml(nombre) + '</strong>?</p>' +
+        '<p class="mmodal-cancel-confirm__sub">El área dejará de prepararlo. Esta acción no se puede deshacer.</p>' +
+        '<div class="mmodal-cancel-confirm__btns">' +
+          '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver">No, conservar</button>' +
+          '<button class="mmodal-btn mmodal-btn--danger" id="cc-confirm">Sí, cancelar</button>' +
+        '</div>' +
+      '</div>';
+    var panel = modalContent.querySelector('#mmodal-panel-resumen');
+    if (panel) panel.appendChild(overlay);
+    overlay.querySelector('#cc-volver').addEventListener('click', function() { overlay.remove(); });
+    overlay.querySelector('#cc-confirm').addEventListener('click', function() {
+      overlay.remove();
+      apiCancelarItem(itemId, ticketId);
+    });
+  }
+
+  function apiCancelarItem(itemId, ticketId) {
+    fetch('/api/cancelar-item', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ item_id: itemId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.ok) renderResumen(ticketId);
+      else alert(result.msg || 'No se pudo cancelar el platillo');
+    })
+    .catch(function() { alert('Error de conexión'); });
   }
 
   // ── Calendario personalizado de fecha ────────────────────

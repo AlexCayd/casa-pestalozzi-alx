@@ -53,7 +53,7 @@
 
           <!-- Paso 2 -->
           <div class="fb-step" data-step="1">
-            <p class="fb-step__label">Atención del mesero</p>
+            <p class="fb-step__label">Atención del personal</p>
             <div class="fb-escala" data-campo="atencion_mesero">
               <?php echo renderEscala('atencion_mesero'); ?>
             </div>
@@ -80,6 +80,12 @@
             <p class="fb-step__label">¿Qué podríamos mejorar para que tu próxima experiencia sea mejor?</p>
             <textarea class="fb-textarea" id="fb-comentario"
                       placeholder="Tu opinión es muy valiosa para nosotros…" rows="5"></textarea>
+          </div>
+
+          <!-- Paso 6 — resumen -->
+          <div class="fb-step" data-step="5">
+            <p class="fb-step__label">Confirma tu reseña</p>
+            <div class="fb-resumen" id="fb-resumen"></div>
           </div>
 
           <!-- Navegación -->
@@ -110,8 +116,15 @@
 
   <script>
   (function() {
-    var CAMPOS = ['calidad_sabor', 'atencion_mesero', 'tiempo_espera', 'experiencia_global'];
-    var TOTAL  = 5;
+    var CAMPOS      = ['calidad_sabor', 'atencion_mesero', 'tiempo_espera', 'experiencia_global'];
+    var FACE_LABELS = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
+    var STEP_LABELS = {
+      calidad_sabor:     'Calidad y sabor',
+      atencion_mesero:   'Atención del personal',
+      tiempo_espera:     'Tiempo de espera',
+      experiencia_global:'Experiencia global'
+    };
+    var TOTAL  = 6;
 
     var form        = document.getElementById('fb-form');
     var wrap        = document.getElementById('fb-form-wrap');
@@ -130,6 +143,7 @@
     var current = 0;
 
     function showStep(idx) {
+      if (idx === TOTAL - 1) buildSummary();
       steps.forEach(function(s, i) {
         s.classList.toggle('fb-step--active', i === idx);
       });
@@ -158,12 +172,90 @@
 
     function isRatingStepValid() {
       var campo = currentCampo();
-      if (!campo) return true; // paso de texto libre
+      if (!campo) return true; // paso de texto libre o resumen
       var input = document.getElementById('fb-val-' + campo);
       return input && input.value !== '';
     }
 
-    // Eventos de caras
+    var FACE_COLORS = ['#e53935','#F57C00','#F9A825','#43A047','#29B6F6'];
+    var FACE_PATHS  = [
+      '<path d="M27 33 L41 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><path d="M73 33 L59 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><circle cx="36" cy="47" r="5" fill="#1a1a1a"/><circle cx="64" cy="47" r="5" fill="#1a1a1a"/><path d="M33 69 Q50 59 67 69" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><path d="M33 67 Q50 59 67 67" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><line x1="34" y1="64" x2="66" y2="64" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>',
+      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><path d="M34 60 Q50 74 66 60" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
+      '<path d="M29 42 Q36 35 43 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M57 42 Q64 35 71 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M32 60 Q50 78 68 60 Q50 70 32 60Z" fill="#1a1a1a"/>'
+    ];
+
+    function buildSummary() {
+      var html = '';
+      CAMPOS.forEach(function(campo) {
+        var input = document.getElementById('fb-val-' + campo);
+        var val   = input ? parseInt(input.value, 10) : 0;
+
+        html += '<div class="fb-resumen-row" data-campo="' + campo + '">';
+        html += '<div class="fb-resumen-row__label">' + STEP_LABELS[campo] + '</div>';
+        html += '<div class="fb-resumen-row__faces">';
+
+        for (var i = 0; i < 5; i++) {
+          var faceNum  = i + 1;
+          var isActive = (faceNum === val);
+          var cls = 'fb-resumen-face fb-resumen-face--' + faceNum + (isActive ? ' fb-resumen-face--active' : '');
+          html += '<button type="button" class="' + cls + '" data-campo="' + campo + '" data-valor="' + faceNum + '">';
+          html += '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">';
+          html += '<circle cx="50" cy="50" r="48" fill="' + FACE_COLORS[i] + '"/>';
+          html += FACE_PATHS[i];
+          html += '</svg>';
+          html += '<span class="fb-resumen-face__lbl">' + FACE_LABELS[faceNum] + '</span>';
+          html += '</button>';
+        }
+
+        html += '</div></div>';
+      });
+
+      var comentario = (document.getElementById('fb-comentario') || {}).value || '';
+      if (comentario.trim()) {
+        var preview = comentario.length > 60 ? comentario.substring(0, 60) + '…' : comentario;
+        html += '<div class="fb-resumen-comment">' +
+          '<span class="fb-resumen-comment__label">Comentario</span>' +
+          '<span class="fb-resumen-comment__text">' + preview + '</span>' +
+          '</div>';
+      }
+
+      var resumenEl = document.getElementById('fb-resumen');
+      if (!resumenEl) return;
+      resumenEl.innerHTML = html;
+
+      // Caras del resumen son interactivas
+      resumenEl.querySelectorAll('.fb-resumen-face').forEach(function(face) {
+        face.addEventListener('click', function() {
+          var campo = face.dataset.campo;
+          var valor = parseInt(face.dataset.valor, 10);
+
+          // Actualizar visual en el resumen
+          var facesRow = face.closest('.fb-resumen-row__faces');
+          facesRow.querySelectorAll('.fb-resumen-face').forEach(function(f) {
+            f.classList.remove('fb-resumen-face--active');
+          });
+          face.classList.add('fb-resumen-face--active');
+
+          // Actualizar el input oculto
+          var input = document.getElementById('fb-val-' + campo);
+          if (input) input.value = valor;
+
+          // Sincronizar con el paso original
+          var escala = document.querySelector('.fb-escala[data-campo="' + campo + '"]');
+          if (escala) {
+            escala.querySelectorAll('.fb-face').forEach(function(f) {
+              f.classList.remove('fb-face--active');
+            });
+            var orig = escala.querySelector('.fb-face[data-valor="' + valor + '"]');
+            if (orig) orig.classList.add('fb-face--active');
+          }
+        });
+      });
+    }
+
+    // Eventos de caras — selecciona y avanza automáticamente
     document.querySelectorAll('.fb-escala').forEach(function(escala) {
       escala.querySelectorAll('.fb-face').forEach(function(face) {
         face.addEventListener('click', function() {
@@ -174,6 +266,10 @@
           var input = document.getElementById('fb-val-' + escala.dataset.campo);
           if (input) input.value = face.dataset.valor;
           clearError();
+          // Avanzar al siguiente paso automáticamente si es un paso de ratings
+          if (current < CAMPOS.length && current < TOTAL - 1) {
+            setTimeout(function() { showStep(current + 1); }, 220);
+          }
         });
       });
     });

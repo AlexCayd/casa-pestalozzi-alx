@@ -29,6 +29,7 @@ $router->post('/api/cerrar-ticket',       [MapaController::class, 'cerrarTicket'
 $router->post('/api/enviar-comanda',      [MapaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [MapaController::class, 'ticketItems']);
 $router->post('/api/entregar-item',       [MapaController::class, 'entregarItem']);
+$router->post('/api/cancelar-item',       [MapaController::class, 'cancelarItem']);
 $router->post('/api/actualizar-ticket',   [MapaController::class, 'actualizarTicket']);
 
 // Áreas de producción (KDS)

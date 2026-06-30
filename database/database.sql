@@ -542,3 +542,17 @@ INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
 ('Papas a la Francesa con Parmesano',
  'Papas a la francesa con queso parmesano rallado.',
  160.00, NULL, 8);
+
+-- -------------------------------------------------------
+-- MIGRACIONES INCREMENTALES
+-- -------------------------------------------------------
+
+-- v2: cancelar platillos + nota por platillo
+ALTER TABLE ticket_items
+  MODIFY COLUMN estado
+    ENUM('enviado','en_preparacion','listo','entregado','cancelado')
+    NOT NULL DEFAULT 'enviado';
+
+ALTER TABLE ticket_items
+  ADD COLUMN nota VARCHAR(280) NULL DEFAULT NULL
+  AFTER cantidad;
