@@ -1628,6 +1628,7 @@
 .mmodal-cart-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.3rem 0;
   border-bottom: 1px solid var(--line-soft);
@@ -1942,6 +1943,7 @@
   display: none;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 .mmodal-tab-panel--active {
   display: flex;
@@ -2026,7 +2028,7 @@
 
 @media (min-width: 768px) {
   .mesa-modal__panel {
-    width: min(1100px, 98vw);
+    width: min(1340px, 98vw);
     max-height: none;
     overflow: hidden;
   }
@@ -2035,7 +2037,7 @@
   }
   .mmodal-panels {
     display: grid;
-    grid-template-columns: 1.1fr 1fr 0.9fr;
+    grid-template-columns: 1.1fr 1fr 0.9fr 0.8fr;
     gap: 1rem;
     height: clamp(380px, 78vh - 110px, 580px);
   }
@@ -2066,6 +2068,289 @@
     margin-bottom: 0;
   }
 }
+.mmodal-cart-nota-btn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  background: none;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 0.18rem 0.45rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.14s, border-color 0.14s;
+}
+.mmodal-cart-nota-btn:hover {
+  color: var(--txt-mute);
+  border-color: var(--line);
+}
+.mmodal-cart-nota-btn--active {
+  color: var(--gold);
+  border-color: rgba(204, 163, 82, 0.4);
+}
+
+.mmodal-cart-nota-wrap {
+  width: 100%;
+  padding: 0.25rem 0 0.1rem;
+}
+
+.mmodal-cart-nota-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--txt);
+  resize: vertical;
+  outline: none;
+}
+.mmodal-cart-nota-input::placeholder {
+  color: var(--txt-faint);
+  font-style: italic;
+}
+.mmodal-cart-nota-input:focus {
+  border-color: rgba(204, 163, 82, 0.4);
+}
+
+.mmodal-resumen-nota {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--txt-faint);
+  font-style: italic;
+  margin-top: 0.15rem;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.mmodal-confirm-item--cancelado {
+  opacity: 0.45;
+}
+.mmodal-confirm-item--cancelado .mmodal-confirm-item-name,
+.mmodal-confirm-item--cancelado .mmodal-confirm-item-qty,
+.mmodal-confirm-item--cancelado .mmodal-confirm-item-price {
+  text-decoration: line-through;
+  color: var(--txt-faint);
+}
+
+.mmodal-cancel-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(180, 60, 40, 0.35);
+  background: rgba(180, 60, 40, 0.08);
+  color: #e07060;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.14s;
+}
+.mmodal-cancel-btn:hover {
+  background: rgba(180, 60, 40, 0.22);
+}
+
+.mmodal-cancel-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 12, 13, 0.82);
+  border-radius: inherit;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 1.25rem;
+}
+
+.mmodal-cancel-confirm {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.5rem 1.25rem 1.1rem;
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  text-align: center;
+}
+.mmodal-cancel-confirm__msg {
+  font-size: 0.9rem;
+  color: var(--txt);
+  line-height: 1.45;
+  margin: 0;
+}
+.mmodal-cancel-confirm__msg strong {
+  color: var(--gold-soft);
+}
+.mmodal-cancel-confirm__sub {
+  font-size: 0.73rem;
+  color: var(--txt-faint);
+  margin: 0;
+  line-height: 1.4;
+}
+.mmodal-cancel-confirm__btns {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+.mmodal-cancel-confirm__btns .mmodal-btn {
+  flex: 1;
+  padding: 0.7rem 0.4rem;
+  font-size: 0.66rem;
+}
+
+.mmodal-btn--danger {
+  border-color: rgba(180, 60, 40, 0.5);
+  color: #e07060;
+}
+.mmodal-btn--danger:hover {
+  background: rgba(180, 60, 40, 0.15);
+  border-color: rgba(180, 60, 40, 0.8);
+}
+
+#mmodal-panel-sugerencias .mmodal-panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.mmodal-sug-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 1rem 1rem 1rem;
+  transition: border-color 0.15s;
+}
+.mmodal-sug-card:hover {
+  border-color: rgba(204, 163, 82, 0.3);
+}
+
+.mmodal-sug-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.mmodal-sug-name {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--txt);
+  line-height: 1.25;
+}
+
+.mmodal-sug-price {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(204, 163, 82, 0.12);
+  border: 1px solid rgba(204, 163, 82, 0.28);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.mmodal-sug-area {
+  font-size: 0.6rem;
+  color: var(--txt-faint);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+}
+
+.mmodal-sug-divider {
+  height: 1px;
+  background: var(--line-soft);
+  margin: 0.75rem 0;
+}
+
+.mmodal-sug-question {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  margin-bottom: 0.65rem;
+}
+
+.mmodal-sug-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 0.45rem;
+}
+
+.mmodal-sug-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  border: 1.5px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--txt-mute);
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s, border-color 0.14s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mmodal-sug-chip:hover:not(.mmodal-sug-chip--on) {
+  border-color: rgba(204, 163, 82, 0.4);
+  color: var(--txt);
+}
+.mmodal-sug-chip--on {
+  background: rgba(204, 163, 82, 0.18);
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.mmodal-sug-footer {
+  margin-top: auto;
+  padding-top: 1.25rem;
+}
+
+.mmodal-sug-swap {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: color 0.14s, border-color 0.14s, background 0.14s;
+}
+.mmodal-sug-swap:hover {
+  color: var(--txt);
+  border-color: var(--line-soft);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 /* Integracion visual del mapa dentro del shell admin. */
 .admin-map {
   min-width: 0;

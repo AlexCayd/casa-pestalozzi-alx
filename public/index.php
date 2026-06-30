@@ -13,6 +13,7 @@ use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
 use Controllers\MapaController;
+use Controllers\AreaController;
 
 $router = new Router();
 
@@ -66,6 +67,25 @@ $router->get('/admin/printers', [AdminController::class, 'printers']);
 $router->get('/admin/users', [AdminController::class, 'users']);
 
 
+
+// Vistas standalone del personal (POS meseros y KDS cocina)
+$router->get('/mapa',        [MapaController::class, 'index']);
+$router->get('/api/mapa',    [MapaController::class, 'api']);
+$router->post('/api/abrir-ticket',        [MapaController::class, 'abrirTicket']);
+$router->post('/api/liberar-reservacion', [MapaController::class, 'liberarReservacion']);
+$router->post('/api/cerrar-ticket',       [MapaController::class, 'cerrarTicket']);
+$router->post('/api/enviar-comanda',      [MapaController::class, 'enviarComanda']);
+$router->get('/api/ticket-items',         [MapaController::class, 'ticketItems']);
+$router->post('/api/entregar-item',       [MapaController::class, 'entregarItem']);
+$router->post('/api/actualizar-ticket',   [MapaController::class, 'actualizarTicket']);
+
+$router->get('/area/cafe',   [AreaController::class, 'cafe']);
+$router->get('/area/jugos',  [AreaController::class, 'jugos']);
+$router->get('/area/cocina', [AreaController::class, 'cocina']);
+$router->get('/area/horno',  [AreaController::class, 'horno']);
+$router->get('/api/area-items',       [AreaController::class, 'areaItems']);
+$router->post('/api/avanzar-item',    [AreaController::class, 'avanzarItem']);
+$router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem']);
 
 // Feedback de clientes
 $router->get('/feedback',      [FeedbackController::class, 'index']);

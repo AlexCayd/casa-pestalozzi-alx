@@ -9,6 +9,10 @@ use MVC\Router;
 
 class MapaController {
 
+    public static function index(Router $router) {
+        include_once __DIR__ . '/../views/mapa/index.php';
+    }
+
     // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
         header('Content-Type: application/json');

@@ -6,6 +6,23 @@ use MVC\Router;
 
 class AreaController {
 
+    private static $AREAS = [
+        'cafe'   => ['id' => 1, 'nombre' => 'Barra de Café',    'color' => '#7b5e3a'],
+        'jugos'  => ['id' => 2, 'nombre' => 'Barra de Jugos',   'color' => '#e8a920'],
+        'cocina' => ['id' => 3, 'nombre' => 'Cocina',            'color' => '#b03a2e'],
+        'horno'  => ['id' => 4, 'nombre' => 'Horno Napolitano', 'color' => '#1a5276'],
+    ];
+
+    public static function cafe(Router $router)   { self::renderArea('cafe'); }
+    public static function jugos(Router $router)  { self::renderArea('jugos'); }
+    public static function cocina(Router $router) { self::renderArea('cocina'); }
+    public static function horno(Router $router)  { self::renderArea('horno'); }
+
+    private static function renderArea($slug) {
+        $area = self::$AREAS[$slug];
+        include __DIR__ . '/../views/area/index.php';
+    }
+
     // GET /admin/api/area-items?area_id=X
     public static function areaItems(Router $router) {
         header('Content-Type: application/json');
