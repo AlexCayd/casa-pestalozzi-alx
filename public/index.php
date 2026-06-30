@@ -3,13 +3,14 @@
 require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
+use Controllers\AdminController;
+use Controllers\AdminAreaController;
+use Controllers\AdminMapController;
+use Controllers\AdminMenuController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
-use Controllers\DashboardController;
-use Controllers\MapaController;
-use Controllers\AreaController;
 use Controllers\FeedbackController;
 
 $router = new Router();
@@ -20,26 +21,49 @@ $router->get('/', [HomeController::class, 'index']);
 // Reservaciones
 $router->post('/reservar', [ReservacionController::class, 'crear']);
 
-// Mapa de mesas (herramienta interna)
-$router->get('/mapa',     [MapaController::class, 'index']);
-$router->get('/api/mapa', [MapaController::class, 'api']);
-$router->post('/api/abrir-ticket',        [MapaController::class, 'abrirTicket']);
-$router->post('/api/liberar-reservacion', [MapaController::class, 'liberarReservacion']);
-$router->post('/api/cerrar-ticket',       [MapaController::class, 'cerrarTicket']);
-$router->post('/api/enviar-comanda',      [MapaController::class, 'enviarComanda']);
-$router->get('/api/ticket-items',         [MapaController::class, 'ticketItems']);
-$router->post('/api/entregar-item',       [MapaController::class, 'entregarItem']);
+// Admin
+$router->get('/admin', [AdminController::class, 'index']);
+$router->get('/admin/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/menu', [AdminMenuController::class, 'index']);
+$router->get('/admin/menu/categories', [AdminMenuController::class, 'categories']);
+$router->get('/admin/menu/categories/create', [AdminMenuController::class, 'categoryCreate']);
+$router->post('/admin/menu/categories/create', [AdminMenuController::class, 'categoryCreate']);
+$router->get('/admin/menu/categories/edit', [AdminMenuController::class, 'categoryEdit']);
+$router->post('/admin/menu/categories/edit', [AdminMenuController::class, 'categoryEdit']);
+$router->post('/admin/menu/categories/delete', [AdminMenuController::class, 'categoryDelete']);
+$router->get('/admin/menu/items', [AdminMenuController::class, 'items']);
+$router->get('/admin/menu/items/create', [AdminMenuController::class, 'itemCreate']);
+$router->post('/admin/menu/items/create', [AdminMenuController::class, 'itemCreate']);
+$router->get('/admin/menu/items/edit', [AdminMenuController::class, 'itemEdit']);
 $router->post('/api/cancelar-item',       [MapaController::class, 'cancelarItem']);
-$router->post('/api/actualizar-ticket',   [MapaController::class, 'actualizarTicket']);
+$router->post('/admin/menu/items/edit', [AdminMenuController::class, 'itemEdit']);
+$router->post('/admin/menu/items/delete', [AdminMenuController::class, 'itemDelete']);
+$router->get('/admin/map', [AdminMapController::class, 'index']);
+$router->get('/admin/area', [AdminAreaController::class, 'index']);
+$router->get('/admin/area/cafe', [AdminAreaController::class, 'cafe']);
+$router->get('/admin/area/jugos', [AdminAreaController::class, 'jugos']);
+$router->get('/admin/area/cocina', [AdminAreaController::class, 'cocina']);
+$router->get('/admin/area/horno', [AdminAreaController::class, 'horno']);
+$router->get('/admin/api/map', [AdminMapController::class, 'map']);
+$router->post('/admin/api/open-ticket', [AdminMapController::class, 'openTicket']);
+$router->post('/admin/api/release-reservation', [AdminMapController::class, 'releaseReservation']);
+$router->post('/admin/api/close-ticket', [AdminMapController::class, 'closeTicket']);
+$router->post('/admin/api/send-order', [AdminMapController::class, 'sendOrder']);
+$router->get('/admin/api/ticket-items', [AdminMapController::class, 'ticketItems']);
+$router->post('/admin/api/deliver-item', [AdminMapController::class, 'deliverItem']);
+$router->post('/admin/api/update-ticket', [AdminMapController::class, 'updateTicket']);
+$router->get('/admin/api/area-items', [AdminAreaController::class, 'areaItems']);
+$router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceItem']);
+$router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
+$router->get('/admin/reservations', [AdminController::class, 'reservations']);
+$router->get('/admin/tables', [AdminController::class, 'tables']);
+$router->get('/admin/products', [AdminController::class, 'products']);
+$router->get('/admin/categories', [AdminController::class, 'categories']);
+$router->get('/admin/tickets', [AdminController::class, 'tickets']);
+$router->get('/admin/payments', [AdminController::class, 'payments']);
+$router->get('/admin/printers', [AdminController::class, 'printers']);
+$router->get('/admin/users', [AdminController::class, 'users']);
 
-// Áreas de producción (KDS)
-$router->get('/area/cafe',   [AreaController::class, 'cafe']);
-$router->get('/area/jugos',  [AreaController::class, 'jugos']);
-$router->get('/area/cocina', [AreaController::class, 'cocina']);
-$router->get('/area/horno',  [AreaController::class, 'horno']);
-$router->get('/api/area-items',       [AreaController::class, 'areaItems']);
-$router->post('/api/avanzar-item',    [AreaController::class, 'avanzarItem']);
-$router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem']);
 
 
 // Feedback de clientes
@@ -70,21 +94,7 @@ $router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 // Leer menu de la base de datos
 $router->get('/menu', [MenuController::class, 'index']);
 
-// Rutas del dashboard
-$router->get('/dashboard', [DashboardController::class, 'index']);
 
-// CRUD Categorías
-$router->get('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
-$router->post('/dashboard/categorias/crear', [DashboardController::class, 'categoriaCrear']);
-$router->get('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
-$router->post('/dashboard/categorias/editar', [DashboardController::class, 'categoriaEditar']);
-$router->post('/dashboard/categorias/eliminar', [DashboardController::class, 'categoriaEliminar']);
 
-// CRUD Platillos (Menú)
-$router->get('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
-$router->post('/dashboard/menu/crear', [DashboardController::class, 'menuCrear']);
-$router->get('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
-$router->post('/dashboard/menu/editar', [DashboardController::class, 'menuEditar']);
-$router->post('/dashboard/menu/eliminar', [DashboardController::class, 'menuEliminar']);
 
 $router->comprobarRutas();

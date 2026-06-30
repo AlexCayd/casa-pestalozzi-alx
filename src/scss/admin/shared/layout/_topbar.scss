@@ -1,0 +1,94 @@
+/*
+ * Presentacion de la barra superior del panel administrativo.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual.
+ */
+@use "../abstracts/variables" as vars;
+@use "../abstracts/mixins" as mixins;
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 7px 24px;
+  backdrop-filter: blur(20px);
+  background: rgba(245, 245, 245, 0.78);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-topbar__heading {
+  min-width: 0;
+}
+
+.admin-topbar__module {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-topbar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+
+  strong {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--admin-sage-deep);
+    color: #fff;
+    font-size: 11px;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-tablet) {
+  .admin-topbar {
+    gap: 10px;
+    min-height: 54px;
+    padding: 6px 16px;
+  }
+
+  .admin-topbar__module {
+    font-size: 14px;
+  }
+
+  .admin-topbar__user {
+    justify-self: end;
+    gap: 8px;
+  }
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .admin-topbar {
+    padding: 6px 12px;
+  }
+
+  .admin-topbar__user span {
+    display: none;
+  }
+
+  .admin-topbar__user strong {
+    width: 32px;
+    height: 32px;
+  }
+}

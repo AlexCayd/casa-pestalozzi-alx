@@ -1,0 +1,89 @@
+/*
+ * Base visual aislada del panel de administración.
+ * Define tokens de color, superficies y normalización local del módulo admin.
+ */
+.admin-body {
+  /* Base */
+  --admin-bg: #f6f1e7;
+  --admin-surface: #fdfcfb;
+  --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
+
+  /* Sidebar */
+  --admin-sidebar: #101213;
+  --admin-sidebar-soft: #15181a;
+
+  /* Texto */
+  --admin-text: #0b0c0d;
+  --admin-muted: rgba(11, 12, 13, 0.58);
+
+  /* Texto sobre fondo oscuro */
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+
+  /* Marca */
+  --admin-gold: #cca352;
+  --admin-gold-deep: #a07e36;
+  --admin-sage: #5f7d56;
+  --admin-sage-deep: #4e6148;
+  --admin-terra: #7c3d1d;
+
+  /* Bordes */
+  --admin-border: rgba(204, 163, 82, 0.22);
+  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
+
+  /* Estados */
+  --admin-success: #5f7d56;
+  --admin-warning: #cca352;
+  --admin-danger: #a94b3f;
+
+  /* Layout */
+  --admin-radius: 1.4rem;
+  --admin-radius-sm: 12px;
+  --admin-radius-md: 16px;
+  --admin-radius-lg: 20px;
+
+  --admin-header-height: 88px;
+  --admin-sidebar-width: 280px;
+  --admin-sidebar-collapsed-width: 88px;
+  --admin-layout-transition: 180ms ease;
+
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  cursor: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-body,
+.admin-body *,
+.admin-body *::before,
+.admin-body *::after {
+  box-sizing: border-box;
+}
+
+.admin-body * {
+  margin: 0;
+  padding: 0;
+}
+
+.admin-body main {
+  display: block;
+}
+
+.admin-body a {
+  background-color: transparent;
+  color: inherit;
+}
+
+.admin-body button,
+.admin-body select {
+  margin: 0;
+  font: inherit;
+  text-transform: none;
+}

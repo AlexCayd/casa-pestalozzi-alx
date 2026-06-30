@@ -1,0 +1,13 @@
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+$breakpoint-wide: 1200px;
+$breakpoint-drawer: 992px;
+$breakpoint-tablet: 768px;
+$breakpoint-mobile: 576px;
+
+$admin-max-width: 1440px;
+$admin-sidebar-min: 240px;
+$admin-sidebar-max: 280px;
+$admin-drawer-width: 320px;

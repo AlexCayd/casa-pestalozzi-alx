@@ -1,0 +1,990 @@
+@charset "UTF-8";
+/*
+ * Entrada SCSS compartida del panel de administración.
+ * Compone bases, layout y componentes reutilizables sin incluir la landing.
+ */
+/*
+ * Base visual aislada del panel de administración.
+ * Define tokens de color, superficies y normalización local del módulo admin.
+ */
+.admin-body {
+  /* Base */
+  --admin-bg: #f6f1e7;
+  --admin-surface: #fdfcfb;
+  --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
+  /* Sidebar */
+  --admin-sidebar: #101213;
+  --admin-sidebar-soft: #15181a;
+  /* Texto */
+  --admin-text: #0b0c0d;
+  --admin-muted: rgba(11, 12, 13, 0.58);
+  /* Texto sobre fondo oscuro */
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  /* Marca */
+  --admin-gold: #cca352;
+  --admin-gold-deep: #a07e36;
+  --admin-sage: #5f7d56;
+  --admin-sage-deep: #4e6148;
+  --admin-terra: #7c3d1d;
+  /* Bordes */
+  --admin-border: rgba(204, 163, 82, 0.22);
+  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
+  /* Estados */
+  --admin-success: #5f7d56;
+  --admin-warning: #cca352;
+  --admin-danger: #a94b3f;
+  /* Layout */
+  --admin-radius: 1.4rem;
+  --admin-radius-sm: 12px;
+  --admin-radius-md: 16px;
+  --admin-radius-lg: 20px;
+  --admin-header-height: 88px;
+  --admin-sidebar-width: 280px;
+  --admin-sidebar-collapsed-width: 88px;
+  --admin-layout-transition: 180ms ease;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  cursor: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.admin-body,
+.admin-body *,
+.admin-body *::before,
+.admin-body *::after {
+  box-sizing: border-box;
+}
+
+.admin-body * {
+  margin: 0;
+  padding: 0;
+}
+
+.admin-body main {
+  display: block;
+}
+
+.admin-body a {
+  background-color: transparent;
+  color: inherit;
+}
+
+.admin-body button,
+.admin-body select {
+  margin: 0;
+  font: inherit;
+  text-transform: none;
+}
+
+/*
+ * Tipografía exclusiva del panel de administración.
+ * Registra fuentes y jerarquías de texto para títulos y contenido de admin.
+ */
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Montserrat";
+  src: url("/build/fonts/Montserrat-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/build/fonts/PlayfairDisplay-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "KudosKaps";
+  src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+.admin-body {
+  --admin-font-body:
+    "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --admin-font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
+  --admin-logo: "KudosKaps", sans-serif;
+  font-family: var(--admin-font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.admin-body h1,
+.admin-body h2,
+.admin-body h3,
+.admin-body h4 {
+  font-family: var(--admin-font-heading);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.admin-body h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.admin-body h2 {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+
+.admin-body h3 {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+}
+
+.admin-body h4 {
+  font-size: 1.1rem;
+}
+
+.admin-body p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.admin-body strong {
+  font-weight: 700;
+}
+
+.admin-body small {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Variables estructurales del panel de administración.
+ * Centraliza breakpoints y anchos usados por el layout responsive de admin.
+ */
+/*
+ * Mixins compartidos del SCSS administrativo.
+ * Encapsula media queries y preferencias de movimiento del módulo admin.
+ */
+.admin-shell {
+  display: grid;
+  width: 100%;
+  min-height: 100vh;
+  grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-shell {
+  transition: none !important;
+}
+
+.admin-main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: clamp(28px, 3.5vw, 40px);
+}
+
+.admin-sidebar-collapsed .admin-shell,
+.admin-body.is-sidebar-collapsed .admin-shell {
+  grid-template-columns: var(--admin-sidebar-collapsed-width) minmax(0, 1fr);
+}
+
+@media (max-width: 992px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-body.is-sidebar-collapsed .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-content {
+    padding: 28px;
+  }
+}
+@media (max-width: 768px) {
+  .admin-content {
+    padding: 22px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-content {
+    padding: 16px;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Presentacion y comportamiento responsive del sidebar administrativo.
+ * Conserva navegacion fija en desktop y drawer en pantallas reducidas.
+ */
+.admin-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  max-height: 100vh;
+  padding: 22px 18px;
+  background: var(--admin-sidebar);
+  color: var(--admin-text-inverse);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transition: padding var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-sidebar,
+.admin-sidebar-preload .admin-sidebar__brand-text,
+.admin-sidebar-preload .admin-sidebar__link-text,
+.admin-sidebar-preload .admin-sidebar-backdrop {
+  transition: none !important;
+}
+
+.admin-sidebar__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 4px 18px;
+  text-decoration: none;
+  font-family: var(--admin-logo);
+  font-weight: normal;
+}
+.admin-sidebar__brand .admin-sidebar__brand-text {
+  display: block;
+  max-width: 210px;
+  color: var(--admin-gold) !important;
+  font-family: "KudosKaps", sans-serif;
+  font-size: 22px;
+  line-height: 0.98;
+  white-space: normal;
+  overflow-wrap: normal;
+  transition: opacity var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+
+.admin-sidebar__brand-mark,
+.admin-sidebar__link-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(248, 239, 226, 0.08);
+  color: var(--admin-gold);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-sidebar__brand-mark {
+  display: none;
+  width: 40px;
+  height: 40px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.admin-sidebar__link-mark {
+  width: 36px;
+  height: 36px;
+  color: rgba(248, 239, 226, 0.78);
+}
+.admin-sidebar__link-mark svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.admin-sidebar__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+
+.admin-sidebar__nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.admin-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  color: rgba(248, 239, 226, 0.78);
+  font-size: 15px;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.admin-sidebar__link:hover {
+  background: rgba(248, 239, 226, 0.1);
+  color: #fff;
+}
+.admin-sidebar__link:hover .admin-sidebar__link-mark {
+  color: #fff;
+}
+.admin-sidebar__link.is-active {
+  background: rgba(248, 239, 226, 0.12);
+  color: #fff;
+  box-shadow: inset 3px 0 0 #b9863f;
+  font-weight: 700;
+}
+.admin-sidebar__link.is-active .admin-sidebar__link-mark {
+  background: var(--admin-gold);
+  color: #101213;
+}
+
+.admin-sidebar-backdrop {
+  display: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar,
+.admin-body.is-sidebar-collapsed .admin-sidebar {
+  width: var(--admin-sidebar-collapsed-width);
+  padding-inline: 14px;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__header,
+.admin-body.is-sidebar-collapsed .admin-sidebar__header {
+  justify-content: center;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-mark,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-mark {
+  display: grid;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-sidebar-collapsed .admin-sidebar__link-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link-text {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.admin-sidebar-collapsed .admin-sidebar__link.is-active,
+.admin-body.is-sidebar-collapsed .admin-sidebar__link.is-active {
+  box-shadow: inset 0 -3px 0 #b9863f;
+}
+
+@media (max-width: 992px) {
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(320px, 100vw - 48px);
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding: 18px;
+    overflow-y: auto;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 180ms ease, visibility 180ms ease;
+    box-shadow: 20px 0 48px rgba(33, 31, 27, 0.28);
+  }
+  .admin-sidebar__brand {
+    min-width: 0;
+    padding: 4px 0 20px;
+  }
+  .admin-sidebar__header {
+    justify-content: space-between !important;
+  }
+  .admin-sidebar__brand-text,
+  .admin-sidebar__link-text {
+    width: auto !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  .admin-sidebar__brand-mark {
+    display: none !important;
+  }
+  .admin-sidebar__link {
+    width: 100%;
+    justify-content: flex-start !important;
+    padding-inline: 10px !important;
+    white-space: normal;
+  }
+  .admin-sidebar__link-mark {
+    display: grid !important;
+  }
+  .admin-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: rgba(33, 31, 27, 0.5);
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+  .admin-body.is-sidebar-open {
+    overflow: hidden;
+  }
+  .admin-body.is-sidebar-open .admin-sidebar {
+    visibility: visible;
+    transform: translateX(0);
+  }
+  .admin-body.is-sidebar-open .admin-sidebar-backdrop {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar,
+  .admin-sidebar-backdrop {
+    transition: none;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Presentacion de la barra superior del panel administrativo.
+ * Mantiene un encabezado simple, estable y sin breadcrumb visual.
+ */
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 7px 24px;
+  backdrop-filter: blur(20px);
+  background: rgba(245, 245, 245, 0.78);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-topbar__heading {
+  min-width: 0;
+}
+
+.admin-topbar__module {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-topbar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 3px 4px 3px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.admin-topbar__user strong {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--admin-sage-deep);
+  color: #fff;
+  font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .admin-topbar {
+    gap: 10px;
+    min-height: 54px;
+    padding: 6px 16px;
+  }
+  .admin-topbar__module {
+    font-size: 14px;
+  }
+  .admin-topbar__user {
+    justify-self: end;
+    gap: 8px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-topbar {
+    padding: 6px 12px;
+  }
+  .admin-topbar__user span {
+    display: none;
+  }
+  .admin-topbar__user strong {
+    width: 32px;
+    height: 32px;
+  }
+}
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+/*
+ * Controles reutilizables del panel administrativo.
+ * Define botones globales y controles de navegacion del sidebar.
+ */
+.admin-btn,
+.admin-menu__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.04);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+.admin-btn:hover,
+.admin-menu__button:hover {
+  border-color: rgba(160, 126, 54, 0.42);
+  background: var(--admin-surface-strong);
+  box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+}
+.admin-btn:focus-visible,
+.admin-menu__button:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-btn:active,
+.admin-menu__button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05);
+}
+
+.admin-btn--primary,
+.admin-menu__button--primary {
+  border-color: var(--admin-terra);
+  background: var(--admin-terra);
+  color: #fff;
+}
+.admin-btn--primary:hover,
+.admin-menu__button--primary:hover {
+  border-color: #632f16;
+  background: #632f16;
+  color: #fff;
+}
+
+.admin-btn--secondary,
+.admin-menu__button--light {
+  border-color: rgba(160, 126, 54, 0.36);
+  background: #fffaf0;
+  color: var(--admin-text);
+}
+
+.admin-btn--ghost {
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+}
+.admin-btn--ghost:hover {
+  color: var(--admin-text);
+}
+
+.admin-btn--danger,
+.admin-menu__button--danger {
+  border-color: rgba(169, 75, 63, 0.34);
+  background: rgba(169, 75, 63, 0.1);
+  color: #81382f;
+}
+.admin-btn--danger:hover,
+.admin-menu__button--danger:hover {
+  border-color: rgba(169, 75, 63, 0.52);
+  background: rgba(169, 75, 63, 0.16);
+  color: #6d2f28;
+}
+
+.admin-btn--small,
+.admin-menu__button--small {
+  min-height: 34px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+.admin-btn--disabled,
+.admin-menu__button--disabled {
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.admin-body .admin-btn,
+.admin-body .admin-menu__button {
+  background-color: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-body .admin-btn--primary,
+.admin-body .admin-menu__button--primary {
+  background-color: var(--admin-terra);
+  color: #fff;
+}
+
+.admin-body .admin-btn--secondary,
+.admin-body .admin-menu__button--light {
+  background-color: #fffaf0;
+  color: var(--admin-text);
+}
+
+.admin-body .admin-btn--ghost {
+  background-color: transparent;
+  color: var(--admin-muted);
+}
+
+.admin-body .admin-btn--danger,
+.admin-body .admin-menu__button--danger {
+  background-color: rgba(169, 75, 63, 0.1);
+  color: #81382f;
+}
+
+.admin-body .admin-btn--disabled,
+.admin-body .admin-menu__button--disabled {
+  background-color: var(--admin-surface-soft);
+  color: var(--admin-muted);
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle,
+.admin-sidebar-backdrop {
+  border: 0;
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle {
+  cursor: pointer;
+}
+.admin-sidebar__close:focus-visible,
+.admin-menu-toggle:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+
+.admin-sidebar__close {
+  display: none;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 8px;
+  background: rgba(248, 239, 226, 0.1);
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.admin-menu-toggle {
+  display: block;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--admin-surface-strong);
+  box-shadow: 0 0 0 1px var(--admin-line);
+}
+.admin-menu-toggle span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  margin: 4px 0;
+  background: var(--admin-text);
+}
+.admin-menu-toggle:hover {
+  box-shadow: 0 0 0 1px rgba(160, 126, 54, 0.4), 0 6px 18px rgba(11, 12, 13, 0.08);
+}
+
+@media (max-width: 992px) {
+  .admin-sidebar__close {
+    display: block;
+  }
+}
+/*
+ * Superficie reutilizable para paneles del contenido administrativo.
+ * Unifica fondo, borde y radio de cards, gráficas y tablas.
+ */
+.admin-panel {
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}
+
+.admin-page {
+  min-width: 0;
+}
+
+.admin-page__header,
+.admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-page__intro,
+.admin-page-header__intro {
+  min-width: 0;
+}
+
+.admin-page__eyebrow,
+.admin-page-eyebrow {
+  color: var(--admin-sage-deep);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-page__title,
+.admin-page-title-row h2 {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.05;
+}
+
+.admin-page__subtitle,
+.admin-page-summary {
+  max-width: 720px;
+  margin-top: 9px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-toolbar,
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-card {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: 0 18px 44px rgba(11, 12, 13, 0.07);
+}
+
+.admin-empty {
+  padding: 18px;
+  border: 1px dashed var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .admin-page__header,
+  .admin-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+@media (max-width: 576px) {
+  .admin-page__title,
+  .admin-page-title-row h2 {
+    font-size: 27px;
+  }
+  .admin-toolbar,
+  .admin-actions {
+    width: 100%;
+  }
+}
+/*
+ * Tabla reutilizable para información operativa de administración.
+ * Mantiene legibilidad y desplazamiento interno en pantallas estrechas.
+ */
+.admin-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.admin-table th,
+.admin-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  text-align: left;
+}
+.admin-table th {
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.admin-table td:last-child,
+.admin-table th:last-child {
+  text-align: right;
+}
+
+/*
+ * Badges de estado para la actividad operativa de analytics.
+ * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
+ */
+.admin-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(71, 111, 88, 0.12);
+  color: var(--admin-sage-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-status--open {
+  background: rgba(185, 134, 63, 0.14);
+  color: #75511f;
+}
+
+.admin-status--cancelled {
+  background: rgba(185, 80, 67, 0.13);
+  color: var(--admin-danger);
+}
+
+/*
+ * Base reservada para formularios del admin.
+ * Los modulos futuros pueden extender estos estilos sin importar la landing.
+ */
+/*
+ * Estado provisional para módulos administrativos pendientes.
+ * Presenta el nombre del módulo dentro de una superficie consistente.
+ */
+.admin-placeholder {
+  display: grid;
+  min-height: 360px;
+  align-content: center;
+  justify-items: center;
+  padding: 48px 24px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  text-align: center;
+}
+.admin-placeholder h2 {
+  margin: 14px 0 8px;
+  font-size: 30px;
+}
+.admin-placeholder p {
+  max-width: 440px;
+  color: var(--admin-muted);
+}
+
+.admin-placeholder__status {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(185, 134, 63, 0.35);
+  border-radius: 999px;
+  background: rgba(185, 134, 63, 0.12);
+  color: #75511f;
+  font-size: 13px;
+  font-weight: 700;
+}

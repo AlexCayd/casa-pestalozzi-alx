@@ -1,0 +1,358 @@
+/*
+ * Estilos del contenido principal del dashboard de analytics.
+ * Organiza encabezado, filtros, métricas, gráficas, tabla y sus breakpoints.
+ */
+@use "../shared/abstracts/variables" as vars;
+@use "../shared/abstracts/mixins" as mixins;
+
+.admin-analytics {
+  min-width: 0;
+
+  .admin-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+
+  .admin-page-header__intro {
+    min-width: 0;
+  }
+
+  .admin-page-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+
+    h2 {
+      font-size: clamp(28px, 3vw, 36px);
+      line-height: 1.05;
+    }
+  }
+  .admin-page-summary {
+    margin-top: 9px;
+    color: var(--admin-muted);
+    font-size: 14px;
+    line-height: 1.5;
+
+    span {
+      margin-inline: 4px;
+      color: var(--admin-gold-deep);
+    }
+  }
+
+  .admin-page-eyebrow {
+    color: var(--admin-sage-deep);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .admin-filter-bar {
+    display: flex;
+    align-items: flex-end;
+    flex: 0 0 auto;
+    gap: 12px;
+
+    label {
+      display: grid;
+      min-width: 0;
+      gap: 5px;
+      color: var(--admin-muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    select {
+      width: 100%;
+      min-width: 136px;
+      height: 40px;
+      padding: 0 32px 0 11px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: var(--admin-radius-sm);
+      background-color: var(--admin-surface);
+      color: var(--admin-text);
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 1;
+    }
+  }
+
+  .admin-metrics-section {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .admin-metrics-grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .admin-metrics-grid--primary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .admin-metrics-grid--secondary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-metric-card {
+    position: relative;
+    min-width: 0;
+    min-height: 128px;
+    padding: 18px;
+    overflow: hidden;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    background-color: var(--admin-surface);
+
+    span {
+      display: block;
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      line-height: 1.3;
+      text-transform: uppercase;
+    }
+
+    strong {
+      display: block;
+      margin-top: 12px;
+      color: #2c2d2d;
+      font-size: clamp(23px, 2.1vw, 29px);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    small {
+      display: block;
+      margin-top: 9px;
+      color: var(--admin-muted);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+  }
+
+  .admin-metric-card--featured {
+    border-color: var(--admin-border);
+    box-shadow: inset 3px 0 var(--admin-gold);
+
+    strong {
+      color: var(--admin-terra);
+    }
+  }
+
+  .admin-metric-card--secondary {
+    min-height: 104px;
+    padding-block: 16px;
+
+    strong {
+      margin-top: 9px;
+      font-size: clamp(20px, 2vw, 25px);
+    }
+
+    small {
+      margin-top: 8px;
+      color: var(--admin-muted);
+    }
+  }
+
+  .admin-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .admin-chart-card {
+    min-width: 0;
+    padding: 20px;
+    overflow: hidden;
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 21px;
+    }
+
+    header p {
+      margin-top: 5px;
+      color: var(--admin-muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    header > span {
+      flex: 0 0 auto;
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+  }
+
+  .admin-chart-card__canvas {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 300px;
+    min-height: 260px;
+
+    canvas {
+      display: block;
+      width: 100% !important;
+      max-width: 100%;
+      height: 100% !important;
+    }
+  }
+
+  .admin-table-panel {
+    min-width: 0;
+    padding: 20px;
+
+    > header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+
+      h3 {
+        margin-top: 5px;
+        font-size: 20px;
+      }
+
+      > span {
+        color: var(--admin-muted);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+    }
+  }
+
+  @include mixins.down(vars.$breakpoint-wide) {
+    .admin-page-header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .admin-filter-bar {
+      width: 100%;
+    }
+
+    .admin-filter-bar label {
+      flex: 1 1 0;
+    }
+
+    .admin-metrics-grid--primary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .admin-chart-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @include mixins.down(vars.$breakpoint-tablet) {
+    .admin-page-header {
+      margin-bottom: 22px;
+      padding-bottom: 20px;
+    }
+
+    .admin-filter-bar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-filter-bar label:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .admin-metrics-grid--primary,
+    .admin-metrics-grid--secondary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-chart-grid {
+      gap: 14px;
+    }
+
+    .admin-chart-card__canvas {
+      height: 280px;
+    }
+  }
+
+  @include mixins.down(vars.$breakpoint-mobile) {
+    .admin-page-title-row {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .admin-page-title-row h2 {
+      font-size: 27px;
+    }
+
+    .admin-page-summary {
+      font-size: 13px;
+    }
+
+    .admin-filter-bar,
+    .admin-filter-bar label,
+    .admin-filter-bar select {
+      width: 100%;
+    }
+
+    .admin-filter-bar {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-filter-bar label:last-child {
+      grid-column: auto;
+    }
+
+    .admin-metrics-grid--primary,
+    .admin-metrics-grid--secondary {
+      grid-template-columns: 1fr;
+    }
+
+    .admin-metric-card,
+    .admin-metric-card--secondary {
+      min-height: 108px;
+      padding: 17px 18px;
+    }
+
+    .admin-chart-card,
+    .admin-table-panel {
+      padding: 16px;
+    }
+
+    .admin-chart-card__canvas {
+      height: 240px;
+      min-height: 220px;
+    }
+
+    .admin-table-panel > header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+}

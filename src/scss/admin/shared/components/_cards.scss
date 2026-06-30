@@ -1,0 +1,106 @@
+/*
+ * Superficie reutilizable para paneles del contenido administrativo.
+ * Unifica fondo, borde y radio de cards, gráficas y tablas.
+ */
+.admin-panel {
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}
+
+.admin-page {
+  min-width: 0;
+}
+
+.admin-page__header,
+.admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.admin-page__intro,
+.admin-page-header__intro {
+  min-width: 0;
+}
+
+.admin-page__eyebrow,
+.admin-page-eyebrow {
+  color: var(--admin-sage-deep);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-page__title,
+.admin-page-title-row h2 {
+  margin-top: 4px;
+  color: var(--admin-text);
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.05;
+}
+
+.admin-page__subtitle,
+.admin-page-summary {
+  max-width: 720px;
+  margin-top: 9px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-toolbar,
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-card {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: 0 18px 44px rgba(11, 12, 13, 0.07);
+}
+
+.admin-empty {
+  padding: 18px;
+  border: 1px dashed var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 1200px) {
+  .admin-page__header,
+  .admin-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .admin-page__title,
+  .admin-page-title-row h2 {
+    font-size: 27px;
+  }
+
+  .admin-toolbar,
+  .admin-actions {
+    width: 100%;
+  }
+}

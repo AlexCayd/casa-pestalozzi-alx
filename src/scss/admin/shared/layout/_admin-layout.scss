@@ -1,0 +1,62 @@
+/*
+ * Estructura principal del panel de administración.
+ * Distribuye navegación y contenido, ajustando paddings según el viewport.
+ */
+@use '../abstracts/variables' as vars;
+@use '../abstracts/mixins' as mixins;
+
+.admin-shell {
+    display: grid;
+    width: 100%;
+    min-height: 100vh;
+    grid-template-columns: var(--admin-sidebar-width) minmax(0, 1fr);
+    transition: grid-template-columns var(--admin-layout-transition);
+}
+
+.admin-sidebar-preload .admin-shell {
+    transition: none !important;
+}
+
+.admin-main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.admin-content {
+    width: 100%;
+    max-width: vars.$admin-max-width;
+    margin: 0 auto;
+    padding: clamp(28px, 3.5vw, 40px);
+}
+
+.admin-sidebar-collapsed .admin-shell,
+.admin-body.is-sidebar-collapsed .admin-shell {
+    grid-template-columns: var(--admin-sidebar-collapsed-width) minmax(0, 1fr);
+}
+
+@include mixins.down(vars.$breakpoint-drawer) {
+    .admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-body.is-sidebar-collapsed .admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-content {
+        padding: 28px;
+    }
+}
+
+@include mixins.down(vars.$breakpoint-tablet) {
+    .admin-content {
+        padding: 22px;
+    }
+}
+
+@include mixins.down(vars.$breakpoint-mobile) {
+    .admin-content {
+        padding: 16px;
+    }
+}

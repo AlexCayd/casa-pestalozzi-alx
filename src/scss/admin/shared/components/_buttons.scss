@@ -1,0 +1,201 @@
+/*
+ * Controles reutilizables del panel administrativo.
+ * Define botones globales y controles de navegacion del sidebar.
+ */
+@use '../abstracts/variables' as vars;
+@use '../abstracts/mixins' as mixins;
+
+.admin-btn,
+.admin-menu__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+    color: var(--admin-text);
+    box-shadow: 0 1px 0 rgba(11, 12, 13, 0.04);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease,
+        transform 120ms ease;
+
+    &:hover {
+        border-color: rgba(160, 126, 54, 0.42);
+        background: var(--admin-surface-strong);
+        box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--admin-gold);
+        outline-offset: 2px;
+    }
+
+    &:active {
+        transform: translateY(1px);
+        box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05);
+    }
+}
+
+.admin-btn--primary,
+.admin-menu__button--primary {
+    border-color: var(--admin-terra);
+    background: var(--admin-terra);
+    color: #fff;
+
+    &:hover {
+        border-color: #632f16;
+        background: #632f16;
+        color: #fff;
+    }
+}
+
+.admin-btn--secondary,
+.admin-menu__button--light {
+    border-color: rgba(160, 126, 54, 0.36);
+    background: #fffaf0;
+    color: var(--admin-text);
+}
+
+.admin-btn--ghost {
+    border-color: var(--admin-border-soft);
+    background: transparent;
+    color: var(--admin-muted);
+
+    &:hover {
+        color: var(--admin-text);
+    }
+}
+
+.admin-btn--danger,
+.admin-menu__button--danger {
+    border-color: rgba(169, 75, 63, 0.34);
+    background: rgba(169, 75, 63, 0.1);
+    color: #81382f;
+
+    &:hover {
+        border-color: rgba(169, 75, 63, 0.52);
+        background: rgba(169, 75, 63, 0.16);
+        color: #6d2f28;
+    }
+}
+
+.admin-btn--small,
+.admin-menu__button--small {
+    min-height: 34px;
+    padding-inline: 12px;
+    font-size: 12px;
+}
+
+.admin-btn--disabled,
+.admin-menu__button--disabled {
+    border-color: var(--admin-border-soft);
+    background: var(--admin-surface-soft);
+    color: var(--admin-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.admin-body .admin-btn,
+.admin-body .admin-menu__button {
+    background-color: var(--admin-surface);
+    color: var(--admin-text);
+}
+
+.admin-body .admin-btn--primary,
+.admin-body .admin-menu__button--primary {
+    background-color: var(--admin-terra);
+    color: #fff;
+}
+
+.admin-body .admin-btn--secondary,
+.admin-body .admin-menu__button--light {
+    background-color: #fffaf0;
+    color: var(--admin-text);
+}
+
+.admin-body .admin-btn--ghost {
+    background-color: transparent;
+    color: var(--admin-muted);
+}
+
+.admin-body .admin-btn--danger,
+.admin-body .admin-menu__button--danger {
+    background-color: rgba(169, 75, 63, 0.1);
+    color: #81382f;
+}
+
+.admin-body .admin-btn--disabled,
+.admin-body .admin-menu__button--disabled {
+    background-color: var(--admin-surface-soft);
+    color: var(--admin-muted);
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle,
+.admin-sidebar-backdrop {
+    border: 0;
+}
+
+.admin-sidebar__close,
+.admin-menu-toggle {
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid var(--admin-gold);
+        outline-offset: 2px;
+    }
+}
+
+.admin-sidebar__close {
+    display: none;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 8px;
+    background: rgba(248, 239, 226, 0.1);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.admin-menu-toggle {
+    display: block;
+    width: 42px;
+    height: 42px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--admin-surface-strong);
+    box-shadow: 0 0 0 1px var(--admin-line);
+
+    span {
+        display: block;
+        width: 100%;
+        height: 2px;
+        margin: 4px 0;
+        background: var(--admin-text);
+    }
+
+    &:hover {
+        box-shadow:
+            0 0 0 1px rgba(160, 126, 54, 0.4),
+            0 6px 18px rgba(11, 12, 13, 0.08);
+    }
+}
+
+@include mixins.down(vars.$breakpoint-drawer) {
+    .admin-sidebar__close {
+        display: block;
+    }
+}
