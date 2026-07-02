@@ -28,10 +28,12 @@ class MenuController {
                 ];
             }, $platillos);
 
+            $img = $cat->img ? '/' . ltrim($cat->img, '/') : null;
+
             $resultado[] = [
                 'id'     => (int) $cat->id,
                 'label'  => $cat->nombre,
-                'img'    => $cat->img,
+                'img'    => $img,
                 'dishes' => $dishes
             ];
         }

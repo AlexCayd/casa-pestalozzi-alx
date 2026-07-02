@@ -28,6 +28,7 @@
 
     <div class="menu__foot" data-reveal>
       <a class="btn-line" href="#reserva" data-magnetic><span>Reservar una mesa</span><span class="arrow">↗</span></a>
+      <a class="btn-line btn-line--pdf" href="#" data-magnetic><span>Ver en PDF</span><span class="arrow">↓</span></a>
     </div>
   </div>
 </section>
