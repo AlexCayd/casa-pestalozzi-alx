@@ -564,7 +564,7 @@ ALTER TABLE ticket_items
   ADD COLUMN nota VARCHAR(280) NULL DEFAULT NULL
   AFTER cantidad;
 
-
+ALTER TABLE reservaciones ADD COLUMN comentario_admin TEXT NULL AFTER nota;
 -- -------------------------------------------------------
 -- v3: Usuarios y reservaciones con múltiples mesas y 
 -- -------------------------------------------------------
