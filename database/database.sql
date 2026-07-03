@@ -5,14 +5,20 @@
 -- RESET (orden inverso de dependencias)
 -- -------------------------------------------------------
 
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS feedback_tokens;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
+DROP TABLE IF EXISTS menu;
+DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
+DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS reservaciones;
 DROP TABLE IF EXISTS areas_produccion;
 DROP TABLE IF EXISTS mesas;
 DROP TABLE IF EXISTS horarios_reservacion;
 DROP TABLE IF EXISTS dias_reservacion;
+DROP TABLE IF EXISTS usuarios;
 
 -- -------------------------------------------------------
 -- TABLAS
@@ -129,6 +135,7 @@ CREATE TABLE IF NOT EXISTS menu (
   categoria_id  INT NOT NULL,
   FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
 );
+
 -- -------------------------------------------------------
 -- DATOS
 -- -------------------------------------------------------
@@ -556,3 +563,152 @@ ALTER TABLE ticket_items
 ALTER TABLE ticket_items
   ADD COLUMN nota VARCHAR(280) NULL DEFAULT NULL
   AFTER cantidad;
+
+
+-- -------------------------------------------------------
+-- v3: Usuarios y reservaciones con múltiples mesas y 
+-- -------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  username        VARCHAR(50) NOT NULL UNIQUE,
+  nombre          VARCHAR(120) NOT NULL,
+  password_hash   VARCHAR(255) NOT NULL,
+  rol             ENUM('admin', 'observer', 'waiter', 'cashier') NOT NULL DEFAULT 'observer',
+  activo          TINYINT(1) NOT NULL DEFAULT 1,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+-- Usuarios
+INSERT INTO usuarios
+(username, nombre, password_hash, rol, activo)
+VALUES
+(
+  'admin_demo',
+  'Administrador Demo',
+  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2',
+  'admin',
+  1
+),
+(
+  'observador1',
+  'Observador General',
+  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2',
+  'observer',
+  1
+),
+(
+  'mesero1',
+  'Carlos Hernández',
+  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2',
+  'waiter',
+  1
+),
+(
+  'cajero1',
+  'Mariana López',
+  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2',
+  'cashier',
+  1
+),
+(
+  'mesero_inactivo',
+  'Daniel Torres',
+  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2',
+  'waiter',
+  0
+);
+
+
+-- 1. Ampliar estados de reservaciones
+ALTER TABLE reservaciones
+  MODIFY COLUMN estado
+    ENUM('pendiente','confirmada','completada','cancelada','no_show')
+    NOT NULL DEFAULT 'pendiente';
+
+-- 2. Agregar updated_at si no existe
+ALTER TABLE reservaciones
+  ADD COLUMN IF NOT EXISTS updated_at
+    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    AFTER created_at;
+
+-- 3. Reemplazar tabla intermedia de reservaciones y mesas
+-- Como es desarrollo y los registros pueden reemplazarse,
+-- se borra y se vuelve a crear esta tabla para evitar inconsistencias.
+DROP TABLE IF EXISTS reservacion_mesas;
+
+CREATE TABLE reservacion_mesas (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id  INT NOT NULL,
+  mesa_id         INT NOT NULL,
+  orden           TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_reservacion_mesas_reservacion
+    FOREIGN KEY (reservacion_id)
+    REFERENCES reservaciones(id)
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_reservacion_mesas_mesa
+    FOREIGN KEY (mesa_id)
+    REFERENCES mesas(id)
+    ON DELETE CASCADE,
+
+  UNIQUE KEY uq_reservacion_mesa (reservacion_id, mesa_id),
+  UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
+  INDEX idx_rm_mesa (mesa_id),
+  INDEX idx_rm_reservacion (reservacion_id)
+);
+
+-- 4. Índices para búsquedas y cálculo de disponibilidad
+CREATE INDEX IF NOT EXISTS idx_reservaciones_fecha_estado_hora
+ON reservaciones (fecha, estado, hora);
+
+CREATE INDEX IF NOT EXISTS idx_reservaciones_fecha_hora
+ON reservaciones (fecha, hora);
+
+CREATE INDEX IF NOT EXISTS idx_reservaciones_estado
+ON reservaciones (estado);
+
+-- 5. Índice útil para tickets relacionados con reservaciones
+CREATE INDEX IF NOT EXISTS idx_ticket_reservacion
+ON tickets (reservacion_id);
+
+-- 6. Reemplazar reservaciones de prueba
+-- En desarrollo está permitido perder estos registros.
+-- Si existen tickets relacionados, su reservacion_id quedará NULL por ON DELETE SET NULL.
+DELETE FROM reservaciones;
+ALTER TABLE reservaciones AUTO_INCREMENT = 1;
+
+INSERT INTO reservaciones
+(nombre, email, fecha, hora, comensales, nota, estado, mesa_id, mesa_secundaria_id)
+VALUES
+('Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-19', '09:00:00', 2, '',                          'pendiente', 5,  NULL),
+('Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-19', '12:00:00', 4, 'Alergia: mariscos',          'pendiente', 3,  NULL),
+('Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-19', '13:00:00', 6, 'Cumpleaños — pedir pastel', 'pendiente', 6,  7),
+('Sofía Pedraza',    'spedraza@ejemplo.com',  '2026-06-19', '15:00:00', 2, '',                          'pendiente', 8,  NULL),
+('Nicolás Andrade',  'nandrade@ejemplo.com',  '2026-06-19', '19:00:00', 4, 'Reunión de trabajo',         'pendiente', 2,  NULL),
+('Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-19', '20:00:00', 5, 'Aniversario',                'pendiente', 11, 10),
+('Grupo Morales',   'morales@ejemplo.com',   '2026-06-19', '18:00:00', 9, 'Grupo grande',               'pendiente', 2, 4);
+
+-- 7. Migrar mesa principal hacia reservacion_mesas
+INSERT IGNORE INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT id, mesa_id, 1
+FROM reservaciones
+WHERE mesa_id IS NOT NULL;
+
+-- 8. Migrar mesa secundaria hacia reservacion_mesas
+INSERT IGNORE INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT id, mesa_secundaria_id, 2
+FROM reservaciones
+WHERE mesa_secundaria_id IS NOT NULL
+  AND mesa_secundaria_id <> mesa_id;
+
+-- 9. Agregar tercera mesa para el ejemplo de 9 personas
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT id, 5, 3
+FROM reservaciones
+WHERE nombre = 'Grupo Morales'
+LIMIT 1;

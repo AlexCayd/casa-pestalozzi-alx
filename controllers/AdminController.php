@@ -119,11 +119,6 @@ class AdminController
         self::placeholder('printers');
     }
 
-    public static function users(Router $router): void
-    {
-        self::placeholder('users');
-    }
-
     private static function placeholder(string $module): void
     {
         $moduleData = self::MODULES[$module];

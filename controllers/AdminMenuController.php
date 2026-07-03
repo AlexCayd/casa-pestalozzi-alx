@@ -31,8 +31,8 @@ class AdminMenuController
     public static function categories(Router $router): void
     {
         self::render('menu/categories', [
-            'title' => 'Categorias del menu',
-            'topbarSection' => 'Gestión de menú / Categorias',
+            'title' => 'Categorías del menú',
+            'topbarSection' => 'Gestión de menú / Categorías',
             'categorias' => CategoriasMenu::all(),
             'alertas' => CategoriasMenu::getAlertas(),
         ]);
@@ -48,7 +48,8 @@ class AdminMenuController
         }
 
         $porPagina = 10;
-        $totalMenu = (int) Menu::total();
+        $filtros = self::leerFiltrosItems();
+        $totalMenu = Menu::totalAdmin($filtros);
         $totalPaginas = max(1, (int) ceil($totalMenu / $porPagina));
 
         $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -57,13 +58,16 @@ class AdminMenuController
         }
 
         $offset = ($paginaActual - 1) * $porPagina;
-        $platillos = Menu::paginar($porPagina, $offset);
+        $platillos = Menu::buscarAdmin($filtros, $porPagina, $offset);
 
         self::render('menu/items', [
             'title' => 'Platillos',
             'topbarSection' => 'Gestión de menú / Platillos',
             'platillos' => $platillos,
+            'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
+            'filtros' => $filtros,
+            'filtrosActivos' => self::hayFiltrosActivos($filtros),
             'alertas' => Menu::getAlertas(),
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
@@ -96,30 +100,30 @@ class AdminMenuController
                     }
                 }
             } else {
-                $alertas['error'][] = 'Debes cargar una imagen para la categoria';
+                $alertas['error'][] = 'Debes cargar una imagen para la categoría';
             }
 
             if (empty($alertas)) {
                 $resultado = $categoria->guardar();
 
                 if ($resultado && $resultado['resultado']) {
-                    CategoriasMenu::setAlerta('exito', 'Categoria creada correctamente');
+                    CategoriasMenu::setAlerta('exito', 'Categoría creada correctamente');
                     self::categories($router);
                     return;
                 }
 
                 ImagenUploader::eliminar($categoria->img);
-                CategoriasMenu::setAlerta('error', 'No se pudo guardar la categoria');
+                CategoriasMenu::setAlerta('error', 'No se pudo guardar la categoría');
                 $alertas = CategoriasMenu::getAlertas();
             }
         }
 
         self::render('menu/category-form', [
-            'title' => 'Nueva categoria',
-            'topbarSection' => 'Gestión de menú / Nueva categoria',
+            'title' => 'Nueva categoría',
+            'topbarSection' => 'Gestión de menú / Nueva categoría',
             'categoria' => $categoria,
             'alertas' => $alertas,
-            'accion' => 'Crear',
+            'accion' => 'Crear categoría',
         ]);
     }
 
@@ -129,7 +133,7 @@ class AdminMenuController
         $categoria = CategoriasMenu::find($id);
 
         if (!$categoria) {
-            CategoriasMenu::setAlerta('error', 'La categoria no existe');
+            CategoriasMenu::setAlerta('error', 'La categoría no existe');
             self::categories($router);
             return;
         }
@@ -164,22 +168,22 @@ class AdminMenuController
                         ImagenUploader::eliminar($imagenActual);
                     }
 
-                    CategoriasMenu::setAlerta('exito', 'Categoria actualizada correctamente');
+                    CategoriasMenu::setAlerta('exito', 'Categoría actualizada correctamente');
                     self::categories($router);
                     return;
                 }
 
-                CategoriasMenu::setAlerta('error', 'No se pudo actualizar la categoria');
+                CategoriasMenu::setAlerta('error', 'No se pudo actualizar la categoría');
                 $alertas = CategoriasMenu::getAlertas();
             }
         }
 
         self::render('menu/category-form', [
-            'title' => 'Editar categoria',
-            'topbarSection' => 'Gestión de menú / Editar categoria',
+            'title' => 'Editar categoría',
+            'topbarSection' => 'Gestión de menú / Editar categoría',
             'categoria' => $categoria,
             'alertas' => $alertas,
-            'accion' => 'Actualizar',
+            'accion' => 'Guardar cambios',
         ]);
     }
 
@@ -193,7 +197,7 @@ class AdminMenuController
         $categoria = CategoriasMenu::find($id);
 
         if (!$categoria) {
-            CategoriasMenu::setAlerta('error', 'La categoria no existe');
+            CategoriasMenu::setAlerta('error', 'La categoría no existe');
             self::categories($router);
             return;
         }
@@ -203,16 +207,16 @@ class AdminMenuController
         );
 
         if (!empty($platillos)) {
-            CategoriasMenu::setAlerta('error', 'No se puede eliminar: la categoria tiene platillos asociados');
+            CategoriasMenu::setAlerta('error', 'No se puede eliminar: la categoría tiene platillos asociados');
             self::categories($router);
             return;
         }
 
         if ($categoria->eliminar()) {
             ImagenUploader::eliminar($categoria->img);
-            CategoriasMenu::setAlerta('exito', 'Categoria eliminada correctamente');
+            CategoriasMenu::setAlerta('exito', 'Categoría eliminada correctamente');
         } else {
-            CategoriasMenu::setAlerta('error', 'No se pudo eliminar la categoria');
+            CategoriasMenu::setAlerta('error', 'No se pudo eliminar la categoría');
         }
 
         self::categories($router);
@@ -251,7 +255,7 @@ class AdminMenuController
             'platillo' => $platillo,
             'categorias' => $categorias,
             'alertas' => $alertas,
-            'accion' => 'Crear',
+            'accion' => 'Crear platillo',
         ]);
     }
 
@@ -294,7 +298,7 @@ class AdminMenuController
             'platillo' => $platillo,
             'categorias' => $categorias,
             'alertas' => $alertas,
-            'accion' => 'Actualizar',
+            'accion' => 'Guardar cambios',
         ]);
     }
 
@@ -331,12 +335,42 @@ class AdminMenuController
         ], $data));
     }
 
+    private static function leerFiltrosItems(): array
+    {
+        $q = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+        $categoryId = filter_var($_GET['category_id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+        $visible = (string) ($_GET['visible'] ?? '');
+
+        if ($visible !== '1' && $visible !== '0') {
+            $visible = '';
+        }
+
+        return [
+            'q' => $q,
+            'category_id' => $categoryId ?: '',
+            'visible' => $visible,
+        ];
+    }
+
+    private static function hayFiltrosActivos(array $filtros): bool
+    {
+        foreach ($filtros as $valor) {
+            if ((string) $valor !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function validarId($id, Router $router): int
     {
         $id = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
         if (!$id) {
-            CategoriasMenu::setAlerta('error', 'Identificador no valido');
+            CategoriasMenu::setAlerta('error', 'Identificador no válido');
             self::index($router);
             exit;
         }

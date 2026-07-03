@@ -7,6 +7,7 @@ use Controllers\AdminController;
 use Controllers\AdminAreaController;
 use Controllers\AdminMapController;
 use Controllers\AdminMenuController;
+use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
@@ -64,7 +65,17 @@ $router->get('/admin/categories', [AdminController::class, 'categories']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
 $router->get('/admin/payments', [AdminController::class, 'payments']);
 $router->get('/admin/printers', [AdminController::class, 'printers']);
-$router->get('/admin/users', [AdminController::class, 'users']);
+
+$router->get('/admin/users', [AdminUsersController::class, 'index']);
+$router->get('/admin/users/create', [AdminUsersController::class, 'userCreate']);
+$router->post('/admin/users/create', [AdminUsersController::class, 'userCreate']);
+$router->get('/admin/users/edit', [AdminUsersController::class, 'userEdit']);
+$router->post('/admin/users/edit', [AdminUsersController::class, 'userEdit']);
+$router->get('/admin/users/change-password', [AdminUsersController::class, 'changePassword']);
+$router->post('/admin/users/change-password', [AdminUsersController::class, 'changePassword']);
+$router->post('/admin/users/deactivate', [AdminUsersController::class, 'deactivate']);
+$router->post('/admin/users/activate', [AdminUsersController::class, 'activate']);
+$router->post('/admin/users/delete', [AdminUsersController::class, 'delete']);
 
 
 
