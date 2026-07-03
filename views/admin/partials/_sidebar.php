@@ -9,6 +9,7 @@ $sidebarIcons = [
     'map' => '<path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>',
     'area' => '<path d="M4 7h16"/><path d="M7 7v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V7"/><path d="M9 3v4"/><path d="M15 3v4"/><path d="M9 12h6"/>',
     'reservations' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/>',
+    'reservations_operation' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/><path d="M8 14h3"/><path d="M14 14h2"/><path d="M8 17h8"/>',
     'tables' => '<rect x="5" y="5" width="14" height="10" rx="2"/><path d="M8 15v4"/><path d="M16 15v4"/><path d="M5 19h14"/>',
     'products' => '<path d="M6 3v8a4 4 0 0 0 8 0V3"/><path d="M10 3v18"/><path d="M18 3v18"/>',
     'categories' => '<path d="M20 12 12 20 4 12l8-8 8 8Z"/><path d="M12 8h.01"/>',

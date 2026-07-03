@@ -1,13 +1,16 @@
 <?php
+
 namespace Controllers;
 
 use Model\Reservacion;
 use Model\DiaReservacion;
 use MVC\Router;
 
-class ReservacionController {
+class ReservacionController
+{
 
-    public static function crear(Router $router) {
+    public static function crear(Router $router)
+    {
         header('Content-Type: application/json');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -68,13 +71,13 @@ class ReservacionController {
             $requiereConfirmacion = true;
             $warning = 'Solicitud recibida. Confirmaremos la disponibilidad de mesa para este horario.';
         } else {
-            $mesaIds = array_map(function($mesa) {
+            $mesaIds = array_map(function ($mesa) {
                 return (int)$mesa->id;
             }, $mesasSeleccionadas);
 
             Reservacion::asignarMesas($reservaId, $mesaIds);
             $mesasAsignadas = Reservacion::obtenerMesasAsignadas($reservaId);
-            $mesasNombres = array_map(function($mesa) {
+            $mesasNombres = array_map(function ($mesa) {
                 return $mesa->nombre;
             }, $mesasAsignadas);
 

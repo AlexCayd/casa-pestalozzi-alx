@@ -31,6 +31,10 @@ class AdminController
             'title' => 'Reservaciones',
             'path' => '/admin/reservations'
         ],
+        'reservations_operation' => [
+            'title' => 'Operacion de reservaciones',
+            'path' => '/admin/reservations/operation'
+        ],
         'tables' => [
             'title' => 'Mesas',
             'path' => '/admin/tables'

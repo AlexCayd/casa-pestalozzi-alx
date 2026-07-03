@@ -100,6 +100,12 @@ $puedeReasignar = !$estadoFinal;
 $puedeCancelar = !$estadoFinal;
 $puedeCompletar = !$estadoFinal;
 $puedeNoShow = !$estadoFinal;
+$operationUrl = '/admin/reservations/operation?' . http_build_query([
+    'fecha' => $fecha,
+    'hora' => $horaLegible($hora),
+    'reservacion_id' => $id,
+    'return_url' => $returnUrl,
+]);
 ?>
 
 <section class="admin-reservations admin-reservation-detail admin-menu admin-page">
@@ -110,6 +116,7 @@ $puedeNoShow = !$estadoFinal;
             <p class="admin-page__subtitle">Consulta la información completa y gestiona el estado de la reservación.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="<?php echo $h($operationUrl); ?>">Gestionar en mapa</a>
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
         </div>
     </header>

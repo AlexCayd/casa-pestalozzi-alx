@@ -7,6 +7,13 @@ $filtrosActivos = (bool)($filtrosActivos ?? false);
 $queryString = (string)($queryString ?? '');
 $returnTo = '/admin/reservations' . ($queryString !== '' ? '?' . $queryString : '');
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
+$fechaOperacion = (string)($filtros['fecha_inicio'] ?? date('Y-m-d'));
+
+if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaOperacion) !== 1) {
+    $fechaOperacion = date('Y-m-d');
+}
+
+$operationUrl = '/admin/reservations/operation?fecha=' . rawurlencode($fechaOperacion);
 
 $valor = static function ($item, string $campo, $default = '') {
     if (is_array($item)) {
@@ -82,6 +89,9 @@ foreach ($alertas as $tipo => $mensajes) {
             <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
             <h2 class="admin-page__title">Reservaciones</h2>
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
+        </div>
+        <div class="admin-menu__actions admin-actions">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="<?php echo $h($operationUrl); ?>">Vista operativa</a>
         </div>
     </header>
 

@@ -60,12 +60,15 @@ $router->get('/admin/api/area-items', [AdminAreaController::class, 'areaItems'])
 $router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceItem']);
 $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
 $router->get('/admin/reservations', [AdminReservacionController::class, 'index']);
+$router->get('/admin/reservations/operation', [AdminReservacionController::class, 'operation']);
 $router->get('/admin/reservations/show', [AdminReservacionController::class, 'show']);
 $router->post('/admin/reservations/confirm', [AdminReservacionController::class, 'confirmar']);
 $router->post('/admin/reservations/cancel', [AdminReservacionController::class, 'cancelar']);
 $router->post('/admin/reservations/complete', [AdminReservacionController::class, 'completar']);
 $router->post('/admin/reservations/no-show', [AdminReservacionController::class, 'noShow']);
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
+$router->post('/admin/reservations/operation/assign-tables', [AdminReservacionController::class, 'assignTables']);
+$router->post('/admin/reservations/operation/update-comment', [AdminReservacionController::class, 'updateComment']);
 $router->get('/admin/tables', [AdminController::class, 'tables']);
 $router->get('/admin/products', [AdminController::class, 'products']);
 $router->get('/admin/categories', [AdminController::class, 'categories']);

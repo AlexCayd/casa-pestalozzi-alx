@@ -2,12 +2,16 @@
 
 namespace Controllers;
 
+use Model\HorarioReservacion;
+use Model\Mesa;
 use Model\Reservacion;
 use MVC\Router;
 
 class AdminReservacionController
 {
     private const RESERVATIONS_CSS = '/build/css/admin/reservations.css';
+    private const MAP_CSS = '/build/css/admin/map.css';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js';
 
     private const ESTADO_LABELS = [
         'pendiente' => 'Pendiente',
@@ -16,6 +20,8 @@ class AdminReservacionController
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
     ];
+
+    private const ESTADOS_ACTIVOS = ['pendiente', 'confirmada'];
 
     public static function index(Router $router): void
     {
@@ -33,6 +39,60 @@ class AdminReservacionController
             'estadoLabels' => self::ESTADO_LABELS,
             'alertas' => self::alertasResultado($_GET['resultado'] ?? ''),
             'queryString' => http_build_query($filtros),
+        ]);
+    }
+
+    public static function operation(Router $router): void
+    {
+        $fecha = self::fechaOperacion();
+        $horarios = self::horariosParaFecha($fecha);
+        $horaCorta = self::horaOperacion($horarios, $fecha);
+        $horaSql = self::horaSql($horaCorta);
+        $estado = self::estadoOperacion();
+        $reservacionId = filter_var($_GET['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+        $returnUrl = self::returnUrlSeguro($_GET['return_url'] ?? '');
+
+        $reservaciones = Reservacion::buscarPorHorarioAdmin($fecha, $horaSql, $estado);
+        $reservacionSeleccionada = self::seleccionarReservacionOperacion($reservaciones, (int)$reservacionId);
+        $selectedId = $reservacionSeleccionada ? (int)$reservacionSeleccionada->id : 0;
+        $mesasAsignadas = $selectedId > 0 ? Reservacion::obtenerMesasAsignadas($selectedId) : [];
+        $capacidadAsignada = $selectedId > 0 ? Reservacion::capacidadAsignada($selectedId) : 0;
+        $mesas = self::mesasMapaOperacion();
+        $ocupacion = Reservacion::ocupacionMesasParaHorario($fecha, $horaSql);
+
+        $currentUrl = self::operationUrl([
+            'fecha' => $fecha,
+            'hora' => $horaCorta,
+            'estado' => $estado,
+            'reservacion_id' => $selectedId,
+            'return_url' => $returnUrl,
+        ]);
+
+        self::render('reservations/operation', [
+            'activeModule' => 'reservations_operation',
+            'title' => 'Operacion de reservaciones',
+            'topbarSection' => 'Reservaciones',
+            'styles' => [self::MAP_CSS, self::RESERVATIONS_CSS],
+            'scripts' => [self::OPERATION_JS],
+            'filtros' => [
+                'fecha' => $fecha,
+                'hora' => $horaCorta,
+                'estado' => $estado,
+            ],
+            'horarios' => $horarios,
+            'reservaciones' => $reservaciones,
+            'reservacionSeleccionada' => $reservacionSeleccionada,
+            'mesasAsignadas' => $mesasAsignadas,
+            'capacidadAsignada' => $capacidadAsignada,
+            'mesas' => $mesas,
+            'ocupacion' => $ocupacion,
+            'estadoLabels' => self::ESTADO_LABELS,
+            'alertas' => self::alertasResultado($_GET['resultado'] ?? ''),
+            'returnUrl' => $returnUrl,
+            'currentUrl' => $currentUrl,
+            'comentarioAdminDisponible' => Reservacion::tieneComentarioAdmin(),
         ]);
     }
 
@@ -76,6 +136,10 @@ class AdminReservacionController
             self::redirectBack('no_existe');
         }
 
+        if ((string)$reservacion->estado !== 'pendiente') {
+            self::redirectBack('estado_invalido');
+        }
+
         if (!Reservacion::tieneMesasAsignadas((int)$reservacion->id)) {
             self::redirectBack('confirmar_sin_mesa');
         }
@@ -92,6 +156,10 @@ class AdminReservacionController
             self::redirectBack('no_existe');
         }
 
+        if (!self::estadoActivo((string)$reservacion->estado)) {
+            self::redirectBack('estado_invalido');
+        }
+
         Reservacion::cambiarEstado((int)$reservacion->id, 'cancelada');
         Reservacion::limpiarMesasAsignadas((int)$reservacion->id);
         self::redirectBack('cancelada');
@@ -103,6 +171,10 @@ class AdminReservacionController
 
         if (!$reservacion) {
             self::redirectBack('no_existe');
+        }
+
+        if (!self::estadoActivo((string)$reservacion->estado)) {
+            self::redirectBack('estado_invalido');
         }
 
         Reservacion::cambiarEstado((int)$reservacion->id, 'completada');
@@ -117,6 +189,10 @@ class AdminReservacionController
             self::redirectBack('no_existe');
         }
 
+        if (!self::estadoActivo((string)$reservacion->estado)) {
+            self::redirectBack('estado_invalido');
+        }
+
         Reservacion::cambiarEstado((int)$reservacion->id, 'no_show');
         Reservacion::limpiarMesasAsignadas((int)$reservacion->id);
         self::redirectBack('no_show');
@@ -128,6 +204,10 @@ class AdminReservacionController
 
         if (!$reservacion) {
             self::redirectBack('no_existe');
+        }
+
+        if (!self::estadoActivo((string)$reservacion->estado)) {
+            self::redirectBack('estado_invalido');
         }
 
         $mesasDisponibles = Reservacion::obtenerMesasDisponibles(
@@ -152,6 +232,97 @@ class AdminReservacionController
         self::redirectBack('reasignada');
     }
 
+    public static function assignTables(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectOperacionDesdePost('metodo_invalido');
+        }
+
+        $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+
+        if (!$id) {
+            self::redirectOperacionDesdePost('no_existe');
+        }
+
+        $reservacion = Reservacion::find((int)$id);
+
+        if (!$reservacion) {
+            self::redirectOperacionDesdePost('no_existe');
+        }
+
+        if (!self::estadoActivo((string)$reservacion->estado)) {
+            self::redirectOperacionDesdePost('estado_no_permite', $reservacion);
+        }
+
+        $mesaIds = $_POST['mesa_ids'] ?? [];
+        $mesaIds = array_values(array_unique(array_filter(array_map('intval', (array)$mesaIds))));
+
+        if (empty($mesaIds)) {
+            self::redirectOperacionDesdePost('asignacion_vacia', $reservacion);
+        }
+
+        $mesas = self::mesasPorIdsReservablesActivas($mesaIds);
+
+        if (count($mesas) !== count($mesaIds)) {
+            self::redirectOperacionDesdePost('mesas_invalidas', $reservacion);
+        }
+
+        $ocupacion = Reservacion::ocupacionMesasParaHorario(
+            $reservacion->fecha,
+            $reservacion->hora,
+            (int)$reservacion->id
+        );
+
+        foreach ($mesaIds as $mesaId) {
+            if (!empty($ocupacion[(int)$mesaId])) {
+                self::redirectOperacionDesdePost('mesa_ocupada', $reservacion);
+            }
+        }
+
+        $capacidad = array_reduce($mesas, function($total, $mesa) {
+            return $total + (int)$mesa->capacidad;
+        }, 0);
+
+        if ($capacidad < (int)$reservacion->comensales) {
+            self::redirectOperacionDesdePost('capacidad_insuficiente', $reservacion);
+        }
+
+        Reservacion::asignarMesas((int)$reservacion->id, $mesaIds);
+        self::redirectOperacionDesdePost('asignacion_guardada', $reservacion);
+    }
+
+    public static function updateComment(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectOperacionDesdePost('metodo_invalido');
+        }
+
+        $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+
+        if (!$id) {
+            self::redirectOperacionDesdePost('no_existe');
+        }
+
+        $reservacion = Reservacion::find((int)$id);
+
+        if (!$reservacion) {
+            self::redirectOperacionDesdePost('no_existe');
+        }
+
+        if (!Reservacion::tieneComentarioAdmin()) {
+            self::redirectOperacionDesdePost('comentario_migracion_pendiente', $reservacion);
+        }
+
+        $comentario = substr((string)($_POST['comentario_admin'] ?? ''), 0, 5000);
+        Reservacion::actualizarComentarioAdmin((int)$reservacion->id, $comentario);
+
+        self::redirectOperacionDesdePost('comentario_guardado', $reservacion);
+    }
+
     private static function render(string $view, array $data = []): void
     {
         AdminController::render($view, array_merge([
@@ -159,6 +330,215 @@ class AdminReservacionController
             'styles' => [self::RESERVATIONS_CSS],
             'scripts' => [],
         ], $data));
+    }
+
+    private static function fechaOperacion(): string
+    {
+        $fecha = (string)($_GET['fecha'] ?? '');
+
+        if (!self::fechaValida($fecha)) {
+            return date('Y-m-d');
+        }
+
+        return $fecha;
+    }
+
+    private static function horaOperacion(array $horarios, string $fecha): string
+    {
+        $hora = self::normalizarHoraCorta((string)($_GET['hora'] ?? ''));
+        $horasDisponibles = array_map(function($horario) {
+            return self::normalizarHoraCorta((string)$horario->hora);
+        }, $horarios);
+
+        if ($hora !== '' && in_array($hora, $horasDisponibles, true)) {
+            return $hora;
+        }
+
+        return self::horaPorDefecto($horasDisponibles, $fecha);
+    }
+
+    private static function horaPorDefecto(array $horasDisponibles, string $fecha): string
+    {
+        $horasDisponibles = array_values(array_filter($horasDisponibles));
+
+        if (empty($horasDisponibles)) {
+            return '09:00';
+        }
+
+        if ($fecha === date('Y-m-d')) {
+            $horaActual = date('H:i');
+
+            foreach ($horasDisponibles as $hora) {
+                if ($hora >= $horaActual) {
+                    return $hora;
+                }
+            }
+        }
+
+        return $horasDisponibles[0];
+    }
+
+    private static function horariosParaFecha(string $fecha): array
+    {
+        $timestamp = strtotime($fecha);
+        $diaSemana = $timestamp ? (int)date('w', $timestamp) : (int)date('w');
+
+        return HorarioReservacion::consultarSQL(
+            "SELECT h.id, h.dia_id, h.hora
+             FROM horarios_reservacion h
+             INNER JOIN dias_reservacion d ON d.id = h.dia_id
+             WHERE d.dia_semana = {$diaSemana}
+               AND d.activo = 1
+             ORDER BY h.hora ASC"
+        );
+    }
+
+    private static function estadoOperacion(): string
+    {
+        $estado = (string)($_GET['estado'] ?? '');
+
+        return array_key_exists($estado, self::ESTADO_LABELS) ? $estado : '';
+    }
+
+    private static function horaSql(string $hora): string
+    {
+        $hora = self::normalizarHoraCorta($hora);
+
+        return $hora !== '' ? $hora . ':00' : '09:00:00';
+    }
+
+    private static function normalizarHoraCorta(string $hora): string
+    {
+        $hora = trim($hora);
+
+        if (preg_match('/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/', $hora, $matches) !== 1) {
+            return '';
+        }
+
+        return $matches[1] . ':' . $matches[2];
+    }
+
+    private static function seleccionarReservacionOperacion(array $reservaciones, int $reservacionId)
+    {
+        foreach ($reservaciones as $reservacion) {
+            if ((int)$reservacion->id === $reservacionId) {
+                return $reservacion;
+            }
+        }
+
+        return $reservaciones[0] ?? null;
+    }
+
+    private static function mesasMapaOperacion(): array
+    {
+        return Mesa::consultarSQL(
+            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+             FROM mesas
+             ORDER BY numero ASC"
+        );
+    }
+
+    private static function mesasPorIdsReservablesActivas(array $mesaIds): array
+    {
+        $mesaIds = array_values(array_unique(array_filter(array_map('intval', $mesaIds))));
+
+        if (empty($mesaIds)) {
+            return [];
+        }
+
+        return Mesa::consultarSQL(
+            "SELECT id, numero, nombre, tipo, capacidad, pos_x, pos_y, activo, reservable
+             FROM mesas
+             WHERE id IN (" . implode(',', $mesaIds) . ")
+               AND activo = 1
+               AND reservable = 1
+             ORDER BY FIELD(id, " . implode(',', $mesaIds) . ")"
+        );
+    }
+
+    private static function estadoActivo(string $estado): bool
+    {
+        return in_array($estado, self::ESTADOS_ACTIVOS, true);
+    }
+
+    private static function returnUrlSeguro($url, string $fallback = ''): string
+    {
+        $url = (string)$url;
+
+        if ($url !== '' && str_starts_with($url, '/admin/reservations')) {
+            return $url;
+        }
+
+        return $fallback;
+    }
+
+    private static function operationUrl(array $params = []): string
+    {
+        $query = [];
+        $fecha = (string)($params['fecha'] ?? '');
+        $hora = self::normalizarHoraCorta((string)($params['hora'] ?? ''));
+        $estado = (string)($params['estado'] ?? '');
+        $reservacionId = (int)($params['reservacion_id'] ?? 0);
+        $returnUrl = self::returnUrlSeguro($params['return_url'] ?? '');
+        $resultado = (string)($params['resultado'] ?? '');
+
+        if (self::fechaValida($fecha)) {
+            $query['fecha'] = $fecha;
+        }
+
+        if ($hora !== '') {
+            $query['hora'] = $hora;
+        }
+
+        if (array_key_exists($estado, self::ESTADO_LABELS)) {
+            $query['estado'] = $estado;
+        }
+
+        if ($reservacionId > 0) {
+            $query['reservacion_id'] = $reservacionId;
+        }
+
+        if ($returnUrl !== '') {
+            $query['return_url'] = $returnUrl;
+        }
+
+        if ($resultado !== '') {
+            $query['resultado'] = $resultado;
+        }
+
+        return '/admin/reservations/operation' . (!empty($query) ? '?' . http_build_query($query) : '');
+    }
+
+    private static function redirectOperacionDesdePost(string $resultado, $reservacion = null): void
+    {
+        $fecha = (string)($_POST['fecha'] ?? '');
+        $hora = self::normalizarHoraCorta((string)($_POST['hora'] ?? ''));
+        $reservacionId = 0;
+
+        if ($reservacion) {
+            $fecha = (string)$reservacion->fecha;
+            $hora = self::normalizarHoraCorta((string)$reservacion->hora);
+            $reservacionId = (int)$reservacion->id;
+        } else {
+            $reservacionId = (int)($_POST['reservacion_id'] ?? 0);
+        }
+
+        if (!self::fechaValida($fecha)) {
+            $fecha = date('Y-m-d');
+        }
+
+        if ($hora === '') {
+            $hora = '09:00';
+        }
+
+        header('Location: ' . self::operationUrl([
+            'fecha' => $fecha,
+            'hora' => $hora,
+            'reservacion_id' => $reservacionId,
+            'return_url' => self::returnUrlSeguro($_POST['return_url'] ?? ''),
+            'resultado' => $resultado,
+        ]), true, 302);
+        exit;
     }
 
     private static function leerFiltros(): array
@@ -249,7 +629,16 @@ class AdminReservacionController
             'completada' => ['exito' => ['Reservación marcada como completada.']],
             'no_show' => ['exito' => ['Reservación marcada como no show.']],
             'reasignada' => ['exito' => ['Mesas reasignadas correctamente.']],
+            'asignacion_guardada' => ['exito' => ['Asignacion de mesas guardada correctamente.']],
+            'comentario_guardado' => ['exito' => ['Comentario interno guardado correctamente.']],
             'reasignar_sin_capacidad' => ['error' => ['No hay mesas suficientes disponibles para reasignar automáticamente.']],
+            'asignacion_vacia' => ['error' => ['Selecciona al menos una mesa para guardar la asignacion.']],
+            'mesas_invalidas' => ['error' => ['Una o mas mesas no existen, no estan activas o no son reservables.']],
+            'mesa_ocupada' => ['error' => ['Una de las mesas seleccionadas ya esta ocupada por otra reservacion activa en esa ventana horaria.']],
+            'capacidad_insuficiente' => ['error' => ['La capacidad seleccionada no cubre los comensales de la reservacion.']],
+            'estado_no_permite' => ['error' => ['El estado de la reservacion no permite modificar mesas.']],
+            'estado_invalido' => ['error' => ['La accion no es valida para el estado actual de la reservacion.']],
+            'comentario_migracion_pendiente' => ['warning' => ['Para editar comentarios internos aplica la migracion: ALTER TABLE reservaciones ADD COLUMN comentario_admin TEXT NULL AFTER nota;']],
             'confirmar_sin_mesa' => ['error' => ['Asigna una mesa antes de confirmar la reservación.']],
             'no_existe' => ['error' => ['La reservación no existe.']],
             'metodo_invalido' => ['error' => ['La acción solicitada no es válida.']],

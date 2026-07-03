@@ -29,6 +29,7 @@ const paths = {
     ],
     adminMapJs: 'src/js/admin/map/map.js',
     adminAreaJs: 'src/js/admin/area/area.js',
+    adminReservationOperationJs: 'src/js/admin/reservations/operation.js',
     imagenes: 'src/img/**/*',
     chartJs: 'node_modules/chart.js/dist/chart.umd.min.js'
 };
@@ -102,6 +103,15 @@ function adminAreaJavascript() {
         .pipe(dest('./public/build/js/admin'));
 }
 
+function adminReservationOperationJavascript() {
+    return src(paths.adminReservationOperationJs)
+        .pipe(sourcemaps.init())
+        .pipe(concat('reservation-operation.js'))
+        .pipe(terser())
+        .pipe(sourcemaps.write('.'))
+        .pipe(dest('./public/build/js/admin'));
+}
+
 function copyChartJs() {
     return src(paths.chartJs)
         .pipe(dest('public/build/js/vendor'));
@@ -158,6 +168,7 @@ function devWatch(done) {
     watch('src/js/admin/analytics/**/*.js', adminAnalyticsJavascript);
     watch('src/js/admin/map/**/*.js', adminMapJavascript);
     watch('src/js/admin/area/**/*.js', adminAreaJavascript);
+    watch('src/js/admin/reservations/**/*.js', adminReservationOperationJavascript);
     watch(paths.chartJs, copyChartJs);
     watch(paths.imagenes, imagenes);
     watch(paths.imagenes, versionWebp);
@@ -175,6 +186,7 @@ exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
+exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.copyChartJs = copyChartJs;
 exports.imagenes = imagenes;
 exports.versionWebp = versionWebp;
@@ -193,6 +205,7 @@ exports.dev = parallel(
     adminAnalyticsJavascript,
     adminMapJavascript,
     adminAreaJavascript,
+    adminReservationOperationJavascript,
     copyChartJs,
     copyFonts,
     copyImages,

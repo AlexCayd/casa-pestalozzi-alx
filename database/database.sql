@@ -634,6 +634,12 @@ ALTER TABLE reservaciones
     TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
     AFTER created_at;
 
+-- 2b. Comentario interno para operacion de reservaciones
+ALTER TABLE reservaciones
+  ADD COLUMN IF NOT EXISTS comentario_admin
+    TEXT NULL
+    AFTER nota;
+
 -- 3. Reemplazar tabla intermedia de reservaciones y mesas
 -- Como es desarrollo y los registros pueden reemplazarse,
 -- se borra y se vuelve a crear esta tabla para evitar inconsistencias.

@@ -12,6 +12,7 @@ class Reservacion extends ActiveRecord {
     public $hora;
     public $comensales = 2;
     public $nota;
+    public $comentario_admin = null;
     public $estado = 'pendiente';
     public $created_at = null;
     // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
@@ -22,6 +23,7 @@ class Reservacion extends ActiveRecord {
     public $capacidad_total = 0;
 
     private const ESTADOS_ADMIN = ['pendiente', 'confirmada', 'completada', 'cancelada', 'no_show'];
+    private static $comentarioAdminExiste = null;
 
     private static function minutosDesdeHora($hora) {
         $partes = explode(':', (string)$hora);
@@ -32,10 +34,6 @@ class Reservacion extends ActiveRecord {
     }
 
     public static function obtenerMesasDisponibles($fecha, $hora, $excluirReservacionId = null) {
-        $fecha = self::escaparString($fecha);
-        $horaMin = self::minutosDesdeHora($hora);
-        $excluirSql = $excluirReservacionId ? ' AND r.id != ' . (int)$excluirReservacionId : '';
-
         $mesas = Mesa::consultarSQL(
             "SELECT id, numero, nombre, capacidad
              FROM mesas
@@ -43,8 +41,25 @@ class Reservacion extends ActiveRecord {
              ORDER BY numero ASC"
         );
 
-        $reservasConMesas = self::consultarSQL(
+        $ocupadas = self::ocupacionMesasParaHorario($fecha, $hora, $excluirReservacionId);
+
+        return array_values(array_filter($mesas, function($mesa) use ($ocupadas) {
+            return empty($ocupadas[(int)$mesa->id]);
+        }));
+    }
+
+    public static function ocupacionMesasParaHorario($fecha, $hora, $excluirReservacionId = null) {
+        $fecha = self::escaparString($fecha);
+        $horaMin = self::minutosDesdeHora($hora);
+        $excluirSql = $excluirReservacionId ? ' AND r.id != ' . (int)$excluirReservacionId : '';
+
+        $resultado = self::$db->query(
             "SELECT rm.mesa_id, r.hora
+                    , r.id AS reservacion_id
+                    , r.nombre
+                    , r.email
+                    , r.comensales
+                    , r.estado
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE r.fecha = '{$fecha}'
@@ -52,20 +67,31 @@ class Reservacion extends ActiveRecord {
                AND r.estado IN ('pendiente','confirmada')"
         );
 
+        if (!$resultado) {
+            return [];
+        }
+
         $ocupadas = [];
-        foreach ($reservasConMesas as $reserva) {
-            $reservaMin = self::minutosDesdeHora($reserva->hora);
+        while ($reserva = $resultado->fetch_assoc()) {
+            $reservaMin = self::minutosDesdeHora($reserva['hora'] ?? '');
             $inicio = $reservaMin - 30;
             $fin = $reservaMin + 90;
 
-            if ($horaMin >= $inicio && $horaMin < $fin && $reserva->mesa_id) {
-                $ocupadas[(int)$reserva->mesa_id] = true;
+            if ($horaMin >= $inicio && $horaMin < $fin && !empty($reserva['mesa_id'])) {
+                $ocupadas[(int)$reserva['mesa_id']] = [
+                    'reservacion_id' => (int)$reserva['reservacion_id'],
+                    'nombre' => (string)$reserva['nombre'],
+                    'email' => (string)$reserva['email'],
+                    'hora' => (string)$reserva['hora'],
+                    'comensales' => (int)$reserva['comensales'],
+                    'estado' => (string)$reserva['estado'],
+                ];
             }
         }
 
-        return array_values(array_filter($mesas, function($mesa) use ($ocupadas) {
-            return empty($ocupadas[(int)$mesa->id]);
-        }));
+        $resultado->free();
+
+        return $ocupadas;
     }
 
     public static function seleccionarMesasParaComensales($mesasDisponibles, $comensales) {
@@ -169,6 +195,8 @@ class Reservacion extends ActiveRecord {
             return null;
         }
 
+        $comentarioSelect = self::comentarioAdminAggregateSelect('r');
+
         $query = "SELECT
                     r.id,
                     r.nombre,
@@ -177,6 +205,7 @@ class Reservacion extends ActiveRecord {
                     r.hora,
                     r.comensales,
                     r.nota,
+                    {$comentarioSelect},
                     r.estado,
                     r.created_at,
                     r.mesa_id,
@@ -242,6 +271,7 @@ class Reservacion extends ActiveRecord {
     public static function buscarAdmin(array $filtros = []) {
         $condiciones = self::condicionesAdmin($filtros, true);
         $having = self::havingAsignacionAdmin($filtros);
+        $comentarioSelect = self::comentarioAdminAggregateSelect('r');
 
         $query = "SELECT
                     r.id,
@@ -251,6 +281,7 @@ class Reservacion extends ActiveRecord {
                     r.hora,
                     r.comensales,
                     r.nota,
+                    {$comentarioSelect},
                     r.estado,
                     r.mesa_id,
                     r.mesa_secundaria_id,
@@ -281,6 +312,55 @@ class Reservacion extends ActiveRecord {
         }
 
         $query .= " ORDER BY r.fecha ASC, r.hora ASC, r.id DESC";
+
+        return self::consultarSQL($query);
+    }
+
+    public static function buscarPorHorarioAdmin($fecha, $hora, $estado = '') {
+        $fecha = self::escaparString($fecha);
+        $hora = self::escaparString($hora);
+        $estado = (string)$estado;
+        $estadoSql = '';
+        $comentarioSelect = self::comentarioAdminAggregateSelect('r');
+
+        if (in_array($estado, self::ESTADOS_ADMIN, true)) {
+            $estado = self::escaparString($estado);
+            $estadoSql = " AND r.estado = '{$estado}'";
+        }
+
+        $query = "SELECT
+                    r.id,
+                    r.nombre,
+                    r.email,
+                    r.fecha,
+                    r.hora,
+                    r.comensales,
+                    r.nota,
+                    {$comentarioSelect},
+                    r.estado,
+                    r.mesa_id,
+                    r.mesa_secundaria_id,
+                    COUNT(rm.id) AS mesas_count,
+                    COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas,
+                    COALESCE(SUM(m.capacidad), 0) AS capacidad_total
+                  FROM reservaciones r
+                  LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
+                  LEFT JOIN mesas m ON m.id = rm.mesa_id
+                  WHERE r.fecha = '{$fecha}'
+                    AND r.hora = '{$hora}'
+                    {$estadoSql}
+                  GROUP BY
+                    r.id,
+                    r.nombre,
+                    r.email,
+                    r.fecha,
+                    r.hora,
+                    r.comensales,
+                    r.nota,
+                    r.estado,
+                    r.mesa_id,
+                    r.mesa_secundaria_id
+                  ORDER BY FIELD(r.estado, 'pendiente', 'confirmada', 'completada', 'no_show', 'cancelada'), r.id DESC";
 
         return self::consultarSQL($query);
     }
@@ -346,6 +426,39 @@ class Reservacion extends ActiveRecord {
         return self::ejecutarSQL(
             "UPDATE reservaciones SET estado = '{$estado}' WHERE id = {$id} LIMIT 1"
         );
+    }
+
+    public static function actualizarComentarioAdmin($id, $comentario) {
+        $id = (int)$id;
+
+        if ($id < 1 || !self::tieneComentarioAdmin()) {
+            return false;
+        }
+
+        $comentario = self::escaparString($comentario);
+
+        return self::ejecutarSQL(
+            "UPDATE reservaciones
+             SET comentario_admin = '{$comentario}'
+             WHERE id = {$id}
+             LIMIT 1"
+        );
+    }
+
+    public static function tieneComentarioAdmin() {
+        if (self::$comentarioAdminExiste !== null) {
+            return self::$comentarioAdminExiste;
+        }
+
+        $resultado = self::$db->query("SHOW COLUMNS FROM reservaciones LIKE 'comentario_admin'");
+
+        self::$comentarioAdminExiste = $resultado && $resultado->num_rows > 0;
+
+        if ($resultado) {
+            $resultado->free();
+        }
+
+        return self::$comentarioAdminExiste;
     }
 
     public static function tieneMesasAsignadas($id) {
@@ -427,6 +540,14 @@ class Reservacion extends ActiveRecord {
         }
 
         return $condiciones;
+    }
+
+    private static function comentarioAdminAggregateSelect($alias) {
+        if (self::tieneComentarioAdmin()) {
+            return "MAX({$alias}.comentario_admin) AS comentario_admin";
+        }
+
+        return "NULL AS comentario_admin";
     }
 
     private static function havingAsignacionAdmin(array $filtros) {
