@@ -157,6 +157,14 @@
 
   h3 { font-size: 2rem; color: var(--beige); margin-bottom: 1rem; }
   p  { color: var(--txt-mute); font-size: 0.9rem; }
+
+  &--warning {
+    border-color: rgba(204, 163, 82, 0.65);
+
+    .mark {
+      background: rgba(204, 163, 82, 0.12);
+    }
+  }
 }
 
 @keyframes fade-in-up {

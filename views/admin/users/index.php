@@ -79,8 +79,8 @@ $valorUsuario = static function ($usuario, string $campo, $default = '') {
     <section class="admin-menu__panel admin-panel admin-card">
         <div class="admin-menu__panel-head">
             <div>
-                <h3><?php echo count($usuarios); ?> usuarios registrados</h3>
-                <p>Revisa usuario, nombre, rol, estado y fecha de creación.</p>
+                <h3>Usuarios</h3>
+                <p><?php echo count($usuarios); ?> registros. Gestiona los accesos y roles del sistema.</p>
             </div>
         </div>
 
@@ -114,10 +114,14 @@ $valorUsuario = static function ($usuario, string $campo, $default = '') {
                             $mensajeAdminActivo = 'Debe existir un usuario administrador activo siempre.';
                             ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td><?php echo htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
-                                    <span class="admin-menu__tag"><?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?></span>
+                                </td>
+                                <td>
+                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8'); ?></span>
+                                </td>
+                                <td>
+                                    <span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?></span>
                                 </td>
                                 <td>
                                     <form method="POST" action="/admin/users/<?php echo $activo ? 'deactivate' : 'activate'; ?>">
@@ -136,7 +140,9 @@ $valorUsuario = static function ($usuario, string $campo, $default = '') {
                                         </button>
                                     </form>
                                 </td>
-                                <td><?php echo htmlspecialchars($createdAt, ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td>
+                                    <span class="admin-table__cell-sub"><?php echo htmlspecialchars($createdAt, ENT_QUOTES, 'UTF-8'); ?></span>
+                                </td>
                                 <td>
                                     <div class="admin-table-actions">
                                         <a

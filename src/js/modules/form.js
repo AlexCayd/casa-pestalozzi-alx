@@ -101,7 +101,6 @@ function initHourPicker() {
   display.addEventListener("click", function(e) {
     e.stopPropagation();
     var isOpen = dropdown.classList.contains("open");
-    // Close calendar if open
     var cal = $("#cpCalendar");
     if (cal) { cal.classList.remove("open"); cal.setAttribute("aria-hidden","true"); }
     isOpen ? closeHourDropdown() : (dropdown.classList.add("open"), dropdown.setAttribute("aria-hidden","false"));
@@ -152,6 +151,32 @@ function initForm() {
   initHourPicker();
 
   var msg = $("#formMsg");
+  var confirm = $("#reservaConfirm");
+  var confirmMark = confirm ? confirm.querySelector(".mark") : null;
+  var confirmTitle = confirm ? confirm.querySelector("h3") : null;
+  var confirmText = $("#confirmText");
+
+  function showInlineMessage(text) {
+    msg.textContent = text;
+    msg.classList.add("show");
+    if (!reduce) gsap.fromTo(form, { x: -6 }, { x: 0, duration: 0.4, ease: "elastic.out(1,0.3)" });
+  }
+
+  function showConfirmation(options) {
+    if (!confirm || !confirmText || !confirmTitle || !confirmMark) return;
+
+    confirm.classList.remove("reserva__confirm--warning");
+    if (options.warning) confirm.classList.add("reserva__confirm--warning");
+
+    confirmMark.textContent = options.warning ? "!" : "✓";
+    confirmTitle.textContent = options.title;
+    confirmText.innerHTML = options.text;
+
+    form.style.display = "none";
+    confirm.classList.add("show");
+    if (window.ScrollTrigger) ScrollTrigger.refresh();
+  }
+
   form.addEventListener("submit", function(e) {
     e.preventDefault();
     var nombre = form.nombre.value.trim();
@@ -160,9 +185,7 @@ function initForm() {
     var hora   = $("#horaHidden").value;
 
     if (!nombre || !email || !fecha || !hora) {
-      msg.textContent = "Completa nombre, correo, fecha y hora.";
-      msg.classList.add("show");
-      if (!reduce) gsap.fromTo(form, { x: -6 }, { x: 0, duration: 0.4, ease: "elastic.out(1,0.3)" });
+      showInlineMessage("Completa nombre, correo, fecha y hora.");
       return;
     }
 
@@ -179,23 +202,32 @@ function initForm() {
     fetch("/reservar", { method: "POST", body: data })
       .then(function(r) { return r.json(); })
       .then(function(res) {
-        if (res.ok) {
-          var fd  = new Date(fecha + "T00:00:00");
-          var fmt = fd.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
-          $("#confirmText").innerHTML = 'Gracias, <b style="color:var(--accent);font-weight:400">' + nombre + '</b>. Mesa para <b style="color:var(--accent);font-weight:400">' + guests + '</b> el <b style="color:var(--accent);font-weight:400">' + fmt + '</b> a las <b style="color:var(--accent);font-weight:400">' + hora + '</b>. Te esperamos.';
-          form.style.display = "none";
-          var confirm = $("#reservaConfirm");
-          confirm.classList.add("show");
-          if (window.ScrollTrigger) ScrollTrigger.refresh();
-        } else {
-          msg.textContent = res.msg || "Error al guardar la reservación.";
-          msg.classList.add("show");
-          if (!reduce) gsap.fromTo(form, { x: -6 }, { x: 0, duration: 0.4, ease: "elastic.out(1,0.3)" });
+        if (!res.ok) {
+          showInlineMessage(res.msg || "No pudimos registrar tu reservación. Intenta nuevamente.");
+          return;
         }
+
+        var fd  = new Date(fecha + "T00:00:00");
+        var fmt = fd.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+
+        if (res.requiere_confirmacion === true || res.warning) {
+          showConfirmation({
+            warning: true,
+            title: "Solicitud recibida",
+            text: (res.warning || "Solicitud recibida. Confirmaremos la disponibilidad de mesa para este horario.") +
+              "<br>Te contactaremos si necesitamos ajustar algún detalle."
+          });
+          return;
+        }
+
+        showConfirmation({
+          warning: false,
+          title: "¡Mesa reservada!",
+          text: 'Gracias, <b style="color:var(--accent);font-weight:400">' + nombre + '</b>. Mesa para <b style="color:var(--accent);font-weight:400">' + guests + '</b> el <b style="color:var(--accent);font-weight:400">' + fmt + '</b> a las <b style="color:var(--accent);font-weight:400">' + hora + '</b>. Te esperamos.'
+        });
       })
       .catch(function() {
-        msg.textContent = "Error de conexión. Intenta de nuevo.";
-        msg.classList.add("show");
+        showInlineMessage("Error de conexión. Intenta de nuevo.");
       });
   });
 }

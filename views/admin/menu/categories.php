@@ -37,8 +37,8 @@
     <section class="admin-menu__panel admin-panel admin-card">
         <div class="admin-menu__panel-head">
             <div>
-                <h3><?php echo count($categorias); ?> categorías registradas</h3>
-                <p>Organiza las secciones visibles en la carta pública.</p>
+                <h3>Categorías</h3>
+                <p><?php echo count($categorias); ?> registros. Organiza las secciones visibles del menú.</p>
             </div>
         </div>
 
@@ -58,13 +58,15 @@
                     <tbody>
                         <?php foreach ($categorias as $cat) : ?>
                             <tr>
-                                <td><?php echo htmlspecialchars($cat->nombre); ?></td>
+                                <td>
+                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($cat->nombre); ?></span>
+                                </td>
                                 <td>
                                     <?php if (!empty($cat->img)) : ?>
                                         <img class="admin-menu__thumb" src="/<?php echo htmlspecialchars(ltrim($cat->img, '/')); ?>"
                                              alt="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>" loading="lazy">
                                     <?php else : ?>
-                                        <span class="admin-menu__muted">Sin imagen</span>
+                                        <span class="admin-table__cell-sub">Sin imagen</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

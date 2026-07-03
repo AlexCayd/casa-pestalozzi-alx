@@ -97,8 +97,8 @@
     <section class="admin-menu__panel admin-panel admin-card" id="items">
         <div class="admin-menu__panel-head">
             <div>
-                <h3><?php echo $totalMenu; ?> platillos registrados</h3>
-                <p>Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?> de <?php echo $totalMenu; ?> platillos.</p>
+                <h3>Platillos</h3>
+                <p><?php echo $totalMenu; ?> registros. Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?> de <?php echo $totalMenu; ?> platillos.</p>
             </div>
         </div>
 
@@ -124,18 +124,26 @@
                     <tbody>
                         <?php foreach ($platillos as $platillo) : ?>
                             <tr>
-                                <td><?php echo (int) $platillo->id; ?></td>
-                                <td><?php echo htmlspecialchars($platillo->nombre); ?></td>
-                                <td class="admin-menu__description">
-                                    <span class="admin-description-cell" title="<?php echo htmlspecialchars($platillo->descripcion, ENT_QUOTES); ?>"><?php echo htmlspecialchars($platillo->descripcion); ?></span>
+                                <td>
+                                    <span class="admin-table__cell-sub">#<?php echo (int) $platillo->id; ?></span>
                                 </td>
-                                <td>$<?php echo number_format((float) $platillo->precio, 2); ?></td>
-                                <td><?php echo htmlspecialchars($categoriasMap[$platillo->categoria_id] ?? '#' . $platillo->categoria_id); ?></td>
+                                <td>
+                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($platillo->nombre); ?></span>
+                                </td>
+                                <td class="admin-menu__description">
+                                    <span class="admin-table__description" title="<?php echo htmlspecialchars($platillo->descripcion, ENT_QUOTES); ?>"><?php echo htmlspecialchars($platillo->descripcion); ?></span>
+                                </td>
+                                <td>
+                                    <span class="admin-table__cell-main">$<?php echo number_format((float) $platillo->precio, 2); ?></span>
+                                </td>
+                                <td>
+                                    <span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($categoriasMap[$platillo->categoria_id] ?? '#' . $platillo->categoria_id); ?></span>
+                                </td>
                                 <td>
                                     <?php if ($platillo->tag) : ?>
-                                        <span class="admin-menu__tag"><?php echo htmlspecialchars($platillo->tag); ?></span>
+                                        <span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($platillo->tag); ?></span>
                                     <?php else : ?>
-                                        <span class="admin-menu__muted">Sin tag</span>
+                                        <span class="admin-table__cell-sub">Sin tag</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
