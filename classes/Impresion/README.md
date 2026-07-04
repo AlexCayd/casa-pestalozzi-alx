@@ -2,7 +2,7 @@
 
 > Documentación técnica de la capa de impresión de Casa Pestalozzi POS.
 > Enfoque: ~80% técnico · ~20% negocio.
-> Última actualización: 2026-07-03.
+> Última actualización: 2026-07-04.
 
 ---
 
@@ -79,7 +79,7 @@ Separación de responsabilidades:
 | `controllers/AdminPrintersController.php` | CRUD `/admin/printers` + prueba. |
 | `controllers/MapaController.php` | Dispara comanda (`enviarComanda`) y cuenta (`cerrarTicket`). |
 | `views/admin/printers/{index,form}.php` | UI de administración de impresoras. |
-| `database/database.sql` | Tabla `impresoras` + migraciones incrementales. |
+| `database/ddl.sql` · `database/dml.sql` | Esquema (tabla `impresoras`) y datos de siembra. |
 
 ---
 
@@ -101,22 +101,15 @@ CREATE TABLE impresoras (
 );
 ```
 
-### Migraciones incrementales (patrón del proyecto)
+### Esquema (DDL) y datos (DML)
 
-Al final de `database/database.sql` se acumulan `ALTER TABLE` versionados. El tipo
-de conexión (`red` / `windows`) y el `dispositivo` se definen así:
+La base se define en dos archivos: `database/ddl.sql` (estructura) y
+`database/dml.sql` (datos de siembra). La tabla `impresoras` — con sus columnas
+`conexion` (`red` / `windows`) y `dispositivo` — se crea directamente en el
+`CREATE TABLE` del DDL, sin `ALTER TABLE` posteriores.
 
-```sql
--- Impresión por nombre de impresora de Windows (spooler / RAW) además de red (TCP 9100)
-ALTER TABLE impresoras
-  MODIFY COLUMN conexion ENUM('red','windows') NOT NULL DEFAULT 'red';
-ALTER TABLE impresoras
-  MODIFY COLUMN dispositivo VARCHAR(120) NULL DEFAULT NULL;
-```
-
-> **Al desplegar en una máquina nueva**, corre `database/database.sql` completo (o
-> al menos las migraciones si la base ya existía). Sin la columna `conexion` el
-> formulario y `conectar()` fallan.
+> **Al desplegar en una máquina nueva**, ejecuta primero `database/ddl.sql` y luego
+> `database/dml.sql`. Sin la columna `conexion` el formulario y `conectar()` fallan.
 
 ### Campos según el tipo de conexión
 
