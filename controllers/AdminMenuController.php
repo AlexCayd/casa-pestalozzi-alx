@@ -72,6 +72,40 @@ class AdminMenuController
         ]);
     }
 
+    /**
+     * Genera y envia al navegador un PDF con todo el menu registrado.
+     * Incluye nombre, descripcion, precio y tag de cada platillo (tabla menu).
+     */
+    public static function itemsPdf(Router $router): void
+    {
+        $platillos = Menu::all();
+
+        // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
+        $projectRoot = realpath(__DIR__ . '/..');
+        $fontsDir = str_replace('\\', '/', $projectRoot . '/public/build/fonts');
+
+        // Renderiza la plantilla del PDF a un string (sin el layout admin).
+        ob_start();
+        $generado = date('d/m/Y H:i');
+        include __DIR__ . '/../views/admin/menu/items-pdf.php';
+        $html = ob_get_clean();
+
+        $options = new \Dompdf\Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'Montserrat');
+        // Permite a Dompdf leer los .ttf locales referenciados en los @font-face.
+        $options->setChroot([$projectRoot]);
+
+        $dompdf = new \Dompdf\Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
+        $dompdf->stream('menu-casa-pestalozzi.pdf', ['Attachment' => false]);
+        exit;
+    }
+
     public static function categoryCreate(Router $router): void
     {
         $categoria = new CategoriasMenu();
