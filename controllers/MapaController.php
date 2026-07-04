@@ -170,9 +170,10 @@ class MapaController {
         try {
             Reservacion::ejecutarSQL(
                 "UPDATE reservaciones
-                 SET estado = 'cancelada', mesa_id = NULL, mesa_secundaria_id = NULL
+                 SET estado = 'cancelada'
                  WHERE id = {$reservaId}"
             );
+            Reservacion::limpiarMesasAsignadas($reservaId);
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);

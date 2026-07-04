@@ -41,6 +41,11 @@ class ActiveRecord {
         return self::$db->real_escape_string((string)$str);
     }
 
+    // Escapa un string para busquedas LIKE con ESCAPE '\\'
+    protected static function escaparLike($str) {
+        return addcslashes(self::escaparString($str), "\\%_");
+    }
+
     // Consulta SQL para crear un objeto en Memoria (Active Record)
     public static function consultarSQL($query) {
         $resultado = self::$db->query($query);

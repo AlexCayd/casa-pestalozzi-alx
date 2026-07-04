@@ -31,6 +31,10 @@ class AdminController
             'title' => 'Reservaciones',
             'path' => '/admin/reservations'
         ],
+        'reservations_operation' => [
+            'title' => 'Operacion de reservaciones',
+            'path' => '/admin/reservations/operation'
+        ],
         'tables' => [
             'title' => 'Mesas',
             'path' => '/admin/tables'
@@ -117,11 +121,6 @@ class AdminController
     public static function printers(Router $router): void
     {
         self::placeholder('printers');
-    }
-
-    public static function users(Router $router): void
-    {
-        self::placeholder('users');
     }
 
     private static function placeholder(string $module): void

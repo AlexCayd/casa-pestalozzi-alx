@@ -105,7 +105,71 @@
         });
     }
 
+    function initPasswordToggles() {
+        document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+            const targetId = button.dataset.target;
+            const input = targetId ? document.getElementById(targetId) : null;
+
+            if (!input) {
+                return;
+            }
+
+            button.addEventListener('click', function () {
+                const shouldShow = input.type === 'password';
+                const label = shouldShow ? 'Ocultar contraseña' : 'Mostrar contraseña';
+
+                input.type = shouldShow ? 'text' : 'password';
+                button.classList.toggle('is-visible', shouldShow);
+                button.setAttribute('aria-label', label);
+                button.setAttribute('title', label);
+            });
+        });
+    }
+
+    function initPasswordStrengthValidation() {
+        const passwordPattern = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+        document.querySelectorAll('[data-password-strength]').forEach(function (input) {
+            const describedBy = input.getAttribute('aria-describedby');
+            const form = input.closest('form');
+            const feedback = describedBy
+                ? document.getElementById(describedBy)
+                : (form ? form.querySelector('[data-password-feedback]') : null);
+
+            function updatePasswordFeedback() {
+                if (!feedback) {
+                    return;
+                }
+
+                const hasValue = input.value.length > 0;
+                const isValid = passwordPattern.test(input.value);
+
+                feedback.classList.toggle('is-valid', hasValue && isValid);
+                feedback.classList.toggle('is-invalid', hasValue && !isValid);
+            }
+
+            input.addEventListener('input', updatePasswordFeedback);
+            input.addEventListener('blur', updatePasswordFeedback);
+            updatePasswordFeedback();
+        });
+    }
+
+    function initDeleteConfirmations() {
+        document.querySelectorAll('[data-confirm-delete]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                const confirmed = window.confirm('¿Seguro que deseas eliminar este usuario? Esta acción no se puede deshacer.');
+
+                if (!confirmed) {
+                    event.preventDefault();
+                }
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initAdminSidebar();
+        initPasswordToggles();
+        initPasswordStrengthValidation();
+        initDeleteConfirmations();
     });
 })();
