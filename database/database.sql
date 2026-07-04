@@ -556,3 +556,25 @@ ALTER TABLE ticket_items
 ALTER TABLE ticket_items
   ADD COLUMN nota VARCHAR(280) NULL DEFAULT NULL
   AFTER cantidad;
+
+  -- CREATE de tabla de registro de impresoras
+
+CREATE TABLE impresoras (
+  id        INT AUTO_INCREMENT PRIMARY KEY,
+  nombre    VARCHAR(60) NOT NULL,
+  area_id   TINYINT UNSIGNED NULL,        -- NULL = impresora de cuenta/caja
+  rol       ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda',
+  host      VARCHAR(64) NOT NULL,          -- IP
+  puerto    INT NOT NULL DEFAULT 9100,
+  ancho     TINYINT NOT NULL DEFAULT 48,   -- caracteres (48=80mm, 32=58mm)
+  activo    TINYINT(1) NOT NULL DEFAULT 1,
+  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+);
+
+-- v4: impresión por nombre de impresora de Windows (spooler / RAW)
+ALTER TABLE impresoras
+  MODIFY COLUMN conexion ENUM('red','windows') NOT NULL DEFAULT 'red';
+
+ALTER TABLE impresoras
+  MODIFY COLUMN dispositivo VARCHAR(120) NULL DEFAULT NULL;
+
