@@ -5,6 +5,7 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\Ticket;
 use Model\TicketItem;
+use Classes\TicketPrinter;
 use MVC\Router;
 
 class MapaController {
@@ -208,6 +209,40 @@ class MapaController {
                 "INSERT INTO feedback_tokens (ticket_id, token) VALUES ({$ticketId}, '{$token}')"
             );
 
+            // Impresión de la cuenta: efecto secundario en su propio try/catch.
+            // Un fallo de impresora no debe afectar el cierre ni el token de feedback.
+            try {
+                $trow = Ticket::consultarSQL(
+                    "SELECT t.id, t.nombre AS cliente, t.comensales, t.hora_apertura, m.nombre AS mesa
+                     FROM tickets t JOIN mesas m ON m.id = t.mesa_id
+                     WHERE t.id = {$ticketId} LIMIT 1"
+                );
+                $ticketRow = array_shift($trow);
+
+                $itemsRows = TicketItem::consultarSQL(
+                    "SELECT nombre, precio, cantidad FROM ticket_items
+                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+                );
+                $items = array_map(function ($r) {
+                    return [
+                        'nombre'   => $r->nombre,
+                        'precio'   => (float)$r->precio,
+                        'cantidad' => (int)$r->cantidad,
+                    ];
+                }, $itemsRows);
+
+                if ($ticketRow) {
+                    TicketPrinter::imprimirCuenta([
+                        'id'         => (int)$ticketRow->id,
+                        'cliente'    => $ticketRow->cliente,
+                        'comensales' => $ticketRow->comensales,
+                        'mesa'       => $ticketRow->mesa,
+                    ], $items, $metodoPago);
+                }
+            } catch (\Throwable $e) {
+                error_log('cerrarTicket — impresión de cuenta falló: ' . $e->getMessage());
+            }
+
             echo json_encode(['ok' => true, 'token' => $token]);
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
@@ -237,6 +272,10 @@ class MapaController {
             }
 
             $count = 0;
+            // Acumulamos SOLO los items insertados en esta tanda, agrupados por
+            // área, para imprimir únicamente las comandas nuevas (no reimprimir
+            // las de envíos anteriores en un re-envío del mismo ticket).
+            $itemsPorArea = [];
             foreach ($items as $item) {
                 $nombre    = TicketItem::escaparString($item['nombre']    ?? '');
                 $categoria = TicketItem::escaparString($item['categoria'] ?? '');
@@ -259,9 +298,43 @@ class MapaController {
                              {$areaId}, {$comensalSql}, {$cantidad}, {$notaSql}, 'enviado')"
                 );
                 $count++;
+
+                // Mismos valores ya saneados que se insertaron.
+                $itemsPorArea[$areaId][] = [
+                    'nombre'   => $nombre,
+                    'cantidad' => $cantidad,
+                    'comensal' => $comensal,
+                    'nota'     => $nota,
+                    'precio'   => $precio,
+                ];
             }
 
-            echo json_encode(['ok' => true, 'count' => $count]);
+            // Impresión de comandas: efecto secundario. Va en su propio try/catch
+            // para que un fallo de impresora NUNCA altere la respuesta del endpoint.
+            $printOk = true;
+            try {
+                $tmeta = Ticket::consultarSQL(
+                    "SELECT t.nombre AS cliente, t.hora_apertura, m.nombre AS mesa
+                     FROM tickets t JOIN mesas m ON m.id = t.mesa_id
+                     WHERE t.id = {$ticketId} LIMIT 1"
+                );
+                $meta = array_shift($tmeta);
+                if ($meta) {
+                    $resultados = TicketPrinter::imprimirComanda($itemsPorArea, [
+                        'mesa'      => $meta->mesa    ?? '',
+                        'cliente'   => $meta->cliente ?? null,
+                        'hora'      => date('H:i'),
+                        'ticket_id' => $ticketId,
+                    ]);
+                    // print_ok sólo es informativo; jamás cambia 'ok'.
+                    $printOk = !in_array(false, $resultados, true);
+                }
+            } catch (\Throwable $e) {
+                error_log('enviarComanda — impresión falló: ' . $e->getMessage());
+                $printOk = false;
+            }
+
+            echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
         }
