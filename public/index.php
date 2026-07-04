@@ -7,6 +7,7 @@ use Controllers\AdminController;
 use Controllers\AdminAreaController;
 use Controllers\AdminMapController;
 use Controllers\AdminMenuController;
+use Controllers\AdminPrintersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
@@ -34,6 +35,7 @@ $router->get('/admin/menu/categories/edit', [AdminMenuController::class, 'catego
 $router->post('/admin/menu/categories/edit', [AdminMenuController::class, 'categoryEdit']);
 $router->post('/admin/menu/categories/delete', [AdminMenuController::class, 'categoryDelete']);
 $router->get('/admin/menu/items', [AdminMenuController::class, 'items']);
+$router->get('/admin/menu/items/pdf', [AdminMenuController::class, 'itemsPdf']);
 $router->get('/admin/menu/items/create', [AdminMenuController::class, 'itemCreate']);
 $router->post('/admin/menu/items/create', [AdminMenuController::class, 'itemCreate']);
 $router->get('/admin/menu/items/edit', [AdminMenuController::class, 'itemEdit']);
@@ -63,7 +65,13 @@ $router->get('/admin/products', [AdminController::class, 'products']);
 $router->get('/admin/categories', [AdminController::class, 'categories']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
 $router->get('/admin/payments', [AdminController::class, 'payments']);
-$router->get('/admin/printers', [AdminController::class, 'printers']);
+$router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
+$router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);
+$router->post('/admin/printers/create',  [AdminPrintersController::class, 'create']);
+$router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit']);
+$router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
+$router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
+$router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
 $router->get('/admin/users', [AdminController::class, 'users']);
 
 
