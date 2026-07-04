@@ -13,6 +13,7 @@
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu">Resumen</a>
             <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/menu/items/create">Nuevo platillo</a>
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/menu/items/pdf" target="_blank" rel="noopener"> Generar PDF </a>
         </div>
     </header>
 
