@@ -26,7 +26,7 @@
 
   th {
     background: var(--admin-surface-soft);
-    color: rgba(11, 12, 13, 0.54);
+    color: var(--admin-table-head);
     font-size: 11px;
     font-weight: 900;
     letter-spacing: 0.05em;
@@ -42,13 +42,13 @@
 
   tbody tr {
     transition:
-      background 160ms ease,
-      box-shadow 160ms ease;
+      background var(--admin-t-fast) var(--admin-ease-out),
+      box-shadow var(--admin-t-fast) var(--admin-ease-out);
   }
 
   tbody tr:hover {
     background: var(--admin-surface-soft);
-    box-shadow: inset 3px 0 0 rgba(160, 126, 54, 0.2);
+    box-shadow: inset 3px 0 0 var(--admin-gold);
   }
 
   td:last-child,
@@ -102,10 +102,10 @@
   min-height: 26px;
   align-items: center;
   padding: 0 9px;
-  border: 1px solid rgba(160, 126, 54, 0.24);
+  border: 1px solid var(--admin-neutral-border);
   border-radius: 999px;
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.7);
+  color: var(--admin-muted);
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
@@ -113,33 +113,33 @@
 }
 
 .admin-badge--neutral {
-  border-color: rgba(160, 126, 54, 0.24);
-  background: rgba(187, 143, 62, 0.12);
-  color: var(--admin-gold-deep);
+  border-color: var(--admin-neutral-border);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-neutral-text);
 }
 
 .admin-badge--success {
-  border-color: rgba(71, 124, 88, 0.28);
-  background: rgba(71, 124, 88, 0.12);
-  color: #315d3e;
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
 }
 
 .admin-badge--warning {
-  border-color: rgba(204, 163, 82, 0.32);
-  background: rgba(204, 163, 82, 0.1);
-  color: var(--admin-gold-deep);
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
 }
 
 .admin-badge--danger {
-  border-color: rgba(169, 75, 63, 0.24);
-  background: rgba(169, 75, 63, 0.08);
-  color: #81382f;
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 
 .admin-badge--info {
-  border-color: rgba(67, 111, 148, 0.24);
-  background: rgba(67, 111, 148, 0.08);
-  color: #31506d;
+  border-color: var(--admin-info-border);
+  background: var(--admin-info-bg);
+  color: var(--admin-info-text);
 }
 
 .admin-table-actions {

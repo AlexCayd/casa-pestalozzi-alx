@@ -103,6 +103,45 @@
       .join("");
   }
 
+  function initFilters() {
+    const caption = document.querySelector("[data-analytics-caption]");
+    const selects = document.querySelectorAll("[data-analytics-filter]");
+
+    if (!selects.length) {
+      return;
+    }
+
+    const state = { range: 7, service: "todos", source: "todas" };
+    const rangeLabels = { 7: "Últimos 7 días", 3: "Últimos 3 días", 1: "Solo ayer" };
+    const serviceLabels = { comida: "Comida", cena: "Cena" };
+    const sourceLabels = { web: "Web", whatsapp: "WhatsApp", phone: "Teléfono", walk_in: "Walk-in" };
+
+    function updateCaption() {
+      const parts = [rangeLabels[state.range] || "Últimos 7 días"];
+      if (serviceLabels[state.service]) parts.push(serviceLabels[state.service]);
+      if (sourceLabels[state.source]) parts.push(sourceLabels[state.source]);
+      if (caption) caption.textContent = parts.join(" · ");
+    }
+
+    selects.forEach((select) => {
+      select.addEventListener("change", () => {
+        const key = select.getAttribute("data-analytics-filter");
+
+        if (key === "range") state.range = parseInt(select.value, 10) || 7;
+        if (key === "service") state.service = select.value;
+        if (key === "source") state.source = select.value;
+
+        updateCaption();
+
+        if (window.AdminAnalyticsCharts && window.AdminAnalyticsCharts.applyFilters) {
+          window.AdminAnalyticsCharts.applyFilters(state);
+        }
+      });
+    });
+
+    updateCaption();
+  }
+
   function initAnalyticsPage() {
     const page = document.querySelector("[data-admin-analytics]");
 
@@ -118,6 +157,8 @@
     if (window.AdminAnalyticsCharts) {
       window.AdminAnalyticsCharts.init(data.charts);
     }
+
+    initFilters();
   }
 
   window.AdminAnalyticsPage = {

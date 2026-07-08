@@ -166,10 +166,101 @@
         });
     }
 
+    function initUserDeleteModal() {
+        const modal = document.querySelector('[data-user-delete-modal]');
+
+        if (!modal) {
+            return;
+        }
+
+        const nameEl = modal.querySelector('[data-modal-username]');
+        const input = modal.querySelector('[data-modal-input]');
+        const confirmBtn = modal.querySelector('[data-modal-confirm]');
+        const closers = modal.querySelectorAll('[data-modal-close]');
+
+        let activeForm = null;
+        let targetName = '';
+        let lastFocused = null;
+
+        function normalize(value) {
+            return (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        }
+
+        function refreshConfirm() {
+            confirmBtn.disabled = targetName === '' || normalize(input.value) !== normalize(targetName);
+        }
+
+        function openModal(button) {
+            activeForm = button.closest('form');
+            targetName = button.getAttribute('data-user-name') || '';
+            lastFocused = button;
+
+            if (nameEl) {
+                nameEl.textContent = targetName;
+            }
+
+            input.value = '';
+            confirmBtn.disabled = true;
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+
+            window.requestAnimationFrame(function () {
+                modal.classList.add('is-open');
+                input.focus();
+            });
+        }
+
+        function closeModal() {
+            modal.classList.remove('is-open');
+            document.body.style.overflow = '';
+            window.setTimeout(function () { modal.hidden = true; }, 220);
+
+            if (lastFocused) {
+                lastFocused.focus();
+            }
+
+            activeForm = null;
+        }
+
+        function submitDeletion() {
+            if (confirmBtn.disabled || !activeForm) {
+                return;
+            }
+
+            activeForm.submit();
+        }
+
+        document.querySelectorAll('[data-user-delete]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                openModal(button);
+            });
+        });
+
+        input.addEventListener('input', refreshConfirm);
+        confirmBtn.addEventListener('click', submitDeletion);
+        closers.forEach(function (element) {
+            element.addEventListener('click', closeModal);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (modal.hidden) {
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                closeModal();
+            } else if (event.key === 'Enter' && document.activeElement === input) {
+                event.preventDefault();
+                submitDeletion();
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initAdminSidebar();
         initPasswordToggles();
         initPasswordStrengthValidation();
         initDeleteConfirmations();
+        initUserDeleteModal();
     });
 })();

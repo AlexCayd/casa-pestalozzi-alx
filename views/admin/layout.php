@@ -13,19 +13,39 @@
     <script>
         (function () {
             var root = document.documentElement;
-            var storageKey = 'cp-admin-sidebar-collapsed';
 
             root.classList.add('admin-sidebar-preload');
 
             try {
-                if (window.localStorage.getItem(storageKey) === '1') {
+                if (window.localStorage.getItem('cp-admin-sidebar-collapsed') === '1') {
                     root.classList.add('admin-sidebar-collapsed');
                 }
             } catch (error) {
                 // localStorage puede no estar disponible en contextos restringidos.
             }
+
+            // Tema (oscuro por defecto) aplicado antes de pintar para evitar FOUC.
+            var theme = 'dark';
+            try {
+                if (window.localStorage.getItem('cp-admin-theme') === 'light') {
+                    theme = 'light';
+                }
+            } catch (error) {}
+            root.setAttribute('data-admin-theme', theme);
+
+            // Habilita la capa de animación salvo con reduced-motion.
+            try {
+                if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    root.classList.add('admin-anim-ready');
+                }
+            } catch (error) {}
         })();
     </script>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Space+Grotesk:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="/build/css/admin.css">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">
@@ -50,6 +70,9 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js" defer></script>
     <script src="/build/js/admin.js" defer></script>
     <?php foreach ($scripts ?? [] as $script): ?>
         <script src="<?php echo htmlspecialchars($script, ENT_QUOTES, 'UTF-8'); ?>" defer></script>

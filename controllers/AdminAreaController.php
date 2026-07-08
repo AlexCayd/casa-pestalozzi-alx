@@ -12,31 +12,31 @@ class AdminAreaController
     private const AREAS = [
         'cafe' => [
             'id' => 1,
-            'nombre' => 'Barra de Cafe',
-            'label' => 'Cafe',
-            'path' => '/admin/area/cafe',
-            'color' => '#7b5e3a',
+            'nombre' => 'Barra de Café',
+            'label' => 'Café',
+            'path' => '/area/cafe',
+            'color' => '#a07e36',
         ],
         'jugos' => [
             'id' => 2,
             'nombre' => 'Barra de Jugos',
             'label' => 'Jugos',
-            'path' => '/admin/area/jugos',
-            'color' => '#d28a31',
+            'path' => '/area/jugos',
+            'color' => '#cca352',
         ],
         'cocina' => [
             'id' => 3,
             'nombre' => 'Cocina',
             'label' => 'Cocina',
-            'path' => '/admin/area/cocina',
+            'path' => '/area/cocina',
             'color' => '#5f7d56',
         ],
         'horno' => [
             'id' => 4,
             'nombre' => 'Horno Napolitano',
             'label' => 'Horno',
-            'path' => '/admin/area/horno',
-            'color' => '#214b4b',
+            'path' => '/area/horno',
+            'color' => '#7c3d1d',
         ],
     ];
 
@@ -44,8 +44,8 @@ class AdminAreaController
     {
         AdminController::render('area/index', [
             'activeModule' => 'area',
-            'title' => 'Produccion',
-            'topbarTitle' => 'Produccion',
+            'title' => 'Producción',
+            'topbarTitle' => 'Producción',
             'areas' => self::AREAS,
             'styles' => [self::AREA_CSS],
             'scripts' => [],

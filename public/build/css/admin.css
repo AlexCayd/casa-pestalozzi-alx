@@ -5,46 +5,40 @@
  */
 /*
  * Base visual aislada del panel de administración.
- * Define tokens de color, superficies y normalización local del módulo admin.
+ * Define el sistema de tokens dual (claro/oscuro), superficies premium y
+ * la normalización local del módulo admin. El tema se controla con el
+ * atributo [data-admin-theme] en <html>; el claro es el valor por defecto.
  */
+/* ── Tokens compartidos (independientes del tema) ─────────────── */
 .admin-body {
-  /* Base */
-  --admin-bg: #f6f1e7;
-  --admin-surface: #fdfcfb;
-  --admin-surface-soft: #fbf9f4;
-  --admin-surface-strong: #ffffff;
-  /* Sidebar */
-  --admin-sidebar: #101213;
-  --admin-sidebar-soft: #15181a;
-  /* Texto */
-  --admin-text: #0b0c0d;
-  --admin-muted: rgba(11, 12, 13, 0.58);
-  /* Texto sobre fondo oscuro */
-  --admin-text-inverse: #ede9df;
-  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
   /* Marca */
   --admin-gold: #cca352;
+  --admin-gold-soft: #e0c184;
   --admin-gold-deep: #a07e36;
   --admin-sage: #5f7d56;
   --admin-sage-deep: #4e6148;
   --admin-terra: #7c3d1d;
-  /* Bordes */
-  --admin-border: rgba(204, 163, 82, 0.22);
-  --admin-border-soft: rgba(11, 12, 13, 0.08);
-  --admin-line: var(--admin-border-soft);
-  /* Estados */
-  --admin-success: #5f7d56;
-  --admin-warning: #cca352;
-  --admin-danger: #a94b3f;
-  /* Layout */
+  --admin-terra-deep: #632f16;
+  /* Radios */
   --admin-radius: 1.4rem;
   --admin-radius-sm: 12px;
   --admin-radius-md: 16px;
   --admin-radius-lg: 20px;
+  /* Layout */
   --admin-header-height: 88px;
   --admin-sidebar-width: 280px;
   --admin-sidebar-collapsed-width: 88px;
   --admin-layout-transition: 180ms ease;
+  /* Movimiento premium */
+  --admin-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --admin-t-fast: 140ms;
+  --admin-t-base: 260ms;
+  --admin-t-slow: 480ms;
+  --admin-glow:
+    0 0 0 1px rgba(204, 163, 82, 0.35),
+    0 0 22px rgba(204, 163, 82, 0.18);
+  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.3);
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -54,6 +48,138 @@
   cursor: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out);
+}
+
+/* color-scheme: hace que selects nativos, scrollbars y date pickers
+   se pinten acordes al tema activo (clave para el modo oscuro). */
+[data-admin-theme=light] {
+  color-scheme: light;
+}
+
+[data-admin-theme=dark] {
+  color-scheme: dark;
+}
+
+/* ── Tema claro ────────────────────────────────────────────────── */
+[data-admin-theme=light] .admin-body {
+  /* Superficies */
+  --admin-bg: #f6f1e7;
+  --admin-surface: #fdfcfb;
+  --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
+  /* Sidebar (siempre tinta profunda, como el público) */
+  --admin-sidebar: #101213;
+  --admin-sidebar-soft: #15181a;
+  /* Texto */
+  --admin-text: #0b0c0d;
+  --admin-muted: rgba(11, 12, 13, 0.58);
+  --admin-faint: rgba(11, 12, 13, 0.42);
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  /* Bordes */
+  --admin-border: rgba(204, 163, 82, 0.22);
+  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
+  /* Estados base */
+  --admin-success: #5f7d56;
+  --admin-warning: #cca352;
+  --admin-danger: #a94b3f;
+  /* Superficies elevadas / cristal */
+  --admin-topbar-bg: rgba(253, 252, 251, 0.72);
+  --admin-topbar-border: rgba(11, 12, 13, 0.08);
+  --admin-table-head: rgba(11, 12, 13, 0.54);
+  /* Sombras */
+  --admin-shadow-sm: 0 1px 0 rgba(11, 12, 13, 0.04);
+  --admin-shadow-md: 0 18px 44px rgba(11, 12, 13, 0.07);
+  --admin-shadow-lg: 0 30px 80px rgba(11, 12, 13, 0.14);
+  /* Botones dependientes de superficie */
+  --admin-btn-secondary-bg: #fffaf0;
+  /* Grano/viñeta cinematográfica (apagado en claro) */
+  --admin-grain: 0;
+  /* Trios de estado (badges/status/alertas) */
+  --admin-neutral-text: var(--admin-gold-deep);
+  --admin-neutral-bg: rgba(187, 143, 62, 0.12);
+  --admin-neutral-border: rgba(160, 126, 54, 0.24);
+  --admin-success-text: #315d3e;
+  --admin-success-bg: rgba(71, 124, 88, 0.12);
+  --admin-success-border: rgba(71, 124, 88, 0.28);
+  --admin-warning-text: #75511f;
+  --admin-warning-bg: rgba(204, 163, 82, 0.12);
+  --admin-warning-border: rgba(204, 163, 82, 0.32);
+  --admin-danger-text: #81382f;
+  --admin-danger-bg: rgba(169, 75, 63, 0.1);
+  --admin-danger-border: rgba(169, 75, 63, 0.28);
+  --admin-info-text: #31506d;
+  --admin-info-bg: rgba(67, 111, 148, 0.1);
+  --admin-info-border: rgba(67, 111, 148, 0.24);
+}
+
+/* ── Tema oscuro cinematográfico (por defecto; paridad con mapa/áreas/landing) ─ */
+.admin-body,
+[data-admin-theme=dark] .admin-body {
+  /* Superficies */
+  --admin-bg: #101213;
+  --admin-surface: #15181a;
+  --admin-surface-soft: #1c2023;
+  --admin-surface-strong: #21262a;
+  /* Sidebar aún más profundo que el fondo */
+  --admin-sidebar: #0b0c0d;
+  --admin-sidebar-soft: #101213;
+  /* Texto */
+  --admin-text: #ede9df;
+  --admin-muted: rgba(237, 233, 223, 0.58);
+  --admin-faint: rgba(237, 233, 223, 0.34);
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  /* Bordes: hairline dorado sobre oscuro */
+  --admin-border: rgba(204, 163, 82, 0.24);
+  --admin-border-soft: rgba(245, 245, 245, 0.08);
+  --admin-line: var(--admin-border-soft);
+  /* Estados base ajustados a fondo oscuro */
+  --admin-success: #8bbf7e;
+  --admin-warning: #e0c184;
+  --admin-danger: #e87060;
+  /* Cristal / topbar translúcido */
+  --admin-topbar-bg: rgba(16, 18, 19, 0.66);
+  --admin-topbar-border: rgba(204, 163, 82, 0.16);
+  --admin-table-head: rgba(237, 233, 223, 0.5);
+  /* Sombras más profundas y frías */
+  --admin-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --admin-shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.55);
+  --admin-btn-secondary-bg: rgba(204, 163, 82, 0.08);
+  /* Grano/viñeta encendido */
+  --admin-grain: 1;
+  /* Trios de estado (texto claro sobre tintes) */
+  --admin-neutral-text: var(--admin-gold-soft);
+  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
+  --admin-neutral-border: rgba(204, 163, 82, 0.3);
+  --admin-success-text: #9fd3a6;
+  --admin-success-bg: rgba(139, 191, 126, 0.14);
+  --admin-success-border: rgba(139, 191, 126, 0.32);
+  --admin-warning-text: #e6c98a;
+  --admin-warning-bg: rgba(224, 193, 132, 0.12);
+  --admin-warning-border: rgba(224, 193, 132, 0.34);
+  --admin-danger-text: #f0a79b;
+  --admin-danger-bg: rgba(232, 112, 96, 0.14);
+  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  --admin-info-text: #9dc0e0;
+  --admin-info-bg: rgba(103, 150, 192, 0.14);
+  --admin-info-border: rgba(103, 150, 192, 0.32);
+}
+
+/* ── Viñeta + grano (solo tema oscuro, vía --admin-grain) ──────── */
+.admin-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--admin-grain, 0);
+  background: radial-gradient(120% 120% at 50% 0%, transparent 58%, rgba(0, 0, 0, 0.5) 100%);
+  mix-blend-mode: multiply;
+  transition: opacity var(--admin-t-slow) var(--admin-ease-out);
 }
 
 .admin-body,
@@ -84,45 +210,17 @@
   text-transform: none;
 }
 
+.admin-body ::selection {
+  background: var(--admin-gold);
+  color: #0b0c0d;
+}
+
 /*
  * Tipografía exclusiva del panel de administración.
- * Registra fuentes y jerarquías de texto para títulos y contenido de admin.
+ * Pareja editorial distintiva: Fraunces (títulos, con carácter) + Space Grotesk
+ * (UI/cuerpo, geométrica moderna). Cargadas por Google Fonts en el layout.
+ * KudosKaps (local) se reserva para el logotipo de marca.
  */
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Light.ttf") format("truetype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Italic.ttf") format("truetype");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Playfair Display";
-  src: url("/build/fonts/PlayfairDisplay-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: "KudosKaps";
   src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
@@ -132,14 +230,16 @@
 }
 .admin-body {
   --admin-font-body:
-    "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  --admin-font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
-  --admin-logo: "KudosKaps", sans-serif;
+  --admin-font-heading: "Fraunces", "Playfair Display", Georgia, serif;
+  --admin-font-accent: "Fraunces", Georgia, serif;
+  --admin-logo: "KudosKaps", "Fraunces", serif;
   font-family: var(--admin-font-body);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
+  letter-spacing: -0.005em;
 }
 
 .admin-body h1,
@@ -147,9 +247,9 @@
 .admin-body h3,
 .admin-body h4 {
   font-family: var(--admin-font-heading);
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.08;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--admin-text);
 }
 
@@ -175,7 +275,7 @@
 }
 
 .admin-body strong {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .admin-body small {
@@ -260,14 +360,34 @@
   align-self: start;
   width: 100%;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
   max-height: 100vh;
   padding: 22px 18px;
   background: var(--admin-sidebar);
   color: var(--admin-text-inverse);
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 163, 82, 0.42) transparent;
   transition: padding var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+.admin-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-sidebar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(204, 163, 82, 0.32);
+  transition: background-color var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-sidebar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(204, 163, 82, 0.5);
 }
 
 .admin-sidebar-preload .admin-sidebar,
@@ -353,21 +473,42 @@
 
 .admin-sidebar__nav {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   margin-top: 8px;
+  padding-bottom: 16px;
 }
 
 .admin-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 42px;
   padding: 4px 10px;
   border-radius: 8px;
   color: rgba(248, 239, 226, 0.78);
-  font-size: 15px;
+  font-size: 13px;
+  letter-spacing: 0.005em;
   text-decoration: none;
-  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
+  /* Marcador dorado que crece desde el centro */
+}
+.admin-sidebar__link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 60%;
+  border-radius: 0 3px 3px 0;
+  background: var(--admin-gold);
+  transform: translateY(-50%) scaleY(0);
+  transform-origin: center;
+  box-shadow: 0 0 12px rgba(204, 163, 82, 0.55);
+  transition: transform var(--admin-t-base) var(--admin-ease);
+}
+.admin-sidebar__link .admin-sidebar__link-mark {
+  transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-sidebar__link:hover {
   background: rgba(248, 239, 226, 0.1);
@@ -375,12 +516,15 @@
 }
 .admin-sidebar__link:hover .admin-sidebar__link-mark {
   color: #fff;
+  transform: translateX(1px);
 }
 .admin-sidebar__link.is-active {
   background: rgba(248, 239, 226, 0.12);
   color: #fff;
-  box-shadow: inset 3px 0 0 #b9863f;
   font-weight: 700;
+}
+.admin-sidebar__link.is-active::before {
+  transform: translateY(-50%) scaleY(1);
 }
 .admin-sidebar__link.is-active .admin-sidebar__link-mark {
   background: var(--admin-gold);
@@ -521,12 +665,21 @@
   gap: 16px;
   min-height: 56px;
   padding: 7px 24px;
-  backdrop-filter: blur(20px);
-  background: rgba(245, 245, 245, 0.78);
-  border-bottom: 1px solid var(--admin-border);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: var(--admin-topbar-bg);
+  border-bottom: 1px solid var(--admin-topbar-border);
+  transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
 }
 
 .admin-topbar__heading {
+  min-width: 0;
+}
+
+.admin-topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -602,6 +755,7 @@
  */
 .admin-btn,
 .admin-menu__button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -611,49 +765,68 @@
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.04);
+  box-shadow: var(--admin-shadow-sm);
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+  overflow: hidden;
+  isolation: isolate;
+  transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-btn:hover,
 .admin-menu__button:hover {
   border-color: rgba(160, 126, 54, 0.42);
   background: var(--admin-surface-strong);
-  box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+  box-shadow: var(--admin-shadow-md);
+  transform: translateY(-1px);
 }
 .admin-btn:focus-visible,
 .admin-menu__button:focus-visible {
-  outline: 2px solid var(--admin-gold);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--admin-glow);
 }
 .admin-btn:active,
 .admin-menu__button:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05);
+  transform: translateY(0);
+  box-shadow: var(--admin-shadow-sm);
 }
 
+/* Botón firma: relleno que sube desde abajo (paridad con .btn-line público) */
 .admin-btn--primary,
 .admin-menu__button--primary {
   border-color: var(--admin-terra);
   background: var(--admin-terra);
   color: #fff;
 }
+.admin-btn--primary::before,
+.admin-menu__button--primary::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, var(--admin-terra), var(--admin-terra-deep));
+  transform: translateY(101%);
+  transition: transform var(--admin-t-slow) var(--admin-ease);
+}
 .admin-btn--primary:hover,
 .admin-menu__button--primary:hover {
-  border-color: #632f16;
-  background: #632f16;
+  border-color: var(--admin-terra-deep);
+  background: var(--admin-terra);
   color: #fff;
+  transform: translateY(-1px);
+}
+.admin-btn--primary:hover::before,
+.admin-menu__button--primary:hover::before {
+  transform: translateY(0);
 }
 
 .admin-btn--secondary,
 .admin-menu__button--light {
   border-color: rgba(160, 126, 54, 0.36);
-  background: #fffaf0;
+  background: var(--admin-btn-secondary-bg);
   color: var(--admin-text);
 }
 
@@ -668,15 +841,16 @@
 
 .admin-btn--danger,
 .admin-menu__button--danger {
-  border-color: rgba(169, 75, 63, 0.34);
-  background: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 .admin-btn--danger:hover,
 .admin-menu__button--danger:hover {
-  border-color: rgba(169, 75, 63, 0.52);
-  background: rgba(169, 75, 63, 0.16);
-  color: #6d2f28;
+  border-color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  filter: brightness(1.05);
 }
 
 .admin-btn--small,
@@ -710,7 +884,7 @@
 
 .admin-body .admin-btn--secondary,
 .admin-body .admin-menu__button--light {
-  background-color: #fffaf0;
+  background-color: var(--admin-btn-secondary-bg);
   color: var(--admin-text);
 }
 
@@ -721,8 +895,8 @@
 
 .admin-body .admin-btn--danger,
 .admin-body .admin-menu__button--danger {
-  background-color: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  background-color: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 
 .admin-body .admin-btn--disabled,
@@ -792,6 +966,7 @@
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
 }
 
 .admin-page {
@@ -854,11 +1029,35 @@
 }
 
 .admin-card {
+  position: relative;
   min-width: 0;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
-  box-shadow: 0 18px 44px rgba(11, 12, 13, 0.07);
+  box-shadow: var(--admin-shadow-md);
+  overflow: hidden;
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+
+/* Sheen dorado sutil en el borde superior */
+.admin-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(204, 163, 82, 0.5), transparent);
+  opacity: 0;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
+}
+
+.admin-card:hover {
+  border-color: var(--admin-border);
+  box-shadow: var(--admin-shadow-lg);
+  transform: translateY(-3px);
+}
+
+.admin-card:hover::before {
+  opacity: 1;
 }
 
 .admin-empty {
@@ -915,7 +1114,7 @@
 }
 .admin-table th {
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.54);
+  color: var(--admin-table-head);
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.05em;
@@ -928,11 +1127,11 @@
   line-height: 1.4;
 }
 .admin-table tbody tr {
-  transition: background 160ms ease, box-shadow 160ms ease;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-table tbody tr:hover {
   background: var(--admin-surface-soft);
-  box-shadow: inset 3px 0 0 rgba(160, 126, 54, 0.2);
+  box-shadow: inset 3px 0 0 var(--admin-gold);
 }
 .admin-table td:last-child,
 .admin-table th:last-child {
@@ -984,10 +1183,10 @@
   min-height: 26px;
   align-items: center;
   padding: 0 9px;
-  border: 1px solid rgba(160, 126, 54, 0.24);
+  border: 1px solid var(--admin-neutral-border);
   border-radius: 999px;
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.7);
+  color: var(--admin-muted);
   font-size: 12px;
   font-weight: 800;
   line-height: 1;
@@ -995,33 +1194,33 @@
 }
 
 .admin-badge--neutral {
-  border-color: rgba(160, 126, 54, 0.24);
-  background: rgba(187, 143, 62, 0.12);
-  color: var(--admin-gold-deep);
+  border-color: var(--admin-neutral-border);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-neutral-text);
 }
 
 .admin-badge--success {
-  border-color: rgba(71, 124, 88, 0.28);
-  background: rgba(71, 124, 88, 0.12);
-  color: #315d3e;
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
 }
 
 .admin-badge--warning {
-  border-color: rgba(204, 163, 82, 0.32);
-  background: rgba(204, 163, 82, 0.1);
-  color: var(--admin-gold-deep);
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
 }
 
 .admin-badge--danger {
-  border-color: rgba(169, 75, 63, 0.24);
-  background: rgba(169, 75, 63, 0.08);
-  color: #81382f;
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 
 .admin-badge--info {
-  border-color: rgba(67, 111, 148, 0.24);
-  background: rgba(67, 111, 148, 0.08);
-  color: #31506d;
+  border-color: var(--admin-info-border);
+  background: var(--admin-info-bg);
+  color: var(--admin-info-text);
 }
 
 .admin-table-actions {
@@ -1047,6 +1246,7 @@
 /*
  * Badges de estado para la actividad operativa de analytics.
  * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
+ * Usa los trios de estado theme-aware definidos en base/globals.
  */
 .admin-status {
   display: inline-flex;
@@ -1054,26 +1254,466 @@
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(71, 111, 88, 0.12);
-  color: var(--admin-sage-deep);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
   font-size: 12px;
   font-weight: 700;
 }
 
 .admin-status--open {
-  background: rgba(185, 134, 63, 0.14);
-  color: #75511f;
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
 }
 
 .admin-status--cancelled {
-  background: rgba(185, 80, 67, 0.13);
-  color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 
 /*
- * Base reservada para formularios del admin.
- * Los modulos futuros pueden extender estos estilos sin importar la landing.
+ * Controles de formulario compartidos del panel admin.
+ * Da un acabado consistente (superficie, radio, anillo dorado de foco) a
+ * inputs, selects y textareas sin pisar los estilos de cada módulo.
  */
+.admin-body {
+  accent-color: var(--admin-gold);
+}
+.admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]),
+.admin-body select,
+.admin-body textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  caret-color: var(--admin-gold);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-body textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]):hover,
+.admin-body select:hover,
+.admin-body textarea:hover {
+  border-color: rgba(204, 163, 82, 0.42);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(204, 163, 82, 0.08);
+}
+.admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,
+.admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus-visible,
+.admin-body select:focus,
+.admin-body select:focus-visible,
+.admin-body textarea:focus,
+.admin-body textarea:focus-visible {
+  outline: none;
+  border-color: var(--admin-gold);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--admin-surface);
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body ::placeholder {
+  color: var(--admin-faint);
+}
+.admin-body input:-webkit-autofill,
+.admin-body input:-webkit-autofill:hover,
+.admin-body input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--admin-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--admin-surface-soft) inset;
+  caret-color: var(--admin-gold);
+  transition: background-color 100000s ease-in-out 0s;
+}
+.admin-body {
+  /* Selects con chevron dorado propio (oculta la flecha nativa). */
+}
+.admin-body select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cca352' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+.admin-body select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin-body select::-ms-expand {
+  display: none;
+}
+
+/* Campo con etiqueta reutilizable para formularios nuevos */
+.admin-field {
+  display: block;
+}
+.admin-field__label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-field__control {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/*
+ * Select custom del panel admin (mejora progresiva de <select>).
+ * El <select> nativo queda oculto (envía el valor); el trigger + la lista
+ * replican el estilo editorial del sitio y son totalmente estilizables.
+ * La lista se monta en <body> y se posiciona fija desde JS.
+ */
+.admin-select {
+  position: relative;
+  width: 100%;
+  min-width: 150px;
+}
+
+.admin-select__native {
+  display: none;
+}
+
+.admin-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 15.5px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-select__trigger:hover {
+  border-color: rgba(204, 163, 82, 0.42);
+}
+.admin-select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--admin-gold);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-select.is-open .admin-select__trigger {
+  border-color: var(--admin-gold);
+  box-shadow: var(--admin-focus-ring);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--admin-surface);
+}
+
+.admin-select.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.admin-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-select__chevron {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--admin-gold);
+  transition: transform var(--admin-t-base) var(--admin-ease);
+}
+
+.admin-select.is-open .admin-select__chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Lista desplegable (portal en <body>) ─────────────────────── */
+.admin-select__list {
+  position: fixed;
+  z-index: 130;
+  width: max-content;
+  max-width: min(340px, 92vw);
+  max-height: 264px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 163, 82, 0.4) transparent;
+}
+.admin-select__list[hidden] {
+  display: none;
+}
+.admin-select__list.is-open {
+  animation: admin-select-in var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-select__list::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-select__list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(204, 163, 82, 0.32);
+}
+
+.admin-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: 8px;
+  color: var(--admin-text);
+  font-size: 15px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-select__option.is-active {
+  background: var(--admin-surface-soft);
+}
+.admin-select__option.is-selected {
+  color: var(--admin-gold);
+  font-weight: 600;
+}
+.admin-select__option.is-selected::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5L20 7'/%3E%3C/svg%3E") no-repeat center/contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5L20 7'/%3E%3C/svg%3E") no-repeat center/contain;
+}
+.admin-select__option[aria-disabled=true] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@keyframes admin-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/*
+ * Botón de cambio de tema (claro/oscuro) alojado en la topbar.
+ * El icono sol/luna se conmuta por CSS según [data-admin-theme].
+ */
+.admin-theme-toggle {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-theme-toggle:hover {
+  border-color: rgba(160, 126, 54, 0.5);
+  color: var(--admin-gold);
+  box-shadow: var(--admin-shadow-md);
+  transform: translateY(-1px);
+}
+.admin-theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-glow);
+}
+.admin-theme-toggle svg {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease);
+}
+.admin-theme-toggle .admin-theme-toggle__sun {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+.admin-theme-toggle .admin-theme-toggle__moon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+/* En tema oscuro se muestra el sol (invitación a volver a claro) */
+[data-admin-theme=dark] .admin-theme-toggle .admin-theme-toggle__sun {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+[data-admin-theme=dark] .admin-theme-toggle .admin-theme-toggle__moon {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.4);
+}
+
+/*
+ * Infraestructura de reveals del panel admin.
+ * Los reveals los dispara motion.js (GSAP/ScrollTrigger). Con reduced-motion
+ * o sin JS todo queda visible. (Sin transición de cortina entre páginas.)
+ */
+/* ── Base de reveals (GSAP fija .is-in / limpia estilos) ───────── */
+.admin-anim-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: opacity, transform;
+}
+
+.admin-anim-ready [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Sin animación: nada oculto */
+.admin-no-anim [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  .admin-anim-ready [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+/*
+ * Modal premium reutilizable del panel admin.
+ * Overlay con desenfoque + card con tokens de marca. Se controla por JS
+ * alternando el atributo [hidden] y la clase .is-open para la animación.
+ */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.admin-modal[hidden] {
+  display: none;
+}
+.admin-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 7, 8, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-modal__dialog {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 28px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+  transform: translateY(12px) scale(0.98);
+  opacity: 0;
+  transition: transform var(--admin-t-base) var(--admin-ease), opacity var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-modal.is-open .admin-modal__backdrop {
+  opacity: 1;
+}
+.admin-modal.is-open .admin-modal__dialog {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+.admin-modal__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+}
+.admin-modal__icon svg {
+  width: 26px;
+  height: 26px;
+}
+.admin-modal__title {
+  font-family: var(--admin-font-heading);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+.admin-modal__text {
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.admin-modal__text strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+.admin-modal__input {
+  margin-top: 16px;
+}
+.admin-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+.admin-modal .admin-btn--danger-solid {
+  border-color: var(--admin-danger);
+  background: var(--admin-danger);
+  color: #fff;
+}
+.admin-modal .admin-btn--danger-solid:hover:not(:disabled) {
+  filter: brightness(1.06);
+  background: var(--admin-danger);
+  color: #fff;
+}
+.admin-modal .admin-btn--danger-solid:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /*
  * Estado provisional para módulos administrativos pendientes.
  * Presenta el nombre del módulo dentro de una superficie consistente.

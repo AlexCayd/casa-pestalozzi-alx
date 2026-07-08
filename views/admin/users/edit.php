@@ -11,7 +11,7 @@
         $usuarioId = (int) ($usuario->id ?? 0);
     }
 
-    $action = $action ?? '/admin/users/edit?id=' . $usuarioId;
+    $action = $action ?? '/admin/usuarios/edit?id=' . $usuarioId;
 ?>
 
 <section class="admin-menu admin-menu--form admin-page">
@@ -22,17 +22,17 @@
             <p class="admin-page__subtitle">Actualiza los datos generales del usuario sin modificar su contraseña.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/users">
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/usuarios">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="m15 18-6-6 6-6"/>
                 </svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/users/change-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/change-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
         </div>
     </header>
 
-    <section class="admin-menu__panel admin-menu__panel--form admin-panel admin-card">
+    <section class="admin-menu__panel admin-menu__panel--form admin-users-panel admin-panel admin-card">
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del usuario</h3>

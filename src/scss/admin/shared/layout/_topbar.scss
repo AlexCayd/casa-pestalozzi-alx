@@ -15,12 +15,23 @@
   gap: 16px;
   min-height: 56px;
   padding: 7px 24px;
-  backdrop-filter: blur(20px);
-  background: rgba(245, 245, 245, 0.78);
-  border-bottom: 1px solid var(--admin-border);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: var(--admin-topbar-bg);
+  border-bottom: 1px solid var(--admin-topbar-border);
+  transition:
+    background var(--admin-t-base) var(--admin-ease-out),
+    border-color var(--admin-t-base) var(--admin-ease-out);
 }
 
 .admin-topbar__heading {
+  min-width: 0;
+}
+
+.admin-topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 

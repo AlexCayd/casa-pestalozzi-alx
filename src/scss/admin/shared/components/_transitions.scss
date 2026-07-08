@@ -1,0 +1,31 @@
+/*
+ * Infraestructura de reveals del panel admin.
+ * Los reveals los dispara motion.js (GSAP/ScrollTrigger). Con reduced-motion
+ * o sin JS todo queda visible. (Sin transición de cortina entre páginas.)
+ */
+
+/* ── Base de reveals (GSAP fija .is-in / limpia estilos) ───────── */
+.admin-anim-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: opacity, transform;
+}
+
+.admin-anim-ready [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Sin animación: nada oculto */
+.admin-no-anim [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  .admin-anim-ready [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

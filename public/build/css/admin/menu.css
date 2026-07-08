@@ -95,12 +95,12 @@
 .admin-menu__flash--exito {
   border: 1px solid rgba(71, 124, 88, 0.24);
   background: rgba(71, 124, 88, 0.12);
-  color: #315d3e;
+  color: var(--admin-success-text);
 }
 .admin-menu__flash--error, .admin-menu__alert {
   border: 1px solid rgba(173, 68, 54, 0.24);
   background: rgba(173, 68, 54, 0.1);
-  color: #7d2f27;
+  color: var(--admin-danger-text);
 }
 .admin-menu__alert ul {
   margin: 8px 0 0 18px;
@@ -145,12 +145,12 @@
 .admin-menu__badge.is-active {
   border: 1px solid rgba(71, 124, 88, 0.28);
   background: rgba(71, 124, 88, 0.14);
-  color: #315d3e;
+  color: var(--admin-success-text);
 }
 .admin-menu__badge.is-inactive {
   border: 1px solid rgba(169, 75, 63, 0.24);
   background: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 .admin-menu__tag {
   background: rgba(187, 143, 62, 0.14);
@@ -460,10 +460,10 @@
   vertical-align: 1px;
 }
 .admin-password-help.is-valid {
-  color: #315d3e;
+  color: var(--admin-success-text);
 }
 .admin-password-help.is-invalid {
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 
 .admin-table-actions {
@@ -488,9 +488,9 @@
   padding: 0;
   border: 1px solid rgba(160, 126, 54, 0.48);
   border-radius: var(--admin-radius-sm);
-  background: #fff7e6;
+  background: var(--admin-surface-soft);
   color: var(--admin-text);
-  box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   cursor: pointer;
   text-decoration: none;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
@@ -506,7 +506,7 @@
 }
 .admin-icon-button:hover {
   border-color: rgba(160, 126, 54, 0.68);
-  background: #fff0cc;
+  background: var(--admin-surface-strong);
   box-shadow: 0 8px 20px rgba(11, 12, 13, 0.1);
 }
 .admin-icon-button:focus-visible {
@@ -531,12 +531,12 @@
 .admin-icon-button--danger {
   border-color: rgba(169, 75, 63, 0.38);
   background: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 .admin-icon-button--danger:hover {
   border-color: rgba(169, 75, 63, 0.58);
   background: rgba(169, 75, 63, 0.16);
-  color: #6d2f28;
+  color: var(--admin-danger-text);
 }
 
 .admin-icon-button--danger-text {
@@ -555,7 +555,7 @@
   min-height: 38px;
   padding-inline: 12px;
   border-color: rgba(160, 126, 54, 0.52);
-  background: #fff7e6;
+  background: var(--admin-surface-soft);
   color: var(--admin-text);
   font-size: 12px;
   font-weight: 800;
@@ -571,7 +571,7 @@
   border: 1px solid rgba(71, 124, 88, 0.38);
   border-radius: 999px;
   background: rgba(71, 124, 88, 0.16);
-  color: #315d3e;
+  color: var(--admin-success-text);
   font: inherit;
   font-size: 12px;
   font-weight: 800;
@@ -601,14 +601,14 @@
 .admin-status-switch.is-off {
   border-color: rgba(169, 75, 63, 0.38);
   background: rgba(169, 75, 63, 0.14);
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 .admin-status-switch.is-off .admin-status-switch__track {
   background: rgba(169, 75, 63, 0.22);
 }
 .admin-status-switch.is-off .admin-status-switch__thumb {
   transform: translateX(0);
-  background: #a94b3f;
+  background: var(--admin-danger);
 }
 
 .admin-status-switch__track {
@@ -626,7 +626,7 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: #477c58;
+  background: var(--admin-success);
   transform: translateX(18px);
   transition: transform 160ms ease, background 160ms ease;
 }

@@ -1,4 +1,126 @@
 /*
- * Base reservada para formularios del admin.
- * Los modulos futuros pueden extender estos estilos sin importar la landing.
+ * Controles de formulario compartidos del panel admin.
+ * Da un acabado consistente (superficie, radio, anillo dorado de foco) a
+ * inputs, selects y textareas sin pisar los estilos de cada módulo.
  */
+.admin-body {
+  // Acento de marca para checkboxes, radios y controles nativos.
+  accent-color: var(--admin-gold);
+
+  // Apariencia base premium para todos los controles del panel,
+  // alineada al estilo editorial del sitio (superficie con profundidad,
+  // hairline dorado y foco con glow).
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 12px 14px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent),
+      var(--admin-surface-soft);
+    color: var(--admin-text);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    caret-color: var(--admin-gold);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+    transition:
+      border-color var(--admin-t-base) var(--admin-ease-out),
+      box-shadow var(--admin-t-base) var(--admin-ease-out),
+      background var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):hover,
+  select:hover,
+  textarea:hover {
+    border-color: rgba(204, 163, 82, 0.42);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.14),
+      0 0 0 1px rgba(204, 163, 82, 0.08);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+  select:focus,
+  select:focus-visible,
+  textarea:focus,
+  textarea:focus-visible {
+    outline: none;
+    border-color: var(--admin-gold);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+      var(--admin-surface);
+    box-shadow: var(--admin-focus-ring);
+  }
+
+  ::placeholder {
+    color: var(--admin-faint);
+  }
+
+  // Autofill: evita el fondo azul del navegador en tema oscuro.
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--admin-text);
+    -webkit-box-shadow: 0 0 0 1000px var(--admin-surface-soft) inset;
+    caret-color: var(--admin-gold);
+    transition: background-color 100000s ease-in-out 0s;
+  }
+
+  /* Selects con chevron dorado propio (oculta la flecha nativa). */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 36px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cca352' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+    cursor: pointer;
+  }
+
+  select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  select::-ms-expand {
+    display: none;
+  }
+}
+
+/* Campo con etiqueta reutilizable para formularios nuevos */
+.admin-field {
+  display: block;
+
+  &__label {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__control {
+    width: 100%;
+    min-height: 44px;
+    padding: 11px 13px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font: inherit;
+    font-size: 14px;
+  }
+}

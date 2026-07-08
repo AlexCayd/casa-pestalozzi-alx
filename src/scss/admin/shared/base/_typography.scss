@@ -1,50 +1,9 @@
 /*
  * Tipografía exclusiva del panel de administración.
- * Registra fuentes y jerarquías de texto para títulos y contenido de admin.
+ * Pareja editorial distintiva: Fraunces (títulos, con carácter) + Space Grotesk
+ * (UI/cuerpo, geométrica moderna). Cargadas por Google Fonts en el layout.
+ * KudosKaps (local) se reserva para el logotipo de marca.
  */
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Light.ttf")
-    format("truetype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Regular.ttf")
-    format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Montserrat";
-  src: url("/build/fonts/Montserrat-Italic.ttf")
-    format("truetype");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Playfair Display";
-  src: url("/build/fonts/PlayfairDisplay-Regular.ttf")
-    format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: "KudosKaps";
   src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
@@ -55,14 +14,16 @@
 
 .admin-body {
   --admin-font-body:
-    "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  --admin-font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
-  --admin-logo: "KudosKaps", sans-serif;
+  --admin-font-heading: "Fraunces", "Playfair Display", Georgia, serif;
+  --admin-font-accent: "Fraunces", Georgia, serif;
+  --admin-logo: "KudosKaps", "Fraunces", serif;
   font-family: var(--admin-font-body);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
+  letter-spacing: -0.005em;
 }
 
 .admin-body h1,
@@ -70,9 +31,9 @@
 .admin-body h3,
 .admin-body h4 {
   font-family: var(--admin-font-heading);
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.08;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--admin-text);
 }
 
@@ -98,7 +59,7 @@
 }
 
 .admin-body strong {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .admin-body small {

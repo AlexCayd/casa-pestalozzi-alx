@@ -1,0 +1,73 @@
+/*
+ * Botón de cambio de tema (claro/oscuro) alojado en la topbar.
+ * El icono sol/luna se conmuta por CSS según [data-admin-theme].
+ */
+.admin-theme-toggle {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    background var(--admin-t-base) var(--admin-ease-out),
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    color var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out),
+    transform var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    border-color: rgba(160, 126, 54, 0.5);
+    color: var(--admin-gold);
+    box-shadow: var(--admin-shadow-md);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--admin-glow);
+  }
+
+  svg {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition:
+      opacity var(--admin-t-base) var(--admin-ease-out),
+      transform var(--admin-t-base) var(--admin-ease);
+  }
+
+  .admin-theme-toggle__sun {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.4);
+  }
+
+  .admin-theme-toggle__moon {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+/* En tema oscuro se muestra el sol (invitación a volver a claro) */
+[data-admin-theme="dark"] .admin-theme-toggle {
+  .admin-theme-toggle__sun {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+
+  .admin-theme-toggle__moon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.4);
+  }
+}

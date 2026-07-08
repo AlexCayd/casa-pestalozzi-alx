@@ -11,16 +11,40 @@
   align-self: start;
   width: 100%;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
   max-height: 100vh;
   padding: 22px 18px;
   background: var(--admin-sidebar);
   color: var(--admin-text-inverse);
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 163, 82, 0.42) transparent;
   transition:
     padding var(--admin-layout-transition),
     width var(--admin-layout-transition);
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: rgba(204, 163, 82, 0.32);
+    transition: background-color var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(204, 163, 82, 0.5);
+  }
 }
 
 .admin-sidebar-preload .admin-sidebar,
@@ -112,24 +136,50 @@
 
 .admin-sidebar__nav {
   display: grid;
-  gap: 8px;
+  gap: 5px;
   margin-top: 8px;
+  padding-bottom: 16px;
 }
 
 .admin-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
+  min-height: 42px;
   padding: 4px 10px;
   border-radius: 8px;
   color: rgba(248, 239, 226, 0.78);
-  font-size: 15px;
+  font-size: 13px;
+  letter-spacing: 0.005em;
   text-decoration: none;
   transition:
-    background 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
+    background var(--admin-t-base) var(--admin-ease-out),
+    color var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out);
+
+  /* Marcador dorado que crece desde el centro */
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 60%;
+    border-radius: 0 3px 3px 0;
+    background: var(--admin-gold);
+    transform: translateY(-50%) scaleY(0);
+    transform-origin: center;
+    box-shadow: 0 0 12px rgba(204, 163, 82, 0.55);
+    transition: transform var(--admin-t-base) var(--admin-ease);
+  }
+
+  .admin-sidebar__link-mark {
+    transition:
+      background var(--admin-t-base) var(--admin-ease-out),
+      color var(--admin-t-base) var(--admin-ease-out),
+      transform var(--admin-t-base) var(--admin-ease-out);
+  }
 
   &:hover {
     background: rgba(248, 239, 226, 0.1);
@@ -137,14 +187,18 @@
 
     .admin-sidebar__link-mark {
       color: #fff;
+      transform: translateX(1px);
     }
   }
 
   &.is-active {
     background: rgba(248, 239, 226, 0.12);
     color: #fff;
-    box-shadow: inset 3px 0 0 #b9863f;
     font-weight: 700;
+
+    &::before {
+      transform: translateY(-50%) scaleY(1);
+    }
 
     .admin-sidebar__link-mark {
       background: var(--admin-gold);

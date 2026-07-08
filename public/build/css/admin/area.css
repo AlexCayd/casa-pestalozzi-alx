@@ -51,40 +51,88 @@
 }
 
 .admin-area__grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
 }
 
 .admin-area-card {
-  display: grid;
-  align-content: space-between;
-  gap: 22px;
-  min-height: 220px;
-  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 260px;
+  padding: 26px;
   border-left: 4px solid var(--area-accent, var(--admin-gold));
+  text-decoration: none;
+  color: inherit;
 }
 .admin-area-card h3 {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--admin-text);
   font-size: clamp(24px, 2.2vw, 30px);
   line-height: 1.08;
 }
 .admin-area-card p {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--admin-muted);
   font-size: 14px;
   line-height: 1.5;
 }
+.admin-area-card__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  color: var(--area-accent, var(--admin-gold));
+  background: color-mix(in srgb, var(--area-accent, #cca352) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--area-accent, #cca352) 34%, transparent);
+}
+.admin-area-card__icon svg {
+  width: 28px;
+  height: 28px;
+}
+.admin-area-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-area-card__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 20px;
+  border-radius: var(--admin-radius-md);
+  background: var(--area-accent, var(--admin-gold));
+  color: #0b0c0d;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: filter var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-area-card__cta svg {
+  width: 18px;
+  height: 18px;
+  transition: transform var(--admin-t-base) var(--admin-ease);
+}
+.admin-area-card:hover .admin-area-card__cta {
+  filter: brightness(1.06);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--area-accent, #cca352) 40%, transparent);
+}
+.admin-area-card:hover .admin-area-card__cta svg {
+  transform: translate(3px, -3px);
+}
+.admin-area-card:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-glow);
+}
 
 .admin-area-card__eyebrow {
-  color: var(--admin-sage-deep);
+  color: var(--area-accent, var(--admin-sage-deep));
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-}
-
-.admin-area-card__button {
-  justify-self: start;
 }
 
 .admin-area-tabs {

@@ -17,14 +17,8 @@ class AdminMapController
             'title' => 'Mapa / Mesas',
             'topbarTitle' => 'Mapa operativo',
             'topbarSection' => 'Mapa operativo',
-            'compactTopbar' => true,
-            'styles' => [
-                self::MAP_CSS
-            ],
-            'scripts' => [
-                self::QR_JS,
-                self::MAP_JS
-            ]
+            'styles' => [],
+            'scripts' => []
         ]);
     }
 

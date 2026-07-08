@@ -6,6 +6,10 @@
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
+  transition:
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out),
+    background var(--admin-t-base) var(--admin-ease-out);
 }
 
 .admin-page {
@@ -68,11 +72,44 @@
 }
 
 .admin-card {
+  position: relative;
   min-width: 0;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface);
-  box-shadow: 0 18px 44px rgba(11, 12, 13, 0.07);
+  box-shadow: var(--admin-shadow-md);
+  overflow: hidden;
+  transition:
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out),
+    transform var(--admin-t-base) var(--admin-ease-out),
+    background var(--admin-t-base) var(--admin-ease-out);
+}
+
+/* Sheen dorado sutil en el borde superior */
+.admin-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(204, 163, 82, 0.5),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
+}
+
+.admin-card:hover {
+  border-color: var(--admin-border);
+  box-shadow: var(--admin-shadow-lg);
+  transform: translateY(-3px);
+}
+
+.admin-card:hover::before {
+  opacity: 1;
 }
 
 .admin-empty {

@@ -69,12 +69,16 @@ body.nav-open {
   background: var(--ink);
   display: grid;
   grid-template-columns: 1fr 2fr;
-  clip-path: circle(0% at calc(100% - 3.5rem) 3.5rem);
+  // Origen del círculo alineado al centro del .nav-toggle
+  // (right: var(--pad); top: clamp(1.1rem,3vw,2rem); 60px de lado → +30px).
+  --nav-origin-x: calc(100% - var(--pad) - 30px);
+  --nav-origin-y: calc(clamp(1.1rem, 3vw, 2rem) + 30px);
+  clip-path: circle(0% at var(--nav-origin-x) var(--nav-origin-y));
   transition: clip-path 0.8s var(--ease);
   pointer-events: none;
 }
 body.nav-open .nav-overlay {
-  clip-path: circle(150% at calc(100% - 3.5rem) 3.5rem);
+  clip-path: circle(150% at var(--nav-origin-x) var(--nav-origin-y));
   pointer-events: all;
 }
 

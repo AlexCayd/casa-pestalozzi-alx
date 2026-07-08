@@ -1,76 +1,98 @@
-<section class="admin-map admin-page mapa-page" data-page="admin-map">
-    <header class="admin-page__header admin-map__header">
+<section class="admin-map admin-map--launch admin-page">
+    <header class="admin-page__header">
         <div class="admin-page__intro">
-            <span class="admin-page__eyebrow">Operacion en piso</span>
+            <span class="admin-page__eyebrow">Operación en piso</span>
             <h2 class="admin-page__title">Mapa operativo</h2>
-            <p class="admin-page__subtitle">Gestion de mesas, reservaciones y tickets activos.</p>
-        </div>
-
-        <div class="admin-toolbar admin-map__toolbar">
-            <div class="mapa-date-wrap" id="mapa-date-picker">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <button class="mapa-date-btn" id="mapa-date-display" type="button"></button>
-                <input type="hidden" id="mapa-fecha" value="<?php echo date('Y-m-d'); ?>">
-                <div class="mapa-cal" id="mapa-calendar" aria-hidden="true">
-                    <div class="mapa-cal__nav">
-                        <button class="mapa-cal__nav-btn" id="mapa-cal-prev" type="button" aria-label="Mes anterior">&lsaquo;</button>
-                        <span class="mapa-cal__label" id="mapa-cal-label"></span>
-                        <button class="mapa-cal__nav-btn" id="mapa-cal-next" type="button" aria-label="Mes siguiente">&rsaquo;</button>
-                    </div>
-                    <div class="mapa-cal__weekdays">
-                        <span>D</span><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span>
-                    </div>
-                    <div class="mapa-cal__grid" id="mapa-cal-grid"></div>
-                </div>
-            </div>
-            <div class="mapa-live-badge" id="mapa-live-badge">
-                <span class="mapa-live-dot"></span>
-                <span>Live</span>
-            </div>
+            <p class="admin-page__subtitle">
+                Gestión de mesas, reservaciones y tickets activos en tiempo real.
+                El mapa se abre como herramienta operativa a pantalla completa.
+            </p>
         </div>
     </header>
 
-    <div class="mapa-shell admin-map__shell">
-        <div class="mapa-body">
-            <aside class="mapa-sidebar admin-card">
-                <div class="mapa-sidebar-head">
-                    <span class="mapa-sidebar-title">Reservaciones</span>
-                    <span class="mapa-reserva-count" id="mapa-reserva-count">0</span>
-                </div>
-
-                <div class="mapa-leyenda">
-                    <span class="mapa-leyenda-item mapa-leyenda-item--libre">Libre</span>
-                    <span class="mapa-leyenda-item mapa-leyenda-item--proxima">Proxima</span>
-                    <span class="mapa-leyenda-item mapa-leyenda-item--bloqueada">Bloqueada</span>
-                    <span class="mapa-leyenda-item mapa-leyenda-item--ocupada">Ocupada</span>
-                    <span class="mapa-leyenda-item mapa-leyenda-item--con-ticket">Ticket</span>
-                </div>
-
-                <div class="mapa-reservas-list" id="mapa-reservas-list">
-                    <div class="mapa-empty-state">
-                        <span class="mapa-empty-icon">○</span>
-                        <span>Cargando...</span>
-                    </div>
-                </div>
-            </aside>
-
-            <div class="mapa-canvas-wrap admin-card">
-                <div class="mapa-canvas" id="mapa-canvas"></div>
-                <div class="mapa-canvas-overlay" id="mapa-loading">
-                    <div class="mapa-spinner"></div>
-                </div>
-            </div>
+    <article class="admin-card admin-launch-card" data-reveal>
+        <div class="admin-launch-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/>
+                <path d="M9 3v15"/><path d="M15 6v15"/>
+            </svg>
         </div>
-
-        <div class="mesa-modal" id="mesa-modal">
-            <div class="mesa-modal__bd" id="mesa-modal-bd"></div>
-            <div class="mesa-modal__panel">
-                <div class="mesa-modal__handle"></div>
-                <button class="mesa-modal__close" id="mesa-modal-close" type="button" aria-label="Cerrar">x</button>
-                <div id="mesa-modal-content"></div>
-            </div>
+        <div class="admin-launch-card__body">
+            <span class="admin-launch-card__eyebrow">Live</span>
+            <h3>Abrir el mapa de mesas</h3>
+            <p>Reservaciones del día, apertura y cierre de tickets, y envío de comandas por área desde una vista dedicada.</p>
         </div>
-    </div>
+        <a
+            class="admin-btn admin-btn--primary admin-launch-card__button"
+            href="/mapa"
+            target="_blank"
+            rel="noopener"
+            data-admin-magnetic
+        >
+            Abrir mapa
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
+            </svg>
+        </a>
+    </article>
 </section>
+
+<style>
+    .admin-launch-card {
+        display: flex;
+        align-items: center;
+        gap: clamp(16px, 3vw, 32px);
+        padding: clamp(22px, 3vw, 34px);
+        flex-wrap: wrap;
+    }
+
+    .admin-launch-card__icon {
+        display: grid;
+        place-items: center;
+        width: 68px;
+        height: 68px;
+        flex: 0 0 auto;
+        border-radius: 18px;
+        color: var(--admin-gold);
+        background: var(--admin-neutral-bg);
+        border: 1px solid var(--admin-border);
+    }
+
+    .admin-launch-card__icon svg { width: 30px; height: 30px; }
+
+    .admin-launch-card__body {
+        flex: 1 1 260px;
+        min-width: 0;
+    }
+
+    .admin-launch-card__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--admin-sage);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .admin-launch-card__eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--admin-sage);
+        box-shadow: 0 0 8px var(--admin-sage);
+    }
+
+    .admin-launch-card__body h3 { margin: 6px 0 6px; }
+
+    .admin-launch-card__button {
+        gap: 8px;
+        padding-inline: 22px;
+        min-height: 48px;
+        flex: 0 0 auto;
+    }
+
+    .admin-launch-card__button svg { width: 16px; height: 16px; }
+</style>

@@ -119,7 +119,7 @@
 .admin-analytics .admin-metric-card strong {
   display: block;
   margin-top: 12px;
-  color: #2c2d2d;
+  color: var(--admin-text);
   font-size: clamp(23px, 2.1vw, 29px);
   line-height: 1.05;
   overflow-wrap: anywhere;

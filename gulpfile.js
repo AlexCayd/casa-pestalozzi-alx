@@ -20,7 +20,12 @@ const paths = {
     adminScss: 'src/scss/admin/shared/app-admin.scss',
     adminModulesScss: 'src/scss/admin/modules/*.scss',
     js: ['src/js/**/*.js', '!src/js/admin/**/*.js'],
-    adminJs: 'src/js/admin/admin.js',
+    adminJs: [
+        'src/js/admin/admin.js',
+        'src/js/admin/core/theme.js',
+        'src/js/admin/core/motion.js',
+        'src/js/admin/core/select.js'
+    ],
     adminAnalyticsJs: [
         'src/js/admin/analytics/mock-data.js',
         'src/js/admin/analytics/charts.js',
@@ -164,7 +169,7 @@ function devWatch(done) {
     watch('src/scss/admin/shared/**/*.scss', adminCss);
     watch('src/scss/admin/modules/**/*.scss', adminModuleCss);
     watch(paths.js, javascript);
-    watch(paths.adminJs, adminJavascript);
+    watch(['src/js/admin/admin.js', 'src/js/admin/core/**/*.js'], adminJavascript);
     watch('src/js/admin/analytics/**/*.js', adminAnalyticsJavascript);
     watch('src/js/admin/map/**/*.js', adminMapJavascript);
     watch('src/js/admin/area/**/*.js', adminAreaJavascript);

@@ -1,0 +1,113 @@
+/*
+ * Modal premium reutilizable del panel admin.
+ * Overlay con desenfoque + card con tokens de marca. Se controla por JS
+ * alternando el atributo [hidden] y la clase .is-open para la animación.
+ */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 7, 8, 0.62);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    transition: opacity var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &__dialog {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    padding: 28px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-lg);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow-lg);
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+    transition:
+      transform var(--admin-t-base) var(--admin-ease),
+      opacity var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &.is-open &__backdrop {
+    opacity: 1;
+  }
+
+  &.is-open &__dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    background: var(--admin-danger-bg);
+    color: var(--admin-danger-text);
+  }
+
+  &__icon svg { width: 26px; height: 26px; }
+
+  &__title {
+    font-family: var(--admin-font-heading);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--admin-text);
+  }
+
+  &__text {
+    margin-top: 8px;
+    color: var(--admin-muted);
+    font-size: 14px;
+    line-height: 1.55;
+
+    strong {
+      color: var(--admin-text);
+      font-weight: 600;
+    }
+  }
+
+  &__input {
+    margin-top: 16px;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  // Botón de peligro sólido (confirmación destructiva)
+  .admin-btn--danger-solid {
+    border-color: var(--admin-danger);
+    background: var(--admin-danger);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+      background: var(--admin-danger);
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}

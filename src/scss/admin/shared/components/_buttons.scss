@@ -7,6 +7,7 @@
 
 .admin-btn,
 .admin-menu__button {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -16,54 +17,73 @@
     border-radius: var(--admin-radius-sm);
     background: var(--admin-surface);
     color: var(--admin-text);
-    box-shadow: 0 1px 0 rgba(11, 12, 13, 0.04);
+    box-shadow: var(--admin-shadow-sm);
     font-size: 13px;
     font-weight: 800;
     line-height: 1;
     text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
+    overflow: hidden;
+    isolation: isolate;
     transition:
-        background 160ms ease,
-        border-color 160ms ease,
-        color 160ms ease,
-        box-shadow 160ms ease,
-        transform 120ms ease;
+        background var(--admin-t-base) var(--admin-ease-out),
+        border-color var(--admin-t-base) var(--admin-ease-out),
+        color var(--admin-t-base) var(--admin-ease-out),
+        box-shadow var(--admin-t-base) var(--admin-ease-out),
+        transform var(--admin-t-fast) var(--admin-ease-out);
 
     &:hover {
         border-color: rgba(160, 126, 54, 0.42);
         background: var(--admin-surface-strong);
-        box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+        box-shadow: var(--admin-shadow-md);
+        transform: translateY(-1px);
     }
 
     &:focus-visible {
-        outline: 2px solid var(--admin-gold);
-        outline-offset: 2px;
+        outline: none;
+        box-shadow: var(--admin-glow);
     }
 
     &:active {
-        transform: translateY(1px);
-        box-shadow: 0 1px 0 rgba(11, 12, 13, 0.05);
+        transform: translateY(0);
+        box-shadow: var(--admin-shadow-sm);
     }
 }
 
+/* Botón firma: relleno que sube desde abajo (paridad con .btn-line público) */
 .admin-btn--primary,
 .admin-menu__button--primary {
     border-color: var(--admin-terra);
     background: var(--admin-terra);
     color: #fff;
 
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(180deg, var(--admin-terra), var(--admin-terra-deep));
+        transform: translateY(101%);
+        transition: transform var(--admin-t-slow) var(--admin-ease);
+    }
+
     &:hover {
-        border-color: #632f16;
-        background: #632f16;
+        border-color: var(--admin-terra-deep);
+        background: var(--admin-terra);
         color: #fff;
+        transform: translateY(-1px);
+    }
+
+    &:hover::before {
+        transform: translateY(0);
     }
 }
 
 .admin-btn--secondary,
 .admin-menu__button--light {
     border-color: rgba(160, 126, 54, 0.36);
-    background: #fffaf0;
+    background: var(--admin-btn-secondary-bg);
     color: var(--admin-text);
 }
 
@@ -79,14 +99,15 @@
 
 .admin-btn--danger,
 .admin-menu__button--danger {
-    border-color: rgba(169, 75, 63, 0.34);
-    background: rgba(169, 75, 63, 0.1);
-    color: #81382f;
+    border-color: var(--admin-danger-border);
+    background: var(--admin-danger-bg);
+    color: var(--admin-danger-text);
 
     &:hover {
-        border-color: rgba(169, 75, 63, 0.52);
-        background: rgba(169, 75, 63, 0.16);
-        color: #6d2f28;
+        border-color: var(--admin-danger);
+        background: var(--admin-danger-bg);
+        color: var(--admin-danger-text);
+        filter: brightness(1.05);
     }
 }
 
@@ -121,7 +142,7 @@
 
 .admin-body .admin-btn--secondary,
 .admin-body .admin-menu__button--light {
-    background-color: #fffaf0;
+    background-color: var(--admin-btn-secondary-bg);
     color: var(--admin-text);
 }
 
@@ -132,8 +153,8 @@
 
 .admin-body .admin-btn--danger,
 .admin-body .admin-menu__button--danger {
-    background-color: rgba(169, 75, 63, 0.1);
-    color: #81382f;
+    background-color: var(--admin-danger-bg);
+    color: var(--admin-danger-text);
 }
 
 .admin-body .admin-btn--disabled,

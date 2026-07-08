@@ -442,3 +442,62 @@ INSERT INTO usuarios (username, nombre, password_hash, rol, activo) VALUES
 ('mesero1',         'Carlos Hernández',    '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
 ('cajero1',         'Mariana López',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cashier',  1),
 ('mesero_inactivo', 'Daniel Torres',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   0);
+
+-- -------------------------------------------------------
+-- Tickets de ejemplo (para /admin/tickets)
+-- id explícito para poder referenciarlos en items y feedback.
+-- -------------------------------------------------------
+
+INSERT INTO tickets (id, mesa_id, comensales, nombre, hora_apertura, estado, metodo_pago) VALUES
+(1,  1,  2, 'Camila Estrada',   '2026-06-18 14:05:00', 'cerrado',   'tarjeta'),
+(2,  3,  4, 'Javier Montiel',   '2026-06-18 14:40:00', 'cerrado',   'efectivo'),
+(3,  6,  6, 'Familia Guerrero', '2026-06-18 20:10:00', 'cerrado',   'tarjeta'),
+(4,  8,  2, 'Sofía Pedraza',    '2026-06-19 13:20:00', 'abierto',   'efectivo'),
+(5,  2,  4, 'Nicolás Andrade',  '2026-06-18 21:05:00', 'cerrado',   'tarjeta'),
+(6, 11,  5, 'Fernanda & Roque', '2026-06-19 13:35:00', 'abierto',   'tarjeta'),
+(7,  5,  3, 'Mesa 5',           '2026-06-18 16:00:00', 'cancelado', 'efectivo'),
+(8,  7,  4, 'Grupo Torres',     '2026-06-18 15:15:00', 'cerrado',   'efectivo');
+
+-- Items por ticket (definen el total mostrado en /admin/tickets)
+INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, estado) VALUES
+-- T1 (cerrado)
+(1, 'Toast de Salmón Ahumado', 230.00, 'Desayunos',        3, 1, 'entregado'),
+(1, 'Cappuccino',               75.00, 'Café & Bebidas',    1, 2, 'entregado'),
+-- T2 (cerrado)
+(2, 'Enchiladas Suizas',       220.00, 'Desayunos',        3, 2, 'entregado'),
+(2, 'Jugo Verde',               95.00, 'Jugos & Smoothies', 2, 2, 'entregado'),
+(2, 'Café Americano',           65.00, 'Café & Bebidas',    1, 2, 'entregado'),
+-- T3 (cerrado, grupo)
+(3, 'Rib Eye (450 grs.)',      785.00, 'Platos Fuertes',   3, 1, 'entregado'),
+(3, 'Pizza Milano',            260.00, 'Pizzas',           4, 2, 'entregado'),
+(3, 'Camarones al Ajillo',     210.00, 'Entradas',         3, 1, 'entregado'),
+(3, 'Limonada Natural',         75.00, 'Jugos & Smoothies', 2, 4, 'entregado'),
+-- T4 (abierto)
+(4, 'Chilaquiles',             180.00, 'Desayunos',        3, 2, 'en_preparacion'),
+(4, 'Café de Olla',             65.00, 'Café & Bebidas',    1, 2, 'enviado'),
+-- T5 (cerrado)
+(5, 'Filete de Res en su Jugo', 320.00, 'Platos Fuertes',  3, 2, 'entregado'),
+(5, 'Queso Burrata con Jitomates Cherrys', 210.00, 'Entradas', 4, 1, 'entregado'),
+-- T6 (abierto, grupo)
+(6, 'Pizza Burrata',           260.00, 'Pizzas',           4, 2, 'en_preparacion'),
+(6, 'Aros de Calamar',         210.00, 'Entradas',         3, 1, 'enviado'),
+(6, 'Agua de Coco',             90.00, 'Jugos & Smoothies', 2, 5, 'enviado'),
+-- T8 (cerrado)
+(8, 'Hamburguesa de la Casa',  260.00, 'Platos Fuertes',   3, 2, 'entregado'),
+(8, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 2, 'entregado'),
+(8, 'Refresco',                 55.00, 'Café & Bebidas',    1, 4, 'entregado');
+
+-- -------------------------------------------------------
+-- Feedback de clientes (para /admin/feedback)
+-- Escala 1–5. Referencia tickets cerrados; token_id NULL.
+-- -------------------------------------------------------
+
+INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiempo_espera, experiencia_global, comentario, created_at) VALUES
+(NULL, 1, 5, 5, 4, 5, 'Todo excelente, el salmón estaba delicioso y el servicio muy atento.', '2026-06-18 14:50:00'),
+(NULL, 2, 4, 5, 3, 4, 'Muy rica la comida, aunque tardó un poco en llegar.',                  '2026-06-18 15:30:00'),
+(NULL, 3, 5, 4, 4, 5, 'Celebramos un cumpleaños y quedamos encantados. Volveremos.',          '2026-06-18 22:00:00'),
+(NULL, 5, 5, 5, 5, 5, 'Experiencia impecable de principio a fin. El filete, espectacular.',   '2026-06-18 22:15:00'),
+(NULL, 8, 3, 4, 2, 3, 'La hamburguesa buena, pero esperamos demasiado por la cuenta.',        '2026-06-18 16:10:00'),
+(NULL, 2, 4, 4, 4, 4, 'Buen ambiente y sazón. Repetiría el jugo verde.',                      '2026-06-18 15:35:00'),
+(NULL, 1, 5, 5, 5, 5, 'El mejor desayuno de la Del Valle, sin duda.',                         '2026-06-18 14:55:00'),
+(NULL, 3, 2, 3, 2, 2, 'La pizza llegó fría y tardaron en atendernos.',                        '2026-06-18 22:05:00');

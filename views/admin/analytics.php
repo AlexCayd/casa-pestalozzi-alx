@@ -12,27 +12,36 @@
                 <h2>Análisis de datos</h2>
             </div>
             <p class="admin-page-summary">
-                Resumen operativo <span aria-hidden="true">·</span> Últimos 7 días
+                Resumen operativo <span aria-hidden="true">·</span>
+                <span data-analytics-caption>Últimos 7 días</span>
             </p>
         </div>
 
-        <div class="admin-filter-bar" aria-label="Filtros visuales no funcionales">
+        <div class="admin-filter-bar" aria-label="Filtros del resumen">
             <label>
                 Rango
-                <select disabled>
-                    <option>Últimos 7 días</option>
+                <select data-analytics-filter="range">
+                    <option value="7" selected>Últimos 7 días</option>
+                    <option value="3">Últimos 3 días</option>
+                    <option value="1">Solo ayer</option>
                 </select>
             </label>
             <label>
                 Servicio
-                <select disabled>
-                    <option>Todos</option>
+                <select data-analytics-filter="service">
+                    <option value="todos" selected>Todos</option>
+                    <option value="comida">Comida</option>
+                    <option value="cena">Cena</option>
                 </select>
             </label>
             <label>
                 Fuente
-                <select disabled>
-                    <option>Todas</option>
+                <select data-analytics-filter="source">
+                    <option value="todas" selected>Todas</option>
+                    <option value="web">Web</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="phone">Teléfono</option>
+                    <option value="walk_in">Walk-in</option>
                 </select>
             </label>
         </div>

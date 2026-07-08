@@ -44,7 +44,7 @@ $router->get('/admin/menu/items/edit', [AdminMenuController::class, 'itemEdit'])
 $router->post('/api/cancelar-item',       [MapaController::class, 'cancelarItem']);
 $router->post('/admin/menu/items/edit', [AdminMenuController::class, 'itemEdit']);
 $router->post('/admin/menu/items/delete', [AdminMenuController::class, 'itemDelete']);
-$router->get('/admin/map', [AdminMapController::class, 'index']);
+$router->get('/admin/mapa', [AdminMapController::class, 'index']);
 $router->get('/admin/area', [AdminAreaController::class, 'index']);
 $router->get('/admin/area/cafe', [AdminAreaController::class, 'cafe']);
 $router->get('/admin/area/jugos', [AdminAreaController::class, 'jugos']);
@@ -71,9 +71,7 @@ $router->post('/admin/reservations/no-show', [AdminReservacionController::class,
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
 $router->post('/admin/reservations/operation/assign-tables', [AdminReservacionController::class, 'assignTables']);
 $router->post('/admin/reservations/operation/update-comment', [AdminReservacionController::class, 'updateComment']);
-$router->get('/admin/tables', [AdminController::class, 'tables']);
-$router->get('/admin/products', [AdminController::class, 'products']);
-$router->get('/admin/categories', [AdminController::class, 'categories']);
+$router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
 $router->get('/admin/payments', [AdminController::class, 'payments']);
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
@@ -83,20 +81,18 @@ $router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit'
 $router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
 $router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
 $router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
-$router->get('/admin/users', [AdminController::class, 'users']);
-
 $router->get('/admin/printers', [AdminController::class, 'printers']);
 
-$router->get('/admin/users', [AdminUsersController::class, 'index']);
-$router->get('/admin/users/create', [AdminUsersController::class, 'userCreate']);
-$router->post('/admin/users/create', [AdminUsersController::class, 'userCreate']);
-$router->get('/admin/users/edit', [AdminUsersController::class, 'userEdit']);
-$router->post('/admin/users/edit', [AdminUsersController::class, 'userEdit']);
-$router->get('/admin/users/change-password', [AdminUsersController::class, 'changePassword']);
-$router->post('/admin/users/change-password', [AdminUsersController::class, 'changePassword']);
-$router->post('/admin/users/deactivate', [AdminUsersController::class, 'deactivate']);
-$router->post('/admin/users/activate', [AdminUsersController::class, 'activate']);
-$router->post('/admin/users/delete', [AdminUsersController::class, 'delete']);
+$router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
+$router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+$router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
+$router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+$router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
+$router->get('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
+$router->post('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
+$router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
+$router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
+$router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
 
 
 

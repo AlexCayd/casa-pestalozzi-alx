@@ -1,0 +1,224 @@
+@charset "UTF-8";
+/*
+ * Módulo de Usuarios — refinamiento premium sobre el layout base.
+ * Aporta avatar de iniciales, badges de rol por color y una tabla más legible.
+ * Depende de admin.css (tokens) y menu.css (estructura compartida de tablas/forms).
+ */
+.admin-users .admin-filters {
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+}
+.admin-users .admin-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.admin-users .admin-user-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--admin-border);
+  background: radial-gradient(120% 120% at 30% 20%, rgba(204, 163, 82, 0.28), transparent 70%), var(--admin-surface-soft);
+  color: var(--admin-gold);
+  font-family: var(--admin-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.admin-users .admin-user-identity {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-users .admin-user-identity__name {
+  color: var(--admin-text);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-users .admin-user-identity__handle {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.admin-users .admin-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-neutral-border);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-neutral-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin-users .admin-role::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.admin-users .admin-role--admin {
+  border-color: rgba(204, 163, 82, 0.4);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+}
+.admin-users .admin-role--waiter {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
+}
+.admin-users .admin-role--cashier {
+  border-color: var(--admin-info-border);
+  background: var(--admin-info-bg);
+  color: var(--admin-info-text);
+}
+.admin-users .admin-role--observer {
+  border-color: var(--admin-neutral-border);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-neutral-text);
+}
+.admin-users .admin-table th,
+.admin-users .admin-table td {
+  padding-block: 15px;
+}
+
+.admin-users-panel {
+  max-width: 1040px;
+}
+
+.admin-users-form {
+  display: grid;
+  gap: 28px;
+}
+.admin-users-form__section {
+  display: grid;
+  gap: 16px;
+}
+.admin-users-form__section + .admin-users-form__section {
+  padding-top: 26px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-users-form__section-head h4 {
+  font-family: var(--admin-font-heading);
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+.admin-users-form__section-head p {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-users-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 22px;
+}
+.admin-users-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.admin-users-form__field--full {
+  grid-column: 1/-1;
+}
+.admin-users-form__field label,
+.admin-users-form__field .admin-users-form__field-label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-users-form__hint {
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.admin-users-form__hint.is-valid {
+  color: var(--admin-success-text);
+}
+.admin-users-form__hint.is-invalid {
+  color: var(--admin-danger-text);
+}
+.admin-users-form__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.admin-users-form__toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.admin-users-form__toggle-track {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--admin-surface-strong);
+  border: 1px solid var(--admin-border);
+  transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-users-form__toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--admin-muted);
+  transition: transform var(--admin-t-base) var(--admin-ease), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-users-form__toggle-text {
+  color: var(--admin-text);
+  font-size: 14px;
+}
+.admin-users-form__toggle input:checked + .admin-users-form__toggle-track {
+  background: var(--admin-success-bg);
+  border-color: var(--admin-success-border);
+}
+.admin-users-form__toggle input:checked + .admin-users-form__toggle-track .admin-users-form__toggle-thumb {
+  transform: translateY(-50%) translateX(20px);
+  background: var(--admin-success);
+}
+.admin-users-form__toggle input:focus-visible + .admin-users-form__toggle-track {
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-users-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-users-form--single {
+  max-width: 460px;
+}
+
+@media (max-width: 720px) {
+  .admin-users-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

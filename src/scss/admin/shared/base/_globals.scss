@@ -1,53 +1,43 @@
 /*
  * Base visual aislada del panel de administración.
- * Define tokens de color, superficies y normalización local del módulo admin.
+ * Define el sistema de tokens dual (claro/oscuro), superficies premium y
+ * la normalización local del módulo admin. El tema se controla con el
+ * atributo [data-admin-theme] en <html>; el claro es el valor por defecto.
  */
+
+/* ── Tokens compartidos (independientes del tema) ─────────────── */
 .admin-body {
-  /* Base */
-  --admin-bg: #f6f1e7;
-  --admin-surface: #fdfcfb;
-  --admin-surface-soft: #fbf9f4;
-  --admin-surface-strong: #ffffff;
-
-  /* Sidebar */
-  --admin-sidebar: #101213;
-  --admin-sidebar-soft: #15181a;
-
-  /* Texto */
-  --admin-text: #0b0c0d;
-  --admin-muted: rgba(11, 12, 13, 0.58);
-
-  /* Texto sobre fondo oscuro */
-  --admin-text-inverse: #ede9df;
-  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
-
   /* Marca */
   --admin-gold: #cca352;
+  --admin-gold-soft: #e0c184;
   --admin-gold-deep: #a07e36;
   --admin-sage: #5f7d56;
   --admin-sage-deep: #4e6148;
   --admin-terra: #7c3d1d;
+  --admin-terra-deep: #632f16;
 
-  /* Bordes */
-  --admin-border: rgba(204, 163, 82, 0.22);
-  --admin-border-soft: rgba(11, 12, 13, 0.08);
-  --admin-line: var(--admin-border-soft);
-
-  /* Estados */
-  --admin-success: #5f7d56;
-  --admin-warning: #cca352;
-  --admin-danger: #a94b3f;
-
-  /* Layout */
+  /* Radios */
   --admin-radius: 1.4rem;
   --admin-radius-sm: 12px;
   --admin-radius-md: 16px;
   --admin-radius-lg: 20px;
 
+  /* Layout */
   --admin-header-height: 88px;
   --admin-sidebar-width: 280px;
   --admin-sidebar-collapsed-width: 88px;
   --admin-layout-transition: 180ms ease;
+
+  /* Movimiento premium */
+  --admin-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --admin-t-fast: 140ms;
+  --admin-t-base: 260ms;
+  --admin-t-slow: 480ms;
+  --admin-glow:
+    0 0 0 1px rgba(204, 163, 82, 0.35),
+    0 0 22px rgba(204, 163, 82, 0.18);
+  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.3);
 
   min-height: 100vh;
   margin: 0;
@@ -58,6 +48,170 @@
   cursor: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition:
+    background var(--admin-t-base) var(--admin-ease-out),
+    color var(--admin-t-base) var(--admin-ease-out);
+}
+
+/* color-scheme: hace que selects nativos, scrollbars y date pickers
+   se pinten acordes al tema activo (clave para el modo oscuro). */
+[data-admin-theme="light"] {
+  color-scheme: light;
+}
+
+[data-admin-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* ── Tema claro ────────────────────────────────────────────────── */
+[data-admin-theme="light"] .admin-body {
+  /* Superficies */
+  --admin-bg: #f6f1e7;
+  --admin-surface: #fdfcfb;
+  --admin-surface-soft: #fbf9f4;
+  --admin-surface-strong: #ffffff;
+
+  /* Sidebar (siempre tinta profunda, como el público) */
+  --admin-sidebar: #101213;
+  --admin-sidebar-soft: #15181a;
+
+  /* Texto */
+  --admin-text: #0b0c0d;
+  --admin-muted: rgba(11, 12, 13, 0.58);
+  --admin-faint: rgba(11, 12, 13, 0.42);
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+
+  /* Bordes */
+  --admin-border: rgba(204, 163, 82, 0.22);
+  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-line: var(--admin-border-soft);
+
+  /* Estados base */
+  --admin-success: #5f7d56;
+  --admin-warning: #cca352;
+  --admin-danger: #a94b3f;
+
+  /* Superficies elevadas / cristal */
+  --admin-topbar-bg: rgba(253, 252, 251, 0.72);
+  --admin-topbar-border: rgba(11, 12, 13, 0.08);
+  --admin-table-head: rgba(11, 12, 13, 0.54);
+
+  /* Sombras */
+  --admin-shadow-sm: 0 1px 0 rgba(11, 12, 13, 0.04);
+  --admin-shadow-md: 0 18px 44px rgba(11, 12, 13, 0.07);
+  --admin-shadow-lg: 0 30px 80px rgba(11, 12, 13, 0.14);
+
+  /* Botones dependientes de superficie */
+  --admin-btn-secondary-bg: #fffaf0;
+
+  /* Grano/viñeta cinematográfica (apagado en claro) */
+  --admin-grain: 0;
+
+  /* Trios de estado (badges/status/alertas) */
+  --admin-neutral-text: var(--admin-gold-deep);
+  --admin-neutral-bg: rgba(187, 143, 62, 0.12);
+  --admin-neutral-border: rgba(160, 126, 54, 0.24);
+
+  --admin-success-text: #315d3e;
+  --admin-success-bg: rgba(71, 124, 88, 0.12);
+  --admin-success-border: rgba(71, 124, 88, 0.28);
+
+  --admin-warning-text: #75511f;
+  --admin-warning-bg: rgba(204, 163, 82, 0.12);
+  --admin-warning-border: rgba(204, 163, 82, 0.32);
+
+  --admin-danger-text: #81382f;
+  --admin-danger-bg: rgba(169, 75, 63, 0.1);
+  --admin-danger-border: rgba(169, 75, 63, 0.28);
+
+  --admin-info-text: #31506d;
+  --admin-info-bg: rgba(67, 111, 148, 0.1);
+  --admin-info-border: rgba(67, 111, 148, 0.24);
+}
+
+/* ── Tema oscuro cinematográfico (por defecto; paridad con mapa/áreas/landing) ─ */
+.admin-body,
+[data-admin-theme="dark"] .admin-body {
+  /* Superficies */
+  --admin-bg: #101213;
+  --admin-surface: #15181a;
+  --admin-surface-soft: #1c2023;
+  --admin-surface-strong: #21262a;
+
+  /* Sidebar aún más profundo que el fondo */
+  --admin-sidebar: #0b0c0d;
+  --admin-sidebar-soft: #101213;
+
+  /* Texto */
+  --admin-text: #ede9df;
+  --admin-muted: rgba(237, 233, 223, 0.58);
+  --admin-faint: rgba(237, 233, 223, 0.34);
+  --admin-text-inverse: #ede9df;
+  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+
+  /* Bordes: hairline dorado sobre oscuro */
+  --admin-border: rgba(204, 163, 82, 0.24);
+  --admin-border-soft: rgba(245, 245, 245, 0.08);
+  --admin-line: var(--admin-border-soft);
+
+  /* Estados base ajustados a fondo oscuro */
+  --admin-success: #8bbf7e;
+  --admin-warning: #e0c184;
+  --admin-danger: #e87060;
+
+  /* Cristal / topbar translúcido */
+  --admin-topbar-bg: rgba(16, 18, 19, 0.66);
+  --admin-topbar-border: rgba(204, 163, 82, 0.16);
+  --admin-table-head: rgba(237, 233, 223, 0.5);
+
+  /* Sombras más profundas y frías */
+  --admin-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --admin-shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.55);
+
+  --admin-btn-secondary-bg: rgba(204, 163, 82, 0.08);
+
+  /* Grano/viñeta encendido */
+  --admin-grain: 1;
+
+  /* Trios de estado (texto claro sobre tintes) */
+  --admin-neutral-text: var(--admin-gold-soft);
+  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
+  --admin-neutral-border: rgba(204, 163, 82, 0.3);
+
+  --admin-success-text: #9fd3a6;
+  --admin-success-bg: rgba(139, 191, 126, 0.14);
+  --admin-success-border: rgba(139, 191, 126, 0.32);
+
+  --admin-warning-text: #e6c98a;
+  --admin-warning-bg: rgba(224, 193, 132, 0.12);
+  --admin-warning-border: rgba(224, 193, 132, 0.34);
+
+  --admin-danger-text: #f0a79b;
+  --admin-danger-bg: rgba(232, 112, 96, 0.14);
+  --admin-danger-border: rgba(232, 112, 96, 0.34);
+
+  --admin-info-text: #9dc0e0;
+  --admin-info-bg: rgba(103, 150, 192, 0.14);
+  --admin-info-border: rgba(103, 150, 192, 0.32);
+}
+
+/* ── Viñeta + grano (solo tema oscuro, vía --admin-grain) ──────── */
+.admin-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--admin-grain, 0);
+  background: radial-gradient(
+    120% 120% at 50% 0%,
+    transparent 58%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+  mix-blend-mode: multiply;
+  transition: opacity var(--admin-t-slow) var(--admin-ease-out);
 }
 
 .admin-body,
@@ -86,4 +240,9 @@
   margin: 0;
   font: inherit;
   text-transform: none;
+}
+
+.admin-body ::selection {
+  background: var(--admin-gold);
+  color: #0b0c0d;
 }

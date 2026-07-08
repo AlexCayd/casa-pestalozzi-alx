@@ -12,7 +12,8 @@ use MVC\Router;
 
 class AdminUsersController
 {
-    private const USERS_CSS = '/build/css/admin/menu.css';
+    private const MENU_CSS = '/build/css/admin/menu.css';
+    private const USERS_CSS = '/build/css/admin/users.css';
     private const ADMIN_ACTIVO_REQUERIDO = 'Debe existir un usuario administrador activo siempre.';
     private const ROLE_LABELS = [
         'admin' => 'Administrador',
@@ -58,7 +59,7 @@ class AdminUsersController
                 $resultado = $user->guardar();
 
                 if ($resultado && $resultado['resultado']) {
-                    header('Location: /admin/users?resultado=creado');
+                    header('Location: /admin/usuarios?resultado=creado');
                     exit;
                 }
 
@@ -74,7 +75,7 @@ class AdminUsersController
             'alertas' => $alertas,
             'accion' => 'Crear usuario',
             'modo' => 'crear',
-            'action' => '/admin/users/create',
+            'action' => '/admin/usuarios/create',
         ]);
     }
 
@@ -83,14 +84,14 @@ class AdminUsersController
         $id = self::idFromQuery();
 
         if (!$id) {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
         $user = Usuario::find($id);
 
         if (!$user) {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
@@ -118,7 +119,7 @@ class AdminUsersController
                     $resultado = $user->guardar();
 
                     if ($resultado) {
-                        header('Location: /admin/users?resultado=actualizado');
+                        header('Location: /admin/usuarios?resultado=actualizado');
                         exit;
                     }
 
@@ -135,7 +136,7 @@ class AdminUsersController
             'alertas' => $alertas,
             'accion' => 'Guardar cambios',
             'modo' => 'editar',
-            'action' => '/admin/users/edit?id=' . $id,
+            'action' => '/admin/usuarios/edit?id=' . $id,
         ]);
     }
 
@@ -144,14 +145,14 @@ class AdminUsersController
         $id = self::idFromQuery();
 
         if (!$id) {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
         $user = Usuario::find($id);
 
         if (!$user) {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
@@ -169,7 +170,7 @@ class AdminUsersController
                 $resultado = $user->guardar();
 
                 if ($resultado) {
-                    header('Location: /admin/users?resultado=password');
+                    header('Location: /admin/usuarios?resultado=password');
                     exit;
                 }
 
@@ -183,14 +184,14 @@ class AdminUsersController
             'topbarSection' => 'Usuarios / Cambiar contraseña',
             'usuario' => $user,
             'alertas' => $alertas,
-            'action' => '/admin/users/change-password?id=' . $id,
+            'action' => '/admin/usuarios/change-password?id=' . $id,
         ]);
     }
 
     public static function deactivate(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
@@ -199,30 +200,30 @@ class AdminUsersController
         ]);
 
         if (!$id) {
-            self::redirect('/admin/users?resultado=id_invalido');
+            self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
         $user = Usuario::find($id);
 
         if (!$user) {
-            self::redirect('/admin/users?resultado=no_existe');
+            self::redirect('/admin/usuarios?resultado=no_existe');
         }
 
         if ($user->esAdminActivo() && Usuario::contarAdminsActivos() <= 1) {
-            self::redirect('/admin/users?resultado=admin_activo_requerido');
+            self::redirect('/admin/usuarios?resultado=admin_activo_requerido');
         }
 
         $user->activo = 0;
         $user->guardar();
 
-        header('Location: /admin/users?resultado=desactivado');
+        header('Location: /admin/usuarios?resultado=desactivado');
         exit;
     }
 
     public static function activate(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /admin/users');
+            header('Location: /admin/usuarios');
             exit;
         }
 
@@ -231,26 +232,26 @@ class AdminUsersController
         ]);
 
         if (!$id) {
-            self::redirect('/admin/users?resultado=id_invalido');
+            self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
         $user = Usuario::find($id);
 
         if (!$user) {
-            self::redirect('/admin/users?resultado=no_existe');
+            self::redirect('/admin/usuarios?resultado=no_existe');
         }
 
         $user->activo = 1;
         $user->guardar();
 
-        header('Location: /admin/users?resultado=activado');
+        header('Location: /admin/usuarios?resultado=activado');
         exit;
     }
 
     public static function delete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect('/admin/users');
+            self::redirect('/admin/usuarios');
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
@@ -258,13 +259,13 @@ class AdminUsersController
         ]);
 
         if (!$id) {
-            self::redirect('/admin/users?resultado=id_invalido');
+            self::redirect('/admin/usuarios?resultado=id_invalido');
         }
 
         $user = Usuario::find($id);
 
         if (!$user) {
-            self::redirect('/admin/users?resultado=no_existe');
+            self::redirect('/admin/usuarios?resultado=no_existe');
         }
 
         if (session_status() === PHP_SESSION_NONE) {
@@ -273,25 +274,25 @@ class AdminUsersController
 
         $usuarioActualId = (int) ($_SESSION['id'] ?? 0);
         if ($usuarioActualId > 0 && (int) $user->id === $usuarioActualId) {
-            self::redirect('/admin/users?resultado=autoeliminacion');
+            self::redirect('/admin/usuarios?resultado=autoeliminacion');
         }
 
         if ($user->esAdminActivo() && Usuario::contarAdminsActivos() <= 1) {
-            self::redirect('/admin/users?resultado=admin_activo_requerido');
+            self::redirect('/admin/usuarios?resultado=admin_activo_requerido');
         }
 
         if ($user->eliminar()) {
-            self::redirect('/admin/users?resultado=eliminado');
+            self::redirect('/admin/usuarios?resultado=eliminado');
         }
 
-        self::redirect('/admin/users?resultado=error_eliminar');
+        self::redirect('/admin/usuarios?resultado=error_eliminar');
     }
 
     private static function render(string $view, array $data = []): void
     {
         AdminController::render($view, array_merge([
             'activeModule' => 'users',
-            'styles' => [self::USERS_CSS],
+            'styles' => [self::MENU_CSS, self::USERS_CSS],
             'scripts' => [],
             'roles' => Usuario::rolesPermitidos(),
         ], $data));

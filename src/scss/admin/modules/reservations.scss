@@ -274,7 +274,7 @@
   thead th {
     padding-block: 12px;
     background: var(--admin-surface-soft);
-    color: rgba(11, 12, 13, 0.54);
+    color: var(--admin-muted);
     font-size: 10.5px;
     font-weight: 900;
     letter-spacing: 0.05em;
@@ -343,7 +343,7 @@
   max-width: 100%;
   min-height: 24px;
   align-items: center;
-  color: rgba(11, 12, 13, 0.72);
+  color: var(--admin-text);
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
@@ -426,7 +426,7 @@
   border: 1px solid rgba(160, 126, 54, 0.24);
   border-radius: 999px;
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.72);
+  color: var(--admin-text);
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
@@ -443,7 +443,7 @@
   gap: 6px;
 
   strong {
-    color: #81382f;
+    color: var(--admin-danger-text);
     font-size: 12.5px;
     font-weight: 900;
     line-height: 1.2;
@@ -483,20 +483,20 @@
 .reservations-table__status--confirmada {
   border: 1px solid rgba(71, 124, 88, 0.28);
   background: rgba(71, 124, 88, 0.1);
-  color: #315d3e;
+  color: var(--admin-success-text);
 }
 
 .reservations-table__status--completada {
   border: 1px solid rgba(67, 111, 148, 0.24);
   background: rgba(67, 111, 148, 0.08);
-  color: #31506d;
+  color: var(--admin-info-text);
 }
 
 .reservations-table__status--cancelada,
 .reservations-table__status--no_show {
   border: 1px solid rgba(169, 75, 63, 0.24);
   background: rgba(169, 75, 63, 0.08);
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 
 .reservations-table__note {
@@ -514,7 +514,7 @@
 }
 
 .reservations-table__muted {
-  color: rgba(11, 12, 13, 0.42);
+  color: var(--admin-faint);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
@@ -569,11 +569,11 @@
 
   .admin-btn {
     min-width: 66px;
-    color: rgba(11, 12, 13, 0.68);
+    color: var(--admin-text);
   }
 
   .admin-btn--danger {
-    color: #81382f;
+    color: var(--admin-danger-text);
   }
 }
 
@@ -700,7 +700,7 @@
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.72);
+  color: var(--admin-text);
 }
 
 .reservation-detail-tables {
@@ -1000,7 +1000,7 @@
   border: 1px solid var(--admin-border-soft);
   border-radius: 999px;
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.68);
+  color: var(--admin-text);
   font-size: 10.5px;
   font-weight: 850;
   line-height: 1;
@@ -1014,7 +1014,7 @@
 }
 
 .reservation-operation-card__tables .reservation-operation-card__muted {
-  color: rgba(11, 12, 13, 0.44);
+  color: var(--admin-faint);
 }
 
 .reservation-operation-card__internal {
@@ -1149,9 +1149,9 @@
 }
 
 .admin-reservation-operation .mapa-leyenda-item--seleccionada {
-  background: #fffaf2;
+  background: var(--admin-warning-bg);
   border-color: rgba(204, 163, 82, 0.72);
-  color: #4b3714;
+  color: var(--admin-warning-text);
   box-shadow: inset 0 0 0 2px rgba(204, 163, 82, 0.18);
 }
 
@@ -1303,7 +1303,7 @@
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
-  color: rgba(11, 12, 13, 0.72);
+  color: var(--admin-text);
 }
 
 .reservation-operation-panel__submit,
