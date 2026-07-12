@@ -402,35 +402,29 @@ INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
 -- -------------------------------------------------------
 
 INSERT INTO reservaciones
-(nombre, email, fecha, hora, comensales, nota, estado, mesa_id, mesa_secundaria_id)
+(nombre, email, fecha, hora, comensales, nota, estado)
 VALUES
-('Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-19', '09:00:00', 2, '',                          'pendiente', 5,  NULL),
-('Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-19', '12:00:00', 4, 'Alergia: mariscos',          'pendiente', 3,  NULL),
-('Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-19', '13:00:00', 6, 'Cumpleaños — pedir pastel', 'pendiente', 6,  7),
-('Sofía Pedraza',    'spedraza@ejemplo.com',  '2026-06-19', '15:00:00', 2, '',                          'pendiente', 8,  NULL),
-('Nicolás Andrade',  'nandrade@ejemplo.com',  '2026-06-19', '19:00:00', 4, 'Reunión de trabajo',         'pendiente', 2,  NULL),
-('Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-19', '20:00:00', 5, 'Aniversario',                'pendiente', 11, 10),
-('Grupo Morales',    'morales@ejemplo.com',   '2026-06-19', '18:00:00', 9, 'Grupo grande',               'pendiente', 2,  4);
+('Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-19', '09:00:00', 2, '',                    'pendiente'),
+('Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-19', '12:00:00', 4, 'Alergia: mariscos',   'pendiente'),
+('Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-19', '13:00:00', 6, 'Cumpleanos - pastel', 'pendiente'),
+('Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-06-19', '15:00:00', 2, '',                    'pendiente'),
+('Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-06-19', '19:00:00', 4, 'Reunion de trabajo',  'pendiente'),
+('Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-19', '20:00:00', 5, 'Aniversario',          'pendiente'),
+('Grupo Morales',    'morales@ejemplo.com',   '2026-06-19', '18:00:00', 9, 'Grupo grande',         'pendiente');
 
--- Mesa principal de cada reservación → reservacion_mesas (orden = 1)
-INSERT IGNORE INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-SELECT id, mesa_id, 1
-FROM reservaciones
-WHERE mesa_id IS NOT NULL;
-
--- Mesa secundaria de cada reservación → reservacion_mesas (orden = 2)
-INSERT IGNORE INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-SELECT id, mesa_secundaria_id, 2
-FROM reservaciones
-WHERE mesa_secundaria_id IS NOT NULL
-  AND mesa_secundaria_id <> mesa_id;
-
--- Tercera mesa para el ejemplo de 9 personas (Grupo Morales)
+-- Asignaciones de ejemplo. reservacion_mesas es la unica fuente de mesas.
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-SELECT id, 5, 3
-FROM reservaciones
-WHERE nombre = 'Grupo Morales'
-LIMIT 1;
+SELECT id, 5, 1 FROM reservaciones WHERE nombre = 'Camila Estrada'
+UNION ALL SELECT id, 3, 1 FROM reservaciones WHERE nombre = 'Javier Montiel'
+UNION ALL SELECT id, 6, 1 FROM reservaciones WHERE nombre = 'Familia Guerrero'
+UNION ALL SELECT id, 7, 2 FROM reservaciones WHERE nombre = 'Familia Guerrero'
+UNION ALL SELECT id, 8, 1 FROM reservaciones WHERE nombre = 'Sofia Pedraza'
+UNION ALL SELECT id, 2, 1 FROM reservaciones WHERE nombre = 'Nicolas Andrade'
+UNION ALL SELECT id, 11, 1 FROM reservaciones WHERE nombre = 'Fernanda & Roque'
+UNION ALL SELECT id, 10, 2 FROM reservaciones WHERE nombre = 'Fernanda & Roque'
+UNION ALL SELECT id, 2, 1 FROM reservaciones WHERE nombre = 'Grupo Morales'
+UNION ALL SELECT id, 4, 2 FROM reservaciones WHERE nombre = 'Grupo Morales'
+UNION ALL SELECT id, 5, 3 FROM reservaciones WHERE nombre = 'Grupo Morales';
 
 -- -------------------------------------------------------
 -- Usuarios demo (password_hash = mismo bcrypt de prueba)

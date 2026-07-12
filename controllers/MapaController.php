@@ -7,6 +7,8 @@ use Model\Ticket;
 use Model\TicketItem;
 use Classes\TicketPrinter;
 use MVC\Router;
+use Services\HorarioReservacionService;
+use Services\ReservacionService;
 
 class MapaController {
 
@@ -18,10 +20,7 @@ class MapaController {
     public static function api(Router $router) {
         header('Content-Type: application/json');
 
-        $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
-            $fecha = date('Y-m-d');
-        }
+        $fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ''));
 
         try {
             $mesas = Mesa::consultarSQL(
@@ -29,10 +28,21 @@ class MapaController {
             );
 
             $reservaciones = Reservacion::consultarSQL(
-                "SELECT id, nombre, hora, comensales, nota, estado, mesa_id, mesa_secundaria_id
-                 FROM reservaciones
-                 WHERE fecha = '{$fecha}'
-                 ORDER BY hora ASC"
+                "SELECT
+                    r.id,
+                    r.nombre,
+                    r.hora,
+                    r.comensales,
+                    r.nota,
+                    r.estado,
+                    COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
+                    COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
+                 FROM reservaciones r
+                 LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
+                 LEFT JOIN mesas m ON m.id = rm.mesa_id
+                 WHERE r.fecha = '{$fecha}'
+                 GROUP BY r.id, r.nombre, r.hora, r.comensales, r.nota, r.estado
+                 ORDER BY r.hora ASC"
             );
 
             $tickets = Ticket::consultarSQL(
@@ -41,10 +51,10 @@ class MapaController {
                  WHERE estado = 'abierto'"
             );
         } catch (\Throwable $e) {
+            error_log('MapaController::api - ' . $e->getMessage());
             echo json_encode([
                 'ok'    => false,
-                'error' => 'Error de base de datos: ' . $e->getMessage(),
-                'hint'  => 'Ejecuta el SQL actualizado en database/reservaciones.sql.',
+                'error' => 'No se pudo cargar el mapa. Intenta de nuevo.',
             ]);
             return;
         }
@@ -63,15 +73,18 @@ class MapaController {
         }, $mesas);
 
         $reservasArr = array_map(function($r) {
+            $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($r->mesa_ids ?? '')))));
+            $mesas = array_values(array_filter(array_map('trim', explode(',', (string)($r->mesas_asignadas ?? '')))));
+
             return [
-                'id'                 => (int)$r->id,
-                'nombre'             => $r->nombre,
-                'hora'               => $r->hora,
-                'comensales'         => (int)$r->comensales,
-                'nota'               => $r->nota ?? '',
-                'estado'             => $r->estado,
-                'mesa_id'            => $r->mesa_id ? (int)$r->mesa_id : null,
-                'mesa_secundaria_id' => $r->mesa_secundaria_id ? (int)$r->mesa_secundaria_id : null,
+                'id' => (int)$r->id,
+                'nombre' => $r->nombre,
+                'hora' => $r->hora,
+                'comensales' => (int)$r->comensales,
+                'nota' => $r->nota ?? '',
+                'estado' => $r->estado,
+                'mesa_ids' => $mesaIds,
+                'mesas' => $mesas,
             ];
         }, $reservaciones);
 
@@ -151,7 +164,8 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'id' => $ticketId]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('MapaController::abrirTicket - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo crear el ticket. Intenta de nuevo.']);
         }
     }
 
@@ -168,15 +182,17 @@ class MapaController {
         }
 
         try {
-            Reservacion::ejecutarSQL(
-                "UPDATE reservaciones
-                 SET estado = 'cancelada'
-                 WHERE id = {$reservaId}"
-            );
-            Reservacion::limpiarMesasAsignadas($reservaId);
+            $resultado = ReservacionService::cancelar($reservaId);
+
+            if (!$resultado['ok']) {
+                echo json_encode(['ok' => false, 'msg' => self::mensajeReservacion($resultado['codigo'] ?? '')]);
+                return;
+            }
+
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('MapaController::liberarReservacion - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo liberar la reservacion. Intenta de nuevo.']);
         }
     }
 
@@ -246,7 +262,8 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'token' => $token]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('MapaController::cerrarTicket - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo cerrar el ticket. Intenta de nuevo.']);
         }
     }
 
@@ -337,7 +354,8 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('MapaController::enviarComanda - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo enviar la comanda. Intenta de nuevo.']);
         }
     }
 
@@ -360,7 +378,8 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => $e->getMessage()]);
+            error_log('MapaController::cancelarItem - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo cancelar el item. Intenta de nuevo.']);
         }
     }
 
@@ -383,7 +402,8 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => $e->getMessage()]);
+            error_log('MapaController::entregarItem - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
         }
     }
 
@@ -408,7 +428,8 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => $e->getMessage()]);
+            error_log('MapaController::actualizarTicket - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo actualizar el ticket. Intenta de nuevo.']);
         }
     }
 
@@ -451,7 +472,17 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'items' => $items]);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => $e->getMessage()]);
+            error_log('MapaController::ticketItems - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudieron cargar los items. Intenta de nuevo.']);
         }
+    }
+
+    private static function mensajeReservacion(string $codigo): string
+    {
+        return match ($codigo) {
+            ReservacionService::RESERVACION_NO_EXISTE => 'La reservacion no existe.',
+            ReservacionService::ESTADO_INVALIDO => 'La reservacion ya no se puede liberar.',
+            default => 'No se pudo liberar la reservacion. Intenta de nuevo.',
+        };
     }
 }

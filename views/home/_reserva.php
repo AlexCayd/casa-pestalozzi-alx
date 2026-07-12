@@ -1,4 +1,10 @@
-<?php /* Reserva */ ?>
+<?php
+/**
+ * Muestra el formulario publico de reservaciones y el aviso para grupos grandes.
+ */
+
+$contactoReservas = \Services\ReservacionConfig::contactoPublico();
+?>
 <section class="section reserva" id="reserva" data-screen-label="Reservar">
   <div class="wrap reserva__grid">
     <div class="reserva__intro">
@@ -18,37 +24,56 @@
     </div>
 
     <div class="reserva__form-wrap" data-reveal>
-      <form class="form" id="reservaForm" novalidate>
+      <form
+        class="form"
+        id="reservaForm"
+        data-schedules-endpoint="/api/reservation-schedules"
+        data-max-guests="<?php echo (int)$contactoReservas['max_comensales']; ?>"
+        novalidate
+      >
         <div class="form__row">
-          <div class="field"><label>Nombre</label><input type="text" name="nombre" placeholder="Tu nombre" required /></div>
-          <div class="field"><label>Correo electrónico</label><input type="email" name="email" placeholder="tu@correo.com" required /></div>
+          <div class="field">
+            <label>Nombre</label>
+            <input type="text" name="nombre" placeholder="Tu nombre" required />
+            <span class="field__msg" data-field-error="nombre"></span>
+          </div>
+          <div class="field">
+            <label>Correo electrónico</label>
+            <input type="email" name="email" placeholder="tu@correo.com" required />
+            <span class="field__msg" data-field-error="email"></span>
+          </div>
         </div>
         <div class="form__row">
           <div class="field">
             <label>Fecha</label>
-            <div class="date-picker-wrap" id="datePicker">
-              <input type="text" class="date-display" id="dateDisplay" placeholder="dd / mm / aaaa" readonly />
-              <input type="hidden" name="fecha" id="fechaHidden" />
-              <div class="cp-calendar" id="cpCalendar" aria-hidden="true">
-                <div class="cpc-head">
-                  <button class="cpc-nav cpc-prev" type="button" aria-label="Mes anterior">‹</button>
-                  <span class="cpc-label"></span>
-                  <button class="cpc-nav cpc-next" type="button" aria-label="Mes siguiente">›</button>
-                </div>
-                <div class="cpc-weekdays">
-                  <span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sá</span>
-                </div>
-                <div class="cpc-grid"></div>
-              </div>
-            </div>
+            <?php
+              $rootId = 'datePicker';
+              $inputId = 'fechaHidden';
+              $displayId = 'dateDisplay';
+              $calendarId = 'cpCalendar';
+              $name = 'fecha';
+              $value = '';
+              $min = \Services\ReservacionConfig::fechaActual();
+              $disabled = false;
+              $enabledWeekdays = \Services\HorarioReservacionService::diasConHorariosActivos();
+              include __DIR__ . '/../components/reservations/date-picker.php';
+            ?>
+            <span class="field__msg" data-field-error="fecha"></span>
           </div>
           <div class="field">
             <label>Hora</label>
-            <div class="hour-picker-wrap" id="hourPicker">
-              <input type="text" class="hour-display" id="hourDisplay" placeholder="Elige una hora" readonly />
-              <input type="hidden" name="hora" id="horaHidden" />
-              <div class="hour-dropdown" id="hourDropdown" aria-hidden="true"></div>
-            </div>
+            <?php
+              $rootId = 'hourPicker';
+              $inputId = 'horaHidden';
+              $displayId = 'hourDisplay';
+              $dropdownId = 'hourDropdown';
+              $name = 'hora';
+              $value = '';
+              $endpoint = '/api/reservation-schedules';
+              $disabled = false;
+              include __DIR__ . '/../components/reservations/time-picker.php';
+            ?>
+            <span class="field__msg" id="hourStatus" data-field-error="hora"></span>
           </div>
         </div>
         <div class="field">
@@ -66,11 +91,27 @@
               <button type="button" class="step-btn" id="guestsMinus" aria-label="Reducir">−</button>
               <span class="step-val" id="guestsVal">6</span>
               <button type="button" class="step-btn" id="guestsPlus" aria-label="Aumentar">+</button>
-              <input type="hidden" id="guestsNum" value="6" />
+              <input type="number" id="guestsNum" min="6" max="<?php echo (int)$contactoReservas['max_comensales']; ?>" value="6" aria-hidden="true" tabindex="-1" />
+            </div>
+          </div>
+          <span class="field__msg" data-field-error="comensales"></span>
+          <div class="large-party" id="largeParty" aria-live="polite" hidden>
+            <div class="large-party__mark" aria-hidden="true">i</div>
+            <div class="large-party__body">
+              <h3>Tu grupo es mayor a 12 personas?</h3>
+              <p>Para grupos grandes, contacta directamente al restaurante para revisar disponibilidad y preparar una atencion adecuada.</p>
+            </div>
+            <div class="large-party__links">
+              <a href="tel:<?php echo s($contactoReservas['telefono_tel']); ?>"><?php echo s($contactoReservas['telefono_visible']); ?></a>
+              <a href="<?php echo s($contactoReservas['whatsapp_url']); ?>" target="_blank" rel="noopener">WhatsApp</a>
             </div>
           </div>
         </div>
-        <div class="field"><label>Ocasión (opcional)</label><textarea name="nota" placeholder="Cumpleaños, aniversario, alergias..."></textarea></div>
+        <div class="field">
+          <label>Ocasión (opcional)</label>
+          <textarea name="nota" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Cumpleaños, aniversario, alergias..."></textarea>
+          <span class="field__msg" data-field-error="nota"></span>
+        </div>
         <div class="form__submit">
           <button type="submit" class="btn-line" data-magnetic><span>Confirmar reserva</span><span class="arrow">↗</span></button>
           <span class="form__msg" id="formMsg"></span>

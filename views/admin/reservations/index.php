@@ -1,4 +1,8 @@
 <?php
+/**
+ * Lista administrativa de reservaciones con filtros, metricas y acceso al detalle.
+ */
+
 $reservaciones = isset($reservaciones) && is_iterable($reservaciones) ? $reservaciones : [];
 $metricas = is_array($metricas ?? null) ? $metricas : [];
 $filtros = is_array($filtros ?? null) ? $filtros : [];
@@ -57,7 +61,7 @@ $metricCards = [
     ['label' => 'Completadas', 'value' => $metricas['completadas'] ?? 0, 'tone' => 'completed'],
     ['label' => 'Canceladas', 'value' => $metricas['canceladas'] ?? 0, 'tone' => 'cancelled'],
     ['label' => 'No show', 'value' => $metricas['no_show'] ?? 0, 'tone' => 'noshow'],
-    ['label' => 'Sin mesa', 'value' => $metricas['sin_mesa'] ?? 0, 'tone' => 'needs'],
+    ['label' => 'Sin mesas', 'value' => $metricas['sin_mesa'] ?? 0, 'tone' => 'needs'],
 ];
 
 $alertasNormalizadas = [];
@@ -91,6 +95,7 @@ foreach ($alertas as $tipo => $mensajes) {
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/reservations/create">Nueva reservacion</a>
             <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="<?php echo $h($operationUrl); ?>">Vista operativa</a>
         </div>
     </header>
@@ -160,7 +165,7 @@ foreach ($alertas as $tipo => $mensajes) {
             <select id="reservations-asignacion" name="asignacion">
                 <option value="">Todas</option>
                 <option value="con_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'con_mesa' ? 'selected' : ''; ?>>Con mesa</option>
-                <option value="sin_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'sin_mesa' ? 'selected' : ''; ?>>Sin mesa</option>
+                <option value="sin_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'sin_mesa' ? 'selected' : ''; ?>>Sin mesas asignadas</option>
             </select>
         </div>
         <div class="admin-filters__actions">
@@ -253,8 +258,8 @@ foreach ($alertas as $tipo => $mensajes) {
                                         </div>
                                     <?php else : ?>
                                         <div class="reservations-table__needs-table">
-                                            <strong>Sin mesa</strong>
-                                            <span class="admin-badge admin-badge--warning">Requiere asignación</span>
+                                            <strong>Sin mesas asignadas</strong>
+                                            <span class="admin-badge admin-badge--warning">Sin mesas asignadas</span>
                                         </div>
                                     <?php endif; ?>
                                 </td>

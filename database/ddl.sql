@@ -94,12 +94,8 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   nota               TEXT,
   comentario_admin   TEXT NULL COMMENT 'Comentario interno de operación',
   estado             ENUM('pendiente','confirmada','completada','cancelada','no_show') NOT NULL DEFAULT 'pendiente',
-  mesa_id            INT NULL,
-  mesa_secundaria_id INT NULL,
   created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reserva_mesa  FOREIGN KEY (mesa_id)            REFERENCES mesas(id) ON DELETE SET NULL,
-  CONSTRAINT fk_reserva_mesa2 FOREIGN KEY (mesa_secundaria_id) REFERENCES mesas(id) ON DELETE SET NULL,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
   INDEX idx_reservaciones_fecha_hora        (fecha, hora),
   INDEX idx_reservaciones_estado            (estado)

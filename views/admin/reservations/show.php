@@ -1,10 +1,16 @@
 <?php
+/**
+ * Muestra y edita el detalle administrativo de una reservacion.
+ * Las acciones publican hacia endpoints canonicos del modulo.
+ */
+
 $reservacion = is_object($reservacion ?? null) ? $reservacion : null;
 $mesasAsignadas = isset($mesasAsignadas) && is_iterable($mesasAsignadas) ? $mesasAsignadas : [];
 $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_array($mesasAsignadas);
 $capacidadTotal = (int)($capacidadTotal ?? 0);
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
+$editable = (bool)($editable ?? false);
 $returnUrl = (string)($returnUrl ?? '/admin/reservations');
 $backUrl = (string)($backUrl ?? '/admin/reservations');
 
@@ -63,22 +69,20 @@ foreach ($alertas as $tipo => $mensajes) {
     $agregarAlerta($tipo, $mensajes);
 }
 
-$actionForm = static function (
-    string $action,
+$statusForm = static function (
     int $id,
+    string $estado,
     string $returnUrl,
     string $label,
     string $class,
-    bool $disabled = false,
     string $confirm = ''
 ) use ($h): void {
     ?>
-    <form method="POST" action="<?php echo $h($action); ?>" <?php echo $confirm !== '' ? 'onsubmit="return confirm(\'' . $h($confirm) . '\')"' : ''; ?>>
+    <form method="POST" action="/admin/reservations/status" data-reservation-operational-action <?php echo $confirm !== '' ? 'onsubmit="return confirm(\'' . $h($confirm) . '\')"' : ''; ?>>
         <input type="hidden" name="id" value="<?php echo $id; ?>">
+        <input type="hidden" name="estado" value="<?php echo $h($estado); ?>">
         <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
-        <button type="submit" class="<?php echo $h($class); ?>" <?php echo $disabled ? 'disabled' : ''; ?>>
-            <?php echo $h($label); ?>
-        </button>
+        <button type="submit" class="<?php echo $h($class); ?>" data-reservation-operational-control><?php echo $h($label); ?></button>
     </form>
     <?php
 };
@@ -90,41 +94,40 @@ $fecha = (string)$valor($reservacion, 'fecha');
 $hora = (string)$valor($reservacion, 'hora');
 $comensales = (int)$valor($reservacion, 'comensales', 0);
 $nota = trim((string)$valor($reservacion, 'nota'));
+$comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
 $estado = (string)$valor($reservacion, 'estado', 'pendiente');
 $createdAt = (string)$valor($reservacion, 'created_at', '');
 $mesasCount = count($mesasAsignadas);
 $tieneMesa = $mesasCount > 0;
 $estadoFinal = in_array($estado, ['completada', 'cancelada', 'no_show'], true);
-$puedeConfirmar = $tieneMesa && !$estadoFinal && $estado !== 'confirmada';
-$puedeReasignar = !$estadoFinal;
-$puedeCancelar = !$estadoFinal;
-$puedeCompletar = !$estadoFinal;
-$puedeNoShow = !$estadoFinal;
+$capacidadRestaurante = max((int)($capacidadRestaurante ?? 0), $comensales, 1);
+$diferenciaCapacidad = $capacidadTotal - $comensales;
+$horaCorta = $horaLegible($hora);
 $operationUrl = '/admin/reservations/operation?' . http_build_query([
     'fecha' => $fecha,
-    'hora' => $horaLegible($hora),
     'reservacion_id' => $id,
     'return_url' => $returnUrl,
 ]);
 ?>
 
-<section class="admin-reservations admin-reservation-detail admin-menu admin-page">
-    <header class="admin-menu__header admin-page__header">
+<section
+    class="admin-reservations admin-reservation-detail admin-menu admin-page"
+    data-reservation-detail-root
+>
+    <header class="admin-menu__header admin-page__header reservation-detail-header">
+        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
         <div class="admin-page__intro">
-            <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
-            <h2 class="admin-page__title">Detalle de reservación</h2>
-            <p class="admin-page__subtitle">Consulta la información completa y gestiona el estado de la reservación.</p>
+            <h2 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h2>
         </div>
-        <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="<?php echo $h($operationUrl); ?>">Gestionar en mapa</a>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
-        </div>
+        <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
+            <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
+        </span>
     </header>
 
     <?php foreach ($alertasNormalizadas as $tipo => $mensajes) : ?>
         <?php
         $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
-        $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atención' : 'Revisa los siguientes datos');
+        $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atencion' : 'Revisa los siguientes datos');
         ?>
         <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>">
             <strong><?php echo $h($tituloAlerta); ?></strong>
@@ -132,78 +135,71 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
         </div>
     <?php endforeach; ?>
 
-    <div class="reservation-detail-grid">
-        <div class="reservation-detail-grid__main">
+    <div class="reservation-detail-layout">
+        <section class="reservation-detail-main">
             <article class="reservation-detail-card admin-card">
                 <div class="reservation-detail-card__head">
                     <div>
-                        <span class="reservation-detail-card__label">Información general</span>
-                        <h3>Reservación #<?php echo $id; ?></h3>
+                        <span class="reservation-detail-card__label">Resumen de estado</span>
+                        <h3><?php echo $h($fechaLegible($fecha)); ?> · <?php echo $h($horaLegible($hora)); ?></h3>
                     </div>
-                    <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
-                        <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
-                    </span>
                 </div>
-
                 <dl class="reservation-detail-list reservation-detail-list--grid">
                     <div>
-                        <dt>Fecha</dt>
-                        <dd><?php echo $h($fechaLegible($fecha)); ?></dd>
-                    </div>
-                    <div>
-                        <dt>Hora</dt>
-                        <dd><?php echo $h($horaLegible($hora)); ?></dd>
+                        <dt>Estado</dt>
+                        <dd><?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?></dd>
                     </div>
                     <div>
                         <dt>Comensales</dt>
                         <dd><?php echo $h($plural($comensales, 'persona', 'personas')); ?></dd>
                     </div>
+                    <div>
+                        <dt>Mesas</dt>
+                        <dd><?php echo $tieneMesa ? $h($plural($mesasCount, 'mesa asignada', 'mesas asignadas')) : 'Sin mesas asignadas'; ?></dd>
+                    </div>
                     <?php if ($createdAt !== '') : ?>
                         <div>
-                            <dt>Creación</dt>
+                            <dt>Creacion</dt>
                             <dd><?php echo $h($fechaHoraLegible($createdAt)); ?></dd>
                         </div>
                     <?php endif; ?>
                 </dl>
             </article>
 
-            <article class="reservation-detail-card admin-card">
-                <div class="reservation-detail-card__head">
-                    <div>
-                        <span class="reservation-detail-card__label">Cliente</span>
-                        <h3>Datos de contacto</h3>
-                    </div>
-                </div>
-
-                <dl class="reservation-detail-list">
-                    <div>
-                        <dt>Nombre</dt>
-                        <dd><?php echo $h($nombre); ?></dd>
-                    </div>
-                    <div>
-                        <dt>Email</dt>
-                        <dd><a href="mailto:<?php echo $h($email); ?>"><?php echo $h($email); ?></a></dd>
-                    </div>
-                </dl>
-            </article>
+            <?php
+            $modo = 'editar';
+            include __DIR__ . '/_form.php';
+            ?>
 
             <article class="reservation-detail-card admin-card">
                 <div class="reservation-detail-card__head">
                     <div>
-                        <span class="reservation-detail-card__label">Nota</span>
-                        <h3>Comentarios de la reservación</h3>
+                        <span class="reservation-detail-card__label">Notas</span>
+                        <h3>Cliente y operacion</h3>
                     </div>
                 </div>
-
-                <?php if ($nota !== '') : ?>
-                    <p class="reservation-detail-note"><?php echo nl2br($h($nota)); ?></p>
-                <?php else : ?>
-                    <p class="reservation-detail-empty">Sin nota registrada.</p>
-                <?php endif; ?>
+                <div class="reservation-detail-notes">
+                    <section>
+                        <h4>Nota original del cliente</h4>
+                        <?php if ($nota !== '') : ?>
+                            <p class="reservation-detail-note"><?php echo nl2br($h($nota)); ?></p>
+                        <?php else : ?>
+                            <p class="reservation-detail-empty">Sin nota registrada.</p>
+                        <?php endif; ?>
+                    </section>
+                    <section>
+                        <h4>Comentario interno</h4>
+                        <?php if (trim($comentarioAdmin) !== '') : ?>
+                            <p class="reservation-detail-note"><?php echo nl2br($h($comentarioAdmin)); ?></p>
+                        <?php else : ?>
+                            <p class="reservation-detail-empty">Sin comentario interno.</p>
+                        <?php endif; ?>
+                    </section>
+                </div>
             </article>
-        </div>
+        </section>
 
-        <aside class="reservation-detail-grid__side">
+        <aside class="reservation-detail-side">
             <article class="reservation-detail-card admin-card">
                 <div class="reservation-detail-card__head">
                     <div>
@@ -211,7 +207,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                         <h3><?php echo $tieneMesa ? $h($plural($mesasCount, 'mesa asignada', 'mesas asignadas')) : 'Sin mesas asignadas'; ?></h3>
                     </div>
                     <?php if (!$tieneMesa) : ?>
-                        <span class="admin-badge admin-badge--warning">Requiere asignación</span>
+                        <span class="admin-badge admin-badge--warning">Sin mesas asignadas</span>
                     <?php endif; ?>
                 </div>
 
@@ -236,48 +232,45 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                         <span>Comensales</span>
                         <strong><?php echo $h($plural($comensales, 'persona', 'personas')); ?></strong>
                     </div>
+                    <div class="reservation-detail-capacity <?php echo $diferenciaCapacidad < 0 ? 'reservation-detail-capacity--warning' : ''; ?>">
+                        <span>Diferencia</span>
+                        <strong><?php echo ($diferenciaCapacidad > 0 ? '+' : '') . $diferenciaCapacidad; ?></strong>
+                    </div>
                 <?php else : ?>
-                    <p class="reservation-detail-empty">Esta reservación necesita asignación de mesas antes de confirmarse.</p>
+                    <p class="reservation-detail-warning">Sin mesas asignadas</p>
                 <?php endif; ?>
             </article>
 
             <article class="reservation-detail-card admin-card">
                 <div class="reservation-detail-card__head">
                     <div>
-                        <span class="reservation-detail-card__label">Gestión de reservación</span>
-                        <h3>Acciones operativas</h3>
+                        <span class="reservation-detail-card__label">Acciones operativas</span>
+                        <h3>Gestion</h3>
                     </div>
                 </div>
 
                 <div class="reservation-detail-actions">
-                    <section class="reservation-detail-actions__group reservation-detail-actions__group--primary">
-                        <h4>Acción principal</h4>
-                        <?php if ($estado === 'pendiente' && !$tieneMesa) : ?>
-                            <p class="reservation-detail-actions__hint">Requiere asignación de mesas antes de confirmar.</p>
-                        <?php elseif ($estado === 'pendiente') : ?>
-                            <?php $actionForm('/admin/reservations/confirm', $id, $returnUrl, 'Confirmar reservación', 'admin-btn admin-btn--primary', !$puedeConfirmar); ?>
-                        <?php else : ?>
-                            <p class="reservation-detail-actions__muted">No hay acción principal pendiente para este estado.</p>
+                    <a class="admin-btn admin-btn--secondary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Ver en mapa</a>
+
+                    <?php if (!$estadoFinal && $editable) : ?>
+                        <form method="POST" action="/admin/reservations/reassign" data-reservation-operational-action>
+                            <input type="hidden" name="id" value="<?php echo $id; ?>">
+                            <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
+                            <button type="submit" class="admin-btn admin-btn--secondary" data-reservation-operational-control>Reasignar automaticamente</button>
+                        </form>
+
+                        <?php if ($estado === 'pendiente' && $tieneMesa) : ?>
+                            <?php $statusForm($id, 'confirmada', $returnUrl, 'Confirmar', 'admin-btn admin-btn--primary'); ?>
+                        <?php elseif ($estado === 'pendiente' && !$tieneMesa) : ?>
+                            <p class="reservation-detail-actions__hint">Sin mesas asignadas. Asigna al menos una mesa antes de confirmar.</p>
                         <?php endif; ?>
-                    </section>
 
-                    <section class="reservation-detail-actions__group">
-                        <h4>Mesas</h4>
-                        <?php $actionForm('/admin/reservations/reassign', $id, $returnUrl, 'Reasignar automáticamente', 'admin-btn admin-btn--secondary', !$puedeReasignar); ?>
-                    </section>
-
-                    <section class="reservation-detail-actions__group">
-                        <h4>Cierre operativo</h4>
-                        <div class="reservation-detail-actions__row">
-                            <?php $actionForm('/admin/reservations/complete', $id, $returnUrl, 'Completar', 'admin-btn admin-btn--ghost', !$puedeCompletar, 'Marcar esta reservación como completada?'); ?>
-                            <?php $actionForm('/admin/reservations/no-show', $id, $returnUrl, 'No show', 'admin-btn admin-btn--ghost', !$puedeNoShow, 'Marcar esta reservación como no show?'); ?>
-                        </div>
-                    </section>
-
-                    <section class="reservation-detail-actions__group reservation-detail-actions__group--danger">
-                        <h4>Acción destructiva</h4>
-                        <?php $actionForm('/admin/reservations/cancel', $id, $returnUrl, 'Cancelar reservación', 'admin-btn admin-btn--danger', !$puedeCancelar, 'Cancelar esta reservación?'); ?>
-                    </section>
+                        <?php $statusForm($id, 'completada', $returnUrl, 'Completar', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como completada?'); ?>
+                        <?php $statusForm($id, 'no_show', $returnUrl, 'Marcar no show', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como no show?'); ?>
+                        <?php $statusForm($id, 'cancelada', $returnUrl, 'Cancelar reservacion', 'admin-btn admin-btn--danger', 'Cancelar esta reservacion?'); ?>
+                    <?php else : ?>
+                        <p class="reservation-detail-actions__muted">Esta reservacion esta en modo de solo lectura.</p>
+                    <?php endif; ?>
                 </div>
             </article>
         </aside>

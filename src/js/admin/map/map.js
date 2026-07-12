@@ -200,11 +200,34 @@ function initMapa() {
     return result;
   }
 
+  function mesaIdsReserva(reserva) {
+    if (!reserva || !Array.isArray(reserva.mesa_ids)) return [];
+    return reserva.mesa_ids.map(function(id) {
+      return parseInt(id, 10);
+    }).filter(function(id) {
+      return id > 0;
+    });
+  }
+
+  function reservaTieneMesa(reserva, mesaId) {
+    return mesaIdsReserva(reserva).indexOf(mesaId) !== -1;
+  }
+
+  function nombresMesasReserva(reserva) {
+    var ids = mesaIdsReserva(reserva);
+    var nombres = [];
+    for (var i = 0; i < ids.length; i++) {
+      var mesa = mesaPorId(ids[i]);
+      if (mesa) nombres.push(mesa.nombre);
+    }
+    return nombres.join(' + ');
+  }
+
   function reservaParaModal(mesaId) {
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
       if (r.estado === 'cancelada') continue;
-      if (r.mesa_id !== mesaId && r.mesa_secundaria_id !== mesaId) continue;
+      if (!reservaTieneMesa(r, mesaId)) continue;
       return r;
     }
     return null;
@@ -217,7 +240,7 @@ function initMapa() {
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
       if (r.estado === 'cancelada') continue;
-      if (r.mesa_id !== mesaId && r.mesa_secundaria_id !== mesaId) continue;
+      if (!reservaTieneMesa(r, mesaId)) continue;
       var rMin = minutos(r.hora);
       var rIni = rMin - BLOQUEO;
       var rFin = rMin + DURACION;
@@ -238,7 +261,7 @@ function initMapa() {
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
       if (r.estado === 'cancelada') continue;
-      if (r.mesa_id !== mesaId && r.mesa_secundaria_id !== mesaId) continue;
+      if (!reservaTieneMesa(r, mesaId)) continue;
       var rMin = minutos(r.hora);
       var rIni = rMin - BLOQUEO;
       var rFin = rMin + DURACION;
@@ -321,15 +344,7 @@ function initMapa() {
       else if (tempEstado === 'en-curso') card.classList.add('reserva-card--activa');
       else if (tempEstado === 'proxima')  card.classList.add('reserva-card--proxima');
 
-      var mesaNombre = '';
-      if (r.mesa_id) {
-        var m1 = mesaPorId(r.mesa_id);
-        if (m1) mesaNombre = m1.nombre;
-        if (r.mesa_secundaria_id) {
-          var m2 = mesaPorId(r.mesa_secundaria_id);
-          if (m2) mesaNombre += ' + ' + m2.nombre;
-        }
-      }
+      var mesaNombre = nombresMesasReserva(r);
 
       var temporalBadge = TEMPORAL_LABELS[tempEstado]
         ? '<span class="reserva-card__temporal reserva-card__temporal--' + tempEstado + '">' +
@@ -348,9 +363,9 @@ function initMapa() {
         '</div>' +
         '<div class="reserva-card__estado reserva-card__estado--' + r.estado + '">' + r.estado + '</div>';
 
-      (function(rid, mid, mid2) {
-        card.addEventListener('click', function() { onCardClick(rid, mid, mid2); });
-      })(r.id, r.mesa_id, r.mesa_secundaria_id);
+      (function(rid, mesaIds) {
+        card.addEventListener('click', function() { onCardClick(rid, mesaIds); });
+      })(r.id, mesaIdsReserva(r));
       reservasList.appendChild(card);
     }
   }
@@ -453,24 +468,21 @@ function initMapa() {
     }
   }
 
-  function onCardClick(reservaId, mesaId, mesa2Id) {
+  function onCardClick(reservaId, mesaIds) {
     clearHighlight();
-    highlightReserva(reservaId, mesaId, mesa2Id);
+    highlightReserva(reservaId, mesaIds);
   }
 
-  function highlightReserva(reservaId, mesaId, mesa2Id) {
+  function highlightReserva(reservaId, mesaIds) {
     var card = reservasList.querySelector('[data-id="' + reservaId + '"]');
     if (card) {
       card.classList.add('reserva-card--selected');
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    if (mesaId) {
-      var pin = canvas.querySelector('[data-id="' + mesaId + '"]');
+    mesaIds = Array.isArray(mesaIds) ? mesaIds : [];
+    for (var i = 0; i < mesaIds.length; i++) {
+      var pin = canvas.querySelector('[data-id="' + mesaIds[i] + '"]');
       if (pin) pin.classList.add('mesa-pin--highlight');
-    }
-    if (mesa2Id) {
-      var pin2 = canvas.querySelector('[data-id="' + mesa2Id + '"]');
-      if (pin2) pin2.classList.add('mesa-pin--highlight');
     }
   }
 
@@ -1159,7 +1171,8 @@ function initMapa() {
     var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
     if (confirmarBtn && reserva) {
       confirmarBtn.addEventListener('click', function() {
-        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null);
+        var ids = mesaIdsReserva(reserva);
+        apiAbrirTicket(mesa.id, ids[1] || null, reserva.comensales, reserva.id, reserva.nombre || null);
       });
     }
 

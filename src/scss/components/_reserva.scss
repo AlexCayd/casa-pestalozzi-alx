@@ -1,4 +1,6 @@
 // ── Reserva (formulario) ──────────────────────────────────────
+@use "reservation-picker" as reservationPicker;
+
 .reserva { background: var(--ink); }
 
 .reserva__grid {
@@ -130,6 +132,67 @@
   &.show { opacity: 1; }
 }
 
+.field__msg {
+  display: block;
+  min-height: 1.1rem;
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  color: var(--accent);
+  font-family: var(--crimson);
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.25s;
+
+  &.show { opacity: 1; }
+}
+
+.large-party {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(204, 163, 82, 0.65);
+  color: var(--txt-mute);
+  background: rgba(204, 163, 82, 0.08);
+  font-size: 0.86rem;
+
+  &[hidden] { display: none; }
+
+  &__mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-family: var(--serif);
+    font-size: 1rem;
+  }
+
+  h3 {
+    margin: 0 0 0.35rem;
+    color: var(--beige);
+    font-size: 1.1rem;
+  }
+
+  p { margin: 0 0 0.75rem; }
+
+  &__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+
+    a {
+      color: var(--accent);
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 0.1rem;
+    }
+  }
+}
+
 // Confirmación
 .reserva__confirm {
   border: 1px solid var(--accent);
@@ -182,6 +245,14 @@
   &.show { max-height: 80px; opacity: 1; }
 }
 
+#guestsNum {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .guests-stepper {
   display: flex;
   align-items: center;
@@ -218,178 +289,18 @@
 }
 
 // ── Hora picker ───────────────────────────────────────
-.hour-picker-wrap { position: relative; }
+.reserva {
+  --reservation-picker-open-animation: fade-in-up 0.25s var(--ease);
+  --reservation-picker-dropdown-min-width: 280px;
+  --reservation-picker-hour-selected-color: var(--accent);
+  --reservation-picker-hours-max-height: 220px;
 
-.hour-display {
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  color: var(--beige);
-  font-family: var(--serif);
-  font-size: 1.1rem;
-  padding: 0.6rem 0;
-  cursor: pointer;
-  transition: border-color 0.4s;
+  @include reservationPicker.reservation-picker;
 
-  &:focus { outline: none; border-color: var(--accent); }
-}
-
-.hour-dropdown {
-  display: none;
-  position: absolute;
-  top: calc(100% + 0.6rem);
-  left: 0;
-  z-index: 100;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  max-height: 220px;
-  overflow-y: auto;
-  min-width: 160px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
-
-  &.open {
-    display: block;
-    animation: fade-in-up 0.25s var(--ease);
+  .hour-dropdown {
+    min-width: 160px;
   }
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
 }
 
-.hour-option {
-  display: block;
-  width: 100%;
-  padding: 0.65rem 1.2rem;
-  text-align: left;
-  font-family: var(--serif);
-  font-size: 0.88rem;
-  color: var(--txt-mute);
-  transition: background 0.2s, color 0.2s;
-
-  &:hover { background: var(--surface-2); color: var(--beige); }
-  &.sel { color: var(--accent); }
-}
 
 // ── Calendario personalizado ──────────────────────────
-.date-picker-wrap { position: relative; }
-
-.date-display {
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  color: var(--beige);
-  font-family: var(--serif);
-  font-size: 1.1rem;
-  padding: 0.6rem 0;
-  cursor: pointer;
-  transition: border-color 0.4s;
-
-  &:focus { outline: none; border-color: var(--accent); }
-}
-
-.cp-calendar {
-  display: none;
-  position: absolute;
-  top: calc(100% + 0.6rem);
-  left: 0;
-  z-index: 100;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  padding: 1.2rem;
-  min-width: 280px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
-
-  &.open {
-    display: block;
-    animation: fade-in-up 0.25s var(--ease);
-  }
-}
-
-.cpc-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.cpc-label {
-  font-family: var(--serif);
-  font-size: 0.9rem;
-  color: var(--beige);
-  letter-spacing: 0.05em;
-  text-align: center;
-  flex: 1;
-}
-
-.cpc-nav {
-  font-family: var(--serif);
-  font-size: 1.4rem;
-  color: var(--accent);
-  line-height: 1;
-  padding: 0.2rem 0.5rem;
-  transition: color 0.3s;
-
-  &:hover { color: var(--accent-soft); }
-}
-
-.cpc-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 0.5rem;
-
-  span {
-    font-size: 0.58rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
-    text-align: center;
-    padding: 0.2rem 0;
-  }
-}
-
-.cpc-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-
-.cpc-day {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--serif);
-  font-size: 0.82rem;
-  color: var(--txt-mute);
-  border-radius: 50%;
-  transition: background 0.2s, color 0.2s;
-
-  &:hover:not(.disabled):not(.empty) {
-    background: var(--surface-2);
-    color: var(--beige);
-  }
-
-  &.today {
-    border: 1px solid var(--accent);
-    color: var(--accent);
-  }
-
-  &.selected {
-    background: var(--accent);
-    color: var(--ink);
-    border-color: transparent;
-  }
-
-  &.disabled {
-    color: var(--txt-faint);
-    opacity: 0.35;
-    pointer-events: none;
-  }
-
-  &.empty { visibility: hidden; pointer-events: none; }
-}
