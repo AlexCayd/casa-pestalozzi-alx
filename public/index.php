@@ -81,7 +81,6 @@ $router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit'
 $router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
 $router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
 $router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
-$router->get('/admin/printers', [AdminController::class, 'printers']);
 
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
