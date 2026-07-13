@@ -8,7 +8,6 @@
 -- -------------------------------------------------------
 
 DROP TABLE IF EXISTS reservacion_mesas;
-DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
@@ -17,6 +16,7 @@ DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS menu;
 DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
+DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS reservaciones;
 DROP TABLE IF EXISTS areas_produccion;
 DROP TABLE IF EXISTS mesas;
@@ -135,12 +135,19 @@ CREATE TABLE IF NOT EXISTS tickets (
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta') NULL,
   reservacion_id     INT NULL,
+  mesero_id          INT NULL,
   FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
   FOREIGN KEY (mesa_secundaria_id) REFERENCES mesas(id) ON DELETE SET NULL,
   FOREIGN KEY (reservacion_id)     REFERENCES reservaciones(id) ON DELETE SET NULL,
+  FOREIGN KEY (mesero_id)          REFERENCES usuarios(id) ON DELETE SET NULL,
   INDEX idx_estado_mesa        (estado, mesa_id),
   INDEX idx_ticket_reservacion (reservacion_id)
 );
+-- Debido a la implementacion de asociar un mesero por mesa, modificamos la DB para poder imprimir al mesero en el ticket de la mesa.
+ALTER TABLE tickets
+  ADD COLUMN mesero_id INT NULL AFTER reservacion_id,
+  ADD CONSTRAINT fk_ticket_mesero FOREIGN KEY (mesero_id) REFERENCES usuarios(id) ON DELETE SET NULL;
+
 
 CREATE TABLE IF NOT EXISTS productos (
   id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
