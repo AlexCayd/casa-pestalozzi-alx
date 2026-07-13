@@ -11,6 +11,7 @@ function initMapa() {
   var mesas         = [];
   var reservaciones = [];
   var tickets       = [];
+  var meseros       = []; // usuarios con rol 'waiter' activos (para asignar al abrir mesa)
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
   var selectedComensal = 0;  // 0 = General
   var SUGERENCIAS         = []; // se llenan al abrir cada ticket (ver buildModalContent)
@@ -74,6 +75,26 @@ function initMapa() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ── Select de meseros registrados (se asigna al abrir el ticket) ──
+  function buildMeseroSelectHtml() {
+    var h = '<div class="mmodal-name-wrap">';
+    h += '<div class="mmodal-label">Mesero</div>';
+    h += '<select class="mmodal-name-input" id="mmodal-mesero">';
+    h += '<option value="">— Sin asignar —</option>';
+    for (var i = 0; i < meseros.length; i++) {
+      h += '<option value="' + meseros[i].id + '">' + escHtml(meseros[i].nombre) + '</option>';
+    }
+    h += '</select>';
+    h += '</div>';
+    return h;
+  }
+
+  function selectedMeseroId() {
+    var sel = modalContent.querySelector('#mmodal-mesero');
+    if (!sel || !sel.value) return null;
+    return parseInt(sel.value, 10);
   }
 
   // ── Pool de sugerencias (aleatorio desde el menú, de momento) ──
@@ -586,6 +607,7 @@ function initMapa() {
       // Col 3 — acciones
       h += '<div class="mmodal-reserva-col mmodal-reserva-col--actions">';
       h += '<span class="mmodal-reserva-col__label">Acción</span>';
+      h += buildMeseroSelectHtml();
       h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-confirmar">✓ Confirmar llegada</button>';
       h += '<button class="mmodal-btn mmodal-btn--ghost" id="mmodal-liberar">Liberar mesa</button>';
       h += '</div>';
@@ -600,6 +622,7 @@ function initMapa() {
       h += '<input type="text" class="mmodal-name-input" id="mmodal-nombre"';
       h += ' placeholder="Nombre del comensal" autocomplete="off" maxlength="80">';
       h += '</div>';
+      h += buildMeseroSelectHtml();
       h += '<div class="mmodal-stepper-wrap">';
       h += '<div class="mmodal-label">Comensales</div>';
       h += '<div class="mmodal-stepper">';
@@ -1085,10 +1108,11 @@ function initMapa() {
         var comensales = cval ? parseInt(cval.textContent, 10) : 2;
         var nombreEl   = modalContent.querySelector('#mmodal-nombre');
         var nombre     = nombreEl ? nombreEl.value.trim() : '';
+        var meseroId   = selectedMeseroId();
         if (isLlevar(mesa)) {
-          apiAbrirLlevarTicket(mesa, comensales, nombre || null);
+          apiAbrirLlevarTicket(mesa, comensales, nombre || null, meseroId);
         } else {
-          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null);
+          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null, meseroId);
         }
       });
     }
@@ -1096,7 +1120,7 @@ function initMapa() {
     var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
     if (confirmarBtn && reserva) {
       confirmarBtn.addEventListener('click', function() {
-        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null);
+        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
       });
     }
 
@@ -1182,6 +1206,10 @@ function initMapa() {
          escHtml(mesa.nombre) + '</strong>?</p>';
     h += '<p class="mmodal-cerrar-confirm__sub">Método de pago: <span class="mmodal-pago-badge">' +
          escHtml(label) + '</span></p>';
+    h += '<label class="mmodal-cerrar-confirm__sub" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;cursor:pointer">';
+    h += '<input type="checkbox" id="cc-separar">';
+    h += 'Separar la cuenta por comensal';
+    h += '</label>';
     h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:4px">Esta acción no se puede deshacer.</p>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-pago">← Volver</button>';
@@ -1197,7 +1225,8 @@ function initMapa() {
 
     (function(tid, mp, m) {
       modalContent.querySelector('#cc-confirm').addEventListener('click', function() {
-        apiCerrarTicket(tid, mp, m);
+        var sepEl = modalContent.querySelector('#cc-separar');
+        apiCerrarTicket(tid, mp, m, !!(sepEl && sepEl.checked));
       });
     })(ticket.id, metodoPago, mesa);
   }
@@ -1253,16 +1282,17 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
-  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre) {
+  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre, meseroId) {
     apiPost('/api/abrir-ticket', {
       mesa_id: mesaId, mesa2_id: mesa2Id,
       comensales: comensales, reservacion_id: reservaId,
-      nombre: nombre || null
+      nombre: nombre || null,
+      mesero_id: meseroId || null
     });
   }
 
   // Abre un ticket de Llevar y va directo al POS sin cerrar el modal
-  function apiAbrirLlevarTicket(mesa, comensales, nombre) {
+  function apiAbrirLlevarTicket(mesa, comensales, nombre, meseroId) {
     fetch('/api/abrir-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1270,6 +1300,7 @@ function initMapa() {
         mesa_id:        mesa.id,
         comensales:     comensales,
         nombre:         nombre || null,
+        mesero_id:      meseroId || null,
         allow_multiple: true
       })
     })
@@ -1299,11 +1330,15 @@ function initMapa() {
     apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
-  function apiCerrarTicket(ticketId, metodoPago, mesa) {
+  function apiCerrarTicket(ticketId, metodoPago, mesa, separarComensales) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ticket_id: ticketId, metodo_pago: metodoPago })
+      body:    JSON.stringify({
+        ticket_id:          ticketId,
+        metodo_pago:        metodoPago,
+        separar_comensales: !!separarComensales
+      })
     })
     .then(function(res) { return res.json(); })
     .then(function(result) {
@@ -1526,6 +1561,7 @@ function initMapa() {
         mesas         = data.mesas         || [];
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
+        meseros       = data.meseros        || [];
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();
