@@ -206,6 +206,7 @@ class MapaController {
         $ticketId   = isset($data['ticket_id'])   ? (int)$data['ticket_id']              : 0;
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
         $separar    = !empty($data['separar_comensales']);
+        $pagos      = isset($data['pagos']) && is_array($data['pagos']) ? $data['pagos'] : [];
 
         if (!$ticketId) {
             echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
@@ -213,7 +214,64 @@ class MapaController {
         }
 
         $allowedMetodos = ['efectivo', 'tarjeta'];
-        if (!in_array($metodoPago, $allowedMetodos, true)) {
+        $pagosLimpios   = [];
+
+        if ($separar && !empty($pagos)) {
+            // Cuenta dividida: validar el pago de cada comensal y que la suma
+            // coincida con el total real del ticket (no confiar en el cliente).
+            $sumaPagos = 0.0;
+            foreach ($pagos as $p) {
+                $comensal = isset($p['comensal']) ? (int)$p['comensal'] : 0;
+                $metodo   = isset($p['metodo'])   ? trim($p['metodo'])  : '';
+                $monto    = isset($p['monto'])    ? round((float)$p['monto'], 2) : -1;
+
+                if ($comensal < 1 || !in_array($metodo, $allowedMetodos, true) || $monto < 0) {
+                    echo json_encode(['ok' => false, 'msg' => 'Pago no válido para el comensal ' . $comensal]);
+                    return;
+                }
+                if ($monto == 0.0) continue; // comensal sin cargo, no se registra
+
+                $sumaPagos += $monto;
+                $pagosLimpios[] = ['comensal' => $comensal, 'metodo' => $metodo, 'monto' => $monto];
+            }
+
+            if (empty($pagosLimpios)) {
+                echo json_encode(['ok' => false, 'msg' => 'Debes registrar al menos un pago']);
+                return;
+            }
+
+            try {
+                // Sumar en PHP sobre columnas reales del modelo: crearObjeto() ignora
+                // los alias (p.ej. "AS total") que no existen como propiedad de TicketItem.
+                $rows  = TicketItem::consultarSQL(
+                    "SELECT precio, cantidad FROM ticket_items
+                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+                );
+                $total = 0.0;
+                foreach ($rows as $r) {
+                    $total += (float)$r->precio * (int)$r->cantidad;
+                }
+                $total = round($total, 2);
+            } catch (\Throwable $e) {
+                echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+                return;
+            }
+
+            // Comparación en centavos para evitar errores de coma flotante
+            if (abs((int)round($sumaPagos * 100) - (int)round($total * 100)) > 1) {
+                echo json_encode([
+                    'ok'    => false,
+                    'msg'   => 'La suma de los pagos ($' . number_format($sumaPagos, 2) .
+                               ') no coincide con el total de la cuenta ($' . number_format($total, 2) . ')',
+                    'total' => $total,
+                ]);
+                return;
+            }
+
+            // Toda cuenta dividida se registra como 'dividido' a nivel ticket;
+            // el método y monto de cada comensal queda en ticket_pagos.
+            $metodoPago = 'dividido';
+        } elseif (!in_array($metodoPago, $allowedMetodos, true)) {
             echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
             return;
         }
@@ -223,6 +281,14 @@ class MapaController {
             Ticket::ejecutarSQL(
                 "UPDATE tickets SET estado = 'cerrado', metodo_pago = '{$mp}' WHERE id = {$ticketId}"
             );
+
+            foreach ($pagosLimpios as $pago) {
+                $metodoSql = Ticket::escaparString($pago['metodo']);
+                Ticket::ejecutarSQL(
+                    "INSERT INTO ticket_pagos (ticket_id, comensal, metodo_pago, monto)
+                     VALUES ({$ticketId}, {$pago['comensal']}, '{$metodoSql}', {$pago['monto']})"
+                );
+            }
 
             $token = bin2hex(random_bytes(16));
             Ticket::ejecutarSQL(
