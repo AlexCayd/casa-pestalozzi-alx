@@ -12,7 +12,7 @@ En el restaurante hay dos documentos físicos que se imprimen en papel térmico:
 
 | Documento | Para quién | Cuándo se imprime | Impresora |
 |-----------|-----------|-------------------|-----------|
-| **Comanda** | Cocina / barra / café | Al **enviar la orden** a producción | Una por **área** (rol `comanda`) |
+| **Comanda** | Cocina / barra / café | Al **enviar la orden** a producción | Una por **área con platillos** (rol `comanda`) |
 | **Cuenta** | Cliente (ticket de cobro) | Al **cobrar / cerrar** la mesa | Una sola de caja (rol `cuenta`) |
 
 Regla de oro del negocio: **la impresión nunca debe frenar la operación.** Si una
@@ -168,10 +168,13 @@ Reglas de validación (`Impresora::validar`):
 
 ### 6.1 Comanda (`MapaController::enviarComanda`)
 
-- Inserta en `ticket_items` **sólo los productos de esta tanda** y los agrupa por
+- Inserta en `ticket_items` **sólo los productos de esta tanda** con su
   `area_id` (default `3` = Cocina si no viene el área).
-- Llama `TicketPrinter::imprimirComanda($itemsPorArea, $meta)`, que imprime **una
-  comanda por área** en la impresora de esa área.
+- Llama `TicketPrinter::imprimirComanda($items, $meta)`, que **segmenta la orden
+  por área**: cada área de producción recibe en su impresora de rol `comanda`
+  únicamente los platillos que le corresponden (a Jugos no le llega lo de
+  Cocina, etc.). Cada comanda lleva **mesero, número de mesa y las notas de
+  cada platillo**. Las áreas sin platillos en el envío no imprimen nada.
 - Sólo se imprime lo recién enviado: un re-envío del ticket **no** reimprime
   comandas anteriores.
 - La impresión va en su propio `try/catch`; el resultado (`print_ok`) es

@@ -5,6 +5,7 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\Ticket;
 use Model\TicketItem;
+use Model\Usuario;
 use Classes\TicketPrinter;
 use MVC\Router;
 use Services\HorarioReservacionService;
@@ -46,9 +47,15 @@ class MapaController {
             );
 
             $tickets = Ticket::consultarSQL(
-                "SELECT id, mesa_id, mesa_secundaria_id, nombre, comensales, hora_apertura, reservacion_id
+                "SELECT id, mesa_id, mesa_secundaria_id, nombre, comensales, hora_apertura, reservacion_id, mesero_id
                  FROM tickets
                  WHERE estado = 'abierto'"
+            );
+
+            $meseros = Usuario::consultarSQL(
+                "SELECT id, nombre FROM usuarios
+                 WHERE rol = 'waiter' AND activo = 1
+                 ORDER BY nombre ASC"
             );
         } catch (\Throwable $e) {
             error_log('MapaController::api - ' . $e->getMessage());
@@ -97,14 +104,23 @@ class MapaController {
                 'comensales'         => (int)$t->comensales,
                 'hora_apertura'      => $t->hora_apertura,
                 'reservacion_id'     => $t->reservacion_id ? (int)$t->reservacion_id : null,
+                'mesero_id'          => $t->mesero_id ? (int)$t->mesero_id : null,
             ];
         }, $tickets);
+
+        $meserosArr = array_map(function($u) {
+            return [
+                'id'     => (int)$u->id,
+                'nombre' => $u->nombre,
+            ];
+        }, $meseros);
 
         echo json_encode([
             'fecha'         => $fecha,
             'mesas'         => $mesasArr,
             'reservaciones' => $reservasArr,
             'tickets'       => $ticketsArr,
+            'meseros'       => $meserosArr,
         ]);
     }
 
@@ -117,6 +133,7 @@ class MapaController {
         $comensales    = isset($data['comensales'])      ? (int)$data['comensales']     : 1;
         $mesa2Id       = isset($data['mesa2_id'])        ? (int)$data['mesa2_id']       : null;
         $reservaId     = isset($data['reservacion_id'])  ? (int)$data['reservacion_id'] : null;
+        $meseroId      = isset($data['mesero_id'])       ? (int)$data['mesero_id']      : null;
         $allowMultiple = !empty($data['allow_multiple']);
         $nombre        = isset($data['nombre']) && trim($data['nombre'] ?? '') !== ''
                          ? trim($data['nombre']) : null;
@@ -155,6 +172,7 @@ class MapaController {
             $updates = [];
             if ($mesa2Id)   $updates[] = "mesa_secundaria_id = {$mesa2Id}";
             if ($reservaId) $updates[] = "reservacion_id = {$reservaId}";
+            if ($meseroId)  $updates[] = "mesero_id = {$meseroId}";
             if ($nombre)    $updates[] = "nombre = '" . Ticket::escaparString($nombre) . "'";
             if (!empty($updates)) {
                 Ticket::ejecutarSQL(
@@ -203,6 +221,8 @@ class MapaController {
         $data       = json_decode(file_get_contents('php://input'), true) ?: [];
         $ticketId   = isset($data['ticket_id'])   ? (int)$data['ticket_id']              : 0;
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
+        $separar    = !empty($data['separar_comensales']);
+        $pagos      = isset($data['pagos']) && is_array($data['pagos']) ? $data['pagos'] : [];
 
         if (!$ticketId) {
             echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
@@ -210,7 +230,64 @@ class MapaController {
         }
 
         $allowedMetodos = ['efectivo', 'tarjeta'];
-        if (!in_array($metodoPago, $allowedMetodos, true)) {
+        $pagosLimpios   = [];
+
+        if ($separar && !empty($pagos)) {
+            // Cuenta dividida: validar el pago de cada comensal y que la suma
+            // coincida con el total real del ticket (no confiar en el cliente).
+            $sumaPagos = 0.0;
+            foreach ($pagos as $p) {
+                $comensal = isset($p['comensal']) ? (int)$p['comensal'] : 0;
+                $metodo   = isset($p['metodo'])   ? trim($p['metodo'])  : '';
+                $monto    = isset($p['monto'])    ? round((float)$p['monto'], 2) : -1;
+
+                if ($comensal < 1 || !in_array($metodo, $allowedMetodos, true) || $monto < 0) {
+                    echo json_encode(['ok' => false, 'msg' => 'Pago no válido para el comensal ' . $comensal]);
+                    return;
+                }
+                if ($monto == 0.0) continue; // comensal sin cargo, no se registra
+
+                $sumaPagos += $monto;
+                $pagosLimpios[] = ['comensal' => $comensal, 'metodo' => $metodo, 'monto' => $monto];
+            }
+
+            if (empty($pagosLimpios)) {
+                echo json_encode(['ok' => false, 'msg' => 'Debes registrar al menos un pago']);
+                return;
+            }
+
+            try {
+                // Sumar en PHP sobre columnas reales del modelo: crearObjeto() ignora
+                // los alias (p.ej. "AS total") que no existen como propiedad de TicketItem.
+                $rows  = TicketItem::consultarSQL(
+                    "SELECT precio, cantidad FROM ticket_items
+                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+                );
+                $total = 0.0;
+                foreach ($rows as $r) {
+                    $total += (float)$r->precio * (int)$r->cantidad;
+                }
+                $total = round($total, 2);
+            } catch (\Throwable $e) {
+                echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+                return;
+            }
+
+            // Comparación en centavos para evitar errores de coma flotante
+            if (abs((int)round($sumaPagos * 100) - (int)round($total * 100)) > 1) {
+                echo json_encode([
+                    'ok'    => false,
+                    'msg'   => 'La suma de los pagos ($' . number_format($sumaPagos, 2) .
+                               ') no coincide con el total de la cuenta ($' . number_format($total, 2) . ')',
+                    'total' => $total,
+                ]);
+                return;
+            }
+
+            // Toda cuenta dividida se registra como 'dividido' a nivel ticket;
+            // el método y monto de cada comensal queda en ticket_pagos.
+            $metodoPago = 'dividido';
+        } elseif (!in_array($metodoPago, $allowedMetodos, true)) {
             echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
             return;
         }
@@ -221,6 +298,14 @@ class MapaController {
                 "UPDATE tickets SET estado = 'cerrado', metodo_pago = '{$mp}' WHERE id = {$ticketId}"
             );
 
+            foreach ($pagosLimpios as $pago) {
+                $metodoSql = Ticket::escaparString($pago['metodo']);
+                Ticket::ejecutarSQL(
+                    "INSERT INTO ticket_pagos (ticket_id, comensal, metodo_pago, monto)
+                     VALUES ({$ticketId}, {$pago['comensal']}, '{$metodoSql}', {$pago['monto']})"
+                );
+            }
+
             $token = bin2hex(random_bytes(16));
             Ticket::ejecutarSQL(
                 "INSERT INTO feedback_tokens (ticket_id, token) VALUES ({$ticketId}, '{$token}')"
@@ -230,14 +315,17 @@ class MapaController {
             // Un fallo de impresora no debe afectar el cierre ni el token de feedback.
             try {
                 $trow = Ticket::consultarSQL(
-                    "SELECT t.id, t.nombre AS cliente, t.comensales, t.hora_apertura, m.nombre AS mesa
-                     FROM tickets t JOIN mesas m ON m.id = t.mesa_id
+                    "SELECT t.id, t.nombre AS cliente, t.comensales, t.hora_apertura,
+                            m.nombre AS mesa, u.nombre AS mesero
+                     FROM tickets t
+                     JOIN mesas m ON m.id = t.mesa_id
+                     LEFT JOIN usuarios u ON u.id = t.mesero_id
                      WHERE t.id = {$ticketId} LIMIT 1"
                 );
                 $ticketRow = array_shift($trow);
 
                 $itemsRows = TicketItem::consultarSQL(
-                    "SELECT nombre, precio, cantidad FROM ticket_items
+                    "SELECT nombre, precio, cantidad, comensal FROM ticket_items
                      WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
                 );
                 $items = array_map(function ($r) {
@@ -245,6 +333,7 @@ class MapaController {
                         'nombre'   => $r->nombre,
                         'precio'   => (float)$r->precio,
                         'cantidad' => (int)$r->cantidad,
+                        'comensal' => $r->comensal !== null ? (int)$r->comensal : null,
                     ];
                 }, $itemsRows);
 
@@ -254,7 +343,8 @@ class MapaController {
                         'cliente'    => $ticketRow->cliente,
                         'comensales' => $ticketRow->comensales,
                         'mesa'       => $ticketRow->mesa,
-                    ], $items, $metodoPago);
+                        'mesero'     => $ticketRow->mesero ?? null,
+                    ], $items, $metodoPago, $separar);
                 }
             } catch (\Throwable $e) {
                 error_log('cerrarTicket — impresión de cuenta falló: ' . $e->getMessage());
@@ -290,20 +380,23 @@ class MapaController {
             }
 
             $count = 0;
-            // Acumulamos SOLO los items insertados en esta tanda, agrupados por
-            // área, para imprimir únicamente las comandas nuevas (no reimprimir
-            // las de envíos anteriores en un re-envío del mismo ticket).
-            $itemsPorArea = [];
+            // Acumulamos SOLO los items insertados en esta tanda, para imprimir
+            // únicamente la comanda nueva (no reimprimir las de envíos anteriores
+            // en un re-envío del mismo ticket). Guardamos los valores SIN escapar:
+            // el escape es sólo para SQL, no para el papel.
+            $itemsComanda = [];
             foreach ($items as $item) {
-                $nombre    = TicketItem::escaparString($item['nombre']    ?? '');
+                $nombreRaw = trim($item['nombre'] ?? '');
+                $nombre    = TicketItem::escaparString($nombreRaw);
                 $categoria = TicketItem::escaparString($item['categoria'] ?? '');
                 $precio    = (float)($item['precio']   ?? 0);
                 $areaId    = (int)($item['area_id']    ?? 3);
                 $cantidad  = max(1, (int)($item['cantidad'] ?? 1));
                 $comensal  = isset($item['comensal']) && $item['comensal'] !== null
                              ? (int)$item['comensal'] : null;
-                $nota      = isset($item['nota']) && trim($item['nota'] ?? '') !== ''
-                             ? TicketItem::escaparString(trim($item['nota'])) : null;
+                $notaRaw   = isset($item['nota']) && trim($item['nota'] ?? '') !== ''
+                             ? trim($item['nota']) : null;
+                $nota      = $notaRaw !== null ? TicketItem::escaparString($notaRaw) : null;
 
                 if (!$nombre || $precio <= 0) continue;
 
@@ -317,13 +410,13 @@ class MapaController {
                 );
                 $count++;
 
-                // Mismos valores ya saneados que se insertaron.
-                $itemsPorArea[$areaId][] = [
-                    'nombre'   => $nombre,
+                $itemsComanda[] = [
+                    'nombre'   => $nombreRaw,
                     'cantidad' => $cantidad,
                     'comensal' => $comensal,
-                    'nota'     => $nota,
+                    'nota'     => $notaRaw,
                     'precio'   => $precio,
+                    'area_id'  => $areaId,
                 ];
             }
 
@@ -332,17 +425,23 @@ class MapaController {
             $printOk = true;
             try {
                 $tmeta = Ticket::consultarSQL(
-                    "SELECT t.nombre AS cliente, t.hora_apertura, m.nombre AS mesa
-                     FROM tickets t JOIN mesas m ON m.id = t.mesa_id
+                    "SELECT t.nombre AS cliente, t.hora_apertura,
+                            m.numero AS mesa_numero, m.nombre AS mesa_nombre,
+                            u.nombre AS mesero
+                     FROM tickets t
+                     JOIN mesas m ON m.id = t.mesa_id
+                     LEFT JOIN usuarios u ON u.id = t.mesero_id
                      WHERE t.id = {$ticketId} LIMIT 1"
                 );
                 $meta = array_shift($tmeta);
-                if ($meta) {
-                    $resultados = TicketPrinter::imprimirComanda($itemsPorArea, [
-                        'mesa'      => $meta->mesa    ?? '',
-                        'cliente'   => $meta->cliente ?? null,
-                        'hora'      => date('H:i'),
-                        'ticket_id' => $ticketId,
+                if ($meta && !empty($itemsComanda)) {
+                    $resultados = TicketPrinter::imprimirComanda($itemsComanda, [
+                        'mesa'        => $meta->mesa_numero ?? '',
+                        'mesa_nombre' => $meta->mesa_nombre ?? null,
+                        'cliente'     => $meta->cliente     ?? null,
+                        'mesero'      => $meta->mesero      ?? null,
+                        'hora'        => date('H:i'),
+                        'ticket_id'   => $ticketId,
                     ]);
                     // print_ok sólo es informativo; jamás cambia 'ok'.
                     $printOk = !in_array(false, $resultados, true);

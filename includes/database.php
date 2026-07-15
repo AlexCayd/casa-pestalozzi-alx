@@ -12,3 +12,9 @@ if (!$db) {
     echo "error de depuración: " . mysqli_connect_error();
     exit;
 }
+
+// El MySQL corre en un contenedor Docker cuyo reloj es UTC. Alinear la sesión
+// a GMT-6 para que NOW()/CURRENT_TIMESTAMP (hora_apertura de tickets,
+// created_at de items) se guarden — y las columnas TIMESTAMP se lean — en la
+// hora local del restaurante.
+mysqli_query($db, "SET time_zone = '-06:00'");

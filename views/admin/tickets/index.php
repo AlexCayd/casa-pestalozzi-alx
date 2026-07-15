@@ -13,7 +13,7 @@ $estados = [
     'cancelado' => ['label' => 'Cancelado', 'badge' => 'admin-badge--danger'],
 ];
 
-$metodos = ['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta'];
+$metodos = ['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'dividido' => 'Dividido'];
 
 $metricas = [
     ['label' => 'Tickets',        'value' => (int) ($ticketStats['total'] ?? 0)],

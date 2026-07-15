@@ -11,6 +11,7 @@ function initMapa() {
   var mesas         = [];
   var reservaciones = [];
   var tickets       = [];
+  var meseros       = []; // usuarios con rol 'waiter' activos (para asignar al abrir mesa)
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
   var selectedComensal = 0;  // 0 = General
   var SUGERENCIAS         = []; // se llenan al abrir cada ticket (ver buildModalContent)
@@ -74,6 +75,26 @@ function initMapa() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ── Select de meseros registrados (se asigna al abrir el ticket) ──
+  function buildMeseroSelectHtml() {
+    var h = '<div class="mmodal-name-wrap">';
+    h += '<div class="mmodal-label">Mesero</div>';
+    h += '<select class="mmodal-name-input" id="mmodal-mesero">';
+    h += '<option value="">— Sin asignar —</option>';
+    for (var i = 0; i < meseros.length; i++) {
+      h += '<option value="' + meseros[i].id + '">' + escHtml(meseros[i].nombre) + '</option>';
+    }
+    h += '</select>';
+    h += '</div>';
+    return h;
+  }
+
+  function selectedMeseroId() {
+    var sel = modalContent.querySelector('#mmodal-mesero');
+    if (!sel || !sel.value) return null;
+    return parseInt(sel.value, 10);
   }
 
   // ── Pool de sugerencias (aleatorio desde el menú, de momento) ──
@@ -598,6 +619,7 @@ function initMapa() {
       // Col 3 — acciones
       h += '<div class="mmodal-reserva-col mmodal-reserva-col--actions">';
       h += '<span class="mmodal-reserva-col__label">Acción</span>';
+      h += buildMeseroSelectHtml();
       h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-confirmar">✓ Confirmar llegada</button>';
       h += '<button class="mmodal-btn mmodal-btn--ghost" id="mmodal-liberar">Liberar mesa</button>';
       h += '</div>';
@@ -612,6 +634,7 @@ function initMapa() {
       h += '<input type="text" class="mmodal-name-input" id="mmodal-nombre"';
       h += ' placeholder="Nombre del comensal" autocomplete="off" maxlength="80">';
       h += '</div>';
+      h += buildMeseroSelectHtml();
       h += '<div class="mmodal-stepper-wrap">';
       h += '<div class="mmodal-label">Comensales</div>';
       h += '<div class="mmodal-stepper">';
@@ -1097,10 +1120,11 @@ function initMapa() {
         var comensales = cval ? parseInt(cval.textContent, 10) : 2;
         var nombreEl   = modalContent.querySelector('#mmodal-nombre');
         var nombre     = nombreEl ? nombreEl.value.trim() : '';
+        var meseroId   = selectedMeseroId();
         if (isLlevar(mesa)) {
-          apiAbrirLlevarTicket(mesa, comensales, nombre || null);
+          apiAbrirLlevarTicket(mesa, comensales, nombre || null, meseroId);
         } else {
-          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null);
+          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null, meseroId);
         }
       });
     }
@@ -1108,8 +1132,7 @@ function initMapa() {
     var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
     if (confirmarBtn && reserva) {
       confirmarBtn.addEventListener('click', function() {
-        var ids = mesaIdsReserva(reserva);
-        apiAbrirTicket(mesa.id, ids[1] || null, reserva.comensales, reserva.id, reserva.nombre || null);
+        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
       });
     }
 
@@ -1195,6 +1218,10 @@ function initMapa() {
          escHtml(mesa.nombre) + '</strong>?</p>';
     h += '<p class="mmodal-cerrar-confirm__sub">Método de pago: <span class="mmodal-pago-badge">' +
          escHtml(label) + '</span></p>';
+    h += '<label class="mmodal-cerrar-confirm__sub" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;cursor:pointer">';
+    h += '<input type="checkbox" id="cc-separar">';
+    h += 'Separar la cuenta por comensal';
+    h += '</label>';
     h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:4px">Esta acción no se puede deshacer.</p>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-pago">← Volver</button>';
@@ -1208,11 +1235,170 @@ function initMapa() {
       showPagoSelect(mesa, ticket);
     });
 
-    (function(tid, mp, m) {
+    (function(tid, mp, m, t) {
       modalContent.querySelector('#cc-confirm').addEventListener('click', function() {
-        apiCerrarTicket(tid, mp, m);
+        var sepEl = modalContent.querySelector('#cc-separar');
+        if (sepEl && sepEl.checked) {
+          // Cuenta dividida: registrar el pago de cada comensal antes de cerrar
+          showPagoDividido(m, t, mp);
+        } else {
+          apiCerrarTicket(tid, mp, m, false);
+        }
       });
-    })(ticket.id, metodoPago, mesa);
+    })(ticket.id, metodoPago, mesa, ticket);
+  }
+
+  // ── Pago dividido por comensal ────────────────────────────
+  function showPagoDividido(mesa, ticket, metodoDefault) {
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-cerrar-confirm">';
+    h += '<p class="mmodal-cerrar-confirm__sub">Cargando la cuenta…</p>';
+    h += '</div>';
+    modalContent.innerHTML = h;
+
+    fetch('/api/ticket-items?ticket_id=' + ticket.id)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderPagoDividido(mesa, ticket, metodoDefault, (data.ok && data.items) ? data.items : []);
+      })
+      .catch(function() {
+        alert('Error de conexión');
+        showPagoConfirm(mesa, ticket, metodoDefault);
+      });
+  }
+
+  function renderPagoDividido(mesa, ticket, metodoDefault, items) {
+    // Se trabaja en centavos para que la validación sea exacta (sin errores de coma flotante)
+    var totalCents = 0;
+    var maxComensal = 0;
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.estado === 'cancelado') continue;
+      totalCents += Math.round(it.precio * 100) * it.cantidad;
+      if (it.comensal && it.comensal > maxComensal) maxComensal = it.comensal;
+    }
+
+    if (totalCents <= 0) {
+      alert('El ticket no tiene consumo por cobrar');
+      showPagoConfirm(mesa, ticket, metodoDefault);
+      return;
+    }
+
+    var n = Math.max(parseInt(ticket.comensales, 10) || 1, maxComensal, 1);
+
+    function fmt(cents) {
+      var v = (cents / 100).toFixed(2);
+      return v.replace(/\.00$/, '');
+    }
+
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-split">';
+    h += '<p class="mmodal-cerrar-confirm__msg">Cuenta dividida por comensal</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Indica el método de pago y el monto que pagó cada cliente.</p>';
+    h += '<div class="mmodal-split-table">';
+    h += '<div class="mmodal-split-row mmodal-split-row--head">';
+    h += '<span>Comensal</span><span>Método</span><span>Pagó</span>';
+    h += '</div>';
+    for (var ci = 1; ci <= n; ci++) {
+      h += '<div class="mmodal-split-row" data-c="' + ci + '">';
+      h += '<span class="mmodal-split-name">Comensal ' + ci + '</span>';
+      h += '<span class="mmodal-split-metodos">';
+      h += '<button type="button" class="mmodal-split-metodo' +
+           (metodoDefault === 'efectivo' ? ' mmodal-split-metodo--active' : '') +
+           '" data-metodo="efectivo" title="Efectivo">💵</button>';
+      h += '<button type="button" class="mmodal-split-metodo' +
+           (metodoDefault === 'tarjeta' ? ' mmodal-split-metodo--active' : '') +
+           '" data-metodo="tarjeta" title="Tarjeta">💳</button>';
+      h += '</span>';
+      h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div class="mmodal-split-status">';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Pagado</span><span class="mmodal-total-amount" id="split-pagado">$0</span></div>';
+    h += '<p class="mmodal-split-diff" id="split-diff"></p>';
+    h += '</div>';
+    h += '<div class="mmodal-cerrar-confirm__btns">';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="split-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--danger" id="split-confirm" disabled>Cerrar ticket</button>';
+    h += '</div>';
+    h += '</div>';
+
+    modalContent.innerHTML = h;
+
+    var rows       = modalContent.querySelectorAll('.mmodal-split-row[data-c]');
+    var pagadoEl   = modalContent.querySelector('#split-pagado');
+    var diffEl     = modalContent.querySelector('#split-diff');
+    var confirmBtn = modalContent.querySelector('#split-confirm');
+
+    function leerPagos() {
+      var pagos = [];
+      for (var r = 0; r < rows.length; r++) {
+        var activo = rows[r].querySelector('.mmodal-split-metodo--active');
+        var monto  = parseFloat(rows[r].querySelector('.mmodal-split-input').value);
+        pagos.push({
+          comensal: parseInt(rows[r].dataset.c, 10),
+          metodo:   activo ? activo.dataset.metodo : metodoDefault,
+          monto:    (isNaN(monto) || monto < 0) ? 0 : Math.round(monto * 100) / 100
+        });
+      }
+      return pagos;
+    }
+
+    // Validación en vivo: el botón sólo se habilita cuando la suma es exacta
+    function validar() {
+      var pagos = leerPagos();
+      var suma  = 0;
+      for (var p = 0; p < pagos.length; p++) suma += Math.round(pagos[p].monto * 100);
+
+      if (pagadoEl) pagadoEl.textContent = '$' + fmt(suma);
+
+      var diff = totalCents - suma;
+      var ok   = diff === 0;
+      if (diffEl) {
+        if (ok) {
+          diffEl.textContent = '✓ Los montos coinciden con el total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+        } else if (diff > 0) {
+          diffEl.textContent = 'Faltan $' + fmt(diff) + ' por asignar';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
+        } else {
+          diffEl.textContent = 'Sobran $' + fmt(-diff) + ' respecto al total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--sobra';
+        }
+      }
+      if (confirmBtn) confirmBtn.disabled = !ok;
+      return ok;
+    }
+
+    for (var r = 0; r < rows.length; r++) {
+      (function(row) {
+        row.querySelector('.mmodal-split-input').addEventListener('input', validar);
+        var mbtns = row.querySelectorAll('.mmodal-split-metodo');
+        for (var b = 0; b < mbtns.length; b++) {
+          (function(btn) {
+            btn.addEventListener('click', function() {
+              for (var k = 0; k < mbtns.length; k++) mbtns[k].classList.remove('mmodal-split-metodo--active');
+              btn.classList.add('mmodal-split-metodo--active');
+            });
+          })(mbtns[b]);
+        }
+      })(rows[r]);
+    }
+
+    modalContent.querySelector('#split-volver').addEventListener('click', function() {
+      showPagoConfirm(mesa, ticket, metodoDefault);
+    });
+
+    confirmBtn.addEventListener('click', function() {
+      if (!validar()) return;
+      confirmBtn.disabled = true;
+      apiCerrarTicketDividido(ticket.id, leerPagos(), mesa);
+    });
+
+    validar();
   }
 
   // ── Pantalla QR de feedback ───────────────────────────────
@@ -1266,16 +1452,17 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
-  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre) {
+  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre, meseroId) {
     apiPost('/api/abrir-ticket', {
       mesa_id: mesaId, mesa2_id: mesa2Id,
       comensales: comensales, reservacion_id: reservaId,
-      nombre: nombre || null
+      nombre: nombre || null,
+      mesero_id: meseroId || null
     });
   }
 
   // Abre un ticket de Llevar y va directo al POS sin cerrar el modal
-  function apiAbrirLlevarTicket(mesa, comensales, nombre) {
+  function apiAbrirLlevarTicket(mesa, comensales, nombre, meseroId) {
     fetch('/api/abrir-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1283,6 +1470,7 @@ function initMapa() {
         mesa_id:        mesa.id,
         comensales:     comensales,
         nombre:         nombre || null,
+        mesero_id:      meseroId || null,
         allow_multiple: true
       })
     })
@@ -1312,11 +1500,15 @@ function initMapa() {
     apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
-  function apiCerrarTicket(ticketId, metodoPago, mesa) {
+  function apiCerrarTicket(ticketId, metodoPago, mesa, separarComensales) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ticket_id: ticketId, metodo_pago: metodoPago })
+      body:    JSON.stringify({
+        ticket_id:          ticketId,
+        metodo_pago:        metodoPago,
+        separar_comensales: !!separarComensales
+      })
     })
     .then(function(res) { return res.json(); })
     .then(function(result) {
@@ -1327,6 +1519,33 @@ function initMapa() {
       }
     })
     .catch(function() { alert('Error de conexión'); });
+  }
+
+  function apiCerrarTicketDividido(ticketId, pagos, mesa) {
+    fetch('/api/cerrar-ticket', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        ticket_id:          ticketId,
+        separar_comensales: true,
+        pagos:              pagos
+      })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.ok) {
+        showFeedbackQR(result.token, mesa ? mesa.nombre : '');
+      } else {
+        alert(result.msg || 'Error al cerrar el ticket');
+        var btn = modalContent.querySelector('#split-confirm');
+        if (btn) btn.disabled = false;
+      }
+    })
+    .catch(function() {
+      alert('Error de conexión');
+      var btn = modalContent.querySelector('#split-confirm');
+      if (btn) btn.disabled = false;
+    });
   }
 
   function apiEnviarComanda(ticketId) {
@@ -1539,6 +1758,7 @@ function initMapa() {
         mesas         = data.mesas         || [];
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
+        meseros       = data.meseros        || [];
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();

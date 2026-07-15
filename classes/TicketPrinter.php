@@ -38,25 +38,51 @@ class TicketPrinter {
     }
 
     /**
-     * Imprime las comandas de cocina/barra, una por cada área de producción,
-     * en la impresora configurada para esa área.
+     * Imprime las comandas de cocina/barra SEGMENTADAS por área de producción:
+     * la orden se divide por el área de cada platillo y cada área recibe en su
+     * impresora únicamente lo que le corresponde preparar (con mesero, mesa y
+     * las notas de cada platillo). Las áreas sin platillos en este envío no
+     * imprimen nada.
      *
-     * @param array $itemsPorArea [ area_id => [ ['nombre','cantidad','comensal','nota','precio'], ... ] ]
-     * @param array $meta         ['mesa'=>string, 'cliente'=>?string, 'hora'=>string, 'ticket_id'=>int]
-     * @return array [ area_id => bool ]  true si esa comanda se envió a la impresora.
+     * @param array $items [ ['nombre','cantidad','comensal','nota','precio','area_id'], ... ]
+     * @param array $meta  ['mesa'=>string|int, 'mesa_nombre'=>?string, 'cliente'=>?string,
+     *                      'mesero'=>?string, 'hora'=>string, 'ticket_id'=>int]
+     * @return array [ area_id => bool ]  true si la comanda de esa área se envió a la impresora.
      */
-    public static function imprimirComanda(array $itemsPorArea, array $meta): array {
+    public static function imprimirComanda(array $items, array $meta): array {
         // Encabezado común a todas las comandas del ticket.
         $ticket = [
-            'mesa'   => $meta['mesa']      ?? null,
-            'nombre' => $meta['cliente']   ?? null,
-            'folio'  => $meta['ticket_id'] ?? null,
-            'hora'   => $meta['hora']      ?? null,
+            'mesa'        => $meta['mesa']        ?? null,
+            'mesa_nombre' => $meta['mesa_nombre'] ?? null,
+            'nombre'      => $meta['cliente']     ?? null,
+            'mesero'      => $meta['mesero']      ?? null,
+            'hora'        => $meta['hora']        ?? null,
         ];
 
+        // Segmentar la orden: cada área sólo recibe sus platillos.
+        $itemsPorArea = [];
+        foreach ($items as $item) {
+            $itemsPorArea[(int)($item['area_id'] ?? 0)][] = $item;
+        }
+        if (empty($itemsPorArea)) {
+            return [];
+        }
+
+        // Nombres legibles de las áreas para el encabezado de cada comanda.
+        $nombresArea = [];
+        try {
+            $areas = Impresora::consultarSQL(
+                "SELECT id, nombre FROM areas_produccion ORDER BY id ASC"
+            );
+            foreach ($areas as $area) {
+                $nombresArea[(int)$area->id] = $area->nombre;
+            }
+        } catch (\Throwable $e) {
+            error_log('TicketPrinter::imprimirComanda — no se pudieron consultar las áreas: ' . $e->getMessage());
+        }
+
         $resultados = [];
-        foreach ($itemsPorArea as $areaId => $items) {
-            $areaId = (int)$areaId;
+        foreach ($itemsPorArea as $areaId => $itemsArea) {
             try {
                 $impresora = Impresora::comandaPorArea($areaId);
                 if (!$impresora) {
@@ -65,8 +91,8 @@ class TicketPrinter {
                     continue;
                 }
 
-                $areaNombre = $items[0]['area_nombre'] ?? ('Área ' . $areaId);
-                $doc = new Comanda($ticket, $areaNombre, $items, (int)$impresora->ancho);
+                $areaNombre = $nombresArea[$areaId] ?? ('Área ' . $areaId);
+                $doc = new Comanda($ticket, $areaNombre, $itemsArea, (int)$impresora->ancho);
                 $resultados[$areaId] = self::enviar($impresora, $doc);
             } catch (\Throwable $e) {
                 error_log("TicketPrinter::imprimirComanda — error en el área {$areaId}: " . $e->getMessage());
@@ -80,12 +106,14 @@ class TicketPrinter {
     /**
      * Imprime la cuenta de cobro del cliente en la impresora de rol 'cuenta'.
      *
-     * @param array  $ticket     Fila del ticket: ['id','cliente','comensales','hora_apertura','mesa']
-     * @param array  $items      [ ['nombre','precio','cantidad'], ... ] (ya sin cancelados)
-     * @param string $metodoPago 'efectivo' | 'tarjeta'
+     * @param array  $ticket            Fila del ticket: ['id','cliente','comensales','hora_apertura','mesa','mesero']
+     * @param array  $items             [ ['nombre','precio','cantidad','comensal'=>?], ... ] (ya sin cancelados)
+     * @param string $metodoPago        'efectivo' | 'tarjeta'
+     * @param bool   $separarComensales true = desglosar la cuenta por comensal (con subtotales)
+     *                                  en un solo ticket físico.
      * @return bool true si la cuenta se envió a la impresora.
      */
-    public static function imprimirCuenta(array $ticket, array $items, string $metodoPago): bool {
+    public static function imprimirCuenta(array $ticket, array $items, string $metodoPago, bool $separarComensales = false): bool {
         try {
             $impresora = Impresora::cuenta();
             if (!$impresora) {
@@ -98,10 +126,11 @@ class TicketPrinter {
                 'nombre'      => $ticket['cliente']    ?? ($ticket['nombre'] ?? null),
                 'folio'       => $ticket['id']         ?? ($ticket['folio']  ?? null),
                 'comensales'  => $ticket['comensales'] ?? null,
+                'mesero'      => $ticket['mesero']     ?? null,
                 'metodo_pago' => $metodoPago,
             ];
 
-            $doc = new Cuenta($datos, $items, (int)$impresora->ancho);
+            $doc = new Cuenta($datos, $items, (int)$impresora->ancho, $separarComensales);
             return self::enviar($impresora, $doc);
         } catch (\Throwable $e) {
             error_log("TicketPrinter::imprimirCuenta — error: " . $e->getMessage());

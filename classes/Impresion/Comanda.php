@@ -8,7 +8,7 @@ use Mike42\Escpos\Printer;
  * Comanda de cocina/barra: la lista de productos que un área de producción
  * debe preparar para un ticket. NO lleva precios; es una orden de trabajo.
  *
- * $ticket: ['nombre'=>?, 'mesa'=>?, 'comensales'=>?, 'folio'=>?]  (todas opcionales)
+ * $ticket: ['nombre'=>?, 'mesa'=>?, 'mesa_nombre'=>?, 'mesero'=>?, 'comensales'=>?]  (todas opcionales)
  * $items : cada uno ['nombre', 'cantidad', 'nota'=>?, 'comensal'=>?]
  */
 class Comanda extends Documento {
@@ -34,10 +34,17 @@ class Comanda extends Documento {
         $printer->setEmphasis(false);
 
         $mesa = $this->ticket['mesa'] ?? null;
-        if ($mesa) {
+        if ($mesa !== null && $mesa !== '') {
             $printer->setEmphasis(true);
+            $printer->setTextSize(2, 1);
             $printer->text('MESA ' . $mesa . "\n");
+            $printer->setTextSize(1, 1);
             $printer->setEmphasis(false);
+        }
+
+        $mesaNombre = $this->ticket['mesa_nombre'] ?? null;
+        if ($mesaNombre) {
+            $printer->text($mesaNombre . "\n");
         }
 
         $nombre = $this->ticket['nombre'] ?? null;
@@ -48,10 +55,10 @@ class Comanda extends Documento {
         $printer->setJustification(Printer::JUSTIFY_LEFT);
         $printer->text($this->separador());
 
-        // Metadatos: folio, comensales, hora.
-        $folio = $this->ticket['folio'] ?? null;
-        if ($folio) {
-            $printer->text($this->dosColumnas('Folio:', '#' . $folio));
+        // Metadatos: mesero, comensales, hora.
+        $mesero = $this->ticket['mesero'] ?? null;
+        if ($mesero) {
+            $printer->text($this->dosColumnas('Mesero:', $mesero));
         }
         $comensales = $this->ticket['comensales'] ?? null;
         if ($comensales) {
