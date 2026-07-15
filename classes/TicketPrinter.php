@@ -56,7 +56,6 @@ class TicketPrinter {
             'mesa_nombre' => $meta['mesa_nombre'] ?? null,
             'nombre'      => $meta['cliente']     ?? null,
             'mesero'      => $meta['mesero']      ?? null,
-            'folio'       => $meta['ticket_id']   ?? null,
             'hora'        => $meta['hora']        ?? null,
         ];
 

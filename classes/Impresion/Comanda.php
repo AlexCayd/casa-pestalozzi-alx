@@ -8,7 +8,7 @@ use Mike42\Escpos\Printer;
  * Comanda de cocina/barra: la lista de productos que un área de producción
  * debe preparar para un ticket. NO lleva precios; es una orden de trabajo.
  *
- * $ticket: ['nombre'=>?, 'mesa'=>?, 'mesa_nombre'=>?, 'mesero'=>?, 'comensales'=>?, 'folio'=>?]  (todas opcionales)
+ * $ticket: ['nombre'=>?, 'mesa'=>?, 'mesa_nombre'=>?, 'mesero'=>?, 'comensales'=>?]  (todas opcionales)
  * $items : cada uno ['nombre', 'cantidad', 'nota'=>?, 'comensal'=>?]
  */
 class Comanda extends Documento {
@@ -55,11 +55,7 @@ class Comanda extends Documento {
         $printer->setJustification(Printer::JUSTIFY_LEFT);
         $printer->text($this->separador());
 
-        // Metadatos: folio, mesero, comensales, hora.
-        $folio = $this->ticket['folio'] ?? null;
-        if ($folio) {
-            $printer->text($this->dosColumnas('Folio:', '#' . $folio));
-        }
+        // Metadatos: mesero, comensales, hora.
         $mesero = $this->ticket['mesero'] ?? null;
         if ($mesero) {
             $printer->text($this->dosColumnas('Mesero:', $mesero));
