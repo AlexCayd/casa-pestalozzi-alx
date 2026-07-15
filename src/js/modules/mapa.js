@@ -1223,12 +1223,170 @@ function initMapa() {
       showPagoSelect(mesa, ticket);
     });
 
-    (function(tid, mp, m) {
+    (function(tid, mp, m, t) {
       modalContent.querySelector('#cc-confirm').addEventListener('click', function() {
         var sepEl = modalContent.querySelector('#cc-separar');
-        apiCerrarTicket(tid, mp, m, !!(sepEl && sepEl.checked));
+        if (sepEl && sepEl.checked) {
+          // Cuenta dividida: registrar el pago de cada comensal antes de cerrar
+          showPagoDividido(m, t, mp);
+        } else {
+          apiCerrarTicket(tid, mp, m, false);
+        }
       });
-    })(ticket.id, metodoPago, mesa);
+    })(ticket.id, metodoPago, mesa, ticket);
+  }
+
+  // ── Pago dividido por comensal ────────────────────────────
+  function showPagoDividido(mesa, ticket, metodoDefault) {
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-cerrar-confirm">';
+    h += '<p class="mmodal-cerrar-confirm__sub">Cargando la cuenta…</p>';
+    h += '</div>';
+    modalContent.innerHTML = h;
+
+    fetch('/api/ticket-items?ticket_id=' + ticket.id)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderPagoDividido(mesa, ticket, metodoDefault, (data.ok && data.items) ? data.items : []);
+      })
+      .catch(function() {
+        alert('Error de conexión');
+        showPagoConfirm(mesa, ticket, metodoDefault);
+      });
+  }
+
+  function renderPagoDividido(mesa, ticket, metodoDefault, items) {
+    // Se trabaja en centavos para que la validación sea exacta (sin errores de coma flotante)
+    var totalCents = 0;
+    var maxComensal = 0;
+
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.estado === 'cancelado') continue;
+      totalCents += Math.round(it.precio * 100) * it.cantidad;
+      if (it.comensal && it.comensal > maxComensal) maxComensal = it.comensal;
+    }
+
+    if (totalCents <= 0) {
+      alert('El ticket no tiene consumo por cobrar');
+      showPagoConfirm(mesa, ticket, metodoDefault);
+      return;
+    }
+
+    var n = Math.max(parseInt(ticket.comensales, 10) || 1, maxComensal, 1);
+
+    function fmt(cents) {
+      var v = (cents / 100).toFixed(2);
+      return v.replace(/\.00$/, '');
+    }
+
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-split">';
+    h += '<p class="mmodal-cerrar-confirm__msg">Cuenta dividida por comensal</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Indica el método de pago y el monto que pagó cada cliente.</p>';
+    h += '<div class="mmodal-split-table">';
+    h += '<div class="mmodal-split-row mmodal-split-row--head">';
+    h += '<span>Comensal</span><span>Método</span><span>Pagó</span>';
+    h += '</div>';
+    for (var ci = 1; ci <= n; ci++) {
+      h += '<div class="mmodal-split-row" data-c="' + ci + '">';
+      h += '<span class="mmodal-split-name">Comensal ' + ci + '</span>';
+      h += '<span class="mmodal-split-metodos">';
+      h += '<button type="button" class="mmodal-split-metodo' +
+           (metodoDefault === 'efectivo' ? ' mmodal-split-metodo--active' : '') +
+           '" data-metodo="efectivo" title="Efectivo">💵</button>';
+      h += '<button type="button" class="mmodal-split-metodo' +
+           (metodoDefault === 'tarjeta' ? ' mmodal-split-metodo--active' : '') +
+           '" data-metodo="tarjeta" title="Tarjeta">💳</button>';
+      h += '</span>';
+      h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
+      h += '</div>';
+    }
+    h += '</div>';
+    h += '<div class="mmodal-split-status">';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Pagado</span><span class="mmodal-total-amount" id="split-pagado">$0</span></div>';
+    h += '<p class="mmodal-split-diff" id="split-diff"></p>';
+    h += '</div>';
+    h += '<div class="mmodal-cerrar-confirm__btns">';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="split-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--danger" id="split-confirm" disabled>Cerrar ticket</button>';
+    h += '</div>';
+    h += '</div>';
+
+    modalContent.innerHTML = h;
+
+    var rows       = modalContent.querySelectorAll('.mmodal-split-row[data-c]');
+    var pagadoEl   = modalContent.querySelector('#split-pagado');
+    var diffEl     = modalContent.querySelector('#split-diff');
+    var confirmBtn = modalContent.querySelector('#split-confirm');
+
+    function leerPagos() {
+      var pagos = [];
+      for (var r = 0; r < rows.length; r++) {
+        var activo = rows[r].querySelector('.mmodal-split-metodo--active');
+        var monto  = parseFloat(rows[r].querySelector('.mmodal-split-input').value);
+        pagos.push({
+          comensal: parseInt(rows[r].dataset.c, 10),
+          metodo:   activo ? activo.dataset.metodo : metodoDefault,
+          monto:    (isNaN(monto) || monto < 0) ? 0 : Math.round(monto * 100) / 100
+        });
+      }
+      return pagos;
+    }
+
+    // Validación en vivo: el botón sólo se habilita cuando la suma es exacta
+    function validar() {
+      var pagos = leerPagos();
+      var suma  = 0;
+      for (var p = 0; p < pagos.length; p++) suma += Math.round(pagos[p].monto * 100);
+
+      if (pagadoEl) pagadoEl.textContent = '$' + fmt(suma);
+
+      var diff = totalCents - suma;
+      var ok   = diff === 0;
+      if (diffEl) {
+        if (ok) {
+          diffEl.textContent = '✓ Los montos coinciden con el total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+        } else if (diff > 0) {
+          diffEl.textContent = 'Faltan $' + fmt(diff) + ' por asignar';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
+        } else {
+          diffEl.textContent = 'Sobran $' + fmt(-diff) + ' respecto al total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--sobra';
+        }
+      }
+      if (confirmBtn) confirmBtn.disabled = !ok;
+      return ok;
+    }
+
+    for (var r = 0; r < rows.length; r++) {
+      (function(row) {
+        row.querySelector('.mmodal-split-input').addEventListener('input', validar);
+        var mbtns = row.querySelectorAll('.mmodal-split-metodo');
+        for (var b = 0; b < mbtns.length; b++) {
+          (function(btn) {
+            btn.addEventListener('click', function() {
+              for (var k = 0; k < mbtns.length; k++) mbtns[k].classList.remove('mmodal-split-metodo--active');
+              btn.classList.add('mmodal-split-metodo--active');
+            });
+          })(mbtns[b]);
+        }
+      })(rows[r]);
+    }
+
+    modalContent.querySelector('#split-volver').addEventListener('click', function() {
+      showPagoConfirm(mesa, ticket, metodoDefault);
+    });
+
+    confirmBtn.addEventListener('click', function() {
+      if (!validar()) return;
+      confirmBtn.disabled = true;
+      apiCerrarTicketDividido(ticket.id, leerPagos(), mesa);
+    });
+
+    validar();
   }
 
   // ── Pantalla QR de feedback ───────────────────────────────
@@ -1349,6 +1507,33 @@ function initMapa() {
       }
     })
     .catch(function() { alert('Error de conexión'); });
+  }
+
+  function apiCerrarTicketDividido(ticketId, pagos, mesa) {
+    fetch('/api/cerrar-ticket', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        ticket_id:          ticketId,
+        separar_comensales: true,
+        pagos:              pagos
+      })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      if (result.ok) {
+        showFeedbackQR(result.token, mesa ? mesa.nombre : '');
+      } else {
+        alert(result.msg || 'Error al cerrar el ticket');
+        var btn = modalContent.querySelector('#split-confirm');
+        if (btn) btn.disabled = false;
+      }
+    })
+    .catch(function() {
+      alert('Error de conexión');
+      var btn = modalContent.querySelector('#split-confirm');
+      if (btn) btn.disabled = false;
+    });
   }
 
   function apiEnviarComanda(ticketId) {
