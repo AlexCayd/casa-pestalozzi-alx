@@ -16,10 +16,14 @@
   --line: var(--admin-border);
   --line-soft: var(--admin-border-soft);
   --sans: inherit;
-  --serif: Georgia, 'Times New Roman', serif;
-  --logo: Georgia, 'Times New Roman', serif;
+  --serif: Georgia, "Times New Roman", serif;
+  --logo: Georgia, "Times New Roman", serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-admin-theme=dark] .admin-map {
+  --txt-faint: rgba(244, 243, 242, 0.42);
 }
 
 .mapa-page,
@@ -367,7 +371,6 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 2.5rem 1rem;
-  color: var(--txt-faint);
   font-size: 0.8rem;
   text-align: center;
 }

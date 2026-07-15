@@ -34,7 +34,12 @@ const paths = {
     ],
     adminMapJs: 'src/js/admin/map/map.js',
     adminAreaJs: 'src/js/admin/area/area.js',
-    adminReservationOperationJs: 'src/js/admin/reservations/operation.js',
+    adminReservationOperationJs: [
+        'src/js/components/reservation-date-picker.js',
+        'src/js/components/reservation-time-picker.js',
+        'src/js/admin/reservations/form.js',
+        'src/js/admin/reservations/operation.js'
+    ],
     imagenes: 'src/img/**/*',
     chartJs: 'node_modules/chart.js/dist/chart.umd.min.js'
 };

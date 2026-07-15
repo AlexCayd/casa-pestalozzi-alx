@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * Registra las rutas publicas, administrativas y API del sitio.
+ */
+
 require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
@@ -24,6 +28,7 @@ $router = new Router();
 $router->get('/', [HomeController::class, 'index']);
 
 // Reservaciones
+$router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);
 $router->post('/reservar', [ReservacionController::class, 'crear']);
 
 // Admin
@@ -62,13 +67,18 @@ $router->get('/admin/api/area-items', [AdminAreaController::class, 'areaItems'])
 $router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceItem']);
 $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
 $router->get('/admin/reservations', [AdminReservacionController::class, 'index']);
+$router->get('/admin/reservations/create', [AdminReservacionController::class, 'create']);
+$router->post('/admin/reservations/create', [AdminReservacionController::class, 'store']);
 $router->get('/admin/reservations/operation', [AdminReservacionController::class, 'operation']);
 $router->get('/admin/reservations/show', [AdminReservacionController::class, 'show']);
-$router->post('/admin/reservations/confirm', [AdminReservacionController::class, 'confirmar']);
-$router->post('/admin/reservations/cancel', [AdminReservacionController::class, 'cancelar']);
-$router->post('/admin/reservations/complete', [AdminReservacionController::class, 'completar']);
-$router->post('/admin/reservations/no-show', [AdminReservacionController::class, 'noShow']);
+$router->post('/admin/reservations/update', [AdminReservacionController::class, 'update']);
+$router->post('/admin/reservations/status', [AdminReservacionController::class, 'status']);
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
+$router->get('/admin/api/reservations/operation', [AdminReservacionController::class, 'operationData']);
+$router->post('/admin/api/reservations/operation/assign-tables', [AdminReservacionController::class, 'apiAssignTables']);
+$router->post('/admin/api/reservations/operation/reassign', [AdminReservacionController::class, 'apiReasignarAutomaticamente']);
+$router->post('/admin/api/reservations/operation/update-comment', [AdminReservacionController::class, 'apiUpdateComment']);
+$router->post('/admin/api/reservations/operation/status', [AdminReservacionController::class, 'apiStatus']);
 $router->post('/admin/reservations/operation/assign-tables', [AdminReservacionController::class, 'assignTables']);
 $router->post('/admin/reservations/operation/update-comment', [AdminReservacionController::class, 'updateComment']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
