@@ -3,6 +3,7 @@ namespace Controllers;
 
 use MVC\Router;
 use Model\Ticket;
+use Services\AreasMejora;
 
 class FeedbackController {
 
@@ -93,5 +94,54 @@ class FeedbackController {
         } catch (\Throwable $e) {
             echo json_encode(['ok' => false, 'msg' => 'Error al guardar: ' . $e->getMessage()]);
         }
+    }
+
+    // POST /api/feedback-n8n
+    // Endpoint publico que consume el flujo de n8n: recibe el JSON de "areas
+    // de mejora" generado por el modelo y lo persiste para el panel admin.
+    public static function recibirN8n(Router $router) {
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'msg' => 'Metodo no permitido']);
+            return;
+        }
+
+        // Secreto compartido opcional (env N8N_SECRET): si esta configurado,
+        // n8n debe mandarlo en el header X-N8N-Secret.
+        $secret = AreasMejora::secret();
+        if ($secret !== '') {
+            $recibido = $_SERVER['HTTP_X_N8N_SECRET'] ?? '';
+            if (!hash_equals($secret, $recibido)) {
+                http_response_code(401);
+                echo json_encode(['ok' => false, 'msg' => 'No autorizado']);
+                return;
+            }
+        }
+
+        $payload = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($payload)) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'msg' => 'JSON invalido']);
+            return;
+        }
+
+        try {
+            $total = AreasMejora::guardar($payload);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'msg' => 'Error al guardar: ' . $e->getMessage()]);
+            return;
+        }
+
+        if ($total === 0) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'msg' => 'No se encontraron areas_de_mejora en el payload']);
+            return;
+        }
+
+        http_response_code(200);
+        echo json_encode(['ok' => true, 'guardadas' => $total]);
     }
 }

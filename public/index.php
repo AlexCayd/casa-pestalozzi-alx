@@ -82,6 +82,8 @@ $router->post('/admin/api/reservations/operation/status', [AdminReservacionContr
 $router->post('/admin/reservations/operation/assign-tables', [AdminReservacionController::class, 'assignTables']);
 $router->post('/admin/reservations/operation/update-comment', [AdminReservacionController::class, 'updateComment']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
+$router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
+$router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
 $router->get('/admin/payments', [AdminController::class, 'payments']);
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
@@ -127,6 +129,7 @@ $router->post('/api/retroceder-item', [AreaController::class, 'retrocederItem'])
 // Feedback de clientes
 $router->get('/feedback',      [FeedbackController::class, 'index']);
 $router->post('/api/feedback', [FeedbackController::class, 'guardar']);
+$router->post('/api/feedback-n8n', [FeedbackController::class, 'recibirN8n']);
 
 // Login
 $router->get('/login', [AuthController::class, 'login']);

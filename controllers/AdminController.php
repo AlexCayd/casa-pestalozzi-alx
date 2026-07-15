@@ -7,6 +7,7 @@
 namespace Controllers;
 
 use MVC\Router;
+use Services\AreasMejora;
 
 class AdminController
 {
@@ -131,9 +132,89 @@ class AdminController
             'title' => 'Feedback de clientes',
             'feedbackRows' => $rows,
             'feedbackStats' => $stats,
+            'acciones' => AreasMejora::leer(),
+            'accionesActualizadas' => AreasMejora::generadoEn(),
+            'n8nConfigurado' => AreasMejora::webhookUrl() !== '',
+            'flujoResultado' => $_GET['flujo'] ?? null,
             'styles' => ['/build/css/admin/menu.css'],
             'scripts' => []
         ]);
+    }
+
+    /**
+     * Dispara el flujo de n8n desde el panel (boton en /admin/feedback).
+     * Se invoca por fetch/AJAX y responde JSON. El webhook de n8n responde de
+     * inmediato ("Workflow was started"); el flujo continua async y hace POST
+     * de vuelta a /api/feedback-n8n con las nuevas areas, que el front detecta
+     * mediante polling a feedbackAreas().
+     */
+    public static function feedbackRefresh(Router $router): void
+    {
+        header('Content-Type: application/json');
+
+        $webhook = AreasMejora::webhookUrl();
+        if ($webhook === '') {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'estado' => 'sin_config',
+                'msg' => 'La actualización automática aún no está configurada. Contacta al equipo técnico.']);
+            return;
+        }
+
+        // El webhook de n8n suele registrarse como GET; se intenta GET y, si el
+        // metodo no esta registrado (404/405), se reintenta con POST.
+        [$codigo, $error] = self::llamarWebhook($webhook, 'GET');
+        if ($codigo === 404 || $codigo === 405) {
+            [$codigo, $error] = self::llamarWebhook($webhook, 'POST');
+        }
+
+        if ($codigo >= 200 && $codigo < 300) {
+            echo json_encode(['ok' => true, 'estado' => 'ok']);
+            return;
+        }
+
+        http_response_code(502);
+        echo json_encode([
+            'ok' => false,
+            'estado' => 'error',
+            'msg' => 'No pudimos conectar con el servicio de análisis. Inténtalo de nuevo en unos minutos.',
+        ]);
+    }
+
+    /** Ejecuta la peticion al webhook y devuelve [codigoHttp, textoError]. */
+    private static function llamarWebhook(string $url, string $metodo): array
+    {
+        $ch = curl_init($url);
+        $opciones = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_CUSTOMREQUEST  => $metodo,
+        ];
+        if ($metodo === 'POST') {
+            $opciones[CURLOPT_POSTFIELDS] = json_encode(['origen' => 'admin']);
+            $opciones[CURLOPT_HTTPHEADER] = ['Content-Type: application/json'];
+        }
+        curl_setopt_array($ch, $opciones);
+        curl_exec($ch);
+        $codigo = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error  = curl_error($ch);
+        // curl_close() es un no-op y esta deprecado desde PHP 8.5; omitirlo
+        // evita que el warning contamine el cuerpo JSON de la respuesta.
+
+        return [$codigo, $error];
+    }
+
+    /**
+     * Devuelve en JSON las areas de mejora actuales y su fecha de generacion.
+     * Lo consume el polling del front tras disparar el flujo, para refrescar
+     * las tarjetas sin recargar la pagina.
+     */
+    public static function feedbackAreas(Router $router): void
+    {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'generado_en' => AreasMejora::generadoEn(),
+            'acciones'    => AreasMejora::leer(),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     public static function tickets(Router $router): void
