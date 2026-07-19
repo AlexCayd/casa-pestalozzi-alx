@@ -25,6 +25,7 @@
 
 // ── Header ────────────────────────────────────────────────────
 .area-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -33,6 +34,9 @@
   flex-shrink: 0;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+  // El color de la estación ya no es un punto: ahora tiñe la franja superior
+  // del tablero, identificando el área de un vistazo.
+  border-top: 3px solid var(--area-accent, var(--gold));
 }
 
 .area-back {
@@ -54,22 +58,15 @@
 }
 
 .area-title {
-  display: flex;
-  align-items: center;
-  gap: .55rem;
+  // Centrado sobre la página, sin importar el ancho de los lados.
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--serif);
   font-size: 1.05rem;
   color: var(--txt);
   letter-spacing: .04em;
-  flex: 1;
-}
-
-.area-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 8px currentColor;
+  white-space: nowrap;
 }
 
 .area-header-right { margin-left: auto; }
@@ -396,5 +393,6 @@
 @media (max-width: 480px) {
   .area-header { height: auto; min-height: 52px; padding: .6rem 1rem; flex-wrap: wrap; }
   .area-back { font-size: .62rem; }
-  .area-title { font-size: .9rem; }
+  // En móvil el header envuelve: el título vuelve al flujo para no encimarse.
+  .area-title { position: static; transform: none; font-size: .9rem; flex: 1; text-align: center; }
 }

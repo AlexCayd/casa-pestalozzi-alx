@@ -10,6 +10,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Casa Pestalozzi Admin - <?php echo $title ?? 'Panel'; ?></title>
+    <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
+    <link rel="apple-touch-icon" href="/build/images/logo.svg">
     <script>
         (function () {
             var root = document.documentElement;

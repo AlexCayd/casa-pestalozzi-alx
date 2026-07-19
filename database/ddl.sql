@@ -7,6 +7,13 @@
 -- RESET (orden inverso de dependencias)
 -- -------------------------------------------------------
 
+-- ticket_pagos va primero: apunta a tickets. Si falta aquí, el DROP de
+-- tickets falla por llave foránea y el reset completo se cae sobre una BD ya
+-- existente.
+-- logs_sugerencias se conserva en el DROP para limpiar instalaciones previas:
+-- la tabla ya no existe en este esquema (ver nota en SUGERENCIAS).
+DROP TABLE IF EXISTS logs_sugerencias;
+DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
@@ -130,6 +137,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta') NULL,
+  propina            DECIMAL(8,2) NOT NULL DEFAULT 0 COMMENT 'Propina al cerrar = pagado − total de la cuenta',
   reservacion_id     INT NULL,
   mesero_id          INT NULL,
   FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
@@ -139,10 +147,9 @@ CREATE TABLE IF NOT EXISTS tickets (
   INDEX idx_estado_mesa        (estado, mesa_id),
   INDEX idx_ticket_reservacion (reservacion_id)
 );
--- Debido a la implementacion de asociar un mesero por mesa, modificamos la DB para poder imprimir al mesero en el ticket de la mesa.
-ALTER TABLE tickets
-  ADD COLUMN mesero_id INT NULL AFTER reservacion_id,
-  ADD CONSTRAINT fk_ticket_mesero FOREIGN KEY (mesero_id) REFERENCES usuarios(id) ON DELETE SET NULL;
+-- Nota: mesero_id (para imprimir el mesero en el ticket) ya viene declarado con
+-- su FK en el CREATE TABLE de arriba. El ALTER que lo añadía por separado se
+-- eliminó: sobre una BD limpia fallaba con "Duplicate column name 'mesero_id'".
 
 -- Pago dividido por comensal: cuando la cuenta se separa, cada comensal puede
 -- pagar con un metodo distinto. El ticket registra 'dividido' si se mezclan metodos.
@@ -179,8 +186,9 @@ CREATE TABLE IF NOT EXISTS ticket_items (
 );
 
 -- Registro del pago de cada comensal cuando la cuenta se divide.
--- La suma de 'monto' de un ticket debe ser igual al total de sus ticket_items
--- no cancelados (validado en MapaController::cerrarTicket).
+-- La suma de 'monto' de un ticket debe ser >= al total de sus ticket_items no
+-- cancelados; el excedente es propina y se guarda en tickets.propina (validado
+-- en MapaController::cerrarTicket). Solo se llena en cuentas divididas.
 CREATE TABLE IF NOT EXISTS ticket_pagos (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   ticket_id   INT NOT NULL,
@@ -250,3 +258,21 @@ CREATE TABLE IF NOT EXISTS impresoras (
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
+
+
+-- -------------------------------------------------------
+-- SUGERENCIAS (venta sugerida del POS)
+-- -------------------------------------------------------
+--
+-- No hay tabla: la sugerencia se calcula al vuelo y no se persiste.
+--
+-- El motor (flujo de n8n) deduce qué ofrecer a partir de datos que ya existen:
+-- los tickets cerrados del mismo cliente — vía tickets.reservacion_id ->
+-- reservaciones.email — y los tickets de otras mesas que pidieron platillos
+-- parecidos a los de ticket_items. Nada de eso necesita un log propio.
+--
+-- Para no repetir lo ya ofrecido, el POS excluye lo que la mesa ya pidió
+-- (ticket_items) más lo que lleva visto en la sesión del modal, que manda en
+-- cada llamada (ver Services\Sugerencias). Consecuencia asumida: al reabrir
+-- la mesa vuelve a salir la misma sugerencia, y un rechazo no deja rastro —
+-- no hay dónde medir la conversión por producto.

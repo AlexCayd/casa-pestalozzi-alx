@@ -6,7 +6,7 @@
 $sidebarIcons = [
     'analytics' => '<path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 3-4 3 2 4-6"/>',
     'menu' => '<path d="M5 4.5h8a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H5z"/><path d="M16 7.5h3v12a2 2 0 0 0-2-2h-1"/><path d="M8 8h4"/><path d="M8 11h4"/><path d="M8 14h3"/>',
-    'map' => '<path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>',
+    'pdv' => '<path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>',
     'area' => '<path d="M4 7h16"/><path d="M7 7v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V7"/><path d="M9 3v4"/><path d="M15 3v4"/><path d="M9 12h6"/>',
     'reservations' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/>',
     'reservations_operation' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/><path d="M8 14h3"/><path d="M14 14h2"/><path d="M8 17h8"/>',

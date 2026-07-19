@@ -49,6 +49,46 @@ $criterios = [
         <?php endforeach; ?>
     </section>
 
+    <?php $meseros = $meseros ?? []; ?>
+    <section class="admin-panel admin-card admin-fb__meseros" aria-label="Rendimiento de meseros">
+        <div class="admin-fb__meseros-head">
+            <h3 class="admin-fb__meseros-title">Rendimiento de meseros</h3>
+            <p class="admin-fb__meseros-sub">Atención según el feedback de sus tickets y la propina promedio que dejó el cliente.</p>
+        </div>
+        <?php if (empty($meseros)) : ?>
+            <div class="admin-menu__empty">Aún no hay tickets con mesero asignado para evaluar.</div>
+        <?php else : ?>
+            <div class="admin-fb__meseros-grid">
+                <?php foreach ($meseros as $m) : ?>
+                    <article class="admin-card admin-fb__mesero<?php echo $m['activo'] ? '' : ' admin-fb__mesero--inactivo'; ?>">
+                        <div class="admin-fb__mesero-top">
+                            <span class="admin-fb__mesero-name"><?php echo htmlspecialchars($m['nombre']); ?></span>
+                            <?php if (!$m['activo']) : ?><span class="admin-fb__mesero-tag">Inactivo</span><?php endif; ?>
+                        </div>
+                        <div class="admin-fb__mesero-score">
+                            <strong><?php echo $m['rendimiento'] !== null ? (int) $m['rendimiento'] : '—'; ?></strong>
+                            <small>/ 100 rendimiento</small>
+                        </div>
+                        <div class="admin-fb__mesero-metrics">
+                            <div class="admin-fb__mesero-metric">
+                                <span class="admin-fb__mesero-metric-label">Atención</span>
+                                <?php echo $stars($m['atencion']); ?>
+                                <span class="admin-fb__mesero-metric-num"><?php echo $m['atencion'] !== null ? number_format((float) $m['atencion'], 1) . ' / 5' : '—'; ?></span>
+                            </div>
+                            <div class="admin-fb__mesero-metric">
+                                <span class="admin-fb__mesero-metric-label">Propina prom.</span>
+                                <span class="admin-fb__mesero-metric-num admin-fb__mesero-tip"><?php echo $m['tip_pct'] !== null ? number_format((float) $m['tip_pct'], 1) . '%' : '—'; ?></span>
+                            </div>
+                        </div>
+                        <div class="admin-fb__mesero-foot">
+                            <?php echo (int) $m['tickets']; ?> ticket(s) · <?php echo (int) $m['resenas']; ?> reseña(s)
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </section>
+
     <?php
     // Las áreas de mejora llegan desde el flujo de n8n (AreasMejora::leer()).
     // Mientras no haya datos generados, se muestran ejemplos como marcador.
@@ -244,6 +284,69 @@ $criterios = [
         color: var(--admin-faint);
         font-size: 12px;
         letter-spacing: normal;
+    }
+
+    /* ── Rendimiento de meseros ─────────────────────────────── */
+    .admin-fb__meseros { margin-top: 22px; margin-bottom: 40px; padding: 20px; }
+    .admin-fb__meseros-head { margin-bottom: 16px; }
+    .admin-fb__meseros-title { margin: 0; font-size: 16px; }
+    .admin-fb__meseros-sub {
+        margin: 4px 0 0;
+        font-size: 12.5px;
+        color: var(--admin-muted);
+    }
+
+    .admin-fb__meseros-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 14px;
+    }
+
+    .admin-fb__mesero { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .admin-fb__mesero--inactivo { opacity: .6; }
+
+    .admin-fb__mesero-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .admin-fb__mesero-name { font-weight: 700; font-size: 14px; }
+    .admin-fb__mesero-tag {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--admin-muted);
+        border: 1px solid var(--admin-border);
+        border-radius: 999px;
+        padding: 1px 7px;
+    }
+
+    .admin-fb__mesero-score { display: flex; align-items: baseline; gap: 6px; }
+    .admin-fb__mesero-score strong { font-size: 30px; color: var(--admin-gold); line-height: 1; }
+    .admin-fb__mesero-score small { font-size: 11px; color: var(--admin-muted); }
+
+    .admin-fb__mesero-metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        border-top: 1px solid var(--admin-border);
+        padding-top: 10px;
+    }
+    .admin-fb__mesero-metric {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12.5px;
+    }
+    .admin-fb__mesero-metric-label { color: var(--admin-muted); }
+    .admin-fb__mesero-metric-num { font-weight: 600; }
+    .admin-fb__mesero-tip { color: var(--admin-sage, #7ba86a); }
+
+    .admin-fb__mesero-foot {
+        font-size: 11.5px;
+        color: var(--admin-faint);
     }
 
     /* La columna Comentario es la última pero debe ir alineada a la izquierda. */

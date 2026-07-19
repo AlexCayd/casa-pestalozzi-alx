@@ -1,23 +1,23 @@
 // ── Mapa de Mesas — Casa Pestalozzi ──────────────────────────
 
 // ── Cursor override ───────────────────────────────────────────
-.mapa-page,
-.mapa-page button,
-.mapa-page input,
-.mapa-page select,
-.mapa-page a {
+.pdv-page,
+.pdv-page button,
+.pdv-page input,
+.pdv-page select,
+.pdv-page a {
   cursor: default;
 }
-.mapa-page button,
-.mapa-page input[type="range"],
-.mapa-page .mesa-pin[data-reservable="1"],
-.mapa-page .mesa-pin[data-ticketable="1"],
-.mapa-page .reserva-card {
+.pdv-page button,
+.pdv-page input[type="range"],
+.pdv-page .mesa-pin[data-reservable="1"],
+.pdv-page .mesa-pin[data-ticketable="1"],
+.pdv-page .reserva-card {
   cursor: pointer;
 }
 
 // ── Shell ─────────────────────────────────────────────────────
-.mapa-shell {
+.pdv-shell {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -28,7 +28,7 @@
 }
 
 // ── Header ────────────────────────────────────────────────────
-.mapa-header {
+.pdv-header {
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -39,7 +39,7 @@
   background: var(--surface);
 }
 
-.mapa-logo {
+.pdv-logo {
   font-family: var(--logo);
   color: var(--gold);
   font-size: 1.05rem;
@@ -49,12 +49,12 @@
   line-height: 1;
 }
 
-.mapa-header-center {
+.pdv-header-center {
   flex: 1;
   text-align: center;
 }
 
-.mapa-title {
+.pdv-title {
   font-family: var(--serif);
   font-size: 1rem;
   font-weight: 400;
@@ -63,14 +63,14 @@
   text-transform: uppercase;
 }
 
-.mapa-header-controls {
+.pdv-header-controls {
   display: flex;
   align-items: center;
   gap: 1rem;
   white-space: nowrap;
 }
 
-.mapa-date-wrap {
+.pdv-date-wrap {
   position: relative;
   display: flex;
   align-items: center;
@@ -84,7 +84,7 @@
   svg { flex-shrink: 0; }
 }
 
-.mapa-date-btn {
+.pdv-date-btn {
   background: none;
   border: none;
   outline: none;
@@ -101,7 +101,7 @@
 }
 
 // ── Calendario dropdown ───────────────────────────────────────
-.mapa-cal {
+.pdv-cal {
   display: none;
   position: absolute;
   top: calc(100% + 8px);
@@ -117,14 +117,14 @@
   &--open { display: block; }
 }
 
-.mapa-cal__nav {
+.pdv-cal__nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: .7rem;
 }
 
-.mapa-cal__label {
+.pdv-cal__label {
   font-size: .72rem;
   font-weight: 700;
   letter-spacing: .09em;
@@ -132,7 +132,7 @@
   color: var(--txt-mute);
 }
 
-.mapa-cal__nav-btn {
+.pdv-cal__nav-btn {
   background: none;
   border: 1px solid var(--line-soft);
   border-radius: 5px;
@@ -149,7 +149,7 @@
   &:hover { color: var(--gold); border-color: rgba(204, 163, 82, .4); }
 }
 
-.mapa-cal__weekdays {
+.pdv-cal__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   margin-bottom: .3rem;
@@ -164,13 +164,13 @@
   }
 }
 
-.mapa-cal__grid {
+.pdv-cal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
 
-.mapa-cal__day {
+.pdv-cal__day {
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -197,51 +197,15 @@
   }
 }
 
-.mapa-live-badge {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  font-size: .7rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--txt-faint);
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  padding: .25rem .75rem;
-  transition: color .3s, border-color .3s;
-
-  &--active {
-    color: #4cde80;
-    border-color: rgba(76, 222, 128, .3);
-  }
-}
-
-.mapa-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  transition: background .3s;
-
-  .mapa-live-badge--active & {
-    animation: pulse-dot 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .35; }
-}
-
 // ── Body ──────────────────────────────────────────────────────
-.mapa-body {
+.pdv-body {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
-.mapa-sidebar {
+.pdv-sidebar {
   width: clamp(220px, 22vw, 300px);
   flex-shrink: 0;
   display: flex;
@@ -251,7 +215,7 @@
   overflow: hidden;
 }
 
-.mapa-sidebar-head {
+.pdv-sidebar-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -259,7 +223,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.mapa-sidebar-title {
+.pdv-sidebar-title {
   font-size: .7rem;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -267,7 +231,7 @@
   font-weight: 600;
 }
 
-.mapa-reserva-count {
+.pdv-reserva-count {
   font-size: .75rem;
   font-weight: 700;
   color: var(--gold);
@@ -280,7 +244,7 @@
 }
 
 // ── Leyenda ───────────────────────────────────────────────────
-.mapa-leyenda {
+.pdv-leyenda {
   display: flex;
   flex-wrap: wrap;
   gap: .35rem;
@@ -288,7 +252,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.mapa-leyenda-item {
+.pdv-leyenda-item {
   font-size: .6rem;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -319,7 +283,7 @@
 }
 
 // ── Lista de reservaciones ────────────────────────────────────
-.mapa-reservas-list {
+.pdv-reservas-list {
   flex: 1;
   overflow-y: auto;
   padding: .5rem 0;
@@ -331,7 +295,7 @@
   &::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
 }
 
-.mapa-empty-state {
+.pdv-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -345,7 +309,7 @@
   &--error { color: #e87060; }
 }
 
-.mapa-empty-icon {
+.pdv-empty-icon {
   font-size: 1.5rem;
   opacity: .4;
 }
@@ -444,7 +408,7 @@
 }
 
 // ── Canvas wrap ───────────────────────────────────────────────
-.mapa-canvas-wrap {
+.pdv-canvas-wrap {
   flex: 1;
   position: relative;
   display: flex;
@@ -456,7 +420,7 @@
 }
 
 // ── Canvas del plano ──────────────────────────────────────────
-.mapa-canvas {
+.pdv-canvas {
   position: relative;
   width: 100%;
   max-width: 900px;
@@ -474,7 +438,7 @@
 }
 
 // ── Overlay de carga ──────────────────────────────────────────
-.mapa-canvas-overlay {
+.pdv-canvas-overlay {
   position: absolute;
   inset: 0;
   display: flex;
@@ -489,7 +453,7 @@
   &.hidden { opacity: 0; pointer-events: none; }
 }
 
-.mapa-spinner {
+.pdv-spinner {
   width: 32px;
   height: 32px;
   border: 2px solid var(--line);
@@ -624,7 +588,7 @@
   }
 }
 
-.mapa-leyenda-item--con-ticket::before { background: #8bbf7e; }
+.pdv-leyenda-item--con-ticket::before { background: #8bbf7e; }
 
 .mesa-pin--highlight {
   box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
@@ -632,7 +596,7 @@
 }
 
 // ── Controlador de tiempo ─────────────────────────────────────
-.mapa-time-ctrl {
+.pdv-time-ctrl {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -642,7 +606,7 @@
   flex-shrink: 0;
 }
 
-.mapa-time-bound {
+.pdv-time-bound {
   font-size: .7rem;
   font-weight: 600;
   letter-spacing: .08em;
@@ -651,7 +615,7 @@
   text-align: center;
 }
 
-.mapa-slider-wrap {
+.pdv-slider-wrap {
   flex: 1;
   position: relative;
   display: flex;
@@ -659,7 +623,7 @@
   height: 36px;
 }
 
-.mapa-slider-track {
+.pdv-slider-track {
   position: absolute;
   left: 0; right: 0;
   height: 3px;
@@ -669,7 +633,7 @@
   pointer-events: none;
 }
 
-.mapa-slider-progress {
+.pdv-slider-progress {
   height: 100%;
   background: linear-gradient(90deg, var(--gold-deep), var(--gold));
   border-radius: 3px;
@@ -677,7 +641,7 @@
   transition: width .05s;
 }
 
-.mapa-slider {
+.pdv-slider {
   position: relative;
   width: 100%;
   appearance: none;
@@ -719,7 +683,7 @@
   &::-moz-range-track               { background: transparent; }
 }
 
-.mapa-slider-tooltip {
+.pdv-slider-tooltip {
   position: absolute;
   bottom: calc(100% + 6px);
   left: var(--thumb-pct, 50%);
@@ -738,7 +702,7 @@
   transition: opacity .15s;
   z-index: 10;
 
-  .mapa-slider-wrap:hover & { opacity: 1; }
+  .pdv-slider-wrap:hover & { opacity: 1; }
 
   &::after {
     content: '';
@@ -751,13 +715,13 @@
   }
 }
 
-.mapa-time-actions {
+.pdv-time-actions {
   display: flex;
   align-items: center;
   gap: .85rem;
 }
 
-.mapa-ahora-btn {
+.pdv-ahora-btn {
   display: flex;
   align-items: center;
   gap: .4rem;
@@ -786,7 +750,7 @@
   }
 }
 
-.mapa-ahora-dot {
+.pdv-ahora-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -794,7 +758,7 @@
   flex-shrink: 0;
 }
 
-.mapa-current-time {
+.pdv-current-time {
   font-family: var(--serif);
   font-size: 1.25rem;
   color: var(--gold);
@@ -804,55 +768,55 @@
 }
 
 // ── Canvas: container query para pines ────────────────────────
-.mapa-canvas {
+.pdv-canvas {
   container-type: inline-size;
 }
 
 // ── Responsive — tablet (< 900px) ────────────────────────────
 @media (max-width: 900px) {
-  .mapa-sidebar {
+  .pdv-sidebar {
     width: clamp(180px, 28vw, 240px);
   }
 
-  .mapa-header { padding: 0 1rem; gap: 1rem; }
-  .mapa-title  { font-size: .85rem; }
+  .pdv-header { padding: 0 1rem; gap: 1rem; }
+  .pdv-title  { font-size: .85rem; }
 
-  .mapa-time-ctrl { padding: .7rem 1rem; gap: .75rem; }
-  .mapa-current-time { font-size: 1.1rem; min-width: 44px; }
+  .pdv-time-ctrl { padding: .7rem 1rem; gap: .75rem; }
+  .pdv-current-time { font-size: 1.1rem; min-width: 44px; }
 }
 
 // ── Responsive — mobile (< 640px) ────────────────────────────
 @media (max-width: 640px) {
 
   // Header compacto
-  .mapa-header {
+  .pdv-header {
     flex-wrap: wrap;
     height: auto;
     padding: .6rem 1rem;
     gap: .5rem;
   }
-  .mapa-header-center { order: 3; width: 100%; text-align: left; }
-  .mapa-header-controls { margin-left: auto; }
-  .mapa-title { font-size: .75rem; }
+  .pdv-header-center { order: 3; width: 100%; text-align: left; }
+  .pdv-header-controls { margin-left: auto; }
+  .pdv-title { font-size: .75rem; }
 
   // Layout vertical: canvas arriba, sidebar abajo
-  .mapa-body {
+  .pdv-body {
     flex-direction: column;
   }
 
-  .mapa-canvas-wrap {
+  .pdv-canvas-wrap {
     order: 1;
     flex: 0 0 auto;
     padding: .5rem;
     overflow: visible;
   }
 
-  .mapa-canvas {
+  .pdv-canvas {
     width: 100%;
   }
 
   // Sidebar como panel inferior fijo
-  .mapa-sidebar {
+  .pdv-sidebar {
     order: 2;
     width: 100%;
     flex: 1;
@@ -862,10 +826,10 @@
     overflow-y: auto;
   }
 
-  .mapa-leyenda { display: none; } // quitar en mobile para ahorrar espacio
+  .pdv-leyenda { display: none; } // quitar en mobile para ahorrar espacio
 
   // Sidebar head más compacto
-  .mapa-sidebar-head { padding: .6rem 1rem .5rem; }
+  .pdv-sidebar-head { padding: .6rem 1rem .5rem; }
 
   // Tarjetas más compactas
   .reserva-card { padding: .6rem 1rem; }
@@ -873,14 +837,14 @@
   .reserva-card__nombre { font-size: .8rem; }
 
   // Time controller
-  .mapa-time-ctrl {
+  .pdv-time-ctrl {
     padding: .6rem .75rem;
     gap: .5rem;
     flex-wrap: nowrap;
   }
-  .mapa-time-bound { font-size: .65rem; min-width: 30px; }
-  .mapa-current-time { font-size: 1rem; min-width: 40px; }
-  .mapa-ahora-btn { font-size: .65rem; padding: .3rem .6rem; }
+  .pdv-time-bound { font-size: .65rem; min-width: 30px; }
+  .pdv-current-time { font-size: 1rem; min-width: 40px; }
+  .pdv-ahora-btn { font-size: .65rem; padding: .3rem .6rem; }
 }
 
 // ── Modal de mesa (POS) ───────────────────────────────────────
@@ -1439,6 +1403,39 @@
   margin-bottom: .4rem;
 }
 
+// ── Buscador de platillos ─────────────────────────────────────
+.mmodal-dish-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: .6rem;
+
+  &__icon {
+    position: absolute;
+    left: .6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    color: var(--txt-faint);
+    pointer-events: none;
+  }
+
+  &__input {
+    width: 100%;
+    padding: .5rem .6rem .5rem 2rem;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--txt);
+    font-size: .85rem;
+    outline: none;
+    transition: border-color .15s;
+
+    &::placeholder { color: var(--txt-faint); }
+    &:focus { border-color: var(--gold); }
+  }
+}
+
 // ── Grid de categorías ────────────────────────────────────────
 .mmodal-cat-grid {
   display: grid;
@@ -1940,9 +1937,10 @@
 
 // ── 3 columnas en tablet/desktop ─────────────────────────────
 @media (min-width: 768px) {
-  // El panel del modal ocupa altura fija para que las columnas
-  // internas puedan usar height: 100%
-  .mesa-modal__panel {
+  // Solo el modal de ticket (el único con .mmodal-panels) se ensancha;
+  // abrir-mesa, para-llevar y pago conservan el ancho angosto de
+  // .mesa-modal__panel (min(400px, 90vw)).
+  .mesa-modal__panel:has(.mmodal-panels) {
     width: min(1340px, 98vw);
     max-height: none;                       // quitar el max-height anterior
     overflow: hidden;
@@ -2187,6 +2185,40 @@
   letter-spacing: .07em;
   text-transform: uppercase;
   margin-bottom: .85rem;
+}
+
+// Etapa de la comida que detecta n8n (ENTRADAS / DESARROLLO / CIERRE)
+.mmodal-etapa {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: .15rem .5rem;
+  border: 1px solid currentColor;
+
+  &--entradas   { color: #6fa8dc; }
+  &--desarrollo { color: var(--gold); }
+  &--cierre     { color: #d98c6a; }
+}
+
+// Acción del panel vacío: pedir otra tanda a n8n o reintentar tras un error
+.mmodal-sug-more {
+  display: flex;
+  justify-content: center;
+  padding: 0 .75rem;
+
+  .mmodal-btn { width: 100%; }
+}
+
+// Argumento de venta que redacta n8n para que el mesero lo lea en piso
+.mmodal-sug-argumento {
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--txt-mute);
+  border-left: 2px solid var(--gold);
+  padding-left: .6rem;
+  margin: -.35rem 0 .85rem;
 }
 
 .mmodal-sug-divider {

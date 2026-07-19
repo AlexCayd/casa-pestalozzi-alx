@@ -3,8 +3,19 @@
 /**
  * Vista principal de analytics del panel de administración.
  * Presenta filtros, métricas, gráficas y el resumen operativo con datos mock.
+ * La métrica de propinas sí es real (viene del backend en $propinas).
  */
+$propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
 ?>
+<script>
+    window.CP_METRICS_REALES = {
+        propinas: {
+            total: <?php echo (float) $propinas['total']; ?>,
+            tickets: <?php echo (int) $propinas['tickets']; ?>,
+            promedio: <?php echo (float) $propinas['promedio']; ?>
+        }
+    };
+</script>
 <section class="admin-analytics" data-admin-analytics>
     <header class="admin-page-header">
         <div class="admin-page-header__intro">

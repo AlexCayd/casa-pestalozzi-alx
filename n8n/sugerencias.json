@@ -1,0 +1,420 @@
+{
+  "name": "Sugerencias",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -80
+      ],
+      "id": "89fd7652-106c-447f-a387-77860165bc9f",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulador de evento POS conectado a Casa Pestalozzi\n// Escenario DML: Ticket 6 -> Mesa 11 (Fernanda & Roque, 5 comensales, Aniversario)\nreturn [\n  {\n    json: {\n      ticket_id: 6,\n      mesa: \"11\",\n      comensales: 5,\n      hora_apertura: \"2026-06-19 13:35:00\",\n      nota_reservacion: \"Aniversario\",\n      cliente: {\n        nombre: \"Fernanda & Roque\",\n        email: \"fernroque@ejemplo.com\",\n        homologado: true\n      },\n      // Ítems reales cargados al ticket 6 en tu DML\n      items_actuales: [\n        { categoria: \"Pizzas\", nombre: \"Pizza Burrata\", qty: 2 },\n        { categoria: \"Entradas\", nombre: \"Aros de Calamar\", qty: 1 },\n        { categoria: \"Jugos & Smoothies\", nombre: \"Agua de Coco\", qty: 5 }\n      ],\n      sugerencias_rechazadas_ticket: []\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -80
+      ],
+      "id": "24e86ef3-1f0e-47b2-a43e-68afec962be9",
+      "name": "Registro estático de ticket"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    t.id AS ticket_id, t.comensales, t.hora_apertura,\n    r.email  AS cliente_email,        -- nuevo\n    r.nombre AS cliente_nombre,       -- nuevo\n    TIMESTAMPDIFF(MINUTE, t.hora_apertura, NOW()) AS minutos_transcurridos,\n    COUNT(ti.id) AS total_items_activos,\n    SUM(ti.cantidad * ti.precio) AS monto_acumulado,\n    GROUP_CONCAT(DISTINCT p.id SEPARATOR ',') AS ids_productos_activos,\n    GROUP_CONCAT(DISTINCT ti.categoria SEPARATOR ',') AS categorias_pedidas,\n    GROUP_CONCAT(DISTINCT ti.nombre SEPARATOR ', ') AS platillos_en_mesa\nFROM tickets t\nLEFT JOIN ticket_items ti ON t.id = ti.ticket_id AND ti.estado != 'cancelado'\nLEFT JOIN productos p ON ti.nombre = p.nombre\nLEFT JOIN reservaciones r ON r.id = t.reservacion_id      -- nuevo\nWHERE t.id = {{ $json.body?.ticket_id ?? $json.query?.ticket_id ?? $json.ticket_id }}\n  AND t.estado = 'abierto'\nGROUP BY t.id, t.comensales, t.hora_apertura, r.email, r.nombre;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        432,
+        0
+      ],
+      "id": "ea01bd1f-c736-4c85-94ae-9726207c72b3",
+      "name": "Analizar el ticket",
+      "credentials": {
+        "mySql": {
+          "id": "98D1I2XKK2HMpzwd",
+          "name": "Casa Pestalozzi SQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    MAX(m.id) AS producto_id,\n    m.nombre AS producto_nombre,\n    MAX(m.precio) AS precio,\n    MAX(c.nombre) AS categoria_nombre,\n    COALESCE(h.veces_cliente, 0) AS veces_cliente,\n    COALESCE(s.veces_similares, 0) AS veces_similares,\n    \n    -- Puntaje simple: (veces pedido por el cliente x 2) + veces pedido junto a los platillos actuales\n    (COALESCE(h.veces_cliente, 0) * 2) + COALESCE(s.veces_similares, 0) AS puntaje\n\nFROM menu m\nINNER JOIN categorias c ON m.categoria_id = c.id\n\n-- 1. Historial directo: cuántas veces ha pedido este platillo el correo del cliente\nLEFT JOIN (\n    SELECT ti.nombre, COUNT(*) AS veces_cliente\n    FROM ticket_items ti\n    JOIN tickets t ON ti.ticket_id = t.id\n    JOIN reservaciones r ON t.reservacion_id = r.id\n    WHERE r.email = {{ $json.cliente_email ? \"'\" + $json.cliente_email + \"'\" : \"'sin_email'\" }}\n      AND t.estado = 'cerrado'\n    GROUP BY ti.nombre\n) h ON m.nombre = h.nombre\n\n-- 2. Similares: qué más pidieron los tickets que llevaban ALGUNO de los platillos activos de esta mesa\nLEFT JOIN (\n    SELECT ti_o.nombre, COUNT(*) AS veces_similares\n    FROM ticket_items ti_o\n    WHERE ti_o.ticket_id IN (\n        SELECT DISTINCT ticket_id \n        FROM ticket_items \n        WHERE FIND_IN_SET(nombre, {{ \"'\" + ($json.platillos_en_mesa || '') + \"'\" }}) > 0\n          AND ticket_id != {{ $json.ticket_id }}\n    )\n    GROUP BY ti_o.nombre\n) s ON m.nombre = s.nombre\n\nWHERE m.activo = 1\n  -- CATEGORÍAS DE ETAPA 1\n  AND m.categoria_id IN (1, 2, 3, 8) \n  \n  -- Excluir lo que YA está en la mesa y lo rechazado en este ticket\n  AND FIND_IN_SET(m.nombre, {{ \"'\" + ($json.platillos_en_mesa || '') + \"'\" }}) = 0\n  AND FIND_IN_SET(m.id, {{ \"'\" + ($json.sugerencias_rechazadas_ticket ? $json.sugerencias_rechazadas_ticket.join(',') : '') + \"'\" }}) = 0\n\n-- Agrupar por nombre elimina cualquier duplicado en la tabla menú\nGROUP BY m.nombre, h.veces_cliente, s.veces_similares\nORDER BY puntaje DESC, precio DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        -160
+      ],
+      "id": "03423ba9-2755-4c1d-85b3-9ac24a87b97c",
+      "name": "Recomendar en Entradas",
+      "credentials": {
+        "mySql": {
+          "id": "98D1I2XKK2HMpzwd",
+          "name": "Casa Pestalozzi SQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    MAX(m.id) AS producto_id,\n    m.nombre AS producto_nombre,\n    MAX(m.precio) AS precio,\n    MAX(c.nombre) AS categoria_nombre,\n    COALESCE(h.veces_cliente, 0) AS veces_cliente,\n    COALESCE(s.veces_similares, 0) AS veces_similares,\n    (COALESCE(h.veces_cliente, 0) * 2) + COALESCE(s.veces_similares, 0) AS puntaje\n\nFROM menu m\nINNER JOIN categorias c ON m.categoria_id = c.id\n\nLEFT JOIN (\n    SELECT ti.nombre, COUNT(*) AS veces_cliente\n    FROM ticket_items ti\n    JOIN tickets t ON ti.ticket_id = t.id\n    JOIN reservaciones r ON t.reservacion_id = r.id\n    WHERE r.email = {{ $json.cliente_email ? \"'\" + $json.cliente_email + \"'\" : \"'sin_email'\" }}\n      AND t.estado = 'cerrado'\n    GROUP BY ti.nombre\n) h ON m.nombre = h.nombre\n\nLEFT JOIN (\n    SELECT ti_o.nombre, COUNT(*) AS veces_similares\n    FROM ticket_items ti_o\n    WHERE ti_o.ticket_id IN (\n        SELECT DISTINCT ticket_id \n        FROM ticket_items \n        WHERE FIND_IN_SET(nombre, {{ \"'\" + ($json.platillos_en_mesa || '') + \"'\" }}) > 0\n          AND ticket_id != {{ $json.ticket_id }}\n    )\n    GROUP BY ti_o.nombre\n) s ON m.nombre = s.nombre\n\nWHERE m.activo = 1\n  -- CATEGORÍAS DE ETAPA 2\n  AND m.categoria_id IN (4, 5, 6, 7) \n  \n  AND FIND_IN_SET(m.nombre, {{ \"'\" + ($json.platillos_en_mesa || '') + \"'\" }}) = 0\n  AND FIND_IN_SET(m.id, {{ \"'\" + ($json.sugerencias_rechazadas_ticket ? $json.sugerencias_rechazadas_ticket.join(',') : '') + \"'\" }}) = 0\n\nGROUP BY m.nombre, h.veces_cliente, s.veces_similares\nORDER BY puntaje DESC, precio DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "4b61a520-cf4a-4dd7-adb4-a78be28cafdf",
+      "name": "Recomendar en Desarrollo",
+      "credentials": {
+        "mySql": {
+          "id": "98D1I2XKK2HMpzwd",
+          "name": "Casa Pestalozzi SQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    MAX(m.id) AS producto_id,\n    m.nombre AS producto_nombre,\n    MAX(m.precio) AS precio,\n    MAX(c.nombre) AS categoria_nombre,\n    COALESCE(h.veces_cliente, 0) AS veces_cliente,\n    COALESCE(s.veces_similares, 0) AS veces_similares,\n    (COALESCE(h.veces_cliente, 0) * 2) + COALESCE(s.veces_similares, 0) AS puntaje\n\nFROM menu m\nINNER JOIN categorias c ON m.categoria_id = c.id\n\nLEFT JOIN (\n    SELECT ti.nombre, COUNT(*) AS veces_cliente\n    FROM ticket_items ti\n    JOIN tickets t ON ti.ticket_id = t.id\n    JOIN reservaciones r ON t.reservacion_id = r.id\n    WHERE r.email = {{ $json.cliente_email ? \"'\" + $json.cliente_email + \"'\" : \"'sin_email'\" }}\n      AND t.estado = 'cerrado'\n    GROUP BY ti.nombre\n) h ON m.nombre = h.nombre\n\nLEFT JOIN (\n    SELECT ti_o.nombre, COUNT(*) AS veces_similares\n    FROM ticket_items ti_o\n    WHERE ti_o.ticket_id IN (\n        SELECT DISTINCT ticket_id \n        FROM ticket_items \n        WHERE FIND_IN_SET(nombre, {{ \"'\" + ($json.platillos_en_mesa || '') + \"'\" }}) > 0\n          AND ticket_id != {{ $json.ticket_id }}\n    )\n    GROUP BY ti_o.nombre\n) s ON m.nombre = s.nombre\n\nWHERE m.activo = 1\n  -- CATEGORÍAS DE ETAPA 3 (Ej. Desayunos/Cafés o si agregas categoría Postres)\n  AND m.categoria_id IN (1) \n  \n  -- Solo excluimos lo que hayan rechazado en el modal hoy\n  AND FIND_IN_SET(m.id, {{ \"'\" + ($json.sugerencias_rechazadas_ticket ? $json.sugerencias_rechazadas_ticket.join(',') : '') + \"'\" }}) = 0\n\nGROUP BY m.nombre, h.veces_cliente, s.veces_similares\nORDER BY puntaje DESC, precio DESC\nLIMIT 3;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        160
+      ],
+      "id": "d96347ac-d350-4050-91fe-c8a4d83a40b2",
+      "name": "Recomendar en Cierre",
+      "credentials": {
+        "mySql": {
+          "id": "98D1I2XKK2HMpzwd",
+          "name": "Casa Pestalozzi SQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const minutos = Number(item.json.minutos_transcurridos || 0);\n  \n  // 1. Extraemos la hora en la que se abrió la cuenta (o la hora actual si no viene el dato)\n  const fechaApertura = item.json.hora_apertura ? new Date(item.json.hora_apertura) : new Date();\n  const hora = fechaApertura.getHours(); // Devuelve un número del 0 al 23\n\n  // 2. Determinamos el Turno (Desayuno, Comida o Cena)\n  let turno = \"COMIDA\";\n  if (hora < 13) {\n    turno = \"DESAYUNO\";\n  } else if (hora >= 18) {\n    turno = \"CENA\";\n  }\n\n  // 3. Determinamos la Etapa por minutos transcurridos\n  let numeroEtapa = 1;\n  let nombreEtapa = \"ENTRADAS\";\n  if (minutos >= 15 && minutos <= 45) {\n    numeroEtapa = 2;\n    nombreEtapa = \"DESARROLLO\";\n  } else if (minutos > 45) {\n    numeroEtapa = 3;\n    nombreEtapa = \"CIERRE\";\n  }\n\n  // 4. Matriz de Categorías: Qué recomendar según (Turno x Etapa)\n  // IDs de Categorías: 1=Desayunos, 2=Entradas, 3=Sopas&Cremas, 4=Pastas, 5=Platos Fuertes, 6=Ensaladas, 7=Pizzas, 8=Para Picar\n  const matrizCategorias = {\n    DESAYUNO: {\n      1: \"1,8\",     // Inicio (<15 min): Frutas, molletes, pan dulce o para picar\n      2: \"1\",       // Desarrollo (15-45 min): Chilaquiles, huevos, baguettes, enchiladas\n      3: \"1\"        // Cierre (>45 min): Opciones dulces (Pan Francés Estilo C.P.) y café\n    },\n    COMIDA: {\n      1: \"2,3,8\",   // Inicio: Entradas, sopas, cremas y para picar\n      2: \"4,5,6,7\", // Desarrollo: Platos fuertes, pastas, ensaladas y pizzas\n      3: \"1\"        // Cierre: Café, infusiones o postres\n    },\n    CENA: {\n      1: \"2,7,8\",   // Inicio: Entradas, para picar o pizzas rápidas para compartir\n      2: \"4,5,6,7\", // Desarrollo: Platos fuertes, pastas, pizzas y ensaladas\n      3: \"1\"        // Cierre: Café o digestivos\n    }\n  };\n\n  // Asignamos las variables al JSON que viajará al Switch y luego al SQL\n  item.json.turno = turno;\n  item.json.etapa = numeroEtapa;\n  item.json.etapa_nombre = nombreEtapa;\n  item.json.categorias_validas = matrizCategorias[turno][numeroEtapa];\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        0
+      ],
+      "id": "2cb404dc-97cb-4ba8-a10a-672b908db90b",
+      "name": "Determinar la etapa y categorías válidas"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.etapa }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "7d7e4656-30e2-4a1f-aa93-96e587251fd1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Entradas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6100b5e7-d0ab-4f51-a8b9-4f980cd081e4",
+                    "leftValue": "={{ $json.etapa }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Desarollo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5962448f-fd21-4d54-8b79-ca39f00f3da0",
+                    "leftValue": "={{ $json.etapa }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cierre"
+            }
+          ]
+        },
+        "looseTypeValidation": "={{ false }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        -16
+      ],
+      "id": "27a6055d-fa51-47c6-a5eb-4b16d79ca1ae",
+      "name": "Enviar a etapa correspondiente"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1504,
+        -16
+      ],
+      "id": "21fed970-efa0-4521-ac33-f018cf0e6a16",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Recibimos el arreglo de productos devueltos por el nodo MySQL (máximo 3 por el LIMIT 3 del SQL)\nconst candidatos = $input.all().map(item => item.json);\n\nif (!candidatos || candidatos.length === 0) {\n  return [{ json: { status: \"EMPTY\", message: \"No hay recomendaciones disponibles para mostrar.\" } }];\n}\n\n// 2. Separamos el ganador (índice 0, el de mayor puntaje) y los dos de respaldo para el botón \"& OTRA SUGERENCIA\"\nconst ganadora = candidatos[0];\nconst respaldos = candidatos.slice(1);\n\n// 3. Fabricamos el argumento de venta para apoyar al mesero en el piso\nlet argumentoMesero = `Excelente opción de nuestra cocina para acompañar el pedido actual.`;\n\nif (Number(ganadora.veces_cliente) > 0) {\n  argumentoMesero = `Favorito del cliente: Lo ha pedido ${ganadora.veces_cliente} veces en visitas anteriores.`;\n} else if (Number(ganadora.veces_similares) > 0) {\n  argumentoMesero = `Alta tendencia: Muy pedido por mesas similares para maridar o compartir.`;\n} else if (ganadora.etiqueta_menu === 'Premium') {\n  argumentoMesero = `Corte Choice Angus recomendado por el Chef para centro de mesa.`;\n} else if (ganadora.etiqueta_menu) {\n  argumentoMesero = `Opción de especialidad (${ganadora.etiqueta_menu}) recomendada en este momento.`;\n}\n\n// 4. Retornamos la estructura exacta que espera la pantalla de tu sistema POS\nreturn [\n  {\n    json: {\n      status: \"SUCCESS\",\n      sugerencia_principal: {\n        producto_id: ganadora.producto_id,\n        nombre: ganadora.producto_nombre,\n        precio: Number(ganadora.precio),\n        categoria: ganadora.categoria_nombre,\n        etiqueta: ganadora.etiqueta_menu || \"Sugerencia\",\n        puntaje_algoritmico: Number(ganadora.puntaje),\n        argumento_mesero: argumentoMesero\n      },\n      opciones_respaldo: respaldos.map(item => ({\n        producto_id: item.producto_id,\n        nombre: item.producto_nombre,\n        precio: Number(item.precio),\n        etiqueta: item.etiqueta_menu || \"\"\n      }))\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        0
+      ],
+      "id": "08d9b161-067d-40f4-b7bc-dd96d9329801",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  etapa_nombre: $('Determinar la etapa y categorías válidas').first().json.etapa_nombre,\n  sugerencia_principal: $('Code in JavaScript').first().json.sugerencia_principal,\n  opciones_respaldo: $('Code in JavaScript').first().json.opciones_respaldo\n}) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1936,
+        0
+      ],
+      "id": "851ead15-8352-45fa-a99a-00d1df86bb87",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sugerencias",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        128
+      ],
+      "id": "9cdbdb1f-1da3-40ff-8221-9b16f0527f63",
+      "name": "Webhook",
+      "webhookId": "5f673088-864d-4978-b059-50a66c868d5d"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Registro estático de ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registro estático de ticket": {
+      "main": [
+        [
+          {
+            "node": "Analizar el ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizar el ticket": {
+      "main": [
+        [
+          {
+            "node": "Determinar la etapa y categorías válidas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determinar la etapa y categorías válidas": {
+      "main": [
+        [
+          {
+            "node": "Enviar a etapa correspondiente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar a etapa correspondiente": {
+      "main": [
+        [
+          {
+            "node": "Recomendar en Entradas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recomendar en Desarrollo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recomendar en Cierre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recomendar en Entradas": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recomendar en Desarrollo": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Recomendar en Cierre": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analizar el ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

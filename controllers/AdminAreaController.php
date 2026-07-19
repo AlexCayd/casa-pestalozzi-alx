@@ -9,36 +9,66 @@ class AdminAreaController
     private const AREA_CSS = '/build/css/admin/area.css';
     private const AREA_JS = '/build/js/admin/area.js';
 
+    // Colores alineados con areas_produccion (BD) y CP_AREAS (POS): son la
+    // fuente de verdad del color de cada área, para que tabs, tarjetas y la
+    // línea vertical del tablero coincidan.
     private const AREAS = [
         'cafe' => [
             'id' => 1,
             'nombre' => 'Barra de Café',
             'label' => 'Café',
             'path' => '/area/cafe',
-            'color' => '#a07e36',
+            'color' => '#7b5e3a',
         ],
         'jugos' => [
             'id' => 2,
             'nombre' => 'Barra de Jugos',
             'label' => 'Jugos',
             'path' => '/area/jugos',
-            'color' => '#cca352',
+            'color' => '#e8a920',
         ],
         'cocina' => [
             'id' => 3,
             'nombre' => 'Cocina',
             'label' => 'Cocina',
             'path' => '/area/cocina',
-            'color' => '#5f7d56',
+            'color' => '#b03a2e',
         ],
         'horno' => [
             'id' => 4,
             'nombre' => 'Horno Napolitano',
             'label' => 'Horno',
             'path' => '/area/horno',
-            'color' => '#7c3d1d',
+            'color' => '#1a5276',
         ],
     ];
+
+    /**
+     * Color de texto (tinta) que contrasta con un color de fondo. Cada área
+     * conserva su color distintivo, pero el texto encima usa negro o blanco
+     * según la luminancia, para que todos los botones lean igual de bien.
+     */
+    private static function contrastInk(string $hex): string
+    {
+        $hex = ltrim($hex, '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        $luminancia = 0.299 * $r + 0.587 * $g + 0.114 * $b; // 0-255 percibida
+        return $luminancia > 150 ? '#0b0c0d' : '#f5f3f0';
+    }
+
+    /** Agrega a cada área su tinta de contraste ('ink'). */
+    private static function conInk(array $areas): array
+    {
+        foreach ($areas as $slug => $a) {
+            $areas[$slug]['ink'] = self::contrastInk($a['color']);
+        }
+        return $areas;
+    }
 
     public static function index(Router $router): void
     {
@@ -46,7 +76,7 @@ class AdminAreaController
             'activeModule' => 'area',
             'title' => 'Producción',
             'topbarTitle' => 'Producción',
-            'areas' => self::AREAS,
+            'areas' => self::conInk(self::AREAS),
             'styles' => [self::AREA_CSS],
             'scripts' => [],
         ]);
@@ -89,7 +119,8 @@ class AdminAreaController
 
     private static function show(string $slug): void
     {
-        $area = self::AREAS[$slug] ?? null;
+        $areas = self::conInk(self::AREAS);
+        $area  = $areas[$slug] ?? null;
 
         if (!$area) {
             self::redirect('/admin/area');
@@ -101,7 +132,7 @@ class AdminAreaController
             'topbarTitle' => $area['nombre'],
             'area' => $area,
             'activeArea' => $slug,
-            'areas' => self::AREAS,
+            'areas' => $areas,
             'styles' => [self::AREA_CSS],
             'scripts' => [self::AREA_JS],
         ]);

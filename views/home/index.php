@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Casa Pestalozzi · Cocina mediterránea con alma mexicana</title>
+  <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
+  <link rel="apple-touch-icon" href="/build/images/logo.svg" />
   <meta name="description" content="Casa Pestalozzi — cocina mediterránea con corazón mexicano en la Del Valle, CDMX. Restaurante, panadería artesanal y catering para eventos." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://casapestalozzi.com/" />
@@ -57,7 +59,7 @@
 
   <link rel="stylesheet" href="/build/css/app.css" />
 </head>
-<body class="reveal-ready" data-hero="cinema">
+<body class="reveal-ready" data-hero="cinema" data-page="home">
 
   <?php include_once __DIR__ . '/_cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
