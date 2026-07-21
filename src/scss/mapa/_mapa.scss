@@ -233,6 +233,39 @@
   50%       { opacity: .35; }
 }
 
+// ── Cerrar sesión (header) ────────────────────────────────────
+.mapa-logout-form {
+  display: inline-flex;
+}
+
+.mapa-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .7rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: .25rem .75rem;
+  background: transparent;
+  cursor: pointer;
+  transition: color .3s, border-color .3s;
+
+  &:hover {
+    color: #e87060;
+    border-color: rgba(232, 112, 96, .5);
+  }
+
+  span {
+    max-width: 14ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 // ── Body ──────────────────────────────────────────────────────
 .mapa-body {
   display: flex;
