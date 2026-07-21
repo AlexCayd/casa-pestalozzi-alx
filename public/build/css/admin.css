@@ -719,6 +719,36 @@
   font-size: 11px;
 }
 
+.admin-topbar__logout-form {
+  display: inline-flex;
+}
+
+.admin-topbar__logout {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: color var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-topbar__logout svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.admin-topbar__logout:hover {
+  color: #e87060;
+  border-color: rgba(232, 112, 96, 0.5);
+}
+
 @media (max-width: 768px) {
   .admin-topbar {
     gap: 10px;

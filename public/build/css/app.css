@@ -3609,6 +3609,36 @@ footer.foot {
     opacity: 0.35;
   }
 }
+.mapa-logout-form {
+  display: inline-flex;
+}
+
+.mapa-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.3s, border-color 0.3s;
+}
+.mapa-logout:hover {
+  color: #e87060;
+  border-color: rgba(232, 112, 96, 0.5);
+}
+.mapa-logout span {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mapa-body {
   display: flex;
   flex: 1;
@@ -6976,11 +7006,91 @@ footer.foot {
   color: var(--gold-soft);
 }
 
+.login-alert {
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(232, 112, 96, 0.4);
+  border-radius: 12px;
+  background: rgba(232, 112, 96, 0.1);
+  color: #e88a78;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.login-nip-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-form--nip {
+  position: relative;
+  justify-items: center;
+}
+
+.login-nip-dots {
+  display: flex;
+  gap: 0.85rem;
+  justify-content: center;
+  padding: 0.4rem 0 0.6rem;
+}
+
+.login-nip-dot {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(28, 32, 35, 0.6);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.login-nip-dot.is-on {
+  background: var(--gold);
+  border-color: var(--gold);
+  transform: scale(1.12);
+}
+
+.login-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(64px, 78px));
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.login-pad__key {
+  height: clamp(52px, 7.5vh, 64px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(28, 32, 35, 0.6);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 1.3rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), transform 0.1s var(--ease);
+}
+.login-pad__key:hover {
+  border-color: var(--gold);
+  background: rgba(204, 163, 82, 0.12);
+}
+.login-pad__key:active {
+  transform: scale(0.95);
+}
+.login-pad__key--aux {
+  color: var(--txt-mute);
+  font-size: 1.05rem;
+}
+
 .login-submit {
   justify-content: center;
   width: 100%;
   margin-top: 0.4rem;
   cursor: pointer;
+}
+.login-submit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .login-foot {
