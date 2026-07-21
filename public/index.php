@@ -24,6 +24,11 @@ use Controllers\AreaController;
 
 $router = new Router();
 
+// Protección de rutas: /admin/* exige rol admin (login con contraseña en
+// /admin/login); /mapa, /area/* y las APIs del personal exigen sesión
+// iniciada (login por NIP en /login, solo personal de piso).
+\Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
+
 // Home
 $router->get('/', [HomeController::class, 'index']);
 
@@ -131,9 +136,11 @@ $router->get('/feedback',      [FeedbackController::class, 'index']);
 $router->post('/api/feedback', [FeedbackController::class, 'guardar']);
 $router->post('/api/feedback-n8n', [FeedbackController::class, 'recibirN8n']);
 
-// Login
+// Login: NIP para personal de piso, usuario+contraseña para el admin
 $router->get('/login', [AuthController::class, 'login']);
 $router->post('/login', [AuthController::class, 'login']);
+$router->get('/admin/login', [AuthController::class, 'loginAdmin']);
+$router->post('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
 // Crear Cuenta
