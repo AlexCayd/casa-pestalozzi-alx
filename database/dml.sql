@@ -427,15 +427,24 @@ UNION ALL SELECT id, 4, 2 FROM reservaciones WHERE nombre = 'Grupo Morales'
 UNION ALL SELECT id, 5, 3 FROM reservaciones WHERE nombre = 'Grupo Morales';
 
 -- -------------------------------------------------------
--- Usuarios demo (password_hash = mismo bcrypt de prueba)
+-- Usuarios demo
+-- admin_demo entra en /admin/login con password: Pestalozzi2026
+-- (el resto conserva un bcrypt de prueba sin password conocida)
 -- -------------------------------------------------------
 
 INSERT INTO usuarios (username, nombre, password_hash, rol, activo) VALUES
-('admin_demo',      'Administrador Demo',  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'admin',    1),
+('admin_demo',      'Administrador Demo',  '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',    1),
 ('observador1',     'Observador General',  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'observer', 1),
 ('mesero1',         'Carlos Hernández',    '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
 ('cajero1',         'Mariana López',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cashier',  1),
 ('mesero_inactivo', 'Daniel Torres',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   0);
+
+-- NIP de acceso demo del personal de piso (hasheado con bcrypt), para /login:
+--   observador1 → 5678 · mesero1 → 2345 · cajero1 → 3456
+-- El admin NO usa NIP: entra en /admin/login con usuario + password.
+UPDATE usuarios SET nip_hash = '$2y$12$cn/3L8mkab6QsELxVwjUY.l9X32LeGBtHW0r0MKQEW/LH9doaPgoa' WHERE username = 'observador1';
+UPDATE usuarios SET nip_hash = '$2y$12$Jkhr3umCEYaNQY4OSGedgOu5eHImaGx1PtjXSMY9hXn3Zqu1OmReW' WHERE username = 'mesero1';
+UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cajero1';
 
 -- -------------------------------------------------------
 -- Tickets de ejemplo (para /admin/tickets)

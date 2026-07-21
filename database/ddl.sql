@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
+DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS menu;
@@ -69,11 +70,16 @@ CREATE TABLE IF NOT EXISTS categorias (
   activo TINYINT(1) NOT NULL DEFAULT 1
 );
 
+-- Accesos: los administradores entran en /admin/login con usuario + password
+-- alfanumerica (password_hash). El personal de piso (meseros/cajeros) entra
+-- en /login con un NIP numerico de 4-6 digitos, unico por usuario y guardado
+-- hasheado con bcrypt (nip_hash), que lo lleva a /mapa.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  nip_hash      VARCHAR(255) NULL COMMENT 'NIP de acceso del personal de piso (bcrypt)',
   rol           ENUM('admin','observer','waiter','cashier') NOT NULL DEFAULT 'observer',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -121,6 +127,9 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
 -- TICKETS / COMANDA
 -- -------------------------------------------------------
 
+-- mesero_id asocia el mesero a la mesa para imprimirlo en el ticket.
+-- metodo_pago registra 'dividido' cuando la cuenta se separa por comensal y
+-- se mezclan metodos de pago (el detalle por comensal vive en ticket_pagos).
 CREATE TABLE IF NOT EXISTS tickets (
   id                 INT AUTO_INCREMENT PRIMARY KEY,
   mesa_id            INT NOT NULL,
@@ -129,7 +138,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
-  metodo_pago        ENUM('efectivo','tarjeta') NULL,
+  metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
   reservacion_id     INT NULL,
   mesero_id          INT NULL,
   FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
@@ -139,16 +148,6 @@ CREATE TABLE IF NOT EXISTS tickets (
   INDEX idx_estado_mesa        (estado, mesa_id),
   INDEX idx_ticket_reservacion (reservacion_id)
 );
--- Debido a la implementacion de asociar un mesero por mesa, modificamos la DB para poder imprimir al mesero en el ticket de la mesa.
-ALTER TABLE tickets
-  ADD COLUMN mesero_id INT NULL AFTER reservacion_id,
-  ADD CONSTRAINT fk_ticket_mesero FOREIGN KEY (mesero_id) REFERENCES usuarios(id) ON DELETE SET NULL;
-
--- Pago dividido por comensal: cuando la cuenta se separa, cada comensal puede
--- pagar con un metodo distinto. El ticket registra 'dividido' si se mezclan metodos.
-ALTER TABLE tickets
-  MODIFY COLUMN metodo_pago ENUM('efectivo','tarjeta','dividido') NULL;
-
 
 CREATE TABLE IF NOT EXISTS productos (
   id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
