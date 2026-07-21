@@ -11,7 +11,7 @@
         <?php foreach ($areas as $slug => $area): ?>
             <a
                 class="admin-area-card admin-card"
-                style="--area-accent: <?php echo htmlspecialchars($area['color'], ENT_QUOTES, 'UTF-8'); ?>"
+                style="--area-accent: <?php echo htmlspecialchars($area['color'], ENT_QUOTES, 'UTF-8'); ?>; --area-ink: <?php echo htmlspecialchars($area['ink'], ENT_QUOTES, 'UTF-8'); ?>"
                 href="<?php echo htmlspecialchars($area['path'], ENT_QUOTES, 'UTF-8'); ?>"
                 target="_blank"
                 rel="noopener"

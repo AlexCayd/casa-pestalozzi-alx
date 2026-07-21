@@ -432,11 +432,15 @@ UNION ALL SELECT id, 5, 3 FROM reservaciones WHERE nombre = 'Grupo Morales';
 -- (el resto conserva un bcrypt de prueba sin password conocida)
 -- -------------------------------------------------------
 
+-- ids implícitos por orden: 1 admin, 2 observer, 3-4 y 6-7 meseros activos,
+-- 5 cajero, 8 mesero inactivo. Tres meseros activos para comparar rendimiento.
 INSERT INTO usuarios (username, nombre, password_hash, rol, activo) VALUES
 ('admin_demo',      'Administrador Demo',  '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',    1),
 ('observador1',     'Observador General',  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'observer', 1),
 ('mesero1',         'Carlos Hernández',    '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
+('mesero2',         'Valeria Ríos',        '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
 ('cajero1',         'Mariana López',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cashier',  1),
+('mesero3',         'Emilio Cárdenas',     '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
 ('mesero_inactivo', 'Daniel Torres',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   0);
 
 -- NIP de acceso demo del personal de piso (hasheado con bcrypt), para /login:
@@ -449,46 +453,268 @@ UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9v
 -- -------------------------------------------------------
 -- Tickets de ejemplo (para /admin/tickets)
 -- id explícito para poder referenciarlos en items y feedback.
+--
+-- Históricos (cerrados/cancelados): fecha fija, los referencia feedback.
+-- Abiertos: uno por cada mesa, con hora_apertura relativa a NOW() para que
+-- siempre lleven entre 1 y 45 minutos activos sin importar cuándo se siembre.
+-- metodo_pago va NULL: se asigna al cerrar el ticket.
+--
+-- IMPORTANTE: ticket_items.nombre debe coincidir EXACTO con productos.nombre,
+-- de lo contrario el JOIN por nombre descarta la fila silenciosamente.
 -- -------------------------------------------------------
 
 INSERT INTO tickets (id, mesa_id, comensales, nombre, hora_apertura, estado, metodo_pago) VALUES
+-- Históricos
 (1,  1,  2, 'Camila Estrada',   '2026-06-18 14:05:00', 'cerrado',   'tarjeta'),
 (2,  3,  4, 'Javier Montiel',   '2026-06-18 14:40:00', 'cerrado',   'efectivo'),
 (3,  6,  6, 'Familia Guerrero', '2026-06-18 20:10:00', 'cerrado',   'tarjeta'),
-(4,  8,  2, 'Sofía Pedraza',    '2026-06-19 13:20:00', 'abierto',   'efectivo'),
 (5,  2,  4, 'Nicolás Andrade',  '2026-06-18 21:05:00', 'cerrado',   'tarjeta'),
-(6, 11,  5, 'Fernanda & Roque', '2026-06-19 13:35:00', 'abierto',   'tarjeta'),
 (7,  5,  3, 'Mesa 5',           '2026-06-18 16:00:00', 'cancelado', 'efectivo'),
-(8,  7,  4, 'Grupo Torres',     '2026-06-18 15:15:00', 'cerrado',   'efectivo');
+(8,  7,  4, 'Grupo Torres',     '2026-06-18 15:15:00', 'cerrado',   'efectivo'),
+-- Abiertos ahora — una mesa por ticket, 1 a 45 minutos de antigüedad.
+-- Todos llevan el nombre de quien está sentado: el POS lo muestra en el
+-- encabezado del modal y sin él la mesa sale anónima. Caja y Llevar son la
+-- excepción: no son comensales, son puntos de despacho.
+( 9,  1,  2, 'Ana Villalobos',    NOW() - INTERVAL  3 MINUTE, 'abierto', NULL),
+(10,  2,  4, 'Renata Ibáñez',     NOW() - INTERVAL 41 MINUTE, 'abierto', NULL),
+(11,  3,  3, 'Javier Montiel',    NOW() - INTERVAL 18 MINUTE, 'abierto', NULL),
+(12,  4,  2, 'Diego Lozano',      NOW() - INTERVAL  7 MINUTE, 'abierto', NULL),
+(13,  5,  4, 'Familia Cuevas',    NOW() - INTERVAL 33 MINUTE, 'abierto', NULL),
+(14,  6,  4, 'Familia Guerrero',  NOW() - INTERVAL 22 MINUTE, 'abierto', NULL),
+(15,  7,  3, 'Grupo Salinas',     NOW() - INTERVAL 45 MINUTE, 'abierto', NULL),
+( 4,  8,  2, 'Sofía Pedraza',     NOW() - INTERVAL 12 MINUTE, 'abierto', NULL),
+(16,  9,  2, 'Mauricio Trejo',    NOW() - INTERVAL 29 MINUTE, 'abierto', NULL),
+(17, 10,  4, 'Lucía Bermúdez',    NOW() - INTERVAL  5 MINUTE, 'abierto', NULL),
+( 6, 11,  4, 'Fernanda & Roque',  NOW() - INTERVAL 27 MINUTE, 'abierto', NULL),
+(18, 12,  5, 'Grupo Peralta',     NOW() - INTERVAL 15 MINUTE, 'abierto', NULL),
+(19, 13,  1, 'Caja',              NOW() - INTERVAL  1 MINUTE, 'abierto', NULL),
+(20, 14,  1, 'Llevar',            NOW() - INTERVAL  9 MINUTE, 'abierto', NULL),
+(21, 15,  4, 'Tomás Iriarte',     NOW() - INTERVAL 36 MINUTE, 'abierto', NULL),
+(22, 16,  3, 'Paulina Cortés',    NOW() - INTERVAL 24 MINUTE, 'abierto', NULL);
 
 -- Items por ticket (definen el total mostrado en /admin/tickets)
-INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, estado) VALUES
+-- created_at de los abiertos va 1-2 min después de su hora_apertura.
+INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, estado, created_at) VALUES
 -- T1 (cerrado)
-(1, 'Toast de Salmón Ahumado', 230.00, 'Desayunos',        3, 1, 'entregado'),
-(1, 'Cappuccino',               75.00, 'Café & Bebidas',    1, 2, 'entregado'),
+(1, 'Toast de Salmón Ahumado', 230.00, 'Desayunos',        3, 1, 'entregado', '2026-06-18 14:10:00'),
+(1, 'Cappuccino',               75.00, 'Café & Bebidas',    1, 2, 'entregado', '2026-06-18 14:10:00'),
 -- T2 (cerrado)
-(2, 'Enchiladas Suizas',       220.00, 'Desayunos',        3, 2, 'entregado'),
-(2, 'Jugo Verde',               95.00, 'Jugos & Smoothies', 2, 2, 'entregado'),
-(2, 'Café Americano',           65.00, 'Café & Bebidas',    1, 2, 'entregado'),
+(2, 'Enchiladas Suizas',       220.00, 'Desayunos',        3, 2, 'entregado', '2026-06-18 14:45:00'),
+(2, 'Jugo Verde',               95.00, 'Jugos & Smoothies', 2, 2, 'entregado', '2026-06-18 14:45:00'),
+(2, 'Café Americano',           65.00, 'Café & Bebidas',    1, 2, 'entregado', '2026-06-18 14:52:00'),
 -- T3 (cerrado, grupo)
-(3, 'Rib Eye (450 grs.)',      785.00, 'Platos Fuertes',   3, 1, 'entregado'),
-(3, 'Pizza Milano',            260.00, 'Pizzas',           4, 2, 'entregado'),
-(3, 'Camarones al Ajillo',     210.00, 'Entradas',         3, 1, 'entregado'),
-(3, 'Limonada Natural',         75.00, 'Jugos & Smoothies', 2, 4, 'entregado'),
--- T4 (abierto)
-(4, 'Chilaquiles',             180.00, 'Desayunos',        3, 2, 'en_preparacion'),
-(4, 'Café de Olla',             65.00, 'Café & Bebidas',    1, 2, 'enviado'),
+(3, 'Rib Eye (450 grs.)',      785.00, 'Platos Fuertes',   3, 1, 'entregado', '2026-06-18 20:15:00'),
+(3, 'Milano',                  260.00, 'Pizzas',           4, 2, 'entregado', '2026-06-18 20:15:00'),
+(3, 'Camarones al Ajillo',     210.00, 'Entradas',         3, 1, 'entregado', '2026-06-18 20:15:00'),
+(3, 'Limonada Natural',         75.00, 'Jugos & Smoothies', 2, 4, 'entregado', '2026-06-18 20:16:00'),
 -- T5 (cerrado)
-(5, 'Filete de Res en su Jugo', 320.00, 'Platos Fuertes',  3, 2, 'entregado'),
-(5, 'Queso Burrata con Jitomates Cherrys', 210.00, 'Entradas', 4, 1, 'entregado'),
--- T6 (abierto, grupo)
-(6, 'Pizza Burrata',           260.00, 'Pizzas',           4, 2, 'en_preparacion'),
-(6, 'Aros de Calamar',         210.00, 'Entradas',         3, 1, 'enviado'),
-(6, 'Agua de Coco',             90.00, 'Jugos & Smoothies', 2, 5, 'enviado'),
+(5, 'Filete de Res en su Jugo', 320.00, 'Platos Fuertes',  3, 2, 'entregado', '2026-06-18 21:10:00'),
+(5, 'Queso Burrata con Jitomates Cherrys', 210.00, 'Entradas', 4, 1, 'entregado', '2026-06-18 21:10:00'),
 -- T8 (cerrado)
-(8, 'Hamburguesa de la Casa',  260.00, 'Platos Fuertes',   3, 2, 'entregado'),
-(8, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 2, 'entregado'),
-(8, 'Refresco',                 55.00, 'Café & Bebidas',    1, 4, 'entregado');
+(8, 'Hamburguesa de la Casa',  260.00, 'Platos Fuertes',   3, 2, 'entregado', '2026-06-18 15:20:00'),
+(8, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 2, 'entregado', '2026-06-18 15:20:00'),
+(8, 'Refresco',                 55.00, 'Café & Bebidas',    1, 4, 'entregado', '2026-06-18 15:21:00'),
+
+-- T9 — Mesa 1 (3 min): recién ordenado
+( 9, 'Café Americano',          65.00, 'Café & Bebidas',    1, 2, 'enviado',        NOW() - INTERVAL  2 MINUTE),
+( 9, 'Molletes',               100.00, 'Desayunos',         3, 1, 'enviado',        NOW() - INTERVAL  2 MINUTE),
+-- T10 — Mesa 2 (41 min): ya comiendo
+(10, 'Rigatoni al Limón con Camarones y Parmesano', 280.00, 'Pastas', 3, 2, 'entregado', NOW() - INTERVAL 39 MINUTE),
+(10, 'Milano',                 260.00, 'Pizzas',            4, 1, 'listo',          NOW() - INTERVAL 38 MINUTE),
+(10, 'Limonada Natural',        75.00, 'Jugos & Smoothies', 2, 4, 'entregado',      NOW() - INTERVAL 39 MINUTE),
+-- T11 — Mesa 3 (18 min)
+(11, 'Chilaquiles',            180.00, 'Desayunos',         3, 2, 'en_preparacion', NOW() - INTERVAL 16 MINUTE),
+(11, 'Jugo Verde',              95.00, 'Jugos & Smoothies', 2, 3, 'entregado',      NOW() - INTERVAL 16 MINUTE),
+(11, 'Cappuccino',              75.00, 'Café & Bebidas',    1, 1, 'listo',          NOW() - INTERVAL 15 MINUTE),
+-- T12 — Mesa 4 (7 min)
+(12, 'Toast de Salmón Ahumado',230.00, 'Desayunos',         3, 2, 'enviado',        NOW() - INTERVAL  5 MINUTE),
+(12, 'Jugo de Naranja',         85.00, 'Jugos & Smoothies', 2, 2, 'enviado',        NOW() - INTERVAL  5 MINUTE),
+-- T13 — Mesa 5 (33 min)
+(13, 'Filete de Res en su Jugo',320.00,'Platos Fuertes',    3, 2, 'en_preparacion', NOW() - INTERVAL 31 MINUTE),
+(13, 'Aros de Calamar',        210.00, 'Entradas',          3, 1, 'entregado',      NOW() - INTERVAL 31 MINUTE),
+(13, 'Refresco',                55.00, 'Café & Bebidas',    1, 4, 'entregado',      NOW() - INTERVAL 30 MINUTE),
+-- T14 — Mesa 6 (22 min)
+(14, 'Burrata',                260.00, 'Pizzas',            4, 2, 'en_preparacion', NOW() - INTERVAL 20 MINUTE),
+(14, 'Tabla Mixta',            320.00, 'Para Picar',        3, 1, 'entregado',      NOW() - INTERVAL 20 MINUTE),
+(14, 'Agua Fresca',             60.00, 'Café & Bebidas',    1, 4, 'entregado',      NOW() - INTERVAL 19 MINUTE),
+-- T15 — Mesa 7 (45 min): el más antiguo
+(15, 'Rib Eye (450 grs.)',     785.00, 'Platos Fuertes',    3, 1, 'entregado',      NOW() - INTERVAL 43 MINUTE),
+(15, 'Vacío en Escalopas',     280.00, 'Platos Fuertes',    3, 1, 'entregado',      NOW() - INTERVAL 43 MINUTE),
+(15, 'Espárragos al Horno',    180.00, 'Entradas',          4, 1, 'listo',          NOW() - INTERVAL 42 MINUTE),
+(15, 'Café de Olla',            65.00, 'Café & Bebidas',    1, 3, 'entregado',      NOW() - INTERVAL 40 MINUTE),
+-- T4 — Mesa 8 (12 min)
+( 4, 'Chilaquiles',            180.00, 'Desayunos',         3, 2, 'en_preparacion', NOW() - INTERVAL 10 MINUTE),
+( 4, 'Café de Olla',            65.00, 'Café & Bebidas',    1, 2, 'enviado',        NOW() - INTERVAL 10 MINUTE),
+-- T16 — Mesa 9 (29 min)
+(16, 'Salmón al Horno',        295.00, 'Platos Fuertes',    3, 1, 'listo',          NOW() - INTERVAL 27 MINUTE),
+(16, 'Frutos Rojos',           210.00, 'Ensaladas',         3, 1, 'entregado',      NOW() - INTERVAL 27 MINUTE),
+(16, 'Té / Infusión',           65.00, 'Café & Bebidas',    1, 2, 'entregado',      NOW() - INTERVAL 26 MINUTE),
+-- T17 — Mesa 10 (5 min)
+(17, 'Mix de 3 Brusquetas',    160.00, 'Para Picar',        3, 2, 'enviado',        NOW() - INTERVAL  4 MINUTE),
+(17, 'Smoothie de Fresa',      100.00, 'Jugos & Smoothies', 2, 2, 'enviado',        NOW() - INTERVAL  4 MINUTE),
+(17, 'Latte',                   80.00, 'Café & Bebidas',    1, 2, 'enviado',        NOW() - INTERVAL  3 MINUTE),
+-- T6 — Mesa 11 (27 min)
+( 6, 'Burrata',                260.00, 'Pizzas',            4, 2, 'en_preparacion', NOW() - INTERVAL 25 MINUTE),
+( 6, 'Aros de Calamar',        210.00, 'Entradas',          3, 1, 'listo',          NOW() - INTERVAL 25 MINUTE),
+( 6, 'Agua de Coco',            90.00, 'Jugos & Smoothies', 2, 4, 'entregado',      NOW() - INTERVAL 24 MINUTE),
+-- T18 — Barra Blanca (15 min)
+(18, 'Camarones a los 4 Quesos',260.00,'Pizzas',            4, 2, 'en_preparacion', NOW() - INTERVAL 13 MINUTE),
+(18, 'Aceitunas Temperadas con Aceite de Chile', 160.00, 'Para Picar', 3, 2, 'entregado', NOW() - INTERVAL 13 MINUTE),
+(18, 'Cappuccino',              75.00, 'Café & Bebidas',    1, 5, 'listo',          NOW() - INTERVAL 12 MINUTE),
+-- T19 — Caja (1 min): el más reciente
+(19, 'Café Americano',          65.00, 'Café & Bebidas',    1, 1, 'enviado',        NOW() - INTERVAL  1 MINUTE),
+(19, 'Croissant con Jamón de Pavo', 165.00, 'Desayunos',    3, 1, 'enviado',        NOW() - INTERVAL  1 MINUTE),
+-- T20 — Llevar (9 min)
+(20, 'Baguette de Cochinita',  210.00, 'Desayunos',         3, 2, 'en_preparacion', NOW() - INTERVAL  8 MINUTE),
+(20, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 1, 'enviado',    NOW() - INTERVAL  8 MINUTE),
+(20, 'Agua de Coco',            90.00, 'Jugos & Smoothies', 2, 1, 'listo',          NOW() - INTERVAL  7 MINUTE),
+-- T21 — Barra Roja (36 min)
+(21, 'Hamburguesa de la Casa', 260.00, 'Platos Fuertes',    3, 2, 'entregado',      NOW() - INTERVAL 34 MINUTE),
+(21, 'Tacos de Cochinita',     210.00, 'Platos Fuertes',    3, 1, 'entregado',      NOW() - INTERVAL 34 MINUTE),
+(21, 'Chocolate Caliente',      80.00, 'Café & Bebidas',    1, 2, 'entregado',      NOW() - INTERVAL 33 MINUTE),
+(21, 'Margarita',              190.00, 'Pizzas',            4, 1, 'listo',          NOW() - INTERVAL 33 MINUTE),
+-- T22 — Barra Roja 2 (24 min)
+(22, 'Lasagna de Filete de Res',280.00,'Pastas',            3, 2, 'en_preparacion', NOW() - INTERVAL 22 MINUTE),
+(22, 'Carpaccio de Salmón',    180.00, 'Entradas',          3, 1, 'entregado',      NOW() - INTERVAL 22 MINUTE),
+(22, 'Copa Antioxidante',      130.00, 'Desayunos',         2, 1, 'entregado',      NOW() - INTERVAL 21 MINUTE);
+
+-- -------------------------------------------------------
+-- HISTORIAL DE CLIENTES RECURRENTES (afinidad para las sugerencias)
+--
+-- El flujo de n8n mide la afinidad con esta cadena:
+--     ticket_items -> tickets -> reservaciones (por email)
+--     WHERE r.email = '<email>' AND t.estado = 'cerrado'
+-- y cuenta UNA VEZ POR VISITA en que el cliente pidio el platillo
+-- (COUNT(*) de filas, no la cantidad). De ahi sale veces_cliente, que pesa
+-- doble en el puntaje: (veces_cliente * 2) + veces_similares.
+--
+-- Por eso cada visita necesita su propia reservacion con el MISMO email:
+-- sin reservacion_id el ticket no se puede atribuir a un cliente y la
+-- afinidad queda en cero. Tres visitas por cliente: el favorito aparece en
+-- las 3 (veces_cliente = 3) y el secundario en 2 (veces_cliente = 2).
+--
+-- Los nombres deben coincidir EXACTO con productos.nombre y menu.nombre:
+-- el motor de recomendacion parte de 'menu' y une por nombre.
+-- -------------------------------------------------------
+
+-- Reservaciones historicas (ya completadas). Ids explicitos 101+ para no
+-- chocar con las del escenario del dia (auto-incrementales).
+INSERT INTO reservaciones (id, nombre, email, fecha, hora, comensales, nota, estado) VALUES
+-- Camila Estrada — desayuna sola entre semana
+(101, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-05-08', '09:00:00', 2, '',                   'completada'),
+(102, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-05-22', '09:30:00', 2, '',                   'completada'),
+(103, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-05', '09:00:00', 2, '',                   'completada'),
+-- Javier Montiel — comida de oficina, alergia a mariscos
+(104, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-05-11', '14:00:00', 4, 'Alergia: mariscos',  'completada'),
+(105, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-05-27', '14:00:00', 3, 'Alergia: mariscos',  'completada'),
+(106, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-10', '13:30:00', 4, 'Alergia: mariscos',  'completada'),
+-- Familia Guerrero — vienen con ninos
+(107, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-05-09', '13:00:00', 6, 'Mesa con ninos',     'completada'),
+(108, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-05-30', '13:30:00', 5, 'Mesa con ninos',     'completada'),
+(109, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-13', '13:00:00', 6, 'Cumpleanos',         'completada'),
+-- Nicolas Andrade — cenas de trabajo
+(110, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-05-14', '19:00:00', 4, 'Reunion de trabajo', 'completada'),
+(111, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-05-28', '19:30:00', 2, 'Reunion de trabajo', 'completada'),
+(112, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-06-11', '19:00:00', 4, 'Reunion de trabajo', 'completada'),
+-- Sofia Pedraza — comida ligera de tarde
+(113, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-05-15', '15:00:00', 2, '',                   'completada'),
+(114, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-05-29', '15:30:00', 2, '',                   'completada'),
+(115, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-06-12', '15:00:00', 3, '',                   'completada'),
+-- Fernanda & Roque — pareja, cena para compartir
+(116, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-05-16', '20:00:00', 2, '',                   'completada'),
+(117, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-05-31', '20:30:00', 4, '',                   'completada'),
+(118, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-14', '20:00:00', 2, 'Aniversario',        'completada');
+
+-- Tickets cerrados de esas visitas. reservacion_id es lo que ata el consumo
+-- al cliente: es la unica via por la que el motor reconoce al comensal.
+INSERT INTO tickets (id, mesa_id, comensales, nombre, hora_apertura, estado, metodo_pago, reservacion_id) VALUES
+(101,  5, 2, 'Camila Estrada',   '2026-05-08 09:05:00', 'cerrado', 'tarjeta',  101),
+(102,  5, 2, 'Camila Estrada',   '2026-05-22 09:35:00', 'cerrado', 'tarjeta',  102),
+(103,  1, 2, 'Camila Estrada',   '2026-06-05 09:05:00', 'cerrado', 'tarjeta',  103),
+(104,  3, 4, 'Javier Montiel',   '2026-05-11 14:05:00', 'cerrado', 'efectivo', 104),
+(105,  3, 3, 'Javier Montiel',   '2026-05-27 14:05:00', 'cerrado', 'tarjeta',  105),
+(106,  4, 4, 'Javier Montiel',   '2026-06-10 13:35:00', 'cerrado', 'efectivo', 106),
+(107,  6, 6, 'Familia Guerrero', '2026-05-09 13:05:00', 'cerrado', 'tarjeta',  107),
+(108,  6, 5, 'Familia Guerrero', '2026-05-30 13:35:00', 'cerrado', 'tarjeta',  108),
+(109,  7, 6, 'Familia Guerrero', '2026-06-13 13:05:00', 'cerrado', 'tarjeta',  109),
+(110,  2, 4, 'Nicolas Andrade',  '2026-05-14 19:05:00', 'cerrado', 'tarjeta',  110),
+(111,  2, 2, 'Nicolas Andrade',  '2026-05-28 19:35:00', 'cerrado', 'tarjeta',  111),
+(112,  4, 4, 'Nicolas Andrade',  '2026-06-11 19:05:00', 'cerrado', 'tarjeta',  112),
+(113,  8, 2, 'Sofia Pedraza',    '2026-05-15 15:05:00', 'cerrado', 'efectivo', 113),
+(114,  8, 2, 'Sofia Pedraza',    '2026-05-29 15:35:00', 'cerrado', 'tarjeta',  114),
+(115,  9, 3, 'Sofia Pedraza',    '2026-06-12 15:05:00', 'cerrado', 'tarjeta',  115),
+(116, 11, 2, 'Fernanda & Roque', '2026-05-16 20:05:00', 'cerrado', 'tarjeta',  116),
+(117, 10, 4, 'Fernanda & Roque', '2026-05-31 20:35:00', 'cerrado', 'tarjeta',  117),
+(118, 11, 2, 'Fernanda & Roque', '2026-06-14 20:05:00', 'cerrado', 'tarjeta',  118);
+
+-- Consumo de cada visita. El favorito se repite en las 3 y el secundario en
+-- 2; el resto son acompanamientos que no marcan patron.
+INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantidad, estado, created_at) VALUES
+-- Camila Estrada — favorito: Enmoladas (3/3) · secundario: Enchiladas Suizas (2/3)
+(101, 'Enmoladas',                240.00, 'Desayunos',      3, 1, 'entregado', '2026-05-08 09:10:00'),
+(101, 'Enchiladas Suizas',        220.00, 'Desayunos',      3, 1, 'entregado', '2026-05-08 09:10:00'),
+(101, 'Cappuccino',                75.00, 'Café & Bebidas', 1, 2, 'entregado', '2026-05-08 09:11:00'),
+(102, 'Enmoladas',                240.00, 'Desayunos',      3, 1, 'entregado', '2026-05-22 09:40:00'),
+(102, 'Enchiladas Suizas',        220.00, 'Desayunos',      3, 1, 'entregado', '2026-05-22 09:40:00'),
+(103, 'Enmoladas',                240.00, 'Desayunos',      3, 1, 'entregado', '2026-06-05 09:10:00'),
+(103, 'Café Americano',            65.00, 'Café & Bebidas', 1, 1, 'entregado', '2026-06-05 09:11:00'),
+-- Javier Montiel — favorito: Spaguetti a la Bolonesa (3/3) · secundario: Mix de 3 Brusquetas (2/3)
+(104, 'Spaguetti a la Boloñesa',  280.00, 'Pastas',         3, 2, 'entregado', '2026-05-11 14:10:00'),
+(104, 'Mix de 3 Brusquetas',      160.00, 'Para Picar',     3, 1, 'entregado', '2026-05-11 14:10:00'),
+(104, 'Limonada Natural',          75.00, 'Jugos & Smoothies', 2, 4, 'entregado', '2026-05-11 14:11:00'),
+(105, 'Spaguetti a la Boloñesa',  280.00, 'Pastas',         3, 1, 'entregado', '2026-05-27 14:10:00'),
+(105, 'Mix de 3 Brusquetas',      160.00, 'Para Picar',     3, 1, 'entregado', '2026-05-27 14:10:00'),
+(106, 'Spaguetti a la Boloñesa',  280.00, 'Pastas',         3, 2, 'entregado', '2026-06-10 13:40:00'),
+(106, 'Crema del Día',            180.00, 'Sopas & Cremas', 3, 1, 'entregado', '2026-06-10 13:40:00'),
+-- Familia Guerrero — favorito: Margarita (3/3) · secundario: Papas a la Francesa (2/3)
+(107, 'Margarita',                190.00, 'Pizzas',         4, 3, 'entregado', '2026-05-09 13:10:00'),
+(107, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 2, 'entregado', '2026-05-09 13:10:00'),
+(108, 'Margarita',                190.00, 'Pizzas',         4, 2, 'entregado', '2026-05-30 13:40:00'),
+(108, 'Papas a la Francesa con Parmesano', 160.00, 'Para Picar', 3, 1, 'entregado', '2026-05-30 13:40:00'),
+(109, 'Margarita',                190.00, 'Pizzas',         4, 3, 'entregado', '2026-06-13 13:10:00'),
+(109, 'Milano',                   260.00, 'Pizzas',         4, 1, 'entregado', '2026-06-13 13:10:00'),
+-- Nicolas Andrade — favorito: Rib Eye (3/3) · secundario: Aceitunas Temperadas (2/3)
+(110, 'Rib Eye (450 grs.)',       785.00, 'Platos Fuertes', 3, 2, 'entregado', '2026-05-14 19:10:00'),
+(110, 'Aceitunas Temperadas con Aceite de Chile', 160.00, 'Para Picar', 3, 1, 'entregado', '2026-05-14 19:10:00'),
+(111, 'Rib Eye (450 grs.)',       785.00, 'Platos Fuertes', 3, 1, 'entregado', '2026-05-28 19:40:00'),
+(111, 'Aceitunas Temperadas con Aceite de Chile', 160.00, 'Para Picar', 3, 1, 'entregado', '2026-05-28 19:40:00'),
+(112, 'Rib Eye (450 grs.)',       785.00, 'Platos Fuertes', 3, 2, 'entregado', '2026-06-11 19:10:00'),
+(112, 'Filete de Res en su Jugo', 320.00, 'Platos Fuertes', 3, 1, 'entregado', '2026-06-11 19:10:00'),
+-- Sofia Pedraza — favorito: Frutos Rojos (3/3) · secundario: Crema del Dia (2/3)
+(113, 'Frutos Rojos',             210.00, 'Ensaladas',      3, 1, 'entregado', '2026-05-15 15:10:00'),
+(113, 'Crema del Día',            180.00, 'Sopas & Cremas', 3, 1, 'entregado', '2026-05-15 15:10:00'),
+(114, 'Frutos Rojos',             210.00, 'Ensaladas',      3, 1, 'entregado', '2026-05-29 15:40:00'),
+(114, 'Crema del Día',            180.00, 'Sopas & Cremas', 3, 1, 'entregado', '2026-05-29 15:40:00'),
+(115, 'Frutos Rojos',             210.00, 'Ensaladas',      3, 2, 'entregado', '2026-06-12 15:10:00'),
+(115, 'Jugo Verde',                95.00, 'Jugos & Smoothies', 2, 2, 'entregado', '2026-06-12 15:11:00'),
+-- Fernanda & Roque — favorito: Tabla Mixta (3/3) · secundario: Burrata (2/3)
+(116, 'Tabla Mixta',              320.00, 'Para Picar',     3, 1, 'entregado', '2026-05-16 20:10:00'),
+(116, 'Burrata',                  260.00, 'Pizzas',         4, 1, 'entregado', '2026-05-16 20:10:00'),
+(117, 'Tabla Mixta',              320.00, 'Para Picar',     3, 2, 'entregado', '2026-05-31 20:40:00'),
+(117, 'Burrata',                  260.00, 'Pizzas',         4, 1, 'entregado', '2026-05-31 20:40:00'),
+(118, 'Tabla Mixta',              320.00, 'Para Picar',     3, 1, 'entregado', '2026-06-14 20:10:00'),
+(118, 'Aros de Calamar',          210.00, 'Entradas',       3, 1, 'entregado', '2026-06-14 20:10:00');
+
+-- Los tickets ABIERTOS de clientes que reservaron tambien se atan a su
+-- reservacion: es lo que convierte "Mesa 8" en "Sofia, que ya vino 3 veces".
+-- Sin esto el motor no reconoce al comensal en la mesa y sugiere a ciegas,
+-- por mas historial que tenga sembrado.
+--
+-- Cada uno esta sentado en la mesa que reservo (ver reservacion_mesas):
+--   Javier -> Mesa 3 · Familia Guerrero -> Mesa 6 · Sofia -> Mesa 8
+--   Fernanda & Roque -> Mesa 11
+UPDATE tickets SET reservacion_id = (
+    SELECT id FROM reservaciones WHERE email = 'jmontiel@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
+) WHERE id = 11;
+UPDATE tickets SET reservacion_id = (
+    SELECT id FROM reservaciones WHERE email = 'guerrero@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
+) WHERE id = 14;
+UPDATE tickets SET reservacion_id = (
+    SELECT id FROM reservaciones WHERE email = 'spedraza@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
+) WHERE id = 4;
+UPDATE tickets SET reservacion_id = (
+    SELECT id FROM reservaciones WHERE email = 'fernroque@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
+) WHERE id = 6;
 
 -- -------------------------------------------------------
 -- Feedback de clientes (para /admin/feedback)
@@ -544,3 +770,34 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- Celebraciones y experiencia global alta
 (NULL, 5, 5, 5, 4, 5, 'Festejamos un aniversario y todo fue perfecto. El postre de cortesía, un detallazo.','2026-06-27 21:40:00'),
 (NULL, NULL, 5, 5, 5, 5, 'De lo mejor de la Del Valle. Volveremos muy pronto, todo impecable.',              '2026-06-28 15:30:00');
+
+-- -------------------------------------------------------
+-- RENDIMIENTO DE MESEROS (para /admin/feedback)
+--
+-- Enlaza tickets cerrados a los tres meseros activos (3 Carlos, 4 Valeria,
+-- 6 Emilio) y siembra propina para que el % por mesero difiera:
+--   Carlos  ~17%   ·  Valeria ~12%   ·  Emilio ~8%
+-- La atencion sale del feedback ya sembrado (solo referencia tickets 1,2,3,5,8),
+-- por eso cada mesero recibe al menos uno de esos tickets historicos ademas de
+-- visitas de clientes recurrentes (101-118) que aportan mas datos de propina.
+-- La propina se calcula como % del total real de cada ticket (SUM de items no
+-- cancelados) via subconsulta correlacionada, para que sea autoconsistente.
+-- -------------------------------------------------------
+
+-- Carlos Hernández (mesero 3) — propinero alto (~17%)
+UPDATE tickets t SET t.mesero_id = 3,
+    t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
+        WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.17, 2)
+WHERE t.id IN (1, 3, 101, 102, 103, 104, 105, 106);
+
+-- Valeria Ríos (mesero 4) — propina media (~12%)
+UPDATE tickets t SET t.mesero_id = 4,
+    t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
+        WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.12, 2)
+WHERE t.id IN (2, 5, 107, 108, 109, 110, 111, 112);
+
+-- Emilio Cárdenas (mesero 6) — propina baja (~8%)
+UPDATE tickets t SET t.mesero_id = 6,
+    t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
+        WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
+WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);

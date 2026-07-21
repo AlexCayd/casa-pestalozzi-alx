@@ -3,3 +3,5 @@ vendor
 contexto_tecnico.md
 .env
 AGENTS.md
+.vscode
+.claude

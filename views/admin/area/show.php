@@ -19,6 +19,7 @@
         <?php foreach ($areas as $slug => $tabArea): ?>
             <a
                 class="admin-area-tabs__link <?php echo $slug === $activeArea ? 'is-active' : ''; ?>"
+                style="--tab-accent: <?php echo htmlspecialchars($tabArea['color'], ENT_QUOTES, 'UTF-8'); ?>"
                 href="<?php echo htmlspecialchars($tabArea['path'], ENT_QUOTES, 'UTF-8'); ?>">
                 <?php echo htmlspecialchars($tabArea['label'], ENT_QUOTES, 'UTF-8'); ?>
             </a>

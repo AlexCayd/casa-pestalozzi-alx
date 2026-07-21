@@ -151,7 +151,23 @@
 
     const data = window.AdminAnalyticsMock;
 
-    renderMetrics(data.metrics);
+    // Métrica real de propinas (viene del backend); el resto sigue mock.
+    const metrics = data.metrics.slice();
+    const real = window.CP_METRICS_REALES;
+    if (real && real.propinas) {
+      const p = real.propinas;
+      const money = (n) =>
+        "$" + Number(n || 0).toLocaleString("es-MX", { maximumFractionDigits: 0 });
+      metrics.splice(1, 0, {
+        label: "Propinas del periodo",
+        value: money(p.total),
+        detail: p.tickets
+          ? p.tickets + " ticket(s) · prom. " + money(p.promedio)
+          : "Sin propinas registradas",
+      });
+    }
+
+    renderMetrics(metrics);
     renderSummary(data);
 
     if (window.AdminAnalyticsCharts) {

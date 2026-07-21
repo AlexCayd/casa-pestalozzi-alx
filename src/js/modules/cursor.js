@@ -2,6 +2,7 @@
 function initCursor() {
   if (isTouch) return;
   var dot = $(".cursor-dot"), ring = $(".cursor-ring"), label = $(".clabel");
+  if (!dot || !ring || !label) return;
   var mx = innerWidth / 2, my = innerHeight / 2, rx = mx, ry = my;
 
   window.addEventListener("mousemove", function(e) {

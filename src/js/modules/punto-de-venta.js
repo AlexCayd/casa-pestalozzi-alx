@@ -1,10 +1,10 @@
-/* ── Mapa de Mesas — Casa Pestalozzi ───────────────────────── */
+/* ── Punto de Venta — Casa Pestalozzi ──────────────────────── */
 
 function initMapa() {
   if (initMapa._done) return;
   initMapa._done = true;
 
-  var canvas = $('#mapa-canvas');
+  var canvas = $('#pdv-canvas');
   if (!canvas) return;
 
   // ── Estado ────────────────────────────────────────────────
@@ -14,24 +14,34 @@ function initMapa() {
   var meseros       = []; // usuarios con rol 'waiter' activos (para asignar al abrir mesa)
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
   var selectedComensal = 0;  // 0 = General
-  var SUGERENCIAS         = []; // se llenan al abrir cada ticket (ver buildModalContent)
+  var SUGERENCIAS         = []; // tarjeta(s) visibles; las trae n8n al abrir la mesa
+  var sugCola             = []; // resto del ranking de n8n, para "↻ Otra sugerencia"
+  var sugVistos           = []; // producto_id ya ofrecidos en esta sesión del modal;
+                                // nada se persiste, así que ésta es toda la memoria
+  var sugTicket           = null; // ticket dueño de las sugerencias en pantalla
+  var sugEtapa            = '';   // etapa de la comida que detectó n8n
+  var sugTimer            = null;
   var sugComensalesCount  = 0;
+
+  // n8n decide la etapa (ENTRADAS/DESARROLLO/CIERRE) con el tiempo de la mesa
+  // y lo ya pedido; se re-consulta cada tanto por si la mesa cambió de etapa
+  // con el modal abierto.
+  var SUG_REFRESCO = 5 * 60 * 1000;
   var sliderMin     = 0;
   var isLive        = false;
   var liveInterval  = null;
   var pollTimer     = null;
 
   // ── Refs DOM ──────────────────────────────────────────────
-  var slider        = $('#mapa-time-slider');
-  var sliderProg    = $('#mapa-slider-progress');
-  var sliderTip     = $('#mapa-slider-tooltip');
-  var fechaInput    = $('#mapa-fecha');
-  var reservasList  = $('#mapa-reservas-list');
-  var ahoraBtn      = $('#mapa-ahora-btn');
-  var currentTimeEl = $('#mapa-current-time');
-  var liveBadge     = $('#mapa-live-badge');
-  var reservaCount  = $('#mapa-reserva-count');
-  var loadingEl     = $('#mapa-loading');
+  var slider        = $('#pdv-time-slider');
+  var sliderProg    = $('#pdv-slider-progress');
+  var sliderTip     = $('#pdv-slider-tooltip');
+  var fechaInput    = $('#pdv-fecha');
+  var reservasList  = $('#pdv-reservas-list');
+  var ahoraBtn      = $('#pdv-ahora-btn');
+  var currentTimeEl = $('#pdv-current-time');
+  var reservaCount  = $('#pdv-reserva-count');
+  var loadingEl     = $('#pdv-loading');
   var modal         = $('#mesa-modal');
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
@@ -77,6 +87,21 @@ function initMapa() {
       .replace(/"/g, '&quot;');
   }
 
+  // ── Iconos SVG en línea (heredan currentColor) ────────────
+  var SVG_PATHS = {
+    search:  '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    receipt: '<path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
+    users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
+    card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'
+  };
+
+  function svgIcon(name, size) {
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" ' +
+           'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' +
+           'aria-hidden="true">' + (SVG_PATHS[name] || '') + '</svg>';
+  }
+
   // ── Select de meseros registrados (se asigna al abrir el ticket) ──
   function buildMeseroSelectHtml() {
     var h = '<div class="mmodal-name-wrap">';
@@ -97,34 +122,184 @@ function initMapa() {
     return parseInt(sel.value, 10);
   }
 
-  // ── Pool de sugerencias (aleatorio desde el menú, de momento) ──
-  function buildSuggestionPool() {
-    var pool = [];
-    if (!window.CP_MENU) return pool;
-    for (var ci = 0; ci < window.CP_MENU.length; ci++) {
-      var cat = window.CP_MENU[ci];
-      for (var di = 0; di < cat.dishes.length; di++) {
-        var dish     = cat.dishes[di];
-        var areaSlug = dish.area || 'cocina';
-        var areaInfo = window.CP_AREAS ? window.CP_AREAS[areaSlug] : null;
-        pool.push({
-          n: dish.n, p: dish.p, area: areaSlug,
-          area_id: areaInfo ? areaInfo.id : 3,
-          categoria: cat.label,
-          areaNombre: areaInfo ? areaInfo.label : ''
-        });
-      }
-    }
-    return pool;
+  // ── Sugerencias de venta (flujo de n8n) ───────────────────
+  function sugEstadoHtml(texto, icono) {
+    return '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' +
+           (icono || '✨') + '</span><span>' + escHtml(texto) + '</span></div>';
   }
 
-  function pickRandomSuggestion(excludeNames) {
-    var pool = buildSuggestionPool().filter(function(s) {
-      return excludeNames.indexOf(s.n) === -1;
-    });
-    if (!pool.length) return null;
-    return pool[Math.floor(Math.random() * pool.length)];
+  function sugListEl() {
+    return modalContent && modalContent.querySelector('#mmodal-sug-list');
   }
+
+  // Etiqueta de la etapa de la comida (la decide n8n, no el POS)
+  var ETAPA_LABELS = {
+    'ENTRADAS':   'Entradas',
+    'DESARROLLO': 'Desarrollo',
+    'CIERRE':     'Cierre'
+  };
+
+  function pintarEtapa(etapa) {
+    var el = modalContent && modalContent.querySelector('#mmodal-etapa');
+    if (!el) return;
+
+    var label = ETAPA_LABELS[etapa];
+    if (!label) { el.hidden = true; return; }
+
+    el.textContent = '🍽 ' + label;
+    el.className   = 'mmodal-etapa mmodal-etapa--' + etapa.toLowerCase();
+    el.hidden      = false;
+  }
+
+  // Estado vacío o de error con su botón de acción (pedir más / reintentar)
+  function sugAccionHtml(texto, icono, boton) {
+    return sugEstadoHtml(texto, icono) +
+           '<div class="mmodal-sug-more"><button class="mmodal-btn mmodal-btn--primary" ' +
+           'id="mmodal-sug-more">' + escHtml(boton) + '</button></div>';
+  }
+
+  function bindSugMore() {
+    var btn = modalContent && modalContent.querySelector('#mmodal-sug-more');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      if (!sugTicket) return;
+      // Si no viene nada nuevo el panel vuelve al mismo estado vacío y el clic
+      // parece no haber hecho nada: por eso el mensaje es distinto.
+      cargarSugerencias(sugTicket, {
+        conservarVistos: true,
+        vacioTexto: 'Ya ofreciste todas las sugerencias de esta mesa'
+      });
+    });
+  }
+
+  // ¿El mesero ya metió a la comanda algo de esta tarjeta?
+  function sugAceptada(sug) {
+    for (var i = 0; i < commandaItems.length; i++) {
+      if (commandaItems[i].n === sug.n) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Pide a n8n las sugerencias del ticket. n8n rankea varios productos: se
+   * muestra el primero y el resto espera en la cola para "otra sugerencia".
+   *
+   * opts.silencioso      = refresco automático del temporizador: no toca lo que
+   *                        hay en pantalla salvo que n8n cambie de etapa.
+   * opts.conservarVistos = el mesero pidió otras: se mantiene la memoria de lo
+   *                        ya ofrecido para que el flujo no lo repita. Al abrir
+   *                        la mesa esa memoria arranca vacía.
+   * opts.vacioTexto      = qué decir si no viene nada.
+   */
+  function cargarSugerencias(ticket, opts) {
+    opts = opts || {};
+    var silencioso = !!opts.silencioso;
+    sugTicket = ticket;
+
+    if (!silencioso) {
+      SUGERENCIAS = [];
+      sugCola     = [];
+      if (!opts.conservarVistos) sugVistos = [];
+      var list = sugListEl();
+      if (list) list.innerHTML = sugEstadoHtml('Buscando sugerencias…', '⟳');
+      sugTimerStart(ticket);
+    }
+
+    fetch('/api/sugerencias', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ticket_id: ticket.id, vistos: sugVistos })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+      // El mesero pudo abrir otra mesa mientras n8n respondía
+      if (!sugTicket || sugTicket.id !== ticket.id) return;
+
+      if (!result.ok) {
+        if (silencioso) return;
+        var errEl = sugListEl();
+        if (errEl) {
+          errEl.innerHTML = sugAccionHtml(result.msg || 'No pudimos obtener sugerencias', '⚠', 'Reintentar');
+          bindSugMore();
+        }
+        return;
+      }
+
+      // Refresco automático: solo se recalcula si la mesa cambió de etapa
+      if (silencioso && result.etapa === sugEtapa) return;
+      sugEtapa = result.etapa;
+      pintarEtapa(sugEtapa);
+
+      var frescas = result.sugerencias || [];
+      var actual  = SUGERENCIAS[0];
+
+      // Todo lo que llega cuenta como ofrecido: es lo que viaja en la siguiente
+      // ronda para que el flujo no lo repita.
+      for (var v = 0; v < frescas.length; v++) {
+        if (sugVistos.indexOf(frescas[v].producto_id) === -1) {
+          sugVistos.push(frescas[v].producto_id);
+        }
+      }
+
+      // Cambió la etapa, pero la tarjeta en pantalla ya la trabajó el mesero:
+      // no se le quita de enfrente; las nuevas esperan en la cola.
+      if (silencioso && actual && sugAceptada(actual)) {
+        sugCola = frescas.filter(function(s) { return s.producto_id !== actual.producto_id; });
+        return;
+      }
+
+      sugCola     = frescas;
+      SUGERENCIAS = sugCola.length ? [sugCola.shift()] : [];
+      renderSugerencias(opts.vacioTexto || 'Sin sugerencias para esta mesa por ahora');
+    })
+    .catch(function() {
+      if (!sugTicket || sugTicket.id !== ticket.id || silencioso) return;
+      var errEl = sugListEl();
+      if (errEl) {
+        errEl.innerHTML = sugAccionHtml('No pudimos obtener sugerencias', '⚠', 'Reintentar');
+        bindSugMore();
+      }
+    });
+  }
+
+  function sugTimerStart(ticket) {
+    sugTimerStop();
+    sugTimer = setInterval(function() {
+      if (!sugTicket || sugTicket.id !== ticket.id) { sugTimerStop(); return; }
+      cargarSugerencias(ticket, { silencioso: true });
+    }, SUG_REFRESCO);
+  }
+
+  function sugTimerStop() {
+    if (sugTimer) { clearInterval(sugTimer); sugTimer = null; }
+  }
+
+  // vacioTexto: al cargar aún no hubo sugerencias; tras los swaps, ya se agotaron.
+  function renderSugerencias(vacioTexto) {
+    var list = sugListEl();
+    if (!list) return;
+
+    if (!SUGERENCIAS.length) {
+      list.innerHTML = sugAccionHtml(
+        vacioTexto || 'Ya viste todas las sugerencias de esta etapa',
+        '✨',
+        'Obtener más sugerencias'
+      );
+      bindSugMore();
+      return;
+    }
+
+    var h = '';
+    for (var i = 0; i < SUGERENCIAS.length; i++) {
+      h += buildSuggestionCardHtml(i, SUGERENCIAS[i]);
+    }
+    list.innerHTML = h;
+
+    for (var b = 0; b < SUGERENCIAS.length; b++) {
+      bindSuggestionCard(b);
+    }
+  }
+
 
   // Estado temporal de una reserva respecto al slider
   function temporalEstadoReserva(r) {
@@ -281,8 +456,8 @@ function initMapa() {
   function renderSidebar() {
     if (!reservaciones.length) {
       reservasList.innerHTML =
-        '<div class="mapa-empty-state">' +
-          '<span class="mapa-empty-icon">◌</span>' +
+        '<div class="pdv-empty-state">' +
+          '<span class="pdv-empty-icon">◌</span>' +
           '<span>Sin reservaciones para este día</span>' +
         '</div>';
       reservaCount.textContent = '0';
@@ -461,6 +636,8 @@ function initMapa() {
     if (!modal) return;
     modal.classList.remove('mesa-modal--open');
     document.body.style.overflow = '';
+    sugTimerStop();
+    sugTicket = null;
   }
 
   function buildModalContent(mesa, estado, reserva, ticket) {
@@ -477,12 +654,8 @@ function initMapa() {
     if (estado === 'con-ticket' && ticket) {
       // ── Vista de ticket abierto con sistema de comandas ────
 
-      // Poblar sugerencias aleatorias (2 ítems) para este ticket
+      // Las sugerencias las pide cargarSugerencias() cuando el modal ya existe
       sugComensalesCount = ticket.comensales;
-      SUGERENCIAS = [];
-      var sugUsed = [];
-      var sgPick = pickRandomSuggestion(sugUsed);
-      if (sgPick) { SUGERENCIAS.push(sgPick); }
 
       var horaAp = ticket.hora_apertura
         ? String(ticket.hora_apertura).substring(11, 16)
@@ -491,6 +664,8 @@ function initMapa() {
       h += '<div class="mmodal-ticket-meta">';
       h += '<span>👥 ' + ticket.comensales + ' com.</span>';
       h += '<span>🕐 ' + horaAp + '</span>';
+      // La etapa la detecta n8n; se llena cuando responden las sugerencias.
+      h += '<span class="mmodal-etapa" id="mmodal-etapa" hidden></span>';
       h += '</div>';
 
       // Tabs principales (mobile: 3 tabs; desktop: ocultos)
@@ -522,8 +697,15 @@ function initMapa() {
       }
       h += '</div>';
 
+      // Buscador de platillos (filtra en todas las categorías)
+      h += '<div class="mmodal-dish-search">';
+      h += '<span class="mmodal-dish-search__icon">' + svgIcon('search', 15) + '</span>';
+      h += '<input type="search" id="mmodal-dish-search" class="mmodal-dish-search__input" ' +
+           'placeholder="Buscar platillo…" autocomplete="off">';
+      h += '</div>';
+
       // Bloques de categoría (grid)
-      h += '<div class="mmodal-section-label">Categoría</div>';
+      h += '<div class="mmodal-section-label" id="mmodal-cats-label">Categoría</div>';
       h += '<div class="mmodal-cat-grid" id="mmodal-cats">';
       if (window.CP_MENU && window.CP_MENU.length) {
         for (var mi = 0; mi < window.CP_MENU.length; mi++) {
@@ -568,6 +750,7 @@ function initMapa() {
       h += '</div>';
       h += '</div>'; // fin panel-scroll
       h += '<div class="mmodal-panel-actions">';
+      h += '<div class="mmodal-cerrar-hint" id="mmodal-cerrar-hint" hidden></div>';
       h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar">Cerrar ticket</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-resumen
@@ -576,9 +759,7 @@ function initMapa() {
       h += '<div id="mmodal-panel-sugerencias" class="mmodal-tab-panel">';
       h += '<div class="mmodal-panel-label">Sugerencias</div>';
       h += '<div class="mmodal-panel-scroll" id="mmodal-sug-list">';
-      for (var si = 0; si < SUGERENCIAS.length; si++) {
-        h += buildSuggestionCardHtml(si, SUGERENCIAS[si]);
-      }
+      h += sugEstadoHtml('Buscando sugerencias…', '⟳');
       h += '</div>'; // fin panel-scroll
       h += '</div>'; // fin panel-sugerencias
 
@@ -652,27 +833,27 @@ function initMapa() {
   }
 
   // ── Sistema de productos en ticket ────────────────────────
-  function renderCategoryDishes(cat) {
+  // Pinta una lista de platillos. Sin el badge de área (Cocina, Barra de
+  // Jugos…) para ahorrar espacio; el área ya se resuelve al enviar la comanda.
+  function pintarDishes(lista) {
     var dishesEl = modalContent.querySelector('#mmodal-dishes');
-    if (!dishesEl || !cat || !cat.dishes) return;
+    if (!dishesEl) return;
     dishesEl.innerHTML = '';
-    for (var i = 0; i < cat.dishes.length; i++) {
-      var dish     = cat.dishes[i];
-      var areaInfo = (window.CP_AREAS && dish.area) ? window.CP_AREAS[dish.area] : null;
-      var row      = document.createElement('div');
+
+    if (!lista.length) {
+      dishesEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' +
+                           svgIcon('search', 26) + '</span>' +
+                           '<span>Sin platillos que coincidan</span></div>';
+      return;
+    }
+
+    for (var i = 0; i < lista.length; i++) {
+      var dish = lista[i];
+      var row  = document.createElement('div');
       row.className = 'mmodal-dish-row';
-
-      var areaHtml = '';
-      if (areaInfo) {
-        areaHtml = '<span class="mmodal-area-badge" style="background:' + areaInfo.color + '22;' +
-                   'color:' + areaInfo.color + ';border-color:' + areaInfo.color + '55">' +
-                   escHtml(areaInfo.label) + '</span>';
-      }
-
       row.innerHTML =
         '<div class="mmodal-dish-info">' +
           '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
-          areaHtml +
         '</div>' +
         '<span class="mmodal-dish-price">$' + dish.p + '</span>';
 
@@ -680,14 +861,56 @@ function initMapa() {
       addBtn.className   = 'mmodal-dish-add';
       addBtn.textContent = '+';
       addBtn.setAttribute('aria-label', 'Agregar ' + dish.n);
-      (function(d, catLabel) {
+      (function(d) {
         addBtn.addEventListener('click', function() {
-          addToComanda(d.n, d.p, d.area || 'cocina', catLabel);
+          addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '');
         });
-      })(dish, cat.label);
+      })(dish);
       row.appendChild(addBtn);
       dishesEl.appendChild(row);
     }
+  }
+
+  function renderCategoryDishes(cat) {
+    if (!cat || !cat.dishes) return;
+    var lista = cat.dishes.map(function(d) { d._cat = cat.label; return d; });
+    pintarDishes(lista);
+  }
+
+  // Busca por nombre en todas las categorías del menú.
+  function buscarDishes(query) {
+    var q = (query || '').trim().toLowerCase();
+    var catsLabel = modalContent.querySelector('#mmodal-cats-label');
+    var catsGrid  = modalContent.querySelector('#mmodal-cats');
+
+    if (q === '') {
+      // Sin búsqueda: volver a la vista por categoría
+      if (catsLabel) catsLabel.style.display = '';
+      if (catsGrid)  catsGrid.style.display  = '';
+      var activo = catsGrid ? catsGrid.querySelector('.mmodal-cat-block--active') : null;
+      var idx = activo ? parseInt(activo.dataset.idx, 10) : 0;
+      if (window.CP_MENU && window.CP_MENU[idx]) renderCategoryDishes(window.CP_MENU[idx]);
+      return;
+    }
+
+    // Con búsqueda: ocultar categorías y mostrar coincidencias de todo el menú
+    if (catsLabel) catsLabel.style.display = 'none';
+    if (catsGrid)  catsGrid.style.display  = 'none';
+
+    var res = [];
+    if (window.CP_MENU) {
+      for (var c = 0; c < window.CP_MENU.length; c++) {
+        var cat = window.CP_MENU[c];
+        for (var d = 0; d < cat.dishes.length; d++) {
+          if (cat.dishes[d].n.toLowerCase().indexOf(q) !== -1) {
+            var dish = cat.dishes[d];
+            dish._cat = cat.label;
+            res.push(dish);
+          }
+        }
+      }
+    }
+    pintarDishes(res);
   }
 
   function addToComanda(name, price, areaSlug, categoria) {
@@ -744,6 +967,9 @@ function initMapa() {
     h += '<span class="mmodal-sug-price">$' + sug.p + '</span>';
     h += '</div>';
     h += '<div class="mmodal-sug-area">' + escHtml(sug.areaNombre) + '</div>';
+    if (sug.argumento) {
+      h += '<div class="mmodal-sug-argumento">' + escHtml(sug.argumento) + '</div>';
+    }
     h += '<div class="mmodal-sug-divider"></div>';
     h += '<div class="mmodal-sug-question">¿Quién acepta?</div>';
     h += '<div class="mmodal-sug-chips">';
@@ -761,24 +987,47 @@ function initMapa() {
 
   function swapSuggestion(idx) {
     var oldSug = SUGERENCIAS[idx];
-    // Limpiar del carrito si se había aceptado antes
+    // Descartar la tarjeta rechaza la sugerencia completa: se limpia del
+    // carrito lo que cualquier comensal hubiera aceptado. Ya está en sugVistos,
+    // así que no vuelve a salir en esta sesión.
     for (var i = commandaItems.length - 1; i >= 0; i--) {
       if (commandaItems[i].n === oldSug.n) commandaItems.splice(i, 1);
     }
-    var used  = SUGERENCIAS.map(function(s) { return s.n; });
-    var nueva = pickRandomSuggestion(used);
-    if (!nueva) return;
-    SUGERENCIAS[idx] = nueva;
 
-    var card = modalContent && modalContent.querySelector('.mmodal-sug-card[data-sug-card="' + idx + '"]');
-    if (card) {
-      var tmp = document.createElement('div');
-      tmp.innerHTML = buildSuggestionCardHtml(idx, nueva);
-      card.parentNode.replaceChild(tmp.firstChild, card);
-      bindSuggestionCard(idx);
+    // La siguiente del ranking de n8n; si se agotaron, el panel queda vacío.
+    if (sugCola.length) {
+      SUGERENCIAS[idx] = sugCola.shift();
+    } else {
+      SUGERENCIAS.splice(idx, 1);
     }
+
+    renderSugerencias();
     renderComandaCart();
     updateEnviarBtn();
+  }
+
+  /**
+   * La comanda se envió: la sugerencia que viajó en ella ya está en la cocina,
+   * así que la tarjeta cede su lugar a la siguiente del ranking. A partir de
+   * aquí el producto queda en el ticket, y el propio ticket_items lo excluye de
+   * futuras rondas aunque se reabra la mesa.
+   *
+   * @param items commandaItems tal como se enviaron.
+   */
+  function avanzarSugerenciasEnviadas(items) {
+    var cambio = false;
+
+    for (var i = SUGERENCIAS.length - 1; i >= 0; i--) {
+      var sug = SUGERENCIAS[i];
+      var enviados = items.filter(function(it) { return it.n === sug.n; });
+      if (!enviados.length) continue;
+
+      SUGERENCIAS.splice(i, 1);
+      if (sugCola.length) SUGERENCIAS.splice(i, 0, sugCola.shift());
+      cambio = true;
+    }
+
+    if (cambio) renderSugerencias();
   }
 
   function bindSuggestionCard(idx) {
@@ -792,6 +1041,8 @@ function initMapa() {
           var isOn     = chip.classList.contains('mmodal-sug-chip--on');
           var comensal = parseInt(chip.dataset.c, 10);
           var sug      = SUGERENCIAS[idx];
+          // El chip solo mueve el pedido: la sugerencia no se da por aceptada
+          // hasta que la comanda se envía (ver avanzarSugerenciasEnviadas).
           if (isOn) {
             chip.classList.remove('mmodal-sug-chip--on');
             removeSuggestionItem(sug.n, comensal);
@@ -908,6 +1159,24 @@ function initMapa() {
     if (totalVal) totalVal.textContent = '$' + amount;
   }
 
+  // Habilita/deshabilita "Cerrar ticket" según cuántos productos falten por
+  // entregar. La regla también se valida en el backend al cerrar.
+  function actualizarCierreEstado(pendientes) {
+    var btn  = modalContent.querySelector('#mmodal-cerrar');
+    var hint = modalContent.querySelector('#mmodal-cerrar-hint');
+    if (!btn) return;
+    if (pendientes > 0) {
+      btn.disabled = true;
+      if (hint) {
+        hint.textContent = 'Falta entregar ' + pendientes + ' producto' + (pendientes === 1 ? '' : 's');
+        hint.hidden = false;
+      }
+    } else {
+      btn.disabled = false;
+      if (hint) hint.hidden = true;
+    }
+  }
+
   function renderResumen(ticketId) {
     var resumenEl = modalContent.querySelector('#mmodal-resumen-content');
     if (!resumenEl) return;
@@ -920,12 +1189,14 @@ function initMapa() {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span><span>Sin comandas enviadas aún</span></div>';
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+          actualizarCierreEstado(0);
           return;
         }
 
         // Agrupar por área
         var byArea     = {};
         var grandTotal = 0;
+        var pendientes = 0; // no cancelados y aún sin entregar
         for (var i = 0; i < data.items.length; i++) {
           var it  = data.items[i];
           var key = it.area_slug;
@@ -933,8 +1204,14 @@ function initMapa() {
             byArea[key] = { label: it.area_nombre, color: it.area_color, items: [] };
           }
           byArea[key].items.push(it);
-          if (it.estado !== 'cancelado') grandTotal += it.precio * it.cantidad;
+          if (it.estado !== 'cancelado') {
+            grandTotal += it.precio * it.cantidad;
+            if (it.estado !== 'entregado') pendientes++;
+          }
         }
+
+        // No se puede cerrar la cuenta con productos sin entregar.
+        actualizarCierreEstado(pendientes);
 
         var html = '';
         for (var slug in byArea) {
@@ -1034,6 +1311,12 @@ function initMapa() {
       }
     }
 
+    // Buscador de platillos
+    var searchEl = modalContent.querySelector('#mmodal-dish-search');
+    if (searchEl) {
+      searchEl.addEventListener('input', function() { buscarDishes(searchEl.value); });
+    }
+
     // Bloques de comensal (grid)
     var chips = modalContent.querySelectorAll('.mmodal-comensal-block');
     for (var ci = 0; ci < chips.length; ci++) {
@@ -1090,10 +1373,8 @@ function initMapa() {
       renderResumen(ticket.id);
     }
 
-    // Sugerencias: bind inicial de todas las cards
-    for (var sgIdx = 0; sgIdx < SUGERENCIAS.length; sgIdx++) {
-      bindSuggestionCard(sgIdx);
-    }
+    // Sugerencias: el modal ya está en el DOM, se piden a n8n
+    cargarSugerencias(ticket);
   }
 
   // ── Bind de acciones del modal ────────────────────────────
@@ -1156,6 +1437,33 @@ function initMapa() {
     if (modalContent.querySelector('#mmodal-cats')) {
       bindTabsAndComanda(mesa, ticket);
     }
+
+    // Si había un cierre de cuenta a medias para este ticket, se reanuda en el
+    // paso donde quedó (por si el mesero salió por error o por prisa).
+    if (ticket && ticket.id && modalContent.querySelector('#mmodal-cerrar')) {
+      var paso = leerCierrePaso(ticket.id);
+      if (paso && paso.step) {
+        if (paso.step === 'completa')      showPagoCompleto(mesa, ticket);
+        else if (paso.step === 'dividido') showPagoDividido(mesa, ticket, 'efectivo');
+        else                               showCierreTipo(mesa, ticket);
+      }
+    }
+  }
+
+  // ── Persistencia del paso de cierre (sobrevive salir del modal) ──
+  function cierrePasoKey(ticketId) { return 'cp_cierre_' + ticketId; }
+
+  function guardarCierrePaso(ticketId, data) {
+    try { localStorage.setItem(cierrePasoKey(ticketId), JSON.stringify(data)); } catch (e) {}
+  }
+
+  function leerCierrePaso(ticketId) {
+    try { return JSON.parse(localStorage.getItem(cierrePasoKey(ticketId)) || 'null'); }
+    catch (e) { return null; }
+  }
+
+  function limpiarCierrePaso(ticketId) {
+    try { localStorage.removeItem(cierrePasoKey(ticketId)); } catch (e) {}
   }
 
   // ── Confirmación estilizada de cierre ────────────────────
@@ -1170,22 +1478,26 @@ function initMapa() {
   }
 
   function showCerrarConfirm(mesa, ticket) {
-    showPagoSelect(mesa, ticket);
+    showCierreTipo(mesa, ticket);
   }
 
-  function showPagoSelect(mesa, ticket) {
+  // Paso 1: ¿cuenta completa o dividida? Se pregunta ANTES del método porque
+  // en una cuenta dividida cada comensal puede pagar distinto.
+  function showCierreTipo(mesa, ticket) {
+    guardarCierrePaso(ticket.id, { step: 'tipo' });
     var h = buildCerrarHeader(mesa, ticket);
-    h += '<div class="mmodal-cerrar-confirm">';
-    h += '<p class="mmodal-cerrar-confirm__msg">¿Cómo pagó el cliente?</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub">Selecciona el método de pago para cerrar el ticket.</p>';
-    h += '<div class="mmodal-pago-btns">';
-    h += '<button class="mmodal-pago-btn" id="pago-efectivo">';
-    h += '<span class="mmodal-pago-btn__icon">💵</span>';
-    h += '<span class="mmodal-pago-btn__label">Efectivo</span>';
+    h += '<div class="mmodal-cierre-tipo">';
+    h += '<p class="mmodal-cerrar-confirm__msg">¿Cómo se cierra la cuenta?</p>';
+    h += '<div class="mmodal-tipo-cards">';
+    h += '<button class="mmodal-tipo-card" id="tipo-completa">';
+    h += '<span class="mmodal-tipo-card__icon">' + svgIcon('receipt', 30) + '</span>';
+    h += '<span class="mmodal-tipo-card__title">Cuenta completa</span>';
+    h += '<span class="mmodal-tipo-card__desc">Un solo pago por toda la mesa</span>';
     h += '</button>';
-    h += '<button class="mmodal-pago-btn" id="pago-tarjeta">';
-    h += '<span class="mmodal-pago-btn__icon">💳</span>';
-    h += '<span class="mmodal-pago-btn__label">Tarjeta</span>';
+    h += '<button class="mmodal-tipo-card" id="tipo-dividir">';
+    h += '<span class="mmodal-tipo-card__icon">' + svgIcon('users', 30) + '</span>';
+    h += '<span class="mmodal-tipo-card__title">Dividir por comensal</span>';
+    h += '<span class="mmodal-tipo-card__desc">Cada quien paga lo suyo, con su método</span>';
     h += '</button>';
     h += '</div>';
     h += '<div class="mmodal-cerrar-confirm__btns" style="margin-top:0">';
@@ -1195,13 +1507,15 @@ function initMapa() {
 
     modalContent.innerHTML = h;
 
-    modalContent.querySelector('#pago-efectivo').addEventListener('click', function() {
-      showPagoConfirm(mesa, ticket, 'efectivo');
+    modalContent.querySelector('#tipo-completa').addEventListener('click', function() {
+      showPagoCompleto(mesa, ticket);
     });
-    modalContent.querySelector('#pago-tarjeta').addEventListener('click', function() {
-      showPagoConfirm(mesa, ticket, 'tarjeta');
+    modalContent.querySelector('#tipo-dividir').addEventListener('click', function() {
+      showPagoDividido(mesa, ticket, 'efectivo');
     });
     modalContent.querySelector('#cc-volver-ticket').addEventListener('click', function() {
+      // Volver al ticket = abandonar el cierre: se borra el paso guardado.
+      limpiarCierrePaso(ticket.id);
       commandaItems    = [];
       selectedComensal = 0;
       modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
@@ -1209,43 +1523,141 @@ function initMapa() {
     });
   }
 
-  function showPagoConfirm(mesa, ticket, metodoPago) {
-    var label = metodoPago === 'efectivo' ? 'Efectivo' : 'Tarjeta';
+  // Paso 2 (completa): método + monto recibido. La propina es el excedente
+  // sobre el total. Se carga la cuenta para conocer el total y validar.
+  function showPagoCompleto(mesa, ticket) {
+    var h = buildCerrarHeader(mesa, ticket);
+    h += '<div class="mmodal-cerrar-confirm"><p class="mmodal-cerrar-confirm__sub">Cargando la cuenta…</p></div>';
+    modalContent.innerHTML = h;
+
+    fetch('/api/ticket-items?ticket_id=' + ticket.id)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderPagoCompleto(mesa, ticket, (data.ok && data.items) ? data.items : []);
+      })
+      .catch(function() {
+        alert('Error de conexión');
+        showCierreTipo(mesa, ticket);
+      });
+  }
+
+  function renderPagoCompleto(mesa, ticket, items) {
+    var totalCents = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].estado === 'cancelado') continue;
+      totalCents += Math.round(items[i].precio * 100) * items[i].cantidad;
+    }
+    if (totalCents <= 0) {
+      alert('El ticket no tiene consumo por cobrar');
+      showCierreTipo(mesa, ticket);
+      return;
+    }
+
+    function fmt(cents) { return (cents / 100).toFixed(2).replace(/\.00$/, ''); }
+
     var h = buildCerrarHeader(mesa, ticket);
     h += '<div class="mmodal-cerrar-confirm">';
-    h += '<div class="mmodal-cerrar-confirm__icon">⚠</div>';
-    h += '<p class="mmodal-cerrar-confirm__msg">¿Cerrar el ticket de <strong>' +
-         escHtml(mesa.nombre) + '</strong>?</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub">Método de pago: <span class="mmodal-pago-badge">' +
-         escHtml(label) + '</span></p>';
-    h += '<label class="mmodal-cerrar-confirm__sub" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;cursor:pointer">';
-    h += '<input type="checkbox" id="cc-separar">';
-    h += 'Separar la cuenta por comensal';
-    h += '</label>';
-    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:4px">Esta acción no se puede deshacer.</p>';
+    h += '<p class="mmodal-cerrar-confirm__msg">Cobro de la cuenta</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige el método y captura el monto recibido.</p>';
+
+    h += '<div class="mmodal-pago-btns" id="pc-metodos" style="margin-top:12px">';
+    h += '<button type="button" class="mmodal-pago-btn mmodal-pago-btn--active" data-metodo="efectivo">';
+    h += '<span class="mmodal-pago-btn__icon">' + svgIcon('cash', 24) + '</span><span class="mmodal-pago-btn__label">Efectivo</span></button>';
+    h += '<button type="button" class="mmodal-pago-btn" data-metodo="tarjeta">';
+    h += '<span class="mmodal-pago-btn__icon">' + svgIcon('card', 24) + '</span><span class="mmodal-pago-btn__label">Tarjeta</span></button>';
+    h += '</div>';
+
+    h += '<div class="mmodal-split-status" style="margin-top:14px">';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
+    h += '<div class="mmodal-total-row" style="align-items:center"><span class="mmodal-total-label">Monto recibido</span>';
+    h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></span></div>';
+    h += '<p class="mmodal-split-diff" id="pc-diff"></p>';
+    h += '</div>';
+
     h += '<div class="mmodal-cerrar-confirm__btns">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-pago">← Volver</button>';
-    h += '<button class="mmodal-btn mmodal-btn--danger" id="cc-confirm">Cerrar ticket</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="pc-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--danger" id="pc-confirm">Cerrar ticket</button>';
     h += '</div>';
     h += '</div>';
 
     modalContent.innerHTML = h;
 
-    modalContent.querySelector('#cc-volver-pago').addEventListener('click', function() {
-      showPagoSelect(mesa, ticket);
+    var metodoBtns = modalContent.querySelectorAll('#pc-metodos .mmodal-pago-btn');
+    var recibidoEl = modalContent.querySelector('#pc-recibido');
+    var diffEl     = modalContent.querySelector('#pc-diff');
+    var confirmBtn = modalContent.querySelector('#pc-confirm');
+
+    // Restaurar lo capturado si el mesero había salido a medias.
+    var guardado = leerCierrePaso(ticket.id);
+    if (guardado && guardado.step === 'completa') {
+      if (guardado.recibido != null) recibidoEl.value = guardado.recibido;
+      if (guardado.metodo === 'tarjeta') {
+        for (var mb = 0; mb < metodoBtns.length; mb++) {
+          metodoBtns[mb].classList.toggle('mmodal-pago-btn--active', metodoBtns[mb].dataset.metodo === 'tarjeta');
+        }
+      }
+    }
+
+    function metodoActivo() {
+      var a = modalContent.querySelector('#pc-metodos .mmodal-pago-btn--active');
+      return a ? a.dataset.metodo : 'efectivo';
+    }
+
+    function persistir() {
+      guardarCierrePaso(ticket.id, { step: 'completa', metodo: metodoActivo(), recibido: recibidoEl.value });
+    }
+
+    // El botón se habilita cuando el monto recibido cubre el total; el excedente
+    // se muestra como propina.
+    function validar() {
+      var val = parseFloat(recibidoEl.value);
+      var recCents = (isNaN(val) || val < 0) ? 0 : Math.round(val * 100);
+      // Vacío = pago exacto (sin propina).
+      var efectivoCents = recibidoEl.value.trim() === '' ? totalCents : recCents;
+      var diff = efectivoCents - totalCents;
+      var ok   = diff >= -1;
+      if (diffEl) {
+        if (recibidoEl.value.trim() === '') {
+          diffEl.textContent = 'Pago exacto, sin propina';
+          diffEl.className   = 'mmodal-split-diff';
+        } else if (diff < -1) {
+          diffEl.textContent = 'Faltan $' + fmt(-diff) + ' para cubrir el total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
+        } else if (diff <= 1) {
+          diffEl.textContent = 'Pago exacto, sin propina';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+        } else {
+          diffEl.textContent = '✓ Propina: $' + fmt(diff);
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+        }
+      }
+      if (confirmBtn) confirmBtn.disabled = !ok;
+      return ok;
+    }
+
+    for (var b = 0; b < metodoBtns.length; b++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          for (var k = 0; k < metodoBtns.length; k++) metodoBtns[k].classList.remove('mmodal-pago-btn--active');
+          btn.classList.add('mmodal-pago-btn--active');
+          persistir();
+        });
+      })(metodoBtns[b]);
+    }
+    recibidoEl.addEventListener('input', function() { validar(); persistir(); });
+
+    modalContent.querySelector('#pc-volver').addEventListener('click', function() {
+      showCierreTipo(mesa, ticket);
+    });
+    confirmBtn.addEventListener('click', function() {
+      if (!validar()) return;
+      confirmBtn.disabled = true;
+      var val = parseFloat(recibidoEl.value);
+      var recibido = (recibidoEl.value.trim() === '' || isNaN(val)) ? (totalCents / 100) : val;
+      apiCerrarTicket(ticket.id, metodoActivo(), mesa, recibido);
     });
 
-    (function(tid, mp, m, t) {
-      modalContent.querySelector('#cc-confirm').addEventListener('click', function() {
-        var sepEl = modalContent.querySelector('#cc-separar');
-        if (sepEl && sepEl.checked) {
-          // Cuenta dividida: registrar el pago de cada comensal antes de cerrar
-          showPagoDividido(m, t, mp);
-        } else {
-          apiCerrarTicket(tid, mp, m, false);
-        }
-      });
-    })(ticket.id, metodoPago, mesa, ticket);
+    validar();
   }
 
   // ── Pago dividido por comensal ────────────────────────────
@@ -1263,7 +1675,7 @@ function initMapa() {
       })
       .catch(function() {
         alert('Error de conexión');
-        showPagoConfirm(mesa, ticket, metodoDefault);
+        showCierreTipo(mesa, ticket);
       });
   }
 
@@ -1281,7 +1693,7 @@ function initMapa() {
 
     if (totalCents <= 0) {
       alert('El ticket no tiene consumo por cobrar');
-      showPagoConfirm(mesa, ticket, metodoDefault);
+      showCierreTipo(mesa, ticket);
       return;
     }
 
@@ -1306,10 +1718,10 @@ function initMapa() {
       h += '<span class="mmodal-split-metodos">';
       h += '<button type="button" class="mmodal-split-metodo' +
            (metodoDefault === 'efectivo' ? ' mmodal-split-metodo--active' : '') +
-           '" data-metodo="efectivo" title="Efectivo">💵</button>';
+           '" data-metodo="efectivo" title="Efectivo">' + svgIcon('cash', 18) + '</button>';
       h += '<button type="button" class="mmodal-split-metodo' +
            (metodoDefault === 'tarjeta' ? ' mmodal-split-metodo--active' : '') +
-           '" data-metodo="tarjeta" title="Tarjeta">💳</button>';
+           '" data-metodo="tarjeta" title="Tarjeta">' + svgIcon('card', 18) + '</button>';
       h += '</span>';
       h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
       h += '</div>';
@@ -1318,6 +1730,7 @@ function initMapa() {
     h += '<div class="mmodal-split-status">';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Pagado</span><span class="mmodal-total-amount" id="split-pagado">$0</span></div>';
+    h += '<div class="mmodal-total-row" id="split-propina-row" style="display:none"><span class="mmodal-total-label">Propina</span><span class="mmodal-total-amount" id="split-propina">$0</span></div>';
     h += '<p class="mmodal-split-diff" id="split-diff"></p>';
     h += '</div>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
@@ -1328,10 +1741,12 @@ function initMapa() {
 
     modalContent.innerHTML = h;
 
-    var rows       = modalContent.querySelectorAll('.mmodal-split-row[data-c]');
-    var pagadoEl   = modalContent.querySelector('#split-pagado');
-    var diffEl     = modalContent.querySelector('#split-diff');
-    var confirmBtn = modalContent.querySelector('#split-confirm');
+    var rows        = modalContent.querySelectorAll('.mmodal-split-row[data-c]');
+    var pagadoEl    = modalContent.querySelector('#split-pagado');
+    var diffEl      = modalContent.querySelector('#split-diff');
+    var confirmBtn  = modalContent.querySelector('#split-confirm');
+    var propinaRow  = modalContent.querySelector('#split-propina-row');
+    var propinaEl   = modalContent.querySelector('#split-propina');
 
     function leerPagos() {
       var pagos = [];
@@ -1347,7 +1762,26 @@ function initMapa() {
       return pagos;
     }
 
-    // Validación en vivo: el botón sólo se habilita cuando la suma es exacta
+    // Restaurar lo capturado si el mesero había salido a medias.
+    var guardado = leerCierrePaso(ticket.id);
+    if (guardado && guardado.step === 'dividido' && guardado.pagos) {
+      for (var g = 0; g < rows.length; g++) {
+        var sav = guardado.pagos[g];
+        if (!sav) continue;
+        if (sav.monto) rows[g].querySelector('.mmodal-split-input').value = sav.monto;
+        var mbs = rows[g].querySelectorAll('.mmodal-split-metodo');
+        for (var mi = 0; mi < mbs.length; mi++) {
+          mbs[mi].classList.toggle('mmodal-split-metodo--active', mbs[mi].dataset.metodo === sav.metodo);
+        }
+      }
+    }
+
+    function persistir() {
+      guardarCierrePaso(ticket.id, { step: 'dividido', pagos: leerPagos() });
+    }
+
+    // Validación en vivo: el botón se habilita cuando la suma cubre el total.
+    // El excedente es propina (se muestra aparte).
     function validar() {
       var pagos = leerPagos();
       var suma  = 0;
@@ -1355,18 +1789,23 @@ function initMapa() {
 
       if (pagadoEl) pagadoEl.textContent = '$' + fmt(suma);
 
-      var diff = totalCents - suma;
-      var ok   = diff === 0;
+      var diff    = suma - totalCents; // >0 = propina, <0 = falta
+      var propina = diff > 1 ? diff : 0;
+      var ok      = diff >= -1;
+
+      if (propinaRow) propinaRow.style.display = propina > 0 ? '' : 'none';
+      if (propinaEl)  propinaEl.textContent = '$' + fmt(propina);
+
       if (diffEl) {
-        if (ok) {
-          diffEl.textContent = '✓ Los montos coinciden con el total';
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
-        } else if (diff > 0) {
-          diffEl.textContent = 'Faltan $' + fmt(diff) + ' por asignar';
+        if (diff < -1) {
+          diffEl.textContent = 'Faltan $' + fmt(-diff) + ' por asignar';
           diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
+        } else if (propina > 0) {
+          diffEl.textContent = '✓ Incluye $' + fmt(propina) + ' de propina';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
         } else {
-          diffEl.textContent = 'Sobran $' + fmt(-diff) + ' respecto al total';
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--sobra';
+          diffEl.textContent = '✓ Los montos cubren el total';
+          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
         }
       }
       if (confirmBtn) confirmBtn.disabled = !ok;
@@ -1375,13 +1814,14 @@ function initMapa() {
 
     for (var r = 0; r < rows.length; r++) {
       (function(row) {
-        row.querySelector('.mmodal-split-input').addEventListener('input', validar);
+        row.querySelector('.mmodal-split-input').addEventListener('input', function() { validar(); persistir(); });
         var mbtns = row.querySelectorAll('.mmodal-split-metodo');
         for (var b = 0; b < mbtns.length; b++) {
           (function(btn) {
             btn.addEventListener('click', function() {
               for (var k = 0; k < mbtns.length; k++) mbtns[k].classList.remove('mmodal-split-metodo--active');
               btn.classList.add('mmodal-split-metodo--active');
+              persistir();
             });
           })(mbtns[b]);
         }
@@ -1389,7 +1829,7 @@ function initMapa() {
     }
 
     modalContent.querySelector('#split-volver').addEventListener('click', function() {
-      showPagoConfirm(mesa, ticket, metodoDefault);
+      showCierreTipo(mesa, ticket);
     });
 
     confirmBtn.addEventListener('click', function() {
@@ -1500,19 +1940,21 @@ function initMapa() {
     apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
-  function apiCerrarTicket(ticketId, metodoPago, mesa, separarComensales) {
+  function apiCerrarTicket(ticketId, metodoPago, mesa, recibido) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         ticket_id:          ticketId,
         metodo_pago:        metodoPago,
-        separar_comensales: !!separarComensales
+        separar_comensales: false,
+        recibido:           recibido
       })
     })
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
         alert(result.msg || 'Error al cerrar el ticket');
@@ -1534,6 +1976,7 @@ function initMapa() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
         alert(result.msg || 'Error al cerrar el ticket');
@@ -1571,6 +2014,9 @@ function initMapa() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        // Antes de limpiar el carrito: cerrar el ciclo de lo que se sugirió
+        // y pasar la siguiente recomendación.
+        avanzarSugerenciasEnviadas(commandaItems);
         commandaItems = [];
         renderComandaCart();
         updateEnviarBtn();
@@ -1633,15 +2079,15 @@ function initMapa() {
 
   // ── Calendario personalizado de fecha ────────────────────
   function initMapaCalendar() {
-    var picker     = document.getElementById('mapa-date-picker');
-    var displayBtn = document.getElementById('mapa-date-display');
-    var calEl      = document.getElementById('mapa-calendar');
+    var picker     = document.getElementById('pdv-date-picker');
+    var displayBtn = document.getElementById('pdv-date-display');
+    var calEl      = document.getElementById('pdv-calendar');
     if (!picker || !displayBtn || !calEl) return;
 
-    var labelEl = document.getElementById('mapa-cal-label');
-    var gridEl  = document.getElementById('mapa-cal-grid');
-    var prevBtn = document.getElementById('mapa-cal-prev');
-    var nextBtn = document.getElementById('mapa-cal-next');
+    var labelEl = document.getElementById('pdv-cal-label');
+    var gridEl  = document.getElementById('pdv-cal-grid');
+    var prevBtn = document.getElementById('pdv-cal-prev');
+    var nextBtn = document.getElementById('pdv-cal-next');
 
     var MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1669,7 +2115,7 @@ function initMapa() {
 
       for (var i = 0; i < first; i++) {
         var empty = document.createElement('span');
-        empty.className = 'mapa-cal__day mapa-cal__day--empty';
+        empty.className = 'pdv-cal__day pdv-cal__day--empty';
         gridEl.appendChild(empty);
       }
 
@@ -1677,14 +2123,14 @@ function initMapa() {
         (function(day) {
           var btn  = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'mapa-cal__day';
+          btn.className = 'pdv-cal__day';
           btn.textContent = day;
 
           var date = new Date(curYear, curMonth, day);
           date.setHours(0, 0, 0, 0);
 
-          if (date.getTime() === today.getTime())    btn.classList.add('mapa-cal__day--today');
-          if (selected && date.getTime() === selected.getTime()) btn.classList.add('mapa-cal__day--selected');
+          if (date.getTime() === today.getTime())    btn.classList.add('pdv-cal__day--today');
+          if (selected && date.getTime() === selected.getTime()) btn.classList.add('pdv-cal__day--selected');
 
           btn.addEventListener('click', function() {
             selected = date;
@@ -1702,13 +2148,13 @@ function initMapa() {
       }
     }
 
-    function openCal()  { calEl.classList.add('mapa-cal--open'); calEl.setAttribute('aria-hidden', 'false'); renderGrid(); }
-    function closeCal() { calEl.classList.remove('mapa-cal--open'); calEl.setAttribute('aria-hidden', 'true'); }
+    function openCal()  { calEl.classList.add('pdv-cal--open'); calEl.setAttribute('aria-hidden', 'false'); renderGrid(); }
+    function closeCal() { calEl.classList.remove('pdv-cal--open'); calEl.setAttribute('aria-hidden', 'true'); }
 
     displayBtn.textContent = toDisplay(selected);
     displayBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      calEl.classList.contains('mapa-cal--open') ? closeCal() : openCal();
+      calEl.classList.contains('pdv-cal--open') ? closeCal() : openCal();
     });
 
     if (prevBtn) {
@@ -1739,16 +2185,16 @@ function initMapa() {
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
       reservasList.innerHTML =
-        '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
+        '<div class="pdv-empty-state"><span class="pdv-empty-icon">◌</span><span>Cargando…</span></div>';
     }
-    fetch('/api/mapa?fecha=' + encodeURIComponent(fecha))
+    fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha))
       .then(function(res) { return res.json(); })
       .then(function(data) {
         if (data.ok === false) {
           if (!silent) {
             reservasList.innerHTML =
-              '<div class="mapa-empty-state mapa-empty-state--error">' +
-                '<span class="mapa-empty-icon">⚠</span>' +
+              '<div class="pdv-empty-state pdv-empty-state--error">' +
+                '<span class="pdv-empty-icon">⚠</span>' +
                 '<span>' + (data.hint || data.error || 'Error de servidor') + '</span>' +
               '</div>';
             if (loadingEl) loadingEl.classList.add('hidden');
@@ -1767,8 +2213,8 @@ function initMapa() {
       .catch(function() {
         if (!silent) {
           reservasList.innerHTML =
-            '<div class="mapa-empty-state mapa-empty-state--error">' +
-              '<span class="mapa-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
+            '<div class="pdv-empty-state pdv-empty-state--error">' +
+              '<span class="pdv-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
             '</div>';
           if (loadingEl) loadingEl.classList.add('hidden');
         }
@@ -1799,8 +2245,7 @@ function initMapa() {
 
   function activateLive() {
     isLive = true;
-    if (liveBadge) liveBadge.classList.add('mapa-live-badge--active');
-    if (ahoraBtn)  ahoraBtn.classList.add('mapa-ahora-btn--active');
+    if (ahoraBtn)  ahoraBtn.classList.add('pdv-ahora-btn--active');
     syncLive();
     if (liveInterval) clearInterval(liveInterval);
     liveInterval = setInterval(syncLive, 60000);
@@ -1809,8 +2254,7 @@ function initMapa() {
 
   function deactivateLive() {
     isLive = false;
-    if (liveBadge) liveBadge.classList.remove('mapa-live-badge--active');
-    if (ahoraBtn)  ahoraBtn.classList.remove('mapa-ahora-btn--active');
+    if (ahoraBtn)  ahoraBtn.classList.remove('pdv-ahora-btn--active');
     if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
   }
 
@@ -1832,7 +2276,7 @@ function initMapa() {
 // Auto-inicializar independientemente de boot()
 (function() {
   function tryInitMapa() {
-    if (document.getElementById('mapa-canvas')) initMapa();
+    if (document.getElementById('pdv-canvas')) initMapa();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', tryInitMapa);

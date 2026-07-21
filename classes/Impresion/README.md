@@ -161,9 +161,9 @@ Reglas de validación (`Impresora::validar`):
 ## 6. Flujo operativo end-to-end
 
 ```
-1. Abrir cuenta          POST /admin/api/open-ticket     → no imprime
-2. Enviar comanda        POST /admin/api/send-order      → imprime COMANDA por área
-3. Cobrar / cerrar mesa  POST /admin/api/close-ticket    → imprime CUENTA (cobro)
+1. Abrir cuenta          POST /api/abrir-ticket      → no imprime
+2. Enviar comanda        POST /api/enviar-comanda    → imprime COMANDA por área
+3. Cobrar / cerrar mesa  POST /api/cerrar-ticket     → imprime CUENTA (cobro)
 ```
 
 ### 6.1 Comanda (`MapaController::enviarComanda`)

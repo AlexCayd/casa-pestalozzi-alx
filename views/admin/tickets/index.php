@@ -65,6 +65,7 @@ $metricas = [
                             <th>Comensales</th>
                             <th>Items</th>
                             <th>Total</th>
+                            <th>Propina</th>
                             <th>Pago</th>
                             <th>Estado</th>
                             <th>Apertura</th>
@@ -84,6 +85,19 @@ $metricas = [
                                 <td><?php echo (int) $t['comensales']; ?></td>
                                 <td><?php echo (int) $t['num_items']; ?></td>
                                 <td><span class="admin-table__cell-main"><?php echo $money($t['total']); ?></span></td>
+                                <?php
+                                $propina = (float) ($t['propina'] ?? 0);
+                                $totalNum = (float) $t['total'];
+                                $pct = ($propina > 0 && $totalNum > 0) ? ($propina / $totalNum * 100) : 0;
+                                ?>
+                                <td>
+                                    <?php if ($propina > 0) : ?>
+                                        <span class="admin-table__cell-main admin-tk__tip"><?php echo $money($propina); ?></span>
+                                        <span class="admin-tk__tip-pct"><?php echo number_format($pct, 1); ?>%</span>
+                                    <?php else : ?>
+                                        <span class="admin-table__cell-sub">—</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars(!empty($t['metodo_pago']) ? ($metodos[$t['metodo_pago']] ?? '—') : '—'); ?></td>
                                 <td><span class="admin-badge <?php echo $estadoInfo['badge']; ?>"><?php echo htmlspecialchars($estadoInfo['label']); ?></span></td>
                                 <td>
@@ -130,5 +144,14 @@ $metricas = [
 
     .admin-tk__metric-value.is-accent {
         color: var(--admin-gold);
+    }
+
+    .admin-tk__tip { color: var(--admin-sage, #7ba86a); }
+    .admin-tk__tip-pct {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--admin-muted);
     }
 </style>

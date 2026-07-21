@@ -140,7 +140,7 @@ class AreasMejora
     /** URL del webhook de n8n que dispara el flujo (configurable por env). */
     public static function webhookUrl(): string
     {
-        $url = $_ENV['N8N_WEBHOOK_URL'] ?? getenv('N8N_WEBHOOK_URL');
+        $url = $_ENV['N8N_WEBHOOK_AREAS_MEJORA_URL'] ?? getenv('N8N_WEBHOOK_AREAS_MEJORA_URL');
         return is_string($url) ? trim($url) : '';
     }
 

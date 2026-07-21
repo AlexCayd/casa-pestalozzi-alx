@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><?= htmlspecialchars($area['nombre']) ?> · Casa Pestalozzi</title>
+  <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
+  <link rel="apple-touch-icon" href="/build/images/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="/build/css/app.css" />
@@ -12,10 +14,9 @@
 
   <div class="area-shell">
 
-    <header class="area-header">
-      <a href="/mapa" class="area-back">← Mapa</a>
+    <header class="area-header" style="--area-accent: <?= htmlspecialchars($area['color']) ?>">
+      <!-- Tablero de producción aislado: no enlaza al punto de venta. -->
       <div class="area-title">
-        <span class="area-dot" style="background:<?= htmlspecialchars($area['color']) ?>"></span>
         <span><?= htmlspecialchars($area['nombre']) ?></span>
       </div>
       <div class="area-header-right">

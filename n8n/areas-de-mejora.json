@@ -1,0 +1,228 @@
+{
+  "name": "Areas de mejora",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8a749863-4c21-4e21-9bd5-c34f3b37a05b",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        -144
+      ],
+      "id": "8f6b938a-281a-409a-bb29-c07b94dbed21",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "__rl": true,
+          "value": "feedback",
+          "mode": "list",
+          "cachedResultName": "feedback"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        352,
+        -64
+      ],
+      "id": "90f1b2f7-e976-4b07-9d48-f2d9f082ab7b",
+      "name": "Seleccionar las reseñas",
+      "credentials": {
+        "mySql": {
+          "id": "98D1I2XKK2HMpzwd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Obtener todos los registros de feedback que entran desde la base de datos\nconst items = $input.all();\n\nlet totalResenas = items.length;\nlet sumaCalidad = 0;\nlet sumaAtencion = 0;\nlet sumaTiempo = 0;\nlet sumaGlobal = 0;\n\nconst criticasNegativas = [];\nconst comentariosPositivos = [];\n\n// 2. Iterar sobre cada fila para sumar métricas y clasificar comentarios\nitems.forEach(item => {\n  const data = item.json;\n  \n  // Convertir a número por seguridad y sumar al acumulador\n  const calidad = Number(data.calidad_sabor) || 0;\n  const atencion = Number(data.atencion_mesero) || 0;\n  const tiempo = Number(data.tiempo_espera) || 0;\n  const global = Number(data.experiencia_global) || 0;\n\n  sumaCalidad += calidad;\n  sumaAtencion += atencion;\n  sumaTiempo += tiempo;\n  sumaGlobal += global;\n\n  // Filtrar comentarios vacíos o nulos\n  if (data.comentario && data.comentario.trim() !== \"\") {\n    // Formateamos la línea dando contexto del ticket y calificaciones clave\n    const textoComentario = `• [Ticket #${data.ticket_id || 'N/A'}] (Global: ${global}/5 | Sabor: ${calidad}/5 | Espera: ${tiempo}/5 | Atención: ${atencion}/5): \"${data.comentario.trim()}\"`;\n    \n    // Si la experiencia global es menor a 3, o el tiempo/sabor tuvieron 2 o menos, es una crítica prioritaria\n    if (global <= 3 || tiempo <= 2 || calidad <= 2 || atencion <= 2) {\n      criticasNegativas.push(textoComentario);\n    } else {\n      comentariosPositivos.push(textoComentario);\n    }\n  }\n});\n\n// 3. Calcular promedios finales (evitando división por cero y redondeando a 2 decimales)\nconst promedios = totalResenas > 0 ? {\n  calidad_sabor: (sumaCalidad / totalResenas).toFixed(2),\n  atencion_mesero: (sumaAtencion / totalResenas).toFixed(2),\n  tiempo_espera: (sumaTiempo / totalResenas).toFixed(2),\n  experiencia_global: (sumaGlobal / totalResenas).toFixed(2)\n} : { calidad_sabor: 0, atencion_mesero: 0, tiempo_espera: 0, experiencia_global: 0 };\n\n// 4. Construir un bloque de texto limpio y optimizado para el System Prompt del LLM\nconst reporteParaLLM = `\n=== RESUMEN DE MÉTRICAS (Total de evaluaciones: ${totalResenas}) ===\n- Promedio Calidad y Sabor: ${promedios.calidad_sabor} / 5.00\n- Promedio Atención del Mesero: ${promedios.atencion_mesero} / 5.00\n- Promedio Tiempo de Espera: ${promedios.tiempo_espera} / 5.00\n- Promedio Experiencia Global: ${promedios.experiencia_global} / 5.00\n\n=== CRÍTICAS NEGATIVAS Y ALERTAS (Prioridad alta para acciones correctivas) ===\n${criticasNegativas.length > 0 ? criticasNegativas.join('\\n') : 'No hay comentarios negativos registrados en este bloque.'}\n\n=== COMENTARIOS POSITIVOS Y DESTACADOS (Para identificar fortalezas a mantener) ===\n${comentariosPositivos.length > 0 ? comentariosPositivos.join('\\n') : 'No hay comentarios positivos registrados en este bloque.'}\n`.trim();\n\n// 5. Retornar un único ítem con la data lista y digerida para el nodo del LLM\nreturn [{\n  json: {\n    total_resenas: totalResenas,\n    promedios: promedios,\n    conteo_criticas: criticasNegativas.length,\n    conteo_positivos: comentariosPositivos.length,\n    prompt_contexto: reporteParaLLM\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -64
+      ],
+      "id": "cbc02b42-148e-44a7-ab4d-61e39239a191",
+      "name": "Formatear en JS"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Eres un consultor gastronómico experto y desarrollador de producto de software para restaurantes. \nTu objetivo es analizar un reporte de feedback de clientes y devolver una estrategia de mejora formateada estrictamente como datos para alimentar tarjetas en una interfaz gráfica (UI).\n\nDebes generar EXACTAMENTE 5 acciones de negocio accionables, justificadas por las métricas o comentarios del reporte.\n\nREGLAS DE FORMATO Y CONTENIDO (OBLIGATORIAS):\n1. Devuelve ÚNICAMENTE un objeto JSON válido que contenga un arreglo llamado \"areas_de_mejora\" con 5 objetos. No incluyas saludos, markdown de código (ningún ```json), ni explicaciones fuera del JSON.\n2. Cada acción debe ser sintética, directa y fácil de leer para el gerente del restaurante en un panel de control.\n3. DIVERSIDAD Y NO REPETICIÓN (CRÍTICO): Las 5 acciones deben ser COMPLETAMENTE DISTINTAS entre sí en concepto, problema que resuelven y solución propuesta. Está estrictamente prohibido refrasear la misma idea en más de una tarjeta.\n4. COBERTURA OPERATIVA OBLIGATORIA: Para garantizar una visión 360° del negocio, no puedes usar la misma categoría más de 2 veces. Obligatoriamente debes distribuir las 5 acciones entre diferentes áreas operativas (ej. mezclar TIEMPO DE ESPERA, CONSISTENCIA EN COCINA, ATENCIÓN EN PISO, FIDELIZACIÓN o GESTIÓN DE RESEÑAS). Si el feedback es repetitivo en un solo problema, extrae acciones de \"oportunidad\" o \"continuo\" basándote en lo que SÍ funciona bien para las tarjetas restantes.\n5. El campo \"categoria\" debe ser breve, en MAYÚSCULAS (ej. TIEMPO DE ESPERA, CONSISTENCIA EN COCINA, ATENCIÓN EN PISO, FIDELIZACIÓN, GESTIÓN DE RESEÑAS).\n6. El campo \"prioridad_tipo\" determinará el color de la etiqueta en el frontend y solo puede ser uno de estos 4 valores exactos:\n   - \"alta\" (para problemas graves o recurrentes reportados por clientes)\n   - \"media\" (para áreas con calificación regular que requieren atención)\n   - \"oportunidad\" (para aprovechar halagos o crear fidelización)\n   - \"continuo\" (para procesos de mantenimiento o gestión constante)\n7. El campo \"prioridad_label\" es el texto que dirá la etiqueta (ej. \"Prioridad alta\", \"Prioridad media\", \"Oportunidad\", \"Continuo\").\n8. El campo \"icono\" debe ser el identificador del icono sugerido para la tarjeta (usa nombres estándar como: \"clock\", \"utensils\", \"user\", \"star\", \"message-square\", \"alert-circle\", \"trending-up\").\n9. IGNORAR SESGO DEL EJEMPLO: Los datos dentro del siguiente bloque JSON son exclusivamente para ilustrar la estructura técnica. No copies el título, descripción ni tema del ejemplo.\n\nESTRUCTURA EXACTA DEL JSON ESPERADO:\n{\n  \"areas_de_mejora\": [\n    {\n      \"icono\": \"clock\",\n      \"categoria\": \"TIEMPO DE ESPERA\",\n      \"titulo\": \"Agilizar el cierre de cuenta\",\n      \"descripcion\": \"Habilita el cobro en mesa en horas pico para reducir la espera final que más penalizan los clientes.\",\n      \"prioridad_tipo\": \"alta\",\n      \"prioridad_label\": \"Prioridad alta\"\n    }\n  ]\n}\n\n{{ $json.prompt_contexto }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        768,
+        -64
+      ],
+      "id": "a684e4a7-098f-46c0-8e7a-1c46309bc260",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "PT6egwlYplRQ4TpS",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/feedback-n8n",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.parse($json.output[0].content[0].text) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        -64
+      ],
+      "id": "5e64c4fc-fee1-478e-8f0c-54345fc2dbc0",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "path": "areas-mejora",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        176
+      ],
+      "id": "973fe6c4-15cf-448d-8eca-a899719f5861",
+      "name": "Webhook",
+      "webhookId": "e9e4ee15-8724-4f8b-b62c-335edf398a6e"
+    },
+    {
+      "parameters": {
+        "content": "## Falta integrar análisis con meseros y tickets\n"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        528,
+        128
+      ],
+      "typeVersion": 1,
+      "id": "8d783b35-ab73-41b6-a0c1-0300fb53fd5d",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar las reseñas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar las reseñas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seleccionar las reseñas": {
+      "main": [
+        [
+          {
+            "node": "Formatear en JS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear en JS": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Seleccionar las reseñas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

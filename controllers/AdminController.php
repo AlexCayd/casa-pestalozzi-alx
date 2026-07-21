@@ -20,9 +20,9 @@ class AdminController
             'title' => 'Gestión de menú',
             'path' => '/admin/menu'
         ],
-        'map' => [
-            'title' => 'Mapa',
-            'path' => '/admin/mapa'
+        'pdv' => [
+            'title' => 'Punto de Venta',
+            'path' => '/admin/punto-de-venta'
         ],
         'area' => [
             'title' => 'Producción',
@@ -66,11 +66,35 @@ class AdminController
 
     public static function analytics(Router $router): void
     {
+        // Propinas reales de tickets cerrados: la única métrica con respaldo en
+        // BD dentro de analytics (el resto son datos mock del front por ahora).
+        $propinas = ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
+        try {
+            $res = \Model\Ticket::ejecutarSQL(
+                "SELECT COALESCE(SUM(propina), 0) AS total,
+                        SUM(CASE WHEN propina > 0 THEN 1 ELSE 0 END) AS con_propina
+                   FROM tickets
+                  WHERE estado = 'cerrado'"
+            );
+            if ($res && ($r = $res->fetch_assoc())) {
+                $total   = round((float) $r['total'], 2);
+                $tickets = (int) $r['con_propina'];
+                $propinas = [
+                    'total'    => $total,
+                    'tickets'  => $tickets,
+                    'promedio' => $tickets > 0 ? round($total / $tickets, 2) : 0.0,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // Sin datos: se muestra 0.
+        }
+
         self::render('analytics', [
             'activeModule' => 'analytics',
             'title' => 'Análisis de datos',
             'topbarSection' => 'Análisis',
             'compactTopbar' => true,
+            'propinas' => $propinas,
             'styles' => [
                 '/build/css/admin/analytics.css'
             ],
@@ -127,11 +151,72 @@ class AdminController
             // La tabla feedback puede no existir todavía: se muestra el estado vacío.
         }
 
+        // Rendimiento de meseros: atención promedio (del feedback de sus tickets)
+        // y % de propina promedio (propina / total de la cuenta). Las dos métricas
+        // se calculan en subconsultas separadas para no multiplicar filas al unir
+        // feedback (varias reseñas por ticket) con los tickets.
+        $meseros = [];
+        try {
+            $mes = \Model\Ticket::ejecutarSQL(
+                "SELECT u.id, u.nombre, u.activo,
+                        fb.atencion, fb.n_resenas,
+                        tp.tip_pct, tp.n_tickets
+                   FROM usuarios u
+                   LEFT JOIN (
+                        SELECT t.mesero_id, AVG(f.atencion_mesero) AS atencion, COUNT(*) AS n_resenas
+                          FROM feedback f
+                          JOIN tickets t ON t.id = f.ticket_id
+                         WHERE t.mesero_id IS NOT NULL
+                         GROUP BY t.mesero_id
+                   ) fb ON fb.mesero_id = u.id
+                   LEFT JOIN (
+                        SELECT t.mesero_id,
+                               AVG(t.propina / NULLIF(tot.total, 0)) * 100 AS tip_pct,
+                               COUNT(*) AS n_tickets
+                          FROM tickets t
+                          JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
+                                  FROM ticket_items WHERE estado <> 'cancelado'
+                                 GROUP BY ticket_id) tot ON tot.ticket_id = t.id
+                         WHERE t.estado = 'cerrado' AND t.mesero_id IS NOT NULL
+                         GROUP BY t.mesero_id
+                   ) tp ON tp.mesero_id = u.id
+                  WHERE u.rol = 'waiter'
+                  ORDER BY u.activo DESC, tp.tip_pct DESC, u.nombre ASC"
+            );
+            if ($mes) {
+                while ($row = $mes->fetch_assoc()) {
+                    $atencion = $row['atencion'] !== null ? round((float) $row['atencion'], 1) : null;
+                    $tipPct   = $row['tip_pct']  !== null ? round((float) $row['tip_pct'], 1)  : null;
+                    // Rendimiento combinado 0-100: atención (0-5 -> 0-70) + propina
+                    // (0-20% -> 0-30), topado a 100. Solo si hay ambos datos.
+                    $rendimiento = null;
+                    if ($atencion !== null || $tipPct !== null) {
+                        $rendimiento = (int) round(
+                            min(70, ($atencion ?? 0) / 5 * 70) +
+                            min(30, ($tipPct ?? 0) / 20 * 30)
+                        );
+                    }
+                    $meseros[] = [
+                        'nombre'      => $row['nombre'],
+                        'activo'      => (int) $row['activo'],
+                        'atencion'    => $atencion,
+                        'resenas'     => (int) ($row['n_resenas'] ?? 0),
+                        'tip_pct'     => $tipPct,
+                        'tickets'     => (int) ($row['n_tickets'] ?? 0),
+                        'rendimiento' => $rendimiento,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Sin datos de meseros: la sección se muestra vacía.
+        }
+
         self::render('feedback/index', [
             'activeModule' => 'feedback',
             'title' => 'Feedback de clientes',
             'feedbackRows' => $rows,
             'feedbackStats' => $stats,
+            'meseros' => $meseros,
             'acciones' => AreasMejora::leer(),
             'accionesActualizadas' => AreasMejora::generadoEn(),
             'n8nConfigurado' => AreasMejora::webhookUrl() !== '',
@@ -224,7 +309,7 @@ class AdminController
 
         try {
             $result = \Model\Ticket::ejecutarSQL(
-                "SELECT t.id, t.nombre, t.comensales, t.estado, t.metodo_pago, t.hora_apertura,
+                "SELECT t.id, t.nombre, t.comensales, t.estado, t.metodo_pago, t.propina, t.hora_apertura,
                         m.numero AS mesa_numero, m.nombre AS mesa_nombre,
                         COALESCE(SUM(ti.precio * ti.cantidad), 0) AS total,
                         COUNT(ti.id) AS num_items

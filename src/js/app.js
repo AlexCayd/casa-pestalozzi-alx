@@ -40,6 +40,10 @@ function boot() {
   setCursorEnabled(T.cursor);
   if (!T.anim) body.classList.add("no-anim");
 
+  // Lo de abajo depende del marcado de la home (nav, hero, menú, rail…).
+  // /punto-de-venta y /area cargan este mismo bundle y se inicializan por su cuenta.
+  if (body.dataset.page !== "home") return;
+
   initCursor();
   initMagnetic();
   initNav();

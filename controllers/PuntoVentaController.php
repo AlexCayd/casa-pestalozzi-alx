@@ -10,11 +10,12 @@ use Classes\TicketPrinter;
 use MVC\Router;
 use Services\HorarioReservacionService;
 use Services\ReservacionService;
+use Services\Sugerencias;
 
-class MapaController {
+class PuntoVentaController {
 
     public static function index(Router $router) {
-        include_once __DIR__ . '/../views/mapa/index.php';
+        include_once __DIR__ . '/../views/punto-de-venta/index.php';
     }
 
     // GET /admin/api/map?fecha=YYYY-MM-DD
@@ -58,7 +59,7 @@ class MapaController {
                  ORDER BY nombre ASC"
             );
         } catch (\Throwable $e) {
-            error_log('MapaController::api - ' . $e->getMessage());
+            error_log('PuntoVentaController::api - ' . $e->getMessage());
             echo json_encode([
                 'ok'    => false,
                 'error' => 'No se pudo cargar el mapa. Intenta de nuevo.',
@@ -182,7 +183,7 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'id' => $ticketId]);
         } catch (\Throwable $e) {
-            error_log('MapaController::abrirTicket - ' . $e->getMessage());
+            error_log('PuntoVentaController::abrirTicket - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo crear el ticket. Intenta de nuevo.']);
         }
     }
@@ -209,7 +210,7 @@ class MapaController {
 
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            error_log('MapaController::liberarReservacion - ' . $e->getMessage());
+            error_log('PuntoVentaController::liberarReservacion - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo liberar la reservacion. Intenta de nuevo.']);
         }
     }
@@ -223,18 +224,63 @@ class MapaController {
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
         $separar    = !empty($data['separar_comensales']);
         $pagos      = isset($data['pagos']) && is_array($data['pagos']) ? $data['pagos'] : [];
+        // Monto recibido en cuenta completa; el excedente sobre el total es propina.
+        $recibido   = isset($data['recibido']) ? round((float)$data['recibido'], 2) : null;
 
         if (!$ticketId) {
             echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
             return;
         }
 
+        // No se cierra una cuenta con productos sin entregar: el mesero debe
+        // haber entregado todo (los cancelados no cuentan) antes de cobrar.
+        // Se usa ejecutarSQL+fetch_assoc: consultarSQL descarta los alias como
+        // "AS n" que no son propiedades del modelo.
+        $pendientes = 0;
+        try {
+            $res = Ticket::ejecutarSQL(
+                "SELECT COUNT(*) AS n FROM ticket_items
+                 WHERE ticket_id = {$ticketId} AND estado NOT IN ('entregado','cancelado')"
+            );
+            if ($res && ($row = $res->fetch_assoc())) {
+                $pendientes = (int)$row['n'];
+            }
+        } catch (\Throwable $e) {
+            $pendientes = 0;
+        }
+        if ($pendientes > 0) {
+            echo json_encode([
+                'ok'  => false,
+                'msg' => 'Hay ' . $pendientes . ' producto(s) sin entregar. Entrégalos antes de cerrar la cuenta.',
+            ]);
+            return;
+        }
+
+        // Total real de la cuenta (no se confía en el cliente). Se usa en ambas
+        // ramas para validar el pago y calcular la propina.
+        try {
+            $rows  = TicketItem::consultarSQL(
+                "SELECT precio, cantidad FROM ticket_items
+                 WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+            );
+            $total = 0.0;
+            foreach ($rows as $r) {
+                $total += (float)$r->precio * (int)$r->cantidad;
+            }
+            $total = round($total, 2);
+        } catch (\Throwable $e) {
+            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            return;
+        }
+        $totalCents = (int)round($total * 100);
+
         $allowedMetodos = ['efectivo', 'tarjeta'];
         $pagosLimpios   = [];
+        $propina        = 0.0;
 
         if ($separar && !empty($pagos)) {
-            // Cuenta dividida: validar el pago de cada comensal y que la suma
-            // coincida con el total real del ticket (no confiar en el cliente).
+            // Cuenta dividida: validar el pago de cada comensal. La suma debe
+            // cubrir el total; el excedente es propina.
             $sumaPagos = 0.0;
             foreach ($pagos as $p) {
                 $comensal = isset($p['comensal']) ? (int)$p['comensal'] : 0;
@@ -256,46 +302,52 @@ class MapaController {
                 return;
             }
 
-            try {
-                // Sumar en PHP sobre columnas reales del modelo: crearObjeto() ignora
-                // los alias (p.ej. "AS total") que no existen como propiedad de TicketItem.
-                $rows  = TicketItem::consultarSQL(
-                    "SELECT precio, cantidad FROM ticket_items
-                     WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
-                );
-                $total = 0.0;
-                foreach ($rows as $r) {
-                    $total += (float)$r->precio * (int)$r->cantidad;
-                }
-                $total = round($total, 2);
-            } catch (\Throwable $e) {
-                echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
-                return;
-            }
-
-            // Comparación en centavos para evitar errores de coma flotante
-            if (abs((int)round($sumaPagos * 100) - (int)round($total * 100)) > 1) {
+            // La suma no puede quedar por debajo del total (±1 centavo de holgura).
+            $sumaCents = (int)round($sumaPagos * 100);
+            if ($sumaCents < $totalCents - 1) {
                 echo json_encode([
                     'ok'    => false,
                     'msg'   => 'La suma de los pagos ($' . number_format($sumaPagos, 2) .
-                               ') no coincide con el total de la cuenta ($' . number_format($total, 2) . ')',
+                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
                     'total' => $total,
                 ]);
                 return;
             }
 
+            $propina = round(max(0.0, $sumaPagos - $total), 2);
+
             // Toda cuenta dividida se registra como 'dividido' a nivel ticket;
             // el método y monto de cada comensal queda en ticket_pagos.
             $metodoPago = 'dividido';
-        } elseif (!in_array($metodoPago, $allowedMetodos, true)) {
-            echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
-            return;
+        } else {
+            // Cuenta completa: un único método y el monto recibido. La propina
+            // es lo recibido por encima del total.
+            if (!in_array($metodoPago, $allowedMetodos, true)) {
+                echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
+                return;
+            }
+            // Sin monto recibido se asume pago exacto (sin propina).
+            if ($recibido === null) {
+                $recibido = $total;
+            }
+            if ((int)round($recibido * 100) < $totalCents - 1) {
+                echo json_encode([
+                    'ok'    => false,
+                    'msg'   => 'El monto recibido ($' . number_format($recibido, 2) .
+                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
+                    'total' => $total,
+                ]);
+                return;
+            }
+            $propina = round(max(0.0, $recibido - $total), 2);
         }
 
         try {
-            $mp = Ticket::escaparString($metodoPago);
+            $mp   = Ticket::escaparString($metodoPago);
+            $prop = number_format($propina, 2, '.', '');
             Ticket::ejecutarSQL(
-                "UPDATE tickets SET estado = 'cerrado', metodo_pago = '{$mp}' WHERE id = {$ticketId}"
+                "UPDATE tickets SET estado = 'cerrado', metodo_pago = '{$mp}', propina = {$prop}
+                 WHERE id = {$ticketId}"
             );
 
             foreach ($pagosLimpios as $pago) {
@@ -350,9 +402,9 @@ class MapaController {
                 error_log('cerrarTicket — impresión de cuenta falló: ' . $e->getMessage());
             }
 
-            echo json_encode(['ok' => true, 'token' => $token]);
+            echo json_encode(['ok' => true, 'token' => $token, 'propina' => $propina]);
         } catch (\Throwable $e) {
-            error_log('MapaController::cerrarTicket - ' . $e->getMessage());
+            error_log('PuntoVentaController::cerrarTicket - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo cerrar el ticket. Intenta de nuevo.']);
         }
     }
@@ -453,7 +505,7 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
         } catch (\Throwable $e) {
-            error_log('MapaController::enviarComanda - ' . $e->getMessage());
+            error_log('PuntoVentaController::enviarComanda - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo enviar la comanda. Intenta de nuevo.']);
         }
     }
@@ -477,7 +529,7 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            error_log('MapaController::cancelarItem - ' . $e->getMessage());
+            error_log('PuntoVentaController::cancelarItem - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo cancelar el item. Intenta de nuevo.']);
         }
     }
@@ -501,7 +553,7 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            error_log('MapaController::entregarItem - ' . $e->getMessage());
+            error_log('PuntoVentaController::entregarItem - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
         }
     }
@@ -527,7 +579,7 @@ class MapaController {
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
-            error_log('MapaController::actualizarTicket - ' . $e->getMessage());
+            error_log('PuntoVentaController::actualizarTicket - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo actualizar el ticket. Intenta de nuevo.']);
         }
     }
@@ -571,9 +623,50 @@ class MapaController {
 
             echo json_encode(['ok' => true, 'items' => $items]);
         } catch (\Throwable $e) {
-            error_log('MapaController::ticketItems - ' . $e->getMessage());
+            error_log('PuntoVentaController::ticketItems - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudieron cargar los items. Intenta de nuevo.']);
         }
+    }
+
+    /**
+     * POST /api/sugerencias { ticket_id }
+     * Pide a n8n las sugerencias de venta del ticket al abrir la mesa. El
+     * flujo responde en el mismo request: el mesero las necesita en pantalla.
+     */
+    public static function sugerencias(Router $router) {
+        header('Content-Type: application/json');
+
+        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
+        // vistos = producto_id que el modal ya mostró en esta sesión, para no
+        // repetirlos. Es la única memoria: no se persiste nada.
+        $vistos   = isset($data['vistos']) && is_array($data['vistos']) ? $data['vistos'] : [];
+
+        if (!$ticketId) {
+            echo json_encode(['ok' => false, 'estado' => 'error', 'msg' => 'ticket_id requerido']);
+            return;
+        }
+
+        try {
+            $resultado = Sugerencias::paraTicket($ticketId, $vistos);
+        } catch (\Throwable $e) {
+            error_log('PuntoVentaController::sugerencias - ' . $e->getMessage());
+
+            [$estado, $msg] = match ($e->getMessage()) {
+                'sin_config'      => ['sin_config', 'Las sugerencias automáticas aún no están configuradas.'],
+                'ticket_invalido' => ['error', 'El ticket ya no está abierto.'],
+                default           => ['error', 'No pudimos obtener sugerencias. Intenta de nuevo.'],
+            };
+
+            echo json_encode(['ok' => false, 'estado' => $estado, 'msg' => $msg]);
+            return;
+        }
+
+        echo json_encode([
+            'ok'          => true,
+            'etapa'       => $resultado['etapa'],
+            'sugerencias' => $resultado['sugerencias'],
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     private static function mensajeReservacion(string $codigo): string
