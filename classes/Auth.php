@@ -17,7 +17,7 @@ class Auth {
 
     /** Rutas exactas de API del personal (devuelven 401 JSON en vez de redirigir). */
     private const APIS_STAFF = [
-        '/api/mapa',
+        '/api/punto-de-venta',
         '/api/abrir-ticket',
         '/api/liberar-reservacion',
         '/api/cerrar-ticket',
@@ -76,7 +76,7 @@ class Auth {
     /** Vista inicial que corresponde a un rol tras iniciar sesión. */
     public static function destinoPorRol(?string $rol = null): string {
         $rol = $rol ?? self::rol();
-        return $rol === 'admin' ? '/admin' : '/mapa';
+        return $rol === 'admin' ? '/admin' : '/punto-de-venta';
     }
 
     /**
