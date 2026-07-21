@@ -2,24 +2,89 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use Classes\Email;
 use Model\Usuario;
 use MVC\Router;
 
 class AuthController {
+    /** Acceso del personal de piso (meseros/cajeros) por NIP → /mapa. */
     public static function login(Router $router) {
-        // Fase actual: solo la vista premium. Sin autenticación ni protección
-        // de rutas todavía; el formulario redirige a /admin.
+        // Alguien con sesión activa no ve el login: va directo a su vista.
+        if (Auth::check()) {
+            header('Location: ' . Auth::destinoPorRol());
+            exit;
+        }
+
+        $alertas = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $nip = trim((string) ($_POST['nip'] ?? ''));
+
+            if (!preg_match('/^\d{4,6}$/', $nip)) {
+                $alertas['error'][] = 'Ingresa un NIP de 4 a 6 dígitos';
+            } else {
+                $usuario = Usuario::porNip($nip);
+
+                if ($usuario) {
+                    Auth::login($usuario);
+                    header('Location: ' . Auth::destinoPorRol($usuario->rol));
+                    exit;
+                }
+
+                $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
+            }
+        }
+
         include_once __DIR__ . '/../views/auth/login.php';
+    }
+
+    /**
+     * Acceso del administrador por usuario + contraseña alfanumérica → /admin.
+     * Un mesero/cajero con credenciales válidas no entra por aquí: solo admin.
+     */
+    public static function loginAdmin(Router $router) {
+        if (Auth::check()) {
+            header('Location: ' . Auth::destinoPorRol());
+            exit;
+        }
+
+        $alertas = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = trim((string) ($_POST['username'] ?? ''));
+            $password = (string) ($_POST['password'] ?? '');
+
+            if ($username === '' || $password === '') {
+                $alertas['error'][] = 'Ingresa tu usuario y contraseña';
+            } else {
+                $usuario = Usuario::porCredenciales($username, $password);
+
+                if ($usuario && $usuario->rol === 'admin') {
+                    Auth::login($usuario);
+                    header('Location: /admin');
+                    exit;
+                }
+
+                // Mensaje genérico: no revelar si el usuario existe o si el
+                // rol no es admin.
+                $alertas['error'][] = 'Credenciales incorrectas';
+            }
+        }
+
+        include_once __DIR__ . '/../views/auth/login-admin.php';
     }
 
     public static function logout() {
         if($_SERVER['REQUEST_METHOD'] === 'POST') {
-            session_start();
-            $_SESSION = [];
-            header('Location: /');
+            // Cada quien regresa a su propio formulario de acceso
+            $destino = Auth::esAdmin() ? '/admin/login' : '/login';
+            Auth::logout();
+            header('Location: ' . $destino);
+            exit;
         }
-       
+        header('Location: /');
+        exit;
     }
 
     public static function registro(Router $router) {

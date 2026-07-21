@@ -55,6 +55,7 @@ class AdminUsersController
 
             if (empty($alertas['error'])) {
                 $user->hashPassword();
+                $user->hashNip();
 
                 $resultado = $user->guardar();
 
@@ -116,6 +117,9 @@ class AdminUsersController
                 $alertas = $user->validarEditar();
 
                 if (empty($alertas['error'])) {
+                    // NIP vacío en edición = conservar el actual
+                    $user->hashNip();
+
                     $resultado = $user->guardar();
 
                     if ($resultado) {
