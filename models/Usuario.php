@@ -11,6 +11,7 @@ class Usuario extends ActiveRecord
         'username',
         'nombre',
         'password_hash',
+        'nip_hash',
         'rol',
         'activo',
         'created_at',
@@ -21,6 +22,7 @@ class Usuario extends ActiveRecord
     public $username;
     public $nombre;
     public $password_hash;
+    public $nip_hash;
     public $rol = 'observer';
     public $activo = 1;
     public $created_at;
@@ -29,6 +31,7 @@ class Usuario extends ActiveRecord
     // Propiedades temporales: no existen en SQL y no se guardan
     public $password;
     public $password_confirm;
+    public $nip;
 
     protected const ROLES_PERMITIDOS = [
         'admin',
@@ -89,6 +92,8 @@ class Usuario extends ActiveRecord
         $this->normalizarDatos();
         $this->validarDatosBase();
         $this->validarPassword();
+        // El NIP solo lo usa el personal de piso; el admin entra con contraseña
+        $this->validarNip($this->rol !== 'admin');
         $this->validarUsernameUnico();
 
         return static::$alertas;
@@ -100,6 +105,7 @@ class Usuario extends ActiveRecord
 
         $this->normalizarDatos();
         $this->validarDatosBase();
+        $this->validarNip(false);
         $this->validarUsernameUnico($this->id);
 
         return static::$alertas;
@@ -205,9 +211,100 @@ class Usuario extends ActiveRecord
         static::setAlerta('error', 'El nombre de usuario ya está registrado');
     }
 
+    /**
+     * NIP de acceso rápido (4 a 6 dígitos) del personal de piso. Obligatorio al
+     * crear meseros/cajeros; al editar, dejarlo vacío conserva el actual. Debe
+     * ser único entre usuarios porque el login identifica a la persona solo
+     * con su NIP. Los administradores no lo usan: entran con contraseña.
+     */
+    private function validarNip(bool $obligatorio)
+    {
+        $this->nip = trim((string) ($this->nip ?? ''));
+
+        if ($this->nip === '') {
+            if ($obligatorio) {
+                static::setAlerta('error', 'El NIP es obligatorio');
+            }
+            return;
+        }
+
+        if (!preg_match('/^\d{4,6}$/', $this->nip)) {
+            static::setAlerta('error', 'El NIP debe tener de 4 a 6 dígitos');
+            return;
+        }
+
+        if (!self::nipDisponible($this->nip, $this->id ? (int) $this->id : null)) {
+            static::setAlerta('error', 'Ese NIP ya está asignado a otro usuario');
+        }
+    }
+
+    /** Verifica que ningún otro usuario tenga ya este NIP (los NIP van hasheados). */
+    public static function nipDisponible(string $nip, ?int $idActual = null): bool
+    {
+        $usuarios = self::consultarSQL(
+            "SELECT id, nip_hash FROM " . static::$tabla . " WHERE nip_hash IS NOT NULL"
+        );
+
+        foreach ($usuarios as $usuario) {
+            if ($idActual && (int) $usuario->id === $idActual) {
+                continue;
+            }
+            if (password_verify($nip, (string) $usuario->nip_hash)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Identifica al usuario activo cuyo NIP coincide. Los NIP se guardan
+     * hasheados, así que se recorre al personal activo con password_verify
+     * (la plantilla es pequeña; no hay problema de rendimiento).
+     * Los administradores quedan fuera: su acceso es por contraseña.
+     */
+    public static function porNip(string $nip): ?Usuario
+    {
+        $usuarios = self::consultarSQL(
+            "SELECT * FROM " . static::$tabla .
+            " WHERE activo = 1 AND nip_hash IS NOT NULL AND rol <> 'admin'"
+        );
+
+        foreach ($usuarios as $usuario) {
+            if (password_verify($nip, (string) $usuario->nip_hash)) {
+                return $usuario;
+            }
+        }
+
+        return null;
+    }
+
+    /** Identifica al usuario activo por usuario + contraseña (login del admin). */
+    public static function porCredenciales(string $username, string $password): ?Usuario
+    {
+        $usernameEscapado = self::escaparString($username);
+        $usuario = self::consultarSQL(
+            "SELECT * FROM " . static::$tabla .
+            " WHERE activo = 1 AND username = '{$usernameEscapado}' LIMIT 1"
+        )[0] ?? null;
+
+        if ($usuario && password_verify($password, (string) $usuario->password_hash)) {
+            return $usuario;
+        }
+
+        return null;
+    }
+
     public function hashPassword()
     {
         $this->password_hash = password_hash($this->password, PASSWORD_DEFAULT);
+    }
+
+    public function hashNip()
+    {
+        if ($this->nip !== null && $this->nip !== '') {
+            $this->nip_hash = password_hash($this->nip, PASSWORD_DEFAULT);
+        }
     }
 
     public function esAdminActivo(): bool
