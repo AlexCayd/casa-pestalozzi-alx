@@ -67,6 +67,26 @@
             </div>
 
             <div class="admin-users-form__field">
+                <label for="nip">NIP de acceso</label>
+                <input
+                    type="password"
+                    id="nip"
+                    name="nip"
+                    inputmode="numeric"
+                    pattern="\d{4,6}"
+                    maxlength="6"
+                    autocomplete="off"
+                    placeholder="<?php echo $modo === 'editar' ? 'Sin cambio' : 'ej. 4821'; ?>"
+                    title="NIP numérico de 4 a 6 dígitos"
+                >
+                <p class="admin-users-form__hint">
+                    <?php echo $modo === 'editar'
+                        ? 'De 4 a 6 dígitos, único por usuario. Déjalo vacío para conservar el actual.'
+                        : 'De 4 a 6 dígitos, único por usuario. El personal de piso inicia sesión con él en /login; los administradores no lo usan (entran con contraseña en /admin/login).'; ?>
+                </p>
+            </div>
+
+            <div class="admin-users-form__field">
                 <label for="rol">Rol</label>
                 <select id="rol" name="rol" required>
                     <?php foreach ($roles as $rol) : ?>

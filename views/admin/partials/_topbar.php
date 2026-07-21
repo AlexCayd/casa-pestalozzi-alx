@@ -6,6 +6,13 @@
 $currentModuleTitle = $topbarTitle
     ?? $title
     ?? ($modules[$activeModule]['title'] ?? 'Panel');
+
+// Usuario autenticado (sesión iniciada por el login con NIP)
+$authNombre = trim((string) ($_SESSION['nombre'] ?? 'Administrador'));
+$authPalabras = preg_split('/\s+/', $authNombre) ?: [];
+$authIniciales = strtoupper(
+    mb_substr($authPalabras[0] ?? 'A', 0, 1) . mb_substr($authPalabras[1] ?? '', 0, 1)
+);
 ?>
 <header class="admin-topbar">
     <button
@@ -46,8 +53,18 @@ $currentModuleTitle = $topbarTitle
         </button>
 
         <div class="admin-topbar__user" aria-label="Usuario actual">
-            <span>Administrador</span>
-            <strong>AD</strong>
+            <span><?php echo htmlspecialchars($authNombre, ENT_QUOTES, 'UTF-8'); ?></span>
+            <strong><?php echo htmlspecialchars($authIniciales, ENT_QUOTES, 'UTF-8'); ?></strong>
         </div>
+
+        <form method="POST" action="/logout" class="admin-topbar__logout-form">
+            <button class="admin-topbar__logout" type="submit" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <path d="m16 17 5-5-5-5"/>
+                    <path d="M21 12H9"/>
+                </svg>
+            </button>
+        </form>
     </div>
 </header>
