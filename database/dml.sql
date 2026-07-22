@@ -802,5 +802,5 @@ UPDATE tickets t SET t.mesero_id = 6,
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
---Anuncio inicial que se modificará
-INSERT IGNORE INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+-- Anuncio inicial que se modificará
+INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);

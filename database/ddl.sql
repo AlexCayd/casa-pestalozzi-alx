@@ -13,6 +13,10 @@
 -- logs_sugerencias se conserva en el DROP para limpiar instalaciones previas:
 -- la tabla ya no existe en este esquema (ver nota en SUGERENCIAS).
 DROP TABLE IF EXISTS logs_sugerencias;
+DROP TABLE IF EXISTS reportes_sistema;
+DROP TABLE IF EXISTS configuracion_anuncio;
+DROP TABLE IF EXISTS excepciones_operacion;
+DROP TABLE IF EXISTS horarios_operacion;
 DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS impresoras;
@@ -41,14 +45,16 @@ CREATE TABLE IF NOT EXISTS dias_reservacion (
   nombre        VARCHAR(20) NOT NULL,
   hora_apertura TIME NOT NULL,
   hora_cierre   TIME NOT NULL,
-  activo        TINYINT(1) NOT NULL DEFAULT 1
+  activo        TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_dias_reservacion_dia_semana (dia_semana)
 );
 
 CREATE TABLE IF NOT EXISTS horarios_reservacion (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   dia_id INT NOT NULL,
   hora   TIME NOT NULL,
-  FOREIGN KEY (dia_id) REFERENCES dias_reservacion(id) ON DELETE CASCADE
+  FOREIGN KEY (dia_id) REFERENCES dias_reservacion(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_horarios_reservacion_dia_hora (dia_id, hora)
 );
 
 CREATE TABLE IF NOT EXISTS mesas (
@@ -289,20 +295,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 -- no hay dónde medir la conversión por producto.
 -- CAMBIOS MODULO DE AJUSTES
 -- -------------------------------------------------------
-ALTER TABLE reservaciones
-  ADD COLUMN request_token VARCHAR(64) NULL AFTER comentario_admin,
-  ADD UNIQUE KEY uq_reservaciones_request_token (request_token);
-
-
-ALTER TABLE dias_reservacion
-  ADD CONSTRAINT uq_dias_reservacion_dia_semana
-  UNIQUE (dia_semana);
-
-ALTER TABLE horarios_reservacion
-  ADD CONSTRAINT uq_horarios_reservacion_dia_hora
-  UNIQUE (dia_id, hora);
-
-  CREATE TABLE IF NOT EXISTS horarios_operacion (
+CREATE TABLE IF NOT EXISTS horarios_operacion (
   id            TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   dia_semana    TINYINT UNSIGNED NOT NULL
                   COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
