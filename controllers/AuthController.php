@@ -8,7 +8,7 @@ use Model\Usuario;
 use MVC\Router;
 
 class AuthController {
-    /** Acceso del personal de piso (meseros/cajeros) por NIP → /mapa. */
+    /** Acceso del personal de piso (meseros/cajeros) por NIP → /punto-de-venta. */
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
         if (Auth::check()) {

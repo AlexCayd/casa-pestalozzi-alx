@@ -32,7 +32,7 @@
             var dateInput = form.querySelector('[data-date-input]');
             var timeInput = form.querySelector('[data-time-input]');
             var timeStatus = form.querySelector('[data-time-status]');
-            var editableControls = Array.prototype.slice.call(form.querySelectorAll('[data-reservation-control], [data-reservation-ui]'));
+            var editableControls = Array.prototype.slice.call(form.querySelectorAll('[data-reservation-control]'));
             var initialDate = form.getAttribute('data-initial-date') || (dateInput ? dateInput.value : '');
             var initialTime = normalizeHour(form.getAttribute('data-initial-time') || (timeInput ? timeInput.value : ''));
             var originalValues = {
@@ -138,7 +138,7 @@
                     cancelButton.hidden = mode === 'crear' || !isEditing;
                 }
                 if (editBanner) {
-                    editBanner.hidden = !isEditing;
+                    editBanner.hidden = mode !== 'editar' || !isEditing;
                 }
 
                 setOperationalActionsDisabled(isEditing && mode === 'editar');

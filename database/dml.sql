@@ -801,3 +801,6 @@ UPDATE tickets t SET t.mesero_id = 6,
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
+
+--Anuncio inicial que se modificará
+INSERT IGNORE INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);

@@ -1,0 +1,126 @@
+@use "../../../components/reservation-picker" as reservationPicker;
+
+/*
+ * Adaptación administrativa de los selectores reutilizados en reservaciones.
+ * Mantiene el mismo componente del frontend con tokens y densidad del panel.
+ */
+.admin-body {
+  --reservation-picker-disabled-opacity: 0.72;
+  --reservation-picker-field-height: 46px;
+  --reservation-picker-field-padding: 11px 13px;
+  --reservation-picker-field-border: 1px solid var(--admin-border-soft);
+  --reservation-picker-field-border-bottom: 1px solid var(--admin-border-soft);
+  --reservation-picker-field-radius: var(--admin-radius-sm);
+  --reservation-picker-field-bg: var(--admin-surface-soft);
+  --reservation-picker-field-color: var(--admin-text);
+  --reservation-picker-field-font-size: 13px;
+  --reservation-picker-field-font-weight: 800;
+  --reservation-picker-focus-border: var(--admin-gold);
+  --reservation-picker-dropdown-top: calc(100% + 8px);
+  --reservation-picker-dropdown-min-width: min(320px, calc(100vw - 48px));
+  --reservation-picker-border: var(--admin-border);
+  --reservation-picker-radius: var(--admin-radius-sm);
+  --reservation-picker-surface: var(--admin-surface);
+  --reservation-picker-shadow: 0 18px 44px rgba(11, 12, 13, 0.18);
+  --reservation-picker-z-index: 80;
+  --reservation-picker-calendar-padding: 14px;
+  --reservation-picker-head-display: grid;
+  --reservation-picker-head-columns: 34px minmax(0, 1fr) 34px;
+  --reservation-picker-head-gap: 8px;
+  --reservation-picker-head-margin-bottom: 12px;
+  --reservation-picker-title-color: var(--admin-text);
+  --reservation-picker-title-font-size: 13px;
+  --reservation-picker-title-font-weight: 900;
+  --reservation-picker-title-letter-spacing: 0;
+  --reservation-picker-nav-size: 34px;
+  --reservation-picker-nav-padding: 0;
+  --reservation-picker-nav-border: 1px solid var(--admin-border-soft);
+  --reservation-picker-accent: var(--admin-gold-deep);
+  --reservation-picker-accent-soft: var(--admin-gold-deep);
+  --reservation-picker-nav-hover-border: rgba(160, 126, 54, 0.42);
+  --reservation-picker-hover-bg: var(--admin-surface-soft);
+  --reservation-picker-hover-color: var(--admin-text);
+  --reservation-picker-grid-gap: 4px;
+  --reservation-picker-weekdays-margin-bottom: 6px;
+  --reservation-picker-weekday-padding: 0;
+  --reservation-picker-weekday-font-size: 10px;
+  --reservation-picker-weekday-font-weight: 900;
+  --reservation-picker-weekday-letter-spacing: 0;
+  --reservation-picker-muted: var(--admin-muted);
+  --reservation-picker-faint: var(--admin-faint);
+  --reservation-picker-day-font-size: 12px;
+  --reservation-picker-day-font-weight: 850;
+  --reservation-picker-day-hover-border: rgba(160, 126, 54, 0.28);
+  --reservation-picker-today-border: rgba(204, 163, 82, 0.58);
+  --reservation-picker-today-color: var(--admin-gold-deep);
+  --reservation-picker-selected-border: var(--admin-gold);
+  --reservation-picker-selected-bg: rgba(204, 163, 82, 0.18);
+  --reservation-picker-selected-color: var(--admin-text);
+  --reservation-picker-day-disabled-opacity: 0.44;
+  --reservation-picker-hours-max-height: 240px;
+  --reservation-picker-hours-padding: 6px;
+  --reservation-picker-hour-option-height: 36px;
+  --reservation-picker-hour-option-padding: 8px 10px;
+  --reservation-picker-hour-option-radius: var(--admin-radius-sm);
+  --reservation-picker-hour-font-size: 13px;
+  --reservation-picker-hour-font-weight: 850;
+  --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
+  --reservation-picker-hour-selected-color: var(--admin-gold-deep);
+  --reservation-picker-icon-color: var(--admin-faint);
+  --reservation-picker-time-icon-left: 13px;
+  --reservation-picker-time-icon-size: 17px;
+  --reservation-picker-time-chevron-right: 12px;
+  --reservation-picker-time-chevron-size: 15px;
+  --reservation-picker-time-padding-start: 42px;
+  --reservation-picker-time-padding-end: 38px;
+  --reservation-picker-open-ring: var(--admin-focus-ring);
+  --reservation-picker-hours-head-padding: 12px 14px 10px;
+  --reservation-picker-hours-head-bg: var(--admin-surface-soft);
+  --reservation-picker-hours-head-title-size: 12px;
+  --reservation-picker-hours-head-copy-size: 10px;
+  --reservation-picker-hours-columns: 2;
+  --reservation-picker-hours-gap: 4px;
+
+  @include reservationPicker.reservation-picker;
+
+  .date-display,
+  .hour-display {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+
+    &:hover:not(:disabled) {
+      border-color: rgba(204, 163, 82, 0.42);
+    }
+
+    &:focus,
+    &:focus-visible {
+      box-shadow: var(--admin-focus-ring);
+    }
+  }
+
+  .hour-picker-control .hour-display {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+      var(--admin-surface-soft);
+  }
+
+  .hour-picker-wrap.has-value .hour-display {
+    color: var(--admin-text);
+  }
+
+  .hour-dropdown__head strong {
+    letter-spacing: 0.01em;
+  }
+
+  .hour-option.sel {
+    box-shadow: inset 0 0 0 1px rgba(204, 163, 82, 0.08);
+  }
+
+  .admin-field.has-error,
+  .admin-datetime-field.has-error {
+    .date-display,
+    .hour-display {
+      border-color: var(--admin-danger);
+      box-shadow: 0 0 0 3px var(--admin-danger-bg);
+    }
+  }
+}

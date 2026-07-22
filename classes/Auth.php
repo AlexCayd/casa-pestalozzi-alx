@@ -9,7 +9,7 @@ use Model\Usuario;
  *
  * Dos accesos separados; el rol guardado en la BD decide qué rutas puede
  * visitar cada quien:
- *   - /login (NIP)                    → personal de piso → /mapa y pantallas de área
+ *   - /login (NIP)                    → personal de piso → /punto-de-venta y pantallas de área
  *   - /admin/login (usuario+password) → admin → /admin (panel completo)
  * Venga de donde venga la sesión, /admin/* exige rol admin.
  */
@@ -82,7 +82,7 @@ class Auth {
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
      * /admin/*            → solo rol admin (sin sesión: a /admin/login)
-     * /mapa, /area/*      → cualquier usuario autenticado (sin sesión: a /login)
+     * /punto-de-venta, /area/* → cualquier usuario autenticado (sin sesión: a /login)
      * APIs del personal   → cualquier usuario autenticado (401 JSON)
      * El resto (sitio público, /feedback, /api/feedback…) queda libre.
      */
@@ -93,7 +93,7 @@ class Auth {
         }
 
         $esAdminUrl = $url === '/admin' || str_starts_with($url, '/admin/');
-        $esStaffUrl = $url === '/mapa'
+        $esStaffUrl = $url === '/punto-de-venta'
             || str_starts_with($url, '/area/')
             || in_array($url, self::APIS_STAFF, true);
 

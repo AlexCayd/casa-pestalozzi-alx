@@ -1,0 +1,96 @@
+.operational-page {
+  --operational-font-brand: "KudosKaps", sans-serif;
+  --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;
+  --operational-font-ui: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --operational-text-xs: 12px;
+  --operational-text-sm: 13px;
+  --operational-text-base: 14px;
+  --operational-text-section: 15px;
+  --operational-text-subtitle: 16px;
+  --operational-text-customer: 22px;
+  --operational-weight-regular: 400;
+  --operational-weight-medium: 500;
+  --operational-weight-semibold: 600;
+  --operational-weight-bold: 700;
+  --operational-space-1: 4px;
+  --operational-space-2: 8px;
+  --operational-space-3: 12px;
+  --operational-space-4: 16px;
+  --operational-space-5: 24px;
+  --operational-space-6: 32px;
+  --operational-date-control-width: clamp(180px, 18vw, 220px);
+  --operational-shell-pad: clamp(12px, 1.35vw, 22px);
+  --operational-shell-gap: clamp(8px, 0.8vw, 12px);
+  --operational-header-height: 64px;
+  --operational-context-height: 64px;
+  --operational-module-max-width: 1440px;
+  --operational-workspace-max-height: 760px;
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-base);
+  font-weight: var(--operational-weight-regular);
+}
+
+.operational-page .admin-btn {
+  min-height: 44px;
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-base);
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.operation-shell,
+.mapa-shell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100dvh;
+  padding: var(--operational-shell-pad);
+  gap: var(--operational-shell-gap);
+}
+
+.operational-page .operational-layout {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--operational-shell-gap);
+}
+
+.operational-page .operational-module {
+  display: flex;
+  width: min(100%, var(--operational-module-max-width));
+  height: 100%;
+  max-width: var(--operational-module-max-width);
+  max-height: calc(var(--operational-workspace-max-height) + var(--operational-context-height) + var(--operational-shell-gap));
+  min-width: 0;
+  min-height: 0;
+  margin-inline: auto;
+  align-self: start;
+  flex-direction: column;
+  gap: var(--operational-shell-gap);
+  overflow: hidden;
+}
+
+.operational-workspace {
+  width: 100%;
+  max-height: var(--operational-workspace-max-height);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 1600px) {
+  .operational-page {
+    --operational-shell-pad: 24px;
+  }
+}
+
+@media (max-width: 700px) {
+  .operational-page {
+    --operational-shell-pad: 8px;
+    --operational-shell-gap: 8px;
+    --operational-header-height: 60px;
+  }
+}

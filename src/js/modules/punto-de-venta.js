@@ -4,8 +4,23 @@ function initMapa() {
   if (initMapa._done) return;
   initMapa._done = true;
 
-  var canvas = $('#pdv-canvas');
+  var canvas = $('#mapa-canvas');
   if (!canvas) return;
+
+  var mapVisual = window.MapaVisual && window.MapaVisual.crear({
+    canvas: canvas,
+    contexto: 'mapa-mesas',
+    interactivo: true,
+    seleccionMultiple: false,
+    mostrarLeyenda: true
+  });
+  if (!mapVisual) return;
+
+  canvas.addEventListener('mapa:mesa-click', function(event) {
+    if (event.detail && event.detail.contexto === 'mapa-mesas') {
+      onMesaClick(parseInt(event.detail.mesaId, 10));
+    }
+  });
 
   // ── Estado ────────────────────────────────────────────────
   var mesas         = [];
@@ -33,15 +48,17 @@ function initMapa() {
   var pollTimer     = null;
 
   // ── Refs DOM ──────────────────────────────────────────────
-  var slider        = $('#pdv-time-slider');
-  var sliderProg    = $('#pdv-slider-progress');
-  var sliderTip     = $('#pdv-slider-tooltip');
-  var fechaInput    = $('#pdv-fecha');
-  var reservasList  = $('#pdv-reservas-list');
-  var ahoraBtn      = $('#pdv-ahora-btn');
-  var currentTimeEl = $('#pdv-current-time');
-  var reservaCount  = $('#pdv-reserva-count');
-  var loadingEl     = $('#pdv-loading');
+  var slider        = $('#mapa-time-slider');
+  var sliderProg    = $('#mapa-slider-progress');
+  var sliderTip     = $('#mapa-slider-tooltip');
+  var fechaInput    = $('#mapa-fecha');
+  var reservasList  = $('#mapa-reservas-list');
+  var ahoraBtn      = $('#mapa-ahora-btn');
+  var currentTimeEl = $('#mapa-current-time');
+  var liveBadge     = $('#mapa-live-badge');
+  var updateStatus  = $('#mapa-update-status');
+  var reservaCount  = $('#mapa-reserva-count');
+  var loadingEl     = $('#mapa-loading');
   var modal         = $('#mesa-modal');
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
@@ -74,7 +91,7 @@ function initMapa() {
 
   function mesaPorId(id) {
     for (var i = 0; i < mesas.length; i++) {
-      if (mesas[i].id === id) return mesas[i];
+      if (parseInt(mesas[i].id, 10) === parseInt(id, 10)) return mesas[i];
     }
     return null;
   }
@@ -406,58 +423,86 @@ function initMapa() {
   }
 
   // ── Render: estados de todos los pines ────────────────────
+  function mesaReservable(mesa) {
+    return Boolean(mesa && (mesa.reservable === true || mesa.reservable === 1 || mesa.reservable === '1'));
+  }
+
+  function mesaTicketable(mesa) {
+    return Boolean(mesa && (mesaReservable(mesa) || mesa.tipo === 'barra'
+      || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja')));
+  }
+
+  function estadoVisualMapa(mesa, estado) {
+    if (!mesaReservable(mesa)) return 'no-reservable';
+    if (estado === 'ocupada' || estado === 'con-ticket') return 'ocupada';
+    if (estado === 'bloqueada' || estado === 'proxima') return 'asignada';
+    return 'libre';
+  }
+
+  function clasesEstadoMapa(mesa, estado) {
+    var classes = ['mesa-pin--' + estado];
+    if (!mesaReservable(mesa)) classes.push('mesa-pin--zona');
+    return classes;
+  }
+
+  function normalizarMesaMapa(mesa) {
+    var ticketable = mesaTicketable(mesa);
+    var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), sliderMin) : 'zona';
+
+    return {
+      id: mesa.id,
+      nombre: mesa.nombre,
+      tipo: mesa.tipo,
+      estadoVisual: estadoVisualMapa(mesa, estado),
+      x: mesa.pos_x,
+      y: mesa.pos_y,
+      ancho: mesa.ancho,
+      alto: mesa.alto,
+      reservable: mesaReservable(mesa),
+      capacidad: mesa.capacidad,
+      seleccionada: false,
+      interactivo: ticketable,
+      numero: mesa.numero,
+      titulo: mesa.nombre + (mesa.capacidad ? ' · Cap. ' + mesa.capacidad : ''),
+      clasesEstado: clasesEstadoMapa(mesa, estado),
+      atributos: {
+        'data-id': mesa.id,
+        'data-numero': mesa.numero == null ? '' : mesa.numero,
+        'data-reservable': mesa.reservable,
+        'data-ticketable': ticketable ? '1' : '0',
+        'data-estado': estado
+      }
+    };
+  }
+
   function renderEstados() {
-    var pins = $$('.mesa-pin[data-id]', canvas);
-    for (var i = 0; i < pins.length; i++) {
-      var pin = pins[i];
-      if (pin.dataset.ticketable !== '1') continue;
-      var id     = parseInt(pin.dataset.id, 10);
-      var estado = estadoMesa(id, sliderMin);
-      pin.classList.remove(
-        'mesa-pin--libre', 'mesa-pin--proxima', 'mesa-pin--bloqueada',
-        'mesa-pin--ocupada', 'mesa-pin--con-ticket'
-      );
-      pin.classList.add('mesa-pin--' + estado);
-      pin.dataset.estado = estado;
+    for (var i = 0; i < mesas.length; i++) {
+      var mesa = mesas[i];
+      if (!mesaTicketable(mesa)) continue;
+
+      var estado = estadoMesa(parseInt(mesa.id, 10), sliderMin);
+      mapVisual.actualizarEstado(mesa.id, {
+        estadoVisual: estadoVisualMapa(mesa, estado),
+        clasesEstado: clasesEstadoMapa(mesa, estado),
+        atributos: { 'data-estado': estado }
+      });
     }
   }
 
   // ── Render: pines en el canvas ────────────────────────────
   function renderMesas() {
-    canvas.innerHTML = '';
-    for (var i = 0; i < mesas.length; i++) {
-      var m   = mesas[i];
-      var ticketable = m.reservable || m.tipo === 'barra'
-                       || (m.tipo === 'especial' && m.nombre !== 'Caja');
-      var pin = document.createElement('div');
-      pin.className = 'mesa-pin mesa-pin--tipo-' + m.tipo;
-      pin.className += m.reservable ? ' mesa-pin--libre' : ' mesa-pin--zona';
-      pin.dataset.id         = m.id;
-      pin.dataset.numero     = m.numero;
-      pin.dataset.reservable = m.reservable;
-      pin.dataset.ticketable = ticketable ? '1' : '0';
-      pin.style.left = m.pos_x + '%';
-      pin.style.top  = m.pos_y + '%';
-      pin.title      = m.nombre + (m.capacidad ? ' · Cap. ' + m.capacidad : '');
-      var label = document.createElement('span');
-      label.className   = 'mesa-pin__label';
-      label.textContent = m.nombre;
-      pin.appendChild(label);
-      if (ticketable) {
-        (function(mesaId) {
-          pin.addEventListener('click', function() { onMesaClick(mesaId); });
-        })(m.id);
-      }
-      canvas.appendChild(pin);
-    }
+    mapVisual.render({
+      mesas: mesas.map(normalizarMesaMapa),
+      elementos: []
+    });
   }
 
   // ── Render: sidebar de reservaciones ──────────────────────
   function renderSidebar() {
     if (!reservaciones.length) {
       reservasList.innerHTML =
-        '<div class="pdv-empty-state">' +
-          '<span class="pdv-empty-icon">◌</span>' +
+        '<div class="mapa-empty-state">' +
+          '<span class="mapa-empty-icon">◌</span>' +
           '<span>Sin reservaciones para este día</span>' +
         '</div>';
       reservaCount.textContent = '0';
@@ -468,47 +513,43 @@ function initMapa() {
     for (var i = 0; i < reservaciones.length; i++) {
       var r          = reservaciones[i];
       var tempEstado = temporalEstadoReserva(r);
-      var card       = document.createElement('div');
-      card.className  = 'reserva-card';
-      card.dataset.id = r.id;
+      var cardClasses = [];
+      var tableNames = mesaIdsReserva(r).map(function(mesaId) {
+        var mesa = mesaPorId(mesaId);
+        return mesa ? mesa.nombre : '';
+      }).filter(Boolean);
 
-      if (r.estado === 'cancelada')       card.classList.add('reserva-card--pasada');
-      else if (tempEstado === 'vencida')  card.classList.add('reserva-card--pasada');
-      else if (tempEstado === 'en-curso') card.classList.add('reserva-card--activa');
-      else if (tempEstado === 'proxima')  card.classList.add('reserva-card--proxima');
+      if (r.estado === 'cancelada' || tempEstado === 'vencida') cardClasses.push('reserva-card--pasada');
+      else if (tempEstado === 'en-curso') cardClasses.push('reserva-card--activa');
+      else if (tempEstado === 'proxima') cardClasses.push('reserva-card--proxima');
 
-      var mesaNombre = nombresMesasReserva(r);
+      var card = window.OperationalReservationCard.create(r, {
+        hora: r.hora.substring(0, 5),
+        estado: r.estado,
+        mesas: tableNames,
+        clases: cardClasses,
+        meta: TEMPORAL_LABELS[tempEstado] ? {
+          label: TEMPORAL_LABELS[tempEstado],
+          className: 'reserva-card__temporal reserva-card__temporal--' + tempEstado
+        } : null
+      });
 
-      var temporalBadge = TEMPORAL_LABELS[tempEstado]
-        ? '<span class="reserva-card__temporal reserva-card__temporal--' + tempEstado + '">' +
-          TEMPORAL_LABELS[tempEstado] + '</span>'
-        : '';
-
-      card.innerHTML =
-        '<div class="reserva-card__hora">' + r.hora.substring(0, 5) + '</div>' +
-        '<div class="reserva-card__info">' +
-          '<span class="reserva-card__nombre">' + escHtml(r.nombre) + '</span>' +
-          '<span class="reserva-card__meta">' +
-            '<span class="reserva-card__comensales">&#x1F465; ' + r.comensales + '</span>' +
-            (mesaNombre ? '<span class="reserva-card__mesa">' + escHtml(mesaNombre) + '</span>' : '') +
-          '</span>' +
-          temporalBadge +
-        '</div>' +
-        '<div class="reserva-card__estado reserva-card__estado--' + r.estado + '">' + r.estado + '</div>';
-
-      (function(rid, mesaIds) {
-        card.addEventListener('click', function() { onCardClick(rid, mesaIds); });
-      })(r.id, mesaIdsReserva(r));
+      (function(rid, mesaIds, button) {
+        button.addEventListener('click', function() { onCardClick(rid, mesaIds); });
+      })(r.id, mesaIdsReserva(r), card.querySelector('button'));
       reservasList.appendChild(card);
     }
   }
 
   // ── Click en canvas / sidebar ─────────────────────────────
   function clearHighlight() {
-    var pins  = $$('.mesa-pin', canvas);
     var cards = $$('.reserva-card', reservasList);
-    for (var i = 0; i < pins.length;  i++) pins[i].classList.remove('mesa-pin--highlight');
-    for (var i = 0; i < cards.length; i++) cards[i].classList.remove('reserva-card--selected');
+    mapVisual.setSeleccionadas([]);
+    for (var i = 0; i < cards.length; i++) {
+      cards[i].classList.remove('reserva-card--selected');
+      var button = cards[i].querySelector('button');
+      if (button) button.setAttribute('aria-pressed', 'false');
+    }
   }
 
   function onMesaClick(mesaId) {
@@ -610,13 +651,12 @@ function initMapa() {
     var card = reservasList.querySelector('[data-id="' + reservaId + '"]');
     if (card) {
       card.classList.add('reserva-card--selected');
+      var button = card.querySelector('button');
+      if (button) button.setAttribute('aria-pressed', 'true');
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     mesaIds = Array.isArray(mesaIds) ? mesaIds : [];
-    for (var i = 0; i < mesaIds.length; i++) {
-      var pin = canvas.querySelector('[data-id="' + mesaIds[i] + '"]');
-      if (pin) pin.classList.add('mesa-pin--highlight');
-    }
+    mapVisual.setSeleccionadas(mesaIds);
   }
 
   // ── Modal ─────────────────────────────────────────────────
@@ -2077,106 +2117,25 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
-  // ── Calendario personalizado de fecha ────────────────────
+  // ── Selector compartido de fecha ─────────────────────────
   function initMapaCalendar() {
-    var picker     = document.getElementById('pdv-date-picker');
-    var displayBtn = document.getElementById('pdv-date-display');
-    var calEl      = document.getElementById('pdv-calendar');
-    if (!picker || !displayBtn || !calEl) return;
+    var picker = document.getElementById('mapa-date-picker');
+    if (!picker || !fechaInput || typeof window.createReservationDatePicker !== 'function') return;
 
-    var labelEl = document.getElementById('pdv-cal-label');
-    var gridEl  = document.getElementById('pdv-cal-grid');
-    var prevBtn = document.getElementById('pdv-cal-prev');
-    var nextBtn = document.getElementById('pdv-cal-next');
-
-    var MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
-    function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-    function toDisplay(d) {
-      return pad(d.getDate()) + ' · ' + MONTHS[d.getMonth()].substring(0, 3) + ' ' + d.getFullYear();
-    }
-
-    var initVal   = fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10);
-    var parts     = initVal.split('-');
-    var selected  = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-    var curYear   = selected.getFullYear();
-    var curMonth  = selected.getMonth();
-
-    function renderGrid() {
-      if (labelEl) labelEl.textContent = MONTHS[curMonth] + ' ' + curYear;
-      if (!gridEl) return;
-      gridEl.innerHTML = '';
-
-      var first = new Date(curYear, curMonth, 1).getDay();
-      var days  = new Date(curYear, curMonth + 1, 0).getDate();
-      var today = new Date(); today.setHours(0, 0, 0, 0);
-
-      for (var i = 0; i < first; i++) {
-        var empty = document.createElement('span');
-        empty.className = 'pdv-cal__day pdv-cal__day--empty';
-        gridEl.appendChild(empty);
+    window.createReservationDatePicker({
+      root: picker,
+      input: fechaInput,
+      initialValue: fechaInput.value,
+      today: picker.getAttribute('data-today-date'),
+      allowPast: true,
+      onChange: function(val) {
+        document.dispatchEvent(new CustomEvent('operational:contextchange', {
+          detail: { fecha: val, hora: '' }
+        }));
+        stopPolling();
+        fetchData(val, false);
+        startPolling();
       }
-
-      for (var d = 1; d <= days; d++) {
-        (function(day) {
-          var btn  = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'pdv-cal__day';
-          btn.textContent = day;
-
-          var date = new Date(curYear, curMonth, day);
-          date.setHours(0, 0, 0, 0);
-
-          if (date.getTime() === today.getTime())    btn.classList.add('pdv-cal__day--today');
-          if (selected && date.getTime() === selected.getTime()) btn.classList.add('pdv-cal__day--selected');
-
-          btn.addEventListener('click', function() {
-            selected = date;
-            var val  = date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
-            if (fechaInput) fechaInput.value = val;
-            displayBtn.textContent = toDisplay(date);
-            closeCal();
-            stopPolling();
-            fetchData(val, false);
-            startPolling();
-          });
-
-          gridEl.appendChild(btn);
-        })(d);
-      }
-    }
-
-    function openCal()  { calEl.classList.add('pdv-cal--open'); calEl.setAttribute('aria-hidden', 'false'); renderGrid(); }
-    function closeCal() { calEl.classList.remove('pdv-cal--open'); calEl.setAttribute('aria-hidden', 'true'); }
-
-    displayBtn.textContent = toDisplay(selected);
-    displayBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      calEl.classList.contains('pdv-cal--open') ? closeCal() : openCal();
-    });
-
-    if (prevBtn) {
-      prevBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        curMonth--;
-        if (curMonth < 0) { curMonth = 11; curYear--; }
-        renderGrid();
-      });
-    }
-
-    if (nextBtn) {
-      nextBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        curMonth++;
-        if (curMonth > 11) { curMonth = 0; curYear++; }
-        renderGrid();
-      });
-    }
-
-    document.addEventListener('click', function(e) {
-      if (!picker.contains(e.target)) closeCal();
     });
   }
 
@@ -2185,7 +2144,7 @@ function initMapa() {
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
       reservasList.innerHTML =
-        '<div class="pdv-empty-state"><span class="pdv-empty-icon">◌</span><span>Cargando…</span></div>';
+        '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
     }
     fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha))
       .then(function(res) { return res.json(); })
@@ -2193,8 +2152,8 @@ function initMapa() {
         if (data.ok === false) {
           if (!silent) {
             reservasList.innerHTML =
-              '<div class="pdv-empty-state pdv-empty-state--error">' +
-                '<span class="pdv-empty-icon">⚠</span>' +
+              '<div class="mapa-empty-state mapa-empty-state--error">' +
+                '<span class="mapa-empty-icon">⚠</span>' +
                 '<span>' + (data.hint || data.error || 'Error de servidor') + '</span>' +
               '</div>';
             if (loadingEl) loadingEl.classList.add('hidden');
@@ -2208,13 +2167,19 @@ function initMapa() {
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();
+        if (updateStatus) {
+          updateStatus.textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-MX', {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        }
         if (loadingEl) loadingEl.classList.add('hidden');
       })
       .catch(function() {
         if (!silent) {
           reservasList.innerHTML =
-            '<div class="pdv-empty-state pdv-empty-state--error">' +
-              '<span class="pdv-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
+            '<div class="mapa-empty-state mapa-empty-state--error">' +
+              '<span class="mapa-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
             '</div>';
           if (loadingEl) loadingEl.classList.add('hidden');
         }
@@ -2245,7 +2210,7 @@ function initMapa() {
 
   function activateLive() {
     isLive = true;
-    if (ahoraBtn)  ahoraBtn.classList.add('pdv-ahora-btn--active');
+    if (ahoraBtn)  ahoraBtn.classList.add('mapa-ahora-btn--active');
     syncLive();
     if (liveInterval) clearInterval(liveInterval);
     liveInterval = setInterval(syncLive, 60000);
@@ -2254,7 +2219,7 @@ function initMapa() {
 
   function deactivateLive() {
     isLive = false;
-    if (ahoraBtn)  ahoraBtn.classList.remove('pdv-ahora-btn--active');
+    if (ahoraBtn)  ahoraBtn.classList.remove('mapa-ahora-btn--active');
     if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
   }
 
@@ -2276,7 +2241,7 @@ function initMapa() {
 // Auto-inicializar independientemente de boot()
 (function() {
   function tryInitMapa() {
-    if (document.getElementById('pdv-canvas')) initMapa();
+    if (document.getElementById('mapa-canvas')) initMapa();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', tryInitMapa);

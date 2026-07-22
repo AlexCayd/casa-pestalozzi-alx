@@ -38,6 +38,42 @@
     &.today { color: var(--beige); }
     &.today b { color: var(--accent); font-weight: 400; }
   }
+
+  &-unavailable {
+    color: var(--txt-mute);
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+}
+
+.reserva__schedule-changes {
+  margin-top: 1.5rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line-soft);
+
+  h6 {
+    margin-bottom: 0.7rem;
+    color: var(--beige);
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+    color: var(--txt-mute);
+    font-size: 0.76rem;
+    line-height: 1.45;
+  }
+
+  strong {
+    color: var(--beige);
+    font-weight: 500;
+  }
 }
 
 // Formulario
@@ -294,11 +330,17 @@
   --reservation-picker-dropdown-min-width: 280px;
   --reservation-picker-hour-selected-color: var(--accent);
   --reservation-picker-hours-max-height: 220px;
+  --reservation-picker-time-icon-left: 0.1rem;
+  --reservation-picker-time-chevron-right: 0.1rem;
+  --reservation-picker-time-padding-start: 1.9rem;
+  --reservation-picker-time-padding-end: 1.65rem;
+  --reservation-picker-hours-columns: 2;
+  --reservation-picker-hours-head-bg: var(--surface-2);
 
   @include reservationPicker.reservation-picker;
 
   .hour-dropdown {
-    min-width: 160px;
+    min-width: min(260px, calc(100vw - 48px));
   }
 }
 

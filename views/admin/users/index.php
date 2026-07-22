@@ -5,6 +5,7 @@ $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'role' => '', 'st
 $filtrosActivos = (bool) ($filtrosActivos ?? false);
 $roles = isset($roles) && is_iterable($roles) ? $roles : [];
 $roleLabels = is_array($roleLabels ?? null) ? $roleLabels : [];
+$partialOnly = (bool)($partialOnly ?? false);
 
 $valorUsuario = static function ($usuario, string $campo, $default = '') {
     if (is_array($usuario)) {
@@ -33,6 +34,7 @@ $iniciales = static function (string $nombre, string $username): string {
 };
 ?>
 
+<?php if (!$partialOnly) : ?>
 <section class="admin-users admin-menu admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
@@ -53,7 +55,17 @@ $iniciales = static function (string $nombre, string $username): string {
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-    <form class="admin-filters" method="GET" action="/admin/usuarios">
+    <form
+        class="admin-filters"
+        method="GET"
+        action="/admin/usuarios"
+        aria-label="Filtros de usuarios"
+        data-reactive-filters
+        data-reactive-target="#users-results"
+        data-reactive-loading="#users-results-loading"
+        data-reactive-error="#users-results-error"
+        data-reactive-debounce="350"
+    >
         <div class="admin-filters__search">
             <label for="users-q">Buscar</label>
             <input
@@ -62,11 +74,13 @@ $iniciales = static function (string $nombre, string $username): string {
                 name="q"
                 value="<?php echo htmlspecialchars((string) ($filtros['q'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                 placeholder="Nombre o usuario"
+                data-reactive-control
+                data-reactive-default=""
             >
         </div>
         <div class="admin-filters__group">
             <label for="users-role">Rol</label>
-            <select id="users-role" name="role">
+            <select id="users-role" name="role" data-reactive-control data-reactive-default="">
                 <option value="">Todos</option>
                 <?php foreach ($roles as $role) : ?>
                     <?php $role = (string) $role; ?>
@@ -78,18 +92,21 @@ $iniciales = static function (string $nombre, string $username): string {
         </div>
         <div class="admin-filters__group">
             <label for="users-status">Estado</label>
-            <select id="users-status" name="status">
+            <select id="users-status" name="status" data-reactive-control data-reactive-default="">
                 <option value="">Todos</option>
                 <option value="active" <?php echo ($filtros['status'] ?? '') === 'active' ? 'selected' : ''; ?>>Activos</option>
                 <option value="inactive" <?php echo ($filtros['status'] ?? '') === 'inactive' ? 'selected' : ''; ?>>Inactivos</option>
             </select>
         </div>
         <div class="admin-filters__actions">
-            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary">Buscar</button>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/usuarios">Limpiar</a>
+            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/usuarios" data-reactive-clear <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>Limpiar filtros</a>
         </div>
     </form>
 
+    <div class="admin-reactive-results-shell">
+        <div id="users-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
+<?php endif; ?>
     <section class="admin-menu__panel admin-panel admin-card">
         <div class="admin-menu__panel-head">
             <div>
@@ -212,6 +229,14 @@ $iniciales = static function (string $nombre, string $username): string {
             </div>
         <?php endif; ?>
     </section>
+<?php if (!$partialOnly) : ?>
+        </div>
+        <div class="admin-reactive-loading" id="users-results-loading" role="status" hidden>Actualizando resultados</div>
+    </div>
+    <div class="admin-reactive-error" id="users-results-error" role="alert" hidden>
+        <span>No fue posible actualizar los usuarios.</span>
+        <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-reactive-retry>Volver a intentar</button>
+    </div>
 </section>
 
 <div class="admin-modal" data-user-delete-modal hidden>
@@ -243,3 +268,4 @@ $iniciales = static function (string $nombre, string $username): string {
         </div>
     </div>
 </div>
+<?php endif; ?>

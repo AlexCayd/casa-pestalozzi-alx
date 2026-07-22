@@ -1,190 +1,273 @@
-const { src, dest, watch, parallel } = require('gulp');
+const { src, dest, watch, parallel, series } = require("gulp");
 
 // CSS
-const sass = require('gulp-sass')(require('sass'));
-const sourcemaps = require('gulp-sourcemaps');
+const sass = require("gulp-sass")(require("sass"));
+const sourcemaps = require("gulp-sourcemaps");
 
 // Imagenes
-const cache = require('gulp-cache');
-const imagemin = require('gulp-imagemin');
-const webp = require('gulp-webp');
-const avif = require('gulp-avif');
+const cache = require("gulp-cache");
+const imagemin = require("gulp-imagemin");
+const webp = require("gulp-webp");
+const avif = require("gulp-avif");
 
 // Javascript
-const terser = require('gulp-terser-js');
-const concat = require('gulp-concat');
-const rename = require('gulp-rename');
+const terser = require("gulp-terser-js");
+const concat = require("gulp-concat");
+const rename = require("gulp-rename");
 
 const paths = {
-    scss: 'src/scss/app.scss',
-    adminScss: 'src/scss/admin/shared/app-admin.scss',
-    adminModulesScss: 'src/scss/admin/modules/*.scss',
-    js: ['src/js/**/*.js', '!src/js/admin/**/*.js'],
-    adminJs: [
-        'src/js/admin/admin.js',
-        'src/js/admin/core/theme.js',
-        'src/js/admin/core/motion.js',
-        'src/js/admin/core/select.js'
-    ],
-    adminAnalyticsJs: [
-        'src/js/admin/analytics/mock-data.js',
-        'src/js/admin/analytics/charts.js',
-        'src/js/admin/analytics/analytics-page.js',
-        'src/js/admin/analytics/analytics.js'
-    ],
-    adminAreaJs: 'src/js/admin/area/area.js',
-    adminReservationOperationJs: [
-        'src/js/components/reservation-date-picker.js',
-        'src/js/components/reservation-time-picker.js',
-        'src/js/admin/reservations/form.js',
-        'src/js/admin/reservations/operation.js'
-    ],
-    imagenes: 'src/img/**/*',
-    chartJs: 'node_modules/chart.js/dist/chart.umd.min.js'
+  scss: "src/scss/app.scss",
+  adminScss: "src/scss/admin/shared/app-admin.scss",
+  adminModulesScss: "src/scss/admin/modules/*.scss",
+  operationScss: "src/scss/operation/reservations.scss",
+  js: [
+    "src/js/**/*.js",
+    "!src/js/admin/**/*.js",
+    "!src/js/operation/**/*.js",
+    "!src/js/modules/punto-de-venta.js",
+  ],
+  adminJs: [
+    "src/js/admin/admin.js",
+    "src/js/admin/core/theme.js",
+    "src/js/admin/core/motion.js",
+    "src/js/admin/core/reactive-filters.js",
+    "src/js/admin/core/select.js",
+  ],
+  adminAnalyticsJs: [
+    "src/js/admin/analytics/mock-data.js",
+    "src/js/admin/analytics/charts.js",
+    "src/js/admin/analytics/analytics-page.js",
+    "src/js/admin/analytics/analytics.js",
+  ],
+  adminMapJs: [
+    "src/js/components/reservation-date-picker.js",
+    "src/js/operation/shell.js",
+    "src/js/operation/map-visual.js",
+    "src/js/operation/reservation-card.js",
+    "src/js/modules/punto-de-venta.js",
+  ],
+  adminAreaJs: "src/js/admin/area/area.js",
+  adminReservationFormJs: [
+    "src/js/components/reservation-date-picker.js",
+    "src/js/components/reservation-time-picker.js",
+    "src/js/admin/reservations/form.js",
+  ],
+  adminReservationOperationJs: [
+    "src/js/components/reservation-date-picker.js",
+    "src/js/components/reservation-time-picker.js",
+    "src/js/operation/shell.js",
+    "src/js/operation/map-visual.js",
+    "src/js/operation/reservation-card.js",
+    "src/js/admin/reservations/operation.js",
+  ],
+  adminConfigurationJs: [
+    "src/js/components/reservation-date-picker.js",
+    "src/js/components/reservation-time-picker.js",
+    "src/js/admin/configuration/configuration.js",
+  ],
+  imagenes: "src/img/**/*",
+  chartJs: "node_modules/chart.js/dist/chart.umd.min.js",
 };
 
 function css() {
-    return src(paths.scss)
-        .pipe(sourcemaps.init())
-        .pipe(sass({ outputStyle: 'expanded' }))
-        .pipe(sourcemaps.write('.'))
-        .pipe(dest('public/build/css')) // auth views
-        .pipe(dest('assets/css')); // home view + index.html estatico
+  return src(paths.scss)
+    .pipe(sourcemaps.init())
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("public/build/css")) // auth views
+    .pipe(dest("assets/css")); // home view + index.html estatico
 }
 
 function adminCss() {
-    return src(paths.adminScss)
-        .pipe(sass({ outputStyle: 'expanded' }))
-        .pipe(rename('admin.css'))
-        .pipe(dest('public/build/css'));
+  return src(paths.adminScss)
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(rename("admin.css"))
+    .pipe(dest("public/build/css"));
 }
 
 function adminModuleCss() {
-    return src(paths.adminModulesScss)
-        .pipe(sass({ outputStyle: 'expanded' }))
-        .pipe(dest('public/build/css/admin'));
+  return src(paths.adminModulesScss)
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(dest("public/build/css/admin"));
 }
 
 function javascript() {
-    return src(paths.js)
-        .pipe(sourcemaps.init())
-        .pipe(concat('bundle.js'))
-        .pipe(terser())
-        .pipe(sourcemaps.write('.'))
-        .pipe(rename({ suffix: '.min' }))
-        .pipe(dest('./public/build/js')) // auth views
-        .pipe(dest('./assets/js')); // home view + index.html estatico
+  return src(paths.js)
+    .pipe(sourcemaps.init())
+    .pipe(concat("bundle.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(rename({ suffix: ".min" }))
+    .pipe(dest("./public/build/js")) // auth views
+    .pipe(dest("./assets/js")); // home view + index.html estatico
 }
 
 function adminJavascript() {
-    return src(paths.adminJs)
-        .pipe(sourcemaps.init())
-        .pipe(concat('admin.js'))
-        .pipe(terser())
-        .pipe(sourcemaps.write('.'))
-        .pipe(dest('./public/build/js'));
+  return src(paths.adminJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("admin.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js"));
 }
 
 function adminAnalyticsJavascript() {
-    return src(paths.adminAnalyticsJs)
-        .pipe(sourcemaps.init())
-        .pipe(concat('analytics.js'))
-        .pipe(terser())
-        .pipe(sourcemaps.write('.'))
-        .pipe(dest('./public/build/js/admin'));
+  return src(paths.adminAnalyticsJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("analytics.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminMapJavascript() {
+  return src(paths.adminMapJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("map.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
 }
 
 function adminAreaJavascript() {
-    return src(paths.adminAreaJs)
-        .pipe(sourcemaps.init())
-        .pipe(concat('area.js'))
-        .pipe(terser())
-        .pipe(sourcemaps.write('.'))
-        .pipe(dest('./public/build/js/admin'));
+  return src(paths.adminAreaJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("area.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
 }
 
 function adminReservationOperationJavascript() {
-    return src(paths.adminReservationOperationJs)
-        .pipe(sourcemaps.init())
-        .pipe(concat('reservation-operation.js'))
-        .pipe(terser())
-        .pipe(sourcemaps.write('.'))
-        .pipe(dest('./public/build/js/admin'));
+  return src(paths.adminReservationOperationJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("reservation-operation.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function operationCss() {
+  return src(paths.operationScss)
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(dest("public/build/css/operation"));
+}
+
+function adminReservationFormJavascript() {
+  return src(paths.adminReservationFormJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("reservation-form.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminConfigurationJavascript() {
+  return src(paths.adminConfigurationJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("configuration.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
 }
 
 function copyChartJs() {
-    return src(paths.chartJs)
-        .pipe(dest('public/build/js/vendor'));
+  return src(paths.chartJs).pipe(dest("public/build/js/vendor"));
 }
 
 function imagenes() {
-    return src(paths.imagenes)
-        .pipe(cache(imagemin({ optimizationLevel: 3 })))
-        .pipe(dest('public/build/img'));
+  return src(paths.imagenes)
+    .pipe(cache(imagemin({ optimizationLevel: 3 })))
+    .pipe(dest("public/build/img"));
 }
 
-function versionWebp(done) {
-    const opciones = {
-        quality: 50
-    };
+function versionWebp() {
+  const opciones = {
+    quality: 50,
+  };
 
-    src('src/img/**/*.{png,jpg}')
-        .pipe(webp(opciones))
-        .pipe(dest('public/build/img'));
-
-    done();
+  return src("src/img/**/*.{png,jpg}")
+    .pipe(webp(opciones))
+    .pipe(dest("public/build/img"));
 }
 
-function versionAvif(done) {
-    const opciones = {
-        quality: 50
-    };
+function versionAvif() {
+  const opciones = {
+    quality: 50,
+  };
 
-    src('src/img/**/*.{png,jpg}')
-        .pipe(avif(opciones))
-        .pipe(dest('public/build/img'));
-
-    done();
+  return src("src/img/**/*.{png,jpg}")
+    .pipe(avif(opciones))
+    .pipe(dest("public/build/img"));
 }
 
 // Copia fuentes a public/build/fonts/ (necesario para rutas CSS desde public/)
 function copyFonts() {
-    return src('assets/fonts/**/*')
-        .pipe(dest('public/build/fonts'));
+  return src("assets/fonts/**/*").pipe(dest("public/build/fonts"));
 }
 
 // Copia imagenes a public/build/images/ (necesario cuando public/ es el webroot)
 function copyImages() {
-    return src('assets/images/**/*')
-        .pipe(dest('public/build/images'));
+  return src("assets/images/**/*").pipe(dest("public/build/images"));
 }
 
 function devWatch(done) {
-    watch(paths.scss, css);
-    watch('src/scss/admin/shared/**/*.scss', adminCss);
-    watch('src/scss/admin/modules/**/*.scss', adminModuleCss);
-    watch(paths.js, javascript);
-    watch(['src/js/admin/admin.js', 'src/js/admin/core/**/*.js'], adminJavascript);
-    watch('src/js/admin/analytics/**/*.js', adminAnalyticsJavascript);
-    watch('src/js/admin/area/**/*.js', adminAreaJavascript);
-    watch('src/js/admin/reservations/**/*.js', adminReservationOperationJavascript);
-    watch(paths.chartJs, copyChartJs);
-    watch(paths.imagenes, imagenes);
-    watch(paths.imagenes, versionWebp);
-    watch(paths.imagenes, versionAvif);
-    watch('assets/fonts/**/*', copyFonts);
-    watch('assets/images/**/*', copyImages);
-    done();
+  watch(paths.scss, css);
+  watch("src/scss/admin/shared/**/*.scss", adminCss);
+  watch("src/scss/admin/modules/**/*.scss", adminModuleCss);
+  watch("src/scss/operation/**/*.scss", operationCss);
+  watch(paths.js, javascript);
+  watch(
+    ["src/js/admin/admin.js", "src/js/admin/core/**/*.js"],
+    adminJavascript,
+  );
+  watch("src/js/admin/analytics/**/*.js", adminAnalyticsJavascript);
+  watch(
+    ["src/js/modules/punto-de-venta.js", "src/js/operation/*.js"],
+    adminMapJavascript,
+  );
+  watch("src/js/admin/area/**/*.js", adminAreaJavascript);
+  watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
+  watch(
+    ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
+    adminReservationOperationJavascript,
+  );
+  watch(
+    "src/js/components/reservation-*-picker.js",
+    parallel(
+      adminMapJavascript,
+      adminReservationFormJavascript,
+      adminReservationOperationJavascript,
+    ),
+  );
+  watch(
+    [
+      "src/js/admin/configuration/**/*.js",
+      "src/js/components/reservation-*-picker.js",
+    ],
+    adminConfigurationJavascript,
+  );
+  watch(paths.chartJs, copyChartJs);
+  watch(paths.imagenes, imagenes);
+  watch(paths.imagenes, versionWebp);
+  watch(paths.imagenes, versionAvif);
+  watch("assets/fonts/**/*", copyFonts);
+  watch("assets/images/**/*", copyImages);
+  done();
 }
 
 exports.css = css;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
+exports.operationCss = operationCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
+exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
+exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
+exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.copyChartJs = copyChartJs;
 exports.imagenes = imagenes;
 exports.versionWebp = versionWebp;
@@ -192,19 +275,42 @@ exports.versionAvif = versionAvif;
 exports.copyFonts = copyFonts;
 exports.copyImages = copyImages;
 exports.dev = parallel(
-    css,
-    adminCss,
-    adminModuleCss,
-    imagenes,
-    versionWebp,
-    versionAvif,
-    javascript,
-    adminJavascript,
-    adminAnalyticsJavascript,
-    adminAreaJavascript,
-    adminReservationOperationJavascript,
-    copyChartJs,
-    copyFonts,
-    copyImages,
-    devWatch
+  css,
+  adminCss,
+  adminModuleCss,
+  operationCss,
+  imagenes,
+  versionWebp,
+  versionAvif,
+  javascript,
+  adminJavascript,
+  adminAnalyticsJavascript,
+  adminAreaJavascript,
+  adminReservationFormJavascript,
+  adminReservationOperationJavascript,
+  adminConfigurationJavascript,
+  copyChartJs,
+  copyFonts,
+  copyImages,
+  devWatch,
+);
+
+// Build finito. Las tareas de reservaciones se ejecutan en serie para evitar
+// que dos streams de minificacion compartan contenido al escribir bundles.
+exports.build = series(
+  css,
+  adminCss,
+  adminModuleCss,
+  operationCss,
+  imagenes,
+  versionWebp,
+  versionAvif,
+  javascript,
+  adminJavascript,
+  adminMapJavascript,
+  adminReservationFormJavascript,
+  adminReservationOperationJavascript,
+  adminConfigurationJavascript,
+  copyFonts,
+  copyImages,
 );

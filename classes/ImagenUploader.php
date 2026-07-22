@@ -39,6 +39,8 @@ class ImagenUploader
 
     /** Lado máximo (ancho/alto) al que se redimensiona la imagen. */
     private const LADO_MAX = 1200;
+    private const DIMENSION_MAXIMA_ENTRADA = 12000;
+    private const PIXELES_MAXIMOS = 40_000_000;
 
     /** Calidad de compresión del .webp resultante (0-100). */
     private const CALIDAD = 80;
@@ -66,10 +68,13 @@ class ImagenUploader
      */
     public function procesar(array $archivo): ?string
     {
+        $this->errores = [];
+
         if (!$this->validar($archivo)) {
             return null;
         }
 
+        $destino = null;
         try {
             $this->prepararCarpeta();
 
@@ -96,8 +101,16 @@ class ImagenUploader
                 ->encode('webp', self::CALIDAD)
                 ->save($destino);
 
+            if (!is_file($destino) || (int)filesize($destino) < 1) {
+                throw new \RuntimeException('El archivo WebP no fue escrito correctamente.');
+            }
+
             return self::RUTA_PUBLICA . $nombre;
         } catch (\Throwable $e) {
+            if (is_string($destino) && is_file($destino)) {
+                @unlink($destino);
+            }
+            error_log('ImagenUploader::procesar - ' . $e->getMessage());
             $this->errores[] = 'No se pudo procesar la imagen. Asegúrate de subir un archivo de imagen válido.';
             return null;
         }
@@ -128,6 +141,20 @@ class ImagenUploader
 
     // ── Internos ──────────────────────────────────────────────────────────
 
+    public static function directorioImagenes(): string
+    {
+        return self::CARPETA;
+    }
+
+    public static function archivoAbsoluto(?string $rutaRelativa): ?string
+    {
+        if (empty($rutaRelativa) || strpos($rutaRelativa, self::RUTA_PUBLICA) !== 0) {
+            return null;
+        }
+
+        return self::CARPETA . basename($rutaRelativa);
+    }
+
     private function validar(array $archivo): bool
     {
         if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -140,11 +167,32 @@ class ImagenUploader
             return false;
         }
 
+        $temporal = (string)($archivo['tmp_name'] ?? '');
+        if ($temporal === '' || !is_file($temporal) || !is_readable($temporal)) {
+            $this->errores[] = 'No fue posible leer el archivo temporal de la imagen.';
+            return false;
+        }
+
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime  = $finfo->file($archivo['tmp_name']);
+        $mime  = $finfo->file($temporal);
 
         if (!in_array($mime, self::MIME_PERMITIDOS, true)) {
             $this->errores[] = 'Formato no permitido. Usa JPG, PNG, WebP, GIF o AVIF.';
+            return false;
+        }
+
+        $dimensiones = @getimagesize($temporal);
+        if (!is_array($dimensiones) || empty($dimensiones[0]) || empty($dimensiones[1])) {
+            $this->errores[] = 'El archivo de imagen esta corrupto o no puede decodificarse.';
+            return false;
+        }
+
+        $ancho = (int)$dimensiones[0];
+        $alto = (int)$dimensiones[1];
+        if ($ancho > self::DIMENSION_MAXIMA_ENTRADA
+            || $alto > self::DIMENSION_MAXIMA_ENTRADA
+            || ($ancho * $alto) > self::PIXELES_MAXIMOS) {
+            $this->errores[] = 'Las dimensiones de la imagen exceden el limite permitido.';
             return false;
         }
 
@@ -154,12 +202,18 @@ class ImagenUploader
     private function prepararCarpeta(): void
     {
         if (!is_dir(self::CARPETA)) {
-            mkdir(self::CARPETA, 0775, true);
+            if (!mkdir(self::CARPETA, 0775, true) && !is_dir(self::CARPETA)) {
+                throw new \RuntimeException('No fue posible crear el directorio de imagenes.');
+            }
+        }
+
+        if (!is_readable(self::CARPETA) || !is_writable(self::CARPETA)) {
+            throw new \RuntimeException('El directorio de imagenes no tiene permisos suficientes.');
         }
     }
 
     private function generarNombre(): string
     {
-        return md5(uniqid((string) mt_rand(), true)) . '.webp';
+        return bin2hex(random_bytes(16)) . '.webp';
     }
 }

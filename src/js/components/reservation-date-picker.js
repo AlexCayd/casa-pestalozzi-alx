@@ -52,11 +52,14 @@
     var grid = root.querySelector("[data-date-grid]") || root.querySelector(".cpc-grid");
     var prevBtn = root.querySelector("[data-date-prev]") || root.querySelector(".cpc-prev");
     var nextBtn = root.querySelector("[data-date-next]") || root.querySelector(".cpc-next");
-    var minDate = parseDate(options.minDate || root.getAttribute("data-min-date")) || parseDate(new Date().toISOString().slice(0, 10));
+    var configuredToday = parseDate(options.today || root.getAttribute("data-today-date"));
+    var allowPast = options.allowPast === true || root.getAttribute("data-allow-past") === "1";
+    var configuredMinDate = parseDate(options.minDate || root.getAttribute("data-min-date"));
+    var minDate = configuredMinDate || (allowPast ? null : (configuredToday || parseDate(formatValue(new Date()))));
     var enabledWeekdays = parseWeekdays(options.enabledWeekdays || root.getAttribute("data-enabled-weekdays"));
     var MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     var selected = parseDate(options.initialValue || (input ? input.value : ""));
-    var current = selected || minDate || new Date();
+    var current = selected || minDate || configuredToday || new Date();
     var curYear = current.getFullYear();
     var curMonth = current.getMonth();
 
@@ -94,8 +97,7 @@
 
       var first = new Date(curYear, curMonth, 1).getDay();
       var days = new Date(curYear, curMonth + 1, 0).getDate();
-      var today = new Date();
-      today.setHours(0, 0, 0, 0);
+      var today = configuredToday || parseDate(formatValue(new Date()));
 
       for (var i = 0; i < first; i++) {
         var empty = document.createElement("span");

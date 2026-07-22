@@ -10,6 +10,7 @@ use Classes\ImagenUploader;
 use Model\CategoriasMenu;
 use Model\Menu;
 use MVC\Router;
+use Services\CategoriaMenuService;
 
 class AdminMenuController
 {
@@ -60,7 +61,7 @@ class AdminMenuController
         $offset = ($paginaActual - 1) * $porPagina;
         $platillos = Menu::buscarAdmin($filtros, $porPagina, $offset);
 
-        self::render('menu/items', [
+        $data = [
             'title' => 'Platillos',
             'topbarSection' => 'Gestión de menú / Platillos',
             'platillos' => $platillos,
@@ -73,7 +74,18 @@ class AdminMenuController
             'totalPaginas' => $totalPaginas,
             'totalMenu' => $totalMenu,
             'porPagina' => $porPagina,
-        ]);
+            'partialUrl' => AdminController::filterUrl('/admin/menu/items', array_merge(
+                $filtros,
+                $paginaActual > 1 ? ['page' => $paginaActual] : []
+            )),
+        ];
+
+        if (AdminController::isPartialRequest()) {
+            AdminController::renderPartial('menu/items', array_merge($data, ['partialOnly' => true]));
+            return;
+        }
+
+        self::render('menu/items', $data);
     }
 
     /**
@@ -138,17 +150,19 @@ class AdminMenuController
             }
 
             if (empty($alertas)) {
-                $resultado = $categoria->guardar();
+                $resultado = CategoriaMenuService::crear($categoria);
 
-                if ($resultado && $resultado['resultado']) {
+                if ($resultado['ok'] ?? false) {
                     CategoriasMenu::setAlerta('exito', 'Categoría creada correctamente');
                     self::categories($router);
                     return;
                 }
 
-                ImagenUploader::eliminar($categoria->img);
                 CategoriasMenu::setAlerta('error', 'No se pudo guardar la categoría');
                 $alertas = CategoriasMenu::getAlertas();
+            } elseif (!empty($categoria->img)) {
+                ImagenUploader::eliminar($categoria->img);
+                $categoria->img = null;
             }
         }
 
@@ -197,11 +211,8 @@ class AdminMenuController
             }
 
             if (empty($alertas)) {
-                if ($categoria->guardar()) {
-                    if ($categoria->img !== $imagenActual) {
-                        ImagenUploader::eliminar($imagenActual);
-                    }
-
+                $resultado = CategoriaMenuService::actualizar($categoria);
+                if ($resultado['ok'] ?? false) {
                     CategoriasMenu::setAlerta('exito', 'Categoría actualizada correctamente');
                     self::categories($router);
                     return;
@@ -209,6 +220,9 @@ class AdminMenuController
 
                 CategoriasMenu::setAlerta('error', 'No se pudo actualizar la categoría');
                 $alertas = CategoriasMenu::getAlertas();
+            } elseif ($categoria->img !== $imagenActual) {
+                ImagenUploader::eliminar($categoria->img);
+                $categoria->img = $imagenActual;
             }
         }
 
@@ -236,18 +250,15 @@ class AdminMenuController
             return;
         }
 
-        $platillos = Menu::consultarSQL(
-            'SELECT id FROM menu WHERE categoria_id = ' . (int) $id
-        );
+        $resultado = CategoriaMenuService::eliminar($id);
 
-        if (!empty($platillos)) {
+        if (($resultado['codigo'] ?? '') === CategoriaMenuService::TIENE_PLATILLOS) {
             CategoriasMenu::setAlerta('error', 'No se puede eliminar: la categoría tiene platillos asociados');
             self::categories($router);
             return;
         }
 
-        if ($categoria->eliminar()) {
-            ImagenUploader::eliminar($categoria->img);
+        if ($resultado['ok'] ?? false) {
             CategoriasMenu::setAlerta('exito', 'Categoría eliminada correctamente');
         } else {
             CategoriasMenu::setAlerta('error', 'No se pudo eliminar la categoría');
