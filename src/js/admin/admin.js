@@ -230,10 +230,12 @@
             activeForm.submit();
         }
 
-        document.querySelectorAll('[data-user-delete]').forEach(function (button) {
-            button.addEventListener('click', function () {
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-user-delete]');
+
+            if (button) {
                 openModal(button);
-            });
+            }
         });
 
         input.addEventListener('input', refreshConfirm);
@@ -256,11 +258,209 @@
         });
     }
 
+    function initAdminModals() {
+        let activeModal = null;
+        let lastFocused = null;
+        let closeTimer = null;
+
+        function focusableElements(modal) {
+            const scope = modal.querySelector('[data-admin-modal-dialog]') || modal;
+            return Array.from(scope.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )).filter(function (element) {
+                return !element.hidden && element.getAttribute('aria-hidden') !== 'true';
+            });
+        }
+
+        function closeModal(restoreFocus) {
+            if (!activeModal) {
+                return;
+            }
+
+            const modal = activeModal;
+            activeModal = null;
+            modal.classList.remove('is-open');
+            document.body.style.overflow = '';
+            modal.dispatchEvent(new CustomEvent('admin:modal-closed'));
+
+            window.clearTimeout(closeTimer);
+            closeTimer = window.setTimeout(function () {
+                modal.hidden = true;
+            }, 220);
+
+            if (restoreFocus !== false && lastFocused && document.contains(lastFocused)) {
+                lastFocused.focus();
+            }
+        }
+
+        function openModal(modal, trigger) {
+            if (!modal) {
+                return;
+            }
+
+            if (activeModal && activeModal !== modal) {
+                closeModal(false);
+            }
+
+            window.clearTimeout(closeTimer);
+            lastFocused = trigger || document.activeElement;
+            activeModal = modal;
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+
+            window.requestAnimationFrame(function () {
+                modal.classList.add('is-open');
+                const preferred = modal.querySelector('[autofocus]');
+                const focusables = focusableElements(modal);
+                const dialog = modal.querySelector('[data-admin-modal-dialog]');
+                const focusTarget = preferred || focusables[0] || dialog;
+                if (focusTarget) {
+                    focusTarget.focus();
+                }
+                modal.dispatchEvent(new CustomEvent('admin:modal-opened'));
+            });
+        }
+
+        document.querySelectorAll('[data-admin-modal-open]').forEach(function (trigger) {
+            trigger.addEventListener('click', function () {
+                openModal(document.getElementById(trigger.dataset.adminModalOpen), trigger);
+            });
+        });
+
+        document.querySelectorAll('[data-admin-modal]').forEach(function (modal) {
+            modal.querySelectorAll('[data-admin-modal-close]').forEach(function (closer) {
+                closer.addEventListener('click', function () {
+                    if (modal === activeModal) {
+                        closeModal(true);
+                    }
+                });
+            });
+        });
+
+        document.addEventListener('admin:open-modal', function (event) {
+            const modalId = event.detail && event.detail.id;
+            openModal(modalId ? document.getElementById(modalId) : null, event.detail ? event.detail.trigger : null);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (!activeModal) {
+                return;
+            }
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeModal(true);
+                return;
+            }
+
+            if (event.key !== 'Tab') {
+                return;
+            }
+
+            const focusables = focusableElements(activeModal);
+            if (focusables.length === 0) {
+                event.preventDefault();
+                return;
+            }
+
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+    }
+
+    function initProblemReport() {
+        const form = document.querySelector('[data-problem-report-form]');
+        if (!form) {
+            return;
+        }
+
+        const modal = form.closest('[data-admin-modal]');
+        const routeInput = form.querySelector('[data-problem-route]');
+        const browserSelect = form.querySelector('[data-problem-browser]');
+        const otherGroup = form.querySelector('[data-problem-browser-other]');
+        const otherInput = otherGroup ? otherGroup.querySelector('[name="navegador_otro"]') : null;
+        const status = form.querySelector('[data-problem-status]');
+        const validateButton = form.querySelector('[data-problem-validate]');
+        const moduleInput = form.querySelector('[name="modulo"]');
+
+        function detectBrowser() {
+            const userAgent = window.navigator.userAgent;
+
+            if (/Edg\//i.test(userAgent) || /Edge\//i.test(userAgent)) {
+                return 'edge';
+            }
+            if (/Firefox\//i.test(userAgent)) {
+                return 'firefox';
+            }
+            if (/Chrome\//i.test(userAgent) || /CriOS\//i.test(userAgent)) {
+                return 'chrome';
+            }
+            if (/Safari\//i.test(userAgent) && !/Chrome\//i.test(userAgent)) {
+                return 'safari';
+            }
+            return 'otro';
+        }
+
+        function updateOtherBrowser() {
+            const isOther = browserSelect.value === 'otro';
+            otherGroup.hidden = !isOther;
+            otherInput.disabled = !isOther;
+            otherInput.required = isOther;
+            if (!isOther) {
+                otherInput.value = '';
+            }
+        }
+
+        function prepareContext() {
+            routeInput.value = window.location.pathname;
+            if (moduleInput.value.trim() === '') {
+                const moduleTitle = document.querySelector('.admin-topbar__module');
+                moduleInput.value = moduleTitle ? moduleTitle.textContent.trim() : '';
+            }
+            status.textContent = '';
+            status.className = 'admin-form-status admin-modal__field--wide';
+        }
+
+        browserSelect.value = detectBrowser();
+        browserSelect.addEventListener('change', updateOtherBrowser);
+        updateOtherBrowser();
+        if (modal) {
+            modal.addEventListener('admin:modal-opened', prepareContext);
+        }
+
+        validateButton.addEventListener('click', function () {
+            prepareContext();
+            if (!form.checkValidity()) {
+                status.textContent = 'Revisa los campos obligatorios antes de continuar.';
+                status.classList.add('is-error');
+                form.reportValidity();
+                return;
+            }
+
+            status.textContent = 'El reporte está completo. El envío quedará disponible cuando se conecte el backend.';
+            status.classList.add('is-pending');
+        });
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            validateButton.click();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initAdminSidebar();
         initPasswordToggles();
         initPasswordStrengthValidation();
         initDeleteConfirmations();
         initUserDeleteModal();
+        initAdminModals();
+        initProblemReport();
     });
 })();

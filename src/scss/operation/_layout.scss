@@ -1,0 +1,145 @@
+.operation-body {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--operational-font-ui);
+}
+
+.operation-shell {
+  position: relative;
+  z-index: 2;
+  display: block;
+  height: 100dvh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    var(--admin-bg);
+}
+
+.operation-main {
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reservation-operation {
+  display: flex;
+  width: min(1800px, 100%);
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 auto;
+  color: var(--admin-text);
+  flex-direction: column;
+  gap: var(--operational-shell-gap);
+  overflow: hidden;
+}
+
+.reservation-operation__workspace {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--operational-shell-gap);
+  flex: 1 1 0;
+}
+
+.reservation-operation__panel {
+  position: relative;
+}
+
+.reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 370px);
+}
+
+.reservation-operation.assignment-mode .reservation-operation__workspace {
+  height: max(500px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2)));
+  min-height: 500px;
+  grid-template-columns: minmax(0, 1fr) !important;
+  flex: 0 0 auto;
+}
+
+.reservation-operation.assignment-mode .reservation-operation__panel {
+  display: none !important;
+}
+
+.operation-body.is-assignment-mode,
+.operation-body:has(.reservation-operation.assignment-mode) {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+.operation-body.is-assignment-mode .operation-shell,
+.operation-body.is-assignment-mode .operation-main,
+.operation-body.is-assignment-mode .operational-layout,
+.operation-body.is-assignment-mode .operational-module,
+.operation-body:has(.reservation-operation.assignment-mode) .operation-shell,
+.operation-main:has(.reservation-operation.assignment-mode) {
+  height: auto;
+  min-height: calc(100dvh - (var(--operational-shell-pad) * 2));
+  overflow: visible;
+}
+
+.operation-body.is-assignment-mode .operational-module {
+  max-height: none;
+}
+
+html.is-assignment-mode,
+html:has(.operation-body.is-assignment-mode) {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+}
+
+.operation-body.is-assignment-mode .mesas-map__viewport {
+  overscroll-behavior-y: auto;
+}
+
+.reservation-operation.assignment-mode {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.reservation-operation .admin-card {
+  border: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
+  box-shadow: var(--admin-shadow-md);
+}
+
+.reservation-operation__mobile-tabs {
+  display: none;
+}
+
+@media (min-width: 1600px) {
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
+  }
+}
+
+@media (max-width: 900px) {
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reservation-operation__panel {
+    position: fixed;
+    inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap)) var(--operational-shell-pad) var(--operational-shell-pad) auto;
+    z-index: 60;
+    width: min(92vw, 380px);
+    padding: 0;
+    border-left: 1px solid var(--admin-border);
+    background: var(--admin-bg);
+    box-shadow: -22px 0 54px rgba(0, 0, 0, 0.42);
+  }
+}
+
+@media (max-width: 700px) {
+  .reservation-operation.assignment-mode .reservation-operation__workspace {
+    height: max(420px, calc(100dvh - var(--operational-header-height) - 180px));
+    min-height: 420px;
+  }
+}

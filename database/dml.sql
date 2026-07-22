@@ -535,3 +535,7 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- Celebraciones y experiencia global alta
 (NULL, 5, 5, 5, 4, 5, 'Festejamos un aniversario y todo fue perfecto. El postre de cortesía, un detallazo.','2026-06-27 21:40:00'),
 (NULL, NULL, 5, 5, 5, 5, 'De lo mejor de la Del Valle. Volveremos muy pronto, todo impecable.',              '2026-06-28 15:30:00');
+
+
+--Anuncio inicial que se modificará
+INSERT IGNORE INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);

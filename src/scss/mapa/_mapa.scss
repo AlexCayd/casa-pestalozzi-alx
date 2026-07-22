@@ -1,6 +1,14 @@
 // ── Mapa de Mesas — Casa Pestalozzi ──────────────────────────
 
 // ── Cursor override ───────────────────────────────────────────
+@use '../operation/header';
+@use '../operation/shell';
+@use '../operation/date-picker';
+@use '../operation/drawer';
+@use '../operation/map-shell';
+@use '../operation/toolbar';
+@use '../operation/reservation-list';
+
 .mapa-page,
 .mapa-page button,
 .mapa-page input,
@@ -20,11 +28,10 @@
 .mapa-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--ink-2);
   color: var(--txt);
-  font-family: var(--sans);
 }
 
 // ── Header ────────────────────────────────────────────────────
@@ -70,169 +77,6 @@
   white-space: nowrap;
 }
 
-.mapa-date-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: .3rem .75rem;
-  color: var(--txt-mute);
-
-  svg { flex-shrink: 0; }
-}
-
-.mapa-date-btn {
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--txt);
-  font-family: var(--sans);
-  font-size: .8rem;
-  letter-spacing: .04em;
-  cursor: pointer;
-  padding: 0;
-  white-space: nowrap;
-  transition: color .15s;
-
-  &:hover { color: var(--gold); }
-}
-
-// ── Calendario dropdown ───────────────────────────────────────
-.mapa-cal {
-  display: none;
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 500;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: .85rem;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, .6);
-  min-width: 232px;
-
-  &--open { display: block; }
-}
-
-.mapa-cal__nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: .7rem;
-}
-
-.mapa-cal__label {
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  color: var(--txt-mute);
-}
-
-.mapa-cal__nav-btn {
-  background: none;
-  border: 1px solid var(--line-soft);
-  border-radius: 5px;
-  color: var(--txt-mute);
-  font-size: 1rem;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color .15s, border-color .15s;
-
-  &:hover { color: var(--gold); border-color: rgba(204, 163, 82, .4); }
-}
-
-.mapa-cal__weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  margin-bottom: .3rem;
-
-  span {
-    text-align: center;
-    font-size: .57rem;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
-    padding-bottom: .3rem;
-  }
-}
-
-.mapa-cal__grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-
-.mapa-cal__day {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 5px;
-  border: none;
-  background: none;
-  color: var(--txt-mute);
-  font-size: .75rem;
-  cursor: pointer;
-  transition: background .12s, color .12s;
-  font-family: var(--sans);
-
-  &:hover:not(&--empty) { background: rgba(204, 163, 82, .12); color: var(--txt); }
-
-  &--empty { pointer-events: none; }
-
-  &--today { color: var(--gold); font-weight: 700; }
-
-  &--selected {
-    background: var(--gold) !important;
-    color: var(--ink) !important;
-    font-weight: 700;
-  }
-}
-
-.mapa-live-badge {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  font-size: .7rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--txt-faint);
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  padding: .25rem .75rem;
-  transition: color .3s, border-color .3s;
-
-  &--active {
-    color: #4cde80;
-    border-color: rgba(76, 222, 128, .3);
-  }
-}
-
-.mapa-live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  transition: background .3s;
-
-  .mapa-live-badge--active & {
-    animation: pulse-dot 1.6s ease-in-out infinite;
-  }
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .35; }
-}
-
 // ── Body ──────────────────────────────────────────────────────
 .mapa-body {
   display: flex;
@@ -267,57 +111,7 @@
   font-weight: 600;
 }
 
-.mapa-reserva-count {
-  font-size: .75rem;
-  font-weight: 700;
-  color: var(--gold);
-  background: rgba(204, 163, 82, .12);
-  border: 1px solid rgba(204, 163, 82, .2);
-  border-radius: 999px;
-  padding: .1rem .55rem;
-  min-width: 24px;
-  text-align: center;
-}
-
 // ── Leyenda ───────────────────────────────────────────────────
-.mapa-leyenda {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .35rem;
-  padding: .75rem 1.25rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.mapa-leyenda-item {
-  font-size: .6rem;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  padding: .15rem .5rem;
-  border-radius: 4px;
-  font-weight: 600;
-
-  &--libre {
-    background: var(--surface-2);
-    color: var(--txt-faint);
-    border: 1px solid var(--line-soft);
-  }
-  &--proxima {
-    background: rgba(124, 61, 29, .25);
-    color: #e8a060;
-    border: 1px solid rgba(124, 61, 29, .4);
-  }
-  &--bloqueada {
-    background: rgba(180, 60, 40, .2);
-    color: #e87060;
-    border: 1px solid rgba(180, 60, 40, .4);
-  }
-  &--ocupada {
-    background: rgba(204, 163, 82, .2);
-    color: var(--gold);
-    border: 1px solid rgba(204, 163, 82, .35);
-  }
-}
-
 // ── Lista de reservaciones ────────────────────────────────────
 .mapa-reservas-list {
   flex: 1;
@@ -444,35 +238,7 @@
 }
 
 // ── Canvas wrap ───────────────────────────────────────────────
-.mapa-canvas-wrap {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--ink-2);
-  overflow: hidden;
-  padding: 2rem;
-}
-
 // ── Canvas del plano ──────────────────────────────────────────
-.mapa-canvas {
-  position: relative;
-  width: 100%;
-  max-width: 900px;
-  aspect-ratio: 1.85 / 1;
-  background:
-    linear-gradient(rgba(245,245,245,.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245,245,245,.015) 1px, transparent 1px),
-    var(--surface);
-  background-size: 60px 60px, 60px 60px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow:
-    0 0 0 1px rgba(204,163,82,.06),
-    0 32px 80px rgba(0,0,0,.5);
-}
-
 // ── Overlay de carga ──────────────────────────────────────────
 .mapa-canvas-overlay {
   position: absolute;
@@ -503,134 +269,7 @@
 }
 
 // ── Pines de mesa ─────────────────────────────────────────────
-.mesa-pin {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width:  clamp(80px, 10.5%, 122px);
-  height: clamp(54px,  6.8%,  80px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  border: 1.5px solid transparent;
-  transition:
-    background .35s var(--ease),
-    border-color .35s var(--ease),
-    box-shadow .35s var(--ease),
-    transform .2s var(--ease-out);
-  user-select: none;
-
-  // Tipo barra: pill más ancho
-  &--tipo-barra {
-    width: clamp(124px, 16%, 188px);
-    border-radius: 999px;
-  }
-
-  // Tipo especial: pill estándar
-  &--tipo-especial {
-    width: clamp(96px, 12.5%, 150px);
-    border-radius: 999px;
-  }
-}
-
-.mesa-pin__label {
-  font-size: clamp(.58rem, .9cqw, .75rem);
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  text-align: center;
-  line-height: 1.25;
-  pointer-events: none;
-  padding: 0 .4rem;
-  white-space: nowrap;
-}
-
 // ── Estados de mesa ───────────────────────────────────────────
-.mesa-pin--zona {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-faint);
-
-  &.mesa-pin--tipo-especial {
-    background: rgba(204, 163, 82, .15);
-    border-color: rgba(204, 163, 82, .25);
-    color: var(--gold-soft);
-  }
-}
-
-.mesa-pin--libre {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-mute);
-
-  &:hover {
-    background: var(--surface);
-    border-color: rgba(204, 163, 82, .3);
-    color: var(--txt);
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(0,0,0,.4);
-  }
-}
-
-.mesa-pin--proxima {
-  background: rgba(124, 61, 29, .18);
-  border-color: rgba(232, 160, 96, .4);
-  color: #e8a060;
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(124,61,29,.35);
-  }
-}
-
-.mesa-pin--bloqueada {
-  background: rgba(180, 60, 40, .18);
-  border-color: rgba(232, 112, 96, .5);
-  color: #e87060;
-  animation: pulse-ring 1.8s ease-in-out infinite;
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(180,60,40,.4);
-  }
-}
-
-@keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 112, 96, .3); }
-  50%       { box-shadow: 0 0 0 6px rgba(232, 112, 96, 0); }
-}
-
-.mesa-pin--ocupada {
-  background: rgba(204, 163, 82, .22);
-  border-color: rgba(204, 163, 82, .6);
-  color: var(--gold);
-  box-shadow: 0 0 16px rgba(204, 163, 82, .15);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px rgba(204, 163, 82, .3);
-  }
-}
-
-.mesa-pin--con-ticket {
-  background: rgba(95, 125, 86, .22);
-  border-color: rgba(139, 191, 126, .55);
-  color: #8bbf7e;
-  box-shadow: 0 0 16px rgba(95, 125, 86, .15);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px rgba(95, 125, 86, .3);
-  }
-}
-
-.mapa-leyenda-item--con-ticket::before { background: #8bbf7e; }
-
-.mesa-pin--highlight {
-  box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
-  z-index: 5;
-}
-
 // ── Controlador de tiempo ─────────────────────────────────────
 .mapa-time-ctrl {
   display: flex;
@@ -804,10 +443,6 @@
 }
 
 // ── Canvas: container query para pines ────────────────────────
-.mapa-canvas {
-  container-type: inline-size;
-}
-
 // ── Responsive — tablet (< 900px) ────────────────────────────
 @media (max-width: 900px) {
   .mapa-sidebar {
@@ -840,17 +475,6 @@
     flex-direction: column;
   }
 
-  .mapa-canvas-wrap {
-    order: 1;
-    flex: 0 0 auto;
-    padding: .5rem;
-    overflow: visible;
-  }
-
-  .mapa-canvas {
-    width: 100%;
-  }
-
   // Sidebar como panel inferior fijo
   .mapa-sidebar {
     order: 2;
@@ -861,8 +485,6 @@
     border-top: 1px solid var(--line);
     overflow-y: auto;
   }
-
-  .mapa-leyenda { display: none; } // quitar en mobile para ahorrar espacio
 
   // Sidebar head más compacto
   .mapa-sidebar-head { padding: .6rem 1rem .5rem; }
@@ -1176,7 +798,7 @@
   }
 
   &__label {
-    font-size: .54rem;
+    font-size: 12px;
     letter-spacing: .12em;
     text-transform: uppercase;
     color: var(--txt-faint);
@@ -2268,4 +1890,99 @@
     border-color: var(--line-soft);
     background: rgba(255,255,255,.04);
   }
+}
+
+// Shell operativo compartido (mapa + reservaciones)
+.mapa-page.operational-page {
+  --admin-bg: var(--ink-2);
+  --admin-surface: var(--surface);
+  --admin-surface-soft: var(--surface-2);
+  --admin-border: var(--line);
+  --admin-border-soft: var(--line-soft);
+  --admin-text: var(--txt);
+  --admin-muted: var(--txt-mute);
+  --admin-faint: var(--txt-faint);
+  --admin-gold: var(--gold);
+  --admin-gold-soft: var(--gold-soft);
+  --admin-success: #8bbf7e;
+  --admin-success-text: #9fd3a6;
+  --admin-success-bg: rgba(139, 191, 126, 0.14);
+  --admin-success-border: rgba(139, 191, 126, 0.32);
+  --admin-warning: #e0c184;
+  --admin-warning-text: #e6c98a;
+  --admin-warning-bg: rgba(224, 193, 132, 0.12);
+  --admin-warning-border: rgba(224, 193, 132, 0.34);
+  --admin-danger: #e87060;
+  --admin-danger-text: #f0a79b;
+  --admin-danger-bg: rgba(232, 112, 96, 0.14);
+  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  --admin-neutral-text: var(--admin-gold-soft);
+  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
+  --admin-neutral-border: rgba(204, 163, 82, 0.3);
+  --admin-shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.22);
+  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.28);
+  color-scheme: dark;
+  overflow: hidden;
+}
+
+.mapa-page .mapa-shell {
+  display: block;
+  height: 100dvh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    var(--admin-bg);
+}
+
+.mapa-page .operation-header {
+  min-height: var(--operational-header-height);
+}
+
+.mapa-page .mapa-body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--operational-shell-gap);
+  padding: 0;
+  overflow: hidden;
+}
+
+.mapa-page .mapa-operational-map {
+  min-height: 0;
+}
+
+.mapa-page .mapa-module {
+  min-height: 0;
+}
+
+.mapa-page .operational-drawer.mapa-sidebar {
+  width: clamp(340px, 29vw, 390px);
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.mapa-page .operational-drawer__content .mapa-reservas-list {
+  min-height: 0;
+  padding: 0 3px 0 0;
+  overflow-y: auto;
+}
+
+.mapa-page :where(.operational-drawer-toggle, .operational-icon-button) svg {
+  color: currentColor;
+  fill: none;
+  stroke: currentColor;
+}
+
+@media (max-width: 700px) {
+  .mapa-page .mapa-body {
+    padding: 0;
+  }
+
+  .mapa-page .operational-drawer.mapa-sidebar {
+    width: min(92vw, 360px);
+    padding: 14px;
+  }
+
 }

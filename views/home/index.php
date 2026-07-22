@@ -1,3 +1,55 @@
+<?php
+$schemaDias = [
+  0 => 'Sunday',
+  1 => 'Monday',
+  2 => 'Tuesday',
+  3 => 'Wednesday',
+  4 => 'Thursday',
+  5 => 'Friday',
+  6 => 'Saturday',
+];
+$schemaHorarios = [];
+
+if (!empty($horariosOperacionDisponibles) && is_array($horariosOperacion ?? null)) {
+  foreach ($horariosOperacion as $horario) {
+    $diaSemana = (int)($horario['dia_semana'] ?? -1);
+    if (empty($horario['abierto']) || !isset($schemaDias[$diaSemana])) {
+      continue;
+    }
+
+    $schemaHorarios[] = [
+      '@type' => 'OpeningHoursSpecification',
+      'dayOfWeek' => $schemaDias[$diaSemana],
+      'opens' => (string)($horario['hora_apertura'] ?? ''),
+      'closes' => (string)($horario['hora_cierre'] ?? ''),
+    ];
+  }
+}
+
+$restaurantSchema = [
+  '@context' => 'https://schema.org',
+  '@type' => 'Restaurant',
+  'name' => 'Casa Pestalozzi',
+  'description' => 'Cocina mediterránea con corazón mexicano en Del Valle, CDMX.',
+  'url' => 'https://casapestalozzi.com',
+  'telephone' => '+525614818297',
+  'address' => [
+    '@type' => 'PostalAddress',
+    'streetAddress' => 'José Enrique Pestalozzi 1250',
+    'addressLocality' => 'Del Valle',
+    'addressRegion' => 'Ciudad de México',
+    'addressCountry' => 'MX',
+  ],
+  'servesCuisine' => ['Mediterranean', 'Mexican'],
+  'priceRange' => '$$',
+  'image' => 'https://casapestalozzi.com/build/images/banner.webp',
+  'sameAs' => ['https://www.instagram.com/casapestalozzi'],
+];
+
+if ($schemaHorarios !== []) {
+  $restaurantSchema['openingHoursSpecification'] = $schemaHorarios;
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -25,37 +77,14 @@
 
   <!-- JSON-LD: Restaurant schema -->
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Restaurant",
-    "name": "Casa Pestalozzi",
-    "description": "Cocina mediterránea con corazón mexicano en Del Valle, CDMX.",
-    "url": "https://casapestalozzi.com",
-    "telephone": "+525614818297",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "José Enrique Pestalozzi 1250",
-      "addressLocality": "Del Valle",
-      "addressRegion": "Ciudad de México",
-      "addressCountry": "MX"
-    },
-    "servesCuisine": ["Mediterranean", "Mexican"],
-    "openingHoursSpecification": [
-      { "@type": "OpeningHoursSpecification", "dayOfWeek": "Monday", "opens": "08:30", "closes": "15:00" },
-      { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Tuesday","Wednesday","Thursday","Friday","Saturday"], "opens": "08:30", "closes": "22:00" },
-      { "@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "08:30", "closes": "19:00" }
-    ],
-    "priceRange": "$$",
-    "image": "https://casapestalozzi.com/build/images/banner.webp",
-    "sameAs": ["https://www.instagram.com/casapestalozzi"]
-  }
+  <?php echo json_encode($restaurantSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
   </script>
 
   <!-- Preconnect CDN libraries -->
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
-  <link rel="stylesheet" href="/build/css/app.css" />
+  <link rel="stylesheet" href="/build/css/app.css?v=announcement-black-v6" />
 </head>
 <body class="reveal-ready" data-hero="cinema">
 

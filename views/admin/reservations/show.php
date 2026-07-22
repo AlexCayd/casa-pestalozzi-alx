@@ -105,6 +105,7 @@ $diferenciaCapacidad = $capacidadTotal - $comensales;
 $horaCorta = $horaLegible($hora);
 $operationUrl = '/admin/reservations/operation?' . http_build_query([
     'fecha' => $fecha,
+    'hora' => $horaCorta,
     'reservacion_id' => $id,
     'return_url' => $returnUrl,
 ]);
@@ -250,7 +251,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                 </div>
 
                 <div class="reservation-detail-actions">
-                    <a class="admin-btn admin-btn--secondary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Ver en mapa</a>
+                    <a class="admin-btn admin-btn--secondary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Gestionar en operacion</a>
 
                     <?php if (!$estadoFinal && $editable) : ?>
                         <form method="POST" action="/admin/reservations/reassign" data-reservation-operational-action>

@@ -29,6 +29,21 @@ $currentModuleTitle = $topbarTitle
 
     <div class="admin-topbar__actions">
         <button
+            class="admin-topbar__support"
+            type="button"
+            data-admin-modal-open="admin-problem-modal"
+            aria-haspopup="dialog"
+            aria-controls="admin-problem-modal"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M9.5 9a2.6 2.6 0 0 1 5 1c0 2-2.5 2.2-2.5 4"/>
+                <path d="M12 17h.01"/>
+            </svg>
+            <span>Reportar un problema</span>
+        </button>
+
+        <button
             class="admin-theme-toggle"
             type="button"
             aria-label="Cambiar tema"

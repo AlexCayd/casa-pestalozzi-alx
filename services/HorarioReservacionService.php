@@ -7,7 +7,8 @@
 namespace Services;
 
 use DateTimeImmutable;
-use Model\ActiveRecord;
+use Model\DiaReservacion;
+use Model\HorarioOperacion;
 use Model\HorarioReservacion;
 
 class HorarioReservacionService
@@ -20,172 +21,112 @@ class HorarioReservacionService
     public const HORARIO_DISPONIBLE = 'HORARIO_DISPONIBLE';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
 
-    public static function validarHorarioReservacion($fecha, $hora): array
+    private const INTERVALO_GENERACION_MINUTOS = 30;
+
+    public static function generarIntervalos(string $horaApertura, string $horaCierre): array
     {
-        $fecha = (string)$fecha;
-        $horaSql = self::normalizarHoraSql((string)$hora);
-
-        if (!self::fechaValida($fecha)) {
-            return ['ok' => false, 'codigo' => self::FECHA_INVALIDA];
+        $aperturaSql = self::normalizarHoraSql($horaApertura);
+        $cierreSql = self::normalizarHoraSql($horaCierre);
+        if ($aperturaSql === '' || $cierreSql === '') {
+            throw new \InvalidArgumentException('Las horas de apertura y cierre deben tener un formato válido.');
         }
 
-        if (self::fechaPasada($fecha)) {
-            return ['ok' => false, 'codigo' => self::FECHA_PASADA, 'fecha' => $fecha];
+        $apertura = DateTimeImmutable::createFromFormat('!H:i:s', $aperturaSql);
+        $cierre = DateTimeImmutable::createFromFormat('!H:i:s', $cierreSql);
+        if (!$apertura instanceof DateTimeImmutable || !$cierre instanceof DateTimeImmutable || $apertura >= $cierre) {
+            throw new \InvalidArgumentException('La hora de apertura debe ser anterior a la hora de cierre.');
         }
 
-        if ($horaSql === '') {
-            return ['ok' => false, 'codigo' => self::HORARIO_INVALIDO, 'fecha' => $fecha];
-        }
-
-        try {
-            $diaSemana = (int)(new DateTimeImmutable($fecha))->format('w');
-            $db = ActiveRecord::getDB();
-            $dia = self::diaReservacion($diaSemana);
-
-            if (!$dia || (int)$dia['activo'] !== 1) {
-                return ['ok' => false, 'codigo' => self::DIA_INACTIVO, 'fecha' => $fecha, 'hora' => $horaSql];
-            }
-
-            $existe = self::existeHorario($diaSemana, $horaSql);
-
-            if (!$existe) {
-                return ['ok' => false, 'codigo' => self::HORARIO_INVALIDO, 'fecha' => $fecha, 'hora' => $horaSql];
-            }
-
-            if (self::horarioPasadoHoy($fecha, $horaSql)) {
-                return ['ok' => false, 'codigo' => self::HORARIO_PASADO, 'fecha' => $fecha, 'hora' => $horaSql];
-            }
-
-            return [
-                'ok' => true,
-                'codigo' => self::HORARIO_DISPONIBLE,
-                'fecha' => $fecha,
-                'hora' => $horaSql,
-                'hora_corta' => substr($horaSql, 0, 5),
-            ];
-        } catch (\Throwable $e) {
-            error_log('HorarioReservacionService::validarHorarioReservacion - ' . $e->getMessage());
-            return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
-        }
-    }
-
-    public static function disponibilidadPublica(string $fecha): array
-    {
-        return self::disponibilidadParaFecha($fecha);
-    }
-
-    public static function disponibilidadParaFecha(string $fecha): array
-    {
-        if (!self::fechaValida($fecha)) {
-            return [
-                'ok' => false,
-                'codigo' => self::FECHA_INVALIDA,
-                'msg' => 'La fecha seleccionada no es valida.',
-                'errors' => ['fecha' => ['La fecha seleccionada no es valida.']],
-            ];
-        }
-
-        if (self::fechaPasada($fecha)) {
-            return [
-                'ok' => false,
-                'codigo' => self::FECHA_PASADA,
-                'fecha' => $fecha,
-                'msg' => 'La fecha seleccionada ya paso. Elige otra fecha.',
-                'errors' => ['fecha' => ['La fecha seleccionada ya paso. Elige otra fecha.']],
-            ];
-        }
-
-        try {
-            $diaSemana = (int)(new DateTimeImmutable($fecha))->format('w');
-            $dia = self::diaReservacion($diaSemana);
-            $diaActivo = $dia && (int)$dia['activo'] === 1;
-
-            if (!$diaActivo) {
-                return [
-                    'ok' => true,
-                    'fecha' => $fecha,
-                    'dia_activo' => false,
-                    'horarios' => [],
-                ];
-            }
-
-            $horarios = array_values(array_filter(array_map(static function ($horario): string {
-                return self::normalizarHoraCorta((string)($horario->hora ?? ''));
-            }, self::horariosParaFecha($fecha))));
-
-            if ($fecha === self::hoy()) {
-                $horarios = array_values(array_filter($horarios, static function (string $hora) use ($fecha): bool {
-                    return !self::horarioPasadoHoy($fecha, self::normalizarHoraSql($hora));
-                }));
-            }
-
-            return [
-                'ok' => true,
-                'fecha' => $fecha,
-                'dia_activo' => true,
-                'horarios' => $horarios,
-            ];
-        } catch (\Throwable $e) {
-            error_log('HorarioReservacionService::disponibilidadParaFecha - ' . $e->getMessage());
-            return [
-                'ok' => false,
-                'codigo' => self::ERROR_INTERNO,
-                'msg' => 'No fue posible consultar los horarios. Intentalo nuevamente.',
-                'errors' => [],
-            ];
-        }
-    }
-
-    public static function horariosParaFecha(string $fecha): array
-    {
-        if (!self::fechaValida($fecha)) {
-            return [];
-        }
-
-        $diaSemana = (int)(new DateTimeImmutable($fecha))->format('w');
-
-        return HorarioReservacion::consultarSQL(
-            "SELECT h.id, h.dia_id, h.hora
-             FROM horarios_reservacion h
-             INNER JOIN dias_reservacion d ON d.id = h.dia_id
-             WHERE d.dia_semana = {$diaSemana}
-               AND d.activo = 1
-             ORDER BY h.hora ASC"
+        $limiteUltimaReservacion = $cierre->modify(
+            '-' . ReservacionConfig::MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION . ' minutes'
         );
+        $intervalos = [];
+        for ($actual = $apertura; $actual <= $limiteUltimaReservacion; $actual = $actual->modify('+' . self::INTERVALO_GENERACION_MINUTOS . ' minutes')) {
+            $intervalos[$actual->format('H:i:s')] = true;
+        }
+
+        return array_keys($intervalos);
+    }
+
+    /**
+     * Sincroniza un día dentro de la transacción abierta por HorarioOperacionService.
+     * No confirma ni revierte la transacción.
+     */
+    public static function sincronizarDesdeHorarioOperacion(
+        HorarioOperacion $horarioOperacion,
+        array $intervalos
+    ): void {
+        $diaSemana = filter_var($horarioOperacion->dia_semana, FILTER_VALIDATE_INT);
+        if ($diaSemana === false || $diaSemana < 0 || $diaSemana > 6) {
+            throw new \DomainException('El día de operación que se intenta sincronizar no es válido.');
+        }
+
+        $diaReservacion = DiaReservacion::buscarPorDiaSemana((int) $diaSemana);
+        if (!$diaReservacion) {
+            throw new \DomainException(
+                "No existe configuración de reservaciones para dia_semana {$diaSemana}."
+            );
+        }
+
+        $abierto = (int) $horarioOperacion->abierto === 1;
+        if ($abierto) {
+            $esperados = self::generarIntervalos(
+                (string) $horarioOperacion->hora_apertura,
+                (string) $horarioOperacion->hora_cierre
+            );
+            $normalizados = self::normalizarIntervalos($intervalos);
+            if ($normalizados !== $esperados) {
+                throw new \DomainException('Los intervalos reservables no coinciden con el horario de operación.');
+            }
+
+            $diaReservacion->actualizarDatosDeOperacion(
+                true,
+                self::normalizarHoraSql((string) $horarioOperacion->hora_apertura),
+                self::normalizarHoraSql((string) $horarioOperacion->hora_cierre)
+            );
+        } else {
+            if ($intervalos !== []) {
+                throw new \DomainException('Un día cerrado no puede contener horarios reservables.');
+            }
+            $diaReservacion->actualizarDatosDeOperacion(false);
+        }
+
+        $diaId = (int) $diaReservacion->id;
+        HorarioReservacion::eliminarPorDiaId($diaId);
+        if ($abierto) {
+            HorarioReservacion::insertarIntervalos($diaId, $intervalos);
+        }
+    }
+
+    public static function horariosPorDiaId(int $diaId): array
+    {
+        return HorarioReservacion::buscarPorDiaId($diaId);
+    }
+
+    public static function filtrarHorariosPasados(string $fecha, array $horarios): array
+    {
+        $normalizados = [];
+
+        foreach ($horarios as $horario) {
+            $valor = is_object($horario) ? (string) ($horario->hora ?? '') : (string) $horario;
+            $horaSql = self::normalizarHoraSql($valor);
+
+            if ($horaSql === '' || self::horarioPasadoHoy($fecha, $horaSql)) {
+                continue;
+            }
+
+            $normalizados[$horaSql] = true;
+        }
+
+        $resultado = array_keys($normalizados);
+        sort($resultado, SORT_STRING);
+
+        return $resultado;
     }
 
     public static function fechaSeguraGet(string $fecha): string
     {
         return self::fechaValida($fecha) ? $fecha : self::hoy();
-    }
-
-    public static function diasConHorariosActivos(): array
-    {
-        try {
-            $resultado = ActiveRecord::getDB()->query(
-                "SELECT DISTINCT d.dia_semana
-                 FROM dias_reservacion d
-                 INNER JOIN horarios_reservacion h ON h.dia_id = d.id
-                 WHERE d.activo = 1
-                 ORDER BY d.dia_semana ASC"
-            );
-
-            if ($resultado === false) {
-                throw new \RuntimeException(ActiveRecord::getDB()->error);
-            }
-
-            $dias = [];
-            while ($fila = $resultado->fetch_assoc()) {
-                $dias[] = (int)$fila['dia_semana'];
-            }
-
-            $resultado->free();
-
-            return $dias;
-        } catch (\Throwable $e) {
-            error_log('HorarioReservacionService::diasConHorariosActivos - ' . $e->getMessage());
-            return [0, 1, 2, 3, 4, 5, 6];
-        }
     }
 
     public static function fechaValida(string $fecha): bool
@@ -194,7 +135,7 @@ class HorarioReservacionService
             return false;
         }
 
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, ReservacionConfig::timezone());
         $errors = DateTimeImmutable::getLastErrors();
         $sinErrores = $errors === false
             || ((int)$errors['warning_count'] === 0 && (int)$errors['error_count'] === 0);
@@ -225,7 +166,8 @@ class HorarioReservacionService
     public static function horaPorDefecto(array $horarios, string $fecha): string
     {
         $horasDisponibles = array_values(array_filter(array_map(static function ($horario): string {
-            return self::normalizarHoraCorta((string)($horario->hora ?? ''));
+            $valor = is_object($horario) ? (string)($horario->hora ?? '') : (string)$horario;
+            return self::normalizarHoraCorta($valor);
         }, $horarios)));
 
         if (empty($horasDisponibles)) {
@@ -274,44 +216,17 @@ class HorarioReservacionService
         return $horario <= new DateTimeImmutable('now', ReservacionConfig::timezone());
     }
 
-    private static function diaReservacion(int $diaSemana): ?array
+    private static function normalizarIntervalos(array $intervalos): array
     {
-        $resultado = ActiveRecord::getDB()->query(
-            "SELECT id, dia_semana, activo
-             FROM dias_reservacion
-             WHERE dia_semana = {$diaSemana}
-             LIMIT 1"
-        );
-
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
+        $normalizados = [];
+        foreach ($intervalos as $intervalo) {
+            $hora = self::normalizarHoraSql((string) $intervalo);
+            if ($hora === '' || isset($normalizados[$hora])) {
+                throw new \DomainException('Los intervalos reservables contienen valores inválidos o duplicados.');
+            }
+            $normalizados[$hora] = true;
         }
 
-        $fila = $resultado->fetch_assoc() ?: null;
-        $resultado->free();
-
-        return $fila;
-    }
-
-    private static function existeHorario(int $diaSemana, string $horaSql): bool
-    {
-        $resultado = ActiveRecord::getDB()->query(
-            "SELECT h.id
-             FROM horarios_reservacion h
-             INNER JOIN dias_reservacion d ON d.id = h.dia_id
-             WHERE d.dia_semana = {$diaSemana}
-               AND d.activo = 1
-               AND h.hora = '" . ActiveRecord::escaparString($horaSql) . "'
-             LIMIT 1"
-        );
-
-        if ($resultado === false) {
-            throw new \RuntimeException(ActiveRecord::getDB()->error);
-        }
-
-        $existe = $resultado->num_rows > 0;
-        $resultado->free();
-
-        return $existe;
+        return array_keys($normalizados);
     }
 }

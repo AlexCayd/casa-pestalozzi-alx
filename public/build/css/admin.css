@@ -683,6 +683,41 @@
   min-width: 0;
 }
 
+.admin-topbar__support {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-topbar__support svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.admin-topbar__support:hover {
+  border-color: rgba(160, 126, 54, 0.42);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+.admin-topbar__support:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+
 .admin-topbar__module {
   max-width: 100%;
   overflow: hidden;
@@ -744,6 +779,21 @@
     width: 32px;
     height: 32px;
   }
+  .admin-topbar__support {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  .admin-topbar__support span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
 }
 /*
  * Estructura principal del panel de administración.
@@ -792,6 +842,14 @@
 .admin-menu__button:active {
   transform: translateY(0);
   box-shadow: var(--admin-shadow-sm);
+}
+.admin-btn:disabled, .admin-btn[aria-disabled=true],
+.admin-menu__button:disabled,
+.admin-menu__button[aria-disabled=true] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Botón firma: relleno que sube desde abajo (paridad con .btn-line público) */
@@ -1373,6 +1431,618 @@
   font: inherit;
   font-size: 14px;
 }
+.admin-field__label--split {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-field__error {
+  display: block;
+  min-height: 18px;
+  margin-top: 5px;
+  color: var(--admin-danger-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.admin-field.has-error input, .admin-field.has-error select, .admin-field.has-error textarea {
+  border-color: var(--admin-danger);
+  box-shadow: 0 0 0 3px var(--admin-danger-bg);
+}
+
+.admin-form-status {
+  min-height: 20px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.admin-form-status.is-error {
+  color: var(--admin-danger-text);
+  font-weight: 700;
+}
+.admin-form-status.is-pending {
+  color: var(--admin-warning-text);
+  font-weight: 700;
+}
+
+/* Retroalimentacion compartida para listados actualizados sin recargar. */
+.admin-reactive-results-shell {
+  position: relative;
+  min-height: 72px;
+}
+
+.admin-reactive-results {
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-reactive-results.is-updating {
+  opacity: 0.58;
+  pointer-events: none;
+}
+
+.admin-reactive-loading {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 850;
+  box-shadow: var(--admin-shadow-sm);
+}
+.admin-reactive-loading::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--admin-border);
+  border-top-color: var(--admin-gold);
+  border-radius: 50%;
+  content: "";
+  animation: admin-reactive-spin 0.75s linear infinite;
+}
+
+.admin-reactive-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-danger-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.admin-reactive-error[hidden],
+.admin-reactive-loading[hidden] {
+  display: none;
+}
+
+.admin-filters.is-reactive [data-reactive-submit] {
+  display: none;
+}
+
+.admin-filters [data-reactive-clear][hidden] {
+  display: none;
+}
+
+@keyframes admin-reactive-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 560px) {
+  .admin-reactive-error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+/* Switch de formulario reutilizable para cualquier módulo administrativo. */
+.admin-switch {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  cursor: pointer;
+}
+.admin-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-switch__track {
+  display: inline-flex;
+  align-items: center;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 46px;
+  padding: 3px;
+  border: 1px solid var(--admin-danger-border);
+  border-radius: 999px;
+  background: var(--admin-danger-bg);
+  transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-switch__thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--admin-danger);
+  transform: translateX(0);
+  transition: transform var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-switch__label {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+input:checked + .admin-switch__track {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+}
+input:checked + .admin-switch__track .admin-switch__thumb {
+  background: var(--admin-success);
+  transform: translateX(20px);
+}
+input:focus-visible + .admin-switch__track {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 3px;
+}
+input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * Adaptación administrativa de los selectores reutilizados en reservaciones.
+ * Mantiene el mismo componente del frontend con tokens y densidad del panel.
+ */
+.admin-body {
+  --reservation-picker-disabled-opacity: 0.72;
+  --reservation-picker-field-height: 46px;
+  --reservation-picker-field-padding: 11px 13px;
+  --reservation-picker-field-border: 1px solid var(--admin-border-soft);
+  --reservation-picker-field-border-bottom: 1px solid var(--admin-border-soft);
+  --reservation-picker-field-radius: var(--admin-radius-sm);
+  --reservation-picker-field-bg: var(--admin-surface-soft);
+  --reservation-picker-field-color: var(--admin-text);
+  --reservation-picker-field-font-size: 13px;
+  --reservation-picker-field-font-weight: 800;
+  --reservation-picker-focus-border: var(--admin-gold);
+  --reservation-picker-dropdown-top: calc(100% + 8px);
+  --reservation-picker-dropdown-min-width: min(320px, calc(100vw - 48px));
+  --reservation-picker-border: var(--admin-border);
+  --reservation-picker-radius: var(--admin-radius-sm);
+  --reservation-picker-surface: var(--admin-surface);
+  --reservation-picker-shadow: 0 18px 44px rgba(11, 12, 13, 0.18);
+  --reservation-picker-z-index: 80;
+  --reservation-picker-calendar-padding: 14px;
+  --reservation-picker-head-display: grid;
+  --reservation-picker-head-columns: 34px minmax(0, 1fr) 34px;
+  --reservation-picker-head-gap: 8px;
+  --reservation-picker-head-margin-bottom: 12px;
+  --reservation-picker-title-color: var(--admin-text);
+  --reservation-picker-title-font-size: 13px;
+  --reservation-picker-title-font-weight: 900;
+  --reservation-picker-title-letter-spacing: 0;
+  --reservation-picker-nav-size: 34px;
+  --reservation-picker-nav-padding: 0;
+  --reservation-picker-nav-border: 1px solid var(--admin-border-soft);
+  --reservation-picker-accent: var(--admin-gold-deep);
+  --reservation-picker-accent-soft: var(--admin-gold-deep);
+  --reservation-picker-nav-hover-border: rgba(160, 126, 54, 0.42);
+  --reservation-picker-hover-bg: var(--admin-surface-soft);
+  --reservation-picker-hover-color: var(--admin-text);
+  --reservation-picker-grid-gap: 4px;
+  --reservation-picker-weekdays-margin-bottom: 6px;
+  --reservation-picker-weekday-padding: 0;
+  --reservation-picker-weekday-font-size: 10px;
+  --reservation-picker-weekday-font-weight: 900;
+  --reservation-picker-weekday-letter-spacing: 0;
+  --reservation-picker-muted: var(--admin-muted);
+  --reservation-picker-faint: var(--admin-faint);
+  --reservation-picker-day-font-size: 12px;
+  --reservation-picker-day-font-weight: 850;
+  --reservation-picker-day-hover-border: rgba(160, 126, 54, 0.28);
+  --reservation-picker-today-border: rgba(204, 163, 82, 0.58);
+  --reservation-picker-today-color: var(--admin-gold-deep);
+  --reservation-picker-selected-border: var(--admin-gold);
+  --reservation-picker-selected-bg: rgba(204, 163, 82, 0.18);
+  --reservation-picker-selected-color: var(--admin-text);
+  --reservation-picker-day-disabled-opacity: 0.44;
+  --reservation-picker-hours-max-height: 240px;
+  --reservation-picker-hours-padding: 6px;
+  --reservation-picker-hour-option-height: 36px;
+  --reservation-picker-hour-option-padding: 8px 10px;
+  --reservation-picker-hour-option-radius: var(--admin-radius-sm);
+  --reservation-picker-hour-font-size: 13px;
+  --reservation-picker-hour-font-weight: 850;
+  --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
+  --reservation-picker-hour-selected-color: var(--admin-gold-deep);
+  --reservation-picker-icon-color: var(--admin-faint);
+  --reservation-picker-time-icon-left: 13px;
+  --reservation-picker-time-icon-size: 17px;
+  --reservation-picker-time-chevron-right: 12px;
+  --reservation-picker-time-chevron-size: 15px;
+  --reservation-picker-time-padding-start: 42px;
+  --reservation-picker-time-padding-end: 38px;
+  --reservation-picker-open-ring: var(--admin-focus-ring);
+  --reservation-picker-hours-head-padding: 12px 14px 10px;
+  --reservation-picker-hours-head-bg: var(--admin-surface-soft);
+  --reservation-picker-hours-head-title-size: 12px;
+  --reservation-picker-hours-head-copy-size: 10px;
+  --reservation-picker-hours-columns: 2;
+  --reservation-picker-hours-gap: 4px;
+}
+.admin-body .date-picker-wrap,
+.admin-body .hour-picker-wrap {
+  position: relative;
+  min-width: 0;
+}
+.admin-body .date-picker-wrap.is-disabled,
+.admin-body .hour-picker-wrap.is-disabled {
+  opacity: var(--reservation-picker-disabled-opacity, 0.62);
+}
+.admin-body .date-picker-wrap.is-disabled .date-display,
+.admin-body .date-picker-wrap.is-disabled .hour-display,
+.admin-body .hour-picker-wrap.is-disabled .date-display,
+.admin-body .hour-picker-wrap.is-disabled .hour-display {
+  cursor: default;
+}
+.admin-body .date-picker__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--reservation-picker-date-icon-left, 13px);
+  z-index: 1;
+  display: grid;
+  width: var(--reservation-picker-date-icon-size, 17px);
+  height: var(--reservation-picker-date-icon-size, 17px);
+  place-items: center;
+  color: var(--reservation-picker-icon-color, var(--reservation-picker-muted, var(--txt-mute)));
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.admin-body .date-picker__icon svg {
+  width: 100%;
+  height: 100%;
+  color: currentColor;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.admin-body .date-picker-wrap--with-icon .date-display {
+  padding-inline-start: var(--reservation-picker-date-padding-start, 42px) !important;
+}
+.admin-body .date-picker-wrap--with-icon:focus-within .date-picker__icon {
+  color: var(--reservation-picker-accent, var(--accent));
+}
+.admin-body .date-display,
+.admin-body .hour-display {
+  width: 100%;
+  min-height: var(--reservation-picker-field-height, auto);
+  padding: var(--reservation-picker-field-padding, 0.6rem 0);
+  border: var(--reservation-picker-field-border, none);
+  border-bottom: var(--reservation-picker-field-border-bottom, 1px solid var(--line));
+  border-radius: var(--reservation-picker-field-radius, 0);
+  background: var(--reservation-picker-field-bg, transparent);
+  color: var(--reservation-picker-field-color, var(--beige));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-field-font-size, 1.1rem);
+  font-weight: var(--reservation-picker-field-font-weight, 400);
+  cursor: pointer;
+  transition: border-color 0.3s, background 0.3s, color 0.3s;
+}
+.admin-body .date-display:focus,
+.admin-body .hour-display:focus {
+  outline: none;
+  border-color: var(--reservation-picker-focus-border, var(--accent));
+}
+.admin-body .hour-picker-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.admin-body .hour-picker-control__icon,
+.admin-body .hour-picker-control__chevron {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: var(--reservation-picker-icon-color, var(--reservation-picker-muted, var(--txt-mute)));
+  pointer-events: none;
+}
+.admin-body .hour-picker-control__icon {
+  left: var(--reservation-picker-time-icon-left, 0);
+  width: var(--reservation-picker-time-icon-size, 17px);
+  height: var(--reservation-picker-time-icon-size, 17px);
+  transform: translateY(-50%);
+}
+.admin-body .hour-picker-control__chevron {
+  right: var(--reservation-picker-time-chevron-right, 0);
+  width: var(--reservation-picker-time-chevron-size, 16px);
+  height: var(--reservation-picker-time-chevron-size, 16px);
+  transform: translateY(-50%);
+  transition: color 0.2s, transform 0.2s;
+}
+.admin-body .hour-picker-control__icon svg,
+.admin-body .hour-picker-control__chevron svg {
+  width: 100%;
+  height: 100%;
+}
+.admin-body .hour-picker-control .hour-display {
+  padding-inline-start: var(--reservation-picker-time-padding-start, 1.75rem) !important;
+  padding-inline-end: var(--reservation-picker-time-padding-end, 1.5rem) !important;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-body .hour-picker-wrap.has-value .hour-picker-control__icon,
+.admin-body .hour-picker-wrap.is-open .hour-picker-control__icon,
+.admin-body .hour-picker-wrap.is-open .hour-picker-control__chevron {
+  color: var(--reservation-picker-accent, var(--accent));
+}
+.admin-body .hour-picker-wrap.is-open .hour-display {
+  border-color: var(--reservation-picker-focus-border, var(--accent));
+  box-shadow: var(--reservation-picker-open-ring, none);
+}
+.admin-body .hour-picker-wrap.is-open .hour-picker-control__chevron {
+  transform: translateY(-50%) rotate(180deg);
+}
+.admin-body .cp-calendar,
+.admin-body .hour-dropdown {
+  position: absolute;
+  top: var(--reservation-picker-dropdown-top, calc(100% + 0.6rem));
+  left: 0;
+  z-index: var(--reservation-picker-z-index, 100);
+  display: none;
+  min-width: var(--reservation-picker-dropdown-min-width, 280px);
+  border: 1px solid var(--reservation-picker-border, var(--line));
+  border-radius: var(--reservation-picker-radius, 0);
+  background: var(--reservation-picker-surface, var(--surface));
+  box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
+}
+.admin-body .cp-calendar.open,
+.admin-body .hour-dropdown.open {
+  display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.admin-body .cp-calendar {
+  padding: var(--reservation-picker-calendar-padding, 1.2rem);
+}
+.admin-body .cpc-head {
+  display: var(--reservation-picker-head-display, flex);
+  grid-template-columns: var(--reservation-picker-head-columns, none);
+  gap: var(--reservation-picker-head-gap, 0);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--reservation-picker-head-margin-bottom, 1rem);
+}
+.admin-body .cpc-label {
+  flex: 1;
+  color: var(--reservation-picker-title-color, var(--beige));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-title-font-size, 0.9rem);
+  font-weight: var(--reservation-picker-title-font-weight, 400);
+  letter-spacing: var(--reservation-picker-title-letter-spacing, 0.05em);
+  line-height: 1.2;
+  text-align: center;
+  text-transform: var(--reservation-picker-title-transform, none);
+}
+.admin-body .cpc-nav {
+  display: inline-flex;
+  min-width: var(--reservation-picker-nav-size, auto);
+  min-height: var(--reservation-picker-nav-size, auto);
+  align-items: center;
+  justify-content: center;
+  padding: var(--reservation-picker-nav-padding, 0.2rem 0.5rem);
+  border: var(--reservation-picker-nav-border, none);
+  border-radius: var(--reservation-picker-radius, 0);
+  background: transparent;
+  color: var(--reservation-picker-accent, var(--accent));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-nav-font-size, 1.4rem);
+  font-weight: var(--reservation-picker-nav-font-weight, 400);
+  line-height: 1;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.admin-body .cpc-nav:hover {
+  border-color: var(--reservation-picker-nav-hover-border, currentColor);
+  background: var(--reservation-picker-hover-bg, transparent);
+  color: var(--reservation-picker-accent-soft, var(--accent-soft));
+}
+.admin-body .cpc-weekdays,
+.admin-body .cpc-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--reservation-picker-grid-gap, 2px);
+}
+.admin-body .cpc-weekdays {
+  margin-bottom: var(--reservation-picker-weekdays-margin-bottom, 0.5rem);
+}
+.admin-body .cpc-weekdays span {
+  padding: var(--reservation-picker-weekday-padding, 0.2rem 0);
+  color: var(--reservation-picker-faint, var(--txt-faint));
+  font-size: var(--reservation-picker-weekday-font-size, 0.58rem);
+  font-weight: var(--reservation-picker-weekday-font-weight, 400);
+  letter-spacing: var(--reservation-picker-weekday-letter-spacing, 0.1em);
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+.admin-body .cpc-day {
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--reservation-picker-muted, var(--txt-mute));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-day-font-size, 0.82rem);
+  font-weight: var(--reservation-picker-day-font-weight, 400);
+  line-height: 1;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.admin-body .cpc-day:hover:not(.disabled):not(.empty) {
+  border-color: var(--reservation-picker-day-hover-border, transparent);
+  background: var(--reservation-picker-hover-bg, var(--surface-2));
+  color: var(--reservation-picker-hover-color, var(--beige));
+}
+.admin-body .cpc-day.today {
+  border-color: var(--reservation-picker-today-border, var(--accent));
+  color: var(--reservation-picker-today-color, var(--accent));
+}
+.admin-body .cpc-day.selected {
+  border-color: var(--reservation-picker-selected-border, transparent);
+  background: var(--reservation-picker-selected-bg, var(--accent));
+  color: var(--reservation-picker-selected-color, var(--ink));
+}
+.admin-body .cpc-day.disabled {
+  color: var(--reservation-picker-faint, var(--txt-faint));
+  cursor: not-allowed;
+  opacity: var(--reservation-picker-day-disabled-opacity, 0.35);
+  pointer-events: none;
+}
+.admin-body .cpc-day.empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+.admin-body .hour-dropdown {
+  overflow: hidden;
+  padding: 0;
+}
+.admin-body .hour-dropdown__head {
+  display: grid;
+  gap: 2px;
+  padding: var(--reservation-picker-hours-head-padding, 0.8rem 1rem 0.7rem);
+  border-bottom: 1px solid var(--reservation-picker-border, var(--line));
+  background: var(--reservation-picker-hours-head-bg, transparent);
+}
+.admin-body .hour-dropdown__head strong {
+  color: var(--reservation-picker-title-color, var(--beige));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-hours-head-title-size, 0.78rem);
+  font-weight: var(--reservation-picker-title-font-weight, 600);
+  line-height: 1.2;
+}
+.admin-body .hour-dropdown__head span {
+  color: var(--reservation-picker-faint, var(--txt-faint));
+  font-size: var(--reservation-picker-hours-head-copy-size, 0.66rem);
+  line-height: 1.3;
+}
+.admin-body .hour-dropdown__options {
+  display: grid;
+  grid-template-columns: repeat(var(--reservation-picker-hours-columns, 2), minmax(0, 1fr));
+  gap: var(--reservation-picker-hours-gap, 3px);
+  max-height: var(--reservation-picker-hours-max-height, 220px);
+  overflow-y: auto;
+  padding: var(--reservation-picker-hours-padding, 0.35rem);
+  scrollbar-width: thin;
+  scrollbar-color: var(--reservation-picker-accent, var(--accent)) transparent;
+}
+.admin-body .hour-dropdown__options::-webkit-scrollbar {
+  width: 4px;
+}
+.admin-body .hour-dropdown__options::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-body .hour-dropdown__options::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: var(--reservation-picker-accent, var(--accent));
+}
+.admin-body .hour-option {
+  display: flex;
+  width: 100%;
+  min-height: var(--reservation-picker-hour-option-height, auto);
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
+  border: 1px solid transparent;
+  border-radius: var(--reservation-picker-hour-option-radius, 0);
+  color: var(--reservation-picker-muted, var(--txt-mute));
+  font-family: var(--reservation-picker-font-family, var(--serif));
+  font-size: var(--reservation-picker-hour-font-size, 0.88rem);
+  font-weight: var(--reservation-picker-hour-font-weight, 400);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.admin-body .hour-option:hover {
+  border-color: var(--reservation-picker-day-hover-border, transparent);
+  background: var(--reservation-picker-hover-bg, var(--surface-2));
+  color: var(--reservation-picker-hover-color, var(--beige));
+}
+.admin-body .hour-option:focus-visible {
+  outline: none;
+  border-color: var(--reservation-picker-selected-border, var(--accent));
+  background: var(--reservation-picker-hover-bg, var(--surface-2));
+  color: var(--reservation-picker-hover-color, var(--beige));
+  box-shadow: inset 0 0 0 1px var(--reservation-picker-selected-border, var(--accent));
+}
+.admin-body .hour-option.sel {
+  border-color: var(--reservation-picker-selected-border, var(--accent));
+  background: var(--reservation-picker-hour-selected-bg, transparent);
+  color: var(--reservation-picker-hour-selected-color, var(--accent));
+}
+.admin-body .hour-option.sel::after {
+  width: 7px;
+  height: 4px;
+  flex: 0 0 auto;
+  border-bottom: 1.8px solid currentColor;
+  border-left: 1.8px solid currentColor;
+  content: "";
+  transform: translateY(-1px) rotate(-45deg);
+}
+.admin-body .date-display,
+.admin-body .hour-display {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+.admin-body .date-display:hover:not(:disabled),
+.admin-body .hour-display:hover:not(:disabled) {
+  border-color: rgba(204, 163, 82, 0.42);
+}
+.admin-body .date-display:focus, .admin-body .date-display:focus-visible,
+.admin-body .hour-display:focus,
+.admin-body .hour-display:focus-visible {
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-body .hour-picker-control .hour-display {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent), var(--admin-surface-soft);
+}
+.admin-body .hour-picker-wrap.has-value .hour-display {
+  color: var(--admin-text);
+}
+.admin-body .hour-dropdown__head strong {
+  letter-spacing: 0.01em;
+}
+.admin-body .hour-option.sel {
+  box-shadow: inset 0 0 0 1px rgba(204, 163, 82, 0.08);
+}
+.admin-body .admin-field.has-error .date-display,
+.admin-body .admin-field.has-error .hour-display,
+.admin-body .admin-datetime-field.has-error .date-display,
+.admin-body .admin-datetime-field.has-error .hour-display {
+  border-color: var(--admin-danger);
+  box-shadow: 0 0 0 3px var(--admin-danger-bg);
+}
 
 /*
  * Select custom del panel admin (mejora progresiva de <select>).
@@ -1631,6 +2301,9 @@
 .admin-modal[hidden] {
   display: none;
 }
+.admin-modal [hidden] {
+  display: none;
+}
 .admin-modal__backdrop {
   position: absolute;
   inset: 0;
@@ -1652,6 +2325,62 @@
   transform: translateY(12px) scale(0.98);
   opacity: 0;
   transition: transform var(--admin-t-base) var(--admin-ease), opacity var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-modal__dialog--wide {
+  max-width: 680px;
+  max-height: min(760px, 100vh - 40px);
+  overflow-y: auto;
+}
+.admin-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.admin-modal__eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--admin-sage-deep);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.admin-modal__close {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 50%;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.admin-modal__close:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-modal__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.admin-modal__field--wide {
+  grid-column: 1/-1;
+}
+.admin-modal__notice {
+  padding: 11px 13px;
+  border: 1px solid var(--admin-warning-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+  font-size: 13px;
+  line-height: 1.45;
 }
 .admin-modal.is-open .admin-modal__backdrop {
   opacity: 1;
@@ -1714,6 +2443,30 @@
   cursor: not-allowed;
 }
 
+@media (max-width: 576px) {
+  .admin-modal {
+    align-items: end;
+    padding: 10px;
+  }
+  .admin-modal__dialog {
+    max-height: calc(100vh - 20px);
+    padding: 20px 16px;
+    border-radius: var(--admin-radius-md);
+  }
+  .admin-modal__form {
+    grid-template-columns: 1fr;
+  }
+  .admin-modal__field--wide {
+    grid-column: auto;
+  }
+  .admin-modal__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .admin-modal__actions .admin-btn {
+    width: 100%;
+  }
+}
 /*
  * Estado provisional para módulos administrativos pendientes.
  * Presenta el nombre del módulo dentro de una superficie consistente.

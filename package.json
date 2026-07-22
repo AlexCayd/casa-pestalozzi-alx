@@ -4,7 +4,10 @@
   "description": "Proyecto Final Desarrollo Web Completo con @codigoconjuan",
   "main": "index.js",
   "scripts": {
-    "dev": "gulp dev"
+    "dev": "gulp dev",
+    "build": "gulp build",
+    "test:php": "php scripts/run-tests.php",
+    "test": "npm run test:php"
   },
   "author": "",
   "license": "ISC",

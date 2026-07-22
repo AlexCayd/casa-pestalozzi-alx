@@ -1,4 +1,4 @@
-const { src, dest, watch, parallel } = require('gulp');
+const { src, dest, watch, parallel, series } = require('gulp');
 
 // CSS
 const sass = require('gulp-sass')(require('sass'));
@@ -19,11 +19,18 @@ const paths = {
     scss: 'src/scss/app.scss',
     adminScss: 'src/scss/admin/shared/app-admin.scss',
     adminModulesScss: 'src/scss/admin/modules/*.scss',
-    js: ['src/js/**/*.js', '!src/js/admin/**/*.js'],
+    operationScss: 'src/scss/operation/reservations.scss',
+    js: [
+        'src/js/**/*.js',
+        '!src/js/admin/**/*.js',
+        '!src/js/operation/**/*.js',
+        '!src/js/modules/mapa.js'
+    ],
     adminJs: [
         'src/js/admin/admin.js',
         'src/js/admin/core/theme.js',
         'src/js/admin/core/motion.js',
+        'src/js/admin/core/reactive-filters.js',
         'src/js/admin/core/select.js'
     ],
     adminAnalyticsJs: [
@@ -32,13 +39,31 @@ const paths = {
         'src/js/admin/analytics/analytics-page.js',
         'src/js/admin/analytics/analytics.js'
     ],
-    adminMapJs: 'src/js/admin/map/map.js',
+    adminMapJs: [
+        'src/js/components/reservation-date-picker.js',
+        'src/js/operation/shell.js',
+        'src/js/operation/map-visual.js',
+        'src/js/operation/reservation-card.js',
+        'src/js/admin/map/map.js'
+    ],
     adminAreaJs: 'src/js/admin/area/area.js',
+    adminReservationFormJs: [
+        'src/js/components/reservation-date-picker.js',
+        'src/js/components/reservation-time-picker.js',
+        'src/js/admin/reservations/form.js'
+    ],
     adminReservationOperationJs: [
         'src/js/components/reservation-date-picker.js',
         'src/js/components/reservation-time-picker.js',
-        'src/js/admin/reservations/form.js',
+        'src/js/operation/shell.js',
+        'src/js/operation/map-visual.js',
+        'src/js/operation/reservation-card.js',
         'src/js/admin/reservations/operation.js'
+    ],
+    adminConfigurationJs: [
+        'src/js/components/reservation-date-picker.js',
+        'src/js/components/reservation-time-picker.js',
+        'src/js/admin/configuration/configuration.js'
     ],
     imagenes: 'src/img/**/*',
     chartJs: 'node_modules/chart.js/dist/chart.umd.min.js'
@@ -122,6 +147,30 @@ function adminReservationOperationJavascript() {
         .pipe(dest('./public/build/js/admin'));
 }
 
+function operationCss() {
+    return src(paths.operationScss)
+        .pipe(sass({ outputStyle: 'expanded' }))
+        .pipe(dest('public/build/css/operation'));
+}
+
+function adminReservationFormJavascript() {
+    return src(paths.adminReservationFormJs)
+        .pipe(sourcemaps.init())
+        .pipe(concat('reservation-form.js'))
+        .pipe(terser())
+        .pipe(sourcemaps.write('.'))
+        .pipe(dest('./public/build/js/admin'));
+}
+
+function adminConfigurationJavascript() {
+    return src(paths.adminConfigurationJs)
+        .pipe(sourcemaps.init())
+        .pipe(concat('configuration.js'))
+        .pipe(terser())
+        .pipe(sourcemaps.write('.'))
+        .pipe(dest('./public/build/js/admin'));
+}
+
 function copyChartJs() {
     return src(paths.chartJs)
         .pipe(dest('public/build/js/vendor'));
@@ -133,28 +182,24 @@ function imagenes() {
         .pipe(dest('public/build/img'));
 }
 
-function versionWebp(done) {
+function versionWebp() {
     const opciones = {
         quality: 50
     };
 
-    src('src/img/**/*.{png,jpg}')
+    return src('src/img/**/*.{png,jpg}')
         .pipe(webp(opciones))
         .pipe(dest('public/build/img'));
-
-    done();
 }
 
-function versionAvif(done) {
+function versionAvif() {
     const opciones = {
         quality: 50
     };
 
-    src('src/img/**/*.{png,jpg}')
+    return src('src/img/**/*.{png,jpg}')
         .pipe(avif(opciones))
         .pipe(dest('public/build/img'));
-
-    done();
 }
 
 // Copia fuentes a public/build/fonts/ (necesario para rutas CSS desde public/)
@@ -173,12 +218,16 @@ function devWatch(done) {
     watch(paths.scss, css);
     watch('src/scss/admin/shared/**/*.scss', adminCss);
     watch('src/scss/admin/modules/**/*.scss', adminModuleCss);
+    watch('src/scss/operation/**/*.scss', operationCss);
     watch(paths.js, javascript);
     watch(['src/js/admin/admin.js', 'src/js/admin/core/**/*.js'], adminJavascript);
     watch('src/js/admin/analytics/**/*.js', adminAnalyticsJavascript);
-    watch('src/js/admin/map/**/*.js', adminMapJavascript);
+    watch(['src/js/admin/map/**/*.js', 'src/js/operation/*.js'], adminMapJavascript);
     watch('src/js/admin/area/**/*.js', adminAreaJavascript);
-    watch('src/js/admin/reservations/**/*.js', adminReservationOperationJavascript);
+    watch('src/js/admin/reservations/form.js', adminReservationFormJavascript);
+    watch(['src/js/admin/reservations/operation.js', 'src/js/operation/*.js'], adminReservationOperationJavascript);
+    watch('src/js/components/reservation-*-picker.js', parallel(adminMapJavascript, adminReservationFormJavascript, adminReservationOperationJavascript));
+    watch(['src/js/admin/configuration/**/*.js', 'src/js/components/reservation-*-picker.js'], adminConfigurationJavascript);
     watch(paths.chartJs, copyChartJs);
     watch(paths.imagenes, imagenes);
     watch(paths.imagenes, versionWebp);
@@ -191,12 +240,15 @@ function devWatch(done) {
 exports.css = css;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
+exports.operationCss = operationCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
+exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
+exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.copyChartJs = copyChartJs;
 exports.imagenes = imagenes;
 exports.versionWebp = versionWebp;
@@ -207,6 +259,7 @@ exports.dev = parallel(
     css,
     adminCss,
     adminModuleCss,
+    operationCss,
     imagenes,
     versionWebp,
     versionAvif,
@@ -215,9 +268,31 @@ exports.dev = parallel(
     adminAnalyticsJavascript,
     adminMapJavascript,
     adminAreaJavascript,
+    adminReservationFormJavascript,
     adminReservationOperationJavascript,
+    adminConfigurationJavascript,
     copyChartJs,
     copyFonts,
     copyImages,
     devWatch
+);
+
+// Build finito. Las tareas de reservaciones se ejecutan en serie para evitar
+// que dos streams de minificacion compartan contenido al escribir bundles.
+exports.build = series(
+    css,
+    adminCss,
+    adminModuleCss,
+    operationCss,
+    imagenes,
+    versionWebp,
+    versionAvif,
+    javascript,
+    adminJavascript,
+    adminMapJavascript,
+    adminReservationFormJavascript,
+    adminReservationOperationJavascript,
+    adminConfigurationJavascript,
+    copyFonts,
+    copyImages
 );

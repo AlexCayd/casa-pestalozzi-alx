@@ -32,10 +32,6 @@ class AdminController
             'title' => 'Reservaciones',
             'path' => '/admin/reservations'
         ],
-        'reservations_operation' => [
-            'title' => 'Operación de reservaciones',
-            'path' => '/admin/reservations/operation'
-        ],
         'feedback' => [
             'title' => 'Feedback de clientes',
             'path' => '/admin/feedback'
@@ -55,6 +51,10 @@ class AdminController
         'users' => [
             'title' => 'Usuarios',
             'path' => '/admin/usuarios'
+        ],
+        'configuration' => [
+            'title' => 'Configuración',
+            'path' => '/admin/configuracion'
         ],
     ];
 
@@ -304,5 +304,35 @@ class AdminController
         $content = ob_get_clean();
 
         include_once __DIR__ . '/../views/admin/layout.php';
+    }
+
+    /**
+     * Las rutas administrativas pueden reutilizar la misma consulta y devolver
+     * solo el fragmento de resultados cuando el cliente lo solicita.
+     */
+    public static function isPartialRequest(): bool
+    {
+        return strcasecmp((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''), 'XMLHttpRequest') === 0;
+    }
+
+    public static function renderPartial(string $view, array $data = []): void
+    {
+        foreach ($data as $key => $value) {
+            $$key = $value;
+        }
+
+        header('Content-Type: text/html; charset=utf-8');
+        if (!empty($data['partialUrl'])) {
+            header('X-Filter-URL: ' . (string)$data['partialUrl']);
+        }
+        include __DIR__ . "/../views/admin/{$view}.php";
+    }
+
+    public static function filterUrl(string $path, array $params): string
+    {
+        $params = array_filter($params, static fn($value): bool => (string)$value !== '');
+        $query = http_build_query($params);
+
+        return $path . ($query !== '' ? '?' . $query : '');
     }
 }

@@ -50,6 +50,7 @@ function boot() {
   initLightbox();
   initHours();
   initForm();
+  initAnnouncementDismiss();
   initTweaks();
 
   if (window.gsap && window.ScrollTrigger) {

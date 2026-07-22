@@ -230,8 +230,4 @@ class Usuario extends ActiveRecord
         return (int) array_shift($total);
     }
 
-    public static function contarAdministradoresActivos(): int
-    {
-        return static::contarAdminsActivos();
-    }
 }

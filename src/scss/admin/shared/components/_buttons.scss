@@ -49,6 +49,14 @@
         transform: translateY(0);
         box-shadow: var(--admin-shadow-sm);
     }
+
+    &:disabled,
+    &[aria-disabled="true"] {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
 }
 
 /* Botón firma: relleno que sube desde abajo (paridad con .btn-line público) */

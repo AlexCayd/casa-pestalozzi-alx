@@ -132,6 +132,7 @@ function initHourPicker(form) {
   var status = $("#hourStatus");
   var endpoint = form ? form.getAttribute("data-schedules-endpoint") : "";
   var requestId = 0;
+  var abortController = null;
   var enabled = false;
 
   if (!wrap || !display || !hidden || !dropdown || !dateInput || !endpoint) {
@@ -225,10 +226,17 @@ function initHourPicker(form) {
     requestId++;
     var currentRequest = requestId;
 
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
+
     setLoading();
+    abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
 
     fetch(endpoint + "?fecha=" + encodeURIComponent(fecha), {
-      headers: { "Accept": "application/json" }
+      headers: { "Accept": "application/json" },
+      signal: abortController ? abortController.signal : undefined
     })
       .then(function(r) { return r.json(); })
       .then(function(res) {
@@ -236,19 +244,20 @@ function initHourPicker(form) {
 
         if (!res.ok) {
           setDisabled("Elige una hora");
-          setStatus((res.errors && res.errors.fecha && res.errors.fecha[0]) || res.msg || "No hay horarios disponibles para esta fecha.", true);
+          setStatus(res.mensaje || "No fue posible consultar los horarios.", true);
           return;
         }
 
-        if (res.dia_activo === false) {
-          setDisabled("Dia sin reservaciones");
-          setStatus("El restaurante no recibe reservaciones en esa fecha.", true);
+        if (res.abierto === false) {
+          setDisabled("Restaurante cerrado");
+          setStatus(res.mensaje || "El restaurante no recibe reservaciones en esta fecha.", true);
           return;
         }
 
         renderHours(Array.isArray(res.horarios) ? res.horarios : []);
       })
-      .catch(function() {
+      .catch(function(error) {
+        if (error && error.name === "AbortError") return;
         if (currentRequest !== requestId) return;
         setDisabled("Elige una hora");
         setStatus("No fue posible consultar los horarios. Inténtalo nuevamente.", true);
@@ -361,10 +370,23 @@ function initForm() {
   updateStepper();
 
   var msg = $("#formMsg");
+  var submitButton = form.querySelector('button[type="submit"]');
+  var timeInput = $("#horaHidden");
+  var isSubmitting = false;
   var confirm = $("#reservaConfirm");
   var confirmMark = confirm ? confirm.querySelector(".mark") : null;
   var confirmTitle = confirm ? confirm.querySelector("h3") : null;
   var confirmText = $("#confirmText");
+
+  function updateSubmitState() {
+    if (!submitButton) return;
+    submitButton.disabled = isSubmitting || !timeInput || !timeInput.value;
+  }
+
+  if (timeInput) {
+    timeInput.addEventListener("reservation:timechange", updateSubmitState);
+  }
+  updateSubmitState();
 
   function fieldErrorEl(field) {
     return form.querySelector('[data-field-error="' + field + '"]');
@@ -459,11 +481,17 @@ function initForm() {
     data.append("hora", hora);
     data.append("comensales", guests);
     data.append("nota", form.nota ? form.nota.value.trim() : "");
+    data.append("request_token", form.request_token ? form.request_token.value : "");
+
+    isSubmitting = true;
+    updateSubmitState();
 
     fetch("/reservar", { method: "POST", body: data })
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (!res.ok) {
+          isSubmitting = false;
+          updateSubmitState();
           applyErrors(res.errors || {});
           showInlineMessage(res.msg || "No pudimos registrar tu reservacion. Intenta nuevamente.");
           if (res.errors && res.errors.comensales) setLargePartyVisible(guests >= maxGuests);
@@ -489,6 +517,8 @@ function initForm() {
         });
       })
       .catch(function() {
+        isSubmitting = false;
+        updateSubmitState();
         showInlineMessage("No fue posible registrar tu reservacion. Intentalo nuevamente.");
       });
   });

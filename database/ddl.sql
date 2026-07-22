@@ -93,12 +93,14 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   comensales         INT NOT NULL DEFAULT 2,
   nota               TEXT,
   comentario_admin   TEXT NULL COMMENT 'Comentario interno de operación',
+  request_token      VARCHAR(64) NULL,
   estado             ENUM('pendiente','confirmada','completada','cancelada','no_show') NOT NULL DEFAULT 'pendiente',
   created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
   INDEX idx_reservaciones_fecha_hora        (fecha, hora),
-  INDEX idx_reservaciones_estado            (estado)
+  INDEX idx_reservaciones_estado            (estado),
+  UNIQUE KEY uq_reservaciones_request_token (request_token)
 );
 
 CREATE TABLE IF NOT EXISTS reservacion_mesas (
@@ -249,4 +251,121 @@ CREATE TABLE IF NOT EXISTS impresoras (
   ancho       TINYINT NOT NULL DEFAULT 48 COMMENT 'caracteres (48=80mm, 32=58mm)',
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+);
+
+
+-- -------------------------------------------------------
+-- CAMBIOS MODULO DE AJUSTES
+-- -------------------------------------------------------
+ALTER TABLE reservaciones
+  ADD COLUMN request_token VARCHAR(64) NULL AFTER comentario_admin,
+  ADD UNIQUE KEY uq_reservaciones_request_token (request_token);
+
+
+ALTER TABLE dias_reservacion
+  ADD CONSTRAINT uq_dias_reservacion_dia_semana
+  UNIQUE (dia_semana);
+
+ALTER TABLE horarios_reservacion
+  ADD CONSTRAINT uq_horarios_reservacion_dia_hora
+  UNIQUE (dia_id, hora);
+
+  CREATE TABLE IF NOT EXISTS horarios_operacion (
+  id            TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  dia_semana    TINYINT UNSIGNED NOT NULL
+                  COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
+  abierto       TINYINT(1) NOT NULL DEFAULT 1,
+  hora_apertura TIME NULL,
+  hora_cierre   TIME NULL,
+  updated_by    INT NULL,
+  updated_at    TIMESTAMP NOT NULL
+                  DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_horarios_operacion_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL,
+
+  UNIQUE KEY uq_horarios_operacion_dia (dia_semana)
+);
+
+CREATE TABLE IF NOT EXISTS excepciones_operacion (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  fecha         DATE NOT NULL,
+  tipo          ENUM('cerrado', 'horario_especial') NOT NULL,
+  motivo        VARCHAR(160) NULL,
+  hora_apertura TIME NULL,
+  hora_cierre   TIME NULL,
+  activo        TINYINT(1) NOT NULL DEFAULT 1,
+  updated_by    INT NULL,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NULL DEFAULT NULL
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_excepciones_operacion_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL,
+
+  UNIQUE KEY uq_excepciones_operacion_fecha (fecha),
+  INDEX idx_excepciones_fecha_activo (fecha, activo)
+);
+
+CREATE TABLE IF NOT EXISTS configuracion_anuncio (
+  id            TINYINT UNSIGNED NOT NULL,
+  mensaje       VARCHAR(255) NOT NULL DEFAULT '',
+  tipo          ENUM('informativo', 'advertencia', 'importante')
+                  NOT NULL DEFAULT 'informativo',
+  activo        TINYINT(1) NOT NULL DEFAULT 0,
+  fecha_inicio  DATETIME NULL,
+  fecha_fin     DATETIME NULL,
+  texto_enlace  VARCHAR(80) NULL,
+  url_enlace    VARCHAR(500) NULL,
+  updated_by    INT NULL,
+  updated_at    TIMESTAMP NOT NULL
+                  DEFAULT CURRENT_TIMESTAMP
+                  ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_configuracion_anuncio_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS reportes_sistema (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  usuario_id       INT NULL,
+  modulo           VARCHAR(60) NULL,
+  titulo           VARCHAR(120) NOT NULL,
+  descripcion      TEXT NOT NULL,
+  ruta_origen VARCHAR(255) NULL,
+  navegador        ENUM(
+                       'chrome',
+                       'edge',
+                       'firefox',
+                       'safari',
+                       'otro'
+                     ) NULL,
+  navegador_otro   VARCHAR(80) NULL,
+  estado           ENUM(
+                       'nuevo',
+                       'en_revision',
+                       'resuelto',
+                       'descartado'
+                     ) NOT NULL DEFAULT 'nuevo',
+  resuelto_at      DATETIME NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP NULL DEFAULT NULL
+                     ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_reportes_sistema_usuario
+    FOREIGN KEY (usuario_id)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL,
+
+  INDEX idx_reportes_estado_fecha (estado, created_at),
+  INDEX idx_reportes_modulo (modulo)
 );

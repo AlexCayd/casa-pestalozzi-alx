@@ -23,9 +23,18 @@
         </div>
         <div class="foot__col">
           <h6>Horario</h6>
-          <span>Lun 8:30 — 15:00</span>
-          <span>Mar–Sáb 8:30 — 22:00</span>
-          <span>Dom 8:30 — 19:00</span>
+          <?php if (!empty($horariosOperacionDisponibles)) : ?>
+            <?php foreach ($horariosOperacion as $horario) : ?>
+              <span>
+                <?php echo s($horario['nombre'] ?? ''); ?>
+                <?php echo !empty($horario['abierto'])
+                  ? s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? ''))
+                  : 'Cerrado'; ?>
+              </span>
+            <?php endforeach; ?>
+          <?php else : ?>
+            <span>Consulta la disponibilidad al reservar.</span>
+          <?php endif; ?>
         </div>
       </div>
     </div>

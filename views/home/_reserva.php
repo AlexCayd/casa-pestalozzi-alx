@@ -4,6 +4,23 @@
  */
 
 $contactoReservas = \Services\ReservacionConfig::contactoPublico();
+$horariosOperacion = is_array($horariosOperacion ?? null) ? $horariosOperacion : [];
+$proximasExcepcionesOperacion = is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [];
+$horariosOperacionDisponibles = (bool)($horariosOperacionDisponibles ?? false);
+$meses = [
+  1 => 'enero',
+  2 => 'febrero',
+  3 => 'marzo',
+  4 => 'abril',
+  5 => 'mayo',
+  6 => 'junio',
+  7 => 'julio',
+  8 => 'agosto',
+  9 => 'septiembre',
+  10 => 'octubre',
+  11 => 'noviembre',
+  12 => 'diciembre',
+];
 ?>
 <section class="section reserva" id="reserva" data-screen-label="Reservar">
   <div class="wrap reserva__grid">
@@ -13,13 +30,40 @@ $contactoReservas = \Services\ReservacionConfig::contactoPublico();
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
       <div class="reserva__hours" data-reveal>
         <h5>Horario</h5>
-        <div class="row" data-day="1"><span>Lunes</span><span>8:30 — 15:00</span></div>
-        <div class="row" data-day="2"><span>Martes</span><span>8:30 — 22:00</span></div>
-        <div class="row" data-day="3"><span>Miércoles</span><span>8:30 — 22:00</span></div>
-        <div class="row" data-day="4"><span>Jueves</span><span>8:30 — 22:00</span></div>
-        <div class="row" data-day="5"><span>Viernes</span><span>8:30 — 22:00</span></div>
-        <div class="row" data-day="6"><span>Sábado</span><span>8:30 — 22:00</span></div>
-        <div class="row" data-day="0"><span>Domingo</span><span>8:30 — 19:00</span></div>
+        <?php if ($horariosOperacionDisponibles) : ?>
+          <?php foreach ($horariosOperacion as $horario) : ?>
+            <div class="row" data-day="<?php echo (int)($horario['dia_semana'] ?? 0); ?>">
+              <span><?php echo s($horario['nombre'] ?? ''); ?></span>
+              <span>
+                <?php if (!empty($horario['abierto'])) : ?>
+                  <?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?>
+                <?php else : ?>
+                  Cerrado
+                <?php endif; ?>
+              </span>
+            </div>
+          <?php endforeach; ?>
+        <?php else : ?>
+          <p class="reserva__hours-unavailable">Consulta la disponibilidad al seleccionar tu fecha.</p>
+        <?php endif; ?>
+
+        <?php if ($horariosOperacionDisponibles && $proximasExcepcionesOperacion !== []) : ?>
+          <div class="reserva__schedule-changes">
+            <h6>Próximos cambios de horario</h6>
+            <?php foreach ($proximasExcepcionesOperacion as $excepcion) : ?>
+              <?php
+                $fechaExcepcion = \DateTimeImmutable::createFromFormat('!Y-m-d', (string)($excepcion['fecha'] ?? ''));
+                $fechaVisible = $fechaExcepcion instanceof \DateTimeImmutable
+                  ? (int)$fechaExcepcion->format('j') . ' de ' . ($meses[(int)$fechaExcepcion->format('n')] ?? '')
+                  : '';
+                $horarioVisible = ($excepcion['tipo'] ?? '') === 'horario_especial'
+                  ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
+                  : 'Cerrado';
+              ?>
+              <p><span><?php echo s($fechaVisible); ?></span><span aria-hidden="true">—</span><strong><?php echo s($horarioVisible); ?></strong></p>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -31,6 +75,7 @@ $contactoReservas = \Services\ReservacionConfig::contactoPublico();
         data-max-guests="<?php echo (int)$contactoReservas['max_comensales']; ?>"
         novalidate
       >
+        <input type="hidden" name="request_token" value="<?php echo s($reservationRequestToken ?? ''); ?>">
         <div class="form__row">
           <div class="field">
             <label>Nombre</label>
@@ -55,7 +100,8 @@ $contactoReservas = \Services\ReservacionConfig::contactoPublico();
               $value = '';
               $min = \Services\ReservacionConfig::fechaActual();
               $disabled = false;
-              $enabledWeekdays = \Services\HorarioReservacionService::diasConHorariosActivos();
+              // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
+              $enabledWeekdays = range(0, 6);
               include __DIR__ . '/../components/reservations/date-picker.php';
             ?>
             <span class="field__msg" data-field-error="fecha"></span>

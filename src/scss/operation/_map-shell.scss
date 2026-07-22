@@ -1,0 +1,325 @@
+.operational-page {
+  --mesas-map-max-width: 1120px;
+  --mesas-map-max-height: 640px;
+  --mesas-map-aspect-ratio: 1.75 / 1;
+  --mesas-map-ratio: 1.75;
+  --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
+}
+
+.mesas-map {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 11px;
+  flex-direction: column;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
+  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2));
+  overflow: hidden;
+  container-name: mesas-map;
+  container-type: inline-size;
+  font-family: var(--operational-font-ui);
+}
+
+.mesas-map:hover {
+  border-color: var(--admin-border-soft);
+  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2));
+  transform: none;
+}
+
+.mesas-map::before {
+  content: none;
+}
+
+.mesas-map__header {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: minmax(190px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 0 3px 10px;
+  flex: 0 0 auto;
+}
+
+.mesas-map__header.operational-map-head--with-trigger {
+  grid-template-columns: auto minmax(160px, 1fr) auto;
+}
+
+.mesas-map__heading {
+  min-width: 0;
+
+  p {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: var(--admin-muted);
+    font-size: var(--operational-text-xs);
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.mesas-map__title {
+  display: block;
+  color: var(--admin-text);
+  font-family: var(--operational-font-editorial);
+  font-size: var(--operational-text-subtitle);
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.mesas-map__legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 11px;
+  flex-wrap: wrap;
+}
+
+.mesas-map__legend .mapa-leyenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-medium);
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: none;
+  white-space: nowrap;
+
+  &::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    background: transparent;
+  }
+}
+
+.mesas-map__legend .mapa-leyenda-item--libre::before {
+  color: var(--admin-success);
+  background: var(--admin-success-bg);
+}
+
+.mesas-map__legend .mapa-leyenda-item--ocupada::before {
+  color: var(--admin-danger);
+  background: var(--admin-danger-bg);
+}
+
+.mesas-map__legend .mapa-leyenda-item--bloqueada::before {
+  color: var(--admin-warning);
+  background: var(--admin-warning-bg);
+}
+
+.mesas-map__legend .mapa-leyenda-item--seleccionada::before {
+  color: var(--admin-gold-soft);
+  background: var(--admin-gold);
+}
+
+.mesas-map__legend .mapa-leyenda-item--zona::before {
+  color: var(--admin-faint);
+  background: var(--admin-surface-soft);
+}
+
+.mesas-map__viewport {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: var(--mesas-map-viewport-padding);
+  place-items: center;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--admin-bg) 58%, var(--admin-surface-soft));
+  overflow: auto;
+  overscroll-behavior: contain;
+  container-type: size;
+}
+
+.mesas-map__floor {
+  position: relative;
+  width: min(100%, var(--mesas-map-max-width), calc(100cqh * var(--mesas-map-ratio)));
+  max-width: var(--mesas-map-max-width);
+  max-height: var(--mesas-map-max-height);
+  min-height: 0;
+  aspect-ratio: var(--mesas-map-aspect-ratio);
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--admin-border) 72%, transparent);
+  border-radius: 11px;
+  background:
+    linear-gradient(rgba(204, 163, 82, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(204, 163, 82, 0.018) 1px, transparent 1px),
+    var(--admin-surface-soft);
+  background-size: 44px 44px;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.25);
+  container-type: inline-size;
+}
+
+.mapa-workspace {
+  height: auto;
+  flex: 1 1 0;
+}
+
+.mesas-map .mesa-pin {
+  position: absolute;
+  display: grid;
+  width: clamp(80px, 7vw, 100px) !important;
+  min-width: clamp(80px, 7vw, 100px);
+  height: clamp(52px, 4.5vw, 64px) !important;
+  min-height: 52px;
+  padding: clamp(8px, 0.8vw, 11px);
+  place-items: center;
+  border: 2px solid var(--admin-border-soft);
+  border-radius: 13px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 9px 24px rgba(0, 0, 0, 0.22);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-base);
+  font-weight: var(--operational-weight-regular);
+  letter-spacing: 0;
+  line-height: 1.2;
+  transform: translate(-50%, -50%);
+  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+.mesas-map button.mesa-pin {
+  cursor: pointer;
+}
+
+.mesas-map .mesa-pin:hover:not(:disabled) {
+  z-index: 2;
+  transform: translate(-50%, -50%) scale(1.035);
+}
+
+.mesas-map .mesa-pin:focus-visible {
+  z-index: 3;
+  outline: 0;
+  box-shadow: var(--admin-focus-ring), 0 9px 24px rgba(0, 0, 0, 0.26);
+}
+
+.mesas-map .mesa-pin:disabled {
+  cursor: not-allowed;
+}
+
+.mesas-map .mesa-pin--tipo-barra {
+  width: clamp(122px, 11vw, 164px) !important;
+  min-width: clamp(122px, 11vw, 164px);
+  height: clamp(48px, 4vw, 56px) !important;
+  min-height: 48px;
+  border-radius: 8px;
+}
+
+.mesas-map .mesa-pin--tipo-especial {
+  width: clamp(76px, 9vw, 136px) !important;
+  min-width: clamp(76px, 9vw, 136px);
+  height: clamp(48px, 4vw, 56px) !important;
+  min-height: 48px;
+  border-radius: 10px;
+}
+
+.mesas-map .mesa-pin__label {
+  overflow: hidden;
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-base);
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.mesas-map .mesa-pin--libre {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
+}
+
+.mesas-map .mesa-pin--ocupada {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  opacity: 0.7;
+}
+
+.mesas-map .mesa-pin--asignada,
+.mesas-map .mesa-pin--bloqueada,
+.mesas-map .mesa-pin--proxima {
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning-text);
+}
+
+.mesas-map .mesa-pin--no-reservable,
+.mesas-map .mesa-pin--zona,
+.mesas-map .mesa-pin--tipo-barra,
+.mesas-map .mesa-pin--tipo-especial {
+  border-color: var(--admin-border);
+  border-style: solid;
+  background: color-mix(in srgb, var(--admin-surface) 74%, var(--admin-surface-soft));
+  color: var(--admin-muted);
+  opacity: 0.86;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.16);
+}
+
+.mesas-map .mesa-pin--tipo-barra {
+  background: color-mix(in srgb, var(--admin-surface-soft) 82%, var(--admin-gold) 3%);
+}
+
+.mesas-map .mesa-pin--seleccionada,
+.mesas-map .mesa-pin--highlight,
+.mesas-map .reservation-operation-pin--selected {
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-gold) 24%, var(--admin-surface));
+  color: var(--admin-gold-soft);
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.18), 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+@container mesas-map (max-width: 760px) {
+  .mesas-map__header,
+  .mesas-map__header.operational-map-head--with-trigger {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mesas-map__legend {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .mesas-map__header,
+  .mesas-map__header.operational-map-head--with-trigger {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mesas-map__legend {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-height: 680px) and (min-width: 901px) {
+  .mesas-map__header {
+    min-height: 46px;
+  }
+
+  .mesas-map__heading p {
+    display: none;
+  }
+}
