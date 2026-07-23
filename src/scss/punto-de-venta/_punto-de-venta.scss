@@ -100,6 +100,64 @@
   &:hover { color: var(--gold); }
 }
 
+// ── Personal en turno + salir ─────────────────────────────────
+.pdv-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .1rem;
+  line-height: 1.15;
+  max-width: 11rem;
+  overflow: hidden;
+}
+
+.pdv-user__nombre {
+  font-size: .8rem;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pdv-user__rol {
+  font-size: .62rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+}
+
+.pdv-logout-form {
+  display: flex;
+}
+
+.pdv-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: .38rem .75rem;
+  color: var(--txt-mute);
+  font-family: var(--sans);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  transition: color .15s, border-color .15s;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+}
+
 // ── Calendario dropdown ───────────────────────────────────────
 .pdv-cal {
   display: none;
@@ -813,6 +871,8 @@
 
   .pdv-header { padding: 0 1rem; gap: 1rem; }
   .pdv-title  { font-size: .85rem; }
+  .pdv-header-controls { gap: .65rem; }
+  .pdv-user { max-width: 8rem; }
 
   .pdv-time-ctrl { padding: .7rem 1rem; gap: .75rem; }
   .pdv-current-time { font-size: 1.1rem; min-width: 44px; }
@@ -829,8 +889,14 @@
     gap: .5rem;
   }
   .pdv-header-center { order: 3; width: 100%; text-align: left; }
-  .pdv-header-controls { margin-left: auto; }
+  .pdv-header-controls { margin-left: auto; gap: .5rem; }
   .pdv-title { font-size: .75rem; }
+
+  // Sin espacio para el detalle: solo el nombre y el icono de salir
+  .pdv-user { max-width: 6.5rem; }
+  .pdv-user__rol { display: none; }
+  .pdv-logout { padding: .38rem .5rem; }
+  .pdv-logout__texto { display: none; }
 
   // Layout vertical: canvas arriba, sidebar abajo
   .pdv-body {

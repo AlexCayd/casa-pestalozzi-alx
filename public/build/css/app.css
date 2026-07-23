@@ -3470,6 +3470,60 @@ footer.foot {
   color: var(--gold);
 }
 
+.pdv-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  line-height: 1.15;
+  max-width: 11rem;
+  overflow: hidden;
+}
+
+.pdv-user__nombre {
+  font-size: 0.8rem;
+  color: var(--txt);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pdv-user__rol {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+}
+
+.pdv-logout-form {
+  display: flex;
+}
+
+.pdv-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.38rem 0.75rem;
+  color: var(--txt-mute);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pdv-logout svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.pdv-logout:hover, .pdv-logout:focus-visible {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
 .pdv-cal {
   display: none;
   position: absolute;
@@ -3570,6 +3624,36 @@ footer.foot {
   background: var(--gold) !important;
   color: var(--ink) !important;
   font-weight: 700;
+}
+
+.mapa-logout-form {
+  display: inline-flex;
+}
+
+.mapa-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.3s, border-color 0.3s;
+}
+.mapa-logout:hover {
+  color: #e87060;
+  border-color: rgba(232, 112, 96, 0.5);
+}
+.mapa-logout span {
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pdv-body {
@@ -4153,6 +4237,12 @@ footer.foot {
   .pdv-title {
     font-size: 0.85rem;
   }
+  .pdv-header-controls {
+    gap: 0.65rem;
+  }
+  .pdv-user {
+    max-width: 8rem;
+  }
   .pdv-time-ctrl {
     padding: 0.7rem 1rem;
     gap: 0.75rem;
@@ -4176,9 +4266,22 @@ footer.foot {
   }
   .pdv-header-controls {
     margin-left: auto;
+    gap: 0.5rem;
   }
   .pdv-title {
     font-size: 0.75rem;
+  }
+  .pdv-user {
+    max-width: 6.5rem;
+  }
+  .pdv-user__rol {
+    display: none;
+  }
+  .pdv-logout {
+    padding: 0.38rem 0.5rem;
+  }
+  .pdv-logout__texto {
+    display: none;
   }
   .pdv-body {
     flex-direction: column;
