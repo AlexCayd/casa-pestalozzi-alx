@@ -1,0 +1,20 @@
+.mapa-empty-state {
+  display: grid;
+  min-height: 150px;
+  place-content: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.mapa-empty-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  color: var(--admin-gold-soft);
+}

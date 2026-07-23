@@ -7,6 +7,8 @@
 
 namespace Model;
 
+use Services\ReservacionConfig;
+
 class ReservacionMesa extends ActiveRecord
 {
     protected static $tabla = 'reservacion_mesas';
@@ -107,6 +109,10 @@ class ReservacionMesa extends ActiveRecord
         $fecha = self::escaparString($fecha);
         $excluirSql = $excluirReservacionId > 0 ? "AND r.id != {$excluirReservacionId}" : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
+        $estadosOcupacion = implode(', ', array_map(
+            static fn(string $estado): string => "'" . self::escaparString($estado) . "'",
+            ReservacionConfig::ESTADOS_OCUPAN_MESA
+        ));
 
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
@@ -120,7 +126,7 @@ class ReservacionMesa extends ActiveRecord
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE r.fecha = '{$fecha}'
                {$excluirSql}
-               AND r.estado IN ('pendiente','confirmada')
+               AND r.estado IN ({$estadosOcupacion})
              ORDER BY r.hora ASC, rm.mesa_id ASC{$bloqueoSql}"
         );
 

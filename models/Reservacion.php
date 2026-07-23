@@ -7,9 +7,11 @@
 
 namespace Model;
 
+use Services\ReservacionConfig;
+
 class Reservacion extends ActiveRecord {
     protected static $tabla = 'reservaciones';
-    protected static $columnasDB = ['id', 'nombre', 'email', 'fecha', 'hora', 'comensales', 'nota', 'estado'];
+    protected static $columnasDB = ['id', 'nombre', 'email', 'fecha', 'hora', 'comensales', 'nota', 'request_token', 'estado'];
 
     public $id;
     public $nombre;
@@ -19,6 +21,7 @@ class Reservacion extends ActiveRecord {
     public $comensales = 2;
     public $nota;
     public $comentario_admin = null;
+    public $request_token = null;
     public $estado = 'pendiente';
     public $created_at = null;
     // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
@@ -27,7 +30,6 @@ class Reservacion extends ActiveRecord {
     public $capacidad_total = 0;
     public $mesa_ids = '';
 
-    private const ESTADOS_ADMIN = ['pendiente', 'confirmada', 'completada', 'cancelada', 'no_show'];
     private static $comentarioAdminExiste = null;
 
     public static function findWithMesas($id) {
@@ -75,8 +77,85 @@ class Reservacion extends ActiveRecord {
         return array_shift($resultado) ?: null;
     }
 
-    public static function estadosPermitidosAdmin() {
-        return self::ESTADOS_ADMIN;
+    public static function buscarPorRequestToken(string $token): ?self
+    {
+        $stmt = self::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta de idempotencia.');
+        }
+        $stmt->bind_param('s', $token);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+
+        return $fila ? static::crearObjeto($fila) : null;
+    }
+
+    /**
+     * Reservaciones activas posteriores a la fecha y hora local indicadas.
+     * La relación con dia_semana se resuelve en el servicio, no en SQL.
+     */
+    public static function buscarFuturasActivas(string $fechaActual, string $horaActual): array
+    {
+        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        $stmt = self::getDB()->prepare(
+            "SELECT id, nombre, fecha, hora, estado
+             FROM " . static::$tabla . "
+             WHERE estado IN ({$estadosOcupacion})
+               AND (fecha > ? OR (fecha = ? AND hora > ?))
+             ORDER BY fecha ASC, hora ASC, id ASC"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta de reservaciones futuras.');
+        }
+
+        $stmt->bind_param('sss', $fechaActual, $fechaActual, $horaActual);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new \RuntimeException('No fue posible consultar las reservaciones futuras.');
+        }
+        $resultado = $stmt->get_result();
+        $reservaciones = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $reservaciones[] = static::crearObjeto($fila);
+        }
+        $stmt->close();
+
+        return $reservaciones;
+    }
+
+    /** Reservaciones pendientes o confirmadas de una fecha concreta. */
+    public static function buscarActivasPorFecha(string $fecha): array
+    {
+        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        $stmt = self::getDB()->prepare(
+            "SELECT id, nombre, fecha, hora, estado
+             FROM " . static::$tabla . "
+             WHERE fecha = ?
+               AND estado IN ({$estadosOcupacion})
+             ORDER BY hora ASC, id ASC"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta de reservaciones de la fecha.');
+        }
+
+        $stmt->bind_param('s', $fecha);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new \RuntimeException('No fue posible consultar las reservaciones de la fecha.');
+        }
+        $resultado = $stmt->get_result();
+        $reservaciones = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $reservaciones[] = static::crearObjeto($fila);
+        }
+        $stmt->close();
+
+        return $reservaciones;
     }
 
     public static function buscarAdmin(array $filtros = []) {
@@ -124,52 +203,6 @@ class Reservacion extends ActiveRecord {
         return self::consultarSQL($query);
     }
 
-    public static function buscarPorHorarioAdmin($fecha, $hora, $estado = '') {
-        $fecha = self::escaparString($fecha);
-        $hora = self::escaparString($hora);
-        $estado = (string)$estado;
-        $estadoSql = '';
-        $comentarioSelect = self::comentarioAdminAggregateSelect('r');
-
-        if (in_array($estado, self::ESTADOS_ADMIN, true)) {
-            $estado = self::escaparString($estado);
-            $estadoSql = " AND r.estado = '{$estado}'";
-        }
-
-        $query = "SELECT
-                    r.id,
-                    r.nombre,
-                    r.email,
-                    r.fecha,
-                    r.hora,
-                    r.comensales,
-                    r.nota,
-                    {$comentarioSelect},
-                    r.estado,
-                    COUNT(rm.id) AS mesas_count,
-                    COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
-                    COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas,
-                    COALESCE(SUM(m.capacidad), 0) AS capacidad_total
-                  FROM reservaciones r
-                  LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-                  LEFT JOIN mesas m ON m.id = rm.mesa_id
-                  WHERE r.fecha = '{$fecha}'
-                    AND r.hora = '{$hora}'
-                    {$estadoSql}
-                  GROUP BY
-                    r.id,
-                    r.nombre,
-                    r.email,
-                    r.fecha,
-                    r.hora,
-                    r.comensales,
-                    r.nota,
-                    r.estado
-                  ORDER BY FIELD(r.estado, 'pendiente', 'confirmada', 'completada', 'no_show', 'cancelada'), r.id DESC";
-
-        return self::consultarSQL($query);
-    }
-
     public static function buscarPorDiaOperacionAdmin($fecha) {
         $fecha = self::escaparString($fecha);
         $comentarioSelect = self::comentarioAdminAggregateSelect('r');
@@ -202,7 +235,7 @@ class Reservacion extends ActiveRecord {
                     r.nota,
                     r.estado
                   ORDER BY r.hora ASC,
-                    FIELD(r.estado, 'pendiente', 'confirmada', 'completada', 'no_show', 'cancelada'),
+                    FIELD(r.estado, " . self::estadosSql(ReservacionConfig::ORDEN_ESTADOS) . "),
                     r.id ASC";
 
         return self::consultarSQL($query);
@@ -272,6 +305,14 @@ class Reservacion extends ActiveRecord {
         return self::$comentarioAdminExiste;
     }
 
+    private static function estadosSql(array $estados): string
+    {
+        return implode(', ', array_map(
+            static fn(string $estado): string => "'" . self::escaparString($estado) . "'",
+            $estados
+        ));
+    }
+
     private static function condicionesAdmin(array $filtros, $incluirEstado = true) {
         $condiciones = [];
         $q = trim((string)($filtros['q'] ?? ''));
@@ -294,7 +335,7 @@ class Reservacion extends ActiveRecord {
             $condiciones[] = "r.fecha <= '{$fechaFin}'";
         }
 
-        if ($incluirEstado && in_array($estado, self::ESTADOS_ADMIN, true)) {
+        if ($incluirEstado && in_array($estado, ReservacionConfig::estadosPermitidos(), true)) {
             $estado = self::escaparString($estado);
             $condiciones[] = "r.estado = '{$estado}'";
         }

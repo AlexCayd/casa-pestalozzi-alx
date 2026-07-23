@@ -123,4 +123,196 @@
     font: inherit;
     font-size: 14px;
   }
+
+  &__label--split {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__error {
+    display: block;
+    min-height: 18px;
+    margin-top: 5px;
+    color: var(--admin-danger-text);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  &.has-error input,
+  &.has-error select,
+  &.has-error textarea {
+    border-color: var(--admin-danger);
+    box-shadow: 0 0 0 3px var(--admin-danger-bg);
+  }
+}
+
+.admin-form-status {
+  min-height: 20px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+
+  &.is-error {
+    color: var(--admin-danger-text);
+    font-weight: 700;
+  }
+
+  &.is-pending {
+    color: var(--admin-warning-text);
+    font-weight: 700;
+  }
+}
+
+/* Retroalimentacion compartida para listados actualizados sin recargar. */
+.admin-reactive-results-shell {
+  position: relative;
+  min-height: 72px;
+}
+
+.admin-reactive-results {
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+
+  &.is-updating {
+    opacity: 0.58;
+    pointer-events: none;
+  }
+}
+
+.admin-reactive-loading {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 850;
+  box-shadow: var(--admin-shadow-sm);
+
+  &::before {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--admin-border);
+    border-top-color: var(--admin-gold);
+    border-radius: 50%;
+    content: "";
+    animation: admin-reactive-spin 0.75s linear infinite;
+  }
+}
+
+.admin-reactive-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-danger-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.admin-reactive-error[hidden],
+.admin-reactive-loading[hidden] {
+  display: none;
+}
+
+.admin-filters.is-reactive [data-reactive-submit] {
+  display: none;
+}
+
+.admin-filters [data-reactive-clear][hidden] {
+  display: none;
+}
+
+@keyframes admin-reactive-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+  .admin-reactive-error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Switch de formulario reutilizable para cualquier módulo administrativo. */
+.admin-switch {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  &__track {
+    display: inline-flex;
+    align-items: center;
+    width: 46px;
+    height: 26px;
+    flex: 0 0 46px;
+    padding: 3px;
+    border: 1px solid var(--admin-danger-border);
+    border-radius: 999px;
+    background: var(--admin-danger-bg);
+    transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  &__thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--admin-danger);
+    transform: translateX(0);
+    transition: transform var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+  }
+
+  &__label {
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  input:checked + &__track {
+    border-color: var(--admin-success-border);
+    background: var(--admin-success-bg);
+  }
+
+  input:checked + &__track &__thumb {
+    background: var(--admin-success);
+    transform: translateX(20px);
+  }
+
+  input:focus-visible + &__track {
+    outline: 2px solid var(--admin-gold);
+    outline-offset: 3px;
+  }
+
+  input:disabled + &__track,
+  input:disabled ~ &__label {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }

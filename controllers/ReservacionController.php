@@ -7,34 +7,38 @@
 namespace Controllers;
 
 use MVC\Router;
-use Services\HorarioReservacionService;
 use Services\ReservacionService;
 
 class ReservacionController
 {
     public static function horarios(Router $router): void
     {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             http_response_code(405);
-            echo json_encode(['ok' => false, 'msg' => 'Metodo no permitido', 'errors' => []]);
+            echo json_encode([
+                'ok' => false,
+                'mensaje' => 'Método no permitido.',
+                'horarios' => [],
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
+        // La ausencia de fecha conserva el comportamiento previo: respuesta de validación 422.
         $fecha = (string)($_GET['fecha'] ?? '');
-        $respuesta = HorarioReservacionService::disponibilidadParaFecha($fecha);
+        $respuesta = ReservacionService::obtenerHorariosDisponiblesParaFecha($fecha);
 
         if (!($respuesta['ok'] ?? false)) {
-            http_response_code(($respuesta['codigo'] ?? '') === HorarioReservacionService::ERROR_INTERNO ? 500 : 422);
+            http_response_code(($respuesta['codigo'] ?? '') === ReservacionService::ERROR_INTERNO ? 500 : 422);
         }
 
-        echo json_encode($respuesta);
+        echo json_encode($respuesta, JSON_UNESCAPED_UNICODE);
     }
 
     public static function crear(Router $router): void
     {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);

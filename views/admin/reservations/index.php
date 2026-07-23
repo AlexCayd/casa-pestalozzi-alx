@@ -8,6 +8,8 @@ $metricas = is_array($metricas ?? null) ? $metricas : [];
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $filtrosActivos = (bool)($filtrosActivos ?? false);
+$partialOnly = (bool)($partialOnly ?? false);
+$fechaDefault = \Services\ReservacionConfig::fechaActual();
 $queryString = (string)($queryString ?? '');
 $returnTo = '/admin/reservations' . ($queryString !== '' ? '?' . $queryString : '');
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
@@ -55,13 +57,9 @@ $mesasListado = static function (string $mesas): array {
 };
 
 $metricCards = [
-    ['label' => 'Total', 'value' => $metricas['total'] ?? 0],
-    ['label' => 'Pendientes', 'value' => $metricas['pendientes'] ?? 0, 'tone' => 'pending'],
-    ['label' => 'Confirmadas', 'value' => $metricas['confirmadas'] ?? 0, 'tone' => 'confirmed'],
-    ['label' => 'Completadas', 'value' => $metricas['completadas'] ?? 0, 'tone' => 'completed'],
-    ['label' => 'Canceladas', 'value' => $metricas['canceladas'] ?? 0, 'tone' => 'cancelled'],
-    ['label' => 'No show', 'value' => $metricas['no_show'] ?? 0, 'tone' => 'noshow'],
-    ['label' => 'Sin mesas', 'value' => $metricas['sin_mesa'] ?? 0, 'tone' => 'needs'],
+    ['label' => 'Reservaciones totales', 'value' => $metricas['total'] ?? 0],
+    ['label' => 'Por confirmar', 'value' => $metricas['pendientes'] ?? 0, 'tone' => 'pending'],
+    ['label' => 'Sin mesa', 'value' => $metricas['sin_mesa'] ?? 0, 'tone' => 'needs'],
 ];
 
 $alertasNormalizadas = [];
@@ -87,6 +85,7 @@ foreach ($alertas as $tipo => $mensajes) {
 
 ?>
 
+<?php if (!$partialOnly) : ?>
 <section class="admin-reservations admin-menu admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
@@ -95,8 +94,21 @@ foreach ($alertas as $tipo => $mensajes) {
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/reservations/create">Nueva reservacion</a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="<?php echo $h($operationUrl); ?>">Vista operativa</a>
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-reservations__header-action" href="/admin/reservations/create">
+                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 5v14"/>
+                    <path d="M5 12h14"/>
+                </svg>
+                <span>Crear reservación</span>
+            </a>
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-reservations__header-action" href="<?php echo $h($operationUrl); ?>">
+                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z"/>
+                    <path d="M9 3v15"/>
+                    <path d="M15 6v15"/>
+                </svg>
+                <span>Vista operativa</span>
+            </a>
         </div>
     </header>
 
@@ -111,21 +123,24 @@ foreach ($alertas as $tipo => $mensajes) {
         </div>
     <?php endforeach; ?>
 
-    <section class="admin-reservations__metrics" aria-label="Métricas de reservaciones">
-        <?php foreach ($metricCards as $card) : ?>
-            <article class="admin-reservations__metric <?php echo !empty($card['tone']) ? 'admin-reservations__metric--' . $h($card['tone']) : ''; ?>">
-                <span><?php echo $h($card['label']); ?></span>
-                <strong><?php echo (int)$card['value']; ?></strong>
-            </article>
-        <?php endforeach; ?>
-    </section>
-
-    <form class="admin-filters admin-reservations__filters" method="GET" action="/admin/reservations">
+    <form
+        class="admin-filters admin-reservations__filters"
+        method="GET"
+        action="/admin/reservations"
+        aria-label="Filtros de reservaciones"
+        data-reactive-filters
+        data-reactive-target="#reservations-results"
+        data-reactive-loading="#reservations-results-loading"
+        data-reactive-error="#reservations-results-error"
+        data-reactive-debounce="350"
+    >
         <div class="admin-filters__search">
             <label for="reservations-q">Buscar</label>
             <input
                 id="reservations-q"
                 type="search"
+                data-reactive-control
+                data-reactive-default=""
                 name="q"
                 value="<?php echo $h($filtros['q'] ?? ''); ?>"
                 placeholder="Nombre o correo"
@@ -136,6 +151,8 @@ foreach ($alertas as $tipo => $mensajes) {
             <input
                 id="reservations-fecha-inicio"
                 type="date"
+                data-reactive-control
+                data-reactive-default="<?php echo $h($fechaDefault); ?>"
                 name="fecha_inicio"
                 value="<?php echo $h($filtros['fecha_inicio'] ?? date('Y-m-d')); ?>"
             >
@@ -145,13 +162,15 @@ foreach ($alertas as $tipo => $mensajes) {
             <input
                 id="reservations-fecha-fin"
                 type="date"
+                data-reactive-control
+                data-reactive-default="<?php echo $h($fechaDefault); ?>"
                 name="fecha_fin"
                 value="<?php echo $h($filtros['fecha_fin'] ?? date('Y-m-d')); ?>"
             >
         </div>
         <div class="admin-filters__group">
             <label for="reservations-estado">Estado</label>
-            <select id="reservations-estado" name="estado">
+            <select id="reservations-estado" name="estado" data-reactive-control data-reactive-default="">
                 <option value="">Todos</option>
                 <?php foreach ($estadoLabels as $estado => $label) : ?>
                     <option value="<?php echo $h($estado); ?>" <?php echo ($filtros['estado'] ?? '') === $estado ? 'selected' : ''; ?>>
@@ -162,22 +181,45 @@ foreach ($alertas as $tipo => $mensajes) {
         </div>
         <div class="admin-filters__group">
             <label for="reservations-asignacion">Asignación</label>
-            <select id="reservations-asignacion" name="asignacion">
+            <select id="reservations-asignacion" name="asignacion" data-reactive-control data-reactive-default="">
                 <option value="">Todas</option>
                 <option value="con_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'con_mesa' ? 'selected' : ''; ?>>Con mesa</option>
                 <option value="sin_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'sin_mesa' ? 'selected' : ''; ?>>Sin mesas asignadas</option>
             </select>
         </div>
         <div class="admin-filters__actions">
-            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary">Buscar</button>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservations">Limpiar</a>
+            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservations" data-reactive-clear <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>Limpiar filtros</a>
         </div>
     </form>
+
+    <div class="admin-reactive-results-shell">
+        <div id="reservations-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
+<?php endif; ?>
+    <section class="admin-reservations__metrics" aria-label="Métricas de reservaciones">
+        <div class="admin-reservations__metrics-grid">
+            <?php foreach ($metricCards as $card) : ?>
+                <article class="admin-reservations__metric <?php echo !empty($card['tone']) ? 'admin-reservations__metric--' . $h($card['tone']) : ''; ?>">
+                    <span><?php echo $h($card['label']); ?></span>
+                    <strong><?php echo (int)$card['value']; ?></strong>
+                </article>
+            <?php endforeach; ?>
+            <article class="admin-reservations__metric admin-reservations__metric--other" aria-label="Otros estados">
+                <dl class="admin-reservations__other-states">
+                    <div><dt>Confirmadas</dt><dd><?php echo (int)($metricas['confirmadas'] ?? 0); ?></dd></div>
+                    <div><dt>Completadas</dt><dd><?php echo (int)($metricas['completadas'] ?? 0); ?></dd></div>
+                    <div><dt>Canceladas</dt><dd><?php echo (int)($metricas['canceladas'] ?? 0); ?></dd></div>
+                    <div><dt>No show</dt><dd><?php echo (int)($metricas['no_show'] ?? 0); ?></dd></div>
+                </dl>
+            </article>
+        </div>
+    </section>
 
     <section class="reservations-table-card admin-card">
         <div class="reservations-table-card__header">
             <div>
-                <h3><?php echo count($reservaciones); ?> reservaciones</h3>
+                <?php $totalEncontradas = count($reservaciones); ?>
+                <h3><?php echo $totalEncontradas; ?> <?php echo $totalEncontradas === 1 ? 'reservación encontrada' : 'reservaciones encontradas'; ?></h3>
                 <p>Periodo: <?php echo $h($fechaLegible($filtros['fecha_inicio'] ?? date('Y-m-d'))); ?> - <?php echo $h($fechaLegible($filtros['fecha_fin'] ?? date('Y-m-d'))); ?></p>
             </div>
         </div>
@@ -186,7 +228,7 @@ foreach ($alertas as $tipo => $mensajes) {
             <div class="admin-menu__empty admin-empty">
                 <p>No se encontraron reservaciones con los filtros aplicados.</p>
                 <?php if ($filtrosActivos) : ?>
-                    <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservations">Limpiar filtros</a>
+                    <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservations" data-reactive-clear>Limpiar filtros</a>
                 <?php endif; ?>
             </div>
         <?php else : ?>
@@ -222,6 +264,12 @@ foreach ($alertas as $tipo => $mensajes) {
                             $mesasRestantes = max(0, $mesasCount - count($mesasVisibles));
                             $tieneMesa = $mesasCount > 0;
                             $showUrl = '/admin/reservations/show?id=' . $id . '&return_url=' . rawurlencode($returnTo);
+                            $operationContextUrl = '/admin/reservations/operation?' . http_build_query([
+                                'fecha' => $fecha,
+                                'hora' => $horaLegible($hora),
+                                'reservacion_id' => $id,
+                                'return_url' => $returnTo,
+                            ]);
                             ?>
                             <tr>
                                 <td class="reservations-table__date-cell">
@@ -278,6 +326,18 @@ foreach ($alertas as $tipo => $mensajes) {
                                 <td class="reservations-table__actions-cell">
                                     <div class="reservations-table__actions">
                                         <a class="admin-btn admin-btn--small admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación">Ver</a>
+                                        <a
+                                            class="admin-btn admin-btn--small admin-btn--ghost reservations-table__operate-action"
+                                            href="<?php echo $h($operationContextUrl); ?>"
+                                            title="Abrir esta reservación en la vista operativa"
+                                            aria-label="Abrir esta reservación en la vista operativa"
+                                        >
+                                            <span>Operar</span>
+                                            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M7 17 17 7"/>
+                                                <path d="M7 7h10v10"/>
+                                            </svg>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>
@@ -287,4 +347,13 @@ foreach ($alertas as $tipo => $mensajes) {
             </div>
         <?php endif; ?>
     </section>
+<?php if (!$partialOnly) : ?>
+        </div>
+        <div class="admin-reactive-loading" id="reservations-results-loading" role="status" hidden>Actualizando resultados</div>
+    </div>
+    <div class="admin-reactive-error" id="reservations-results-error" role="alert" hidden>
+        <span>No fue posible actualizar las reservaciones.</span>
+        <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-reactive-retry>Volver a intentar</button>
+    </div>
 </section>
+<?php endif; ?>

@@ -1,11 +1,24 @@
 // ── Mapa de Mesas — Casa Pestalozzi ──────────────────────────
 
+@use '../operation/header';
+@use '../operation/shell';
+@use '../operation/date-picker';
+@use '../operation/drawer';
+@use '../operation/map-shell';
+@use '../operation/toolbar';
+@use '../operation/reservation-list';
+
 // ── Cursor override ───────────────────────────────────────────
 .pdv-page,
 .pdv-page button,
 .pdv-page input,
 .pdv-page select,
-.pdv-page a {
+.pdv-page a,
+.mapa-page,
+.mapa-page button,
+.mapa-page input,
+.mapa-page select,
+.mapa-page a {
   cursor: default;
 }
 .pdv-page button,
@@ -20,11 +33,10 @@
 .pdv-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--ink-2);
   color: var(--txt);
-  font-family: var(--sans);
 }
 
 // ── Header ────────────────────────────────────────────────────
@@ -373,6 +385,7 @@
   }
 }
 
+// ── Leyenda ───────────────────────────────────────────────────
 // ── Lista de reservaciones ────────────────────────────────────
 .pdv-reservas-list {
   flex: 1;
@@ -528,6 +541,7 @@
     0 32px 80px rgba(0,0,0,.5);
 }
 
+// ── Canvas del plano ──────────────────────────────────────────
 // ── Overlay de carga ──────────────────────────────────────────
 .pdv-canvas-overlay {
   position: absolute;
@@ -558,50 +572,8 @@
 }
 
 // ── Pines de mesa ─────────────────────────────────────────────
-.mesa-pin {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width:  clamp(80px, 10.5%, 122px);
-  height: clamp(54px,  6.8%,  80px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  border: 1.5px solid transparent;
-  transition:
-    background .35s var(--ease),
-    border-color .35s var(--ease),
-    box-shadow .35s var(--ease),
-    transform .2s var(--ease-out);
-  user-select: none;
-
-  // Tipo barra: pill más ancho
-  &--tipo-barra {
-    width: clamp(124px, 16%, 188px);
-    border-radius: 999px;
-  }
-
-  // Tipo especial: pill estándar
-  &--tipo-especial {
-    width: clamp(96px, 12.5%, 150px);
-    border-radius: 999px;
-  }
-}
-
-.mesa-pin__label {
-  font-size: clamp(.58rem, .9cqw, .75rem);
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  text-align: center;
-  line-height: 1.25;
-  pointer-events: none;
-  padding: 0 .4rem;
-  white-space: nowrap;
-}
-
 // ── Estados de mesa ───────────────────────────────────────────
-.mesa-pin--zona {
+.pdv-page .mesa-pin--zona {
   background: var(--surface-2);
   border-color: var(--line-soft);
   color: var(--txt-faint);
@@ -613,7 +585,7 @@
   }
 }
 
-.mesa-pin--libre {
+.pdv-page .mesa-pin--libre {
   background: var(--surface-2);
   border-color: var(--line-soft);
   color: var(--txt-mute);
@@ -627,7 +599,7 @@
   }
 }
 
-.mesa-pin--proxima {
+.pdv-page .mesa-pin--proxima {
   background: rgba(124, 61, 29, .18);
   border-color: rgba(232, 160, 96, .4);
   color: #e8a060;
@@ -638,7 +610,7 @@
   }
 }
 
-.mesa-pin--bloqueada {
+.pdv-page .mesa-pin--bloqueada {
   background: rgba(180, 60, 40, .18);
   border-color: rgba(232, 112, 96, .5);
   color: #e87060;
@@ -655,7 +627,7 @@
   50%       { box-shadow: 0 0 0 6px rgba(232, 112, 96, 0); }
 }
 
-.mesa-pin--ocupada {
+.pdv-page .mesa-pin--ocupada {
   background: rgba(204, 163, 82, .22);
   border-color: rgba(204, 163, 82, .6);
   color: var(--gold);
@@ -667,7 +639,7 @@
   }
 }
 
-.mesa-pin--con-ticket {
+.pdv-page .mesa-pin--con-ticket {
   background: rgba(95, 125, 86, .22);
   border-color: rgba(139, 191, 126, .55);
   color: #8bbf7e;
@@ -681,7 +653,7 @@
 
 .pdv-leyenda-item--con-ticket::before { background: #8bbf7e; }
 
-.mesa-pin--highlight {
+.pdv-page .mesa-pin--highlight {
   box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
   z-index: 5;
 }
@@ -1239,7 +1211,7 @@
   }
 
   &__label {
-    font-size: .54rem;
+    font-size: 12px;
     letter-spacing: .12em;
     text-transform: uppercase;
     color: var(--txt-faint);
@@ -2399,4 +2371,99 @@
     border-color: var(--line-soft);
     background: rgba(255,255,255,.04);
   }
+}
+
+// Shell operativo compartido (mapa + reservaciones)
+.mapa-page.operational-page {
+  --admin-bg: var(--ink-2);
+  --admin-surface: var(--surface);
+  --admin-surface-soft: var(--surface-2);
+  --admin-border: var(--line);
+  --admin-border-soft: var(--line-soft);
+  --admin-text: var(--txt);
+  --admin-muted: var(--txt-mute);
+  --admin-faint: var(--txt-faint);
+  --admin-gold: var(--gold);
+  --admin-gold-soft: var(--gold-soft);
+  --admin-success: #8bbf7e;
+  --admin-success-text: #9fd3a6;
+  --admin-success-bg: rgba(139, 191, 126, 0.14);
+  --admin-success-border: rgba(139, 191, 126, 0.32);
+  --admin-warning: #e0c184;
+  --admin-warning-text: #e6c98a;
+  --admin-warning-bg: rgba(224, 193, 132, 0.12);
+  --admin-warning-border: rgba(224, 193, 132, 0.34);
+  --admin-danger: #e87060;
+  --admin-danger-text: #f0a79b;
+  --admin-danger-bg: rgba(232, 112, 96, 0.14);
+  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  --admin-neutral-text: var(--admin-gold-soft);
+  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
+  --admin-neutral-border: rgba(204, 163, 82, 0.3);
+  --admin-shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.22);
+  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.28);
+  color-scheme: dark;
+  overflow: hidden;
+}
+
+.mapa-page .mapa-shell {
+  display: block;
+  height: 100dvh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    var(--admin-bg);
+}
+
+.mapa-page .operation-header {
+  min-height: var(--operational-header-height);
+}
+
+.mapa-page .mapa-body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--operational-shell-gap);
+  padding: 0;
+  overflow: hidden;
+}
+
+.mapa-page .mapa-operational-map {
+  min-height: 0;
+}
+
+.mapa-page .mapa-module {
+  min-height: 0;
+}
+
+.mapa-page .operational-drawer.mapa-sidebar {
+  width: clamp(340px, 29vw, 390px);
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+.mapa-page .operational-drawer__content .mapa-reservas-list {
+  min-height: 0;
+  padding: 0 3px 0 0;
+  overflow-y: auto;
+}
+
+.mapa-page :where(.operational-drawer-toggle, .operational-icon-button) svg {
+  color: currentColor;
+  fill: none;
+  stroke: currentColor;
+}
+
+@media (max-width: 700px) {
+  .mapa-page .mapa-body {
+    padding: 0;
+  }
+
+  .mapa-page .operational-drawer.mapa-sidebar {
+    width: min(92vw, 360px);
+    padding: 14px;
+  }
+
 }

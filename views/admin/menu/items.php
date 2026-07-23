@@ -4,6 +4,7 @@
     $categoriasMap = $categoriasMap ?? [];
     $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'category_id' => '', 'visible' => ''];
     $filtrosActivos = (bool) ($filtrosActivos ?? false);
+    $partialOnly = (bool)($partialOnly ?? false);
     $totalMenu = (int) ($totalMenu ?? count($platillos));
     $paginaActual = (int) ($paginaActual ?? 1);
     $porPagina = (int) ($porPagina ?? max(1, $totalMenu));
@@ -21,10 +22,11 @@
 
         $params['page'] = $page;
 
-        return '/admin/menu/items?' . http_build_query($params) . '#items';
+        return '/admin/menu/items?' . http_build_query($params);
     };
 ?>
 
+<?php if (!$partialOnly) : ?>
 <section class="admin-menu admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
@@ -61,12 +63,24 @@
         <?php endforeach; ?>
     <?php endforeach; ?>
 
-    <form class="admin-filters" method="GET" action="/admin/menu/items">
+    <form
+        class="admin-filters"
+        method="GET"
+        action="/admin/menu/items"
+        aria-label="Filtros de platillos"
+        data-reactive-filters
+        data-reactive-target="#items-results"
+        data-reactive-loading="#items-results-loading"
+        data-reactive-error="#items-results-error"
+        data-reactive-debounce="350"
+    >
         <div class="admin-filters__search">
             <label for="items-q">Buscar</label>
             <input
                 id="items-q"
                 type="search"
+                data-reactive-control
+                data-reactive-default=""
                 name="q"
                 value="<?php echo htmlspecialchars((string) ($filtros['q'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                 placeholder="Nombre o descripción"
@@ -74,7 +88,7 @@
         </div>
         <div class="admin-filters__group">
             <label for="items-category">Categoría</label>
-            <select id="items-category" name="category_id">
+            <select id="items-category" name="category_id" data-reactive-control data-reactive-default="">
                 <option value="">Todas</option>
                 <?php foreach ($categorias as $categoria) : ?>
                     <?php $categoriaId = (int) ($categoria->id ?? 0); ?>
@@ -86,18 +100,21 @@
         </div>
         <div class="admin-filters__group">
             <label for="items-visible">Visibilidad</label>
-            <select id="items-visible" name="visible">
+            <select id="items-visible" name="visible" data-reactive-control data-reactive-default="">
                 <option value="">Todos</option>
                 <option value="1" <?php echo ($filtros['visible'] ?? '') === '1' ? 'selected' : ''; ?>>Visibles</option>
                 <option value="0" <?php echo ($filtros['visible'] ?? '') === '0' ? 'selected' : ''; ?>>No visibles</option>
             </select>
         </div>
         <div class="admin-filters__actions">
-            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary">Buscar</button>
-            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu/items">Limpiar</a>
+            <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
+            <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu/items" data-reactive-clear <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>Limpiar filtros</a>
         </div>
     </form>
 
+    <div class="admin-reactive-results-shell">
+        <div id="items-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
+<?php endif; ?>
     <section class="admin-menu__panel admin-panel admin-card" id="items">
         <div class="admin-menu__panel-head">
             <div>
@@ -214,7 +231,7 @@
             <?php if ($totalPaginas > 1) : ?>
                 <nav class="admin-menu__pagination" aria-label="Paginación de platillos">
                     <?php if ($paginaActual > 1) : ?>
-                        <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>">Anterior</a>
+                        <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page>Anterior</a>
                     <?php else : ?>
                         <span class="admin-btn admin-btn--disabled admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--disabled">Anterior</span>
                     <?php endif; ?>
@@ -223,12 +240,12 @@
                         <?php if ($i === $paginaActual) : ?>
                             <span class="admin-btn admin-btn--primary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--primary"><?php echo $i; ?></span>
                         <?php else : ?>
-                            <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($i), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $i; ?></a>
+                            <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($i), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page><?php echo $i; ?></a>
                         <?php endif; ?>
                     <?php endfor; ?>
 
                     <?php if ($paginaActual < $totalPaginas) : ?>
-                        <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>">Siguiente</a>
+                        <a class="admin-btn admin-btn--secondary admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--light" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page>Siguiente</a>
                     <?php else : ?>
                         <span class="admin-btn admin-btn--disabled admin-btn--small admin-menu__button admin-menu__button--small admin-menu__button--disabled">Siguiente</span>
                     <?php endif; ?>
@@ -236,4 +253,13 @@
             <?php endif; ?>
         <?php endif; ?>
     </section>
+<?php if (!$partialOnly) : ?>
+        </div>
+        <div class="admin-reactive-loading" id="items-results-loading" role="status" hidden>Actualizando resultados</div>
+    </div>
+    <div class="admin-reactive-error" id="items-results-error" role="alert" hidden>
+        <span>No fue posible actualizar los platillos.</span>
+        <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-reactive-retry>Volver a intentar</button>
+    </div>
 </section>
+<?php endif; ?>

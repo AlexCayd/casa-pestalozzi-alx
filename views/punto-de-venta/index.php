@@ -8,49 +8,88 @@
         'observer' => 'Observador',
     ];
     $pdvRol = $pdvRoles[(string) ($_SESSION['rol'] ?? '')] ?? 'Personal';
+$mapFecha = trim((string)($_GET['fecha'] ?? date('Y-m-d')));
+if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $mapFecha) !== 1) {
+  $mapFecha = date('Y-m-d');
+}
+$mapHora = trim((string)($_GET['hora'] ?? ''));
+if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $mapHora) !== 1) {
+  $mapHora = '';
+}
+$h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-admin-theme="dark">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101210">
   <title>Punto de Venta · Casa Pestalozzi</title>
-  <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
-  <link rel="apple-touch-icon" href="/build/images/logo.svg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="/build/css/app.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/build/css/app.css">
 </head>
-<body class="pdv-page" data-page="punto-de-venta">
 
-  <div class="pdv-shell">
+<body class="mapa-page operational-page" data-page="mapa" data-operational-page>
+  <div class="mapa-shell">
+    <main class="mapa-body operational-main operational-layout" aria-label="Mapa de mesas">
+      <?php
+      $operationalView = 'map';
+      $operationalDate = $mapFecha;
+      $operationalHour = $mapHora;
+      $operationalReturnUrl = '';
+      include __DIR__ . '/../operation/partials/header.php';
+      ?>
 
-    <!-- ── Header ─────────────────────────────────────────── -->
-    <header class="pdv-header">
-      <a href="/" class="pdv-logo">Casa Pestalozzi</a>
+      <section class="mapa-module operational-module">
+        <?php
+        ob_start();
+        $rootId = 'mapa-date-picker';
+        $inputId = 'mapa-fecha';
+        $displayId = 'mapa-date-display';
+        $calendarId = 'mapa-calendar';
+        $name = '';
+        $value = $mapFecha;
+        $min = '';
+        $today = date('Y-m-d');
+        $disabled = false;
+        $enabledWeekdays = [];
+        $allowPast = true;
+        $required = false;
+        $inputDataAttributes = ['data-operational-context-date' => true];
+        $displayAriaDescribedby = '';
+        $displayAriaInvalid = false;
+        $rootClass = 'operational-context-date';
+        $showIcon = true;
+        $prevId = 'mapa-cal-prev';
+        $nextId = 'mapa-cal-next';
+        $labelId = 'mapa-cal-label';
+        $gridId = 'mapa-cal-grid';
+        include __DIR__ . '/../components/reservations/date-picker.php';
+        $operationalContextControlsHtml = (string)ob_get_clean();
+        $operationalContextActionsHtml = '';
+        $operationalContextView = 'map';
+        $operationalDrawerId = 'map-reservations-drawer';
+        $operationalDrawerInitialCount = '0';
+        include __DIR__ . '/../operation/partials/context-bar.php';
 
-      <div class="pdv-header-center">
-        <h1 class="pdv-title">Punto de Venta</h1>
-      </div>
-
-      <div class="pdv-header-controls">
-        <div class="pdv-date-wrap" id="pdv-date-picker">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          <button class="pdv-date-btn" id="pdv-date-display" type="button"></button>
-          <input type="hidden" id="pdv-fecha" value="<?php echo date('Y-m-d'); ?>" />
-          <div class="pdv-cal" id="pdv-calendar" aria-hidden="true">
-            <div class="pdv-cal__nav">
-              <button class="pdv-cal__nav-btn" id="pdv-cal-prev" type="button">‹</button>
-              <span class="pdv-cal__label" id="pdv-cal-label"></span>
-              <button class="pdv-cal__nav-btn" id="pdv-cal-next" type="button">›</button>
-            </div>
-            <div class="pdv-cal__weekdays">
-              <span>D</span><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span>
-            </div>
-            <div class="pdv-cal__grid" id="pdv-cal-grid"></div>
-          </div>
+        ?>
+        <div class="operational-workspace mapa-workspace">
+          <?php
+          $mapVisual = [
+            'context' => 'mapa-mesas',
+            'sectionClass' => 'mapa-operational-map',
+            'titleId' => 'mapa-operational-title',
+            'title' => 'Mapa de mesas',
+            'subtitle' => 'Estado actual del salón.',
+            'canvasId' => 'mapa-canvas',
+            'canvasMode' => 'map',
+            'loadingMode' => 'overlay',
+          ];
+          include __DIR__ . '/../operation/partials/map.php';
+          ?>
         </div>
 
         <div class="pdv-user" aria-label="Personal en turno">
@@ -68,64 +107,43 @@
             <span class="pdv-logout__texto">Salir</span>
           </button>
         </form>
+      </section>
       </div>
     </header>
 
-    <!-- ── Body ───────────────────────────────────────────── -->
-    <div class="pdv-body">
+      <?php
+      $operationalDrawerId = 'map-reservations-drawer';
+      $operationalDrawerTitleId = 'map-reservations-title';
+      $operationalDrawerClass = 'mapa-sidebar';
+      $operationalDrawerAttributes = [];
+      $operationalDrawerDateHtml = '<span data-operational-map-date>' . $h($mapFecha) . '</span>';
+      $operationalDrawerCountHtml = '<span class="mapa-reserva-count" id="mapa-reserva-count">—</span>';
+      $operationalDrawerSlotHtml = '<span>Reservaciones activas</span>';
+      $operationalDrawerListId = 'mapa-reservas-list';
+      $operationalDrawerListClass = 'mapa-reservas-list';
+      $operationalDrawerListAttributes = [];
+      $operationalDrawerListHtml = '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
+      include __DIR__ . '/../operation/partials/drawer.php';
+      ?>
+    </main>
 
-      <!-- Sidebar -->
-      <aside class="pdv-sidebar">
-        <div class="pdv-sidebar-head">
-          <span class="pdv-sidebar-title">Reservaciones</span>
-          <span class="pdv-reserva-count" id="pdv-reserva-count">—</span>
-        </div>
-
-        <div class="pdv-leyenda">
-          <span class="pdv-leyenda-item pdv-leyenda-item--libre">Libre</span>
-          <span class="pdv-leyenda-item pdv-leyenda-item--proxima">Próxima</span>
-          <span class="pdv-leyenda-item pdv-leyenda-item--bloqueada">Bloqueada</span>
-        </div>
-
-        <div class="pdv-reservas-list" id="pdv-reservas-list">
-          <div class="pdv-empty-state">
-            <span class="pdv-empty-icon">◌</span>
-            <span>Cargando…</span>
-          </div>
-        </div>
-      </aside>
-
-      <!-- Canvas del plano -->
-      <div class="pdv-canvas-wrap">
-        <div class="pdv-canvas" id="pdv-canvas">
-          <!-- Pines de mesas renderizados por JS -->
-        </div>
-        <div class="pdv-canvas-overlay" id="pdv-loading">
-          <div class="pdv-spinner"></div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ── Modal de acción de mesa ───────────────────────── -->
     <div class="mesa-modal" id="mesa-modal">
       <div class="mesa-modal__bd" id="mesa-modal-bd"></div>
       <div class="mesa-modal__panel">
         <div class="mesa-modal__handle"></div>
-        <button class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar">✕</button>
+        <button class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar">×</button>
         <div id="mesa-modal-content"></div>
       </div>
     </div>
-
-  </div><!-- /.pdv-shell -->
+  </div>
 
   <script>
     window.CP_TWEAKS = {
-      hero:   'cinema',
+      hero: 'cinema',
       accent: 'oro',
       cursor: false,
       smooth: false,
-      anim:   false
+      anim: false
     };
   </script>
   <script>
@@ -142,6 +160,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-
+  <script src="/build/js/admin/map.js"></script>
 </body>
+
 </html>

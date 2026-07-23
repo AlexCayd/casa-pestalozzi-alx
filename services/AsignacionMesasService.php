@@ -26,7 +26,12 @@ class AsignacionMesasService
     private const TIPO_AUTOMATICA_GENERAL = 'general';
     private const TIPO_AUTOMATICA_PUBLICA = 'publica';
 
-    public static function asignarManual(int $reservacionId, array $mesaIds, bool $permitirCapacidadInsuficiente = false): array
+    public static function asignarManual(
+        int $reservacionId,
+        array $mesaIds,
+        bool $permitirCapacidadInsuficiente = false,
+        bool $gestionarTransaccion = true
+    ): array
     {
         $mesaIds = self::normalizarMesaIds($mesaIds);
 
@@ -34,17 +39,17 @@ class AsignacionMesasService
             return ['ok' => false, 'codigo' => self::ASIGNACION_VACIA];
         }
 
-        return self::asignar($reservacionId, $mesaIds, 'manual', $permitirCapacidadInsuficiente);
+        return self::asignar($reservacionId, $mesaIds, 'manual', $permitirCapacidadInsuficiente, $gestionarTransaccion);
     }
 
-    public static function asignarAutomaticamente(int $reservacionId): array
+    public static function asignarAutomaticamente(int $reservacionId, bool $gestionarTransaccion = true): array
     {
-        return self::asignar($reservacionId, [], self::TIPO_AUTOMATICA_GENERAL);
+        return self::asignar($reservacionId, [], self::TIPO_AUTOMATICA_GENERAL, false, $gestionarTransaccion);
     }
 
-    public static function asignarAutomaticamentePublica(int $reservacionId): array
+    public static function asignarAutomaticamentePublica(int $reservacionId, bool $gestionarTransaccion = true): array
     {
-        return self::asignar($reservacionId, [], self::TIPO_AUTOMATICA_PUBLICA);
+        return self::asignar($reservacionId, [], self::TIPO_AUTOMATICA_PUBLICA, false, $gestionarTransaccion);
     }
 
     public static function obtenerOcupacionParaHorario(
@@ -208,7 +213,8 @@ class AsignacionMesasService
         int $reservacionId,
         array $mesaIds,
         string $tipoAsignacion,
-        bool $permitirCapacidadInsuficiente = false
+        bool $permitirCapacidadInsuficiente = false,
+        bool $gestionarTransaccion = true
     ): array {
         $automatico = in_array($tipoAsignacion, [self::TIPO_AUTOMATICA_GENERAL, self::TIPO_AUTOMATICA_PUBLICA], true);
 
@@ -219,7 +225,9 @@ class AsignacionMesasService
         $db = ActiveRecord::getDB();
 
         try {
-            $db->begin_transaction();
+            if ($gestionarTransaccion && !$db->begin_transaction()) {
+                throw new \RuntimeException('No fue posible iniciar la transaccion de asignacion.');
+            }
 
             $reservacion = self::fila(
                 "SELECT id, fecha, hora, comensales, estado
@@ -230,13 +238,20 @@ class AsignacionMesasService
             );
 
             if (!$reservacion) {
-                $db->rollback();
+                self::rollbackSiPropia($db, $gestionarTransaccion);
                 return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
             }
 
-            if (ReservacionService::codigoNoEditable($reservacion) !== '') {
-                $db->rollback();
-                return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
+            $codigoNoEditable = ReservacionService::codigoNoEditable($reservacion);
+            if ($codigoNoEditable !== '') {
+                self::rollbackSiPropia($db, $gestionarTransaccion);
+                return [
+                    'ok' => false,
+                    'codigo' => in_array($codigoNoEditable, [
+                        ReservacionService::RESERVACION_PASADA,
+                        ReservacionService::RESERVACION_HORARIO_PASADO,
+                    ], true) ? $codigoNoEditable : self::ESTADO_INVALIDO,
+                ];
             }
 
             $mesas = $automatico
@@ -244,7 +259,7 @@ class AsignacionMesasService
                 : Mesa::reservablesParaActualizar($mesaIds);
 
             if (!$automatico && count($mesas) !== count($mesaIds)) {
-                $db->rollback();
+                self::rollbackSiPropia($db, $gestionarTransaccion);
                 return ['ok' => false, 'codigo' => self::MESAS_INVALIDAS];
             }
 
@@ -269,7 +284,7 @@ class AsignacionMesasService
                     : self::seleccionarMesasGeneral($disponibles, (int)$reservacion['comensales']);
 
                 if (empty($seleccionadas)) {
-                    $db->rollback();
+                    self::rollbackSiPropia($db, $gestionarTransaccion);
                     return ['ok' => false, 'codigo' => self::SIN_CAPACIDAD];
                 }
 
@@ -278,28 +293,39 @@ class AsignacionMesasService
                 }, $seleccionadas);
                 $mesas = $seleccionadas;
             } elseif (self::hayConflictoHorario($ocupacion, $mesaIds)) {
-                $db->rollback();
+                self::rollbackSiPropia($db, $gestionarTransaccion);
                 return ['ok' => false, 'codigo' => self::MESA_OCUPADA];
             }
 
             if (!self::validarCapacidad($mesas, $mesaIds, (int)$reservacion['comensales']) && !$permitirCapacidadInsuficiente) {
-                $db->rollback();
+                self::rollbackSiPropia($db, $gestionarTransaccion);
                 return ['ok' => false, 'codigo' => self::CAPACIDAD_INSUFICIENTE];
             }
 
             ReservacionMesa::reemplazarAsignacion($reservacionId, $mesaIds);
-            $db->commit();
+            if ($gestionarTransaccion && !$db->commit()) {
+                throw new \RuntimeException('No fue posible confirmar la transaccion de asignacion.');
+            }
 
             return ['ok' => true, 'codigo' => self::ASIGNACION_GUARDADA, 'mesa_ids' => $mesaIds];
         } catch (\Throwable $e) {
             try {
-                $db->rollback();
+                if ($gestionarTransaccion) {
+                    $db->rollback();
+                }
             } catch (\Throwable $rollbackError) {
                 error_log('AsignacionMesasService rollback - ' . $rollbackError->getMessage());
             }
 
             error_log('AsignacionMesasService::asignar - ' . $e->getMessage());
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
+        }
+    }
+
+    private static function rollbackSiPropia(\mysqli $db, bool $gestionarTransaccion): void
+    {
+        if ($gestionarTransaccion) {
+            $db->rollback();
         }
     }
 

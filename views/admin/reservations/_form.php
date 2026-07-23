@@ -54,6 +54,7 @@ $comensales = max(1, (int)$valor($reservacion, 'comensales', 2));
 $nota = (string)$valor($reservacion, 'nota');
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
 $estado = (string)$valor($reservacion, 'estado', 'pendiente');
+$requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $disabled = !$iniciarEdicion;
@@ -92,13 +93,15 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <p class="reservation-detail-warning"><?php echo $h($mensajeBloqueo); ?></p>
     <?php endif; ?>
 
-    <div class="reservation-edit-mode" aria-live="polite" data-edit-mode-banner <?php echo $iniciarEdicion ? '' : 'hidden'; ?>>
-        <span class="reservation-edit-mode__icon" aria-hidden="true">E</span>
-        <div>
-            <strong>Modo edicion activo</strong>
-            <p>Estas editando esta reservacion. Los cambios no se aplicaran hasta guardar.</p>
+    <?php if ($modo === 'editar') : ?>
+        <div class="reservation-edit-mode" aria-live="polite" data-edit-mode-banner <?php echo $iniciarEdicion ? '' : 'hidden'; ?>>
+            <span class="reservation-edit-mode__icon" aria-hidden="true">E</span>
+            <div>
+                <strong>Modo edicion activo</strong>
+                <p>Estas editando esta reservacion. Los cambios no se aplicaran hasta guardar.</p>
+            </div>
         </div>
-    </div>
+    <?php endif; ?>
 
     <form
         id="<?php echo $h($formId); ?>"
@@ -115,6 +118,8 @@ $mensajeBloqueo = match ($motivoNoEditable) {
     >
         <?php if ($modo === 'editar') : ?>
             <input type="hidden" name="id" value="<?php echo $id; ?>">
+        <?php else : ?>
+            <input type="hidden" name="request_token" value="<?php echo $h($requestToken); ?>">
         <?php endif; ?>
         <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
 

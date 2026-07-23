@@ -18,6 +18,27 @@ class ReservacionConfig
     public const NOTA_MAX_CARACTERES = 500;
     public const COMENTARIO_ADMIN_MAX_CARACTERES = 5000;
     public const MINUTOS_PREVIOS_BLOQUEO = 30;
+    public const ESTADO_LABELS = [
+        'pendiente' => 'Pendiente',
+        'confirmada' => 'Confirmada',
+        'completada' => 'Completada',
+        'cancelada' => 'Cancelada',
+        'no_show' => 'No show',
+    ];
+    public const ESTADOS_EDITABLES = ['pendiente', 'confirmada'];
+    public const ESTADOS_FINALES = ['completada', 'cancelada', 'no_show'];
+    public const ESTADOS_OCUPAN_MESA = ['pendiente', 'confirmada'];
+    public const ORDEN_ESTADOS = ['pendiente', 'confirmada', 'completada', 'no_show', 'cancelada'];
+    public const TRANSICIONES = [
+        'pendiente' => ['confirmada', 'completada', 'cancelada', 'no_show'],
+        'confirmada' => ['completada', 'cancelada', 'no_show'],
+        'completada' => [],
+        'cancelada' => [],
+        'no_show' => [],
+    ];
+
+    // Genera los horarios de reservaciones hasta estos minutos antes
+    public const MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION = 60;
     public const DURACION_RESERVACION_MINUTOS = 90;
     public const COMBINACIONES_PUBLICAS_AUTORIZADAS = [
         [2, 4],
@@ -73,6 +94,11 @@ class ReservacionConfig
             'whatsapp_url' => self::whatsappUrl(),
             'max_comensales' => self::MAX_COMENSALES_PUBLICO,
         ];
+    }
+
+    public static function estadosPermitidos(): array
+    {
+        return array_keys(self::ESTADO_LABELS);
     }
 
     private static function env(string $key, string $default): string

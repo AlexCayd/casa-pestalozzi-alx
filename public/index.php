@@ -8,11 +8,13 @@ require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
 use Controllers\AdminController;
+use Controllers\AdminConfigurationController;
 use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
 use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
+use Controllers\ReservacionOperacionController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
@@ -25,8 +27,8 @@ use Controllers\AreaController;
 $router = new Router();
 
 // Protección de rutas: /admin/* exige rol admin (login con contraseña en
-// /admin/login); /punto-de-venta, /area/* y las APIs del personal exigen
-// sesión iniciada (login por NIP en /login, solo personal de piso).
+// /admin/login); /punto-de-venta, /area/* y las APIs del personal exigen sesión
+// iniciada (login por NIP en /login, solo personal de piso).
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
 // Home
@@ -39,6 +41,15 @@ $router->post('/reservar', [ReservacionController::class, 'crear']);
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
 $router->get('/admin/analytics', [AdminController::class, 'analytics']);
+$router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
+$router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
+$router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
+$router->post('/admin/configuracion/horarios/excepciones/guardar', [AdminConfigurationController::class, 'guardarExcepcion']);
+$router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'cambiarEstadoExcepcion']);
+$router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);
+$router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
+$router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
+$router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->get('/admin/menu', [AdminMenuController::class, 'index']);
 $router->get('/admin/menu/categories', [AdminMenuController::class, 'categories']);
 $router->get('/admin/menu/categories/create', [AdminMenuController::class, 'categoryCreate']);
@@ -66,18 +77,18 @@ $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollback
 $router->get('/admin/reservations', [AdminReservacionController::class, 'index']);
 $router->get('/admin/reservations/create', [AdminReservacionController::class, 'create']);
 $router->post('/admin/reservations/create', [AdminReservacionController::class, 'store']);
-$router->get('/admin/reservations/operation', [AdminReservacionController::class, 'operation']);
+$router->get('/admin/reservations/operation', [ReservacionOperacionController::class, 'operation']);
 $router->get('/admin/reservations/show', [AdminReservacionController::class, 'show']);
 $router->post('/admin/reservations/update', [AdminReservacionController::class, 'update']);
 $router->post('/admin/reservations/status', [AdminReservacionController::class, 'status']);
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
-$router->get('/admin/api/reservations/operation', [AdminReservacionController::class, 'operationData']);
-$router->post('/admin/api/reservations/operation/assign-tables', [AdminReservacionController::class, 'apiAssignTables']);
-$router->post('/admin/api/reservations/operation/reassign', [AdminReservacionController::class, 'apiReasignarAutomaticamente']);
-$router->post('/admin/api/reservations/operation/update-comment', [AdminReservacionController::class, 'apiUpdateComment']);
-$router->post('/admin/api/reservations/operation/status', [AdminReservacionController::class, 'apiStatus']);
-$router->post('/admin/reservations/operation/assign-tables', [AdminReservacionController::class, 'assignTables']);
-$router->post('/admin/reservations/operation/update-comment', [AdminReservacionController::class, 'updateComment']);
+$router->get('/admin/api/reservations/operation', [ReservacionOperacionController::class, 'operationData']);
+$router->post('/admin/api/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'apiAssignTables']);
+$router->post('/admin/api/reservations/operation/reassign', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
+$router->post('/admin/api/reservations/operation/update-comment', [ReservacionOperacionController::class, 'apiUpdateComment']);
+$router->post('/admin/api/reservations/operation/status', [ReservacionOperacionController::class, 'apiStatus']);
+$router->post('/admin/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'assignTables']);
+$router->post('/admin/reservations/operation/update-comment', [ReservacionOperacionController::class, 'updateComment']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);

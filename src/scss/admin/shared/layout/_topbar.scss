@@ -35,6 +35,44 @@
   min-width: 0;
 }
 
+.admin-topbar__support {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+
+  svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  &:hover {
+    border-color: rgba(160, 126, 54, 0.42);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-gold);
+    outline-offset: 2px;
+  }
+}
+
 .admin-topbar__module {
   max-width: 100%;
   overflow: hidden;
@@ -135,5 +173,22 @@
   .admin-topbar__user strong {
     width: 32px;
     height: 32px;
+  }
+
+  .admin-topbar__support {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+
+    span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
   }
 }
