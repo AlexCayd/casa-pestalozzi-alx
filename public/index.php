@@ -25,8 +25,8 @@ use Controllers\AreaController;
 $router = new Router();
 
 // Protección de rutas: /admin/* exige rol admin (login con contraseña en
-// /admin/login); /mapa, /area/* y las APIs del personal exigen sesión
-// iniciada (login por NIP en /login, solo personal de piso).
+// /admin/login); /punto-de-venta, /area/* y las APIs del personal exigen
+// sesión iniciada (login por NIP en /login, solo personal de piso).
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
 // Home

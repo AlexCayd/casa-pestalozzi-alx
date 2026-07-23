@@ -1,3 +1,14 @@
+<?php
+    // Personal en turno: la sesión ya viene validada por Classes\Auth::proteger
+    $pdvNombre = trim((string) ($_SESSION['nombre'] ?? 'Personal'));
+    $pdvRoles  = [
+        'admin'    => 'Administrador',
+        'waiter'   => 'Mesero',
+        'cashier'  => 'Cajero',
+        'observer' => 'Observador',
+    ];
+    $pdvRol = $pdvRoles[(string) ($_SESSION['rol'] ?? '')] ?? 'Personal';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -41,6 +52,22 @@
             <div class="pdv-cal__grid" id="pdv-cal-grid"></div>
           </div>
         </div>
+
+        <div class="pdv-user" aria-label="Personal en turno">
+          <span class="pdv-user__nombre"><?php echo htmlspecialchars($pdvNombre, ENT_QUOTES, 'UTF-8'); ?></span>
+          <span class="pdv-user__rol"><?php echo htmlspecialchars($pdvRol, ENT_QUOTES, 'UTF-8'); ?></span>
+        </div>
+
+        <form method="POST" action="/logout" class="pdv-logout-form" id="pdv-logout-form">
+          <button class="pdv-logout" type="submit" title="Cerrar sesión" aria-label="Cerrar sesión">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <path d="m16 17 5-5-5-5"/>
+              <path d="M21 12H9"/>
+            </svg>
+            <span class="pdv-logout__texto">Salir</span>
+          </button>
+        </form>
       </div>
     </header>
 
@@ -100,6 +127,18 @@
       smooth: false,
       anim:   false
     };
+  </script>
+  <script>
+    // Confirmación: en tablet un toque accidental no debe sacar del turno
+    (function () {
+      var form = document.getElementById('pdv-logout-form');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        if (!window.confirm('¿Cerrar sesión y salir del punto de venta?')) {
+          e.preventDefault();
+        }
+      });
+    })();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
