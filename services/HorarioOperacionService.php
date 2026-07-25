@@ -61,15 +61,16 @@ class HorarioOperacionService
     }
 
     /** Devuelve solo las próximas excepciones activas que pueden mostrarse públicamente. */
-    public static function obtenerProximasExcepciones(int $limite = 5): array
+    public static function obtenerProximasExcepciones(?int $limite = 5): array
     {
-        $limite = max(1, $limite);
         $excepciones = self::listarExcepciones([
             'activo' => true,
             'fecha_desde' => self::fechaActual(),
         ]);
 
-        return array_slice($excepciones, 0, $limite);
+        return $limite === null
+            ? $excepciones
+            : array_slice($excepciones, 0, max(1, $limite));
     }
 
     public static function guardarHorarioSemanal(array $horarios, ?int $usuarioId = null): array
@@ -470,6 +471,32 @@ class HorarioOperacionService
             'tipo' => null,
             'motivo' => null,
             'valido' => true,
+        ];
+    }
+
+    public static function obtenerHorarioHabitualParaFecha(string $fecha): array
+    {
+        if (!self::fechaValida($fecha)) {
+            return [
+                'abierto' => false,
+                'hora_apertura' => null,
+                'hora_cierre' => null,
+            ];
+        }
+
+        $fechaObjeto = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, ReservacionConfig::timezone());
+        $horario = $fechaObjeto instanceof DateTimeImmutable
+            ? HorarioOperacion::buscarPorDia((int) $fechaObjeto->format('w'))
+            : null;
+        $abierto = $horario !== null
+            && (int) $horario->abierto === 1
+            && $horario->hora_apertura
+            && $horario->hora_cierre;
+
+        return [
+            'abierto' => (bool) $abierto,
+            'hora_apertura' => $abierto ? self::horaCorta((string) $horario->hora_apertura) : null,
+            'hora_cierre' => $abierto ? self::horaCorta((string) $horario->hora_cierre) : null,
         ];
     }
 

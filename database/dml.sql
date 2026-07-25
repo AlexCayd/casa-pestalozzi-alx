@@ -48,6 +48,17 @@ INSERT INTO horarios_reservacion (dia_id, hora) VALUES
 (7, '14:00'), (7, '15:00'), (7, '16:00'), (7, '17:00'), (7, '18:00'),
 (7, '19:00'), (7, '20:00'), (7, '21:00');
 
+-- Horario efectivo semanal usado por el flujo público. Se mantiene alineado
+-- con dias_reservacion para que una instalación limpia no aparezca cerrada.
+INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre) VALUES
+(0, 1, '08:30', '19:00'),
+(1, 1, '08:30', '15:00'),
+(2, 1, '08:30', '22:00'),
+(3, 1, '08:30', '22:00'),
+(4, 1, '08:30', '22:00'),
+(5, 1, '08:30', '22:00'),
+(6, 1, '08:30', '22:00');
+
 -- -------------------------------------------------------
 -- Mesas — pos_x / pos_y = % del centro del pin sobre el canvas
 -- -------------------------------------------------------

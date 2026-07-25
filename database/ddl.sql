@@ -340,8 +340,8 @@ CREATE TABLE IF NOT EXISTS excepciones_operacion (
 CREATE TABLE IF NOT EXISTS configuracion_anuncio (
   id            TINYINT UNSIGNED NOT NULL,
   mensaje       VARCHAR(255) NOT NULL DEFAULT '',
-  tipo          ENUM('informativo', 'advertencia', 'importante')
-                  NOT NULL DEFAULT 'informativo',
+  tipo          ENUM('evento', 'promocion', 'novedad_menu', 'aviso_operativo')
+                  NOT NULL DEFAULT 'evento',
   activo        TINYINT(1) NOT NULL DEFAULT 0,
   fecha_inicio  DATETIME NULL,
   fecha_fin     DATETIME NULL,

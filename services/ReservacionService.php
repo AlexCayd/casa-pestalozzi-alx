@@ -96,6 +96,7 @@ class ReservacionService
 
             $origen = (string) ($efectivo['origen'] ?? 'semanal');
             $tipo = $efectivo['tipo'] ?? null;
+            $detalleHorario = self::detalleHorarioPublico($efectivo);
 
             if (!($efectivo['abierto'] ?? false)) {
                 return [
@@ -104,6 +105,7 @@ class ReservacionService
                     'abierto' => false,
                     'origen' => $origen,
                     'tipo' => $tipo,
+                    'detalle_horario' => $detalleHorario,
                     'horarios' => [],
                     'mensaje' => $origen === 'excepcion'
                         ? 'El restaurante no estará disponible en esta fecha.'
@@ -146,6 +148,7 @@ class ReservacionService
                 'abierto' => true,
                 'origen' => $origen,
                 'tipo' => $tipo,
+                'detalle_horario' => $detalleHorario,
                 'horarios' => $horarios,
                 'mensaje' => $horarios === [] ? 'No hay horarios disponibles para esta fecha.' : null,
             ];
@@ -158,6 +161,28 @@ class ReservacionService
                 'No fue posible consultar los horarios. Inténtalo nuevamente.'
             );
         }
+    }
+
+    private static function detalleHorarioPublico(array $efectivo): array
+    {
+        $fecha = (string) ($efectivo['fecha'] ?? '');
+        $habitual = HorarioOperacionService::obtenerHorarioHabitualParaFecha($fecha);
+        $esExcepcion = ($efectivo['origen'] ?? '') === 'excepcion';
+
+        return [
+            'es_excepcion' => $esExcepcion,
+            'etiqueta' => ($efectivo['tipo'] ?? '') === 'cerrado' ? 'Cierre especial' : 'Horario especial',
+            'fecha' => $fecha,
+            'abierto' => (bool) ($efectivo['abierto'] ?? false),
+            'hora_apertura' => !empty($efectivo['hora_apertura'])
+                ? substr((string) $efectivo['hora_apertura'], 0, 5)
+                : null,
+            'hora_cierre' => !empty($efectivo['hora_cierre'])
+                ? substr((string) $efectivo['hora_cierre'], 0, 5)
+                : null,
+            'motivo' => trim((string) ($efectivo['motivo'] ?? '')),
+            'habitual' => $habitual,
+        ];
     }
 
     public static function validarHorarioDisponible(string $fecha, string $hora): array

@@ -24,7 +24,7 @@ class HomeController
 
         try {
             $horariosOperacion = HorarioOperacionService::obtenerHorarioSemanalPublico();
-            $proximasExcepcionesOperacion = HorarioOperacionService::obtenerProximasExcepciones(5);
+            $proximasExcepcionesOperacion = HorarioOperacionService::obtenerProximasExcepciones(null);
             $horariosOperacionDisponibles = true;
         } catch (\Throwable $e) {
             error_log('HomeController::index horario publico - ' . $e->getMessage());

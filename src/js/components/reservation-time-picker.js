@@ -61,6 +61,20 @@
       }
     }
 
+    function emitScheduleLoaded(data) {
+      var event;
+      try {
+        event = new CustomEvent("reservation:scheduleloaded", {
+          bubbles: true,
+          detail: data || {}
+        });
+      } catch (error) {
+        event = document.createEvent("CustomEvent");
+        event.initCustomEvent("reservation:scheduleloaded", true, true, data || {});
+      }
+      root.dispatchEvent(event);
+    }
+
     function setStatus(text, show) {
       if (!status) return;
       status.textContent = text || "";
@@ -247,6 +261,7 @@
         .then(function (response) { return response.json(); })
         .then(function (data) {
           if (currentRequest !== requestId) return [];
+          emitScheduleLoaded(data);
 
           if (!data.ok) {
             var errorMessage = data.mensaje || "No fue posible consultar los horarios.";

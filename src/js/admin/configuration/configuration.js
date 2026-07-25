@@ -568,6 +568,22 @@
         const previewMessage = preview.querySelector('[data-preview-message]');
         const previewLink = preview.querySelector('[data-preview-link]');
         const previewLinkLabel = preview.querySelector('[data-preview-link-label]');
+        const previewIcon = preview.querySelector('[data-preview-icon]');
+        const purpose = document.querySelector('[data-announcement-purpose]');
+        const example = document.querySelector('[data-announcement-example]');
+        const exampleBanner = document.querySelector('[data-announcement-example-banner]');
+        const exampleTypeLabel = document.querySelector('[data-announcement-example-type]');
+        const exampleIcon = document.querySelector('[data-announcement-example-icon]');
+        const useExample = document.querySelector('[data-announcement-use-example]');
+        let announcementTypes = {};
+
+        try {
+            announcementTypes = JSON.parse(form.dataset.announcementTypes || '{}');
+        } catch (error) {
+            announcementTypes = {};
+        }
+
+        const defaultType = Object.keys(announcementTypes)[0] || 'evento';
 
         function initDateTimeParts(kind, hiddenField) {
             const container = form.querySelector('[data-announcement-datetime="' + kind + '"]');
@@ -664,14 +680,16 @@
             return /<[^>]*>/.test(value) || value.includes('\0');
         }
 
-        function validateLinkPair() {
+        function validateLinkPair(clearErrors) {
             const hasText = linkText.value.trim() !== '';
             const hasUrl = linkUrl.value.trim() !== '';
 
             linkText.required = hasUrl;
             linkUrl.required = hasText;
-            setFieldError(linkText, '');
-            setFieldError(linkUrl, '');
+            if (clearErrors !== false) {
+                setFieldError(linkText, '');
+                setFieldError(linkUrl, '');
+            }
 
             if (hasText && !hasUrl) {
                 setFieldError(linkUrl, 'Ingresa también la URL del enlace.');
@@ -686,25 +704,46 @@
         }
 
         function updatePreview() {
-            const selectedType = ['informativo', 'advertencia', 'importante'].includes(type.value)
+            const selectedType = Object.prototype.hasOwnProperty.call(announcementTypes, type.value)
                 ? type.value
-                : 'informativo';
+                : defaultType;
+            const selectedConfig = announcementTypes[selectedType] || {};
             const trimmedLinkText = linkText.value.trim();
             const trimmedLinkUrl = linkUrl.value.trim();
             counter.textContent = message.value.length + ' / 255';
             message.required = active.checked;
             preview.dataset.type = selectedType;
-            preview.classList.remove(
-                'hero-announcement--informativo',
-                'hero-announcement--advertencia',
-                'hero-announcement--importante'
-            );
+            Object.keys(announcementTypes).forEach(function (typeName) {
+                preview.classList.remove('hero-announcement--' + typeName);
+                if (exampleBanner) {
+                    exampleBanner.classList.remove('hero-announcement--' + typeName);
+                }
+            });
             preview.classList.add('hero-announcement--' + selectedType);
-            previewTypeLabel.textContent = {
-                informativo: 'Información',
-                advertencia: 'Advertencia',
-                importante: 'Importante'
-            }[selectedType];
+            preview.style.setProperty('--announcement-accent', selectedConfig.acento || '#9fc2c5');
+            previewTypeLabel.textContent = selectedConfig.etiqueta || 'Evento';
+            if (previewIcon) {
+                previewIcon.innerHTML = selectedConfig.icono || '';
+            }
+            if (purpose) {
+                purpose.textContent = selectedConfig.descripcion || '';
+            }
+            if (example) {
+                example.textContent = selectedConfig.ejemplo || '';
+            }
+            if (exampleBanner) {
+                exampleBanner.dataset.type = selectedType;
+                exampleBanner.classList.add('hero-announcement--' + selectedType);
+                exampleBanner.style.setProperty('--announcement-accent', selectedConfig.acento || '#9fc2c5');
+            }
+            if (exampleTypeLabel) {
+                exampleTypeLabel.textContent = selectedConfig.etiqueta || 'Evento';
+            }
+            if (exampleIcon) {
+                exampleIcon.innerHTML = selectedConfig.icono || '';
+            }
+            message.placeholder = selectedConfig.placeholder || 'Escribe el mensaje del anuncio.';
+            linkText.placeholder = selectedConfig.texto_enlace || '';
             previewState.textContent = active.checked ? 'Activo' : 'Inactivo · no será visible';
             previewMessage.textContent = message.value.trim() || 'Escribe un mensaje para ver la vista previa.';
 
@@ -724,6 +763,18 @@
                 previewLink.removeAttribute('target');
                 previewLink.removeAttribute('rel');
             }
+        }
+
+        if (useExample) {
+            useExample.addEventListener('click', function () {
+                const selectedConfig = announcementTypes[type.value] || announcementTypes[defaultType] || {};
+                if (!selectedConfig.ejemplo) {
+                    return;
+                }
+                message.value = selectedConfig.ejemplo;
+                message.dispatchEvent(new Event('input', { bubbles: true }));
+                message.focus();
+            });
         }
 
         function validate() {
@@ -821,7 +872,7 @@
             setStatus(status, 'Guardando anuncio…', 'pending');
         });
         updatePreview();
-        validateLinkPair();
+        validateLinkPair(false);
     }
 
     function initReports() {

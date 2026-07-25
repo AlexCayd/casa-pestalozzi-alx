@@ -4,12 +4,13 @@ namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
 use MVC\Router;
+use Services\AnuncioConfig;
 use Services\HorarioOperacionService;
 
 class AdminConfigurationController
 {
-    private const MODULE_CSS = '/build/css/admin/configuration.css?v=announcement-black-v6';
-    private const MODULE_JS = '/build/js/admin/configuration.js?v=announcement-types-v4';
+    private const MODULE_CSS = '/build/css/admin/configuration.css?v=announcement-sidebar-v11';
+    private const MODULE_JS = '/build/js/admin/configuration.js?v=announcement-sidebar-v11';
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
 
@@ -153,6 +154,7 @@ class AdminConfigurationController
             'title' => 'Anuncio principal',
             'topbarSection' => 'Configuración',
             'anuncio' => $anuncio,
+            'tiposAnuncio' => AnuncioConfig::TIPOS,
             'alertas' => $alertas,
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ]);
@@ -186,6 +188,8 @@ class AdminConfigurationController
             'title' => 'Anuncio principal',
             'topbarSection' => 'Configuración',
             'anuncio' => $datos,
+            'tiposAnuncio' => AnuncioConfig::TIPOS,
+            'erroresCampos' => $anuncio->erroresCampos(),
             'alertas' => $alertas,
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ]);
@@ -246,7 +250,7 @@ class AdminConfigurationController
         return [
             'activo' => false,
             'mensaje' => '',
-            'tipo' => 'informativo',
+            'tipo' => AnuncioConfig::TIPO_PREDETERMINADO,
             'fecha_inicio' => '',
             'fecha_fin' => '',
             'texto_enlace' => '',

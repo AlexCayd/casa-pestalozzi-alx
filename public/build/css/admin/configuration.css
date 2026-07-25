@@ -14,10 +14,13 @@
   --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
   --announcement-accent: #9fc2c5;
   --announcement-border: rgba(159, 194, 197, 0.52);
+  --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
   --announcement-background: #101112;
   --announcement-icon-background: rgba(159, 194, 197, 0.12);
-  --announcement-link-color: #b9d5d7;
+  --announcement-icon-background: color-mix(in srgb, var(--announcement-accent) 12%, transparent);
+  --announcement-link-color: var(--announcement-accent);
   box-sizing: border-box;
+  position: relative;
   font-family: var(--announcement-font);
   display: grid;
   width: 100%;
@@ -32,24 +35,16 @@
   color: var(--announcement-cream);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 .hero-announcement[hidden] {
-  display: none;
+  display: none !important;
 }
-.hero-announcement--advertencia {
-  --announcement-accent: #e0a65f;
-  --announcement-border: rgba(224, 166, 95, 0.72);
-  --announcement-background: #101112;
-  --announcement-icon-background: rgba(224, 166, 95, 0.14);
-  --announcement-link-color: #edc58e;
-}
-.hero-announcement--importante {
-  --announcement-accent: var(--announcement-gold-soft);
-  --announcement-border: rgba(224, 193, 132, 0.92);
-  --announcement-background: #101112;
-  --announcement-icon-background: rgba(224, 193, 132, 0.16);
-  --announcement-link-color: var(--announcement-gold-soft);
-  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(224, 193, 132, 0.12);
+.hero-announcement.is-closing {
+  opacity: 0;
+  pointer-events: none;
 }
 .hero-announcement__indicator {
   width: 3px;
@@ -80,7 +75,7 @@
   color: var(--announcement-accent);
 }
 .hero-announcement__icon svg {
-  display: none;
+  display: block;
   width: 15px;
   height: 15px;
   fill: none;
@@ -88,9 +83,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-.hero-announcement--informativo [data-announcement-icon=informativo], .hero-announcement--advertencia [data-announcement-icon=advertencia], .hero-announcement--importante [data-announcement-icon=importante] {
-  display: block;
 }
 .hero-announcement__type {
   color: var(--announcement-accent);
@@ -168,6 +160,25 @@
   outline: 2px solid var(--announcement-gold-soft);
   outline-offset: 2px;
 }
+.hero-announcement__progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.hero-announcement__progress-remaining {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--announcement-accent);
+  transform: scaleX(1);
+  transform-origin: left center;
+  will-change: transform;
+}
 
 @media (max-width: 420px) {
   .hero-announcement {
@@ -176,6 +187,15 @@
   }
   .hero-announcement__message {
     font-size: 0.7rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-announcement {
+    animation: none;
+    transition: none;
+  }
+  .hero-announcement__progress-remaining {
+    will-change: auto;
   }
 }
 @font-face {
@@ -422,7 +442,7 @@
 
 .admin-config-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.7fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.7fr);
   align-items: start;
   gap: 20px;
 }
@@ -430,10 +450,73 @@
 .admin-announcement-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 20px;
+}
+.admin-announcement-form > .admin-switch {
+  margin-bottom: 2px;
 }
 .admin-announcement-form__wide {
   grid-column: 1/-1;
+}
+.admin-announcement-form .admin-config-form-actions {
+  margin-top: 6px;
+}
+
+.admin-announcement-type-purpose {
+  max-width: 68ch;
+  margin: 10px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-announcement-template {
+  display: grid;
+  gap: 11px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-announcement-template__label {
+  color: var(--admin-faint);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.admin-announcement-template .admin-btn {
+  justify-self: start;
+  min-height: 36px;
+  padding: 8px 13px;
+}
+
+.admin-announcement-example {
+  grid-template-columns: 3px minmax(0, 1fr);
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  box-shadow: none;
+  opacity: 0.58;
+  pointer-events: none;
+}
+.admin-announcement-example .hero-announcement__indicator {
+  min-height: 2rem;
+}
+.admin-announcement-example .hero-announcement__heading {
+  margin-bottom: 0.3rem;
+}
+.admin-announcement-example .hero-announcement__icon {
+  width: 23px;
+  height: 23px;
+  flex-basis: 23px;
+}
+.admin-announcement-example .hero-announcement__icon svg {
+  width: 13px;
+  height: 13px;
+}
+.admin-announcement-example .hero-announcement__message {
+  font-size: 0.7rem;
+  line-height: 1.5;
 }
 
 .admin-datetime-field {
@@ -449,7 +532,7 @@
 .admin-datetime-field__controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 .admin-datetime-field__part {
   min-width: 0;
@@ -460,7 +543,7 @@
 }
 .admin-datetime-field__part-label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   color: var(--admin-faint);
   font-size: 10px;
   font-weight: 850;
@@ -468,7 +551,7 @@
   text-transform: uppercase;
 }
 .admin-datetime-field__clear {
-  margin-top: 7px;
+  margin-top: 8px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -489,29 +572,35 @@
 
 .admin-config-preview {
   position: sticky;
-  top: 76px;
+  top: 84px;
+  min-width: 0;
+  padding: 18px;
+}
+.admin-config-preview .admin-config-panel__head {
+  margin-bottom: 14px;
+}
+.admin-config-preview .admin-config-panel__head h2 {
+  font-size: 18px;
 }
 
 .admin-announcement-preview-stage {
   display: grid;
-  gap: 10px;
-  padding: 18px;
-  overflow: hidden;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface-soft);
+  gap: 8px;
+  min-width: 0;
 }
 
 .admin-announcement-preview-state {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
+  color: var(--admin-faint);
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .admin-announcement-preview-stage .hero-announcement {
+  width: 100%;
   min-width: 0;
+  box-shadow: none;
 }
 
 .admin-config-filters {
@@ -626,6 +715,9 @@
   }
 }
 @media (max-width: 576px) {
+  .admin-announcement-template .admin-btn {
+    width: 100%;
+  }
   .admin-config-grid {
     grid-template-columns: 1fr;
   }

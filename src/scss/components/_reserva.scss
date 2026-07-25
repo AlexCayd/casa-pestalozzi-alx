@@ -47,16 +47,51 @@
 }
 
 .reserva__schedule-changes {
-  margin-top: 1.5rem;
-  padding-top: 1.2rem;
-  border-top: 1px solid var(--line-soft);
+  margin-top: 2.25rem;
 
-  h6 {
+  &-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     margin-bottom: 0.7rem;
-    color: var(--beige);
-    font-size: 0.65rem;
-    font-weight: 500;
-    letter-spacing: 0.16em;
+  }
+
+  h3 {
+    margin: 0;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+
+  &-grid {
+    display: grid;
+    gap: 0.45rem;
+  }
+}
+
+.reserva__schedule-change {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(204, 163, 82, 0.28);
+  border-left: 2px solid rgba(204, 163, 82, 0.82);
+  border-radius: 0.45rem;
+  background: rgba(204, 163, 82, 0.055);
+
+  &[hidden] {
+    display: none;
+  }
+
+  > span {
+    color: var(--accent);
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
   }
 
@@ -64,15 +99,94 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-    margin-top: 0.45rem;
-    color: var(--txt-mute);
-    font-size: 0.76rem;
+    margin: 0;
+    color: var(--beige);
+    font-size: 0.72rem;
     line-height: 1.45;
   }
 
   strong {
     color: var(--beige);
     font-weight: 500;
+  }
+
+  small {
+    color: var(--txt-faint);
+    font-size: 0.63rem;
+    line-height: 1.45;
+  }
+
+  &--closed {
+    border-left-color: rgba(255, 249, 228, 0.34);
+  }
+}
+
+.reserva__schedule-toggle {
+  flex: 0 0 auto;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(204, 163, 82, 0.45);
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 500;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+  }
+}
+
+.reserva__special-schedule {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(204, 163, 82, 0.46);
+  border-left: 3px solid var(--accent);
+  border-radius: 0.75rem;
+  background: rgba(204, 163, 82, 0.08);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &-label {
+    color: var(--accent);
+    font-size: 0.61rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  > strong {
+    color: var(--beige);
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 400;
+    text-transform: capitalize;
+  }
+
+  &-hours {
+    color: var(--beige);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  p,
+  small {
+    margin: 0;
+    color: var(--txt-mute);
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+
+  small {
+    color: var(--txt-faint);
+  }
+
+  &-reference {
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--line-soft);
   }
 }
 

@@ -241,6 +241,9 @@ function initHourPicker(form) {
       .then(function(r) { return r.json(); })
       .then(function(res) {
         if (currentRequest !== requestId) return;
+        form.dispatchEvent(new CustomEvent("reservation:scheduleloaded", {
+          detail: res || {}
+        }));
 
         if (!res.ok) {
           setDisabled("Elige una hora");
@@ -293,6 +296,72 @@ function initHourPicker(form) {
       setStatus("", false);
     }
   };
+}
+
+function initSpecialScheduleNotice(form) {
+  var card = document.querySelector("[data-special-schedule]");
+  if (!form || !card) return;
+
+  var label = card.querySelector("[data-special-schedule-label]");
+  var date = card.querySelector("[data-special-schedule-date]");
+  var hours = card.querySelector("[data-special-schedule-hours]");
+  var reason = card.querySelector("[data-special-schedule-reason]");
+  var regular = card.querySelector("[data-special-schedule-regular]");
+  var note = card.querySelector("[data-special-schedule-note]");
+
+  function formatDate(value) {
+    var parsed = new Date(String(value || "") + "T12:00:00");
+    if (Number.isNaN(parsed.getTime())) return value || "";
+    return parsed.toLocaleDateString("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  }
+
+  form.addEventListener("reservation:scheduleloaded", function(event) {
+    var detail = event.detail && event.detail.detalle_horario;
+    if (!detail || detail.es_excepcion !== true) {
+      card.hidden = true;
+      return;
+    }
+
+    label.textContent = detail.etiqueta || (detail.abierto ? "Horario especial" : "Cierre especial");
+    date.textContent = formatDate(detail.fecha);
+    hours.textContent = detail.abierto
+      ? String(detail.hora_apertura || "") + "–" + String(detail.hora_cierre || "")
+      : "Cerrado todo el día";
+    reason.textContent = detail.motivo || "";
+    reason.hidden = !detail.motivo;
+    note.textContent = detail.abierto
+      ? "Este horario reemplaza al horario habitual para la fecha seleccionada."
+      : "No se reciben reservaciones durante esta fecha.";
+
+    var habitual = detail.habitual || {};
+    regular.textContent = habitual.abierto
+      ? String(habitual.hora_apertura || "") + "–" + String(habitual.hora_cierre || "")
+      : "Cerrado";
+    card.hidden = false;
+  });
+}
+
+function initScheduleChanges() {
+  var section = document.querySelector("[data-schedule-changes]");
+  if (!section) return;
+
+  var toggle = section.querySelector("[data-schedule-toggle]");
+  var extras = section.querySelectorAll("[data-schedule-extra]");
+  if (!toggle || !extras.length) return;
+
+  toggle.addEventListener("click", function() {
+    var expanded = toggle.getAttribute("aria-expanded") === "true";
+    extras.forEach(function(card) {
+      card.hidden = expanded;
+    });
+    toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    toggle.textContent = expanded ? "Ver más" : "Ver menos";
+  });
 }
 
 /* ---- Formulario ---- */
@@ -366,6 +435,8 @@ function initForm() {
   });
 
   initCalendar();
+  initScheduleChanges();
+  initSpecialScheduleNotice(form);
   initHourPicker(form);
   updateStepper();
 

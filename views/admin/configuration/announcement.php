@@ -1,5 +1,7 @@
 <?php
 $anuncio = is_array($anuncio ?? null) ? $anuncio : [];
+$tiposAnuncio = is_array($tiposAnuncio ?? null) ? $tiposAnuncio : \Services\AnuncioConfig::TIPOS;
+$erroresCampos = is_array($erroresCampos ?? null) ? $erroresCampos : [];
 $fechaActual = (string)($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $separarFechaHora = static function ($value): array {
@@ -13,10 +15,16 @@ $separarFechaHora = static function ($value): array {
 [$fechaInicio, $horaInicio] = $separarFechaHora($anuncio['fecha_inicio'] ?? '');
 [$fechaFin, $horaFin] = $separarFechaHora($anuncio['fecha_fin'] ?? '');
 $isActive = !empty($anuncio['activo']);
-$tiposPermitidos = ['informativo', 'advertencia', 'importante'];
+$tiposPermitidos = array_keys($tiposAnuncio);
 $tipoPreview = in_array((string) ($anuncio['tipo'] ?? ''), $tiposPermitidos, true)
     ? (string) $anuncio['tipo']
-    : 'informativo';
+    : \Services\AnuncioConfig::TIPO_PREDETERMINADO;
+$configTipoPreview = $tiposAnuncio[$tipoPreview];
+$tiposJson = htmlspecialchars(
+    json_encode($tiposAnuncio, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
+    ENT_QUOTES | ENT_SUBSTITUTE,
+    'UTF-8'
+);
 $textoEnlacePreview = trim((string) ($anuncio['texto_enlace'] ?? ''));
 $urlEnlacePreview = trim((string) ($anuncio['url_enlace'] ?? ''));
 $mostrarEnlacePreview = $textoEnlacePreview !== ''
@@ -52,26 +60,34 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                 </div>
             </div>
 
-            <form class="admin-announcement-form" method="POST" action="/admin/configuracion/anuncio" data-announcement-form novalidate>
+            <form
+                class="admin-announcement-form"
+                method="POST"
+                action="/admin/configuracion/anuncio"
+                data-announcement-form
+                data-announcement-types="<?php echo $tiposJson; ?>"
+                novalidate
+            >
                 <label class="admin-switch admin-announcement-form__wide">
                     <input type="checkbox" name="activo" value="1" data-announcement-active <?php echo $isActive ? 'checked' : ''; ?>>
                     <span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>
                     <span class="admin-switch__label">Anuncio activo</span>
                 </label>
 
-                <label class="admin-field admin-announcement-form__wide">
-                    <span class="admin-field__label admin-field__label--split"><span>Mensaje</span><span data-announcement-counter>0 / 255</span></span>
-                    <textarea name="mensaje" maxlength="255" rows="4" <?php echo $isActive ? 'required' : ''; ?> data-announcement-message><?php echo $h($anuncio['mensaje'] ?? ''); ?></textarea>
-                    <span class="admin-field__error" data-field-error aria-live="polite"></span>
-                </label>
-
-                <label class="admin-field admin-announcement-form__wide">
-                    <span class="admin-field__label">Tipo</span>
-                    <select name="tipo" data-announcement-type>
-                        <?php foreach (['informativo' => 'Informativo', 'advertencia' => 'Advertencia', 'importante' => 'Importante'] as $value => $label) : ?>
-                            <option value="<?php echo $value; ?>" <?php echo ($anuncio['tipo'] ?? '') === $value ? 'selected' : ''; ?>><?php echo $label; ?></option>
+                <div class="admin-field admin-announcement-form__wide">
+                    <label class="admin-field__label" for="announcement-type">Tipo</label>
+                    <select id="announcement-type" name="tipo" data-announcement-type aria-describedby="announcement-type-purpose">
+                        <?php foreach ($tiposAnuncio as $value => $configTipo) : ?>
+                            <option value="<?php echo $h($value); ?>" <?php echo $tipoPreview === $value ? 'selected' : ''; ?>><?php echo $h($configTipo['etiqueta'] ?? $value); ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="admin-announcement-type-purpose" id="announcement-type-purpose" data-announcement-purpose><?php echo $h($configTipoPreview['descripcion'] ?? ''); ?></p>
+                </div>
+
+                <label class="admin-field admin-announcement-form__wide">
+                    <span class="admin-field__label admin-field__label--split"><span>Mensaje</span><span data-announcement-counter>0 / 255</span></span>
+                    <textarea name="mensaje" maxlength="255" rows="4" placeholder="<?php echo $h($configTipoPreview['placeholder'] ?? 'Escribe el mensaje del anuncio.'); ?>" <?php echo $isActive ? 'required' : ''; ?> data-announcement-message><?php echo $h($anuncio['mensaje'] ?? ''); ?></textarea>
+                    <span class="admin-field__error" data-field-error aria-live="polite"></span>
                 </label>
 
                 <fieldset class="admin-datetime-field" data-announcement-datetime="start">
@@ -176,13 +192,13 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
 
                 <label class="admin-field">
                     <span class="admin-field__label">Texto del enlace <small>(opcional)</small></span>
-                    <input type="text" name="texto_enlace" maxlength="80" value="<?php echo $h($anuncio['texto_enlace'] ?? ''); ?>" autocomplete="off" data-announcement-link-text>
-                    <span class="admin-field__error" data-field-error aria-live="polite"></span>
+                    <input type="text" name="texto_enlace" maxlength="80" value="<?php echo $h($anuncio['texto_enlace'] ?? ''); ?>" placeholder="<?php echo $h($configTipoPreview['texto_enlace'] ?? ''); ?>" autocomplete="off" data-announcement-link-text>
+                    <span class="admin-field__error" data-field-error aria-live="polite"><?php echo $h(implode(' ', $erroresCampos['texto_enlace'] ?? [])); ?></span>
                 </label>
                 <label class="admin-field">
                     <span class="admin-field__label">URL del enlace <small>(opcional)</small></span>
                     <input type="text" name="url_enlace" maxlength="500" value="<?php echo $h($anuncio['url_enlace'] ?? ''); ?>" autocomplete="off" data-announcement-link-url>
-                    <span class="admin-field__error" data-field-error aria-live="polite"></span>
+                    <span class="admin-field__error" data-field-error aria-live="polite"><?php echo $h(implode(' ', $erroresCampos['url_enlace'] ?? [])); ?></span>
                 </label>
 
                 <div class="admin-config-form-actions admin-announcement-form__wide">
@@ -194,10 +210,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
 
         <aside class="admin-panel admin-card admin-config-preview" aria-labelledby="announcement-preview-title">
             <div class="admin-config-panel__head">
-                <div>
-                    <span class="admin-page__eyebrow">Vista previa</span>
-                    <h2 id="announcement-preview-title">Banner del sitio</h2>
-                </div>
+                <h2 id="announcement-preview-title">Vista previa</h2>
             </div>
             <div class="admin-announcement-preview-stage">
                 <span class="admin-announcement-preview-state" data-preview-state>
@@ -207,17 +220,16 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--<?php echo $mostrarEnlacePreview ? 'has-link' : 'without-link'; ?>"
                     data-announcement-preview
                     data-type="<?php echo $h($tipoPreview); ?>"
+                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? '#9fc2c5'); ?>"
                     aria-label="Vista previa del anuncio"
                 >
                     <span class="hero-announcement__indicator" aria-hidden="true"></span>
                     <div class="hero-announcement__content">
                         <div class="hero-announcement__heading">
                             <span class="hero-announcement__icon" aria-hidden="true">
-                                <svg data-announcement-icon="informativo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
-                                <svg data-announcement-icon="advertencia" viewBox="0 0 24 24"><path d="M10.3 4.3 2.7 17.2A2 2 0 0 0 4.4 20h15.2a2 2 0 0 0 1.7-2.8L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 16h.01"/></svg>
-                                <svg data-announcement-icon="importante" viewBox="0 0 24 24"><path d="M4 10v4"/><path d="M7 9v6"/><path d="m7 9 10-4v14L7 15"/><path d="m9 15 1 5H7l-1-5"/><path d="M20 10v4"/></svg>
+                                <svg data-preview-icon viewBox="0 0 24 24"><?php echo $configTipoPreview['icono'] ?? ''; ?></svg>
                             </span>
-                            <span class="hero-announcement__type" data-preview-type-label><?php echo $h(['informativo' => 'Información', 'advertencia' => 'Advertencia', 'importante' => 'Importante'][$tipoPreview]); ?></span>
+                            <span class="hero-announcement__type" data-preview-type-label><?php echo $h($configTipoPreview['etiqueta'] ?? 'Evento'); ?></span>
                         </div>
                         <p class="hero-announcement__message" data-preview-message><?php echo $h(trim((string) ($anuncio['mensaje'] ?? '')) ?: 'Escribe un mensaje para ver la vista previa.'); ?></p>
                         <a
@@ -231,7 +243,32 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     <button class="hero-announcement__close" type="button" tabindex="-1" aria-hidden="true">
                         <span aria-hidden="true">×</span>
                     </button>
+                    <div class="hero-announcement__progress" aria-hidden="true">
+                        <span class="hero-announcement__progress-remaining"></span>
+                    </div>
                 </div>
+            </div>
+            <div class="admin-announcement-template" data-announcement-template>
+                <span class="admin-announcement-template__label">Ejemplo sugerido</span>
+                <div
+                    class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--without-link admin-announcement-example"
+                    data-announcement-example-banner
+                    data-type="<?php echo $h($tipoPreview); ?>"
+                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? '#9fc2c5'); ?>"
+                    aria-label="Ejemplo sugerido del anuncio"
+                >
+                    <span class="hero-announcement__indicator" aria-hidden="true"></span>
+                    <div class="hero-announcement__content">
+                        <div class="hero-announcement__heading">
+                            <span class="hero-announcement__icon" aria-hidden="true">
+                                <svg data-announcement-example-icon viewBox="0 0 24 24"><?php echo $configTipoPreview['icono'] ?? ''; ?></svg>
+                            </span>
+                            <span class="hero-announcement__type" data-announcement-example-type><?php echo $h($configTipoPreview['etiqueta'] ?? 'Evento'); ?></span>
+                        </div>
+                        <p class="hero-announcement__message" data-announcement-example><?php echo $h($configTipoPreview['ejemplo'] ?? ''); ?></p>
+                    </div>
+                </div>
+                <button type="button" class="admin-btn admin-btn--secondary" data-announcement-use-example>Usar ejemplo</button>
             </div>
         </aside>
     </div>

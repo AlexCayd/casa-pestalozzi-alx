@@ -276,7 +276,7 @@
 
 .admin-config-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.7fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.7fr);
   align-items: start;
   gap: 20px;
 }
@@ -284,10 +284,82 @@
 .admin-announcement-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  column-gap: 16px;
+  row-gap: 20px;
+
+  > .admin-switch {
+    margin-bottom: 2px;
+  }
 
   &__wide {
     grid-column: 1 / -1;
+  }
+
+  .admin-config-form-actions {
+    margin-top: 6px;
+  }
+}
+
+.admin-announcement-type-purpose {
+  max-width: 68ch;
+  margin: 10px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-announcement-template {
+  display: grid;
+  gap: 11px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+
+  &__label {
+    color: var(--admin-faint);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .admin-btn {
+    justify-self: start;
+    min-height: 36px;
+    padding: 8px 13px;
+  }
+}
+
+.admin-announcement-example {
+  grid-template-columns: 3px minmax(0, 1fr);
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  box-shadow: none;
+  opacity: 0.58;
+  pointer-events: none;
+
+  .hero-announcement__indicator {
+    min-height: 2rem;
+  }
+
+  .hero-announcement__heading {
+    margin-bottom: 0.3rem;
+  }
+
+  .hero-announcement__icon {
+    width: 23px;
+    height: 23px;
+    flex-basis: 23px;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+  }
+
+  .hero-announcement__message {
+    font-size: 0.7rem;
+    line-height: 1.5;
   }
 }
 
@@ -305,7 +377,7 @@
   &__controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
   }
 
   &__part {
@@ -319,7 +391,7 @@
 
   &__part-label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     color: var(--admin-faint);
     font-size: 10px;
     font-weight: 850;
@@ -328,7 +400,7 @@
   }
 
   &__clear {
-    margin-top: 7px;
+    margin-top: 8px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -353,29 +425,37 @@
 
 .admin-config-preview {
   position: sticky;
-  top: 76px;
+  top: 84px;
+  min-width: 0;
+  padding: 18px;
+
+  .admin-config-panel__head {
+    margin-bottom: 14px;
+
+    h2 {
+      font-size: 18px;
+    }
+  }
 }
 
 .admin-announcement-preview-stage {
   display: grid;
-  gap: 10px;
-  padding: 18px;
-  overflow: hidden;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface-soft);
+  gap: 8px;
+  min-width: 0;
 }
 
 .admin-announcement-preview-state {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
+  color: var(--admin-faint);
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .admin-announcement-preview-stage .hero-announcement {
+  width: 100%;
   min-width: 0;
+  box-shadow: none;
 }
 
 .admin-config-filters {
@@ -508,6 +588,12 @@
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
+  .admin-announcement-template {
+    .admin-btn {
+      width: 100%;
+    }
+  }
+
   .admin-config-grid {
     grid-template-columns: 1fr;
   }

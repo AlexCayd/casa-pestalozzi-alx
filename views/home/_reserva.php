@@ -7,6 +7,7 @@ $contactoReservas = \Services\ReservacionConfig::contactoPublico();
 $horariosOperacion = is_array($horariosOperacion ?? null) ? $horariosOperacion : [];
 $proximasExcepcionesOperacion = is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [];
 $horariosOperacionDisponibles = (bool)($horariosOperacionDisponibles ?? false);
+$limiteExcepcionesVisibles = 2;
 $meses = [
   1 => 'enero',
   2 => 'febrero',
@@ -29,7 +30,7 @@ $meses = [
       <h2 class="reserva__title" data-reveal>Reserva <em class="accent-italic">tu mesa</em></h2>
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
       <div class="reserva__hours" data-reveal>
-        <h5>Horario</h5>
+        <h5>Horario habitual</h5>
         <?php if ($horariosOperacionDisponibles) : ?>
           <?php foreach ($horariosOperacion as $horario) : ?>
             <div class="row" data-day="<?php echo (int)($horario['dia_semana'] ?? 0); ?>">
@@ -48,21 +49,39 @@ $meses = [
         <?php endif; ?>
 
         <?php if ($horariosOperacionDisponibles && $proximasExcepcionesOperacion !== []) : ?>
-          <div class="reserva__schedule-changes">
-            <h6>Próximos cambios de horario</h6>
-            <?php foreach ($proximasExcepcionesOperacion as $excepcion) : ?>
-              <?php
-                $fechaExcepcion = \DateTimeImmutable::createFromFormat('!Y-m-d', (string)($excepcion['fecha'] ?? ''));
-                $fechaVisible = $fechaExcepcion instanceof \DateTimeImmutable
-                  ? (int)$fechaExcepcion->format('j') . ' de ' . ($meses[(int)$fechaExcepcion->format('n')] ?? '')
-                  : '';
-                $horarioVisible = ($excepcion['tipo'] ?? '') === 'horario_especial'
-                  ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
-                  : 'Cerrado';
-              ?>
-              <p><span><?php echo s($fechaVisible); ?></span><span aria-hidden="true">—</span><strong><?php echo s($horarioVisible); ?></strong></p>
-            <?php endforeach; ?>
-          </div>
+          <section class="reserva__schedule-changes" data-schedule-changes aria-labelledby="upcoming-exceptions-title">
+            <div class="reserva__schedule-changes-head">
+              <h3 id="upcoming-exceptions-title">Próximas excepciones</h3>
+              <?php if (count($proximasExcepcionesOperacion) > $limiteExcepcionesVisibles) : ?>
+                <button type="button" class="reserva__schedule-toggle" data-schedule-toggle aria-expanded="false" aria-controls="upcoming-exceptions-list">
+                  Ver más
+                </button>
+              <?php endif; ?>
+            </div>
+            <div class="reserva__schedule-changes-grid" id="upcoming-exceptions-list">
+              <?php foreach ($proximasExcepcionesOperacion as $indice => $excepcion) : ?>
+                <?php
+                  $fechaExcepcion = \DateTimeImmutable::createFromFormat('!Y-m-d', (string)($excepcion['fecha'] ?? ''));
+                  $fechaVisible = $fechaExcepcion instanceof \DateTimeImmutable
+                    ? (int)$fechaExcepcion->format('j') . ' de ' . ($meses[(int)$fechaExcepcion->format('n')] ?? '')
+                    : '';
+                  $esHorarioEspecial = ($excepcion['tipo'] ?? '') === 'horario_especial';
+                  $horarioVisible = $esHorarioEspecial
+                    ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
+                    : 'Cerrado todo el día';
+                  $esAdicional = $indice >= $limiteExcepcionesVisibles;
+                ?>
+                <article
+                  class="reserva__schedule-change reserva__schedule-change--<?php echo $esHorarioEspecial ? 'special' : 'closed'; ?>"
+                  <?php echo $esAdicional ? 'data-schedule-extra hidden' : ''; ?>
+                >
+                  <span><?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?></span>
+                  <p><strong><?php echo s($fechaVisible); ?></strong><span aria-hidden="true">—</span><?php echo s($horarioVisible); ?></p>
+                  <small>Reemplaza el horario habitual de esa fecha.</small>
+                </article>
+              <?php endforeach; ?>
+            </div>
+          </section>
         <?php endif; ?>
       </div>
     </div>
@@ -88,6 +107,14 @@ $meses = [
             <span class="field__msg" data-field-error="email"></span>
           </div>
         </div>
+        <aside class="reserva__special-schedule" data-special-schedule hidden aria-live="polite">
+          <span class="reserva__special-schedule-label" data-special-schedule-label>Horario especial</span>
+          <strong data-special-schedule-date></strong>
+          <span class="reserva__special-schedule-hours" data-special-schedule-hours></span>
+          <p data-special-schedule-reason hidden></p>
+          <small data-special-schedule-note>El horario habitual no aplica en esta fecha.</small>
+          <small class="reserva__special-schedule-reference">Referencia habitual: <span data-special-schedule-regular></span></small>
+        </aside>
         <div class="form__row">
           <div class="field">
             <label>Fecha</label>
