@@ -1,0 +1,64 @@
+@charset "UTF-8";
+/*
+ * Módulo Productos (recetas y subrecetas).
+ * El bloque de receta principal se destaca visualmente con un borde dorado.
+ */
+.admin-productos .admin-card {
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.admin-productos .admin-panel + .admin-panel {
+  margin-top: 18px;
+}
+
+.admin-recipe {
+  overflow: visible;
+  border-color: rgba(204, 163, 82, 0.32);
+  box-shadow: inset 3px 0 0 var(--admin-gold), var(--admin-shadow-sm);
+}
+.admin-recipe__head {
+  margin-bottom: 16px;
+}
+.admin-recipe__head h3 {
+  margin: 4px 0 4px;
+}
+.admin-recipe__head p {
+  max-width: 60ch;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-recipe__eyebrow {
+  display: inline-block;
+  color: var(--admin-gold);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-recipe__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.admin-recipe__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 44px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+@media (max-width: 560px) {
+  .admin-recipe__row {
+    grid-template-columns: minmax(0, 1fr) 100px 44px;
+  }
+}
+.admin-recipe__add {
+  width: fit-content;
+}
+.admin-recipe__actions {
+  margin-top: 18px;
+}

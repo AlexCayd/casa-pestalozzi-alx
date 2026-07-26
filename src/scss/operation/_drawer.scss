@@ -71,6 +71,12 @@
   }
 }
 
+/* Botón hamburguesa solo-icono (sin texto ni número). */
+.operational-page .operational-drawer-toggle--icon {
+  width: 44px;
+  padding: 0;
+}
+
 .operational-drawer-toggle__count {
   display: inline-grid;
   min-width: 25px;

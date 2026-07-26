@@ -538,6 +538,41 @@ $face-5: #29B6F6;
   text-align: center;
 }
 
+// Selector de modo de reparto (partes iguales / cada quien / vacío)
+.mmodal-split-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .4rem;
+  margin: .85rem 0 .25rem;
+}
+
+.mmodal-split-mode {
+  padding: .5rem .35rem;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 9px;
+  background: rgba(255,255,255,.03);
+  color: rgba(232,224,212,.6);
+  font-family: var(--sans);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+
+  &:hover {
+    color: rgba(232,224,212,.9);
+    border-color: rgba(204,163,82,.4);
+  }
+
+  &--active {
+    color: var(--accent, #cca352);
+    border-color: var(--accent, #cca352);
+    background: rgba(204,163,82,.14);
+  }
+}
+
 .mmodal-split-table {
   margin: 1rem 0 .75rem;
   border: 1px solid rgba(255,255,255,.09);

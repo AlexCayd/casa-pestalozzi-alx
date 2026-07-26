@@ -104,42 +104,44 @@
   }
 
   function initFilters() {
-    const caption = document.querySelector("[data-analytics-caption]");
-    const selects = document.querySelectorAll("[data-analytics-filter]");
+    const rangeSelect = document.querySelector('[data-analytics-filter="range"]');
+    const rangeBox = document.querySelector("[data-analytics-range]");
+    const applyBtn = document.querySelector("[data-analytics-apply]");
+    const desdeInput = document.querySelector("[data-analytics-desde]");
+    const hastaInput = document.querySelector("[data-analytics-hasta]");
 
-    if (!selects.length) {
+    if (!rangeSelect) {
       return;
     }
 
-    const state = { range: 7, service: "todos", source: "todas" };
-    const rangeLabels = { 7: "Últimos 7 días", 3: "Últimos 3 días", 1: "Solo ayer" };
-    const serviceLabels = { comida: "Comida", cena: "Cena" };
-    const sourceLabels = { web: "Web", whatsapp: "WhatsApp", phone: "Teléfono", walk_in: "Walk-in" };
-
-    function updateCaption() {
-      const parts = [rangeLabels[state.range] || "Últimos 7 días"];
-      if (serviceLabels[state.service]) parts.push(serviceLabels[state.service]);
-      if (sourceLabels[state.source]) parts.push(sourceLabels[state.source]);
-      if (caption) caption.textContent = parts.join(" · ");
+    // Navega recargando la página con los parámetros; el servidor filtra.
+    function go(params) {
+      const url = new URL(window.location.href);
+      url.search = "";
+      Object.keys(params).forEach((k) => {
+        if (params[k] !== "" && params[k] != null) url.searchParams.set(k, params[k]);
+      });
+      window.location.assign(url.toString());
     }
 
-    selects.forEach((select) => {
-      select.addEventListener("change", () => {
-        const key = select.getAttribute("data-analytics-filter");
-
-        if (key === "range") state.range = parseInt(select.value, 10) || 7;
-        if (key === "service") state.service = select.value;
-        if (key === "source") state.source = select.value;
-
-        updateCaption();
-
-        if (window.AdminAnalyticsCharts && window.AdminAnalyticsCharts.applyFilters) {
-          window.AdminAnalyticsCharts.applyFilters(state);
-        }
-      });
+    rangeSelect.addEventListener("change", () => {
+      const val = rangeSelect.value;
+      if (val === "custom") {
+        // Mostrar el rango personalizado y esperar a "Aplicar".
+        if (rangeBox) rangeBox.hidden = false;
+        return;
+      }
+      go({ rango: val });
     });
 
-    updateCaption();
+    if (applyBtn) {
+      applyBtn.addEventListener("click", () => {
+        const desde = desdeInput ? desdeInput.value : "";
+        const hasta = hastaInput ? hastaInput.value : "";
+        if (!desde || !hasta) return;
+        go({ desde: desde, hasta: hasta });
+      });
+    }
   }
 
   function initAnalyticsPage() {
@@ -151,23 +153,8 @@
 
     const data = window.AdminAnalyticsMock;
 
-    // Métrica real de propinas (viene del backend); el resto sigue mock.
-    const metrics = data.metrics.slice();
-    const real = window.CP_METRICS_REALES;
-    if (real && real.propinas) {
-      const p = real.propinas;
-      const money = (n) =>
-        "$" + Number(n || 0).toLocaleString("es-MX", { maximumFractionDigits: 0 });
-      metrics.splice(1, 0, {
-        label: "Propinas del periodo",
-        value: money(p.total),
-        detail: p.tickets
-          ? p.tickets + " ticket(s) · prom. " + money(p.promedio)
-          : "Sin propinas registradas",
-      });
-    }
-
-    renderMetrics(metrics);
+    // Datos reales de la BD (métricas, tabla y gráficas).
+    renderMetrics(data.metrics || []);
     renderSummary(data);
 
     if (window.AdminAnalyticsCharts) {
