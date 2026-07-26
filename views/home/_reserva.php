@@ -87,24 +87,39 @@ $meses = [
     </div>
 
     <div class="reserva__form-wrap" data-reveal>
+      <div class="reservation-access__tabs" role="tablist" aria-label="Opciones de reservación">
+        <button type="button" class="reservation-access__tab is-active" id="reservation-tab-new"
+          role="tab" aria-selected="true" aria-controls="reservation-panel-new" data-reservation-tab="new">
+          Nueva reservación
+        </button>
+        <button type="button" class="reservation-access__tab" id="reservation-tab-manage"
+          role="tab" aria-selected="false" aria-controls="reservation-panel-manage" data-reservation-tab="manage">
+          Gestionar mis reservaciones
+        </button>
+      </div>
+      <div id="reservation-panel-new" role="tabpanel" aria-labelledby="reservation-tab-new" data-reservation-panel="new">
       <form
         class="form"
         id="reservaForm"
-        data-schedules-endpoint="/api/reservation-schedules"
+        data-schedules-endpoint="/api/reservaciones/disponibilidad"
         data-max-guests="<?php echo (int)$contactoReservas['max_comensales']; ?>"
         novalidate
       >
         <input type="hidden" name="request_token" value="<?php echo s($reservationRequestToken ?? ''); ?>">
-        <div class="form__row">
+        <div class="form__row reserva__identity" data-new-reservation-identity hidden>
           <div class="field">
             <label>Nombre</label>
             <input type="text" name="nombre" placeholder="Tu nombre" required />
             <span class="field__msg" data-field-error="nombre"></span>
           </div>
-          <div class="field">
-            <label>Correo electrónico</label>
-            <input type="email" name="email" placeholder="tu@correo.com" required />
-            <span class="field__msg" data-field-error="email"></span>
+          <div class="field" data-new-reservation-contact>
+            <label>Contacto a verificar</label>
+            <div class="reservation-access__types reservation-access__types--compact">
+              <label><input type="radio" name="tipo_contacto" value="email" checked><span>Correo</span></label>
+              <label><input type="radio" name="tipo_contacto" value="telefono"><span>Teléfono</span></label>
+            </div>
+            <input type="email" name="contacto" placeholder="tu@correo.com" autocomplete="email" />
+            <span class="field__msg" data-field-error="contacto"></span>
           </div>
         </div>
         <aside class="reserva__special-schedule" data-special-schedule hidden aria-live="polite">
@@ -142,13 +157,14 @@ $meses = [
               $dropdownId = 'hourDropdown';
               $name = 'hora';
               $value = '';
-              $endpoint = '/api/reservation-schedules';
+              $endpoint = '/api/reservaciones/disponibilidad';
               $disabled = false;
               include __DIR__ . '/../components/reservations/time-picker.php';
             ?>
             <span class="field__msg" id="hourStatus" data-field-error="hora"></span>
           </div>
         </div>
+        <div class="reserva__selection-summary" data-reservation-selection-summary hidden aria-live="polite"></div>
         <div class="field">
           <label>Comensales</label>
           <div class="pills" id="guestPills">
@@ -190,10 +206,84 @@ $meses = [
           <span class="form__msg" id="formMsg"></span>
         </div>
       </form>
+      <section class="reservation-access__form reserva__otp-step" data-new-reservation-otp hidden aria-live="polite">
+        <span class="eyebrow">Mesas retenidas</span>
+        <h3>Verifica tu contacto</h3>
+        <p data-new-reservation-countdown></p>
+        <div class="field">
+          <label for="new-reservation-otp">Código de seis dígitos</label>
+          <input id="new-reservation-otp" type="text" inputmode="numeric" autocomplete="one-time-code"
+            pattern="[0-9]{6}" maxlength="6" placeholder="000000" data-new-reservation-otp-input>
+        </div>
+        <div class="reservation-access__preview" data-new-reservation-preview hidden></div>
+        <div class="form__submit">
+          <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
+          <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
+        </div>
+        <p class="reservation-access__message" data-new-reservation-otp-message></p>
+      </section>
       <div class="reserva__confirm" id="reservaConfirm">
         <div class="mark">✓</div>
         <h3>¡Mesa reservada!</h3>
         <p id="confirmText">Te esperamos. Pronto recibirás más detalles en tu correo.</p>
+      </div>
+      </div>
+
+      <div class="reservation-access" id="reservation-panel-manage" role="tabpanel"
+        aria-labelledby="reservation-tab-manage" data-reservation-panel="manage" hidden>
+        <div data-contact-access>
+          <p class="reservation-access__lead">
+            Verifica tu correo o teléfono para consultar tus reservaciones. No necesitas contraseña.
+          </p>
+
+          <form class="reservation-access__form" data-contact-request-form novalidate>
+            <fieldset class="reservation-access__types">
+              <legend>¿Cómo deseas identificarte?</legend>
+              <label><input type="radio" name="tipo" value="email" checked><span>Correo electrónico</span></label>
+              <label><input type="radio" name="tipo" value="telefono"><span>Teléfono</span></label>
+            </fieldset>
+            <div class="field">
+              <label for="reservation-contact">Contacto</label>
+              <input id="reservation-contact" name="contacto" type="email" autocomplete="email"
+                placeholder="cliente@ejemplo.com" required data-contact-input>
+              <small class="reservation-access__help" data-contact-help>
+                Usaremos el correo en minúsculas y sin espacios externos.
+              </small>
+            </div>
+            <div class="form__submit">
+              <button type="submit" class="btn-line"><span>Solicitar código</span><span class="arrow">→</span></button>
+            </div>
+          </form>
+
+          <form class="reservation-access__form" data-contact-verify-form hidden novalidate>
+            <div class="field">
+              <label for="reservation-otp">Código de seis dígitos</label>
+              <input id="reservation-otp" name="codigo" type="text" inputmode="numeric"
+                autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"
+                placeholder="000000" required data-otp-input>
+            </div>
+            <div class="reservation-access__preview" data-otp-preview hidden></div>
+            <div class="form__submit">
+              <button type="submit" class="btn-line"><span>Verificar</span><span class="arrow">→</span></button>
+              <button type="button" class="reservation-access__link" data-contact-restart>Cambiar contacto</button>
+            </div>
+          </form>
+
+          <p class="reservation-access__message" data-contact-message role="status" aria-live="polite"></p>
+        </div>
+
+        <section class="reservation-portal" data-reservation-portal hidden aria-live="polite">
+          <div class="reservation-portal__head">
+            <div>
+              <span class="eyebrow">Contacto verificado</span>
+              <h3>Mis reservaciones</h3>
+            </div>
+            <button type="button" class="reservation-access__link" data-contact-logout>Cerrar sesión</button>
+          </div>
+          <p class="reservation-portal__summary" data-reservation-summary></p>
+          <div class="reservation-portal__list" data-reservation-list></div>
+          <p class="reservation-portal__limit" data-reservation-limit></p>
+        </section>
       </div>
     </div>
   </div>

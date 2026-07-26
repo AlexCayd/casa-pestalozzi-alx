@@ -178,6 +178,10 @@
       optionsList.innerHTML = "";
 
       (Array.isArray(hours) ? hours : []).forEach(function (hour) {
+        if (hour && typeof hour === "object") {
+          if (hour.disponible === false) return;
+          hour = hour.hora;
+        }
         hour = normalizeHour(hour);
         if (!hour || seen[hour]) return;
         seen[hour] = true;
@@ -253,7 +257,17 @@
       setLoading(preferredHour);
       abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
 
-      return fetch(endpoint + "?fecha=" + encodeURIComponent(fecha), {
+      var params = new URLSearchParams({ fecha: fecha });
+      if (typeof options.getQueryParams === "function") {
+        var extras = options.getQueryParams() || {};
+        Object.keys(extras).forEach(function (key) {
+          if (extras[key] !== undefined && extras[key] !== null && extras[key] !== "") {
+            params.set(key, extras[key]);
+          }
+        });
+      }
+
+      return fetch(endpoint + "?" + params.toString(), {
         headers: { "Accept": "application/json" },
         credentials: "same-origin",
         signal: abortController ? abortController.signal : undefined

@@ -54,6 +54,7 @@ function boot() {
   initLightbox();
   initHours();
   initForm();
+  initReservationAccess();
   initAnnouncementDismiss();
   initTweaks();
 

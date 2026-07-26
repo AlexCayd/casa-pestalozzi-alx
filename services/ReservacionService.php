@@ -9,7 +9,6 @@ namespace Services;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
-use Model\DiaReservacion;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
@@ -41,6 +40,12 @@ class ReservacionService
     public static function generarRequestToken(): string
     {
         return bin2hex(random_bytes(32));
+    }
+
+    /** Punto estable para scripts y futura automatización de vencimientos. */
+    public static function expirarRetenciones(int $limite = 100, bool $simulacion = false): array
+    {
+        return ReservacionPublicaService::expirarRetenciones($limite, $simulacion);
     }
 
     public static function crearPublica(array $post): array
@@ -113,30 +118,12 @@ class ReservacionService
                 ];
             }
 
-            if ($origen === 'excepcion' && $tipo === 'horario_especial') {
-                $horarios = HorarioReservacionService::generarIntervalos(
-                    (string) ($efectivo['hora_apertura'] ?? ''),
-                    (string) ($efectivo['hora_cierre'] ?? '')
-                );
-            } elseif ($origen === 'semanal') {
-                $fechaObjeto = DateTimeImmutable::createFromFormat(
-                    '!Y-m-d',
-                    $fecha,
-                    ReservacionConfig::timezone()
-                );
-                if (!$fechaObjeto instanceof DateTimeImmutable) {
-                    throw new \RuntimeException('No fue posible interpretar la fecha.');
-                }
-
-                $dia = DiaReservacion::buscarPorDiaSemana((int) $fechaObjeto->format('w'));
-                if (!$dia || (int) $dia->activo !== 1) {
-                    throw new \RuntimeException('El horario semanal no está sincronizado.');
-                }
-
-                $horarios = HorarioReservacionService::horariosPorDiaId((int) $dia->id);
-            } else {
-                throw new \RuntimeException('El origen del horario efectivo no es válido.');
-            }
+            // La fuente canónica siempre es el horario efectivo. Los slots
+            // legacy se mantienen como proyección, pero ya no se leen aquí.
+            $horarios = HorarioReservacionService::generarIntervalos(
+                (string) ($efectivo['hora_apertura'] ?? ''),
+                (string) ($efectivo['hora_cierre'] ?? '')
+            );
 
             if (!$permitirHistorica) {
                 $horarios = HorarioReservacionService::filtrarHorariosPasados($fecha, $horarios);
@@ -603,10 +590,15 @@ class ReservacionService
         $horario = $validacion['horario'];
         $db = ActiveRecord::getDB();
         $fechaLock = (string)$horario['fecha'];
+        $horarioLock = false;
         $lockAdquirido = false;
         $transaccionIniciada = false;
 
         try {
+            $horarioLock = HorarioConfigLock::adquirir($db);
+            if (!$horarioLock) {
+                throw new \RuntimeException('No fue posible bloquear la configuración de horarios.');
+            }
             $lockAdquirido = FechaOperacionLock::adquirir($db, $fechaLock);
             if (!$lockAdquirido) {
                 throw new \RuntimeException('No fue posible obtener el lock de la fecha.');
@@ -629,6 +621,13 @@ class ReservacionService
             $reservacion = new Reservacion();
             $reservacion->nombre = $datos['nombre'];
             $reservacion->email = $datos['email'];
+            // Compatibilidad Etapa 1: el formulario existente sigue pidiendo
+            // email, pero toda alta sincroniza la identidad normalizada que
+            // utiliza el nuevo portal como única autoridad de consulta.
+            $reservacion->telefono = null;
+            $reservacion->contacto_tipo = ContactoService::TIPO_EMAIL;
+            $reservacion->contacto_valor = $datos['email'];
+            $reservacion->contacto_normalizado = $datos['email'];
             $reservacion->fecha = $horario['fecha'];
             $reservacion->hora = $horario['hora'];
             $reservacion->comensales = $datos['comensales'];
@@ -711,6 +710,9 @@ class ReservacionService
             }
             if ($lockAdquirido) {
                 FechaOperacionLock::liberar($db, $fechaLock);
+            }
+            if ($horarioLock) {
+                HorarioConfigLock::liberar($db);
             }
         }
     }
@@ -907,6 +909,11 @@ class ReservacionService
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
             "email = '" . ActiveRecord::escaparString($datos['email']) . "'",
+            // Las ediciones administrativas del correo legacy deben mantener
+            // sincronizada la identidad usada por el portal público.
+            "contacto_tipo = 'email'",
+            "contacto_valor = '" . ActiveRecord::escaparString($datos['email']) . "'",
+            "contacto_normalizado = '" . ActiveRecord::escaparString($datos['email']) . "'",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             "comensales = " . (int)$datos['comensales'],
