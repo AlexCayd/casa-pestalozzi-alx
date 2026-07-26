@@ -29,6 +29,19 @@ class Auth {
         '/api/area-items',
         '/api/avanzar-item',
         '/api/retroceder-item',
+        '/api/punto-de-venta/reservaciones',
+        '/api/punto-de-venta/mesa-contexto',
+        '/api/punto-de-venta/reservaciones/llegada',
+        '/api/punto-de-venta/reservaciones/comenzar',
+        '/api/punto-de-venta/reservaciones/cancelar',
+        '/api/punto-de-venta/reservaciones/no-show',
+    ];
+
+    /** Escrituras de configuración que siempre exigen rol administrador. */
+    private const APIS_ADMIN = [
+        '/api/configuracion/horarios/semanales',
+        '/api/configuracion/horarios/especiales',
+        '/api/configuracion/horarios/excepciones',
     ];
 
     public static function start(): void {
@@ -92,7 +105,9 @@ class Auth {
             return;
         }
 
-        $esAdminUrl = $url === '/admin' || str_starts_with($url, '/admin/');
+        $esAdminUrl = $url === '/admin'
+            || str_starts_with($url, '/admin/')
+            || in_array($url, self::APIS_ADMIN, true);
         $esStaffUrl = $url === '/punto-de-venta'
             || str_starts_with($url, '/area/')
             || in_array($url, self::APIS_STAFF, true);
@@ -124,7 +139,11 @@ class Auth {
     private static function negarJson(int $codigo, string $msg): void {
         http_response_code($codigo);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['ok' => false, 'msg' => $msg]);
+        echo json_encode([
+            'ok' => false,
+            'codigo' => $codigo === 401 ? 'NO_AUTORIZADO' : 'PERMISO_DENEGADO',
+            'mensaje' => $msg,
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }

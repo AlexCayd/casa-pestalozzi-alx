@@ -69,7 +69,9 @@ $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, '
         $gridId = 'mapa-cal-grid';
         include __DIR__ . '/../components/reservations/date-picker.php';
         $operationalContextControlsHtml = (string)ob_get_clean();
-        $operationalContextActionsHtml = '';
+        $operationalContextActionsHtml =
+          '<button type="button" class="admin-btn admin-btn--primary pdv-manage-reservations" id="pdv-manage-reservations">' .
+          '<span aria-hidden="true">📅</span> Gestionar reservaciones</button>';
         $operationalContextView = 'map';
         $operationalDrawerId = 'map-reservations-drawer';
         $operationalDrawerInitialCount = '0';
