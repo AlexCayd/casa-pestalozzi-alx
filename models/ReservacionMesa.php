@@ -107,13 +107,9 @@ class ReservacionMesa extends ActiveRecord
         bool $bloquear = false
     ): array {
         $fecha = self::escaparString($fecha);
+        $columnaVencimiento = Reservacion::columnaVencimientoRetencion();
         $excluirSql = $excluirReservacionId > 0 ? "AND r.id != {$excluirReservacionId}" : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
-        $estadosOcupacion = implode(', ', array_map(
-            static fn(string $estado): string => "'" . self::escaparString($estado) . "'",
-            ReservacionConfig::ESTADOS_OCUPAN_MESA
-        ));
-
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,
@@ -126,7 +122,13 @@ class ReservacionMesa extends ActiveRecord
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE r.fecha = '{$fecha}'
                {$excluirSql}
-               AND r.estado IN ({$estadosOcupacion})
+               AND (
+                    r.estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    OR (
+                        r.estado = 'pendiente_verificacion'
+                        AND r.{$columnaVencimiento} > NOW()
+                    )
+               )
              ORDER BY r.hora ASC, rm.mesa_id ASC{$bloqueoSql}"
         );
 

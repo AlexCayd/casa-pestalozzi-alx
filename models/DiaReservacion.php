@@ -37,6 +37,42 @@ class DiaReservacion extends ActiveRecord {
     }
 
     /**
+     * Repara la proyección legacy cuando falta una fila. Esta escritura ocurre
+     * dentro de la transacción del horario operativo canónico.
+     */
+    public static function obtenerOCrear(int $diaSemana): self
+    {
+        $existente = self::buscarPorDiaSemana($diaSemana);
+        if ($existente) {
+            return $existente;
+        }
+
+        $nombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        $nombre = $nombres[$diaSemana] ?? 'Día';
+        $apertura = '08:00:00';
+        $cierre = '22:00:00';
+        $stmt = self::getDB()->prepare(
+            'INSERT INTO dias_reservacion
+                (dia_semana, nombre, hora_apertura, hora_cierre, activo)
+             VALUES (?, ?, ?, ?, 0)'
+        );
+        if (!$stmt) {
+            throw new \RuntimeException(self::getDB()->error);
+        }
+        $stmt->bind_param('isss', $diaSemana, $nombre, $apertura, $cierre);
+        if (!$stmt->execute()) {
+            throw new \RuntimeException($stmt->error);
+        }
+        $stmt->close();
+
+        $creado = self::buscarPorDiaSemana($diaSemana);
+        if (!$creado) {
+            throw new \RuntimeException('No fue posible crear la proyección del día.');
+        }
+        return $creado;
+    }
+
+    /**
      * Actualiza la estructura compatible con reservaciones usando el ID real.
      * Al cerrar conserva las horas NOT NULL que ya estaban almacenadas.
      */

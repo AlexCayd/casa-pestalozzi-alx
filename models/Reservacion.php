@@ -11,17 +11,59 @@ use Services\ReservacionConfig;
 
 class Reservacion extends ActiveRecord {
     protected static $tabla = 'reservaciones';
-    protected static $columnasDB = ['id', 'nombre', 'email', 'fecha', 'hora', 'comensales', 'nota', 'request_token', 'estado'];
+    /** @var array<string, string> Columna de retención detectada por conexión/base. */
+    private static array $columnasVencimientoRetencion = [];
+    protected static $columnasDB = [
+        'id',
+        'nombre',
+        'email',
+        'telefono',
+        'contacto_tipo',
+        'contacto_valor',
+        'contacto_normalizado',
+        'fecha',
+        'hora',
+        'comensales',
+        'nota',
+        'request_token',
+        'request_fingerprint',
+        'verification_expires_at',
+        'confirmed_at',
+        'expired_at',
+        'cancelled_at',
+        'arrived_at',
+        'seated_at',
+        'completed_at',
+        'no_show_at',
+        'cancelled_by',
+        'no_show_by',
+        'estado',
+    ];
 
     public $id;
     public $nombre;
     public $email;
+    public $telefono = null;
+    public $contacto_tipo = 'email';
+    public $contacto_valor;
+    public $contacto_normalizado;
     public $fecha;
     public $hora;
     public $comensales = 2;
     public $nota;
     public $comentario_admin = null;
     public $request_token = null;
+    public $request_fingerprint = null;
+    public $verification_expires_at = null;
+    public $confirmed_at = null;
+    public $expired_at = null;
+    public $cancelled_at = null;
+    public $arrived_at = null;
+    public $seated_at = null;
+    public $completed_at = null;
+    public $no_show_at = null;
+    public $cancelled_by = null;
+    public $no_show_by = null;
     public $estado = 'pendiente';
     public $created_at = null;
     // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
@@ -101,11 +143,17 @@ class Reservacion extends ActiveRecord {
      */
     public static function buscarFuturasActivas(string $fechaActual, string $horaActual): array
     {
-        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        $columnaVencimiento = self::columnaVencimientoRetencion();
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
-             WHERE estado IN ({$estadosOcupacion})
+             WHERE (
+                    estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    OR (
+                        estado = 'pendiente_verificacion'
+                        AND {$columnaVencimiento} > NOW()
+                    )
+                  )
                AND (fecha > ? OR (fecha = ? AND hora > ?))
              ORDER BY fecha ASC, hora ASC, id ASC"
         );
@@ -131,12 +179,18 @@ class Reservacion extends ActiveRecord {
     /** Reservaciones pendientes o confirmadas de una fecha concreta. */
     public static function buscarActivasPorFecha(string $fecha): array
     {
-        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        $columnaVencimiento = self::columnaVencimientoRetencion();
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
              WHERE fecha = ?
-               AND estado IN ({$estadosOcupacion})
+               AND (
+                    estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    OR (
+                        estado = 'pendiente_verificacion'
+                        AND {$columnaVencimiento} > NOW()
+                    )
+               )
              ORDER BY hora ASC, id ASC"
         );
         if (!$stmt) {
@@ -156,6 +210,126 @@ class Reservacion extends ActiveRecord {
         $stmt->close();
 
         return $reservaciones;
+    }
+
+    /**
+     * El DDL canónico usa `verification_expires_at`. Una base de desarrollo
+     * histórica usó `confirmacion_expires_at`; esta compatibilidad de lectura
+     * evita que esa diferencia bloquee Configuración y disponibilidad.
+     */
+    public static function columnaVencimientoRetencion(): string
+    {
+        $db = self::getDB();
+        $database = (string)($db->query('SELECT DATABASE() db')->fetch_assoc()['db'] ?? '');
+        $cacheKey = spl_object_id($db) . ':' . $database;
+        if (isset(self::$columnasVencimientoRetencion[$cacheKey])) {
+            return self::$columnasVencimientoRetencion[$cacheKey];
+        }
+
+        foreach (['verification_expires_at', 'confirmacion_expires_at'] as $columna) {
+            $resultado = $db->query(
+                "SELECT COUNT(*) total
+                 FROM information_schema.columns
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'reservaciones'
+                   AND column_name = '{$columna}'"
+            );
+            if ($resultado && (int)$resultado->fetch_assoc()['total'] === 1) {
+                return self::$columnasVencimientoRetencion[$cacheKey] = $columna;
+            }
+        }
+
+        throw new \RuntimeException(
+            'El esquema de reservaciones no contiene una columna de vencimiento compatible.'
+        );
+    }
+
+    /**
+     * Consulta pública de solo lectura por la identidad obtenida de sesión.
+     *
+     * No acepta mesas, notas ni campos administrativos en el SELECT para que
+     * esos datos no puedan filtrarse accidentalmente en la respuesta.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buscarActivasPorContacto(
+        string $tipo,
+        string $contactoNormalizado,
+        string $fechaActual,
+        string $horaActual,
+        int $limite
+    ): array {
+        $sql = "SELECT id, nombre, fecha, hora, comensales, nota, estado, contacto_tipo
+                FROM reservaciones
+                WHERE contacto_tipo = ?
+                  AND contacto_normalizado = ?
+                  AND estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                  AND TIMESTAMP(fecha, hora) + INTERVAL " . ReservacionConfig::DURACION_RESERVACION_MINUTOS . " MINUTE
+                      > TIMESTAMP(?, ?)
+                ORDER BY fecha ASC, hora ASC, id ASC
+                LIMIT ?";
+        $stmt = self::getDB()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta por contacto.');
+        }
+
+        $stmt->bind_param(
+            'ssssi',
+            $tipo,
+            $contactoNormalizado,
+            $fechaActual,
+            $horaActual,
+            $limite
+        );
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+
+        $resultado = $stmt->get_result();
+        $filas = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $filas[] = $fila;
+        }
+        $stmt->close();
+
+        return $filas;
+    }
+
+    /**
+     * Cuenta todas las activas futuras para aplicar el máximo aunque la lista
+     * visual esté limitada a cinco tarjetas.
+     */
+    public static function contarActivasPorContacto(
+        string $tipo,
+        string $contactoNormalizado,
+        string $fechaActual,
+        string $horaActual
+    ): int {
+        $sql = "SELECT COUNT(*) AS total
+                FROM reservaciones
+                WHERE contacto_tipo = ?
+                  AND contacto_normalizado = ?
+                  AND estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                  AND TIMESTAMP(fecha, hora) + INTERVAL " . ReservacionConfig::DURACION_RESERVACION_MINUTOS . " MINUTE
+                      > TIMESTAMP(?, ?)";
+        $stmt = self::getDB()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el conteo por contacto.');
+        }
+
+        $stmt->bind_param('ssss', $tipo, $contactoNormalizado, $fechaActual, $horaActual);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+
+        $fila = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return (int)($fila['total'] ?? 0);
     }
 
     public static function buscarAdmin(array $filtros = []) {

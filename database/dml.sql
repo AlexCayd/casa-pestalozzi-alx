@@ -815,3 +815,387 @@ WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
 -- Anuncio inicial que se modificará
 INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+
+-- -------------------------------------------------------
+-- DATOS DE PRUEBA: ACCESO POR CONTACTO — ETAPA 1
+-- Permiten validar la consulta de reservaciones después
+-- de verificar un correo o teléfono.
+-- -------------------------------------------------------
+
+-- Compatibilidad con la siembra histórica: el portal usa exclusivamente
+-- contacto_tipo + contacto_normalizado; email se conserva para módulos legacy.
+UPDATE reservaciones
+SET contacto_tipo = 'email',
+    contacto_valor = email,
+    contacto_normalizado = LOWER(TRIM(email))
+WHERE contacto_normalizado IS NULL;
+
+-- Caso 1 — etapa1.sin-reservas@example.test
+-- No requiere una fila: el OTP acepta contactos válidos aunque aún no tengan
+-- reservaciones. El resultado esperado es lista vacía y permiso para crear.
+
+-- Caso 2 — una reservación activa por correo.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
+VALUES
+  ('Cliente Una Activa', 'etapa1.una@example.test', 'email',
+   'etapa1.una@example.test', 'etapa1.una@example.test',
+   '2099-08-01', '19:00:00', 4, 'Dato ficticio Etapa 1', 'confirmada');
+
+-- Caso 3 — cinco reservaciones activas: alcanza el límite del portal.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
+VALUES
+  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-02', '09:00:00', 2, '', 'pendiente'),
+  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-03', '10:00:00', 2, '', 'confirmada'),
+  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-04', '11:00:00', 3, '', 'pendiente'),
+  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-05', '12:00:00', 4, '', 'confirmada'),
+  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-06', '13:00:00', 5, '', 'pendiente');
+
+-- Caso 4 — estados históricos/finales: no cuentan dentro del límite.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
+VALUES
+  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2025-01-10', '10:00:00', 2, '', 'completada'),
+  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2099-08-10', '11:00:00', 2, '', 'cancelada'),
+  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2099-08-11', '12:00:00', 2, '', 'no_show');
+
+-- Caso 5 — el valor presentado conserva mayúsculas y espacios, mientras la
+-- comparación usa la forma canónica en minúsculas y sin espacios externos.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
+VALUES
+  ('Cliente Normalización', 'Etapa1.Normalizada@Example.Test ', 'email',
+   ' Etapa1.Normalizada@Example.Test ', 'etapa1.normalizada@example.test',
+   '2099-08-12', '18:00:00', 2, '', 'pendiente');
+
+-- Caso 6 — dos formatos visuales del mismo teléfono convergen a +525512345678.
+-- El email ficticio queda solo como compatibilidad con la columna legacy.
+INSERT INTO reservaciones
+  (nombre, email, telefono, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
+VALUES
+  ('Cliente Teléfono', 'telefono.1@example.test', '+52 (55) 1234-5678', 'telefono',
+   '+52 (55) 1234-5678', '+525512345678', '2099-08-13', '18:30:00', 2, '', 'pendiente'),
+  ('Cliente Teléfono', 'telefono.2@example.test', '+52 55 1234 5678', 'telefono',
+   '+52 55 1234 5678', '+525512345678', '2099-08-14', '19:30:00', 3, '', 'confirmada');
+
+-- No se siembran OTP: cada código debe pasar por random_int(), password_hash()
+-- y la vista previa controlada por entorno del flujo real.
+-- -------------------------------------------------------
+-- DATOS DE PRUEBA: GESTIÓN PÚBLICA — ETAPA 2
+-- Permiten validar retenciones, creación, límite de cinco,
+-- modificación, cancelación e idempotencia.
+-- Los OTP se generan durante las pruebas; nunca se siembran códigos ni hashes.
+-- -------------------------------------------------------
+
+-- Caso 1 — Contacto con cuatro activas.
+-- Acción: crear una confirmada adicional. Esperado: alcanza exactamente cinco.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
+   '2099-09-01', '10:00:00', 2, 'Caso 1.1', 'confirmada', NOW(), 'e2-caso1-activa-0001', SHA2('e2-caso1-activa-0001', 256)),
+  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
+   '2099-09-02', '11:00:00', 2, 'Caso 1.2', 'confirmada', NOW(), 'e2-caso1-activa-0002', SHA2('e2-caso1-activa-0002', 256)),
+  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
+   '2099-09-03', '12:00:00', 2, 'Caso 1.3', 'confirmada', NOW(), 'e2-caso1-activa-0003', SHA2('e2-caso1-activa-0003', 256)),
+  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
+   '2099-09-04', '13:00:00', 2, 'Caso 1.4', 'confirmada', NOW(), 'e2-caso1-activa-0004', SHA2('e2-caso1-activa-0004', 256));
+
+-- Caso 2 — Contacto con cinco activas.
+-- Acción: intentar crear una sexta. Esperado: LIMITE_RESERVACIONES_ALCANZADO.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
+   '2099-09-05', '09:00:00', 2, 'Caso 2.1', 'confirmada', NOW(), 'e2-caso2-activa-0001', SHA2('e2-caso2-activa-0001', 256)),
+  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
+   '2099-09-06', '10:00:00', 2, 'Caso 2.2', 'confirmada', NOW(), 'e2-caso2-activa-0002', SHA2('e2-caso2-activa-0002', 256)),
+  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
+   '2099-09-07', '11:00:00', 2, 'Caso 2.3', 'confirmada', NOW(), 'e2-caso2-activa-0003', SHA2('e2-caso2-activa-0003', 256)),
+  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
+   '2099-09-08', '12:00:00', 2, 'Caso 2.4', 'confirmada', NOW(), 'e2-caso2-activa-0004', SHA2('e2-caso2-activa-0004', 256)),
+  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
+   '2099-09-09', '13:00:00', 2, 'Caso 2.5', 'confirmada', NOW(), 'e2-caso2-activa-0005', SHA2('e2-caso2-activa-0005', 256));
+
+-- Caso 3 — Retención vigente.
+-- Datos: vence en 2099 y tiene mesa. Esperado: ocupa capacidad, no cuenta en el límite.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, verification_expires_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Hold Vigente', 'etapa2.hold@example.test', 'email', 'etapa2.hold@example.test', 'etapa2.hold@example.test',
+   '2099-09-10', '18:00:00', 2, 'Caso 3', 'pendiente_verificacion', '2099-09-10 17:59:59',
+   'e2-caso3-hold-vigente', SHA2('e2-caso3-hold-vigente', 256));
+SET @e2_hold_vigente = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_hold_vigente, 1, 1);
+
+-- Caso 4 — Retención vencida.
+-- Datos: timestamp vencido y relación histórica. Esperado: no ocupa y puede materializarse como expirada.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, verification_expires_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Hold Vencida', 'etapa2.vencida@example.test', 'email', 'etapa2.vencida@example.test', 'etapa2.vencida@example.test',
+   '2099-09-10', '18:30:00', 2, 'Caso 4', 'pendiente_verificacion', '2020-01-01 00:00:00',
+   'e2-caso4-hold-vencida', SHA2('e2-caso4-hold-vencida', 256));
+SET @e2_hold_vencida = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_hold_vencida, 2, 1);
+
+-- Caso 5 — Reservación confirmada modificable.
+-- Acción: moverla a otro slot con capacidad. Esperado: cambia datos y asignación atómicamente.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Modificable', 'etapa2.modificar@example.test', 'email', 'etapa2.modificar@example.test', 'etapa2.modificar@example.test',
+   '2099-09-11', '18:00:00', 2, 'Caso 5', 'confirmada', NOW(),
+   'e2-caso5-modificable', SHA2('e2-caso5-modificable', 256));
+SET @e2_modificable = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_modificable, 1, 1);
+
+-- Caso 6 — Modificación sin capacidad.
+-- Acción: mover Caso 5 a un slot completamente ocupado durante la prueba.
+-- Esperado: SIN_DISPONIBILIDAD y conservación de fecha, hora, personas y mesa 1.
+
+-- Caso 7 — Reservación cancelable.
+-- Acción: cancelar. Esperado: estado cancelada, cancelled_at y capacidad liberada sin borrar la relación.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Cancelable', 'etapa2.cancelar@example.test', 'email', 'etapa2.cancelar@example.test', 'etapa2.cancelar@example.test',
+   '2099-09-12', '18:00:00', 2, 'Caso 7', 'confirmada', NOW(),
+   'e2-caso7-cancelable', SHA2('e2-caso7-cancelable', 256));
+SET @e2_cancelable = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_cancelable, 1, 1);
+
+-- Caso 8 — Reservación después de la hora.
+-- Acción: modificar o cancelar públicamente. Esperado: acción no permitida.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Pasada', 'etapa2.pasada@example.test', 'email', 'etapa2.pasada@example.test', 'etapa2.pasada@example.test',
+   '2025-01-01', '10:00:00', 2, 'Caso 8', 'confirmada', '2024-12-01 10:00:00',
+   'e2-caso8-pasada-0000', SHA2('e2-caso8-pasada-0000', 256));
+
+-- Caso 9 — Una mesa. Acción: reservar 2 personas. Esperado: asignación simple.
+-- Caso 10 — Dos mesas. Acción: reservar el grupo que cubre una combinación autorizada de dos mesas.
+-- Caso 11 — Tres mesas. Acción: reservar 12 personas. Esperado: máximo público de tres mesas.
+-- Caso 12 — Grupo de 13. Acción: consultar/crear. Esperado: DATOS_INVALIDOS y contacto directo/WhatsApp.
+-- Caso 13 — Dos contactos por la última combinación.
+-- Datos: etapa2.carrera.a@example.test y etapa2.carrera.b@example.test.
+-- Acción: dos conexiones crean en el mismo slot. Esperado: sólo una confirma capacidad.
+-- Caso 14 — Histórica. Acción: contar activas. Esperado: no se incluye aunque esté confirmada.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
+VALUES
+  ('Etapa 2 Histórica', 'etapa2.historial@example.test', 'email', 'etapa2.historial@example.test', 'etapa2.historial@example.test',
+   '2024-01-01', '12:00:00', 2, 'Caso 14', 'completada', '2023-12-01 10:00:00',
+   'e2-caso14-historica', SHA2('e2-caso14-historica', 256));
+
+-- Caso 15 — Contacto telefónico.
+-- Acción: crear una retención mediante +525512345678 y generar OTP durante la prueba.
+-- Esperado: identidad canónica de teléfono, hash único y confirmación ligada a la retención.
+
+-- -------------------------------------------------------
+-- DATOS DE PRUEBA: HORARIOS, POS Y CAPACIDAD — ETAPA 3
+-- Permiten validar horarios efectivos, reservaciones,
+-- tickets abiertos, llegada, tolerancia y servicio.
+-- -------------------------------------------------------
+
+-- Compatibilidad: proyectar tickets históricos a la relación N:M.
+INSERT IGNORE INTO ticket_mesas (ticket_id, mesa_id, orden)
+SELECT id, mesa_id, 1 FROM tickets WHERE mesa_id IS NOT NULL;
+INSERT IGNORE INTO ticket_mesas (ticket_id, mesa_id, orden)
+SELECT id, mesa_secundaria_id, 2 FROM tickets WHERE mesa_secundaria_id IS NOT NULL;
+
+-- Horarios 1-2: filas semanales para probar cierre/reapertura y persistencia.
+-- La suite cierra y reabre domingo; el DML termina abierto para no contaminar
+-- los escenarios acumulativos de Etapas 1 y 2.
+UPDATE horarios_operacion
+SET abierto = 1, hora_apertura = '08:30:00', hora_cierre = '15:00:00'
+WHERE dia_semana = 1;
+UPDATE horarios_operacion
+SET abierto = 1, hora_apertura = '08:30:00', hora_cierre = '19:00:00'
+WHERE dia_semana = 0;
+
+-- Horario 3: el especial reemplaza al semanal; último slot 19:00.
+INSERT INTO excepciones_operacion
+  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
+VALUES
+  ('2097-03-04', 'horario_especial', 'Etapa 3 especial',
+   '12:00:00', '20:00:00', 1);
+
+-- Horario 4: el cierre específico tiene prioridad.
+INSERT INTO excepciones_operacion
+  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
+VALUES
+  ('2097-03-05', 'cerrado', 'Etapa 3 cierre', NULL, NULL, 1);
+
+-- Horarios 5-8: cambio con conflicto, límite 21:00, rechazo 21:30 y persistencia.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Límite Cierre', 'etapa3.horario@example.test', 'email',
+   'etapa3.horario@example.test', 'etapa3.horario@example.test',
+   '2097-03-11', '21:00:00', 2, 'Último inicio válido', 'confirmada', NOW());
+SET @e3_horario_afectado = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_horario_afectado, 1, 1);
+
+-- POS 9: confirmada. Acción esperada: registrar llegada idempotente.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Confirmada', 'etapa3.confirmada@example.test', 'email',
+   'etapa3.confirmada@example.test', 'etapa3.confirmada@example.test',
+   '2097-03-12', '18:00:00', 4, 'Caso llegada', 'confirmada', NOW());
+SET @e3_confirmada = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_confirmada, 2, 1);
+
+-- POS 10: llegada anticipada, sin ticket automático.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at)
+VALUES
+  ('Etapa 3 Llegó', 'etapa3.llego@example.test', 'email',
+   'etapa3.llego@example.test', 'etapa3.llego@example.test',
+   '2097-03-12', '19:00:00', 2, 'Llegada anticipada', 'llego', NOW(),
+   '2097-03-12 18:40:00');
+SET @e3_llego = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_llego, 3, 1);
+
+-- POS 11-12: simular reloj dentro y fuera de la tolerancia de 15 minutos.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Tolerancia Vigente', 'etapa3.tolerancia@example.test', 'email',
+   'etapa3.tolerancia@example.test', 'etapa3.tolerancia@example.test',
+   '2097-03-13', '18:00:00', 2, 'Simular 18:10', 'confirmada', NOW()),
+  ('Etapa 3 Tolerancia Vencida', 'etapa3.retrasada@example.test', 'email',
+   'etapa3.retrasada@example.test', 'etapa3.retrasada@example.test',
+   '2097-03-13', '19:00:00', 2, 'Simular 19:16', 'confirmada', NOW());
+
+-- POS 13: en curso con ticket y dos mesas canónicas.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at, seated_at)
+VALUES
+  ('Etapa 3 En Curso', 'etapa3.encurso@example.test', 'email',
+   'etapa3.encurso@example.test', 'etapa3.encurso@example.test',
+   '2097-03-14', '18:00:00', 6, 'Servicio vinculado', 'en_curso', NOW(), NOW(), NOW());
+SET @e3_en_curso = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_en_curso, 4, 1), (@e3_en_curso, 5, 2);
+INSERT INTO tickets
+  (mesa_id, mesa_secundaria_id, comensales, nombre, hora_apertura, estado, reservacion_id)
+VALUES (4, 5, 6, 'Etapa 3 En Curso', '2097-03-14 18:00:00', 'abierto', @e3_en_curso);
+SET @e3_ticket_en_curso = LAST_INSERT_ID();
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+VALUES (@e3_ticket_en_curso, 4, 1), (@e3_ticket_en_curso, 5, 2);
+
+-- POS 14: completada al cerrar el ticket.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at, seated_at, completed_at)
+VALUES
+  ('Etapa 3 Completada', 'etapa3.completa@example.test', 'email',
+   'etapa3.completa@example.test', 'etapa3.completa@example.test',
+   '2097-03-15', '18:00:00', 2, 'Cierre sincronizado', 'completada',
+   NOW(), NOW(), NOW(), NOW());
+SET @e3_completada = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_completada, 6, 1);
+INSERT INTO tickets
+  (mesa_id, comensales, nombre, hora_apertura, closed_at, estado, metodo_pago, reservacion_id)
+VALUES
+  (6, 2, 'Etapa 3 Completada', '2097-03-15 18:00:00',
+   '2097-03-15 19:30:00', 'cerrado', 'efectivo', @e3_completada);
+SET @e3_ticket_completado = LAST_INSERT_ID();
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+VALUES (@e3_ticket_completado, 6, 1);
+
+-- POS 15-16: cancelada y no-show conservan historial.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at, cancelled_at, no_show_at)
+VALUES
+  ('Etapa 3 Cancelada', 'etapa3.cancelada@example.test', 'email',
+   'etapa3.cancelada@example.test', 'etapa3.cancelada@example.test',
+   '2097-03-16', '18:00:00', 2, 'Cancelación', 'cancelada', NOW(), NOW(), NULL),
+  ('Etapa 3 No Show', 'etapa3.noshow@example.test', 'email',
+   'etapa3.noshow@example.test', 'etapa3.noshow@example.test',
+   '2097-03-16', '19:00:00', 2, 'No-show', 'no_show', NOW(), NULL, NOW());
+
+-- POS 17-18: asignaciones completas de dos y tres mesas.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Dos Mesas', 'etapa3.dos@example.test', 'email',
+   'etapa3.dos@example.test', 'etapa3.dos@example.test',
+   '2097-03-17', '18:00:00', 6, 'Dos mesas', 'confirmada', NOW()),
+  ('Etapa 3 Tres Mesas', 'etapa3.tres@example.test', 'email',
+   'etapa3.tres@example.test', 'etapa3.tres@example.test',
+   '2097-03-17', '20:00:00', 10, 'Tres mesas', 'confirmada', NOW());
+SET @e3_dos_mesas = LAST_INSERT_ID();
+SET @e3_tres_mesas = @e3_dos_mesas + 1;
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES
+  (@e3_dos_mesas, 7, 1), (@e3_dos_mesas, 8, 2),
+  (@e3_tres_mesas, 9, 1), (@e3_tres_mesas, 10, 2), (@e3_tres_mesas, 11, 3);
+
+-- POS 19: walk-in abierto, sin reservación, bloquea capacidad física.
+INSERT INTO tickets (mesa_id, comensales, nombre, hora_apertura, estado)
+VALUES (7, 3, 'Walk-in Etapa 3', NOW(), 'abierto');
+SET @e3_walkin = LAST_INSERT_ID();
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+VALUES (@e3_walkin, 7, 1);
+
+-- POS 20: ticket legacy abierto sin fila en ticket_mesas.
+INSERT INTO tickets
+  (mesa_id, mesa_secundaria_id, comensales, nombre, hora_apertura, estado)
+VALUES (8, 9, 5, 'Ticket Legacy Etapa 3', NOW(), 'abierto');
+SET @e3_ticket_legacy = LAST_INSERT_ID();
+
+-- POS 21: mesa ocupada ahora y con reservación futura; el mapa muestra ambas.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Próxima Walk-in', 'etapa3.proxima@example.test', 'email',
+   'etapa3.proxima@example.test', 'etapa3.proxima@example.test',
+   DATE_ADD(CURDATE(), INTERVAL 1 DAY), '20:00:00', 2,
+   'No ocultar por ticket', 'confirmada', NOW());
+SET @e3_proxima_walkin = LAST_INSERT_ID();
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_proxima_walkin, 7, 1);
+
+-- POS 22: dos reservaciones consecutivas de 90 minutos.
+INSERT INTO reservaciones
+  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+   fecha, hora, comensales, nota, estado, confirmed_at)
+VALUES
+  ('Etapa 3 Consecutiva A', 'etapa3.a@example.test', 'email',
+   'etapa3.a@example.test', 'etapa3.a@example.test',
+   '2097-03-18', '18:00:00', 2, 'Primera', 'confirmada', NOW()),
+  ('Etapa 3 Consecutiva B', 'etapa3.b@example.test', 'email',
+   'etapa3.b@example.test', 'etapa3.b@example.test',
+   '2097-03-18', '19:30:00', 2, 'Segunda', 'confirmada', NOW());
+SET @e3_consecutiva_a = LAST_INSERT_ID();
+SET @e3_consecutiva_b = @e3_consecutiva_a + 1;
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+VALUES (@e3_consecutiva_a, 1, 1), (@e3_consecutiva_b, 1, 1);
+
+-- POS 23: reservar sobre un ticket abierto debe fallar sin exponer datos POS.
+-- POS 24: @e3_horario_afectado documenta el conflicto de cambio de horario.

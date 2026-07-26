@@ -15,9 +15,12 @@ class Ticket extends ActiveRecord {
     public $nombre             = null;
     public $comensales         = 1;
     public $hora_apertura      = null;
+    public $closed_at          = null;
     public $estado             = 'abierto';
     public $reservacion_id     = null;
     public $mesero_id          = null;
+    public $mesa_ids           = '';
+    public $legacy             = 0;
 
     // Campos extra de JOINs (no en $columnasDB): crearObjeto() sólo asigna
     // columnas cuya propiedad existe, así que los alias de las consultas de
