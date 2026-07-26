@@ -82,9 +82,12 @@
         const unsaved = document.querySelector('[data-unsaved-status]');
         const status = form.querySelector('[data-schedule-status]');
         const submitButton = form.querySelector('[data-schedule-validate]');
+        const resetButton = form.querySelector('[data-schedule-reset]');
+        const apiUrl = form.getAttribute('data-schedule-api') || form.action;
+        const readApiUrl = form.getAttribute('data-schedule-read-api') || apiUrl;
         const unsavedModal = document.getElementById('schedule-unsaved-modal');
         const leaveLink = unsavedModal ? unsavedModal.querySelector('[data-unsaved-leave]') : null;
-        const initialDirty = form.dataset.initialDirty === '1';
+        let initialDirty = form.dataset.initialDirty === '1';
         let initialState = '';
         let hasUnsavedChanges = false;
         let saving = false;
@@ -115,10 +118,57 @@
             }));
         }
 
+        function getSchedulePayload() {
+            return JSON.parse(getScheduleState());
+        }
+
+        function applyPersistedSchedule(horarios) {
+            const byDay = new Map((Array.isArray(horarios) ? horarios : []).map(function (horario) {
+                return [Number(horario.dia_semana), horario];
+            }));
+
+            Array.from(form.querySelectorAll('[data-schedule-row]')).forEach(function (row) {
+                const day = row.querySelector('input[type="hidden"][name$="[dia_semana]"]');
+                const toggle = row.querySelector('[data-schedule-toggle]');
+                const open = row.querySelector('[data-schedule-open]');
+                const close = row.querySelector('[data-schedule-close]');
+                const persisted = byDay.get(Number(day ? day.value : -1));
+                if (!persisted || !toggle || !open || !close) {
+                    throw new Error('El servidor devolvió un horario semanal incompleto.');
+                }
+
+                toggle.checked = Boolean(persisted.abierto);
+                const openValue = toggle.checked ? normalizeTime(persisted.hora_apertura) : '';
+                const closeValue = toggle.checked ? normalizeTime(persisted.hora_cierre) : '';
+                if (open._reservationTimePicker) {
+                    open._reservationTimePicker.setValue(openValue, true);
+                } else {
+                    open.value = openValue;
+                }
+                if (close._reservationTimePicker) {
+                    close._reservationTimePicker.setValue(closeValue, true);
+                } else {
+                    close.value = closeValue;
+                }
+                updateRow(row);
+            });
+        }
+
+        async function jsonResponse(response) {
+            const contentType = response.headers.get('Content-Type') || '';
+            if (!contentType.toLowerCase().includes('application/json')) {
+                throw new Error('El servidor no devolvió una respuesta JSON válida.');
+            }
+            return response.json();
+        }
+
         function renderDirtyState() {
             unsaved.textContent = hasUnsavedChanges ? 'Cambios sin guardar' : 'Horarios actualizados';
             unsaved.classList.toggle('is-dirty', hasUnsavedChanges);
             submitButton.disabled = !hasUnsavedChanges || saving;
+            if (resetButton) {
+                resetButton.disabled = !hasUnsavedChanges || saving;
+            }
         }
 
         function updateDirtyState() {
@@ -266,9 +316,21 @@
             });
         }
 
-        form.addEventListener('submit', function (event) {
+        if (resetButton) {
+            resetButton.addEventListener('click', function () {
+                if (!hasUnsavedChanges || saving) {
+                    return;
+                }
+                // Volver por GET recupera la versión persistida, incluso si
+                // esta vista provino de un POST rechazado con datos inválidos.
+                confirmedLeave = true;
+                window.location.assign(window.location.pathname);
+            });
+        }
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
             if (saving || !hasUnsavedChanges) {
-                event.preventDefault();
                 return;
             }
 
@@ -280,7 +342,6 @@
                 }
             });
             if (!valid) {
-                event.preventDefault();
                 setStatus(status, 'Revisa los horarios marcados antes de continuar.', 'error');
                 const invalidField = form.querySelector('[aria-invalid="true"]');
                 if (invalidField) {
@@ -288,9 +349,88 @@
                 }
                 return;
             }
+
             saving = true;
-            submitButton.disabled = true;
+            renderDirtyState();
             setStatus(status, 'Guardando horarios…', 'pending');
+
+            try {
+                let confirmarConflictos = false;
+                let data = null;
+                let response = null;
+
+                while (true) {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            horarios: getSchedulePayload(),
+                            confirmar_conflictos: confirmarConflictos
+                        })
+                    });
+                    data = await jsonResponse(response);
+
+                    if (
+                        response.status === 409
+                        && data.codigo === 'RESERVACIONES_AFECTADAS'
+                        && data.requiere_confirmacion === true
+                        && !confirmarConflictos
+                    ) {
+                        const total = Number(data.reservaciones_afectadas || 0);
+                        const confirmed = window.confirm(
+                            'Este cambio dejaría ' + total
+                            + ' reservación(es) fuera del nuevo horario. '
+                            + 'Las reservaciones no serán canceladas automáticamente. '
+                            + '¿Guardar de todas formas?'
+                        );
+                        if (!confirmed) {
+                            setStatus(status, 'No se guardaron los cambios de horario.', 'error');
+                            return;
+                        }
+                        confirmarConflictos = true;
+                        continue;
+                    }
+                    break;
+                }
+
+                if (!response.ok || !data || data.ok !== true) {
+                    throw new Error(
+                        (data && (data.mensaje || (data.errors && data.errors[0])))
+                        || 'No fue posible actualizar los horarios.'
+                    );
+                }
+
+                const readResponse = await fetch(readApiUrl, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const readData = await jsonResponse(readResponse);
+                if (!readResponse.ok || readData.ok !== true || !Array.isArray(readData.horarios)) {
+                    throw new Error(readData.mensaje || 'No fue posible volver a consultar los horarios.');
+                }
+
+                applyPersistedSchedule(readData.horarios);
+                initialDirty = false;
+                initialState = getScheduleState();
+                hasUnsavedChanges = false;
+                setStatus(status, data.mensaje || 'Los horarios fueron actualizados.', 'success');
+            } catch (error) {
+                setStatus(
+                    status,
+                    error && error.message
+                        ? error.message
+                        : 'No fue posible actualizar los horarios.',
+                    'error'
+                );
+            } finally {
+                saving = false;
+                renderDirtyState();
+            }
         });
     }
 

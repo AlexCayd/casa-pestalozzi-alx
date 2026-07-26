@@ -21,8 +21,10 @@ class HorarioReservacionService
     public const HORARIO_DISPONIBLE = 'HORARIO_DISPONIBLE';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
 
-    private const INTERVALO_GENERACION_MINUTOS = 30;
-
+    /**
+     * Genera la proyección reservable desde el horario operativo canónico.
+     * La última reservación comienza, como máximo, una hora antes del cierre.
+     */
     public static function generarIntervalos(string $horaApertura, string $horaCierre): array
     {
         $aperturaSql = self::normalizarHoraSql($horaApertura);
@@ -41,7 +43,7 @@ class HorarioReservacionService
             '-' . ReservacionConfig::MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION . ' minutes'
         );
         $intervalos = [];
-        for ($actual = $apertura; $actual <= $limiteUltimaReservacion; $actual = $actual->modify('+' . self::INTERVALO_GENERACION_MINUTOS . ' minutes')) {
+        for ($actual = $apertura; $actual <= $limiteUltimaReservacion; $actual = $actual->modify('+' . ReservacionConfig::INTERVALO_RESERVACION_MINUTOS . ' minutes')) {
             $intervalos[$actual->format('H:i:s')] = true;
         }
 
@@ -61,12 +63,7 @@ class HorarioReservacionService
             throw new \DomainException('El día de operación que se intenta sincronizar no es válido.');
         }
 
-        $diaReservacion = DiaReservacion::buscarPorDiaSemana((int) $diaSemana);
-        if (!$diaReservacion) {
-            throw new \DomainException(
-                "No existe configuración de reservaciones para dia_semana {$diaSemana}."
-            );
-        }
+        $diaReservacion = DiaReservacion::obtenerOCrear((int) $diaSemana);
 
         $abierto = (int) $horarioOperacion->abierto === 1;
         if ($abierto) {
@@ -95,6 +92,46 @@ class HorarioReservacionService
         HorarioReservacion::eliminarPorDiaId($diaId);
         if ($abierto) {
             HorarioReservacion::insertarIntervalos($diaId, $intervalos);
+        }
+    }
+
+    /**
+     * Verifica la proyección antes del commit. Un día cerrado debe quedar
+     * inactivo y sin slots; uno abierto debe conservar horas y slots exactos.
+     */
+    public static function verificarProyeccion(
+        HorarioOperacion $horarioOperacion,
+        array $intervalos
+    ): void {
+        $diaSemana = (int)$horarioOperacion->dia_semana;
+        $dia = DiaReservacion::buscarPorDiaSemana($diaSemana);
+        if (!$dia) {
+            throw new \RuntimeException("Falta la proyección legacy del día {$diaSemana}.");
+        }
+
+        $abierto = (int)$horarioOperacion->abierto === 1;
+        if ((bool)$dia->activo !== $abierto) {
+            throw new \RuntimeException("El estado legacy del día {$diaSemana} no coincide.");
+        }
+        if (
+            $abierto
+            && (
+                self::normalizarHoraSql((string)$dia->hora_apertura)
+                    !== self::normalizarHoraSql((string)$horarioOperacion->hora_apertura)
+                || self::normalizarHoraSql((string)$dia->hora_cierre)
+                    !== self::normalizarHoraSql((string)$horarioOperacion->hora_cierre)
+            )
+        ) {
+            throw new \RuntimeException("Las horas legacy del día {$diaSemana} no coinciden.");
+        }
+
+        $persistidos = array_map(
+            static fn($horario): string => self::normalizarHoraSql((string)$horario->hora),
+            HorarioReservacion::buscarPorDiaId((int)$dia->id)
+        );
+        $esperados = self::normalizarIntervalos($intervalos);
+        if ($persistidos !== $esperados) {
+            throw new \RuntimeException("Los slots legacy del día {$diaSemana} no coinciden.");
         }
     }
 

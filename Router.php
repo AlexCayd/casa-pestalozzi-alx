@@ -6,6 +6,7 @@ class Router
 {
     public array $getRoutes = [];
     public array $postRoutes = [];
+    public array $deleteRoutes = [];
 
     public function get($url, $fn)
     {
@@ -17,6 +18,11 @@ class Router
         $this->postRoutes[$url] = $fn;
     }
 
+    public function delete($url, $fn)
+    {
+        $this->deleteRoutes[$url] = $fn;
+    }
+
     public function comprobarRutas()
     {
 
@@ -25,6 +31,8 @@ class Router
 
         if ($method === 'GET') {
             $fn = $this->getRoutes[$url_actual] ?? null;
+        } elseif ($method === 'DELETE') {
+            $fn = $this->deleteRoutes[$url_actual] ?? null;
         } else {
             $fn = $this->postRoutes[$url_actual] ?? null;
         }

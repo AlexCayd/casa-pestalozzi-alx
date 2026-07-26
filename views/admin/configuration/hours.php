@@ -5,6 +5,8 @@ $alertas = is_array($alertas ?? null) ? $alertas : [];
 $excepcionFormulario = is_array($excepcionFormulario ?? null) ? $excepcionFormulario : [];
 $abrirModalExcepcion = !empty($abrirModalExcepcion);
 $horarioSemanalConErrores = !empty($horarioSemanalConErrores);
+$conflictosHorarios = is_array($conflictosHorarios ?? null) ? $conflictosHorarios : [];
+$conflictosExcepcion = is_array($conflictosExcepcion ?? null) ? $conflictosExcepcion : [];
 $fechaActual = (string) ($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $valorExcepcion = static fn (string $campo, $predeterminado = '') => $excepcionFormulario[$campo] ?? $predeterminado;
@@ -44,12 +46,16 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
         </div>
 
         <form
+            id="weekly-schedule-form"
             action="/admin/configuracion/horarios"
             method="post"
             data-schedule-form
+            data-schedule-api="/api/configuracion/horarios/semanales"
+            data-schedule-read-api="/api/configuracion/horarios/semanales"
             data-initial-dirty="<?php echo $horarioSemanalConErrores ? '1' : '0'; ?>"
             novalidate
         >
+            <input type="hidden" name="confirmar_conflictos" value="0" data-confirm-schedule-conflicts>
             <div class="admin-schedule" role="group" aria-label="Horario semanal">
                 <?php foreach ($horarios as $index => $horario) : ?>
                     <?php
@@ -125,6 +131,20 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
 
             <div class="admin-config-form-actions">
                 <p class="admin-form-status" data-schedule-status aria-live="polite"></p>
+                <?php if ($conflictosHorarios !== []) : ?>
+                    <div class="admin-config-conflict" role="alert">
+                        Este cambio dejaría <?php echo count($conflictosHorarios); ?>
+                        reservación(es) confirmada(s) fuera del nuevo horario.
+                        Las reservaciones no serán canceladas automáticamente.
+                    </div>
+                    <button
+                        type="submit"
+                        class="admin-btn admin-btn--danger-solid"
+                        name="confirmar_conflictos"
+                        value="1"
+                    >Guardar de todas formas</button>
+                <?php endif; ?>
+                <button type="button" class="admin-btn admin-btn--secondary" data-schedule-reset disabled>Descartar cambios</button>
                 <button type="submit" class="admin-btn admin-btn--primary" data-schedule-validate disabled>Guardar horarios</button>
             </div>
         </form>
@@ -217,6 +237,7 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
 
         <form action="/admin/configuracion/horarios/excepciones/guardar" method="post" class="admin-modal__form" data-exception-form novalidate>
             <input type="hidden" name="id" value="<?php echo $h($valorExcepcion('id')); ?>" data-exception-id>
+            <input type="hidden" name="confirmar_conflictos" value="0">
             <div class="admin-field">
                 <label class="admin-field__label" for="exception-date-display">Fecha</label>
                 <?php
@@ -301,8 +322,17 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
                 <span class="admin-switch__label">Excepción activa</span>
             </label>
             <p class="admin-form-status admin-modal__field--wide" data-exception-status aria-live="polite"></p>
+            <?php if ($conflictosExcepcion !== []) : ?>
+                <div class="admin-config-conflict admin-modal__field--wide" role="alert">
+                    La excepción dejaría <?php echo count($conflictosExcepcion); ?>
+                    reservación(es) fuera del horario. Se conservarán para atención manual.
+                </div>
+            <?php endif; ?>
             <div class="admin-modal__actions admin-modal__field--wide">
                 <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
+                <?php if ($conflictosExcepcion !== []) : ?>
+                    <button type="submit" class="admin-btn admin-btn--danger-solid" name="confirmar_conflictos" value="1">Guardar de todas formas</button>
+                <?php endif; ?>
                 <button type="submit" class="admin-btn admin-btn--primary" data-exception-validate>Guardar excepción</button>
             </div>
         </form>
