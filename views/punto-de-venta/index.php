@@ -80,6 +80,18 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
       anim: false
     };
   </script>
+  <script>
+    // Confirmación: en tablet un toque accidental no debe sacar del turno
+    (function () {
+      var form = document.querySelector('.pos-header__logout-form');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        if (!window.confirm('¿Cerrar sesión y salir del punto de venta?')) {
+          e.preventDefault();
+        }
+      });
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
   <script src="/build/js/admin/map.js"></script>
