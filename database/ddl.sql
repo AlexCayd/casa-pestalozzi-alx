@@ -13,6 +13,13 @@
 -- logs_sugerencias se conserva en el DROP para limpiar instalaciones previas:
 -- la tabla ya no existe en este esquema (ver nota en SUGERENCIAS).
 DROP TABLE IF EXISTS logs_sugerencias;
+-- Inventario / finanzas (hijos primero).
+DROP TABLE IF EXISTS gastos_fijos;
+DROP TABLE IF EXISTS movimientos_inventario;
+DROP TABLE IF EXISTS producto_componentes;
+DROP TABLE IF EXISTS subreceta_ingredientes;
+DROP TABLE IF EXISTS subrecetas;
+DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
 DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS excepciones_operacion;
@@ -213,12 +220,13 @@ CREATE TABLE IF NOT EXISTS ticket_mesas (
 
 
 CREATE TABLE IF NOT EXISTS productos (
-  id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  nombre    VARCHAR(120) NOT NULL,
-  categoria VARCHAR(60) NOT NULL,
-  precio    DECIMAL(8,2) NOT NULL,
-  area_id   TINYINT UNSIGNED NOT NULL,
-  activo    TINYINT(1) NOT NULL DEFAULT 1,
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  categoria_id INT NOT NULL,
+  precio       DECIMAL(8,2) NOT NULL,
+  area_id      TINYINT UNSIGNED NOT NULL,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id),
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
 
@@ -253,6 +261,89 @@ CREATE TABLE IF NOT EXISTS ticket_pagos (
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
   INDEX idx_tp_ticket (ticket_id)
+);
+
+-- -------------------------------------------------------
+-- INVENTARIO / RECETAS
+-- -------------------------------------------------------
+
+-- Ingredientes: unidad de inventario con existencias. El stock puede quedar
+-- negativo (se permite pedir aunque no haya existencias).
+CREATE TABLE IF NOT EXISTS ingredientes (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  unidad       ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
+  stock        DECIMAL(12,3) NOT NULL DEFAULT 0,
+  stock_minimo DECIMAL(12,3) NOT NULL DEFAULT 0,
+  -- Costo por unidad de inventario (g, ml o pieza).
+  costo        DECIMAL(10,4) NOT NULL DEFAULT 0,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Subrecetas: preparaciones intermedias reutilizables (p. ej. una salsa). Su
+-- composición vive en subreceta_ingredientes.
+CREATE TABLE IF NOT EXISTS subrecetas (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre      VARCHAR(120) NOT NULL,
+  unidad      ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
+  -- Cantidad producida por la receta base.
+  rendimiento DECIMAL(12,3) NOT NULL DEFAULT 1,
+  activo      TINYINT(1) NOT NULL DEFAULT 1,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS subreceta_ingredientes (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  subreceta_id   INT UNSIGNED NOT NULL,
+  ingrediente_id INT UNSIGNED NOT NULL,
+  cantidad       DECIMAL(12,3) NOT NULL DEFAULT 0,
+  FOREIGN KEY (subreceta_id)   REFERENCES subrecetas(id) ON DELETE CASCADE,
+  FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
+  INDEX idx_si_sub (subreceta_id)
+);
+
+-- Receta principal de un producto: lista de componentes (ingredientes y/o
+-- subrecetas) con su cantidad. ref_id apunta a ingredientes.id o subrecetas.id
+-- según 'tipo' (relación polimórfica, sin FK sobre ref_id).
+CREATE TABLE IF NOT EXISTS producto_componentes (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  producto_id INT UNSIGNED NOT NULL,
+  tipo        ENUM('ingrediente','subreceta') NOT NULL,
+  -- Apunta a ingredientes.id o subrecetas.id según tipo.
+  ref_id      INT UNSIGNED NOT NULL,
+  cantidad    DECIMAL(12,3) NOT NULL DEFAULT 0,
+  FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
+  INDEX idx_pc_producto (producto_id)
+);
+
+-- Bitácora de movimientos de inventario (trazabilidad del descuento por venta).
+CREATE TABLE IF NOT EXISTS movimientos_inventario (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ingrediente_id INT UNSIGNED NOT NULL,
+  tipo           ENUM('venta','cancelacion','ajuste') NOT NULL,
+  -- Un valor negativo descuenta; uno positivo repone.
+  cantidad       DECIMAL(12,3) NOT NULL,
+  ticket_item_id INT UNSIGNED NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
+  INDEX idx_mi_ing (ingrediente_id),
+  INDEX idx_mi_ti (ticket_item_id)
+);
+
+-- Gastos fijos mensuales del negocio (renta, luz, agua, nómina, etc.). Se usan
+-- para calcular la utilidad neta y dar transparencia financiera.
+CREATE TABLE IF NOT EXISTS gastos_fijos (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre     VARCHAR(120) NOT NULL,
+  categoria  ENUM('renta','servicios','nomina','insumos','otros') NOT NULL DEFAULT 'otros',
+  -- Monto mensual.
+  monto      DECIMAL(12,2) NOT NULL DEFAULT 0,
+  activo     TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- -------------------------------------------------------

@@ -6,22 +6,12 @@
 (function () {
     var instances = {};
     var lastData = null;
-    var filters = { range: 7, service: 'todos', source: 'todas' };
+    var filters = { range: 14, service: 'todos', source: 'todas' };
 
-    // Aplica los filtros del panel a los datos antes de graficar.
-    // El rango recorta genuinamente las series temporales a los últimos N días.
+    // El rango ahora lo aplica el servidor (recarga por GET); aquí solo se
+    // clona el dataset ya filtrado para no mutar el original.
     function applyFiltersToData(data) {
-        var clone = JSON.parse(JSON.stringify(data));
-        var n = filters.range;
-
-        ['salesByDay', 'reservationsByDay'].forEach(function (key) {
-            if (clone[key] && Array.isArray(clone[key].labels)) {
-                clone[key].labels = clone[key].labels.slice(-n);
-                clone[key].values = clone[key].values.slice(-n);
-            }
-        });
-
-        return clone;
+        return JSON.parse(JSON.stringify(data));
     }
 
     function readToken(name, fallback) {
@@ -35,22 +25,24 @@
         var muted = readToken('--admin-muted', dark ? 'rgba(237,233,223,0.58)' : '#766f65');
         var surface = readToken('--admin-surface', dark ? '#15181a' : '#f4f1eb');
 
+        // Paleta categórica de alto contraste (menos dorado apagado, hues más
+        // distintos entre sí) para que las series se diferencien con claridad.
         if (dark) {
             return {
-                green: '#8bbf7e', greenDark: '#5f7d56', gold: '#e0c184',
-                terracotta: '#e87060', extra: '#9dc0e0',
+                green: '#6cc24a', greenDark: '#2f8f4e', gold: '#f2b134',
+                terracotta: '#f2673f', extra: '#5aa9e6',
                 muted: muted, surface: surface,
                 grid: 'rgba(237, 233, 223, 0.12)', tooltipBg: '#0b0c0d',
-                fillGreen: 'rgba(139, 191, 126, 0.18)', fillTerra: 'rgba(232, 112, 96, 0.16)'
+                fillGreen: 'rgba(108, 194, 74, 0.20)', fillTerra: 'rgba(242, 103, 63, 0.18)'
             };
         }
 
         return {
-            green: '#476f58', greenDark: '#2f4d3d', gold: '#b9863f',
-            terracotta: '#b95043', extra: '#8b7d68',
+            green: '#3f8f4f', greenDark: '#256b39', gold: '#c98a1f',
+            terracotta: '#c1462e', extra: '#2f6db3',
             muted: muted, surface: surface,
             grid: 'rgba(118, 111, 101, 0.18)', tooltipBg: '#211f1b',
-            fillGreen: 'rgba(71, 111, 88, 0.14)', fillTerra: 'rgba(185, 80, 67, 0.12)'
+            fillGreen: 'rgba(63, 143, 79, 0.16)', fillTerra: 'rgba(193, 70, 46, 0.14)'
         };
     }
 

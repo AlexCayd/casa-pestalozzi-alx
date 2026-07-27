@@ -441,10 +441,10 @@
 
 .admin-sidebar__brand-mark {
   display: none;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0;
 }
 
@@ -549,6 +549,7 @@
 .admin-sidebar-collapsed .admin-sidebar__brand,
 .admin-body.is-sidebar-collapsed .admin-sidebar__brand {
   justify-content: center;
+  gap: 0;
   padding-inline: 0;
 }
 
@@ -558,8 +559,11 @@
 }
 
 .admin-sidebar-collapsed .admin-sidebar__brand-text,
+.admin-body.is-sidebar-collapsed .admin-sidebar__brand-text {
+  display: none;
+}
+
 .admin-sidebar-collapsed .admin-sidebar__link-text,
-.admin-body.is-sidebar-collapsed .admin-sidebar__brand-text,
 .admin-body.is-sidebar-collapsed .admin-sidebar__link-text {
   width: 0;
   opacity: 0;
@@ -575,7 +579,7 @@
 
 .admin-sidebar-collapsed .admin-sidebar__link.is-active,
 .admin-body.is-sidebar-collapsed .admin-sidebar__link.is-active {
-  box-shadow: inset 0 -3px 0 #b9863f;
+  box-shadow: inset 0 -3px 0 var(--admin-gold);
 }
 
 @media (max-width: 992px) {
@@ -685,17 +689,15 @@
 
 .admin-topbar__support {
   display: inline-flex;
-  min-height: 40px;
+  width: 36px;
+  height: 36px;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  justify-content: center;
+  padding: 0;
   border: 1px solid var(--admin-border-soft);
-  border-radius: 999px;
+  border-radius: 50%;
   background: transparent;
   color: var(--admin-muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
 }
@@ -709,9 +711,9 @@
   stroke-width: 1.8;
 }
 .admin-topbar__support:hover {
-  border-color: rgba(160, 126, 54, 0.42);
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
+  border-color: rgba(200, 90, 60, 0.5);
+  background: rgba(200, 90, 60, 0.1);
+  color: var(--admin-danger-text, #c85a3c);
 }
 .admin-topbar__support:focus-visible {
   outline: 2px solid var(--admin-gold);
@@ -810,19 +812,8 @@
     height: 32px;
   }
   .admin-topbar__support {
-    width: 40px;
-    padding: 0;
-    justify-content: center;
-  }
-  .admin-topbar__support span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
+    width: 34px;
+    height: 34px;
   }
 }
 /*
@@ -948,6 +939,18 @@
   font-size: 12px;
 }
 
+.admin-btn--gold {
+  border-color: var(--admin-gold-deep, #a07e36);
+  background: var(--admin-gold);
+  color: #1b1a17;
+}
+.admin-btn--gold:hover {
+  border-color: var(--admin-gold-deep, #a07e36);
+  background: var(--admin-gold-soft, #e0c184);
+  color: #1b1a17;
+  transform: translateY(-1px);
+}
+
 .admin-btn--disabled,
 .admin-menu__button--disabled {
   border-color: var(--admin-border-soft);
@@ -1022,10 +1025,13 @@
 }
 
 .admin-menu-toggle {
-  display: block;
-  width: 42px;
-  height: 42px;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  padding: 9px;
   border-radius: 8px;
   background: var(--admin-surface-strong);
   box-shadow: 0 0 0 1px var(--admin-line);
@@ -1034,7 +1040,6 @@
   display: block;
   width: 100%;
   height: 2px;
-  margin: 4px 0;
   background: var(--admin-text);
 }
 .admin-menu-toggle:hover {
@@ -1157,6 +1162,68 @@
   font-size: 14px;
 }
 
+/* Tarjetas de resumen (KPIs) reutilizables por los módulos. */
+.admin-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md, 14px);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+}
+.admin-stat-card__label {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.admin-stat-card__value {
+  color: var(--admin-text);
+  font-family: var(--admin-font-display, "Fraunces", serif);
+  font-size: 30px;
+  line-height: 1;
+}
+.admin-stat-card__sub {
+  color: var(--admin-faint);
+  font-size: 12px;
+}
+.admin-stat-card--alert {
+  border-color: var(--admin-warning-border);
+  background: var(--admin-warning-bg);
+}
+.admin-stat-card--alert .admin-stat-card__value {
+  color: var(--admin-warning-text);
+}
+.admin-stat-card--good {
+  border-color: var(--admin-success-border);
+}
+.admin-stat-card--good .admin-stat-card__value {
+  color: var(--admin-success-text);
+}
+.admin-stat-card--bad {
+  border-color: var(--admin-danger-border);
+}
+.admin-stat-card--bad .admin-stat-card__value {
+  color: var(--admin-danger-text);
+}
+.admin-stat-card--gold {
+  border-color: rgba(204, 163, 82, 0.4);
+  background: rgba(204, 163, 82, 0.07);
+}
+.admin-stat-card--gold .admin-stat-card__value {
+  color: var(--admin-gold);
+}
+
 @media (max-width: 1200px) {
   .admin-page__header,
   .admin-page-header {
@@ -1209,6 +1276,43 @@
   line-height: 1.2;
   text-transform: uppercase;
   white-space: nowrap;
+}
+.admin-table th.is-sortable {
+  position: relative;
+  padding-right: 26px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 140ms ease, background 140ms ease;
+}
+.admin-table th.is-sortable::after {
+  content: "▲▼";
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  font-size: 8px;
+  letter-spacing: -1px;
+  line-height: 1;
+  opacity: 0.35;
+}
+.admin-table th.is-sortable:hover {
+  color: var(--admin-gold);
+  background: var(--admin-surface);
+}
+.admin-table th.is-sortable[aria-sort=ascending], .admin-table th.is-sortable[aria-sort=descending] {
+  color: var(--admin-gold);
+}
+.admin-table th.is-sortable[aria-sort=ascending]::after {
+  content: "▲";
+  opacity: 1;
+}
+.admin-table th.is-sortable[aria-sort=descending]::after {
+  content: "▼";
+  opacity: 1;
+}
+.admin-table th.is-sortable:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: -2px;
 }
 .admin-table td {
   color: var(--admin-text);
@@ -1331,6 +1435,125 @@
     justify-content: flex-start;
   }
 }
+/* Botón de icono reutilizable (editar, eliminar…) para acciones de tabla. */
+.admin-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(160, 126, 54, 0.48);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+.admin-icon-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+.admin-icon-button:hover {
+  border-color: rgba(160, 126, 54, 0.68);
+  background: var(--admin-surface-strong, var(--admin-surface));
+  box-shadow: 0 8px 20px rgba(11, 12, 13, 0.1);
+}
+.admin-icon-button:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-icon-button:active {
+  transform: translateY(1px);
+}
+.admin-icon-button:disabled, .admin-icon-button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.admin-icon-button--edit {
+  border-color: rgba(95, 125, 86, 0.65);
+  background: rgba(95, 125, 86, 0.22);
+  color: #7ba36c;
+}
+.admin-icon-button--edit:hover {
+  border-color: #5f7d56;
+  background: #5f7d56;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(95, 125, 86, 0.35);
+}
+
+.admin-icon-button--danger {
+  border-color: rgba(200, 90, 60, 0.65);
+  background: rgba(200, 90, 60, 0.22);
+  color: #e08163;
+}
+.admin-icon-button--danger:hover {
+  border-color: #c85a3c;
+  background: #c85a3c;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(200, 90, 60, 0.35);
+}
+
+/* Icono dentro de un botón (reutilizable). */
+.admin-btn__icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+/* Botones con icono usados en encabezados (volver / crear). */
+.admin-back-button {
+  gap: 7px;
+}
+
+.admin-create-button {
+  gap: 7px;
+  min-width: 0;
+  padding-inline: 14px;
+}
+.admin-create-button .admin-btn__icon {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+
+/* Encabezado de panel/card reutilizable (título + descripción). */
+.admin-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.admin-panel-head h3 {
+  color: var(--admin-text);
+  font-size: 22px;
+  line-height: 1.15;
+}
+.admin-panel-head p {
+  margin-top: 5px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /*
  * Badges de estado para la actividad operativa de analytics.
  * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
@@ -1576,6 +1799,139 @@
     flex-direction: column;
   }
 }
+/* Rejilla de formulario reutilizable (2 columnas) para módulos nuevos. */
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  align-items: start;
+}
+.admin-form-grid__full {
+  grid-column: 1/-1;
+}
+.admin-form-grid__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+@media (max-width: 640px) {
+  .admin-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Formulario en línea (input + botón), p. ej. ajuste rápido de stock. */
+.admin-inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-inline-form input {
+  width: 110px;
+  min-height: 40px;
+}
+
+/* Tabs full-width (segmented control) para elegir una opción entre varias. */
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-tabs__tab {
+  display: inline-flex;
+  flex: 1 1 auto;
+  min-width: max-content;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.admin-tabs__tab input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+.admin-tabs__tab span {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: calc(var(--admin-radius-sm) - 3px);
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-tabs__tab:hover span {
+  color: var(--admin-text);
+  background: var(--admin-surface);
+}
+.admin-tabs__tab input:checked + span {
+  background: var(--admin-gold);
+  color: #1b1a17;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.admin-tabs__tab input:focus-visible + span {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+
+/* Combobox con búsqueda (buscador inteligente de ingredientes/componentes). */
+.admin-combo {
+  position: relative;
+}
+.admin-combo__list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 240px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+}
+.admin-combo__list[hidden] {
+  display: none;
+}
+.admin-combo__group {
+  padding: 8px 10px 4px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-combo__option {
+  padding: 9px 10px;
+  border-radius: calc(var(--admin-radius-sm) - 3px);
+  color: var(--admin-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-combo__option:hover, .admin-combo__option.is-active {
+  background: var(--admin-surface-soft);
+}
+.admin-combo__empty {
+  padding: 10px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
 /* Switch de formulario reutilizable para cualquier módulo administrativo. */
 .admin-switch {
   display: inline-flex;

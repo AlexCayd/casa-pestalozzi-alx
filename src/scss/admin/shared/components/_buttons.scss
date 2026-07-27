@@ -126,6 +126,20 @@
     font-size: 12px;
 }
 
+// Variante dorada (acento de marca) para acciones destacadas como "Guardar".
+.admin-btn--gold {
+    border-color: var(--admin-gold-deep, #a07e36);
+    background: var(--admin-gold);
+    color: #1b1a17;
+
+    &:hover {
+        border-color: var(--admin-gold-deep, #a07e36);
+        background: var(--admin-gold-soft, #e0c184);
+        color: #1b1a17;
+        transform: translateY(-1px);
+    }
+}
+
 .admin-btn--disabled,
 .admin-menu__button--disabled {
     border-color: var(--admin-border-soft);
@@ -200,10 +214,13 @@
 }
 
 .admin-menu-toggle {
-    display: block;
-    width: 42px;
-    height: 42px;
-    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 36px;
+    height: 36px;
+    padding: 9px;
     border-radius: 8px;
     background: var(--admin-surface-strong);
     box-shadow: 0 0 0 1px var(--admin-line);
@@ -212,7 +229,6 @@
         display: block;
         width: 100%;
         height: 2px;
-        margin: 4px 0;
         background: var(--admin-text);
     }
 

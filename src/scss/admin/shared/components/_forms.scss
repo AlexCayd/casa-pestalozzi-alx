@@ -248,6 +248,154 @@
   }
 }
 
+/* Rejilla de formulario reutilizable (2 columnas) para módulos nuevos. */
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  align-items: start;
+
+  &__full {
+    grid-column: 1 / -1;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Formulario en línea (input + botón), p. ej. ajuste rápido de stock. */
+.admin-inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  input {
+    width: 110px;
+    min-height: 40px;
+  }
+}
+
+/* Tabs full-width (segmented control) para elegir una opción entre varias. */
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+
+  &__tab {
+    display: inline-flex;
+    flex: 1 1 auto;
+    min-width: max-content;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+    }
+
+    span {
+      display: block;
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: calc(var(--admin-radius-sm) - 3px);
+      color: var(--admin-muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+      transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+    }
+
+    &:hover span {
+      color: var(--admin-text);
+      background: var(--admin-surface);
+    }
+
+    input:checked + span {
+      background: var(--admin-gold);
+      color: #1b1a17;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    }
+
+    input:focus-visible + span {
+      outline: 2px solid var(--admin-gold);
+      outline-offset: 2px;
+    }
+  }
+}
+
+/* Combobox con búsqueda (buscador inteligente de ingredientes/componentes). */
+.admin-combo {
+  position: relative;
+
+  &__list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    max-height: 240px;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  &__group {
+    padding: 8px 10px 4px;
+    color: var(--admin-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  &__option {
+    padding: 9px 10px;
+    border-radius: calc(var(--admin-radius-sm) - 3px);
+    color: var(--admin-text);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover,
+    &.is-active {
+      background: var(--admin-surface-soft);
+    }
+  }
+
+  &__empty {
+    padding: 10px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
 /* Switch de formulario reutilizable para cualquier módulo administrativo. */
 .admin-switch {
   display: inline-flex;

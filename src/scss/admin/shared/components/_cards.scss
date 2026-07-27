@@ -121,6 +121,68 @@
   font-size: 14px;
 }
 
+/* Tarjetas de resumen (KPIs) reutilizables por los módulos. */
+.admin-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md, 14px);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-sm);
+
+  &__label {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &__value {
+    color: var(--admin-text);
+    font-family: var(--admin-font-display, "Fraunces", serif);
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  &__sub {
+    color: var(--admin-faint);
+    font-size: 12px;
+  }
+
+  &--alert {
+    border-color: var(--admin-warning-border);
+    background: var(--admin-warning-bg);
+
+    .admin-stat-card__value { color: var(--admin-warning-text); }
+  }
+
+  &--good {
+    border-color: var(--admin-success-border);
+    .admin-stat-card__value { color: var(--admin-success-text); }
+  }
+
+  &--bad {
+    border-color: var(--admin-danger-border);
+    .admin-stat-card__value { color: var(--admin-danger-text); }
+  }
+
+  &--gold {
+    border-color: rgba(204, 163, 82, 0.4);
+    background: rgba(204, 163, 82, 0.07);
+    .admin-stat-card__value { color: var(--admin-gold); }
+  }
+}
+
 @media (max-width: 1200px) {
   .admin-page__header,
   .admin-page-header {

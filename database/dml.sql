@@ -57,13 +57,22 @@ INSERT INTO categorias (id, nombre, img) VALUES
 (5, 'Platos Fuertes','build/images/mejor-6.webp'),
 (6, 'Ensaladas',     'build/images/comida-2.webp'),
 (7, 'Pizzas',        'build/images/pizza-3.webp'),
-(8, 'Para Picar',    'build/images/comida-6.webp');
+(8, 'Para Picar',    'build/images/comida-6.webp'),
+(9, 'Café & Bebidas',    NULL),
+(10, 'Jugos & Smoothies', NULL);
 
 -- -------------------------------------------------------
 -- Productos (para comanda por área)
 -- -------------------------------------------------------
 
-INSERT INTO productos (nombre, categoria, precio, area_id) VALUES
+CREATE TEMPORARY TABLE productos_semilla (
+  nombre VARCHAR(120) NOT NULL,
+  categoria VARCHAR(60) NOT NULL,
+  precio DECIMAL(8,2) NOT NULL,
+  area_id TINYINT UNSIGNED NOT NULL
+);
+
+INSERT INTO productos_semilla (nombre, categoria, precio, area_id) VALUES
 ('Enmoladas',                                           'Desayunos',        240.00, 3),
 ('Enchiladas Suizas',                                   'Desayunos',        220.00, 3),
 ('Cecina y Huevo con Chorizo',                          'Desayunos',        220.00, 3),
@@ -142,6 +151,13 @@ INSERT INTO productos (nombre, categoria, precio, area_id) VALUES
 ('Limonada Natural',                                    'Jugos & Smoothies', 75.00, 2),
 ('Smoothie de Fresa',                                   'Jugos & Smoothies',100.00, 2),
 ('Agua de Coco',                                        'Jugos & Smoothies', 90.00, 2);
+
+INSERT INTO productos (nombre, categoria_id, precio, area_id)
+SELECT ps.nombre, c.id, ps.precio, ps.area_id
+FROM productos_semilla ps
+INNER JOIN categorias c ON c.nombre = ps.categoria;
+
+DROP TEMPORARY TABLE productos_semilla;
 
 -- -------------------------------------------------------
 -- Menú completo
@@ -994,3 +1010,61 @@ SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@reserva_futura, 10, 1),
   (@horario_afectado, 11, 1);
+
+-- -------------------------------------------------------
+-- INVENTARIO / RECETAS (datos de prueba)
+-- Las cantidades son por una unidad del producto; las subrecetas se explotan
+-- hasta ingredientes al descontar inventario.
+-- -------------------------------------------------------
+
+INSERT INTO ingredientes (id, nombre, unidad, stock, stock_minimo, costo, activo) VALUES
+(1, 'Café molido',          'g',  5000, 500,  0.3000, 1),
+(2, 'Agua',                 'ml', 100000, 5000, 0.0001, 1),
+(3, 'Leche',                'ml', 2100, 3000, 0.0250, 1),
+(4, 'Chocolate en polvo',   'g',  250,  400,  0.2000, 1),
+(5, 'Azúcar',               'g',  8000, 800,  0.0300, 1),
+(6, 'Canela',               'g',  30,   50,   0.5000, 1),
+(7, 'Piloncillo',           'g',  3000, 300,  0.0600, 1),
+(8, 'Fruta de temporada',   'g',  420,  600,  0.0400, 1),
+(9, 'Hielo',                'g',  20000, 1000, 0.0050, 1);
+
+INSERT INTO gastos_fijos (nombre, categoria, monto, activo) VALUES
+('Renta del local',      'renta',     45000.00, 1),
+('Luz (CFE)',            'servicios',  8000.00, 1),
+('Agua',                 'servicios',  2500.00, 1),
+('Gas',                  'servicios',  4000.00, 1),
+('Internet y teléfono',  'servicios',  1200.00, 1),
+('Nómina',               'nomina',    60000.00, 1);
+
+INSERT INTO subrecetas (id, nombre, unidad, rendimiento, activo) VALUES
+(1, 'Shot de espresso', 'ml', 60, 1);
+
+INSERT INTO subreceta_ingredientes (subreceta_id, ingrediente_id, cantidad) VALUES
+(1, 1, 18),
+(1, 2, 60);
+
+-- Recetas principales por producto.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'ingrediente', 2, 90 FROM productos p WHERE p.nombre = 'Café Americano';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'ingrediente', 3, 120 FROM productos p WHERE p.nombre = 'Cappuccino';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 1, 15  FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 2, 200 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 7, 25  FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 6, 2   FROM productos p WHERE p.nombre = 'Café de Olla';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 4, 30  FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 3, 200 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 5, 10  FROM productos p WHERE p.nombre = 'Chocolate Caliente';
+
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 5, 20  FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';

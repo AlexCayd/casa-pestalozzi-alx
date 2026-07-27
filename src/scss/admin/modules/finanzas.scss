@@ -1,0 +1,271 @@
+/*
+ * Módulo Finanzas: P&L del mes, gastos fijos y rentabilidad por producto.
+ * Reutiliza tarjetas, tablas y KPIs compartidos; aquí van los específicos.
+ */
+
+.admin-finanzas {
+  .admin-card {
+    padding: clamp(18px, 2.4vw, 26px);
+  }
+
+  // Solo separa paneles apilados a nivel raíz. Antes el selector de descendencia
+  // añadía un margin-top erróneo al 2º panel dentro de .admin-finanzas__grid
+  // ("Gastos por categoría"), empujándolo hacia abajo dentro de su celda.
+  > .admin-panel + .admin-panel,
+  > .admin-finanzas__grid + .admin-panel {
+    margin-top: 18px;
+  }
+}
+
+.admin-finanzas__grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+  margin-bottom: 18px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// ── Estado de resultados (cascada) ────────────────────────────
+.admin-pnl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-pnl__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 2px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  border-bottom: 1px solid var(--admin-border-soft);
+
+  strong {
+    font-family: var(--admin-font-display, "Fraunces", serif);
+    font-size: 17px;
+    color: var(--admin-text);
+    font-weight: 500;
+  }
+
+  .is-pos { color: var(--admin-success-text); }
+  .is-neg { color: var(--admin-danger-text); }
+
+  &--total {
+    color: var(--admin-text);
+    font-weight: 700;
+
+    strong { color: var(--admin-gold); }
+  }
+
+  &--grand {
+    margin-top: 6px;
+    padding: 14px 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font-weight: 800;
+
+    strong { font-size: 22px; }
+
+    &.is-pos { border-color: var(--admin-success-border); strong { color: var(--admin-success-text); } }
+    &.is-neg { border-color: var(--admin-danger-border);  strong { color: var(--admin-danger-text); } }
+  }
+
+  &:last-child { border-bottom: 0; }
+}
+
+.admin-finanzas__note {
+  margin-top: 12px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+// ── Barras de gastos por categoría ────────────────────────────
+.admin-finanzas__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-finanzas__bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-finanzas__bar-label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-finanzas__bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--admin-gold-deep, #a07e36), var(--admin-gold));
+  }
+}
+
+.admin-finanzas__bar-val {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+// ── Formularios de gastos ─────────────────────────────────────
+.admin-finanzas__add {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 0.9fr auto;
+  gap: 10px;
+  margin-bottom: 16px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.admin-finanzas__money {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  span {
+    position: absolute;
+    left: 11px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    padding-left: 24px;
+  }
+}
+
+// ── Gastos fijos: lista de tarjetas editables ─────────────────
+.admin-gasto-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.admin-gasto-card {
+  position: relative;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
+
+  &:hover {
+    border-color: rgba(160, 126, 54, 0.4);
+  }
+
+  &.is-inactive {
+    opacity: 0.62;
+  }
+
+  &__form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    &--name {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__label {
+    color: var(--admin-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  &__switch {
+    align-self: center;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  // El botón eliminar va en la esquina superior derecha de la tarjeta.
+  &__delete {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+}
+
+// ── Cortes de caja por día ────────────────────────────────────
+.admin-cortes {
+  &__filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    > span {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+  }
+
+  &__table {
+    td:not(:first-child),
+    th:not(:first-child) {
+      text-align: right;
+    }
+  }
+
+  &__total {
+    color: var(--admin-text);
+    font-weight: 800;
+  }
+
+  .is-today {
+    background: rgba(95, 125, 86, 0.1);
+  }
+
+  .is-today .admin-table__cell-main {
+    color: var(--admin-success-text);
+  }
+}

@@ -132,20 +132,21 @@ class Sugerencias
 
         $limite = self::MAX_SUGERENCIAS;
         $res = Ticket::ejecutarSQL(
-            "SELECT p.id, p.nombre, p.categoria, p.precio, p.area_id,
+            "SELECT p.id, p.nombre, c.nombre AS categoria, p.precio, p.area_id,
                     ap.nombre AS area_nombre, ap.slug AS area_slug,
                     COUNT(hist.id) AS veces_pedida
                FROM productos p
                JOIN areas_produccion ap ON ap.id = p.area_id
+               JOIN categorias c ON c.id = p.categoria_id
                LEFT JOIN ticket_items hist
                       ON hist.nombre = p.nombre AND hist.estado <> 'cancelado'
               WHERE p.activo = 1
-                AND p.categoria IN ({$categorias}){$noRepetir}
+                AND c.nombre IN ({$categorias}){$noRepetir}
                 AND p.nombre NOT IN (
                     SELECT nombre FROM ticket_items
                      WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'
                 )
-              GROUP BY p.id, p.nombre, p.categoria, p.precio, p.area_id, ap.nombre, ap.slug
+              GROUP BY p.id, p.nombre, c.nombre, p.precio, p.area_id, ap.nombre, ap.slug
               ORDER BY veces_pedida DESC, p.precio DESC
               LIMIT {$limite}"
         );
@@ -483,10 +484,11 @@ class Sugerencias
 
         $lista = implode(',', $ids);
         $res = Ticket::ejecutarSQL(
-            "SELECT p.id, p.nombre, p.categoria, p.precio, p.area_id,
+            "SELECT p.id, p.nombre, c.nombre AS categoria, p.precio, p.area_id,
                     ap.nombre AS area_nombre, ap.slug AS area_slug
                FROM productos p
                JOIN areas_produccion ap ON ap.id = p.area_id
+               JOIN categorias c ON c.id = p.categoria_id
               WHERE p.id IN ({$lista}) AND p.activo = 1"
         );
 
