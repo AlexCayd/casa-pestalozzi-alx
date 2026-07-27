@@ -165,6 +165,7 @@ $router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
 // Leer menu de la base de datos
 $router->get('/menu', [MenuController::class, 'index']);
+$router->get('/menu/pdf', [MenuController::class, 'pdf']);
 
 
 
