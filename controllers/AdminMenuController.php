@@ -94,7 +94,28 @@ class AdminMenuController
      */
     public static function itemsPdf(Router $router): void
     {
-        $platillos = Menu::all();
+        // Agrupa TODO el menu registrado por categoria (incluye inactivos).
+        // Cada grupo: ['nombre' => ..., 'platillos' => Menu[]].
+        $cats = CategoriasMenu::consultarSQL("SELECT * FROM categorias ORDER BY id ASC");
+        $categorias = [];
+        foreach ($cats as $cat) {
+            $platillos = Menu::consultarSQL(
+                "SELECT * FROM menu WHERE categoria_id = {$cat->id} ORDER BY id ASC"
+            );
+            if (!empty($platillos)) {
+                $categorias[] = ['nombre' => $cat->nombre, 'platillos' => $platillos];
+            }
+        }
+        // Platillos sin categoria valida (categoria borrada o nula).
+        $huerfanos = Menu::consultarSQL(
+            "SELECT * FROM menu
+             WHERE categoria_id IS NULL
+                OR categoria_id NOT IN (SELECT id FROM categorias)
+             ORDER BY id ASC"
+        );
+        if (!empty($huerfanos)) {
+            $categorias[] = ['nombre' => 'Sin categoría', 'platillos' => $huerfanos];
+        }
 
         // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
         $projectRoot = realpath(__DIR__ . '/..');
