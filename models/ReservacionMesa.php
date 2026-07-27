@@ -107,14 +107,13 @@ class ReservacionMesa extends ActiveRecord
         bool $bloquear = false
     ): array {
         $fecha = self::escaparString($fecha);
-        $columnaVencimiento = Reservacion::columnaVencimientoRetencion();
         $excluirSql = $excluirReservacionId > 0 ? "AND r.id != {$excluirReservacionId}" : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,
                     r.nombre,
-                    r.email,
+                    r.contacto,
                     r.hora,
                     r.comensales,
                     r.estado
@@ -123,10 +122,10 @@ class ReservacionMesa extends ActiveRecord
              WHERE r.fecha = '{$fecha}'
                {$excluirSql}
                AND (
-                    r.estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    r.estado IN ('confirmada', 'llego', 'en_curso')
                     OR (
                         r.estado = 'pendiente_verificacion'
-                        AND r.{$columnaVencimiento} > NOW()
+                        AND r.hold_expires_at > NOW()
                     )
                )
              ORDER BY r.hora ASC, rm.mesa_id ASC{$bloqueoSql}"
@@ -142,7 +141,7 @@ class ReservacionMesa extends ActiveRecord
                 'mesa_id' => (int)$fila['mesa_id'],
                 'reservacion_id' => (int)$fila['reservacion_id'],
                 'nombre' => (string)$fila['nombre'],
-                'email' => (string)$fila['email'],
+                'contacto' => (string)$fila['contacto'],
                 'hora' => (string)$fila['hora'],
                 'comensales' => (int)$fila['comensales'],
                 'estado' => (string)$fila['estado'],

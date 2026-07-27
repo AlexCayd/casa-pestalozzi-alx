@@ -37,7 +37,8 @@
             var initialTime = normalizeHour(form.getAttribute('data-initial-time') || (timeInput ? timeInput.value : ''));
             var originalValues = {
                 nombre: formValue(form, 'nombre'),
-                email: formValue(form, 'email'),
+                contacto_tipo: formValue(form, 'contacto_tipo'),
+                contacto: formValue(form, 'contacto'),
                 fecha: initialDate,
                 hora: initialTime,
                 comensales: formValue(form, 'comensales'),
@@ -167,7 +168,8 @@
 
             function restoreOriginalValues() {
                 setFormValue(form, 'nombre', originalValues.nombre);
-                setFormValue(form, 'email', originalValues.email);
+                setFormValue(form, 'contacto_tipo', originalValues.contacto_tipo);
+                setFormValue(form, 'contacto', originalValues.contacto);
                 setFormValue(form, 'comensales', originalValues.comensales);
                 setFormValue(form, 'comentario_admin', originalValues.comentario_admin);
 

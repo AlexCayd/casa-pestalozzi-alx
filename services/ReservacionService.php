@@ -48,18 +48,7 @@ class ReservacionService
         return ReservacionPublicaService::expirarRetenciones($limite, $simulacion);
     }
 
-    public static function crearPublica(array $post): array
-    {
-        return self::crearReservacion($post, [
-            'origen' => 'publica',
-            'max_comensales' => ReservacionConfig::MAX_COMENSALES_PUBLICO,
-            'tipo_asignacion' => 'publica',
-            'permitir_comentario_admin' => false,
-            'asignar_automaticamente' => true,
-        ]);
-    }
-
-    public static function crearAdministrativa(array $post): array
+    public static function crearAdministrativa(array $post, ?int $usuarioId = null): array
     {
         $asignarAutomaticamente = !array_key_exists('asignar_automaticamente', $post)
             || (string)$post['asignar_automaticamente'] === '1';
@@ -67,9 +56,9 @@ class ReservacionService
         return self::crearReservacion($post, [
             'origen' => 'administrativa',
             'max_comensales' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'tipo_asignacion' => 'general',
             'permitir_comentario_admin' => true,
             'asignar_automaticamente' => $asignarAutomaticamente,
+            'usuario_id' => $usuarioId,
         ]);
     }
 
@@ -118,8 +107,7 @@ class ReservacionService
                 ];
             }
 
-            // La fuente canónica siempre es el horario efectivo. Los slots
-            // legacy se mantienen como proyección, pero ya no se leen aquí.
+            // Los slots se calculan directamente desde el horario efectivo.
             $horarios = HorarioReservacionService::generarIntervalos(
                 (string) ($efectivo['hora_apertura'] ?? ''),
                 (string) ($efectivo['hora_cierre'] ?? '')
@@ -229,9 +217,13 @@ class ReservacionService
 
     /**
      * Revalida mesas actuales cuando cambian fecha, hora o comensales.
-     * Si dejan de ser validas, libera la asignacion y revierte confirmada a pendiente.
+     * Si dejan de ser válidas, libera la asignación y solicita reasignación.
      */
-    public static function actualizarDatos(int $reservacionId, array $datos): array
+    public static function actualizarDatos(
+        int $reservacionId,
+        array $datos,
+        ?int $usuarioId = null
+    ): array
     {
         if ($reservacionId < 1) {
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
@@ -249,7 +241,7 @@ class ReservacionService
             $db->begin_transaction();
 
             $reservacion = self::fila(
-                "SELECT id, nombre, email, fecha, hora, comensales, estado
+                "SELECT id, nombre, contacto_tipo, contacto, fecha, hora, comensales, estado
                  FROM reservaciones
                  WHERE id = {$reservacionId}
                  LIMIT 1
@@ -285,10 +277,7 @@ class ReservacionService
                 $mesaIdsActuales = ReservacionMesa::obtenerIdsPorReservacion($reservacionId);
 
                 if (empty($mesaIdsActuales)) {
-                    if ($estadoActual === 'confirmada') {
-                        $estadoNuevo = 'pendiente';
-                        $requiereAsignacion = true;
-                    }
+                    $requiereAsignacion = true;
                 } else {
                     $mesasActuales = Mesa::reservablesParaActualizar($mesaIdsActuales);
                     $ocupacion = AsignacionMesasService::obtenerOcupacionParaHorario(
@@ -306,9 +295,6 @@ class ReservacionService
                         $liberarAsignacion = true;
                         $requiereAsignacion = true;
 
-                        if ($estadoActual === 'confirmada') {
-                            $estadoNuevo = 'pendiente';
-                        }
                     }
                 }
             }
@@ -331,7 +317,12 @@ class ReservacionService
                 ReservacionMesa::eliminarAsignacion($reservacionId);
             }
 
-            self::actualizarFila($reservacionId, $datosLimpios, $estadoNuevo);
+            self::actualizarFila(
+                $reservacionId,
+                $datosLimpios,
+                $estadoNuevo,
+                $usuarioId
+            );
             $db->commit();
 
             return [
@@ -418,34 +409,37 @@ class ReservacionService
         }
     }
 
-    public static function confirmar(int $reservacionId): array
+    public static function confirmar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'confirmada');
+        return self::cambiarEstado($reservacionId, 'confirmada', $usuarioId);
     }
 
-    public static function completar(int $reservacionId): array
+    public static function completar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'completada');
+        return self::cambiarEstado($reservacionId, 'completada', $usuarioId);
     }
 
-    public static function cancelar(int $reservacionId): array
+    public static function cancelar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'cancelada');
+        return self::cambiarEstado($reservacionId, 'cancelada', $usuarioId);
     }
 
-    public static function marcarNoShow(int $reservacionId): array
+    public static function marcarNoShow(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'no_show');
+        return self::cambiarEstado($reservacionId, 'no_show', $usuarioId);
     }
 
-    public static function cambiarEstado(int $reservacionId, string $nuevoEstado): array
+    public static function cambiarEstado(
+        int $reservacionId,
+        string $nuevoEstado,
+        ?int $usuarioId = null
+    ): array
     {
         if ($reservacionId < 1) {
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
         }
 
-        if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)
-            || $nuevoEstado === 'pendiente') {
+        if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
 
@@ -489,7 +483,17 @@ class ReservacionService
             }
 
             $estadoSql = ActiveRecord::escaparString($nuevoEstado);
-            self::ejecutar("UPDATE reservaciones SET estado = '{$estadoSql}' WHERE id = {$reservacionId} LIMIT 1");
+            $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
+            self::ejecutar(
+                "UPDATE reservaciones
+                 SET estado = '{$estadoSql}',
+                     status_changed_at = NOW(),
+                     last_modified_by = {$usuarioSql},
+                     last_modified_source = 'personal',
+                     last_change_reason = 'Cambio administrativo de estado'
+                 WHERE id = {$reservacionId}
+                 LIMIT 1"
+            );
             $db->commit();
 
             return ['ok' => true, 'codigo' => self::codigoEstado($nuevoEstado)];
@@ -620,20 +624,19 @@ class ReservacionService
 
             $reservacion = new Reservacion();
             $reservacion->nombre = $datos['nombre'];
-            $reservacion->email = $datos['email'];
-            // Compatibilidad Etapa 1: el formulario existente sigue pidiendo
-            // email, pero toda alta sincroniza la identidad normalizada que
-            // utiliza el nuevo portal como única autoridad de consulta.
-            $reservacion->telefono = null;
-            $reservacion->contacto_tipo = ContactoService::TIPO_EMAIL;
-            $reservacion->contacto_valor = $datos['email'];
-            $reservacion->contacto_normalizado = $datos['email'];
+            $reservacion->contacto_tipo = $datos['contacto_tipo'];
+            $reservacion->contacto = $datos['contacto'];
             $reservacion->fecha = $horario['fecha'];
             $reservacion->hora = $horario['hora'];
             $reservacion->comensales = $datos['comensales'];
             $reservacion->nota = $datos['nota'];
             $reservacion->request_token = $requestToken;
-            $reservacion->estado = 'pendiente';
+            $reservacion->estado = 'confirmada';
+            $reservacion->confirmed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+            $reservacion->status_changed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+            $reservacion->last_modified_by = $opciones['usuario_id'] ?? null;
+            $reservacion->last_modified_source = 'personal';
+            $reservacion->last_change_reason = 'Reservación administrativa creada';
 
             $horarioFinal = self::validarHorarioDisponible($datos['fecha'], $datos['hora']);
             if (!$horarioFinal['ok']) {
@@ -658,9 +661,10 @@ class ReservacionService
             $asignacion = ['ok' => false, 'codigo' => AsignacionMesasService::SIN_CAPACIDAD, 'mesa_ids' => []];
 
             if ($asignarAutomaticamente) {
-                $asignacion = $opciones['tipo_asignacion'] === 'publica'
-                    ? AsignacionMesasService::asignarAutomaticamentePublica($reservacionId, false)
-                    : AsignacionMesasService::asignarAutomaticamente($reservacionId, false);
+                $asignacion = AsignacionMesasService::asignarAutomaticamente(
+                    $reservacionId,
+                    false
+                );
             }
 
             $codigoAsignacion = (string)($asignacion['codigo'] ?? AsignacionMesasService::ERROR_INTERNO);
@@ -778,7 +782,9 @@ class ReservacionService
         $validarHorario = (bool)($opciones['validar_horario'] ?? true);
 
         $nombre = trim((string)($datos['nombre'] ?? ''));
-        $email = strtolower(trim((string)($datos['email'] ?? '')));
+        $contactoTipo = trim((string)($datos['contacto_tipo'] ?? 'email'));
+        $contactoValor = trim((string)($datos['contacto'] ?? ''));
+        $contacto = '';
         $fecha = trim((string)($datos['fecha'] ?? ''));
         $horaOriginal = trim((string)($datos['hora'] ?? ''));
         $hora = HorarioReservacionService::normalizarHoraSql($horaOriginal);
@@ -797,10 +803,16 @@ class ReservacionService
             self::agregarError($errors, $fieldCodes, 'nombre', 'El nombre es demasiado largo.', 'NOMBRE_DEMASIADO_LARGO');
         }
 
-        if ($email === '') {
-            self::agregarError($errors, $fieldCodes, 'email', 'Escribe un correo electronico.', 'EMAIL_REQUERIDO');
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || self::longitud($email) > ReservacionConfig::EMAIL_MAX_CARACTERES) {
-            self::agregarError($errors, $fieldCodes, 'email', 'Escribe un correo electronico valido.', 'EMAIL_INVALIDO');
+        try {
+            $contacto = ContactoService::normalizar($contactoTipo, $contactoValor);
+        } catch (\InvalidArgumentException $e) {
+            self::agregarError(
+                $errors,
+                $fieldCodes,
+                'contacto',
+                $e->getMessage(),
+                'CONTACTO_INVALIDO'
+            );
         }
 
         if ($fecha === '') {
@@ -874,7 +886,8 @@ class ReservacionService
             'ok' => true,
             'datos' => [
                 'nombre' => $nombre,
-                'email' => $email,
+                'contacto_tipo' => $contactoTipo,
+                'contacto' => $contacto,
                 'fecha' => $horario['fecha'] ?? $fecha,
                 'hora' => $horario['hora'] ?? $hora,
                 'comensales' => (int)$comensales,
@@ -904,20 +917,24 @@ class ReservacionService
         ];
     }
 
-    private static function actualizarFila(int $reservacionId, array $datos, string $estado): void
+    private static function actualizarFila(
+        int $reservacionId,
+        array $datos,
+        string $estado,
+        ?int $usuarioId
+    ): void
     {
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
-            "email = '" . ActiveRecord::escaparString($datos['email']) . "'",
-            // Las ediciones administrativas del correo legacy deben mantener
-            // sincronizada la identidad usada por el portal público.
-            "contacto_tipo = 'email'",
-            "contacto_valor = '" . ActiveRecord::escaparString($datos['email']) . "'",
-            "contacto_normalizado = '" . ActiveRecord::escaparString($datos['email']) . "'",
+            "contacto_tipo = '" . ActiveRecord::escaparString($datos['contacto_tipo']) . "'",
+            "contacto = '" . ActiveRecord::escaparString($datos['contacto']) . "'",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             "comensales = " . (int)$datos['comensales'],
             "estado = '" . ActiveRecord::escaparString($estado) . "'",
+            'last_modified_by = ' . ($usuarioId !== null ? (string)$usuarioId : 'NULL'),
+            "last_modified_source = 'personal'",
+            "last_change_reason = 'Reservación modificada por personal'",
         ];
 
         if (Reservacion::tieneComentarioAdmin()) {

@@ -68,8 +68,7 @@ class TicketMesa extends ActiveRecord
 
     /**
      * Devuelve las mesas físicamente ocupadas que todavía pueden interferir
-     * con el inicio solicitado. Se unen filas N:M y columnas legacy sin contar
-     * dos veces la misma mesa del mismo ticket.
+     * con el inicio solicitado.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -96,30 +95,18 @@ class TicketMesa extends ActiveRecord
             "SELECT t.id AS ticket_id,
                     t.reservacion_id,
                     t.hora_apertura,
-                    COALESCE(tm.mesa_id, legacy.mesa_id) AS mesa_id,
-                    CASE WHEN tm.id IS NULL THEN 1 ELSE 0 END AS legacy
+                    tm.mesa_id
              FROM tickets t
-             LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id
-             LEFT JOIN (
-                 SELECT id AS ticket_id, mesa_id FROM tickets
-                 UNION ALL
-                 SELECT id AS ticket_id, mesa_secundaria_id AS mesa_id
-                 FROM tickets WHERE mesa_secundaria_id IS NOT NULL
-             ) legacy ON legacy.ticket_id = t.id
-                        AND NOT EXISTS (
-                            SELECT 1 FROM ticket_mesas canonical
-                            WHERE canonical.ticket_id = t.id
-                        )
+             INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
              WHERE t.estado = 'abierto'
                {$excluir}
-               AND COALESCE(tm.mesa_id, legacy.mesa_id) IS NOT NULL
-             ORDER BY t.id, mesa_id{$lock}"
+             ORDER BY t.id, tm.orden{$lock}"
         );
         if (!$resultado) {
             throw new \RuntimeException(self::$db->error);
         }
 
-        $ahora = new DateTimeImmutable('now', ReservacionConfig::timezone());
+        $ahora = ReservacionConfig::ahora();
         $ocupacion = [];
         $vistos = [];
         while ($fila = $resultado->fetch_assoc()) {
@@ -149,7 +136,6 @@ class TicketMesa extends ActiveRecord
                 'ticket_id' => $ticketId,
                 'reservacion_id' => $fila['reservacion_id'] !== null ? (int)$fila['reservacion_id'] : null,
                 'mesa_id' => $mesaId,
-                'legacy' => (bool)$fila['legacy'],
                 'liberacion_estimada' => $liberacion->format('Y-m-d H:i:s'),
             ];
         }

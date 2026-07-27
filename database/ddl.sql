@@ -18,47 +18,25 @@ DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS excepciones_operacion;
 DROP TABLE IF EXISTS horarios_operacion;
 DROP TABLE IF EXISTS verificaciones_contacto;
-DROP TABLE IF EXISTS reservacion_eventos;
 DROP TABLE IF EXISTS ticket_mesas;
 DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
-DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS menu;
 DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
-DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS reservaciones;
+DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS areas_produccion;
 DROP TABLE IF EXISTS mesas;
-DROP TABLE IF EXISTS horarios_reservacion;
-DROP TABLE IF EXISTS dias_reservacion;
 
 -- -------------------------------------------------------
 -- CATÁLOGOS BASE
 -- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS dias_reservacion (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  dia_semana    TINYINT NOT NULL COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
-  nombre        VARCHAR(20) NOT NULL,
-  hora_apertura TIME NOT NULL,
-  hora_cierre   TIME NOT NULL,
-  activo        TINYINT(1) NOT NULL DEFAULT 1,
-  UNIQUE KEY uq_dias_reservacion_dia_semana (dia_semana)
-);
-
-CREATE TABLE IF NOT EXISTS horarios_reservacion (
-  id     INT AUTO_INCREMENT PRIMARY KEY,
-  dia_id INT NOT NULL,
-  hora   TIME NOT NULL,
-  FOREIGN KEY (dia_id) REFERENCES dias_reservacion(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_horarios_reservacion_dia_hora (dia_id, hora)
-);
 
 CREATE TABLE IF NOT EXISTS mesas (
   id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,10 +44,10 @@ CREATE TABLE IF NOT EXISTS mesas (
   nombre     VARCHAR(60) NOT NULL,
   tipo       ENUM('mesa','barra','especial') NOT NULL DEFAULT 'mesa',
   capacidad  INT NOT NULL DEFAULT 4,
-  pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT 'Posición % horizontal (centro del pin)',
-  pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT 'Posición % vertical (centro del pin)',
+  pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0,
+  pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0,
   activo     TINYINT(1) NOT NULL DEFAULT 1,
-  reservable TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = zona estática (barras, caja, llevar)'
+  reservable TINYINT(1) NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS areas_produccion (
@@ -95,7 +73,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  nip_hash      VARCHAR(255) NULL COMMENT 'NIP de acceso del personal de piso (bcrypt)',
+  nip_hash      VARCHAR(255) NULL,
   rol           ENUM('admin','observer','waiter','cashier') NOT NULL DEFAULT 'observer',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -107,91 +85,74 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- -------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS reservaciones (
-  id                 INT AUTO_INCREMENT PRIMARY KEY,
-  nombre             VARCHAR(100) NOT NULL,
-  email              VARCHAR(150) NOT NULL COMMENT 'Campo legacy conservado para formularios y reportes existentes',
-  telefono           VARCHAR(30) NULL COMMENT 'Valor de teléfono presentado por el cliente; no implica vinculación con email',
-  contacto_tipo      ENUM('email','telefono') NULL COMMENT 'Canal que identifica esta reservación en el portal público',
-  contacto_valor     VARCHAR(150) NULL COMMENT 'Valor de contacto sincronizado al crear o editar la reservación',
-  contacto_normalizado VARCHAR(150) NULL COMMENT 'Única autoridad de comparación para el acceso público',
-  fecha              DATE NOT NULL,
-  hora               TIME NOT NULL,
-  comensales         INT NOT NULL DEFAULT 2,
-  nota               TEXT,
-  comentario_admin   TEXT NULL COMMENT 'Comentario interno de operación',
-  request_token      VARCHAR(64) NULL COMMENT 'Clave de idempotencia; nunca es OTP ni secreto de autenticación',
-  request_fingerprint CHAR(64) NULL COMMENT 'SHA-256 del payload público canónico para detectar reutilización conflictiva',
-  verification_expires_at DATETIME NULL COMMENT 'Vencimiento absoluto de una retención pendiente_verificacion',
-  confirmed_at       DATETIME NULL COMMENT 'Momento en que el contacto verificado confirmó la reservación',
-  expired_at         DATETIME NULL COMMENT 'Materialización del vencimiento de la retención',
-  cancelled_at       DATETIME NULL COMMENT 'Cancelación lógica solicitada por cliente o personal',
-  arrived_at         DATETIME NULL COMMENT 'Llegada registrada por personal; no abre ticket',
-  seated_at          DATETIME NULL COMMENT 'Inicio fisico del servicio al crear el ticket',
-  completed_at       DATETIME NULL COMMENT 'Finalizacion al cerrar el ticket asociado',
-  no_show_at         DATETIME NULL COMMENT 'Marca operativa de inasistencia',
-  cancelled_by       INT NULL COMMENT 'Usuario que realizo la cancelacion administrativa',
-  no_show_by         INT NULL COMMENT 'Usuario que registro la inasistencia',
-  estado             ENUM(
-                       'pendiente',
-                       'pendiente_verificacion',
-                       'confirmada',
-                       'llego',
-                       'en_curso',
-                       'expirada',
-                       'completada',
-                       'cancelada',
-                       'no_show'
-                     ) NOT NULL DEFAULT 'pendiente'
-                     COMMENT 'pendiente es legacy administrativo; pendiente_verificacion es retención pública temporal',
-  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at         TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  id                   INT AUTO_INCREMENT PRIMARY KEY,
+  nombre               VARCHAR(100) NOT NULL,
+  contacto_tipo        ENUM('email','telefono') NOT NULL,
+  -- El contacto se persiste en su formato canónico, normalizado en PHP.
+  contacto             VARCHAR(150) NOT NULL,
+  fecha                DATE NOT NULL,
+  hora                 TIME NOT NULL,
+  comensales           INT NOT NULL DEFAULT 2,
+  nota                 TEXT,
+  comentario_admin     TEXT NULL,
+  request_token        VARCHAR(64) NULL,
+  request_fingerprint  CHAR(64) NULL,
+  -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
+  hold_expires_at      DATETIME NULL,
+  confirmed_at         DATETIME NULL,
+  arrived_at           DATETIME NULL,
+  completed_at         DATETIME NULL,
+  status_changed_at    DATETIME NULL,
+  last_modified_by     INT NULL,
+  last_modified_source ENUM('cliente','personal','sistema') NOT NULL DEFAULT 'sistema',
+  last_change_reason   VARCHAR(500) NULL,
+  estado               ENUM(
+                         'pendiente_verificacion',
+                         'confirmada',
+                         'llego',
+                         'en_curso',
+                         'completada',
+                         'cancelada',
+                         'no_show',
+                         'expirada'
+                       ) NOT NULL DEFAULT 'pendiente_verificacion',
+  created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
   INDEX idx_reservaciones_fecha_hora        (fecha, hora),
   INDEX idx_reservaciones_estado            (estado),
-  INDEX idx_reservaciones_contacto_activo    (contacto_tipo, contacto_normalizado, estado, fecha, hora),
-  INDEX idx_reservaciones_retenciones_vencidas (estado, verification_expires_at),
-  INDEX idx_reservaciones_contacto_estado_fecha (contacto_tipo, contacto_normalizado, estado, fecha),
+  INDEX idx_reservaciones_contacto (contacto_tipo, contacto, estado, fecha, hora),
+  INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
   CONSTRAINT chk_reservaciones_fingerprint
     CHECK (request_fingerprint IS NULL OR CHAR_LENGTH(request_fingerprint) = 64),
   CONSTRAINT chk_reservaciones_retencion_vencimiento
-    CHECK (estado <> 'pendiente_verificacion' OR verification_expires_at IS NOT NULL),
-  CONSTRAINT fk_reservaciones_cancelled_by
-    FOREIGN KEY (cancelled_by) REFERENCES usuarios(id) ON DELETE SET NULL,
-  CONSTRAINT fk_reservaciones_no_show_by
-    FOREIGN KEY (no_show_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+    CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
+  CONSTRAINT fk_reservaciones_last_modified_by
+    FOREIGN KEY (last_modified_by) REFERENCES usuarios(id) ON DELETE SET NULL,
   UNIQUE KEY uq_reservaciones_request_token (request_token)
 );
 
 -- Desafíos OTP de un solo uso. Nunca se guarda el código original: codigo_hash
 -- contiene únicamente el resultado de password_hash() y se valida en PHP con
--- password_verify(). No existe FK porque un contacto puede no tener reservas.
+-- password_verify(). reservacion_id puede ser NULL para acceso sin reserva.
 CREATE TABLE IF NOT EXISTS verificaciones_contacto (
-  id                    BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id        INT NULL COMMENT 'Retención pública a la que pertenece el OTP; NULL para acceso de gestión',
-  request_token         VARCHAR(64) NULL COMMENT 'Correlación idempotente; no contiene ni reemplaza el OTP',
-  contacto_tipo         ENUM('email','telefono') NOT NULL COMMENT 'Identidad independiente: email o teléfono',
-  contacto_normalizado  VARCHAR(150) NOT NULL COMMENT 'Resultado canónico de ContactoService',
-  codigo_hash           VARCHAR(255) NOT NULL COMMENT 'Hash password_hash; nunca OTP en texto plano',
-  expires_at            DATETIME NOT NULL COMMENT 'Vencimiento absoluto del desafío, cinco minutos por defecto',
-  attempts              TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Intentos fallidos consumidos',
-  max_attempts          TINYINT UNSIGNED NOT NULL DEFAULT 5 COMMENT 'Límite copiado desde configuración al emitir',
-  used_at               DATETIME NULL COMMENT 'Marca de consumo exitoso; impide reutilización',
-  invalidated_at        DATETIME NULL COMMENT 'Invalida reenvíos y desafíos bloqueados',
-  created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at            TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT chk_verificaciones_attempts
-    CHECK (attempts <= max_attempts),
-  CONSTRAINT chk_verificaciones_max_attempts
-    CHECK (max_attempts BETWEEN 1 AND 20),
-  CONSTRAINT fk_verificaciones_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  INDEX idx_verificaciones_contacto (contacto_tipo, contacto_normalizado, created_at),
-  INDEX idx_verificaciones_retencion (reservacion_id, created_at),
-  INDEX idx_verificaciones_request_token (request_token),
-  INDEX idx_verificaciones_expiracion (expires_at),
-  INDEX idx_verificaciones_uso (used_at),
-  INDEX idx_verificaciones_invalida (invalidated_at)
-) COMMENT='Códigos temporales para verificar el contacto de clientes de reservaciones';
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id INT NULL,
+  contacto_tipo  ENUM('email','telefono') NOT NULL,
+  contacto       VARCHAR(150) NOT NULL,
+  -- Solamente se persiste el resultado de password_hash().
+  codigo_hash    VARCHAR(255) NOT NULL,
+  expires_at     DATETIME NOT NULL,
+  attempts       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  used_at        DATETIME NULL,
+  invalidated_at DATETIME NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_verificacion_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
+  INDEX idx_verificacion_contacto (contacto_tipo, contacto, created_at),
+  INDEX idx_verificacion_reservacion (reservacion_id),
+  INDEX idx_verificacion_expiracion (expires_at)
+);
 
 CREATE TABLE IF NOT EXISTS reservacion_mesas (
   id             INT AUTO_INCREMENT PRIMARY KEY,
@@ -205,8 +166,7 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
     FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE CASCADE,
   UNIQUE KEY uq_reservacion_mesa  (reservacion_id, mesa_id),
   UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
-  INDEX idx_rm_mesa        (mesa_id),
-  INDEX idx_rm_reservacion (reservacion_id)
+  INDEX idx_rm_mesa (mesa_id)
 );
 
 -- -------------------------------------------------------
@@ -218,36 +178,24 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
 -- se mezclan metodos de pago (el detalle por comensal vive en ticket_pagos).
 CREATE TABLE IF NOT EXISTS tickets (
   id                 INT AUTO_INCREMENT PRIMARY KEY,
-  mesa_id            INT NOT NULL,
-  mesa_secundaria_id INT NULL,
   comensales         INT NOT NULL DEFAULT 1,
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  closed_at          DATETIME NULL COMMENT 'Cierre real que libera la ocupacion fisica',
+  closed_at          DATETIME NULL,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
-  propina            DECIMAL(8,2) NOT NULL DEFAULT 0 COMMENT 'Propina al cerrar = pagado − total de la cuenta',
+  propina            DECIMAL(8,2) NOT NULL DEFAULT 0,
   reservacion_id     INT NULL,
   mesero_id          INT NULL,
-  FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
-  FOREIGN KEY (mesa_secundaria_id) REFERENCES mesas(id) ON DELETE SET NULL,
   FOREIGN KEY (reservacion_id)     REFERENCES reservaciones(id) ON DELETE SET NULL,
   FOREIGN KEY (mesero_id)          REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_estado_mesa        (estado, mesa_id),
+  INDEX idx_ticket_estado      (estado),
   INDEX idx_ticket_reservacion (reservacion_id),
   UNIQUE KEY uq_ticket_reservacion (reservacion_id)
 );
--- Nota: mesero_id (para imprimir el mesero en el ticket) ya viene declarado con
--- su FK en el CREATE TABLE de arriba. El ALTER que lo añadía por separado se
--- eliminó: sobre una BD limpia fallaba con "Duplicate column name 'mesero_id'".
-
 -- Pago dividido por comensal: cuando la cuenta se separa, cada comensal puede
 -- pagar con un metodo distinto. El ticket registra 'dividido' si se mezclan metodos.
-ALTER TABLE tickets
-  MODIFY COLUMN metodo_pago ENUM('efectivo','tarjeta','dividido') NULL;
-
--- Fuente canonica de ocupacion fisica. Las columnas mesa_id y
--- mesa_secundaria_id se conservan temporalmente para tickets legacy.
+-- Fuente canónica exclusiva de ocupación física.
 CREATE TABLE IF NOT EXISTS ticket_mesas (
   id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   ticket_id  INT NOT NULL,
@@ -260,41 +208,8 @@ CREATE TABLE IF NOT EXISTS ticket_mesas (
     FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE RESTRICT,
   UNIQUE KEY uq_ticket_mesa (ticket_id, mesa_id),
   UNIQUE KEY uq_ticket_orden (ticket_id, orden),
-  INDEX idx_ticket_mesas_mesa (mesa_id),
-  INDEX idx_ticket_mesas_ticket (ticket_id)
-) COMMENT='Relacion canonica N:M entre tickets y mesas ocupadas';
-
-CREATE TABLE IF NOT EXISTS reservacion_eventos (
-  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  reservacion_id  INT NOT NULL,
-  ticket_id       INT NULL,
-  usuario_id      INT NULL,
-  evento          ENUM(
-                    'llegada',
-                    'inicio_servicio',
-                    'ticket_cerrado',
-                    'cancelacion',
-                    'no_show',
-                    'override_no_show',
-                    'warning_reservacion',
-                    'override_ocupacion',
-                    'cambio_horario_con_conflictos'
-                  ) NOT NULL,
-  estado_anterior VARCHAR(32) NULL,
-  estado_nuevo    VARCHAR(32) NULL,
-  motivo          VARCHAR(500) NULL,
-  metadata_json   JSON NULL,
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_reservacion_eventos_reservacion
-    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_reservacion_eventos_ticket
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
-  CONSTRAINT fk_reservacion_eventos_usuario
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_eventos_reservacion_fecha (reservacion_id, created_at),
-  INDEX idx_eventos_ticket (ticket_id),
-  INDEX idx_eventos_evento_fecha (evento, created_at)
-) COMMENT='Auditoria de llegada, servicio y excepciones operativas';
+  INDEX idx_ticket_mesas_mesa (mesa_id)
+);
 
 
 CREATE TABLE IF NOT EXISTS productos (
@@ -314,7 +229,7 @@ CREATE TABLE IF NOT EXISTS ticket_items (
   precio     DECIMAL(8,2) NOT NULL,
   categoria  VARCHAR(60) NOT NULL,
   area_id    TINYINT UNSIGNED NOT NULL,
-  comensal   TINYINT UNSIGNED NULL COMMENT 'NULL = General',
+  comensal   TINYINT UNSIGNED NULL,
   cantidad   TINYINT UNSIGNED NOT NULL DEFAULT 1,
   nota       VARCHAR(280) NULL DEFAULT NULL,
   estado     ENUM('enviado','en_preparacion','listo','entregado','cancelado') NOT NULL DEFAULT 'enviado',
@@ -389,13 +304,13 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE TABLE IF NOT EXISTS impresoras (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   nombre      VARCHAR(60) NOT NULL,
-  area_id     TINYINT UNSIGNED NULL COMMENT 'NULL = impresora de cuenta/caja',
+  area_id     TINYINT UNSIGNED NULL,
   rol         ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda',
   conexion    ENUM('red','windows') NOT NULL DEFAULT 'red',
-  host        VARCHAR(64) NOT NULL COMMENT 'IP · sólo aplica a conexion=red',
-  puerto      INT NOT NULL DEFAULT 9100 COMMENT 'sólo aplica a conexion=red',
-  dispositivo VARCHAR(120) NULL DEFAULT NULL COMMENT 'windows: nombre de impresora o smb://host/recurso',
-  ancho       TINYINT NOT NULL DEFAULT 48 COMMENT 'caracteres (48=80mm, 32=58mm)',
+  host        VARCHAR(64) NOT NULL,
+  puerto      INT NOT NULL DEFAULT 9100,
+  dispositivo VARCHAR(120) NULL DEFAULT NULL,
+  ancho       TINYINT NOT NULL DEFAULT 48,
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
@@ -409,7 +324,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 --
 -- El motor (flujo de n8n) deduce qué ofrecer a partir de datos que ya existen:
 -- los tickets cerrados del mismo cliente — vía tickets.reservacion_id ->
--- reservaciones.email — y los tickets de otras mesas que pidieron platillos
+-- reservaciones.contacto — y los tickets de otras mesas que pidieron platillos
 -- parecidos a los de ticket_items. Nada de eso necesita un log propio.
 --
 -- Para no repetir lo ya ofrecido, el POS excluye lo que la mesa ya pidió
@@ -421,8 +336,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS horarios_operacion (
   id            TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  dia_semana    TINYINT UNSIGNED NOT NULL
-                  COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
+  dia_semana    TINYINT UNSIGNED NOT NULL,
   abierto       TINYINT(1) NOT NULL DEFAULT 1,
   hora_apertura TIME NULL,
   hora_cierre   TIME NULL,

@@ -314,7 +314,8 @@ class AdminController
                         COALESCE(SUM(ti.precio * ti.cantidad), 0) AS total,
                         COUNT(ti.id) AS num_items
                    FROM tickets t
-                   LEFT JOIN mesas m ON m.id = t.mesa_id
+                   LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+                   LEFT JOIN mesas m ON m.id = tm.mesa_id
                    LEFT JOIN ticket_items ti ON ti.ticket_id = t.id AND ti.estado <> 'cancelado'
                   GROUP BY t.id
                   ORDER BY t.hora_apertura DESC

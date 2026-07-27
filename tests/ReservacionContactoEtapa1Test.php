@@ -97,7 +97,21 @@ try {
         "CREATE DATABASE `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     );
     $db->select_db($databaseName);
+    $selectedDatabase = (string)$db->query('SELECT DATABASE() AS db')->fetch_assoc()['db'];
+    if ($selectedDatabase !== $databaseName) {
+        throw new RuntimeException('SELECT DATABASE() no coincide con la base desechable.');
+    }
+    assertSameValue(
+        'diagnóstico SELECT DATABASE antes de mutar',
+        $selectedDatabase,
+        $databaseName
+    );
     $db->query("SET time_zone = '-06:00'");
+    $db->query("SET timestamp = UNIX_TIMESTAMP('2026-11-30 12:00:00')");
+    $_ENV['APP_ENV'] = 'testing';
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 12:00:00';
+    putenv('APP_ENV=testing');
+    putenv('RESERVATION_TEST_NOW=2026-11-30 12:00:00');
 
     runSqlFile($db, __DIR__ . '/../database/ddl.sql');
     runSqlFile($db, __DIR__ . '/../database/dml.sql');
@@ -121,6 +135,8 @@ try {
 
     setPreviewEnvironment('development', true);
     assertTrueValue('preview habilitado en desarrollo', ReservacionConfig::otpPreviewEnabled());
+    setPreviewEnvironment('testing', true);
+    assertSameValue('reloj controlado de Etapa 4', ReservacionConfig::fechaActual(), '2026-11-30');
 
     $solicitud = ContactoAccesoService::solicitarCodigo('email', ' OTP@Example.Test ');
     assertTrueValue('generación OTP correo', (bool)($solicitud['ok'] ?? false));
@@ -130,7 +146,7 @@ try {
     $fila = $db->query(
         "SELECT id, codigo_hash, attempts, used_at, invalidated_at
          FROM verificaciones_contacto
-         WHERE contacto_normalizado = 'otp@example.test'
+         WHERE contacto = 'otp@example.test'
          ORDER BY id DESC LIMIT 1"
     )->fetch_assoc();
     assertTrueValue('base almacena hash verificable', password_verify($otp, (string)$fila['codigo_hash']));
@@ -176,7 +192,7 @@ try {
     );
     $intentos = (int)$db->query(
         "SELECT attempts FROM verificaciones_contacto
-         WHERE contacto_normalizado = 'otp@example.test' ORDER BY id DESC LIMIT 1"
+         WHERE contacto = 'otp@example.test' ORDER BY id DESC LIMIT 1"
     )->fetch_assoc()['attempts'];
     assertSameValue('incremento de intentos', $intentos, 1);
 
@@ -195,7 +211,7 @@ try {
     $expired = ContactoAccesoService::solicitarCodigo('email', 'expired@example.test');
     $db->query(
         "UPDATE verificaciones_contacto SET expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND)
-         WHERE contacto_normalizado = 'expired@example.test'"
+         WHERE contacto = 'expired@example.test'"
     );
     $expiredResult = ContactoAccesoService::verificarCodigo(
         'email',
@@ -212,7 +228,7 @@ try {
     assertTrueValue('generación OTP teléfono', (bool)($invalidated['ok'] ?? false));
     $db->query(
         "UPDATE verificaciones_contacto SET invalidated_at = NOW()
-         WHERE contacto_normalizado = '+525587654321'"
+         WHERE contacto = '+525587654321'"
     );
     $invalidatedResult = ContactoAccesoService::verificarCodigo(
         'telefono',
@@ -230,20 +246,29 @@ try {
     $_SESSION['id'] = 99;
     $_SESSION['rol'] = 'admin';
     $sessionBefore = session_id();
-    $valid = ContactoAccesoService::solicitarCodigo('email', 'etapa1.una@example.test');
+    $valid = ContactoAccesoService::solicitarCodigo('email', 'limite.una@example.test');
     $verified = ContactoAccesoService::verificarCodigo(
         'email',
-        'etapa1.una@example.test',
+        'limite.una@example.test',
         (string)$valid['preview_code']
     );
     assertTrueValue('código correcto', (bool)($verified['ok'] ?? false));
     assertTrueValue('sesión pública creada', is_array($_SESSION['reservation_client'] ?? null));
+    $sessionTtl = (int)$_SESSION['reservation_client']['expires_at'] - time();
+    assertTrueValue('sesión pública dura 15 minutos', $sessionTtl >= 895 && $sessionTtl <= 900);
+    $_SESSION['reservation_client']['expires_at'] = time() + 30;
+    $renewedSession = ReservationClientSession::obtener();
+    assertTrueValue(
+        'actividad válida renueva 15 minutos',
+        is_array($renewedSession)
+            && ((int)$renewedSession['expires_at'] - time()) >= 895
+    );
     assertTrueValue('ID de sesión regenerado', session_id() !== $sessionBefore);
     assertSameValue('sesión admin coexiste', $_SESSION['rol'] ?? '', 'admin');
 
     $usedAgain = ContactoAccesoService::verificarCodigo(
         'email',
-        'etapa1.una@example.test',
+        'limite.una@example.test',
         (string)$valid['preview_code']
     );
     assertSameValue(
@@ -254,7 +279,7 @@ try {
 
     $oneCount = Reservacion::contarActivasPorContacto(
         'email',
-        'etapa1.una@example.test',
+        'limite.una@example.test',
         ReservacionConfig::fechaActual(),
         ReservacionConfig::horaActual()
     );
@@ -262,7 +287,7 @@ try {
 
     $five = Reservacion::buscarActivasPorContacto(
         'email',
-        'etapa1.limite@example.test',
+        'limite.cinco@example.test',
         ReservacionConfig::fechaActual(),
         ReservacionConfig::horaActual(),
         ReservacionConfig::MAX_ACTIVE_RESERVATIONS
@@ -271,7 +296,7 @@ try {
 
     $historyCount = Reservacion::contarActivasPorContacto(
         'email',
-        'etapa1.historial@example.test',
+        'historial@example.test',
         ReservacionConfig::fechaActual(),
         ReservacionConfig::horaActual()
     );
@@ -279,7 +304,7 @@ try {
 
     $noneCount = Reservacion::contarActivasPorContacto(
         'email',
-        'etapa1.sin-reservas@example.test',
+        'limite.cero@example.test',
         ReservacionConfig::fechaActual(),
         ReservacionConfig::horaActual()
     );
@@ -296,7 +321,7 @@ try {
     $_SESSION['reservation_client']['expires_at'] = time() - 1;
     assertSameValue('expiración de sesión', ReservationClientSession::obtener(), null);
 
-    ReservationClientSession::crear('email', 'etapa1.una@example.test');
+    ReservationClientSession::crear('email', 'limite.una@example.test');
     ReservationClientSession::cerrar();
     assertSameValue('cierre de sesión pública', ReservationClientSession::obtener(false), null);
     assertSameValue('logout conserva admin', $_SESSION['rol'] ?? '', 'admin');

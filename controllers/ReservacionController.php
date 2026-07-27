@@ -74,8 +74,8 @@ class ReservacionController
         }
 
         try {
-            $tipo = (string)$sesion['contact_type'];
-            $contacto = (string)$sesion['contact_normalized'];
+            $tipo = (string)$sesion['contacto_tipo'];
+            $contacto = (string)$sesion['contacto'];
             $fecha = ReservacionConfig::fechaActual();
             $hora = ReservacionConfig::horaActual();
             $total = Reservacion::contarActivasPorContacto($tipo, $contacto, $fecha, $hora);
@@ -131,7 +131,7 @@ class ReservacionController
         self::json(['ok' => true, 'codigo' => 'SESION_CERRADA', 'mensaje' => 'Sesión cerrada.']);
     }
 
-    /** Ruta legacy conservada para selectores administrativos existentes. */
+    /** Lista de slots calculados desde el horario efectivo. */
     public static function horarios(Router $router): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -275,28 +275,6 @@ class ReservacionController
             $sesion
         );
         self::json($respuesta, self::status($respuesta));
-    }
-
-    /**
-     * Compatibilidad de URL: el POST histórico ya no crea una reservación sin
-     * verificar. Una sesión válida usa el nuevo flujo confirmado.
-     */
-    public static function crear(Router $router): void
-    {
-        if (!self::esPost()) {
-            return;
-        }
-        $sesion = ReservationClientSession::obtener();
-        if (!$sesion) {
-            self::json([
-                'ok' => false,
-                'codigo' => ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
-                'mensaje' => 'Crea una retención y verifica tu contacto para continuar.',
-            ], 401);
-            return;
-        }
-        $respuesta = ReservacionPublicaService::crearConfirmada(self::entrada(), $sesion);
-        self::json($respuesta, self::status($respuesta, 201));
     }
 
     /** @return array<string, mixed> */

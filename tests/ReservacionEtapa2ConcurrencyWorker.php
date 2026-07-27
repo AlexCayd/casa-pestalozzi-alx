@@ -21,6 +21,10 @@ if (!$db) {
     exit(2);
 }
 $db->query("SET time_zone = '-06:00'");
+$testNow = getenv('RESERVATION_TEST_NOW');
+if (is_string($testNow) && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $testNow) === 1) {
+    $db->query("SET timestamp = UNIX_TIMESTAMP('" . $db->real_escape_string($testNow) . "')");
+}
 ActiveRecord::setDB($db);
 $payload = json_decode((string)base64_decode($payloadEncoded, true), true);
 if (!is_array($payload)) {
@@ -38,8 +42,8 @@ if (!is_file($goPath)) {
 
 $operacion = (string)($payload['_operation'] ?? 'crear');
 $sesion = [
-    'contact_type' => (string)($payload['tipo_contacto'] ?? ''),
-    'contact_normalized' => (string)($payload['contacto'] ?? ''),
+    'contacto_tipo' => (string)($payload['tipo_contacto'] ?? ''),
+    'contacto' => (string)($payload['contacto'] ?? ''),
 ];
 unset($payload['_operation']);
 

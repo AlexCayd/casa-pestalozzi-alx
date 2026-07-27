@@ -338,7 +338,7 @@ function initMapa() {
     for (var i = 0; i < tickets.length; i++) {
       var t = tickets[i];
       var ids = Array.isArray(t.mesa_ids) ? t.mesa_ids.map(Number) : [];
-      if (ids.indexOf(Number(mesaId)) !== -1 || t.mesa_id === mesaId || t.mesa_secundaria_id === mesaId) return t;
+      if (ids.indexOf(Number(mesaId)) !== -1) return t;
     }
     return null;
   }
@@ -348,7 +348,7 @@ function initMapa() {
     for (var i = 0; i < tickets.length; i++) {
       var t = tickets[i];
       var ids = Array.isArray(t.mesa_ids) ? t.mesa_ids.map(Number) : [];
-      if (ids.indexOf(Number(mesaId)) !== -1 || t.mesa_id === mesaId || t.mesa_secundaria_id === mesaId) result.push(t);
+      if (ids.indexOf(Number(mesaId)) !== -1) result.push(t);
     }
     return result;
   }
@@ -449,8 +449,7 @@ function initMapa() {
   function clasesEstadoMapa(mesa, estado) {
     var classes = ['mesa-pin--' + estado];
     var ticket = ticketActual(parseInt(mesa.id, 10));
-    if (ticket && ticket.legacy) classes.push('mesa-pin--ticket-legacy');
-    else if (ticket && ticket.origen === 'walk_in') classes.push('mesa-pin--walk-in');
+    if (ticket && ticket.origen === 'walk_in') classes.push('mesa-pin--walk-in');
     else if (ticket && ticket.origen === 'reservacion') classes.push('mesa-pin--servicio-reservacion');
     if (!mesaReservable(mesa)) classes.push('mesa-pin--zona');
     return classes;
@@ -1566,7 +1565,7 @@ function initMapa() {
         if (isLlevar(mesa)) {
           apiAbrirLlevarTicket(mesa, comensales, nombre || null, meseroId);
         } else {
-          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null, meseroId);
+          apiAbrirTicket([mesa.id], comensales, null, nombre || null, meseroId);
         }
       });
     }
@@ -1574,7 +1573,7 @@ function initMapa() {
     var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
     if (confirmarBtn && reserva) {
       confirmarBtn.addEventListener('click', function() {
-        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
+        apiAbrirTicket(reserva.mesa_ids || [mesa.id], reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
       });
     }
 
@@ -2053,9 +2052,9 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
-  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre, meseroId) {
+  function apiAbrirTicket(mesaIds, comensales, reservaId, nombre, meseroId) {
     apiPost('/api/abrir-ticket', {
-      mesa_id: mesaId, mesa2_id: mesa2Id,
+      mesa_ids: mesaIds,
       comensales: comensales, reservacion_id: reservaId,
       nombre: nombre || null,
       mesero_id: meseroId || null
@@ -2068,7 +2067,7 @@ function initMapa() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        mesa_id:        mesa.id,
+        mesa_ids:       [mesa.id],
         comensales:     comensales,
         nombre:         nombre || null,
         mesero_id:      meseroId || null,
@@ -2080,7 +2079,7 @@ function initMapa() {
       if (result.ok) {
         var newTicket = {
           id:            result.id,
-          mesa_id:       mesa.id,
+          mesa_ids:      [mesa.id],
           nombre:        nombre,
           comensales:    comensales,
           hora_apertura: new Date().toISOString().replace('T', ' ').substring(0, 19)

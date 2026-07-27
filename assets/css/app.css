@@ -5818,7 +5818,7 @@ footer.foot {
   color: var(--admin-danger-text);
 }
 
-.operational-drawer .reservations-table__status--pendiente {
+.operational-drawer .reservations-table__status--pendiente_verificacion {
   border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);
@@ -6374,7 +6374,7 @@ footer.foot {
   flex-shrink: 0;
   align-self: flex-start;
 }
-.reserva-card__estado--pendiente {
+.reserva-card__estado--pendiente_verificacion {
   background: rgba(204, 163, 82, 0.12);
   color: #d4b06a;
 }
@@ -8378,11 +8378,6 @@ footer.foot {
 
 .mapa-page .mesa-pin--walk-in {
   outline: 3px double rgba(126, 191, 160, 0.82);
-  outline-offset: 3px;
-}
-
-.mapa-page .mesa-pin--ticket-legacy {
-  outline: 3px dashed rgba(232, 170, 96, 0.88);
   outline-offset: 3px;
 }
 

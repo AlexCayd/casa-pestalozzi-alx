@@ -1787,7 +1787,7 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--admin-danger-text);
 }
 
-.operational-drawer .reservations-table__status--pendiente {
+.operational-drawer .reservations-table__status--pendiente_verificacion {
   border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);
@@ -1949,7 +1949,7 @@ html:has(.operation-body.is-assignment-mode) {
   font-weight: var(--operational-weight-semibold);
   line-height: 1;
 }
-.reservation-operation-panel__head .reservations-table__status--pendiente {
+.reservation-operation-panel__head .reservations-table__status--pendiente_verificacion {
   border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);

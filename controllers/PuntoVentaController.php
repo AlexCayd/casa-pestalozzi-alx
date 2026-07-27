@@ -51,15 +51,11 @@ class PuntoVentaController {
             );
 
             $tickets = Ticket::consultarSQL(
-                "SELECT t.id, t.mesa_id, t.mesa_secundaria_id, t.nombre,
+                "SELECT t.id, t.nombre,
                         t.comensales, t.hora_apertura, t.reservacion_id, t.mesero_id,
-                        COALESCE(
-                            GROUP_CONCAT(tm.mesa_id ORDER BY tm.orden),
-                            CONCAT_WS(',', t.mesa_id, t.mesa_secundaria_id)
-                        ) AS mesa_ids,
-                        CASE WHEN COUNT(tm.id) = 0 THEN 1 ELSE 0 END AS legacy
+                        GROUP_CONCAT(tm.mesa_id ORDER BY tm.orden) AS mesa_ids
                  FROM tickets t
-                 LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id
+                 INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
                  WHERE t.estado = 'abierto'
                  GROUP BY t.id"
             );
@@ -114,8 +110,6 @@ class PuntoVentaController {
             )));
             return [
                 'id'                 => (int)$t->id,
-                'mesa_id'            => (int)$t->mesa_id,
-                'mesa_secundaria_id' => $t->mesa_secundaria_id ? (int)$t->mesa_secundaria_id : null,
                 'nombre'             => $t->nombre ?? null,
                 'comensales'         => (int)$t->comensales,
                 'hora_apertura'      => $t->hora_apertura,
@@ -123,7 +117,6 @@ class PuntoVentaController {
                 'mesero_id'          => $t->mesero_id ? (int)$t->mesero_id : null,
                 'mesa_ids'           => $mesaIds,
                 'origen'             => $t->reservacion_id ? 'reservacion' : 'walk_in',
-                'legacy'             => (bool)$t->legacy,
             ];
         }, $tickets);
 
@@ -336,7 +329,8 @@ class PuntoVentaController {
                     "SELECT t.id, t.nombre AS cliente, t.comensales, t.hora_apertura,
                             m.nombre AS mesa, u.nombre AS mesero
                      FROM tickets t
-                     JOIN mesas m ON m.id = t.mesa_id
+                     JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+                     JOIN mesas m ON m.id = tm.mesa_id
                      LEFT JOIN usuarios u ON u.id = t.mesero_id
                      WHERE t.id = {$ticketId} LIMIT 1"
                 );
@@ -447,7 +441,8 @@ class PuntoVentaController {
                             m.numero AS mesa_numero, m.nombre AS mesa_nombre,
                             u.nombre AS mesero
                      FROM tickets t
-                     JOIN mesas m ON m.id = t.mesa_id
+                     JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+                     JOIN mesas m ON m.id = tm.mesa_id
                      LEFT JOIN usuarios u ON u.id = t.mesero_id
                      WHERE t.id = {$ticketId} LIMIT 1"
                 );

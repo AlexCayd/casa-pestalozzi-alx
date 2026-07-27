@@ -94,7 +94,7 @@ final class ReservacionPublicaService
                     return self::sinDisponibilidad();
                 }
 
-                $vence = (new DateTimeImmutable('now', ReservacionConfig::timezone()))
+                $vence = ReservacionConfig::ahora()
                     ->modify('+' . ReservacionConfig::RESERVATION_HOLD_MINUTES . ' minutes')
                     ->format('Y-m-d H:i:s');
                 $reservacionId = self::insertarReservacion(
@@ -113,8 +113,7 @@ final class ReservacionPublicaService
                 $otp = ContactoAccesoService::emitirCodigoEnTransaccion(
                     $datos['tipo'],
                     $datos['contacto'],
-                    $reservacionId,
-                    $datos['request_token']
+                    $reservacionId
                 );
                 if (!($otp['ok'] ?? false)) {
                     $db->rollback();
@@ -132,7 +131,7 @@ final class ReservacionPublicaService
                     'codigo' => self::RETENCION_CREADA,
                     'mensaje' => 'Conservaremos tus mesas durante cinco minutos mientras verificas el contacto.',
                     'request_token' => $datos['request_token'],
-                    'verification_expires_at' => self::fechaAtom($vence),
+                    'hold_expires_at' => self::fechaAtom($vence),
                     'idempotente' => false,
                 ], self::camposPreviewOtp($otp));
             } catch (\Throwable $e) {
@@ -182,7 +181,7 @@ final class ReservacionPublicaService
                 }
                 if (
                     (string)$retencion['estado'] !== 'pendiente_verificacion'
-                    || self::timestampVencido((string)$retencion['verification_expires_at'])
+                    || self::timestampVencido((string)$retencion['hold_expires_at'])
                 ) {
                     if ((string)$retencion['estado'] === 'pendiente_verificacion') {
                         self::marcarExpirada((int)$retencion['id']);
@@ -219,7 +218,12 @@ final class ReservacionPublicaService
 
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
-                     SET estado = 'confirmada', confirmed_at = NOW()
+                     SET estado = 'confirmada',
+                         confirmed_at = NOW(),
+                         status_changed_at = NOW(),
+                         last_modified_by = NULL,
+                         last_modified_source = 'cliente',
+                         last_change_reason = 'Contacto verificado mediante OTP'
                      WHERE id = ? AND estado = 'pendiente_verificacion'"
                 );
                 self::ejecutarStmt($stmt, 'i', [(int)$retencion['id']]);
@@ -270,7 +274,7 @@ final class ReservacionPublicaService
                     $db->rollback();
                     return self::noEncontrada();
                 }
-                if (self::timestampVencido((string)$retencion['verification_expires_at'])) {
+                if (self::timestampVencido((string)$retencion['hold_expires_at'])) {
                     self::marcarExpirada((int)$retencion['id']);
                     VerificacionContacto::invalidarPorReservaciones([(int)$retencion['id']]);
                     $db->commit();
@@ -281,8 +285,7 @@ final class ReservacionPublicaService
                 $otp = ContactoAccesoService::emitirCodigoEnTransaccion(
                     $tipo,
                     $contacto,
-                    (int)$retencion['id'],
-                    $requestToken
+                    (int)$retencion['id']
                 );
                 if (!($otp['ok'] ?? false)) {
                     $db->rollback();
@@ -305,8 +308,8 @@ final class ReservacionPublicaService
     /** Crea directamente usando exclusivamente la identidad de sesión. */
     public static function crearConfirmada(array $entrada, array $sesion): array
     {
-        $tipo = (string)($sesion['contact_type'] ?? '');
-        $contacto = (string)($sesion['contact_normalized'] ?? '');
+        $tipo = (string)($sesion['contacto_tipo'] ?? '');
+        $contacto = (string)($sesion['contacto'] ?? '');
         if ($tipo === '' || $contacto === '') {
             return [
                 'ok' => false,
@@ -356,7 +359,7 @@ final class ReservacionPublicaService
                     $datos,
                     'confirmada',
                     null,
-                    (new DateTimeImmutable('now', ReservacionConfig::timezone()))->format('Y-m-d H:i:s')
+                    ReservacionConfig::ahora()->format('Y-m-d H:i:s')
                 );
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
@@ -381,8 +384,8 @@ final class ReservacionPublicaService
     public static function modificar(array $entrada, array $sesion): array
     {
         $id = (int)($entrada['reservacion_id'] ?? $entrada['id'] ?? 0);
-        $tipo = (string)($sesion['contact_type'] ?? '');
-        $contacto = (string)($sesion['contact_normalized'] ?? '');
+        $tipo = (string)($sesion['contacto_tipo'] ?? '');
+        $contacto = (string)($sesion['contacto'] ?? '');
         if ($id < 1 || $tipo === '' || $contacto === '') {
             return self::datosInvalidos('Selecciona una reservación válida.');
         }
@@ -444,7 +447,10 @@ final class ReservacionPublicaService
 
                 $stmt = $db->prepare(
                     'UPDATE reservaciones
-                     SET nombre = ?, fecha = ?, hora = ?, comensales = ?, nota = ?
+                     SET nombre = ?, fecha = ?, hora = ?, comensales = ?, nota = ?,
+                         last_modified_by = NULL,
+                         last_modified_source = "cliente",
+                         last_change_reason = "Reservación modificada por el cliente"
                      WHERE id = ? AND estado = ?'
                 );
                 self::ejecutarStmt($stmt, 'sssisis', [
@@ -481,8 +487,8 @@ final class ReservacionPublicaService
     /** Cancelación lógica; conserva reservación y relaciones históricas. */
     public static function cancelar(int $id, array $sesion): array
     {
-        $tipo = (string)($sesion['contact_type'] ?? '');
-        $contacto = (string)($sesion['contact_normalized'] ?? '');
+        $tipo = (string)($sesion['contacto_tipo'] ?? '');
+        $contacto = (string)($sesion['contacto'] ?? '');
         if ($id < 1 || $tipo === '' || $contacto === '') {
             return self::datosInvalidos('Selecciona una reservación válida.');
         }
@@ -527,7 +533,11 @@ final class ReservacionPublicaService
 
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
-                     SET estado = 'cancelada', cancelled_at = NOW()
+                     SET estado = 'cancelada',
+                         status_changed_at = NOW(),
+                         last_modified_by = NULL,
+                         last_modified_source = 'cliente',
+                         last_change_reason = 'Cancelación solicitada por el cliente'
                      WHERE id = ? AND estado = 'confirmada'"
                 );
                 self::ejecutarStmt($stmt, 'i', [$id]);
@@ -565,8 +575,8 @@ final class ReservacionPublicaService
                 "SELECT id
                  FROM reservaciones
                  WHERE estado = 'pendiente_verificacion'
-                   AND verification_expires_at <= NOW()
-                 ORDER BY verification_expires_at ASC, id ASC
+                   AND hold_expires_at <= NOW()
+                 ORDER BY hold_expires_at ASC, id ASC
                  LIMIT {$limite}
                  FOR UPDATE SKIP LOCKED"
             );
@@ -583,7 +593,11 @@ final class ReservacionPublicaService
                 $lista = implode(',', $ids);
                 if ($db->query(
                     "UPDATE reservaciones
-                     SET estado = 'expirada', expired_at = NOW()
+                     SET estado = 'expirada',
+                         status_changed_at = NOW(),
+                         last_modified_by = NULL,
+                         last_modified_source = 'sistema',
+                         last_change_reason = 'Retención vencida'
                      WHERE id IN ({$lista})
                        AND estado = 'pendiente_verificacion'"
                 ) === false) {
@@ -670,34 +684,30 @@ final class ReservacionPublicaService
             json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         );
         $payload['request_token'] = $requestToken;
-        $payload['contacto_valor'] = $contactoValor;
-
         return ['ok' => true, 'datos' => $payload];
     }
 
     private static function insertarReservacion(
         array $datos,
         string $estado,
-        ?string $verificationExpiresAt,
+        ?string $holdExpiresAt,
         ?string $confirmedAt
     ): int {
         $db = ActiveRecord::getDB();
-        $email = $datos['tipo'] === ContactoService::TIPO_EMAIL ? $datos['contacto'] : '';
-        $telefono = $datos['tipo'] === ContactoService::TIPO_TELEFONO ? $datos['contacto_valor'] : null;
+        $motivo = $estado === 'confirmada'
+            ? 'Reservación creada con sesión verificada'
+            : 'Retención creada para verificación';
         $stmt = $db->prepare(
             'INSERT INTO reservaciones
-                (nombre, email, telefono, contacto_tipo, contacto_valor,
-                 contacto_normalizado, fecha, hora, comensales, nota,
-                 request_token, request_fingerprint, verification_expires_at,
-                 confirmed_at, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                 request_token, request_fingerprint, hold_expires_at,
+                 confirmed_at, status_changed_at, last_modified_source,
+                 last_change_reason, estado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), "cliente", ?, ?)'
         );
-        self::ejecutarStmt($stmt, 'ssssssssissssss', [
+        self::ejecutarStmt($stmt, 'sssssisssssss', [
             $datos['nombre'],
-            $email,
-            $telefono,
             $datos['tipo'],
-            $datos['contacto_valor'],
             $datos['contacto'],
             $datos['fecha'],
             $datos['hora'],
@@ -705,8 +715,9 @@ final class ReservacionPublicaService
             $datos['notas'],
             $datos['request_token'],
             $datos['fingerprint'],
-            $verificationExpiresAt,
+            $holdExpiresAt,
             $confirmedAt,
+            $motivo,
             $estado,
         ]);
 
@@ -776,13 +787,13 @@ final class ReservacionPublicaService
             ];
         }
         if ($retencion) {
-            if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['verification_expires_at'])) {
+            if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['hold_expires_at'])) {
                 return [
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
                     'mensaje' => 'La retención ya existe.',
                     'request_token' => (string)$fila['request_token'],
-                    'verification_expires_at' => self::fechaAtom((string)$fila['verification_expires_at']),
+                    'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
                 ];
             }
@@ -836,7 +847,7 @@ final class ReservacionPublicaService
     private static function mismoContacto(array $fila, string $tipo, string $contacto): bool
     {
         return hash_equals((string)($fila['contacto_tipo'] ?? ''), $tipo)
-            && hash_equals((string)($fila['contacto_normalizado'] ?? ''), $contacto);
+            && hash_equals((string)($fila['contacto'] ?? ''), $contacto);
     }
 
     /**
@@ -851,14 +862,18 @@ final class ReservacionPublicaService
             ReservacionConfig::timezone()
         );
         return $programada instanceof DateTimeImmutable
-            && time() <= $programada->getTimestamp();
+            && ReservacionConfig::ahora() <= $programada;
     }
 
     private static function marcarExpirada(int $id): void
     {
         if (ActiveRecord::getDB()->query(
             "UPDATE reservaciones
-             SET estado = 'expirada', expired_at = NOW()
+             SET estado = 'expirada',
+                 status_changed_at = NOW(),
+                 last_modified_by = NULL,
+                 last_modified_source = 'sistema',
+                 last_change_reason = 'Retención vencida'
              WHERE id = {$id} AND estado = 'pendiente_verificacion'"
         ) === false) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
@@ -917,7 +932,8 @@ final class ReservacionPublicaService
             return true;
         }
         try {
-            return (new DateTimeImmutable($fecha, ReservacionConfig::timezone()))->getTimestamp() <= time();
+            return new DateTimeImmutable($fecha, ReservacionConfig::timezone())
+                <= ReservacionConfig::ahora();
         } catch (\Throwable $e) {
             return true;
         }

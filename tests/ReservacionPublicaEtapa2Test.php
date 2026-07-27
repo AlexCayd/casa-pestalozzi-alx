@@ -165,6 +165,7 @@ try {
     $db->query("CREATE DATABASE `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $db->select_db($databaseName);
     $db->query("SET time_zone = '-06:00'");
+    $db->query("SET timestamp = UNIX_TIMESTAMP('2026-11-30 12:00:00')");
     $connected = (string)$db->query('SELECT DATABASE() AS db')->fetch_assoc()['db'];
     if ($connected !== $databaseName) {
         throw new RuntimeException('Diagnóstico falló: conexión mutable fuera de la base de prueba.');
@@ -174,10 +175,13 @@ try {
     ActiveRecord::setDB($db);
     $_ENV['APP_ENV'] = 'testing';
     $_ENV['CONTACT_OTP_PREVIEW'] = 'true';
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 12:00:00';
     putenv('APP_ENV=testing');
     putenv('CONTACT_OTP_PREVIEW=true');
+    putenv('RESERVATION_TEST_NOW=2026-11-30 12:00:00');
 
-    $fechaBase = '2098-08-01';
+    $fechaBase = '2026-11-30';
+    e2Same('reloj controlado de Etapa 4', ReservacionConfig::fechaActual(), $fechaBase);
     $disponibilidad1 = DisponibilidadReservacionService::consultar($fechaBase, 1);
     $disponibilidad12 = DisponibilidadReservacionService::consultar($fechaBase, 12);
     $disponibilidad13 = DisponibilidadReservacionService::consultar($fechaBase, 13);
@@ -185,6 +189,72 @@ try {
     e2Assert('disponibilidad para doce personas', (bool)($disponibilidad12['ok'] ?? false));
     e2Same('rechazo de trece personas', $disponibilidad13['codigo'] ?? '', DisponibilidadReservacionService::DATOS_INVALIDOS);
     e2Assert('slots no exponen mesas', !str_contains(json_encode($disponibilidad12), 'mesa_id'));
+    e2Assert(
+        'el calendario permite noviembre de 2026 sin límite máximo',
+        !str_contains(
+            (string)file_get_contents(__DIR__ . '/../src/js/components/reservation-date-picker.js'),
+            'maxDate'
+        )
+    );
+    e2Same(
+        'fixture de retención vigente distinguible',
+        e2Count(
+            $db,
+            "SELECT COUNT(*) total FROM reservaciones
+             WHERE request_token = 'fx-hold-vigente-001'
+               AND hold_expires_at > NOW()"
+        ),
+        1
+    );
+    e2Same(
+        'fixture de retención vencida distinguible',
+        e2Count(
+            $db,
+            "SELECT COUNT(*) total FROM reservaciones
+             WHERE request_token = 'fx-hold-vencida-001'
+               AND hold_expires_at <= NOW()"
+        ),
+        1
+    );
+    foreach ([
+        'fx-una-mesa-000001' => 1,
+        'fx-dos-mesas-00001' => 2,
+        'fx-tres-mesas-0001' => 3,
+    ] as $tokenFixture => $mesasEsperadas) {
+        e2Same(
+            "fixture {$mesasEsperadas} mesa(s)",
+            e2Count(
+                $db,
+                "SELECT COUNT(*) total
+                 FROM reservacion_mesas rm
+                 INNER JOIN reservaciones r ON r.id = rm.reservacion_id
+                 WHERE r.request_token = '{$tokenFixture}'"
+            ),
+            $mesasEsperadas
+        );
+    }
+
+    // La suite valida primero la jornada demo completa y después retira sólo
+    // los fixtures E4 para que cada caso mutable controle su propia capacidad.
+    $db->query(
+        "DELETE tm FROM ticket_mesas tm
+         INNER JOIN tickets t ON t.id = tm.ticket_id
+         WHERE t.nombre LIKE 'POS %' OR t.nombre LIKE 'Walk-in %'"
+    );
+    $db->query("DELETE FROM tickets WHERE nombre LIKE 'POS %' OR nombre LIKE 'Walk-in %'");
+    $db->query(
+        "DELETE rm FROM reservacion_mesas rm
+         INNER JOIN reservaciones r ON r.id = rm.reservacion_id
+         WHERE r.request_token LIKE 'fx-%'
+           AND r.request_token NOT LIKE 'fx-limite-%'
+           AND r.request_token <> 'fx-historica-000001'"
+    );
+    $db->query(
+        "DELETE FROM reservaciones
+         WHERE request_token LIKE 'fx-%'
+           AND request_token NOT LIKE 'fx-limite-%'
+           AND request_token <> 'fx-historica-000001'"
+    );
 
     $mesas = array_map(static function (int $numero): object {
         return (object)['id' => $numero, 'numero' => $numero, 'capacidad' => 4];
@@ -233,7 +303,7 @@ try {
          FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'e2 forced assignment failure'"
     );
     $rollbackAfterReservation = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-rollback-reservation-01', 'rollback.reservation@example.test', '2098-08-19', '18:00', 2)
+        e2Payload('e2-rollback-reservation-01', 'rollback.reservation@example.test', '2026-12-03', '18:00', 2)
     );
     $db->query('DROP TRIGGER e2_fail_assignment');
     e2Same('fallo después de insertar reservación devuelve error', $rollbackAfterReservation['codigo'] ?? '', ReservacionPublicaService::ERROR_INTERNO);
@@ -251,7 +321,7 @@ try {
          FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'e2 forced otp failure'"
     );
     $rollbackAfterAssignment = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-rollback-assignment-01', 'rollback.assignment@example.test', '2098-08-20', '18:00', 2)
+        e2Payload('e2-rollback-assignment-01', 'rollback.assignment@example.test', '2026-11-30', '18:00', 2)
     );
     $db->query('DROP TRIGGER e2_fail_otp');
     e2Same('fallo después de asignar mesas devuelve error', $rollbackAfterAssignment['codigo'] ?? '', ReservacionPublicaService::ERROR_INTERNO);
@@ -283,7 +353,7 @@ try {
     $expiredOtpPayload = e2Payload(
         'e2-expired-otp-hold-0001',
         'expired.otp@example.test',
-        '2098-08-13',
+        '2026-12-02',
         '18:00',
         2
     );
@@ -308,7 +378,7 @@ try {
     $expiredHoldPayload = e2Payload(
         'e2-expired-hold-valid-otp',
         'expired.hold@example.test',
-        '2098-08-14',
+        '2026-12-03',
         '18:00',
         2
     );
@@ -319,7 +389,7 @@ try {
     )->fetch_assoc()['id'];
     $db->query(
         "UPDATE reservaciones
-         SET verification_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND)
+         SET hold_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND)
          WHERE id = {$expiredHoldId}"
     );
     $expiredHoldResult = ReservacionPublicaService::confirmarRetencion([
@@ -337,31 +407,31 @@ try {
 
     $db->query('UPDATE mesas SET reservable = IF(id = 1, 1, 0)');
     $capacityHold = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-capacity-hold-live-01', 'capacity.hold.a@example.test', '2098-08-15', '18:00', 2)
+        e2Payload('e2-capacity-hold-live-01', 'capacity.hold.a@example.test', '2026-12-01', '18:00', 2)
     );
     $capacityHoldId = (int)$db->query(
         "SELECT id FROM reservaciones WHERE request_token = 'e2-capacity-hold-live-01'"
     )->fetch_assoc()['id'];
     $blockedByHold = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-capacity-hold-blocked', 'capacity.hold.b@example.test', '2098-08-15', '18:00', 2)
+        e2Payload('e2-capacity-hold-blocked', 'capacity.hold.b@example.test', '2026-12-01', '18:00', 2)
     );
     e2Assert('retención vigente consume capacidad', ($capacityHold['ok'] ?? false) === true
         && ($blockedByHold['codigo'] ?? '') === ReservacionPublicaService::SIN_DISPONIBILIDAD);
     $db->query(
         "UPDATE reservaciones
-         SET verification_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND)
+         SET hold_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND)
          WHERE id = {$capacityHoldId}"
     );
     $availableAfterTimestamp = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-capacity-after-expired', 'capacity.hold.c@example.test', '2098-08-15', '18:00', 2)
+        e2Payload('e2-capacity-after-expired', 'capacity.hold.c@example.test', '2026-12-01', '18:00', 2)
     );
     e2Same('retención vencida deja de consumir sin materializar', $availableAfterTimestamp['codigo'] ?? '', ReservacionPublicaService::RETENCION_CREADA);
     $db->query('UPDATE mesas SET reservable = 1 WHERE tipo = "mesa"');
 
-    $directPayload = e2Payload('e2-test-direct-0000001', 'direct.flow@example.test', '2098-08-02', '18:00', 5);
+    $directPayload = e2Payload('e2-test-direct-0000001', 'direct.flow@example.test', '2026-12-01', '15:00', 5);
     $otpBefore = e2Count($db, 'SELECT COUNT(*) total FROM verificaciones_contacto');
     $direct = ReservacionPublicaService::crearConfirmada($directPayload, [
-        'contact_type' => 'email', 'contact_normalized' => 'direct.flow@example.test',
+        'contacto_tipo' => 'email', 'contacto' => 'direct.flow@example.test',
     ]);
     e2Same('creación con sesión verificada', $direct['codigo'] ?? '', ReservacionPublicaService::RESERVACION_CONFIRMADA);
     e2Same('creación verificada sin nuevo OTP', e2Count($db, 'SELECT COUNT(*) total FROM verificaciones_contacto'), $otpBefore);
@@ -379,9 +449,9 @@ try {
         static fn(array $fila): bool => (int)$fila['id'] === $directId
     )) === 1);
 
-    $twelvePayload = e2Payload('e2-test-twelve-000001', 'twelve.flow@example.test', '2098-08-03', '18:00', 12);
+    $twelvePayload = e2Payload('e2-test-twelve-000001', 'twelve.flow@example.test', '2026-12-02', '14:00', 12);
     $twelve = ReservacionPublicaService::crearConfirmada($twelvePayload, [
-        'contact_type' => 'email', 'contact_normalized' => 'twelve.flow@example.test',
+        'contacto_tipo' => 'email', 'contacto' => 'twelve.flow@example.test',
     ]);
     $twelveId = (int)($twelve['reservation']['id'] ?? 0);
     e2Same('creación de tres mesas', e2Count($db, "SELECT COUNT(*) total FROM reservacion_mesas WHERE reservacion_id = {$twelveId}"), 3);
@@ -389,30 +459,30 @@ try {
     $modify = ReservacionPublicaService::modificar([
         'reservacion_id' => $directId,
         'nombre' => 'Cliente Modificado',
-        'fecha' => '2098-08-04',
+        'fecha' => '2026-12-03',
         'hora' => '14:00',
         'personas' => 3,
         'notas' => 'Modificada',
-    ], ['contact_type' => 'email', 'contact_normalized' => 'direct.flow@example.test']);
+    ], ['contacto_tipo' => 'email', 'contacto' => 'direct.flow@example.test']);
     e2Same('modificación exitosa', $modify['codigo'] ?? '', ReservacionPublicaService::RESERVACION_MODIFICADA);
     $modifiedRow = $db->query("SELECT fecha, hora, comensales FROM reservaciones WHERE id = {$directId}")->fetch_assoc();
-    e2Same('modificación persiste fecha', $modifiedRow['fecha'] ?? '', '2098-08-04');
+    e2Same('modificación persiste fecha', $modifiedRow['fecha'] ?? '', '2026-12-03');
     $foreignModify = ReservacionPublicaService::modificar([
-        'reservacion_id' => $directId, 'nombre' => 'Ajena', 'fecha' => '2098-08-04',
+        'reservacion_id' => $directId, 'nombre' => 'Ajena', 'fecha' => '2026-12-03',
         'hora' => '14:00', 'personas' => 2, 'notas' => '',
-    ], ['contact_type' => 'email', 'contact_normalized' => 'otro@example.test']);
+    ], ['contacto_tipo' => 'email', 'contacto' => 'otro@example.test']);
     e2Same('modificación ajena', $foreignModify['codigo'] ?? '', ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO);
 
     $db->query('UPDATE mesas SET reservable = IF(id = 1, 1, 0)');
-    $preserveSession = ['contact_type' => 'email', 'contact_normalized' => 'preserve.modify@example.test'];
+    $preserveSession = ['contacto_tipo' => 'email', 'contacto' => 'preserve.modify@example.test'];
     $preserveOriginal = ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-preserve-original-0001', 'preserve.modify@example.test', '2098-08-16', '18:00', 2),
+        e2Payload('e2-preserve-original-0001', 'preserve.modify@example.test', '2026-12-01', '20:00', 2),
         $preserveSession
     );
     $preserveId = (int)($preserveOriginal['reservation']['id'] ?? 0);
     ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-preserve-blocker-0001', 'preserve.blocker@example.test', '2098-08-17', '18:00', 2),
-        ['contact_type' => 'email', 'contact_normalized' => 'preserve.blocker@example.test']
+        e2Payload('e2-preserve-blocker-0001', 'preserve.blocker@example.test', '2026-12-03', '20:00', 2),
+        ['contacto_tipo' => 'email', 'contacto' => 'preserve.blocker@example.test']
     );
     $beforeFailedModify = $db->query(
         "SELECT fecha, hora, comensales FROM reservaciones WHERE id = {$preserveId}"
@@ -424,8 +494,8 @@ try {
     $failedModify = ReservacionPublicaService::modificar([
         'reservacion_id' => $preserveId,
         'nombre' => 'No debe persistir',
-        'fecha' => '2098-08-17',
-        'hora' => '18:00',
+        'fecha' => '2026-12-03',
+        'hora' => '20:00',
         'personas' => 2,
         'notas' => 'Sin capacidad',
     ], $preserveSession);
@@ -445,11 +515,11 @@ try {
 
     $mesasAntesCancelar = e2Count($db, "SELECT COUNT(*) total FROM reservacion_mesas WHERE reservacion_id = {$directId}");
     $cancel = ReservacionPublicaService::cancelar($directId, [
-        'contact_type' => 'email', 'contact_normalized' => 'direct.flow@example.test',
+        'contacto_tipo' => 'email', 'contacto' => 'direct.flow@example.test',
     ]);
     e2Same('cancelación exitosa', $cancel['codigo'] ?? '', ReservacionPublicaService::RESERVACION_CANCELADA);
     $cancelAgain = ReservacionPublicaService::cancelar($directId, [
-        'contact_type' => 'email', 'contact_normalized' => 'direct.flow@example.test',
+        'contacto_tipo' => 'email', 'contacto' => 'direct.flow@example.test',
     ]);
     e2Assert('cancelación idempotente', (bool)($cancelAgain['ok'] ?? false) && ($cancelAgain['idempotente'] ?? false) === true);
     e2Same(
@@ -458,18 +528,18 @@ try {
         $mesasAntesCancelar
     );
     $foreignCancel = ReservacionPublicaService::cancelar($twelveId, [
-        'contact_type' => 'email', 'contact_normalized' => 'otro@example.test',
+        'contacto_tipo' => 'email', 'contacto' => 'otro@example.test',
     ]);
     e2Same('cancelación ajena', $foreignCancel['codigo'] ?? '', ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO);
 
     $pastId = (int)$db->query(
-        "SELECT id FROM reservaciones WHERE request_token = 'e2-caso8-pasada-0000'"
+        "SELECT id FROM reservaciones WHERE request_token = 'fx-historica-000001'"
     )->fetch_assoc()['id'];
-    $pastSession = ['contact_type' => 'email', 'contact_normalized' => 'etapa2.pasada@example.test'];
+    $pastSession = ['contacto_tipo' => 'email', 'contacto' => 'historial@example.test'];
     $pastModify = ReservacionPublicaService::modificar([
         'reservacion_id' => $pastId,
         'nombre' => 'Etapa 2 Pasada',
-        'fecha' => '2098-08-19',
+        'fecha' => '2026-12-03',
         'hora' => '18:00',
         'personas' => 2,
         'notas' => 'No debe cambiar',
@@ -478,26 +548,26 @@ try {
     $pastCancel = ReservacionPublicaService::cancelar($pastId, $pastSession);
     e2Same('cancelación después de la hora', $pastCancel['codigo'] ?? '', ReservacionPublicaService::CANCELACION_NO_PERMITIDA);
 
-    $expiredPayload = e2Payload('e2-test-expire-0000001', 'expire.flow@example.test', '2098-08-05', '18:00', 2);
+    $expiredPayload = e2Payload('e2-test-expire-0000001', 'expire.flow@example.test', '2026-11-30', '20:00', 2);
     $expiredHold = ReservacionPublicaService::crearRetencion($expiredPayload);
     $expiredId = (int)$db->query(
         "SELECT id FROM reservaciones WHERE request_token = 'e2-test-expire-0000001'"
     )->fetch_assoc()['id'];
-    $db->query("UPDATE reservaciones SET verification_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND) WHERE id = {$expiredId}");
+    $db->query("UPDATE reservaciones SET hold_expires_at = DATE_SUB(NOW(), INTERVAL 1 SECOND) WHERE id = {$expiredId}");
     $materialized = ReservacionPublicaService::expirarRetenciones(100, false);
     e2Assert('expiración materializada', (bool)($materialized['ok'] ?? false) && (int)$materialized['procesadas'] >= 1);
     e2Same('estado expirada', (string)$db->query("SELECT estado FROM reservaciones WHERE id = {$expiredId}")->fetch_assoc()['estado'], 'expirada');
     $materializedAgain = ReservacionPublicaService::expirarRetenciones(100, false);
     e2Same('expiración idempotente', (int)($materializedAgain['procesadas'] ?? -1), 0);
 
-    $fourSession = ['contact_type' => 'email', 'contact_normalized' => 'etapa2.cuatro@example.test'];
+    $fourSession = ['contacto_tipo' => 'email', 'contacto' => 'limite.cuatro@example.test'];
     $fifth = ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-test-fifth-00000001', 'etapa2.cuatro@example.test', '2098-08-06', '18:00', 2),
+        e2Payload('e2-test-fifth-00000001', 'limite.cuatro@example.test', '2026-12-01', '14:00', 2),
         $fourSession
     );
     e2Assert('contacto con cuatro crea quinta', (bool)($fifth['ok'] ?? false));
     $sixth = ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-test-sixth-00000001', 'etapa2.cuatro@example.test', '2098-08-07', '18:00', 2),
+        e2Payload('e2-test-sixth-00000001', 'limite.cuatro@example.test', '2026-12-02', '18:00', 2),
         $fourSession
     );
     e2Same('intento de sexta', $sixth['codigo'] ?? '', ReservacionPublicaService::LIMITE_RESERVACIONES_ALCANZADO);
@@ -505,21 +575,21 @@ try {
     $db->query('UPDATE mesas SET reservable = IF(id = 1, 1, 0)');
     $db->query(
         "INSERT INTO reservaciones
-            (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-             fecha, hora, comensales, estado, verification_expires_at,
+            (nombre, contacto_tipo, contacto,
+             fecha, hora, comensales, estado, hold_expires_at,
              request_token, request_fingerprint)
          VALUES
-            ('Final cancelada', 'final.cancelada@example.test', 'email', 'final.cancelada@example.test',
-             'final.cancelada@example.test', '2098-08-24', '18:00:00', 2, 'cancelada', NULL,
+            ('Final cancelada', 'email',
+             'final.cancelada@example.test', '2026-12-03', '14:00:00', 2, 'cancelada', NULL,
              'e2-final-cancelada-001', SHA2('e2-final-cancelada-001', 256)),
-            ('Final completada', 'final.completada@example.test', 'email', 'final.completada@example.test',
-             'final.completada@example.test', '2098-08-24', '18:00:00', 2, 'completada', NULL,
+            ('Final completada', 'email',
+             'final.completada@example.test', '2026-12-03', '14:00:00', 2, 'completada', NULL,
              'e2-final-completada-01', SHA2('e2-final-completada-01', 256)),
-            ('Final no show', 'final.noshow@example.test', 'email', 'final.noshow@example.test',
-             'final.noshow@example.test', '2098-08-24', '18:00:00', 2, 'no_show', NULL,
+            ('Final no show', 'email',
+             'final.noshow@example.test', '2026-12-03', '14:00:00', 2, 'no_show', NULL,
              'e2-final-noshow-000001', SHA2('e2-final-noshow-000001', 256)),
-            ('Final expirada', 'final.expirada@example.test', 'email', 'final.expirada@example.test',
-             'final.expirada@example.test', '2098-08-24', '18:00:00', 2, 'expirada', NOW(),
+            ('Final expirada', 'email',
+             'final.expirada@example.test', '2026-12-03', '14:00:00', 2, 'expirada', NOW(),
              'e2-final-expirada-0001', SHA2('e2-final-expirada-0001', 256))"
     );
     $db->query(
@@ -529,8 +599,8 @@ try {
          WHERE request_token LIKE 'e2-final-%'"
     );
     $afterFinalStates = ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-after-final-states-01', 'after.finals@example.test', '2098-08-24', '18:00', 2),
-        ['contact_type' => 'email', 'contact_normalized' => 'after.finals@example.test']
+        e2Payload('e2-after-final-states-01', 'after.finals@example.test', '2026-12-03', '14:00', 2),
+        ['contacto_tipo' => 'email', 'contacto' => 'after.finals@example.test']
     );
     e2Same('estados finales fuera de capacidad', $afterFinalStates['codigo'] ?? '', ReservacionPublicaService::RESERVACION_CONFIRMADA);
     $db->query('UPDATE mesas SET reservable = 1 WHERE tipo = "mesa"');
@@ -538,21 +608,21 @@ try {
     $raceContact = 'etapa2.race.limit@example.test';
     for ($index = 1; $index <= 4; $index++) {
         $token = 'e2-race-limit-seed-' . str_pad((string)$index, 4, '0', STR_PAD_LEFT);
-        $date = '2098-09-' . str_pad((string)$index, 2, '0', STR_PAD_LEFT);
+        $date = ['2026-11-30', '2026-12-01', '2026-12-02', '2026-12-03'][$index - 1];
         $db->query(
             "INSERT INTO reservaciones
-                (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+                (nombre, contacto_tipo, contacto,
                  fecha, hora, comensales, nota, estado, confirmed_at,
                  request_token, request_fingerprint)
              VALUES
-                ('Carrera límite', '{$raceContact}', 'email', '{$raceContact}', '{$raceContact}',
-                 '{$date}', '10:00:00', 2, '', 'confirmada', NOW(),
+                ('Carrera límite', 'email', '{$raceContact}',
+                 '{$date}', '14:00:00', 2, '', 'confirmada', NOW(),
                  '{$token}', SHA2('{$token}', 256))"
         );
     }
     $raceLimit = e2Race($databaseName, [
-        e2Payload('e2-race-limit-create-a', $raceContact, '2098-08-08', '18:00', 2),
-        e2Payload('e2-race-limit-create-b', $raceContact, '2098-08-09', '18:00', 2),
+        e2Payload('e2-race-limit-create-a', $raceContact, '2026-12-01', '18:00', 2),
+        e2Payload('e2-race-limit-create-b', $raceContact, '2026-12-02', '18:00', 2),
     ]);
     $limitSuccess = count(array_filter($raceLimit, static fn(array $r): bool => ($r['ok'] ?? false) === true));
     $limitRejected = count(array_filter($raceLimit, static fn(array $r): bool =>
@@ -562,8 +632,8 @@ try {
 
     $db->query('UPDATE mesas SET reservable = IF(id = 1, 1, 0)');
     $raceCapacity = e2Race($databaseName, [
-        e2Payload('e2-race-capacity-a-01', 'race.capacity.a@example.test', '2098-08-10', '18:00', 2),
-        e2Payload('e2-race-capacity-b-01', 'race.capacity.b@example.test', '2098-08-10', '18:00', 2),
+        e2Payload('e2-race-capacity-a-01', 'race.capacity.a@example.test', '2026-12-03', '16:00', 2),
+        e2Payload('e2-race-capacity-b-01', 'race.capacity.b@example.test', '2026-12-03', '16:00', 2),
     ]);
     $capacitySuccess = count(array_filter($raceCapacity, static fn(array $r): bool => ($r['ok'] ?? false) === true));
     $capacityRejected = count(array_filter($raceCapacity, static fn(array $r): bool =>
@@ -573,14 +643,14 @@ try {
     $db->query('UPDATE mesas SET reservable = 1 WHERE tipo = "mesa"');
 
     $confirmExpireHold = ReservacionPublicaService::crearRetencion(
-        e2Payload('e2-race-confirm-expire-01', 'race.confirm@example.test', '2098-08-26', '18:00', 2)
+        e2Payload('e2-race-confirm-expire-01', 'race.confirm@example.test', '2026-12-01', '20:00', 2)
     );
     $confirmExpireCode = (string)($confirmExpireHold['preview_code'] ?? '');
     $confirmExpireId = (int)$db->query(
         "SELECT id FROM reservaciones WHERE request_token = 'e2-race-confirm-expire-01'"
     )->fetch_assoc()['id'];
     $db->query(
-        "UPDATE reservaciones SET verification_expires_at = NOW()
+        "UPDATE reservaciones SET hold_expires_at = NOW()
          WHERE id = {$confirmExpireId}"
     );
     $confirmExpireRace = e2Race($databaseName, [
@@ -603,11 +673,11 @@ try {
     );
 
     $modifyCancelSession = [
-        'contact_type' => 'email',
-        'contact_normalized' => 'race.modify.cancel@example.test',
+        'contacto_tipo' => 'email',
+        'contacto' => 'race.modify.cancel@example.test',
     ];
     $modifyCancelCreated = ReservacionPublicaService::crearConfirmada(
-        e2Payload('e2-race-modify-cancel-01', 'race.modify.cancel@example.test', '2098-08-27', '18:00', 2),
+        e2Payload('e2-race-modify-cancel-01', 'race.modify.cancel@example.test', '2026-12-02', '19:00', 2),
         $modifyCancelSession
     );
     $modifyCancelId = (int)($modifyCancelCreated['reservation']['id'] ?? 0);
@@ -618,8 +688,8 @@ try {
             'contacto' => 'race.modify.cancel@example.test',
             'reservacion_id' => $modifyCancelId,
             'nombre' => 'Carrera modificada',
-            'fecha' => '2098-08-28',
-            'hora' => '18:00',
+            'fecha' => '2026-12-03',
+            'hora' => '19:00',
             'personas' => 3,
             'notas' => 'Carrera',
         ],

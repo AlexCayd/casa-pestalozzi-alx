@@ -47,13 +47,14 @@ $errorCampo = static function (string $campo) use ($errores): string {
 
 $id = (int)$valor($reservacion, 'id', 0);
 $nombre = (string)$valor($reservacion, 'nombre');
-$email = (string)$valor($reservacion, 'email');
+$contactoTipo = (string)$valor($reservacion, 'contacto_tipo', 'email');
+$contacto = (string)$valor($reservacion, 'contacto');
 $fecha = (string)$valor($reservacion, 'fecha', $fechaActual);
 $hora = \Services\HorarioReservacionService::normalizarHoraCorta((string)$valor($reservacion, 'hora'));
 $comensales = max(1, (int)$valor($reservacion, 'comensales', 2));
 $nota = (string)$valor($reservacion, 'nota');
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
-$estado = (string)$valor($reservacion, 'estado', 'pendiente');
+$estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
@@ -132,9 +133,17 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             </label>
 
             <label>
-                <span>Correo</span>
-                <input type="email" name="email" value="<?php echo $h($email); ?>" maxlength="<?php echo \Services\ReservacionConfig::EMAIL_MAX_CARACTERES; ?>" required data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>>
-                <?php $error = $errorCampo('email'); ?>
+                <span>Tipo de contacto</span>
+                <select name="contacto_tipo" required data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>>
+                    <option value="email" <?php echo $contactoTipo === 'email' ? 'selected' : ''; ?>>Correo</option>
+                    <option value="telefono" <?php echo $contactoTipo === 'telefono' ? 'selected' : ''; ?>>Teléfono</option>
+                </select>
+            </label>
+
+            <label>
+                <span>Contacto</span>
+                <input type="text" name="contacto" value="<?php echo $h($contacto); ?>" maxlength="<?php echo \Services\ReservacionConfig::EMAIL_MAX_CARACTERES; ?>" required data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>>
+                <?php $error = $errorCampo('contacto'); ?>
                 <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>"><?php echo $h($error); ?></span>
             </label>
 

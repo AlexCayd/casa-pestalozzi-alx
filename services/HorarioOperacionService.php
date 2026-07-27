@@ -7,7 +7,6 @@ use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
 use Model\Reservacion;
-use Model\ReservacionEvento;
 
 class HorarioOperacionService
 {
@@ -123,7 +122,6 @@ class HorarioOperacionService
                 ];
             }
 
-            $proyecciones = [];
             foreach ($validacion['datos'] as $datos) {
                 $horario = new HorarioOperacion($datos);
                 $horario->updated_by = $usuarioId;
@@ -132,41 +130,16 @@ class HorarioOperacionService
                     throw new \RuntimeException('No fue posible guardar uno de los días.');
                 }
 
-                $intervalos = (int)$horario->abierto === 1
-                    ? HorarioReservacionService::generarIntervalos(
-                        (string)$horario->hora_apertura,
-                        (string)$horario->hora_cierre
-                    )
-                    : [];
-                HorarioReservacionService::sincronizarDesdeHorarioOperacion(
-                    $horario,
-                    $intervalos
-                );
-                $proyecciones[] = ['horario' => $horario, 'intervalos' => $intervalos];
             }
 
             self::verificarHorarioCanonico($validacion['datos']);
-            foreach ($proyecciones as $proyeccion) {
-                HorarioReservacionService::verificarProyeccion(
-                    $proyeccion['horario'],
-                    $proyeccion['intervalos']
-                );
-            }
 
             if ($conflictos !== []) {
                 foreach ($conflictos as $conflicto) {
-                    ReservacionEvento::registrar(
+                    self::registrarUltimoCambio(
                         (int)$conflicto['id'],
-                        'cambio_horario_con_conflictos',
-                        (string)$conflicto['estado'],
-                        (string)$conflicto['estado'],
                         $usuarioId,
-                        null,
-                        'Horario semanal confirmado conservando la reservación',
-                        [
-                            'fecha' => $conflicto['fecha'],
-                            'hora' => $conflicto['hora'],
-                        ]
+                        'Horario semanal confirmado conservando la reservación'
                     );
                 }
             }
@@ -307,15 +280,10 @@ class HorarioOperacionService
             }
 
             foreach ($conflictos as $conflicto) {
-                ReservacionEvento::registrar(
+                self::registrarUltimoCambio(
                     (int)$conflicto['id'],
-                    'cambio_horario_con_conflictos',
-                    (string)$conflicto['estado'],
-                    (string)$conflicto['estado'],
                     $usuarioId,
-                    null,
-                    'Excepción confirmada conservando la reservación',
-                    ['fecha' => $conflicto['fecha'], 'hora' => $conflicto['hora']]
+                    'Excepción confirmada conservando la reservación'
                 );
             }
 
@@ -1004,7 +972,7 @@ class HorarioOperacionService
             $errors[] = 'Selecciona una fecha válida.';
         } else {
             $fechaObjeto = self::crearFecha($fecha);
-            $hoy = new DateTimeImmutable('today', ReservacionConfig::timezone());
+            $hoy = ReservacionConfig::ahora()->setTime(0, 0);
             if ($fechaObjeto < $hoy) {
                 $errors[] = 'No puedes registrar una excepción para una fecha anterior al día actual.';
             }
@@ -1103,6 +1071,26 @@ class HorarioOperacionService
     private static function normalizarBooleano($valor): bool
     {
         return in_array($valor, [1, '1', true, 'true', 'on'], true);
+    }
+
+    private static function registrarUltimoCambio(
+        int $reservacionId,
+        ?int $usuarioId,
+        string $motivo
+    ): void {
+        $db = ActiveRecord::getDB();
+        $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
+        $fuente = $usuarioId !== null ? 'personal' : 'sistema';
+        $motivoSql = $db->real_escape_string($motivo);
+        if (!$db->query(
+            "UPDATE reservaciones
+             SET last_modified_by = {$usuarioSql},
+                 last_modified_source = '{$fuente}',
+                 last_change_reason = '{$motivoSql}'
+             WHERE id = {$reservacionId}"
+        )) {
+            throw new \RuntimeException($db->error);
+        }
     }
 
     private static function horaCorta(string $hora): string

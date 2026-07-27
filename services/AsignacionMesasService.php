@@ -345,7 +345,7 @@ class AsignacionMesasService
             $ocupadas[(int)$asignacion['mesa_id']] = [
                 'reservacion_id' => (int)$asignacion['reservacion_id'],
                 'nombre' => (string)$asignacion['nombre'],
-                'email' => (string)$asignacion['email'],
+                'contacto' => (string)$asignacion['contacto'],
                 'hora' => (string)$asignacion['hora'],
                 'comensales' => (int)$asignacion['comensales'],
                 'estado' => (string)$asignacion['estado'],

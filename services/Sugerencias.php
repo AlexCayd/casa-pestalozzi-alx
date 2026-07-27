@@ -180,7 +180,8 @@ class Sugerencias
         $res = Ticket::ejecutarSQL(
             "SELECT t.id, t.comensales, t.hora_apertura, m.nombre AS mesa
                FROM tickets t
-               JOIN mesas m ON m.id = t.mesa_id
+               JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+               JOIN mesas m ON m.id = tm.mesa_id
               WHERE t.id = {$ticketId} AND t.estado = 'abierto'
               LIMIT 1"
         );

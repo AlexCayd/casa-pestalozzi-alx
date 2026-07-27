@@ -7,9 +7,6 @@
 namespace Services;
 
 use DateTimeImmutable;
-use Model\DiaReservacion;
-use Model\HorarioOperacion;
-use Model\HorarioReservacion;
 
 class HorarioReservacionService
 {
@@ -48,96 +45,6 @@ class HorarioReservacionService
         }
 
         return array_keys($intervalos);
-    }
-
-    /**
-     * Sincroniza un día dentro de la transacción abierta por HorarioOperacionService.
-     * No confirma ni revierte la transacción.
-     */
-    public static function sincronizarDesdeHorarioOperacion(
-        HorarioOperacion $horarioOperacion,
-        array $intervalos
-    ): void {
-        $diaSemana = filter_var($horarioOperacion->dia_semana, FILTER_VALIDATE_INT);
-        if ($diaSemana === false || $diaSemana < 0 || $diaSemana > 6) {
-            throw new \DomainException('El día de operación que se intenta sincronizar no es válido.');
-        }
-
-        $diaReservacion = DiaReservacion::obtenerOCrear((int) $diaSemana);
-
-        $abierto = (int) $horarioOperacion->abierto === 1;
-        if ($abierto) {
-            $esperados = self::generarIntervalos(
-                (string) $horarioOperacion->hora_apertura,
-                (string) $horarioOperacion->hora_cierre
-            );
-            $normalizados = self::normalizarIntervalos($intervalos);
-            if ($normalizados !== $esperados) {
-                throw new \DomainException('Los intervalos reservables no coinciden con el horario de operación.');
-            }
-
-            $diaReservacion->actualizarDatosDeOperacion(
-                true,
-                self::normalizarHoraSql((string) $horarioOperacion->hora_apertura),
-                self::normalizarHoraSql((string) $horarioOperacion->hora_cierre)
-            );
-        } else {
-            if ($intervalos !== []) {
-                throw new \DomainException('Un día cerrado no puede contener horarios reservables.');
-            }
-            $diaReservacion->actualizarDatosDeOperacion(false);
-        }
-
-        $diaId = (int) $diaReservacion->id;
-        HorarioReservacion::eliminarPorDiaId($diaId);
-        if ($abierto) {
-            HorarioReservacion::insertarIntervalos($diaId, $intervalos);
-        }
-    }
-
-    /**
-     * Verifica la proyección antes del commit. Un día cerrado debe quedar
-     * inactivo y sin slots; uno abierto debe conservar horas y slots exactos.
-     */
-    public static function verificarProyeccion(
-        HorarioOperacion $horarioOperacion,
-        array $intervalos
-    ): void {
-        $diaSemana = (int)$horarioOperacion->dia_semana;
-        $dia = DiaReservacion::buscarPorDiaSemana($diaSemana);
-        if (!$dia) {
-            throw new \RuntimeException("Falta la proyección legacy del día {$diaSemana}.");
-        }
-
-        $abierto = (int)$horarioOperacion->abierto === 1;
-        if ((bool)$dia->activo !== $abierto) {
-            throw new \RuntimeException("El estado legacy del día {$diaSemana} no coincide.");
-        }
-        if (
-            $abierto
-            && (
-                self::normalizarHoraSql((string)$dia->hora_apertura)
-                    !== self::normalizarHoraSql((string)$horarioOperacion->hora_apertura)
-                || self::normalizarHoraSql((string)$dia->hora_cierre)
-                    !== self::normalizarHoraSql((string)$horarioOperacion->hora_cierre)
-            )
-        ) {
-            throw new \RuntimeException("Las horas legacy del día {$diaSemana} no coinciden.");
-        }
-
-        $persistidos = array_map(
-            static fn($horario): string => self::normalizarHoraSql((string)$horario->hora),
-            HorarioReservacion::buscarPorDiaId((int)$dia->id)
-        );
-        $esperados = self::normalizarIntervalos($intervalos);
-        if ($persistidos !== $esperados) {
-            throw new \RuntimeException("Los slots legacy del día {$diaSemana} no coinciden.");
-        }
-    }
-
-    public static function horariosPorDiaId(int $diaId): array
-    {
-        return HorarioReservacion::buscarPorDiaId($diaId);
     }
 
     public static function filtrarHorariosPasados(string $fecha, array $horarios): array
@@ -212,7 +119,7 @@ class HorarioReservacionService
         }
 
         if ($fecha === self::hoy()) {
-            $horaActual = (new DateTimeImmutable('now', ReservacionConfig::timezone()))->format('H:i');
+            $horaActual = ReservacionConfig::ahora()->format('H:i');
 
             foreach ($horasDisponibles as $hora) {
                 if ($hora >= $horaActual) {
@@ -250,20 +157,7 @@ class HorarioReservacionService
             return true;
         }
 
-        return $horario <= new DateTimeImmutable('now', ReservacionConfig::timezone());
+        return $horario <= ReservacionConfig::ahora();
     }
 
-    private static function normalizarIntervalos(array $intervalos): array
-    {
-        $normalizados = [];
-        foreach ($intervalos as $intervalo) {
-            $hora = self::normalizarHoraSql((string) $intervalo);
-            if ($hora === '' || isset($normalizados[$hora])) {
-                throw new \DomainException('Los intervalos reservables contienen valores inválidos o duplicados.');
-            }
-            $normalizados[$hora] = true;
-        }
-
-        return array_keys($normalizados);
-    }
 }

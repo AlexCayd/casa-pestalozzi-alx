@@ -40,7 +40,8 @@ class AreaController {
                         m.nombre AS mesa_nombre, m.numero AS mesa_numero
                  FROM ticket_items ti
                  JOIN tickets t ON t.id = ti.ticket_id AND t.estado = 'abierto'
-                 JOIN mesas m ON m.id = t.mesa_id
+                 JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+                 JOIN mesas m ON m.id = tm.mesa_id
                  WHERE ti.area_id = {$areaId}
                    AND ti.estado IN ('enviado','en_preparacion','listo')
                  ORDER BY ti.ticket_id ASC, ti.created_at ASC"

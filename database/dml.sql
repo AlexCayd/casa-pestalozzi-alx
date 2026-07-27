@@ -3,56 +3,10 @@
 -- Ejecutar DESPUÉS de ddl.sql. El orden respeta las llaves foráneas.
 
 -- -------------------------------------------------------
--- Días y horarios de reservación
--- -------------------------------------------------------
-
-INSERT INTO dias_reservacion (id, dia_semana, nombre, hora_apertura, hora_cierre) VALUES
-(1, 0, 'Domingo',   '08:30', '19:00'),
-(2, 1, 'Lunes',     '08:30', '15:00'),
-(3, 2, 'Martes',    '08:30', '22:00'),
-(4, 3, 'Miércoles', '08:30', '22:00'),
-(5, 4, 'Jueves',    '08:30', '22:00'),
-(6, 5, 'Viernes',   '08:30', '22:00'),
-(7, 6, 'Sábado',    '08:30', '22:00');
-
--- Domingo (dia_id=1) — cierra 19:00, último slot 18:00
-INSERT INTO horarios_reservacion (dia_id, hora) VALUES
-(1, '09:00'), (1, '10:00'), (1, '11:00'), (1, '12:00'),
-(1, '13:00'), (1, '14:00'), (1, '15:00'), (1, '16:00'),
-(1, '17:00'), (1, '18:00');
-
--- Lunes (dia_id=2) — cierra 15:00, último slot 14:00
-INSERT INTO horarios_reservacion (dia_id, hora) VALUES
-(2, '09:00'), (2, '10:00'), (2, '11:00'), (2, '12:00'),
-(2, '13:00'), (2, '14:00');
-
--- Martes–Sábado (dia_id=3–7) — cierran 22:00, último slot 21:00
-INSERT INTO horarios_reservacion (dia_id, hora) VALUES
-(3, '09:00'), (3, '10:00'), (3, '11:00'), (3, '12:00'), (3, '13:00'),
-(3, '14:00'), (3, '15:00'), (3, '16:00'), (3, '17:00'), (3, '18:00'),
-(3, '19:00'), (3, '20:00'), (3, '21:00'),
-
-(4, '09:00'), (4, '10:00'), (4, '11:00'), (4, '12:00'), (4, '13:00'),
-(4, '14:00'), (4, '15:00'), (4, '16:00'), (4, '17:00'), (4, '18:00'),
-(4, '19:00'), (4, '20:00'), (4, '21:00'),
-
-(5, '09:00'), (5, '10:00'), (5, '11:00'), (5, '12:00'), (5, '13:00'),
-(5, '14:00'), (5, '15:00'), (5, '16:00'), (5, '17:00'), (5, '18:00'),
-(5, '19:00'), (5, '20:00'), (5, '21:00'),
-
-(6, '09:00'), (6, '10:00'), (6, '11:00'), (6, '12:00'), (6, '13:00'),
-(6, '14:00'), (6, '15:00'), (6, '16:00'), (6, '17:00'), (6, '18:00'),
-(6, '19:00'), (6, '20:00'), (6, '21:00'),
-
-(7, '09:00'), (7, '10:00'), (7, '11:00'), (7, '12:00'), (7, '13:00'),
-(7, '14:00'), (7, '15:00'), (7, '16:00'), (7, '17:00'), (7, '18:00'),
-(7, '19:00'), (7, '20:00'), (7, '21:00');
-
 -- Horario efectivo semanal usado por el flujo público. Se mantiene alineado
--- con dias_reservacion para que una instalación limpia no aparezca cerrada.
 INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre) VALUES
 (0, 1, '08:30', '19:00'),
-(1, 1, '08:30', '15:00'),
+(1, 1, '13:00', '22:00'),
 (2, 1, '08:30', '22:00'),
 (3, 1, '08:30', '22:00'),
 (4, 1, '08:30', '22:00'),
@@ -407,37 +361,6 @@ INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
  160.00, NULL, 8);
 
 -- -------------------------------------------------------
--- Reservaciones de ejemplo — escenario viernes 2026-06-19
--- Actualizar la fecha al día actual antes de usar en producción.
--- Al llegar el cliente: abrir ticket a su nombre y eliminar la reserva.
--- -------------------------------------------------------
-
-INSERT INTO reservaciones
-(nombre, email, fecha, hora, comensales, nota, estado)
-VALUES
-('Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-19', '09:00:00', 2, '',                    'pendiente'),
-('Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-19', '12:00:00', 4, 'Alergia: mariscos',   'pendiente'),
-('Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-19', '13:00:00', 6, 'Cumpleanos - pastel', 'pendiente'),
-('Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-06-19', '15:00:00', 2, '',                    'pendiente'),
-('Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-06-19', '19:00:00', 4, 'Reunion de trabajo',  'pendiente'),
-('Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-19', '20:00:00', 5, 'Aniversario',          'pendiente'),
-('Grupo Morales',    'morales@ejemplo.com',   '2026-06-19', '18:00:00', 9, 'Grupo grande',         'pendiente');
-
--- Asignaciones de ejemplo. reservacion_mesas es la unica fuente de mesas.
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-SELECT id, 5, 1 FROM reservaciones WHERE nombre = 'Camila Estrada'
-UNION ALL SELECT id, 3, 1 FROM reservaciones WHERE nombre = 'Javier Montiel'
-UNION ALL SELECT id, 6, 1 FROM reservaciones WHERE nombre = 'Familia Guerrero'
-UNION ALL SELECT id, 7, 2 FROM reservaciones WHERE nombre = 'Familia Guerrero'
-UNION ALL SELECT id, 8, 1 FROM reservaciones WHERE nombre = 'Sofia Pedraza'
-UNION ALL SELECT id, 2, 1 FROM reservaciones WHERE nombre = 'Nicolas Andrade'
-UNION ALL SELECT id, 11, 1 FROM reservaciones WHERE nombre = 'Fernanda & Roque'
-UNION ALL SELECT id, 10, 2 FROM reservaciones WHERE nombre = 'Fernanda & Roque'
-UNION ALL SELECT id, 2, 1 FROM reservaciones WHERE nombre = 'Grupo Morales'
-UNION ALL SELECT id, 4, 2 FROM reservaciones WHERE nombre = 'Grupo Morales'
-UNION ALL SELECT id, 5, 3 FROM reservaciones WHERE nombre = 'Grupo Morales';
-
--- -------------------------------------------------------
 -- Usuarios demo
 -- admin_demo entra en /admin/login con password: Pestalozzi2026
 -- (el resto conserva un bcrypt de prueba sin password conocida)
@@ -474,34 +397,59 @@ UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9v
 -- de lo contrario el JOIN por nombre descarta la fila silenciosamente.
 -- -------------------------------------------------------
 
-INSERT INTO tickets (id, mesa_id, comensales, nombre, hora_apertura, estado, metodo_pago) VALUES
+INSERT INTO tickets (id, comensales, nombre, hora_apertura, estado, metodo_pago) VALUES
 -- Históricos
-(1,  1,  2, 'Camila Estrada',   '2026-06-18 14:05:00', 'cerrado',   'tarjeta'),
-(2,  3,  4, 'Javier Montiel',   '2026-06-18 14:40:00', 'cerrado',   'efectivo'),
-(3,  6,  6, 'Familia Guerrero', '2026-06-18 20:10:00', 'cerrado',   'tarjeta'),
-(5,  2,  4, 'Nicolás Andrade',  '2026-06-18 21:05:00', 'cerrado',   'tarjeta'),
-(7,  5,  3, 'Mesa 5',           '2026-06-18 16:00:00', 'cancelado', 'efectivo'),
-(8,  7,  4, 'Grupo Torres',     '2026-06-18 15:15:00', 'cerrado',   'efectivo'),
+(1, 2, 'Camila Estrada',   '2026-06-18 14:05:00', 'cerrado',   'tarjeta'),
+(2, 4, 'Javier Montiel',   '2026-06-18 14:40:00', 'cerrado',   'efectivo'),
+(3, 6, 'Familia Guerrero', '2026-06-18 20:10:00', 'cerrado',   'tarjeta'),
+(5, 4, 'Nicolás Andrade',  '2026-06-18 21:05:00', 'cerrado',   'tarjeta'),
+(7, 3, 'Mesa 5',           '2026-06-18 16:00:00', 'cancelado', 'efectivo'),
+(8, 4, 'Grupo Torres',     '2026-06-18 15:15:00', 'cerrado',   'efectivo'),
 -- Abiertos ahora — una mesa por ticket, 1 a 45 minutos de antigüedad.
 -- Todos llevan el nombre de quien está sentado: el POS lo muestra en el
 -- encabezado del modal y sin él la mesa sale anónima. Caja y Llevar son la
 -- excepción: no son comensales, son puntos de despacho.
-( 9,  1,  2, 'Ana Villalobos',    NOW() - INTERVAL  3 MINUTE, 'abierto', NULL),
-(10,  2,  4, 'Renata Ibáñez',     NOW() - INTERVAL 41 MINUTE, 'abierto', NULL),
-(11,  3,  3, 'Javier Montiel',    NOW() - INTERVAL 18 MINUTE, 'abierto', NULL),
-(12,  4,  2, 'Diego Lozano',      NOW() - INTERVAL  7 MINUTE, 'abierto', NULL),
-(13,  5,  4, 'Familia Cuevas',    NOW() - INTERVAL 33 MINUTE, 'abierto', NULL),
-(14,  6,  4, 'Familia Guerrero',  NOW() - INTERVAL 22 MINUTE, 'abierto', NULL),
-(15,  7,  3, 'Grupo Salinas',     NOW() - INTERVAL 45 MINUTE, 'abierto', NULL),
-( 4,  8,  2, 'Sofía Pedraza',     NOW() - INTERVAL 12 MINUTE, 'abierto', NULL),
-(16,  9,  2, 'Mauricio Trejo',    NOW() - INTERVAL 29 MINUTE, 'abierto', NULL),
-(17, 10,  4, 'Lucía Bermúdez',    NOW() - INTERVAL  5 MINUTE, 'abierto', NULL),
-( 6, 11,  4, 'Fernanda & Roque',  NOW() - INTERVAL 27 MINUTE, 'abierto', NULL),
-(18, 12,  5, 'Grupo Peralta',     NOW() - INTERVAL 15 MINUTE, 'abierto', NULL),
-(19, 13,  1, 'Caja',              NOW() - INTERVAL  1 MINUTE, 'abierto', NULL),
-(20, 14,  1, 'Llevar',            NOW() - INTERVAL  9 MINUTE, 'abierto', NULL),
-(21, 15,  4, 'Tomás Iriarte',     NOW() - INTERVAL 36 MINUTE, 'abierto', NULL),
-(22, 16,  3, 'Paulina Cortés',    NOW() - INTERVAL 24 MINUTE, 'abierto', NULL);
+(9, 2, 'Ana Villalobos',    NOW() - INTERVAL  3 MINUTE, 'abierto', NULL),
+(10, 4, 'Renata Ibáñez',     NOW() - INTERVAL 41 MINUTE, 'abierto', NULL),
+(11, 3, 'Javier Montiel',    NOW() - INTERVAL 18 MINUTE, 'abierto', NULL),
+(12, 2, 'Diego Lozano',      NOW() - INTERVAL  7 MINUTE, 'abierto', NULL),
+(13, 4, 'Familia Cuevas',    NOW() - INTERVAL 33 MINUTE, 'abierto', NULL),
+(14, 4, 'Familia Guerrero',  NOW() - INTERVAL 22 MINUTE, 'abierto', NULL),
+(15, 3, 'Grupo Salinas',     NOW() - INTERVAL 45 MINUTE, 'abierto', NULL),
+(4, 2, 'Sofía Pedraza',     NOW() - INTERVAL 12 MINUTE, 'abierto', NULL),
+(16, 2, 'Mauricio Trejo',    NOW() - INTERVAL 29 MINUTE, 'abierto', NULL),
+(17, 4, 'Lucía Bermúdez',    NOW() - INTERVAL  5 MINUTE, 'abierto', NULL),
+(6, 4, 'Fernanda & Roque',  NOW() - INTERVAL 27 MINUTE, 'abierto', NULL),
+(18, 5, 'Grupo Peralta',     NOW() - INTERVAL 15 MINUTE, 'abierto', NULL),
+(19, 1, 'Caja',              NOW() - INTERVAL  1 MINUTE, 'abierto', NULL),
+(20, 1, 'Llevar',            NOW() - INTERVAL  9 MINUTE, 'abierto', NULL),
+(21, 4, 'Tomás Iriarte',     NOW() - INTERVAL 36 MINUTE, 'abierto', NULL),
+(22, 3, 'Paulina Cortés',    NOW() - INTERVAL 24 MINUTE, 'abierto', NULL);
+
+
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
+  (1, 1, 1),
+  (2, 3, 1),
+  (3, 6, 1),
+  (5, 2, 1),
+  (7, 5, 1),
+  (8, 7, 1),
+  (9, 1, 1),
+  (10, 2, 1),
+  (11, 3, 1),
+  (12, 4, 1),
+  (13, 5, 1),
+  (14, 6, 1),
+  (15, 7, 1),
+  (4, 8, 1),
+  (16, 9, 1),
+  (17, 10, 1),
+  (6, 11, 1),
+  (18, 12, 1),
+  (19, 13, 1),
+  (20, 14, 1),
+  (21, 15, 1),
+  (22, 16, 1);
 
 -- Items por ticket (definen el total mostrado en /admin/tickets)
 -- created_at de los abiertos va 1-2 min después de su hora_apertura.
@@ -593,70 +541,59 @@ INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantida
 -- HISTORIAL DE CLIENTES RECURRENTES (afinidad para las sugerencias)
 --
 -- El flujo de n8n mide la afinidad con esta cadena:
---     ticket_items -> tickets -> reservaciones (por email)
---     WHERE r.email = '<email>' AND t.estado = 'cerrado'
+--     ticket_items -> tickets
 -- y cuenta UNA VEZ POR VISITA en que el cliente pidio el platillo
 -- (COUNT(*) de filas, no la cantidad). De ahi sale veces_cliente, que pesa
 -- doble en el puntaje: (veces_cliente * 2) + veces_similares.
 --
--- Por eso cada visita necesita su propia reservacion con el MISMO email:
--- sin reservacion_id el ticket no se puede atribuir a un cliente y la
--- afinidad queda en cero. Tres visitas por cliente: el favorito aparece en
--- las 3 (veces_cliente = 3) y el secundario en 2 (veces_cliente = 2).
+-- Tres visitas por cliente: el favorito aparece en las tres y el secundario
+-- en dos.
 --
 -- Los nombres deben coincidir EXACTO con productos.nombre y menu.nombre:
 -- el motor de recomendacion parte de 'menu' y une por nombre.
 -- -------------------------------------------------------
 
--- Reservaciones historicas (ya completadas). Ids explicitos 101+ para no
--- chocar con las del escenario del dia (auto-incrementales).
-INSERT INTO reservaciones (id, nombre, email, fecha, hora, comensales, nota, estado) VALUES
--- Camila Estrada — desayuna sola entre semana
-(101, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-05-08', '09:00:00', 2, '',                   'completada'),
-(102, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-05-22', '09:30:00', 2, '',                   'completada'),
-(103, 'Camila Estrada',   'cestrada@ejemplo.com',  '2026-06-05', '09:00:00', 2, '',                   'completada'),
--- Javier Montiel — comida de oficina, alergia a mariscos
-(104, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-05-11', '14:00:00', 4, 'Alergia: mariscos',  'completada'),
-(105, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-05-27', '14:00:00', 3, 'Alergia: mariscos',  'completada'),
-(106, 'Javier Montiel',   'jmontiel@ejemplo.com',  '2026-06-10', '13:30:00', 4, 'Alergia: mariscos',  'completada'),
--- Familia Guerrero — vienen con ninos
-(107, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-05-09', '13:00:00', 6, 'Mesa con ninos',     'completada'),
-(108, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-05-30', '13:30:00', 5, 'Mesa con ninos',     'completada'),
-(109, 'Familia Guerrero', 'guerrero@ejemplo.com',  '2026-06-13', '13:00:00', 6, 'Cumpleanos',         'completada'),
--- Nicolas Andrade — cenas de trabajo
-(110, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-05-14', '19:00:00', 4, 'Reunion de trabajo', 'completada'),
-(111, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-05-28', '19:30:00', 2, 'Reunion de trabajo', 'completada'),
-(112, 'Nicolas Andrade',  'nandrade@ejemplo.com',  '2026-06-11', '19:00:00', 4, 'Reunion de trabajo', 'completada'),
--- Sofia Pedraza — comida ligera de tarde
-(113, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-05-15', '15:00:00', 2, '',                   'completada'),
-(114, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-05-29', '15:30:00', 2, '',                   'completada'),
-(115, 'Sofia Pedraza',    'spedraza@ejemplo.com',  '2026-06-12', '15:00:00', 3, '',                   'completada'),
--- Fernanda & Roque — pareja, cena para compartir
-(116, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-05-16', '20:00:00', 2, '',                   'completada'),
-(117, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-05-31', '20:30:00', 4, '',                   'completada'),
-(118, 'Fernanda & Roque', 'fernroque@ejemplo.com', '2026-06-14', '20:00:00', 2, 'Aniversario',        'completada');
+-- Tickets cerrados para datos históricos de consumo.
+INSERT INTO tickets (id, comensales, nombre, hora_apertura, estado, metodo_pago) VALUES
+(101, 2, 'Camila Estrada',   '2026-05-08 09:05:00', 'cerrado', 'tarjeta'),
+(102, 2, 'Camila Estrada',   '2026-05-22 09:35:00', 'cerrado', 'tarjeta'),
+(103, 2, 'Camila Estrada',   '2026-06-05 09:05:00', 'cerrado', 'tarjeta'),
+(104, 4, 'Javier Montiel',   '2026-05-11 14:05:00', 'cerrado', 'efectivo'),
+(105, 3, 'Javier Montiel',   '2026-05-27 14:05:00', 'cerrado', 'tarjeta'),
+(106, 4, 'Javier Montiel',   '2026-06-10 13:35:00', 'cerrado', 'efectivo'),
+(107, 6, 'Familia Guerrero', '2026-05-09 13:05:00', 'cerrado', 'tarjeta'),
+(108, 5, 'Familia Guerrero', '2026-05-30 13:35:00', 'cerrado', 'tarjeta'),
+(109, 6, 'Familia Guerrero', '2026-06-13 13:05:00', 'cerrado', 'tarjeta'),
+(110, 4, 'Nicolas Andrade',  '2026-05-14 19:05:00', 'cerrado', 'tarjeta'),
+(111, 2, 'Nicolas Andrade',  '2026-05-28 19:35:00', 'cerrado', 'tarjeta'),
+(112, 4, 'Nicolas Andrade',  '2026-06-11 19:05:00', 'cerrado', 'tarjeta'),
+(113, 2, 'Sofia Pedraza',    '2026-05-15 15:05:00', 'cerrado', 'efectivo'),
+(114, 2, 'Sofia Pedraza',    '2026-05-29 15:35:00', 'cerrado', 'tarjeta'),
+(115, 3, 'Sofia Pedraza',    '2026-06-12 15:05:00', 'cerrado', 'tarjeta'),
+(116, 2, 'Fernanda & Roque', '2026-05-16 20:05:00', 'cerrado', 'tarjeta'),
+(117, 4, 'Fernanda & Roque', '2026-05-31 20:35:00', 'cerrado', 'tarjeta'),
+(118, 2, 'Fernanda & Roque', '2026-06-14 20:05:00', 'cerrado', 'tarjeta');
 
--- Tickets cerrados de esas visitas. reservacion_id es lo que ata el consumo
--- al cliente: es la unica via por la que el motor reconoce al comensal.
-INSERT INTO tickets (id, mesa_id, comensales, nombre, hora_apertura, estado, metodo_pago, reservacion_id) VALUES
-(101,  5, 2, 'Camila Estrada',   '2026-05-08 09:05:00', 'cerrado', 'tarjeta',  101),
-(102,  5, 2, 'Camila Estrada',   '2026-05-22 09:35:00', 'cerrado', 'tarjeta',  102),
-(103,  1, 2, 'Camila Estrada',   '2026-06-05 09:05:00', 'cerrado', 'tarjeta',  103),
-(104,  3, 4, 'Javier Montiel',   '2026-05-11 14:05:00', 'cerrado', 'efectivo', 104),
-(105,  3, 3, 'Javier Montiel',   '2026-05-27 14:05:00', 'cerrado', 'tarjeta',  105),
-(106,  4, 4, 'Javier Montiel',   '2026-06-10 13:35:00', 'cerrado', 'efectivo', 106),
-(107,  6, 6, 'Familia Guerrero', '2026-05-09 13:05:00', 'cerrado', 'tarjeta',  107),
-(108,  6, 5, 'Familia Guerrero', '2026-05-30 13:35:00', 'cerrado', 'tarjeta',  108),
-(109,  7, 6, 'Familia Guerrero', '2026-06-13 13:05:00', 'cerrado', 'tarjeta',  109),
-(110,  2, 4, 'Nicolas Andrade',  '2026-05-14 19:05:00', 'cerrado', 'tarjeta',  110),
-(111,  2, 2, 'Nicolas Andrade',  '2026-05-28 19:35:00', 'cerrado', 'tarjeta',  111),
-(112,  4, 4, 'Nicolas Andrade',  '2026-06-11 19:05:00', 'cerrado', 'tarjeta',  112),
-(113,  8, 2, 'Sofia Pedraza',    '2026-05-15 15:05:00', 'cerrado', 'efectivo', 113),
-(114,  8, 2, 'Sofia Pedraza',    '2026-05-29 15:35:00', 'cerrado', 'tarjeta',  114),
-(115,  9, 3, 'Sofia Pedraza',    '2026-06-12 15:05:00', 'cerrado', 'tarjeta',  115),
-(116, 11, 2, 'Fernanda & Roque', '2026-05-16 20:05:00', 'cerrado', 'tarjeta',  116),
-(117, 10, 4, 'Fernanda & Roque', '2026-05-31 20:35:00', 'cerrado', 'tarjeta',  117),
-(118, 11, 2, 'Fernanda & Roque', '2026-06-14 20:05:00', 'cerrado', 'tarjeta',  118);
+
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
+  (101, 5, 1),
+  (102, 5, 1),
+  (103, 1, 1),
+  (104, 3, 1),
+  (105, 3, 1),
+  (106, 4, 1),
+  (107, 6, 1),
+  (108, 6, 1),
+  (109, 7, 1),
+  (110, 2, 1),
+  (111, 2, 1),
+  (112, 4, 1),
+  (113, 8, 1),
+  (114, 8, 1),
+  (115, 9, 1),
+  (116, 11, 1),
+  (117, 10, 1),
+  (118, 11, 1);
 
 -- Consumo de cada visita. El favorito se repite en las 3 y el secundario en
 -- 2; el resto son acompanamientos que no marcan patron.
@@ -706,28 +643,6 @@ INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantida
 (118, 'Tabla Mixta',              320.00, 'Para Picar',     3, 1, 'entregado', '2026-06-14 20:10:00'),
 (118, 'Aros de Calamar',          210.00, 'Entradas',       3, 1, 'entregado', '2026-06-14 20:10:00');
 
--- Los tickets ABIERTOS de clientes que reservaron tambien se atan a su
--- reservacion: es lo que convierte "Mesa 8" en "Sofia, que ya vino 3 veces".
--- Sin esto el motor no reconoce al comensal en la mesa y sugiere a ciegas,
--- por mas historial que tenga sembrado.
---
--- Cada uno esta sentado en la mesa que reservo (ver reservacion_mesas):
---   Javier -> Mesa 3 · Familia Guerrero -> Mesa 6 · Sofia -> Mesa 8
---   Fernanda & Roque -> Mesa 11
-UPDATE tickets SET reservacion_id = (
-    SELECT id FROM reservaciones WHERE email = 'jmontiel@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
-) WHERE id = 11;
-UPDATE tickets SET reservacion_id = (
-    SELECT id FROM reservaciones WHERE email = 'guerrero@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
-) WHERE id = 14;
-UPDATE tickets SET reservacion_id = (
-    SELECT id FROM reservaciones WHERE email = 'spedraza@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
-) WHERE id = 4;
-UPDATE tickets SET reservacion_id = (
-    SELECT id FROM reservaciones WHERE email = 'fernroque@ejemplo.com' AND fecha = '2026-06-19' LIMIT 1
-) WHERE id = 6;
-
--- -------------------------------------------------------
 -- Feedback de clientes (para /admin/feedback)
 -- Escala 1–5. Referencia tickets cerrados; token_id NULL.
 -- -------------------------------------------------------
@@ -817,385 +732,265 @@ WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
 
 -- -------------------------------------------------------
--- DATOS DE PRUEBA: ACCESO POR CONTACTO — ETAPA 1
--- Permiten validar la consulta de reservaciones después
--- de verificar un correo o teléfono.
+-- ESCENARIOS DE RESERVACIONES: 27 NOVIEMBRE–3 DICIEMBRE 2026
+-- La jornada principal y el reloj reproducible son el 30 de noviembre.
+-- No se siembran códigos OTP; las suites generan hashes efímeros.
 -- -------------------------------------------------------
 
--- Compatibilidad con la siembra histórica: el portal usa exclusivamente
--- contacto_tipo + contacto_normalizado; email se conserva para módulos legacy.
-UPDATE reservaciones
-SET contacto_tipo = 'email',
-    contacto_valor = email,
-    contacto_normalizado = LOWER(TRIM(email))
-WHERE contacto_normalizado IS NULL;
+SET @fecha_historica = '2026-11-27';
+SET @fecha_cerrada = '2026-11-29';
+SET @fecha_principal = '2026-11-30';
+SET @fecha_posterior = '2026-12-01';
+SET @fecha_especial = '2026-12-02';
+SET @fecha_futura = '2026-12-03';
+SET @reloj_prueba = '2026-11-30 12:00:00';
 
--- Caso 1 — etapa1.sin-reservas@example.test
--- No requiere una fila: el OTP acepta contactos válidos aunque aún no tengan
--- reservaciones. El resultado esperado es lista vacía y permiso para crear.
-
--- Caso 2 — una reservación activa por correo.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
-VALUES
-  ('Cliente Una Activa', 'etapa1.una@example.test', 'email',
-   'etapa1.una@example.test', 'etapa1.una@example.test',
-   '2099-08-01', '19:00:00', 4, 'Dato ficticio Etapa 1', 'confirmada');
-
--- Caso 3 — cinco reservaciones activas: alcanza el límite del portal.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
-VALUES
-  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-02', '09:00:00', 2, '', 'pendiente'),
-  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-03', '10:00:00', 2, '', 'confirmada'),
-  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-04', '11:00:00', 3, '', 'pendiente'),
-  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-05', '12:00:00', 4, '', 'confirmada'),
-  ('Cliente Límite', 'etapa1.limite@example.test', 'email', 'etapa1.limite@example.test', 'etapa1.limite@example.test', '2099-08-06', '13:00:00', 5, '', 'pendiente');
-
--- Caso 4 — estados históricos/finales: no cuentan dentro del límite.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
-VALUES
-  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2025-01-10', '10:00:00', 2, '', 'completada'),
-  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2099-08-10', '11:00:00', 2, '', 'cancelada'),
-  ('Cliente Historial', 'etapa1.historial@example.test', 'email', 'etapa1.historial@example.test', 'etapa1.historial@example.test', '2099-08-11', '12:00:00', 2, '', 'no_show');
-
--- Caso 5 — el valor presentado conserva mayúsculas y espacios, mientras la
--- comparación usa la forma canónica en minúsculas y sin espacios externos.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
-VALUES
-  ('Cliente Normalización', 'Etapa1.Normalizada@Example.Test ', 'email',
-   ' Etapa1.Normalizada@Example.Test ', 'etapa1.normalizada@example.test',
-   '2099-08-12', '18:00:00', 2, '', 'pendiente');
-
--- Caso 6 — dos formatos visuales del mismo teléfono convergen a +525512345678.
--- El email ficticio queda solo como compatibilidad con la columna legacy.
-INSERT INTO reservaciones
-  (nombre, email, telefono, contacto_tipo, contacto_valor, contacto_normalizado, fecha, hora, comensales, nota, estado)
-VALUES
-  ('Cliente Teléfono', 'telefono.1@example.test', '+52 (55) 1234-5678', 'telefono',
-   '+52 (55) 1234-5678', '+525512345678', '2099-08-13', '18:30:00', 2, '', 'pendiente'),
-  ('Cliente Teléfono', 'telefono.2@example.test', '+52 55 1234 5678', 'telefono',
-   '+52 55 1234 5678', '+525512345678', '2099-08-14', '19:30:00', 3, '', 'confirmada');
-
--- No se siembran OTP: cada código debe pasar por random_int(), password_hash()
--- y la vista previa controlada por entorno del flujo real.
--- -------------------------------------------------------
--- DATOS DE PRUEBA: GESTIÓN PÚBLICA — ETAPA 2
--- Permiten validar retenciones, creación, límite de cinco,
--- modificación, cancelación e idempotencia.
--- Los OTP se generan durante las pruebas; nunca se siembran códigos ni hashes.
--- -------------------------------------------------------
-
--- Caso 1 — Contacto con cuatro activas.
--- Acción: crear una confirmada adicional. Esperado: alcanza exactamente cinco.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
-   '2099-09-01', '10:00:00', 2, 'Caso 1.1', 'confirmada', NOW(), 'e2-caso1-activa-0001', SHA2('e2-caso1-activa-0001', 256)),
-  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
-   '2099-09-02', '11:00:00', 2, 'Caso 1.2', 'confirmada', NOW(), 'e2-caso1-activa-0002', SHA2('e2-caso1-activa-0002', 256)),
-  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
-   '2099-09-03', '12:00:00', 2, 'Caso 1.3', 'confirmada', NOW(), 'e2-caso1-activa-0003', SHA2('e2-caso1-activa-0003', 256)),
-  ('Etapa 2 Cuatro', 'etapa2.cuatro@example.test', 'email', 'etapa2.cuatro@example.test', 'etapa2.cuatro@example.test',
-   '2099-09-04', '13:00:00', 2, 'Caso 1.4', 'confirmada', NOW(), 'e2-caso1-activa-0004', SHA2('e2-caso1-activa-0004', 256));
-
--- Caso 2 — Contacto con cinco activas.
--- Acción: intentar crear una sexta. Esperado: LIMITE_RESERVACIONES_ALCANZADO.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
-   '2099-09-05', '09:00:00', 2, 'Caso 2.1', 'confirmada', NOW(), 'e2-caso2-activa-0001', SHA2('e2-caso2-activa-0001', 256)),
-  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
-   '2099-09-06', '10:00:00', 2, 'Caso 2.2', 'confirmada', NOW(), 'e2-caso2-activa-0002', SHA2('e2-caso2-activa-0002', 256)),
-  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
-   '2099-09-07', '11:00:00', 2, 'Caso 2.3', 'confirmada', NOW(), 'e2-caso2-activa-0003', SHA2('e2-caso2-activa-0003', 256)),
-  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
-   '2099-09-08', '12:00:00', 2, 'Caso 2.4', 'confirmada', NOW(), 'e2-caso2-activa-0004', SHA2('e2-caso2-activa-0004', 256)),
-  ('Etapa 2 Cinco', 'etapa2.cinco@example.test', 'email', 'etapa2.cinco@example.test', 'etapa2.cinco@example.test',
-   '2099-09-09', '13:00:00', 2, 'Caso 2.5', 'confirmada', NOW(), 'e2-caso2-activa-0005', SHA2('e2-caso2-activa-0005', 256));
-
--- Caso 3 — Retención vigente.
--- Datos: vence en 2099 y tiene mesa. Esperado: ocupa capacidad, no cuenta en el límite.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, verification_expires_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Hold Vigente', 'etapa2.hold@example.test', 'email', 'etapa2.hold@example.test', 'etapa2.hold@example.test',
-   '2099-09-10', '18:00:00', 2, 'Caso 3', 'pendiente_verificacion', '2099-09-10 17:59:59',
-   'e2-caso3-hold-vigente', SHA2('e2-caso3-hold-vigente', 256));
-SET @e2_hold_vigente = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_hold_vigente, 1, 1);
-
--- Caso 4 — Retención vencida.
--- Datos: timestamp vencido y relación histórica. Esperado: no ocupa y puede materializarse como expirada.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, verification_expires_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Hold Vencida', 'etapa2.vencida@example.test', 'email', 'etapa2.vencida@example.test', 'etapa2.vencida@example.test',
-   '2099-09-10', '18:30:00', 2, 'Caso 4', 'pendiente_verificacion', '2020-01-01 00:00:00',
-   'e2-caso4-hold-vencida', SHA2('e2-caso4-hold-vencida', 256));
-SET @e2_hold_vencida = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_hold_vencida, 2, 1);
-
--- Caso 5 — Reservación confirmada modificable.
--- Acción: moverla a otro slot con capacidad. Esperado: cambia datos y asignación atómicamente.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Modificable', 'etapa2.modificar@example.test', 'email', 'etapa2.modificar@example.test', 'etapa2.modificar@example.test',
-   '2099-09-11', '18:00:00', 2, 'Caso 5', 'confirmada', NOW(),
-   'e2-caso5-modificable', SHA2('e2-caso5-modificable', 256));
-SET @e2_modificable = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_modificable, 1, 1);
-
--- Caso 6 — Modificación sin capacidad.
--- Acción: mover Caso 5 a un slot completamente ocupado durante la prueba.
--- Esperado: SIN_DISPONIBILIDAD y conservación de fecha, hora, personas y mesa 1.
-
--- Caso 7 — Reservación cancelable.
--- Acción: cancelar. Esperado: estado cancelada, cancelled_at y capacidad liberada sin borrar la relación.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Cancelable', 'etapa2.cancelar@example.test', 'email', 'etapa2.cancelar@example.test', 'etapa2.cancelar@example.test',
-   '2099-09-12', '18:00:00', 2, 'Caso 7', 'confirmada', NOW(),
-   'e2-caso7-cancelable', SHA2('e2-caso7-cancelable', 256));
-SET @e2_cancelable = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES (@e2_cancelable, 1, 1);
-
--- Caso 8 — Reservación después de la hora.
--- Acción: modificar o cancelar públicamente. Esperado: acción no permitida.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Pasada', 'etapa2.pasada@example.test', 'email', 'etapa2.pasada@example.test', 'etapa2.pasada@example.test',
-   '2025-01-01', '10:00:00', 2, 'Caso 8', 'confirmada', '2024-12-01 10:00:00',
-   'e2-caso8-pasada-0000', SHA2('e2-caso8-pasada-0000', 256));
-
--- Caso 9 — Una mesa. Acción: reservar 2 personas. Esperado: asignación simple.
--- Caso 10 — Dos mesas. Acción: reservar el grupo que cubre una combinación autorizada de dos mesas.
--- Caso 11 — Tres mesas. Acción: reservar 12 personas. Esperado: máximo público de tres mesas.
--- Caso 12 — Grupo de 13. Acción: consultar/crear. Esperado: DATOS_INVALIDOS y contacto directo/WhatsApp.
--- Caso 13 — Dos contactos por la última combinación.
--- Datos: etapa2.carrera.a@example.test y etapa2.carrera.b@example.test.
--- Acción: dos conexiones crean en el mismo slot. Esperado: sólo una confirma capacidad.
--- Caso 14 — Histórica. Acción: contar activas. Esperado: no se incluye aunque esté confirmada.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, request_token, request_fingerprint)
-VALUES
-  ('Etapa 2 Histórica', 'etapa2.historial@example.test', 'email', 'etapa2.historial@example.test', 'etapa2.historial@example.test',
-   '2024-01-01', '12:00:00', 2, 'Caso 14', 'completada', '2023-12-01 10:00:00',
-   'e2-caso14-historica', SHA2('e2-caso14-historica', 256));
-
--- Caso 15 — Contacto telefónico.
--- Acción: crear una retención mediante +525512345678 y generar OTP durante la prueba.
--- Esperado: identidad canónica de teléfono, hash único y confirmación ligada a la retención.
-
--- -------------------------------------------------------
--- DATOS DE PRUEBA: HORARIOS, POS Y CAPACIDAD — ETAPA 3
--- Permiten validar horarios efectivos, reservaciones,
--- tickets abiertos, llegada, tolerancia y servicio.
--- -------------------------------------------------------
-
--- Compatibilidad: proyectar tickets históricos a la relación N:M.
-INSERT IGNORE INTO ticket_mesas (ticket_id, mesa_id, orden)
-SELECT id, mesa_id, 1 FROM tickets WHERE mesa_id IS NOT NULL;
-INSERT IGNORE INTO ticket_mesas (ticket_id, mesa_id, orden)
-SELECT id, mesa_secundaria_id, 2 FROM tickets WHERE mesa_secundaria_id IS NOT NULL;
-
--- Horarios 1-2: filas semanales para probar cierre/reapertura y persistencia.
--- La suite cierra y reabre domingo; el DML termina abierto para no contaminar
--- los escenarios acumulativos de Etapas 1 y 2.
-UPDATE horarios_operacion
-SET abierto = 1, hora_apertura = '08:30:00', hora_cierre = '15:00:00'
-WHERE dia_semana = 1;
-UPDATE horarios_operacion
-SET abierto = 1, hora_apertura = '08:30:00', hora_cierre = '19:00:00'
-WHERE dia_semana = 0;
-
--- Horario 3: el especial reemplaza al semanal; último slot 19:00.
 INSERT INTO excepciones_operacion
   (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
 VALUES
-  ('2097-03-04', 'horario_especial', 'Etapa 3 especial',
-   '12:00:00', '20:00:00', 1);
+  (@fecha_cerrada, 'cerrado', 'Cierre de prueba', NULL, NULL, 1),
+  (@fecha_especial, 'horario_especial', 'Horario especial de prueba',
+   '14:00:00', '21:00:00', 1);
 
--- Horario 4: el cierre específico tiene prioridad.
-INSERT INTO excepciones_operacion
-  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
-VALUES
-  ('2097-03-05', 'cerrado', 'Etapa 3 cierre', NULL, NULL, 1);
+-- Cierra los tickets generales abiertos para aislar la jornada controlada.
+UPDATE tickets
+SET estado = 'cerrado',
+    closed_at = COALESCE(closed_at, @reloj_prueba)
+WHERE estado = 'abierto';
 
--- Horarios 5-8: cambio con conflicto, límite 21:00, rechazo 21:30 y persistencia.
+-- Límites por contacto: cero, una, cuatro y cinco activas.
+-- limite.cero@example.test no requiere una fila.
 INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
+   confirmed_at, status_changed_at, last_modified_source,
+   last_change_reason, request_token)
 VALUES
-  ('Etapa 3 Límite Cierre', 'etapa3.horario@example.test', 'email',
-   'etapa3.horario@example.test', 'etapa3.horario@example.test',
-   '2097-03-11', '21:00:00', 2, 'Último inicio válido', 'confirmada', NOW());
-SET @e3_horario_afectado = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_horario_afectado, 1, 1);
+  ('Límite Una', 'email', 'limite.una@example.test',
+   @fecha_principal, '13:00:00', 2, 'Una activa', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-una-0001'),
 
--- POS 9: confirmada. Acción esperada: registrar llegada idempotente.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
-VALUES
-  ('Etapa 3 Confirmada', 'etapa3.confirmada@example.test', 'email',
-   'etapa3.confirmada@example.test', 'etapa3.confirmada@example.test',
-   '2097-03-12', '18:00:00', 4, 'Caso llegada', 'confirmada', NOW());
-SET @e3_confirmada = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_confirmada, 2, 1);
+  ('Límite Cuatro 1', 'email', 'limite.cuatro@example.test',
+   @fecha_principal, '14:30:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-01'),
+  ('Límite Cuatro 2', 'email', 'limite.cuatro@example.test',
+   @fecha_posterior, '15:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-02'),
+  ('Límite Cuatro 3', 'email', 'limite.cuatro@example.test',
+   @fecha_especial, '16:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-03'),
+  ('Límite Cuatro 4', 'email', 'limite.cuatro@example.test',
+   @fecha_futura, '17:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-04'),
 
--- POS 10: llegada anticipada, sin ticket automático.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at)
-VALUES
-  ('Etapa 3 Llegó', 'etapa3.llego@example.test', 'email',
-   'etapa3.llego@example.test', 'etapa3.llego@example.test',
-   '2097-03-12', '19:00:00', 2, 'Llegada anticipada', 'llego', NOW(),
-   '2097-03-12 18:40:00');
-SET @e3_llego = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_llego, 3, 1);
+  ('Límite Cinco 1', 'email', 'limite.cinco@example.test',
+   @fecha_principal, '13:30:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-01'),
+  ('Límite Cinco 2', 'email', 'limite.cinco@example.test',
+   @fecha_principal, '15:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-02'),
+  ('Límite Cinco 3', 'email', 'limite.cinco@example.test',
+   @fecha_posterior, '16:30:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-03'),
+  ('Límite Cinco 4', 'email', 'limite.cinco@example.test',
+   @fecha_especial, '18:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-04'),
+  ('Límite Cinco 5', 'email', 'limite.cinco@example.test',
+   @fecha_futura, '19:30:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-05'),
 
--- POS 11-12: simular reloj dentro y fuera de la tolerancia de 15 minutos.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
-VALUES
-  ('Etapa 3 Tolerancia Vigente', 'etapa3.tolerancia@example.test', 'email',
-   'etapa3.tolerancia@example.test', 'etapa3.tolerancia@example.test',
-   '2097-03-13', '18:00:00', 2, 'Simular 18:10', 'confirmada', NOW()),
-  ('Etapa 3 Tolerancia Vencida', 'etapa3.retrasada@example.test', 'email',
-   'etapa3.retrasada@example.test', 'etapa3.retrasada@example.test',
-   '2097-03-13', '19:00:00', 2, 'Simular 19:16', 'confirmada', NOW());
+  ('Identidad Teléfono', 'telefono', '+525544442026',
+   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-contacto-tel-001'),
+  ('Histórica', 'email', 'historial@example.test',
+   @fecha_historica, '18:00:00', 2, '', 'completada',
+   '2026-11-27 17:50:00', '2026-11-27 19:30:00', 'sistema',
+   'Ticket cerrado', 'fx-historica-000001');
 
--- POS 13: en curso con ticket y dos mesas canónicas.
+-- Retenciones, modificación, cancelación y falta de capacidad.
 INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at, seated_at)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
+   hold_expires_at, confirmed_at, status_changed_at, last_modified_source,
+   last_change_reason, request_token)
 VALUES
-  ('Etapa 3 En Curso', 'etapa3.encurso@example.test', 'email',
-   'etapa3.encurso@example.test', 'etapa3.encurso@example.test',
-   '2097-03-14', '18:00:00', 6, 'Servicio vinculado', 'en_curso', NOW(), NOW(), NOW());
-SET @e3_en_curso = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_en_curso, 4, 1), (@e3_en_curso, 5, 2);
+  ('Retención Vigente', 'email', 'hold.vigente@example.test',
+   @fecha_principal, '17:30:00', 2, '', 'pendiente_verificacion',
+   '2026-11-30 12:05:00', NULL, @reloj_prueba, 'cliente',
+   'Retención creada para verificación', 'fx-hold-vigente-001'),
+  ('Retención Vencida', 'email', 'hold.vencida@example.test',
+   @fecha_principal, '18:00:00', 2, '', 'pendiente_verificacion',
+   '2026-11-30 11:59:59', NULL, @reloj_prueba, 'cliente',
+   'Retención creada para verificación', 'fx-hold-vencida-001'),
+  ('Modificable', 'email', 'modificar@example.test',
+   @fecha_principal, '18:30:00', 2, 'Mover a otra hora', 'confirmada',
+   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-modificable-0001'),
+  ('Cancelable', 'email', 'cancelar@example.test',
+   @fecha_principal, '19:00:00', 2, '', 'confirmada',
+   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-cancelable-0001'),
+  ('Sin Capacidad', 'email', 'sin.capacidad@example.test',
+   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación', 'confirmada',
+   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-sin-capacidad-01'),
+  ('Bloqueo Total', 'email', 'bloqueo@example.test',
+   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas', 'confirmada',
+   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-bloqueo-total-01');
+
+SET @hold_vigente = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vigente-001');
+SET @hold_vencida = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vencida-001');
+SET @modificable = (SELECT id FROM reservaciones WHERE request_token = 'fx-modificable-0001');
+SET @cancelable = (SELECT id FROM reservaciones WHERE request_token = 'fx-cancelable-0001');
+SET @sin_capacidad = (SELECT id FROM reservaciones WHERE request_token = 'fx-sin-capacidad-01');
+SET @bloqueo_total = (SELECT id FROM reservaciones WHERE request_token = 'fx-bloqueo-total-01');
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
+  (@hold_vigente, 1, 1),
+  (@hold_vencida, 2, 1),
+  (@modificable, 3, 1),
+  (@cancelable, 4, 1),
+  (@sin_capacidad, 1, 1),
+  (@bloqueo_total, 1, 1), (@bloqueo_total, 2, 2),
+  (@bloqueo_total, 3, 3), (@bloqueo_total, 4, 4),
+  (@bloqueo_total, 5, 5), (@bloqueo_total, 6, 6),
+  (@bloqueo_total, 7, 7), (@bloqueo_total, 8, 8),
+  (@bloqueo_total, 9, 9), (@bloqueo_total, 10, 10),
+  (@bloqueo_total, 11, 11);
+
+-- Asignaciones de una, dos y tres mesas, más reservas consecutivas.
+INSERT INTO reservaciones
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
+   confirmed_at, status_changed_at, last_modified_source,
+   last_change_reason, request_token)
+VALUES
+  ('Una Mesa', 'email', 'una.mesa@example.test',
+   @fecha_principal, '13:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-una-mesa-000001'),
+  ('Dos Mesas', 'email', 'dos.mesas@example.test',
+   @fecha_principal, '14:30:00', 6, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-dos-mesas-00001'),
+  ('Tres Mesas', 'email', 'tres.mesas@example.test',
+   @fecha_principal, '16:00:00', 10, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-tres-mesas-0001'),
+  ('Cuatro Mesas Administrativa', 'email', 'cuatro.mesas@example.test',
+   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture administrativo', 'fx-cuatro-mesas-001'),
+  ('Consecutiva A', 'email', 'consecutiva@example.test',
+   @fecha_futura, '13:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-a-01'),
+  ('Consecutiva B', 'email', 'consecutiva@example.test',
+   @fecha_futura, '15:00:00', 2, '', 'confirmada',
+   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-b-01');
+
+SET @una_mesa = (SELECT id FROM reservaciones WHERE request_token = 'fx-una-mesa-000001');
+SET @dos_mesas = (SELECT id FROM reservaciones WHERE request_token = 'fx-dos-mesas-00001');
+SET @tres_mesas = (SELECT id FROM reservaciones WHERE request_token = 'fx-tres-mesas-0001');
+SET @cuatro_mesas = (SELECT id FROM reservaciones WHERE request_token = 'fx-cuatro-mesas-001');
+SET @consecutiva_a = (SELECT id FROM reservaciones WHERE request_token = 'fx-consecutiva-a-01');
+SET @consecutiva_b = (SELECT id FROM reservaciones WHERE request_token = 'fx-consecutiva-b-01');
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
+  (@una_mesa, 1, 1),
+  (@dos_mesas, 5, 1), (@dos_mesas, 11, 2),
+  (@tres_mesas, 8, 1), (@tres_mesas, 9, 2), (@tres_mesas, 10, 3),
+  (@cuatro_mesas, 1, 1), (@cuatro_mesas, 2, 2),
+  (@cuatro_mesas, 3, 3), (@cuatro_mesas, 4, 4),
+  (@consecutiva_a, 2, 1), (@consecutiva_b, 2, 1);
+
+-- Estados operativos: llegada, tolerancia, no-show, servicio y cierre.
+INSERT INTO reservaciones
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
+   confirmed_at, arrived_at, completed_at, status_changed_at,
+   last_modified_source, last_change_reason, request_token)
+VALUES
+  ('POS Confirmada', 'email', 'pos.confirmada@example.test',
+   @fecha_principal, '19:30:00', 2, '', 'confirmada',
+   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-pos-confirmada-01'),
+  ('POS Llegó', 'email', 'pos.llego@example.test',
+   @fecha_principal, '20:00:00', 2, '', 'llego',
+   @reloj_prueba, '2026-11-30 19:50:00', NULL, '2026-11-30 19:50:00',
+   'personal', 'Llegada registrada', 'fx-pos-llego-000001'),
+  ('POS En Curso', 'email', 'pos.encurso@example.test',
+   @fecha_principal, '20:00:00', 6, '', 'en_curso',
+   @reloj_prueba, '2026-11-30 19:55:00', NULL, '2026-11-30 20:00:00',
+   'personal', 'Servicio iniciado', 'fx-pos-encurso-001'),
+  ('POS Completada', 'email', 'pos.completa@example.test',
+   @fecha_historica, '18:00:00', 2, '', 'completada',
+   '2026-11-27 17:00:00', '2026-11-27 17:55:00', '2026-11-27 19:30:00',
+   '2026-11-27 19:30:00', 'personal', 'Ticket cerrado', 'fx-pos-completa-001'),
+  ('POS Tolerancia', 'email', 'pos.tolerancia@example.test',
+   @fecha_principal, '20:30:00', 2, '', 'confirmada',
+   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-pos-tolerancia-1'),
+  ('POS No Show', 'email', 'pos.noshow@example.test',
+   @fecha_principal, '19:00:00', 2, '', 'no_show',
+   @reloj_prueba, NULL, NULL, @reloj_prueba, 'personal', 'Tolerancia vencida',
+   'fx-pos-noshow-0001');
+
+SET @pos_confirmada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-confirmada-01');
+SET @pos_llego = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-llego-000001');
+SET @pos_en_curso = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-encurso-001');
+SET @pos_completada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-completa-001');
+SET @pos_tolerancia = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-tolerancia-1');
+SET @pos_noshow = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-noshow-0001');
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
+  (@pos_confirmada, 3, 1),
+  (@pos_llego, 4, 1),
+  (@pos_en_curso, 5, 1), (@pos_en_curso, 6, 2),
+  (@pos_completada, 6, 1),
+  (@pos_tolerancia, 7, 1),
+  (@pos_noshow, 9, 1);
+
 INSERT INTO tickets
-  (mesa_id, mesa_secundaria_id, comensales, nombre, hora_apertura, estado, reservacion_id)
-VALUES (4, 5, 6, 'Etapa 3 En Curso', '2097-03-14 18:00:00', 'abierto', @e3_en_curso);
-SET @e3_ticket_en_curso = LAST_INSERT_ID();
-INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
-VALUES (@e3_ticket_en_curso, 4, 1), (@e3_ticket_en_curso, 5, 2);
+  (comensales, nombre, hora_apertura, closed_at, estado, metodo_pago, reservacion_id)
+VALUES
+  (6, 'POS En Curso', '2026-11-30 20:00:00', NULL, 'abierto', NULL, @pos_en_curso),
+  (2, 'POS Completada', '2026-11-27 18:00:00', '2026-11-27 19:30:00',
+   'cerrado', 'efectivo', @pos_completada);
 
--- POS 14: completada al cerrar el ticket.
+SET @ticket_en_curso = (SELECT id FROM tickets WHERE reservacion_id = @pos_en_curso);
+SET @ticket_completado = (SELECT id FROM tickets WHERE reservacion_id = @pos_completada);
+
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
+  (@ticket_en_curso, 5, 1), (@ticket_en_curso, 6, 2),
+  (@ticket_completado, 6, 1);
+
+-- Walk-in de varias mesas y una reserva futura sobre la misma zona.
+INSERT INTO tickets (comensales, nombre, hora_apertura, estado)
+VALUES
+  (2, 'Walk-in Una Mesa', '2026-11-30 20:10:00', 'abierto'),
+  (6, 'Walk-in Varias Mesas', '2026-11-30 20:15:00', 'abierto');
+
+SET @walkin_una = (
+  SELECT id FROM tickets WHERE nombre = 'Walk-in Una Mesa' ORDER BY id DESC LIMIT 1
+);
+SET @walkin_varias = (
+  SELECT id FROM tickets WHERE nombre = 'Walk-in Varias Mesas' ORDER BY id DESC LIMIT 1
+);
+
+INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
+  (@walkin_una, 10, 1),
+  (@walkin_varias, 1, 1), (@walkin_varias, 11, 2);
+
 INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, arrived_at, seated_at, completed_at)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
+   confirmed_at, status_changed_at, last_modified_source,
+   last_change_reason, request_token)
 VALUES
-  ('Etapa 3 Completada', 'etapa3.completa@example.test', 'email',
-   'etapa3.completa@example.test', 'etapa3.completa@example.test',
-   '2097-03-15', '18:00:00', 2, 'Cierre sincronizado', 'completada',
-   NOW(), NOW(), NOW(), NOW());
-SET @e3_completada = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_completada, 6, 1);
-INSERT INTO tickets
-  (mesa_id, comensales, nombre, hora_apertura, closed_at, estado, metodo_pago, reservacion_id)
-VALUES
-  (6, 2, 'Etapa 3 Completada', '2097-03-15 18:00:00',
-   '2097-03-15 19:30:00', 'cerrado', 'efectivo', @e3_completada);
-SET @e3_ticket_completado = LAST_INSERT_ID();
-INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
-VALUES (@e3_ticket_completado, 6, 1);
+  ('Reserva Futura', 'email', 'pos.futura@example.test',
+   @fecha_posterior, '13:00:00', 2, 'Advertencia de reserva próxima',
+   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-pos-futura-00001'),
+  ('Horario Afectado', 'email', 'horario@example.test',
+   @fecha_principal, '21:00:00', 2, 'Conflicto al adelantar el cierre',
+   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
+   'fx-horario-afectado');
 
--- POS 15-16: cancelada y no-show conservan historial.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at, cancelled_at, no_show_at)
-VALUES
-  ('Etapa 3 Cancelada', 'etapa3.cancelada@example.test', 'email',
-   'etapa3.cancelada@example.test', 'etapa3.cancelada@example.test',
-   '2097-03-16', '18:00:00', 2, 'Cancelación', 'cancelada', NOW(), NOW(), NULL),
-  ('Etapa 3 No Show', 'etapa3.noshow@example.test', 'email',
-   'etapa3.noshow@example.test', 'etapa3.noshow@example.test',
-   '2097-03-16', '19:00:00', 2, 'No-show', 'no_show', NOW(), NULL, NOW());
+SET @reserva_futura = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-futura-00001');
+SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-horario-afectado');
 
--- POS 17-18: asignaciones completas de dos y tres mesas.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
-VALUES
-  ('Etapa 3 Dos Mesas', 'etapa3.dos@example.test', 'email',
-   'etapa3.dos@example.test', 'etapa3.dos@example.test',
-   '2097-03-17', '18:00:00', 6, 'Dos mesas', 'confirmada', NOW()),
-  ('Etapa 3 Tres Mesas', 'etapa3.tres@example.test', 'email',
-   'etapa3.tres@example.test', 'etapa3.tres@example.test',
-   '2097-03-17', '20:00:00', 10, 'Tres mesas', 'confirmada', NOW());
-SET @e3_dos_mesas = LAST_INSERT_ID();
-SET @e3_tres_mesas = @e3_dos_mesas + 1;
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES
-  (@e3_dos_mesas, 7, 1), (@e3_dos_mesas, 8, 2),
-  (@e3_tres_mesas, 9, 1), (@e3_tres_mesas, 10, 2), (@e3_tres_mesas, 11, 3);
-
--- POS 19: walk-in abierto, sin reservación, bloquea capacidad física.
-INSERT INTO tickets (mesa_id, comensales, nombre, hora_apertura, estado)
-VALUES (7, 3, 'Walk-in Etapa 3', NOW(), 'abierto');
-SET @e3_walkin = LAST_INSERT_ID();
-INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
-VALUES (@e3_walkin, 7, 1);
-
--- POS 20: ticket legacy abierto sin fila en ticket_mesas.
-INSERT INTO tickets
-  (mesa_id, mesa_secundaria_id, comensales, nombre, hora_apertura, estado)
-VALUES (8, 9, 5, 'Ticket Legacy Etapa 3', NOW(), 'abierto');
-SET @e3_ticket_legacy = LAST_INSERT_ID();
-
--- POS 21: mesa ocupada ahora y con reservación futura; el mapa muestra ambas.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
-VALUES
-  ('Etapa 3 Próxima Walk-in', 'etapa3.proxima@example.test', 'email',
-   'etapa3.proxima@example.test', 'etapa3.proxima@example.test',
-   DATE_ADD(CURDATE(), INTERVAL 1 DAY), '20:00:00', 2,
-   'No ocultar por ticket', 'confirmada', NOW());
-SET @e3_proxima_walkin = LAST_INSERT_ID();
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_proxima_walkin, 7, 1);
-
--- POS 22: dos reservaciones consecutivas de 90 minutos.
-INSERT INTO reservaciones
-  (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
-   fecha, hora, comensales, nota, estado, confirmed_at)
-VALUES
-  ('Etapa 3 Consecutiva A', 'etapa3.a@example.test', 'email',
-   'etapa3.a@example.test', 'etapa3.a@example.test',
-   '2097-03-18', '18:00:00', 2, 'Primera', 'confirmada', NOW()),
-  ('Etapa 3 Consecutiva B', 'etapa3.b@example.test', 'email',
-   'etapa3.b@example.test', 'etapa3.b@example.test',
-   '2097-03-18', '19:30:00', 2, 'Segunda', 'confirmada', NOW());
-SET @e3_consecutiva_a = LAST_INSERT_ID();
-SET @e3_consecutiva_b = @e3_consecutiva_a + 1;
-INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
-VALUES (@e3_consecutiva_a, 1, 1), (@e3_consecutiva_b, 1, 1);
-
--- POS 23: reservar sobre un ticket abierto debe fallar sin exponer datos POS.
--- POS 24: @e3_horario_afectado documenta el conflicto de cambio de horario.
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
+  (@reserva_futura, 10, 1),
+  (@horario_afectado, 11, 1);

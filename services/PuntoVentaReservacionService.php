@@ -8,7 +8,6 @@ namespace Services;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
-use Model\ReservacionEvento;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 
@@ -37,7 +36,8 @@ final class PuntoVentaReservacionService
         $db = ActiveRecord::getDB();
         $stmt = $db->prepare(
             "SELECT r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado,
-                    r.arrived_at, r.seated_at, r.completed_at, r.no_show_at,
+                    r.arrived_at, r.completed_at, r.status_changed_at,
+                    r.last_modified_by, r.last_modified_source, r.last_change_reason,
                     GROUP_CONCAT(rm.mesa_id ORDER BY rm.orden) AS mesa_ids,
                     GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', ') AS mesas,
                     MAX(t.id) AS ticket_id
@@ -71,13 +71,17 @@ final class PuntoVentaReservacionService
                 'mesas' => (string)($fila['mesas'] ?? ''),
                 'ticket_id' => $fila['ticket_id'] !== null ? (int)$fila['ticket_id'] : null,
                 'arrived_at' => $fila['arrived_at'],
-                'seated_at' => $fila['seated_at'],
                 'completed_at' => $fila['completed_at'],
-                'no_show_at' => $fila['no_show_at'],
+                'status_changed_at' => $fila['status_changed_at'],
+                'last_modified_by' => $fila['last_modified_by'] !== null
+                    ? (int)$fila['last_modified_by']
+                    : null,
+                'last_modified_source' => (string)$fila['last_modified_source'],
+                'last_change_reason' => $fila['last_change_reason'],
                 'tolerancia_hasta' => $limite->format('Y-m-d H:i:s'),
-                'no_show_disponible' => new DateTimeImmutable('now', ReservacionConfig::timezone()) >= $limite,
+                'no_show_disponible' => ReservacionConfig::ahora() >= $limite,
                 'retrasada' => in_array((string)$fila['estado'], ['confirmada', 'llego'], true)
-                    && new DateTimeImmutable('now', ReservacionConfig::timezone()) >= $limite,
+                    && ReservacionConfig::ahora() >= $limite,
             ];
         }
         $stmt->close();
@@ -102,14 +106,12 @@ final class PuntoVentaReservacionService
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
-                "estado = 'llego', arrived_at = COALESCE(arrived_at, NOW())"
-            );
-            ReservacionEvento::registrar(
-                (int)$r['id'],
-                'llegada',
-                'confirmada',
-                'llego',
-                $usuarioId
+                "estado = 'llego',
+                 arrived_at = COALESCE(arrived_at, NOW()),
+                 status_changed_at = NOW(),
+                 last_modified_by = {$usuarioId},
+                 last_modified_source = 'personal',
+                 last_change_reason = 'Llegada registrada'"
             );
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
@@ -178,7 +180,6 @@ final class PuntoVentaReservacionService
 
             $ticketId = self::insertarTicket(
                 $db,
-                $mesaIds,
                 (int)$r['comensales'],
                 (string)$r['nombre'],
                 $reservacionId,
@@ -188,17 +189,11 @@ final class PuntoVentaReservacionService
             self::actualizarReservacion(
                 $db,
                 $reservacionId,
-                "estado = 'en_curso', seated_at = COALESCE(seated_at, NOW())"
-            );
-            ReservacionEvento::registrar(
-                $reservacionId,
-                'inicio_servicio',
-                (string)$r['estado'],
-                'en_curso',
-                $usuarioId,
-                $ticketId,
-                null,
-                ['mesa_ids' => $mesaIds]
+                "estado = 'en_curso',
+                 status_changed_at = NOW(),
+                 last_modified_by = {$usuarioId},
+                 last_modified_source = 'personal',
+                 last_change_reason = 'Servicio iniciado'"
             );
             $db->commit();
             $transaccion = false;
@@ -257,7 +252,7 @@ final class PuntoVentaReservacionService
                 $r['fecha'] . ' ' . $r['hora'],
                 ReservacionConfig::timezone()
             ))->modify('+' . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . ' minutes');
-            $anticipado = new DateTimeImmutable('now', ReservacionConfig::timezone()) < $limite;
+            $anticipado = ReservacionConfig::ahora() < $limite;
             if ($anticipado && (!$override || !$puedeOverride || trim($motivo) === '')) {
                 return [
                     'ok' => false,
@@ -266,19 +261,18 @@ final class PuntoVentaReservacionService
                 ];
             }
 
+            $razon = trim($motivo) !== ''
+                ? trim($motivo)
+                : ($anticipado ? 'No-show anticipado autorizado' : 'Tolerancia vencida');
+            $razon = $db->real_escape_string($razon);
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
-                "estado = 'no_show', no_show_at = COALESCE(no_show_at, NOW()), no_show_by = {$usuarioId}"
-            );
-            ReservacionEvento::registrar(
-                (int)$r['id'],
-                $anticipado ? 'override_no_show' : 'no_show',
-                (string)$r['estado'],
-                'no_show',
-                $usuarioId,
-                null,
-                trim($motivo) !== '' ? trim($motivo) : null
+                "estado = 'no_show',
+                 status_changed_at = NOW(),
+                 last_modified_by = {$usuarioId},
+                 last_modified_source = 'personal',
+                 last_change_reason = '{$razon}'"
             );
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
@@ -302,19 +296,17 @@ final class PuntoVentaReservacionService
                 return ['ok' => false, 'codigo' => self::TICKET_ABIERTO];
             }
 
+            $razon = $db->real_escape_string(
+                trim($motivo) !== '' ? trim($motivo) : 'Cancelación administrativa'
+            );
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
-                "estado = 'cancelada', cancelled_at = COALESCE(cancelled_at, NOW()), cancelled_by = {$usuarioId}"
-            );
-            ReservacionEvento::registrar(
-                (int)$r['id'],
-                'cancelacion',
-                (string)$r['estado'],
-                'cancelada',
-                $usuarioId,
-                null,
-                trim($motivo) !== '' ? trim($motivo) : null
+                "estado = 'cancelada',
+                 status_changed_at = NOW(),
+                 last_modified_by = {$usuarioId},
+                 last_modified_source = 'personal',
+                 last_change_reason = '{$razon}'"
             );
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
@@ -376,7 +368,6 @@ final class PuntoVentaReservacionService
 
             $ticketId = self::insertarTicket(
                 $db,
-                $mesaIds,
                 $comensales,
                 trim((string)($datos['nombre'] ?? '')),
                 null,
@@ -384,15 +375,16 @@ final class PuntoVentaReservacionService
             );
             TicketMesa::insertarTodas($ticketId, $mesaIds);
             if ($warning) {
-                ReservacionEvento::registrar(
+                $razon = $db->real_escape_string(
+                    trim((string)($datos['motivo'] ?? ''))
+                        ?: 'Walk-in aceptado con reservación próxima'
+                );
+                self::actualizarReservacion(
+                    $db,
                     (int)$warning['reservacion_id'],
-                    'override_ocupacion',
-                    null,
-                    null,
-                    $usuarioId,
-                    $ticketId,
-                    trim((string)($datos['motivo'] ?? '')) ?: 'Walk-in aceptado con reservación próxima',
-                    ['mesa_ids' => $mesaIds, 'hora_reservacion' => $warning['hora']]
+                    "last_modified_by = {$usuarioId},
+                     last_modified_source = 'personal',
+                     last_change_reason = '{$razon}'"
                 );
             }
             $db->commit();
@@ -491,15 +483,12 @@ final class PuntoVentaReservacionService
                 self::actualizarReservacion(
                     $db,
                     $reservacionId,
-                    "estado = 'completada', completed_at = COALESCE(completed_at, NOW())"
-                );
-                ReservacionEvento::registrar(
-                    $reservacionId,
-                    'ticket_cerrado',
-                    'en_curso',
-                    'completada',
-                    $usuarioId,
-                    $ticketId
+                    "estado = 'completada',
+                     completed_at = COALESCE(completed_at, NOW()),
+                     status_changed_at = NOW(),
+                     last_modified_by = {$usuarioId},
+                     last_modified_source = 'personal',
+                     last_change_reason = 'Ticket cerrado'"
                 );
             }
             $db->commit();
@@ -532,20 +521,13 @@ final class PuntoVentaReservacionService
         $db = ActiveRecord::getDB();
         $ticket = self::fila(
             "SELECT t.id, t.nombre, t.comensales, t.hora_apertura, t.reservacion_id,
-                    CASE WHEN tm.id IS NULL THEN 1 ELSE 0 END AS legacy
+                    tm.mesa_id
              FROM tickets t
-             LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.mesa_id = {$mesaId}
+             INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.mesa_id = {$mesaId}
              WHERE t.estado = 'abierto'
-               AND (
-                    tm.id IS NOT NULL
-                    OR (
-                        NOT EXISTS (SELECT 1 FROM ticket_mesas x WHERE x.ticket_id = t.id)
-                        AND (t.mesa_id = {$mesaId} OR t.mesa_secundaria_id = {$mesaId})
-                    )
-               )
              ORDER BY t.id LIMIT 1"
         );
-        $ahora = new DateTimeImmutable('now', ReservacionConfig::timezone());
+        $ahora = ReservacionConfig::ahora();
         $hasta = $ahora->modify('+1 day')->format('Y-m-d H:i:s');
         $desde = $ahora->modify('-' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes')
             ->format('Y-m-d H:i:s');
@@ -601,7 +583,6 @@ final class PuntoVentaReservacionService
             'codigo' => self::OK,
             'ticket_abierto' => $ticket ? [
                 'id' => (int)$ticket['id'],
-                'legacy' => (bool)$ticket['legacy'],
                 'reservacion_id' => $ticket['reservacion_id'] !== null ? (int)$ticket['reservacion_id'] : null,
             ] : null,
             'reservacion_actual' => $actual,
@@ -649,23 +630,18 @@ final class PuntoVentaReservacionService
 
     private static function insertarTicket(
         \mysqli $db,
-        array $mesaIds,
         int $comensales,
         string $nombre,
         ?int $reservacionId,
         ?int $meseroId
     ): int {
-        $principal = $mesaIds[0];
-        $secundaria = $mesaIds[1] ?? null;
         $stmt = $db->prepare(
             "INSERT INTO tickets
-                (mesa_id, mesa_secundaria_id, comensales, nombre, estado, reservacion_id, mesero_id)
-             VALUES (?, ?, ?, NULLIF(?, ''), 'abierto', ?, ?)"
+                (comensales, nombre, estado, reservacion_id, mesero_id)
+             VALUES (?, NULLIF(?, ''), 'abierto', ?, ?)"
         );
         $stmt->bind_param(
-            'iiisii',
-            $principal,
-            $secundaria,
+            'isii',
             $comensales,
             $nombre,
             $reservacionId,
@@ -697,22 +673,15 @@ final class PuntoVentaReservacionService
         $resultado->free();
     }
 
-    /** Compatibilidad: revisa N:M y, sólo si falta, ambas columnas legacy. */
     private static function ticketAbiertoEnMesas(\mysqli $db, array $mesaIds): ?array
     {
         $ids = implode(',', array_map('intval', $mesaIds));
         return self::fila(
             "SELECT DISTINCT t.id
              FROM tickets t
-             LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id
+             INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
              WHERE t.estado = 'abierto'
-               AND (
-                    tm.mesa_id IN ({$ids})
-                    OR (
-                        NOT EXISTS (SELECT 1 FROM ticket_mesas x WHERE x.ticket_id = t.id)
-                        AND (t.mesa_id IN ({$ids}) OR t.mesa_secundaria_id IN ({$ids}))
-                    )
-               )
+               AND tm.mesa_id IN ({$ids})
              LIMIT 1 FOR UPDATE"
         );
     }
@@ -729,8 +698,8 @@ final class PuntoVentaReservacionService
     private static function proximaReservacion(\mysqli $db, array $mesaIds): ?array
     {
         $ids = implode(',', array_map('intval', $mesaIds));
-        $ahora = (new DateTimeImmutable('now', ReservacionConfig::timezone()))->format('Y-m-d H:i:s');
-        $limite = (new DateTimeImmutable('now', ReservacionConfig::timezone()))
+        $ahora = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $limite = ReservacionConfig::ahora()
             ->modify('+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes')
             ->format('Y-m-d H:i:s');
         $fila = self::fila(

@@ -5,7 +5,7 @@
 | Etapa 1 | Completada | Identidad y acceso | Conservar |
 | Etapa 2 | Completada | Gestión pública | Conservar |
 | Etapa 3 | Completada | Horarios, POS y capacidad física | Horario canónico, ocupación por tickets e integración operativa implementados y verificados en desarrollo/testing |
-| Etapa 4 | Pendiente | Notificaciones y estabilización | — |
+| Etapa 4 | Preparación temporal completada | Fixtures, reloj de pruebas y estabilización | Jornada reproducible de noviembre/diciembre lista; notificaciones productivas continúan pendientes |
 
 ## Etapa 1 — Identidad por contacto y acceso seguro
 
@@ -47,9 +47,9 @@ Permitir que una persona verifique un correo o teléfono con un código de seis 
 
 ### Decisiones de arquitectura
 
-1. La identidad es la tupla `contacto_tipo + contacto_normalizado`. Correo y teléfono no se fusionan.
-2. El portal consulta exclusivamente `contacto_normalizado`. Los campos `email` y `telefono` se conservan por compatibilidad.
-3. Las altas y ediciones actuales sincronizan `contacto_tipo`, `contacto_valor` y `contacto_normalizado`; el DML hace el backfill de datos legacy.
+1. La identidad es la tupla `contacto_tipo + contacto`. Correo y teléfono no se fusionan.
+2. El portal consulta exclusivamente `contacto`. Los campos `email` y `telefono` se conservan por compatibilidad.
+3. Las altas y ediciones actuales sincronizan `contacto_tipo`, `contacto_valor` y `contacto`; el DML hace el backfill de datos legacy.
 4. El teléfono exige `+52` y diez dígitos. Se eliminan espacios, guiones, paréntesis y puntos, pero nunca se agrega el país implícitamente.
 5. La validación correcta bloquea y consume la fila OTP dentro de una transacción antes de crear la sesión.
 6. La sesión usa `reservation_client` y conserva cualquier sesión administrativa existente.
@@ -64,7 +64,7 @@ Permitir que una persona verifique un correo o teléfono con un código de seis 
 - `telefono`
 - `contacto_tipo`
 - `contacto_valor`
-- `contacto_normalizado`
+- `contacto`
 - índice compuesto por contacto, estado, fecha y hora
 
 `verificaciones_contacto` incorpora:
@@ -351,7 +351,7 @@ La eliminación previa de `storage/.gitignore` sigue siendo ajena a esta impleme
 `reservaciones` incorpora:
 
 - estados `pendiente_verificacion` y `expirada`, conservando `pendiente`;
-- `verification_expires_at`;
+- `hold_expires_at`;
 - `confirmed_at`;
 - `expired_at`;
 - `cancelled_at`;
@@ -373,7 +373,10 @@ No se agregó ninguna columna que pueda contener el OTP plano.
 
 ### DML
 
-Al final de `database/dml.sql` se agregó el bloque “DATOS DE PRUEBA: GESTIÓN PÚBLICA — ETAPA 2” con quince casos comentados:
+Estos casos se incorporaron inicialmente en el bloque “DATOS DE PRUEBA:
+GESTIÓN PÚBLICA — ETAPA 2”. Durante la preparación temporal de Etapa 4 se
+consolidaron en una sola matriz fechada entre el 27 de noviembre y el 3 de
+diciembre de 2026:
 
 1. contacto con cuatro activas;
 2. contacto con cinco activas;
@@ -459,7 +462,7 @@ El contacto enviado por el navegador nunca sustituye al de la sesión y no se ge
 
 ### Límite de cinco
 
-El conteo se repite dentro del lock asesor derivado de `contacto_tipo + contacto_normalizado`. Una retención no incrementa el conteo; la confirmación vuelve a comprobarlo. La carrera real con dos conexiones partiendo de cuatro activas produjo una sola quinta y rechazó la otra solicitud.
+El conteo se repite dentro del lock asesor derivado de `contacto_tipo + contacto`. Una retención no incrementa el conteo; la confirmación vuelve a comprobarlo. La carrera real con dos conexiones partiendo de cuatro activas produjo una sola quinta y rechazó la otra solicitud.
 
 ### Retenciones y expiración
 
@@ -739,7 +742,12 @@ No se crearon migraciones incrementales.
 
 ### DML
 
-Al final de `database/dml.sql` se agregó exactamente la sección “DATOS DE PRUEBA: HORARIOS, POS Y CAPACIDAD — ETAPA 3”. Incluye 24 escenarios comentados con acción y resultado esperado: semana abierta/cerrada, horario especial, cierre, conflicto, límite de última hora, persistencia, llegada, tolerancia, servicio, cierre, cancelación, no-show, dos y tres mesas, walk-in, ticket legacy, reservación futura, consecutivas y conflicto físico.
+Los 24 escenarios originales de horarios, POS y capacidad se consolidaron en
+la matriz temporal de Etapa 4. La matriz conserva semana abierta/cerrada,
+horario especial, conflicto, última hora, llegada, tolerancia, servicio,
+cierre, cancelación, no-show, dos y tres mesas, walk-in, ticket legacy,
+reservación futura, consecutivas y conflicto físico, sin mantener fixtures
+operativos en fechas lejanas.
 
 También se proyectan tickets históricos hacia `ticket_mesas` sin borrar sus columnas legacy. No se agregó ningún OTP plano.
 
@@ -816,3 +824,140 @@ No se integró WhatsApp, correo, SMS, Meta, Twilio ni n8n. No se implementó rec
 ### Veredicto parcial
 
 La Etapa 3 queda completada para desarrollo y testing: existe una fuente canónica de horario, la disponibilidad combina capacidad prometida y ocupación física, y el POS coordina llegada, servicio, cierre, walk-ins y auditoría mediante operaciones transaccionales e idempotentes. Persisten las limitaciones de compatibilidad y pruebas no funcionales indicadas; el módulo no se declara listo para producción y no se avanzó a la Etapa 4.
+
+## Etapa 4 — Ventana temporal de pruebas
+
+### Restricción aplicada
+
+Todos los fixtures nuevos de reservaciones de la Etapa 4 se concentran
+alrededor del 30 de noviembre de 2026 para facilitar las pruebas manuales
+de disponibilidad, horarios, retenciones, POS y cierre de tickets.
+
+La ventana autorizada es del **27 de noviembre al 3 de diciembre de 2026**.
+La fecha principal es `2026-11-30` y el reloj reproducible de las suites es
+`2026-11-30 12:00:00`. El bloque DML incluye además un reloj manual de
+referencia `2026-11-30 20:40:00` para distinguir tolerancia y retenciones.
+
+No se modificaron las fechas de las 45 reservaciones conservadas por la
+migración. Al cerrar esta preparación, la base activa contenía 48 registros:
+los 45 migrados y tres reservaciones confirmadas creadas posteriormente el
+26 de julio. Las tres también se conservaron intactas y no son fixtures de
+Etapa 4. La migración de esquema permanece separada de los datos demo.
+
+### Fechas y horarios
+
+| Fecha | Configuración o uso |
+| --- | --- |
+| `2026-11-27` | Historial reciente y ticket completado |
+| `2026-11-28` | Día abierto alternativo |
+| `2026-11-29` | Cierre por excepción |
+| `2026-11-30` | Jornada principal, lunes de 13:00 a 22:00, último slot 21:00 |
+| `2026-12-01` | Modificación, bloqueo total y reserva futura |
+| `2026-12-02` | Horario especial de 14:00 a 21:00 |
+| `2026-12-03` | Casos futuros, concurrencia y reservaciones consecutivas |
+
+El calendario público no define fecha máxima y puede navegar hasta noviembre
+de 2026. Backend, PHP y MySQL comparten un reloj fijo sólo cuando
+`APP_ENV=testing`; `RESERVATION_TEST_NOW` se ignora en desarrollo y producción.
+
+### Matriz de escenarios DML
+
+| # | Fixture o contacto | Fecha/hora | Mesas | Resultado esperado |
+| --- | --- | --- | --- | --- |
+| 1 | `etapa4.sin-reservas@example.test` | Sin fila | — | Consulta vacía |
+| 2 | `etapa4.una@example.test` | 30 nov, 13:00 | Sin asignación fija | Una activa |
+| 3 | `etapa4.cuatro@example.test` | 30 nov–3 dic | Sin asignación fija | Cuatro activas; permite una quinta |
+| 4 | `etapa4.cinco@example.test` | 30 nov–3 dic | Sin asignación fija | Cinco activas; rechaza una sexta |
+| 5 | `etapa4.historial@example.test` | 27 nov, 18:00 | — | Histórica, no cuenta en el límite |
+| 6 | Contactos `etapa4.*@example.test` | Ventana completa | Según caso | Identidad por correo normalizada |
+| 7 | `+525544442026` | 3 dic, 18:30 | — | Identidad independiente por teléfono |
+| 8 | `etapa4.hold.vigente@example.test` | 30 nov, 17:30 | 1 | Retención vigente hasta `NOW() + 5 minutos` |
+| 9 | `etapa4.hold.vencida@example.test` | 30 nov, 18:00 | 2 | Retención vencida en `NOW() - 1 segundo` |
+| 10 | `etapa4.modificar@example.test` | 30 nov, 18:30 | 3 | Puede moverse al 1 dic, 18:30 |
+| 11 | `etapa4.cancelar@example.test` | 30 nov, 19:00 | 4 | Cancelación lógica y liberación de capacidad |
+| 12 | `etapa4.sin-capacidad@example.test` | 1 dic, 13:00 | 1 | Mover a 20:00 falla por bloqueo de las mesas 1–11 |
+| 13 | `etapa4.unamesa@example.test` | 30 nov, 13:00 | 1 | Asignación simple |
+| 14 | `etapa4.dosmesas@example.test` | 30 nov, 14:30 | 5 y 11 | Combinación de dos mesas |
+| 15 | `etapa4.tresmesas@example.test` | 30 nov, 16:00 | 8, 9 y 10 | Combinación de tres mesas |
+| 16 | Grupo de 12 sobre mesas de capacidad 3 | Mediante suite | — | Requeriría cuatro; se rechaza |
+| 17 | `etapa4.carrera.a@example.test` y `etapa4.carrera.b@example.test` | Mediante suite | Última combinación | Un ganador y un rechazo |
+| 18 | `etapa4.consecutiva@example.test` | 3 dic, 13:00 y 15:00 | 2 | Dos servicios consecutivos sin traslape |
+| 19 | `etapa4.pos.confirmada@example.test` | 30 nov, 19:30 | 3 | Permite registrar llegada |
+| 20 | `etapa4.pos.llego@example.test` | 30 nov, 20:00 | 4 | Llegada registrada sin ticket automático |
+| 21 | `etapa4.pos.encurso@example.test` | 30 nov, 20:00 | 5 y 6 | En curso con ticket abierto |
+| 22 | `etapa4.pos.completa@example.test` | 27 nov, 18:00 | 6 | Reservación y ticket completados |
+| 23 | `etapa4.pos.tolerancia@example.test` | 30 nov, 20:30 | 7 | A las 20:40 sigue dentro de 15 minutos |
+| 24 | `etapa4.pos.retrasada@example.test` | 30 nov, 19:30 | 8 | A las 20:40 está fuera de tolerancia |
+| 25 | `etapa4.pos.noshow@example.test` | 30 nov, 19:00 | 9 | No-show materializado |
+| 26 | `Etapa 4 Walk-in Una Mesa` | 30 nov, 20:10 | 10 | Ticket abierto sin reservación |
+| 27 | `Etapa 4 Walk-in Varias Mesas` | 30 nov, 20:15 | 1 y 11 | Ocupación N:M de walk-in |
+| 28 | `Etapa 4 Ticket Legacy` | 30 nov, 20:20 | 2 y 3 | Compatibilidad sin filas en `ticket_mesas` |
+| 29 | `etapa4.pos.futura@example.test` | 1 dic, 13:00 | 10 | El mapa conserva ocupación actual y reserva futura |
+| 30 | Ticket de `etapa4.pos.encurso@example.test` | 30 nov, 20:00 | 5 y 6 | Cerrar completa la reserva y libera ambas mesas |
+
+No existe ningún OTP fijo en el DML. Los códigos se generan con el flujo real,
+se almacenan como `password_hash()` y las suites modifican exclusivamente sus
+timestamps para probar vigencia y vencimiento.
+
+### Validaciones automatizadas
+
+- Etapa 1: 34 comprobaciones.
+- Etapa 2: 69 comprobaciones, incluida aceptación explícita del 30 de noviembre,
+  navegación del calendario sin fecha máxima, una/dos/tres mesas y concurrencia.
+- Etapa 3: 79 comprobaciones con reloj PHP/MySQL sincronizado, horario especial,
+  cierre, llegada, tolerancia, no-show, tickets, walk-ins y liberación.
+- Ninguna suite contiene fechas de julio, agosto, septiembre u octubre de 2026,
+  ni crea reservaciones fuera de la ventana de Etapa 4.
+
+### Limpieza de los datos Etapa 4
+
+Ejecutar sobre una base demo, verificando antes `SELECT DATABASE()`:
+
+```sql
+START TRANSACTION;
+
+DELETE vc
+FROM verificaciones_contacto vc
+WHERE vc.contacto LIKE 'etapa4.%@example.test'
+   OR vc.contacto = '+525544442026';
+
+DELETE re
+FROM reservacion_eventos re
+INNER JOIN reservaciones r ON r.id = re.reservacion_id
+WHERE r.contacto LIKE 'etapa4.%@example.test'
+   OR r.contacto = '+525544442026';
+
+DELETE tm
+FROM ticket_mesas tm
+INNER JOIN tickets t ON t.id = tm.ticket_id
+LEFT JOIN reservaciones r ON r.id = t.reservacion_id
+WHERE t.nombre LIKE 'Etapa 4%'
+   OR r.contacto LIKE 'etapa4.%@example.test'
+   OR r.contacto = '+525544442026';
+
+DELETE t
+FROM tickets t
+LEFT JOIN reservaciones r ON r.id = t.reservacion_id
+WHERE t.nombre LIKE 'Etapa 4%'
+   OR r.contacto LIKE 'etapa4.%@example.test'
+   OR r.contacto = '+525544442026';
+
+DELETE rm
+FROM reservacion_mesas rm
+INNER JOIN reservaciones r ON r.id = rm.reservacion_id
+WHERE r.contacto LIKE 'etapa4.%@example.test'
+   OR r.contacto = '+525544442026';
+
+DELETE FROM reservaciones
+WHERE contacto LIKE 'etapa4.%@example.test'
+   OR contacto = '+525544442026'
+   OR request_token LIKE 'e4-%';
+
+DELETE FROM excepciones_operacion
+WHERE motivo LIKE 'Etapa 4:%';
+
+COMMIT;
+```
+
+Los contactos de las carreras sólo existen cuando se ejecutan las suites
+desechables, que eliminan automáticamente sus bases al finalizar.

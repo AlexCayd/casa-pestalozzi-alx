@@ -683,7 +683,7 @@
             var highlighted = state.horaSeleccionada && hora === state.horaSeleccionada;
             var dimmed = state.horaSeleccionada && hora !== state.horaSeleccionada;
             var editable = isEditable(reservacion);
-            var estado = String(reservacion.estado || 'pendiente');
+            var estado = String(reservacion.estado || 'confirmada');
 
             return window.OperationalReservationCard.render(reservacion, {
                 hora: hora,
@@ -720,7 +720,7 @@
             }
 
             var editable = isEditable(reservacion);
-            var estado = String(reservacion.estado || 'pendiente');
+            var estado = String(reservacion.estado || 'confirmada');
             var mesaIds = Array.isArray(reservacion.mesa_ids) ? reservacion.mesa_ids : [];
             var capacidad = selectedCapacity();
             var comensales = parseInt(reservacion.comensales || '0', 10);
@@ -741,7 +741,7 @@
                         '<span class="reservations-table__status reservations-table__status--' + esc(estado) + '">' + esc(estadoLabel(estado)) + '</span>' +
                     '</div>' +
                     '<dl class="reservation-operation-panel__facts">' +
-                        '<div class="reservation-operation-panel__fact--wide"><dt>Correo</dt><dd>' + esc(reservacion.email) + '</dd></div>' +
+                        '<div class="reservation-operation-panel__fact--wide"><dt>Contacto</dt><dd>' + esc(reservacion.contacto) + '</dd></div>' +
                         '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
                         '<div><dt>Comensales</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
                         '<div class="reservation-operation-panel__fact--wide"><dt>Mesas actuales</dt><dd>' + esc(mesasActuales) + '</dd></div>' +

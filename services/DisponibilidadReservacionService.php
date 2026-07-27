@@ -113,7 +113,7 @@ final class DisponibilidadReservacionService
         ) as $ticketOcupacion) {
             $mesaId = (int)$ticketOcupacion['mesa_id'];
             $ocupacion[$mesaId] = [
-                'tipo' => !empty($ticketOcupacion['legacy']) ? 'ticket_legacy' : 'ticket',
+                'tipo' => 'ticket',
                 'ticket_id' => (int)$ticketOcupacion['ticket_id'],
                 'reservacion_id' => $ticketOcupacion['reservacion_id'],
                 'liberacion_estimada' => $ticketOcupacion['liberacion_estimada'],

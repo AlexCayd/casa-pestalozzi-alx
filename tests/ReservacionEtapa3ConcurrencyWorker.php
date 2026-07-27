@@ -22,6 +22,10 @@ $db = mysqli_connect(
 );
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $db->query("SET time_zone = '-06:00'");
+$testNow = getenv('RESERVATION_TEST_NOW');
+if (is_string($testNow) && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $testNow) === 1) {
+    $db->query("SET timestamp = UNIX_TIMESTAMP('" . $db->real_escape_string($testNow) . "')");
+}
 ActiveRecord::setDB($db);
 file_put_contents($ready, 'ready');
 while (!is_file($go)) {
@@ -39,6 +43,7 @@ $response = match ($mode) {
             'mesa_ids' => [(int)$payload['mesa_id']],
             'comensales' => 2,
             'nombre' => 'Carrera Etapa 3',
+            'confirmar_advertencia' => true,
         ],
         (int)$payload['usuario_id']
     ),
@@ -70,7 +75,8 @@ $response = match ($mode) {
     })(),
     'reserve' => ReservacionService::crearAdministrativa([
         'nombre' => 'Carrera horario y reservación',
-        'email' => (string)$payload['email'],
+        'contacto_tipo' => 'email',
+        'contacto' => (string)$payload['contacto'],
         'fecha' => (string)$payload['fecha'],
         'hora' => (string)$payload['hora'],
         'comensales' => 2,

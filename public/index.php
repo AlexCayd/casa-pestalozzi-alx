@@ -36,7 +36,6 @@ $router->get('/', [HomeController::class, 'index']);
 
 // Reservaciones
 $router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);
-$router->post('/reservar', [ReservacionController::class, 'crear']);
 $router->get('/api/reservaciones/disponibilidad', [ReservacionController::class, 'disponibilidad']);
 $router->get('/api/operacion/horario-efectivo', [ReservacionController::class, 'horarioEfectivo']);
 $router->post('/api/reservaciones/retencion', [ReservacionController::class, 'retencion']);

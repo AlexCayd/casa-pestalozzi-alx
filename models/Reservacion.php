@@ -8,45 +8,36 @@
 namespace Model;
 
 use Services\ReservacionConfig;
+use Services\ContactoService;
 
 class Reservacion extends ActiveRecord {
     protected static $tabla = 'reservaciones';
-    /** @var array<string, string> Columna de retención detectada por conexión/base. */
-    private static array $columnasVencimientoRetencion = [];
     protected static $columnasDB = [
         'id',
         'nombre',
-        'email',
-        'telefono',
         'contacto_tipo',
-        'contacto_valor',
-        'contacto_normalizado',
+        'contacto',
         'fecha',
         'hora',
         'comensales',
         'nota',
         'request_token',
         'request_fingerprint',
-        'verification_expires_at',
+        'hold_expires_at',
         'confirmed_at',
-        'expired_at',
-        'cancelled_at',
         'arrived_at',
-        'seated_at',
         'completed_at',
-        'no_show_at',
-        'cancelled_by',
-        'no_show_by',
+        'status_changed_at',
+        'last_modified_by',
+        'last_modified_source',
+        'last_change_reason',
         'estado',
     ];
 
     public $id;
     public $nombre;
-    public $email;
-    public $telefono = null;
     public $contacto_tipo = 'email';
-    public $contacto_valor;
-    public $contacto_normalizado;
+    public $contacto;
     public $fecha;
     public $hora;
     public $comensales = 2;
@@ -54,17 +45,15 @@ class Reservacion extends ActiveRecord {
     public $comentario_admin = null;
     public $request_token = null;
     public $request_fingerprint = null;
-    public $verification_expires_at = null;
+    public $hold_expires_at = null;
     public $confirmed_at = null;
-    public $expired_at = null;
-    public $cancelled_at = null;
     public $arrived_at = null;
-    public $seated_at = null;
     public $completed_at = null;
-    public $no_show_at = null;
-    public $cancelled_by = null;
-    public $no_show_by = null;
-    public $estado = 'pendiente';
+    public $status_changed_at = null;
+    public $last_modified_by = null;
+    public $last_modified_source = 'sistema';
+    public $last_change_reason = null;
+    public $estado = 'pendiente_verificacion';
     public $created_at = null;
     // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
     public $mesas_asignadas = '';
@@ -86,7 +75,8 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -105,7 +95,8 @@ class Reservacion extends ActiveRecord {
                   GROUP BY
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -143,15 +134,14 @@ class Reservacion extends ActiveRecord {
      */
     public static function buscarFuturasActivas(string $fechaActual, string $horaActual): array
     {
-        $columnaVencimiento = self::columnaVencimientoRetencion();
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
              WHERE (
-                    estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    estado IN ('confirmada', 'llego', 'en_curso')
                     OR (
                         estado = 'pendiente_verificacion'
-                        AND {$columnaVencimiento} > NOW()
+                        AND hold_expires_at > NOW()
                     )
                   )
                AND (fecha > ? OR (fecha = ? AND hora > ?))
@@ -179,16 +169,15 @@ class Reservacion extends ActiveRecord {
     /** Reservaciones pendientes o confirmadas de una fecha concreta. */
     public static function buscarActivasPorFecha(string $fecha): array
     {
-        $columnaVencimiento = self::columnaVencimientoRetencion();
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
              WHERE fecha = ?
                AND (
-                    estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                    estado IN ('confirmada', 'llego', 'en_curso')
                     OR (
                         estado = 'pendiente_verificacion'
-                        AND {$columnaVencimiento} > NOW()
+                        AND hold_expires_at > NOW()
                     )
                )
              ORDER BY hora ASC, id ASC"
@@ -213,38 +202,6 @@ class Reservacion extends ActiveRecord {
     }
 
     /**
-     * El DDL canónico usa `verification_expires_at`. Una base de desarrollo
-     * histórica usó `confirmacion_expires_at`; esta compatibilidad de lectura
-     * evita que esa diferencia bloquee Configuración y disponibilidad.
-     */
-    public static function columnaVencimientoRetencion(): string
-    {
-        $db = self::getDB();
-        $database = (string)($db->query('SELECT DATABASE() db')->fetch_assoc()['db'] ?? '');
-        $cacheKey = spl_object_id($db) . ':' . $database;
-        if (isset(self::$columnasVencimientoRetencion[$cacheKey])) {
-            return self::$columnasVencimientoRetencion[$cacheKey];
-        }
-
-        foreach (['verification_expires_at', 'confirmacion_expires_at'] as $columna) {
-            $resultado = $db->query(
-                "SELECT COUNT(*) total
-                 FROM information_schema.columns
-                 WHERE table_schema = DATABASE()
-                   AND table_name = 'reservaciones'
-                   AND column_name = '{$columna}'"
-            );
-            if ($resultado && (int)$resultado->fetch_assoc()['total'] === 1) {
-                return self::$columnasVencimientoRetencion[$cacheKey] = $columna;
-            }
-        }
-
-        throw new \RuntimeException(
-            'El esquema de reservaciones no contiene una columna de vencimiento compatible.'
-        );
-    }
-
-    /**
      * Consulta pública de solo lectura por la identidad obtenida de sesión.
      *
      * No acepta mesas, notas ni campos administrativos en el SELECT para que
@@ -262,8 +219,8 @@ class Reservacion extends ActiveRecord {
         $sql = "SELECT id, nombre, fecha, hora, comensales, nota, estado, contacto_tipo
                 FROM reservaciones
                 WHERE contacto_tipo = ?
-                  AND contacto_normalizado = ?
-                  AND estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                  AND contacto = ?
+                  AND estado IN ('confirmada', 'llego', 'en_curso')
                   AND TIMESTAMP(fecha, hora) + INTERVAL " . ReservacionConfig::DURACION_RESERVACION_MINUTOS . " MINUTE
                       > TIMESTAMP(?, ?)
                 ORDER BY fecha ASC, hora ASC, id ASC
@@ -310,8 +267,8 @@ class Reservacion extends ActiveRecord {
         $sql = "SELECT COUNT(*) AS total
                 FROM reservaciones
                 WHERE contacto_tipo = ?
-                  AND contacto_normalizado = ?
-                  AND estado IN ('pendiente', 'confirmada', 'llego', 'en_curso')
+                  AND contacto = ?
+                  AND estado IN ('confirmada', 'llego', 'en_curso')
                   AND TIMESTAMP(fecha, hora) + INTERVAL " . ReservacionConfig::DURACION_RESERVACION_MINUTOS . " MINUTE
                       > TIMESTAMP(?, ?)";
         $stmt = self::getDB()->prepare($sql);
@@ -340,7 +297,8 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -361,7 +319,8 @@ class Reservacion extends ActiveRecord {
         $query .= " GROUP BY
                         r.id,
                         r.nombre,
-                        r.email,
+                        r.contacto_tipo,
+                        r.contacto,
                         r.fecha,
                         r.hora,
                         r.comensales,
@@ -384,7 +343,8 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -402,7 +362,8 @@ class Reservacion extends ActiveRecord {
                   GROUP BY
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -435,7 +396,7 @@ class Reservacion extends ActiveRecord {
 
         $query = "SELECT
                     COUNT(*) AS total,
-                    COALESCE(SUM(estado = 'pendiente'), 0) AS pendientes,
+                    COALESCE(SUM(estado = 'pendiente_verificacion'), 0) AS pendientes,
                     COALESCE(SUM(estado = 'confirmada'), 0) AS confirmadas,
                     COALESCE(SUM(estado = 'completada'), 0) AS completadas,
                     COALESCE(SUM(estado = 'cancelada'), 0) AS canceladas,
@@ -496,7 +457,7 @@ class Reservacion extends ActiveRecord {
 
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
-            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR r.email LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
+            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR r.contacto LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
         }
 
         if (self::fechaValidaAdmin($fechaInicio)) {
@@ -572,10 +533,13 @@ class Reservacion extends ActiveRecord {
         if (!$this->nombre) {
             static::setAlerta('error', 'El nombre es obligatorio');
         }
-        if (!$this->email) {
-            static::setAlerta('error', 'El correo es obligatorio');
-        } elseif (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
-            static::setAlerta('error', 'El correo no tiene un formato válido');
+        try {
+            $this->contacto = ContactoService::normalizar(
+                (string)$this->contacto_tipo,
+                (string)$this->contacto
+            );
+        } catch (\InvalidArgumentException $e) {
+            static::setAlerta('error', $e->getMessage());
         }
         if (!$this->fecha) {
             static::setAlerta('error', 'La fecha es obligatoria');

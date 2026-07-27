@@ -54,7 +54,7 @@ class AdminReservacionController
         $reservacion->fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ReservacionConfig::fechaActual()));
         $reservacion->hora = '';
         $reservacion->comensales = 2;
-        $reservacion->estado = 'pendiente';
+        $reservacion->estado = 'confirmada';
         $reservacion->request_token = ReservacionService::generarRequestToken();
 
         self::renderCreate($reservacion, [], self::alertasResultado($_GET['resultado'] ?? ''), true);
@@ -66,7 +66,10 @@ class AdminReservacionController
             self::redirectToIndex('metodo_invalido');
         }
 
-        $resultado = ReservacionService::crearAdministrativa($_POST);
+        $resultado = ReservacionService::crearAdministrativa(
+            $_POST,
+            (int)($_SESSION['id'] ?? 0) ?: null
+        );
 
         if ($resultado['ok'] ?? false) {
             $id = (int)($resultado['id'] ?? 0);
@@ -130,7 +133,11 @@ class AdminReservacionController
 
     public static function update(Router $router): void
     {
-        $resultado = ReservacionService::actualizarDatos(self::reservacionIdDesdePost(), $_POST);
+        $resultado = ReservacionService::actualizarDatos(
+            self::reservacionIdDesdePost(),
+            $_POST,
+            (int)($_SESSION['id'] ?? 0) ?: null
+        );
 
         if ($resultado['ok'] ?? false) {
             self::redirectBack(self::resultadoActualizacion($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO));
@@ -178,7 +185,11 @@ class AdminReservacionController
     public static function status(): void
     {
         $estado = (string)($_POST['estado'] ?? '');
-        $resultado = ReservacionService::cambiarEstado(self::reservacionIdDesdePost(), $estado);
+        $resultado = ReservacionService::cambiarEstado(
+            self::reservacionIdDesdePost(),
+            $estado,
+            (int)($_SESSION['id'] ?? 0) ?: null
+        );
         self::redirectBack(self::resultadoTransicion($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO));
     }
 
@@ -217,14 +228,15 @@ class AdminReservacionController
         $reservacion = $base ?: new Reservacion();
         $reservacion->id = (int)($post['id'] ?? ($reservacion->id ?? 0));
         $reservacion->nombre = (string)($post['nombre'] ?? '');
-        $reservacion->email = (string)($post['email'] ?? '');
+        $reservacion->contacto_tipo = (string)($post['contacto_tipo'] ?? 'email');
+        $reservacion->contacto = (string)($post['contacto'] ?? '');
         $reservacion->fecha = (string)($post['fecha'] ?? '');
         $reservacion->hora = HorarioReservacionService::normalizarHoraSql((string)($post['hora'] ?? ''));
         $reservacion->comensales = (int)($post['comensales'] ?? 0);
         $reservacion->nota = (string)($post['nota'] ?? ($reservacion->nota ?? ''));
         $reservacion->comentario_admin = (string)($post['comentario_admin'] ?? ($reservacion->comentario_admin ?? ''));
         $reservacion->request_token = (string)($post['request_token'] ?? ($reservacion->request_token ?? ''));
-        $reservacion->estado = (string)($reservacion->estado ?? 'pendiente');
+        $reservacion->estado = (string)($reservacion->estado ?? 'confirmada');
 
         return $reservacion;
     }

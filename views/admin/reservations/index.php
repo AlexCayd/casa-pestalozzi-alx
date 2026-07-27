@@ -251,12 +251,12 @@ foreach ($alertas as $tipo => $mensajes) {
                             <?php
                             $id = (int)$valor($reservacion, 'id', 0);
                             $nombre = (string)$valor($reservacion, 'nombre');
-                            $email = (string)$valor($reservacion, 'email');
+                            $contacto = (string)$valor($reservacion, 'contacto');
                             $fecha = (string)$valor($reservacion, 'fecha');
                             $hora = (string)$valor($reservacion, 'hora');
                             $comensales = (int)$valor($reservacion, 'comensales', 0);
                             $nota = trim((string)$valor($reservacion, 'nota'));
-                            $estado = (string)$valor($reservacion, 'estado', 'pendiente');
+                            $estado = (string)$valor($reservacion, 'estado', 'confirmada');
                             $mesas = trim((string)$valor($reservacion, 'mesas_asignadas'));
                             $mesasCount = (int)$valor($reservacion, 'mesas_count', 0);
                             $mesasDetalle = $mesasListado($mesas);
@@ -281,7 +281,7 @@ foreach ($alertas as $tipo => $mensajes) {
                                 <td class="reservations-table__customer-cell">
                                     <div class="reservations-table__customer">
                                         <strong><?php echo $h($nombre); ?></strong>
-                                        <span><?php echo $h($email); ?></span>
+                                        <span><?php echo $h($contacto); ?></span>
                                     </div>
                                 </td>
                                 <td class="reservations-table__guests-cell">

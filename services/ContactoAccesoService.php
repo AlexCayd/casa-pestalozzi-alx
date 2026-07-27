@@ -44,7 +44,7 @@ class ContactoAccesoService
                 throw new \RuntimeException('No fue posible iniciar la transacción OTP.');
             }
             $transaccion = true;
-            $respuesta = self::emitirCodigoEnTransaccion($tipo, $normalizado, null, null, $provider);
+            $respuesta = self::emitirCodigoEnTransaccion($tipo, $normalizado, null, $provider);
             if (!($respuesta['ok'] ?? false)) {
                 $db->rollback();
                 $transaccion = false;
@@ -137,22 +137,21 @@ class ContactoAccesoService
     /**
      * Emite un OTP dentro de una transacción ya iniciada.
      *
-     * `request_token` identifica la solicitud idempotente; nunca sustituye al
-     * OTP ni es un secreto de autenticación. Sólo se persiste password_hash().
-     *
      * @return array<string, mixed>
      */
     public static function emitirCodigoEnTransaccion(
         string $tipo,
         string $contactoNormalizado,
         ?int $reservacionId = null,
-        ?string $requestToken = null,
         ?ContactNotificationProvider $provider = null
     ): array {
         $reciente = VerificacionContacto::buscarRecienteParaActualizar($tipo, $contactoNormalizado);
         if ($reciente) {
             $creada = new DateTimeImmutable((string)$reciente['created_at'], ReservacionConfig::timezone());
-            if ((time() - $creada->getTimestamp()) < ReservacionConfig::OTP_RESEND_SECONDS) {
+            if (
+                (ReservacionConfig::ahora()->getTimestamp() - $creada->getTimestamp())
+                < ReservacionConfig::OTP_RESEND_SECONDS
+            ) {
                 return [
                     'ok' => false,
                     'codigo' => self::REENVIO_NO_DISPONIBLE,
@@ -168,16 +167,14 @@ class ContactoAccesoService
             throw new \RuntimeException('No fue posible proteger el código.');
         }
 
-        $expiresAt = (new DateTimeImmutable('now', ReservacionConfig::timezone()))
+        $expiresAt = ReservacionConfig::ahora()
             ->modify('+' . ReservacionConfig::OTP_EXPIRATION_MINUTES . ' minutes');
         VerificacionContacto::crearHash(
             $tipo,
             $contactoNormalizado,
             $hash,
             $expiresAt->format('Y-m-d H:i:s'),
-            ReservacionConfig::OTP_MAX_ATTEMPTS,
-            $reservacionId,
-            $requestToken
+            $reservacionId
         );
 
         $provider ??= new DevelopmentContactNotificationProvider();
@@ -229,7 +226,7 @@ class ContactoAccesoService
         }
 
         $attempts = (int)$fila['attempts'];
-        $maxAttempts = (int)$fila['max_attempts'];
+        $maxAttempts = ReservacionConfig::OTP_MAX_ATTEMPTS;
         if ($attempts >= $maxAttempts) {
             return [
                 'ok' => false,
@@ -239,7 +236,7 @@ class ContactoAccesoService
         }
 
         $expira = new DateTimeImmutable((string)$fila['expires_at'], ReservacionConfig::timezone());
-        if ($expira->getTimestamp() <= time()) {
+        if ($expira <= ReservacionConfig::ahora()) {
             return [
                 'ok' => false,
                 'codigo' => self::CODIGO_EXPIRADO,

@@ -22,10 +22,10 @@ class VerificacionContacto extends ActiveRecord
     public static function buscarRecienteParaActualizar(string $tipo, string $contacto): ?array
     {
         $stmt = self::getDB()->prepare(
-            'SELECT id, contacto_tipo, contacto_normalizado, codigo_hash, expires_at,
-                    attempts, max_attempts, used_at, invalidated_at, created_at
+            'SELECT id, contacto_tipo, contacto, codigo_hash, expires_at,
+                    attempts, used_at, invalidated_at, created_at
              FROM verificaciones_contacto
-             WHERE contacto_tipo = ? AND contacto_normalizado = ?
+             WHERE contacto_tipo = ? AND contacto = ?
              ORDER BY id DESC
              LIMIT 1
              FOR UPDATE'
@@ -56,12 +56,11 @@ class VerificacionContacto extends ActiveRecord
         int $reservacionId
     ): ?array {
         $stmt = self::getDB()->prepare(
-            'SELECT id, reservacion_id, request_token, contacto_tipo,
-                    contacto_normalizado, codigo_hash, expires_at, attempts,
-                    max_attempts, used_at, invalidated_at, created_at
+            'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash,
+                    expires_at, attempts, used_at, invalidated_at, created_at
              FROM verificaciones_contacto
              WHERE contacto_tipo = ?
-               AND contacto_normalizado = ?
+               AND contacto = ?
                AND reservacion_id = ?
              ORDER BY id DESC
              LIMIT 1
@@ -91,7 +90,7 @@ class VerificacionContacto extends ActiveRecord
             'UPDATE verificaciones_contacto
              SET invalidated_at = NOW()
              WHERE contacto_tipo = ?
-               AND contacto_normalizado = ?
+               AND contacto = ?
                AND used_at IS NULL
                AND invalidated_at IS NULL'
         );
@@ -116,29 +115,24 @@ class VerificacionContacto extends ActiveRecord
         string $contacto,
         string $codigoHash,
         string $expiresAt,
-        int $maxAttempts,
-        ?int $reservacionId = null,
-        ?string $requestToken = null
+        ?int $reservacionId = null
     ): int {
         $stmt = self::getDB()->prepare(
             'INSERT INTO verificaciones_contacto
-                (reservacion_id, request_token, contacto_tipo,
-                 contacto_normalizado, codigo_hash, expires_at, attempts, max_attempts)
-             VALUES (?, ?, ?, ?, ?, ?, 0, ?)'
+                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at, attempts)
+             VALUES (?, ?, ?, ?, ?, 0)'
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del código.');
         }
 
         $stmt->bind_param(
-            'isssssi',
+            'issss',
             $reservacionId,
-            $requestToken,
             $tipo,
             $contacto,
             $codigoHash,
-            $expiresAt,
-            $maxAttempts
+            $expiresAt
         );
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;

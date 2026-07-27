@@ -172,7 +172,11 @@ class ReservacionOperacionController
         $estado = (string)($_POST['estado'] ?? '');
 
         self::jsonResultadoTransicion(
-            ReservacionService::cambiarEstado(self::reservacionIdOperacionPost(), $estado),
+            ReservacionService::cambiarEstado(
+                self::reservacionIdOperacionPost(),
+                $estado,
+                (int)($_SESSION['id'] ?? 0) ?: null
+            ),
             self::mensajeExitoEstado($estado)
         );
     }
@@ -358,11 +362,11 @@ class ReservacionOperacionController
             return [
                 'id' => (int)($reservacion->id ?? 0),
                 'nombre' => (string)($reservacion->nombre ?? ''),
-                'email' => (string)($reservacion->email ?? ''),
+                'contacto' => (string)($reservacion->contacto ?? ''),
                 'fecha' => (string)($reservacion->fecha ?? ''),
                 'hora' => substr((string)($reservacion->hora ?? ''), 0, 5),
                 'comensales' => (int)($reservacion->comensales ?? 0),
-                'estado' => (string)($reservacion->estado ?? 'pendiente'),
+                'estado' => (string)($reservacion->estado ?? 'confirmada'),
                 'editable' => ReservacionService::puedeEditar($reservacion),
                 'motivo_no_editable' => ReservacionService::codigoNoEditable($reservacion),
                 'mesa_ids' => $mesaIds,

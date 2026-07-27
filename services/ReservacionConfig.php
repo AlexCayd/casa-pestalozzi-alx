@@ -15,7 +15,7 @@ class ReservacionConfig
     public const OTP_EXPIRATION_MINUTES = 5;
     public const OTP_MAX_ATTEMPTS = 5;
     public const OTP_RESEND_SECONDS = 60;
-    public const CLIENT_SESSION_MINUTES = 30;
+    public const CLIENT_SESSION_IDLE_MINUTES = 15;
     public const RESERVATION_HOLD_MINUTES = 5;
     public const MAX_ACTIVE_RESERVATIONS = 5;
     public const MAX_PUBLIC_GUESTS = 12;
@@ -33,7 +33,6 @@ class ReservacionConfig
     public const DURACION_SERVICIO_ESTIMADA_MINUTOS = 120;
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
     public const ESTADO_LABELS = [
-        'pendiente' => 'Pendiente',
         'pendiente_verificacion' => 'Esperando verificación',
         'confirmada' => 'Confirmada',
         'llego' => 'Cliente llegó',
@@ -43,17 +42,16 @@ class ReservacionConfig
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
     ];
-    public const ESTADOS_EDITABLES = ['pendiente', 'pendiente_verificacion', 'confirmada', 'llego'];
+    public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada', 'llego'];
     public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show'];
     /**
      * `pendiente_verificacion` se añade mediante una condición temporal en las
-     * consultas: sólo ocupa mientras verification_expires_at sea futura.
+     * consultas: sólo ocupa mientras hold_expires_at sea futura.
      */
-    public const ESTADOS_OCUPAN_MESA = ['pendiente', 'confirmada', 'llego', 'en_curso'];
+    public const ESTADOS_OCUPAN_MESA = ['confirmada', 'llego', 'en_curso'];
     public const ESTADOS_CUENTAN_LIMITE = ['confirmada'];
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
-        'pendiente',
         'confirmada',
         'llego',
         'en_curso',
@@ -63,7 +61,6 @@ class ReservacionConfig
         'expirada',
     ];
     public const TRANSICIONES = [
-        'pendiente' => ['confirmada', 'completada', 'cancelada', 'no_show'],
         'pendiente_verificacion' => ['confirmada', 'expirada'],
         'confirmada' => ['llego', 'en_curso', 'cancelada', 'no_show'],
         'llego' => ['en_curso', 'cancelada', 'no_show'],
@@ -94,12 +91,43 @@ class ReservacionConfig
 
     public static function fechaActual(): string
     {
-        return (new \DateTimeImmutable('today', self::timezone()))->format('Y-m-d');
+        return self::ahora()->format('Y-m-d');
     }
 
     public static function horaActual(): string
     {
-        return (new \DateTimeImmutable('now', self::timezone()))->format('H:i:s');
+        return self::ahora()->format('H:i:s');
+    }
+
+    /**
+     * Reloj único del módulo. La fecha fija sólo se acepta en testing para que
+     * las suites futuras sean reproducibles sin abrir una vía de configuración
+     * temporal en desarrollo o producción.
+     */
+    public static function ahora(): \DateTimeImmutable
+    {
+        if (self::appEnvironment() === 'testing') {
+            $valor = self::env('RESERVATION_TEST_NOW', '');
+            if ($valor !== '') {
+                $fecha = \DateTimeImmutable::createFromFormat(
+                    '!Y-m-d H:i:s',
+                    $valor,
+                    self::timezone()
+                );
+                $errores = \DateTimeImmutable::getLastErrors();
+                if (
+                    $fecha instanceof \DateTimeImmutable
+                    && ($errores === false
+                        || (($errores['warning_count'] ?? 0) === 0
+                            && ($errores['error_count'] ?? 0) === 0))
+                    && $fecha->format('Y-m-d H:i:s') === $valor
+                ) {
+                    return $fecha;
+                }
+            }
+        }
+
+        return new \DateTimeImmutable('now', self::timezone());
     }
 
     public static function telefonoVisible(): string

@@ -67,11 +67,11 @@ function e3Reservation(mysqli $db, string $date, string $time, int $table, strin
     $name = $db->real_escape_string('Automática Etapa 3 ' . bin2hex(random_bytes(3)));
     $db->query(
         "INSERT INTO reservaciones
-            (nombre, email, contacto_tipo, contacto_valor, contacto_normalizado,
+            (nombre, contacto_tipo, contacto,
              fecha, hora, comensales, estado, confirmed_at)
          VALUES
-            ('{$name}', 'e3.auto@example.test', 'email', 'e3.auto@example.test',
-             'e3.auto@example.test', '{$date}', '{$time}', 2, '{$state}', NOW())"
+            ('{$name}', 'email', 'e3.auto@example.test',
+             '{$date}', '{$time}', 2, '{$state}', NOW())"
     );
     $id = (int)$db->insert_id;
     $db->query("INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES ({$id}, {$table}, 1)");
@@ -136,6 +136,11 @@ try {
     $db->query("CREATE DATABASE `{$databaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $db->select_db($databaseName);
     $db->query("SET time_zone = '-06:00'");
+    $db->query("SET timestamp = UNIX_TIMESTAMP('2026-11-30 12:00:00')");
+    $_ENV['APP_ENV'] = 'testing';
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 12:00:00';
+    putenv('APP_ENV=testing');
+    putenv('RESERVATION_TEST_NOW=2026-11-30 12:00:00');
     $selected = (string)$db->query('SELECT DATABASE() AS db')->fetch_assoc()['db'];
     if ($selected !== $databaseName) {
         throw new RuntimeException('SELECT DATABASE() no coincide con la base desechable.');
@@ -145,13 +150,96 @@ try {
     e3SqlFile($db, __DIR__ . '/../database/dml.sql');
     ActiveRecord::setDB($db);
 
+    $legacyTables = e3Count(
+        $db,
+        "SELECT COUNT(*) total
+         FROM information_schema.tables
+         WHERE table_schema = '{$databaseName}'
+           AND table_name IN ('reservacion_eventos','dias_reservacion','horarios_reservacion')"
+    );
+    e3Same('tablas retiradas no existen', $legacyTables, 0);
+    $legacyReservationColumns = e3Count(
+        $db,
+        "SELECT COUNT(*) total
+         FROM information_schema.columns
+         WHERE table_schema = '{$databaseName}'
+           AND table_name = 'reservaciones'
+           AND column_name IN (
+             'email','telefono','contacto_valor','contacto_normalizado',
+             'verification_expires_at','expired_at','cancelled_at','seated_at',
+             'no_show_at','cancelled_by','no_show_by'
+           )"
+    );
+    e3Same('columnas retiradas de reservaciones no existen', $legacyReservationColumns, 0);
+    $legacyTicketColumns = e3Count(
+        $db,
+        "SELECT COUNT(*) total
+         FROM information_schema.columns
+         WHERE table_schema = '{$databaseName}'
+           AND table_name = 'tickets'
+           AND column_name IN ('mesa_id','mesa_secundaria_id')"
+    );
+    e3Same('columnas retiradas de tickets no existen', $legacyTicketColumns, 0);
+    $legacyOtpColumns = e3Count(
+        $db,
+        "SELECT COUNT(*) total
+         FROM information_schema.columns
+         WHERE table_schema = '{$databaseName}'
+           AND table_name = 'verificaciones_contacto'
+           AND column_name IN ('request_token','max_attempts','updated_at')"
+    );
+    e3Same('columnas OTP redundantes no existen', $legacyOtpColumns, 0);
+    e3Same(
+        'fixtures de reservaciones respetan la ventana temporal',
+        e3Count(
+            $db,
+            "SELECT COUNT(*) total
+             FROM reservaciones
+             WHERE fecha < '2026-11-27' OR fecha > '2026-12-03'"
+        ),
+        0
+    );
+    e3Same(
+        'hold_expires_at existe',
+        e3Count(
+            $db,
+            "SELECT COUNT(*) total FROM information_schema.columns
+             WHERE table_schema = '{$databaseName}'
+               AND table_name = 'reservaciones'
+               AND column_name = 'hold_expires_at'"
+        ),
+        1
+    );
+    e3Same(
+        'campos de último cambio existen',
+        e3Count(
+            $db,
+            "SELECT COUNT(*) total FROM information_schema.columns
+             WHERE table_schema = '{$databaseName}'
+               AND table_name = 'reservaciones'
+               AND column_name IN ('status_changed_at','last_modified_by',
+                                   'last_modified_source','last_change_reason')"
+        ),
+        4
+    );
+    $estadoType = (string)$db->query(
+        "SELECT column_type AS tipo_columna FROM information_schema.columns
+         WHERE table_schema = '{$databaseName}'
+           AND table_name = 'reservaciones'
+           AND column_name = 'estado'"
+    )->fetch_assoc()['tipo_columna'];
+    e3Assert('estado pendiente no forma parte del enum', !str_contains($estadoType, "'pendiente'"));
+    $ddl = (string)file_get_contents(__DIR__ . '/../database/ddl.sql');
+    e3Assert('DDL no usa COMMENT de MySQL', preg_match('/\bCOMMENT\b/i', $ddl) !== 1);
+
     // Horarios.
     $week = HorarioOperacionService::obtenerHorarioSemanal();
     e3Same('leer siete días semanales', count($week), 7);
-    $special = HorarioOperacionService::obtenerHorarioEfectivo('2097-03-04');
+    e3Same('reloj controlado de Etapa 4', ReservacionConfig::fechaActual(), '2026-11-30');
+    $special = HorarioOperacionService::obtenerHorarioEfectivo('2026-12-02');
     e3Same('horario especial tiene prioridad', $special['origen'], 'excepcion');
     e3Same('horario especial abre', $special['abierto'], true);
-    $closed = HorarioOperacionService::obtenerHorarioEfectivo('2097-03-05');
+    $closed = HorarioOperacionService::obtenerHorarioEfectivo('2026-11-29');
     e3Same('excepción de cierre gana', $closed['abierto'], false);
     $slots = HorarioReservacionService::generarIntervalos('12:00', '20:00');
     e3Same('primer slot especial', $slots[0], '12:00:00');
@@ -183,90 +271,49 @@ try {
     e3Assert('crear fila semanal faltante', $missingWeekly['ok']);
     e3Same('fila semanal recreada', e3Count($db, 'SELECT COUNT(*) total FROM horarios_operacion WHERE dia_semana = 6'), 1);
 
-    $db->query('DELETE FROM dias_reservacion WHERE dia_semana = 6');
-    $missingProjection = HorarioOperacionService::guardarHorarioSemanal($reloaded, 1, true);
-    e3Assert('crear día legacy faltante', $missingProjection['ok']);
-    e3Same('día legacy recreado', e3Count($db, 'SELECT COUNT(*) total FROM dias_reservacion WHERE dia_semana = 6'), 1);
-    e3Assert(
-        'slots legacy recreados',
-        e3Count(
-            $db,
-            'SELECT COUNT(*) total
-             FROM horarios_reservacion hr
-             JOIN dias_reservacion dr ON dr.id = hr.dia_id
-             WHERE dr.dia_semana = 6'
-        ) > 0
-    );
-
     $closedWeek = $reloaded;
     $closedWeek[2]['abierto'] = false;
     $closedWeek[2]['hora_apertura'] = '';
     $closedWeek[2]['hora_cierre'] = '';
     e3Assert('cerrar día semanal', HorarioOperacionService::guardarHorarioSemanal($closedWeek, 1, true)['ok']);
     e3Same('día cerrado persiste', HorarioOperacionService::obtenerHorarioSemanal()[2]['abierto'], false);
-    e3Same(
-        'cerrar día elimina slots anteriores',
-        e3Count(
-            $db,
-            'SELECT COUNT(*) total
-             FROM horarios_reservacion hr
-             JOIN dias_reservacion dr ON dr.id = hr.dia_id
-             WHERE dr.dia_semana = 2'
-        ),
-        0
-    );
     e3Assert('reabrir día semanal', HorarioOperacionService::guardarHorarioSemanal($reloaded, 1, true)['ok']);
-    e3Same(
-        'reabrir día regenera slots',
-        e3Count(
-            $db,
-            'SELECT COUNT(*) total
-             FROM horarios_reservacion hr
-             JOIN dias_reservacion dr ON dr.id = hr.dia_id
-             WHERE dr.dia_semana = 2'
-        ),
-        count(HorarioReservacionService::generarIntervalos('10:00', '21:00'))
-    );
 
     $conflictWeek = HorarioOperacionService::obtenerHorarioSemanal();
     $conflictWeek[1]['hora_cierre'] = '20:00';
     $conflict = HorarioOperacionService::guardarHorarioSemanal($conflictWeek, 1, false);
     e3Same('cambio con reservaciones exige confirmación', $conflict['codigo'] ?? '', 'RESERVACIONES_AFECTADAS');
-    e3Assert('reservaciones afectadas no se cancelan', e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE id = @e3_horario_afectado AND estado = 'confirmada'") === 1);
+    e3Assert('reservaciones afectadas no se cancelan', e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE id = @horario_afectado AND estado = 'confirmada'") === 1);
     $confirmed = HorarioOperacionService::guardarHorarioSemanal($conflictWeek, 1, true);
     e3Assert('confirmación administrativa guarda', (bool)$confirmed['ok']);
-    e3Assert('conflicto queda auditado', e3Count($db, "SELECT COUNT(*) total FROM reservacion_eventos WHERE evento = 'cambio_horario_con_conflictos'") > 0);
+    e3Assert(
+        'conflicto conserva último motivo',
+        e3Count(
+            $db,
+            "SELECT COUNT(*) total FROM reservaciones
+             WHERE id = @horario_afectado
+               AND last_modified_source = 'personal'
+               AND last_change_reason IS NOT NULL"
+        ) > 0
+    );
 
-    // Rollback forzado al recalcular la proyección legacy.
-    $beforeRollback = HorarioOperacionService::obtenerHorarioSemanal()[3]['hora_apertura'];
-    $db->query("CREATE TRIGGER e3_fail_slot BEFORE INSERT ON horarios_reservacion FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='rollback e3'");
-    $rollbackWeek = HorarioOperacionService::obtenerHorarioSemanal();
-    $rollbackWeek[3]['hora_apertura'] = '10:30';
-    $rollback = HorarioOperacionService::guardarHorarioSemanal($rollbackWeek, 1, true);
-    $db->query('DROP TRIGGER e3_fail_slot');
-    e3Assert('fallo derivado devuelve error', !$rollback['ok']);
-    e3Same('rollback devuelve código técnico estable', $rollback['codigo'] ?? '', 'ERROR_ACTUALIZACION_HORARIOS');
-    e3Same('rollback conserva horario anterior', HorarioOperacionService::obtenerHorarioSemanal()[3]['hora_apertura'], $beforeRollback);
-
-    // Capacidad con ticket canónico y legacy.
-    $future = '2098-08-04';
-    $db->query("INSERT INTO tickets (mesa_id, comensales, nombre, hora_apertura, estado) VALUES (1, 2, 'Bloqueo futuro', '2098-08-04 17:30:00', 'abierto')");
+    // Capacidad con ticket canónico.
+    $future = '2026-12-03';
+    $db->query("INSERT INTO tickets (comensales, nombre, hora_apertura, estado) VALUES (2, 'Bloqueo futuro', '2026-12-03 17:30:00', 'abierto')");
     $futureTicket = (int)$db->insert_id;
     $db->query("INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ({$futureTicket}, 1, 1)");
     $occupied = TicketMesa::ocupacionAbierta($future, '18:00:00');
     e3Assert('ticket abierto ocupa mesa', in_array(1, array_column($occupied, 'mesa_id'), true));
-    e3Assert('ticket canónico no se marca legacy', empty($occupied[array_search(1, array_column($occupied, 'mesa_id'), true)]['legacy']));
-
-    $db->query("INSERT INTO tickets (mesa_id, comensales, nombre, hora_apertura, estado) VALUES (2, 2, 'Legacy futuro', '2098-08-04 17:30:00', 'abierto')");
-    $legacyTicket = (int)$db->insert_id;
-    $occupiedLegacy = TicketMesa::ocupacionAbierta($future, '18:00:00');
-    $legacyRows = array_values(array_filter($occupiedLegacy, fn(array $r): bool => $r['ticket_id'] === $legacyTicket));
-    e3Assert('ticket legacy participa', count($legacyRows) === 1 && $legacyRows[0]['legacy']);
     e3Assert('walk-in no crea reservación', e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE id = {$futureTicket}") >= 0);
 
     // Flujo POS sobre hoy.
     $today = ReservacionConfig::fechaActual();
-    $db->query("UPDATE tickets SET estado='cerrado', closed_at=NOW() WHERE estado='abierto' AND (mesa_id IN (1,2,3) OR mesa_secundaria_id IN (1,2,3))");
+    $db->query(
+        "UPDATE tickets t
+         INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
+         SET t.estado='cerrado', t.closed_at=NOW()
+         WHERE t.estado='abierto' AND tm.mesa_id IN (1,2,3)"
+    );
     $arrivalId = e3Reservation($db, $today, '23:00:00', 1);
     $arrival = PuntoVentaReservacionService::registrarLlegada($arrivalId, 1);
     e3Assert('registrar llegada', $arrival['ok']);
@@ -413,7 +460,7 @@ try {
         1
     );
 
-    $scheduleDate = '2099-07-27';
+    $scheduleDate = '2026-12-01';
     $scheduleDay = (int)(new DateTimeImmutable($scheduleDate))->format('N');
     $scheduleBeforeRace = HorarioOperacionService::obtenerHorarioSemanal();
     $availableForRace = ReservacionService::obtenerHorariosDisponiblesParaFecha($scheduleDate, true);
@@ -423,7 +470,7 @@ try {
             'mode' => 'reserve',
             'fecha' => $scheduleDate,
             'hora' => (string)($availableForRace['horarios'][0] ?? '12:00:00'),
-            'email' => 'e3.schedule.race@example.test',
+            'contacto' => 'e3.schedule.race@example.test',
             'request_token' => 'e3-schedule-race-0001',
         ],
     ]);
@@ -431,7 +478,7 @@ try {
     e3Same('horario contra creación resuelve fecha cerrada', HorarioOperacionService::obtenerHorarioEfectivo($scheduleDate)['abierto'], false);
     e3Assert(
         'horario contra creación no deja más de una reservación',
-        e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE email='e3.schedule.race@example.test'") <= 1
+        e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE contacto='e3.schedule.race@example.test'") <= 1
     );
     e3Assert('restaurar horario después de carrera', HorarioOperacionService::guardarHorarioSemanal($scheduleBeforeRace, 1, true)['ok']);
 

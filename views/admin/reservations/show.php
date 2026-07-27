@@ -89,13 +89,13 @@ $statusForm = static function (
 
 $id = (int)$valor($reservacion, 'id', 0);
 $nombre = (string)$valor($reservacion, 'nombre');
-$email = (string)$valor($reservacion, 'email');
+$contacto = (string)$valor($reservacion, 'contacto');
 $fecha = (string)$valor($reservacion, 'fecha');
 $hora = (string)$valor($reservacion, 'hora');
 $comensales = (int)$valor($reservacion, 'comensales', 0);
 $nota = trim((string)$valor($reservacion, 'nota'));
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
-$estado = (string)$valor($reservacion, 'estado', 'pendiente');
+$estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $createdAt = (string)$valor($reservacion, 'created_at', '');
 $mesasCount = count($mesasAsignadas);
 $tieneMesa = $mesasCount > 0;
@@ -259,12 +259,6 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                             <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
                             <button type="submit" class="admin-btn admin-btn--secondary" data-reservation-operational-control>Reasignar automaticamente</button>
                         </form>
-
-                        <?php if ($estado === 'pendiente' && $tieneMesa) : ?>
-                            <?php $statusForm($id, 'confirmada', $returnUrl, 'Confirmar', 'admin-btn admin-btn--primary'); ?>
-                        <?php elseif ($estado === 'pendiente' && !$tieneMesa) : ?>
-                            <p class="reservation-detail-actions__hint">Sin mesas asignadas. Asigna al menos una mesa antes de confirmar.</p>
-                        <?php endif; ?>
 
                         <?php $statusForm($id, 'completada', $returnUrl, 'Completar', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como completada?'); ?>
                         <?php $statusForm($id, 'no_show', $returnUrl, 'Marcar no show', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como no show?'); ?>

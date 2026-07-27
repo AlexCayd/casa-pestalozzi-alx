@@ -506,7 +506,7 @@
   flex-shrink: 0;
   align-self: flex-start;
 
-  &--pendiente   { background: rgba(204, 163, 82, .12); color: #d4b06a; }
+  &--pendiente_verificacion   { background: rgba(204, 163, 82, .12); color: #d4b06a; }
   &--confirmada  { background: rgba(95, 125, 86, .2);   color: #8bbf7e; }
   &--cancelada   { background: rgba(180, 60, 40, .15);  color: #e87060; }
 }
@@ -2446,11 +2446,6 @@
 
 .mapa-page .mesa-pin--walk-in {
   outline: 3px double rgba(126, 191, 160, .82);
-  outline-offset: 3px;
-}
-
-.mapa-page .mesa-pin--ticket-legacy {
-  outline: 3px dashed rgba(232, 170, 96, .88);
   outline-offset: 3px;
 }
 

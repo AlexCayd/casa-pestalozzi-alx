@@ -16,7 +16,7 @@ class FeedbackController {
         if ($token && preg_match('/^[a-f0-9]{32}$/', $token)) {
             $tokenEsc = Ticket::escaparString($token);
             $result   = Ticket::ejecutarSQL(
-                "SELECT ft.id, ft.ticket_id, ft.usado, t.nombre, t.mesa_id
+                "SELECT ft.id, ft.ticket_id, ft.usado, t.nombre
                    FROM feedback_tokens ft
                    JOIN tickets t ON t.id = ft.ticket_id
                   WHERE ft.token = '{$tokenEsc}'
