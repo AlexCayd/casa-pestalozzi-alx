@@ -1,0 +1,99 @@
+@charset "UTF-8";
+/*
+ * Módulo Inventario (Ingredientes).
+ * Reutiliza las tarjetas, tablas y formularios compartidos del panel; aquí solo
+ * viven las tarjetas de resumen (KPIs) propias del inventario.
+ */
+.admin-inventario .admin-card {
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.admin-inventario .admin-table-wrap {
+  margin-top: 4px;
+}
+.admin-inventario .admin-inventario__save {
+  white-space: nowrap;
+  min-height: 38px;
+  padding-inline: 18px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* Reabastecimiento rápido: tarjetas verticales de ingredientes bajo mínimo. */
+.admin-restock {
+  margin-bottom: 18px;
+  border-color: rgba(216, 158, 44, 0.4);
+}
+.admin-restock__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.admin-restock__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+}
+.admin-restock__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.admin-restock__name {
+  min-width: 0;
+  flex: 1 1 auto;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-restock__stats {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.admin-restock__min {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.admin-restock__form {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.admin-restock__input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-restock__input input {
+  width: 100%;
+  min-height: 42px;
+  padding-right: 42px;
+}
+.admin-restock__unit {
+  position: absolute;
+  right: 12px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+}
+.admin-restock__add {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

@@ -117,6 +117,41 @@ class AdminMenuController
             $categorias[] = ['nombre' => 'Sin categoría', 'platillos' => $huerfanos];
         }
 
+        // Agrupa los platillos por categoria para un menu editorial por secciones.
+        // Solo se listan platillos visibles; el orden sigue el de las categorias.
+        $categorias = CategoriasMenu::all();
+        $nombresCategoria = [];
+        foreach ($categorias as $categoria) {
+            $nombresCategoria[(int) $categoria->id] = $categoria->nombre;
+        }
+
+        $grupos = [];
+        foreach ($platillos as $platillo) {
+            if (isset($platillo->activo) && (int) $platillo->activo === 0) {
+                continue;
+            }
+            $catId = (int) ($platillo->categoria_id ?? 0);
+            if (!isset($grupos[$catId])) {
+                $grupos[$catId] = [
+                    'nombre' => $nombresCategoria[$catId] ?? 'Otros',
+                    'platillos' => [],
+                ];
+            }
+            $grupos[$catId]['platillos'][] = $platillo;
+        }
+
+        // Reordena los grupos segun el orden de las categorias (los sueltos al final).
+        $gruposOrdenados = [];
+        foreach ($nombresCategoria as $catId => $nombre) {
+            if (isset($grupos[$catId])) {
+                $gruposOrdenados[] = $grupos[$catId];
+                unset($grupos[$catId]);
+            }
+        }
+        foreach ($grupos as $grupo) {
+            $gruposOrdenados[] = $grupo;
+        }
+
         // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
         $projectRoot = realpath(__DIR__ . '/..');
         $fontsDir = str_replace('\\', '/', $projectRoot . '/public/build/fonts');

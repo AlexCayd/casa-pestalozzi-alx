@@ -432,6 +432,11 @@ function initMapa() {
       || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja')));
   }
 
+  // La "Caja" es una zona estática del mapa que abre el corte de caja del día.
+  function esCaja(mesa) {
+    return Boolean(mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja');
+  }
+
   function estadoVisualMapa(mesa, estado) {
     if (!mesaReservable(mesa)) return 'no-reservable';
     if (estado === 'ocupada' || estado === 'con-ticket') return 'ocupada';
@@ -445,8 +450,20 @@ function initMapa() {
     return classes;
   }
 
+  // Comprime el rango de coordenadas [0,100] a [PAD, 100-PAD] para dar aire
+  // entre los pines y el borde del contenedor del mapa (solo en el POS; el
+  // editor de mapa del admin usa map-visual.js sin esta compresión).
+  var MAPA_INSET = 6;
+  function insetPos(v) {
+    var n = parseFloat(v);
+    if (isNaN(n)) return v;
+    return MAPA_INSET + (n * (100 - 2 * MAPA_INSET) / 100);
+  }
+
   function normalizarMesaMapa(mesa) {
     var ticketable = mesaTicketable(mesa);
+    // La Caja no es "ticketable" (no lleva estado de mesa) pero sí es clickeable.
+    var clickable = ticketable || esCaja(mesa);
     var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), sliderMin) : 'zona';
 
     return {
@@ -454,14 +471,14 @@ function initMapa() {
       nombre: mesa.nombre,
       tipo: mesa.tipo,
       estadoVisual: estadoVisualMapa(mesa, estado),
-      x: mesa.pos_x,
-      y: mesa.pos_y,
+      x: insetPos(mesa.pos_x),
+      y: insetPos(mesa.pos_y),
       ancho: mesa.ancho,
       alto: mesa.alto,
       reservable: mesaReservable(mesa),
       capacidad: mesa.capacidad,
       seleccionada: false,
-      interactivo: ticketable,
+      interactivo: clickable,
       numero: mesa.numero,
       titulo: mesa.nombre + (mesa.capacidad ? ' · Cap. ' + mesa.capacidad : ''),
       clasesEstado: clasesEstadoMapa(mesa, estado),
@@ -502,8 +519,13 @@ function initMapa() {
     if (!reservaciones.length) {
       reservasList.innerHTML =
         '<div class="mapa-empty-state">' +
-          '<span class="mapa-empty-icon">◌</span>' +
-          '<span>Sin reservaciones para este día</span>' +
+          '<span class="mapa-empty-icon" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+              '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' +
+            '</svg>' +
+          '</span>' +
+          '<span class="mapa-empty-title">Sin reservaciones para este día</span>' +
+          '<span class="mapa-empty-hint">Elige otra fecha en el calendario o registra una nueva reservación.</span>' +
         '</div>';
       reservaCount.textContent = '0';
       return;
@@ -554,14 +576,155 @@ function initMapa() {
 
   function onMesaClick(mesaId) {
     var mesa = mesaPorId(mesaId);
-    var canOpen = mesa && (mesa.reservable || mesa.tipo === 'barra'
-                  || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja'));
+    if (!mesa) return;
+    if (esCaja(mesa)) {
+      showCajaModal(mesa);
+      return;
+    }
+    var canOpen = mesa.reservable || mesa.tipo === 'barra'
+                  || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja');
     if (!canOpen) return;
     if (isLlevar(mesa)) {
       showLlevarModal(mesa);
     } else {
       showModal(mesa, estadoMesaActual(mesaId));
     }
+  }
+
+  // ── Modal Caja: corte del día ─────────────────────────────
+  function showCajaModal(mesa) {
+    if (!modal || !modalContent) return;
+    var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
+    h += '<span class="mmodal-title">Corte de caja</span>';
+    h += '<span class="mmodal-title-cliente">— Resumen del día</span>';
+    h += '</div></div>';
+    h += '<div class="mmodal-caja"><p class="mmodal-cerrar-confirm__sub" style="text-align:center">Cargando el resumen…</p></div>';
+    modalContent.innerHTML = h;
+    modal.classList.add('mesa-modal--open');
+    document.body.style.overflow = 'hidden';
+
+    fetch('/api/corte-caja')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.ok) {
+          renderCajaModal(data);
+        } else {
+          renderCajaError();
+        }
+      })
+      .catch(function() { renderCajaError(); });
+  }
+
+  function renderCajaError() {
+    var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
+    h += '<span class="mmodal-title">Corte de caja</span>';
+    h += '</div></div>';
+    h += '<div class="mmodal-caja"><div class="mmodal-col-empty">';
+    h += '<span class="mmodal-col-empty__icon">⚠</span>';
+    h += '<span>No se pudo cargar el corte de caja.</span></div>';
+    h += '<div class="mmodal-cerrar-confirm__btns"><button class="mmodal-btn mmodal-btn--ghost" id="caja-cerrar">Cerrar</button></div>';
+    h += '</div>';
+    modalContent.innerHTML = h;
+    var btn = modalContent.querySelector('#caja-cerrar');
+    if (btn) btn.addEventListener('click', closeModal);
+  }
+
+  function renderCajaModal(data) {
+    function money(v) {
+      var n = Number(v) || 0;
+      return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    var res     = data.resumen || {};
+    var metodos = data.metodos || {};
+    var efectivo = Number(metodos.efectivo) || 0;
+    var tarjeta  = Number(metodos.tarjeta) || 0;
+    var totalMet = efectivo + tarjeta;
+    var pctEf    = totalMet > 0 ? Math.round((efectivo / totalMet) * 100) : 0;
+    var pctTar   = totalMet > 0 ? 100 - pctEf : 0;
+
+    var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
+    h += '<span class="mmodal-title">Corte de caja</span>';
+    h += '<span class="mmodal-title-cliente">— ' + escHtml(data.fecha || '') + '</span>';
+    h += '</div></div>';
+
+    h += '<div class="mmodal-caja">';
+
+    // KPIs principales
+    h += '<div class="mmodal-caja-kpis">';
+    h += cajaKpi('Ventas del día', money(res.ventas), true);
+    h += cajaKpi('Propinas', money(res.propinas));
+    h += cajaKpi('Tickets', String(res.tickets || 0));
+    h += cajaKpi('Ticket promedio', money(res.promedio));
+    h += '</div>';
+
+    // Total recibido
+    h += '<div class="mmodal-caja-total">';
+    h += '<span class="mmodal-total-label">Total recibido</span>';
+    h += '<span class="mmodal-caja-total__amount">' + money(res.total) + '</span>';
+    h += '</div>';
+
+    // Métodos de pago con barra
+    h += '<div class="mmodal-caja-section">';
+    h += '<p class="mmodal-section-label">Por método de pago</p>';
+    h += '<div class="mmodal-caja-bar">';
+    h += '<span class="mmodal-caja-bar__ef" style="width:' + pctEf + '%"></span>';
+    h += '<span class="mmodal-caja-bar__tar" style="width:' + pctTar + '%"></span>';
+    h += '</div>';
+    h += '<div class="mmodal-caja-methods">';
+    h += '<div class="mmodal-caja-method"><span class="mmodal-caja-method__dot mmodal-caja-method__dot--ef"></span>Efectivo<strong>' + money(efectivo) + '</strong></div>';
+    h += '<div class="mmodal-caja-method"><span class="mmodal-caja-method__dot mmodal-caja-method__dot--tar"></span>Tarjeta<strong>' + money(tarjeta) + '</strong></div>';
+    h += '</div>';
+    h += '</div>';
+
+    // Top platillos
+    if (data.top && data.top.length) {
+      h += '<div class="mmodal-caja-section">';
+      h += '<p class="mmodal-section-label">Más vendidos</p>';
+      h += '<div class="mmodal-caja-list">';
+      for (var i = 0; i < data.top.length; i++) {
+        var t = data.top[i];
+        h += '<div class="mmodal-caja-list__row">';
+        h += '<span class="mmodal-caja-list__qty">' + (t.unidades || 0) + '×</span>';
+        h += '<span class="mmodal-caja-list__name">' + escHtml(t.nombre || '') + '</span>';
+        h += '<span class="mmodal-caja-list__val">' + money(t.importe) + '</span>';
+        h += '</div>';
+      }
+      h += '</div></div>';
+    }
+
+    // Ventas por área
+    if (data.areas && data.areas.length) {
+      h += '<div class="mmodal-caja-section">';
+      h += '<p class="mmodal-section-label">Ventas por área</p>';
+      h += '<div class="mmodal-caja-list">';
+      for (var a = 0; a < data.areas.length; a++) {
+        var ar = data.areas[a];
+        h += '<div class="mmodal-caja-list__row">';
+        h += '<span class="mmodal-caja-list__name">' + escHtml(ar.area || '') + '</span>';
+        h += '<span class="mmodal-caja-list__val">' + money(ar.importe) + '</span>';
+        h += '</div>';
+      }
+      h += '</div></div>';
+    }
+
+    if (!res.tickets) {
+      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◌</span><span>Aún no hay ventas cerradas hoy.</span></div>';
+    }
+
+    h += '<div class="mmodal-cerrar-confirm__btns"><button class="mmodal-btn mmodal-btn--ghost" id="caja-cerrar">Cerrar</button></div>';
+    h += '</div>';
+
+    modalContent.innerHTML = h;
+    var btn = modalContent.querySelector('#caja-cerrar');
+    if (btn) btn.addEventListener('click', closeModal);
+  }
+
+  function cajaKpi(label, value, destacado) {
+    var h = '<div class="mmodal-caja-kpi' + (destacado ? ' mmodal-caja-kpi--main' : '') + '">';
+    h += '<span class="mmodal-caja-kpi__label">' + escHtml(label) + '</span>';
+    h += '<span class="mmodal-caja-kpi__value">' + escHtml(value) + '</span>';
+    h += '</div>';
+    return h;
   }
 
   // ── Modal Llevar ──────────────────────────────────────────
@@ -680,6 +843,19 @@ function initMapa() {
     sugTicket = null;
   }
 
+  // Preset de layout del modal de comanda (ancho de columnas), persistido.
+  var POS_LAYOUT_KEY = 'cp-pos-modal-layout';
+  var POS_LAYOUTS = ['menu', 'balanced', 'compact'];
+  function getPosLayout() {
+    try {
+      var v = localStorage.getItem(POS_LAYOUT_KEY);
+      return POS_LAYOUTS.indexOf(v) !== -1 ? v : 'balanced';
+    } catch (e) { return 'balanced'; }
+  }
+  function setPosLayout(v) {
+    try { localStorage.setItem(POS_LAYOUT_KEY, v); } catch (e) {}
+  }
+
   function buildModalContent(mesa, estado, reserva, ticket) {
     var h = '';
 
@@ -720,8 +896,17 @@ function initMapa() {
       h += '<button class="mmodal-tab" data-tab="sugerencias">Sugerencias</button>';
       h += '</div>';
 
-      // ── Panels wrapper (3 cols en desktop) ────────────────
-      h += '<div class="mmodal-panels">';
+      // ── Presets de layout (solo desktop, 4 columnas) ──────
+      var lay = getPosLayout();
+      h += '<div class="mmodal-layout-presets" role="group" aria-label="Diseño de columnas">';
+      h += '<span class="mmodal-layout-presets__label">Vista</span>';
+      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'menu' ? ' is-active' : '') + '" data-pos-layout="menu">Menú amplio</button>';
+      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'balanced' ? ' is-active' : '') + '" data-pos-layout="balanced">Equilibrado</button>';
+      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'compact' ? ' is-active' : '') + '" data-pos-layout="compact">Compacto</button>';
+      h += '</div>';
+
+      // ── Panels wrapper (4 cols en desktop) ────────────────
+      h += '<div class="mmodal-panels" data-layout="' + lay + '">';
 
       // ── Panel 1: Menú ──────────────────────────────────────
       h += '<div id="mmodal-panel-menu" class="mmodal-tab-panel mmodal-tab-panel--active">';
@@ -1397,6 +1582,21 @@ function initMapa() {
       })(mainTabs[ti]);
     }
 
+    // Presets de layout: ajustan el ancho de las columnas y se recuerdan.
+    var layoutBtns = modalContent.querySelectorAll('.mmodal-layout-btn');
+    var panelsWrap = modalContent.querySelector('.mmodal-panels');
+    for (var li = 0; li < layoutBtns.length; li++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var val = btn.dataset.posLayout;
+          if (panelsWrap) panelsWrap.setAttribute('data-layout', val);
+          for (var k = 0; k < layoutBtns.length; k++) layoutBtns[k].classList.remove('is-active');
+          btn.classList.add('is-active');
+          setPosLayout(val);
+        });
+      })(layoutBtns[li]);
+    }
+
     // Botón "Confirmar y enviar" → envío directo (col 2 ya es el preview)
     var enviarBtn = modalContent.querySelector('#mmodal-enviar');
     if (enviarBtn) {
@@ -1744,10 +1944,49 @@ function initMapa() {
       return v.replace(/\.00$/, '');
     }
 
+    // Reparte `cents` entre `n` comensales de forma exacta: el residuo de la
+    // división se distribuye de a un centavo entre los primeros comensales.
+    function repartir(cents, cantidad) {
+      var base = Math.floor(cents / cantidad);
+      var resto = cents - base * cantidad;
+      var arr = [];
+      for (var i = 0; i < cantidad; i++) arr.push(base + (i < resto ? 1 : 0));
+      return arr;
+    }
+
+    // Monto (en centavos) que consumió cada comensal según sus ítems. Lo que se
+    // pidió como "General" (sin comensal) se reparte por igual entre todos.
+    function calcularPorCuenta() {
+      var propios = [];
+      var general = 0;
+      var k;
+      for (k = 0; k < n; k++) propios.push(0);
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (it.estado === 'cancelado') continue;
+        var linea = Math.round(it.precio * 100) * it.cantidad;
+        var c = parseInt(it.comensal, 10);
+        if (c >= 1 && c <= n) propios[c - 1] += linea;
+        else general += linea;
+      }
+      var reparto = repartir(general, n);
+      for (k = 0; k < n; k++) propios[k] += reparto[k];
+      return propios;
+    }
+
+    // Montos precalculados para cada modo de reparto.
+    var modoIguales = repartir(totalCents, n);
+    var modoCuenta  = calcularPorCuenta();
+
     var h = buildCerrarHeader(mesa, ticket);
     h += '<div class="mmodal-split">';
     h += '<p class="mmodal-cerrar-confirm__msg">Cuenta dividida por comensal</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Indica el método de pago y el monto que pagó cada cliente.</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige cómo repartir la cuenta; puedes ajustar cada monto.</p>';
+    h += '<div class="mmodal-split-modes" role="group" aria-label="Modo de reparto">';
+    h += '<button type="button" class="mmodal-split-mode" data-modo="iguales">Partes iguales</button>';
+    h += '<button type="button" class="mmodal-split-mode" data-modo="cuenta">Cada quien su cuenta</button>';
+    h += '<button type="button" class="mmodal-split-mode mmodal-split-mode--active" data-modo="vacio">Vacío</button>';
+    h += '</div>';
     h += '<div class="mmodal-split-table">';
     h += '<div class="mmodal-split-row mmodal-split-row--head">';
     h += '<span>Comensal</span><span>Método</span><span>Pagó</span>';
@@ -1866,6 +2105,37 @@ function initMapa() {
           })(mbtns[b]);
         }
       })(rows[r]);
+    }
+
+    // Selector de modo de reparto: precarga los montos por comensal según la
+    // opción. En "vacío" los inputs quedan en 0 (placeholder), en los otros
+    // modos se muestran los montos calculados como valor editable y placeholder.
+    var modeBtns = modalContent.querySelectorAll('.mmodal-split-mode');
+
+    function aplicarModo(modo) {
+      for (var mb = 0; mb < modeBtns.length; mb++) {
+        modeBtns[mb].classList.toggle('mmodal-split-mode--active', modeBtns[mb].dataset.modo === modo);
+      }
+      for (var r = 0; r < rows.length; r++) {
+        var ci    = parseInt(rows[r].dataset.c, 10);
+        var input = rows[r].querySelector('.mmodal-split-input');
+        if (modo === 'vacio') {
+          input.value = '';
+          input.placeholder = '0';
+          continue;
+        }
+        var cents = modo === 'iguales' ? modoIguales[ci - 1] : modoCuenta[ci - 1];
+        input.value = fmt(cents);
+        input.placeholder = fmt(cents);
+      }
+      validar();
+      persistir();
+    }
+
+    for (var mb2 = 0; mb2 < modeBtns.length; mb2++) {
+      (function(btn) {
+        btn.addEventListener('click', function() { aplicarModo(btn.dataset.modo); });
+      })(modeBtns[mb2]);
     }
 
     modalContent.querySelector('#split-volver').addEventListener('click', function() {

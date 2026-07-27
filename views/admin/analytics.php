@@ -2,19 +2,17 @@
 
 /**
  * Vista principal de analytics del panel de administración.
- * Presenta filtros, métricas, gráficas y el resumen operativo con datos mock.
- * La métrica de propinas sí es real (viene del backend en $propinas).
+ * Métricas, gráficas y resumen operativo con datos REALES de la BD
+ * ($analytics, construido en AdminController::construirAnalytics).
  */
-$propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
+$analytics = is_array($analytics ?? null) ? $analytics : ['metrics' => [], 'tickets' => [], 'payments' => [], 'charts' => []];
+$rango = is_array($rango ?? null) ? $rango : ['start' => date('Y-m-d', strtotime('-29 days')), 'end' => date('Y-m-d'), 'preset' => 30, 'label' => 'Últimos 30 días'];
+$rangoPreset = (int) ($rango['preset'] ?? 0);
+$esCustom = $rangoPreset === 0;
+$hoyIso = date('Y-m-d');
 ?>
 <script>
-    window.CP_METRICS_REALES = {
-        propinas: {
-            total: <?php echo (float) $propinas['total']; ?>,
-            tickets: <?php echo (int) $propinas['tickets']; ?>,
-            promedio: <?php echo (float) $propinas['promedio']; ?>
-        }
-    };
+    window.AdminAnalyticsMock = <?php echo json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 </script>
 <section class="admin-analytics" data-admin-analytics>
     <header class="admin-page-header">
@@ -24,37 +22,33 @@ $propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
             </div>
             <p class="admin-page-summary">
                 Resumen operativo <span aria-hidden="true">·</span>
-                <span data-analytics-caption>Últimos 7 días</span>
+                <span data-analytics-caption><?php echo htmlspecialchars($rango['label']); ?></span>
             </p>
         </div>
 
-        <div class="admin-filter-bar" aria-label="Filtros del resumen">
-            <label>
-                Rango
+        <div class="admin-filter-bar admin-analytics-filters" data-analytics-filters aria-label="Filtros del resumen">
+            <label class="admin-analytics-filters__field">
+                <span>Periodo</span>
                 <select data-analytics-filter="range">
-                    <option value="7" selected>Últimos 7 días</option>
-                    <option value="3">Últimos 3 días</option>
-                    <option value="1">Solo ayer</option>
+                    <option value="3" <?php echo $rangoPreset === 3 ? 'selected' : ''; ?>>Últimos 3 días</option>
+                    <option value="7" <?php echo $rangoPreset === 7 ? 'selected' : ''; ?>>Últimos 7 días</option>
+                    <option value="30" <?php echo $rangoPreset === 30 ? 'selected' : ''; ?>>Últimos 30 días</option>
+                    <option value="60" <?php echo $rangoPreset === 60 ? 'selected' : ''; ?>>Últimos 60 días</option>
+                    <option value="365" <?php echo $rangoPreset === 365 ? 'selected' : ''; ?>>Último año</option>
+                    <option value="custom" <?php echo $esCustom ? 'selected' : ''; ?>>Personalizado…</option>
                 </select>
             </label>
-            <label>
-                Servicio
-                <select data-analytics-filter="service">
-                    <option value="todos" selected>Todos</option>
-                    <option value="comida">Comida</option>
-                    <option value="cena">Cena</option>
-                </select>
-            </label>
-            <label>
-                Fuente
-                <select data-analytics-filter="source">
-                    <option value="todas" selected>Todas</option>
-                    <option value="web">Web</option>
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="phone">Teléfono</option>
-                    <option value="walk_in">Walk-in</option>
-                </select>
-            </label>
+            <div class="admin-analytics-filters__range" data-analytics-range <?php echo $esCustom ? '' : 'hidden'; ?>>
+                <label class="admin-analytics-filters__field">
+                    <span>Desde</span>
+                    <input type="date" data-analytics-desde max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rango['start']); ?>">
+                </label>
+                <label class="admin-analytics-filters__field">
+                    <span>Hasta</span>
+                    <input type="date" data-analytics-hasta max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rango['end']); ?>">
+                </label>
+                <button type="button" class="admin-btn admin-btn--primary admin-btn--small" data-analytics-apply>Aplicar</button>
+            </div>
         </div>
     </header>
 
@@ -68,7 +62,7 @@ $propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
             <header>
                 <div>
                     <h3>Ventas diarias del periodo</h3>
-                    <p>Pico de ventas el 14 de junio</p>
+                    <p>Tickets cerrados por día</p>
                 </div>
                 <span>MXN</span>
             </header>
@@ -122,8 +116,8 @@ $propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
 
         <article class="admin-panel admin-chart-card">
             <header>
-                <h3>Reservaciones por fuente</h3>
-                <span>Canal</span>
+                <h3>Reservaciones por estado</h3>
+                <span>Estado</span>
             </header>
             <div class="admin-chart-card__canvas">
                 <canvas id="reservationSourcesChart"></canvas>
@@ -137,7 +131,7 @@ $propinas = $propinas ?? ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
                 <p class="admin-page-eyebrow">Actividad operativa</p>
                 <h3>Resumen reciente</h3>
             </div>
-            <span>Integración de analítica pendiente</span>
+            <span>Últimos tickets</span>
         </header>
 
         <div class="admin-table-wrap">

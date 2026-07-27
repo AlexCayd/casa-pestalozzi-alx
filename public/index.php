@@ -12,6 +12,9 @@ use Controllers\AdminConfigurationController;
 use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
+use Controllers\AdminInventarioController;
+use Controllers\AdminProductosController;
+use Controllers\AdminFinanzasController;
 use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionOperacionController;
@@ -93,7 +96,36 @@ $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
 $router->get('/admin/tickets', [AdminController::class, 'tickets']);
-$router->get('/admin/payments', [AdminController::class, 'payments']);
+
+// Inventario (Ingredientes)
+$router->get('/admin/inventario',           [AdminInventarioController::class, 'index']);
+$router->get('/admin/inventario/create',    [AdminInventarioController::class, 'create']);
+$router->post('/admin/inventario/create',   [AdminInventarioController::class, 'create']);
+$router->get('/admin/inventario/edit',      [AdminInventarioController::class, 'edit']);
+$router->post('/admin/inventario/edit',     [AdminInventarioController::class, 'edit']);
+$router->post('/admin/inventario/delete',   [AdminInventarioController::class, 'delete']);
+$router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
+$router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
+
+// Productos (recetas y subrecetas)
+$router->get('/admin/productos',                     [AdminProductosController::class, 'index']);
+$router->get('/admin/productos/create',              [AdminProductosController::class, 'create']);
+$router->post('/admin/productos/create',             [AdminProductosController::class, 'create']);
+$router->get('/admin/productos/edit',                [AdminProductosController::class, 'edit']);
+$router->post('/admin/productos/edit',               [AdminProductosController::class, 'edit']);
+$router->post('/admin/productos/delete',             [AdminProductosController::class, 'delete']);
+$router->get('/admin/productos/subrecetas',          [AdminProductosController::class, 'subrecetas']);
+$router->get('/admin/productos/subrecetas/create',   [AdminProductosController::class, 'subrecetaCreate']);
+$router->post('/admin/productos/subrecetas/create',  [AdminProductosController::class, 'subrecetaCreate']);
+$router->get('/admin/productos/subrecetas/edit',     [AdminProductosController::class, 'subrecetaEdit']);
+$router->post('/admin/productos/subrecetas/edit',    [AdminProductosController::class, 'subrecetaEdit']);
+$router->post('/admin/productos/subrecetas/delete',  [AdminProductosController::class, 'subrecetaDelete']);
+
+// Finanzas
+$router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);
+$router->post('/admin/finanzas/gasto/guardar',   [AdminFinanzasController::class, 'guardarGasto']);
+$router->post('/admin/finanzas/gasto/eliminar',  [AdminFinanzasController::class, 'eliminarGasto']);
+
 $router->get('/admin/printers',          [AdminPrintersController::class, 'index']);
 $router->get('/admin/printers/create',   [AdminPrintersController::class, 'create']);
 $router->post('/admin/printers/create',  [AdminPrintersController::class, 'create']);
@@ -123,6 +155,7 @@ $router->post('/api/liberar-reservacion', [PuntoVentaController::class, 'liberar
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
 $router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
+$router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCaja']);
 $router->post('/api/entregar-item',       [PuntoVentaController::class, 'entregarItem']);
 $router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);

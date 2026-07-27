@@ -1,0 +1,80 @@
+/*
+ * Módulo Productos (recetas y subrecetas).
+ * El bloque de receta principal se destaca visualmente con un borde dorado.
+ */
+
+.admin-productos {
+  // El .admin-card compartido no trae padding: se lo damos aquí.
+  .admin-card {
+    padding: clamp(18px, 2.4vw, 26px);
+  }
+
+  // Separación entre paneles apilados dentro del formulario.
+  .admin-panel + .admin-panel {
+    margin-top: 18px;
+  }
+}
+
+.admin-recipe {
+  // Permitir que el dropdown del buscador de componentes se muestre completo
+  // (el .admin-card base recorta el overflow).
+  overflow: visible;
+  border-color: rgba(204, 163, 82, 0.32);
+  box-shadow:
+    inset 3px 0 0 var(--admin-gold),
+    var(--admin-shadow-sm);
+
+  &__head {
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 4px 0 4px;
+    }
+
+    p {
+      max-width: 60ch;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  }
+
+  &__eyebrow {
+    display: inline-block;
+    color: var(--admin-gold);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  &__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 140px 44px;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+
+    @media (max-width: 560px) {
+      grid-template-columns: minmax(0, 1fr) 100px 44px;
+    }
+  }
+
+  &__add {
+    width: fit-content;
+  }
+
+  &__actions {
+    margin-top: 18px;
+  }
+}

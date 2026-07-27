@@ -19,6 +19,12 @@ class MenuController {
                 "SELECT * FROM menu WHERE categoria_id = {$cat->id} AND activo = 1 ORDER BY id"
             );
 
+            // Categorías sin platillos (p. ej. las que solo se usan como
+            // catálogo de productos internos) no se muestran en el menú público.
+            if (empty($platillos)) {
+                continue;
+            }
+
             $dishes = array_map(function($m) {
                 return [
                     'n'    => $m->nombre,

@@ -35,6 +35,52 @@
     white-space: nowrap;
   }
 
+  // Encabezados ordenables (data-sortable + table-sort.js).
+  th.is-sortable {
+    position: relative;
+    padding-right: 26px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 140ms ease, background 140ms ease;
+
+    &::after {
+      content: "▲▼";
+      position: absolute;
+      top: 50%;
+      right: 9px;
+      transform: translateY(-50%);
+      font-size: 8px;
+      letter-spacing: -1px;
+      line-height: 1;
+      opacity: 0.35;
+    }
+
+    &:hover {
+      color: var(--admin-gold);
+      background: var(--admin-surface);
+    }
+
+    &[aria-sort="ascending"],
+    &[aria-sort="descending"] {
+      color: var(--admin-gold);
+    }
+
+    &[aria-sort="ascending"]::after {
+      content: "▲";
+      opacity: 1;
+    }
+
+    &[aria-sort="descending"]::after {
+      content: "▼";
+      opacity: 1;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--admin-gold);
+      outline-offset: -2px;
+    }
+  }
+
   td {
     color: var(--admin-text);
     line-height: 1.4;
@@ -164,5 +210,142 @@
 
   .admin-table-actions {
     justify-content: flex-start;
+  }
+}
+
+/* Botón de icono reutilizable (editar, eliminar…) para acciones de tabla. */
+.admin-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(160, 126, 54, 0.48);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  box-shadow:
+    var(--admin-shadow-sm),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  &:hover {
+    border-color: rgba(160, 126, 54, 0.68);
+    background: var(--admin-surface-strong, var(--admin-surface));
+    box-shadow: 0 8px 20px rgba(11, 12, 13, 0.1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-gold);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:disabled,
+  &[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.admin-icon-button--edit {
+  border-color: rgba(95, 125, 86, 0.65);
+  background: rgba(95, 125, 86, 0.22);
+  color: #7ba36c;
+
+  &:hover {
+    border-color: #5f7d56;
+    background: #5f7d56;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(95, 125, 86, 0.35);
+  }
+}
+
+.admin-icon-button--danger {
+  border-color: rgba(200, 90, 60, 0.65);
+  background: rgba(200, 90, 60, 0.22);
+  color: #e08163;
+
+  &:hover {
+    border-color: #c85a3c;
+    background: #c85a3c;
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(200, 90, 60, 0.35);
+  }
+}
+
+/* Icono dentro de un botón (reutilizable). */
+.admin-btn__icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+/* Botones con icono usados en encabezados (volver / crear). */
+.admin-back-button {
+  gap: 7px;
+}
+
+.admin-create-button {
+  gap: 7px;
+  min-width: 0;
+  padding-inline: 14px;
+
+  .admin-btn__icon {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+  }
+}
+
+/* Encabezado de panel/card reutilizable (título + descripción). */
+.admin-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+
+  h3 {
+    color: var(--admin-text);
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  p {
+    margin-top: 5px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.4;
   }
 }

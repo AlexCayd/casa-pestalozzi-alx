@@ -1,3 +1,4 @@
+@charset "UTF-8";
 .operation-body {
   height: 100dvh;
   min-height: 0;
@@ -233,6 +234,90 @@ html:has(.operation-body.is-assignment-mode) {
     --operational-header-height: 60px;
   }
 }
+.operational-map-toggle {
+  position: fixed;
+  z-index: 85;
+  bottom: calc(var(--operational-shell-pad) + 8px);
+  right: calc(var(--operational-shell-pad) + 8px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-md, 0 12px 30px rgba(0, 0, 0, 0.3));
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+.operational-map-toggle svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.operational-map-toggle__collapse {
+  display: none;
+}
+.operational-map-toggle:hover {
+  border-color: var(--admin-gold);
+  color: var(--admin-gold-soft);
+}
+.operational-map-toggle:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+}
+
+.operational-page.is-map-maximized .operational-map-toggle__expand {
+  display: none;
+}
+
+.operational-page.is-map-maximized .operational-map-toggle__collapse {
+  display: inline-flex;
+}
+
+@media (max-width: 640px) {
+  .operational-map-toggle {
+    padding: 0;
+    width: 44px;
+    justify-content: center;
+  }
+  .operational-map-toggle__label {
+    display: none;
+  }
+}
+.operational-page.is-map-maximized .operational-header,
+.operational-page.is-map-maximized .pos-header,
+.operational-page.is-map-maximized .operational-context-bar {
+  display: none;
+}
+.operational-page.is-map-maximized .operational-module {
+  max-width: none;
+  max-height: none;
+}
+.operational-page.is-map-maximized .operational-workspace {
+  max-height: none;
+}
+.operational-page.is-map-maximized .mesas-map {
+  --mesas-map-max-width: 100%;
+  --mesas-map-max-height: 100%;
+}
+.operational-page.is-map-maximized .operational-drawer,
+.operational-page.is-map-maximized .operational-drawer-backdrop {
+  inset-block-start: var(--operational-shell-pad);
+}
+
 .operation-header {
   position: relative;
   z-index: 50;
@@ -1010,6 +1095,12 @@ html:has(.operation-body.is-assignment-mode) {
   opacity: 0.55;
 }
 
+/* Botón hamburguesa solo-icono (sin texto ni número). */
+.operational-page .operational-drawer-toggle--icon {
+  width: 44px;
+  padding: 0;
+}
+
 .operational-drawer-toggle__count {
   display: inline-grid;
   min-width: 25px;
@@ -1139,8 +1230,8 @@ html:has(.operation-body.is-assignment-mode) {
   }
 }
 .operational-page {
-  --mesas-map-max-width: 1120px;
-  --mesas-map-max-height: 640px;
+  --mesas-map-max-width: 1280px;
+  --mesas-map-max-height: 720px;
   --mesas-map-aspect-ratio: 1.75 / 1;
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
@@ -1154,10 +1245,10 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 0;
   padding: 11px;
   flex-direction: column;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
-  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, #fff 3%), var(--admin-surface));
+  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2)), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   overflow: hidden;
   container-name: mesas-map;
   container-type: inline-size;
@@ -1283,8 +1374,8 @@ html:has(.operation-body.is-assignment-mode) {
   padding: var(--mesas-map-viewport-padding);
   place-items: center;
   border: 1px solid var(--admin-border-soft);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--admin-bg) 58%, var(--admin-surface-soft));
+  border-radius: 12px;
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--admin-surface-soft) 70%, transparent), transparent 70%), color-mix(in srgb, var(--admin-bg) 64%, var(--admin-surface-soft));
   overflow: auto;
   overscroll-behavior: contain;
   container-type: size;
@@ -1298,11 +1389,11 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 0;
   aspect-ratio: var(--mesas-map-aspect-ratio);
   flex: 0 0 auto;
-  border: 1px solid color-mix(in srgb, var(--admin-border) 72%, transparent);
-  border-radius: 11px;
-  background: linear-gradient(rgba(204, 163, 82, 0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(204, 163, 82, 0.018) 1px, transparent 1px), var(--admin-surface-soft);
-  background-size: 44px 44px;
-  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.25);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 20%, var(--admin-border));
+  border-radius: 14px;
+  background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 85%, transparent), transparent 65%), linear-gradient(rgba(204, 163, 82, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(204, 163, 82, 0.03) 1px, transparent 1px), color-mix(in srgb, var(--admin-surface-soft) 92%, #000 8%);
+  background-size: auto, 46px 46px, 46px 46px, auto;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(204, 163, 82, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   container-type: inline-size;
 }
 
@@ -1320,27 +1411,29 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 52px;
   padding: clamp(8px, 0.8vw, 11px);
   place-items: center;
-  border: 2px solid var(--admin-border-soft);
-  border-radius: 13px;
-  background: var(--admin-surface);
+  border: 1.5px solid var(--admin-border-soft);
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, #fff 5%), var(--admin-surface));
   color: var(--admin-text);
-  box-shadow: 0 9px 24px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
   letter-spacing: 0;
   line-height: 1.2;
   transform: translate(-50%, -50%);
-  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease, background 160ms ease;
 }
 
 .mesas-map button.mesa-pin {
   cursor: pointer;
 }
 
-.mesas-map .mesa-pin:hover:not(:disabled) {
+.mesas-map button.mesa-pin:hover:not(:disabled) {
   z-index: 2;
-  transform: translate(-50%, -50%) scale(1.035);
+  border-color: color-mix(in srgb, var(--admin-gold) 55%, var(--admin-border));
+  transform: translate(-50%, -50%) scale(1.045);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(204, 163, 82, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .mesas-map .mesa-pin:focus-visible {
@@ -1374,31 +1467,35 @@ html:has(.operation-body.is-assignment-mode) {
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0;
+  letter-spacing: 0.01em;
   line-height: 1.2;
   text-align: center;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .mesas-map .mesa-pin--libre {
-  border-color: var(--admin-success-border);
-  background: var(--admin-success-bg);
+  border-color: color-mix(in srgb, var(--admin-success-border) 88%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-success-bg) 88%, transparent), color-mix(in srgb, var(--admin-success-bg) 52%, var(--admin-surface)));
   color: var(--admin-success-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .mesas-map .mesa-pin--ocupada {
   border-color: var(--admin-danger-border);
-  background: var(--admin-danger-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-danger-bg) 92%, transparent), color-mix(in srgb, var(--admin-danger-bg) 58%, var(--admin-surface)));
   color: var(--admin-danger-text);
-  opacity: 0.7;
+  opacity: 0.96;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--admin-danger) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .mesas-map .mesa-pin--asignada,
 .mesas-map .mesa-pin--bloqueada,
 .mesas-map .mesa-pin--proxima {
   border-color: var(--admin-warning-border);
-  background: var(--admin-warning-bg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-warning-bg) 92%, transparent), color-mix(in srgb, var(--admin-warning-bg) 56%, var(--admin-surface)));
   color: var(--admin-warning-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .mesas-map .mesa-pin--no-reservable,
@@ -1407,24 +1504,24 @@ html:has(.operation-body.is-assignment-mode) {
 .mesas-map .mesa-pin--tipo-especial {
   border-color: var(--admin-border);
   border-style: solid;
-  background: color-mix(in srgb, var(--admin-surface) 74%, var(--admin-surface-soft));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 84%, var(--admin-surface-soft)), color-mix(in srgb, var(--admin-surface-soft) 88%, #000 6%));
   color: var(--admin-muted);
-  opacity: 0.86;
-  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.16);
+  opacity: 0.94;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .mesas-map .mesa-pin--tipo-barra {
-  background: color-mix(in srgb, var(--admin-surface-soft) 82%, var(--admin-gold) 3%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 82%, var(--admin-gold) 5%), color-mix(in srgb, var(--admin-surface-soft) 90%, #000 6%));
 }
 
 .mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {
   border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 24%, var(--admin-surface));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-gold) 30%, var(--admin-surface)), color-mix(in srgb, var(--admin-gold) 16%, var(--admin-surface)));
   color: var(--admin-gold-soft);
   opacity: 1;
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.18), 0 12px 30px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.22), 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 20px rgba(204, 163, 82, 0.18);
 }
 
 @container mesas-map (max-width: 760px) {
@@ -1453,6 +1550,33 @@ html:has(.operation-body.is-assignment-mode) {
     display: none;
   }
 }
+@media (min-width: 768px) and (max-width: 1180px) {
+  .mesas-map .mesa-pin {
+    width: clamp(92px, 10vw, 120px) !important;
+    min-width: clamp(92px, 10vw, 120px);
+    height: clamp(60px, 6vw, 74px) !important;
+    min-height: 60px;
+  }
+  .mesas-map .mesa-pin--tipo-barra {
+    width: clamp(140px, 16vw, 190px) !important;
+    min-width: clamp(140px, 16vw, 190px);
+    height: clamp(56px, 5.5vw, 64px) !important;
+  }
+  .mesas-map .mesa-pin--tipo-especial {
+    width: clamp(96px, 12vw, 150px) !important;
+    min-width: clamp(96px, 12vw, 150px);
+    height: clamp(56px, 5.5vw, 64px) !important;
+  }
+  .mesas-map .mesa-pin__label {
+    font-size: var(--operational-text-section);
+  }
+}
+@media (min-width: 768px) {
+  .operational-page.is-map-maximized .mesas-map__viewport {
+    padding: clamp(16px, 2vw, 28px);
+  }
+}
+
 .operational-visually-hidden {
   position: absolute !important;
   width: 1px !important;
@@ -2328,23 +2452,43 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .mapa-empty-state {
   display: grid;
-  min-height: 150px;
+  min-height: 180px;
   place-content: center;
-  gap: 8px;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 18px;
   color: var(--admin-muted);
-  font-size: 12px;
   text-align: center;
 }
 
 .mapa-empty-icon {
   display: grid;
-  width: 36px;
-  height: 36px;
-  margin: 0 auto;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 2px;
   place-items: center;
   border: 1px solid var(--admin-border);
-  border-radius: 50%;
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
   color: var(--admin-gold-soft);
+}
+.mapa-empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mapa-empty-title {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mapa-empty-hint {
+  max-width: 30ch;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .reservation-operation .admin-alert,

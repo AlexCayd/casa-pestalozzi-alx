@@ -1,0 +1,250 @@
+@charset "UTF-8";
+/*
+ * Módulo Finanzas: P&L del mes, gastos fijos y rentabilidad por producto.
+ * Reutiliza tarjetas, tablas y KPIs compartidos; aquí van los específicos.
+ */
+.admin-finanzas .admin-card {
+  padding: clamp(18px, 2.4vw, 26px);
+}
+.admin-finanzas > .admin-panel + .admin-panel, > .admin-finanzas__grid + .admin-panel {
+  margin-top: 18px;
+}
+
+.admin-finanzas__grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+@media (max-width: 900px) {
+  .admin-finanzas__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-pnl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-pnl__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 2px;
+  color: var(--admin-muted);
+  font-size: 14px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+.admin-pnl__row strong {
+  font-family: var(--admin-font-display, "Fraunces", serif);
+  font-size: 17px;
+  color: var(--admin-text);
+  font-weight: 500;
+}
+.admin-pnl__row .is-pos {
+  color: var(--admin-success-text);
+}
+.admin-pnl__row .is-neg {
+  color: var(--admin-danger-text);
+}
+.admin-pnl__row--total {
+  color: var(--admin-text);
+  font-weight: 700;
+}
+.admin-pnl__row--total strong {
+  color: var(--admin-gold);
+}
+.admin-pnl__row--grand {
+  margin-top: 6px;
+  padding: 14px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-weight: 800;
+}
+.admin-pnl__row--grand strong {
+  font-size: 22px;
+}
+.admin-pnl__row--grand.is-pos {
+  border-color: var(--admin-success-border);
+}
+.admin-pnl__row--grand.is-pos strong {
+  color: var(--admin-success-text);
+}
+.admin-pnl__row--grand.is-neg {
+  border-color: var(--admin-danger-border);
+}
+.admin-pnl__row--grand.is-neg strong {
+  color: var(--admin-danger-text);
+}
+.admin-pnl__row:last-child {
+  border-bottom: 0;
+}
+
+.admin-finanzas__note {
+  margin-top: 12px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-finanzas__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-finanzas__bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-finanzas__bar-label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-finanzas__bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  overflow: hidden;
+}
+.admin-finanzas__bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--admin-gold-deep, #a07e36), var(--admin-gold));
+}
+
+.admin-finanzas__bar-val {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-finanzas__add {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 0.9fr auto;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+@media (max-width: 720px) {
+  .admin-finanzas__add {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.admin-finanzas__money {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.admin-finanzas__money span {
+  position: absolute;
+  left: 11px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.admin-finanzas__money input {
+  width: 100%;
+  padding-left: 24px;
+}
+
+.admin-gasto-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.admin-gasto-card {
+  position: relative;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface-soft);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-gasto-card:hover {
+  border-color: rgba(160, 126, 54, 0.4);
+}
+.admin-gasto-card.is-inactive {
+  opacity: 0.62;
+}
+.admin-gasto-card__form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+.admin-gasto-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.admin-gasto-card__field--name {
+  grid-column: 1/-1;
+}
+.admin-gasto-card__label {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-gasto-card__switch {
+  align-self: center;
+}
+.admin-gasto-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.admin-gasto-card__delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.admin-cortes__filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.admin-cortes__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-cortes__field > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-cortes__table td:not(:first-child),
+.admin-cortes__table th:not(:first-child) {
+  text-align: right;
+}
+.admin-cortes__total {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+.admin-cortes .is-today {
+  background: rgba(95, 125, 86, 0.1);
+}
+.admin-cortes .is-today .admin-table__cell-main {
+  color: var(--admin-success-text);
+}

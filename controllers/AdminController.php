@@ -20,6 +20,18 @@ class AdminController
             'title' => 'Gestión de menú',
             'path' => '/admin/menu'
         ],
+        'productos' => [
+            'title' => 'Productos y recetas',
+            'path' => '/admin/productos'
+        ],
+        'inventario' => [
+            'title' => 'Inventario',
+            'path' => '/admin/inventario'
+        ],
+        'finanzas' => [
+            'title' => 'Finanzas',
+            'path' => '/admin/finanzas'
+        ],
         'pdv' => [
             'title' => 'Punto de Venta',
             'path' => '/admin/punto-de-venta'
@@ -39,10 +51,6 @@ class AdminController
         'tickets' => [
             'title' => 'Tickets',
             'path' => '/admin/tickets'
-        ],
-        'payments' => [
-            'title' => 'Pagos',
-            'path' => '/admin/payments'
         ],
         'printers' => [
             'title' => 'Estaciones de impresión',
@@ -66,35 +74,19 @@ class AdminController
 
     public static function analytics(Router $router): void
     {
-        // Propinas reales de tickets cerrados: la única métrica con respaldo en
-        // BD dentro de analytics (el resto son datos mock del front por ahora).
-        $propinas = ['total' => 0.0, 'tickets' => 0, 'promedio' => 0.0];
-        try {
-            $res = \Model\Ticket::ejecutarSQL(
-                "SELECT COALESCE(SUM(propina), 0) AS total,
-                        SUM(CASE WHEN propina > 0 THEN 1 ELSE 0 END) AS con_propina
-                   FROM tickets
-                  WHERE estado = 'cerrado'"
-            );
-            if ($res && ($r = $res->fetch_assoc())) {
-                $total   = round((float) $r['total'], 2);
-                $tickets = (int) $r['con_propina'];
-                $propinas = [
-                    'total'    => $total,
-                    'tickets'  => $tickets,
-                    'promedio' => $tickets > 0 ? round($total / $tickets, 2) : 0.0,
-                ];
-            }
-        } catch (\Throwable $e) {
-            // Sin datos: se muestra 0.
-        }
+        // Dashboard con datos reales de la BD. Se arma el objeto que el front
+        // (analytics-page.js / charts.js) consume como window.AdminAnalyticsMock:
+        // { metrics, tickets, payments, charts }.
+        $rango = self::rangoAnalytics();
+        $analytics = self::construirAnalytics($rango);
 
         self::render('analytics', [
             'activeModule' => 'analytics',
             'title' => 'Análisis de datos',
             'topbarSection' => 'Análisis',
             'compactTopbar' => true,
-            'propinas' => $propinas,
+            'analytics' => $analytics,
+            'rango' => $rango,
             'styles' => [
                 '/build/css/admin/analytics.css'
             ],
@@ -103,6 +95,269 @@ class AdminController
                 '/build/js/admin/analytics.js'
             ]
         ]);
+    }
+
+    /**
+     * Resuelve el rango de fechas del dashboard desde $_GET.
+     * Acepta ?rango=N (3/7/30/60/365) o ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD.
+     * Devuelve ['start','end','preset','label'].
+     */
+    private static function rangoAnalytics(): array
+    {
+        $re = '/^\d{4}-\d{2}-\d{2}$/';
+        $desde = trim((string) ($_GET['desde'] ?? ''));
+        $hasta = trim((string) ($_GET['hasta'] ?? ''));
+
+        // Rango personalizado válido.
+        if (preg_match($re, $desde) && preg_match($re, $hasta) && $desde <= $hasta) {
+            return [
+                'start' => $desde,
+                'end' => $hasta,
+                'preset' => 0,
+                'label' => 'Del ' . date('d/m/Y', strtotime($desde)) . ' al ' . date('d/m/Y', strtotime($hasta)),
+            ];
+        }
+
+        // Preset por número de días.
+        $permitidos = [3, 7, 30, 60, 365];
+        $preset = (int) ($_GET['rango'] ?? 30);
+        if (!in_array($preset, $permitidos, true)) {
+            $preset = 30;
+        }
+        $etiquetas = [3 => 'Últimos 3 días', 7 => 'Últimos 7 días', 30 => 'Últimos 30 días',
+            60 => 'Últimos 60 días', 365 => 'Último año'];
+
+        return [
+            'start' => date('Y-m-d', strtotime('-' . ($preset - 1) . ' days')),
+            'end' => date('Y-m-d'),
+            'preset' => $preset,
+            'label' => $etiquetas[$preset],
+        ];
+    }
+
+    /** Construye el dataset real del dashboard desde la BD, filtrado por rango. */
+    private static function construirAnalytics(array $rango): array
+    {
+        $money = static fn($n): string => '$' . number_format((float) $n, 0);
+        $metrics = [];
+        $ticketsTabla = [];
+        $pagosTabla = [];
+        $charts = [
+            'salesByDay' => ['labels' => [], 'values' => []],
+            'salesByCategory' => ['labels' => [], 'values' => []],
+            'paymentMethods' => ['labels' => ['Efectivo', 'Tarjeta', 'Dividido'], 'values' => [0, 0, 0]],
+            'topProducts' => ['labels' => [], 'values' => []],
+            'reservationsByDay' => ['labels' => [], 'values' => []],
+            'reservationSources' => ['labels' => [], 'values' => []],
+        ];
+
+        // Límites de fecha (validados en rangoAnalytics; seguros de interpolar).
+        $start = $rango['start'];
+        $end = $rango['end'];
+        $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
+        $fRes = "fecha >= '{$start}' AND fecha <= '{$end}'";
+
+        try {
+            $db = \Model\Ticket::getDB();
+
+            // ── Agregados de tickets cerrados (en el rango) ────────────
+            $ventas = 0.0; $numTickets = 0; $comensales = 0;
+            $res = $db->query(
+                "SELECT COUNT(*) AS n,
+                        COALESCE(SUM(t.comensales), 0) AS comensales,
+                        COALESCE(SUM(sub.total), 0) AS ventas
+                   FROM tickets t
+                   LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
+                                FROM ticket_items WHERE estado <> 'cancelado'
+                               GROUP BY ticket_id) sub ON sub.ticket_id = t.id
+                  WHERE t.estado = 'cerrado' {$fTk}"
+            );
+            if ($res && ($r = $res->fetch_assoc())) {
+                $numTickets = (int) $r['n'];
+                $comensales = (int) $r['comensales'];
+                $ventas = (float) $r['ventas'];
+            }
+
+            $propTotal = 0.0; $propTickets = 0;
+            $res = $db->query(
+                "SELECT COALESCE(SUM(propina), 0) AS total,
+                        SUM(CASE WHEN propina > 0 THEN 1 ELSE 0 END) AS con
+                   FROM tickets t WHERE t.estado = 'cerrado' {$fTk}"
+            );
+            if ($res && ($r = $res->fetch_assoc())) {
+                $propTotal = (float) $r['total'];
+                $propTickets = (int) $r['con'];
+            }
+
+            $unidades = 0;
+            $res = $db->query(
+                "SELECT COALESCE(SUM(ti.cantidad), 0) AS u
+                   FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}"
+            );
+            if ($res && ($r = $res->fetch_assoc())) {
+                $unidades = (int) $r['u'];
+            }
+
+            $numReservas = 0;
+            $res = $db->query("SELECT COUNT(*) AS n FROM reservaciones WHERE {$fRes}");
+            if ($res && ($r = $res->fetch_assoc())) {
+                $numReservas = (int) $r['n'];
+            }
+
+            $ticketProm = $numTickets > 0 ? $ventas / $numTickets : 0.0;
+            $propProm = $propTickets > 0 ? $propTotal / $propTickets : 0.0;
+
+            $metrics = [
+                ['label' => 'Ventas acumuladas', 'value' => $money($ventas), 'detail' => $numTickets . ' tickets cerrados', 'featured' => true],
+                ['label' => 'Propinas', 'value' => $money($propTotal), 'detail' => $propTickets ? ('prom. ' . $money($propProm)) : 'Sin propinas'],
+                ['label' => 'Ticket promedio', 'value' => $money($ticketProm), 'detail' => 'Por cuenta cerrada'],
+                ['label' => 'Comensales atendidos', 'value' => number_format($comensales), 'detail' => 'En tickets cerrados'],
+                ['label' => 'Platillos vendidos', 'value' => number_format($unidades), 'detail' => 'Unidades', 'priority' => 'secondary'],
+                ['label' => 'Reservaciones', 'value' => number_format($numReservas), 'detail' => 'Registradas', 'priority' => 'secondary'],
+            ];
+
+            // ── Ventas por día (buckets del rango) ─────────────────────
+            $dias = [];
+            $cursor = strtotime($start);
+            $limite = strtotime($end);
+            while ($cursor <= $limite) {
+                $dias[date('Y-m-d', $cursor)] = 0.0;
+                $cursor = strtotime('+1 day', $cursor);
+            }
+            $res = $db->query(
+                "SELECT DATE(t.hora_apertura) AS d, SUM(ti.precio * ti.cantidad) AS total
+                   FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
+                  GROUP BY d"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    if (isset($dias[$r['d']])) {
+                        $dias[$r['d']] = (float) $r['total'];
+                    }
+                }
+            }
+            foreach ($dias as $d => $v) {
+                $charts['salesByDay']['labels'][] = date('d/m', strtotime($d));
+                $charts['salesByDay']['values'][] = round($v, 2);
+            }
+
+            // ── Ventas por categoría ───────────────────────────────────
+            $res = $db->query(
+                "SELECT ti.categoria AS c, SUM(ti.precio * ti.cantidad) AS total
+                   FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
+                  GROUP BY ti.categoria ORDER BY total DESC LIMIT 6"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $charts['salesByCategory']['labels'][] = $r['c'];
+                    $charts['salesByCategory']['values'][] = round((float) $r['total'], 2);
+                }
+            }
+
+            // ── Métodos de pago (conteo de tickets) ────────────────────
+            $res = $db->query(
+                "SELECT t.metodo_pago, COUNT(*) AS n FROM tickets t
+                  WHERE t.estado = 'cerrado' {$fTk} GROUP BY t.metodo_pago"
+            );
+            if ($res) {
+                $mapMet = ['efectivo' => 0, 'tarjeta' => 1, 'dividido' => 2];
+                while ($r = $res->fetch_assoc()) {
+                    if (isset($mapMet[$r['metodo_pago']])) {
+                        $charts['paymentMethods']['values'][$mapMet[$r['metodo_pago']]] = (int) $r['n'];
+                    }
+                }
+            }
+
+            // ── Productos más vendidos ─────────────────────────────────
+            $res = $db->query(
+                "SELECT ti.nombre, SUM(ti.cantidad) AS u
+                   FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
+                  GROUP BY ti.nombre ORDER BY u DESC LIMIT 7"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $charts['topProducts']['labels'][] = $r['nombre'];
+                    $charts['topProducts']['values'][] = (int) $r['u'];
+                }
+            }
+
+            // ── Reservaciones por día (buckets del rango) ──────────────
+            $diasR = [];
+            $cursorR = strtotime($start);
+            while ($cursorR <= $limite) {
+                $diasR[date('Y-m-d', $cursorR)] = 0;
+                $cursorR = strtotime('+1 day', $cursorR);
+            }
+            $res = $db->query(
+                "SELECT fecha AS d, COUNT(*) AS n FROM reservaciones
+                  WHERE {$fRes} GROUP BY fecha"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    if (isset($diasR[$r['d']])) {
+                        $diasR[$r['d']] = (int) $r['n'];
+                    }
+                }
+            }
+            foreach ($diasR as $d => $v) {
+                $charts['reservationsByDay']['labels'][] = date('d/m', strtotime($d));
+                $charts['reservationsByDay']['values'][] = $v;
+            }
+
+            // ── Reservaciones por estado ───────────────────────────────
+            $res = $db->query(
+                "SELECT estado, COUNT(*) AS n FROM reservaciones
+                  WHERE {$fRes} GROUP BY estado ORDER BY n DESC"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $charts['reservationSources']['labels'][] = ucfirst($r['estado']);
+                    $charts['reservationSources']['values'][] = (int) $r['n'];
+                }
+            }
+
+            // ── Tabla de actividad reciente (últimos tickets CERRADOS) ─
+            $estadoMap = ['cerrado' => 'closed', 'abierto' => 'open', 'cancelado' => 'cancelled'];
+            $metodoMap = ['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'dividido' => 'Dividido'];
+            $res = $db->query(
+                "SELECT t.id, t.estado, t.metodo_pago, t.hora_apertura,
+                        COALESCE(sub.total, 0) AS total
+                   FROM tickets t
+                   LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
+                                FROM ticket_items WHERE estado <> 'cancelado'
+                               GROUP BY ticket_id) sub ON sub.ticket_id = t.id
+                  WHERE t.estado = 'cerrado'
+                  ORDER BY t.hora_apertura DESC, t.id DESC LIMIT 12"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $folio = 'T-' . str_pad((string) $r['id'], 4, '0', STR_PAD_LEFT);
+                    $ticketsTabla[] = [
+                        'folio' => $folio,
+                        'created_at' => $r['hora_apertura'],
+                        'status' => $estadoMap[$r['estado']] ?? $r['estado'],
+                        'total' => (float) $r['total'],
+                    ];
+                    $pagosTabla[] = [
+                        'folio' => $folio,
+                        'metodo' => $r['estado'] === 'cerrado' ? ($metodoMap[$r['metodo_pago']] ?? '—') : 'Pendiente',
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminController::construirAnalytics - ' . $e->getMessage());
+        }
+
+        return [
+            'metrics' => $metrics,
+            'tickets' => $ticketsTabla,
+            'payments' => $pagosTabla,
+            'charts' => $charts,
+        ];
     }
 
     public static function reservations(Router $router): void
@@ -349,11 +604,6 @@ class AdminController
             'styles' => ['/build/css/admin/menu.css'],
             'scripts' => []
         ]);
-    }
-
-    public static function payments(Router $router): void
-    {
-        self::placeholder('payments');
     }
 
     public static function printers(Router $router): void

@@ -6,15 +6,15 @@ $operationalDrawerToggleH = static fn($value): string => htmlspecialchars((strin
 ?>
 <button
     type="button"
-    class="operational-drawer-toggle"
+    class="operational-drawer-toggle operational-drawer-toggle--icon"
     aria-controls="<?php echo $operationalDrawerToggleH($operationalDrawerId); ?>"
     aria-expanded="false"
+    aria-label="Reservaciones"
+    title="Reservaciones"
     data-operational-drawer-toggle
 >
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M5 6h14M5 12h14M5 18h14"></path>
     </svg>
-    <span>Reservaciones</span>
-    <span class="operational-drawer-toggle__count" data-operational-drawer-count><?php echo $operationalDrawerToggleH($operationalDrawerInitialCount); ?></span>
 </button>
 <?php unset($operationalDrawerInitialCount, $operationalDrawerToggleH); ?>

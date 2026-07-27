@@ -112,64 +112,6 @@
   &:hover { color: var(--gold); }
 }
 
-// ── Personal en turno + salir ─────────────────────────────────
-.pdv-user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: .1rem;
-  line-height: 1.15;
-  max-width: 11rem;
-  overflow: hidden;
-}
-
-.pdv-user__nombre {
-  font-size: .8rem;
-  color: var(--txt);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.pdv-user__rol {
-  font-size: .62rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--txt-mute);
-}
-
-.pdv-logout-form {
-  display: flex;
-}
-
-.pdv-logout {
-  display: inline-flex;
-  align-items: center;
-  gap: .45rem;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: .38rem .75rem;
-  color: var(--txt-mute);
-  font-family: var(--sans);
-  font-size: .78rem;
-  letter-spacing: .04em;
-  transition: color .15s, border-color .15s;
-
-  svg {
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
-  }
-
-  &:hover,
-  &:focus-visible {
-    color: var(--gold);
-    border-color: var(--gold);
-  }
-}
-
 // ── Calendario dropdown ───────────────────────────────────────
 .pdv-cal {
   display: none;
@@ -843,8 +785,6 @@
 
   .pdv-header { padding: 0 1rem; gap: 1rem; }
   .pdv-title  { font-size: .85rem; }
-  .pdv-header-controls { gap: .65rem; }
-  .pdv-user { max-width: 8rem; }
 
   .pdv-time-ctrl { padding: .7rem 1rem; gap: .75rem; }
   .pdv-current-time { font-size: 1.1rem; min-width: 44px; }
@@ -861,14 +801,8 @@
     gap: .5rem;
   }
   .pdv-header-center { order: 3; width: 100%; text-align: left; }
-  .pdv-header-controls { margin-left: auto; gap: .5rem; }
+  .pdv-header-controls { margin-left: auto; }
   .pdv-title { font-size: .75rem; }
-
-  // Sin espacio para el detalle: solo el nombre y el icono de salir
-  .pdv-user { max-width: 6.5rem; }
-  .pdv-user__rol { display: none; }
-  .pdv-logout { padding: .38rem .5rem; }
-  .pdv-logout__texto { display: none; }
 
   // Layout vertical: canvas arriba, sidebar abajo
   .pdv-body {
@@ -2019,12 +1953,30 @@
 
   .mmodal-tabs { display: none; }
 
-  // Contenedor de 3 columnas con altura explícita
+  // Contenedor de 4 columnas con altura explícita. Los anchos son variables
+  // para poder alternar presets (Menú amplio / Equilibrado / Compacto) sin
+  // perder ninguna columna. Valores por defecto = equilibrado.
   .mmodal-panels {
     display: grid;
-    grid-template-columns: 1.1fr 1fr .9fr .8fr;
+    grid-template-columns: var(--pos-c1, 1.1fr) var(--pos-c2, 1fr) var(--pos-c3, .9fr) var(--pos-c4, .8fr);
     gap: 1rem;
     height: clamp(380px, calc(78vh - 110px), 580px);
+  }
+
+  // Preset "Menú amplio": la columna del menú domina.
+  .mmodal-panels[data-layout="menu"] {
+    --pos-c1: 1.9fr;
+    --pos-c2: 1fr;
+    --pos-c3: .8fr;
+    --pos-c4: .8fr;
+  }
+
+  // Preset "Compacto": columnas parejas y más angostas para ver todo de un vistazo.
+  .mmodal-panels[data-layout="compact"] {
+    --pos-c1: 1fr;
+    --pos-c2: 1fr;
+    --pos-c3: 1fr;
+    --pos-c4: 1fr;
   }
 
   .mmodal-panel-label { display: block; }
@@ -2056,6 +2008,52 @@
     border-radius: 0;
     padding: 0;
     margin-bottom: 0;
+  }
+
+  // Barra de presets visible solo en desktop (en móvil manda el sistema de tabs).
+  .mmodal-layout-presets {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 .75rem;
+  }
+}
+
+// ── Presets de layout del modal (Menú amplio / Equilibrado / Compacto) ────
+.mmodal-layout-presets {
+  display: none;                 // oculto por defecto (móvil)
+
+  &__label {
+    margin-right: 4px;
+    color: var(--muted);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+}
+
+.mmodal-layout-btn {
+  padding: .35rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+
+  &:hover {
+    color: var(--text);
+    border-color: var(--admin-gold, #cca352);
+  }
+
+  &.is-active {
+    border-color: var(--admin-gold, #cca352);
+    background: var(--admin-gold, #cca352);
+    color: #1b1a17;
   }
 }
 
@@ -2405,9 +2403,18 @@
   --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.28);
   color-scheme: dark;
   overflow: hidden;
+
+  // ── Tipografía estandarizada del POS ──────────────────────────
+  // Toda la app operativa usa el mismo par: Fraunces (editorial) + Space
+  // Grotesk (UI), igual que el panel admin. Antes el modal usaba
+  // Playfair/Montserrat y el shell Fraunces/Space Grotesk (mezcla).
+  // El logo conserva su fuente de marca (KudosKaps, heredada del :root).
+  --serif: var(--operational-font-editorial);
+  --sans: var(--operational-font-ui);
+  font-family: var(--operational-font-ui);
 }
 
-.mapa-page .mapa-shell {
+.mapa-page .pos-shell {
   display: block;
   height: 100dvh;
   background:
@@ -2415,26 +2422,255 @@
     var(--admin-bg);
 }
 
-.mapa-page .operation-header {
-  min-height: var(--operational-header-height);
-}
-
-.mapa-page .mapa-body {
-  display: grid;
-  min-width: 0;
+// ── Layout: columna flexible; el mapa llena el espacio restante ─
+.mapa-page .pos-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--operational-shell-gap);
   padding: 0;
   overflow: hidden;
 }
 
-.mapa-page .mapa-operational-map {
-  min-height: 0;
+// ── Header: hamburguesa + logo (izq) · cerrar sesión (der) ─────
+.mapa-page .pos-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 60px;
+  flex: 0 0 auto;
+  padding: 0 clamp(12px, 1.6vw, 20px);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--admin-surface) 92%, transparent);
+  box-shadow: var(--admin-shadow-sm);
 }
 
-.mapa-page .mapa-module {
+.mapa-page .pos-header__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+// Logo con el estilo de marca del landing (KudosKaps + oro).
+.mapa-page .pos-header__brand {
+  font-family: var(--logo);
+  color: var(--admin-gold);
+  font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+  line-height: 1;
+  word-spacing: -0.6rem;
+  text-decoration: none;
+  white-space: nowrap;
+
+  span {
+    display: block;
+    font-family: var(--operational-font-ui);
+    font-weight: 400;
+    font-size: 0.5rem;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--admin-muted);
+    margin-top: 0.32rem;
+    word-spacing: 0;
+    opacity: 0.85;
+  }
+}
+
+// Grupo derecho del header: usuario activo + cerrar sesión.
+.mapa-page .pos-header__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+// Chip del mesero/usuario activo en la sesión.
+.mapa-page .pos-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 5px 14px 5px 5px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+
+  @media (max-width: 640px) {
+    padding: 4px;
+  }
+}
+
+.mapa-page .pos-header__user-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  background: var(--admin-gold);
+  color: #1b1a17;
+  font-family: var(--operational-font-ui);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.mapa-page .pos-header__user-info {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.1;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
+}
+
+.mapa-page .pos-header__user-name {
+  color: var(--admin-text);
+  font-family: var(--operational-font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.mapa-page .pos-header__user-role {
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mapa-page .pos-header__logout-form {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.mapa-page .pos-header__logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(232, 112, 96, 0.32);
+  border-radius: 999px;
+  background: rgba(232, 112, 96, 0.06);
+  color: color-mix(in srgb, #e87060 78%, var(--admin-text));
+  font-family: var(--operational-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover {
+    color: #e87060;
+    border-color: rgba(232, 112, 96, 0.6);
+    background: rgba(232, 112, 96, 0.14);
+  }
+
+  @media (max-width: 560px) {
+    span { display: none; }
+    padding: 0;
+    width: 42px;
+    justify-content: center;
+  }
+}
+
+// ── El mapa: único contenedor, llena el alto disponible ────────
+.mapa-page .pos-map {
+  flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+}
+
+.mapa-page .pos-map .mesas-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+// Se oculta el encabezado interno del mapa (título + leyenda): el título es
+// redundante y la leyenda se muestra debajo del mapa.
+.mapa-page .mesas-map__header {
+  display: none;
+}
+
+.mapa-page .mesas-map__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+
+// ── Leyenda de estados, debajo del mapa ───────────────────────
+.mapa-page .pos-legend {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px 20px;
+  padding: 4px 8px 2px;
+}
+
+.mapa-page .pos-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+
+  &::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    flex: 0 0 10px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    background: transparent;
+  }
+
+  &--libre::before        { color: var(--admin-success); background: var(--admin-success-bg); }
+  &--ocupada::before      { color: var(--admin-danger);  background: var(--admin-danger-bg); }
+  &--bloqueada::before    { color: var(--admin-warning); background: var(--admin-warning-bg); }
+  &--seleccionada::before { color: var(--admin-gold-soft); background: var(--admin-gold); }
+  &--zona::before         { color: var(--admin-faint);  background: var(--admin-surface-soft); }
+}
+
+// ── Cajón de reservaciones (colapsado por defecto) ────────────
+// Se abre desde el botón hamburguesa del header; queda debajo de él.
+.mapa-page .operational-drawer,
+.mapa-page .operational-drawer-backdrop {
+  inset-block-start: calc(var(--operational-shell-pad) + 60px + var(--operational-shell-gap));
 }
 
 .mapa-page .operational-drawer.mapa-sidebar {
@@ -2456,14 +2692,190 @@
   stroke: currentColor;
 }
 
+// Selector de fecha dentro del cajón de reservaciones.
+.mapa-page .pos-drawer-date {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.mapa-page .pos-drawer-date .operational-context-date {
+  width: 100%;
+  max-width: 280px;
+  margin-inline: auto;
+}
+
+// ── Estado maximizado: solo el mapa ───────────────────────────
+.mapa-page.is-map-maximized .pos-header,
+.mapa-page.is-map-maximized .pos-legend {
+  display: none;
+}
+
 @media (max-width: 700px) {
-  .mapa-page .mapa-body {
-    padding: 0;
+  .mapa-page .pos-header {
+    height: 54px;
+    border-radius: 12px;
+  }
+
+  .mapa-page .operational-drawer,
+  .mapa-page .operational-drawer-backdrop {
+    inset-block-start: calc(var(--operational-shell-pad) + 54px + var(--operational-shell-gap));
   }
 
   .mapa-page .operational-drawer.mapa-sidebar {
     width: min(92vw, 360px);
     padding: 14px;
   }
+}
 
+// ═══════════════════════════════════════════════════════════════
+// Corte de caja — modal del pin "Caja"
+// ═══════════════════════════════════════════════════════════════
+.mmodal-caja {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+
+.mmodal-caja-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+.mmodal-caja-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  padding: .7rem .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+
+  &__label {
+    font-size: .58rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    font-weight: 700;
+  }
+
+  &__value {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    color: var(--txt);
+    line-height: 1;
+  }
+
+  &--main {
+    border-color: rgba(204, 163, 82, .4);
+    background: rgba(204, 163, 82, .08);
+
+    .mmodal-caja-kpi__value { color: var(--gold); }
+  }
+}
+
+.mmodal-caja-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .8rem 1rem;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--ink);
+
+  .mmodal-total-label { color: rgba(11, 12, 13, .7); }
+
+  &__amount {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+}
+
+.mmodal-caja-section {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+}
+
+.mmodal-caja-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+
+  &__ef  { background: #8bbf7e; }
+  &__tar { background: var(--gold); }
+}
+
+.mmodal-caja-methods {
+  display: flex;
+  gap: .75rem;
+}
+
+.mmodal-caja-method {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex: 1;
+  font-size: .78rem;
+  color: var(--txt-mute);
+
+  strong {
+    margin-left: auto;
+    color: var(--txt);
+    font-family: var(--serif);
+    font-weight: 400;
+  }
+
+  &__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &--ef  { background: #8bbf7e; }
+    &--tar { background: var(--gold); }
+  }
+}
+
+.mmodal-caja-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  overflow: hidden;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .7rem;
+
+    & + & { border-top: 1px solid var(--line-soft); }
+  }
+
+  &__qty {
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 30px;
+  }
+
+  &__name {
+    flex: 1;
+    font-size: .8rem;
+    color: var(--txt-mute);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__val {
+    font-size: .78rem;
+    color: var(--txt-faint);
+    white-space: nowrap;
+  }
 }

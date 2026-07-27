@@ -9,6 +9,7 @@ use Model\Usuario;
 use Classes\TicketPrinter;
 use MVC\Router;
 use Services\HorarioReservacionService;
+use Services\Inventario;
 use Services\ReservacionService;
 use Services\Sugerencias;
 
@@ -462,6 +463,11 @@ class PuntoVentaController {
                 );
                 $count++;
 
+                // Descuenta el inventario según la receta del producto (por nombre).
+                // Nunca bloquea el pedido: si no hay receta o falla, se ignora.
+                $itemId = (int) TicketItem::getDB()->insert_id;
+                Inventario::aplicarVenta($nombreRaw, $cantidad, $itemId ?: null);
+
                 $itemsComanda[] = [
                     'nombre'   => $nombreRaw,
                     'cantidad' => $cantidad,
@@ -527,6 +533,12 @@ class PuntoVentaController {
                 "UPDATE ticket_items SET estado = 'cancelado'
                  WHERE id = {$itemId} AND estado NOT IN ('entregado','cancelado')"
             );
+
+            // Si realmente se canceló, repone el inventario descontado por la venta.
+            if (TicketItem::getDB()->affected_rows > 0) {
+                Inventario::revertir($itemId);
+            }
+
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cancelarItem - ' . $e->getMessage());
@@ -667,6 +679,140 @@ class PuntoVentaController {
             'etapa'       => $resultado['etapa'],
             'sugerencias' => $resultado['sugerencias'],
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /api/corte-caja
+     * Resumen de ventas del día (tickets cerrados hoy): ventas, propinas,
+     * desglose por método de pago, top platillos y ventas por área. Solo
+     * lectura: no persiste ningún arqueo.
+     */
+    public static function corteCaja(Router $router) {
+        header('Content-Type: application/json');
+
+        try {
+            // Tickets cerrados hoy con su consumo (sin ítems cancelados) y propina.
+            $resTickets = Ticket::ejecutarSQL(
+                "SELECT t.id, t.metodo_pago, COALESCE(t.propina, 0) AS propina,
+                        COALESCE((SELECT SUM(ti.precio * ti.cantidad)
+                                  FROM ticket_items ti
+                                  WHERE ti.ticket_id = t.id AND ti.estado <> 'cancelado'), 0) AS total
+                   FROM tickets t
+                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()"
+            );
+
+            $numTickets = 0;
+            $ventas     = 0.0;
+            $propinas   = 0.0;
+            $efectivo   = 0.0;
+            $tarjeta    = 0.0;
+
+            if ($resTickets) {
+                while ($row = $resTickets->fetch_assoc()) {
+                    $numTickets++;
+                    $total   = (float) $row['total'];
+                    $propina = (float) $row['propina'];
+                    $ventas   += $total;
+                    $propinas += $propina;
+
+                    // El dinero recibido (consumo + propina) se atribuye al método.
+                    // Los tickets divididos se detallan luego con ticket_pagos.
+                    if ($row['metodo_pago'] === 'efectivo') {
+                        $efectivo += $total + $propina;
+                    } elseif ($row['metodo_pago'] === 'tarjeta') {
+                        $tarjeta += $total + $propina;
+                    }
+                }
+            }
+
+            // Desglose de las cuentas divididas por método (ticket_pagos).
+            $resPagos = Ticket::ejecutarSQL(
+                "SELECT tp.metodo_pago, COALESCE(SUM(tp.monto), 0) AS monto
+                   FROM ticket_pagos tp
+                   JOIN tickets t ON t.id = tp.ticket_id
+                  WHERE t.estado = 'cerrado' AND t.metodo_pago = 'dividido'
+                        AND DATE(t.hora_apertura) = CURDATE()
+                  GROUP BY tp.metodo_pago"
+            );
+            if ($resPagos) {
+                while ($row = $resPagos->fetch_assoc()) {
+                    if ($row['metodo_pago'] === 'efectivo') {
+                        $efectivo += (float) $row['monto'];
+                    } elseif ($row['metodo_pago'] === 'tarjeta') {
+                        $tarjeta += (float) $row['monto'];
+                    }
+                }
+            }
+
+            // Top platillos del día por unidades vendidas.
+            $top = [];
+            $resTop = Ticket::ejecutarSQL(
+                "SELECT ti.nombre,
+                        SUM(ti.cantidad) AS unidades,
+                        SUM(ti.precio * ti.cantidad) AS importe
+                   FROM ticket_items ti
+                   JOIN tickets t ON t.id = ti.ticket_id
+                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()
+                        AND ti.estado <> 'cancelado'
+                  GROUP BY ti.nombre
+                  ORDER BY unidades DESC, importe DESC
+                  LIMIT 6"
+            );
+            if ($resTop) {
+                while ($row = $resTop->fetch_assoc()) {
+                    $top[] = [
+                        'nombre'   => $row['nombre'],
+                        'unidades' => (int) $row['unidades'],
+                        'importe'  => (float) $row['importe'],
+                    ];
+                }
+            }
+
+            // Ventas por área de producción.
+            $areas = [];
+            $resAreas = Ticket::ejecutarSQL(
+                "SELECT COALESCE(ap.nombre, 'Sin área') AS area,
+                        COALESCE(SUM(ti.precio * ti.cantidad), 0) AS importe
+                   FROM ticket_items ti
+                   JOIN tickets t ON t.id = ti.ticket_id
+                   LEFT JOIN areas_produccion ap ON ap.id = ti.area_id
+                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()
+                        AND ti.estado <> 'cancelado'
+                  GROUP BY ap.nombre
+                  ORDER BY importe DESC"
+            );
+            if ($resAreas) {
+                while ($row = $resAreas->fetch_assoc()) {
+                    $areas[] = [
+                        'area'    => $row['area'],
+                        'importe' => (float) $row['importe'],
+                    ];
+                }
+            }
+
+            $promedio = $numTickets > 0 ? $ventas / $numTickets : 0.0;
+
+            echo json_encode([
+                'ok'      => true,
+                'fecha'   => date('Y-m-d'),
+                'resumen' => [
+                    'tickets'  => $numTickets,
+                    'ventas'   => round($ventas, 2),
+                    'propinas' => round($propinas, 2),
+                    'total'    => round($ventas + $propinas, 2),
+                    'promedio' => round($promedio, 2),
+                ],
+                'metodos' => [
+                    'efectivo' => round($efectivo, 2),
+                    'tarjeta'  => round($tarjeta, 2),
+                ],
+                'top'     => $top,
+                'areas'   => $areas,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('PuntoVentaController::corteCaja - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el corte de caja. Intenta de nuevo.']);
+        }
     }
 
     private static function mensajeReservacion(string $codigo): string

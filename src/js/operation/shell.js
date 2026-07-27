@@ -15,7 +15,43 @@
         var countTargets = Array.prototype.slice.call(page.querySelectorAll('[data-operational-drawer-count]'));
         var panelClose = page.querySelector('[data-operation-panel-close]');
         var operationRoot = page.querySelector('[data-page="reservation-operation"]');
+        var mapToggles = Array.prototype.slice.call(page.querySelectorAll('[data-operational-map-toggle]'));
         var lastFocus = null;
+        var MAP_MAX_KEY = 'cp-pos-map-maximized';
+
+        function setMapMaximized(on) {
+            page.classList.toggle('is-map-maximized', on);
+            mapToggles.forEach(function (toggle) {
+                toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+                var label = on ? 'Restaurar vista' : 'Maximizar mapa';
+                toggle.setAttribute('aria-label', label);
+                toggle.setAttribute('title', label);
+                var text = toggle.querySelector('.operational-map-toggle__label');
+                if (text) {
+                    text.textContent = label;
+                }
+            });
+            try {
+                window.localStorage.setItem(MAP_MAX_KEY, on ? '1' : '0');
+            } catch (error) {
+                /* almacenamiento no disponible: se ignora */
+            }
+        }
+
+        if (mapToggles.length) {
+            var savedMax = false;
+            try {
+                savedMax = window.localStorage.getItem(MAP_MAX_KEY) === '1';
+            } catch (error) {
+                savedMax = false;
+            }
+            setMapMaximized(savedMax);
+            mapToggles.forEach(function (toggle) {
+                toggle.addEventListener('click', function () {
+                    setMapMaximized(!page.classList.contains('is-map-maximized'));
+                });
+            });
+        }
 
         function updateNavigation(fecha, hora) {
             var date = String(fecha || '').trim();

@@ -52,23 +52,24 @@ INSERT INTO horarios_reservacion (dia_id, hora) VALUES
 -- Mesas — pos_x / pos_y = % del centro del pin sobre el canvas
 -- -------------------------------------------------------
 
+-- Layout del salón según plano de referencia (5 filas: y = 7/28/51/70/89).
 INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VALUES
-(1,  'Mesa 1',       'mesa',     4, 29.0, 88.0, 1),
+(1,  'Mesa 1',       'mesa',     4, 31.0, 89.0, 1),
 (2,  'Mesa 2',       'mesa',     4,  8.0, 70.0, 1),
-(3,  'Mesa 3',       'mesa',     4, 29.0, 51.0, 1),
+(3,  'Mesa 3',       'mesa',     4, 31.0, 51.0, 1),
 (4,  'Mesa 4',       'mesa',     4,  8.0, 51.0, 1),
-(5,  'Mesa 5',       'mesa',     4,  8.0, 29.0, 1),
-(6,  'Mesa 6',       'mesa',     4, 45.0, 29.0, 1),
-(7,  'Mesa 7',       'mesa',     4, 83.0, 29.0, 1),
-(8,  'Mesa 8',       'mesa',     4, 83.0,  8.0, 1),
-(9,  'Mesa 9',       'mesa',     4, 54.0,  8.0, 1),
-(10, 'Mesa 10',      'mesa',     4, 29.0,  8.0, 1),
-(11, 'Mesa 11',      'mesa',     4,  8.0,  8.0, 1),
-(12, 'Barra Blanca', 'barra',    8, 62.0, 51.0, 0),
-(13, 'Caja',         'especial', 0, 41.0, 70.0, 0),
-(14, 'Llevar',       'especial', 0, 58.0, 70.0, 0),
-(15, 'Barra Roja',   'barra',    6, 83.0, 70.0, 0),
-(16, 'Barra Roja 2', 'barra',    6, 83.0, 88.0, 0);
+(5,  'Mesa 5',       'mesa',     4,  8.0, 28.0, 1),
+(6,  'Mesa 6',       'mesa',     4, 48.0, 28.0, 1),
+(7,  'Mesa 7',       'mesa',     4, 89.0, 28.0, 1),
+(8,  'Mesa 8',       'mesa',     4, 89.0,  7.0, 1),
+(9,  'Mesa 9',       'mesa',     4, 58.0,  7.0, 1),
+(10, 'Mesa 10',      'mesa',     4, 31.0,  7.0, 1),
+(11, 'Mesa 11',      'mesa',     4,  8.0,  7.0, 1),
+(12, 'Barra Blanca', 'barra',    8, 66.0, 51.0, 0),
+(13, 'Caja',         'especial', 0, 44.0, 70.0, 0),
+(14, 'Llevar',       'especial', 0, 62.0, 70.0, 0),
+(15, 'Barra Roja',   'barra',    6, 89.0, 70.0, 0),
+(16, 'Barra Roja 2', 'barra',    6, 89.0, 89.0, 0);
 
 -- -------------------------------------------------------
 -- Áreas de producción
@@ -92,91 +93,95 @@ INSERT INTO categorias (id, nombre, img) VALUES
 (5, 'Platos Fuertes','build/images/mejor-6.webp'),
 (6, 'Ensaladas',     'build/images/comida-2.webp'),
 (7, 'Pizzas',        'build/images/pizza-3.webp'),
-(8, 'Para Picar',    'build/images/comida-6.webp');
+(8, 'Para Picar',    'build/images/comida-6.webp'),
+(9, 'Café & Bebidas',    NULL),
+(10,'Jugos & Smoothies', NULL);
 
 -- -------------------------------------------------------
 -- Productos (para comanda por área)
 -- -------------------------------------------------------
 
-INSERT INTO productos (nombre, categoria, precio, area_id) VALUES
-('Enmoladas',                                           'Desayunos',        240.00, 3),
-('Enchiladas Suizas',                                   'Desayunos',        220.00, 3),
-('Cecina y Huevo con Chorizo',                          'Desayunos',        220.00, 3),
-('Cazuela Cascabel',                                    'Desayunos',        220.00, 3),
-('Sopes con Cecina o Arrachera',                        'Desayunos',        220.00, 3),
-('Enfrijoladas',                                        'Desayunos',        220.00, 3),
-('Huevos al Parmesano',                                 'Desayunos',        210.00, 3),
-('Omelette Fitness',                                    'Desayunos',        190.00, 3),
-('Toast de Salmón Ahumado',                             'Desayunos',        230.00, 3),
-('Pan Francés Estilo C.P.',                             'Desayunos',        210.00, 3),
-('Huevos Módena',                                       'Desayunos',        190.00, 3),
-('Huevos Italianos',                                    'Desayunos',        190.00, 3),
-('Huevos Pamplona',                                     'Desayunos',        190.00, 3),
-('Huevos al Sano',                                      'Desayunos',        190.00, 3),
-('Huevos al Gusto',                                     'Desayunos',        180.00, 3),
-('Molletes',                                            'Desayunos',        100.00, 3),
-('Casa Pestalozzi',                                     'Desayunos',        180.00, 3),
-('Chilaquiles',                                         'Desayunos',        180.00, 3),
-('Baguette de Jamón Serrano',                           'Desayunos',        220.00, 3),
-('Baguette de Magret de Pollo',                         'Desayunos',        220.00, 3),
-('Baguette con Arrachera',                              'Desayunos',        230.00, 3),
-('Croissant con Jamón de Pavo',                         'Desayunos',        165.00, 3),
-('Croissant con Huevo y Estragón',                      'Desayunos',        140.00, 3),
-('Baguette de Cochinita',                               'Desayunos',        210.00, 3),
-('Plato de Fruta Mixta',                                'Desayunos',        110.00, 2),
-('Copa Antioxidante',                                   'Desayunos',        130.00, 2),
-('Aros de Calamar',                                     'Entradas',         210.00, 3),
-('Tostadas de Atún',                                    'Entradas',         195.00, 3),
-('Torreta de Salmón',                                   'Entradas',         220.00, 3),
-('Tiradito de Atún',                                    'Entradas',         210.00, 3),
-('Carpaccio de Salmón',                                 'Entradas',         180.00, 3),
-('Camarones al Ajillo',                                 'Entradas',         210.00, 3),
-('Espárragos al Horno',                                 'Entradas',         180.00, 4),
-('Queso Burrata con Jitomates Cherrys',                 'Entradas',         210.00, 4),
-('Crema del Día',                                       'Sopas & Cremas',   180.00, 3),
-('Sopa Especial de Fin de Semana',                      'Sopas & Cremas',   180.00, 3),
-('Fetuccini a los Cuatro Quesos y Camarones',           'Pastas',           280.00, 3),
-('Lasagna de Filete de Res',                            'Pastas',           280.00, 3),
-('Rigatoni al Limón con Camarones y Parmesano',         'Pastas',           280.00, 3),
-('Spaguetti a l''Arrabbiata con Camarones y Parmesano', 'Pastas',           280.00, 3),
-('Spaguetti a la Boloñesa',                             'Pastas',           280.00, 3),
-('Spaguetti al Pomodoro y Parmesano',                   'Pastas',           190.00, 3),
-('Filete de Res en su Jugo',                            'Platos Fuertes',   320.00, 3),
-('Salmón al Horno',                                     'Platos Fuertes',   295.00, 3),
-('Hamburguesa de la Casa',                              'Platos Fuertes',   260.00, 3),
-('Atún Sellado',                                        'Platos Fuertes',   285.00, 3),
-('Tacos de Cochinita',                                  'Platos Fuertes',   210.00, 3),
-('Tacos de Vacío',                                      'Platos Fuertes',   210.00, 3),
-('Tacos de Camarón Rebozados',                          'Platos Fuertes',   240.00, 3),
-('Vacío en Escalopas',                                  'Platos Fuertes',   280.00, 3),
-('New York (450 grs.)',                                 'Platos Fuertes',   785.00, 3),
-('Rib Eye (450 grs.)',                                  'Platos Fuertes',   785.00, 3),
-('Frutos Rojos',                                        'Ensaladas',        210.00, 3),
-('Ciruela Betabel',                                     'Ensaladas',        210.00, 3),
-('Magret de Pollo',                                     'Ensaladas',        210.00, 3),
-('Jamón Serrano con Perlas de Melón',                   'Ensaladas',        210.00, 3),
-('Pasta Corta con Pollo',                               'Ensaladas',        210.00, 3),
-('Margarita',                                           'Pizzas',           190.00, 4),
-('Burrata',                                             'Pizzas',           260.00, 4),
-('Milano',                                             'Pizzas',           260.00, 4),
-('Camarones a los 4 Quesos',                            'Pizzas',           260.00, 4),
-('Mix de 3 Brusquetas',                                 'Para Picar',       160.00, 3),
-('Aceitunas Temperadas con Aceite de Chile',            'Para Picar',       160.00, 3),
-('Tabla Mixta',                                         'Para Picar',       320.00, 3),
-('Papas a la Francesa con Parmesano',                   'Para Picar',       160.00, 3),
-('Café Americano',                                      'Café & Bebidas',    65.00, 1),
-('Cappuccino',                                          'Café & Bebidas',    75.00, 1),
-('Latte',                                               'Café & Bebidas',    80.00, 1),
-('Café de Olla',                                        'Café & Bebidas',    65.00, 1),
-('Té / Infusión',                                       'Café & Bebidas',    65.00, 1),
-('Chocolate Caliente',                                  'Café & Bebidas',    80.00, 1),
-('Agua Fresca',                                         'Café & Bebidas',    60.00, 1),
-('Refresco',                                            'Café & Bebidas',    55.00, 1),
-('Jugo de Naranja',                                     'Jugos & Smoothies', 85.00, 2),
-('Jugo Verde',                                          'Jugos & Smoothies', 95.00, 2),
-('Limonada Natural',                                    'Jugos & Smoothies', 75.00, 2),
-('Smoothie de Fresa',                                   'Jugos & Smoothies',100.00, 2),
-('Agua de Coco',                                        'Jugos & Smoothies', 90.00, 2);
+-- categoria_id: 1 Desayunos · 2 Entradas · 3 Sopas & Cremas · 4 Pastas · 5 Platos Fuertes
+--               6 Ensaladas · 7 Pizzas · 8 Para Picar · 9 Café & Bebidas · 10 Jugos & Smoothies
+INSERT INTO productos (nombre, categoria_id, precio, area_id) VALUES
+('Enmoladas',                                           1,  240.00, 3),
+('Enchiladas Suizas',                                   1,  220.00, 3),
+('Cecina y Huevo con Chorizo',                          1,  220.00, 3),
+('Cazuela Cascabel',                                    1,  220.00, 3),
+('Sopes con Cecina o Arrachera',                        1,  220.00, 3),
+('Enfrijoladas',                                        1,  220.00, 3),
+('Huevos al Parmesano',                                 1,  210.00, 3),
+('Omelette Fitness',                                    1,  190.00, 3),
+('Toast de Salmón Ahumado',                             1,  230.00, 3),
+('Pan Francés Estilo C.P.',                             1,  210.00, 3),
+('Huevos Módena',                                       1,  190.00, 3),
+('Huevos Italianos',                                    1,  190.00, 3),
+('Huevos Pamplona',                                     1,  190.00, 3),
+('Huevos al Sano',                                      1,  190.00, 3),
+('Huevos al Gusto',                                     1,  180.00, 3),
+('Molletes',                                            1,  100.00, 3),
+('Casa Pestalozzi',                                     1,  180.00, 3),
+('Chilaquiles',                                         1,  180.00, 3),
+('Baguette de Jamón Serrano',                           1,  220.00, 3),
+('Baguette de Magret de Pollo',                         1,  220.00, 3),
+('Baguette con Arrachera',                              1,  230.00, 3),
+('Croissant con Jamón de Pavo',                         1,  165.00, 3),
+('Croissant con Huevo y Estragón',                      1,  140.00, 3),
+('Baguette de Cochinita',                               1,  210.00, 3),
+('Plato de Fruta Mixta',                                1,  110.00, 2),
+('Copa Antioxidante',                                   1,  130.00, 2),
+('Aros de Calamar',                                     2,  210.00, 3),
+('Tostadas de Atún',                                    2,  195.00, 3),
+('Torreta de Salmón',                                   2,  220.00, 3),
+('Tiradito de Atún',                                    2,  210.00, 3),
+('Carpaccio de Salmón',                                 2,  180.00, 3),
+('Camarones al Ajillo',                                 2,  210.00, 3),
+('Espárragos al Horno',                                 2,  180.00, 4),
+('Queso Burrata con Jitomates Cherrys',                 2,  210.00, 4),
+('Crema del Día',                                       3,  180.00, 3),
+('Sopa Especial de Fin de Semana',                      3,  180.00, 3),
+('Fetuccini a los Cuatro Quesos y Camarones',           4,  280.00, 3),
+('Lasagna de Filete de Res',                            4,  280.00, 3),
+('Rigatoni al Limón con Camarones y Parmesano',         4,  280.00, 3),
+('Spaguetti a l''Arrabbiata con Camarones y Parmesano', 4,  280.00, 3),
+('Spaguetti a la Boloñesa',                             4,  280.00, 3),
+('Spaguetti al Pomodoro y Parmesano',                   4,  190.00, 3),
+('Filete de Res en su Jugo',                            5,  320.00, 3),
+('Salmón al Horno',                                     5,  295.00, 3),
+('Hamburguesa de la Casa',                              5,  260.00, 3),
+('Atún Sellado',                                        5,  285.00, 3),
+('Tacos de Cochinita',                                  5,  210.00, 3),
+('Tacos de Vacío',                                      5,  210.00, 3),
+('Tacos de Camarón Rebozados',                          5,  240.00, 3),
+('Vacío en Escalopas',                                  5,  280.00, 3),
+('New York (450 grs.)',                                 5,  785.00, 3),
+('Rib Eye (450 grs.)',                                  5,  785.00, 3),
+('Frutos Rojos',                                        6,  210.00, 3),
+('Ciruela Betabel',                                     6,  210.00, 3),
+('Magret de Pollo',                                     6,  210.00, 3),
+('Jamón Serrano con Perlas de Melón',                   6,  210.00, 3),
+('Pasta Corta con Pollo',                               6,  210.00, 3),
+('Margarita',                                           7,  190.00, 4),
+('Burrata',                                             7,  260.00, 4),
+('Milano',                                              7,  260.00, 4),
+('Camarones a los 4 Quesos',                            7,  260.00, 4),
+('Mix de 3 Brusquetas',                                 8,  160.00, 3),
+('Aceitunas Temperadas con Aceite de Chile',            8,  160.00, 3),
+('Tabla Mixta',                                         8,  320.00, 3),
+('Papas a la Francesa con Parmesano',                   8,  160.00, 3),
+('Café Americano',                                      9,   65.00, 1),
+('Cappuccino',                                          9,   75.00, 1),
+('Latte',                                               9,   80.00, 1),
+('Café de Olla',                                        9,   65.00, 1),
+('Té / Infusión',                                       9,   65.00, 1),
+('Chocolate Caliente',                                  9,   80.00, 1),
+('Agua Fresca',                                         9,   60.00, 1),
+('Refresco',                                            9,   55.00, 1),
+('Jugo de Naranja',                                     10,  85.00, 2),
+('Jugo Verde',                                          10,  95.00, 2),
+('Limonada Natural',                                    10,  75.00, 2),
+('Smoothie de Fresa',                                   10, 100.00, 2),
+('Agua de Coco',                                        10,  90.00, 2);
 
 -- -------------------------------------------------------
 -- Menú completo
@@ -425,6 +430,39 @@ UNION ALL SELECT id, 10, 2 FROM reservaciones WHERE nombre = 'Fernanda & Roque'
 UNION ALL SELECT id, 2, 1 FROM reservaciones WHERE nombre = 'Grupo Morales'
 UNION ALL SELECT id, 4, 2 FROM reservaciones WHERE nombre = 'Grupo Morales'
 UNION ALL SELECT id, 5, 3 FROM reservaciones WHERE nombre = 'Grupo Morales';
+
+-- -------------------------------------------------------
+-- Reservaciones para los próximos días (relativas a HOY)
+-- Fechas con CURDATE() + INTERVAL para que el drawer del POS siempre muestre
+-- reservas en el día actual y los siguientes, sin importar cuándo se siembre.
+-- Emails únicos (prox_*) para poder asignar mesas por email más abajo.
+-- -------------------------------------------------------
+INSERT INTO reservaciones (nombre, email, fecha, hora, comensales, nota, estado) VALUES
+('Regina Salas',      'prox_regina@ejemplo.com',  CURDATE(),                    '10:00:00', 2, '',                   'pendiente'),
+('Familia Beltrán',   'prox_beltran@ejemplo.com', CURDATE(),                    '14:00:00', 5, 'Mesa con niños',     'pendiente'),
+('Óscar Villareal',   'prox_oscar@ejemplo.com',   CURDATE(),                    '20:30:00', 2, 'Aniversario',        'pendiente'),
+('Tania Escobar',     'prox_tania@ejemplo.com',   CURDATE() + INTERVAL 1 DAY,   '09:30:00', 3, '',                   'pendiente'),
+('Grupo Financiero',  'prox_grupofin@ejemplo.com',CURDATE() + INTERVAL 1 DAY,   '13:30:00', 6, 'Comida de trabajo',  'pendiente'),
+('Bruno Cházaro',     'prox_bruno@ejemplo.com',   CURDATE() + INTERVAL 2 DAY,   '19:00:00', 4, '',                   'pendiente'),
+('Isabela Fuentes',   'prox_isabela@ejemplo.com', CURDATE() + INTERVAL 2 DAY,   '11:00:00', 2, 'Alergia: nueces',    'pendiente'),
+('Marcela Ontiveros', 'prox_marcela@ejemplo.com', CURDATE() + INTERVAL 3 DAY,   '15:00:00', 4, '',                   'pendiente'),
+('Rodrigo Nájera',    'prox_rodrigo@ejemplo.com', CURDATE() + INTERVAL 4 DAY,   '20:00:00', 2, 'Cumpleaños',         'pendiente'),
+('Familia Pineda',    'prox_pineda@ejemplo.com',  CURDATE() + INTERVAL 5 DAY,   '13:00:00', 7, 'Reunión familiar',   'pendiente');
+
+INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden)
+SELECT id, 5, 1 FROM reservaciones WHERE email = 'prox_regina@ejemplo.com'
+UNION ALL SELECT id, 6, 1 FROM reservaciones WHERE email = 'prox_beltran@ejemplo.com'
+UNION ALL SELECT id, 7, 2 FROM reservaciones WHERE email = 'prox_beltran@ejemplo.com'
+UNION ALL SELECT id, 8, 1 FROM reservaciones WHERE email = 'prox_oscar@ejemplo.com'
+UNION ALL SELECT id, 3, 1 FROM reservaciones WHERE email = 'prox_tania@ejemplo.com'
+UNION ALL SELECT id, 1, 1 FROM reservaciones WHERE email = 'prox_grupofin@ejemplo.com'
+UNION ALL SELECT id, 2, 2 FROM reservaciones WHERE email = 'prox_grupofin@ejemplo.com'
+UNION ALL SELECT id, 9, 1 FROM reservaciones WHERE email = 'prox_bruno@ejemplo.com'
+UNION ALL SELECT id, 10, 1 FROM reservaciones WHERE email = 'prox_isabela@ejemplo.com'
+UNION ALL SELECT id, 4, 1 FROM reservaciones WHERE email = 'prox_marcela@ejemplo.com'
+UNION ALL SELECT id, 11, 1 FROM reservaciones WHERE email = 'prox_rodrigo@ejemplo.com'
+UNION ALL SELECT id, 6, 1 FROM reservaciones WHERE email = 'prox_pineda@ejemplo.com'
+UNION ALL SELECT id, 7, 2 FROM reservaciones WHERE email = 'prox_pineda@ejemplo.com';
 
 -- -------------------------------------------------------
 -- Usuarios demo
@@ -804,3 +842,73 @@ WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
 -- Anuncio inicial que se modificará
 INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+
+-- -------------------------------------------------------
+-- INVENTARIO / RECETAS (datos de prueba)
+-- Recetas de ejemplo para 5 productos existentes de "Café & Bebidas".
+-- Las cantidades son por 1 unidad del producto; las subrecetas se explotan
+-- hasta ingredientes al descontar inventario.
+-- -------------------------------------------------------
+
+-- Ingredientes base (ids explícitos: la tabla queda vacía tras el ddl).
+-- 'costo' es el costo por unidad (por g / ml / pza).
+-- Varios ingredientes quedan intencionalmente por debajo del mínimo (ids 3, 4, 6, 8)
+-- para poblar la alerta de bajo stock y la sección de reabastecimiento rápido.
+INSERT INTO ingredientes (id, nombre, unidad, stock, stock_minimo, costo, activo) VALUES
+(1, 'Café molido',          'g',  5000, 500,  0.3000, 1),
+(2, 'Agua',                 'ml', 100000, 5000, 0.0001, 1),
+(3, 'Leche',                'ml', 2100, 3000, 0.0250, 1),
+(4, 'Chocolate en polvo',   'g',  250,  400,  0.2000, 1),
+(5, 'Azúcar',               'g',  8000, 800,  0.0300, 1),
+(6, 'Canela',               'g',  30,   50,   0.5000, 1),
+(7, 'Piloncillo',           'g',  3000, 300,  0.0600, 1),
+(8, 'Fruta de temporada',   'g',  420,  600,  0.0400, 1),
+(9, 'Hielo',                'g',  20000, 1000, 0.0050, 1);
+
+-- Gastos fijos mensuales de ejemplo.
+INSERT INTO gastos_fijos (nombre, categoria, monto, activo) VALUES
+('Renta del local',      'renta',     45000.00, 1),
+('Luz (CFE)',            'servicios',  8000.00, 1),
+('Agua',                 'servicios',  2500.00, 1),
+('Gas',                  'servicios',  4000.00, 1),
+('Internet y teléfono',  'servicios',  1200.00, 1),
+('Nómina',               'nomina',    60000.00, 1);
+
+-- Subreceta reutilizable: shot de espresso (rinde 60 ml).
+INSERT INTO subrecetas (id, nombre, unidad, rendimiento, activo) VALUES
+(1, 'Shot de espresso', 'ml', 60, 1);
+
+INSERT INTO subreceta_ingredientes (subreceta_id, ingrediente_id, cantidad) VALUES
+(1, 1, 18),   -- 18 g de café molido
+(1, 2, 60);   -- 60 ml de agua
+
+-- Recetas principales por producto (enlace por nombre exacto del platillo).
+-- Café Americano: 1 shot de espresso + agua.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Café Americano'
+UNION ALL SELECT p.id, 'ingrediente', 2, 90 FROM productos p WHERE p.nombre = 'Café Americano';
+
+-- Cappuccino: 1 shot de espresso + leche.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'subreceta', 1, 60 FROM productos p WHERE p.nombre = 'Cappuccino'
+UNION ALL SELECT p.id, 'ingrediente', 3, 120 FROM productos p WHERE p.nombre = 'Cappuccino';
+
+-- Café de Olla: café + agua + piloncillo + canela.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 1, 15  FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 2, 200 FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 7, 25  FROM productos p WHERE p.nombre = 'Café de Olla'
+UNION ALL SELECT p.id, 'ingrediente', 6, 2   FROM productos p WHERE p.nombre = 'Café de Olla';
+
+-- Chocolate Caliente: chocolate en polvo + leche + azúcar.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 4, 30  FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 3, 200 FROM productos p WHERE p.nombre = 'Chocolate Caliente'
+UNION ALL SELECT p.id, 'ingrediente', 5, 10  FROM productos p WHERE p.nombre = 'Chocolate Caliente';
+
+-- Agua Fresca: fruta + agua + azúcar + hielo.
+INSERT INTO producto_componentes (producto_id, tipo, ref_id, cantidad)
+SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 5, 20  FROM productos p WHERE p.nombre = 'Agua Fresca'
+UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';

@@ -1,24 +1,32 @@
 <?php
 /**
- * Plantilla HTML que Dompdf convierte a PDF.
+ * Plantilla HTML que Dompdf convierte a PDF — Carta Casa Pestalozzi.
  * Recibe:
- *   - $categorias: array de grupos; cada uno es
- *                  ['nombre' => string, 'platillos' => Menu[]].
- *   - $generado:   string con la fecha/hora de generacion (no se muestra)
- *   - $fontsDir:   ruta absoluta (con / ) a public/build/fonts para @font-face
+ *   - $gruposOrdenados: array de ['nombre' => string, 'platillos' => Menu[]]
+ *   - $platillos: array plano de objetos Menu (para el conteo total)
+ *   - $generado:  string con la fecha/hora de generacion
+ *   - $fontsDir:  ruta absoluta (con / ) a public/build/fonts para @font-face
  *
- * Diseno: paleta del modo oscuro del sitio (:root en app.css). Menu agrupado
- * por categoria (nombre en dorado con la fuente por defecto) y, dentro de cada
- * categoria, platillos en 2 columnas por hoja usando tablas sin borde (el
- * metodo de layout mas fiable en Dompdf). Titulos con serifas (Playfair
- * Display) y precios en dorado. Margenes uniformes en los 4 lados via .page.
+ * Diseno editorial premium: portada con marca, secciones por categoria con
+ * filete dorado, platillos en 2 columnas con lider punteado nombre—precio.
+ * Layout con tablas sin borde (el metodo mas fiable en Dompdf), paleta de marca
+ * (public/build/css/app.css), titulos Playfair Display, cuerpo Crimson Text.
  */
+$grupos = $gruposOrdenados ?? [];
+$totalPlatillos = is_array($platillos ?? null) ? count($platillos) : 0;
+$anio = date('Y');
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>Menu</title>
     <style>
+        @font-face {
+            font-family: "KudosKaps";
+            src: url("<?php echo $fontsDir; ?>/KudosKapsOneNF.ttf") format("truetype");
+            font-weight: normal;
+        }
         @font-face {
             font-family: "Playfair Display";
             src: url("<?php echo $fontsDir; ?>/PlayfairDisplay-Regular.ttf") format("truetype");
@@ -30,6 +38,11 @@
         @font-face {
             font-family: "KudosKaps";
             src: url("<?php echo $fontsDir; ?>/KudosKapsOneNF.ttf") format("truetype");
+            font-weight: normal;
+        }
+        @font-face {
+            font-family: "Crimson Text";
+            src: url("<?php echo $fontsDir; ?>/CrimsonText-Regular.ttf") format("truetype");
             font-weight: normal;
         }
         @font-face {
@@ -53,47 +66,49 @@
             font-style: italic;
         }
 
-        /* Paleta tomada de :root (modo oscuro) en public/build/css/app.css */
-        /* En Dompdf, un background-color en html/body pinta el lienzo de cada
-           hoja de borde a borde PERO anula los margenes de @page. Por eso el
-           @page va sin margen y los margenes uniformes se logran de otra forma:
-           - laterales: padding horizontal de .page (se respeta en cada hoja).
-           - superior/inferior: filas espaciadoras en <thead>/<tfoot>, que
-             Dompdf REPITE al inicio y final de cada pagina, dando un margen
-             constante estilo documento de Word en todas las hojas. */
-        @page { margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Paleta de marca (—-gold #cca352, --terra #7c3d1d, --ink-2 #101213,
+           --beige #fff9e4, --sage #5f7d56, --gold-deep #a07e36) */
+        @page { margin: 42px 46px 52px; }
+        * { margin: 0; padding: 0; }
 
-        html, body {
-            font-family: "Montserrat", sans-serif;
-            color: #ede9df;           /* --txt */
-            background-color: #101213; /* --ink-2 */
+        body {
+            font-family: "Crimson Text", serif;
+            color: #201914;
+            background: #fffdf6;
             font-size: 11px;
         }
 
-        /* Margen lateral (constante en cada hoja) */
-        .page {
-            padding: 0 42px;
+        /* ── Portada / cabecera de marca ─────────────────────── */
+        .cover {
+            text-align: center;
+            padding: 10px 0 24px;
+            border-bottom: 2px solid #cca352;
+            margin-bottom: 14px;
         }
-
-        /* Espaciadores que se repiten por hoja = margen superior/inferior */
-        .menu-table thead .v-space td { height: 46px; padding: 0; border: none; }
-        .menu-table tfoot .v-space td { height: 38px; padding: 0; border: none; }
-
-        .pdf-header {
-            background: #15181a;       /* --surface */
-            padding: 18px 22px;
-            margin-bottom: 18px;
-            border-bottom: 3px solid #cca352;   /* --gold */
+        .cover__rule {
+            font-family: "Montserrat", sans-serif;
+            font-size: 8px;
+            font-weight: bold;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: #a07e36;
         }
-        .pdf-header h1 {
+        .cover__brand {
             font-family: "KudosKaps", "Playfair Display", serif;
-            /* KudosKaps solo existe en peso normal; sin esto el <h1> pide bold
-               por defecto y Dompdf sustituye por una serif (Times-Bold). */
-            font-weight: normal;
-            color: #cca352;           /* --gold */
-            font-size: 34px;
-            letter-spacing: 1px;
+            font-size: 56px;
+            color: #7c3d1d;
+            letter-spacing: 3px;
+            line-height: 1.0;
+            margin: 12px 0 10px;
+        }
+        .cover__brand span { color: #cca352; }
+        .cover__tagline {
+            font-family: "Montserrat", sans-serif;
+            font-size: 8.5px;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #5f7d56;
         }
         .pdf-header .sub {
             font-family: "Montserrat", sans-serif;
@@ -105,131 +120,156 @@
             margin-top: 4px;
         }
 
-        /* Tabla de 2 columnas (sin borde) para alinear el menu */
+        /* ── Seccion por categoria ───────────────────────────── */
+        .section { page-break-inside: auto; padding-bottom: 12px; }
+        .section-head {
+            page-break-inside: avoid;
+            page-break-after: avoid;
+            padding: 22px 0 14px;
+        }
+        /* Titulo centrado sobre filete dorado de ancho completo */
+        .section-title-wrap {
+            text-align: center;
+            border-bottom: 1.5px solid #cca352;
+            padding-bottom: 6px;
+        }
+        .section-title {
+            font-family: "Playfair Display", serif;
+            font-size: 20px;
+            color: #7c3d1d;
+            letter-spacing: 0.5px;
+        }
+
+        /* Tabla de 2 columnas (sin borde) para alinear los platillos */
         .menu-table {
             width: 100%;
             border-collapse: collapse;
             border: none;
         }
-        .menu-table tbody .menu-row > td {
+        .menu-table td {
             width: 50%;
             vertical-align: top;
             border: none;
-            padding: 8px 14px 12px;
+            padding: 15px 22px 16px;
         }
-        .menu-row { page-break-inside: avoid; }   /* la fila no se parte entre hojas */
-        /* Celda del titulo (ocupa las 2 columnas, solo en la 1a hoja) */
-        .header-cell { border: none; padding: 0 14px 4px; }
+        .menu-row { page-break-inside: avoid; }
 
-        /* Encabezado de categoria: fuente por defecto del documento (Montserrat)
-           en dorado, ocupando las 2 columnas. */
-        .cat-row { page-break-inside: avoid; }
-        .cat-name {
-            border: none;
-            font-family: "Montserrat", sans-serif;
-            font-weight: bold;
-            color: #cca352;           /* --gold */
-            font-size: 13px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            padding: 16px 14px 6px;
-            border-bottom: 1px solid rgba(204, 163, 82, 0.35);  /* --line reforzado */
-        }
-        /* La primera categoria no necesita tanto aire arriba (va pegada al titulo) */
-        .cat-row.first .cat-name { padding-top: 6px; }
+        .cell-inner { padding-bottom: 2px; }
 
-        .cell-inner {
-            border-bottom: 1px solid rgba(204, 163, 82, 0.18);  /* --line */
-            padding-bottom: 10px;
-        }
-
-        /* Tabla interna sin borde: nombre a la izquierda, precio a la derecha */
+        /* Linea nombre — lider punteado — precio */
         .dish-line {
             width: 100%;
             border-collapse: collapse;
             border: none;
         }
-        .dish-line td { border: none; vertical-align: baseline; }
+        .dish-line td { border: none; vertical-align: bottom; padding: 0; }
         .dish-name {
-            font-family: "Playfair Display", serif;   /* serifas para titulos */
-            font-size: 15px;
-            color: #fff9e4;           /* --beige */
-        }
-        .dish-price {
             font-family: "Playfair Display", serif;
-            font-size: 14px;
-            color: #cca352;           /* --gold (--accent) */
-            text-align: right;
+            font-size: 13.5px;
+            color: #201914;
             white-space: nowrap;
         }
-        .dish-desc {
+        .dish-leader {
+            border-bottom: 1px dotted #c9b787;
+            width: 100%;
+        }
+        .dish-price {
             font-family: "Montserrat", sans-serif;
-            font-weight: 300;
-            color: rgba(237, 233, 223, 0.58);  /* --txt-mute */
+            font-weight: bold;
+            font-size: 12px;
+            color: #a07e36;
+            text-align: right;
+            white-space: nowrap;
+            padding-left: 6px;
+        }
+        .dish-desc {
+            font-family: "Crimson Text", serif;
+            color: #6a5f52;
             font-size: 10.5px;
-            line-height: 1.45;
-            margin-top: 4px;
+            line-height: 1.5;
+            margin-top: 5px;
+            padding-right: 18px;
+        }
+
+        /* ── Pie de pagina ───────────────────────────────────── */
+        .pdf-footer {
+            margin-top: 20px;
+            padding-top: 8px;
+            border-top: 2px solid #cca352;
+            font-family: "Montserrat", sans-serif;
+            text-align: center;
+        }
+        .pdf-footer__brand {
+            font-family: "KudosKaps", "Playfair Display", serif;
+            font-size: 15px;
+            color: #7c3d1d;
+            letter-spacing: 2px;
+        }
+        .pdf-footer__meta {
+            font-size: 7.5px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #a07e36;
+            margin-top: 3px;
         }
         .empty {
-            padding: 30px;
+            padding: 40px;
             text-align: center;
-            color: rgba(237, 233, 223, 0.32);  /* --txt-faint */
+            color: rgba(32, 25, 20, 0.5);
             font-style: italic;
         }
     </style>
 </head>
 <body>
-    <div class="page">
-        <?php if (empty($categorias)) : ?>
-            <p class="empty">No hay platillos registrados en el menú.</p>
-        <?php else : ?>
-            <table class="menu-table">
-                <!-- Espaciador repetido: margen superior en cada hoja -->
-                <thead><tr class="v-space"><td colspan="2"></td></tr></thead>
-                <!-- Espaciador repetido: margen inferior en cada hoja -->
-                <tfoot><tr class="v-space"><td colspan="2"></td></tr></tfoot>
-                <tbody>
-                    <!-- Titulo dentro del cuerpo: aparece una sola vez, debajo
-                         del espaciador superior de la 1a hoja -->
-                    <tr>
-                        <td class="header-cell" colspan="2">
-                            <div class="pdf-header">
-                                <!-- Sin acento en "Menu": la fuente KudosKaps no
-                                     define la U acentuada y cambiaria de tipografia. -->
-                                <h1>Menu — Casa Pestalozzi</h1>
-                                <p class="sub">Cocina Mediterránea con corazón mexicano</p>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php foreach ($categorias as $i => $categoria) : ?>
-                        <!-- Nombre de la categoria (2 columnas, dorado) -->
-                        <tr class="cat-row<?php echo $i === 0 ? ' first' : ''; ?>">
-                            <td class="cat-name" colspan="2"><?php echo htmlspecialchars($categoria['nombre'] ?? ''); ?></td>
-                        </tr>
-                        <?php foreach (array_chunk($categoria['platillos'], 2) as $fila) : ?>
-                            <tr class="menu-row">
-                                <?php foreach ($fila as $platillo) : ?>
-                                    <td>
-                                        <div class="cell-inner">
-                                            <table class="dish-line">
-                                                <tr>
-                                                    <td class="dish-name"><?php echo htmlspecialchars($platillo->nombre ?? ''); ?></td>
-                                                    <td class="dish-price">$<?php echo number_format((float) ($platillo->precio ?? 0), 2); ?></td>
-                                                </tr>
-                                            </table>
-                                            <p class="dish-desc"><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></p>
-                                        </div>
-                                    </td>
-                                <?php endforeach; ?>
-                                <?php if (count($fila) === 1) : ?>
-                                    <td></td>
-                                <?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
+    <div class="cover">
+        <div class="cover__rule">Restaurante</div>
+        <h1 class="cover__brand">Casa <span>Pestalozzi</span></h1>
+        <div class="cover__tagline">Mediterráneo · Del Valle · CDMX</div>
     </div>
+
+    <?php if (empty($grupos)) : ?>
+        <p class="empty">No hay platillos registrados en el menú.</p>
+    <?php else : ?>
+        <?php foreach ($grupos as $grupo) : ?>
+            <?php if (empty($grupo['platillos'])) { continue; } ?>
+            <div class="section">
+                <div class="section-head">
+                    <div class="section-title-wrap">
+                        <span class="section-title"><?php echo htmlspecialchars($grupo['nombre']); ?></span>
+                    </div>
+                </div>
+                <table class="menu-table">
+                    <?php foreach (array_chunk($grupo['platillos'], 2) as $fila) : ?>
+                        <tr class="menu-row">
+                            <?php foreach ($fila as $platillo) : ?>
+                                <td>
+                                    <div class="cell-inner">
+                                        <table class="dish-line">
+                                            <tr>
+                                                <td class="dish-name"><?php echo htmlspecialchars($platillo->nombre ?? ''); ?></td>
+                                                <td class="dish-leader">&nbsp;</td>
+                                                <td class="dish-price">$<?php echo number_format((float) ($platillo->precio ?? 0), 2); ?></td>
+                                            </tr>
+                                        </table>
+                                        <?php if (!empty($platillo->descripcion)) : ?>
+                                            <p class="dish-desc"><?php echo htmlspecialchars($platillo->descripcion); ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            <?php endforeach; ?>
+                            <?php if (count($fila) === 1) : ?>
+                                <td></td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
+        <?php endforeach; ?>
+
+        <div class="pdf-footer">
+            <div class="pdf-footer__brand">Casa Pestalozzi</div>
+        </div>
+    <?php endif; ?>
 </body>
 </html>
