@@ -1979,6 +1979,93 @@
     --pos-c4: 1fr;
   }
 
+  /*
+   * Preferencias del mesero (ver getPosPrefs en punto-de-venta.js).
+   * Todas se resuelven aquí: el JS solo escribe atributos data- sobre
+   * .mmodal-panels, nunca vuelve a renderizar por un cambio de ajuste.
+   */
+
+  // Ocultar columnas: el grid se recalcula con las que queden.
+  .mmodal-panels[data-ocultos~="resumen"] > #mmodal-panel-resumen,
+  .mmodal-panels[data-ocultos~="sugerencias"] > #mmodal-panel-sugerencias {
+    display: none !important;
+  }
+
+  .mmodal-panels[data-ocultos~="resumen"]:not([data-ocultos~="sugerencias"]),
+  .mmodal-panels[data-ocultos~="sugerencias"]:not([data-ocultos~="resumen"]) {
+    grid-template-columns: var(--pos-c1, 1.1fr) var(--pos-c2, 1fr) var(--pos-c3, .9fr);
+  }
+
+  .mmodal-panels[data-ocultos~="resumen"][data-ocultos~="sugerencias"] {
+    grid-template-columns: var(--pos-c1, 1.4fr) var(--pos-c2, 1fr);
+  }
+
+  // Densidad y escala tipográfica.
+  .mmodal-panels[data-densidad="compacta"] {
+    --pos-fila-pad: .34rem .5rem;
+    --pos-fila-gap: .28rem;
+  }
+
+  .mmodal-panels[data-texto="s"] { --pos-fs: .78rem; }
+  .mmodal-panels[data-texto="m"] { --pos-fs: .86rem; }
+  .mmodal-panels[data-texto="l"] { --pos-fs: .98rem; }
+
+  .mmodal-panels[data-texto] .mmodal-dish-name,
+  .mmodal-panels[data-texto] .mmodal-dish-price {
+    font-size: var(--pos-fs);
+  }
+
+  .mmodal-panels[data-densidad="compacta"] .mmodal-dish-row {
+    padding: var(--pos-fila-pad);
+    margin-bottom: var(--pos-fila-gap);
+  }
+
+  // Tamaño del área táctil de los botones de acción.
+  .mmodal-panels[data-toque="grande"] {
+    .mmodal-dish-add {
+      width: 42px;
+      height: 42px;
+      font-size: 1.25rem;
+    }
+
+    .mmodal-comensal-block,
+    .mmodal-cat-block {
+      min-height: 48px;
+      font-size: .92rem;
+    }
+  }
+
+  // Vista del menú: cuadrícula de N columnas o lista de una.
+  .mmodal-panels[data-vista-menu="grid"] .mmodal-dishes {
+    display: grid;
+    gap: .4rem;
+  }
+
+  .mmodal-panels[data-vista-menu="grid"][data-columnas="2"] .mmodal-dishes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mmodal-panels[data-vista-menu="grid"][data-columnas="3"] .mmodal-dishes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mmodal-panels[data-vista-menu="grid"][data-columnas="4"] .mmodal-dishes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  // En cuadrícula la fila se apila para que quepa en poco ancho.
+  .mmodal-panels[data-vista-menu="grid"] .mmodal-dish-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "nombre fav"
+      "precio add";
+    align-items: center;
+    gap: .25rem .4rem;
+    margin-bottom: 0;
+
+    .mmodal-dish-info  { grid-area: nombre; min-width: 0; }
+    .mmodal-dish-price { grid-area: precio; }
+    .mmodal-dish-fav   { grid-area: fav; }
+    .mmodal-dish-add   { grid-area: add; }
+  }
+
+  .mmodal-panels[data-vista-menu="lista"] .mmodal-dishes {
+    display: block;
+  }
+
   .mmodal-panel-label { display: block; }
 
   // Cada columna ocupa toda la altura del grid y se muestra siempre
@@ -2010,50 +2097,157 @@
     margin-bottom: 0;
   }
 
-  // Barra de presets visible solo en desktop (en móvil manda el sistema de tabs).
-  .mmodal-layout-presets {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 0 .75rem;
-  }
 }
 
-// ── Presets de layout del modal (Menú amplio / Equilibrado / Compacto) ────
-.mmodal-layout-presets {
-  display: none;                 // oculto por defecto (móvil)
+// ── Panel de ajustes del mesero ───────────────────────────────
+// Los presets de layout y el disparador ya no viven en el modal: están en el
+// engranaje del header (.pos-header__prefs → #pos-prefs-overlay). Este bloque
+// estiliza el cuerpo del panel, que ahora se inyecta en #pos-prefs-panel.
+.mmodal-prefs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.2rem 1.6rem;
+  margin: 0;
+  padding: 1.1rem 1.25rem 1.25rem;
 
-  &__label {
-    margin-right: 4px;
+  &[hidden] { display: none; }
+
+  &__group h4 {
+    margin: 0 0 .5rem;
     color: var(--muted);
-    font-size: .7rem;
-    font-weight: 700;
-    letter-spacing: .04em;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .08em;
     text-transform: uppercase;
   }
-}
 
-.mmodal-layout-btn {
-  padding: .35rem .7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font: inherit;
-  font-size: .78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
-
-  &:hover {
-    color: var(--text);
-    border-color: var(--admin-gold, #cca352);
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .6rem;
+    margin-bottom: .4rem;
   }
 
-  &.is-active {
-    border-color: var(--admin-gold, #cca352);
-    background: var(--admin-gold, #cca352);
-    color: #1b1a17;
+  &__label {
+    color: var(--txt-faint);
+    font-size: .75rem;
+    font-weight: 600;
+  }
+
+  &__opts {
+    display: inline-flex;
+    gap: 3px;
+    padding: 2px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+
+  &__opt {
+    padding: .28rem .55rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover { color: var(--text); }
+
+    &.is-active {
+      background: var(--admin-gold, #cca352);
+      color: #1b1a17;
+    }
+  }
+
+  &__orden {
+    display: grid;
+    gap: 3px;
+    margin-top: .5rem;
+  }
+
+  &__orden-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .3rem .5rem;
+    border: 1px solid var(--line-soft);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: .74rem;
+    font-weight: 600;
+  }
+
+  &__orden-btns button {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { color: var(--text); }
+    &:disabled { opacity: .35; cursor: not-allowed; }
+  }
+
+  &__hint {
+    margin: .5rem 0 0;
+    color: var(--txt-faint);
+    font-size: .7rem;
+    line-height: 1.4;
+  }
+
+  &__foot {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: .6rem;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  &__reset {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: .74rem;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover { color: var(--text); }
+  }
+}
+
+// Estrella de favorito en la fila de platillo.
+.mmodal-dish-fav {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--txt-faint);
+  cursor: pointer;
+  transition: color 140ms ease;
+
+  svg { fill: none; }
+
+  &:hover { color: var(--admin-gold, #cca352); }
+
+  &.is-on {
+    color: var(--admin-gold, #cca352);
+
+    svg { fill: currentColor; }
   }
 }
 
@@ -2595,6 +2789,130 @@
   }
 }
 
+// ── Ajustes del mesero: disparador en el header ────────────────
+.mapa-page .pos-header__prefs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover,
+  &.is-active {
+    color: var(--admin-text);
+    border-color: var(--admin-gold, #cca352);
+    background: var(--admin-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--admin-gold, #cca352);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 560px) {
+    span { display: none; }
+    padding: 0;
+    width: 42px;
+    justify-content: center;
+  }
+}
+
+// ── Ajustes del mesero: overlay ────────────────────────────────
+// z-index por encima del modal de mesa (200): se puede abrir con una mesa
+// en pantalla y debe quedar delante.
+.pos-prefs {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+
+  &[hidden] { display: none; }
+
+  &__bd {
+    position: absolute;
+    inset: 0;
+    background: rgba(11, 12, 13, 0.7);
+    backdrop-filter: blur(2px);
+  }
+
+  &__dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(760px, 94vw);
+    max-height: min(86vh, 720px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface-2);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  &__close {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text);
+      border-color: var(--admin-gold, #cca352);
+    }
+  }
+
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 // ── El mapa: único contenedor, llena el alto disponible ────────
 .mapa-page .pos-map {
   flex: 1 1 auto;
@@ -2693,16 +3011,51 @@
 }
 
 // Selector de fecha dentro del cajón de reservaciones.
+/*
+ * El cajón envuelve su slot en `.reservation-operation__slot`, que trae fondo,
+ * borde y padding propios y es un contenedor flex con `space-between`. En el
+ * POS eso dibujaba una segunda caja alrededor del campo (que ya tiene la suya)
+ * y, al ser `.pos-drawer-date` un ítem flex con `flex:0 1 auto`, lo encogía a
+ * su contenido y lo dejaba pegado a la izquierda. Aquí se neutraliza.
+ */
+.mapa-page .reservation-operation__slot {
+  display: block;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .mapa-page .pos-drawer-date {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+  display: block;
+  width: 100%;
 }
 
 .mapa-page .pos-drawer-date .operational-context-date {
+  // `flex` y `min-width` vienen de `.operational-page .operational-context-date`
+  // (180-220px, pensado para la barra de la operación de reservaciones). Sin
+  // anularlos los tres, el campo nunca llega al ancho del cajón.
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 280px;
-  margin-inline: auto;
+  min-width: 0;
+  max-width: none;
+  margin-inline: 0;
+  // El calendario se ancla al campo y mide lo mismo, así el cajón
+  // (overflow:hidden) ya no le corta la columna del domingo.
+  --reservation-picker-dropdown-min-width: 100%;
+}
+
+// Fecha centrada dentro del campo (con hueco simétrico al del icono).
+.mapa-page .pos-drawer-date .date-display {
+  padding-inline-end: var(--reservation-picker-date-padding-start, 42px);
+  text-align: center;
+}
+
+.mapa-page .pos-drawer-date .cp-calendar {
+  right: auto;
+  left: 0;
+  width: 100%;
+  max-width: none;
 }
 
 // ── Estado maximizado: solo el mapa ───────────────────────────

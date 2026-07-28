@@ -26,51 +26,113 @@ $hoyIso = date('Y-m-d');
             </p>
         </div>
 
-        <div class="admin-filter-bar admin-analytics-filters" data-analytics-filters aria-label="Filtros del resumen">
-            <label class="admin-analytics-filters__field">
-                <span>Periodo</span>
-                <select data-analytics-filter="range">
-                    <option value="3" <?php echo $rangoPreset === 3 ? 'selected' : ''; ?>>Últimos 3 días</option>
-                    <option value="7" <?php echo $rangoPreset === 7 ? 'selected' : ''; ?>>Últimos 7 días</option>
-                    <option value="30" <?php echo $rangoPreset === 30 ? 'selected' : ''; ?>>Últimos 30 días</option>
-                    <option value="60" <?php echo $rangoPreset === 60 ? 'selected' : ''; ?>>Últimos 60 días</option>
-                    <option value="365" <?php echo $rangoPreset === 365 ? 'selected' : ''; ?>>Último año</option>
-                    <option value="custom" <?php echo $esCustom ? 'selected' : ''; ?>>Personalizado…</option>
-                </select>
-            </label>
-            <div class="admin-analytics-filters__range" data-analytics-range <?php echo $esCustom ? '' : 'hidden'; ?>>
-                <label class="admin-analytics-filters__field">
-                    <span>Desde</span>
-                    <input type="date" data-analytics-desde max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rango['start']); ?>">
-                </label>
-                <label class="admin-analytics-filters__field">
-                    <span>Hasta</span>
-                    <input type="date" data-analytics-hasta max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rango['end']); ?>">
-                </label>
-                <button type="button" class="admin-btn admin-btn--primary admin-btn--small" data-analytics-apply>Aplicar</button>
+        <?php
+            $presets = [3 => 'Últimos 3 días', 7 => 'Últimos 7 días', 30 => 'Últimos 30 días',
+                        60 => 'Últimos 60 días', 365 => 'Último año'];
+            $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+            $bonita = static function (string $iso) use ($mesesCortos): string {
+                $ts = strtotime($iso);
+                return $ts ? ((int) date('j', $ts) . ' ' . $mesesCortos[(int) date('n', $ts)]) : $iso;
+            };
+            $resumenRango = $bonita((string) $rango['start']) . ' – ' . $bonita((string) $rango['end'])
+                          . ' ' . date('Y', strtotime((string) $rango['end']));
+        ?>
+        <div class="admin-range" data-analytics-range-picker
+             data-start="<?php echo htmlspecialchars((string) $rango['start']); ?>"
+             data-end="<?php echo htmlspecialchars((string) $rango['end']); ?>"
+             data-today="<?php echo $hoyIso; ?>"
+             data-preset="<?php echo $rangoPreset; ?>">
+
+            <span class="admin-range__caption">Periodo</span>
+
+            <button type="button" class="admin-range__trigger" data-range-trigger
+                    aria-expanded="false" aria-haspopup="dialog">
+                <svg class="admin-range__icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/>
+                </svg>
+                <span class="admin-range__trigger-text">
+                    <span class="admin-range__trigger-label" data-range-label><?php echo htmlspecialchars($rango['label']); ?></span>
+                    <span class="admin-range__trigger-dates" data-range-dates><?php echo htmlspecialchars($resumenRango); ?></span>
+                </span>
+                <svg class="admin-range__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+
+            <div class="admin-range__pop" data-range-pop hidden role="dialog" aria-label="Elegir periodo">
+                <div class="admin-range__presets" role="group" aria-label="Periodos rápidos">
+                    <?php foreach ($presets as $dias => $etiqueta) : ?>
+                        <button type="button" class="admin-range__preset <?php echo $rangoPreset === $dias ? 'is-active' : ''; ?>"
+                                data-range-preset="<?php echo $dias; ?>"><?php echo htmlspecialchars($etiqueta); ?></button>
+                    <?php endforeach; ?>
+                    <button type="button" class="admin-range__preset <?php echo $esCustom ? 'is-active' : ''; ?>"
+                            data-range-preset="custom">Personalizado</button>
+                </div>
+
+                <div class="admin-range__cal">
+                    <div class="admin-range__nav">
+                        <button type="button" class="admin-range__nav-btn" data-range-prev aria-label="Mes anterior">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <span class="admin-range__month-title" data-range-title-a></span>
+                        <span class="admin-range__month-title admin-range__month-title--b" data-range-title-b></span>
+                        <button type="button" class="admin-range__nav-btn" data-range-next aria-label="Mes siguiente">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="admin-range__months">
+                        <div class="admin-range__month">
+                            <div class="admin-range__weekdays" aria-hidden="true"><span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sa</span></div>
+                            <div class="admin-range__grid" data-range-grid-a></div>
+                        </div>
+                        <div class="admin-range__month admin-range__month--b">
+                            <div class="admin-range__weekdays" aria-hidden="true"><span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sa</span></div>
+                            <div class="admin-range__grid" data-range-grid-b></div>
+                        </div>
+                    </div>
+
+                    <div class="admin-range__foot">
+                        <span class="admin-range__summary" data-range-summary aria-live="polite"></span>
+                        <div class="admin-range__foot-actions">
+                            <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-range-cancel>Cancelar</button>
+                            <button type="button" class="admin-btn admin-btn--primary admin-btn--small" data-range-apply>Aplicar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
 
+    <?php
+    /*
+     * Tres niveles de lectura, en vez de seis cajas del mismo peso:
+     *   1. titular  → ventas del periodo (tarjeta) + la gráfica diaria al lado
+     *   2. soporte  → ticket promedio, propinas y comensales
+     *   3. contexto → platillos y reservaciones, en una franja compacta
+     */
+    ?>
     <section class="admin-metrics-section" aria-label="Indicadores principales">
-        <div class="admin-metrics-grid admin-metrics-grid--primary" data-admin-metrics-primary></div>
-        <div class="admin-metrics-grid admin-metrics-grid--secondary" data-admin-metrics-secondary></div>
+        <?php /* La cifra y la gráfica comparten fila: la tendencia se lee junto
+                 al número del que habla, no tres pantallas más abajo. */ ?>
+        <div class="admin-metrics-lead">
+            <div class="admin-metrics-hero" data-admin-metrics-hero></div>
+            <article class="admin-panel admin-chart-card admin-chart-card--lead">
+                <header>
+                    <div>
+                        <h3>Ventas diarias del periodo</h3>
+                        <p>Tickets cerrados por día</p>
+                    </div>
+                    <span>MXN</span>
+                </header>
+                <div class="admin-chart-card__canvas">
+                    <canvas id="salesByDayChart"></canvas>
+                </div>
+            </article>
+        </div>
+        <div class="admin-metrics-grid admin-metrics-grid--support" data-admin-metrics-primary></div>
+        <div class="admin-metrics-strip" data-admin-metrics-secondary></div>
     </section>
 
     <div class="admin-chart-grid">
-        <article class="admin-panel admin-chart-card">
-            <header>
-                <div>
-                    <h3>Ventas diarias del periodo</h3>
-                    <p>Tickets cerrados por día</p>
-                </div>
-                <span>MXN</span>
-            </header>
-            <div class="admin-chart-card__canvas">
-                <canvas id="salesByDayChart"></canvas>
-            </div>
-        </article>
-
         <article class="admin-panel admin-chart-card">
             <header>
                 <div>
@@ -139,9 +201,11 @@ $hoyIso = date('Y-m-d');
                 <thead>
                     <tr>
                         <th>Folio</th>
+                        <th>Mesa</th>
                         <th>Fecha</th>
                         <th>Status</th>
                         <th>Total</th>
+                        <th>Propina</th>
                         <th>Pago</th>
                     </tr>
                 </thead>

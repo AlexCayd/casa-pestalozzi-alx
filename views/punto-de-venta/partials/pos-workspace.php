@@ -8,14 +8,22 @@
  * Para embeberlo en otra sección del proyecto, el contenedor debe:
  *   1) Tener en el <body> los hooks: class "mapa-page operational-page",
  *      data-page="mapa" y data-operational-page (para shell.js).
- *   2) Cargar los assets: /build/css/app.css, /build/js/bundle.min.js
- *      (incluye punto-de-venta.js + CP_MENU/CP_AREAS de menu-data.js),
- *      /build/js/admin/map.js y el CDN de qrcode-generator.
- *   3) Definir antes de incluir este partial las variables:
+ *   2) Cargar los assets: /build/css/app.css, /build/js/bundle.min.js,
+ *      /build/js/admin/map.js (que trae punto-de-venta.js) y el CDN de
+ *      qrcode-generator.
+ *   3) Emitir en línea, ANTES de esos <script src>, las globales
+ *      window.CP_MENU, window.CP_AREAS y window.CP_USER. Es un contrato duro:
+ *      el JS las lee de forma síncrona al abrir una mesa. Se arman con
+ *      Services\Carta::paraPos() / ::areasPos() (antes venían del archivo
+ *      escrito a mano src/js/data/menu-data.js, ya eliminado).
+ *   4) Definir antes de incluir este partial las variables:
  *      $h (escaper), $mapFecha (YYYY-MM-DD), $drawerToggleHtml, $datePickerHtml,
  *      $usuarioNombre, $usuarioRol. Ver views/punto-de-venta/index.php.
  *
- * IMPORTANTE: los IDs mapa-* y #mesa-modal* son el contrato con el JS; no renombrar.
+ * IMPORTANTE: los IDs mapa-*, #mesa-modal* y #pos-prefs-* son el contrato con
+ * el JS; no renombrar. El overlay #pos-prefs-overlay debe emitirse siempre:
+ * es donde vive el panel de ajustes del mesero (fuera del modal, que se
+ * reescribe entero en cada apertura de mesa).
  */
 
 $h = $h ?? static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -44,6 +52,18 @@ $usuarioRol = $usuarioRol ?? 'Usuario';
             </span>
           </div>
         <?php endif; ?>
+        <?php /* Ajustes del mesero. Vive en el header y no dentro del modal:
+                antes el acceso estaba en una barra oculta bajo 768px, así que
+                en tablet no había forma de llegar a la configuración. */ ?>
+        <button type="button" class="pos-header__prefs" id="pos-prefs-toggle"
+                aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay"
+                title="Ajustes de la vista">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>
+          </svg>
+          <span>Ajustes</span>
+        </button>
         <form class="pos-header__logout-form" method="POST" action="/logout">
           <button type="submit" class="pos-header__logout">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -119,6 +139,24 @@ $usuarioRol = $usuarioRol ?? 'Usuario';
       <div class="mesa-modal__handle"></div>
       <button class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar">×</button>
       <div id="mesa-modal-content"></div>
+    </div>
+  </div>
+
+  <?php /*
+    Preferencias del mesero. Va FUERA de #mesa-modal-content a propósito: ese
+    nodo se reescribe entero en cada apertura de mesa y se llevaría por delante
+    los listeners del panel. Aquí se enlaza una sola vez y sobrevive.
+    El cuerpo lo pinta punto-de-venta.js (panelAjustesHtml), porque depende de
+    localStorage, que PHP no ve.
+  */ ?>
+  <div class="pos-prefs" id="pos-prefs-overlay" hidden>
+    <div class="pos-prefs__bd" id="pos-prefs-bd"></div>
+    <div class="pos-prefs__dialog" role="dialog" aria-modal="true" aria-labelledby="pos-prefs-title">
+      <header class="pos-prefs__head">
+        <h3 class="pos-prefs__title" id="pos-prefs-title">Ajustes de la vista</h3>
+        <button type="button" class="pos-prefs__close" id="pos-prefs-close" aria-label="Cerrar ajustes">×</button>
+      </header>
+      <div class="pos-prefs__body mmodal-prefs" id="pos-prefs-panel"></div>
     </div>
   </div>
 </div>

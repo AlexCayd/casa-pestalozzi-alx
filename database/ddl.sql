@@ -32,6 +32,10 @@ DROP TABLE IF EXISTS feedback_tokens;
 DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
+-- `menu` queda como VISTA de compatibilidad tras la migración 002 (ver
+-- database/migrations/). Sin este DROP VIEW, reejecutar ddl.sql sobre una BD
+-- ya migrada falla con "Unknown table" al intentar borrar una vista.
+DROP VIEW  IF EXISTS menu;
 DROP TABLE IF EXISTS menu;
 DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
@@ -159,6 +163,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   comensales         INT NOT NULL DEFAULT 1,
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  hora_cierre        DATETIME NULL COMMENT 'Momento del cobro. Las ventas se agregan por esta fecha (COALESCE con hora_apertura para tickets previos).',
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
   propina            DECIMAL(8,2) NOT NULL DEFAULT 0 COMMENT 'Propina al cerrar = pagado − total de la cuenta',
@@ -181,13 +186,27 @@ ALTER TABLE tickets
   MODIFY COLUMN metodo_pago ENUM('efectivo','tarjeta','dividido') NULL;
 
 
+-- MENÚ / PRODUCTOS — fuente única de los platillos.
+--
+-- Antes existían dos tablas con los mismos platillos: `menu` (carta pública y
+-- PDF) y `productos` (inventario, COGS, ruteo por área). El único enlace entre
+-- ellas era el nombre en texto plano, y un tercer menú vivía escrito a mano en
+-- src/js/data/menu-data.js para el punto de venta. Ahora todo sale de aquí.
+--
+-- El UNIQUE sobre `nombre` es lo que sostiene el enlace por nombre que usan
+-- Inventario::aplicarVenta, el COGS de Finanzas y las sugerencias: un nombre
+-- duplicado rompía el descuento de stock sin dar ningún error.
 CREATE TABLE IF NOT EXISTS productos (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre       VARCHAR(120) NOT NULL,
+  descripcion  TEXT NULL COMMENT 'Obligatoria en Producto::validar(); nullable para no bloquear la migración',
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
+  tag          VARCHAR(60) NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_productos_nombre (nombre),
+  KEY idx_productos_cat_activo (categoria_id, activo),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
@@ -303,20 +322,10 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- -------------------------------------------------------
--- MENÚ
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS menu (
-  id           INT AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(100) NOT NULL,
-  descripcion  TEXT NOT NULL,
-  precio       DECIMAL(10,2) NOT NULL,
-  tag          VARCHAR(60),
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  categoria_id INT NOT NULL,
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
-);
+-- La tabla `menu` se eliminó: los platillos viven en `productos` (arriba).
+-- Una instalación limpia no crea ni la vista de compatibilidad; esa solo
+-- existe en el camino de migración, para no romper el flujo de n8n mientras
+-- se reimporta. Ver database/migrations/2026_07_26_002_fusion_menu_productos.sql
 
 -- -------------------------------------------------------
 -- FEEDBACK

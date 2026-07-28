@@ -68,9 +68,25 @@
   --admin-surface: #fdfcfb;
   --admin-surface-soft: #fbf9f4;
   --admin-surface-strong: #ffffff;
-  /* Sidebar (siempre tinta profunda, como el público) */
-  --admin-sidebar: #101213;
-  --admin-sidebar-soft: #15181a;
+  /*
+   * Sidebar: en claro también va en claro. Antes quedaba fijo en tinta
+   * profunda y el interruptor de tema no lo tocaba.
+   */
+  --admin-sidebar: #fffdf8;
+  --admin-sidebar-soft: #f6f1e7;
+  --admin-sidebar-border: rgba(11, 12, 13, 0.09);
+  --admin-sidebar-text: #0b0c0d;
+  --admin-sidebar-link: rgba(11, 12, 13, 0.68);
+  --admin-sidebar-link-hover: #0b0c0d;
+  --admin-sidebar-hover-bg: rgba(11, 12, 13, 0.05);
+  --admin-sidebar-active-bg: rgba(204, 163, 82, 0.18);
+  --admin-sidebar-active-text: #0b0c0d;
+  --admin-sidebar-mark-bg: rgba(11, 12, 13, 0.05);
+  --admin-sidebar-mark-active-text: #1b1a17;
+  --admin-sidebar-scroll: rgba(160, 126, 54, 0.36);
+  --admin-sidebar-scroll-hover: rgba(160, 126, 54, 0.55);
+  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.18);
+  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.35);
   /* Texto */
   --admin-text: #0b0c0d;
   --admin-muted: rgba(11, 12, 13, 0.58);
@@ -126,6 +142,19 @@
   /* Sidebar aún más profundo que el fondo */
   --admin-sidebar: #0b0c0d;
   --admin-sidebar-soft: #101213;
+  --admin-sidebar-border: transparent;
+  --admin-sidebar-text: #ede9df;
+  --admin-sidebar-link: rgba(248, 239, 226, 0.78);
+  --admin-sidebar-link-hover: #fff;
+  --admin-sidebar-hover-bg: rgba(248, 239, 226, 0.1);
+  --admin-sidebar-active-bg: rgba(248, 239, 226, 0.12);
+  --admin-sidebar-active-text: #fff;
+  --admin-sidebar-mark-bg: rgba(248, 239, 226, 0.08);
+  --admin-sidebar-mark-active-text: #101213;
+  --admin-sidebar-scroll: rgba(204, 163, 82, 0.32);
+  --admin-sidebar-scroll-hover: rgba(204, 163, 82, 0.5);
+  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.28);
+  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.5);
   /* Texto */
   --admin-text: #ede9df;
   --admin-muted: rgba(237, 233, 223, 0.58);
@@ -363,14 +392,15 @@
   height: 100vh;
   max-height: 100vh;
   padding: 22px 18px;
+  border-right: 1px solid var(--admin-sidebar-border);
   background: var(--admin-sidebar);
-  color: var(--admin-text-inverse);
+  color: var(--admin-sidebar-text);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204, 163, 82, 0.42) transparent;
+  scrollbar-color: var(--admin-sidebar-scroll-hover) transparent;
   transition: padding var(--admin-layout-transition), width var(--admin-layout-transition);
 }
 .admin-sidebar::-webkit-scrollbar {
@@ -383,11 +413,11 @@
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: rgba(204, 163, 82, 0.32);
+  background-color: var(--admin-sidebar-scroll);
   transition: background-color var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-sidebar:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(204, 163, 82, 0.5);
+  background-color: var(--admin-sidebar-scroll-hover);
 }
 
 .admin-sidebar-preload .admin-sidebar,
@@ -433,7 +463,7 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: rgba(248, 239, 226, 0.08);
+  background: var(--admin-sidebar-mark-bg);
   color: var(--admin-gold);
   font-weight: 800;
   line-height: 1;
@@ -451,7 +481,7 @@
 .admin-sidebar__link-mark {
   width: 36px;
   height: 36px;
-  color: rgba(248, 239, 226, 0.78);
+  color: var(--admin-sidebar-link);
 }
 .admin-sidebar__link-mark svg {
   width: 18px;
@@ -486,7 +516,7 @@
   min-height: 42px;
   padding: 4px 10px;
   border-radius: 8px;
-  color: rgba(248, 239, 226, 0.78);
+  color: var(--admin-sidebar-link);
   font-size: 13px;
   letter-spacing: 0.005em;
   text-decoration: none;
@@ -511,16 +541,16 @@
   transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-sidebar__link:hover {
-  background: rgba(248, 239, 226, 0.1);
-  color: #fff;
+  background: var(--admin-sidebar-hover-bg);
+  color: var(--admin-sidebar-link-hover);
 }
 .admin-sidebar__link:hover .admin-sidebar__link-mark {
-  color: #fff;
+  color: var(--admin-sidebar-link-hover);
   transform: translateX(1px);
 }
 .admin-sidebar__link.is-active {
-  background: rgba(248, 239, 226, 0.12);
-  color: #fff;
+  background: var(--admin-sidebar-active-bg);
+  color: var(--admin-sidebar-active-text);
   font-weight: 700;
 }
 .admin-sidebar__link.is-active::before {
@@ -528,7 +558,7 @@
 }
 .admin-sidebar__link.is-active .admin-sidebar__link-mark {
   background: var(--admin-gold);
-  color: #101213;
+  color: var(--admin-sidebar-mark-active-text);
 }
 
 .admin-sidebar-backdrop {
@@ -595,7 +625,7 @@
     visibility: hidden;
     transform: translateX(-100%);
     transition: transform 180ms ease, visibility 180ms ease;
-    box-shadow: 20px 0 48px rgba(33, 31, 27, 0.28);
+    box-shadow: var(--admin-sidebar-shadow);
   }
   .admin-sidebar__brand {
     min-width: 0;
@@ -627,7 +657,7 @@
     inset: 0;
     z-index: 30;
     display: block;
-    background: rgba(33, 31, 27, 0.5);
+    background: var(--admin-sidebar-backdrop);
     cursor: pointer;
     opacity: 0;
     visibility: hidden;
@@ -687,23 +717,29 @@
   min-width: 0;
 }
 
+/*
+ * Los tres botones de la barra (reportar, tema, salir) medían 36 / 40 / 38px
+ * con iconos de 17 / 18 / 17 y tres juegos distintos de borde y fondo, porque
+ * se definieron en archivos separados. Aquí quedan al mismo tamaño; el tema
+ * usa la misma caja en _theme-toggle.scss.
+ */
 .admin-topbar__support {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 50%;
-  background: transparent;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface);
   color: var(--admin-muted);
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-topbar__support svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -762,22 +798,22 @@
 
 .admin-topbar__logout {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border: 1px solid var(--admin-border);
-  border-radius: 50%;
-  background: var(--admin-bg);
+  border-radius: 999px;
+  background: var(--admin-surface);
   color: var(--admin-muted);
   cursor: pointer;
   transition: color var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-topbar__logout svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -811,9 +847,17 @@
     width: 32px;
     height: 32px;
   }
-  .admin-topbar__support {
+  .admin-topbar__support,
+  .admin-topbar__logout,
+  .admin-theme-toggle {
     width: 34px;
     height: 34px;
+  }
+  .admin-topbar__support svg,
+  .admin-topbar__logout svg,
+  .admin-theme-toggle svg {
+    width: 16px;
+    height: 16px;
   }
 }
 /*
@@ -830,6 +874,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   min-height: 42px;
   padding: 0 16px;
   border: 1px solid var(--admin-border-soft);
@@ -979,6 +1024,15 @@
   color: var(--admin-text);
 }
 
+.admin-body .admin-btn--gold {
+  background-color: var(--admin-gold);
+  color: #1b1a17;
+}
+.admin-body .admin-btn--gold:hover {
+  background-color: var(--admin-gold-soft, #e0c184);
+  color: #1b1a17;
+}
+
 .admin-body .admin-btn--ghost {
   background-color: transparent;
   color: var(--admin-muted);
@@ -1018,8 +1072,8 @@
   height: 42px;
   flex: 0 0 42px;
   border-radius: 8px;
-  background: rgba(248, 239, 226, 0.1);
-  color: #fff;
+  background: var(--admin-sidebar-hover-bg);
+  color: var(--admin-sidebar-link-hover);
   font-size: 24px;
   line-height: 1;
 }
@@ -1482,28 +1536,52 @@
   box-shadow: none;
 }
 
+/* Editar y eliminar van en color solido: se leen como acciones, no como bordes. */
 .admin-icon-button--edit {
-  border-color: rgba(95, 125, 86, 0.65);
-  background: rgba(95, 125, 86, 0.22);
-  color: #7ba36c;
+  border-color: #4f6b47;
+  background: #5f7d56;
+  color: #fff;
+  box-shadow: var(--admin-shadow-sm);
 }
 .admin-icon-button--edit:hover {
-  border-color: #5f7d56;
-  background: #5f7d56;
+  border-color: #4f6b47;
+  background: #6d8e63;
   color: #fff;
   box-shadow: 0 6px 16px rgba(95, 125, 86, 0.35);
 }
 
 .admin-icon-button--danger {
-  border-color: rgba(200, 90, 60, 0.65);
-  background: rgba(200, 90, 60, 0.22);
-  color: #e08163;
-}
-.admin-icon-button--danger:hover {
-  border-color: #c85a3c;
+  border-color: #a8482f;
   background: #c85a3c;
   color: #fff;
+  box-shadow: var(--admin-shadow-sm);
+}
+.admin-icon-button--danger:hover {
+  border-color: #a8482f;
+  background: #d66a4b;
+  color: #fff;
   box-shadow: 0 6px 16px rgba(200, 90, 60, 0.35);
+}
+
+/* Propina en celda de tabla: monto + porcentaje sobre el consumo. */
+.admin-tk__tip {
+  color: var(--admin-success-text, #7ba86a);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.admin-tk__tip--none {
+  color: var(--admin-faint);
+  font-weight: 400;
+}
+
+.admin-tk__tip-pct {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Icono dentro de un botón (reutilizable). */
@@ -1629,6 +1707,23 @@
 }
 .admin-body ::placeholder {
   color: var(--admin-faint);
+}
+.admin-body {
+  /*
+   * Sin esto, las flechas nativas de input[type=number] se pintan sobre
+   * cualquier sufijo que el módulo coloque a la derecha del campo
+   * (p. ej. la unidad en las tarjetas de reabastecimiento del inventario).
+   */
+}
+.admin-body input[type=number] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.admin-body input[type=number]::-webkit-outer-spin-button,
+.admin-body input[type=number]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
 }
 .admin-body input:-webkit-autofill,
 .admin-body input:-webkit-autofill:hover,
@@ -1882,6 +1977,109 @@
 .admin-tabs__tab input:focus-visible + span {
   outline: 2px solid var(--admin-gold);
   outline-offset: 2px;
+}
+
+/*
+ * Variante de navegación: las pestañas son enlaces, no radios. Se usa para
+ * filtrar por categoría en Gestión de menú, donde cada tab navega (y con
+ * data-reactive-page intercambia solo la tabla, sin recargar).
+ */
+.admin-tabs--links .admin-tabs__tab a {
+  display: block;
+  width: 100%;
+  text-decoration: none;
+}
+.admin-tabs--links .admin-tabs__tab a span {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: calc(var(--admin-radius-sm) - 3px);
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-tabs--links .admin-tabs__tab a:hover span {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+.admin-tabs--links .admin-tabs__tab a.is-active span {
+  background: var(--admin-gold);
+  color: #1b1a17;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.admin-tabs--links .admin-tabs__tab a:focus-visible span {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-tabs--links .admin-tabs__tab--add {
+  flex: 0 0 auto;
+}
+.admin-tabs--links .admin-tabs__tab--add label {
+  display: block;
+  cursor: pointer;
+}
+.admin-tabs--links .admin-tabs__tab--add label span {
+  display: block;
+  min-width: 34px;
+  padding: 9px 12px;
+  border-radius: calc(var(--admin-radius-sm) - 3px);
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: inherit;
+  text-align: center;
+}
+.admin-tabs--links .admin-tabs__tab--add label:hover span {
+  background: var(--admin-surface);
+  color: var(--admin-gold);
+}
+
+#cat-nueva-toggle:checked ~ .admin-tabs .admin-tabs__tab--add label span {
+  background: var(--admin-gold);
+  color: #1b1a17;
+}
+
+/* Alta rápida de categoría; solo visible cuando el tab "+" está activo. */
+.admin-cat-inline {
+  display: none;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-gold-deep, #a07e36);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-cat-inline__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.admin-cat-inline__label {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-cat-inline__submit {
+  flex: 0 0 auto;
+}
+.admin-cat-inline__hint {
+  flex: 1 1 100%;
+  color: var(--admin-faint);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#cat-nueva-toggle:checked ~ .admin-cat-inline {
+  display: flex;
 }
 
 /* Combobox con búsqueda (buscador inteligente de ingredientes/componentes). */

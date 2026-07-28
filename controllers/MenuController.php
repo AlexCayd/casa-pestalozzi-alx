@@ -2,49 +2,24 @@
 
 namespace Controllers;
 
-use Model\CategoriasMenu;
-use Model\Menu;
+use Services\Carta;
+use Services\MenuPdf;
 
+/**
+ * Carta pública: el JSON que consume la landing y el PDF descargable.
+ * La fuente es `productos` (ver Services\Carta).
+ */
 class MenuController {
+
+    /** GET /menu — JSON que pinta la sección de menú de la landing. */
     public static function index($router) {
-        header('Content-Type: application/json');
-
-        $categorias = CategoriasMenu::consultarSQL(
-            "SELECT * FROM categorias WHERE activo = 1 ORDER BY id"
-        );
-
-        $resultado = [];
-        foreach ($categorias as $cat) {
-            $platillos = Menu::consultarSQL(
-                "SELECT * FROM menu WHERE categoria_id = {$cat->id} AND activo = 1 ORDER BY id"
-            );
-
-            // Categorías sin platillos (p. ej. las que solo se usan como
-            // catálogo de productos internos) no se muestran en el menú público.
-            if (empty($platillos)) {
-                continue;
-            }
-
-            $dishes = array_map(function($m) {
-                return [
-                    'n'    => $m->nombre,
-                    'd'    => $m->descripcion,
-                    'p'    => (float) $m->precio,
-                    'tags' => $m->tag ? [$m->tag] : []
-                ];
-            }, $platillos);
-
-            $img = $cat->img ? '/' . ltrim($cat->img, '/') : null;
-
-            $resultado[] = [
-                'id'     => (int) $cat->id,
-                'label'  => $cat->nombre,
-                'img'    => $img,
-                'dishes' => $dishes
-            ];
-        }
-
-        echo json_encode($resultado);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(Carta::publica(), JSON_UNESCAPED_UNICODE);
         exit;
+    }
+
+    /** GET /menu/pdf — carta en PDF para el comensal. */
+    public static function pdf($router) {
+        MenuPdf::stream();
     }
 }

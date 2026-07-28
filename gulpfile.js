@@ -38,6 +38,7 @@ const paths = {
     // mock-data.js se retiró: los datos reales llegan desde PHP como
     // window.AdminAnalyticsMock (ver AdminController::construirAnalytics).
     "src/js/admin/analytics/charts.js",
+    "src/js/admin/analytics/range-picker.js",
     "src/js/admin/analytics/analytics-page.js",
     "src/js/admin/analytics/analytics.js",
   ],
@@ -49,7 +50,7 @@ const paths = {
     "src/js/modules/punto-de-venta.js",
   ],
   adminAreaJs: "src/js/admin/area/area.js",
-  adminProductosJs: "src/js/admin/productos/recipe-builder.js",
+  adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
   adminReservationFormJs: [
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
@@ -141,8 +142,8 @@ function adminAreaJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
-function adminProductosJavascript() {
-  return src(paths.adminProductosJs)
+function adminRecetasJavascript() {
+  return src(paths.adminRecetasJs)
     .pipe(sourcemaps.init())
     .pipe(concat("recipe-builder.js"))
     .pipe(terser())
@@ -239,7 +240,7 @@ function devWatch(done) {
     adminMapJavascript,
   );
   watch("src/js/admin/area/**/*.js", adminAreaJavascript);
-  watch("src/js/admin/productos/**/*.js", adminProductosJavascript);
+  watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
     ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
@@ -278,7 +279,7 @@ exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
-exports.adminProductosJs = adminProductosJavascript;
+exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
@@ -300,7 +301,7 @@ exports.dev = parallel(
   adminJavascript,
   adminAnalyticsJavascript,
   adminAreaJavascript,
-  adminProductosJavascript,
+  adminRecetasJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
@@ -325,7 +326,7 @@ exports.build = series(
   adminMapJavascript,
   adminAreaJavascript,
   adminAnalyticsJavascript,
-  adminProductosJavascript,
+  adminRecetasJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,

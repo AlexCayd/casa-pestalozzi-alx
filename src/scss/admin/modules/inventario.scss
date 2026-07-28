@@ -15,12 +15,18 @@
   }
 
   // Botón "Guardar" del ajuste rápido: dorado, más padding, fuente más chica.
+  // Los 38px igualan al input de su formulario y a los botones de icono de la
+  // celda contigua, para que las tres acciones de la fila queden a una altura.
   .admin-inventario__save {
     white-space: nowrap;
     min-height: 38px;
     padding-inline: 18px;
     font-size: 11px;
     letter-spacing: 0.02em;
+  }
+
+  .admin-inline-form input {
+    min-height: 38px;
   }
 }
 
@@ -46,10 +52,10 @@
     background: var(--admin-surface-soft);
   }
 
-  // Fila superior: nombre (con elipsis) + badges de stock.
+  // Fila superior: nombre (con elipsis) + cuánto falta para el mínimo.
   &__header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     min-width: 0;
@@ -66,19 +72,62 @@
     text-overflow: ellipsis;
   }
 
-  &__stats {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-    flex: 0 0 auto;
+  // Par "Actual / Mínimo": lo que importa es comparar ambos de un vistazo.
+  &__levels {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    margin-top: -4px;
   }
 
-  &__min {
+  &__level {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__level-label {
+    color: var(--admin-faint);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &__level-value {
     color: var(--admin-muted);
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  &__level-value--now {
+    color: var(--admin-text);
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  // Barra de cobertura: qué porción del mínimo está cubierta hoy.
+  &__bar {
+    position: relative;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--admin-border-soft);
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--admin-gold);
+    transition: width var(--admin-t-base) var(--admin-ease-out);
+
+    &.is-critical {
+      background: var(--admin-danger, #c85a3c);
+    }
   }
 
   // Fila inferior: input de cantidad (ancho) + botón "Sumar".
@@ -98,7 +147,8 @@
     input {
       width: 100%;
       min-height: 42px;
-      padding-right: 42px;
+      // El hueco se mide con la unidad real ("g" vs "pza"), no con un valor fijo.
+      padding-right: calc(24px + var(--restock-unit, 2ch));
     }
   }
 

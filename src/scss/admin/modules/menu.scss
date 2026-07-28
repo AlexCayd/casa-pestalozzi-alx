@@ -8,6 +8,13 @@
 .admin-menu {
   min-width: 0;
 
+  // El .admin-card compartido no trae padding: se lo damos aquí, igual que
+  // inventario, recetas y finanzas. Sin esto los campos de los formularios
+  // (platillo, categoría, usuarios, impresoras) tocaban el borde de la tarjeta.
+  .admin-card {
+    padding: clamp(18px, 2.4vw, 26px);
+  }
+
   &__header {
     display: flex;
     align-items: flex-end;
@@ -337,6 +344,8 @@
   grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(160px, 220px)) auto;
   align-items: end;
   gap: 12px;
+  // Sin margin-top la tarjeta quedaba pegada a la tira de pestañas de categoría.
+  margin-top: 16px;
   margin-bottom: 18px;
   padding: 14px;
   border: 1px solid var(--admin-border);
@@ -372,6 +381,18 @@
     }
   }
 
+  /*
+   * select.js sustituye cada <select> nativo por un botón `.admin-select__trigger`
+   * y esconde el original, así que la regla de arriba solo alcanza a un nodo
+   * invisible. El control que se ve traía 15.5px/46px contra los 13px/42px del
+   * buscador de al lado; aquí se igualan.
+   */
+  .admin-select__trigger {
+    min-height: 42px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
   &__search,
   &__group {
     min-width: 0;
@@ -383,6 +404,25 @@
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
+  }
+
+  // Acción secundaria y discreta: con JS activo "Buscar" se oculta y este queda
+  // solo en su columna, así que no debe competir con los campos.
+  &__clear {
+    min-height: 42px;
+    padding-inline: 14px;
+    color: var(--admin-muted);
+    font-size: 12px;
+
+    .admin-btn__icon {
+      width: 14px;
+      height: 14px;
+      flex-basis: 14px;
+    }
+
+    &:hover {
+      color: var(--admin-text);
+    }
   }
 }
 

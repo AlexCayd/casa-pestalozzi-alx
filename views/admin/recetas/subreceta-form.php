@@ -24,14 +24,14 @@
         return '';
     };
 ?>
-<section class="admin-productos admin-productos--form admin-page">
+<section class="admin-recetas admin-recetas--form admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Subrecetas</span>
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Subreceta'); ?></h2>
             <p class="admin-page__subtitle">Define la preparación y los ingredientes que consume para producir su rendimiento base.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/productos/subrecetas">
+        <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas/subrecetas">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
             Volver
         </a>
@@ -132,7 +132,7 @@
 
         <div class="admin-form-grid__actions admin-recipe__actions">
             <button type="submit" class="admin-btn admin-btn--primary"><?php echo htmlspecialchars($accion); ?></button>
-            <a class="admin-btn admin-btn--secondary" href="/admin/productos/subrecetas">Cancelar</a>
+            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/subrecetas">Cancelar</a>
         </div>
     </form>
 </section>

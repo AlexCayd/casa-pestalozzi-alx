@@ -1,56 +1,43 @@
 <?php
 /**
- * Controlador del modulo de gestion de menu dentro del shell admin.
- * Encapsula el CRUD legacy de categorias y platillos bajo /admin/menu.
+ * Gestión de menú: CRUD de platillos y de sus categorías.
+ *
+ * Tras la fusión con "Productos y recetas" este módulo escribe directamente en
+ * `productos`, la fuente única de los platillos. El listado entra ya en los
+ * platillos (antes había una página intermedia de "hub") y las categorías se
+ * eligen en pestañas, con un tab "+" para crear una nueva sin salir.
+ *
+ * La composición de recetas vive aparte, en AdminRecetasController.
  */
 
 namespace Controllers;
 
 use Classes\ImagenUploader;
 use Model\CategoriasMenu;
-use Model\Menu;
+use Model\Producto;
 use MVC\Router;
 use Services\CategoriaMenuService;
+use Services\MenuPdf;
 
 class AdminMenuController
 {
-    private const CATEGORIES_PATH = '/admin/menu/categories';
-    private const ITEMS_PATH = '/admin/menu/items';
+    private const CATEGORIES_PATH = '/admin/menu/categorias';
+    private const ITEMS_PATH = '/admin/menu';
     private const MENU_CSS = '/build/css/admin/menu.css';
 
+    /** Listado de platillos con pestañas de categoría. */
     public static function index(Router $router): void
-    {
-        self::render('menu/index', [
-            'title' => 'Gestión de menú',
-            'topbarSection' => 'Gestión de menú',
-            'totalCategorias' => count(CategoriasMenu::all()),
-            'totalMenu' => (int) Menu::total(),
-            'alertas' => array_merge_recursive(CategoriasMenu::getAlertas(), Menu::getAlertas()),
-        ]);
-    }
-
-    public static function categories(Router $router): void
-    {
-        self::render('menu/categories', [
-            'title' => 'Categorías del menú',
-            'topbarSection' => 'Gestión de menú / Categorías',
-            'categorias' => CategoriasMenu::all(),
-            'alertas' => CategoriasMenu::getAlertas(),
-        ]);
-    }
-
-    public static function items(Router $router): void
     {
         $categorias = CategoriasMenu::all();
         $categoriasMap = [];
 
         foreach ($categorias as $cat) {
-            $categoriasMap[$cat->id] = $cat->nombre;
+            $categoriasMap[(int) $cat->id] = $cat->nombre;
         }
 
         $porPagina = 10;
         $filtros = self::leerFiltrosItems();
-        $totalMenu = Menu::totalAdmin($filtros);
+        $totalMenu = Producto::totalAdmin($filtros);
         $totalPaginas = max(1, (int) ceil($totalMenu / $porPagina));
 
         $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -59,155 +46,206 @@ class AdminMenuController
         }
 
         $offset = ($paginaActual - 1) * $porPagina;
-        $platillos = Menu::buscarAdmin($filtros, $porPagina, $offset);
+        $platillos = Producto::buscarAdmin($filtros, $porPagina, $offset);
 
         $data = [
-            'title' => 'Platillos',
-            'topbarSection' => 'Gestión de menú / Platillos',
+            'title' => 'Menú',
+            'topbarSection' => 'Menú',
             'platillos' => $platillos,
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
+            'areasMap' => self::areasMap(),
             'filtros' => $filtros,
+            'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'alertas' => Menu::getAlertas(),
+            'alertas' => array_merge_recursive(Producto::getAlertas(), CategoriasMenu::getAlertas()),
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
             'totalMenu' => $totalMenu,
             'porPagina' => $porPagina,
-            'partialUrl' => AdminController::filterUrl('/admin/menu/items', array_merge(
+            'partialUrl' => AdminController::filterUrl('/admin/menu', array_merge(
                 $filtros,
                 $paginaActual > 1 ? ['page' => $paginaActual] : []
             )),
         ];
 
         if (AdminController::isPartialRequest()) {
-            AdminController::renderPartial('menu/items', array_merge($data, ['partialOnly' => true]));
+            AdminController::renderPartial('menu/index', array_merge($data, ['partialOnly' => true]));
             return;
         }
 
-        self::render('menu/items', $data);
+        self::render('menu/index', $data);
     }
 
-    /**
-     * Genera y envia al navegador un PDF con todo el menu registrado.
-     * Incluye nombre, descripcion, precio y tag de cada platillo (tabla menu).
-     */
-    public static function itemsPdf(Router $router): void
+    /** PDF de la carta (versión admin; la pública es MenuController::pdf). */
+    public static function pdf(Router $router): void
     {
-        $platillos = Menu::all();
-
-        // Agrupa los platillos por categoria para un menu editorial por secciones.
-        // Solo se listan platillos visibles; el orden sigue el de las categorias.
-        $categorias = CategoriasMenu::all();
-        $nombresCategoria = [];
-        foreach ($categorias as $categoria) {
-            $nombresCategoria[(int) $categoria->id] = $categoria->nombre;
-        }
-
-        $grupos = [];
-        foreach ($platillos as $platillo) {
-            if (isset($platillo->activo) && (int) $platillo->activo === 0) {
-                continue;
-            }
-            $catId = (int) ($platillo->categoria_id ?? 0);
-            if (!isset($grupos[$catId])) {
-                $grupos[$catId] = [
-                    'nombre' => $nombresCategoria[$catId] ?? 'Otros',
-                    'platillos' => [],
-                ];
-            }
-            $grupos[$catId]['platillos'][] = $platillo;
-        }
-
-        // Reordena los grupos segun el orden de las categorias (los sueltos al final).
-        $gruposOrdenados = [];
-        foreach ($nombresCategoria as $catId => $nombre) {
-            if (isset($grupos[$catId])) {
-                $gruposOrdenados[] = $grupos[$catId];
-                unset($grupos[$catId]);
-            }
-        }
-        foreach ($grupos as $grupo) {
-            $gruposOrdenados[] = $grupo;
-        }
-
-        // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
-        $projectRoot = realpath(__DIR__ . '/..');
-        $fontsDir = str_replace('\\', '/', $projectRoot . '/public/build/fonts');
-
-        // Renderiza la plantilla del PDF a un string (sin el layout admin).
-        ob_start();
-        $generado = date('d/m/Y H:i');
-        include __DIR__ . '/../views/admin/menu/items-pdf.php';
-        $html = ob_get_clean();
-
-        $options = new \Dompdf\Options();
-        $options->set('isRemoteEnabled', false);
-        $options->set('defaultFont', 'Montserrat');
-        // Permite a Dompdf leer los .ttf locales referenciados en los @font-face.
-        $options->setChroot([$projectRoot]);
-
-        $dompdf = new \Dompdf\Dompdf($options);
-        $dompdf->loadHtml($html, 'UTF-8');
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
-
-        // 'Attachment' => false => se abre en el navegador; true => fuerza descarga.
-        $dompdf->stream('menu-casa-pestalozzi.pdf', ['Attachment' => false]);
-        exit;
+        MenuPdf::stream();
     }
 
-    public static function categoryCreate(Router $router): void
+    public static function create(Router $router): void
     {
-        $categoria = new CategoriasMenu();
+        $platillo = new Producto();
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $categoria->sincronizar($_POST);
-            $categoria->activo = isset($_POST['activo']) ? 1 : 0;
-
-            $alertas = $categoria->validar();
-            $imagen = $_FILES['imagen'] ?? null;
-
-            if (ImagenUploader::seEnvioArchivo($imagen)) {
-                $uploader = new ImagenUploader();
-                $ruta = $uploader->procesar($imagen);
-
-                if ($ruta) {
-                    $categoria->img = $ruta;
-                } else {
-                    foreach ($uploader->getErrores() as $error) {
-                        $alertas['error'][] = $error;
-                    }
-                }
-            } else {
-                $alertas['error'][] = 'Debes cargar una imagen para la categoría';
-            }
+            self::sincronizarPlatillo($platillo);
+            $alertas = $platillo->validar();
 
             if (empty($alertas)) {
-                $resultado = CategoriaMenuService::crear($categoria);
+                $resultado = $platillo->guardar();
 
-                if ($resultado['ok'] ?? false) {
-                    CategoriasMenu::setAlerta('exito', 'Categoría creada correctamente');
-                    self::categories($router);
+                if ($resultado && $resultado['resultado']) {
+                    Producto::setAlerta('exito', 'Platillo creado correctamente');
+                    self::index($router);
                     return;
                 }
 
-                CategoriasMenu::setAlerta('error', 'No se pudo guardar la categoría');
-                $alertas = CategoriasMenu::getAlertas();
-            } elseif (!empty($categoria->img)) {
-                ImagenUploader::eliminar($categoria->img);
-                $categoria->img = null;
+                Producto::setAlerta('error', 'No se pudo guardar el platillo. Revisa que el nombre no esté repetido.');
+                $alertas = Producto::getAlertas();
             }
         }
 
-        self::render('menu/category-form', [
-            'title' => 'Nueva categoría',
-            'topbarSection' => 'Gestión de menú / Nueva categoría',
-            'categoria' => $categoria,
-            'alertas' => $alertas,
-            'accion' => 'Crear categoría',
+        self::renderForm('Nuevo platillo', 'Crear platillo', $platillo, $alertas);
+    }
+
+    public static function edit(Router $router): void
+    {
+        $id = self::validarId($_GET['id'] ?? null, $router);
+        $platillo = Producto::find($id);
+
+        if (!$platillo) {
+            Producto::setAlerta('error', 'El platillo no existe');
+            self::index($router);
+            return;
+        }
+
+        $alertas = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            self::sincronizarPlatillo($platillo);
+            $alertas = $platillo->validar();
+
+            if (empty($alertas)) {
+                if ($platillo->guardar()) {
+                    Producto::setAlerta('exito', 'Platillo actualizado correctamente');
+                    self::index($router);
+                    return;
+                }
+
+                Producto::setAlerta('error', 'No se pudo actualizar el platillo');
+                $alertas = Producto::getAlertas();
+            }
+        }
+
+        self::renderForm('Editar platillo', 'Guardar cambios', $platillo, $alertas);
+    }
+
+    public static function delete(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::ITEMS_PATH);
+        }
+
+        $id = self::validarId($_POST['id'] ?? null, $router);
+        $platillo = Producto::find($id);
+
+        if (!$platillo) {
+            Producto::setAlerta('error', 'El platillo no existe');
+            self::index($router);
+            return;
+        }
+
+        if ($platillo->eliminar()) {
+            Producto::setAlerta('exito', 'Platillo eliminado correctamente');
+        } else {
+            Producto::setAlerta('error', 'No se pudo eliminar: el platillo tiene una receta o ventas asociadas.');
+        }
+
+        self::index($router);
+    }
+
+    /**
+     * Invierte la visibilidad de un platillo.
+     *
+     * Endpoint propio en vez de reenviar la fila entera por campos ocultos:
+     * sobre la tabla fusionada ese formulario tendría que arrastrar `area_id`
+     * y `descripcion`, y sin el primero la validación rechazaba cada clic.
+     */
+    public static function toggle(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::ITEMS_PATH);
+        }
+
+        $id = self::validarId($_POST['id'] ?? null, $router);
+        Producto::ejecutarSQL("UPDATE productos SET activo = 1 - activo WHERE id = {$id} LIMIT 1");
+        Producto::setAlerta('exito', 'Visibilidad actualizada');
+
+        self::index($router);
+    }
+
+    // ── Categorías ─────────────────────────────────────────────────────────
+
+    public static function categories(Router $router): void
+    {
+        self::render('menu/categories', [
+            'title' => 'Categorías del menú',
+            'topbarSection' => 'Menú / Categorías',
+            'categorias' => CategoriasMenu::all(),
+            'alertas' => CategoriasMenu::getAlertas(),
         ]);
+    }
+
+    /**
+     * Alta rápida desde el tab "+" del listado. La imagen dejó de ser
+     * obligatoria: se puede subir después desde Categorías. La lista marca las
+     * que aún no tienen, porque sin imagen la carta pública no muestra
+     * previsualización.
+     */
+    public static function categoryCreate(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::CATEGORIES_PATH);
+        }
+
+        $categoria = new CategoriasMenu();
+        $categoria->sincronizar($_POST);
+        $categoria->activo = 1;
+
+        $alertas = $categoria->validar();
+        $imagen = $_FILES['imagen'] ?? null;
+
+        if (ImagenUploader::seEnvioArchivo($imagen)) {
+            $uploader = new ImagenUploader();
+            $ruta = $uploader->procesar($imagen);
+
+            if ($ruta) {
+                $categoria->img = $ruta;
+            } else {
+                foreach ($uploader->getErrores() as $error) {
+                    $alertas['error'][] = $error;
+                }
+            }
+        }
+
+        if (!empty($alertas)) {
+            foreach ($alertas['error'] ?? [] as $error) {
+                CategoriasMenu::setAlerta('error', $error);
+            }
+            self::index($router);
+            return;
+        }
+
+        $resultado = CategoriaMenuService::crear($categoria);
+
+        if ($resultado['ok'] ?? false) {
+            CategoriasMenu::setAlerta('exito', 'Categoría creada correctamente');
+        } else {
+            CategoriasMenu::setAlerta('error', 'No se pudo guardar la categoría');
+        }
+
+        self::index($router);
     }
 
     public static function categoryEdit(Router $router): void
@@ -263,7 +301,7 @@ class AdminMenuController
 
         self::render('menu/category-form', [
             'title' => 'Editar categoría',
-            'topbarSection' => 'Gestión de menú / Editar categoría',
+            'topbarSection' => 'Menú / Editar categoría',
             'categoria' => $categoria,
             'alertas' => $alertas,
             'accion' => 'Guardar cambios',
@@ -302,108 +340,53 @@ class AdminMenuController
         self::categories($router);
     }
 
-    public static function itemCreate(Router $router): void
+    // ── Internos ───────────────────────────────────────────────────────────
+
+    private static function sincronizarPlatillo(Producto $platillo): void
     {
-        $platillo = new Menu();
-        $categorias = CategoriasMenu::all();
-        $alertas = [];
+        $platillo->sincronizar($_POST);
+        $platillo->activo = isset($_POST['activo']) ? 1 : 0;
+        $platillo->tag = trim((string) ($_POST['tag'] ?? '')) !== '' ? $_POST['tag'] : null;
+    }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $platillo->sincronizar($_POST);
-            $platillo->activo = isset($_POST['activo']) ? 1 : 0;
-            $platillo->tag = trim($_POST['tag'] ?? '') !== '' ? $_POST['tag'] : null;
-
-            $alertas = $platillo->validar();
-
-            if (empty($alertas)) {
-                $resultado = $platillo->guardar();
-
-                if ($resultado && $resultado['resultado']) {
-                    Menu::setAlerta('exito', 'Platillo creado correctamente');
-                    self::items($router);
-                    return;
-                }
-
-                Menu::setAlerta('error', 'No se pudo guardar el platillo');
-                $alertas = Menu::getAlertas();
-            }
-        }
-
-        self::render('menu/item-form', [
-            'title' => 'Nuevo platillo',
-            'topbarSection' => 'Gestión de menú / Nuevo platillo',
+    private static function renderForm(string $titulo, string $accion, Producto $platillo, array $alertas): void
+    {
+        self::render('menu/form', [
+            'title' => $titulo,
+            'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
-            'categorias' => $categorias,
+            'categorias' => CategoriasMenu::all(),
+            'areas' => self::areas(),
             'alertas' => $alertas,
-            'accion' => 'Crear platillo',
+            'accion' => $accion,
         ]);
     }
 
-    public static function itemEdit(Router $router): void
+    /** Áreas de producción, para las pestañas del formulario. */
+    public static function areas(): array
     {
-        $id = self::validarId($_GET['id'] ?? null, $router);
-        $platillo = Menu::find($id);
+        $areas = [];
+        $db = Producto::getDB();
+        $res = $db->query("SELECT id, nombre FROM areas_produccion ORDER BY id ASC");
 
-        if (!$platillo) {
-            Menu::setAlerta('error', 'El platillo no existe');
-            self::items($router);
-            return;
-        }
-
-        $categorias = CategoriasMenu::all();
-        $alertas = [];
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $platillo->sincronizar($_POST);
-            $platillo->activo = isset($_POST['activo']) ? 1 : 0;
-            $platillo->tag = trim($_POST['tag'] ?? '') !== '' ? $_POST['tag'] : null;
-
-            $alertas = $platillo->validar();
-
-            if (empty($alertas)) {
-                if ($platillo->guardar()) {
-                    Menu::setAlerta('exito', 'Platillo actualizado correctamente');
-                    self::items($router);
-                    return;
-                }
-
-                Menu::setAlerta('error', 'No se pudo actualizar el platillo');
-                $alertas = Menu::getAlertas();
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $areas[] = ['id' => (int) $row['id'], 'nombre' => $row['nombre']];
             }
+            $res->free();
         }
 
-        self::render('menu/item-form', [
-            'title' => 'Editar platillo',
-            'topbarSection' => 'Gestión de menú / Editar platillo',
-            'platillo' => $platillo,
-            'categorias' => $categorias,
-            'alertas' => $alertas,
-            'accion' => 'Guardar cambios',
-        ]);
+        return $areas;
     }
 
-    public static function itemDelete(Router $router): void
+    public static function areasMap(): array
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::ITEMS_PATH);
+        $map = [];
+        foreach (self::areas() as $area) {
+            $map[$area['id']] = $area['nombre'];
         }
 
-        $id = self::validarId($_POST['id'] ?? null, $router);
-        $platillo = Menu::find($id);
-
-        if (!$platillo) {
-            Menu::setAlerta('error', 'El platillo no existe');
-            self::items($router);
-            return;
-        }
-
-        if ($platillo->eliminar()) {
-            Menu::setAlerta('exito', 'Platillo eliminado correctamente');
-        } else {
-            Menu::setAlerta('error', 'No se pudo eliminar el platillo');
-        }
-
-        self::items($router);
+        return $map;
     }
 
     private static function render(string $view, array $data = []): void
@@ -418,7 +401,7 @@ class AdminMenuController
     private static function leerFiltrosItems(): array
     {
         $q = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
-        $categoryId = filter_var($_GET['category_id'] ?? 0, FILTER_VALIDATE_INT, [
+        $categoryId = filter_var($_GET['categoria'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1]
         ]);
         $visible = (string) ($_GET['visible'] ?? '');
@@ -429,7 +412,7 @@ class AdminMenuController
 
         return [
             'q' => $q,
-            'category_id' => $categoryId ?: '',
+            'categoria' => $categoryId ?: '',
             'visible' => $visible,
         ];
     }

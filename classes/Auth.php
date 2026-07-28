@@ -121,6 +121,24 @@ class Auth {
         }
     }
 
+    /**
+     * Libera el candado del archivo de sesión sin perder $_SESSION en memoria.
+     *
+     * PHP mantiene un lock exclusivo desde session_start() hasta el final del
+     * script, así que dos peticiones del mismo navegador se atienden en serie.
+     * En el POS eso hacía que /api/ticket-items esperara a que /api/sugerencias
+     * terminara su llamada a n8n. Los endpoints de solo lectura llaman a esto
+     * justo después de la guardia de Auth para que se atiendan en paralelo.
+     *
+     * No usar en endpoints que escriban en $_SESSION: los cambios posteriores
+     * ya no se persisten.
+     */
+    public static function liberarSesion(): void {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
     private static function negarJson(int $codigo, string $msg): void {
         http_response_code($codigo);
         header('Content-Type: application/json; charset=utf-8');

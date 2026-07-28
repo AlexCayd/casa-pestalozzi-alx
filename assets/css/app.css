@@ -3756,6 +3756,77 @@ footer.foot {
   background: var(--ink);
 }
 
+/*
+ * Estado vacío / de carga de la lista de reservaciones.
+ *
+ * Vive en su propio partial porque lo comparten dos bundles distintos:
+ * la operación de reservaciones del panel admin (via operation/reservations.scss)
+ * y el punto de venta (via app.scss). Antes solo lo cargaba el primero, así que
+ * en el POS el bloque salía sin estilos: el SVG a tamaño natural y los dos spans
+ * corridos en la misma línea.
+ */
+.mapa-empty-state {
+  display: grid;
+  min-height: 180px;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 18px;
+  color: var(--admin-muted);
+  text-align: center;
+}
+
+.mapa-empty-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 2px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-gold-soft);
+}
+.mapa-empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mapa-empty-title {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mapa-empty-hint {
+  max-width: 30ch;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Spinner de los estados "Cargando…" del sidebar. */
+.mapa-empty-spinner {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--admin-border);
+  border-top-color: var(--admin-gold-soft);
+  border-radius: 50%;
+  animation: mapa-empty-spin 720ms linear infinite;
+}
+
+@keyframes mapa-empty-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapa-empty-spinner {
+    animation: none;
+  }
+}
 .operation-header {
   position: relative;
   z-index: 50;
@@ -7610,6 +7681,90 @@ footer.foot {
     --pos-c3: 1fr;
     --pos-c4: 1fr;
   }
+  /*
+   * Preferencias del mesero (ver getPosPrefs en punto-de-venta.js).
+   * Todas se resuelven aquí: el JS solo escribe atributos data- sobre
+   * .mmodal-panels, nunca vuelve a renderizar por un cambio de ajuste.
+   */
+  .mmodal-panels[data-ocultos~=resumen] > #mmodal-panel-resumen,
+  .mmodal-panels[data-ocultos~=sugerencias] > #mmodal-panel-sugerencias {
+    display: none !important;
+  }
+  .mmodal-panels[data-ocultos~=resumen]:not([data-ocultos~=sugerencias]),
+  .mmodal-panels[data-ocultos~=sugerencias]:not([data-ocultos~=resumen]) {
+    grid-template-columns: var(--pos-c1, 1.1fr) var(--pos-c2, 1fr) var(--pos-c3, 0.9fr);
+  }
+  .mmodal-panels[data-ocultos~=resumen][data-ocultos~=sugerencias] {
+    grid-template-columns: var(--pos-c1, 1.4fr) var(--pos-c2, 1fr);
+  }
+  .mmodal-panels[data-densidad=compacta] {
+    --pos-fila-pad: .34rem .5rem;
+    --pos-fila-gap: .28rem;
+  }
+  .mmodal-panels[data-texto=s] {
+    --pos-fs: .78rem;
+  }
+  .mmodal-panels[data-texto=m] {
+    --pos-fs: .86rem;
+  }
+  .mmodal-panels[data-texto=l] {
+    --pos-fs: .98rem;
+  }
+  .mmodal-panels[data-texto] .mmodal-dish-name,
+  .mmodal-panels[data-texto] .mmodal-dish-price {
+    font-size: var(--pos-fs);
+  }
+  .mmodal-panels[data-densidad=compacta] .mmodal-dish-row {
+    padding: var(--pos-fila-pad);
+    margin-bottom: var(--pos-fila-gap);
+  }
+  .mmodal-panels[data-toque=grande] .mmodal-dish-add {
+    width: 42px;
+    height: 42px;
+    font-size: 1.25rem;
+  }
+  .mmodal-panels[data-toque=grande] .mmodal-comensal-block,
+  .mmodal-panels[data-toque=grande] .mmodal-cat-block {
+    min-height: 48px;
+    font-size: 0.92rem;
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dishes {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .mmodal-panels[data-vista-menu=grid][data-columnas="2"] .mmodal-dishes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mmodal-panels[data-vista-menu=grid][data-columnas="3"] .mmodal-dishes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mmodal-panels[data-vista-menu=grid][data-columnas="4"] .mmodal-dishes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "nombre fav" "precio add";
+    align-items: center;
+    gap: 0.25rem 0.4rem;
+    margin-bottom: 0;
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row .mmodal-dish-info {
+    grid-area: nombre;
+    min-width: 0;
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row .mmodal-dish-price {
+    grid-area: precio;
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row .mmodal-dish-fav {
+    grid-area: fav;
+  }
+  .mmodal-panels[data-vista-menu=grid] .mmodal-dish-row .mmodal-dish-add {
+    grid-area: add;
+  }
+  .mmodal-panels[data-vista-menu=lista] .mmodal-dishes {
+    display: block;
+  }
   .mmodal-panel-label {
     display: block;
   }
@@ -7636,45 +7791,149 @@ footer.foot {
     padding: 0;
     margin-bottom: 0;
   }
-  .mmodal-layout-presets {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 0 0.75rem;
-  }
 }
-.mmodal-layout-presets {
+.mmodal-prefs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.2rem 1.6rem;
+  margin: 0;
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+.mmodal-prefs[hidden] {
   display: none;
 }
-.mmodal-layout-presets__label {
-  margin-right: 4px;
+.mmodal-prefs__group h4 {
+  margin: 0 0 0.5rem;
   color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
-.mmodal-layout-btn {
-  padding: 0.35rem 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-2);
+.mmodal-prefs__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+.mmodal-prefs__label {
+  color: var(--txt-faint);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.mmodal-prefs__opts {
+  display: inline-flex;
+  gap: 3px;
+  padding: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.mmodal-prefs__opt {
+  padding: 0.28rem 0.55rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
 }
-.mmodal-layout-btn:hover {
+.mmodal-prefs__opt:hover {
   color: var(--text);
-  border-color: var(--admin-gold, #cca352);
 }
-.mmodal-layout-btn.is-active {
-  border-color: var(--admin-gold, #cca352);
+.mmodal-prefs__opt.is-active {
   background: var(--admin-gold, #cca352);
   color: #1b1a17;
+}
+.mmodal-prefs__orden {
+  display: grid;
+  gap: 3px;
+  margin-top: 0.5rem;
+}
+.mmodal-prefs__orden-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.mmodal-prefs__orden-btns button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.mmodal-prefs__orden-btns button:hover:not(:disabled) {
+  color: var(--text);
+}
+.mmodal-prefs__orden-btns button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.mmodal-prefs__hint {
+  margin: 0.5rem 0 0;
+  color: var(--txt-faint);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+.mmodal-prefs__foot {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line-soft);
+}
+.mmodal-prefs__reset {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mmodal-prefs__reset:hover {
+  color: var(--text);
+}
+
+.mmodal-dish-fav {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--txt-faint);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.mmodal-dish-fav svg {
+  fill: none;
+}
+.mmodal-dish-fav:hover {
+  color: var(--admin-gold, #cca352);
+}
+.mmodal-dish-fav.is-on {
+  color: var(--admin-gold, #cca352);
+}
+.mmodal-dish-fav.is-on svg {
+  fill: currentColor;
 }
 
 .mmodal-cart-nota-btn {
@@ -8209,6 +8468,119 @@ footer.foot {
   }
 }
 
+.mapa-page .pos-header__prefs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+.mapa-page .pos-header__prefs svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.mapa-page .pos-header__prefs:hover, .mapa-page .pos-header__prefs.is-active {
+  color: var(--admin-text);
+  border-color: var(--admin-gold, #cca352);
+  background: var(--admin-surface);
+}
+.mapa-page .pos-header__prefs:focus-visible {
+  outline: 2px solid var(--admin-gold, #cca352);
+  outline-offset: 2px;
+}
+@media (max-width: 560px) {
+  .mapa-page .pos-header__prefs span {
+    display: none;
+  }
+  .mapa-page .pos-header__prefs {
+    padding: 0;
+    width: 42px;
+    justify-content: center;
+  }
+}
+
+.pos-prefs {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.pos-prefs[hidden] {
+  display: none;
+}
+.pos-prefs__bd {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 12, 13, 0.7);
+  backdrop-filter: blur(2px);
+}
+.pos-prefs__dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 94vw);
+  max-height: min(86vh, 720px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.pos-prefs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+.pos-prefs__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.pos-prefs__close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.pos-prefs__close:hover {
+  color: var(--text);
+  border-color: var(--admin-gold, #cca352);
+}
+.pos-prefs__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .mapa-page .pos-map {
   flex: 1 1 auto;
   min-height: 0;
@@ -8313,16 +8685,45 @@ footer.foot {
   stroke: currentColor;
 }
 
+/*
+ * El cajón envuelve su slot en `.reservation-operation__slot`, que trae fondo,
+ * borde y padding propios y es un contenedor flex con `space-between`. En el
+ * POS eso dibujaba una segunda caja alrededor del campo (que ya tiene la suya)
+ * y, al ser `.pos-drawer-date` un ítem flex con `flex:0 1 auto`, lo encogía a
+ * su contenido y lo dejaba pegado a la izquierda. Aquí se neutraliza.
+ */
+.mapa-page .reservation-operation__slot {
+  display: block;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .mapa-page .pos-drawer-date {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+  display: block;
+  width: 100%;
 }
 
 .mapa-page .pos-drawer-date .operational-context-date {
+  flex: 1 1 auto;
   width: 100%;
-  max-width: 280px;
-  margin-inline: auto;
+  min-width: 0;
+  max-width: none;
+  margin-inline: 0;
+  --reservation-picker-dropdown-min-width: 100%;
+}
+
+.mapa-page .pos-drawer-date .date-display {
+  padding-inline-end: var(--reservation-picker-date-padding-start, 42px);
+  text-align: center;
+}
+
+.mapa-page .pos-drawer-date .cp-calendar {
+  right: auto;
+  left: 0;
+  width: 100%;
+  max-width: none;
 }
 
 .mapa-page.is-map-maximized .pos-header,

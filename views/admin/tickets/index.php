@@ -146,12 +146,6 @@ $metricas = [
         color: var(--admin-gold);
     }
 
-    .admin-tk__tip { color: var(--admin-sage, #7ba86a); }
-    .admin-tk__tip-pct {
-        display: inline-block;
-        margin-left: 6px;
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--admin-muted);
-    }
+    /* .admin-tk__tip / __tip-pct viven en shared/components/_tables.scss:
+       analytics también los usa en su tabla de tickets recientes. */
 </style>

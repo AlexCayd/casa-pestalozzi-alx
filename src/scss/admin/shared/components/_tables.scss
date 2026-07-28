@@ -273,30 +273,54 @@
   }
 }
 
+/* Editar y eliminar van en color solido: se leen como acciones, no como bordes. */
 .admin-icon-button--edit {
-  border-color: rgba(95, 125, 86, 0.65);
-  background: rgba(95, 125, 86, 0.22);
-  color: #7ba36c;
+  border-color: #4f6b47;
+  background: #5f7d56;
+  color: #fff;
+  box-shadow: var(--admin-shadow-sm);
 
   &:hover {
-    border-color: #5f7d56;
-    background: #5f7d56;
+    border-color: #4f6b47;
+    background: #6d8e63;
     color: #fff;
     box-shadow: 0 6px 16px rgba(95, 125, 86, 0.35);
   }
 }
 
 .admin-icon-button--danger {
-  border-color: rgba(200, 90, 60, 0.65);
-  background: rgba(200, 90, 60, 0.22);
-  color: #e08163;
+  border-color: #a8482f;
+  background: #c85a3c;
+  color: #fff;
+  box-shadow: var(--admin-shadow-sm);
 
   &:hover {
-    border-color: #c85a3c;
-    background: #c85a3c;
+    border-color: #a8482f;
+    background: #d66a4b;
     color: #fff;
     box-shadow: 0 6px 16px rgba(200, 90, 60, 0.35);
   }
+}
+
+/* Propina en celda de tabla: monto + porcentaje sobre el consumo. */
+.admin-tk__tip {
+  color: var(--admin-success-text, #7ba86a);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.admin-tk__tip--none {
+  color: var(--admin-faint);
+  font-weight: 400;
+}
+
+.admin-tk__tip-pct {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Icono dentro de un botón (reutilizable). */

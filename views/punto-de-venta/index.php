@@ -16,6 +16,16 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 $usuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
 $rolEtiquetas = ['admin' => 'Administrador', 'cashier' => 'Cajero', 'waiter' => 'Mesero', 'observer' => 'Observador'];
 $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
+
+// Identidad del mesero para el JS: las preferencias del modal se guardan con
+// su id, porque la tablet de piso es compartida entre turnos.
+$menuJson = $menuJson ?? '[]';
+$areasJson = $areasJson ?? '{}';
+$usuarioJson = json_encode([
+  'id'     => (int)($_SESSION['id'] ?? 0),
+  'nombre' => $usuarioNombre,
+  'rol'    => (string)($_SESSION['rol'] ?? ''),
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
 <!DOCTYPE html>
 <html lang="es" data-admin-theme="dark">
@@ -71,6 +81,17 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   include __DIR__ . '/partials/pos-workspace.php';
   ?>
 
+  <script>
+    /*
+     * Menú, áreas e identidad del mesero. Deben ir antes de map.js:
+     * punto-de-venta.js los lee de forma síncrona al construir el modal.
+     * CP_MENU/CP_AREAS salen de la BD (Services\Carta); antes vivían escritos
+     * a mano en src/js/data/menu-data.js, que ya no existe.
+     */
+    window.CP_MENU  = <?php echo $menuJson ?: '[]'; ?>;
+    window.CP_AREAS = <?php echo $areasJson ?: '{}'; ?>;
+    window.CP_USER  = <?php echo $usuarioJson ?: '{"id":0}'; ?>;
+  </script>
   <script>
     window.CP_TWEAKS = {
       hero: 'cinema',
