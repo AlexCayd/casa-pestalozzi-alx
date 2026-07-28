@@ -17,9 +17,9 @@ class MenuPdf
 {
     public static function stream(string $nombreArchivo = 'menu-casa-pestalozzi.pdf'): void
     {
-        $gruposOrdenados = [];
-        // La plantilla usa $platillos (plano) solo para el conteo total.
-        $platillos = [];
+        // La plantilla (views/admin/menu/items-pdf.php) recibe los grupos en
+        // $categorias: ['nombre' => string, 'platillos' => object[]].
+        $categorias = [];
 
         foreach (Carta::publica() as $categoria) {
             $delGrupo = [];
@@ -33,14 +33,13 @@ class MenuPdf
                     'tag'         => $dish['tags'][0] ?? null,
                 ];
                 $delGrupo[] = $obj;
-                $platillos[] = $obj;
             }
 
             if (empty($delGrupo)) {
                 continue;
             }
 
-            $gruposOrdenados[] = [
+            $categorias[] = [
                 'nombre'    => $categoria['label'],
                 'platillos' => $delGrupo,
             ];
