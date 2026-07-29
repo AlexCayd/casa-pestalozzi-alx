@@ -181,15 +181,33 @@ ALTER TABLE tickets
   MODIFY COLUMN metodo_pago ENUM('efectivo','tarjeta','dividido') NULL;
 
 
+-- Catálogo único: la misma fila alimenta la carta pública (web + PDF) y el
+-- catálogo del POS. Antes vivía partido en 'productos' (POS/comanda) y 'menu'
+-- (carta), lo que dejaba borrar un platillo de la carta sin quitarlo del POS.
+--
+-- Una sola bandera: 'activo'. Si el producto está activo se vende en el POS y
+-- se publica en la carta; no hay estados intermedios. El borrado del admin es
+-- suave (activo = 0) para no romper el JOIN por nombre que hacen ticket_items,
+-- Services\Sugerencias y n8n sobre tickets históricos.
+--
+-- descripcion es NULL-able: las bebidas se imprimen en la carta solo con
+-- nombre y precio.
+--
+-- nombre es UNIQUE porque ticket_items, Services\Sugerencias y el flujo de n8n
+-- resuelven el producto por nombre; un duplicado haría ambiguo ese JOIN.
 CREATE TABLE IF NOT EXISTS productos (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre       VARCHAR(120) NOT NULL,
+  descripcion  TEXT NULL COMMENT 'Texto de la carta; NULL en productos que se imprimen solo con nombre y precio',
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
+  tag          VARCHAR(60) NULL COMMENT 'Etiqueta de la carta: Especialidad C.P., Estrella…',
   area_id      TINYINT UNSIGNED NOT NULL,
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  activo       TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = retirado (borrado suave); no se vende ni se publica',
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+  FOREIGN KEY (area_id) REFERENCES areas_produccion(id),
+  UNIQUE KEY uq_productos_nombre (nombre),
+  INDEX idx_productos_carta (activo, categoria_id)
 );
 
 CREATE TABLE IF NOT EXISTS ticket_items (
@@ -306,17 +324,14 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
 -- -------------------------------------------------------
 -- MENÚ
 -- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS menu (
-  id           INT AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(100) NOT NULL,
-  descripcion  TEXT NOT NULL,
-  precio       DECIMAL(10,2) NOT NULL,
-  tag          VARCHAR(60),
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  categoria_id INT NOT NULL,
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
-);
+--
+-- No hay tabla: la carta se sirve desde 'productos' (ver TICKETS / COMANDA).
+--
+-- La tabla 'menu' se fusionó con 'productos': tenían el mismo contenido con
+-- llaves distintas, y el CRUD del admin solo tocaba 'menu', así que un platillo
+-- borrado de la carta seguía vivo para el POS y para las sugerencias de n8n.
+-- Ahora la carta y el POS son la misma consulta: 'productos WHERE activo = 1'.
+-- El DROP TABLE de arriba se conserva para limpiar instalaciones previas.
 
 -- -------------------------------------------------------
 -- FEEDBACK

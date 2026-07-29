@@ -50,7 +50,7 @@ class AdminProductosController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $producto->sincronizar($_POST);
-            $producto->activo = isset($_POST['activo']) ? 1 : 0;
+            self::sincronizarBanderas($producto);
             $alertas = $producto->validar();
 
             if (empty($alertas)) {
@@ -87,7 +87,7 @@ class AdminProductosController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $producto->sincronizar($_POST);
-            $producto->activo = isset($_POST['activo']) ? 1 : 0;
+            self::sincronizarBanderas($producto);
             $alertas = $producto->validar();
 
             if (empty($alertas)) {
@@ -114,10 +114,12 @@ class AdminProductosController
         $id = self::validarId($_POST['id'] ?? null, $router);
         $producto = Producto::find($id);
 
-        if ($producto && $producto->eliminar()) {
-            Producto::setAlerta('exito', 'Producto eliminado correctamente');
+        // Borrado suave: los ticket_items históricos y las sugerencias de n8n
+        // resuelven el producto por nombre, así que la fila no se borra.
+        if ($producto && $producto->retirar()) {
+            Producto::setAlerta('exito', 'Producto retirado. Deja de venderse y de aparecer en la carta; puedes reactivarlo cuando quieras.');
         } else {
-            Producto::setAlerta('error', 'No se pudo eliminar el producto');
+            Producto::setAlerta('error', 'No se pudo retirar el producto');
         }
 
         self::index($router);
@@ -443,6 +445,16 @@ class AdminProductosController
             'styles' => [self::CSS],
             'scripts' => ['/build/js/admin/recipe-builder.js'],
         ], $data));
+    }
+
+    /**
+     * Casillas y campos opcionales del formulario. Un producto activo se vende
+     * en el POS y se publica en la carta; desmarcarlo lo retira de las dos.
+     */
+    private static function sincronizarBanderas(Producto $producto): void
+    {
+        $producto->activo = isset($_POST['activo']) ? 1 : 0;
+        $producto->tag = trim((string) ($_POST['tag'] ?? '')) !== '' ? $_POST['tag'] : null;
     }
 
     private static function validarId($id, Router $router): int

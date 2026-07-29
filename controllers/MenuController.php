@@ -2,43 +2,29 @@
 
 namespace Controllers;
 
-use Model\CategoriasMenu;
-use Model\Menu;
+use Model\Producto;
 
 class MenuController {
     public static function index($router) {
         header('Content-Type: application/json');
 
-        $categorias = CategoriasMenu::consultarSQL(
-            "SELECT * FROM categorias WHERE activo = 1 ORDER BY id"
-        );
-
+        // cartaPublica() ya descarta lo retirado y las categorías sin productos.
         $resultado = [];
-        foreach ($categorias as $cat) {
-            $platillos = Menu::consultarSQL(
-                "SELECT * FROM menu WHERE categoria_id = {$cat->id} AND activo = 1 ORDER BY id"
-            );
-
-            // Categorías sin platillos (p. ej. las que solo se usan como
-            // catálogo de productos internos) no se muestran en el menú público.
-            if (empty($platillos)) {
-                continue;
-            }
-
-            $dishes = array_map(function($m) {
+        foreach (Producto::cartaPublica() as $categoria) {
+            $dishes = array_map(function($p) {
                 return [
-                    'n'    => $m->nombre,
-                    'd'    => $m->descripcion,
-                    'p'    => (float) $m->precio,
-                    'tags' => $m->tag ? [$m->tag] : []
+                    'n'    => $p->nombre,
+                    'd'    => $p->descripcion,
+                    'p'    => (float) $p->precio,
+                    'tags' => $p->tag ? [$p->tag] : []
                 ];
-            }, $platillos);
+            }, $categoria['platillos']);
 
-            $img = $cat->img ? '/' . ltrim($cat->img, '/') : null;
+            $img = $categoria['img'] ? '/' . ltrim($categoria['img'], '/') : null;
 
             $resultado[] = [
-                'id'     => (int) $cat->id,
-                'label'  => $cat->nombre,
+                'id'     => $categoria['id'],
+                'label'  => $categoria['nombre'],
                 'img'    => $img,
                 'dishes' => $dishes
             ];
@@ -54,20 +40,9 @@ class MenuController {
      * agrupados por categoría igual que en la vista del index.
      */
     public static function pdf($router) {
-        // Agrupa el menu por categoria (solo categorias y platillos activos).
-        // Cada grupo: ['nombre' => ..., 'platillos' => Menu[]].
-        $cats = CategoriasMenu::consultarSQL(
-            "SELECT * FROM categorias WHERE activo = 1 ORDER BY id ASC"
-        );
-        $categorias = [];
-        foreach ($cats as $cat) {
-            $platillos = Menu::consultarSQL(
-                "SELECT * FROM menu WHERE categoria_id = {$cat->id} AND activo = 1 ORDER BY id ASC"
-            );
-            if (!empty($platillos)) {
-                $categorias[] = ['nombre' => $cat->nombre, 'platillos' => $platillos];
-            }
-        }
+        // Mismo recorte que la carta web: activo = 1, agrupado por categoría.
+        // Cada grupo: ['nombre' => ..., 'platillos' => Producto[]].
+        $categorias = Producto::cartaPublica();
 
         // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
         $projectRoot = realpath(__DIR__ . '/..');

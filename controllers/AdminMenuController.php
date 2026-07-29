@@ -8,7 +8,7 @@ namespace Controllers;
 
 use Classes\ImagenUploader;
 use Model\CategoriasMenu;
-use Model\Menu;
+use Model\Producto;
 use MVC\Router;
 use Services\CategoriaMenuService;
 
@@ -24,8 +24,8 @@ class AdminMenuController
             'title' => 'Gestión de menú',
             'topbarSection' => 'Gestión de menú',
             'totalCategorias' => count(CategoriasMenu::all()),
-            'totalMenu' => (int) Menu::total(),
-            'alertas' => array_merge_recursive(CategoriasMenu::getAlertas(), Menu::getAlertas()),
+            'totalMenu' => Producto::totalAdmin(),
+            'alertas' => array_merge_recursive(CategoriasMenu::getAlertas(), Producto::getAlertas()),
         ]);
     }
 
@@ -50,7 +50,7 @@ class AdminMenuController
 
         $porPagina = 10;
         $filtros = self::leerFiltrosItems();
-        $totalMenu = Menu::totalAdmin($filtros);
+        $totalMenu = Producto::totalAdmin($filtros);
         $totalPaginas = max(1, (int) ceil($totalMenu / $porPagina));
 
         $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -59,7 +59,7 @@ class AdminMenuController
         }
 
         $offset = ($paginaActual - 1) * $porPagina;
-        $platillos = Menu::buscarAdmin($filtros, $porPagina, $offset);
+        $platillos = Producto::buscarAdmin($filtros, $porPagina, $offset);
 
         $data = [
             'title' => 'Platillos',
@@ -69,7 +69,7 @@ class AdminMenuController
             'categoriasMap' => $categoriasMap,
             'filtros' => $filtros,
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
-            'alertas' => Menu::getAlertas(),
+            'alertas' => Producto::getAlertas(),
             'paginaActual' => $paginaActual,
             'totalPaginas' => $totalPaginas,
             'totalMenu' => $totalMenu,
@@ -89,33 +89,20 @@ class AdminMenuController
     }
 
     /**
-     * Genera y envia al navegador un PDF con todo el menu registrado.
-     * Incluye nombre, descripcion, precio y tag de cada platillo (tabla menu).
+     * Genera y envia al navegador un PDF con la carta registrada.
+     * Incluye nombre, descripcion, precio y tag de cada platillo.
+     *
+     * A diferencia del PDF publico (MenuController::pdf), aqui se imprimen
+     * tambien los platillos retirados: es la vista de trabajo del operador
+     * sobre todo lo que tiene dado de alta para la carta.
      */
     public static function itemsPdf(Router $router): void
     {
-        // Agrupa TODO el menu registrado por categoria (incluye inactivos).
-        // Cada grupo: ['nombre' => ..., 'platillos' => Menu[]].
-        $cats = CategoriasMenu::consultarSQL("SELECT * FROM categorias ORDER BY id ASC");
-        $categorias = [];
-        foreach ($cats as $cat) {
-            $platillos = Menu::consultarSQL(
-                "SELECT * FROM menu WHERE categoria_id = {$cat->id} ORDER BY id ASC"
-            );
-            if (!empty($platillos)) {
-                $categorias[] = ['nombre' => $cat->nombre, 'platillos' => $platillos];
-            }
-        }
-        // Platillos sin categoria valida (categoria borrada o nula).
-        $huerfanos = Menu::consultarSQL(
-            "SELECT * FROM menu
-             WHERE categoria_id IS NULL
-                OR categoria_id NOT IN (SELECT id FROM categorias)
-             ORDER BY id ASC"
-        );
-        if (!empty($huerfanos)) {
-            $categorias[] = ['nombre' => 'Sin categoría', 'platillos' => $huerfanos];
-        }
+        // Cada grupo: ['nombre' => ..., 'platillos' => Producto[]].
+        // Ya no hacen falta los "huerfanos" de la version anterior: productos
+        // .categoria_id es NOT NULL con llave foranea a categorias, asi que no
+        // puede haber platillos sin categoria valida.
+        $categorias = Producto::cartaCompleta();
 
         // Ruta absoluta (con / ) a las fuentes del proyecto para los @font-face.
         $projectRoot = realpath(__DIR__ . '/..');
@@ -290,14 +277,13 @@ class AdminMenuController
 
     public static function itemCreate(Router $router): void
     {
-        $platillo = new Menu();
+        $platillo = new Producto();
         $categorias = CategoriasMenu::all();
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $platillo->sincronizar($_POST);
-            $platillo->activo = isset($_POST['activo']) ? 1 : 0;
-            $platillo->tag = trim($_POST['tag'] ?? '') !== '' ? $_POST['tag'] : null;
+            self::sincronizarBanderas($platillo);
 
             $alertas = $platillo->validar();
 
@@ -305,13 +291,13 @@ class AdminMenuController
                 $resultado = $platillo->guardar();
 
                 if ($resultado && $resultado['resultado']) {
-                    Menu::setAlerta('exito', 'Platillo creado correctamente');
+                    Producto::setAlerta('exito', 'Platillo creado correctamente');
                     self::items($router);
                     return;
                 }
 
-                Menu::setAlerta('error', 'No se pudo guardar el platillo');
-                $alertas = Menu::getAlertas();
+                Producto::setAlerta('error', 'No se pudo guardar el platillo');
+                $alertas = Producto::getAlertas();
             }
         }
 
@@ -320,6 +306,7 @@ class AdminMenuController
             'topbarSection' => 'Gestión de menú / Nuevo platillo',
             'platillo' => $platillo,
             'categorias' => $categorias,
+            'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => 'Crear platillo',
         ]);
@@ -328,10 +315,10 @@ class AdminMenuController
     public static function itemEdit(Router $router): void
     {
         $id = self::validarId($_GET['id'] ?? null, $router);
-        $platillo = Menu::find($id);
+        $platillo = Producto::find($id);
 
         if (!$platillo) {
-            Menu::setAlerta('error', 'El platillo no existe');
+            Producto::setAlerta('error', 'El platillo no existe');
             self::items($router);
             return;
         }
@@ -341,20 +328,19 @@ class AdminMenuController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $platillo->sincronizar($_POST);
-            $platillo->activo = isset($_POST['activo']) ? 1 : 0;
-            $platillo->tag = trim($_POST['tag'] ?? '') !== '' ? $_POST['tag'] : null;
+            self::sincronizarBanderas($platillo);
 
             $alertas = $platillo->validar();
 
             if (empty($alertas)) {
                 if ($platillo->guardar()) {
-                    Menu::setAlerta('exito', 'Platillo actualizado correctamente');
+                    Producto::setAlerta('exito', 'Platillo actualizado correctamente');
                     self::items($router);
                     return;
                 }
 
-                Menu::setAlerta('error', 'No se pudo actualizar el platillo');
-                $alertas = Menu::getAlertas();
+                Producto::setAlerta('error', 'No se pudo actualizar el platillo');
+                $alertas = Producto::getAlertas();
             }
         }
 
@@ -363,6 +349,7 @@ class AdminMenuController
             'topbarSection' => 'Gestión de menú / Editar platillo',
             'platillo' => $platillo,
             'categorias' => $categorias,
+            'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => 'Guardar cambios',
         ]);
@@ -375,18 +362,21 @@ class AdminMenuController
         }
 
         $id = self::validarId($_POST['id'] ?? null, $router);
-        $platillo = Menu::find($id);
+        $platillo = Producto::find($id);
 
         if (!$platillo) {
-            Menu::setAlerta('error', 'El platillo no existe');
+            Producto::setAlerta('error', 'El platillo no existe');
             self::items($router);
             return;
         }
 
-        if ($platillo->eliminar()) {
-            Menu::setAlerta('exito', 'Platillo eliminado correctamente');
+        // Borrado suave: la fila se conserva porque ticket_items, las
+        // sugerencias y n8n resuelven el producto por nombre sobre tickets ya
+        // cerrados. Se puede reactivar desde el interruptor de la lista.
+        if ($platillo->retirar()) {
+            Producto::setAlerta('exito', 'Platillo retirado. Deja de venderse y de aparecer en la carta; puedes reactivarlo cuando quieras.');
         } else {
-            Menu::setAlerta('error', 'No se pudo eliminar el platillo');
+            Producto::setAlerta('error', 'No se pudo retirar el platillo');
         }
 
         self::items($router);
@@ -399,6 +389,32 @@ class AdminMenuController
             'styles' => [self::MENU_CSS],
             'scripts' => [],
         ], $data));
+    }
+
+    /**
+     * Casillas y campos opcionales del formulario de platillo. Un platillo
+     * activo se vende en el POS y se publica en la carta; desmarcarlo lo retira
+     * de las dos.
+     */
+    private static function sincronizarBanderas(Producto $platillo): void
+    {
+        $platillo->activo = isset($_POST['activo']) ? 1 : 0;
+        $platillo->tag = trim((string) ($_POST['tag'] ?? '')) !== '' ? $_POST['tag'] : null;
+    }
+
+    /** Áreas de producción para el selector del formulario. */
+    private static function areas(): array
+    {
+        $res = Producto::ejecutarSQL('SELECT id, nombre FROM areas_produccion ORDER BY id ASC');
+
+        $areas = [];
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $areas[] = $row;
+            }
+        }
+
+        return $areas;
     }
 
     private static function leerFiltrosItems(): array
