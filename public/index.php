@@ -150,6 +150,7 @@ $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete'])
 // Vistas standalone del personal (POS meseros y KDS cocina)
 $router->get('/punto-de-venta',        [PuntoVentaController::class, 'index']);
 $router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
+$router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
 $router->post('/api/liberar-reservacion', [PuntoVentaController::class, 'liberarReservacion']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
