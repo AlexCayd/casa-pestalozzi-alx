@@ -12,6 +12,7 @@ namespace Services;
 class ReservationClientSession
 {
     private const SESSION_KEY = 'reservation_client';
+    private const CSRF_KEY = 'reservation_client_csrf';
 
     /**
      * Inicia la sesión con una cookie endurecida cuando todavía es posible
@@ -31,6 +32,29 @@ class ReservationClientSession
             ]);
             session_start();
         }
+    }
+
+    public static function csrfToken(): string
+    {
+        self::start();
+        $token = $_SESSION[self::CSRF_KEY] ?? null;
+        if (!is_string($token) || strlen($token) < 64) {
+            $token = bin2hex(random_bytes(32));
+            $_SESSION[self::CSRF_KEY] = $token;
+        }
+
+        return $token;
+    }
+
+    public static function validarCsrf(string $token): bool
+    {
+        self::start();
+        $guardado = $_SESSION[self::CSRF_KEY] ?? '';
+
+        return is_string($guardado)
+            && $guardado !== ''
+            && $token !== ''
+            && hash_equals($guardado, $token);
     }
 
     /**
@@ -89,6 +113,6 @@ class ReservationClientSession
     public static function cerrar(): void
     {
         self::start();
-        unset($_SESSION[self::SESSION_KEY]);
+        unset($_SESSION[self::SESSION_KEY], $_SESSION[self::CSRF_KEY]);
     }
 }

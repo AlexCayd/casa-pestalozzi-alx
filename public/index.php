@@ -36,6 +36,7 @@ $router = new Router();
 
 // Home
 $router->get('/', [HomeController::class, 'index']);
+$router->get('/reservaciones', [HomeController::class, 'index']);
 
 // Reservaciones
 $router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);

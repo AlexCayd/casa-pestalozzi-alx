@@ -12,6 +12,7 @@ declare(strict_types=1);
 use Dotenv\Dotenv;
 use Model\ActiveRecord;
 use Model\Reservacion;
+use Model\TicketMesa;
 use Services\AsignacionMesasService;
 use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
@@ -256,12 +257,72 @@ try {
            AND request_token <> 'fx-historica-000001'"
     );
 
+    $db->query(
+        "INSERT INTO tickets (comensales, nombre, hora_apertura, estado)
+         VALUES (9, 'E2 Apertura Futura', '2026-12-03 20:00:00', 'abierto')"
+    );
+    $ticketAperturaFuturaId = (int)$db->insert_id;
+    $db->query(
+        "INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+         SELECT {$ticketAperturaFuturaId}, id,
+                CASE numero WHEN 5 THEN 1 WHEN 10 THEN 2 ELSE 3 END
+         FROM mesas
+         WHERE numero IN (5, 10, 11)"
+    );
+    $ocupacionAntesDeApertura = TicketMesa::ocupacionAbierta(
+        '2026-12-01',
+        '10:00:00'
+    );
+    e2Assert(
+        'ticket futuro no ocupa mesas retrospectivamente',
+        !in_array(
+            $ticketAperturaFuturaId,
+            array_column($ocupacionAntesDeApertura, 'ticket_id'),
+            true
+        )
+    );
+    $ocupacionConTraslape = TicketMesa::ocupacionAbierta(
+        '2026-12-03',
+        '19:30:00'
+    );
+    e2Assert(
+        'ticket futuro ocupa cuando las ventanas se traslapan',
+        in_array(
+            $ticketAperturaFuturaId,
+            array_column($ocupacionConTraslape, 'ticket_id'),
+            true
+        )
+    );
+    $db->query("DELETE FROM tickets WHERE id = {$ticketAperturaFuturaId}");
+
+    $fechaCapacidadLimpia = '2026-12-04';
+    foreach (range(8, 12) as $personas) {
+        $disponibilidadGrupo = DisponibilidadReservacionService::consultar(
+            $fechaCapacidadLimpia,
+            $personas
+        );
+        $slotsDisponibles = array_filter(
+            $disponibilidadGrupo['horarios'] ?? [],
+            static fn(array $slot): bool => (bool)($slot['disponible'] ?? false)
+        );
+        e2Assert(
+            "disponibilidad limpia para {$personas} personas",
+            (bool)($disponibilidadGrupo['ok'] ?? false) && count($slotsDisponibles) > 0
+        );
+    }
+
     $mesas = array_map(static function (int $numero): object {
         return (object)['id' => $numero, 'numero' => $numero, 'capacidad' => 4];
     }, range(1, 11));
     e2Same('selección de una mesa', count(AsignacionMesasService::seleccionarMesasPublicas($mesas, 4)), 1);
     e2Same('selección de dos mesas', count(AsignacionMesasService::seleccionarMesasPublicas($mesas, 5)), 2);
-    e2Same('selección de tres mesas', count(AsignacionMesasService::seleccionarMesasPublicas($mesas, 12)), 3);
+    foreach (range(8, 12) as $personas) {
+        e2Same(
+            "selección autorizada para {$personas} personas",
+            count(AsignacionMesasService::seleccionarMesasPublicas($mesas, $personas)),
+            $personas <= 8 ? 2 : 3
+        );
+    }
     $mesasQueRequeririanCuatro = array_map(static function (int $numero): object {
         return (object)['id' => $numero, 'numero' => $numero, 'capacidad' => 3];
     }, range(1, 11));

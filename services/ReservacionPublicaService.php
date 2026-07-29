@@ -26,6 +26,7 @@ final class ReservacionPublicaService
     public const LIMITE_RESERVACIONES_ALCANZADO = 'LIMITE_RESERVACIONES_ALCANZADO';
     public const REQUEST_TOKEN_CONFLICTO = 'REQUEST_TOKEN_CONFLICTO';
     public const CONTACTO_NO_VERIFICADO = 'CONTACTO_NO_VERIFICADO';
+    public const CONTACTO_NO_COINCIDE = 'CONTACTO_NO_COINCIDE';
     public const SESION_EXPIRADA = 'SESION_EXPIRADA';
     public const RESERVACION_NO_ENCONTRADA = 'RESERVACION_NO_ENCONTRADA';
     public const RESERVACION_NO_PERTENECE_AL_CONTACTO = 'RESERVACION_NO_PERTENECE_AL_CONTACTO';
@@ -42,6 +43,26 @@ final class ReservacionPublicaService
     {
         return (string)($fila['estado'] ?? '') === 'confirmada'
             && self::antesODuranteHora($fila);
+    }
+
+    public static function contactoCoincideConSesion(array $entrada, array $sesion): bool
+    {
+        $tipoSesion = (string)($sesion['contacto_tipo'] ?? '');
+        $contactoSesion = (string)($sesion['contacto'] ?? '');
+        $tipoEntrada = trim((string)($entrada['tipo_contacto'] ?? $entrada['tipo'] ?? ''));
+
+        try {
+            $contactoEntrada = ContactoService::normalizar(
+                $tipoEntrada,
+                (string)($entrada['contacto'] ?? '')
+            );
+        } catch (InvalidArgumentException $e) {
+            return false;
+        }
+
+        return $tipoEntrada === $tipoSesion
+            && $contactoSesion !== ''
+            && hash_equals($contactoSesion, $contactoEntrada);
     }
 
     /** @return array<string, mixed> */
@@ -315,6 +336,13 @@ final class ReservacionPublicaService
                 'ok' => false,
                 'codigo' => self::SESION_EXPIRADA,
                 'mensaje' => 'Verifica nuevamente tu contacto.',
+            ];
+        }
+        if (!self::contactoCoincideConSesion($entrada, $sesion)) {
+            return [
+                'ok' => false,
+                'codigo' => self::CONTACTO_NO_COINCIDE,
+                'mensaje' => 'El contacto cambió. Verifícalo nuevamente para confirmar la reservación.',
             ];
         }
         $entrada['tipo_contacto'] = $tipo;

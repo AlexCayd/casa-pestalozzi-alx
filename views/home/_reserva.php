@@ -8,34 +8,41 @@ $horariosOperacion = is_array($horariosOperacion ?? null) ? $horariosOperacion :
 $proximasExcepcionesOperacion = is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [];
 $horariosOperacionDisponibles = (bool)($horariosOperacionDisponibles ?? false);
 $limiteExcepcionesVisibles = 2;
-$meses = [
-  1 => 'enero',
-  2 => 'febrero',
-  3 => 'marzo',
-  4 => 'abril',
-  5 => 'mayo',
-  6 => 'junio',
-  7 => 'julio',
-  8 => 'agosto',
-  9 => 'septiembre',
-  10 => 'octubre',
-  11 => 'noviembre',
-  12 => 'diciembre',
+$mesesCortos = [
+  1 => 'ENE',
+  2 => 'FEB',
+  3 => 'MAR',
+  4 => 'ABR',
+  5 => 'MAY',
+  6 => 'JUN',
+  7 => 'JUL',
+  8 => 'AGO',
+  9 => 'SEP',
+  10 => 'OCT',
+  11 => 'NOV',
+  12 => 'DIC',
 ];
+$hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
 ?>
-<section class="section reserva" id="reserva" data-screen-label="Reservar">
+<section class="section reserva" id="reserva" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
+  data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
   <div class="wrap reserva__grid">
     <div class="reserva__intro">
       <span class="eyebrow" data-reveal>08 — Reservaciones</span>
-      <h2 class="reserva__title" data-reveal>Reserva <em class="accent-italic">tu mesa</em></h2>
+      <h2 class="reserva__title" id="reservation-section-title" data-reveal>Reserva <em class="accent-italic">tu mesa</em></h2>
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
-      <div class="reserva__hours" data-reveal>
+    </div>
+    <div class="reserva__hours" data-reveal>
         <h5>Horario habitual</h5>
         <?php if ($horariosOperacionDisponibles) : ?>
           <?php foreach ($horariosOperacion as $horario) : ?>
-            <div class="row" data-day="<?php echo (int)($horario['dia_semana'] ?? 0); ?>">
-              <span><?php echo s($horario['nombre'] ?? ''); ?></span>
-              <span>
+            <?php $esHoy = (int)($horario['dia_semana'] ?? -1) === $hoyDiaSemana; ?>
+            <div class="row<?php echo $esHoy ? ' today' : ''; ?>" data-day="<?php echo (int)($horario['dia_semana'] ?? 0); ?>">
+              <span class="reserva__hours-day">
+                <?php echo s($horario['nombre'] ?? ''); ?>
+                <?php if ($esHoy) : ?><small class="reserva__hours-today">Hoy</small><?php endif; ?>
+              </span>
+              <span class="reserva__hours-value">
                 <?php if (!empty($horario['abierto'])) : ?>
                   <?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?>
                 <?php else : ?>
@@ -62,8 +69,12 @@ $meses = [
               <?php foreach ($proximasExcepcionesOperacion as $indice => $excepcion) : ?>
                 <?php
                   $fechaExcepcion = \DateTimeImmutable::createFromFormat('!Y-m-d', (string)($excepcion['fecha'] ?? ''));
-                  $fechaVisible = $fechaExcepcion instanceof \DateTimeImmutable
-                    ? (int)$fechaExcepcion->format('j') . ' de ' . ($meses[(int)$fechaExcepcion->format('n')] ?? '')
+                  $fechaIso = (string)($excepcion['fecha'] ?? '');
+                  $diaVisible = $fechaExcepcion instanceof \DateTimeImmutable
+                    ? (int)$fechaExcepcion->format('j')
+                    : '';
+                  $mesVisible = $fechaExcepcion instanceof \DateTimeImmutable
+                    ? ($mesesCortos[(int)$fechaExcepcion->format('n')] ?? '')
                     : '';
                   $esHorarioEspecial = ($excepcion['tipo'] ?? '') === 'horario_especial';
                   $horarioVisible = $esHorarioEspecial
@@ -75,64 +86,94 @@ $meses = [
                   class="reserva__schedule-change reserva__schedule-change--<?php echo $esHorarioEspecial ? 'special' : 'closed'; ?>"
                   <?php echo $esAdicional ? 'data-schedule-extra hidden' : ''; ?>
                 >
-                  <span><?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?></span>
-                  <p><strong><?php echo s($fechaVisible); ?></strong><span aria-hidden="true">—</span><?php echo s($horarioVisible); ?></p>
-                  <small>Reemplaza el horario habitual de esa fecha.</small>
+                  <time class="reserva__schedule-change-date" datetime="<?php echo s($fechaIso); ?>">
+                    <strong><?php echo s((string)$diaVisible); ?></strong>
+                    <span><?php echo s($mesVisible); ?></span>
+                  </time>
+                  <div class="reserva__schedule-change-content">
+                    <span><?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?></span>
+                    <strong><?php echo s($horarioVisible); ?></strong>
+                    <?php if (!empty($excepcion['motivo'])) : ?>
+                      <small><?php echo s($excepcion['motivo']); ?></small>
+                    <?php endif; ?>
+                  </div>
                 </article>
               <?php endforeach; ?>
             </div>
           </section>
         <?php endif; ?>
-      </div>
     </div>
 
     <div class="reserva__form-wrap" data-reveal>
-      <div class="reservation-access__tabs" role="tablist" aria-label="Opciones de reservación">
+      <div class="reservation-flow">
+        <div class="reservation-access__tabs" role="tablist" aria-label="Elige una tarea de reservación">
         <button type="button" class="reservation-access__tab is-active" id="reservation-tab-new"
           role="tab" aria-selected="true" aria-controls="reservation-panel-new" data-reservation-tab="new">
-          Nueva reservación
+          <span class="reservation-access__tab-title">Reservar una mesa</span>
         </button>
         <button type="button" class="reservation-access__tab" id="reservation-tab-manage"
           role="tab" aria-selected="false" aria-controls="reservation-panel-manage" data-reservation-tab="manage">
-          Gestionar mis reservaciones
+          <span class="reservation-access__tab-title">Gestionar reservación</span>
         </button>
+        </div>
       </div>
       <div id="reservation-panel-new" role="tabpanel" aria-labelledby="reservation-tab-new" data-reservation-panel="new">
+      <p class="reservation-panel__lead">Elige fecha, hora y comensales para comenzar.</p>
+      <div class="reservation-progress__mobile" aria-live="polite">
+        <div>
+          <span class="reservation-progress__mobile-kicker">Paso <strong data-progress-current>1</strong> de 4</span>
+          <strong class="reservation-progress__mobile-name" data-progress-name>Tu visita</strong>
+        </div>
+        <span class="reservation-progress__mobile-track" aria-hidden="true"><span data-progress-bar></span></span>
+      </div>
+      <nav class="reservation-progress" aria-label="Progreso de la reservación">
+          <button type="button" class="reservation-progress__step is-current" data-reservation-step-target="1"
+           aria-current="step" aria-label="Tu visita">
+           <span class="reservation-progress__number">01</span>
+           <span class="reservation-progress__label reservation-progress__label--wide">Tu visita</span>
+           <span class="reservation-progress__label reservation-progress__label--compact" aria-hidden="true">Visita</span>
+         </button>
+         <span class="reservation-progress__line" data-reservation-progress-line="1" aria-hidden="true"></span>
+         <button type="button" class="reservation-progress__step" data-reservation-step-target="2"
+           aria-disabled="true" aria-label="Tus datos" disabled>
+           <span class="reservation-progress__number">02</span>
+           <span class="reservation-progress__label reservation-progress__label--wide">Tus datos</span>
+           <span class="reservation-progress__label reservation-progress__label--compact" aria-hidden="true">Datos</span>
+         </button>
+         <span class="reservation-progress__line" data-reservation-progress-line="2" aria-hidden="true"></span>
+         <button type="button" class="reservation-progress__step" data-reservation-step-target="3"
+           aria-disabled="true" aria-label="Detalles" disabled>
+           <span class="reservation-progress__number">03</span>
+           <span class="reservation-progress__label reservation-progress__label--wide">Detalles</span>
+           <span class="reservation-progress__label reservation-progress__label--compact" aria-hidden="true">Notas</span>
+         </button>
+         <span class="reservation-progress__line" data-reservation-progress-line="3" aria-hidden="true"></span>
+         <button type="button" class="reservation-progress__step" data-reservation-step-target="4"
+           aria-disabled="true" aria-label="Revisar" disabled>
+           <span class="reservation-progress__number">04</span>
+           <span class="reservation-progress__label reservation-progress__label--wide">Revisar</span>
+           <span class="reservation-progress__label reservation-progress__label--compact" aria-hidden="true">Revisar</span>
+         </button>
+      </nav>
       <form
-        class="form"
+        class="form reservation-form"
         id="reservaForm"
         data-schedules-endpoint="/api/reservaciones/disponibilidad"
         data-max-guests="<?php echo (int)$contactoReservas['max_comensales']; ?>"
         novalidate
       >
         <input type="hidden" name="request_token" value="<?php echo s($reservationRequestToken ?? ''); ?>">
-        <div class="form__row reserva__identity" data-new-reservation-identity hidden>
-          <div class="field">
-            <label>Nombre</label>
-            <input type="text" name="nombre" placeholder="Tu nombre" required />
-            <span class="field__msg" data-field-error="nombre"></span>
+        <div class="reservation-stage-viewport">
+        <section class="reservation-step reservation-step--visit is-active" data-reservation-step="1"
+          aria-labelledby="reservation-visit-title">
+          <div class="reservation-step__head">
+            <span class="section-index" aria-hidden="true">01</span>
+            <h3 id="reservation-visit-title" tabindex="-1">Selecciona tu visita</h3>
           </div>
-          <div class="field" data-new-reservation-contact>
-            <label>Contacto a verificar</label>
-            <div class="reservation-access__types reservation-access__types--compact">
-              <label><input type="radio" name="tipo_contacto" value="email" checked><span>Correo</span></label>
-              <label><input type="radio" name="tipo_contacto" value="telefono"><span>Teléfono</span></label>
-            </div>
-            <input type="email" name="contacto" placeholder="tu@correo.com" autocomplete="email" />
-            <span class="field__msg" data-field-error="contacto"></span>
-          </div>
-        </div>
-        <aside class="reserva__special-schedule" data-special-schedule hidden aria-live="polite">
-          <span class="reserva__special-schedule-label" data-special-schedule-label>Horario especial</span>
-          <strong data-special-schedule-date></strong>
-          <span class="reserva__special-schedule-hours" data-special-schedule-hours></span>
-          <p data-special-schedule-reason hidden></p>
-          <small data-special-schedule-note>El horario habitual no aplica en esta fecha.</small>
-          <small class="reserva__special-schedule-reference">Referencia habitual: <span data-special-schedule-regular></span></small>
-        </aside>
-        <div class="form__row">
-          <div class="field">
-            <label>Fecha</label>
+          <p class="reservation-step__intro">Fecha, número de personas y horario.</p>
+          <div class="reservation-visit-grid">
+          <div class="field reservation-field">
+            <label class="reservation-field__label" for="dateDisplay">Fecha</label>
             <?php
               $rootId = 'datePicker';
               $inputId = 'fechaHidden';
@@ -142,14 +183,37 @@ $meses = [
               $value = '';
               $min = \Services\ReservacionConfig::fechaActual();
               $disabled = false;
+              $showIcon = true;
               // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
               $enabledWeekdays = range(0, 6);
               include __DIR__ . '/../components/reservations/date-picker.php';
             ?>
-            <span class="field__msg" data-field-error="fecha"></span>
+            <span class="field__msg reservation-field__error" id="dateError" data-field-error="fecha"></span>
           </div>
-          <div class="field">
-            <label>Hora</label>
+          <div class="field reservation-field reservation-field--guests">
+            <span class="reservation-field__label" id="guestsLabel">Comensales</span>
+            <div class="pills reservation-guests" id="guestPills" role="group" aria-labelledby="guestsLabel">
+              <button type="button" class="pill" data-g="1" aria-pressed="false">1</button>
+              <button type="button" class="pill sel" data-g="2" aria-pressed="true">2</button>
+              <button type="button" class="pill" data-g="3" aria-pressed="false">3</button>
+              <button type="button" class="pill" data-g="4" aria-pressed="false">4</button>
+              <button type="button" class="pill" data-g="5" aria-pressed="false">5</button>
+              <button type="button" class="pill" data-g="6" aria-pressed="false">6</button>
+              <button type="button" class="pill" data-g="7" aria-pressed="false"
+                aria-controls="guestsExtra">+</button>
+            </div>
+            <div class="guests-extra" id="guestsExtra" hidden>
+              <div class="guests-stepper" role="group" aria-label="Cantidad de comensales entre 7 y 12">
+                <button type="button" class="step-btn" id="guestsMinus" aria-label="Reducir comensales">−</button>
+                <span class="step-val" id="guestsVal" aria-live="polite">7</span>
+                <button type="button" class="step-btn" id="guestsPlus" aria-label="Aumentar comensales">+</button>
+                <input type="number" id="guestsNum" min="7" max="<?php echo (int)$contactoReservas['max_comensales']; ?>" value="7" aria-hidden="true" tabindex="-1" />
+              </div>
+            </div>
+            <span class="field__msg reservation-field__error" data-field-error="comensales"></span>
+          </div>
+          <div class="field reservation-field reservation-field--time">
+            <label class="reservation-field__label" for="hourDisplay">Hora</label>
             <?php
               $rootId = 'hourPicker';
               $inputId = 'horaHidden';
@@ -161,79 +225,198 @@ $meses = [
               $disabled = false;
               include __DIR__ . '/../components/reservations/time-picker.php';
             ?>
-            <span class="field__msg" id="hourStatus" data-field-error="hora"></span>
+            <span class="field__msg reservation-field__error" id="hourStatus" data-field-error="hora" role="status" aria-live="polite"></span>
           </div>
-        </div>
-        <div class="reserva__selection-summary" data-reservation-selection-summary hidden aria-live="polite"></div>
-        <div class="field">
-          <label>Comensales</label>
-          <div class="pills" id="guestPills">
-            <button type="button" class="pill" data-g="1">1</button>
-            <button type="button" class="pill sel" data-g="2">2</button>
-            <button type="button" class="pill" data-g="3">3</button>
-            <button type="button" class="pill" data-g="4">4</button>
-            <button type="button" class="pill" data-g="5">5</button>
-            <button type="button" class="pill" data-g="6+">6+</button>
           </div>
-          <div class="guests-extra" id="guestsExtra">
-            <div class="guests-stepper">
-              <button type="button" class="step-btn" id="guestsMinus" aria-label="Reducir">−</button>
-              <span class="step-val" id="guestsVal">6</span>
-              <button type="button" class="step-btn" id="guestsPlus" aria-label="Aumentar">+</button>
-              <input type="number" id="guestsNum" min="6" max="<?php echo (int)$contactoReservas['max_comensales']; ?>" value="6" aria-hidden="true" tabindex="-1" />
+          <aside class="reserva__special-schedule" data-special-schedule hidden aria-live="polite">
+            <span class="reserva__special-schedule-label" data-special-schedule-label>Horario especial</span>
+            <strong data-special-schedule-date></strong>
+            <span class="reserva__special-schedule-hours" data-special-schedule-hours></span>
+            <p data-special-schedule-reason hidden></p>
+            <small data-special-schedule-note>El horario habitual no aplica en esta fecha.</small>
+            <small class="reserva__special-schedule-reference">Referencia habitual: <span data-special-schedule-regular></span></small>
+          </aside>
+          <aside class="reserva__selection-summary reservation-summary reservation-summary--compact" data-reservation-selection-summary hidden aria-live="polite">
+            <div class="reservation-summary__head">
+              <div>
+                <span class="reservation-summary__eyebrow">Tu reservación</span>
+                <strong data-selection-status>Completa tu selección</strong>
+              </div>
+              <button type="button" class="reservation-summary__edit" data-reservation-edit="1">Editar</button>
+            </div>
+            <div class="reservation-summary__details">
+              <div><small>Fecha y hora</small><strong data-selection-primary></strong></div>
+              <div><small>Comensales</small><span data-selection-secondary></span></div>
+            </div>
+          </aside>
+          <div class="reservation-stage-actions reservation-stage-actions--single">
+            <button type="button" class="btn-line" data-reservation-next disabled>
+              <span>Continuar</span><span class="arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="reservation-step reserva__identity" data-reservation-step="2" hidden
+          aria-labelledby="reservation-identity-title">
+          <div class="reservation-step__head">
+            <span class="section-index" aria-hidden="true">02</span>
+            <h3 id="reservation-identity-title" tabindex="-1">¿A nombre de quién reservamos?</h3>
+          </div>
+          <p class="reservation-step__intro">Usaremos estos datos únicamente para confirmar tu visita.</p>
+          <div class="reservation-data-grid">
+            <div class="field reservation-field reservation-field--name">
+              <label class="reservation-field__label" for="reservationName">Nombre</label>
+              <input id="reservationName" class="reservation-control reservation-control--text" type="text" name="nombre" placeholder="Tu nombre" autocomplete="name" aria-describedby="nameError" required />
+              <span class="field__msg reservation-field__error" id="nameError" data-field-error="nombre"></span>
+            </div>
+            <div class="reservation-contact-row">
+              <div class="field reservation-field" data-new-reservation-contact>
+                <fieldset class="reservation-access__types reservation-access__types--compact">
+                  <legend>¿Cómo quieres recibir la confirmación?</legend>
+                  <label><input type="radio" name="tipo_contacto" value="email" checked><span>Correo</span></label>
+                  <label><input type="radio" name="tipo_contacto" value="telefono"><span>Teléfono</span></label>
+                </fieldset>
+              </div>
+              <div class="field reservation-field reservation-field--contact" data-new-reservation-contact-input>
+                <label class="reservation-field__label" for="reservationContact" data-contact-label>Correo electrónico</label>
+                <input id="reservationContact" class="reservation-control reservation-control--text" type="email" name="contacto" placeholder="cliente@ejemplo.com" autocomplete="email" aria-describedby="reservationContactHelp contactError" />
+                <small class="reservation-field__help" id="reservationContactHelp" data-new-contact-help>Te enviaremos aquí el código de confirmación.</small>
+                <span class="field__msg reservation-field__error" id="contactError" data-field-error="contacto"></span>
+              </div>
             </div>
           </div>
-          <span class="field__msg" data-field-error="comensales"></span>
-          <div class="large-party" id="largeParty" aria-live="polite" hidden>
-            <div class="large-party__mark" aria-hidden="true">i</div>
-            <div class="large-party__body">
-              <h3>Tu grupo es mayor a 12 personas?</h3>
-              <p>Para grupos grandes, contacta directamente al restaurante para revisar disponibilidad y preparar una atencion adecuada.</p>
-            </div>
-            <div class="large-party__links">
-              <a href="tel:<?php echo s($contactoReservas['telefono_tel']); ?>"><?php echo s($contactoReservas['telefono_visible']); ?></a>
-              <a href="<?php echo s($contactoReservas['whatsapp_url']); ?>" target="_blank" rel="noopener">WhatsApp</a>
-            </div>
+          <small class="reservation-field__help reservation-contact-verified-help" data-new-contact-verified-help hidden>
+            Utilizaremos el contacto que ya verificaste para esta reservación.
+            <button type="button" class="reservation-access__link" data-new-contact-change>Cambiar contacto</button>
+          </small>
+          <div class="reservation-stage-actions">
+            <button type="button" class="btn-line btn-line--secondary reservation-stage-back" data-reservation-back>
+              <span class="arrow">←</span><span>Atrás</span>
+            </button>
+            <button type="button" class="btn-line" data-reservation-next disabled>
+              <span>Continuar</span><span class="arrow">→</span>
+            </button>
           </div>
-        </div>
-        <div class="field">
-          <label>Ocasión (opcional)</label>
-          <textarea name="nota" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Cumpleaños, aniversario, alergias..."></textarea>
-          <span class="field__msg" data-field-error="nota"></span>
-        </div>
-        <div class="form__submit">
-          <button type="submit" class="btn-line" data-magnetic><span>Confirmar reserva</span><span class="arrow">↗</span></button>
-          <span class="form__msg" id="formMsg"></span>
+        </section>
+
+        <section class="reservation-step reservation-step--optional" data-reservation-step="3" hidden
+          aria-labelledby="reservation-details-title">
+          <div class="reservation-step__head">
+            <span class="section-index" aria-hidden="true">03</span>
+            <h3 id="reservation-details-title" tabindex="-1">¿Necesitamos considerar algo?</h3>
+          </div>
+          <div class="field reservation-field">
+            <label class="reservation-details-label" for="reservationOccasion">Indicaciones para tu visita <span>(opcional)</span></label>
+            <textarea id="reservationOccasion" class="reservation-control reservation-control--textarea" name="nota" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…" aria-describedby="occasionError"></textarea>
+            <span class="field__msg reservation-field__error" id="occasionError" data-field-error="nota"></span>
+          </div>
+          <div class="reservation-stage-actions">
+            <button type="button" class="btn-line btn-line--secondary reservation-stage-back" data-reservation-back>
+              <span class="arrow">←</span><span>Atrás</span>
+            </button>
+            <button type="button" class="btn-line" data-reservation-next>
+              <span>Continuar</span><span class="arrow">→</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="reservation-step reservation-step--review" data-reservation-step="4" hidden
+          aria-labelledby="reservation-review-title">
+          <div class="reservation-step__head">
+            <span class="section-index" aria-hidden="true">04</span>
+            <h3 id="reservation-review-title" tabindex="-1">Confirma los detalles</h3>
+          </div>
+          <div class="reservation-review__intro">
+            <span>Confirma tu reservación</span>
+          </div>
+          <div class="reservation-review" data-reservation-review aria-live="polite">
+            <section class="reservation-review__group">
+              <div>
+                <span class="reservation-review__label">Tu visita</span>
+                <strong data-review-date>Selecciona fecha y hora</strong>
+                <span data-review-guests>2 personas</span>
+              </div>
+              <button type="button" data-reservation-edit="1">Editar visita</button>
+            </section>
+            <section class="reservation-review__group">
+              <div>
+                <span class="reservation-review__label">Tus datos</span>
+                <strong data-review-name>—</strong>
+                <span data-review-method>Confirmación por correo</span>
+                <span data-review-contact>—</span>
+              </div>
+              <button type="button" data-reservation-edit="2">Editar datos</button>
+            </section>
+            <section class="reservation-review__group" data-review-details-group hidden>
+              <div>
+                <span class="reservation-review__label">Indicaciones</span>
+                <span data-review-details></span>
+              </div>
+              <button type="button" data-reservation-edit="3">Editar detalles</button>
+            </section>
+          </div>
+          <div class="reservation-stage-actions">
+            <button type="button" class="btn-line btn-line--secondary reservation-stage-back" data-reservation-back>
+              <span class="arrow">←</span><span>Atrás</span>
+            </button>
+            <div class="reservation-submit">
+              <p data-new-reservation-submit-help>Te enviaremos un código temporal para confirmar tu reservación.</p>
+              <button type="submit" class="btn-line" data-magnetic disabled><span data-new-reservation-submit-label>Confirmar reservación</span><span class="arrow">→</span></button>
+            </div>
+            <span class="form__msg" id="formMsg" role="status" aria-live="polite"></span>
+          </div>
+        </section>
         </div>
       </form>
       <section class="reservation-access__form reserva__otp-step" data-new-reservation-otp hidden aria-live="polite">
-        <span class="eyebrow">Mesas retenidas</span>
-        <h3>Verifica tu contacto</h3>
-        <p data-new-reservation-countdown></p>
+        <div class="reservation-otp__head">
+          <span class="eyebrow no-rule">Confirmación segura</span>
+          <h3>Verifica tu contacto</h3>
+          <p class="reservation-otp__contact">Código enviado a <strong data-new-reservation-contact></strong>.</p>
+          <p class="reservation-otp__explanation">Este código valida tu medio de contacto. La reservación quedará confirmada después de validarlo.</p>
+          <p class="reservation-otp__countdown" data-new-reservation-countdown></p>
+        </div>
         <div class="field">
           <label for="new-reservation-otp">Código de seis dígitos</label>
           <input id="new-reservation-otp" type="text" inputmode="numeric" autocomplete="one-time-code"
-            pattern="[0-9]{6}" maxlength="6" placeholder="000000" data-new-reservation-otp-input>
+            pattern="[0-9]{6}" maxlength="6" placeholder="000000" data-new-reservation-otp-input aria-describedby="new-reservation-otp-error">
+          <span class="field__msg reservation-field__error" id="new-reservation-otp-error" data-new-reservation-otp-error></span>
         </div>
         <div class="reservation-access__preview" data-new-reservation-preview hidden></div>
-        <div class="form__submit">
+        <div class="form__submit reservation-otp__actions">
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
           <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
         </div>
         <p class="reservation-access__message" data-new-reservation-otp-message></p>
       </section>
-      <div class="reserva__confirm" id="reservaConfirm">
-        <div class="mark">✓</div>
-        <h3>¡Mesa reservada!</h3>
-        <p id="confirmText">Te esperamos. Pronto recibirás más detalles en tu correo.</p>
+      <div class="reserva__confirm" id="reservaConfirm" aria-live="polite">
+        <div class="reserva__confirm-header">
+          <span class="reserva__confirm-mark" aria-hidden="true">✓</span>
+          <div>
+            <span class="reservation-confirmation__status">Reservación confirmada</span>
+            <h3>¡Mesa reservada!</h3>
+            <p id="confirmText">Te esperamos en Casa Pestalozzi.</p>
+          </div>
+        </div>
+        <div class="reserva__confirm-details">
+          <div><small>Fecha</small><strong data-confirm-date>—</strong></div>
+          <div><small>Hora</small><strong data-confirm-time>—</strong></div>
+          <div><small>Comensales</small><strong data-confirm-guests>—</strong></div>
+          <div class="reserva__confirm-contact"><small>Nombre</small><strong data-confirm-name>—</strong></div>
+          <div class="reserva__confirm-contact"><small>Contacto</small><strong data-confirm-contact>—</strong></div>
+        </div>
       </div>
       </div>
 
       <div class="reservation-access" id="reservation-panel-manage" role="tabpanel"
         aria-labelledby="reservation-tab-manage" data-reservation-panel="manage" hidden>
         <div data-contact-access>
-          <p class="reservation-access__lead">
-            Verifica tu correo o teléfono para consultar tus reservaciones. No necesitas contraseña.
+          <div class="reservation-access__head">
+            <span class="eyebrow">Gestión de reservaciones</span>
+            <h3 data-contact-access-title>Verifica tu contacto</h3>
+          </div>
+          <p class="reservation-access__lead" data-contact-access-description>
+            Te enviaremos un código temporal para consultar y gestionar tus reservaciones.
           </p>
 
           <form class="reservation-access__form" data-contact-request-form novalidate>
@@ -243,11 +426,11 @@ $meses = [
               <label><input type="radio" name="tipo" value="telefono"><span>Teléfono</span></label>
             </fieldset>
             <div class="field">
-              <label for="reservation-contact">Contacto</label>
+              <label for="reservation-contact" data-manage-contact-label>Correo electrónico</label>
               <input id="reservation-contact" name="contacto" type="email" autocomplete="email"
-                placeholder="cliente@ejemplo.com" required data-contact-input>
+                placeholder="cliente@ejemplo.com" required data-contact-input aria-describedby="reservation-manage-help">
               <small class="reservation-access__help" data-contact-help>
-                Usaremos el correo en minúsculas y sin espacios externos.
+                Usaremos este correo para enviarte un código de acceso.
               </small>
             </div>
             <div class="form__submit">
@@ -255,16 +438,24 @@ $meses = [
             </div>
           </form>
 
-          <form class="reservation-access__form" data-contact-verify-form hidden novalidate>
+          <form class="reservation-access__form reservation-access__verify" data-contact-verify-form hidden novalidate>
+            <div class="reservation-access__verify-copy">
+              <span class="eyebrow no-rule">Contacto en proceso</span>
+              <h4>Verifica tu contacto</h4>
+              <p>El código valida el medio que elegiste para acceder a tus reservaciones.</p>
+            </div>
+            <p class="reservation-access__masked">Código enviado a <strong data-contact-masked></strong>.</p>
             <div class="field">
               <label for="reservation-otp">Código de seis dígitos</label>
               <input id="reservation-otp" name="codigo" type="text" inputmode="numeric"
                 autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"
-                placeholder="000000" required data-otp-input>
+                placeholder="000000" required data-otp-input aria-describedby="reservation-manage-otp-error">
+              <span class="field__msg reservation-field__error" id="reservation-manage-otp-error" data-contact-otp-error></span>
             </div>
             <div class="reservation-access__preview" data-otp-preview hidden></div>
             <div class="form__submit">
               <button type="submit" class="btn-line"><span>Verificar</span><span class="arrow">→</span></button>
+              <button type="button" class="reservation-access__link" data-contact-resend>Reenviar código</button>
               <button type="button" class="reservation-access__link" data-contact-restart>Cambiar contacto</button>
             </div>
           </form>
@@ -278,8 +469,13 @@ $meses = [
               <span class="eyebrow">Contacto verificado</span>
               <h3>Mis reservaciones</h3>
             </div>
-            <button type="button" class="reservation-access__link" data-contact-logout>Cerrar sesión</button>
+            <button type="button" class="reservation-access__link" data-contact-logout
+              aria-label="Salir de gestión. Finaliza el acceso a las reservaciones asociadas a este contacto"
+              title="Finaliza el acceso a las reservaciones asociadas a este contacto">Salir de gestión</button>
           </div>
+          <p class="reservation-portal__lead">
+            Puedes consultar tus reservaciones o crear una nueva sin volver a verificar este contacto durante esta sesión.
+          </p>
           <p class="reservation-portal__summary" data-reservation-summary></p>
           <div class="reservation-portal__list" data-reservation-list></div>
           <p class="reservation-portal__limit" data-reservation-limit></p>
@@ -287,4 +483,63 @@ $meses = [
       </div>
     </div>
   </div>
+
+  <template data-reservation-editor-template>
+    <form class="reservation-card__editor" novalidate>
+      <div class="field reservation-field">
+        <label class="reservation-field__label" data-editor-name-label>Nombre</label>
+        <input class="reservation-control reservation-control--text" name="nombre" type="text" required>
+      </div>
+      <div class="field reservation-field">
+        <label class="reservation-field__label" data-editor-date-label>Fecha</label>
+        <?php
+          $rootId = 'reservationEditorDatePicker';
+          $inputId = 'reservationEditorDate';
+          $displayId = 'reservationEditorDateDisplay';
+          $calendarId = 'reservationEditorCalendar';
+          $name = 'fecha';
+          $value = '';
+          $min = \Services\ReservacionConfig::fechaActual();
+          $disabled = false;
+          $enabledWeekdays = range(0, 6);
+          include __DIR__ . '/../components/reservations/date-picker.php';
+        ?>
+      </div>
+      <div class="field reservation-field">
+        <label class="reservation-field__label" data-editor-time-label>Hora</label>
+        <?php
+          $rootId = 'reservationEditorTimePicker';
+          $inputId = 'reservationEditorTime';
+          $displayId = 'reservationEditorTimeDisplay';
+          $dropdownId = 'reservationEditorTimeDropdown';
+          $name = 'hora';
+          $value = '';
+          $endpoint = '/api/reservaciones/disponibilidad';
+          $disabled = false;
+          include __DIR__ . '/../components/reservations/time-picker.php';
+        ?>
+        <span class="field__msg reservation-field__error" data-editor-time-status role="status" aria-live="polite"></span>
+      </div>
+      <div class="field reservation-field reservation-field--guests reservation-editor-guests">
+        <label class="reservation-field__label" data-editor-people-label>Personas</label>
+        <div class="guests-extra show" data-editor-guests-extra>
+          <div class="guests-stepper" role="group" aria-label="Cantidad de comensales">
+            <button type="button" class="step-btn" data-editor-guests-minus aria-label="Reducir comensales">−</button>
+            <span class="step-val" data-editor-guests-value aria-live="polite">2</span>
+            <button type="button" class="step-btn" data-editor-guests-plus aria-label="Aumentar comensales">+</button>
+            <input class="reservation-editor-guests-input" name="personas" type="number" min="1" max="<?php echo (int)$contactoReservas['max_comensales']; ?>" value="2" required aria-hidden="true" tabindex="-1">
+          </div>
+        </div>
+      </div>
+      <div class="field reservation-field reservation-card__editor-notes">
+        <label class="reservation-field__label" data-editor-notes-label>Indicaciones para tu visita</label>
+        <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…"></textarea>
+      </div>
+      <div class="reservation-card__editor-actions">
+        <button type="submit" class="btn-line"><span>Guardar cambios</span></button>
+        <button type="button" class="reservation-access__link" data-editor-cancel>Cancelar modificación</button>
+      </div>
+      <p class="reservation-access__message" data-editor-message role="status" aria-live="polite"></p>
+    </form>
+  </template>
 </section>

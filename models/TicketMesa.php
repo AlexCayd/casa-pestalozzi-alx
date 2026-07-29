@@ -107,6 +107,9 @@ class TicketMesa extends ActiveRecord
         }
 
         $ahora = ReservacionConfig::ahora();
+        $finReservacion = $inicio->modify(
+            '+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'
+        );
         $ocupacion = [];
         $vistos = [];
         while ($fila = $resultado->fetch_assoc()) {
@@ -128,7 +131,10 @@ class TicketMesa extends ActiveRecord
             // La estimación es conservadora; el cierre real sigue siendo la
             // única liberación inmediata y definitiva de la mesa.
             $liberacion = $porDuracion > $porPreparacion ? $porDuracion : $porPreparacion;
-            if ($inicio >= $liberacion) {
+            // Un ticket con apertura posterior no bloquea un turno que termina
+            // antes de que comience. Así los datos futuros tampoco ocupan mesas
+            // retrospectivamente.
+            if ($finReservacion <= $apertura || $inicio >= $liberacion) {
                 continue;
             }
 

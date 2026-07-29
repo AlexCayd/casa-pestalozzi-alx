@@ -39,5 +39,3 @@
   <a href="#eventos" data-rail="eventos"><span class="rlabel">Eventos</span><span class="tick"></span></a>
   <a href="#reserva" data-rail="reserva"><span class="rlabel">Reservar</span><span class="tick"></span></a>
 </div>
-
-<a class="reserve-fab" id="reserveFab" href="#reserva" data-magnetic><span class="dot"></span>Reservar mesa</a>

@@ -107,6 +107,8 @@ class ReservacionController
             self::json([
                 'ok' => true,
                 'session_verified' => true,
+                'verified_contact_type' => $tipo,
+                'verified_contact' => $contacto,
                 'active_reservations_count' => $total,
                 'max_active_reservations' => ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
                 'can_create_reservation' => $total < ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
@@ -127,8 +129,21 @@ class ReservacionController
         if (!self::esPost()) {
             return;
         }
+        $entrada = self::entrada();
+        if (!ReservationClientSession::validarCsrf((string)($entrada['csrf_token'] ?? ''))) {
+            self::json([
+                'ok' => false,
+                'codigo' => 'CSRF_INVALIDO',
+                'mensaje' => 'No fue posible validar la salida. Recarga la página e inténtalo nuevamente.',
+            ], 403);
+            return;
+        }
         ReservationClientSession::cerrar();
-        self::json(['ok' => true, 'codigo' => 'SESION_CERRADA', 'mensaje' => 'Sesión cerrada.']);
+        self::json([
+            'ok' => true,
+            'codigo' => 'GESTION_SALIDA',
+            'mensaje' => 'Saliste de la gestión de reservaciones.',
+        ]);
     }
 
     /** Lista de slots calculados desde el horario efectivo. */
@@ -224,6 +239,7 @@ class ReservacionController
         if (!self::esPost()) {
             return;
         }
+        $entrada = self::entrada();
         $sesion = ReservationClientSession::obtener();
         if (!$sesion) {
             self::json([
@@ -233,7 +249,9 @@ class ReservacionController
             ], 401);
             return;
         }
-        $respuesta = ReservacionPublicaService::crearConfirmada(self::entrada(), $sesion);
+        $respuesta = ReservacionPublicaService::contactoCoincideConSesion($entrada, $sesion)
+            ? ReservacionPublicaService::crearConfirmada($entrada, $sesion)
+            : ReservacionPublicaService::crearRetencion($entrada);
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -301,6 +319,8 @@ class ReservacionController
     private static function json(array $respuesta, int $status = 200): void
     {
         http_response_code($status);
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($respuesta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
@@ -312,6 +332,7 @@ class ReservacionController
         }
         return match ((string)($respuesta['codigo'] ?? '')) {
             ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
+            ReservacionPublicaService::CONTACTO_NO_COINCIDE,
             ReservacionPublicaService::SESION_EXPIRADA => 401,
             ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO,
             ReservacionPublicaService::MODIFICACION_NO_PERMITIDA,

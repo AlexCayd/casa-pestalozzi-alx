@@ -150,17 +150,12 @@ function initHourPicker(form, getGuestCount) {
       getQueryParams: function() {
         return { personas: typeof getGuestCount === "function" ? getGuestCount() : 2 };
       },
+      invalidateUnavailable: true,
       initialDate: dateInput.value,
       initialTime: hidden.value
     });
 
-    if (picker) {
-      dateInput.addEventListener("reservation:datechange", function(e) {
-        picker.loadForDate((e.detail && e.detail.fecha) || dateInput.value, "");
-      });
-
-      return picker;
-    }
+    if (picker) return picker;
   }
 
   function setStatus(text, show) {
@@ -376,32 +371,143 @@ function initForm() {
   if (!form) return;
 
   var maxGuests = parseInt(form.getAttribute("data-max-guests"), 10) || 12;
-  var guests = 2;
-  var guestCount = 6;
-  var identity = form.querySelector("[data-new-reservation-identity]");
-  var contactField = form.querySelector("[data-new-reservation-contact]");
+  var reservationState = {
+    currentStep: 1,
+    maxCompletedStep: 0,
+    date: "",
+    time: "",
+    guests: 2,
+    name: "",
+    contactType: "email",
+    email: "",
+    phone: "",
+    details: "",
+    availabilityStatus: "idle",
+    availableSlots: [],
+    availabilityPending: false,
+    invalidSteps: {}
+  };
+  var guests = reservationState.guests;
+  var guestCount = 7;
+  var guestPills = document.getElementById("guestPills");
+  var guestsExtra = document.getElementById("guestsExtra");
+  var stepPanels = Array.from(form.querySelectorAll("[data-reservation-step]"));
+  var stepButtons = Array.from(document.querySelectorAll("[data-reservation-step-target]"));
+  var progressLines = Array.from(document.querySelectorAll("[data-reservation-progress-line]"));
+  var contactFields = Array.from(form.querySelectorAll("[data-new-reservation-contact], [data-new-reservation-contact-input]"));
   var contactInput = form.elements.contacto;
+  var contactLabel = form.querySelector("[data-contact-label]");
+  var contactHelp = form.querySelector("[data-new-contact-help]");
+  var verifiedContactHelp = form.querySelector("[data-new-contact-verified-help]");
+  var changeContactButton = form.querySelector("[data-new-contact-change]");
+  var submitHelp = form.querySelector("[data-new-reservation-submit-help]");
+  var submitLabel = form.querySelector("[data-new-reservation-submit-label]");
   var summary = form.querySelector("[data-reservation-selection-summary]");
+  var selectionStatus = summary.querySelector("[data-selection-status]");
+  var selectionPrimary = summary.querySelector("[data-selection-primary]");
+  var selectionSecondary = summary.querySelector("[data-selection-secondary]");
+  var review = form.querySelector("[data-reservation-review]");
+  var reviewDate = review.querySelector("[data-review-date]");
+  var reviewGuests = review.querySelector("[data-review-guests]");
+  var reviewName = review.querySelector("[data-review-name]");
+  var reviewContact = review.querySelector("[data-review-contact]");
+  var reviewMethod = review.querySelector("[data-review-method]");
+  var reviewDetails = review.querySelector("[data-review-details]");
+  var reviewDetailsGroup = review.querySelector("[data-review-details-group]");
   var dateInput = document.getElementById("fechaHidden");
   var timeInput = document.getElementById("horaHidden");
+  var timeRoot = form.querySelector("[data-reservation-time-picker]");
   var submitButton = form.querySelector('button[type="submit"]');
   var message = document.getElementById("formMsg");
   var otpStep = document.querySelector("[data-new-reservation-otp]");
   var otpInput = otpStep && otpStep.querySelector("[data-new-reservation-otp-input]");
+  var otpError = otpStep && otpStep.querySelector("[data-new-reservation-otp-error]");
   var otpMessage = otpStep && otpStep.querySelector("[data-new-reservation-otp-message]");
   var otpPreview = otpStep && otpStep.querySelector("[data-new-reservation-preview]");
   var countdown = otpStep && otpStep.querySelector("[data-new-reservation-countdown]");
   var verifyButton = otpStep && otpStep.querySelector("[data-new-reservation-verify]");
   var resendButton = otpStep && otpStep.querySelector("[data-new-reservation-resend]");
+  var otpContact = otpStep && otpStep.querySelector("[data-new-reservation-contact]");
   var confirm = document.getElementById("reservaConfirm");
   var confirmText = document.getElementById("confirmText");
+  var confirmDate = confirm && confirm.querySelector("[data-confirm-date]");
+  var confirmTime = confirm && confirm.querySelector("[data-confirm-time]");
+  var confirmGuests = confirm && confirm.querySelector("[data-confirm-guests]");
+  var confirmName = confirm && confirm.querySelector("[data-confirm-name]");
+  var confirmContact = confirm && confirm.querySelector("[data-confirm-contact]");
+  var mobileProgressCurrent = document.querySelector("[data-progress-current]");
+  var mobileProgressName = document.querySelector("[data-progress-name]");
+  var mobileProgressBar = document.querySelector("[data-progress-bar]");
+  var progressNames = ["Tu visita", "Tus datos", "Detalles", "Revisar"];
   var sessionVerified = null;
+  var verifiedContact = null;
   var submitting = false;
   var activeIdentity = null;
   var holdExpiresAt = 0;
   var countdownTimer = null;
   var availabilityTimer = null;
+  var availabilityKey = "";
   var timePicker;
+
+  function normalizeContact(type, value) {
+    value = String(value || "").trim();
+    return type === "telefono"
+      ? value.replace(/[\s\-().]+/g, "")
+      : value.toLowerCase();
+  }
+
+  function verifiedContactMatchesForm() {
+    return Boolean(
+      verifiedContact
+      && reservationState.contactType === verifiedContact.tipo
+      && normalizeContact(reservationState.contactType, currentContact())
+        === verifiedContact.contacto
+    );
+  }
+
+  function setVerifiedContact(type, contact) {
+    type = String(type || "");
+    contact = String(contact || "");
+    if (!type || !contact) {
+      verifiedContact = null;
+      return;
+    }
+    verifiedContact = {
+      tipo: type,
+      contacto: normalizeContact(type, contact)
+    };
+    var typeInput = form.querySelector('input[name="tipo_contacto"][value="' + type + '"]');
+    if (typeInput) typeInput.checked = true;
+    reservationState.contactType = type;
+    if (type === "telefono") {
+      reservationState.phone = contact;
+    } else {
+      reservationState.email = contact;
+    }
+    if (contactInput) contactInput.value = contact;
+    syncContactInput();
+  }
+
+  function invalidateVerifiedContact() {
+    verifiedContact = null;
+    sessionVerified = false;
+    window.CP_RESERVATION_SESSION = false;
+    window.CP_RESERVATION_CONTACT = null;
+  }
+
+  function updateVerifiedContactCopy() {
+    var verified = sessionVerified === true && Boolean(verifiedContact);
+    contactFields.forEach(function(field) {
+      field.hidden = verified;
+    });
+    if (verifiedContactHelp) verifiedContactHelp.hidden = !verified;
+    if (submitHelp) submitHelp.textContent = verified
+      ? "Utilizaremos el contacto que ya verificaste para esta reservación."
+      : "Te enviaremos un código temporal para confirmar tu reservación.";
+    if (submitLabel) submitLabel.textContent = verified
+      ? "Crear reservación"
+      : "Confirmar reservación";
+  }
 
   function randomToken() {
     if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -434,14 +540,36 @@ function initForm() {
 
   function syncContactInput() {
     if (!contactInput) return;
-    var phone = selectedContactType() === "telefono";
+    var nextType = selectedContactType();
+    if (reservationState.contactType !== nextType) {
+      if (reservationState.contactType === "telefono") {
+        reservationState.phone = contactInput.value;
+      } else {
+        reservationState.email = contactInput.value;
+      }
+      contactInput.value = nextType === "telefono"
+        ? reservationState.phone
+        : reservationState.email;
+    }
+    var phone = nextType === "telefono";
+    reservationState.contactType = nextType;
     contactInput.type = phone ? "tel" : "email";
     contactInput.autocomplete = phone ? "tel" : "email";
-    contactInput.placeholder = phone ? "+52 55 1234 5678" : "tu@correo.com";
+    contactInput.placeholder = phone ? "+52 55 1234 5678" : "cliente@ejemplo.com";
+    if (contactLabel) contactLabel.textContent = phone ? "Teléfono" : "Correo electrónico";
+    if (contactHelp) {
+      contactHelp.textContent = phone
+        ? "Incluye el código de país."
+        : "Te enviaremos un código temporal para confirmar tu reservación.";
+    }
+    updateInterface();
   }
 
   form.querySelectorAll('input[name="tipo_contacto"]').forEach(function(input) {
-    input.addEventListener("change", syncContactInput);
+    input.addEventListener("change", function() {
+      clearFieldError("contacto");
+      syncContactInput();
+    });
   });
   syncContactInput();
 
@@ -451,92 +579,556 @@ function initForm() {
     message.classList.toggle("is-error", Boolean(error));
   }
 
+  function fieldControl(field) {
+    return field === "fecha"
+      ? document.getElementById("dateDisplay")
+      : field === "hora"
+        ? document.getElementById("hourDisplay")
+        : field === "comensales"
+          ? guestPills
+          : form.elements[field];
+  }
+
+  function fieldContainer(field, control) {
+    var component = field === "fecha"
+      ? document.getElementById("datePicker")
+      : field === "hora"
+        ? document.getElementById("hourPicker")
+        : control;
+    return component && component.closest
+      ? component.closest(".reservation-field, .field")
+      : null;
+  }
+
+  function stepPanel(step) {
+    return form.querySelector('[data-reservation-step="' + step + '"]');
+  }
+
+  function syncStepInvalid(step) {
+    var panel = stepPanel(step);
+    reservationState.invalidSteps[step] = Boolean(
+      panel && panel.querySelector(".reservation-field.is-invalid, .field.is-invalid")
+    );
+  }
+
   function setFieldError(field, text) {
     var target = form.querySelector('[data-field-error="' + field + '"]');
     if (!target) return;
-    target.textContent = text || "";
-    target.classList.toggle("show", Boolean(text));
+    var hasError = Boolean(text);
+    target.replaceChildren();
+    if (hasError) {
+      var icon = document.createElement("span");
+      icon.className = "reservation-field__error-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "!";
+      target.append(icon, document.createTextNode(String(text)));
+    }
+    target.classList.toggle("show", hasError);
+    var control = fieldControl(field);
+    var container = fieldContainer(field, control);
+    if (control) {
+      control.setAttribute("aria-invalid", hasError ? "true" : "false");
+      if (hasError && target.id) {
+        var describedBy = (control.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter(Boolean);
+        if (describedBy.indexOf(target.id) === -1) describedBy.push(target.id);
+        control.setAttribute("aria-describedby", describedBy.join(" "));
+      }
+    }
+    if (container) container.classList.toggle("is-invalid", hasError);
+    var panel = container && container.closest("[data-reservation-step]");
+    if (panel) syncStepInvalid(parseInt(panel.getAttribute("data-reservation-step"), 10));
+    updateProgress();
   }
 
-  function clearErrors() {
-    form.querySelectorAll("[data-field-error]").forEach(function(target) {
-      target.textContent = "";
+  function clearFieldError(field) {
+    setFieldError(field, "");
+  }
+
+  function clearErrors(step) {
+    var scope = step ? stepPanel(step) : form;
+    if (!scope) return;
+    scope.querySelectorAll("[data-field-error]").forEach(function(target) {
+      target.replaceChildren();
       target.classList.remove("show");
     });
+    scope.querySelectorAll("[aria-invalid]").forEach(function(control) {
+      control.setAttribute("aria-invalid", "false");
+    });
+    scope.querySelectorAll(".reservation-field.is-invalid, .field.is-invalid").forEach(function(field) {
+      field.classList.remove("is-invalid");
+    });
+    if (step) reservationState.invalidSteps[step] = false;
+    else reservationState.invalidSteps = {};
     setMessage("");
+    updateProgress();
   }
 
-  function updateIdentity() {
-    var selectionReady = Boolean(dateInput.value && timeInput.value);
-    identity.hidden = !selectionReady;
-    contactField.hidden = sessionVerified === true;
-    if (selectionReady) {
-      summary.textContent = guests + (guests === 1 ? " persona" : " personas")
-        + " · " + dateInput.value + " · " + timeInput.value;
+  function setOtpError(text) {
+    if (!otpError || !otpInput) return;
+    var hasError = Boolean(text);
+    otpError.replaceChildren();
+    if (hasError) {
+      var icon = document.createElement("span");
+      icon.className = "reservation-field__error-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "!";
+      otpError.append(icon, document.createTextNode(String(text)));
+    }
+    otpError.classList.toggle("show", hasError);
+    otpInput.setAttribute("aria-invalid", hasError ? "true" : "false");
+    otpInput.closest(".field").classList.toggle("is-invalid", hasError);
+  }
+
+  function clearOtpError() {
+    setOtpError("");
+  }
+
+  function formatReservationDate(value) {
+    var parsed = new Date(String(value || "") + "T12:00:00");
+    if (Number.isNaN(parsed.getTime())) return value || "";
+    return parsed.toLocaleDateString("es-MX", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+  }
+
+  function syncStateFromControls() {
+    reservationState.date = dateInput.value;
+    reservationState.time = timeInput.value;
+    reservationState.guests = guests;
+    reservationState.name = form.elements.nombre.value;
+    reservationState.contactType = selectedContactType();
+    if (reservationState.contactType === "telefono") {
+      reservationState.phone = contactInput ? contactInput.value : "";
+    } else {
+      reservationState.email = contactInput ? contactInput.value : "";
+    }
+    reservationState.details = form.elements.nota.value;
+  }
+
+  function currentContact() {
+    return reservationState.contactType === "telefono"
+      ? reservationState.phone
+      : reservationState.email;
+  }
+
+  function contactIsValid() {
+    if (sessionVerified === true) return verifiedContactMatchesForm();
+    var value = String(currentContact()).trim();
+    if (!value) return false;
+    return reservationState.contactType === "email"
+      ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+      : /^\+52\s?(?:\d[\s-]?){10}$/.test(value);
+  }
+
+  function visitIsValid() {
+    return Boolean(
+      reservationState.date
+      && reservationState.time
+      && reservationState.guests >= 1
+      && reservationState.guests <= maxGuests
+      && reservationState.availabilityStatus === "ready"
+      && reservationState.availableSlots.indexOf(reservationState.time) !== -1
+      && !reservationState.availabilityPending
+    );
+  }
+
+  function dataIsValid() {
+    return Boolean(reservationState.name.trim() && contactIsValid());
+  }
+
+  function updateSummaries() {
+    var readableDate = formatReservationDate(reservationState.date);
+    var people = reservationState.guests + (reservationState.guests === 1 ? " persona" : " personas");
+    var selectionReady = Boolean(reservationState.date && reservationState.time);
+
+    if (reservationState.date) {
+      selectionPrimary.textContent = readableDate
+        + (reservationState.time ? " · " + reservationState.time : "");
+      selectionSecondary.textContent = people;
+      if (selectionStatus) {
+        selectionStatus.textContent = reservationState.availabilityPending
+          ? "Consultando disponibilidad…"
+          : reservationState.availabilityStatus === "ready" && reservationState.time
+            ? "Horario disponible"
+            : "Elige un horario disponible";
+      }
       summary.hidden = false;
     } else {
       summary.hidden = true;
     }
-    submitButton.disabled = submitting || !selectionReady;
+
+    reviewDate.textContent = selectionReady
+      ? readableDate + " · " + reservationState.time
+      : (reservationState.date ? readableDate + " · falta elegir la hora" : "Selecciona fecha y hora");
+    reviewGuests.textContent = people;
+    reviewName.textContent = reservationState.name.trim() || "—";
+    reviewMethod.textContent = reservationState.contactType === "telefono"
+      ? "Confirmación por teléfono"
+      : "Confirmación por correo";
+    reviewContact.textContent = currentContact().trim() || "—";
+    reviewDetails.textContent = reservationState.details.trim();
+    reviewDetailsGroup.hidden = !reservationState.details.trim();
   }
 
-  function reloadAvailability() {
-    clearTimeout(availabilityTimer);
-    availabilityTimer = setTimeout(function() {
-      if (dateInput.value && timePicker && typeof timePicker.loadForDate === "function") {
-        timePicker.loadForDate(dateInput.value, "");
+  function updateProgress() {
+    var currentStep = reservationState.currentStep;
+    stepButtons.forEach(function(button) {
+      var step = parseInt(button.getAttribute("data-reservation-step-target"), 10);
+      var current = step === reservationState.currentStep;
+      var completed = step <= reservationState.maxCompletedStep && !current;
+      var accessible = current || step <= reservationState.maxCompletedStep;
+      button.classList.toggle("is-current", current);
+      button.classList.toggle("is-complete", completed);
+      button.classList.toggle("is-invalid", Boolean(reservationState.invalidSteps[step]));
+      if (current) {
+        button.setAttribute("aria-current", "step");
+      } else {
+        button.removeAttribute("aria-current");
       }
-    }, 300);
+      button.disabled = !accessible;
+      button.setAttribute("aria-disabled", accessible ? "false" : "true");
+    });
+    progressLines.forEach(function(line) {
+      var segment = parseInt(line.getAttribute("data-reservation-progress-line"), 10);
+      line.classList.toggle("is-complete", segment <= reservationState.maxCompletedStep);
+    });
+    if (mobileProgressCurrent) mobileProgressCurrent.textContent = currentStep;
+    if (mobileProgressName) mobileProgressName.textContent = progressNames[currentStep - 1] || progressNames[0];
+    if (mobileProgressBar) mobileProgressBar.style.width = (currentStep * 25) + "%";
+  }
+
+  function updateInterface() {
+    syncStateFromControls();
+    updateVerifiedContactCopy();
+    updateSummaries();
+    updateProgress();
+
+    stepPanels.forEach(function(panel) {
+      var step = parseInt(panel.getAttribute("data-reservation-step"), 10);
+      var next = panel.querySelector("[data-reservation-next]");
+      if (!next) return;
+      if (step === 1) next.disabled = reservationState.availabilityPending;
+      if (step === 2) next.disabled = false;
+    });
+
+    submitButton.disabled = submitting
+      || !visitIsValid()
+      || !dataIsValid()
+      || reservationState.availabilityPending;
+  }
+
+  function setCurrentStep(step, moveFocus) {
+    step = Math.max(1, Math.min(4, parseInt(step, 10) || 1));
+    reservationState.currentStep = step;
+    stepPanels.forEach(function(panel) {
+      var active = parseInt(panel.getAttribute("data-reservation-step"), 10) === step;
+      panel.hidden = !active;
+      panel.classList.toggle("is-active", active);
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
+    });
+    updateInterface();
+    if (moveFocus !== false) {
+      window.requestAnimationFrame(function() {
+        var activePanel = form.querySelector('[data-reservation-step="' + step + '"]');
+        var heading = activePanel && activePanel.querySelector("h3");
+        if (heading) heading.focus({ preventScroll: true });
+      });
+    }
+    if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+  }
+
+  function shakeStep(step) {
+    var panel = stepPanel(step);
+    if (!panel) return;
+    panel.classList.remove("reservation-step--error-shake");
+    void panel.offsetWidth;
+    panel.classList.add("reservation-step--error-shake");
+    window.setTimeout(function() {
+      panel.classList.remove("reservation-step--error-shake");
+    }, 240);
+  }
+
+  function focusFirstInvalid(control) {
+    if (!control || typeof control.focus !== "function") return;
+    window.requestAnimationFrame(function() {
+      control.focus({ preventScroll: false });
+    });
+  }
+
+  function validateCurrentStep(step) {
+    clearErrors(step);
+    syncStateFromControls();
+    var valid = true;
+    var firstInvalid = null;
+
+    function invalid(field, messageText) {
+      setFieldError(field, messageText);
+      if (!firstInvalid) firstInvalid = fieldControl(field);
+      valid = false;
+    }
+
+    if (step === 1) {
+      if (!reservationState.date) invalid("fecha", "Elige una fecha.");
+      if (reservationState.guests < 1 || reservationState.guests > maxGuests) {
+        invalid("comensales", "Elige la cantidad de comensales.");
+      }
+      if (
+        !reservationState.time
+        || reservationState.availabilityPending
+        || reservationState.availabilityStatus !== "ready"
+        || reservationState.availableSlots.indexOf(reservationState.time) === -1
+      ) {
+        invalid("hora", reservationState.availabilityPending
+          ? "Espera a que carguemos los horarios disponibles."
+          : "Elige un horario disponible.");
+      }
+    }
+
+    if (step === 2) {
+      if (!reservationState.name.trim()) invalid("nombre", "Escribe tu nombre.");
+      if (sessionVerified !== true && !contactIsValid()) {
+        invalid(
+          "contacto",
+          reservationState.contactType === "telefono"
+            ? "Escribe un teléfono válido."
+            : "Escribe un correo electrónico válido."
+        );
+      }
+    }
+
+    reservationState.invalidSteps[step] = !valid;
+    updateInterface();
+    if (!valid) {
+      focusFirstInvalid(firstInvalid);
+      shakeStep(step);
+    }
+    return valid;
+  }
+
+  function normalizeAvailableSlots(hours) {
+    return (Array.isArray(hours) ? hours : []).reduce(function(slots, item) {
+      if (item && typeof item === "object") {
+        if (item.disponible === false) return slots;
+        item = item.hora;
+      }
+      var match = String(item || "").match(/^([01]\d|2[0-3]):([0-5]\d)/);
+      var hour = match ? match[1] + ":" + match[2] : "";
+      if (hour && slots.indexOf(hour) === -1) slots.push(hour);
+      return slots;
+    }, []);
+  }
+
+  function reloadAvailability(immediate) {
+    clearTimeout(availabilityTimer);
+    syncStateFromControls();
+    if (!reservationState.date) {
+      reservationState.availabilityStatus = "idle";
+      reservationState.availabilityPending = false;
+      reservationState.availableSlots = [];
+      availabilityKey = "";
+      if (timePicker) timePicker.loadForDate("", "");
+      updateInterface();
+      return;
+    }
+
+    var requestedKey = reservationState.date + "|" + reservationState.guests;
+    reservationState.availabilityStatus = "loading";
+    reservationState.availabilityPending = true;
+    reservationState.availableSlots = [];
+    updateInterface();
+
+    availabilityTimer = setTimeout(function() {
+      if (!timePicker || typeof timePicker.loadForDate !== "function") return;
+      availabilityKey = requestedKey;
+      timePicker.loadForDate(reservationState.date, reservationState.time || timeInput.value)
+        .then(function(hours) {
+          var currentKey = reservationState.date + "|" + reservationState.guests;
+          if (requestedKey !== currentKey || availabilityKey !== requestedKey) return;
+          if (reservationState.availabilityStatus === "loading") {
+            reservationState.availableSlots = normalizeAvailableSlots(hours);
+            reservationState.availabilityStatus = reservationState.availableSlots.length
+              ? "ready"
+              : "error";
+            reservationState.availabilityPending = false;
+            updateInterface();
+          }
+        });
+    }, immediate ? 0 : 300);
   }
 
   function setGuests(value) {
-    guests = Math.max(1, Math.min(maxGuests, parseInt(value, 10) || 2));
-    document.getElementById("guestsVal").textContent = Math.max(6, guests);
-    document.getElementById("guestsNum").value = Math.max(6, guests);
-    document.getElementById("guestsExtra").classList.toggle("show", guests >= 6);
-    var largeParty = document.getElementById("largeParty");
-    if (largeParty) largeParty.hidden = guests < maxGuests;
-    updateIdentity();
-    reloadAvailability();
+    var nextGuests = Math.max(1, Math.min(maxGuests, parseInt(value, 10) || 2));
+    var changed = guests !== nextGuests;
+    guests = nextGuests;
+    reservationState.guests = guests;
+    if (guests > 6) guestCount = guests;
+
+    document.querySelectorAll("#guestPills .pill").forEach(function(item) {
+      var itemValue = item.getAttribute("data-g");
+      var selected = guests > 6 ? itemValue === "7" : parseInt(itemValue, 10) === guests;
+      item.classList.toggle("sel", selected);
+      item.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    document.getElementById("guestsVal").textContent = Math.max(7, guestCount);
+    document.getElementById("guestsNum").value = Math.max(7, guestCount);
+    guestsExtra.hidden = guests <= 6;
+    guestsExtra.classList.toggle("show", guests > 6);
+    document.getElementById("guestsMinus").disabled = guestCount <= 7;
+    document.getElementById("guestsPlus").disabled = guestCount >= maxGuests;
+    clearFieldError("comensales");
+    updateInterface();
+    if (changed && reservationState.date) reloadAvailability(false);
   }
 
-  document.querySelectorAll("#guestPills .pill").forEach(function(pill) {
-    pill.addEventListener("click", function() {
-      document.querySelectorAll("#guestPills .pill").forEach(function(item) {
-        item.classList.remove("sel");
-      });
-      pill.classList.add("sel");
-      var value = pill.getAttribute("data-g");
-      setGuests(value === "6+" ? guestCount : value);
-    });
+  guestPills.addEventListener("click", function(event) {
+    var pill = event.target.closest(".pill");
+    if (!pill || !guestPills.contains(pill)) return;
+    var value = pill.getAttribute("data-g");
+    setGuests(value);
   });
   document.getElementById("guestsPlus").addEventListener("click", function() {
     guestCount = Math.min(maxGuests, guestCount + 1);
     setGuests(guestCount);
   });
   document.getElementById("guestsMinus").addEventListener("click", function() {
-    guestCount = Math.max(6, guestCount - 1);
+    guestCount = Math.max(7, guestCount - 1);
     setGuests(guestCount);
+  });
+
+  stepButtons.forEach(function(button) {
+    button.addEventListener("click", function() {
+      if (button.disabled) return;
+      setCurrentStep(button.getAttribute("data-reservation-step-target"));
+    });
+  });
+
+  form.querySelectorAll("[data-reservation-next]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      var currentStep = reservationState.currentStep;
+      if (!validateCurrentStep(currentStep)) return;
+      var nextStep = Math.min(4, currentStep + 1);
+      reservationState.maxCompletedStep = Math.max(
+        reservationState.maxCompletedStep,
+        currentStep
+      );
+      if (nextStep === 4) reservationState.maxCompletedStep = 4;
+      setCurrentStep(nextStep);
+    });
+  });
+
+  form.querySelectorAll("[data-reservation-back]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      setCurrentStep(reservationState.currentStep - 1);
+    });
+  });
+
+  form.querySelectorAll("[data-reservation-edit]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      setCurrentStep(button.getAttribute("data-reservation-edit"));
+    });
   });
 
   initCalendar();
   initScheduleChanges();
   initSpecialScheduleNotice(form);
   timePicker = initHourPicker(form, function() { return guests; });
-  dateInput.addEventListener("reservation:datechange", updateIdentity);
-  timeInput.addEventListener("reservation:timechange", updateIdentity);
+
+  if (timeRoot) {
+    timeRoot.addEventListener("reservation:scheduleloaded", function(event) {
+      var data = event.detail || {};
+      reservationState.availabilityPending = false;
+      if (!data.ok) {
+        reservationState.availableSlots = [];
+        reservationState.availabilityStatus = "error";
+      } else if (data.abierto === false) {
+        reservationState.availableSlots = [];
+        reservationState.availabilityStatus = "closed";
+      } else {
+        reservationState.availableSlots = normalizeAvailableSlots(data.horarios);
+        reservationState.availabilityStatus = reservationState.availableSlots.length
+          ? "ready"
+          : "unavailable";
+      }
+      updateInterface();
+    });
+  }
+
+  dateInput.addEventListener("reservation:datechange", function() {
+    clearFieldError("fecha");
+    availabilityKey = "";
+    reloadAvailability(true);
+  });
+  timeInput.addEventListener("reservation:timechange", function() {
+    clearFieldError("hora");
+    updateInterface();
+  });
+  form.elements.nombre.addEventListener("input", function() {
+    clearFieldError("nombre");
+    updateInterface();
+  });
+  contactInput.addEventListener("input", function() {
+    syncStateFromControls();
+    if (sessionVerified === true && !verifiedContactMatchesForm()) {
+      invalidateVerifiedContact();
+    }
+    clearFieldError("contacto");
+    updateInterface();
+  });
+  form.elements.nota.addEventListener("input", function() {
+    reservationState.details = form.elements.nota.value;
+    updateInterface();
+  });
+  if (otpInput) {
+    otpInput.addEventListener("input", function() {
+      clearOtpError();
+    });
+  }
   setGuests(2);
+  setCurrentStep(1, false);
+
+  if (changeContactButton) {
+    changeContactButton.addEventListener("click", function() {
+      invalidateVerifiedContact();
+      contactInput.value = "";
+      contactFields.forEach(function(field) { field.hidden = false; });
+      if (verifiedContactHelp) verifiedContactHelp.hidden = true;
+      updateInterface();
+      contactInput.focus();
+    });
+  }
+
+  window.addEventListener("reservation:sessionchange", function(event) {
+    var detail = event.detail || {};
+    if (detail.verified) {
+      sessionVerified = true;
+      setVerifiedContact(detail.tipo, detail.contacto);
+    } else {
+      invalidateVerifiedContact();
+    }
+    updateInterface();
+  });
 
   jsonRequest("/api/reservaciones/mis-reservaciones", {
     method: "GET",
     headers: { "Accept": "application/json" }
   }).then(function(data) {
     sessionVerified = Boolean(data.ok);
+    if (sessionVerified) {
+      setVerifiedContact(data.verified_contact_type, data.verified_contact);
+    } else {
+      verifiedContact = null;
+    }
     window.CP_RESERVATION_SESSION = sessionVerified;
-    updateIdentity();
+    updateInterface();
   }).catch(function() {
     sessionVerified = false;
-    updateIdentity();
+    verifiedContact = null;
+    updateInterface();
   });
 
   function validate() {
@@ -544,9 +1136,18 @@ function initForm() {
     if (!form.elements.nombre.value.trim()) errors.nombre = "Escribe tu nombre.";
     if (!dateInput.value) errors.fecha = "Elige una fecha.";
     if (!timeInput.value) errors.hora = "Elige un horario disponible.";
-    if (guests < 1 || guests > maxGuests) errors.comensales = "Elige entre 1 y 12 personas.";
-    if (sessionVerified !== true && !contactInput.value.trim()) {
-      errors.contacto = "Escribe el contacto que verificaremos.";
+    if (guests < 1 || guests > maxGuests) errors.comensales = "Elige entre 1 y " + maxGuests + " personas.";
+    if (sessionVerified !== true || !verifiedContactMatchesForm()) {
+      var contactValue = contactInput.value.trim();
+      if (!contactValue) {
+        errors.contacto = "Escribe el contacto que verificaremos.";
+      } else if (selectedContactType() === "email"
+        && !contactIsValid()) {
+        errors.contacto = "El correo no es válido.";
+      } else if (selectedContactType() === "telefono"
+        && !contactIsValid()) {
+        errors.contacto = "El teléfono no es válido.";
+      }
     }
     Object.keys(errors).forEach(function(field) { setFieldError(field, errors[field]); });
     return Object.keys(errors).length === 0;
@@ -571,11 +1172,30 @@ function initForm() {
     otpStep.hidden = true;
     confirm.classList.add("show");
     var reservation = data.reservation || {};
-    confirmText.textContent = "Mesa para " + (reservation.comensales || guests)
-      + " el " + (reservation.fecha || dateInput.value)
-      + " a las " + (reservation.hora || timeInput.value) + ".";
+    var confirmedDate = reservation.fecha || dateInput.value;
+    var confirmedTime = reservation.hora || timeInput.value;
+    var confirmedGuests = reservation.comensales || guests;
+    var confirmedName = reservation.nombre || form.elements.nombre.value.trim() || "Invitado";
+    var confirmedContact = currentContact().trim() || "Contacto verificado";
+    confirmText.textContent = "Te esperamos en Casa Pestalozzi.";
+    if (confirmDate) confirmDate.textContent = formatReservationDate(confirmedDate);
+    if (confirmTime) confirmTime.textContent = confirmedTime;
+    if (confirmGuests) confirmGuests.textContent = confirmedGuests + (confirmedGuests === 1 ? " persona" : " personas");
+    if (confirmName) confirmName.textContent = confirmedName;
+    if (confirmContact) confirmContact.textContent = confirmedContact;
+    sessionVerified = true;
+    setVerifiedContact(
+      activeIdentity ? activeIdentity.tipo : selectedContactType(),
+      activeIdentity ? activeIdentity.contacto : currentContact()
+    );
     window.CP_RESERVATION_SESSION = true;
-    window.dispatchEvent(new CustomEvent("reservation:sessionchange", { detail: { verified: true } }));
+    window.dispatchEvent(new CustomEvent("reservation:sessionchange", {
+      detail: {
+        verified: true,
+        tipo: verifiedContact ? verifiedContact.tipo : "",
+        contacto: verifiedContact ? verifiedContact.contacto : ""
+      }
+    }));
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
@@ -623,8 +1243,10 @@ function initForm() {
     };
     form.hidden = true;
     otpStep.hidden = false;
+    if (otpContact) otpContact.textContent = requestPayload.contacto;
     otpMessage.textContent = data.mensaje || "";
     otpInput.value = "";
+    clearOtpError();
     renderPreview(data.preview_code || "");
     startCountdown(data.hold_expires_at || data.otp_expires_at);
     otpInput.focus();
@@ -632,7 +1254,7 @@ function initForm() {
   }
 
   function submitReservation(requestPayload) {
-    var endpoint = sessionVerified === true
+    var endpoint = sessionVerified === true && verifiedContactMatchesForm()
       ? "/api/reservaciones/crear"
       : "/api/reservaciones/retencion";
     return jsonRequest(endpoint, {
@@ -648,10 +1270,9 @@ function initForm() {
         return;
       }
       if (data.httpStatus === 401 && sessionVerified === true) {
-        sessionVerified = false;
-        window.CP_RESERVATION_SESSION = false;
-        updateIdentity();
-        setMessage("Tu sesión venció. Captura el contacto para crear una retención.", true);
+        invalidateVerifiedContact();
+        setCurrentStep(2);
+        setMessage("Tu autorización temporal venció. Confirma nuevamente tu contacto.", true);
         return;
       }
       setMessage(data.mensaje || "No fue posible crear la reservación.", true);
@@ -659,19 +1280,26 @@ function initForm() {
       setMessage("No fue posible crear la reservación.", true);
     }).finally(function() {
       submitting = false;
-      updateIdentity();
+      updateInterface();
     });
   }
 
   form.addEventListener("submit", function(event) {
     event.preventDefault();
+    if (reservationState.currentStep !== 4) {
+      var activeNext = form.querySelector(
+        '[data-reservation-step="' + reservationState.currentStep + '"] [data-reservation-next]'
+      );
+      if (activeNext && !activeNext.disabled) activeNext.click();
+      return;
+    }
     clearErrors();
-    if (!validate()) {
+    if (!validate() || !visitIsValid() || reservationState.availabilityPending) {
       setMessage("Revisa los datos de tu reservación.", true);
       return;
     }
     submitting = true;
-    updateIdentity();
+    updateInterface();
     submitReservation(payload());
   });
 
@@ -680,6 +1308,19 @@ function initForm() {
     var code = otpInput.value.replace(/\D/g, "").slice(0, 6);
     otpInput.value = code;
     otpMessage.textContent = "";
+    if (!/^\d{6}$/.test(code)) {
+      setOtpError("Escribe el código de seis dígitos.");
+      otpMessage.textContent = "Revisa el código antes de continuar.";
+      otpInput.focus();
+      otpStep.classList.remove("reservation-step--error-shake");
+      void otpStep.offsetWidth;
+      otpStep.classList.add("reservation-step--error-shake");
+      window.setTimeout(function() {
+        otpStep.classList.remove("reservation-step--error-shake");
+      }, 240);
+      return;
+    }
+    clearOtpError();
     jsonRequest("/api/reservaciones/contacto/verificar", {
       method: "POST",
       body: JSON.stringify({
@@ -690,12 +1331,15 @@ function initForm() {
       })
     }).then(function(data) {
       if (!data.ok) {
+        setOtpError(data.mensaje || "El código no es válido.");
         otpMessage.textContent = data.mensaje || "No fue posible verificar el código.";
+        otpInput.focus();
         return;
       }
       sessionVerified = true;
       showConfirmation(data);
     }).catch(function() {
+      setOtpError("No fue posible verificar el código.");
       otpMessage.textContent = "No fue posible verificar el código.";
     });
   });
