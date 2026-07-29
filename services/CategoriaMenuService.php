@@ -116,7 +116,9 @@ class CategoriaMenuService
                 return ['ok' => false, 'codigo' => self::NO_EXISTE];
             }
 
-            $stmt = $db->prepare('SELECT id FROM menu WHERE categoria_id = ? LIMIT 1 FOR UPDATE');
+            // Incluye los productos retirados (activo = 0): la fila sigue viva
+            // y la llave foránea a categorias impediría el DELETE de todos modos.
+            $stmt = $db->prepare('SELECT id FROM productos WHERE categoria_id = ? LIMIT 1 FOR UPDATE');
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }
