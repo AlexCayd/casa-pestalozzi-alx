@@ -75,6 +75,35 @@ function initMapa() {
     'cancelada':'Cancelada'
   };
 
+  // ── Catálogo de productos ─────────────────────────────────
+  // Antes vivía hardcodeado en src/js/data/menu-data.js y viajaba en el bundle:
+  // retirar un platillo desde el admin no lo quitaba del POS. Ahora sale de
+  // /api/productos, la misma tabla que alimenta la carta pública, así que las
+  // dos vistas no pueden volver a desincronizarse.
+  var catalogoPromise = null;
+
+  function cargarCatalogo() {
+    if (catalogoPromise) return catalogoPromise;
+
+    catalogoPromise = fetch('/api/productos')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || !data.ok) throw new Error(data && data.msg ? data.msg : 'catálogo no disponible');
+        window.CP_MENU  = data.categorias || [];
+        window.CP_AREAS = data.areas || {};
+      })
+      .catch(function(err) {
+        // Sin catálogo el mesero no puede capturar: se reintenta en la
+        // siguiente apertura de mesa en vez de dejar el POS mudo para siempre.
+        console.error('No se pudo cargar el catálogo de productos:', err);
+        catalogoPromise = null;
+        window.CP_MENU  = window.CP_MENU  || [];
+        window.CP_AREAS = window.CP_AREAS || {};
+      });
+
+    return catalogoPromise;
+  }
+
   // ── Helpers ───────────────────────────────────────────────
   function minutos(hora) {
     var p = hora.split(':');
@@ -829,10 +858,16 @@ function initMapa() {
     selectedComensal = 0;
     var reserva = reservaParaModal(mesa.id);
     var ticket  = ticketActual(mesa.id);
-    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
-    bindModalActions(mesa, reserva, ticket);
+
+    // El modal se arma de golpe a partir de CP_MENU, así que el catálogo tiene
+    // que estar cargado antes de pintarlo. Normalmente ya lo está (se pide al
+    // arrancar el POS); esto cubre el caso de abrir una mesa muy rápido.
+    cargarCatalogo().then(function() {
+      modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
+      modal.classList.add('mesa-modal--open');
+      document.body.style.overflow = 'hidden';
+      bindModalActions(mesa, reserva, ticket);
+    });
   }
 
   function closeModal() {
@@ -2504,6 +2539,7 @@ function initMapa() {
 
   // ── Init ──────────────────────────────────────────────────
   sliderMin = Math.max(510, Math.min(1320, snapTo30(new Date().getHours() * 60 + new Date().getMinutes())));
+  cargarCatalogo();
   fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
   activateLive();
 }

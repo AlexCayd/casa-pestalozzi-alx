@@ -1689,6 +1689,12 @@
   justify-content: space-between;
   gap: 12px;
 }
+.admin-field__help {
+  margin-top: 6px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .admin-field__error {
   display: block;
   min-height: 18px;
