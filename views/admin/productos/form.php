@@ -89,10 +89,24 @@
                            value="<?php echo htmlspecialchars((string) ($prod->precio ?? '')); ?>">
                 </div>
 
+                <div class="admin-field">
+                    <label class="admin-field__label" for="tag">Etiqueta de la carta</label>
+                    <input type="text" id="tag" name="tag" maxlength="60"
+                           placeholder="Especialidad C.P., Estrella…"
+                           value="<?php echo htmlspecialchars((string) ($prod->tag ?? '')); ?>">
+                </div>
+
+                <div class="admin-field admin-form-grid__full">
+                    <label class="admin-field__label" for="descripcion">Descripción</label>
+                    <textarea id="descripcion" name="descripcion" rows="3"
+                              placeholder="Texto que se imprime en la carta y en el PDF"><?php echo htmlspecialchars((string) ($prod->descripcion ?? '')); ?></textarea>
+                    <p class="admin-field__help">Opcional. Sin descripción el producto se imprime en la carta solo con nombre y precio, como las bebidas.</p>
+                </div>
+
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?php echo (int) ($prod->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>
-                    <span class="admin-switch__label">Producto activo</span>
+                    <span class="admin-switch__label">Producto activo — se vende en el punto de venta y aparece en la carta</span>
                 </label>
             </div>
         </section>

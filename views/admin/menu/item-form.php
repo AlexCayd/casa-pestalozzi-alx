@@ -1,6 +1,7 @@
 <?php
     $alertas = $alertas ?? [];
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
+    $areas = isset($areas) && is_iterable($areas) ? $areas : [];
     $accion = $accion ?? 'Guardar cambios';
 ?>
 
@@ -23,7 +24,7 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del platillo</h3>
-                <p>Define nombre, descripción, precio, categoría y visibilidad.</p>
+                <p>Define nombre, descripción, precio, categoría, área de producción y disponibilidad. Lo que guardes aquí es lo que ven la carta pública, el PDF y el punto de venta.</p>
             </div>
         </div>
 
@@ -44,7 +45,8 @@
                    value="<?php echo htmlspecialchars($platillo->nombre ?? ''); ?>" required>
 
             <label for="descripcion">Descripción</label>
-            <textarea id="descripcion" name="descripcion" required><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
+            <textarea id="descripcion" name="descripcion"><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></textarea>
+            <p class="admin-menu__help">Opcional. Sin descripción el platillo se imprime en la carta solo con nombre y precio, como las bebidas.</p>
 
             <label for="precio">Precio (MXN)</label>
             <input type="number" id="precio" name="precio" step="0.01" min="0"
@@ -61,6 +63,18 @@
                 <?php endforeach; ?>
             </select>
 
+            <label for="area_id">Área de producción</label>
+            <select id="area_id" name="area_id" required>
+                <option value="">Selecciona un área</option>
+                <?php foreach ($areas as $area) : ?>
+                    <option value="<?php echo (int) $area['id']; ?>"
+                        <?php echo (int) ($platillo->area_id ?? 0) === (int) $area['id'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($area['nombre']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <p class="admin-menu__help">Decide a qué comanda se imprime el platillo cuando el mesero lo captura en el punto de venta.</p>
+
             <label for="tag">Etiqueta / tag opcional</label>
             <input type="text" id="tag" name="tag" maxlength="60"
                    placeholder="Especialidad C.P., Estrella, Premium"
@@ -69,8 +83,9 @@
             <div class="admin-menu__check">
                 <input type="checkbox" id="activo" name="activo" value="1"
                        <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
-                <label for="activo">Platillo visible en el menú</label>
+                <label for="activo">Platillo disponible</label>
             </div>
+            <p class="admin-menu__help">Al desmarcarlo el platillo se retira: deja de venderse en el punto de venta y de aparecer en la carta pública.</p>
 
             <div class="admin-menu__form-actions">
                 <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary"><?php echo htmlspecialchars($accion); ?></button>

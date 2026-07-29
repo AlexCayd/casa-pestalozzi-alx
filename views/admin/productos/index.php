@@ -62,16 +62,16 @@
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="admin-badge admin-badge--<?php echo $prod->activo ? 'neutral' : 'danger'; ?>"><?php echo $prod->activo ? 'Activo' : 'Inactivo'; ?></span>
+                                    <span class="admin-badge admin-badge--<?php echo $prod->activo ? 'neutral' : 'danger'; ?>"><?php echo $prod->activo ? 'Activo' : 'Retirado'; ?></span>
                                 </td>
                                 <td>
                                     <div class="admin-table-actions">
                                         <a class="admin-icon-button admin-icon-button--edit" href="/admin/productos/edit?id=<?php echo (int) $prod->id; ?>" title="Editar receta" aria-label="Editar <?php echo htmlspecialchars($prod->nombre, ENT_QUOTES); ?>">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                         </a>
-                                        <form method="POST" action="/admin/productos/delete" onsubmit="return confirm('¿Eliminar el producto &quot;<?php echo htmlspecialchars($prod->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/productos/delete" onsubmit="return confirm('¿Retirar el producto &quot;<?php echo htmlspecialchars($prod->nombre, ENT_QUOTES); ?>&quot;?\n\nDejará de venderse y de aparecer en la carta. El historial de tickets se conserva y puedes reactivarlo cuando quieras.');">
                                             <input type="hidden" name="id" value="<?php echo (int) $prod->id; ?>">
-                                            <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Eliminar" aria-label="Eliminar <?php echo htmlspecialchars($prod->nombre, ENT_QUOTES); ?>">
+                                            <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Retirar" aria-label="Retirar <?php echo htmlspecialchars($prod->nombre, ENT_QUOTES); ?>">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
                                             </button>
                                         </form>

@@ -152,7 +152,7 @@
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($platillo->nombre); ?></span>
                                 </td>
                                 <td class="admin-menu__description">
-                                    <span class="admin-table__description" title="<?php echo htmlspecialchars($platillo->descripcion, ENT_QUOTES); ?>"><?php echo htmlspecialchars($platillo->descripcion); ?></span>
+                                    <span class="admin-table__description" title="<?php echo htmlspecialchars((string) ($platillo->descripcion ?? ''), ENT_QUOTES); ?>"><?php echo htmlspecialchars((string) ($platillo->descripcion ?? '')); ?></span>
                                 </td>
                                 <td>
                                     <span class="admin-table__cell-main">$<?php echo number_format((float) $platillo->precio, 2); ?></span>
@@ -170,7 +170,7 @@
                                 <td>
                                     <form method="POST" action="/admin/menu/items/edit?id=<?php echo (int) $platillo->id; ?>">
                                         <input type="hidden" name="nombre" value="<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>">
-                                        <input type="hidden" name="descripcion" value="<?php echo htmlspecialchars($platillo->descripcion, ENT_QUOTES); ?>">
+                                        <input type="hidden" name="descripcion" value="<?php echo htmlspecialchars((string) ($platillo->descripcion ?? ''), ENT_QUOTES); ?>">
                                         <input type="hidden" name="precio" value="<?php echo htmlspecialchars((string) $platillo->precio, ENT_QUOTES); ?>">
                                         <input type="hidden" name="categoria_id" value="<?php echo (int) $platillo->categoria_id; ?>">
                                         <input type="hidden" name="tag" value="<?php echo htmlspecialchars((string) ($platillo->tag ?? ''), ENT_QUOTES); ?>">
@@ -203,13 +203,13 @@
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <form method="POST" action="/admin/menu/items/delete" onsubmit="return confirm('Eliminar el platillo &quot;<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/menu/items/delete" onsubmit="return confirm('Retirar el platillo &quot;<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>&quot;?\n\nDejará de venderse en el punto de venta y de aparecer en la carta. El historial de tickets se conserva y puedes reactivarlo cuando quieras.');">
                                             <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                             <button
                                                 type="submit"
                                                 class="admin-icon-button admin-icon-button--danger"
-                                                title="Eliminar"
-                                                aria-label="Eliminar platillo <?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>"
+                                                title="Retirar"
+                                                aria-label="Retirar platillo <?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>"
                                             >
                                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                                     <path d="M3 6h18"/>

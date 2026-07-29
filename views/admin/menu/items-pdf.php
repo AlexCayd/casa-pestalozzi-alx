@@ -209,6 +209,7 @@
                         <?php foreach (array_chunk($categoria['platillos'], 2) as $fila) : ?>
                             <tr class="menu-row">
                                 <?php foreach ($fila as $platillo) : ?>
+                                    <?php $desc = trim((string) ($platillo->descripcion ?? '')); ?>
                                     <td>
                                         <div class="cell-inner">
                                             <table class="dish-line">
@@ -217,7 +218,11 @@
                                                     <td class="dish-price">$<?php echo number_format((float) ($platillo->precio ?? 0), 2); ?></td>
                                                 </tr>
                                             </table>
-                                            <p class="dish-desc"><?php echo htmlspecialchars($platillo->descripcion ?? ''); ?></p>
+                                            <?php /* Las bebidas no llevan descripción: se imprimen solo con
+                                                     nombre y precio, sin dejar el hueco del párrafo vacío. */ ?>
+                                            <?php if ($desc !== '') : ?>
+                                                <p class="dish-desc"><?php echo htmlspecialchars($desc); ?></p>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 <?php endforeach; ?>
