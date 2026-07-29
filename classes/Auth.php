@@ -18,6 +18,7 @@ class Auth {
     /** Rutas exactas de API del personal (devuelven 401 JSON en vez de redirigir). */
     private const APIS_STAFF = [
         '/api/punto-de-venta',
+        '/api/productos',
         '/api/abrir-ticket',
         '/api/liberar-reservacion',
         '/api/cerrar-ticket',
