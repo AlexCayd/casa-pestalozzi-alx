@@ -14,6 +14,7 @@ $operationalBrandHref = (string)($operationalBrandHref ?? '/punto-de-venta');
 $operationalHeaderBackUrl = (string)($operationalHeaderBackUrl ?? '');
 $operationalDrawerId = (string)($operationalDrawerId ?? 'operational-reservations-drawer');
 $operationalHeaderDrawerToggleHtml = (string)($operationalHeaderDrawerToggleHtml ?? '');
+$operationalHeaderActionsHtml = (string)($operationalHeaderActionsHtml ?? '');
 $operationalUsuarioNombre = trim((string)($operationalUsuarioNombre ?? ''));
 $operationalUsuarioRol = (string)($operationalUsuarioRol ?? 'Usuario');
 $operationalHeaderUserMenuId = 'operational-user-menu-' . preg_replace('/[^a-z0-9_-]+/i', '-', $operationalModule);
@@ -74,6 +75,8 @@ if ($operationalHeaderBackUrl === '') {
             ?>
         </div>
 
+        <?php echo $operationalHeaderActionsHtml; ?>
+
         <a
             class="operational-header__back"
             href="<?php echo $operationalHeaderH($operationalHeaderBackUrl); ?>"
@@ -118,4 +121,4 @@ if ($operationalHeaderBackUrl === '') {
         <?php endif; ?>
     </div>
 </header>
-<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial); ?>
+<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial); ?>

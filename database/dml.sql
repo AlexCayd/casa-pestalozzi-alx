@@ -2,6 +2,9 @@
 -- Poblado inicial de catálogos, menú, reservaciones de ejemplo y usuarios demo.
 -- Ejecutar DESPUÉS de ddl.sql. El orden respeta las llaves foráneas.
 
+-- Fecha relativa para mantener vigentes los datos de analítica.
+SET @HOY := CURDATE();
+
 -- -------------------------------------------------------
 -- Horario efectivo semanal usado por el flujo público. Se mantiene alineado
 INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre) VALUES
@@ -58,8 +61,8 @@ INSERT INTO categorias (id, nombre, img) VALUES
 (6, 'Ensaladas',     'build/images/comida-2.webp'),
 (7, 'Pizzas',        'build/images/pizza-3.webp'),
 (8, 'Para Picar',    'build/images/comida-6.webp'),
-(9, 'Café & Bebidas',    NULL),
-(10, 'Jugos & Smoothies', NULL);
+(9, 'Café & Bebidas',    'build/images/comida-1.webp'),
+(10, 'Jugos & Smoothies', 'build/images/comida-2.webp');
 
 -- -------------------------------------------------------
 -- Productos (para comanda por área)
@@ -375,6 +378,13 @@ INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
 ('Papas a la Francesa con Parmesano',
  'Papas a la francesa con queso parmesano rallado.',
  160.00, NULL, 8);
+
+-- `productos` es la fuente funcional consumida por carta, PDF y POS. La tabla
+-- de compatibilidad aporta las descripciones del catálogo anterior.
+UPDATE productos p
+LEFT JOIN menu m ON m.nombre = p.nombre
+SET p.descripcion = COALESCE(NULLIF(m.descripcion, ''), CONCAT(p.nombre, '.')),
+    p.tag = m.tag;
 
 -- -------------------------------------------------------
 -- Usuarios demo
@@ -1010,6 +1020,25 @@ SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@reserva_futura, 10, 1),
   (@horario_afectado, 11, 1);
+
+-- Mantiene vigentes los históricos independientes usados por analítica y
+-- finanzas. Los tickets ligados a fixtures de reservaciones conservan sus
+-- fechas exactas para no alterar esos escenarios.
+UPDATE tickets
+SET hora_apertura = TIMESTAMP(
+      DATE_SUB(@HOY, INTERVAL (MOD(id, 58) + 1) DAY),
+      TIME(hora_apertura)
+    ),
+    closed_at = DATE_ADD(
+      TIMESTAMP(DATE_SUB(@HOY, INTERVAL (MOD(id, 58) + 1) DAY), TIME(hora_apertura)),
+      INTERVAL 90 MINUTE
+    ),
+    hora_cierre = DATE_ADD(
+      TIMESTAMP(DATE_SUB(@HOY, INTERVAL (MOD(id, 58) + 1) DAY), TIME(hora_apertura)),
+      INTERVAL 90 MINUTE
+    )
+WHERE estado = 'cerrado'
+  AND reservacion_id IS NULL;
 
 -- -------------------------------------------------------
 -- INVENTARIO / RECETAS (datos de prueba)

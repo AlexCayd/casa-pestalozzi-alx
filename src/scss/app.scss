@@ -28,6 +28,8 @@
 @use 'components/footer';
 @use 'components/lightbox';
 @use 'components/tweaks';
+// El POS reutiliza el estado vacío del sidebar de reservaciones.
+@use 'operation/empty-state';
 @use 'punto-de-venta/punto-de-venta';
 @use 'area/area';
 @use 'feedback/feedback';

@@ -10,6 +10,7 @@ use Model\Usuario;
 use Classes\TicketPrinter;
 use Classes\Auth;
 use MVC\Router;
+use Services\Carta;
 use Services\HorarioReservacionService;
 use Services\Inventario;
 use Services\MesaEstadoService;
@@ -22,12 +23,26 @@ use Services\Sugerencias;
 class PuntoVentaController {
 
     public static function index(Router $router) {
+        // El menú se emite en línea en la vista (window.CP_MENU / CP_AREAS).
+        // Va inline y no por fetch porque punto-de-venta.js lee CP_MENU de
+        // forma síncrona al abrir una mesa: con una petición asíncrona, tocar
+        // una mesa en los primeros milisegundos daría un modal sin platillos.
+        $menuJson = json_encode(
+            Carta::paraPos(),
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $areasJson = json_encode(
+            Carta::areasPos(),
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+
         include_once __DIR__ . '/../views/punto-de-venta/index.php';
     }
 
     // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
         header('Content-Type: application/json');
+        \Classes\Auth::liberarSesion();
 
         $fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ''));
 
@@ -593,6 +608,7 @@ class PuntoVentaController {
     // GET /admin/api/ticket-items?ticket_id=X
     public static function ticketItems(Router $router) {
         header('Content-Type: application/json');
+        \Classes\Auth::liberarSesion();
 
         $ticketId = isset($_GET['ticket_id']) ? (int)$_GET['ticket_id'] : 0;
         if (!$ticketId) {
@@ -641,6 +657,9 @@ class PuntoVentaController {
      */
     public static function sugerencias(Router $router) {
         header('Content-Type: application/json');
+        // Crítico: este handler puede tardar segundos esperando a n8n. Sin
+        // soltar el candado, bloquea al resto de peticiones del mismo mesero.
+        \Classes\Auth::liberarSesion();
 
         $data     = json_decode(file_get_contents('php://input'), true) ?: [];
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
@@ -784,6 +803,7 @@ class PuntoVentaController {
      */
     public static function corteCaja(Router $router) {
         header('Content-Type: application/json');
+        \Classes\Auth::liberarSesion();
 
         try {
             // Tickets cerrados hoy con su consumo (sin ítems cancelados) y propina.
@@ -793,7 +813,7 @@ class PuntoVentaController {
                                   FROM ticket_items ti
                                   WHERE ti.ticket_id = t.id AND ti.estado <> 'cancelado'), 0) AS total
                    FROM tickets t
-                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()"
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()"
             );
 
             $numTickets = 0;
@@ -826,7 +846,7 @@ class PuntoVentaController {
                    FROM ticket_pagos tp
                    JOIN tickets t ON t.id = tp.ticket_id
                   WHERE t.estado = 'cerrado' AND t.metodo_pago = 'dividido'
-                        AND DATE(t.hora_apertura) = CURDATE()
+                        AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
                   GROUP BY tp.metodo_pago"
             );
             if ($resPagos) {
@@ -847,7 +867,7 @@ class PuntoVentaController {
                         SUM(ti.precio * ti.cantidad) AS importe
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
                         AND ti.estado <> 'cancelado'
                   GROUP BY ti.nombre
                   ORDER BY unidades DESC, importe DESC
@@ -871,7 +891,7 @@ class PuntoVentaController {
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
                    LEFT JOIN areas_produccion ap ON ap.id = ti.area_id
-                  WHERE t.estado = 'cerrado' AND DATE(t.hora_apertura) = CURDATE()
+                  WHERE t.estado = 'cerrado' AND DATE(COALESCE(t.hora_cierre, t.hora_apertura)) = CURDATE()
                         AND ti.estado <> 'cancelado'
                   GROUP BY ap.nombre
                   ORDER BY importe DESC"

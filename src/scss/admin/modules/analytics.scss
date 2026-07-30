@@ -85,10 +85,34 @@
     }
   }
 
+  /*
+   * Tres niveles de lectura en vez de seis tarjetas idénticas:
+   *   .admin-metrics-lead  → la cifra titular + la gráfica diaria a su lado
+   *   .admin-metrics-grid--support → tres KPIs de apoyo
+   *   .admin-metrics-strip → contexto, en una franja de una línea
+   */
   .admin-metrics-section {
     display: grid;
-    gap: 12px;
+    gap: 14px;
     margin-bottom: 32px;
+  }
+
+  // La cifra manda, la gráfica la acompaña: 2fr/3fr da aire a los ejes sin que
+  // el número deje de ser lo primero que se lee.
+  .admin-metrics-lead {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 14px;
+    align-items: stretch;
+
+    @media (max-width: 1080px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .admin-metrics-hero {
+    display: flex;
+    min-width: 0;
   }
 
   .admin-metrics-grid {
@@ -96,12 +120,145 @@
     gap: 12px;
   }
 
-  .admin-metrics-grid--primary {
+  .admin-metrics-grid--support {
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   }
 
-  .admin-metrics-grid--secondary {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  // ── Nivel 1: titular ──────────────────────────────────────────
+  .admin-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: clamp(22px, 3vw, 30px);
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    background:
+      linear-gradient(120deg, rgba(124, 61, 29, 0.14), transparent 62%),
+      var(--admin-surface);
+
+    &__main {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    &__label {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    // Cifra grande: figuras proporcionales (tabular-nums abre demasiado los
+    // dígitos a este tamaño) y la tipografía editorial de la marca.
+    &__value {
+      color: var(--admin-text);
+      font-family: var(--admin-font-display, "Fraunces", serif);
+      font-size: clamp(44px, 6vw, 76px);
+      font-weight: 600;
+      line-height: 0.95;
+      overflow-wrap: anywhere;
+    }
+
+    &__detail {
+      color: var(--admin-muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    &__aside {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    &__delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+
+      svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      small {
+        color: var(--admin-muted);
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      // La dirección se marca también con la flecha, no solo con el color.
+      &.is-up {
+        background: var(--admin-success-bg);
+        color: var(--admin-success-text);
+      }
+
+      &.is-down {
+        background: var(--admin-danger-bg);
+        color: var(--admin-danger-text);
+      }
+    }
+
+    // El sparkline en línea se retiró: la gráfica de ventas diarias vive ahora
+    // al costado de esta tarjeta, con ejes y tooltip.
+  }
+
+  // ── Nivel 3: contexto ─────────────────────────────────────────
+  .admin-metrics-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    padding: 14px 20px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface-soft);
+  }
+
+  .admin-metric-chip {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+
+    &__label {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    &__value {
+      color: var(--admin-text);
+      font-size: 17px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__detail {
+      color: var(--admin-faint);
+      font-size: 12px;
+      font-weight: 600;
+    }
   }
 
   .admin-metric-card {
@@ -154,76 +311,386 @@
     }
   }
 
-  // Tarjeta destacada: ocupa 2 columnas, acento terracota y valor sobredimensionado
-  // para dar jerarquía visual clara al KPI principal (Ventas acumuladas).
-  .admin-metric-card--featured {
-    grid-column: span 2;
-    border-color: var(--admin-terra);
-    background-image: linear-gradient(120deg, rgba(124, 61, 29, 0.2), transparent 58%);
+  // El KPI destacado ya no es una tarjeta: es .admin-hero, arriba.
+  // Las de apoyo quedan todas al mismo peso, que es justo lo que se busca.
 
-    &::before {
-      content: "";
-      position: absolute;
-      inset: 0 auto 0 0;
-      width: 4px;
-      background: var(--admin-terra);
-    }
-
-    span {
-      color: var(--admin-text);
-    }
-
-    strong {
-      color: var(--admin-text);
-      font-size: clamp(34px, 3.4vw, 48px);
-    }
-  }
-
-  .admin-metric-card--secondary {
-    min-height: 104px;
-    padding-block: 16px;
-
-    strong {
-      margin-top: 9px;
-      font-size: clamp(20px, 2vw, 25px);
-    }
-
-    small {
-      margin-top: 8px;
-      color: var(--admin-muted);
-    }
-  }
-
-  // ── Filtros de rango (preset + calendario personalizado) ─────
-  .admin-analytics-filters {
+  /*
+   * ── Selector de periodo ───────────────────────────────────────
+   * Reemplaza al <select> estrecho más dos <input type="date">. El disparador
+   * muestra la etiqueta legible y las fechas reales; el popover trae los
+   * accesos rápidos y un calendario de dos meses con el tramo resaltado.
+   */
+  .admin-range {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 12px;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
 
-    &__field {
+    &__caption {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    &__trigger {
       display: flex;
-      flex-direction: column;
-      gap: 6px;
+      align-items: center;
+      gap: 12px;
+      min-height: 58px;
+      padding: 10px 16px;
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      box-shadow: var(--admin-shadow-sm);
+      cursor: pointer;
+      text-align: left;
+      transition:
+        border-color var(--admin-t-base) var(--admin-ease-out),
+        box-shadow var(--admin-t-base) var(--admin-ease-out);
 
-      > span {
-        color: var(--admin-muted);
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+      &:hover {
+        border-color: var(--admin-gold);
+      }
+
+      &:focus-visible {
+        outline: none;
+        box-shadow: var(--admin-focus-ring);
+      }
+
+      &[aria-expanded="true"] {
+        border-color: var(--admin-gold);
       }
     }
 
-    &__range {
+    &__icon {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 20px;
+      fill: none;
+      stroke: var(--admin-gold);
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &__trigger-text {
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 12px;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    &__trigger-label {
+      color: var(--admin-text);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    &__trigger-dates {
+      color: var(--admin-muted);
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    &__chevron {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      margin-left: auto;
+      fill: none;
+      stroke: var(--admin-muted);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &__pop {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 60;
+      display: flex;
+      width: max-content;
+      max-width: min(660px, calc(100vw - 32px));
+      // Sin tope de alto el popover se salía por abajo y recortaba la lista de
+      // presets. Las clases --arriba / --izq las aplica ajustarPosicion().
+      max-height: min(560px, calc(100vh - 120px));
+      border: 1px solid var(--admin-border);
+      border-radius: var(--admin-radius-md);
+      background: var(--admin-surface);
+      box-shadow: var(--admin-shadow-lg);
+      overflow: auto;
 
       &[hidden] {
         display: none;
       }
+
+      &--arriba {
+        top: auto;
+        bottom: calc(100% + 8px);
+      }
+
+      &--izq {
+        right: auto;
+        left: 0;
+      }
+    }
+
+    &__presets {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 12px;
+      // El radio lo daba el overflow:hidden del popover, que ya no está.
+      border-radius: var(--admin-radius-md) 0 0 var(--admin-radius-md);
+      border-right: 1px solid var(--admin-border-soft);
+      background: var(--admin-surface-soft);
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    &__preset {
+      padding: 9px 14px;
+      border: 0;
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-muted);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+
+      &:hover {
+        background: var(--admin-surface);
+        color: var(--admin-text);
+      }
+
+      &.is-active {
+        background: var(--admin-gold);
+        color: #1b1a17;
+      }
+    }
+
+    &__cal {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px 16px 12px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    &__nav {
+      display: grid;
+      grid-template-columns: 32px 1fr 1fr 32px;
+      align-items: center;
+      gap: 8px;
+    }
+
+    &__nav-btn {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      place-items: center;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: var(--admin-radius-sm);
+      background: transparent;
+      color: var(--admin-text);
+      cursor: pointer;
+
+      svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      &:hover:not(:disabled) {
+        border-color: var(--admin-gold);
+      }
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+
+    &__month-title {
+      color: var(--admin-text);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    &__months {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+    }
+
+    &__weekdays,
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 2px;
+    }
+
+    &__weekdays {
+      margin-bottom: 6px;
+
+      span {
+        color: var(--admin-faint);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+    }
+
+    /*
+     * El tramo se pinta con un fondo continuo detrás de los días interiores
+     * (::before a sangre entre celdas) y los extremos en dorado sólido, que es
+     * como se lee un rango en las interfaces de viajes.
+     */
+    &__day {
+      position: relative;
+      display: grid;
+      min-height: 34px;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+
+      &::before {
+        content: "";
+        position: absolute;
+        inset: 2px -1px;
+        z-index: 0;
+        border-radius: 0;
+      }
+
+      > * ,
+      &:not(.is-empty) {
+        position: relative;
+      }
+
+      &.is-empty {
+        cursor: default;
+      }
+
+      &.is-disabled {
+        color: var(--admin-faint);
+        cursor: not-allowed;
+      }
+
+      &.is-today:not(.is-edge) {
+        color: var(--admin-gold);
+        font-weight: 800;
+      }
+
+      &:hover:not(.is-disabled):not(.is-empty):not(.is-edge)::before {
+        border-radius: 8px;
+        background: var(--admin-surface-soft);
+      }
+
+      &.is-inside::before {
+        background: rgba(204, 163, 82, 0.18);
+      }
+
+      &.is-edge {
+        color: #1b1a17;
+        font-weight: 800;
+        z-index: 1;
+      }
+
+      &.is-edge::before {
+        background: var(--admin-gold);
+      }
+
+      &.is-start::before {
+        border-radius: 8px 0 0 8px;
+        inset: 2px -1px 2px 2px;
+      }
+
+      &.is-end::before {
+        border-radius: 0 8px 8px 0;
+        inset: 2px 2px 2px -1px;
+      }
+
+      &.is-single::before {
+        border-radius: 8px;
+        inset: 2px;
+      }
+    }
+
+    &__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding-top: 10px;
+      border-top: 1px solid var(--admin-border-soft);
+    }
+
+    &__summary {
+      color: var(--admin-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    &__foot-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .admin-range__pop {
+      right: auto;
+      left: 0;
+      flex-direction: column;
+      max-width: calc(100vw - 32px);
+    }
+
+    .admin-range__presets {
+      flex-direction: row;
+      flex-wrap: wrap;
+      border-right: 0;
+      border-bottom: 1px solid var(--admin-border-soft);
+    }
+
+    .admin-range__months {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-range__month--b,
+    .admin-range__month-title--b {
+      display: none;
+    }
+
+    .admin-range__nav {
+      grid-template-columns: 32px 1fr 32px;
     }
   }
 
@@ -232,6 +699,19 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 24px;
+  }
+
+  // La gráfica del titular estira su lienzo para igualar el alto de la tarjeta
+  // de ventas que tiene al lado.
+  .admin-chart-card--lead {
+    display: flex;
+    flex-direction: column;
+
+    .admin-chart-card__canvas {
+      flex: 1 1 auto;
+      min-height: 200px;
+      height: auto;
+    }
   }
 
   .admin-chart-card {
@@ -380,19 +860,29 @@
       grid-column: auto;
     }
 
-    .admin-metrics-grid--primary,
-    .admin-metrics-grid--secondary {
+    .admin-metrics-grid--support {
       grid-template-columns: 1fr;
     }
 
-    .admin-metric-card--featured {
-      grid-column: auto;
-    }
-
-    .admin-metric-card,
-    .admin-metric-card--secondary {
+    .admin-metric-card {
       min-height: 108px;
       padding: 17px 18px;
+    }
+
+    .admin-hero {
+      align-items: flex-start;
+      flex-direction: column;
+
+      &__aside {
+        align-items: flex-start;
+        width: 100%;
+        flex-basis: auto;
+      }
+    }
+
+    .admin-metrics-strip {
+      flex-direction: column;
+      gap: 10px;
     }
 
     .admin-chart-card,

@@ -3471,6 +3471,15 @@ html:has(.operation-body.is-assignment-mode) {
     flex: 1 1 0;
   }
 }
+/*
+ * Estado vacío / de carga de la lista de reservaciones.
+ *
+ * Vive en su propio partial porque lo comparten dos bundles distintos:
+ * la operación de reservaciones del panel admin (via operation/reservations.scss)
+ * y el punto de venta (via app.scss). Antes solo lo cargaba el primero, así que
+ * en el POS el bloque salía sin estilos: el SVG a tamaño natural y los dos spans
+ * corridos en la misma línea.
+ */
 .mapa-empty-state {
   display: grid;
   min-height: 180px;
@@ -3512,6 +3521,27 @@ html:has(.operation-body.is-assignment-mode) {
   line-height: 1.45;
 }
 
+/* Spinner de los estados "Cargando…" del sidebar. */
+.mapa-empty-spinner {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--admin-border);
+  border-top-color: var(--admin-gold-soft);
+  border-radius: 50%;
+  animation: mapa-empty-spin 720ms linear infinite;
+}
+
+@keyframes mapa-empty-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapa-empty-spinner {
+    animation: none;
+  }
+}
 .reservation-operation .admin-alert,
 .reservation-operation-notice {
   display: grid;

@@ -34,15 +34,26 @@ class Sugerencias
 
     /**
      * Relleno cuando el flujo ya no tiene platillos que proponer: el mesero
-     * siempre debe tener algo que ofrecer. Estas categorias solo existen en
-     * 'productos' — el motor de n8n parte de 'menu', que no las incluye, asi
-     * que las bebidas nunca pueden salir de ahi.
+     * siempre debe tener algo que ofrecer.
+     *
+     * Antes era el camino normal, no el de respaldo: el motor de n8n partia de
+     * 'menu', que no incluia estas categorias, y ademas devolvia un id de esa
+     * tabla que aqui se resolvia contra 'productos' (espacios de id distintos).
+     * Con la fusion en una sola tabla el flujo ya propone bebidas por si mismo
+     * y esto vuelve a ser lo que dice: un ultimo recurso.
      */
     private const CATEGORIAS_BEBIDA = ['Café & Bebidas', 'Jugos & Smoothies'];
 
     private const ARGUMENTO_BEBIDA = 'Para acompañar lo que ya está en la mesa.';
 
-    private const TIMEOUT = 15;
+    /**
+     * Las sugerencias son un extra: si n8n tarda, el mesero ya está tomando la
+     * comanda. 8s de techo total y 3s para conectar evitan que un webhook caído
+     * retenga un worker de PHP-FPM.
+     */
+    private const TIMEOUT = 8;
+
+    private const CONNECT_TIMEOUT = 3;
 
     /** URL del webhook de n8n que genera las sugerencias (configurable por env). */
     public static function webhookUrl(): string
@@ -318,6 +329,7 @@ class Sugerencias
         $opciones = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => self::TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
             CURLOPT_CUSTOMREQUEST  => $metodo,
         ];
         if ($cuerpo !== null) {

@@ -10,7 +10,7 @@
             <h2 class="admin-page__title"><?php echo htmlspecialchars($title ?? 'Categoría'); ?></h2>
             <p class="admin-page__subtitle">Crea una categoría para agrupar platillos en la carta pública.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu/categories">
+        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu/categorias">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="m15 18-6-6 6-6"/>
             </svg>
@@ -62,7 +62,7 @@
 
             <div class="admin-menu__form-actions">
                 <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary"><?php echo htmlspecialchars($accion); ?></button>
-                <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu/categories">Cancelar</a>
+                <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/menu/categorias">Cancelar</a>
             </div>
         </form>
     </section>

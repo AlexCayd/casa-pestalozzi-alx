@@ -14,6 +14,7 @@ class Ticket extends ActiveRecord {
     public $comensales         = 1;
     public $hora_apertura      = null;
     public $closed_at          = null;
+    public $hora_cierre        = null;
     public $estado             = 'abierto';
     public $reservacion_id     = null;
     public $mesero_id          = null;

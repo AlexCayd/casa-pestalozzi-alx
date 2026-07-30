@@ -8,7 +8,14 @@
 }
 .admin-finanzas > .admin-panel + .admin-panel,
 .admin-finanzas > .admin-finanzas__grid + .admin-panel {
-  margin-top: 18px;
+  margin-top: 24px;
+}
+.admin-finanzas > .admin-stat-strip,
+.admin-finanzas > .admin-finanzas__grid {
+  margin-bottom: 24px;
+}
+.admin-finanzas .admin-finanzas__add .admin-select__trigger {
+  font-size: 14px;
 }
 
 .admin-finanzas__grid {
@@ -59,8 +66,8 @@
   color: var(--admin-gold);
 }
 .admin-pnl__row--grand {
-  margin-top: 6px;
-  padding: 14px 12px;
+  margin-top: 14px;
+  padding: 18px 16px;
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: var(--admin-surface-soft);
@@ -68,7 +75,7 @@
   font-weight: 800;
 }
 .admin-pnl__row--grand strong {
-  font-size: 22px;
+  font-size: 24px;
 }
 .admin-pnl__row--grand.is-pos {
   border-color: var(--admin-success-border);
@@ -151,21 +158,22 @@
 }
 .admin-finanzas__money span {
   position: absolute;
-  left: 11px;
+  left: 14px;
   color: var(--admin-muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   pointer-events: none;
 }
 .admin-finanzas__money input {
   width: 100%;
-  padding-left: 24px;
+  padding-left: 30px;
 }
 
 .admin-gasto-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
+  margin-top: 18px;
 }
 
 .admin-gasto-card {
@@ -196,6 +204,7 @@
 }
 .admin-gasto-card__field--name {
   grid-column: 1/-1;
+  padding-right: 46px;
 }
 .admin-gasto-card__label {
   color: var(--admin-muted);
@@ -204,12 +213,16 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-.admin-gasto-card__switch {
-  align-self: center;
+.admin-gasto-card__switch, .admin-gasto-card__actions {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
 }
 .admin-gasto-card__actions {
-  display: flex;
   justify-content: flex-end;
+}
+.admin-gasto-card__actions .admin-btn {
+  min-height: 38px;
 }
 .admin-gasto-card__delete {
   position: absolute;
@@ -234,6 +247,15 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.admin-cortes__day {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-cortes__day .admin-table__cell-main {
+  display: inline-block;
 }
 .admin-cortes__table td:not(:first-child),
 .admin-cortes__table th:not(:first-child) {

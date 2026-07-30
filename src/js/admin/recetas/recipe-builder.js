@@ -1,11 +1,32 @@
 /**
- * Constructor de recetas del admin (Productos y Subrecetas).
- * Agrega y quita filas de componentes clonando el <template> del formulario,
+ * Constructor de recetas del admin (Recetas y Subrecetas).
+ * Agrega y quita filas de ingredientes clonando el <template> del formulario,
  * y monta un buscador inteligente (combobox) para elegir ingredientes/subrecetas
  * cuando el catálogo es grande.
  */
 (function () {
     'use strict';
+
+    /**
+     * La etiqueta del catálogo viene como "Nombre (unidad)" o "Nombre (subreceta)".
+     * Se extrae el paréntesis final para poder mostrar junto a la cantidad si son
+     * gramos, mililitros o piezas: sin eso el mesero escribe a ciegas.
+     */
+    function unidadDe(label) {
+        var m = String(label || '').match(/\(([^()]+)\)\s*$/);
+        if (!m) return '';
+        return m[1] === 'subreceta' ? 'u' : m[1];
+    }
+
+    /** Marca la fila como completa y refleja la unidad junto a la cantidad. */
+    function marcarFila(combo, label) {
+        var row = combo.closest('[data-recipe-row]');
+        if (!row) return;
+        var unidad = unidadDe(label);
+        var slot = row.querySelector('[data-recipe-unit]');
+        if (slot) slot.textContent = unidad;
+        row.classList.toggle('is-complete', !!label);
+    }
 
     function readOptions(form) {
         var node = form.querySelector('[data-recipe-options]');
@@ -83,7 +104,18 @@
         function choose(opt) {
             hidden.value = opt.value;
             search.value = opt.label;
+            marcarFila(combo, opt.label);
             close();
+            // Elegido el ingrediente, lo siguiente es la cantidad: se lleva el
+            // foco solo, para no obligar a un clic extra por fila.
+            var row = combo.closest('[data-recipe-row]');
+            var cant = row && row.querySelector('input[type="number"]');
+            if (cant) cant.focus();
+        }
+
+        // Fila ya guardada: refleja de entrada su unidad y su estado.
+        if (hidden.value && search.value) {
+            marcarFila(combo, search.value);
         }
 
         function optionEls() {
@@ -104,6 +136,7 @@
 
         search.addEventListener('input', function () {
             hidden.value = '';
+            marcarFila(combo, '');
             open();
         });
 
@@ -159,6 +192,7 @@
                 if (exact) {
                     hidden.value = exact.value;
                     search.value = exact.label;
+                    marcarFila(combo, exact.label);
                 }
             }
         });

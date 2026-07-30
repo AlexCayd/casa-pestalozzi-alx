@@ -173,7 +173,8 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
     FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE CASCADE,
   UNIQUE KEY uq_reservacion_mesa  (reservacion_id, mesa_id),
   UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
-  INDEX idx_rm_mesa (mesa_id)
+  INDEX idx_rm_mesa (mesa_id),
+  INDEX idx_rm_reservacion (reservacion_id)
 );
 
 -- -------------------------------------------------------
@@ -189,6 +190,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   closed_at          DATETIME NULL,
+  -- Momento del cobro usado por analítica y finanzas.
+  hora_cierre        DATETIME NULL,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
   propina            DECIMAL(8,2) NOT NULL DEFAULT 0,
@@ -219,15 +222,46 @@ CREATE TABLE IF NOT EXISTS ticket_mesas (
 );
 
 
+-- MENÚ / PRODUCTOS — fuente única de los platillos.
+--
+-- Antes existían dos tablas con los mismos platillos: `menu` (carta pública y
+-- PDF) y `productos` (inventario, COGS, ruteo por área). El único enlace entre
+-- ellas era el nombre en texto plano, y un tercer menú vivía escrito a mano en
+-- src/js/data/menu-data.js para el punto de venta. Ahora todo sale de aquí.
+--
+-- El UNIQUE sobre `nombre` es lo que sostiene el enlace por nombre que usan
+-- Inventario::aplicarVenta, el COGS de Finanzas y las sugerencias: un nombre
+-- duplicado rompía el descuento de stock sin dar ningún error.
 CREATE TABLE IF NOT EXISTS productos (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre       VARCHAR(120) NOT NULL,
+  -- La validación de Producto la exige en altas nuevas; permanece nullable
+  -- para aceptar catálogos históricos durante la transición.
+  descripcion  TEXT NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
+  tag          VARCHAR(60) NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_productos_nombre (nombre),
+  KEY idx_productos_cat_activo (categoria_id, activo),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+);
+
+-- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
+-- La aplicación usa `productos` como fuente funcional; esta tabla permite
+-- conservar datos descriptivos históricos durante la transición.
+CREATE TABLE IF NOT EXISTS menu (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  descripcion  TEXT NOT NULL,
+  precio       DECIMAL(10,2) NOT NULL,
+  tag          VARCHAR(60) NULL,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  categoria_id INT NOT NULL,
+  UNIQUE KEY uq_menu_nombre (nombre),
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_items (
@@ -346,20 +380,8 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- -------------------------------------------------------
--- MENÚ
--- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS menu (
-  id           INT AUTO_INCREMENT PRIMARY KEY,
-  nombre       VARCHAR(100) NOT NULL,
-  descripcion  TEXT NOT NULL,
-  precio       DECIMAL(10,2) NOT NULL,
-  tag          VARCHAR(60),
-  activo       TINYINT(1) NOT NULL DEFAULT 1,
-  categoria_id INT NOT NULL,
-  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
-);
+-- `productos` es la fuente funcional única. La tabla `menu` anterior se
+-- conserva únicamente como compatibilidad de datos durante la transición.
 
 -- -------------------------------------------------------
 -- FEEDBACK

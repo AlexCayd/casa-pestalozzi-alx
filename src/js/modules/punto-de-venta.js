@@ -36,6 +36,9 @@ function initMapa() {
   var sugTicket           = null; // ticket dueño de las sugerencias en pantalla
   var sugEtapa            = '';   // etapa de la comida que detectó n8n
   var sugTimer            = null;
+  // Ya se pidieron sugerencias para el ticket abierto: evita que la pestaña de
+  // móvil vuelva a lanzar la consulta cada vez que se toca.
+  var sugPedidas          = false;
   var sugComensalesCount  = 0;
 
   // n8n decide la etapa (ENTRADAS/DESARROLLO/CIERRE) con el tiempo de la mesa
@@ -138,7 +141,9 @@ function initMapa() {
     receipt: '<path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
-    card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'
+    card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+    star:    '<path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.2l5.9-.9Z"/>'
   };
 
   function svgIcon(name, size) {
@@ -257,6 +262,7 @@ function initMapa() {
     sugTicket = ticket;
 
     if (!silencioso) {
+      sugPedidas  = true;
       SUGERENCIAS = [];
       sugCola     = [];
       if (!opts.conservarVistos) sugVistos = [];
@@ -325,6 +331,8 @@ function initMapa() {
   function sugTimerStart(ticket) {
     sugTimerStop();
     sugTimer = setInterval(function() {
+      if (document.hidden) return;
+      if (!modal || !modal.classList.contains('mesa-modal--open')) { sugTimerStop(); return; }
       if (!sugTicket || sugTicket.id !== ticket.id) { sugTimerStop(); return; }
       cargarSugerencias(ticket, { silencioso: true });
     }, SUG_REFRESCO);
@@ -332,6 +340,32 @@ function initMapa() {
 
   function sugTimerStop() {
     if (sugTimer) { clearInterval(sugTimer); sugTimer = null; }
+  }
+
+  /**
+   * Deja el panel listo para pedir sugerencias SIN llamar a n8n.
+   *
+   * Abrir una mesa no debe disparar el webhook: el servidor de desarrollo
+   * (php -S) atiende una petición a la vez, así que esos hasta 8 s de techo
+   * bloqueaban a /api/ticket-items, que es lo único que el mesero necesita ver
+   * de inmediato. Regla: una llamada a n8n por intención explícita.
+   */
+  function prepararSugerencias(ticket) {
+    sugTicket   = ticket;
+    SUGERENCIAS = [];
+    sugCola     = [];
+    sugVistos   = [];
+    sugEtapa    = '';
+    sugPedidas  = false;
+    sugTimerStop();
+    // El botón del estado ocioso ya está en el DOM; sin sugTicket no responde.
+    bindSugMore();
+  }
+
+  /** Una sola carga automática por apertura de modal (pestaña de móvil). */
+  function asegurarSugerencias(ticket) {
+    if (sugPedidas || !ticket) return;
+    cargarSugerencias(ticket);
   }
 
   // vacioTexto: al cargar aún no hubo sugerencias; tras los swaps, ya se agotaron.
@@ -986,6 +1020,9 @@ function initMapa() {
     modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
     modal.classList.add('mesa-modal--open');
     document.body.style.overflow = 'hidden';
+    // Detrás del modal no se ve el mapa, y el sondeo de 30 s compite por el
+    // único hilo del servidor de desarrollo. Se reanuda al cerrar.
+    stopPolling();
     bindModalActions(mesa, reserva, ticket);
   }
 
@@ -1021,22 +1058,310 @@ function initMapa() {
     document.body.style.overflow = '';
     sugTimerStop();
     sugTicket = null;
+    sugPedidas = false;
+    startPolling();
+    // Puesta al día de golpe: recupera lo que no se refrescó con el modal abierto.
+    silentRefresh();
   }
 
   // Panel operativo de reservaciones: permanece dentro del POS y no mezcla
   // walk-ins, porque éstos sólo existen como tickets abiertos.
 
-  // Preset de layout del modal de comanda (ancho de columnas), persistido.
-  var POS_LAYOUT_KEY = 'cp-pos-modal-layout';
-  var POS_LAYOUTS = ['menu', 'balanced', 'compact'];
-  function getPosLayout() {
-    try {
-      var v = localStorage.getItem(POS_LAYOUT_KEY);
-      return POS_LAYOUTS.indexOf(v) !== -1 ? v : 'balanced';
-    } catch (e) { return 'balanced'; }
+  // ── Preferencias del modal, por mesero ────────────────────
+  //
+  // La clave lleva el id de usuario porque la tablet es compartida: sin eso
+  // cada mesero heredaba la configuración del turno anterior. Se guarda en
+  // localStorage (no en la BD) para que funcione sin red y sin latencia; si
+  // algún día hace falta que el setup siga al mesero entre tablets, se sube a
+  // una tabla `usuario_preferencias` sin tocar esta interfaz.
+  var POS_PREFS_BASE = 'cp-pos-prefs';
+  var POS_LEGACY_LAYOUT_KEY = 'cp-pos-modal-layout';
+
+  var POS_OPCIONES = {
+    layout:    ['menu', 'balanced', 'compact'],
+    densidad:  ['comoda', 'compacta'],
+    texto:     ['s', 'm', 'l'],
+    toque:     ['normal', 'grande'],
+    vistaMenu: ['grid', 'lista'],
+    columnas:  ['2', '3', '4']
+  };
+
+  var POS_PREFS_DEFAULT = {
+    layout: 'balanced',
+    densidad: 'comoda',
+    texto: 'm',
+    toque: 'normal',
+    vistaMenu: 'grid',
+    columnas: '3',
+    verSugerencias: true,
+    verTicket: true,
+    // Orden de las 4 columnas del modal por su clave.
+    orden: ['menu', 'cart', 'resumen', 'sugerencias'],
+    categoriaInicial: 0,
+    favoritos: []
+  };
+
+  var POS_PANELES = {
+    menu:        { label: 'Menú' },
+    cart:        { label: 'Pedido' },
+    resumen:     { label: 'Estado del ticket' },
+    sugerencias: { label: 'Sugerencias' }
+  };
+
+  function posPrefsKey() {
+    var uid = (window.CP_USER && window.CP_USER.id) ? window.CP_USER.id : 'anon';
+    return POS_PREFS_BASE + ':' + uid;
   }
-  function setPosLayout(v) {
-    try { localStorage.setItem(POS_LAYOUT_KEY, v); } catch (e) {}
+
+  var posPrefs = null;
+
+  function getPosPrefs() {
+    if (posPrefs) return posPrefs;
+
+    var guardado = {};
+    try {
+      guardado = JSON.parse(localStorage.getItem(posPrefsKey()) || '{}') || {};
+    } catch (e) { guardado = {}; }
+
+    posPrefs = {};
+    for (var k in POS_PREFS_DEFAULT) {
+      if (POS_PREFS_DEFAULT.hasOwnProperty(k)) posPrefs[k] = POS_PREFS_DEFAULT[k];
+    }
+
+    // Solo se aceptan valores conocidos: una preferencia corrupta no debe
+    // dejar el POS en un estado que el mesero no pueda deshacer.
+    for (var key in POS_OPCIONES) {
+      if (POS_OPCIONES.hasOwnProperty(key) &&
+          POS_OPCIONES[key].indexOf(guardado[key]) !== -1) {
+        posPrefs[key] = guardado[key];
+      }
+    }
+    if (typeof guardado.verSugerencias === 'boolean') posPrefs.verSugerencias = guardado.verSugerencias;
+    if (typeof guardado.verTicket === 'boolean') posPrefs.verTicket = guardado.verTicket;
+    if (typeof guardado.categoriaInicial === 'number' && guardado.categoriaInicial >= 0) {
+      posPrefs.categoriaInicial = guardado.categoriaInicial;
+    }
+    if (Object.prototype.toString.call(guardado.favoritos) === '[object Array]') {
+      posPrefs.favoritos = guardado.favoritos.filter(function (n) { return typeof n === 'string'; });
+    }
+    if (Object.prototype.toString.call(guardado.orden) === '[object Array]') {
+      var limpio = guardado.orden.filter(function (p) { return POS_PANELES.hasOwnProperty(p); });
+      // Se completa con los que falten para no perder ningún panel.
+      POS_PREFS_DEFAULT.orden.forEach(function (p) {
+        if (limpio.indexOf(p) === -1) limpio.push(p);
+      });
+      posPrefs.orden = limpio;
+    }
+
+    // Migración del ajuste anterior, que era global y no por mesero.
+    try {
+      var viejo = localStorage.getItem(POS_LEGACY_LAYOUT_KEY);
+      if (viejo && !guardado.layout && POS_OPCIONES.layout.indexOf(viejo) !== -1) {
+        posPrefs.layout = viejo;
+      }
+    } catch (e) {}
+
+    return posPrefs;
+  }
+
+  function setPosPref(clave, valor) {
+    var prefs = getPosPrefs();
+    prefs[clave] = valor;
+    try { localStorage.setItem(posPrefsKey(), JSON.stringify(prefs)); } catch (e) {}
+    aplicarPosPrefs();
+  }
+
+  /**
+   * Vuelca las preferencias a atributos data- sobre .mmodal-panels. Toda la
+   * variación es CSS: el JS no vuelve a renderizar nada.
+   */
+  function aplicarPosPrefs() {
+    var panels = modalContent ? modalContent.querySelector('.mmodal-panels') : null;
+    if (!panels) return;
+
+    var p = getPosPrefs();
+    panels.setAttribute('data-layout', p.layout);
+    panels.setAttribute('data-densidad', p.densidad);
+    panels.setAttribute('data-texto', p.texto);
+    panels.setAttribute('data-toque', p.toque);
+    panels.setAttribute('data-vista-menu', p.vistaMenu);
+    panels.setAttribute('data-columnas', p.columnas);
+    panels.setAttribute('data-ocultos',
+      (p.verTicket ? '' : 'resumen ') + (p.verSugerencias ? '' : 'sugerencias'));
+
+    // El orden se aplica con `order`; el DOM no se toca.
+    p.orden.forEach(function (clave, i) {
+      var el = panels.querySelector('#mmodal-panel-' + clave);
+      if (el) el.style.order = String(i);
+    });
+  }
+
+  function moverPanel(clave, delta) {
+    var p = getPosPrefs();
+    var orden = p.orden.slice();
+    var i = orden.indexOf(clave);
+    var j = i + delta;
+    if (i === -1 || j < 0 || j >= orden.length) return;
+    orden[i] = orden[j];
+    orden[j] = clave;
+    setPosPref('orden', orden);
+  }
+
+  function esFavorito(nombre) {
+    return getPosPrefs().favoritos.indexOf(nombre) !== -1;
+  }
+
+  function toggleFavorito(nombre) {
+    var favs = getPosPrefs().favoritos.slice();
+    var i = favs.indexOf(nombre);
+    if (i === -1) favs.push(nombre); else favs.splice(i, 1);
+    setPosPref('favoritos', favs);
+  }
+
+  /** Categoría virtual "Favoritos" al frente de las pestañas del menú. */
+  function categoriasConFavoritos() {
+    var base = window.CP_MENU || [];
+    var favs = getPosPrefs().favoritos;
+    if (!favs.length) return base;
+
+    var platillos = [];
+    for (var i = 0; i < base.length; i++) {
+      var dishes = base[i].dishes || [];
+      for (var j = 0; j < dishes.length; j++) {
+        if (favs.indexOf(dishes[j].n) !== -1) platillos.push(dishes[j]);
+      }
+    }
+    if (!platillos.length) return base;
+
+    return [{ id: -1, label: '★ Favoritos', dishes: platillos }].concat(base);
+  }
+
+  /**
+   * Cuerpo del panel de ajustes. Se inyecta en #pos-prefs-panel, el contenedor
+   * que emite pos-workspace.php: ese nodo lleva ya la clase .mmodal-prefs, así
+   * que aquí solo se devuelven los grupos.
+   */
+  function panelAjustesHtml() {
+    var p = getPosPrefs();
+
+    function grupo(titulo, clave, opciones) {
+      var s = '<div class="mmodal-prefs__row"><span class="mmodal-prefs__label">' + titulo + '</span>' +
+              '<div class="mmodal-prefs__opts">';
+      for (var i = 0; i < opciones.length; i++) {
+        var activo = p[clave] === opciones[i][0] ? ' is-active' : '';
+        s += '<button type="button" class="mmodal-prefs__opt' + activo + '" ' +
+             'data-pref="' + clave + '" data-val="' + opciones[i][0] + '">' + opciones[i][1] + '</button>';
+      }
+      return s + '</div></div>';
+    }
+
+    function interruptor(titulo, clave) {
+      return '<div class="mmodal-prefs__row"><span class="mmodal-prefs__label">' + titulo + '</span>' +
+             '<div class="mmodal-prefs__opts">' +
+             '<button type="button" class="mmodal-prefs__opt' + (p[clave] ? ' is-active' : '') + '" ' +
+             'data-pref-bool="' + clave + '" data-val="1">Mostrar</button>' +
+             '<button type="button" class="mmodal-prefs__opt' + (!p[clave] ? ' is-active' : '') + '" ' +
+             'data-pref-bool="' + clave + '" data-val="0">Ocultar</button>' +
+             '</div></div>';
+    }
+
+    var h = '';
+
+    h += '<div class="mmodal-prefs__group"><h4>Layout y densidad</h4>';
+    h += grupo('Columnas', 'layout', [['menu', 'Menú amplio'], ['balanced', 'Equilibrado'], ['compact', 'Compacto']]);
+    h += grupo('Densidad', 'densidad', [['comoda', 'Cómoda'], ['compacta', 'Compacta']]);
+    h += grupo('Texto', 'texto', [['s', 'A-'], ['m', 'A'], ['l', 'A+']]);
+    h += grupo('Botones', 'toque', [['normal', 'Normal'], ['grande', 'Grandes']]);
+    h += '</div>';
+
+    h += '<div class="mmodal-prefs__group"><h4>Paneles</h4>';
+    h += interruptor('Estado del ticket', 'verTicket');
+    h += interruptor('Sugerencias', 'verSugerencias');
+    h += '<div class="mmodal-prefs__orden">';
+    for (var i = 0; i < p.orden.length; i++) {
+      var clave = p.orden[i];
+      h += '<div class="mmodal-prefs__orden-item">' +
+             '<span>' + POS_PANELES[clave].label + '</span>' +
+             '<span class="mmodal-prefs__orden-btns">' +
+               '<button type="button" data-mover="' + clave + '" data-dir="-1" aria-label="Subir"' +
+                 (i === 0 ? ' disabled' : '') + '>↑</button>' +
+               '<button type="button" data-mover="' + clave + '" data-dir="1" aria-label="Bajar"' +
+                 (i === p.orden.length - 1 ? ' disabled' : '') + '>↓</button>' +
+             '</span>' +
+           '</div>';
+    }
+    h += '</div></div>';
+
+    h += '<div class="mmodal-prefs__group"><h4>Vista del menú</h4>';
+    h += grupo('Presentación', 'vistaMenu', [['grid', 'Cuadrícula'], ['lista', 'Lista']]);
+    h += grupo('Columnas de platillos', 'columnas', [['2', '2'], ['3', '3'], ['4', '4']]);
+    h += '<p class="mmodal-prefs__hint">Marca la estrella de un platillo para tenerlo en Favoritos.</p>';
+    h += '</div>';
+
+    h += '<div class="mmodal-prefs__foot">' +
+           '<button type="button" class="mmodal-prefs__reset" id="mmodal-prefs-reset">Restablecer</button>' +
+         '</div>';
+
+    return h;
+  }
+
+  function resetPosPrefs() {
+    try { localStorage.removeItem(posPrefsKey()); } catch (e) {}
+    posPrefs = null;
+    aplicarPosPrefs();
+  }
+
+  // ── Overlay de ajustes (fuera del modal de mesa) ───────────
+  var prefsOverlay = null;
+  var prefsPanel   = null;
+  var prefsToggle  = null;
+
+  /** (Re)pinta el cuerpo del panel y lo vuelve a enlazar. */
+  function renderPrefsPanel() {
+    if (!prefsPanel) return;
+    prefsPanel.innerHTML = panelAjustesHtml();
+    bindPreferencias();
+  }
+
+  function prefsAbierto() {
+    return !!prefsOverlay && !prefsOverlay.hidden;
+  }
+
+  function abrirPrefs() {
+    if (!prefsOverlay) return;
+    renderPrefsPanel();
+    prefsOverlay.hidden = false;
+    if (prefsToggle) {
+      prefsToggle.setAttribute('aria-expanded', 'true');
+      prefsToggle.classList.add('is-active');
+    }
+  }
+
+  function cerrarPrefs() {
+    if (!prefsOverlay) return;
+    prefsOverlay.hidden = true;
+    if (prefsToggle) {
+      prefsToggle.setAttribute('aria-expanded', 'false');
+      prefsToggle.classList.remove('is-active');
+      prefsToggle.focus();
+    }
+  }
+
+  /** Se enlaza UNA vez: el overlay vive fuera del modal y no se destruye. */
+  function initPrefsOverlay() {
+    prefsOverlay = document.getElementById('pos-prefs-overlay');
+    prefsPanel   = document.getElementById('pos-prefs-panel');
+    prefsToggle  = document.getElementById('pos-prefs-toggle');
+    if (!prefsOverlay || !prefsPanel || !prefsToggle) return;
+
+    prefsToggle.addEventListener('click', function() {
+      if (prefsAbierto()) cerrarPrefs(); else abrirPrefs();
+    });
+
+    var bd = document.getElementById('pos-prefs-bd');
+    var cl = document.getElementById('pos-prefs-close');
+    if (bd) bd.addEventListener('click', cerrarPrefs);
+    if (cl) cl.addEventListener('click', cerrarPrefs);
   }
 
   function buildModalContent(mesa, estado, reserva, ticket) {
@@ -1092,17 +1417,12 @@ function initMapa() {
       h += '<button class="mmodal-tab" data-tab="sugerencias">Sugerencias</button>';
       h += '</div>';
 
-      // ── Presets de layout (solo desktop, 4 columnas) ──────
-      var lay = getPosLayout();
-      h += '<div class="mmodal-layout-presets" role="group" aria-label="Diseño de columnas">';
-      h += '<span class="mmodal-layout-presets__label">Vista</span>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'menu' ? ' is-active' : '') + '" data-pos-layout="menu">Menú amplio</button>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'balanced' ? ' is-active' : '') + '" data-pos-layout="balanced">Equilibrado</button>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'compact' ? ' is-active' : '') + '" data-pos-layout="compact">Compacto</button>';
-      h += '</div>';
+      // Los ajustes viven en el engranaje del header (#pos-prefs-overlay), no
+      // aquí: este nodo se reescribe entero en cada apertura de mesa.
+      var prefs = getPosPrefs();
 
       // ── Panels wrapper (4 cols en desktop) ────────────────
-      h += '<div class="mmodal-panels" data-layout="' + lay + '">';
+      h += '<div class="mmodal-panels" data-layout="' + prefs.layout + '">';
 
       // ── Panel 1: Menú ──────────────────────────────────────
       h += '<div id="mmodal-panel-menu" class="mmodal-tab-panel mmodal-tab-panel--active">';
@@ -1128,12 +1448,12 @@ function initMapa() {
       // Bloques de categoría (grid)
       h += '<div class="mmodal-section-label" id="mmodal-cats-label">Categoría</div>';
       h += '<div class="mmodal-cat-grid" id="mmodal-cats">';
-      if (window.CP_MENU && window.CP_MENU.length) {
-        for (var mi = 0; mi < window.CP_MENU.length; mi++) {
-          var mcat = window.CP_MENU[mi];
-          h += '<button class="mmodal-cat-block' + (mi === 0 ? ' mmodal-cat-block--active' : '') +
-               '" data-idx="' + mi + '">' + escHtml(mcat.label) + '</button>';
-        }
+      var catsMenu = categoriasConFavoritos();
+      var catInicial = prefs.categoriaInicial;
+      if (catInicial < 0 || catInicial >= catsMenu.length) catInicial = 0;
+      for (var mi = 0; mi < catsMenu.length; mi++) {
+        h += '<button class="mmodal-cat-block' + (mi === catInicial ? ' mmodal-cat-block--active' : '') +
+             '" data-idx="' + mi + '">' + escHtml(catsMenu[mi].label) + '</button>';
       }
       h += '</div>';
       h += '<div class="mmodal-dishes" id="mmodal-dishes"></div>';
@@ -1180,7 +1500,9 @@ function initMapa() {
       h += '<div id="mmodal-panel-sugerencias" class="mmodal-tab-panel">';
       h += '<div class="mmodal-panel-label">Sugerencias</div>';
       h += '<div class="mmodal-panel-scroll" id="mmodal-sug-list">';
-      h += sugEstadoHtml('Buscando sugerencias…', '⟳');
+      // Estado ocioso: no se pide nada hasta que el mesero lo pida (ver
+      // prepararSugerencias). El botón lo enlaza bindSugMore.
+      h += sugAccionHtml('Recomienda algo a esta mesa', '✨', 'Buscar sugerencias');
       h += '</div>'; // fin panel-scroll
       h += '</div>'; // fin panel-sugerencias
 
@@ -1286,6 +1608,22 @@ function initMapa() {
         '</div>' +
         '<span class="mmodal-dish-price">$' + dish.p + '</span>';
 
+      // Estrella de favorito: alimenta la categoría virtual "★ Favoritos".
+      var favBtn = document.createElement('button');
+      favBtn.className = 'mmodal-dish-fav' + (esFavorito(dish.n) ? ' is-on' : '');
+      favBtn.innerHTML = svgIcon('star', 14);
+      favBtn.setAttribute('aria-pressed', esFavorito(dish.n) ? 'true' : 'false');
+      favBtn.setAttribute('aria-label', 'Marcar ' + dish.n + ' como favorito');
+      (function(d, btn) {
+        btn.addEventListener('click', function(ev) {
+          ev.stopPropagation();
+          toggleFavorito(d.n);
+          btn.classList.toggle('is-on');
+          btn.setAttribute('aria-pressed', btn.classList.contains('is-on') ? 'true' : 'false');
+        });
+      })(dish, favBtn);
+      row.appendChild(favBtn);
+
       var addBtn = document.createElement('button');
       addBtn.className   = 'mmodal-dish-add';
       addBtn.textContent = '+';
@@ -1318,7 +1656,8 @@ function initMapa() {
       if (catsGrid)  catsGrid.style.display  = '';
       var activo = catsGrid ? catsGrid.querySelector('.mmodal-cat-block--active') : null;
       var idx = activo ? parseInt(activo.dataset.idx, 10) : 0;
-      if (window.CP_MENU && window.CP_MENU[idx]) renderCategoryDishes(window.CP_MENU[idx]);
+      var catsBusq = categoriasConFavoritos();
+      if (catsBusq[idx]) renderCategoryDishes(catsBusq[idx]);
       return;
     }
 
@@ -1606,13 +1945,42 @@ function initMapa() {
     }
   }
 
+  // ── Caché de los ítems del ticket ─────────────────────────
+  // La misma cuenta se pedía en cada cambio de pestaña y en cada paso del
+  // cierre. Se guarda la última respuesta por ticket y se invalida al enviar
+  // comanda, entregar o cancelar.
+  //
+  // El TTL corto existe porque las áreas de producción marcan entregas desde
+  // otra pantalla: sin él, el mesero podría ver un estado viejo. Los pasos de
+  // cobro piden refresco forzado, porque ahí el total tiene que ser exacto.
+  var TICKET_ITEMS_TTL = 15000;
+  var ticketItemsCache = {};
+
+  function cargarTicketItems(ticketId, forzar) {
+    var hit = ticketItemsCache[ticketId];
+    if (!forzar && hit && (Date.now() - hit.ts) < TICKET_ITEMS_TTL) {
+      return Promise.resolve(hit.data);
+    }
+    return fetch('/api/ticket-items?ticket_id=' + ticketId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.ok) ticketItemsCache[ticketId] = { ts: Date.now(), data: data };
+        return data;
+      });
+  }
+
+  function invalidarTicketItems(ticketId) {
+    delete ticketItemsCache[ticketId];
+  }
+
   function renderResumen(ticketId) {
     var resumenEl = modalContent.querySelector('#mmodal-resumen-content');
     if (!resumenEl) return;
-    resumenEl.innerHTML = '<div class="mmodal-cart-empty">Cargando…</div>';
+    if (!ticketItemsCache[ticketId]) {
+      resumenEl.innerHTML = '<div class="mmodal-cart-empty">Cargando…</div>';
+    }
 
-    fetch('/api/ticket-items?ticket_id=' + ticketId)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticketId, false)
       .then(function(data) {
         if (!data.ok || !data.items || !data.items.length) {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span><span>Sin comandas enviadas aún</span></div>';
@@ -1724,17 +2092,105 @@ function initMapa() {
       });
   }
 
+  /**
+   * Enlaza los controles del panel de ajustes. La raíz es #pos-prefs-panel, no
+   * el modal: el panel vive en el overlay del header y sobrevive a las
+   * reescrituras de #mesa-modal-content.
+   */
+  function bindPreferencias() {
+    if (!prefsPanel) return;
+
+    function marcarActivo(btn, selector) {
+      var hermanos = prefsPanel.querySelectorAll(selector);
+      for (var k = 0; k < hermanos.length; k++) hermanos[k].classList.remove('is-active');
+      btn.classList.add('is-active');
+    }
+
+    // Opciones de valor (layout, densidad, texto, toque, vista, columnas).
+    var opts = prefsPanel.querySelectorAll('[data-pref]');
+    for (var i = 0; i < opts.length; i++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var clave = btn.getAttribute('data-pref');
+          setPosPref(clave, btn.getAttribute('data-val'));
+          marcarActivo(btn, '[data-pref="' + clave + '"]');
+          if (clave === 'vistaMenu' || clave === 'columnas') renderCategoriaActual();
+        });
+      })(opts[i]);
+    }
+
+    // Mostrar/ocultar paneles.
+    var bools = prefsPanel.querySelectorAll('[data-pref-bool]');
+    for (var b = 0; b < bools.length; b++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var clave = btn.getAttribute('data-pref-bool');
+          setPosPref(clave, btn.getAttribute('data-val') === '1');
+          marcarActivo(btn, '[data-pref-bool="' + clave + '"]');
+        });
+      })(bools[b]);
+    }
+
+    // Reordenar columnas: se repinta el panel para refrescar el orden y los
+    // botones que ya llegaron al tope.
+    var movers = prefsPanel.querySelectorAll('[data-mover]');
+    for (var m = 0; m < movers.length; m++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          moverPanel(btn.getAttribute('data-mover'), parseInt(btn.getAttribute('data-dir'), 10));
+          renderPrefsPanel();
+          aplicarPosPrefs();
+        });
+      })(movers[m]);
+    }
+
+    var reset = prefsPanel.querySelector('#mmodal-prefs-reset');
+    if (reset) {
+      reset.addEventListener('click', function() {
+        resetPosPrefs();
+        renderPrefsPanel();
+        aplicarPosPrefs();
+        renderCategoriaActual();
+      });
+    }
+
+    aplicarPosPrefs();
+  }
+
+  /** Repinta la categoría abierta (tras cambiar vista o favoritos). */
+  function renderCategoriaActual() {
+    // Alcanzable desde el panel de ajustes, que se puede abrir sin ninguna
+    // mesa en pantalla.
+    if (!modalContent || !modalContent.querySelector('#mmodal-dishes')) return;
+    var activa = modalContent.querySelector('.mmodal-cat-block--active');
+    var cats = categoriasConFavoritos();
+    var idx = activa ? parseInt(activa.dataset.idx, 10) : 0;
+    if (cats[idx]) renderCategoryDishes(cats[idx]);
+  }
+
   function bindTabsAndComanda(mesa, ticket) {
     // Bloques de categoría (grid)
     var catTabs = modalContent.querySelectorAll('.mmodal-cat-block');
-    if (catTabs.length && window.CP_MENU && window.CP_MENU.length) {
-      renderCategoryDishes(window.CP_MENU[0]);
+    var cats = categoriasConFavoritos();
+    if (catTabs.length && cats.length) {
+      var inicial = getPosPrefs().categoriaInicial;
+      if (inicial < 0 || inicial >= cats.length) inicial = 0;
+      renderCategoryDishes(cats[inicial]);
+      for (var k0 = 0; k0 < catTabs.length; k0++) {
+        catTabs[k0].classList.toggle('mmodal-cat-block--active',
+          parseInt(catTabs[k0].dataset.idx, 10) === inicial);
+      }
       for (var i = 0; i < catTabs.length; i++) {
         (function(tab) {
           tab.addEventListener('click', function() {
             for (var k = 0; k < catTabs.length; k++) catTabs[k].classList.remove('mmodal-cat-block--active');
             tab.classList.add('mmodal-cat-block--active');
-            renderCategoryDishes(window.CP_MENU[parseInt(tab.dataset.idx, 10)]);
+            renderCategoryDishes(categoriasConFavoritos()[parseInt(tab.dataset.idx, 10)]);
+          });
+          // Mantener pulsado fija la categoría de arranque del mesero.
+          tab.addEventListener('contextmenu', function(ev) {
+            ev.preventDefault();
+            setPosPref('categoriaInicial', parseInt(tab.dataset.idx, 10));
           });
         })(catTabs[i]);
       }
@@ -1776,7 +2232,13 @@ function initMapa() {
       if (targetTab.dataset.tab === 'menu')         panel = panelMenu;
       if (targetTab.dataset.tab === 'cart')         panel = panelCart;
       if (targetTab.dataset.tab === 'resumen')      { panel = panelResumen; renderResumen(ticket.id); }
-      if (targetTab.dataset.tab === 'sugerencias')  panel = panelSugerencias;
+      if (targetTab.dataset.tab === 'sugerencias')  {
+        panel = panelSugerencias;
+        // La pestaña solo existe en móvil (.mmodal-tabs se oculta ≥768px), así
+        // que tocarla ES la intención explícita. En escritorio la columna se ve
+        // desde el inicio y ahí manda el botón del estado ocioso.
+        if (window.innerWidth < 768) asegurarSugerencias(ticket);
+      }
       if (panel) panel.classList.add('mmodal-tab-panel--active');
     }
 
@@ -1786,20 +2248,9 @@ function initMapa() {
       })(mainTabs[ti]);
     }
 
-    // Presets de layout: ajustan el ancho de las columnas y se recuerdan.
-    var layoutBtns = modalContent.querySelectorAll('.mmodal-layout-btn');
-    var panelsWrap = modalContent.querySelector('.mmodal-panels');
-    for (var li = 0; li < layoutBtns.length; li++) {
-      (function(btn) {
-        btn.addEventListener('click', function() {
-          var val = btn.dataset.posLayout;
-          if (panelsWrap) panelsWrap.setAttribute('data-layout', val);
-          for (var k = 0; k < layoutBtns.length; k++) layoutBtns[k].classList.remove('is-active');
-          btn.classList.add('is-active');
-          setPosLayout(val);
-        });
-      })(layoutBtns[li]);
-    }
+    // El panel de ajustes se enlaza aparte (vive en el header). Aquí basta con
+    // volcar las preferencias sobre las columnas recién construidas.
+    aplicarPosPrefs();
 
     // Botón "Confirmar y enviar" → envío directo (col 2 ya es el preview)
     var enviarBtn = modalContent.querySelector('#mmodal-enviar');
@@ -1817,8 +2268,9 @@ function initMapa() {
       renderResumen(ticket.id);
     }
 
-    // Sugerencias: el modal ya está en el DOM, se piden a n8n
-    cargarSugerencias(ticket);
+    // Sugerencias: NO se piden al abrir. Abrir la mesa deja exactamente una
+    // petición en vuelo (/api/ticket-items), que es lo que el mesero espera ver.
+    prepararSugerencias(ticket);
   }
 
   // ── Bind de acciones del modal ────────────────────────────
@@ -1972,8 +2424,7 @@ function initMapa() {
     h += '<div class="mmodal-cerrar-confirm"><p class="mmodal-cerrar-confirm__sub">Cargando la cuenta…</p></div>';
     modalContent.innerHTML = h;
 
-    fetch('/api/ticket-items?ticket_id=' + ticket.id)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticket.id, true)
       .then(function(data) {
         renderPagoCompleto(mesa, ticket, (data.ok && data.items) ? data.items : []);
       })
@@ -2110,8 +2561,7 @@ function initMapa() {
     h += '</div>';
     modalContent.innerHTML = h;
 
-    fetch('/api/ticket-items?ticket_id=' + ticket.id)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticket.id, true)
       .then(function(data) {
         renderPagoDividido(mesa, ticket, metodoDefault, (data.ok && data.items) ? data.items : []);
       })
@@ -2685,6 +3135,7 @@ function initMapa() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        invalidarTicketItems(ticketId);
         // Antes de limpiar el carrito: cerrar el ciclo de lo que se sugirió
         // y pasar la siguiente recomendación.
         avanzarSugerenciasEnviadas(commandaItems);
@@ -2710,7 +3161,12 @@ function initMapa() {
       body:    JSON.stringify({ item_id: itemId })
     })
     .then(function(r) { return r.json(); })
-    .then(function(result) { if (result.ok) renderResumen(ticketId); });
+    .then(function(result) {
+      if (result.ok) {
+        invalidarTicketItems(ticketId);
+        renderResumen(ticketId);
+      }
+    });
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {
@@ -2742,8 +3198,12 @@ function initMapa() {
     })
     .then(function(r) { return r.json(); })
     .then(function(result) {
-      if (result.ok) renderResumen(ticketId);
-      else alert(result.msg || 'No se pudo cancelar el platillo');
+      if (result.ok) {
+        invalidarTicketItems(ticketId);
+        renderResumen(ticketId);
+      } else {
+        alert(result.msg || 'No se pudo cancelar el platillo');
+      }
     })
     .catch(function() { alert('Error de conexión'); });
   }
@@ -2775,7 +3235,10 @@ function initMapa() {
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
       reservasList.innerHTML =
-        '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
+        '<div class="mapa-empty-state">' +
+          '<span class="mapa-empty-icon" aria-hidden="true"><span class="mapa-empty-spinner"></span></span>' +
+          '<span class="mapa-empty-title">Cargando reservaciones…</span>' +
+        '</div>';
     }
     fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha))
       .then(function(res) { return res.json(); })
@@ -2784,8 +3247,9 @@ function initMapa() {
           if (!silent) {
             reservasList.innerHTML =
               '<div class="mapa-empty-state mapa-empty-state--error">' +
-                '<span class="mapa-empty-icon">⚠</span>' +
-                '<span>' + (data.hint || data.error || 'Error de servidor') + '</span>' +
+                '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+                '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
+                '<span class="mapa-empty-hint">' + (data.hint || data.error || 'Error de servidor') + '</span>' +
               '</div>';
             if (loadingEl) loadingEl.classList.add('hidden');
           }
@@ -2811,7 +3275,9 @@ function initMapa() {
         if (!silent) {
           reservasList.innerHTML =
             '<div class="mapa-empty-state mapa-empty-state--error">' +
-              '<span class="mapa-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
+              '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+              '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
+              '<span class="mapa-empty-hint">Revisa la conexión e inténtalo de nuevo.</span>' +
             '</div>';
           if (loadingEl) loadingEl.classList.add('hidden');
         }
@@ -2819,17 +3285,28 @@ function initMapa() {
   }
 
   function silentRefresh() {
+    // Con la tablet en otra app o con la pantalla bloqueada no hay nadie
+    // mirando el mapa: refrescar solo gasta batería y datos.
+    if (document.hidden) return;
     fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), true);
   }
 
   // ── Polling en tiempo real (cada 30 s) ────────────────────
   function startPolling() {
     stopPolling();
+    // Guarda para que activateLive() no reviva el sondeo con el modal abierto.
+    if (modal && modal.classList.contains('mesa-modal--open')) return;
     pollTimer = setInterval(silentRefresh, 30000);
   }
   function stopPolling() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
+
+  // Al volver a la pestaña, ponerse al día de inmediato en vez de esperar
+  // hasta 30 s al siguiente tick.
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && pollTimer) silentRefresh();
+  });
 
   // ── Modo en vivo ──────────────────────────────────────────
   function syncLive() {
@@ -2860,11 +3337,15 @@ function initMapa() {
 
   // ── Eventos ───────────────────────────────────────────────
   initMapaCalendar();
+  initPrefsOverlay();
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key !== 'Escape') return;
+    // El panel de ajustes se dibuja por encima del modal: cierra primero.
+    if (prefsAbierto()) { cerrarPrefs(); return; }
+    closeModal();
   });
   window.addEventListener('pagehide', function() {
     stopPolling();

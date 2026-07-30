@@ -116,7 +116,10 @@ class CategoriaMenuService
                 return ['ok' => false, 'codigo' => self::NO_EXISTE];
             }
 
-            $stmt = $db->prepare('SELECT id FROM menu WHERE categoria_id = ? LIMIT 1 FOR UPDATE');
+            // Los platillos viven en `productos` desde la fusión. Antes esta
+            // guarda miraba `menu`, así que una categoría usada solo por
+            // productos se podía borrar y reventaba contra la FK.
+            $stmt = $db->prepare('SELECT id FROM productos WHERE categoria_id = ? LIMIT 1 FOR UPDATE');
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }

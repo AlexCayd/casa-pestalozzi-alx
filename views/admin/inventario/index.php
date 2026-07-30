@@ -13,7 +13,7 @@
             <p class="admin-page__subtitle">Controla las existencias de cada ingrediente. Las ventas descuentan el stock automáticamente según la receta de cada producto.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary" href="/admin/productos">Ver productos</a>
+            <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Ver recetas</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/inventario/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>Nuevo ingrediente</span>
@@ -46,22 +46,45 @@
 
             <div class="admin-restock__grid">
                 <?php foreach ($ingredientesBajos as $ing) : ?>
+                    <?php
+                        // Cuánto falta para volver al mínimo y qué porción del mínimo hay cubierta.
+                        $rStock   = (float) $ing->stock;
+                        $rMin     = (float) $ing->stock_minimo;
+                        $rFaltan  = max(0.0, $rMin - $rStock);
+                        $rPct     = $rMin > 0 ? max(0.0, min(100.0, ($rStock / $rMin) * 100)) : ($rStock > 0 ? 100.0 : 0.0);
+                        $rUnidad  = htmlspecialchars($ing->unidad);
+                        $rCritico = $rStock < 0 || ($rMin > 0 && $rStock < $rMin * 0.5);
+                    ?>
                     <article class="admin-restock__card">
                         <header class="admin-restock__header">
                             <span class="admin-restock__name" title="<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"><?php echo htmlspecialchars($ing->nombre); ?></span>
-                            <div class="admin-restock__stats">
-                                <span class="admin-badge admin-badge--<?php echo (float) $ing->stock < 0 ? 'danger' : 'warning'; ?>">
-                                    <?php echo $fmt($ing->stock); ?> <?php echo htmlspecialchars($ing->unidad); ?>
-                                </span>
-                                <span class="admin-restock__min">mín. <?php echo $fmt($ing->stock_minimo); ?> <?php echo htmlspecialchars($ing->unidad); ?></span>
-                            </div>
+                            <span class="admin-badge admin-badge--<?php echo $rCritico ? 'danger' : 'warning'; ?>">
+                                Faltan <?php echo $fmt($rFaltan); ?> <?php echo $rUnidad; ?>
+                            </span>
                         </header>
+
+                        <div class="admin-restock__levels">
+                            <div class="admin-restock__level">
+                                <span class="admin-restock__level-label">Actual</span>
+                                <span class="admin-restock__level-value admin-restock__level-value--now"><?php echo $fmt($rStock); ?> <?php echo $rUnidad; ?></span>
+                            </div>
+                            <div class="admin-restock__level admin-restock__level--target">
+                                <span class="admin-restock__level-label">Mínimo</span>
+                                <span class="admin-restock__level-value"><?php echo $fmt($rMin); ?> <?php echo $rUnidad; ?></span>
+                            </div>
+                        </div>
+
+                        <div class="admin-restock__bar" role="img"
+                             aria-label="<?php echo $fmt($rStock); ?> de <?php echo $fmt($rMin); ?> <?php echo $rUnidad; ?>">
+                            <span class="admin-restock__bar-fill <?php echo $rCritico ? 'is-critical' : ''; ?>" style="width: <?php echo round($rPct, 1); ?>%"></span>
+                        </div>
+
                         <form class="admin-restock__form" method="POST" action="/admin/inventario/entrada">
                             <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">
-                            <div class="admin-restock__input">
+                            <div class="admin-restock__input" style="--restock-unit: <?php echo mb_strlen((string) $ing->unidad); ?>ch">
                                 <input type="number" name="cantidad" step="0.001" min="0.001" placeholder="Cantidad recibida"
                                        aria-label="Cantidad recibida de <?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>">
-                                <span class="admin-restock__unit"><?php echo htmlspecialchars($ing->unidad); ?></span>
+                                <span class="admin-restock__unit"><?php echo $rUnidad; ?></span>
                             </div>
                             <button type="submit" class="admin-btn admin-btn--gold admin-restock__add">
                                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>

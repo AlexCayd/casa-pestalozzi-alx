@@ -1,0 +1,156 @@
+/*
+ * Módulo Recetas (recetas y subrecetas).
+ * El bloque de receta principal se destaca visualmente con un borde dorado.
+ */
+
+.admin-recetas {
+  // El .admin-card compartido no trae padding: se lo damos aquí.
+  .admin-card {
+    padding: clamp(18px, 2.4vw, 26px);
+  }
+
+  // Separación entre paneles apilados dentro del formulario.
+  .admin-panel + .admin-panel {
+    margin-top: 18px;
+  }
+
+  // Resumen en solo lectura del platillo: sus datos se editan en Menú.
+  // El margen es propio: el resumen y .admin-recipe no son hermanos (el
+  // segundo vive dentro del <form>), así que la regla .admin-panel + .admin-panel
+  // no los alcanza y quedaban pegados.
+  &__resumen {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  &__resumen-datos {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+
+    div {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    strong {
+      color: var(--admin-text);
+      font-size: 15px;
+      font-weight: 800;
+    }
+  }
+
+  &__resumen-label {
+    color: var(--admin-faint);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+.admin-recipe {
+  // Permitir que el dropdown del buscador de componentes se muestre completo
+  // (el .admin-card base recorta el overflow).
+  overflow: visible;
+  border-color: rgba(204, 163, 82, 0.32);
+  box-shadow:
+    inset 3px 0 0 var(--admin-gold),
+    var(--admin-shadow-sm);
+
+  &__head {
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 4px 0 4px;
+    }
+
+    p {
+      max-width: 60ch;
+      color: var(--admin-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  }
+
+  &__eyebrow {
+    display: inline-block;
+    color: var(--admin-gold);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  &__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px 46px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    transition: border-color var(--admin-t-fast) var(--admin-ease-out);
+
+    // La fila con ingrediente elegido se marca en verde: da acuse de recibo
+    // sin tener que releer el campo.
+    &.is-complete {
+      border-color: var(--admin-success-border, rgba(95, 125, 86, 0.5));
+    }
+
+    // Igual de alto que los campos que tiene al lado (46px), no 38px.
+    .admin-icon-button {
+      width: 46px;
+      min-width: 46px;
+      height: 46px;
+    }
+
+    @media (max-width: 560px) {
+      grid-template-columns: minmax(0, 1fr) 110px 46px;
+    }
+  }
+
+  // Cantidad + unidad del ingrediente elegido (g / ml / pza).
+  &__qty {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+
+    input {
+      width: 100%;
+      padding-right: 44px;
+    }
+  }
+
+  &__unit {
+    position: absolute;
+    right: 12px;
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    pointer-events: none;
+  }
+
+  &__add {
+    width: fit-content;
+    margin-top: 4px;
+  }
+
+  &__actions {
+    margin-top: 18px;
+  }
+}

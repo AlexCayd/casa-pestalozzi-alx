@@ -541,6 +541,7 @@ final class PuntoVentaReservacionService
             if (!$db->query(
                 "UPDATE tickets
                  SET estado = 'cerrado', closed_at = COALESCE(closed_at, NOW()),
+                     hora_cierre = COALESCE(hora_cierre, NOW()),
                      metodo_pago = '{$metodo}', propina = {$propinaSql}
                  WHERE id = {$ticketId}"
             )) {

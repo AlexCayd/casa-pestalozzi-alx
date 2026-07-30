@@ -1,26 +1,28 @@
 <?php
 /**
- * Módulo de Productos del panel admin.
- * CRUD de productos con su receta principal (ingredientes y subrecetas) y
- * administración de subrecetas reutilizables. Los productos enlazan con lo que
- * el mesero pide por NOMBRE; su receta descuenta inventario al vender.
+ * Módulo de Recetas del panel admin.
+ *
+ * Reemplaza al antiguo "Productos y recetas". Los datos del platillo (nombre,
+ * descripción, precio, categoría, área) se editan en Gestión de menú, que
+ * ahora escribe en la misma tabla `productos`; aquí solo se compone la receta:
+ * qué ingredientes y subrecetas consume una unidad, que es lo que descuenta
+ * inventario al vender.
  */
 
 namespace Controllers;
 
-use Model\CategoriasMenu;
 use Model\Ingrediente;
 use Model\Producto;
 use Model\Subreceta;
 use MVC\Router;
 
-class AdminProductosController
+class AdminRecetasController
 {
-    private const PATH = '/admin/productos';
-    private const SUBPATH = '/admin/productos/subrecetas';
-    private const CSS = '/build/css/admin/productos.css';
+    private const PATH = '/admin/recetas';
+    private const SUBPATH = '/admin/recetas/subrecetas';
+    private const CSS = '/build/css/admin/recetas.css';
 
-    // ── Productos ────────────────────────────────────────────
+    // ── Listado de platillos con su receta ───────────────────
     public static function index(Router $router): void
     {
         $productos = [];
@@ -32,53 +34,29 @@ class AdminProductosController
 
         $conteos = self::conteoComponentes();
 
-        self::render('productos/index', [
-            'title' => 'Productos',
-            'topbarSection' => 'Productos',
+        self::render('recetas/index', [
+            'title' => 'Recetas',
+            'topbarSection' => 'Recetas',
             'productos' => $productos,
             'conteosReceta' => $conteos,
             'categoriasMap' => self::categoriasMap(),
             'totalProductos' => count($productos),
+            'conReceta' => count(array_filter($conteos)),
             'alertas' => Producto::getAlertas(),
         ]);
     }
 
-    public static function create(Router $router): void
-    {
-        $producto = new Producto();
-        $alertas = [];
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $producto->sincronizar($_POST);
-            $producto->activo = isset($_POST['activo']) ? 1 : 0;
-            $alertas = $producto->validar();
-
-            if (empty($alertas)) {
-                $resultado = $producto->guardar();
-                if ($resultado && ($resultado['resultado'] ?? false)) {
-                    $nuevoId = (int) ($resultado['id'] ?? 0);
-                    if ($nuevoId) {
-                        self::guardarComponentes($nuevoId);
-                    }
-                    Producto::setAlerta('exito', 'Producto creado correctamente');
-                    self::index($router);
-                    return;
-                }
-                Producto::setAlerta('error', 'No se pudo guardar el producto');
-                $alertas = Producto::getAlertas();
-            }
-        }
-
-        self::renderProductoForm($producto, $alertas, 'Crear producto', 'Nuevo producto', []);
-    }
-
-    public static function edit(Router $router): void
+    /**
+     * Composición de la receta de un platillo. El platillo se muestra en solo
+     * lectura: sus datos se editan en Gestión de menú.
+     */
+    public static function receta(Router $router): void
     {
         $id = self::validarId($_GET['id'] ?? null, $router);
         $producto = Producto::find($id);
 
         if (!$producto) {
-            Producto::setAlerta('error', 'El producto no existe');
+            Producto::setAlerta('error', 'El platillo no existe');
             self::index($router);
             return;
         }
@@ -86,41 +64,32 @@ class AdminProductosController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $producto->sincronizar($_POST);
-            $producto->activo = isset($_POST['activo']) ? 1 : 0;
-            $alertas = $producto->validar();
-
-            if (empty($alertas)) {
-                if ($producto->guardar() !== false) {
-                    self::guardarComponentes((int) $producto->id);
-                    Producto::setAlerta('exito', 'Producto actualizado correctamente');
-                    self::index($router);
-                    return;
-                }
-                Producto::setAlerta('error', 'No se pudo actualizar el producto');
-                $alertas = Producto::getAlertas();
-            }
+            self::guardarComponentes((int) $producto->id);
+            Producto::setAlerta('exito', 'Receta actualizada correctamente');
+            self::index($router);
+            return;
         }
 
-        self::renderProductoForm($producto, $alertas, 'Guardar cambios', 'Editar producto', self::componentesDe((int) $producto->id));
-    }
-
-    public static function delete(Router $router): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirect(self::PATH);
+        $ingredientes = [];
+        $subrecetas = [];
+        try {
+            $ingredientes = Ingrediente::todos();
+            $subrecetas = Subreceta::todas();
+        } catch (\Throwable $e) {
+            // Sin inventario aún: la receta se muestra vacía.
         }
 
-        $id = self::validarId($_POST['id'] ?? null, $router);
-        $producto = Producto::find($id);
-
-        if ($producto && $producto->eliminar()) {
-            Producto::setAlerta('exito', 'Producto eliminado correctamente');
-        } else {
-            Producto::setAlerta('error', 'No se pudo eliminar el producto');
-        }
-
-        self::index($router);
+        self::render('recetas/form', [
+            'title' => 'Receta de ' . $producto->nombre,
+            'topbarSection' => 'Recetas / ' . $producto->nombre,
+            'producto' => $producto,
+            'categoriasMap' => self::categoriasMap(),
+            'ingredientes' => $ingredientes,
+            'subrecetas' => $subrecetas,
+            'componentes' => self::componentesDe((int) $producto->id),
+            'alertas' => $alertas,
+            'accion' => 'Guardar receta',
+        ]);
     }
 
     // ── Subrecetas ───────────────────────────────────────────
@@ -133,9 +102,9 @@ class AdminProductosController
             Subreceta::setAlerta('error', 'No se pudieron cargar las subrecetas.');
         }
 
-        self::render('productos/subrecetas', [
+        self::render('recetas/subrecetas', [
             'title' => 'Subrecetas',
-            'topbarSection' => 'Productos / Subrecetas',
+            'topbarSection' => 'Recetas / Subrecetas',
             'subrecetas' => $subrecetas,
             'conteosSub' => self::conteoSubrecetaIngredientes(),
             'alertas' => Subreceta::getAlertas(),
@@ -352,69 +321,21 @@ class AdminProductosController
         return $map;
     }
 
-    private static function areas(): array
-    {
-        $db = Producto::getDB();
-        $rows = [];
-        $res = $db->query("SELECT id, nombre FROM areas_produccion ORDER BY nombre ASC");
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $rows[] = $row;
-            }
-        }
-        return $rows;
-    }
-
-    /** Categorías del menú, usadas como catálogo de categorías de producto. */
-    private static function categorias(): array
-    {
-        $db = Producto::getDB();
-        $rows = [];
-        $res = $db->query("SELECT id, nombre FROM categorias WHERE activo = 1 ORDER BY id ASC");
-        if ($res) {
-            while ($row = $res->fetch_assoc()) {
-                $rows[] = $row;
-            }
-        }
-        return $rows;
-    }
-
-    /** Mapa id => nombre para pintar la categoría en la tabla de productos. */
+    /** Mapa id => nombre para pintar la categoría en el listado. */
     private static function categoriasMap(): array
     {
         $map = [];
-        foreach (self::categorias() as $cat) {
-            $map[(int) $cat['id']] = $cat['nombre'];
+        $db = Producto::getDB();
+        $res = $db->query("SELECT id, nombre FROM categorias ORDER BY id ASC");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $map[(int) $row['id']] = $row['nombre'];
+            }
         }
         return $map;
     }
 
     // ── Render ───────────────────────────────────────────────
-    private static function renderProductoForm(Producto $producto, array $alertas, string $accion, string $titulo, array $componentes): void
-    {
-        $ingredientes = [];
-        $subrecetas = [];
-        try {
-            $ingredientes = Ingrediente::todos();
-            $subrecetas = Subreceta::todas();
-        } catch (\Throwable $e) {
-            // Sin inventario aún: la receta se muestra vacía.
-        }
-
-        self::render('productos/form', [
-            'title' => $titulo,
-            'topbarSection' => 'Productos / ' . $titulo,
-            'producto' => $producto,
-            'areas' => self::areas(),
-            'categorias' => self::categorias(),
-            'ingredientes' => $ingredientes,
-            'subrecetas' => $subrecetas,
-            'componentes' => $componentes,
-            'alertas' => $alertas,
-            'accion' => $accion,
-        ]);
-    }
-
     private static function renderSubrecetaForm(Subreceta $subreceta, array $alertas, string $accion, string $titulo, array $ingredientesReceta): void
     {
         $ingredientes = [];
@@ -424,9 +345,9 @@ class AdminProductosController
             // Sin inventario aún.
         }
 
-        self::render('productos/subreceta-form', [
+        self::render('recetas/subreceta-form', [
             'title' => $titulo,
-            'topbarSection' => 'Productos / ' . $titulo,
+            'topbarSection' => 'Recetas / ' . $titulo,
             'subreceta' => $subreceta,
             'unidades' => Ingrediente::UNIDADES,
             'ingredientes' => $ingredientes,
@@ -438,6 +359,8 @@ class AdminProductosController
 
     private static function render(string $view, array $data = []): void
     {
+        // La clave del módulo sigue siendo 'productos': el sidebar ya mapea ese
+        // icono y renombrarla obligaría a añadir una entrada nueva sin ganancia.
         AdminController::render($view, array_merge([
             'activeModule' => 'productos',
             'styles' => [self::CSS],

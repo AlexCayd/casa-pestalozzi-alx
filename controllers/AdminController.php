@@ -17,12 +17,15 @@ class AdminController
             'path' => '/admin/analytics'
         ],
         'menu' => [
-            'title' => 'Gestión de menú',
+            'title' => 'Menú',
             'path' => '/admin/menu'
         ],
+        // La clave se conserva ('productos') porque _sidebar.php ya mapea ese
+        // icono; lo que cambió es el módulo: los datos del platillo se editan
+        // en Gestión de menú y aquí solo queda la composición de recetas.
         'productos' => [
-            'title' => 'Productos y recetas',
-            'path' => '/admin/productos'
+            'title' => 'Recetas',
+            'path' => '/admin/recetas'
         ],
         'inventario' => [
             'title' => 'Inventario',
@@ -154,7 +157,12 @@ class AdminController
         // Límites de fecha (validados en rangoAnalytics; seguros de interpolar).
         $start = $rango['start'];
         $end = $rango['end'];
-        $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
+        // Las ventas se atribuyen al día del COBRO, no al de la apertura: un
+        // ticket abierto antes de medianoche y cobrado después caía en el día
+        // equivocado. COALESCE cubre los tickets cerrados antes de que
+        // existiera hora_cierre.
+        $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
+        $fTk = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
         $fRes = "fecha >= '{$start}' AND fecha <= '{$end}'";
 
         try {
@@ -208,10 +216,40 @@ class AdminController
             $ticketProm = $numTickets > 0 ? $ventas / $numTickets : 0.0;
             $propProm = $propTickets > 0 ? $propTotal / $propTickets : 0.0;
 
+            // ── Periodo anterior de la misma duración (para la variación) ──
+            $dias = (int) ((strtotime($end) - strtotime($start)) / 86400) + 1;
+            $prevEnd = date('Y-m-d', strtotime($start . ' -1 day'));
+            $prevStart = date('Y-m-d', strtotime($prevEnd . ' -' . ($dias - 1) . ' days'));
+            $ventasPrev = 0.0;
+            $res = $db->query(
+                "SELECT COALESCE(SUM(sub.total), 0) AS ventas
+                   FROM tickets t
+                   LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
+                                FROM ticket_items WHERE estado <> 'cancelado'
+                               GROUP BY ticket_id) sub ON sub.ticket_id = t.id
+                  WHERE t.estado = 'cerrado'
+                        AND {$cierre} >= '{$prevStart} 00:00:00'
+                        AND {$cierre} <= '{$prevEnd} 23:59:59'"
+            );
+            if ($res && ($r = $res->fetch_assoc())) {
+                $ventasPrev = (float) $r['ventas'];
+            }
+            // Sin base de comparación (periodo anterior en cero) no se inventa
+            // un "+100%": se omite la variación.
+            $delta = $ventasPrev > 0 ? round((($ventas - $ventasPrev) / $ventasPrev) * 100, 1) : null;
+
             $metrics = [
-                ['label' => 'Ventas acumuladas', 'value' => $money($ventas), 'detail' => $numTickets . ' tickets cerrados', 'featured' => true],
-                ['label' => 'Propinas', 'value' => $money($propTotal), 'detail' => $propTickets ? ('prom. ' . $money($propProm)) : 'Sin propinas'],
+                [
+                    'label' => 'Ventas acumuladas',
+                    'value' => $money($ventas),
+                    'detail' => $numTickets . ' tickets cerrados',
+                    'featured' => true,
+                    'delta' => $delta,
+                    'delta_label' => 'vs. ' . $dias . ' días previos',
+                    'prev' => $money($ventasPrev),
+                ],
                 ['label' => 'Ticket promedio', 'value' => $money($ticketProm), 'detail' => 'Por cuenta cerrada'],
+                ['label' => 'Propinas', 'value' => $money($propTotal), 'detail' => $propTickets ? ('prom. ' . $money($propProm)) : 'Sin propinas'],
                 ['label' => 'Comensales atendidos', 'value' => number_format($comensales), 'detail' => 'En tickets cerrados'],
                 ['label' => 'Platillos vendidos', 'value' => number_format($unidades), 'detail' => 'Unidades', 'priority' => 'secondary'],
                 ['label' => 'Reservaciones', 'value' => number_format($numReservas), 'detail' => 'Registradas', 'priority' => 'secondary'],
@@ -226,7 +264,7 @@ class AdminController
                 $cursor = strtotime('+1 day', $cursor);
             }
             $res = $db->query(
-                "SELECT DATE(t.hora_apertura) AS d, SUM(ti.precio * ti.cantidad) AS total
+                "SELECT DATE({$cierre}) AS d, SUM(ti.precio * ti.cantidad) AS total
                    FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
                   WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
                   GROUP BY d"
@@ -323,24 +361,42 @@ class AdminController
             // ── Tabla de actividad reciente (últimos tickets CERRADOS) ─
             $estadoMap = ['cerrado' => 'closed', 'abierto' => 'open', 'cancelado' => 'cancelled'];
             $metodoMap = ['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'dividido' => 'Dividido'];
+            // El {$fTk} faltaba: la tabla mostraba siempre los últimos 12 tickets
+            // cerrados, contradiciendo a las métricas de arriba.
             $res = $db->query(
-                "SELECT t.id, t.estado, t.metodo_pago, t.hora_apertura,
+                "SELECT t.id, t.estado, t.metodo_pago, {$cierre} AS fecha_cobro,
+                        COALESCE(t.propina, 0) AS propina,
+                        m.numero AS mesa_numero, m.nombre AS mesa_nombre,
                         COALESCE(sub.total, 0) AS total
                    FROM tickets t
+                   LEFT JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
+                   LEFT JOIN mesas m ON m.id = tm.mesa_id
                    LEFT JOIN (SELECT ticket_id, SUM(precio * cantidad) AS total
                                 FROM ticket_items WHERE estado <> 'cancelado'
                                GROUP BY ticket_id) sub ON sub.ticket_id = t.id
-                  WHERE t.estado = 'cerrado'
-                  ORDER BY t.hora_apertura DESC, t.id DESC LIMIT 12"
+                  WHERE t.estado = 'cerrado' {$fTk}
+                  ORDER BY fecha_cobro DESC, t.id DESC LIMIT 12"
             );
             if ($res) {
                 while ($r = $res->fetch_assoc()) {
                     $folio = 'T-' . str_pad((string) $r['id'], 4, '0', STR_PAD_LEFT);
+                    $total = (float) $r['total'];
+                    $propina = (float) $r['propina'];
+                    // Mismo fallback que el módulo Tickets: nombre si lo tiene,
+                    // si no "Mesa N", y un guion si el ticket no traía mesa.
+                    $mesa = trim((string) ($r['mesa_nombre'] ?? ''));
+                    if ($mesa === '' && $r['mesa_numero'] !== null) {
+                        $mesa = 'Mesa ' . (int) $r['mesa_numero'];
+                    }
+
                     $ticketsTabla[] = [
                         'folio' => $folio,
-                        'created_at' => $r['hora_apertura'],
+                        'created_at' => $r['fecha_cobro'],
                         'status' => $estadoMap[$r['estado']] ?? $r['estado'],
-                        'total' => (float) $r['total'],
+                        'total' => $total,
+                        'mesa' => $mesa !== '' ? $mesa : '—',
+                        'propina' => $propina,
+                        'propina_pct' => $total > 0 ? round(($propina / $total) * 100, 1) : null,
                     ];
                     $pagosTabla[] = [
                         'folio' => $folio,
