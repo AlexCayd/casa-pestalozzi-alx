@@ -269,24 +269,18 @@ try {
          FROM mesas
          WHERE numero IN (5, 10, 11)"
     );
-    $ocupacionAntesDeApertura = TicketMesa::ocupacionAbierta(
-        '2026-12-01',
-        '10:00:00'
-    );
+    $ocupacionAntesDeApertura = TicketMesa::ocupacionAbierta();
     e2Assert(
-        'ticket futuro no ocupa mesas retrospectivamente',
-        !in_array(
+        'ticket abierto ocupa sin depender de la fecha consultada',
+        in_array(
             $ticketAperturaFuturaId,
             array_column($ocupacionAntesDeApertura, 'ticket_id'),
             true
         )
     );
-    $ocupacionConTraslape = TicketMesa::ocupacionAbierta(
-        '2026-12-03',
-        '19:30:00'
-    );
+    $ocupacionConTraslape = TicketMesa::ocupacionAbierta();
     e2Assert(
-        'ticket futuro ocupa cuando las ventanas se traslapan',
+        'ticket abierto conserva ocupación en consultas repetidas',
         in_array(
             $ticketAperturaFuturaId,
             array_column($ocupacionConTraslape, 'ticket_id'),

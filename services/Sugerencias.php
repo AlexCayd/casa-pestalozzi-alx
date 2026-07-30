@@ -17,6 +17,7 @@
 namespace Services;
 
 use Model\Ticket;
+use Model\TicketMesa;
 
 class Sugerencias
 {
@@ -183,7 +184,8 @@ class Sugerencias
                FROM tickets t
                JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                JOIN mesas m ON m.id = tm.mesa_id
-              WHERE t.id = {$ticketId} AND t.estado = 'abierto'
+              WHERE t.id = {$ticketId}
+                AND " . TicketMesa::condicionSqlAbierto('t') . "
               LIMIT 1"
         );
         $ticket = $res ? $res->fetch_assoc() : null;

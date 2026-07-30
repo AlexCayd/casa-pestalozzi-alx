@@ -9,13 +9,19 @@ declare(strict_types=1);
 
 use Dotenv\Dotenv;
 use Model\ActiveRecord;
+use Model\Mesa;
 use Model\TicketMesa;
+use Services\AsignacionMesasService;
 use Services\DisponibilidadReservacionService;
 use Services\HorarioOperacionService;
 use Services\HorarioReservacionService;
+use Services\MesaEstadoService;
 use Services\PuntoVentaReservacionService;
 use Services\ReservacionConfig;
+use Services\ReservacionPublicaService;
+use Services\ReservacionMantenimientoService;
 use Services\ReservacionService;
+use Services\ReservacionVigenciaService;
 
 require __DIR__ . '/../vendor/autoload.php';
 Dotenv::createImmutable(__DIR__ . '/../includes')->safeLoad();
@@ -236,6 +242,124 @@ try {
     $week = HorarioOperacionService::obtenerHorarioSemanal();
     e3Same('leer siete días semanales', count($week), 7);
     e3Same('reloj controlado de Etapa 4', ReservacionConfig::fechaActual(), '2026-11-30');
+
+    // Fronteras temporales de disponibilidad del mapa para 30/11/2026.
+    $reserva2030 = [
+        'id' => 39,
+        'nombre' => 'Caso frontera 20:30',
+        'fecha' => '2026-11-30',
+        'hora' => '20:30:00',
+        'comensales' => 6,
+        'estado' => 'confirmada',
+        'mesa_ids' => [1, 2, 3],
+        'mesas_asignadas' => ['Mesa 1', 'Mesa 2', 'Mesa 3'],
+    ];
+    $clasificar2030 = static function (string $hora) use ($reserva2030): ?array {
+        return MesaEstadoService::clasificarReservacion(
+            $reserva2030,
+            new DateTimeImmutable('2026-11-30 ' . $hora, ReservacionConfig::timezone())
+        );
+    };
+    e3Same('19:29 aún no advierte', $clasificar2030('19:29:00'), null);
+    e3Same('19:30 inicia próxima', $clasificar2030('19:30:00')['tipo'] ?? null, 'proxima');
+    e3Same('19:45 continúa próxima', $clasificar2030('19:45:00')['tipo'] ?? null, 'proxima');
+    e3Same('19:59 continúa próxima', $clasificar2030('19:59:00')['tipo'] ?? null, 'proxima');
+    e3Same('20:00 inicia bloqueo', $clasificar2030('20:00:00')['tipo'] ?? null, 'bloqueada');
+    e3Same('20:15 continúa bloqueada', $clasificar2030('20:15:00')['tipo'] ?? null, 'bloqueada');
+    e3Same('20:29 continúa bloqueada', $clasificar2030('20:29:00')['tipo'] ?? null, 'bloqueada');
+    e3Same('20:30 inicia ocupación', $clasificar2030('20:30:00')['tipo'] ?? null, 'ocupada');
+    e3Same('20:44:59 continúa vigente', $clasificar2030('20:44:59')['tipo'] ?? null, 'ocupada');
+    e3Same('20:45:00 vence tolerancia', $clasificar2030('20:45:00'), null);
+    e3Same('22:00 confirmada vencida no ocupa', $clasificar2030('22:00:00'), null);
+    $llego2030 = array_merge($reserva2030, ['estado' => 'llego', 'arrived_at' => '2026-11-30 20:40:00']);
+    e3Same('llegada conserva ocupación después de 90 minutos', MesaEstadoService::clasificarReservacion(
+        $llego2030,
+        new DateTimeImmutable('2026-11-30 22:00:00', ReservacionConfig::timezone())
+    )['tipo'] ?? null, 'ocupada');
+
+    $cancelada2030 = array_merge($reserva2030, ['estado' => 'cancelada']);
+    $noShow2030 = array_merge($reserva2030, ['estado' => 'no_show']);
+    e3Same(
+        'cancelada no influye',
+        MesaEstadoService::clasificarReservacion(
+            $cancelada2030,
+            new DateTimeImmutable('2026-11-30 20:15:00', ReservacionConfig::timezone())
+        ),
+        null
+    );
+    e3Same(
+        'no-show no influye',
+        MesaEstadoService::clasificarReservacion(
+            $noShow2030,
+            new DateTimeImmutable('2026-11-30 20:15:00', ReservacionConfig::timezone())
+        ),
+        null
+    );
+    $pendienteVigente = array_merge($reserva2030, [
+        'estado' => 'pendiente_verificacion',
+        'hold_expires_at' => '2026-11-30 19:40:00',
+    ]);
+    $pendienteVencida = array_merge($pendienteVigente, [
+        'hold_expires_at' => '2026-11-30 19:20:00',
+    ]);
+    $relojPendiente = new DateTimeImmutable('2026-11-30 19:30:00', ReservacionConfig::timezone());
+    e3Same(
+        'pendiente vigente aparece próxima',
+        MesaEstadoService::clasificarReservacion($pendienteVigente, $relojPendiente)['tipo'] ?? null,
+        'proxima'
+    );
+    e3Same(
+        'pendiente vencida no influye',
+        MesaEstadoService::clasificarReservacion($pendienteVencida, $relojPendiente),
+        null
+    );
+
+    $mapaTicketFinal = MesaEstadoService::normalizarMesas(
+        [[
+            'id' => 1,
+            'numero' => 1,
+            'nombre' => 'Mesa 1',
+            'tipo' => 'mesa',
+            'capacidad' => 4,
+            'pos_x' => 50,
+            'pos_y' => 50,
+            'activo' => 1,
+            'reservable' => 1,
+        ]],
+        [$cancelada2030],
+        [[
+            'id' => 501,
+            'hora_apertura' => '2026-11-30 19:00:00',
+            'reservacion_id' => null,
+            'mesa_ids' => [1, 2, 3],
+        ]],
+        '2026-11-30',
+        new DateTimeImmutable('2026-11-30 20:15:00', ReservacionConfig::timezone())
+    );
+    e3Same('ticket prevalece sobre estado final', $mapaTicketFinal[0]['estado_base'], 'ocupada');
+    e3Assert('ticket sin reserva conserva walk-in', in_array('walk_in', $mapaTicketFinal[0]['modificadores'], true));
+    e3Assert('ticket de varias mesas conserva modificador', in_array('varias_mesas', $mapaTicketFinal[0]['modificadores'], true));
+    e3Assert(
+        'ticket de varias mesas conserva indicador accesible',
+        in_array('varias_mesas', array_column($mapaTicketFinal[0]['indicadores'], 'tipo'), true)
+            && str_contains($mapaTicketFinal[0]['titulo'], 'varias mesas')
+    );
+
+    // El mapa conserva el plano completo aunque el horario no tenga reservas.
+    $mapaSinReservaciones = MesaEstadoService::normalizarMesas(
+        [
+            ['id' => 1, 'numero' => 1, 'nombre' => 'Mesa 1', 'tipo' => 'mesa', 'capacidad' => 2, 'pos_x' => 20, 'pos_y' => 50, 'activo' => 1, 'reservable' => 1],
+            ['id' => 2, 'numero' => 2, 'nombre' => 'Mesa 2', 'tipo' => 'mesa', 'capacidad' => 4, 'pos_x' => 50, 'pos_y' => 50, 'activo' => 1, 'reservable' => 1],
+            ['id' => 3, 'numero' => 3, 'nombre' => 'Barra', 'tipo' => 'barra', 'capacidad' => 0, 'pos_x' => 80, 'pos_y' => 50, 'activo' => 1, 'reservable' => 0],
+        ],
+        [],
+        [],
+        '2026-11-30',
+        new DateTimeImmutable('2026-11-30 19:45:00', ReservacionConfig::timezone())
+    );
+    e3Same('horario vacío conserva todas las mesas', count($mapaSinReservaciones), 3);
+    e3Same('horario vacío conserva mesa disponible', $mapaSinReservaciones[0]['estado_base'], 'disponible');
+    e3Same('horario vacío conserva elemento no reservable', $mapaSinReservaciones[2]['estado_base'], 'no_reservable');
     $special = HorarioOperacionService::obtenerHorarioEfectivo('2026-12-02');
     e3Same('horario especial tiene prioridad', $special['origen'], 'excepcion');
     e3Same('horario especial abre', $special['abierto'], true);
@@ -246,6 +370,130 @@ try {
     e3Same('última reservación una hora antes', end($slots), '19:00:00');
     e3Assert('intervalo posterior rechazado', !in_array('19:30:00', $slots, true));
     e3Same('intervalos cada treinta minutos', count($slots), 15);
+
+    // Horarios vigentes del día actual: el reloj y la zona del servidor son
+    // la única referencia para endpoint, mapa y formulario administrativo.
+    $horarioLunesOriginal = $db->query(
+        "SELECT abierto, hora_apertura, hora_cierre
+         FROM horarios_operacion
+         WHERE dia_semana = 1"
+    )->fetch_assoc();
+    $db->query(
+        "UPDATE horarios_operacion
+         SET abierto = 1, hora_apertura = '08:00:00', hora_cierre = '14:00:00'
+         WHERE dia_semana = 1"
+    );
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 10:56:00';
+    putenv('RESERVATION_TEST_NOW=2026-11-30 10:56:00');
+
+    $horariosHoy1056 = ReservacionService::obtenerHorariosDisponiblesParaFecha('2026-11-30');
+    e3Same('endpoint hoy 10:56 inicia en siguiente bloque', $horariosHoy1056['horarios'][0] ?? '', '11:00:00');
+    e3Assert(
+        'endpoint hoy no devuelve horarios vencidos',
+        count(array_filter(
+            $horariosHoy1056['horarios'] ?? [],
+            static fn(string $hora): bool => $hora <= '10:56:00'
+        )) === 0
+    );
+    $resolucionVencida = HorarioReservacionService::resolverHorarioOperativo(
+        '2026-11-30',
+        '08:00',
+        $horariosHoy1056['horarios'] ?? []
+    );
+    e3Same('URL vencida resuelve siguiente bloque', $resolucionVencida['hora_resuelta'], '11:00');
+    e3Assert('URL vencida queda marcada como ajustada', $resolucionVencida['ajustada']);
+    e3Assert('URL vencida conserva motivo temporal', $resolucionVencida['solicitada_vencida']);
+
+    $horariosFuturos = ReservacionService::obtenerHorariosDisponiblesParaFecha('2026-12-01');
+    $efectivoFuturo = HorarioOperacionService::obtenerHorarioEfectivo('2026-12-01');
+    $intervalosFuturos = HorarioReservacionService::generarIntervalos(
+        (string)$efectivoFuturo['hora_apertura'],
+        (string)$efectivoFuturo['hora_cierre']
+    );
+    e3Same('fecha futura conserva todos sus horarios', $horariosFuturos['horarios'], $intervalosFuturos);
+
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 13:30:00';
+    putenv('RESERVATION_TEST_NOW=2026-11-30 13:30:00');
+    $sinHorariosHoy = ReservacionService::obtenerHorariosDisponiblesParaFecha('2026-11-30');
+    $resolucionSinHorarios = HorarioReservacionService::resolverHorarioOperativo(
+        '2026-11-30',
+        '08:00',
+        $sinHorariosHoy['horarios'] ?? []
+    );
+    e3Same('URL vencida sin horarios futuros no resuelve hora', $resolucionSinHorarios['hora_resuelta'], '');
+    e3Assert('URL vencida detecta fin de operación diaria', $resolucionSinHorarios['sin_horarios_futuros']);
+
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 12:00:00';
+    putenv('RESERVATION_TEST_NOW=2026-11-30 12:00:00');
+    $db->query(
+        "UPDATE horarios_operacion
+         SET abierto = " . (int)$horarioLunesOriginal['abierto'] . ",
+             hora_apertura = '" . $db->real_escape_string((string)$horarioLunesOriginal['hora_apertura']) . "',
+             hora_cierre = '" . $db->real_escape_string((string)$horarioLunesOriginal['hora_cierre']) . "'
+         WHERE dia_semana = 1"
+    );
+
+    $operationViewSource = (string)file_get_contents(__DIR__ . '/../views/operation/reservations/index.php');
+    $operationLayoutSource = (string)file_get_contents(__DIR__ . '/../views/operation/layout.php');
+    $operationNoticeSource = (string)file_get_contents(__DIR__ . '/../views/operation/partials/global-notice.php');
+    $operationJavascriptSource = (string)file_get_contents(__DIR__ . '/../src/js/admin/reservations/operation.js');
+    $operationFeedbackSource = (string)file_get_contents(__DIR__ . '/../src/scss/operation/_feedback.scss');
+    e3Assert(
+        'alerta global no se renderiza dentro del módulo de mapa',
+        !str_contains($operationViewSource, "partials/global-notice.php")
+    );
+    e3Assert(
+        'layout renderiza una sola raíz global después del shell',
+        substr_count($operationLayoutSource, 'id="global-operation-notice-root"') === 1
+            && strpos($operationLayoutSource, "partials/shell.php") < strpos($operationLayoutSource, 'id="global-operation-notice-root"')
+    );
+    e3Assert(
+        'JavaScript consulta el aviso fuera de la raíz del mapa',
+        str_contains(
+            $operationJavascriptSource,
+            "document.querySelector('#global-operation-notice-root [data-operation-global-notice]')"
+        )
+    );
+    e3Assert(
+        'aviso global conserva apilamiento de viewport',
+        str_contains($operationFeedbackSource, 'z-index: 10000')
+            && str_contains($operationFeedbackSource, 'position: fixed')
+            && str_contains($operationFeedbackSource, 'left: 50%')
+    );
+    e3Assert(
+        'alerta global elimina Reintentar y su espacio del DOM',
+        stripos($operationNoticeSource, 'Reintentar') === false
+            && !str_contains($operationNoticeSource, 'data-operation-retry')
+            && stripos($operationJavascriptSource, 'retry: true') === false
+    );
+    e3Assert(
+        'alerta global expande detalle dentro de la misma card',
+        str_contains($operationNoticeSource, 'data-operation-global-notice-expand')
+            && str_contains($operationNoticeSource, 'data-operation-global-notice-detail')
+            && str_contains($operationJavascriptSource, "expanded ? 'Ocultar detalle' : 'Expandir'")
+    );
+    e3Assert(
+        'detalle colapsable mantiene atributos accesibles',
+        str_contains($operationNoticeSource, 'aria-expanded="false"')
+            && str_contains($operationNoticeSource, 'aria-hidden="true"')
+            && str_contains($operationJavascriptSource, "setAttribute('aria-hidden', expanded ? 'false' : 'true')")
+    );
+    e3Assert(
+        'variante azul usa superficie opaca y texto de alto contraste',
+        str_contains($operationFeedbackSource, 'var(--admin-info-text) 18%, var(--admin-surface-strong)')
+            && str_contains($operationFeedbackSource, 'color: #dceeff')
+            && !str_contains($operationFeedbackSource, "background: var(--admin-info-bg)")
+    );
+    e3Assert(
+        'URL se sincroniza con hora resuelta mediante replaceState',
+        str_contains($operationJavascriptSource, "params.set('hora', state.horaSeleccionada)")
+            && str_contains($operationJavascriptSource, 'window.history.replaceState')
+    );
+    e3Assert(
+        'fin de horarios de hoy no se mezcla con modo histórico',
+        str_contains($operationJavascriptSource, "var historical = state.modo === 'solo_lectura'")
+            && str_contains($operationJavascriptSource, "historical ? 'solo_lectura' : 'operacion'")
+    );
 
     $modified = $week;
     $modified[2]['hora_apertura'] = '10:00';
@@ -302,8 +550,14 @@ try {
     $db->query("INSERT INTO tickets (comensales, nombre, hora_apertura, estado) VALUES (2, 'Bloqueo futuro', '2026-12-03 17:30:00', 'abierto')");
     $futureTicket = (int)$db->insert_id;
     $db->query("INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES ({$futureTicket}, 1, 1)");
-    $occupied = TicketMesa::ocupacionAbierta($future, '18:00:00');
+    $occupied = TicketMesa::ocupacionAbierta();
     e3Assert('ticket abierto ocupa mesa', in_array(1, array_column($occupied, 'mesa_id'), true));
+    $assignmentOccupation = AsignacionMesasService::obtenerOcupacionParaHorario($future, '18:00:00');
+    e3Same(
+        'asignación futura no traslada un ticket abierto actual',
+        $assignmentOccupation[1]['tipo'] ?? null,
+        null
+    );
     e3Assert('walk-in no crea reservación', e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE id = {$futureTicket}") >= 0);
 
     // Flujo POS sobre hoy.
@@ -311,9 +565,371 @@ try {
     $db->query(
         "UPDATE tickets t
          INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
+         INNER JOIN mesas m ON m.id = tm.mesa_id
          SET t.estado='cerrado', t.closed_at=NOW()
-         WHERE t.estado='abierto' AND tm.mesa_id IN (1,2,3)"
+         WHERE t.estado='abierto' AND m.tipo='mesa'"
     );
+
+    // Etapa funcional: una estimación nunca libera un ticket que sigue abierto.
+    $db->query(
+        "INSERT INTO tickets (comensales, nombre, hora_apertura, estado)
+         VALUES (6, 'Ticket persistente Etapa 4', '2026-11-30 08:00:00', 'abierto')"
+    );
+    $ticketPersistente = (int)$db->insert_id;
+    $db->query(
+        "INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+         VALUES ({$ticketPersistente}, 1, 1), ({$ticketPersistente}, 2, 2)"
+    );
+    $abiertosPersistentes = TicketMesa::abiertosParaMapa();
+    $ticketCanonico = current(array_filter(
+        $abiertosPersistentes,
+        static fn(array $ticket): bool => (int)$ticket['id'] === $ticketPersistente
+    )) ?: [];
+    e3Same('ticket canónico conserva estado abierto', $ticketCanonico['estado'] ?? '', 'abierto');
+    e3Same('ticket canónico conserva closed_at nulo', $ticketCanonico['closed_at'] ?? null, null);
+    e3Same('ticket canónico conserva relación N:M', $ticketCanonico['mesa_ids'] ?? [], [1, 2]);
+    $ocupacionPersistente = TicketMesa::ocupacionAbierta();
+    e3Assert(
+        'ticket de un día anterior ocupa más allá de la duración estimada',
+        in_array(1, array_column($ocupacionPersistente, 'mesa_id'), true)
+            && in_array(2, array_column($ocupacionPersistente, 'mesa_id'), true)
+    );
+    $capacidadConTicket = DisponibilidadReservacionService::resumenHorario(
+        '2026-12-06',
+        '17:00',
+        2
+    );
+    e3Same('capacidad total usa once mesas reservables', $capacidadConTicket['capacidad_total'] ?? -1, 44);
+    e3Same('fecha futura ignora ticket N:M actual', $capacidadConTicket['capacidad_disponible'] ?? -1, 44);
+    $reservacionDuplicadaConTicket = e3Reservation($db, '2026-12-06', '17:00:00', 1);
+    e3Same(
+        'misma mesa en reservación y ticket se descuenta una sola vez',
+        DisponibilidadReservacionService::resumenHorario('2026-12-06', '17:00', 2)['capacidad_disponible'] ?? -1,
+        40
+    );
+    $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id={$reservacionDuplicadaConTicket}");
+    $db->query("DELETE FROM reservaciones WHERE id={$reservacionDuplicadaConTicket}");
+    $db->query(
+        "UPDATE tickets
+         SET estado='cerrado', closed_at=NOW()
+         WHERE id={$ticketPersistente}"
+    );
+    e3Same(
+        'ticket cerrado libera capacidad y conserva pivotes',
+        DisponibilidadReservacionService::resumenHorario('2026-12-06', '17:00', 2)['capacidad_disponible'] ?? -1,
+        44
+    );
+    e3Same(
+        'cierre conserva relaciones ticket_mesas',
+        e3Count($db, "SELECT COUNT(*) total FROM ticket_mesas WHERE ticket_id={$ticketPersistente}"),
+        2
+    );
+
+    $reservacionReasignable = e3Reservation($db, '2026-12-06', '17:00:00', 10);
+    $reasignacionEditable = AsignacionMesasService::asignarManual(
+        $reservacionReasignable,
+        [11]
+    );
+    e3Assert(
+        'backend permite reasignar una reservación vigente por su ID real',
+        (bool)($reasignacionEditable['ok'] ?? false)
+            && e3Count(
+                $db,
+                "SELECT COUNT(*) total
+                 FROM reservacion_mesas
+                 WHERE reservacion_id={$reservacionReasignable}
+                   AND mesa_id=11"
+            ) === 1
+    );
+    $db->query("UPDATE reservaciones SET estado='completada' WHERE id={$reservacionReasignable}");
+    $reasignacionFinalizada = AsignacionMesasService::asignarManual(
+        $reservacionReasignable,
+        [10]
+    );
+    e3Assert(
+        'backend rechaza reasignar una reservación realmente finalizada',
+        !($reasignacionFinalizada['ok'] ?? false)
+            && ($reasignacionFinalizada['codigo'] ?? '') === AsignacionMesasService::RESERVACION_NO_EDITABLE
+            && e3Count(
+                $db,
+                "SELECT COUNT(*) total
+                 FROM reservacion_mesas
+                 WHERE reservacion_id={$reservacionReasignable}
+                   AND mesa_id=11"
+            ) === 1
+    );
+    $db->query("DELETE FROM reservacion_mesas WHERE reservacion_id={$reservacionReasignable}");
+    $db->query("DELETE FROM reservaciones WHERE id={$reservacionReasignable}");
+
+    // El dominio, no el nombre visible, excluye barras y elementos especiales.
+    $db->query("UPDATE mesas SET reservable=1 WHERE tipo<>'mesa'");
+    e3Same('barras Caja y Llevar no suman capacidad aunque estén marcadas reservables', Mesa::capacidadReservableTotal(), 44);
+    e3Same('consulta reservable excluye elementos no mesa', count(Mesa::reservables()), 11);
+    $db->query("UPDATE mesas SET reservable=0 WHERE tipo<>'mesa'");
+
+    // La creación administrativa exige confirmaciones de negocio explícitas.
+    $adminSinContacto = [
+        'nombre' => 'Administrativa sin contacto',
+        'contacto_tipo' => '',
+        'contacto' => '',
+        'fecha' => '2026-12-06',
+        'hora' => '10:00',
+        'comensales' => 2,
+        'request_token' => 'e4-admin-sin-contacto-01',
+        'asignar_automaticamente' => '1',
+    ];
+    $sinConfirmacionContacto = ReservacionService::crearAdministrativa($adminSinContacto, 1);
+    e3Same(
+        'administración rechaza ausencia de contacto sin confirmación',
+        $sinConfirmacionContacto['codigo'] ?? '',
+        ReservacionService::REQUIERE_CONFIRMACION_SIN_CONTACTO
+    );
+    e3Same(
+        'rechazo sin contacto no crea fila',
+        e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE request_token='e4-admin-sin-contacto-01'"),
+        0
+    );
+    $adminSinContacto['confirmar_sin_contacto'] = '1';
+    $creadaSinContacto = ReservacionService::crearAdministrativa($adminSinContacto, 1);
+    e3Assert(
+        'administración crea sin contacto después de confirmar',
+        (bool)($creadaSinContacto['ok'] ?? false)
+            && (bool)($creadaSinContacto['sin_contacto'] ?? false)
+            && !empty($creadaSinContacto['mesa_ids'])
+    );
+    $filaSinContacto = $db->query(
+        "SELECT contacto_tipo, contacto, estado
+         FROM reservaciones
+         WHERE request_token='e4-admin-sin-contacto-01'"
+    )->fetch_assoc();
+    e3Same('esquema vigente representa ausencia de contacto con valor vacío', $filaSinContacto['contacto'] ?? null, '');
+    e3Same('reservación administrativa queda confirmada directamente', $filaSinContacto['estado'] ?? '', 'confirmada');
+
+    $adminGrupo = ReservacionService::crearAdministrativa([
+        'nombre' => 'Grupo administrativo de trece',
+        'contacto_tipo' => 'email',
+        'contacto' => 'grupo13@example.test',
+        'fecha' => '2026-12-06',
+        'hora' => '13:00',
+        'comensales' => 13,
+        'request_token' => 'e4-admin-grupo-trece-01',
+        'asignar_automaticamente' => '1',
+    ], 1);
+    e3Assert(
+        'administración permite más de doce con capacidad',
+        (bool)($adminGrupo['ok'] ?? false)
+            && count($adminGrupo['mesa_ids'] ?? []) >= 4
+            && !($adminGrupo['requiere_asignacion_manual'] ?? true)
+    );
+
+    $adminManual = ReservacionService::crearAdministrativa([
+        'nombre' => 'Asignación manual solicitada',
+        'contacto_tipo' => 'email',
+        'contacto' => 'manual@example.test',
+        'fecha' => '2026-12-06',
+        'hora' => '15:00',
+        'comensales' => 3,
+        'request_token' => 'e4-admin-manual-000001',
+        'asignar_automaticamente' => '0',
+    ], 1);
+    e3Assert(
+        'administración puede crear sin asignación por decisión del operador',
+        (bool)($adminManual['ok'] ?? false)
+            && ($adminManual['mesa_ids'] ?? []) === []
+            && (bool)($adminManual['requiere_asignacion_manual'] ?? false)
+    );
+
+    // La landing compara la identidad normalizada, sin sustituir request_token.
+    $publicaBase = [
+        'nombre' => 'Cliente duplicado',
+        'tipo_contacto' => 'email',
+        'contacto' => 'DUPLICADO@EXAMPLE.TEST',
+        'fecha' => '2026-12-06',
+        'hora' => '16:30',
+        'personas' => 2,
+        'notas' => '',
+        'request_token' => 'e4-publica-duplicada-01',
+    ];
+    $sesionDuplicada = [
+        'contacto_tipo' => 'email',
+        'contacto' => 'duplicado@example.test',
+    ];
+    $publicaPrimera = ReservacionPublicaService::crearConfirmada($publicaBase, $sesionDuplicada);
+    e3Same(
+        'landing crea primera reservación normalizada',
+        $publicaPrimera['codigo'] ?? '',
+        ReservacionPublicaService::RESERVACION_CONFIRMADA
+    );
+    $publicaBase['contacto'] = 'duplicado@example.test';
+    $publicaBase['request_token'] = 'e4-publica-duplicada-02';
+    $publicaDuplicada = ReservacionPublicaService::crearConfirmada($publicaBase, $sesionDuplicada);
+    e3Same(
+        'landing rechaza mismo contacto y horario con otro token',
+        $publicaDuplicada['codigo'] ?? '',
+        ReservacionPublicaService::RESERVACION_DUPLICADA
+    );
+    $publicaBase['hora'] = '18:00';
+    $publicaBase['request_token'] = 'e4-publica-otro-horario';
+    e3Same(
+        'landing permite mismo contacto en otro horario',
+        ReservacionPublicaService::crearConfirmada($publicaBase, $sesionDuplicada)['codigo'] ?? '',
+        ReservacionPublicaService::RESERVACION_CONFIRMADA
+    );
+
+    $telefonoBase = [
+        'nombre' => 'Cliente teléfono normalizado',
+        'tipo_contacto' => 'telefono',
+        'contacto' => '+52 55 1234 5678',
+        'fecha' => '2026-12-06',
+        'hora' => '11:30',
+        'personas' => 2,
+        'notas' => '',
+        'request_token' => 'e4-publica-telefono-01',
+    ];
+    $sesionTelefono = ['contacto_tipo' => 'telefono', 'contacto' => '+525512345678'];
+    e3Assert(
+        'landing normaliza teléfono con formato visual',
+        (bool)(ReservacionPublicaService::crearConfirmada($telefonoBase, $sesionTelefono)['ok'] ?? false)
+    );
+    $telefonoBase['contacto'] = '+52 (55) 1234-5678';
+    $telefonoBase['request_token'] = 'e4-publica-telefono-02';
+    e3Same(
+        'landing rechaza teléfono equivalente en el mismo horario',
+        ReservacionPublicaService::crearConfirmada($telefonoBase, $sesionTelefono)['codigo'] ?? '',
+        ReservacionPublicaService::RESERVACION_DUPLICADA
+    );
+
+    // Sin capacidad, administración sólo continúa con el indicador explícito.
+    $capacidadAntesTicketCompleto = DisponibilidadReservacionService::resumenHorario(
+        '2026-12-06',
+        '17:00',
+        2
+    )['capacidad_disponible'] ?? -1;
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-12-06 16:30:00';
+    putenv('RESERVATION_TEST_NOW=2026-12-06 16:30:00');
+    $db->query("SET timestamp = UNIX_TIMESTAMP('2026-12-06 16:30:00')");
+    $db->query(
+        "INSERT INTO tickets (comensales, nombre, hora_apertura, estado)
+         VALUES (44, 'Ocupación completa Etapa 4', '2026-12-06 16:00:00', 'abierto')"
+    );
+    $ticketCompleto = (int)$db->insert_id;
+    $db->query(
+        "INSERT INTO ticket_mesas (ticket_id, mesa_id, orden)
+         SELECT {$ticketCompleto}, id, numero
+         FROM mesas
+         WHERE activo=1 AND reservable=1 AND tipo='mesa'
+         ORDER BY numero"
+    );
+    $adminSinCupo = [
+        'nombre' => 'Grupo sin capacidad',
+        'contacto_tipo' => 'email',
+        'contacto' => 'sin.cupo@example.test',
+        'fecha' => '2026-12-06',
+        'hora' => '17:00',
+        'comensales' => 18,
+        'request_token' => 'e4-admin-sin-capacidad-01',
+        'asignar_automaticamente' => '1',
+    ];
+    $warningCapacidad = ReservacionService::crearAdministrativa($adminSinCupo, 1);
+    $resumenSinCupo = DisponibilidadReservacionService::resumenHorario(
+        '2026-12-06',
+        '17:00',
+        2
+    );
+    e3Same(
+        'todas las mesas con tickets abiertos dejan capacidad disponible cero',
+        $resumenSinCupo['capacidad_disponible'] ?? -1,
+        0
+    );
+    $publicaSinCupo = [
+        'nombre' => 'Cliente público sin capacidad',
+        'tipo_contacto' => 'email',
+        'contacto' => 'publica.sin.cupo@example.test',
+        'fecha' => '2026-12-06',
+        'hora' => '17:00',
+        'personas' => 2,
+        'notas' => '',
+        'request_token' => 'e4-publica-sin-capacidad',
+    ];
+    $resultadoPublicoSinCupo = ReservacionPublicaService::crearConfirmada(
+        $publicaSinCupo,
+        [
+            'contacto_tipo' => 'email',
+            'contacto' => 'publica.sin.cupo@example.test',
+        ]
+    );
+    e3Assert(
+        'landing rechaza creación cuando la capacidad real es cero',
+        !($resultadoPublicoSinCupo['ok'] ?? false)
+            && ($resultadoPublicoSinCupo['codigo'] ?? '') === ReservacionPublicaService::SIN_DISPONIBILIDAD
+            && e3Count(
+                $db,
+                "SELECT COUNT(*) total
+                 FROM reservaciones
+                 WHERE request_token='e4-publica-sin-capacidad'"
+            ) === 0
+    );
+    e3Assert(
+        'administración advierte capacidad y no inserta antes de confirmar',
+        ($warningCapacidad['codigo'] ?? '') === ReservacionService::REQUIERE_CONFIRMACION_CAPACIDAD
+            && (int)($warningCapacidad['capacidad_disponible'] ?? -1) === 0
+            && e3Count($db, "SELECT COUNT(*) total FROM reservaciones WHERE request_token='e4-admin-sin-capacidad-01'") === 0
+    );
+    $adminSinCupo['permitir_capacidad_insuficiente'] = '1';
+    $creadaSinCupo = ReservacionService::crearAdministrativa($adminSinCupo, 1);
+    e3Assert(
+        'confirmación explícita crea sin mesas y solicita asignación',
+        (bool)($creadaSinCupo['ok'] ?? false)
+            && ($creadaSinCupo['mesa_ids'] ?? []) === []
+            && (bool)($creadaSinCupo['requiere_asignacion_manual'] ?? false)
+    );
+    $db->query(
+        "UPDATE tickets SET estado='cerrado', closed_at=NOW() WHERE id={$ticketCompleto}"
+    );
+    e3Same(
+        'el cierre real de todos los tickets restaura la capacidad exacta',
+        DisponibilidadReservacionService::resumenHorario('2026-12-06', '17:00', 2)['capacidad_disponible'] ?? -1,
+        $capacidadAntesTicketCompleto
+    );
+    $_ENV['RESERVATION_TEST_NOW'] = '2026-11-30 12:00:00';
+    putenv('RESERVATION_TEST_NOW=2026-11-30 12:00:00');
+    $db->query("SET timestamp = UNIX_TIMESTAMP('2026-11-30 12:00:00')");
+
+    // Fronteras exactas del warning POS, con revalidación backend.
+    e3Reservation($db, $today, '12:45:00', 4);
+    $warning45 = PuntoVentaReservacionService::abrirWalkIn([
+        'mesa_ids' => [4],
+        'comensales' => 2,
+        'nombre' => 'Walk-in a 45 minutos',
+    ], 1);
+    e3Assert(
+        'entre 31 y 60 minutos POS exige confirmación',
+        ($warning45['codigo'] ?? '') === PuntoVentaReservacionService::REQUIERE_CONFIRMACION
+            && (int)($warning45['advertencia']['minutos_restantes'] ?? 0) === 45
+    );
+    $walkin45 = PuntoVentaReservacionService::abrirWalkIn([
+        'mesa_ids' => [4],
+        'comensales' => 2,
+        'nombre' => 'Walk-in confirmado a 45 minutos',
+        'confirmar_reservacion_proxima' => '1',
+    ], 1);
+    e3Assert('confirmación explícita permite ticket entre 31 y 60', (bool)($walkin45['ok'] ?? false));
+    PuntoVentaReservacionService::cerrarTicket((int)($walkin45['ticket_id'] ?? 0), 'efectivo', 0, [], 1);
+
+    e3Reservation($db, $today, '12:30:00', 5);
+    $bloqueo30 = PuntoVentaReservacionService::abrirWalkIn([
+        'mesa_ids' => [5],
+        'comensales' => 2,
+        'nombre' => 'Walk-in bloqueado a 30 minutos',
+        'confirmar_reservacion_proxima' => '1',
+    ], 1);
+    e3Assert(
+        'a 30 minutos POS bloquea incluso con indicador',
+        !($bloqueo30['ok'] ?? false)
+            && ($bloqueo30['codigo'] ?? '') === PuntoVentaReservacionService::MESA_OCUPADA
+            && (bool)($bloqueo30['bloqueo']['bloqueada'] ?? false)
+    );
+
     $arrivalId = e3Reservation($db, $today, '23:00:00', 1);
     $arrival = PuntoVentaReservacionService::registrarLlegada($arrivalId, 1);
     e3Assert('registrar llegada', $arrival['ok']);
@@ -335,8 +951,8 @@ try {
     $tooSoon = PuntoVentaReservacionService::noShow($futureNoShow, 1, false, false);
     e3Same('no-show antes de tolerancia rechazado', $tooSoon['codigo'], PuntoVentaReservacionService::TOLERANCIA_VIGENTE);
     $overrideNoShow = PuntoVentaReservacionService::noShow($futureNoShow, 1, true, true, 'Override de prueba');
-    e3Assert('override con motivo permitido', $overrideNoShow['ok']);
-    e3Same('override conserva no_show', $db->query("SELECT estado FROM reservaciones WHERE id={$futureNoShow}")->fetch_assoc()['estado'], 'no_show');
+    e3Same('override anticipado ya no se permite', $overrideNoShow['codigo'], PuntoVentaReservacionService::TOLERANCIA_VIGENTE);
+    e3Same('override anticipado conserva confirmada', $db->query("SELECT estado FROM reservaciones WHERE id={$futureNoShow}")->fetch_assoc()['estado'], 'confirmada');
 
     $pastNoShow = e3Reservation($db, $today, '00:00:00', 2);
     e3Assert('no-show después de tolerancia', PuntoVentaReservacionService::noShow($pastNoShow, 1, false, false)['ok']);
@@ -348,7 +964,7 @@ try {
         'mesa_ids' => [1, 2, 3],
         'comensales' => 8,
         'nombre' => 'Walk-in tres mesas',
-        'confirmar_advertencia' => true,
+        'confirmar_reservacion_proxima' => 1,
     ], 1);
     e3Assert('walk-in de tres mesas', $walkin['ok'] && count($walkin['mesa_ids']) === 3);
     e3Same('walk-in N:M completo', e3Count($db, "SELECT COUNT(*) total FROM ticket_mesas WHERE ticket_id=" . (int)$walkin['ticket_id']), 3);
@@ -457,6 +1073,48 @@ try {
     e3Same(
         'ticket contra reservación deja una ocupación',
         e3Count($db, "SELECT COUNT(DISTINCT t.id) total FROM tickets t JOIN ticket_mesas tm ON tm.ticket_id=t.id WHERE t.estado='abierto' AND tm.mesa_id=3"),
+        1
+    );
+
+    $duplicadoRace = e3Race($databaseName, [
+        [
+            'mode' => 'public_create',
+            'fecha' => '2026-12-06',
+            'hora' => '12:00',
+            'contacto' => 'race.duplicate@example.test',
+            'request_token' => 'e4-race-duplicate-a01',
+        ],
+        [
+            'mode' => 'public_create',
+            'fecha' => '2026-12-06',
+            'hora' => '12:00',
+            'contacto' => 'race.duplicate@example.test',
+            'request_token' => 'e4-race-duplicate-b01',
+        ],
+    ]);
+    e3Same(
+        'duplicado público simultáneo tiene un ganador',
+        count(array_filter($duplicadoRace, static fn(array $r): bool => (bool)($r['ok'] ?? false))),
+        1
+    );
+    e3Same(
+        'duplicado público simultáneo tiene un rechazo específico',
+        count(array_filter(
+            $duplicadoRace,
+            static fn(array $r): bool => ($r['codigo'] ?? '') === ReservacionPublicaService::RESERVACION_DUPLICADA
+        )),
+        1
+    );
+    e3Same(
+        'duplicado público simultáneo deja una sola fila',
+        e3Count(
+            $db,
+            "SELECT COUNT(*) total
+             FROM reservaciones
+             WHERE contacto='race.duplicate@example.test'
+               AND fecha='2026-12-06'
+               AND hora='12:00:00'"
+        ),
         1
     );
 

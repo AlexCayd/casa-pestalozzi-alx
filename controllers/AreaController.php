@@ -2,6 +2,7 @@
 namespace Controllers;
 
 use Model\TicketItem;
+use Model\TicketMesa;
 use MVC\Router;
 
 class AreaController {
@@ -39,7 +40,8 @@ class AreaController {
                         t.id AS ticket_id, t.nombre AS ticket_nombre,
                         m.nombre AS mesa_nombre, m.numero AS mesa_numero
                  FROM ticket_items ti
-                 JOIN tickets t ON t.id = ti.ticket_id AND t.estado = 'abierto'
+                 JOIN tickets t ON t.id = ti.ticket_id
+                   AND " . TicketMesa::condicionSqlAbierto('t') . "
                  JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                  JOIN mesas m ON m.id = tm.mesa_id
                  WHERE ti.area_id = {$areaId}

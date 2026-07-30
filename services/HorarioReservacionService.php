@@ -131,6 +131,55 @@ class HorarioReservacionService
         return $horasDisponibles[0];
     }
 
+    /**
+     * Resuelve el horario que puede mostrarse como contexto operativo.
+     * Los horarios recibidos ya deben provenir de la disponibilidad canónica
+     * del servidor; nunca se completa la lista con valores del navegador.
+     *
+     * @return array{
+     *   hora_solicitada: string,
+     *   hora_resuelta: string,
+     *   ajustada: bool,
+     *   solicitada_vencida: bool,
+     *   sin_horarios_futuros: bool
+     * }
+     */
+    public static function resolverHorarioOperativo(
+        string $fecha,
+        string $horaSolicitada,
+        array $horarios,
+        bool $modoHistorico = false
+    ): array {
+        $horariosNormalizados = [];
+        foreach ($horarios as $horario) {
+            $valor = is_object($horario) ? (string)($horario->hora ?? '') : (string)$horario;
+            $hora = self::normalizarHoraCorta($valor);
+            if ($hora !== '') {
+                $horariosNormalizados[$hora] = true;
+            }
+        }
+        $horariosNormalizados = array_keys($horariosNormalizados);
+        sort($horariosNormalizados, SORT_STRING);
+
+        $solicitada = self::normalizarHoraCorta($horaSolicitada);
+        $solicitadaVencida = !$modoHistorico
+            && $solicitada !== ''
+            && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($solicitada));
+        $resuelta = $solicitada !== '' && in_array($solicitada, $horariosNormalizados, true)
+            ? $solicitada
+            : self::horaPorDefecto($horariosNormalizados, $fecha);
+
+        return [
+            'hora_solicitada' => $solicitada,
+            'hora_resuelta' => $resuelta,
+            'ajustada' => $solicitada !== '' && $resuelta !== $solicitada,
+            'solicitada_vencida' => $solicitadaVencida,
+            'sin_horarios_futuros' => !$modoHistorico
+                && $fecha === self::hoy()
+                && $horariosNormalizados === [],
+        ];
+    }
+
     public static function hoy(): string
     {
         return ReservacionConfig::fechaActual();

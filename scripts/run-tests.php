@@ -8,6 +8,9 @@ $suites = [
     __DIR__ . '/../tests/ReservacionContactoEtapa1Test.php',
     __DIR__ . '/../tests/ReservacionPublicaEtapa2Test.php',
     __DIR__ . '/../tests/ReservacionEtapa3Test.php',
+    __DIR__ . '/../tests/ReservacionEstabilizacionTest.php',
+    __DIR__ . '/../tests/ReservacionRevisionIntegralTest.php',
+    __DIR__ . '/../tests/ReservacionOcupacionProyectadaTest.php',
 ];
 
 foreach ($suites as $suite) {

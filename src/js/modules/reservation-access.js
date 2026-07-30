@@ -33,6 +33,53 @@ function initReservationAccess() {
   var contactValues = { email: "", telefono: "" };
   var activeContactType = "email";
 
+  function confirmCancellation(reservation, onConfirm) {
+    var previous = document.querySelector("[data-reservation-cancel-dialog]");
+    if (previous) previous.remove();
+
+    var dialog = document.createElement("dialog");
+    dialog.className = "reservation-cancel-dialog";
+    dialog.dataset.reservationCancelDialog = "";
+    dialog.setAttribute("aria-labelledby", "reservation-cancel-title");
+    dialog.innerHTML = [
+      '<div class="reservation-cancel-dialog__body">',
+      '<span class="reservation-cancel-dialog__eyebrow">Acción irreversible</span>',
+      '<h3 id="reservation-cancel-title">Cancelar reservación</h3>',
+      '<p>Se cancelará la reservación de <strong></strong>. Esta acción liberará sus mesas.</p>',
+      '<div class="reservation-cancel-dialog__actions">',
+      '<button type="button" class="reservation-access__link" data-reservation-cancel-close>Volver</button>',
+      '<button type="button" class="form__submit reservation-cancel-dialog__confirm" data-reservation-cancel-confirm>Cancelar reservación</button>',
+      "</div>",
+      "</div>"
+    ].join("");
+    dialog.querySelector("strong").textContent = [
+      reservation.fecha || "",
+      String(reservation.hora || "").slice(0, 5)
+    ].filter(Boolean).join(" a las ");
+
+    function closeDialog() {
+      dialog.close();
+      dialog.remove();
+    }
+
+    dialog.querySelector("[data-reservation-cancel-close]").addEventListener("click", closeDialog);
+    dialog.addEventListener("cancel", function(event) {
+      event.preventDefault();
+      closeDialog();
+    });
+    dialog.addEventListener("click", function(event) {
+      if (event.target === dialog) closeDialog();
+    });
+    dialog.querySelector("[data-reservation-cancel-confirm]").addEventListener("click", function() {
+      closeDialog();
+      onConfirm();
+    });
+
+    document.body.append(dialog);
+    dialog.showModal();
+    dialog.querySelector("[data-reservation-cancel-close]").focus();
+  }
+
   function setAccessCopy(verified) {
     if (accessTitle) accessTitle.textContent = verified
       ? "Contacto verificado"
@@ -422,6 +469,37 @@ function initReservationAccess() {
     var timeRoot = editor.querySelector("[data-reservation-time-picker]");
     var timeInput = timeRoot.querySelector("[data-time-input]");
     var peopleInput = editor.elements.personas;
+    var submitButton = editor.querySelector('button[type="submit"]');
+    var status = editor.querySelector("[data-editor-time-status]");
+    var availability = { pending: true, status: "loading", slots: [] };
+
+    function normalizeSlots(hours) {
+      if (window.ReservationFormState
+        && typeof window.ReservationFormState.normalizeSlots === "function") {
+        return window.ReservationFormState.normalizeSlots(hours);
+      }
+      return (Array.isArray(hours) ? hours : []).map(function(item) {
+        return String(item && typeof item === "object" ? item.hora : item).slice(0, 5);
+      }).filter(Boolean);
+    }
+
+    function updateAvailability(message) {
+      var selected = String(timeInput.value || "").slice(0, 5);
+      var ready = availability.status === "ready"
+        && !availability.pending
+        && availability.slots.indexOf(selected) !== -1;
+      if (submitButton) {
+        submitButton.disabled = !ready
+          || !dateInput.value
+          || !(parseInt(peopleInput.value, 10) >= 1);
+      }
+      if (status && message !== undefined) {
+        status.textContent = message || "";
+        status.classList.toggle("show", Boolean(message));
+        status.classList.toggle("is-success", ready);
+      }
+    }
+
     var datePicker = window.createReservationDatePicker({
       root: dateRoot,
       initialValue: reservation.fecha || ""
@@ -431,20 +509,75 @@ function initReservationAccess() {
       status: editor.querySelector("[data-editor-time-status]"),
       endpoint: timeRoot.getAttribute("data-schedules-endpoint"),
       getQueryParams: function() {
-        return { personas: parseInt(peopleInput.value, 10) || reservation.comensales || 2 };
+        return {
+          personas: parseInt(peopleInput.value, 10) || reservation.comensales || 2,
+          reservacion_id: reservation.id
+        };
       },
       initialDate: reservation.fecha || "",
       initialTime: String(reservation.hora || "").slice(0, 5),
       invalidateUnavailable: true
     });
 
+    function loadAvailability(fecha, preferredTime) {
+      availability.pending = true;
+      availability.status = "loading";
+      availability.slots = [];
+      updateAvailability("Consultando disponibilidad…");
+      return timePicker.loadForDate(fecha, preferredTime).then(function(hours) {
+        if (availability.pending) {
+          availability.slots = normalizeSlots(hours);
+          availability.status = availability.slots.length ? "ready" : "unavailable";
+          availability.pending = false;
+          updateAvailability(
+            availability.slots.indexOf(String(timeInput.value || "").slice(0, 5)) !== -1
+              ? "Disponibilidad confirmada."
+              : (availability.slots.length
+                ? "Elige un horario disponible."
+                : "No hay capacidad suficiente para esta selección.")
+          );
+        }
+        return hours;
+      });
+    }
+
+    timeRoot.addEventListener("reservation:scheduleloaded", function(event) {
+      var data = event.detail || {};
+      var computed = window.ReservationFormState
+        && typeof window.ReservationFormState.availabilityState === "function"
+        ? window.ReservationFormState.availabilityState(data, timeInput.value, false)
+        : null;
+      availability.pending = false;
+      availability.slots = computed ? computed.slots : normalizeSlots(data.horarios);
+      availability.status = computed
+        ? computed.status
+        : (availability.slots.length ? "ready" : "unavailable");
+      updateAvailability(computed ? computed.message : data.mensaje);
+    });
     dateInput.addEventListener("reservation:datechange", function(event) {
-      timePicker.loadForDate((event.detail && event.detail.fecha) || dateInput.value, timeInput.value);
+      loadAvailability((event.detail && event.detail.fecha) || dateInput.value, "");
     });
     peopleInput.addEventListener("change", function() {
-      if (dateInput.value) timePicker.loadForDate(dateInput.value, timeInput.value);
+      if (dateInput.value) loadAvailability(dateInput.value, timeInput.value);
     });
-    return { date: datePicker, time: timePicker };
+    timeInput.addEventListener("reservation:timechange", function() {
+      updateAvailability(
+        availability.status === "ready"
+          && availability.slots.indexOf(String(timeInput.value || "").slice(0, 5)) !== -1
+          ? "Disponibilidad confirmada."
+          : (availability.pending ? "Consultando disponibilidad…" : "Elige un horario disponible.")
+      );
+    });
+    return {
+      date: datePicker,
+      time: timePicker,
+      loadAvailability: loadAvailability,
+      isAvailable: function() {
+        return availability.status === "ready"
+          && !availability.pending
+          && availability.slots.indexOf(String(timeInput.value || "").slice(0, 5)) !== -1;
+      }
+    };
   }
 
   function reservationCard(reservation) {
@@ -505,7 +638,7 @@ function initReservationAccess() {
             editorPickers.date.setValue(reservation.fecha || "", true);
           }
           if (editorPickers.time) {
-            editorPickers.time.loadForDate(
+            editorPickers.loadAvailability(
               reservation.fecha || "",
               String(reservation.hora || "").slice(0, 5)
             );
@@ -525,7 +658,7 @@ function initReservationAccess() {
             editor.hidden = false;
             editor.elements.nombre.focus();
             if (editorPickers.time && editor.elements.fecha.value) {
-              editorPickers.time.loadForDate(editor.elements.fecha.value, editor.elements.hora.value);
+              editorPickers.loadAvailability(editor.elements.fecha.value, editor.elements.hora.value);
             }
           } else {
             closeEditor();
@@ -540,6 +673,21 @@ function initReservationAccess() {
           event.preventDefault();
           var editorMessage = editor.querySelector("[data-editor-message]");
           editorMessage.textContent = "";
+          if (
+            !editor.elements.nombre.value.trim()
+            || !editor.elements.fecha.value
+            || !editor.elements.hora.value
+            || !(parseInt(editor.elements.personas.value, 10) >= 1)
+            || !editorPickers.isAvailable()
+          ) {
+            editorMessage.textContent = "Selecciona fecha, horario y comensales con disponibilidad confirmada.";
+            return;
+          }
+          var editorSubmit = editor.querySelector('button[type="submit"]');
+          if (editorSubmit) {
+            editorSubmit.disabled = true;
+            editorSubmit.setAttribute("aria-busy", "true");
+          }
           jsonRequest("/api/reservaciones/modificar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -561,6 +709,11 @@ function initReservationAccess() {
             loadReservations();
           }).catch(function() {
             editorMessage.textContent = "No fue posible modificar; tu reservación original se conserva.";
+          }).finally(function() {
+            if (editorSubmit) {
+              editorSubmit.disabled = !editorPickers.isAvailable();
+              editorSubmit.removeAttribute("aria-busy");
+            }
           });
         });
         actions.append(modify);
@@ -573,20 +726,21 @@ function initReservationAccess() {
         cancel.className = "reservation-access__link reservation-access__link--danger";
         cancel.textContent = "Cancelar reservación";
         cancel.addEventListener("click", function() {
-          if (!window.confirm("¿Deseas cancelar esta reservación?")) return;
-          jsonRequest("/api/reservaciones/cancelar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reservacion_id: reservation.id })
-          }).then(function(data) {
-            if (!data.ok) {
-              setMessage(data.mensaje || "No fue posible cancelar la reservación.", true);
-              return;
-            }
-            setMessage(data.mensaje || "La reservación fue cancelada.");
-            loadReservations();
-          }).catch(function() {
-            setMessage("No fue posible cancelar la reservación.", true);
+          confirmCancellation(reservation, function() {
+            jsonRequest("/api/reservaciones/cancelar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reservacion_id: reservation.id })
+            }).then(function(data) {
+              if (!data.ok) {
+                setMessage(data.mensaje || "No fue posible cancelar la reservación.", true);
+                return;
+              }
+              setMessage(data.mensaje || "La reservación fue cancelada.");
+              loadReservations();
+            }).catch(function() {
+              setMessage("No fue posible cancelar la reservación.", true);
+            });
           });
         });
         actions.append(cancel);

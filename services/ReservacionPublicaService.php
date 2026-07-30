@@ -34,6 +34,7 @@ final class ReservacionPublicaService
     public const CANCELACION_NO_PERMITIDA = 'CANCELACION_NO_PERMITIDA';
     public const RESERVACION_MODIFICADA = 'RESERVACION_MODIFICADA';
     public const RESERVACION_CANCELADA = 'RESERVACION_CANCELADA';
+    public const RESERVACION_DUPLICADA = 'RESERVACION_DUPLICADA';
     public const RETENCIONES_EXPIRADAS = 'RETENCIONES_EXPIRADAS';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
@@ -42,7 +43,7 @@ final class ReservacionPublicaService
     public static function puedeGestionarse(array $fila): bool
     {
         return (string)($fila['estado'] ?? '') === 'confirmada'
-            && self::antesODuranteHora($fila);
+            && (bool)ReservacionVigenciaService::clasificar($fila)['editable'];
     }
 
     public static function contactoCoincideConSesion(array $entrada, array $sesion): bool
@@ -63,6 +64,28 @@ final class ReservacionPublicaService
         return $tipoEntrada === $tipoSesion
             && $contactoSesion !== ''
             && hash_equals($contactoSesion, $contactoEntrada);
+    }
+
+    /**
+     * Autoriza la exclusión orientativa usada por el editor público sin
+     * aceptar IDs arbitrarios enviados por el navegador.
+     */
+    public static function reservacionPerteneceASesion(int $id, array $sesion): bool
+    {
+        if ($id < 1) {
+            return false;
+        }
+
+        $fila = self::buscarPorId($id);
+        if (!$fila) {
+            return false;
+        }
+
+        return self::mismoContacto(
+            $fila,
+            (string)($sesion['contacto_tipo'] ?? ''),
+            (string)($sesion['contacto'] ?? '')
+        );
     }
 
     /** @return array<string, mixed> */
@@ -94,6 +117,17 @@ final class ReservacionPublicaService
                     $db->commit();
                     $transaccion = false;
                     return $resultado;
+                }
+
+                if (self::buscarDuplicadaActiva(
+                    $datos['tipo'],
+                    $datos['contacto'],
+                    $datos['fecha'],
+                    $datos['hora']
+                )) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::duplicada();
                 }
 
                 if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
@@ -218,6 +252,17 @@ final class ReservacionPublicaService
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
+                }
+                if (self::buscarDuplicadaActiva(
+                    $tipo,
+                    $contacto,
+                    (string)$retencion['fecha'],
+                    (string)$retencion['hora'],
+                    (int)$retencion['id']
+                )) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::duplicada();
                 }
 
                 $otp = ContactoAccesoService::validarCodigoEnTransaccion(
@@ -365,6 +410,16 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return $resultado;
                 }
+                if (self::buscarDuplicadaActiva(
+                    $datos['tipo'],
+                    $datos['contacto'],
+                    $datos['fecha'],
+                    $datos['hora']
+                )) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::duplicada();
+                }
                 if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
                     $db->rollback();
                     $transaccion = false;
@@ -469,7 +524,11 @@ final class ReservacionPublicaService
                     return [
                         'ok' => false,
                         'codigo' => self::SIN_DISPONIBILIDAD,
-                        'mensaje' => 'No fue posible modificar; tu reservación original se conserva.',
+                        'mensaje' => 'No hay capacidad suficiente para esta selección; tu reservación original se conserva.',
+                        'errors' => [
+                            'hora' => ['El horario no tiene capacidad para los comensales seleccionados.'],
+                            'personas' => ['No hay una combinación de mesas disponible para este grupo.'],
+                        ],
                     ];
                 }
 
@@ -684,7 +743,26 @@ final class ReservacionPublicaService
         }
         $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
         if (!($horario['ok'] ?? false)) {
-            return self::datosInvalidos('La fecha u hora seleccionada no está disponible.');
+            $esPasado = ($horario['codigo'] ?? '') === HorarioReservacionService::HORARIO_PASADO;
+            $field = in_array(($horario['codigo'] ?? ''), [
+                HorarioReservacionService::FECHA_INVALIDA,
+                HorarioReservacionService::FECHA_PASADA,
+                HorarioReservacionService::DIA_INACTIVO,
+            ], true) ? 'fecha' : 'hora';
+            $mensaje = $esPasado
+                ? 'Ese horario ya pasó. Elige un horario posterior.'
+                : 'La fecha u hora seleccionada no está disponible.';
+            return [
+                'ok' => false,
+                'codigo' => self::DATOS_INVALIDOS,
+                'mensaje' => $mensaje,
+                'errores' => [$field => [$mensaje]],
+                'errors' => [$field => [$mensaje]],
+                'field_codes' => [
+                    $field => [(string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO)],
+                ],
+                'siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null,
+            ];
         }
 
         try {
@@ -760,6 +838,46 @@ final class ReservacionPublicaService
             ReservacionConfig::fechaActual(),
             ReservacionConfig::horaActual()
         );
+    }
+
+    /**
+     * El lock canónico de contacto y fecha serializa esta consulta con la
+     * inserción. Así dos pestañas con tokens distintos no crean el mismo turno.
+     */
+    private static function buscarDuplicadaActiva(
+        string $tipo,
+        string $contacto,
+        string $fecha,
+        string $hora,
+        int $excluirReservacionId = 0
+    ): ?array {
+        $condicionActiva = ReservacionConfig::condicionSqlOcupacionActiva('r');
+        $sql = "SELECT r.id, r.request_token
+                FROM reservaciones r
+                WHERE r.contacto_tipo = ?
+                  AND r.contacto = ?
+                  AND r.fecha = ?
+                  AND r.hora = ?
+                  AND {$condicionActiva}";
+        if ($excluirReservacionId > 0) {
+            $sql .= ' AND r.id <> ?';
+        }
+        $sql .= ' ORDER BY r.id LIMIT 1 FOR UPDATE';
+
+        $stmt = ActiveRecord::getDB()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la validación de duplicado.');
+        }
+        if ($excluirReservacionId > 0) {
+            $stmt->bind_param('ssssi', $tipo, $contacto, $fecha, $hora, $excluirReservacionId);
+        } else {
+            $stmt->bind_param('ssss', $tipo, $contacto, $fecha, $hora);
+        }
+        $stmt->execute();
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+
+        return $fila;
     }
 
     /**
@@ -884,13 +1002,7 @@ final class ReservacionPublicaService
      */
     private static function antesODuranteHora(array $fila): bool
     {
-        $programada = DateTimeImmutable::createFromFormat(
-            '!Y-m-d H:i:s',
-            (string)$fila['fecha'] . ' ' . (string)$fila['hora'],
-            ReservacionConfig::timezone()
-        );
-        return $programada instanceof DateTimeImmutable
-            && ReservacionConfig::ahora() <= $programada;
+        return (bool)ReservacionVigenciaService::clasificar($fila)['editable'];
     }
 
     private static function marcarExpirada(int $id): void
@@ -1002,6 +1114,15 @@ final class ReservacionPublicaService
             'ok' => false,
             'codigo' => self::LIMITE_RESERVACIONES_ALCANZADO,
             'mensaje' => 'Alcanzaste cinco reservaciones activas.',
+        ];
+    }
+
+    private static function duplicada(): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::RESERVACION_DUPLICADA,
+            'mensaje' => 'Ya existe una reservación activa para este contacto en el horario seleccionado.',
         ];
     }
 

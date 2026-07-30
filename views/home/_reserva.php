@@ -160,6 +160,9 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
         id="reservaForm"
         data-schedules-endpoint="/api/reservaciones/disponibilidad"
         data-max-guests="<?php echo (int)$contactoReservas['max_comensales']; ?>"
+        data-restaurant-phone="<?php echo s($contactoReservas['telefono_visible']); ?>"
+        data-restaurant-tel="<?php echo s($contactoReservas['telefono_tel']); ?>"
+        data-restaurant-whatsapp="<?php echo s($contactoReservas['whatsapp_url']); ?>"
         novalidate
       >
         <input type="hidden" name="request_token" value="<?php echo s($reservationRequestToken ?? ''); ?>">
@@ -203,7 +206,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
                 aria-controls="guestsExtra">+</button>
             </div>
             <div class="guests-extra" id="guestsExtra" hidden>
-              <div class="guests-stepper" role="group" aria-label="Cantidad de comensales entre 7 y 12">
+              <div class="guests-stepper" role="group" aria-label="Cantidad de comensales; después de 12 se activa la atención directa">
                 <button type="button" class="step-btn" id="guestsMinus" aria-label="Reducir comensales">−</button>
                 <span class="step-val" id="guestsVal" aria-live="polite">7</span>
                 <button type="button" class="step-btn" id="guestsPlus" aria-label="Aumentar comensales">+</button>
@@ -244,9 +247,21 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               </div>
               <button type="button" class="reservation-summary__edit" data-reservation-edit="1">Editar</button>
             </div>
-            <div class="reservation-summary__details">
+            <div class="reservation-summary__details" data-selection-details>
               <div><small>Fecha y hora</small><strong data-selection-primary></strong></div>
               <div><small>Comensales</small><span data-selection-secondary></span></div>
+            </div>
+            <div class="reservation-summary__large-party" data-large-party-info hidden>
+              <p>Las reservaciones para más de 12 personas se gestionan directamente con el restaurante.</p>
+              <div class="reservation-summary__contact-actions">
+                <a href="tel:<?php echo s($contactoReservas['telefono_tel']); ?>">
+                  Llamar al <?php echo s($contactoReservas['telefono_visible']); ?>
+                </a>
+                <a href="<?php echo s($contactoReservas['whatsapp_url']); ?>" target="_blank" rel="noopener noreferrer">
+                  Contactar por WhatsApp
+                </a>
+              </div>
+              <small>Reduce el número de comensales para volver al flujo de reservación en línea.</small>
             </div>
           </aside>
           <div class="reservation-stage-actions reservation-stage-actions--single">

@@ -29,7 +29,7 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css">
+  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v2">
 </head>
 
 <body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos">
@@ -73,6 +73,14 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
       smooth: false,
       anim: false
     };
+    // El POS inicia con las mismas ventanas que usa el backend; la API vuelve
+    // a entregarlas en cada actualización para evitar valores divergentes.
+    window.CP_RESERVATION_OPERATION_CONFIG = <?php
+      echo json_encode(
+        \Services\ReservacionConfig::configuracionOperacion(),
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+      );
+    ?>;
   </script>
   <script>
     // Confirmación: en tablet un toque accidental no debe sacar del turno
@@ -88,7 +96,7 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js"></script>
+  <script src="/build/js/admin/map.js?v=pos-reservations-v2"></script>
 </body>
 
 </html>

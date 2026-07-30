@@ -11,6 +11,8 @@ $capacidadTotal = (int)($capacidadTotal ?? 0);
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
 $editable = (bool)($editable ?? false);
+$vigencia = is_array($vigencia ?? null) ? $vigencia : [];
+$ticketAbierto = is_array($ticketAbierto ?? null) ? $ticketAbierto : null;
 $returnUrl = (string)($returnUrl ?? '/admin/reservations');
 $backUrl = (string)($backUrl ?? '/admin/reservations');
 
@@ -69,21 +71,22 @@ foreach ($alertas as $tipo => $mensajes) {
     $agregarAlerta($tipo, $mensajes);
 }
 
-$statusForm = static function (
-    int $id,
+$actionButton = static function (
     string $estado,
-    string $returnUrl,
     string $label,
     string $class,
-    string $confirm = ''
+    bool $requiereMotivo = false
 ) use ($h): void {
     ?>
-    <form method="POST" action="/admin/reservations/status" data-reservation-operational-action <?php echo $confirm !== '' ? 'onsubmit="return confirm(\'' . $h($confirm) . '\')"' : ''; ?>>
-        <input type="hidden" name="id" value="<?php echo $id; ?>">
-        <input type="hidden" name="estado" value="<?php echo $h($estado); ?>">
-        <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
-        <button type="submit" class="<?php echo $h($class); ?>" data-reservation-operational-control><?php echo $h($label); ?></button>
-    </form>
+    <button
+        type="button"
+        class="<?php echo $h($class); ?>"
+        data-reservation-action-open
+        data-action-state="<?php echo $h($estado); ?>"
+        data-action-label="<?php echo $h($label); ?>"
+        data-action-reason="<?php echo $requiereMotivo ? '1' : '0'; ?>"
+        data-reservation-operational-control
+    ><?php echo $h($label); ?></button>
     <?php
 };
 
@@ -99,14 +102,15 @@ $estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $createdAt = (string)$valor($reservacion, 'created_at', '');
 $mesasCount = count($mesasAsignadas);
 $tieneMesa = $mesasCount > 0;
-$estadoFinal = in_array($estado, ['completada', 'cancelada', 'no_show'], true);
+$estadoFinal = in_array($estado, ['completada', 'cancelada', 'no_show', 'expirada'], true);
+$puedeAsignar = $editable || (bool)($vigencia['puede_confirmar_llegada'] ?? false);
 $capacidadRestaurante = max((int)($capacidadRestaurante ?? 0), $comensales, 1);
 $diferenciaCapacidad = $capacidadTotal - $comensales;
 $horaCorta = $horaLegible($hora);
 $operationUrl = '/admin/reservations/operation?' . http_build_query([
     'fecha' => $fecha,
     'hora' => $horaCorta,
-    'reservacion_id' => $id,
+    'reservation_id' => $id,
     'return_url' => $returnUrl,
 ]);
 ?>
@@ -121,7 +125,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
             <h2 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h2>
         </div>
         <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
-            <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
+            <?php echo $h(($estadoLabels[$estado] ?? ucfirst($estado)) . (!empty($vigencia['tolerancia_vencida']) ? ' · Tolerancia vencida' : '')); ?>
         </span>
     </header>
 
@@ -150,6 +154,18 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                         <dt>Estado</dt>
                         <dd><?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?></dd>
                     </div>
+                    <?php if (!empty($vigencia['tolerancia_vencida'])) : ?>
+                        <div>
+                            <dt>Condición operativa</dt>
+                            <dd>Tolerancia vencida</dd>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($ticketAbierto) : ?>
+                        <div>
+                            <dt>Ticket abierto</dt>
+                            <dd>#<?php echo (int)$ticketAbierto['id']; ?></dd>
+                        </div>
+                    <?php endif; ?>
                     <div>
                         <dt>Comensales</dt>
                         <dd><?php echo $h($plural($comensales, 'persona', 'personas')); ?></dd>
@@ -251,23 +267,69 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                 </div>
 
                 <div class="reservation-detail-actions">
-                    <a class="admin-btn admin-btn--secondary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Gestionar en operacion</a>
+                    <div class="reservation-detail-actions__primary">
+                        <a class="admin-btn admin-btn--primary" href="<?php echo $h($operationUrl); ?>" data-reservation-operational-action data-reservation-operational-control>Gestionar en operacion</a>
+                    </div>
 
-                    <?php if (!$estadoFinal && $editable) : ?>
+                    <div class="reservation-detail-actions__secondary">
+                    <?php if (!$estadoFinal) : ?>
+                        <?php if ($editable) : ?>
                         <form method="POST" action="/admin/reservations/reassign" data-reservation-operational-action>
                             <input type="hidden" name="id" value="<?php echo $id; ?>">
                             <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
                             <button type="submit" class="admin-btn admin-btn--secondary" data-reservation-operational-control>Reasignar automaticamente</button>
                         </form>
+                        <?php endif; ?>
 
-                        <?php $statusForm($id, 'completada', $returnUrl, 'Completar', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como completada?'); ?>
-                        <?php $statusForm($id, 'no_show', $returnUrl, 'Marcar no show', 'admin-btn admin-btn--ghost', 'Marcar esta reservacion como no show?'); ?>
-                        <?php $statusForm($id, 'cancelada', $returnUrl, 'Cancelar reservacion', 'admin-btn admin-btn--danger', 'Cancelar esta reservacion?'); ?>
+                        <?php if ($estado === 'pendiente_verificacion' && $editable) : ?>
+                            <?php $actionButton('confirmada', 'Confirmar verificación', 'admin-btn admin-btn--primary'); ?>
+                        <?php endif; ?>
+                        <?php if (!empty($vigencia['puede_confirmar_llegada'])) : ?>
+                            <?php $actionButton('llego', !empty($vigencia['llegada_tardia']) ? 'Registrar llegada tardía' : 'Confirmar llegada', 'admin-btn admin-btn--primary'); ?>
+                        <?php endif; ?>
+                        <?php if (!empty($vigencia['elegible_no_show'])) : ?>
+                            <?php $actionButton('no_show', 'Marcar no show', 'admin-btn admin-btn--ghost'); ?>
+                        <?php endif; ?>
+                        <?php if (in_array($estado, ['confirmada', 'llego'], true) && !$ticketAbierto) : ?>
+                            <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--danger', true); ?>
+                        <?php endif; ?>
+                        <?php if ($ticketAbierto) : ?>
+                            <a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Consultar ticket #<?php echo (int)$ticketAbierto['id']; ?></a>
+                        <?php endif; ?>
                     <?php else : ?>
                         <p class="reservation-detail-actions__muted">Esta reservacion esta en modo de solo lectura.</p>
                     <?php endif; ?>
+                    </div>
                 </div>
             </article>
         </aside>
+    </div>
+
+    <div class="admin-modal" data-reservation-action-modal hidden>
+        <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-reservation-action-close></button>
+        <div class="admin-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="reservation-action-title" data-admin-modal-dialog>
+            <div class="admin-modal__head">
+                <div>
+                    <span class="admin-modal__eyebrow">Acción operativa</span>
+                    <h2 class="admin-modal__title" id="reservation-action-title" data-reservation-action-title>Confirmar acción</h2>
+                </div>
+                <button class="admin-modal__close" type="button" aria-label="Cerrar" data-reservation-action-close>&times;</button>
+            </div>
+            <p class="admin-modal__text" data-reservation-action-description>Revisa la acción antes de continuar.</p>
+            <form method="POST" action="/admin/reservations/status" data-reservation-action-form>
+                <input type="hidden" name="id" value="<?php echo $id; ?>">
+                <input type="hidden" name="estado" value="" data-reservation-action-state>
+                <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
+                <label class="admin-field admin-modal__field--wide" data-reservation-action-reason-field hidden>
+                    <span>Motivo</span>
+                    <textarea name="motivo" rows="3" maxlength="500" data-reservation-action-reason></textarea>
+                </label>
+                <p class="admin-form-status admin-modal__field--wide" data-reservation-action-error aria-live="polite"></p>
+                <div class="admin-modal__actions admin-modal__field--wide">
+                    <button type="button" class="admin-btn admin-btn--secondary" data-reservation-action-close>Volver</button>
+                    <button type="submit" class="admin-btn admin-btn--danger" data-reservation-action-submit>Confirmar</button>
+                </div>
+            </form>
+        </div>
     </div>
 </section>

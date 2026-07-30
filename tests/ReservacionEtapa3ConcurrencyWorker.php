@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Dotenv\Dotenv;
 use Model\ActiveRecord;
 use Services\HorarioOperacionService;
+use Services\AsignacionMesasService;
 use Services\PuntoVentaReservacionService;
+use Services\ReservacionPublicaService;
 use Services\ReservacionService;
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -43,7 +45,7 @@ $response = match ($mode) {
             'mesa_ids' => [(int)$payload['mesa_id']],
             'comensales' => 2,
             'nombre' => 'Carrera Etapa 3',
-            'confirmar_advertencia' => true,
+            'confirmar_reservacion_proxima' => 1,
         ],
         (int)$payload['usuario_id']
     ),
@@ -59,6 +61,20 @@ $response = match ($mode) {
         (int)$payload['usuario_id'],
         false,
         false
+    ),
+    'arrival' => PuntoVentaReservacionService::registrarLlegada(
+        (int)$payload['reservacion_id'],
+        (int)$payload['usuario_id']
+    ),
+    'assign' => AsignacionMesasService::asignarManual(
+        (int)$payload['reservacion_id'],
+        array_map('intval', (array)$payload['mesa_ids']),
+        false,
+        true,
+        [
+            'version_esperada' => (string)($payload['version_esperada'] ?? ''),
+            'usuario_id' => (int)$payload['usuario_id'],
+        ]
     ),
     'cancel' => PuntoVentaReservacionService::cancelar(
         (int)$payload['reservacion_id'],
@@ -81,6 +97,19 @@ $response = match ($mode) {
         'hora' => (string)$payload['hora'],
         'comensales' => 2,
         'request_token' => (string)$payload['request_token'],
+    ]),
+    'public_create' => ReservacionPublicaService::crearConfirmada([
+        'nombre' => 'Carrera duplicado público',
+        'tipo_contacto' => 'email',
+        'contacto' => (string)$payload['contacto'],
+        'fecha' => (string)$payload['fecha'],
+        'hora' => (string)$payload['hora'],
+        'personas' => 2,
+        'notas' => '',
+        'request_token' => (string)$payload['request_token'],
+    ], [
+        'contacto_tipo' => 'email',
+        'contacto' => (string)$payload['contacto'],
     ]),
     default => ['ok' => false, 'codigo' => 'MODO_INVALIDO'],
 };

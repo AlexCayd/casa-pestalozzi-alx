@@ -26,12 +26,16 @@ class ReservacionConfig
     public const MAX_COMENSALES_ADMIN = 44;
     public const NOTA_MAX_CARACTERES = 500;
     public const COMENTARIO_ADMIN_MAX_CARACTERES = 5000;
+    public const MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA = 60;
     public const MINUTOS_PREVIOS_BLOQUEO = 30;
     public const INTERVALO_RESERVACION_MINUTOS = 30;
     public const TIMEZONE = 'America/Mexico_City';
     public const TOLERANCIA_RESERVACION_MINUTOS = 15;
-    public const DURACION_SERVICIO_ESTIMADA_MINUTOS = 120;
+    public const DURACION_SERVICIO_ESTIMADA_MINUTOS = 90;
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
+    public const MARGEN_MINIMO_SEGURIDAD_MINUTOS = 30;
+    public const REFRESCO_ESTADOS_SEGUNDOS = 60;
+    public const ESTADO_RETENCION_PENDIENTE = 'pendiente_verificacion';
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',
         'confirmada' => 'Confirmada',
@@ -49,6 +53,7 @@ class ReservacionConfig
      * consultas: sólo ocupa mientras hold_expires_at sea futura.
      */
     public const ESTADOS_OCUPAN_MESA = ['confirmada', 'llego', 'en_curso'];
+    public const ESTADOS_LISTA_OPERATIVA = ['confirmada', 'llego', 'en_curso'];
     public const ESTADOS_CUENTAN_LIMITE = ['confirmada'];
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
@@ -63,7 +68,7 @@ class ReservacionConfig
     public const TRANSICIONES = [
         'pendiente_verificacion' => ['confirmada', 'expirada'],
         'confirmada' => ['llego', 'en_curso', 'cancelada', 'no_show'],
-        'llego' => ['en_curso', 'cancelada', 'no_show'],
+        'llego' => ['en_curso', 'cancelada'],
         'en_curso' => ['completada'],
         'expirada' => [],
         'completada' => [],
@@ -74,13 +79,27 @@ class ReservacionConfig
     // Genera los horarios de reservaciones hasta estos minutos antes
     public const MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION = 60;
     public const DURACION_RESERVACION_MINUTOS = 90;
+    /**
+     * Agrupaciones físicas autorizadas por ID de mesa. No se infieren por
+     * capacidad ni por número para evitar unir mesas que no son contiguas.
+     */
+    public const PAREJAS_MESAS_PUBLICAS_AUTORIZADAS = [
+        [2, 4],
+        [5, 11],
+        [10, 11],
+        [8, 9],
+    ];
+    public const TRIOS_MESAS_PUBLICAS_AUTORIZADOS = [
+        [2, 4, 5],
+        [8, 9, 10],
+    ];
+    /** Compatibilidad para consumidores que sólo necesitan listar grupos. */
     public const COMBINACIONES_PUBLICAS_AUTORIZADAS = [
         [2, 4],
         [5, 11],
         [10, 11],
         [8, 9],
         [2, 4, 5],
-        [5, 10, 11],
         [8, 9, 10],
     ];
 
@@ -164,6 +183,82 @@ class ReservacionConfig
     public static function estadosPermitidos(): array
     {
         return array_keys(self::ESTADO_LABELS);
+    }
+
+    /**
+     * Expone el mismo contrato temporal a los dos mapas. Los consumidores no
+     * deben volver a declarar estas ventanas en JavaScript.
+     */
+    public static function configuracionOperacion(): array
+    {
+        return [
+            'advertencia_reservacion_minutos' => self::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA,
+            'bloqueo_previo_minutos' => self::MINUTOS_PREVIOS_BLOQUEO,
+            'duracion_reservacion_minutos' => self::DURACION_RESERVACION_MINUTOS,
+            'tolerancia_llegada_minutos' => self::TOLERANCIA_RESERVACION_MINUTOS,
+            'intervalo_reservacion_minutos' => self::INTERVALO_RESERVACION_MINUTOS,
+            'duracion_servicio_estimada_minutos' => self::DURACION_SERVICIO_ESTIMADA_MINUTOS,
+            'margen_preparacion_mesa_minutos' => self::MARGEN_PREPARACION_MESA_MINUTOS,
+            'margen_minimo_seguridad_minutos' => self::MARGEN_MINIMO_SEGURIDAD_MINUTOS,
+            'refresco_estados_segundos' => self::REFRESCO_ESTADOS_SEGUNDOS,
+            'estados_finales' => self::ESTADOS_FINALES,
+            'estados_ocupan_mesa' => self::ESTADOS_OCUPAN_MESA,
+            'estado_retencion_pendiente' => self::ESTADO_RETENCION_PENDIENTE,
+        ];
+    }
+
+    /**
+     * Convierte únicamente estados declarados por el dominio a una lista SQL.
+     * Evita repetir literales en consultas con alcances distintos.
+     */
+    public static function estadosSql(array $estados): string
+    {
+        $permitidos = self::estadosPermitidos();
+        $normalizados = array_values(array_unique(array_filter(
+            $estados,
+            static fn($estado): bool => is_string($estado)
+                && in_array($estado, $permitidos, true)
+        )));
+        if ($normalizados === []) {
+            throw new \InvalidArgumentException('La lista SQL de estados no puede quedar vacía.');
+        }
+
+        return implode(', ', array_map(
+            static fn(string $estado): string => "'" . $estado . "'",
+            $normalizados
+        ));
+    }
+
+    /**
+     * Centraliza la condición SQL de una reservación que todavía influye en
+     * disponibilidad. El alias se restringe para que no pueda inyectar SQL.
+     */
+    public static function condicionSqlOcupacionActiva(string $alias = 'r'): string
+    {
+        return ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad($alias);
+    }
+
+    /**
+     * Evalúa el caso pendiente fuera de SQL para serializadores y pruebas.
+     * Los estados finales nunca recuperan influencia por tener una fecha hold.
+     */
+    public static function reservacionInfluyeDisponibilidad(
+        string $estado,
+        ?string $holdExpiresAt = null,
+        ?\DateTimeImmutable $ahora = null,
+        ?string $fecha = null,
+        ?string $hora = null,
+        ?string $arrivedAt = null,
+        bool $ticketAbierto = false
+    ): bool {
+        return (bool)ReservacionVigenciaService::clasificar([
+            'estado' => $estado,
+            'fecha' => $fecha,
+            'hora' => $hora,
+            'hold_expires_at' => $holdExpiresAt,
+            'arrived_at' => $arrivedAt,
+            'ticket_abierto' => $ticketAbierto,
+        ], $ahora)['influye_disponibilidad'];
     }
 
     /**

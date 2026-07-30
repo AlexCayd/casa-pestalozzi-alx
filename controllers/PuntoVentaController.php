@@ -5,14 +5,17 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\Ticket;
 use Model\TicketItem;
+use Model\TicketMesa;
 use Model\Usuario;
 use Classes\TicketPrinter;
 use Classes\Auth;
 use MVC\Router;
 use Services\HorarioReservacionService;
 use Services\Inventario;
+use Services\MesaEstadoService;
 use Services\ReservacionService;
 use Services\ReservacionConfig;
+use Services\ReservacionVigenciaService;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
 
@@ -38,29 +41,26 @@ class PuntoVentaController {
                     r.id,
                     r.nombre,
                     r.contacto,
+                    r.fecha,
                     r.hora,
                     r.comensales,
                     r.nota,
                     r.estado,
+                    r.hold_expires_at,
+                    r.arrived_at,
                     COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
                     COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
                  FROM reservaciones r
                  LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
                  LEFT JOIN mesas m ON m.id = rm.mesa_id
                  WHERE r.fecha = '{$fecha}'
-                 GROUP BY r.id, r.nombre, r.contacto, r.hora, r.comensales, r.nota, r.estado
+                 GROUP BY r.id, r.nombre, r.contacto, r.fecha, r.hora,
+                          r.comensales, r.nota, r.estado, r.hold_expires_at, r.arrived_at
                  ORDER BY r.hora ASC"
             );
 
-            $tickets = Ticket::consultarSQL(
-                "SELECT t.id, t.nombre,
-                        t.comensales, t.hora_apertura, t.reservacion_id, t.mesero_id,
-                        GROUP_CONCAT(tm.mesa_id ORDER BY tm.orden) AS mesa_ids
-                 FROM tickets t
-                 INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
-                 WHERE t.estado = 'abierto'
-                 GROUP BY t.id"
-            );
+            // POS y reservaciones consumen la misma consulta N:M de tickets.
+            $tickets = TicketMesa::abiertosParaMapa();
 
             $meseros = Usuario::consultarSQL(
                 "SELECT id, nombre FROM usuarios
@@ -89,37 +89,51 @@ class PuntoVentaController {
             ];
         }, $mesas);
 
-        $reservasArr = array_map(function($r) {
+        $ticketsPorReservacion = [];
+        foreach ($tickets as $ticket) {
+            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
+            if ($reservacionId > 0) {
+                $ticketsPorReservacion[$reservacionId] = $ticket;
+            }
+        }
+
+        $reservasArr = array_map(function($r) use ($ticketsPorReservacion) {
             $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($r->mesa_ids ?? '')))));
             $mesas = array_values(array_filter(array_map('trim', explode(',', (string)($r->mesas_asignadas ?? '')))));
+            $reservacionId = (int)$r->id;
+            $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
+            $vigencia = ReservacionVigenciaService::clasificar($r, null, $ticket);
 
-            return [
-                'id' => (int)$r->id,
+            return array_merge([
+                'id' => $reservacionId,
                 'nombre' => $r->nombre,
                 'contacto' => $r->contacto ?? '',
+                'fecha' => (string)($r->fecha ?? ''),
                 'hora' => $r->hora,
                 'comensales' => (int)$r->comensales,
                 'nota' => $r->nota ?? '',
                 'estado' => $r->estado,
+                'hold_expires_at' => $r->hold_expires_at !== null
+                    ? (string)$r->hold_expires_at
+                    : null,
+                'arrived_at' => $r->arrived_at !== null ? (string)$r->arrived_at : null,
+                'ticket_id' => $ticket['id'] ?? null,
+                'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
                 'mesa_ids' => $mesaIds,
                 'mesas' => $mesas,
-            ];
+            ], $vigencia);
         }, $reservaciones);
 
-        $ticketsArr = array_map(function($t) {
-            $mesaIds = array_values(array_filter(array_map(
-                'intval',
-                explode(',', (string)($t->mesa_ids ?? ''))
-            )));
+        $ticketsArr = array_map(function(array $t) {
             return [
-                'id'                 => (int)$t->id,
-                'nombre'             => $t->nombre ?? null,
-                'comensales'         => (int)$t->comensales,
-                'hora_apertura'      => $t->hora_apertura,
-                'reservacion_id'     => $t->reservacion_id ? (int)$t->reservacion_id : null,
-                'mesero_id'          => $t->mesero_id ? (int)$t->mesero_id : null,
-                'mesa_ids'           => $mesaIds,
-                'origen'             => $t->reservacion_id ? 'reservacion' : 'walk_in',
+                'id'                 => (int)$t['id'],
+                'nombre'             => $t['nombre'] ?? null,
+                'comensales'         => (int)$t['comensales'],
+                'hora_apertura'      => (string)$t['hora_apertura'],
+                'reservacion_id'     => $t['reservacion_id'] ?? null,
+                'mesero_id'          => $t['mesero_id'] ?? null,
+                'mesa_ids'           => array_values(array_map('intval', $t['mesa_ids'] ?? [])),
+                'origen'             => (string)($t['origen'] ?? 'walk_in'),
             ];
         }, $tickets);
 
@@ -131,11 +145,22 @@ class PuntoVentaController {
         }, $meseros);
 
         echo json_encode([
+            'ok'            => true,
             'fecha'         => $fecha,
             'mesas'         => $mesasArr,
+            'mesas_estado'  => MesaEstadoService::normalizarMesas(
+                $mesasArr,
+                $reservasArr,
+                $ticketsArr,
+                $fecha
+            ),
             'reservaciones' => $reservasArr,
             'tickets'       => $ticketsArr,
             'meseros'       => $meserosArr,
+            'config'        => [
+                'temporal' => ReservacionConfig::configuracionOperacion(),
+            ],
+            'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
         ]);
     }
 
@@ -387,7 +412,10 @@ class PuntoVentaController {
 
         try {
             $open = Ticket::consultarSQL(
-                "SELECT id FROM tickets WHERE id = {$ticketId} AND estado = 'abierto' LIMIT 1"
+                "SELECT t.id FROM tickets t
+                 WHERE t.id = {$ticketId}
+                   AND " . TicketMesa::condicionSqlAbierto('t') . "
+                 LIMIT 1"
             );
             if (empty($open)) {
                 echo json_encode(['ok' => false, 'msg' => 'Ticket no válido o ya cerrado']);
@@ -550,7 +578,10 @@ class PuntoVentaController {
         try {
             $val = $nombre ? "'" . Ticket::escaparString($nombre) . "'" : 'NULL';
             Ticket::ejecutarSQL(
-                "UPDATE tickets SET nombre = {$val} WHERE id = {$ticketId} AND estado = 'abierto'"
+                "UPDATE tickets
+                 SET nombre = {$val}
+                 WHERE id = {$ticketId}
+                   AND " . TicketMesa::condicionSqlAbierto('tickets')
             );
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
@@ -717,8 +748,13 @@ class PuntoVentaController {
                 PuntoVentaReservacionService::MESA_OCUPADA,
                 PuntoVentaReservacionService::TICKET_ABIERTO,
                 PuntoVentaReservacionService::ESTADO_INVALIDO,
+                PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
             ], true) ? 409 : 422);
-            $resultado['msg'] = $resultado['msg'] ?? self::mensajeOperacion($codigo);
+            $resultado['msg'] = $resultado['msg'] ?? (
+                !empty($resultado['bloqueo'])
+                    ? 'La reservación comienza dentro de 30 minutos o menos; no se puede abrir un ticket incompatible.'
+                    : self::mensajeOperacion($codigo)
+            );
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
@@ -732,6 +768,9 @@ class PuntoVentaController {
             PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
             PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
             PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'La mesa tiene una reservación próxima. Confirma para continuar.',
+            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Reasigna mesas para continuar.',
+            PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',
+            PuntoVentaReservacionService::CONFLICTO_CONCURRENTE => 'La información cambió durante la operación. Actualiza y vuelve a intentarlo.',
             PuntoVentaReservacionService::DATOS_INVALIDOS => 'Los datos enviados no son válidos.',
             default => 'No fue posible completar la operación.',
         };

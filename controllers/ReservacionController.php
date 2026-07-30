@@ -165,9 +165,28 @@ class ReservacionController
             return;
         }
         try {
+            $excluirReservacionId = 0;
+            $reservacionId = filter_var(
+                $_GET['reservacion_id'] ?? $_GET['reservation_id'] ?? 0,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            );
+            if ($reservacionId) {
+                $sesion = ReservationClientSession::obtener();
+                if (
+                    $sesion
+                    && ReservacionPublicaService::reservacionPerteneceASesion(
+                        (int)$reservacionId,
+                        $sesion
+                    )
+                ) {
+                    $excluirReservacionId = (int)$reservacionId;
+                }
+            }
             $respuesta = DisponibilidadReservacionService::consultar(
                 (string)($_GET['fecha'] ?? ''),
-                $_GET['personas'] ?? null
+                $_GET['personas'] ?? null,
+                $excluirReservacionId
             );
             self::json($respuesta, self::status($respuesta));
         } catch (\Throwable $error) {

@@ -370,6 +370,7 @@ function initForm() {
   var form = document.getElementById("reservaForm");
   if (!form) return;
 
+  var formStateHelpers = window.ReservationFormState || {};
   var maxGuests = parseInt(form.getAttribute("data-max-guests"), 10) || 12;
   var reservationState = {
     currentStep: 1,
@@ -382,6 +383,7 @@ function initForm() {
     email: "",
     phone: "",
     details: "",
+    largeParty: false,
     availabilityStatus: "idle",
     availableSlots: [],
     availabilityPending: false,
@@ -389,6 +391,7 @@ function initForm() {
   };
   var guests = reservationState.guests;
   var guestCount = 7;
+  var largePartyMode = false;
   var guestPills = document.getElementById("guestPills");
   var guestsExtra = document.getElementById("guestsExtra");
   var stepPanels = Array.from(form.querySelectorAll("[data-reservation-step]"));
@@ -406,6 +409,8 @@ function initForm() {
   var selectionStatus = summary.querySelector("[data-selection-status]");
   var selectionPrimary = summary.querySelector("[data-selection-primary]");
   var selectionSecondary = summary.querySelector("[data-selection-secondary]");
+  var selectionDetails = summary.querySelector("[data-selection-details]");
+  var largePartyInfo = summary.querySelector("[data-large-party-info]");
   var review = form.querySelector("[data-reservation-review]");
   var reviewDate = review.querySelector("[data-review-date]");
   var reviewGuests = review.querySelector("[data-review-guests]");
@@ -448,6 +453,7 @@ function initForm() {
   var availabilityTimer = null;
   var availabilityKey = "";
   var timePicker;
+  var datePicker;
 
   function normalizeContact(type, value) {
     value = String(value || "").trim();
@@ -699,6 +705,7 @@ function initForm() {
     reservationState.date = dateInput.value;
     reservationState.time = timeInput.value;
     reservationState.guests = guests;
+    reservationState.largeParty = largePartyMode;
     reservationState.name = form.elements.nombre.value;
     reservationState.contactType = selectedContactType();
     if (reservationState.contactType === "telefono") {
@@ -725,8 +732,21 @@ function initForm() {
   }
 
   function visitIsValid() {
+    if (typeof formStateHelpers.canSubmitVisit === "function") {
+      return formStateHelpers.canSubmitVisit({
+        date: reservationState.date,
+        time: reservationState.time,
+        guests: reservationState.guests,
+        maxGuests: maxGuests,
+        largeParty: reservationState.largeParty,
+        availabilityStatus: reservationState.availabilityStatus,
+        availabilityPending: reservationState.availabilityPending,
+        availableSlots: reservationState.availableSlots
+      });
+    }
     return Boolean(
-      reservationState.date
+      !reservationState.largeParty
+      && reservationState.date
       && reservationState.time
       && reservationState.guests >= 1
       && reservationState.guests <= maxGuests
@@ -745,7 +765,14 @@ function initForm() {
     var people = reservationState.guests + (reservationState.guests === 1 ? " persona" : " personas");
     var selectionReady = Boolean(reservationState.date && reservationState.time);
 
-    if (reservationState.date) {
+    if (reservationState.largeParty) {
+      if (selectionStatus) selectionStatus.textContent = "Más de 12 personas";
+      if (selectionDetails) selectionDetails.hidden = true;
+      if (largePartyInfo) largePartyInfo.hidden = false;
+      summary.hidden = false;
+    } else if (reservationState.date) {
+      if (selectionDetails) selectionDetails.hidden = false;
+      if (largePartyInfo) largePartyInfo.hidden = true;
       selectionPrimary.textContent = readableDate
         + (reservationState.time ? " · " + reservationState.time : "");
       selectionSecondary.textContent = people;
@@ -753,11 +780,13 @@ function initForm() {
         selectionStatus.textContent = reservationState.availabilityPending
           ? "Consultando disponibilidad…"
           : reservationState.availabilityStatus === "ready" && reservationState.time
-            ? "Horario disponible"
+            ? "Disponibilidad confirmada"
             : "Elige un horario disponible";
       }
       summary.hidden = false;
     } else {
+      if (selectionDetails) selectionDetails.hidden = false;
+      if (largePartyInfo) largePartyInfo.hidden = true;
       summary.hidden = true;
     }
 
@@ -811,11 +840,14 @@ function initForm() {
       var step = parseInt(panel.getAttribute("data-reservation-step"), 10);
       var next = panel.querySelector("[data-reservation-next]");
       if (!next) return;
-      if (step === 1) next.disabled = reservationState.availabilityPending;
+      if (step === 1) next.disabled = reservationState.largeParty
+        || reservationState.availabilityPending
+        || !visitIsValid();
       if (step === 2) next.disabled = false;
     });
 
     submitButton.disabled = submitting
+      || reservationState.largeParty
       || !visitIsValid()
       || !dataIsValid()
       || reservationState.availabilityPending;
@@ -910,6 +942,9 @@ function initForm() {
   }
 
   function normalizeAvailableSlots(hours) {
+    if (typeof formStateHelpers.normalizeSlots === "function") {
+      return formStateHelpers.normalizeSlots(hours);
+    }
     return (Array.isArray(hours) ? hours : []).reduce(function(slots, item) {
       if (item && typeof item === "object") {
         if (item.disponible === false) return slots;
@@ -925,7 +960,7 @@ function initForm() {
   function reloadAvailability(immediate) {
     clearTimeout(availabilityTimer);
     syncStateFromControls();
-    if (!reservationState.date) {
+    if (reservationState.largeParty || !reservationState.date) {
       reservationState.availabilityStatus = "idle";
       reservationState.availabilityPending = false;
       reservationState.availableSlots = [];
@@ -960,44 +995,122 @@ function initForm() {
     }, immediate ? 0 : 300);
   }
 
-  function setGuests(value) {
-    var nextGuests = Math.max(1, Math.min(maxGuests, parseInt(value, 10) || 2));
-    var changed = guests !== nextGuests;
+  function transitionGuests(action, value) {
+    if (typeof formStateHelpers.guestTransition === "function") {
+      return formStateHelpers.guestTransition({
+        guests: guests,
+        largeParty: largePartyMode
+      }, action, value, maxGuests);
+    }
+    if (action === "increment" && guests >= maxGuests) {
+      return { guests: maxGuests, largeParty: true };
+    }
+    if (action === "decrement" && largePartyMode) {
+      return { guests: maxGuests, largeParty: false };
+    }
+    var delta = action === "increment" ? 1 : (action === "decrement" ? -1 : 0);
+    var next = action === "select" ? value : guests + delta;
+    return {
+      guests: Math.max(1, Math.min(maxGuests, parseInt(next, 10) || 2)),
+      largeParty: false
+    };
+  }
+
+  function applyGuestState(nextState) {
+    var nextGuests = Math.max(1, Math.min(maxGuests, parseInt(nextState.guests, 10) || 2));
+    var nextLargeParty = nextState.largeParty === true;
+    var changed = guests !== nextGuests || largePartyMode !== nextLargeParty;
+    var modeChanged = largePartyMode !== nextLargeParty;
     guests = nextGuests;
+    largePartyMode = nextLargeParty;
     reservationState.guests = guests;
+    reservationState.largeParty = largePartyMode;
     if (guests > 6) guestCount = guests;
 
     document.querySelectorAll("#guestPills .pill").forEach(function(item) {
       var itemValue = item.getAttribute("data-g");
-      var selected = guests > 6 ? itemValue === "7" : parseInt(itemValue, 10) === guests;
+      var selected = guests > 6 || largePartyMode
+        ? itemValue === "7"
+        : parseInt(itemValue, 10) === guests;
       item.classList.toggle("sel", selected);
       item.setAttribute("aria-pressed", selected ? "true" : "false");
     });
 
-    document.getElementById("guestsVal").textContent = Math.max(7, guestCount);
+    document.getElementById("guestsVal").textContent = largePartyMode
+      ? "Más de 12"
+      : Math.max(7, guestCount);
     document.getElementById("guestsNum").value = Math.max(7, guestCount);
-    guestsExtra.hidden = guests <= 6;
-    guestsExtra.classList.toggle("show", guests > 6);
-    document.getElementById("guestsMinus").disabled = guestCount <= 7;
-    document.getElementById("guestsPlus").disabled = guestCount >= maxGuests;
+    guestsExtra.hidden = guests <= 6 && !largePartyMode;
+    guestsExtra.classList.toggle("show", guests > 6 || largePartyMode);
+    document.getElementById("guestsMinus").disabled = !largePartyMode && guestCount <= 7;
+    document.getElementById("guestsPlus").disabled = largePartyMode;
+
+    if (modeChanged && largePartyMode) {
+      clearTimeout(availabilityTimer);
+      availabilityKey = "";
+      reservationState.availabilityStatus = "idle";
+      reservationState.availabilityPending = false;
+      reservationState.availableSlots = [];
+      if (datePicker && typeof datePicker.setValue === "function") {
+        datePicker.setValue("", true);
+        datePicker.setDisabled(true);
+      } else {
+        dateInput.value = "";
+        var dateDisplay = document.getElementById("dateDisplay");
+        if (dateDisplay) {
+          dateDisplay.value = "";
+          dateDisplay.disabled = true;
+        }
+        dateInput.disabled = true;
+      }
+      if (timePicker) {
+        timePicker.loadForDate("", "");
+        timePicker.setDisabled(true);
+      } else {
+        timeInput.value = "";
+        timeInput.disabled = true;
+      }
+      reservationState.currentStep = 1;
+      reservationState.maxCompletedStep = 0;
+      clearErrors();
+    } else if (modeChanged) {
+      if (datePicker && typeof datePicker.setDisabled === "function") {
+        datePicker.setDisabled(false);
+      } else {
+        var restoredDateDisplay = document.getElementById("dateDisplay");
+        if (restoredDateDisplay) restoredDateDisplay.disabled = false;
+        dateInput.disabled = false;
+      }
+      if (timePicker) {
+        timePicker.setDisabled(false);
+        timePicker.loadForDate("", "");
+      } else {
+        timeInput.disabled = false;
+      }
+      reservationState.availabilityStatus = "idle";
+      reservationState.availableSlots = [];
+      reservationState.availabilityPending = false;
+    }
+
     clearFieldError("comensales");
     updateInterface();
-    if (changed && reservationState.date) reloadAvailability(false);
+    if (changed && !largePartyMode && reservationState.date) reloadAvailability(false);
   }
 
-  guestPills.addEventListener("click", function(event) {
-    var pill = event.target.closest(".pill");
-    if (!pill || !guestPills.contains(pill)) return;
-    var value = pill.getAttribute("data-g");
-    setGuests(value);
+  function setGuests(value) {
+    applyGuestState(transitionGuests("select", value));
+  }
+
+  guestPills.querySelectorAll(".pill[data-g]").forEach(function(pill) {
+    pill.addEventListener("click", function() {
+      setGuests(pill.getAttribute("data-g"));
+    });
   });
   document.getElementById("guestsPlus").addEventListener("click", function() {
-    guestCount = Math.min(maxGuests, guestCount + 1);
-    setGuests(guestCount);
+    applyGuestState(transitionGuests("increment"));
   });
   document.getElementById("guestsMinus").addEventListener("click", function() {
-    guestCount = Math.max(7, guestCount - 1);
-    setGuests(guestCount);
+    applyGuestState(transitionGuests("decrement"));
   });
 
   stepButtons.forEach(function(button) {
@@ -1033,7 +1146,7 @@ function initForm() {
     });
   });
 
-  initCalendar();
+  datePicker = initCalendar();
   initScheduleChanges();
   initSpecialScheduleNotice(form);
   timePicker = initHourPicker(form, function() { return guests; });
@@ -1359,4 +1472,14 @@ function initForm() {
       otpMessage.textContent = "No fue posible reenviar el código.";
     });
   });
+
+  var availabilityRefreshInterval = window.setInterval(function() {
+    if (document.hidden || submitting || reservationState.availabilityPending) return;
+    if (!reservationState.date) return;
+    reloadAvailability(true);
+  }, 60000);
+
+  window.addEventListener("pagehide", function() {
+    window.clearInterval(availabilityRefreshInterval);
+  }, { once: true });
 }

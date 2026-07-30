@@ -6,11 +6,12 @@
 
 namespace Model;
 
-use DateTimeImmutable;
 use Services\ReservacionConfig;
 
 class TicketMesa extends ActiveRecord
 {
+    public const ESTADO_ABIERTO = 'abierto';
+
     protected static $tabla = 'ticket_mesas';
     protected static $columnasDB = ['id', 'ticket_id', 'mesa_id', 'orden'];
 
@@ -67,85 +68,145 @@ class TicketMesa extends ActiveRecord
     }
 
     /**
-     * Devuelve las mesas físicamente ocupadas que todavía pueden interferir
-     * con el inicio solicitado.
+     * Devuelve todas las mesas físicamente ocupadas por tickets abiertos.
+     * La ocupación no depende del horario consultado: sólo el cierre real del
+     * ticket puede liberar sus relaciones en ticket_mesas.
      *
      * @return array<int, array<string, mixed>>
      */
-    public static function ocupacionAbierta(
-        string $fecha,
-        string $hora,
-        int $excluirReservacionId = 0,
-        bool $bloquear = false
-    ): array {
-        $inicio = DateTimeImmutable::createFromFormat(
-            '!Y-m-d H:i:s',
-            $fecha . ' ' . $hora,
-            ReservacionConfig::timezone()
-        );
-        if (!$inicio instanceof DateTimeImmutable) {
-            return [];
-        }
+    public static function ocupacionAbierta(bool $bloquear = false): array
+    {
+        return self::ocupacionAbiertaDesdeTickets(self::abiertosParaMapa($bloquear));
+    }
 
-        $excluir = $excluirReservacionId > 0
-            ? "AND (t.reservacion_id IS NULL OR t.reservacion_id <> {$excluirReservacionId})"
-            : '';
+    /**
+     * Fuente canónica de tickets abiertos para POS, reservaciones y validación.
+     * Agrupa todas las mesas del ticket para conservar correctamente la N:M.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function abiertosParaMapa(bool $bloquear = false): array
+    {
         $lock = $bloquear ? ' FOR UPDATE' : '';
+        $condicionAbierto = self::condicionSqlAbierto('t');
         $resultado = self::$db->query(
-            "SELECT t.id AS ticket_id,
-                    t.reservacion_id,
+            "SELECT t.id,
+                    t.nombre,
+                    t.comensales,
                     t.hora_apertura,
-                    tm.mesa_id
+                    t.closed_at,
+                    t.estado,
+                    t.reservacion_id,
+                    t.mesero_id,
+                    GROUP_CONCAT(tm.mesa_id ORDER BY tm.orden) AS mesa_ids
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id
-             WHERE t.estado = 'abierto'
-               {$excluir}
-             ORDER BY t.id, tm.orden{$lock}"
+             WHERE {$condicionAbierto}
+             GROUP BY t.id, t.nombre, t.comensales, t.hora_apertura, t.closed_at, t.estado,
+                      t.reservacion_id, t.mesero_id
+             ORDER BY t.id{$lock}"
         );
         if (!$resultado) {
             throw new \RuntimeException(self::$db->error);
         }
 
-        $ahora = ReservacionConfig::ahora();
-        $finReservacion = $inicio->modify(
-            '+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'
-        );
-        $ocupacion = [];
-        $vistos = [];
+        $tickets = [];
         while ($fila = $resultado->fetch_assoc()) {
-            $ticketId = (int)$fila['ticket_id'];
-            $mesaId = (int)$fila['mesa_id'];
-            $clave = $ticketId . ':' . $mesaId;
-            if (isset($vistos[$clave])) {
-                continue;
-            }
-            $vistos[$clave] = true;
-
-            $apertura = new DateTimeImmutable((string)$fila['hora_apertura'], ReservacionConfig::timezone());
-            $porDuracion = $apertura->modify(
-                '+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes'
-            );
-            $porPreparacion = $ahora->modify(
-                '+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes'
-            );
-            // La estimación es conservadora; el cierre real sigue siendo la
-            // única liberación inmediata y definitiva de la mesa.
-            $liberacion = $porDuracion > $porPreparacion ? $porDuracion : $porPreparacion;
-            // Un ticket con apertura posterior no bloquea un turno que termina
-            // antes de que comience. Así los datos futuros tampoco ocupan mesas
-            // retrospectivamente.
-            if ($finReservacion <= $apertura || $inicio >= $liberacion) {
-                continue;
-            }
-
-            $ocupacion[] = [
-                'ticket_id' => $ticketId,
-                'reservacion_id' => $fila['reservacion_id'] !== null ? (int)$fila['reservacion_id'] : null,
-                'mesa_id' => $mesaId,
-                'liberacion_estimada' => $liberacion->format('Y-m-d H:i:s'),
+            $tickets[] = [
+                'id' => (int)$fila['id'],
+                'nombre' => $fila['nombre'] !== null ? (string)$fila['nombre'] : null,
+                'comensales' => (int)$fila['comensales'],
+                'hora_apertura' => (string)$fila['hora_apertura'],
+                'closed_at' => $fila['closed_at'] !== null ? (string)$fila['closed_at'] : null,
+                'estado' => (string)$fila['estado'],
+                'reservacion_id' => $fila['reservacion_id'] !== null
+                    ? (int)$fila['reservacion_id']
+                    : null,
+                'mesero_id' => $fila['mesero_id'] !== null ? (int)$fila['mesero_id'] : null,
+                'mesa_ids' => self::normalizarIds(explode(',', (string)$fila['mesa_ids'])),
+                'origen' => $fila['reservacion_id'] !== null ? 'reservacion' : 'walk_in',
             ];
         }
         $resultado->free();
+
+        return $tickets;
+    }
+
+    /**
+     * Definición SQL única de un ticket que todavía representa servicio
+     * físico. El estado y la marca de cierre deben coincidir.
+     */
+    public static function condicionSqlAbierto(string $alias = 't'): string
+    {
+        if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $alias) !== 1) {
+            throw new \InvalidArgumentException('Alias SQL de ticket inválido.');
+        }
+
+        return "({$alias}.estado = '" . self::ESTADO_ABIERTO . "' AND {$alias}.closed_at IS NULL)";
+    }
+
+    /**
+     * Convierte una sola lectura canónica en ocupación por mesa. Se reutiliza
+     * en el mapa diario sin reinterpretar hora_apertura como disponibilidad.
+     *
+     * @param array<int, array<string, mixed>> $tickets
+     * @return array<int, array<string, mixed>>
+     */
+    public static function ocupacionAbiertaDesdeTickets(array $tickets): array
+    {
+        $ahora = ReservacionConfig::ahora();
+        $ocupacion = [];
+        $vistos = [];
+        foreach ($tickets as $ticket) {
+            $ticketId = (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0);
+            $reservacionId = !empty($ticket['reservacion_id'])
+                ? (int)$ticket['reservacion_id']
+                : null;
+            $liberacionBase = null;
+            $liberacion = null;
+            try {
+                $apertura = new \DateTimeImmutable(
+                    (string)($ticket['hora_apertura'] ?? ''),
+                    ReservacionConfig::timezone()
+                );
+                $liberacionBase = $apertura->modify(
+                    '+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes'
+                )->modify(
+                    '+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes'
+                );
+                $seguridad = $ahora->modify(
+                    '+' . ReservacionConfig::MARGEN_MINIMO_SEGURIDAD_MINUTOS . ' minutes'
+                );
+                $liberacion = $liberacionBase > $seguridad
+                    ? $liberacionBase
+                    : $seguridad;
+            } catch (\Throwable $e) {
+                // hora_apertura es informativa. Un valor histórico inválido no
+                // debe convertir en disponible una mesa físicamente ocupada.
+            }
+
+            foreach (self::normalizarIds((array)($ticket['mesa_ids'] ?? [])) as $mesaId) {
+                $clave = $ticketId . ':' . $mesaId;
+                if (isset($vistos[$clave])) {
+                    continue;
+                }
+                $vistos[$clave] = true;
+
+                $ocupacion[] = [
+                    'ticket_id' => $ticketId,
+                    'reservacion_id' => $reservacionId,
+                    'mesa_id' => $mesaId,
+                    'walk_in' => $reservacionId === null,
+                    'mesa_ids' => self::normalizarIds((array)($ticket['mesa_ids'] ?? [])),
+                    'liberacion_base' => $liberacionBase instanceof \DateTimeImmutable
+                        ? $liberacionBase->format('Y-m-d H:i:s')
+                        : null,
+                    'liberacion_estimada' => $liberacion instanceof \DateTimeImmutable
+                        ? $liberacion->format('Y-m-d H:i:s')
+                        : null,
+                ];
+            }
+        }
 
         return $ocupacion;
     }

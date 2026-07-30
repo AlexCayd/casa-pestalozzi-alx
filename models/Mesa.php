@@ -28,6 +28,8 @@ class Mesa extends ActiveRecord {
              FROM mesas
              WHERE activo = 1
                AND reservable = 1
+               AND tipo = 'mesa'
+               AND capacidad > 0
              ORDER BY numero ASC, id ASC"
         );
     }
@@ -46,6 +48,8 @@ class Mesa extends ActiveRecord {
              WHERE id IN (" . implode(',', $mesaIds) . ")
                AND activo = 1
                AND reservable = 1
+               AND tipo = 'mesa'
+               AND capacidad > 0
              ORDER BY FIELD(id, " . implode(',', $mesaIds) . ")"
         );
     }
@@ -66,6 +70,8 @@ class Mesa extends ActiveRecord {
              FROM mesas
              WHERE activo = 1
                AND reservable = 1
+               AND tipo = 'mesa'
+               AND capacidad > 0
                {$where}
              ORDER BY id ASC
              FOR UPDATE"
@@ -87,7 +93,9 @@ class Mesa extends ActiveRecord {
             "SELECT COALESCE(SUM(capacidad), 0) AS capacidad_total
              FROM mesas
              WHERE activo = 1
-               AND reservable = 1"
+               AND reservable = 1
+               AND tipo = 'mesa'
+               AND capacidad > 0"
         );
 
         if ($resultado === false) {

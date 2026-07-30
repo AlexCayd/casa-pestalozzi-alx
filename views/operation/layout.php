@@ -59,6 +59,15 @@ $operationalContentHtml = (string)$content;
 <body class="admin-body operation-body operational-page" data-operational-page data-operation-module="reservations" data-operational-map-state-key="reservations">
     <?php include __DIR__ . '/partials/shell.php'; ?>
 
+    <div
+        id="global-operation-notice-root"
+        class="global-operation-notice-root operational-global-notice-stack"
+        aria-live="polite"
+        aria-atomic="true"
+    >
+        <?php include __DIR__ . '/partials/global-notice.php'; ?>
+    </div>
+
     <?php foreach ($scripts as $script): ?>
         <script src="<?php echo $h($script); ?>" defer></script>
     <?php endforeach; ?>

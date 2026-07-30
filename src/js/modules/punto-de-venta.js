@@ -46,6 +46,7 @@ function initMapa() {
   var isLive        = false;
   var liveInterval  = null;
   var pollTimer     = null;
+  var temporalConfig = window.CP_RESERVATION_OPERATION_CONFIG || {};
 
   // ── Refs DOM ──────────────────────────────────────────────
   var slider        = $('#mapa-time-slider');
@@ -63,9 +64,6 @@ function initMapa() {
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
-
-  var DURACION = 90;
-  var BLOQUEO  = 30;
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -85,6 +83,11 @@ function initMapa() {
     var h = Math.floor(min / 60);
     var m = min % 60;
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
+  function temporalNumber(key) {
+    var value = parseInt(temporalConfig[key] || '0', 10);
+    return value > 0 ? value : 0;
   }
 
   function tiempoRestanteReserva(reserva) {
@@ -109,7 +112,10 @@ function initMapa() {
     return 'En ' + diferencia + ' min';
   }
 
-  function snapTo30(min) { return Math.round(min / 30) * 30; }
+  function snapToReservationInterval(min) {
+    var interval = temporalNumber('intervalo_reservacion_minutos');
+    return interval > 0 ? Math.round(min / interval) * interval : min;
+  }
 
   function mesaPorId(id) {
     for (var i = 0; i < mesas.length; i++) {
@@ -159,6 +165,21 @@ function initMapa() {
     var sel = modalContent.querySelector('#mmodal-mesero');
     if (!sel || !sel.value) return null;
     return parseInt(sel.value, 10);
+  }
+
+  function reservationAssignmentHref(reserva) {
+    var id = String(reserva && reserva.id || '').trim();
+    var fecha = String(reserva && reserva.fecha || '').trim();
+    var horaMatch = String(reserva && reserva.hora || '').match(/^([01]\d|2[0-3]):([0-5]\d)/);
+
+    if (!/^[1-9]\d*$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !horaMatch) {
+      return '';
+    }
+
+    return '/admin/reservations/operation?fecha=' + encodeURIComponent(fecha) +
+      '&hora=' + encodeURIComponent(horaMatch[1] + ':' + horaMatch[2]) +
+      '&reservation_id=' + encodeURIComponent(id) +
+      '&mode=assign';
   }
 
   // ── Sugerencias de venta (flujo de n8n) ───────────────────
@@ -342,12 +363,25 @@ function initMapa() {
 
   // Estado temporal de una reserva respecto al slider
   function temporalEstadoReserva(r) {
-    if (r.estado === 'cancelada') return 'cancelada';
+    if (!reservacionInfluye(r)) return r.estado === 'cancelada' ? 'cancelada' : 'vencida';
+    var duracion = temporalNumber('duracion_reservacion_minutos');
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
     var rMin = minutos(r.hora);
-    if (sliderMin >= rMin + DURACION)                     return 'vencida';
-    if (sliderMin >= rMin && sliderMin < rMin + DURACION) return 'en-curso';
-    if (sliderMin >= rMin - BLOQUEO && sliderMin < rMin)  return 'proxima';
+    if (['llego', 'en_curso'].indexOf(String(r.estado || '')) !== -1 && sliderMin >= rMin) return 'en-curso';
+    if (sliderMin >= rMin + duracion)                     return 'vencida';
+    if (sliderMin >= rMin && sliderMin < rMin + duracion) return 'en-curso';
+    if (sliderMin >= rMin - aviso && sliderMin < rMin - bloqueo) return 'proxima';
+    if (sliderMin >= rMin - bloqueo && sliderMin < rMin)  return 'proxima';
     return 'futura';
+  }
+
+  /**
+   * Usa las listas del backend y valida la retención pendiente con el reloj
+   * real. Un estado final nunca vuelve a ocupar por cálculos del slider.
+   */
+  function reservacionInfluye(reserva) {
+    return Boolean(reserva && reserva.influye_disponibilidad === true);
   }
 
   // ── Lookups de ticket y reserva ───────────────────────────
@@ -400,11 +434,18 @@ function initMapa() {
   function reservaParaModal(mesaId) {
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
+      if (!reservacionInfluye(r)) continue;
       if (!reservaTieneMesa(r, mesaId)) continue;
-      if (r.estado === 'en_curso') return 'en-curso';
-      if (r.estado === 'llego') return 'llego';
       return r;
+    }
+    return null;
+  }
+
+  function reservacionPorId(reservacionId) {
+    for (var i = 0; i < reservaciones.length; i++) {
+      if (parseInt(reservaciones[i].id, 10) === parseInt(reservacionId, 10)) {
+        return reservaciones[i];
+      }
     }
     return null;
   }
@@ -413,18 +454,20 @@ function initMapa() {
   function estadoMesa(mesaId, minActual) {
     if (ticketActual(mesaId)) return 'con-ticket';
     var estado = 'libre';
+    var duracion = temporalNumber('duracion_reservacion_minutos');
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
+      if (!reservacionInfluye(r)) continue;
       if (!reservaTieneMesa(r, mesaId)) continue;
-      if (r.estado === 'en_curso') return 'en-curso';
-      if (r.estado === 'llego') return 'llego';
       var rMin = minutos(r.hora);
-      var rIni = rMin - BLOQUEO;
-      var rFin = rMin + DURACION;
+      var rIni = rMin - bloqueo;
+      var rFin = rMin + duracion;
+      if (['llego', 'en_curso'].indexOf(String(r.estado || '')) !== -1 && minActual >= rMin) return 'ocupada';
       if (minActual >= rMin && minActual < rFin) return 'ocupada';
       if (minActual >= rIni && minActual < rMin) return 'bloqueada';
-      if (minActual >= rIni - 30 && minActual < rIni && estado === 'libre') estado = 'proxima';
+      if (minActual >= rMin - aviso && minActual < rIni && estado === 'libre') estado = 'proxima';
     }
     return estado;
   }
@@ -435,19 +478,7 @@ function initMapa() {
     if (!isLlevar(mesa) && ticketActual(mesaId)) return 'con-ticket';
     var now    = new Date();
     var minNow = now.getHours() * 60 + now.getMinutes();
-    var estado = 'libre';
-    for (var i = 0; i < reservaciones.length; i++) {
-      var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
-      if (!reservaTieneMesa(r, mesaId)) continue;
-      var rMin = minutos(r.hora);
-      var rIni = rMin - BLOQUEO;
-      var rFin = rMin + DURACION;
-      if (minNow >= rMin && minNow < rFin) return 'ocupada';
-      if (minNow >= rIni && minNow < rMin) return 'bloqueada';
-      if (minNow >= rIni - 30 && minNow < rIni && estado === 'libre') estado = 'proxima';
-    }
-    return estado;
+    return estadoMesa(mesaId, minNow);
   }
 
   // ── Render: estados de todos los pines ────────────────────
@@ -465,20 +496,121 @@ function initMapa() {
     return Boolean(mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja');
   }
 
-  function estadoVisualMapa(mesa, estado) {
-    if (!mesaReservable(mesa)) return 'no-reservable';
-    if (estado === 'ocupada' || estado === 'con-ticket' || estado === 'en-curso') return 'ocupada';
-    if (estado === 'bloqueada' || estado === 'proxima' || estado === 'llego') return 'asignada';
-    return 'libre';
+  function minutoConsultaMapa() {
+    if (!isLive) return sliderMin;
+    var now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
   }
 
-  function clasesEstadoMapa(mesa, estado) {
-    var classes = ['mesa-pin--' + estado];
+  function reservacionProximaMesa(mesaId, minActual) {
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
+    var candidate = null;
+    for (var i = 0; i < reservaciones.length; i++) {
+      var reservation = reservaciones[i];
+      if (!reservacionInfluye(reservation) || !reservaTieneMesa(reservation, mesaId)) continue;
+      var remaining = minutos(reservation.hora) - minActual;
+      if (remaining > bloqueo && remaining <= aviso && (!candidate || remaining < candidate.minutos_restantes)) {
+        candidate = {
+          id: parseInt(reservation.id, 10),
+          folio: '#' + reservation.id,
+          nombre: reservation.nombre || '',
+          hora: String(reservation.hora || '').substring(0, 5),
+          comensales: parseInt(reservation.comensales || '0', 10),
+          mesa_ids: mesaIdsReserva(reservation),
+          mesas: reservation.mesas || [],
+          minutos_restantes: remaining
+        };
+      }
+    }
+    return candidate;
+  }
+
+  /**
+   * Adapta el estado local del slider al contrato común. Las ventanas ya
+   * provienen de config y MapaVisual sólo dibuja este resultado.
+   */
+  function contratoMesaMapa(mesa, estado, minActual) {
     var ticket = ticketActual(parseInt(mesa.id, 10));
-    if (ticket && ticket.origen === 'walk_in') classes.push('mesa-pin--walk-in');
-    else if (ticket && ticket.origen === 'reservacion') classes.push('mesa-pin--servicio-reservacion');
-    if (!mesaReservable(mesa)) classes.push('mesa-pin--zona');
-    return classes;
+    var proxima = reservacionProximaMesa(parseInt(mesa.id, 10), minActual);
+    var stateBase = !mesaReservable(mesa)
+      ? 'no_reservable'
+      : (estado === 'ocupada' || estado === 'con-ticket' || estado === 'en-curso'
+        ? 'ocupada'
+        : (estado === 'bloqueada' ? 'bloqueada' : 'disponible'));
+    var modifiers = [];
+    var indicators = [];
+
+    if (ticket) {
+      modifiers.push('ticket_abierto');
+      indicators.push({ tipo: 'ticket_abierto', label: 'Servicio activo', simbolo: 'T' });
+      if (ticket.origen === 'walk_in') {
+        modifiers.push('walk_in');
+        indicators.push({ tipo: 'walk_in', label: 'Walk-in', simbolo: 'W' });
+      }
+      if ((ticket.mesa_ids || []).length > 1) {
+        // Expone la relación N:M sin sustituir el estado físico principal.
+        modifiers.push('varias_mesas');
+        indicators.push({
+          tipo: 'varias_mesas',
+          label: ticket.mesa_ids.length + ' mesas vinculadas al servicio',
+          simbolo: String(ticket.mesa_ids.length)
+        });
+      }
+    }
+    if (proxima) {
+      modifiers.push('reservacion_proxima');
+      indicators.push({
+        tipo: 'reservacion_proxima',
+        label: 'Reservación próxima a las ' + proxima.hora,
+        simbolo: 'P'
+      });
+    }
+    if (estado === 'bloqueada') {
+      indicators.push({ tipo: 'bloqueada', label: 'Bloqueada por reservación', simbolo: 'B' });
+    }
+
+    var normalized = Object.assign({}, mesa, {
+      estado_base: stateBase,
+      modificadores: modifiers,
+      indicadores: indicators,
+      reservacion_proxima: proxima,
+      minutos_restantes: proxima ? proxima.minutos_restantes : null,
+      ticket_abierto: ticket ? { id: ticket.id, reservacion_id: ticket.reservacion_id } : null,
+      walk_in: Boolean(ticket && ticket.origen === 'walk_in'),
+      seleccion_actual: false,
+      motivo_bloqueo: estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null,
+      titulo: mesa.nombre + '. ' + (
+        stateBase === 'ocupada' ? 'Ocupada por servicio activo.' :
+        stateBase === 'bloqueada' ? 'Bloqueada por reservación.' :
+        stateBase === 'no_reservable' ? 'No reservable.' : 'Disponible.'
+      ) + (proxima ? ' Reservación próxima a las ' + proxima.hora + '.' : '')
+    });
+    if (modifiers.indexOf('varias_mesas') !== -1) {
+      normalized.titulo += ' Vinculada a varias mesas.';
+    }
+    return normalized;
+  }
+
+  function opcionesVisualesMesa(mesa, estado) {
+    var ticket = ticketActual(parseInt(mesa.id, 10));
+    var ticketable = mesaTicketable(mesa);
+    return {
+      x: insetPos(mesa.pos_x),
+      y: insetPos(mesa.pos_y),
+      ancho: mesa.ancho,
+      alto: mesa.alto,
+      interactivo: ticketable || esCaja(mesa),
+      clasesEstado: !mesaReservable(mesa) ? ['mesa-pin--zona'] : [],
+      atributos: {
+        'data-id': mesa.id,
+        'data-numero': mesa.numero == null ? '' : mesa.numero,
+        'data-reservable': mesa.reservable,
+        'data-ticketable': ticketable ? '1' : '0',
+        'data-estado': estado,
+        'data-ticket-id': ticket ? ticket.id : ''
+      }
+    };
   }
 
   // Comprime el rango de coordenadas [0,100] a [PAD, 100-PAD] para dar aire
@@ -494,33 +626,14 @@ function initMapa() {
   function normalizarMesaMapa(mesa) {
     var ticketable = mesaTicketable(mesa);
     // La Caja no es "ticketable" (no lleva estado de mesa) pero sí es clickeable.
-    var clickable = ticketable || esCaja(mesa);
-    var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), sliderMin) : 'zona';
+    var minute = minutoConsultaMapa();
+    var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), minute) : 'zona';
+    var contract = contratoMesaMapa(mesa, estado, minute);
 
-    return {
-      id: mesa.id,
-      nombre: mesa.nombre,
-      tipo: mesa.tipo,
-      estadoVisual: estadoVisualMapa(mesa, estado),
-      x: insetPos(mesa.pos_x),
-      y: insetPos(mesa.pos_y),
-      ancho: mesa.ancho,
-      alto: mesa.alto,
-      reservable: mesaReservable(mesa),
-      capacidad: mesa.capacidad,
-      seleccionada: false,
-      interactivo: clickable,
-      numero: mesa.numero,
-      titulo: mesa.nombre + (mesa.capacidad ? ' · Cap. ' + mesa.capacidad : ''),
-      clasesEstado: clasesEstadoMapa(mesa, estado),
-      atributos: {
-        'data-id': mesa.id,
-        'data-numero': mesa.numero == null ? '' : mesa.numero,
-        'data-reservable': mesa.reservable,
-        'data-ticketable': ticketable ? '1' : '0',
-        'data-estado': estado
-      }
-    };
+    return window.MesaEstadoAdapter.paraMapaVisual(
+      contract,
+      opcionesVisualesMesa(mesa, estado)
+    );
   }
 
   function renderEstados() {
@@ -528,11 +641,19 @@ function initMapa() {
       var mesa = mesas[i];
       if (!mesaTicketable(mesa)) continue;
 
-      var estado = estadoMesa(parseInt(mesa.id, 10), sliderMin);
+      var minute = minutoConsultaMapa();
+      var estado = estadoMesa(parseInt(mesa.id, 10), minute);
+      var visual = window.MesaEstadoAdapter.paraMapaVisual(
+        contratoMesaMapa(mesa, estado, minute),
+        opcionesVisualesMesa(mesa, estado)
+      );
       mapVisual.actualizarEstado(mesa.id, {
-        estadoVisual: estadoVisualMapa(mesa, estado),
-        clasesEstado: clasesEstadoMapa(mesa, estado),
-        atributos: { 'data-estado': estado }
+        estadoVisual: visual.estadoVisual,
+        modificadores: visual.modificadores,
+        indicadores: visual.indicadores,
+        clasesEstado: visual.clasesEstado,
+        titulo: visual.titulo,
+        atributos: visual.atributos
       });
     }
   }
@@ -839,6 +960,8 @@ function initMapa() {
   function onCardClick(reservaId, mesaIds) {
     clearHighlight();
     highlightReserva(reservaId, mesaIds);
+    var reserva = reservacionPorId(reservaId);
+    if (reserva) showReservationModal(reserva);
   }
 
   function highlightReserva(reservaId, mesaIds) {
@@ -864,6 +987,32 @@ function initMapa() {
     modal.classList.add('mesa-modal--open');
     document.body.style.overflow = 'hidden';
     bindModalActions(mesa, reserva, ticket);
+  }
+
+  function showReservationModal(reserva) {
+    if (!modal || !modalContent || !reserva) return;
+
+    var mesaIds = mesaIdsReserva(reserva);
+    var mesa = mesaIds.length ? mesaPorId(mesaIds[0]) : null;
+    if (!mesa) {
+      mesa = {
+        id: 0,
+        nombre: 'Reservación #' + reserva.id,
+        numero: null,
+        reservable: false,
+        tipo: 'especial'
+      };
+    }
+
+    var estado = ['llego', 'en_curso'].indexOf(String(reserva.estado || '')) !== -1
+      ? 'ocupada'
+      : (reserva.llegada_tardia === true ? 'bloqueada' : 'reservada');
+    commandaItems = [];
+    selectedComensal = 0;
+    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null);
+    modal.classList.add('mesa-modal--open');
+    document.body.style.overflow = 'hidden';
+    bindModalActions(mesa, reserva, null);
   }
 
   function closeModal() {
@@ -892,14 +1041,24 @@ function initMapa() {
 
   function buildModalContent(mesa, estado, reserva, ticket) {
     var h = '';
+    var reservaChipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
+      : estado === 'ocupada' ? 'En ventana de reserva'
+      : estado === 'proxima' ? 'Próxima reservación'
+      : 'Mesa reservada';
 
-    // Header: nombre de mesa + nombre del cliente agrupados a la izquierda
+    // El encabezado identifica la mesa una sola vez y mantiene el estado cerca.
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(mesa.nombre) + '</span>';
-    if (ticket && ticket.nombre) {
-      h += '<span class="mmodal-title-cliente">— ' + escHtml(ticket.nombre) + '</span>';
+    if (mesa.numero) {
+      h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
-    h += '</div></div>';
+    h += '</div>';
+    if (ticket) {
+      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
+    } else if (reserva) {
+      h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + reservaChipLabel + '</span>';
+    }
+    h += '</div>';
 
     if (estado === 'con-ticket' && ticket) {
       // ── Vista de ticket abierto con sistema de comandas ────
@@ -912,6 +1071,9 @@ function initMapa() {
         : '--:--';
 
       h += '<div class="mmodal-ticket-meta">';
+      if (ticket.nombre) {
+        h += '<span>Cliente: ' + escHtml(ticket.nombre) + '</span>';
+      }
       h += '<span>👥 ' + ticket.comensales + ' com.</span>';
       h += '<span>🕐 ' + horaAp + '</span>';
       // La etapa la detecta n8n; se llena cuando responden las sugerencias.
@@ -1025,12 +1187,7 @@ function initMapa() {
       h += '</div>'; // fin mmodal-panels
 
     } else if (reserva) {
-      // ── Vista de reservación activa ────────────────────────
-      var chipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
-        : estado === 'ocupada'              ? 'En ventana de reserva'
-        : estado === 'proxima'              ? 'Próxima reservación'
-        : 'Mesa reservada';
-
+      // ── Vista compacta de reservación activa ───────────────
       var reservaHora = String(reserva.hora || '').substring(0, 5);
       var reservaTiempo = tiempoRestanteReserva(reserva);
       var reservaMesas = Array.isArray(reserva.mesas) ? reserva.mesas.map(function (mesaReservada) {
@@ -1038,47 +1195,45 @@ function initMapa() {
         return String(mesaReservada.nombre || mesaReservada.id || mesaReservada);
       }).filter(Boolean) : [];
 
-      h += '<div class="mmodal-reserva-grid mmodal-reserva-preview">';
+      var reassignHref = reservationAssignmentHref(reserva);
+      var reservaEstado = String(reserva.estado || '');
 
-      // Col 1 — estado y cliente
-      h += '<div class="mmodal-reserva-col mmodal-reserva-col--status">';
-      h += '<div class="mmodal-reserva-col-head">';
-      h += '<span class="mmodal-reserva-col__label">Estado</span>';
-      h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + chipLabel + '</span>';
+      h += '<div class="mmodal-reserva-preview mmodal-reservation">';
+      h += '<div class="mmodal-reservation__identity">';
+      h += '<span>Cliente</span>';
+      h += '<strong>' + escHtml(reserva.nombre || 'Sin nombre') + '</strong>';
       h += '</div>';
-      h += '<span class="mmodal-reserva-col__label">Cliente</span>';
-      h += '<div class="mmodal-reserva-nombre">' + escHtml(reserva.nombre || 'Sin nombre') + '</div>';
-      h += '</div>';
-
-      // Col 2 — hora, comensales y contexto
-      h += '<div class="mmodal-reserva-col mmodal-reserva-col--details">';
-      h += '<span class="mmodal-reserva-col__label">Reservación</span>';
-      h += '<div class="mmodal-reserva-stats">';
-      h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--hora"><span class="mmodal-reserva-stat__label">Hora</span>' +
-           '<span class="mmodal-reserva-stat__val">' + escHtml(reservaHora || '--:--') + '</span>' +
-           (reservaTiempo ? '<span class="mmodal-reserva-stat__hint">' + escHtml(reservaTiempo) + '</span>' : '') + '</div>';
-      h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--pax"><span class="mmodal-reserva-stat__label">Comensales</span>' +
-           '<span class="mmodal-reserva-stat__val">' + escHtml(reserva.comensales || 0) + '</span></div>';
-      h += '</div>';
-      if (reserva.contacto) {
-        h += '<div class="mmodal-reserva-meta"><span class="mmodal-reserva-meta__label">Contacto</span><span>' + escHtml(reserva.contacto) + '</span></div>';
-      }
-      if (reservaMesas.length) {
-        h += '<div class="mmodal-reserva-meta"><span class="mmodal-reserva-meta__label">Mesas</span><span>' + escHtml(reservaMesas.join(', ')) + '</span></div>';
-      }
+      h += '<dl class="mmodal-reservation__facts">';
+      h += '<div><dt>Hora</dt><dd>' + escHtml(reservaHora || '--:--') +
+        (reservaTiempo ? '<small>' + escHtml(reservaTiempo) + '</small>' : '') + '</dd></div>';
+      h += '<div><dt>Comensales</dt><dd>' + escHtml(reserva.comensales || 0) + '</dd></div>';
+      h += '<div><dt>Contacto</dt><dd class="' + (reserva.contacto ? '' : 'is-empty') + '">' +
+        escHtml(reserva.contacto || 'Sin contacto') + '</dd></div>';
+      h += '<div><dt>Mesas</dt><dd class="' + (reservaMesas.length ? '' : 'is-empty') + '">' +
+        escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
+      h += '</dl>';
       if (reserva.nota) {
         h += '<div class="mmodal-reserva-nota"><span class="mmodal-reserva-nota__label">Nota</span>' + escHtml(reserva.nota) + '</div>';
       }
-      h += '</div>';
-
-      // Col 3 — acciones existentes
-      h += '<div class="mmodal-reserva-col mmodal-reserva-col--actions">';
-      h += '<span class="mmodal-reserva-col__label">Acción</span>';
+      h += '<div class="mmodal-reservation__waiter">';
       h += buildMeseroSelectHtml();
-      h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-confirmar">✓ Confirmar llegada</button>';
-      h += '<button class="mmodal-btn mmodal-btn--ghost" id="mmodal-liberar">Liberar mesa</button>';
       h += '</div>';
-
+      h += '<div class="mmodal-reservation__actions">';
+      if (reservaEstado === 'confirmada' && reserva.puede_confirmar_llegada === true) {
+        h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llegada">✓ ' +
+          (reserva.llegada_tardia === true ? 'Registrar llegada tardía' : 'Confirmar llegada') +
+          '</button>';
+      }
+      if (['confirmada', 'llego'].indexOf(reservaEstado) !== -1) {
+        h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-iniciar">Iniciar servicio</button>';
+      }
+      if (reassignHref) {
+        h += '<a class="mmodal-btn mmodal-btn--outline" href="' + escHtml(reassignHref) +
+          '" data-reservation-id="' + escHtml(reserva.id) + '">Reasignar mesas</a>';
+      } else {
+        h += '<button class="mmodal-btn mmodal-btn--outline" type="button" disabled>Reasignar mesas</button>';
+      }
+      h += '</div>';
       h += '</div>';
 
     } else {
@@ -1699,19 +1854,17 @@ function initMapa() {
       });
     }
 
-    var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
-    if (confirmarBtn && reserva) {
-      confirmarBtn.addEventListener('click', function() {
-        apiAbrirTicket(reserva.mesa_ids || [mesa.id], reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
+    var llegadaBtn = modalContent.querySelector('#mmodal-llegada');
+    if (llegadaBtn && reserva) {
+      llegadaBtn.addEventListener('click', function() {
+        apiConfirmarLlegada(reserva);
       });
     }
 
-    var liberarBtn = modalContent.querySelector('#mmodal-liberar');
-    if (liberarBtn && reserva) {
-      liberarBtn.addEventListener('click', function() {
-        if (confirm('¿Cancelar la reservación de ' + reserva.nombre + '?')) {
-          apiLiberarReservacion(reserva.id);
-        }
+    var iniciarBtn = modalContent.querySelector('#mmodal-iniciar');
+    if (iniciarBtn && reserva) {
+      iniciarBtn.addEventListener('click', function() {
+        apiIniciarServicio(reserva, selectedMeseroId());
       });
     }
 
@@ -2251,8 +2404,171 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
+  function showOpenTicketNotice(options) {
+    options = options || {};
+    var overlay = document.createElement('div');
+    overlay.className = 'mmodal-cancel-confirm-overlay';
+    overlay.innerHTML =
+      '<div class="mmodal-cancel-confirm" role="alertdialog" aria-modal="true">' +
+        '<p class="mmodal-cancel-confirm__msg"><strong>' + escHtml(options.title || 'Aviso') + '</strong></p>' +
+        '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
+        '<div class="mmodal-cancel-confirm__btns">' +
+          '<button class="mmodal-btn mmodal-btn--ghost" type="button" data-ticket-notice-cancel>' +
+            escHtml(options.cancelLabel || 'Cerrar') +
+          '</button>' +
+          (options.onConfirm
+            ? '<button class="mmodal-btn mmodal-btn--primary" type="button" data-ticket-notice-confirm>' +
+                escHtml(options.confirmLabel || 'Continuar') +
+              '</button>'
+            : '') +
+        '</div>' +
+      '</div>';
+    modalContent.appendChild(overlay);
+
+    var cancel = overlay.querySelector('[data-ticket-notice-cancel]');
+    var confirm = overlay.querySelector('[data-ticket-notice-confirm]');
+    cancel.addEventListener('click', function() {
+      overlay.remove();
+    });
+    if (confirm) {
+      confirm.addEventListener('click', function() {
+        confirm.disabled = true;
+        overlay.remove();
+        options.onConfirm();
+      });
+    }
+    window.requestAnimationFrame(function() {
+      (options.onConfirm && confirm ? confirm : cancel).focus();
+    });
+  }
+
+  function requestOpenTicket(payload) {
+    fetch('/api/abrir-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+      return response.json().then(function(result) {
+        result.httpStatus = response.status;
+        return result;
+      });
+    })
+    .then(function(result) {
+      if (result.ok) {
+        closeModal();
+        silentRefresh();
+        return;
+      }
+
+      if (result.codigo === 'REQUIERE_CONFIRMACION' && result.advertencia) {
+        var warning = result.advertencia;
+        showOpenTicketNotice({
+          title: 'Reservación próxima',
+          message: 'Esta mesa tiene una reservación a las ' + String(warning.hora || '').substring(0, 5) +
+            '. Faltan ' + parseInt(warning.minutos_restantes || '0', 10) +
+            ' minutos. El servicio deberá finalizar o cambiar de mesa antes de esa hora.',
+          cancelLabel: 'Cancelar',
+          confirmLabel: 'Continuar y abrir ticket',
+          onConfirm: function() {
+            payload.confirmar_reservacion_proxima = 1;
+            requestOpenTicket(payload);
+          }
+        });
+        return;
+      }
+
+      var bloqueo = result.bloqueo || {};
+      var message = result.msg || 'No fue posible abrir el ticket.';
+      if (bloqueo.hora) {
+        message = 'La mesa tiene una reservación a las ' + String(bloqueo.hora).substring(0, 5) +
+          ' y faltan ' + parseInt(bloqueo.minutos_restantes || '0', 10) +
+          ' minutos. Dentro de los 30 minutos previos no se puede abrir un ticket incompatible.';
+      }
+      showOpenTicketNotice({
+        title: 'No se puede abrir el ticket',
+        message: message,
+        cancelLabel: 'Entendido'
+      });
+    })
+    .catch(function() {
+      showOpenTicketNotice({
+        title: 'Error de conexión',
+        message: 'No fue posible validar la mesa. Intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    });
+  }
+
+  function requestReservationOperation(endpoint, payload, options) {
+    options = options || {};
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+      return response.json().then(function(result) {
+        result.httpStatus = response.status;
+        return result;
+      });
+    })
+    .then(function(result) {
+      if (result.ok) {
+        closeModal();
+        silentRefresh();
+        return;
+      }
+
+      if (result.requiere_reasignacion || result.codigo === 'REQUIERE_REASIGNACION' || result.codigo === 'SIN_CAPACIDAD') {
+        showOpenTicketNotice({
+          title: 'La llegada requiere nuevas mesas',
+          message: result.msg || 'Las mesas originales ya no están disponibles. No se recuperó ninguna mesa automáticamente.',
+          cancelLabel: 'Cerrar',
+          confirmLabel: 'Resolver en mapa',
+          onConfirm: function() {
+            window.location.href = reservationAssignmentHref(options.reserva);
+          }
+        });
+        return;
+      }
+
+      showOpenTicketNotice({
+        title: options.errorTitle || 'No fue posible completar la acción',
+        message: result.msg || 'El estado operativo cambió. Actualiza la información e intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    })
+    .catch(function() {
+      showOpenTicketNotice({
+        title: 'Error de conexión',
+        message: 'No fue posible validar la reservación. Intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    });
+  }
+
+  function apiConfirmarLlegada(reserva) {
+    requestReservationOperation(
+      '/api/punto-de-venta/reservaciones/llegada',
+      { reservacion_id: reserva.id },
+      { reserva: reserva, errorTitle: 'No se pudo registrar la llegada' }
+    );
+  }
+
+  function apiIniciarServicio(reserva, meseroId) {
+    requestReservationOperation(
+      '/api/punto-de-venta/reservaciones/comenzar',
+      {
+        reservacion_id: reserva.id,
+        mesero_id: meseroId || null
+      },
+      { reserva: reserva, errorTitle: 'No se pudo iniciar el servicio' }
+    );
+  }
+
   function apiAbrirTicket(mesaIds, comensales, reservaId, nombre, meseroId) {
-    apiPost('/api/abrir-ticket', {
+    requestOpenTicket({
       mesa_ids: mesaIds,
       comensales: comensales, reservacion_id: reservaId,
       nombre: nombre || null,
@@ -2293,10 +2609,6 @@ function initMapa() {
       }
     })
     .catch(function() { alert('Error de conexión'); });
-  }
-
-  function apiLiberarReservacion(reservaId) {
-    apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
   function apiCerrarTicket(ticketId, metodoPago, mesa, recibido) {
@@ -2483,6 +2795,7 @@ function initMapa() {
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
         meseros       = data.meseros        || [];
+        temporalConfig = (data.config && data.config.temporal) || temporalConfig;
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();
@@ -2520,7 +2833,7 @@ function initMapa() {
 
   // ── Modo en vivo ──────────────────────────────────────────
   function syncLive() {
-    var min = snapTo30(new Date().getHours() * 60 + new Date().getMinutes());
+    var min = snapToReservationInterval(new Date().getHours() * 60 + new Date().getMinutes());
     min = Math.max(510, Math.min(1320, min));
     sliderMin = min;
     renderEstados();
@@ -2532,7 +2845,10 @@ function initMapa() {
     if (ahoraBtn)  ahoraBtn.classList.add('mapa-ahora-btn--active');
     syncLive();
     if (liveInterval) clearInterval(liveInterval);
-    liveInterval = setInterval(syncLive, 60000);
+    var refreshSeconds = temporalNumber('refresco_estados_segundos');
+    if (refreshSeconds > 0) {
+      liveInterval = setInterval(syncLive, refreshSeconds * 1000);
+    }
     startPolling();
   }
 
@@ -2550,9 +2866,16 @@ function initMapa() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeModal();
   });
+  window.addEventListener('pagehide', function() {
+    stopPolling();
+    deactivateLive();
+  });
+  window.addEventListener('pageshow', function() {
+    if (!isLive) activateLive();
+  });
 
   // ── Init ──────────────────────────────────────────────────
-  sliderMin = Math.max(510, Math.min(1320, snapTo30(new Date().getHours() * 60 + new Date().getMinutes())));
+  sliderMin = Math.max(510, Math.min(1320, snapToReservationInterval(new Date().getHours() * 60 + new Date().getMinutes())));
   fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
   activateLive();
 }
