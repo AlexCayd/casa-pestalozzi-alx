@@ -63,7 +63,6 @@ function initMapa() {
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
-  var manageReservationsBtn = $('#pdv-manage-reservations');
 
   var DURACION = 90;
   var BLOQUEO  = 30;
@@ -86,6 +85,28 @@ function initMapa() {
     var h = Math.floor(min / 60);
     var m = min % 60;
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  }
+
+  function tiempoRestanteReserva(reserva) {
+    var hora = String(reserva && reserva.hora || '').substring(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(hora)) return '';
+
+    var fecha = fechaInput ? String(fechaInput.value || '') : '';
+    var ahora = new Date();
+    var hoy = ahora.getFullYear() + '-' +
+      String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
+      String(ahora.getDate()).padStart(2, '0');
+    if (fecha && fecha !== hoy) return '';
+
+    var diferencia = minutos(hora) - (ahora.getHours() * 60 + ahora.getMinutes());
+    if (diferencia < 0) return 'Horario iniciado';
+    if (diferencia === 0) return 'Ahora';
+    if (diferencia >= 60) {
+      var horas = Math.floor(diferencia / 60);
+      var minutosRestantes = diferencia % 60;
+      return 'En ' + horas + ' h' + (minutosRestantes ? ' ' + minutosRestantes + ' min' : '');
+    }
+    return 'En ' + diferencia + ' min';
   }
 
   function snapTo30(min) { return Math.round(min / 30) * 30; }
@@ -855,113 +876,6 @@ function initMapa() {
 
   // Panel operativo de reservaciones: permanece dentro del POS y no mezcla
   // walk-ins, porque éstos sólo existen como tickets abiertos.
-  function openReservationManager() {
-    if (!modal || !modalContent) return;
-    modalContent.innerHTML =
-      '<div class="pdv-reservation-manager">' +
-        '<div class="pdv-reservation-manager__head">' +
-          '<span class="pdv-reservation-manager__icon" aria-hidden="true">📅</span>' +
-          '<div><h2>Gestionar reservaciones</h2><p>Hoy · llegada, servicio y no-show</p></div>' +
-        '</div>' +
-        '<div class="pdv-reservation-manager__list" data-pdv-reservation-list>' +
-          '<p class="pdv-reservation-manager__empty">Cargando reservaciones…</p>' +
-        '</div>' +
-      '</div>';
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
-    loadReservationManager();
-  }
-
-  function loadReservationManager() {
-    var list = modalContent && modalContent.querySelector('[data-pdv-reservation-list]');
-    if (!list) return;
-    var fecha = fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10);
-    fetch('/api/punto-de-venta/reservaciones?fecha=' + encodeURIComponent(fecha))
-      .then(function(response) { return response.json(); })
-      .then(function(result) {
-        if (!result.ok) throw new Error(result.msg || 'No fue posible cargar.');
-        var items = result.reservaciones || [];
-        if (!items.length) {
-          list.innerHTML = '<p class="pdv-reservation-manager__empty">No hay reservaciones operativas para esta fecha.</p>';
-          return;
-        }
-        list.innerHTML = items.map(reservationManagerCard).join('');
-        bindReservationManagerActions(list);
-      })
-      .catch(function(error) {
-        list.innerHTML = '<p class="pdv-reservation-manager__empty pdv-reservation-manager__empty--error">' +
-          escHtml(error.message || 'Error de conexión') + '</p>';
-      });
-  }
-
-  function reservationManagerCard(reservation) {
-    var stateLabels = {
-      confirmada: 'Confirmada',
-      llego: 'Cliente llegó',
-      en_curso: 'En curso',
-      no_show: 'No show'
-    };
-    var tables = reservation.mesas || 'Sin mesa asignada';
-    var canArrive = reservation.estado === 'confirmada';
-    var canStart = reservation.estado === 'confirmada' || reservation.estado === 'llego';
-    var canCancel = canStart;
-    var canNoShow = canStart;
-    var noShowDisabled = canNoShow && !reservation.no_show_disponible;
-    return '<article class="pdv-reservation-card" data-reservation-id="' + reservation.id + '">' +
-      '<div class="pdv-reservation-card__eyebrow"><span aria-hidden="true">📅</span> Reservación · ' +
-        escHtml(reservation.hora) + '</div>' +
-      '<div class="pdv-reservation-card__body">' +
-        '<strong>' + escHtml(reservation.nombre) + '</strong>' +
-        '<span>' + reservation.personas + ' personas · ' + escHtml(tables) + '</span>' +
-        '<span class="pdv-reservation-card__status pdv-reservation-card__status--' +
-          escHtml(reservation.retrasada ? 'retrasada' : reservation.estado) + '">' +
-          escHtml(reservation.retrasada ? 'Retrasada' : (stateLabels[reservation.estado] || reservation.estado)) + '</span>' +
-      '</div>' +
-      '<div class="pdv-reservation-card__actions">' +
-        (canArrive ? '<button type="button" data-reservation-action="llegada">Llegó</button>' : '') +
-        (canStart ? '<button type="button" data-reservation-action="comenzar">Comenzar</button>' : '') +
-        (canNoShow ? '<button type="button" data-reservation-action="no-show"' +
-          (noShowDisabled ? ' disabled title="Disponible al terminar la tolerancia de 15 minutos"' : '') +
-          '>No-show</button>' : '') +
-        (canCancel ? '<button type="button" data-reservation-action="cancelar">Cancelar</button>' : '') +
-      '</div>' +
-    '</article>';
-  }
-
-  function bindReservationManagerActions(list) {
-    var buttons = list.querySelectorAll('[data-reservation-action]');
-    for (var i = 0; i < buttons.length; i++) {
-      buttons[i].addEventListener('click', function(event) {
-        var button = event.currentTarget;
-        var card = button.closest('[data-reservation-id]');
-        if (!card) return;
-        var action = button.getAttribute('data-reservation-action');
-        var id = parseInt(card.getAttribute('data-reservation-id'), 10);
-        var motive = '';
-        if (action === 'cancelar') {
-          motive = window.prompt('Motivo de cancelación (opcional):', '') || '';
-          if (!window.confirm('¿Cancelar esta reservación?')) return;
-        }
-        if (action === 'no-show' && !window.confirm('¿Marcar esta reservación como no-show?')) return;
-        button.disabled = true;
-        fetch('/api/punto-de-venta/reservaciones/' + action, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reservacion_id: id, motivo: motive })
-        })
-        .then(function(response) { return response.json(); })
-        .then(function(result) {
-          if (!result.ok) throw new Error(result.msg || 'No fue posible actualizar.');
-          loadReservationManager();
-          fetchData(fechaInput.value, true);
-        })
-        .catch(function(error) {
-          window.alert(error.message || 'Error de conexión');
-          button.disabled = false;
-        });
-      });
-    }
-  }
 
   // Preset de layout del modal de comanda (ancho de columnas), persistido.
   var POS_LAYOUT_KEY = 'cp-pos-modal-layout';
@@ -1117,32 +1031,47 @@ function initMapa() {
         : estado === 'proxima'              ? 'Próxima reservación'
         : 'Mesa reservada';
 
-      h += '<div class="mmodal-reserva-grid">';
+      var reservaHora = String(reserva.hora || '').substring(0, 5);
+      var reservaTiempo = tiempoRestanteReserva(reserva);
+      var reservaMesas = Array.isArray(reserva.mesas) ? reserva.mesas.map(function (mesaReservada) {
+        if (!mesaReservada) return '';
+        return String(mesaReservada.nombre || mesaReservada.id || mesaReservada);
+      }).filter(Boolean) : [];
 
-      // Col 1 — cliente
-      h += '<div class="mmodal-reserva-col">';
+      h += '<div class="mmodal-reserva-grid mmodal-reserva-preview">';
+
+      // Col 1 — estado y cliente
+      h += '<div class="mmodal-reserva-col mmodal-reserva-col--status">';
       h += '<div class="mmodal-reserva-col-head">';
-      h += '<span class="mmodal-reserva-col__label">Cliente</span>';
+      h += '<span class="mmodal-reserva-col__label">Estado</span>';
       h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + chipLabel + '</span>';
       h += '</div>';
-      h += '<div class="mmodal-reserva-nombre">' + escHtml(reserva.nombre) + '</div>';
+      h += '<span class="mmodal-reserva-col__label">Cliente</span>';
+      h += '<div class="mmodal-reserva-nombre">' + escHtml(reserva.nombre || 'Sin nombre') + '</div>';
       h += '</div>';
 
-      // Col 2 — detalles
-      h += '<div class="mmodal-reserva-col">';
+      // Col 2 — hora, comensales y contexto
+      h += '<div class="mmodal-reserva-col mmodal-reserva-col--details">';
       h += '<span class="mmodal-reserva-col__label">Reservación</span>';
       h += '<div class="mmodal-reserva-stats">';
       h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--hora"><span class="mmodal-reserva-stat__label">Hora</span>' +
-           '<span class="mmodal-reserva-stat__val">' + reserva.hora.substring(0, 5) + '</span></div>';
+           '<span class="mmodal-reserva-stat__val">' + escHtml(reservaHora || '--:--') + '</span>' +
+           (reservaTiempo ? '<span class="mmodal-reserva-stat__hint">' + escHtml(reservaTiempo) + '</span>' : '') + '</div>';
       h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--pax"><span class="mmodal-reserva-stat__label">Comensales</span>' +
-           '<span class="mmodal-reserva-stat__val">' + reserva.comensales + '</span></div>';
+           '<span class="mmodal-reserva-stat__val">' + escHtml(reserva.comensales || 0) + '</span></div>';
       h += '</div>';
+      if (reserva.contacto) {
+        h += '<div class="mmodal-reserva-meta"><span class="mmodal-reserva-meta__label">Contacto</span><span>' + escHtml(reserva.contacto) + '</span></div>';
+      }
+      if (reservaMesas.length) {
+        h += '<div class="mmodal-reserva-meta"><span class="mmodal-reserva-meta__label">Mesas</span><span>' + escHtml(reservaMesas.join(', ')) + '</span></div>';
+      }
       if (reserva.nota) {
         h += '<div class="mmodal-reserva-nota"><span class="mmodal-reserva-nota__label">Nota</span>' + escHtml(reserva.nota) + '</div>';
       }
       h += '</div>';
 
-      // Col 3 — acciones
+      // Col 3 — acciones existentes
       h += '<div class="mmodal-reserva-col mmodal-reserva-col--actions">';
       h += '<span class="mmodal-reserva-col__label">Acción</span>';
       h += buildMeseroSelectHtml();
@@ -2618,7 +2547,6 @@ function initMapa() {
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
-  if (manageReservationsBtn) manageReservationsBtn.addEventListener('click', openReservationManager);
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeModal();
   });

@@ -17,8 +17,8 @@ use Services\ReservacionService;
 
 class ReservacionOperacionController
 {
-    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v1';
-    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v1';
+    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v17';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v17';
 
     public static function operation(Router $router): void
     {
@@ -44,7 +44,7 @@ class ReservacionOperacionController
         }
 
         self::render('reservations/index', [
-            'title' => $soloLectura ? 'Operacion historica de reservaciones' : 'Operacion de reservaciones',
+            'title' => $soloLectura ? 'Mapa de reservaciones historico' : 'Mapa de reservaciones',
             'styles' => [self::OPERATION_CSS],
             'scripts' => [self::OPERATION_JS],
             'filtros' => [

@@ -58,6 +58,7 @@ const paths = {
   adminReservationOperationJs: [
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
+    "src/js/admin/reservations/form.js",
     "src/js/operation/shell.js",
     "src/js/operation/map-visual.js",
     "src/js/operation/reservation-card.js",

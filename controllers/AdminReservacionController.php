@@ -62,7 +62,20 @@ class AdminReservacionController
 
     public static function store(Router $router): void
     {
+        $expectsJson = self::expectsJsonRequest();
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            if ($expectsJson) {
+                self::jsonResponse([
+                    'success' => false,
+                    'ok' => false,
+                    'reservationId' => null,
+                    'message' => 'Metodo no permitido.',
+                    'fieldErrors' => [],
+                    'codigo' => 'METODO_INVALIDO',
+                ], 405);
+                return;
+            }
             self::redirectToIndex('metodo_invalido');
         }
 
@@ -73,6 +86,24 @@ class AdminReservacionController
 
         if ($resultado['ok'] ?? false) {
             $id = (int)($resultado['id'] ?? 0);
+            if ($expectsJson) {
+                self::jsonResponse([
+                    'success' => true,
+                    'ok' => true,
+                    'reservationId' => $id > 0 ? $id : null,
+                    'message' => (string)($resultado['msg'] ?? 'Reservacion creada.'),
+                    'fieldErrors' => [],
+                    'codigo' => (string)($resultado['codigo'] ?? ReservacionService::CREADA),
+                    'fecha' => (string)($_POST['fecha'] ?? ''),
+                    'hora' => HorarioReservacionService::normalizarHoraCorta((string)($_POST['hora'] ?? '')),
+                    'asignacion' => (string)($resultado['asignacion'] ?? 'PENDIENTE'),
+                    'mesaIds' => array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? []))),
+                    'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false),
+                    'warning' => $resultado['warning'] ?? null,
+                    'idempotent' => (bool)($resultado['idempotente'] ?? false),
+                ]);
+                return;
+            }
             $codigo = self::resultadoCreacion((string)($resultado['codigo'] ?? ReservacionService::CREADA));
             $url = $id > 0 ? '/admin/reservations/show?id=' . $id : '/admin/reservations';
 
@@ -80,7 +111,19 @@ class AdminReservacionController
             exit;
         }
 
-        http_response_code(($resultado['codigo'] ?? '') === ReservacionService::ERROR_INTERNO ? 500 : 422);
+        $status = ($resultado['codigo'] ?? '') === ReservacionService::ERROR_INTERNO ? 500 : 422;
+        http_response_code($status);
+        if ($expectsJson) {
+            self::jsonResponse([
+                'success' => false,
+                'ok' => false,
+                'reservationId' => null,
+                'message' => (string)($resultado['msg'] ?? 'Revisa los datos enviados.'),
+                'fieldErrors' => is_array($resultado['errors'] ?? null) ? $resultado['errors'] : [],
+                'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
+            ], $status);
+            return;
+        }
         self::renderCreate(
             self::reservacionDesdePost($_POST),
             $resultado['errors'] ?? [],
@@ -248,6 +291,24 @@ class AdminReservacionController
             'styles' => [self::RESERVATIONS_CSS],
             'scripts' => [],
         ], $data));
+    }
+
+    private static function expectsJsonRequest(): bool
+    {
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $requestedFormat = strtolower((string)($_POST['response_format'] ?? ''));
+
+        return str_contains($accept, 'application/json')
+            || $requestedFormat === 'json';
+    }
+
+    private static function jsonResponse(array $payload, int $status = 200): void
+    {
+        http_response_code($status);
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private static function leerFiltros(): array

@@ -37,6 +37,7 @@ class PuntoVentaController {
                 "SELECT
                     r.id,
                     r.nombre,
+                    r.contacto,
                     r.hora,
                     r.comensales,
                     r.nota,
@@ -47,7 +48,7 @@ class PuntoVentaController {
                  LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
                  LEFT JOIN mesas m ON m.id = rm.mesa_id
                  WHERE r.fecha = '{$fecha}'
-                 GROUP BY r.id, r.nombre, r.hora, r.comensales, r.nota, r.estado
+                 GROUP BY r.id, r.nombre, r.contacto, r.hora, r.comensales, r.nota, r.estado
                  ORDER BY r.hora ASC"
             );
 
@@ -95,6 +96,7 @@ class PuntoVentaController {
             return [
                 'id' => (int)$r->id,
                 'nombre' => $r->nombre,
+                'contacto' => $r->contacto ?? '',
                 'hora' => $r->hora,
                 'comensales' => (int)$r->comensales,
                 'nota' => $r->nota ?? '',

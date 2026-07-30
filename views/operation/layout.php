@@ -10,6 +10,35 @@ $fechaContexto = (string)($filtros['fecha'] ?? '');
 $horaContexto = (string)($filtros['hora'] ?? '');
 $returnUrl = (string)($returnUrl ?? '');
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+$operationalUsuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
+$operationalRolEtiquetas = [
+    'admin' => 'Administrador',
+    'cashier' => 'Cajero',
+    'waiter' => 'Mesero',
+    'observer' => 'Observador',
+];
+$operationalUsuarioRol = $operationalRolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
+
+$operationalView = 'reservations';
+$operationalModule = 'reservations';
+$operationalModuleTitle = 'Mapa de reservaciones';
+$operationalDate = $fechaContexto;
+$operationalHour = $horaContexto;
+$operationalBrandHref = '/admin/reservations/operation';
+$operationalHeaderBackUrl = '/admin/reservations';
+$operationalDrawerId = 'operation-reservations-drawer';
+$operationalActiveModule = 'reservations';
+$operationalMapHref = '/punto-de-venta';
+$operationalReservationsHref = '/admin/reservations/operation';
+$operationalShellClass = 'operation-shell operation-shell--reservations';
+$operationalMainClass = 'operation-main operational-layout';
+$operationalMainId = 'operation-main';
+$operationalMainAttributes = [];
+$operationalContentHtml = (string)$content;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -27,19 +56,8 @@ $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, '
         <link rel="stylesheet" href="<?php echo $h($stylesheet); ?>">
     <?php endforeach; ?>
 </head>
-<body class="admin-body operation-body operational-page" data-operational-page>
-    <div class="operation-shell">
-        <main class="operation-main operational-layout" id="operation-main">
-            <?php
-            $operationalView = 'reservations';
-            $operationalDate = $fechaContexto;
-            $operationalHour = $horaContexto;
-            $operationalReturnUrl = $returnUrl;
-            include __DIR__ . '/partials/header.php';
-            ?>
-            <?php echo $content; ?>
-        </main>
-    </div>
+<body class="admin-body operation-body operational-page" data-operational-page data-operation-module="reservations" data-operational-map-state-key="reservations">
+    <?php include __DIR__ . '/partials/shell.php'; ?>
 
     <?php foreach ($scripts as $script): ?>
         <script src="<?php echo $h($script); ?>" defer></script>

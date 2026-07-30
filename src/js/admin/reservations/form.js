@@ -23,15 +23,23 @@
             var editable = form.getAttribute('data-form-editable') === '1';
             var card = form.closest('[data-reservation-form-card]') || form;
             var detailRoot = form.closest('[data-reservation-detail-root]');
+            var modal = form.closest('[data-operation-create-modal]');
+            var externalActions = modal ? modal.querySelector('[data-operation-create-footer]') : null;
             var editButton = card.querySelector('[data-form-edit]');
-            var cancelButton = form.querySelector('[data-form-cancel]');
-            var saveButton = form.querySelector('[data-form-save]');
+            var cancelButton = form.querySelector('[data-form-cancel]') || (externalActions && externalActions.querySelector('[data-form-cancel]'));
+            var saveButton = form.querySelector('[data-form-save]') || (externalActions && externalActions.querySelector('[data-form-save]'));
             var editBanner = card.querySelector('[data-edit-mode-banner]');
             var dateRoot = form.querySelector('[data-reservation-date-picker]');
             var timeRoot = form.querySelector('[data-reservation-time-picker]');
             var dateInput = form.querySelector('[data-date-input]');
             var timeInput = form.querySelector('[data-time-input]');
             var timeStatus = form.querySelector('[data-time-status]');
+            var contactSelect = form.querySelector('select[name="contacto_tipo"]');
+            var contactSelectRoot = contactSelect ? contactSelect.closest('[data-admin-contact-select]') || contactSelect.closest('.reservation-admin-select') : null;
+            var contactSelectTrigger = contactSelectRoot ? contactSelectRoot.querySelector('[data-contact-select-trigger]') : null;
+            var contactSelectValue = contactSelectRoot ? contactSelectRoot.querySelector('[data-contact-select-value]') : null;
+            var contactSelectMenu = contactSelectRoot ? contactSelectRoot.querySelector('[data-contact-select-menu]') : null;
+            var contactSelectOptions = contactSelectRoot ? Array.prototype.slice.call(contactSelectRoot.querySelectorAll('[data-contact-select-option]')) : [];
             var editableControls = Array.prototype.slice.call(form.querySelectorAll('[data-reservation-control]'));
             var initialDate = form.getAttribute('data-initial-date') || (dateInput ? dateInput.value : '');
             var initialTime = normalizeHour(form.getAttribute('data-initial-time') || (timeInput ? timeInput.value : ''));
@@ -51,6 +59,73 @@
             var datePicker = null;
             var timePicker = null;
             var saveLabel = saveButton ? saveButton.textContent : 'Guardar cambios';
+            var jsonTransport = form.getAttribute('data-form-transport') === 'json';
+
+            function closeContactSelect(restoreFocus) {
+                if (!contactSelectRoot || !contactSelectTrigger || !contactSelectMenu) return;
+
+                contactSelectRoot.classList.remove('is-open');
+                contactSelectTrigger.setAttribute('aria-expanded', 'false');
+                contactSelectMenu.hidden = true;
+                if (restoreFocus) contactSelectTrigger.focus();
+            }
+
+            function syncContactSelect() {
+                if (!contactSelect || !contactSelectRoot || !contactSelectTrigger || !contactSelectValue) return;
+
+                var selected = contactSelect.options[contactSelect.selectedIndex];
+                contactSelectValue.textContent = selected ? selected.textContent.trim() : '';
+                contactSelectTrigger.disabled = contactSelect.disabled;
+                contactSelectRoot.classList.toggle('is-disabled', contactSelect.disabled);
+
+                contactSelectOptions.forEach(function (option) {
+                    var active = option.getAttribute('data-contact-select-option') === contactSelect.value;
+                    option.classList.toggle('is-selected', active);
+                    option.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+            }
+
+            function initContactSelect() {
+                if (!contactSelect || !contactSelectRoot || !contactSelectTrigger || !contactSelectMenu) return;
+
+                contactSelectRoot.classList.add('has-custom-contact-select');
+                syncContactSelect();
+
+                contactSelectTrigger.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (contactSelect.disabled) return;
+
+                    var open = contactSelectRoot.classList.toggle('is-open');
+                    contactSelectTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    contactSelectMenu.hidden = !open;
+                    if (open) {
+                        var active = contactSelectOptions.find(function (option) {
+                            return option.getAttribute('data-contact-select-option') === contactSelect.value;
+                        });
+                        if (active) active.focus();
+                    }
+                });
+
+                contactSelectOptions.forEach(function (option) {
+                    option.addEventListener('click', function (event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        contactSelect.value = option.getAttribute('data-contact-select-option') || '';
+                        contactSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        syncContactSelect();
+                        closeContactSelect(true);
+                    });
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!contactSelectRoot.contains(event.target)) closeContactSelect(false);
+                });
+
+                contactSelect.addEventListener('change', syncContactSelect);
+            }
+
+            initContactSelect();
 
             if (dateRoot && window.createReservationDatePicker) {
                 datePicker = window.createReservationDatePicker({
@@ -59,6 +134,7 @@
                     initialValue: originalValues.fecha,
                     enabledWeekdays: dateRoot.getAttribute('data-enabled-weekdays')
                 });
+                form.__reservationDatePicker = datePicker;
             }
 
             if (timeRoot && window.createReservationTimePicker) {
@@ -70,6 +146,7 @@
                     initialTime: originalValues.hora,
                     autoLoad: mode === 'crear' || isEditing
                 });
+                form.__reservationTimePicker = timePicker;
             }
 
             function hasValidDate() {
@@ -129,6 +206,8 @@
                     control.setAttribute('aria-disabled', isEditing ? 'false' : 'true');
                 });
 
+                syncContactSelect();
+
                 if (datePicker) datePicker.setDisabled(!isEditing);
                 if (timePicker) timePicker.setDisabled(!isEditing);
                 if (editButton) {
@@ -169,6 +248,7 @@
             function restoreOriginalValues() {
                 setFormValue(form, 'nombre', originalValues.nombre);
                 setFormValue(form, 'contacto_tipo', originalValues.contacto_tipo);
+                syncContactSelect();
                 setFormValue(form, 'contacto', originalValues.contacto);
                 setFormValue(form, 'comensales', originalValues.comensales);
                 setFormValue(form, 'comentario_admin', originalValues.comentario_admin);
@@ -262,6 +342,23 @@
                     saveButton.disabled = true;
                     saveButton.textContent = 'Guardando...';
                 }
+
+                if (jsonTransport) {
+                    event.preventDefault();
+                    form.dispatchEvent(new CustomEvent('reservation:jsonsubmit', {
+                        bubbles: true,
+                        detail: { form: form }
+                    }));
+                }
+            });
+
+            form.addEventListener('reservation:clear-errors', clearTemporaryErrors);
+            form.addEventListener('reservation:reset-submit', function () {
+                isSubmitting = false;
+                if (saveButton) {
+                    saveButton.textContent = saveLabel;
+                }
+                updateSaveState();
             });
 
             if (detailRoot) {
@@ -289,5 +386,9 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', initAdminReservationForms);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAdminReservationForms);
+    } else {
+        initAdminReservationForms();
+    }
 })();

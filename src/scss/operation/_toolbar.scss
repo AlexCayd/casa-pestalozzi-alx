@@ -11,20 +11,28 @@
 }
 
 .operational-context-bar {
+  box-sizing: border-box;
   display: grid;
+  height: var(--operational-context-height);
   min-height: var(--operational-context-height);
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 9px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--admin-border-soft);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
-  box-shadow: var(--admin-shadow-sm);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface) 94%, transparent);
+  box-shadow: none;
+  overflow: visible;
 }
 
 .operational-context-bar--map {
   grid-template-columns: auto minmax(0, 1fr);
+}
+
+.operational-context-bar--reservations {
+  position: relative;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
 }
 
 .operational-context-bar__controls,
@@ -33,14 +41,69 @@
   min-width: 0;
   align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.operational-context-bar__controls {
+  flex: 0 1 auto;
+}
+
+.operational-context-bar__selection {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.operational-context-bar--reservations .operational-context-bar__selection {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: min(280px, 22vw);
+  transform: translate(-50%, -50%);
+}
+
+.operational-selection-context {
+  display: block;
+  width: min(280px, 22vw);
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 280px;
+  overflow: hidden;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border-soft));
+  border-radius: var(--admin-radius-sm, 10px);
+  background: color-mix(in srgb, var(--admin-gold) 12%, var(--admin-surface-soft));
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-medium);
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.operational-selection-context span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .operational-context-bar__actions {
   justify-content: flex-end;
+  padding-left: 16px;
+  border-left: 1px solid var(--admin-border-soft);
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions {
+  grid-column: 3;
 }
 
 .operational-context-bar [data-operation-create] {
   display: inline-flex;
+  max-width: 100%;
   min-height: 44px;
   align-items: center;
   justify-content: center;
@@ -60,11 +123,24 @@
   }
 }
 
+.operational-context-bar .reservation-operation__filter-actions .admin-btn--secondary {
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  box-shadow: none;
+}
+
+.operational-context-bar .reservation-operation__filter-actions .admin-btn--secondary:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+}
+
 .reservation-operation__filters {
   display: grid;
-  width: 100%;
+  width: auto;
+  flex: 0 1 auto;
   min-width: 0;
-  grid-template-columns: var(--operational-date-control-width) minmax(164px, 200px) auto;
+  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
   align-items: center;
   justify-content: start;
   gap: 10px;
@@ -83,6 +159,27 @@
 .reservation-operation__filter-actions {
   display: flex;
   align-items: center;
+}
+
+.operational-toolbar-icon {
+  display: inline-flex !important;
+  width: 44px;
+  height: 44px;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+}
+
+.operational-toolbar-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .reservation-operation__filter-actions .admin-btn,
@@ -120,56 +217,135 @@
 @media (max-width: 1199px) {
   .operational-context-bar {
     gap: 10px;
-    padding: 10px;
+    padding: 6px 10px;
   }
 
   .operational-context-bar--reservations {
-    grid-template-columns: auto minmax(0, 1fr);
-
-    .operational-context-bar__controls {
-      grid-column: 1 / -1;
-      grid-row: 2;
-    }
-
-    .operational-context-bar__actions {
-      grid-column: 2;
-      grid-row: 1;
-    }
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
   }
 
   .reservation-operation__filters {
-    grid-template-columns: minmax(190px, var(--operational-date-control-width)) minmax(180px, 220px) auto;
+    grid-template-columns: auto minmax(140px, 160px) minmax(120px, 140px);
     gap: 10px;
+  }
+
+  .operational-selection-context {
+    width: min(180px, 22vw);
+    flex-basis: 180px;
   }
 }
 
 @media (max-width: 900px) {
   .reservation-operation__filters {
-    grid-template-columns: minmax(190px, 1fr) minmax(180px, 1fr) auto;
+    grid-template-columns: auto minmax(160px, 1fr) minmax(132px, 160px);
+  }
+
+  .operational-selection-context {
+    width: min(180px, 20vw);
+    flex-basis: 180px;
+  }
+}
+
+@media (max-width: 900px) and (min-width: 641px) {
+  .operational-page {
+    --operational-context-height: 104px;
+  }
+
+  .operational-context-bar--reservations {
+    height: auto;
+    min-height: 96px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
+
+  .operational-context-bar--reservations .operational-context-bar__selection {
+    position: static;
+    width: auto;
+    transform: none;
+  }
+
+  .operational-context-bar--reservations .operational-context-bar__controls {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .operational-context-bar--reservations .operational-context-bar__selection {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .operational-context-bar--reservations .operational-context-bar__actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .operational-selection-context {
+    width: min(280px, 48vw);
+    flex-basis: 280px;
   }
 }
 
 @media (max-width: 640px) {
+  .operational-page {
+    --operational-context-height: 264px;
+  }
+
   .operational-context-bar,
   .operational-context-bar--reservations {
     grid-template-columns: 1fr;
   }
 
+  .operational-context-bar--reservations .operational-context-bar__selection {
+    position: static;
+    width: auto;
+    transform: none;
+  }
+
   .operational-context-bar__controls,
+  .operational-context-bar__selection,
   .operational-context-bar__actions,
   .operational-context-bar--reservations .operational-context-bar__controls,
+  .operational-context-bar--reservations .operational-context-bar__selection,
   .operational-context-bar--reservations .operational-context-bar__actions {
     grid-column: 1;
     grid-row: auto;
   }
 
-  .operational-context-bar__actions > *,
-  .operational-context-bar > .operational-drawer-toggle {
+  .operational-context-bar {
+    height: auto;
+    min-height: 0;
+  }
+
+  .operational-context-bar__actions {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .operational-context-bar__controls {
+    flex-wrap: wrap;
+  }
+
+  .operational-selection-context {
+    width: min(100%, 300px);
+    flex-basis: 300px;
+  }
+
+  .operational-context-bar__actions {
     width: 100%;
+    justify-content: flex-end;
+  }
+
+  .operational-context-bar [data-operation-create] {
+    flex: 1 1 auto;
   }
 
   .reservation-operation__filters {
-    grid-template-columns: 1fr;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .reservation-operation__filter-actions {
+    grid-column: 1 / -1;
   }
 
   .reservation-operation__filters .date-picker-wrap,
@@ -180,6 +356,16 @@
   }
 
   .reservation-operation__filter-actions .admin-btn {
-    width: 100%;
+    width: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .operational-page {
+    --operational-context-height: 318px;
+  }
+
+  .reservation-operation__filters {
+    grid-template-columns: 1fr;
   }
 }

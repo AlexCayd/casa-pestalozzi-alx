@@ -12,7 +12,7 @@
   height: 100dvh;
   background:
     radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
-    var(--admin-bg);
+    var(--operational-shell-background, var(--admin-bg));
 }
 
 .operation-main {
@@ -25,7 +25,7 @@
 .reservation-operation {
   display: flex;
   width: min(1800px, 100%);
-  height: auto;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   margin: 0 auto;
@@ -39,26 +39,71 @@
   display: grid;
   width: 100%;
   height: 100%;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 0;
+  max-height: none;
+  padding: 0;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--operational-shell-gap);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   flex: 1 1 0;
+  overflow: hidden;
+}
+
+.reservation-operation__content {
+  display: grid;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 370px);
+  padding: clamp(9px, 1vw, 14px);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md, 16px);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.reservation-operation__map.mesas-map {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--admin-border-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.reservation-operation__map .mesas-map__viewport {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .reservation-operation__panel {
   position: relative;
 }
 
-.reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 370px);
+.reservation-operation.is-panel-dismissed .reservation-operation__content,
+.reservation-operation.is-panel-suppressed .reservation-operation__content {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
   height: max(500px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2)));
   min-height: 500px;
-  grid-template-columns: minmax(0, 1fr) !important;
   flex: 0 0 auto;
+}
+
+.reservation-operation.assignment-mode .reservation-operation__content {
+  grid-template-columns: minmax(0, 1fr) !important;
 }
 
 .reservation-operation.assignment-mode .reservation-operation__panel {
@@ -110,29 +155,44 @@ html:has(.operation-body.is-assignment-mode) {
   box-shadow: var(--admin-shadow-md);
 }
 
-.reservation-operation__mobile-tabs {
-  display: none;
-}
-
 @media (min-width: 1600px) {
-  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
+  .reservation-operation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__content {
     grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
   }
 }
 
 @media (max-width: 900px) {
-  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__workspace {
+  .reservation-operation__workspace {
     grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow-y: auto;
   }
 
   .reservation-operation__panel {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    width: auto;
+    max-height: 360px;
+    padding: 0;
+    border-left: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__panel {
     position: fixed;
-    inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap)) var(--operational-shell-pad) var(--operational-shell-pad) auto;
+    inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap)) var(--operational-shell-pad) var(--operational-shell-pad) auto;
     z-index: 60;
     width: min(92vw, 380px);
-    padding: 0;
+    max-height: none;
     border-left: 1px solid var(--admin-border);
-    background: var(--admin-bg);
+    background: color-mix(in srgb, var(--admin-bg) 98%, #000);
     box-shadow: -22px 0 54px rgba(0, 0, 0, 0.42);
   }
 }

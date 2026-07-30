@@ -22,7 +22,7 @@
   --operational-shell-pad: clamp(12px, 1.35vw, 22px);
   --operational-shell-gap: clamp(8px, 0.8vw, 12px);
   --operational-header-height: 64px;
-  --operational-context-height: 64px;
+  --operational-context-height: 56px;
   --operational-module-max-width: 1440px;
   --operational-workspace-max-height: 760px;
   font-family: var(--operational-font-ui);
@@ -39,8 +39,21 @@
   line-height: 1;
 }
 
+.operation-body[data-operation-module="reservations"] {
+  // La diferencia entre módulos queda limitada al fondo: el resto del
+  // sistema visual comparte color, jerarquía y estados con el mapa de mesas.
+  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, #466b75);
+}
+
+.operation-shell--reservations {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    var(--operational-shell-background, var(--admin-bg));
+}
+
 .operation-shell,
-.mapa-shell {
+.mapa-shell,
+.operational-shell {
   box-sizing: border-box;
   width: 100%;
   height: 100dvh;
@@ -73,12 +86,22 @@
   overflow: hidden;
 }
 
+.operational-page .reservation-operation.operational-module {
+  width: 100%;
+  max-height: none;
+  max-width: none;
+}
+
 .operational-workspace {
   width: 100%;
   max-height: var(--operational-workspace-max-height);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.operational-page .reservation-operation .operational-workspace {
+  max-height: none;
 }
 
 @media (min-width: 1600px) {
@@ -97,10 +120,8 @@
 
 // ── Botón flotante: maximizar mapa ────────────────────────────
 .operational-map-toggle {
-  position: fixed;
-  z-index: 85;
-  bottom: calc(var(--operational-shell-pad) + 8px);
-  right: calc(var(--operational-shell-pad) + 8px);
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -108,10 +129,9 @@
   padding: 0 15px;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-surface) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--admin-surface-soft);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-md, 0 12px 30px rgba(0, 0, 0, 0.3));
+  box-shadow: none;
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
@@ -135,7 +155,8 @@
   }
 
   &:hover {
-    border-color: var(--admin-gold);
+    border-color: var(--admin-border);
+    background: var(--admin-surface);
     color: var(--admin-gold-soft);
   }
 
@@ -168,19 +189,54 @@
 
 // ── Estado: mapa maximizado (oculta chrome, mapa a pantalla) ───
 .operational-page.is-map-maximized {
-  .operational-header,
-  .pos-header,
+  // El chrome compartido permanece visible; solo se libera el área que
+  // antes quedaba limitada por el detalle y por max-height del workspace.
+  .operational-header {
+    display: grid;
+  }
+
   .operational-context-bar {
-    display: none;
+    display: grid;
+  }
+
+  .operation-main,
+  .operational-layout,
+  .operational-module,
+  .reservation-operation,
+  .reservation-operation__workspace,
+  .operational-workspace,
+  .operational-map-card,
+  .operational-map__viewport {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .operational-module,
+  .operational-workspace,
+  .operational-map-card,
+  .operational-map__viewport {
+    max-height: none;
+  }
+
+  .operational-map__viewport {
+    height: auto;
+    flex: 1 1 0;
   }
 
   .operational-module {
     max-width: none;
-    max-height: none;
   }
 
-  .operational-workspace {
-    max-height: none;
+  .reservation-operation__workspace {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .reservation-operation__panel {
+    display: none !important;
   }
 
   // El mapa aprovecha más superficie disponible.
@@ -194,4 +250,11 @@
   .operational-drawer-backdrop {
     inset-block-start: var(--operational-shell-pad);
   }
+}
+
+.operational-map-toggle--icon {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--admin-radius-sm, 10px);
 }

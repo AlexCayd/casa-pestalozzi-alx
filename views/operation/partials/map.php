@@ -11,39 +11,49 @@ $mapEscape = static fn($value): string => htmlspecialchars((string)$value, ENT_Q
 $mapContext = (string)($mapVisual['context'] ?? 'mapa-mesas');
 $mapSectionClass = trim((string)($mapVisual['sectionClass'] ?? ''));
 $mapTitle = (string)($mapVisual['title'] ?? 'Mapa de mesas');
+$mapAriaLabel = (string)($mapVisual['ariaLabel'] ?? ($mapTitle !== '' ? $mapTitle : 'Mapa operativo'));
 $mapTitleId = trim((string)($mapVisual['titleId'] ?? ''));
 $mapSubtitle = (string)($mapVisual['subtitle'] ?? '');
-$mapLeadingHtml = (string)($mapVisual['leadingHtml'] ?? '');
+$mapToolbarActionsHtml = (string)($mapVisual['toolbarActionsHtml'] ?? ($mapVisual['leadingHtml'] ?? ''));
 $mapCanvasId = trim((string)($mapVisual['canvasId'] ?? ''));
 $mapCanvasMode = (string)($mapVisual['canvasMode'] ?? 'map');
 $mapLoadingMode = (string)($mapVisual['loadingMode'] ?? 'empty');
-$mapHeadClass = $mapLeadingHtml !== '' ? ' operational-map-head--with-trigger' : '';
+$mapLegendPosition = (string)($mapVisual['legendPosition'] ?? 'header');
+$mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer'], true) ? $mapLegendPosition : 'header';
+$mapShowHeading = $mapTitle !== '' || $mapSubtitle !== '';
+$mapHeadClass = $mapToolbarActionsHtml !== '' ? ' operational-map-head--with-trigger' : '';
+$mapHeadClass .= !$mapShowHeading ? ' operational-map-head--legend-only' : '';
+$mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendPosition === 'header';
 ?>
 
 <section
     class="operational-map mesas-map operational-map-card<?php echo $mapSectionClass !== '' ? ' ' . $mapEscape($mapSectionClass) : ''; ?>"
     data-map-component
     data-map-context="<?php echo $mapEscape($mapContext); ?>"
-    <?php echo $mapTitleId !== '' ? 'aria-labelledby="' . $mapEscape($mapTitleId) . '"' : 'aria-label="' . $mapEscape($mapTitle) . '"'; ?>
+    <?php echo $mapTitleId !== '' ? 'aria-labelledby="' . $mapEscape($mapTitleId) . '"' : 'aria-label="' . $mapEscape($mapAriaLabel) . '"'; ?>
 >
-    <div class="operational-map__header mesas-map__header operational-map-head<?php echo $mapHeadClass; ?>">
-        <?php echo $mapLeadingHtml; ?>
+    <?php if ($mapShowHeader): ?>
+        <div class="operational-map__toolbar operational-map__header mesas-map__toolbar mesas-map__header operational-map-head<?php echo $mapHeadClass; ?>">
+            <?php if ($mapShowHeading): ?>
+                <div class="operational-map__heading mesas-map__heading operational-map-heading">
+                    <span class="operational-map__title mesas-map__title operational-map-title"<?php echo $mapTitleId !== '' ? ' id="' . $mapEscape($mapTitleId) . '"' : ''; ?>><?php echo $mapEscape($mapTitle); ?></span>
+                    <?php if ($mapSubtitle !== ''): ?>
+                        <p><?php echo $mapEscape($mapSubtitle); ?></p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
-        <div class="operational-map__heading mesas-map__heading operational-map-heading">
-            <span class="operational-map__title mesas-map__title operational-map-title"<?php echo $mapTitleId !== '' ? ' id="' . $mapEscape($mapTitleId) . '"' : ''; ?>><?php echo $mapEscape($mapTitle); ?></span>
-            <?php if ($mapSubtitle !== ''): ?>
-                <p<?php echo $mapCanvasMode === 'operation' ? ' data-operation-map-status' : ''; ?>><?php echo $mapEscape($mapSubtitle); ?></p>
+            <?php if ($mapToolbarActionsHtml !== ''): ?>
+                <div class="operational-map__toolbar-actions mesas-map__toolbar-actions">
+                    <?php echo $mapToolbarActionsHtml; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($mapLegendPosition === 'header'): ?>
+                <?php include __DIR__ . '/map-legend.php'; ?>
             <?php endif; ?>
         </div>
-
-        <div class="operational-map__legend mesas-map__legend mapa-leyenda" aria-label="Estados de mesas" data-map-legend>
-            <span class="mapa-leyenda-item mapa-leyenda-item--libre">Libre</span>
-            <span class="mapa-leyenda-item mapa-leyenda-item--ocupada">Ocupada</span>
-            <span class="mapa-leyenda-item mapa-leyenda-item--bloqueada">Asignada</span>
-            <span class="mapa-leyenda-item mapa-leyenda-item--seleccionada">Seleccionada</span>
-            <span class="mapa-leyenda-item mapa-leyenda-item--zona">No reservable</span>
-        </div>
-    </div>
+    <?php endif; ?>
 
     <div class="operational-map__viewport mesas-map__viewport mapa-canvas-wrap operational-map-canvas-wrap">
         <div
@@ -63,6 +73,12 @@ $mapHeadClass = $mapLeadingHtml !== '' ? ' operational-map-head--with-trigger' :
             </div>
         <?php endif; ?>
     </div>
+
+    <?php if ($mapLegendPosition === 'footer'): ?>
+        <div class="operational-map__footer mesas-map__footer">
+            <?php include __DIR__ . '/map-legend.php'; ?>
+        </div>
+    <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapTitleId, $mapSubtitle, $mapLeadingHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapHeadClass); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader); ?>

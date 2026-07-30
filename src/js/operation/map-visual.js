@@ -208,6 +208,13 @@
             label.textContent = table.nombre;
             pin.appendChild(label);
 
+            if (!table.reservable) {
+                var typeLabel = document.createElement('span');
+                typeLabel.className = 'mesa-pin__type-label';
+                typeLabel.textContent = 'Área operativa';
+                pin.appendChild(typeLabel);
+            }
+
             applyState(pin, table);
             return pin;
         }

@@ -32,15 +32,9 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   <link rel="stylesheet" href="/build/css/app.css">
 </head>
 
-<body class="mapa-page operational-page" data-page="mapa" data-operational-page>
+<body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
-  ob_start();
-  $operationalDrawerId = 'map-reservations-drawer';
-  $operationalDrawerInitialCount = '0';
-  include __DIR__ . '/../operation/partials/drawer-toggle.php';
-  $drawerToggleHtml = (string)ob_get_clean();
-
   // Selector de fecha; se muestra dentro del cajón de reservaciones.
   ob_start();
   $rootId = 'mapa-date-picker';
@@ -83,7 +77,7 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   <script>
     // Confirmación: en tablet un toque accidental no debe sacar del turno
     (function () {
-      var form = document.querySelector('.pos-header__logout-form');
+      var form = document.querySelector('.operational-header__logout-form');
       if (!form) return;
       form.addEventListener('submit', function (e) {
         if (!window.confirm('¿Cerrar sesión y salir del punto de venta?')) {
