@@ -411,3 +411,215 @@
     }
   }
 }
+
+/*
+ * Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3).
+ * Reutiliza .admin-panel / .admin-table / .admin-chart-card del panel; aquí
+ * solo se define el layout propio y los colores de clase/afinidad/merma.
+ */
+.admin-nivel1 {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--admin-border-soft);
+
+  .admin-nivel1__intro {
+    border-bottom: none;
+    margin-bottom: 20px;
+    padding-bottom: 0;
+
+    .admin-page-summary em {
+      color: var(--admin-gold-deep);
+      font-style: normal;
+      font-weight: 600;
+    }
+  }
+
+  .admin-nivel1-panel {
+    min-width: 0;
+  }
+
+  // El panel de ingeniería solo lleva la clase base .admin-panel (sin
+  // .admin-chart-card / .admin-table-panel), así que no hereda padding: se lo
+  // damos aquí para que título y categorías no queden pegados al borde.
+  .admin-nivel1-menu {
+    padding: 22px 24px;
+
+    > header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+
+      h3 {
+        margin-top: 5px;
+        font-size: 21px;
+      }
+
+      p:not(.admin-page-eyebrow) {
+        margin-top: 5px;
+        color: var(--admin-muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+    }
+  }
+
+  // Ingeniería de menú: gráfica + tabla lado a lado en pantallas anchas.
+  .admin-nivel1-menu__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+    margin-top: 8px;
+  }
+
+  // La gráfica se separa de la tabla con un divisor sutil en pantallas anchas.
+  .admin-nivel1-menu__chart {
+    padding-right: 4px;
+  }
+
+  .admin-nivel1-menu__chart .admin-chart-card__canvas {
+    height: 340px;
+    padding: 8px 4px 4px;
+  }
+
+  .admin-nivel1-menu__table {
+    max-height: 388px;
+    overflow-y: auto;
+    padding-right: 4px;
+
+    .admin-table {
+      th,
+      td {
+        padding-top: 11px;
+        padding-bottom: 11px;
+      }
+    }
+  }
+
+  // Fila de conteo por clase (estrella / vaca / incógnita / perro).
+  .admin-nivel1-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 4px;
+  }
+
+  .admin-nivel1-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+    align-items: start;
+  }
+
+  // La varianza puede listar muchos ingredientes: se limita la altura y se
+  // desplaza, para que su fila no estire de más el panel de RevPASH contiguo.
+  [data-n1-varianza] .admin-table-wrap {
+    max-height: 430px;
+    overflow-y: auto;
+  }
+
+  .admin-nivel1-panel + .admin-nivel1-panel,
+  .admin-nivel1-grid + .admin-nivel1-panel {
+    margin-top: 20px;
+  }
+
+  .admin-nivel1-panel .admin-chart-card__canvas {
+    height: 260px;
+  }
+
+  .admin-nivel1-note {
+    margin-top: 12px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.5;
+
+    strong {
+      color: var(--admin-text);
+    }
+  }
+
+  .admin-nivel1-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--admin-faint);
+    font-style: italic;
+  }
+
+  small {
+    color: var(--admin-muted);
+  }
+}
+
+// Chips del resumen de clases.
+.admin-nivel1-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-muted);
+
+  strong {
+    color: var(--admin-text);
+    font-weight: 700;
+  }
+}
+
+// Badge de clase dentro de la tabla.
+.admin-nivel1-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+// Paleta por clase (chips + badges comparten los tonos de marca).
+@each $clase, $bordecolor, $textcolor, $bgcolor in
+  ("estrella", var(--admin-success-border), var(--admin-success-text), var(--admin-success-bg)),
+  ("vaca",     var(--admin-gold),           var(--admin-gold-deep),    var(--admin-gold-soft)),
+  ("incognita",var(--admin-info-border),    var(--admin-info-text),    var(--admin-info-bg)),
+  ("perro",    var(--admin-danger-border),  var(--admin-danger-text),  var(--admin-danger-bg))
+{
+  .admin-nivel1-chip--#{$clase} {
+    border-color: #{$bordecolor};
+    color: #{$textcolor};
+  }
+  .admin-nivel1-badge--#{$clase} {
+    background: #{$bgcolor};
+    color: #{$textcolor};
+  }
+}
+
+.admin-nivel1-lift {
+  font-weight: 700;
+  color: var(--admin-sage-deep);
+}
+
+.admin-nivel1-merma {
+  font-weight: 700;
+  color: var(--admin-danger-text);
+}
+
+.admin-nivel1-ok {
+  color: var(--admin-faint);
+}
+
+@media (max-width: 1024px) {
+  .admin-nivel1 .admin-nivel1-menu__body {
+    grid-template-columns: 1fr;
+  }
+  .admin-nivel1 .admin-nivel1-grid {
+    grid-template-columns: 1fr;
+  }
+}
