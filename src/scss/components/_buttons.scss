@@ -32,6 +32,14 @@
 
   .arrow { transition: transform 0.4s var(--ease); }
   &:hover .arrow { transform: translate(4px, -4px); }
+
+  &--secondary {
+    border-color: var(--line);
+    color: var(--txt-mute);
+
+    &::before { background: var(--line-soft); }
+    &:hover { color: var(--beige); }
+  }
 }
 
 .btn-text {

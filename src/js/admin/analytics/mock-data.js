@@ -51,7 +51,7 @@
         reservations: [
             { fecha: '2026-06-16', hora: '13:30', personas: 4, fuente: 'web', servicio: 'comida', estado: 'confirmada' },
             { fecha: '2026-06-16', hora: '14:00', personas: 2, fuente: 'phone', servicio: 'comida', estado: 'confirmada' },
-            { fecha: '2026-06-16', hora: '20:30', personas: 6, fuente: 'whatsapp', servicio: 'cena', estado: 'pendiente' },
+            { fecha: '2026-06-16', hora: '20:30', personas: 6, fuente: 'whatsapp', servicio: 'cena', estado: 'confirmada' },
             { fecha: '2026-06-15', hora: '21:00', personas: 3, fuente: 'walk_in', servicio: 'cena', estado: 'no_show' },
             { fecha: '2026-06-14', hora: '18:00', personas: 5, fuente: 'web', servicio: 'cena', estado: 'confirmada' }
         ],

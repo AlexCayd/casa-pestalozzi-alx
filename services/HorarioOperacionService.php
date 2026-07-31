@@ -33,7 +33,9 @@ class HorarioOperacionService
         $semana = [];
         foreach (self::DIAS as $dia => $nombre) {
             $horario = $existentes[$dia] ?? null;
-            $abierto = $horario ? (bool) $horario->abierto : true;
+            // Ausencia de configuración válida significa cerrado; nunca se
+            // inventa un horario abierto como fallback operativo.
+            $abierto = $horario ? (bool) $horario->abierto : false;
             $semana[] = [
                 'id' => $horario ? (int) $horario->id : null,
                 'dia_semana' => $dia,
@@ -61,52 +63,64 @@ class HorarioOperacionService
     }
 
     /** Devuelve solo las próximas excepciones activas que pueden mostrarse públicamente. */
-    public static function obtenerProximasExcepciones(int $limite = 5): array
+    public static function obtenerProximasExcepciones(?int $limite = 5): array
     {
-        $limite = max(1, $limite);
         $excepciones = self::listarExcepciones([
             'activo' => true,
             'fecha_desde' => self::fechaActual(),
         ]);
 
-        return array_slice($excepciones, 0, $limite);
+        return $limite === null
+            ? $excepciones
+            : array_slice($excepciones, 0, max(1, $limite));
     }
 
-    public static function guardarHorarioSemanal(array $horarios, ?int $usuarioId = null): array
+    public static function guardarHorarioSemanal(
+        array $horarios,
+        ?int $usuarioId = null,
+        bool $confirmarConflictos = false
+    ): array
     {
         $validacion = self::validarHorarioSemanal($horarios);
         if (!$validacion['ok']) {
-            return $validacion;
+            return array_merge($validacion, [
+                'codigo' => 'HORARIO_INVALIDO',
+                'mensaje' => $validacion['errors'][0] ?? 'Revisa el horario semanal.',
+            ]);
         }
 
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
+        $lockHorario = false;
 
         try {
-            $diasModificados = self::prepararDiasModificados($validacion['datos'], $usuarioId);
-            if ($diasModificados === []) {
-                return [
-                    'ok' => true,
-                    'datos' => $validacion['datos'],
-                    'msg' => 'Los horarios de operación ya estaban actualizados.',
-                ];
+            if (!$db->begin_transaction()) {
+                throw new \RuntimeException('No fue posible iniciar la transacción.');
+            }
+            $transaccionIniciada = true;
+
+            $lockHorario = HorarioConfigLock::adquirir($db);
+            if (!$lockHorario) {
+                throw new \RuntimeException('No fue posible bloquear la configuración de horarios.');
             }
 
+            $diasModificados = self::prepararDiasModificados($validacion['datos'], $usuarioId);
             $conflictos = self::detectarConflictosReservaciones($diasModificados);
-            if ($conflictos !== []) {
+            if ($conflictos !== [] && !$confirmarConflictos) {
+                $db->rollback();
+                $transaccionIniciada = false;
                 return [
                     'ok' => false,
+                    'codigo' => 'RESERVACIONES_AFECTADAS',
+                    'mensaje' => 'El cambio afecta reservaciones existentes.',
+                    'reservaciones_afectadas' => count($conflictos),
+                    'requiere_confirmacion' => true,
                     'errors' => self::mensajesConflictos($conflictos),
                     'datos' => $validacion['datos'],
                     'horarios' => $validacion['horarios'],
                     'conflictos' => $conflictos,
                 ];
             }
-
-            if (!$db->begin_transaction()) {
-                throw new \RuntimeException('No fue posible iniciar la transacción.');
-            }
-            $transaccionIniciada = true;
 
             foreach ($validacion['datos'] as $datos) {
                 $horario = new HorarioOperacion($datos);
@@ -115,13 +129,19 @@ class HorarioOperacionService
                 if (!$horario->guardarPorDia()) {
                     throw new \RuntimeException('No fue posible guardar uno de los días.');
                 }
+
             }
 
-            foreach ($diasModificados as $modificado) {
-                HorarioReservacionService::sincronizarDesdeHorarioOperacion(
-                    $modificado['horario'],
-                    $modificado['intervalos']
-                );
+            self::verificarHorarioCanonico($validacion['datos']);
+
+            if ($conflictos !== []) {
+                foreach ($conflictos as $conflicto) {
+                    self::registrarUltimoCambio(
+                        (int)$conflicto['id'],
+                        $usuarioId,
+                        'Horario semanal confirmado conservando la reservación'
+                    );
+                }
             }
 
             if (!$db->commit()) {
@@ -131,8 +151,10 @@ class HorarioOperacionService
 
             return [
                 'ok' => true,
+                'codigo' => 'HORARIOS_ACTUALIZADOS',
+                'mensaje' => 'Los horarios fueron actualizados.',
                 'datos' => $validacion['datos'],
-                'msg' => 'Los horarios de operación se actualizaron correctamente.',
+                'horarios' => self::obtenerHorarioSemanal(),
             ];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
@@ -142,12 +164,16 @@ class HorarioOperacionService
 
             return [
                 'ok' => false,
-                'errors' => [$e instanceof \DomainException
-                    ? $e->getMessage()
-                    : 'No fue posible actualizar los horarios. Inténtalo nuevamente.'],
+                'codigo' => 'ERROR_ACTUALIZACION_HORARIOS',
+                'mensaje' => 'No fue posible actualizar los horarios.',
+                'errors' => ['No fue posible actualizar los horarios.'],
                 'datos' => $validacion['datos'],
                 'horarios' => $validacion['horarios'],
             ];
+        } finally {
+            if ($lockHorario) {
+                HorarioConfigLock::liberar($db);
+            }
         }
     }
 
@@ -177,7 +203,11 @@ class HorarioOperacionService
         return ReservacionConfig::fechaActual();
     }
 
-    public static function guardarExcepcion(array $datos, ?int $usuarioId = null): array
+    public static function guardarExcepcion(
+        array $datos,
+        ?int $usuarioId = null,
+        bool $confirmarConflictos = false
+    ): array
     {
         $validacion = self::validarExcepcion($datos);
         if (!$validacion['ok']) {
@@ -189,6 +219,7 @@ class HorarioOperacionService
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
         $locksFecha = [];
+        $conflictos = [];
 
         try {
             $fechasLock = [$limpios['fecha']];
@@ -226,7 +257,7 @@ class HorarioOperacionService
                     $limpios['hora_apertura'],
                     $limpios['hora_cierre']
                 );
-                if ($conflictos !== []) {
+                if ($conflictos !== [] && !$confirmarConflictos) {
                     return self::resultadoConflictosExcepcion(
                         'No se puede aplicar esta excepción porque afectaría reservaciones existentes.',
                         $conflictos,
@@ -246,6 +277,14 @@ class HorarioOperacionService
 
             if (!$excepcion->guardarExcepcion()) {
                 throw new \RuntimeException('El guardado de la excepción no fue confirmado.');
+            }
+
+            foreach ($conflictos as $conflicto) {
+                self::registrarUltimoCambio(
+                    (int)$conflicto['id'],
+                    $usuarioId,
+                    'Excepción confirmada conservando la reservación'
+                );
             }
 
             if (!$db->commit()) {
@@ -473,6 +512,32 @@ class HorarioOperacionService
         ];
     }
 
+    public static function obtenerHorarioHabitualParaFecha(string $fecha): array
+    {
+        if (!self::fechaValida($fecha)) {
+            return [
+                'abierto' => false,
+                'hora_apertura' => null,
+                'hora_cierre' => null,
+            ];
+        }
+
+        $fechaObjeto = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, ReservacionConfig::timezone());
+        $horario = $fechaObjeto instanceof DateTimeImmutable
+            ? HorarioOperacion::buscarPorDia((int) $fechaObjeto->format('w'))
+            : null;
+        $abierto = $horario !== null
+            && (int) $horario->abierto === 1
+            && $horario->hora_apertura
+            && $horario->hora_cierre;
+
+        return [
+            'abierto' => (bool) $abierto,
+            'hora_apertura' => $abierto ? self::horaCorta((string) $horario->hora_apertura) : null,
+            'hora_cierre' => $abierto ? self::horaCorta((string) $horario->hora_cierre) : null,
+        ];
+    }
+
     /** El cierre es exclusivo: hora_apertura <= hora < hora_cierre. */
     public static function estaAbierto(string $fecha, string $hora): bool
     {
@@ -517,6 +582,37 @@ class HorarioOperacionService
     {
         foreach (array_reverse($fechas) as $fecha) {
             FechaOperacionLock::liberar($db, (string)$fecha);
+        }
+    }
+
+    /**
+     * Comprueba dentro de la transacción que los siete upserts canónicos
+     * quedaron exactamente como el payload validado. No se responde éxito con
+     * una fila omitida o con valores anteriores.
+     */
+    private static function verificarHorarioCanonico(array $esperados): void
+    {
+        $persistidos = [];
+        foreach (HorarioOperacion::todosOrdenados() as $horario) {
+            $persistidos[(int)$horario->dia_semana] = $horario;
+        }
+        if (count($persistidos) !== 7) {
+            throw new \RuntimeException('La semana canónica no contiene exactamente siete días.');
+        }
+
+        foreach ($esperados as $esperado) {
+            $dia = (int)$esperado['dia_semana'];
+            $persistido = $persistidos[$dia] ?? null;
+            if (
+                !$persistido
+                || (int)$persistido->abierto !== (int)$esperado['abierto']
+                || self::horaComparable($persistido->hora_apertura)
+                    !== self::horaComparable($esperado['hora_apertura'])
+                || self::horaComparable($persistido->hora_cierre)
+                    !== self::horaComparable($esperado['hora_cierre'])
+            ) {
+                throw new \RuntimeException("El día {$dia} no coincide con el horario solicitado.");
+            }
         }
     }
 
@@ -789,7 +885,14 @@ class HorarioOperacionService
             $errors[] = sprintf('Y %d reservaciones adicionales.', count($conflictos) - 10);
         }
 
-        $resultado = ['ok' => false, 'errors' => $errors, 'conflictos' => $conflictos];
+        $resultado = [
+            'ok' => false,
+            'codigo' => 'RESERVACIONES_AFECTADAS',
+            'errors' => $errors,
+            'conflictos' => $conflictos,
+            'reservaciones_afectadas' => count($conflictos),
+            'requiere_confirmacion' => true,
+        ];
         if ($datos !== null) {
             $resultado['datos'] = $datos;
         }
@@ -869,7 +972,7 @@ class HorarioOperacionService
             $errors[] = 'Selecciona una fecha válida.';
         } else {
             $fechaObjeto = self::crearFecha($fecha);
-            $hoy = new DateTimeImmutable('today', ReservacionConfig::timezone());
+            $hoy = ReservacionConfig::ahora()->setTime(0, 0);
             if ($fechaObjeto < $hoy) {
                 $errors[] = 'No puedes registrar una excepción para una fecha anterior al día actual.';
             }
@@ -968,6 +1071,26 @@ class HorarioOperacionService
     private static function normalizarBooleano($valor): bool
     {
         return in_array($valor, [1, '1', true, 'true', 'on'], true);
+    }
+
+    private static function registrarUltimoCambio(
+        int $reservacionId,
+        ?int $usuarioId,
+        string $motivo
+    ): void {
+        $db = ActiveRecord::getDB();
+        $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
+        $fuente = $usuarioId !== null ? 'personal' : 'sistema';
+        $motivoSql = $db->real_escape_string($motivo);
+        if (!$db->query(
+            "UPDATE reservaciones
+             SET last_modified_by = {$usuarioSql},
+                 last_modified_source = '{$fuente}',
+                 last_change_reason = '{$motivoSql}'
+             WHERE id = {$reservacionId}"
+        )) {
+            throw new \RuntimeException($db->error);
+        }
     }
 
     private static function horaCorta(string $hora): string

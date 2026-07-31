@@ -65,6 +65,23 @@
     color: var(--admin-faint);
   }
 
+  /*
+   * Sin esto, las flechas nativas de input[type=number] se pintan sobre
+   * cualquier sufijo que el módulo coloque a la derecha del campo
+   * (p. ej. la unidad en las tarjetas de reabastecimiento del inventario).
+   */
+  input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   // Autofill: evita el fondo azul del navegador en tema oscuro.
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
@@ -347,6 +364,130 @@
       outline-offset: 2px;
     }
   }
+}
+
+/*
+ * Variante de navegación: las pestañas son enlaces, no radios. Se usa para
+ * filtrar por categoría en Gestión de menú, donde cada tab navega (y con
+ * data-reactive-page intercambia solo la tabla, sin recargar).
+ */
+.admin-tabs--links {
+  .admin-tabs__tab {
+    a {
+      display: block;
+      width: 100%;
+      text-decoration: none;
+    }
+
+    a span {
+      display: block;
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: calc(var(--admin-radius-sm) - 3px);
+      color: var(--admin-muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+      transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
+    }
+
+    a:hover span {
+      background: var(--admin-surface);
+      color: var(--admin-text);
+    }
+
+    a.is-active span {
+      background: var(--admin-gold);
+      color: #1b1a17;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+    }
+
+    a:focus-visible span {
+      outline: 2px solid var(--admin-gold);
+      outline-offset: 2px;
+    }
+  }
+
+  // Tab "+": abre el alta rápida de categoría sin nada de JS.
+  // Tipografía y padding calcados de las pestañas normales para que no
+  // sobresalga en alto ni en peso respecto a sus vecinas.
+  .admin-tabs__tab--add {
+    flex: 0 0 auto;
+
+    label {
+      display: block;
+      cursor: pointer;
+    }
+
+    label span {
+      display: block;
+      min-width: 34px;
+      padding: 9px 12px;
+      border-radius: calc(var(--admin-radius-sm) - 3px);
+      color: var(--admin-muted);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: inherit;
+      text-align: center;
+    }
+
+    label:hover span {
+      background: var(--admin-surface);
+      color: var(--admin-gold);
+    }
+  }
+}
+
+#cat-nueva-toggle:checked ~ .admin-tabs .admin-tabs__tab--add label span {
+  background: var(--admin-gold);
+  color: #1b1a17;
+}
+
+/* Alta rápida de categoría; solo visible cuando el tab "+" está activo. */
+.admin-cat-inline {
+  display: none;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  // Separación por ambos lados: sin margin-bottom chocaba con la barra de
+  // filtros justo debajo al desplegarse.
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-gold-deep, #a07e36);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  &__label {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  &__submit {
+    flex: 0 0 auto;
+  }
+
+  &__hint {
+    flex: 1 1 100%;
+    color: var(--admin-faint);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+}
+
+#cat-nueva-toggle:checked ~ .admin-cat-inline {
+  display: flex;
 }
 
 /* Combobox con búsqueda (buscador inteligente de ingredientes/componentes). */

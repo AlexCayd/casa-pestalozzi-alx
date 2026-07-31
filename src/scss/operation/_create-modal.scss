@@ -1,0 +1,458 @@
+@use "../shared/reservation-form-controls";
+
+.operation-create-modal {
+  width: min(860px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(860px, calc(100vh - 32px));
+  height: auto;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--admin-surface) 96%, #fff 2%);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-md, 0 24px 70px rgba(0, 0, 0, 0.5));
+  overflow: hidden;
+
+  &::backdrop {
+    background: rgba(4, 6, 5, 0.72);
+    backdrop-filter: blur(4px);
+  }
+
+  &[open] {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.operation-create-modal__head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-surface) 98%, #fff 2%);
+
+  h2 {
+    margin: 4px 0 0;
+    color: var(--admin-text);
+    font-family: var(--operational-font-editorial);
+    font-size: clamp(21px, 2.2vw, 27px);
+    line-height: 1.1;
+  }
+
+}
+
+.operation-create-modal__eyebrow {
+  color: var(--admin-gold-soft);
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.operation-create-modal__close {
+  flex: 0 0 44px;
+  padding: 0;
+  box-shadow: none;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.operation-create-modal__body {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px 24px 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--admin-border) transparent;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(245, 245, 245, 0.035);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--admin-border);
+    background-clip: padding-box;
+  }
+}
+
+.operation-create-modal__footer {
+  display: flex;
+  min-height: 72px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface);
+}
+
+.operation-create-modal .reservation-admin-form-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: none;
+  overflow: visible;
+}
+
+.operation-create-modal .reservation-admin-form-card:hover {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.operation-create-modal .reservation-admin-form-card:hover::before {
+  opacity: 0;
+}
+
+.operation-create-modal .reservation-detail-form {
+  display: grid;
+  gap: 24px;
+}
+
+.operation-create-modal .reservation-detail-form__grid {
+  .reservation-detail-form__group-label {
+    margin: 0;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--admin-border-soft);
+    color: var(--admin-gold-soft);
+    font-size: var(--operational-text-xs);
+    font-weight: var(--operational-weight-semibold);
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  label {
+    gap: 6px;
+  }
+
+  label > span:first-child {
+    color: var(--admin-muted);
+    font-size: var(--operational-text-xs);
+    font-weight: var(--operational-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .reservation-detail-form__optional-label {
+    display: inline-block;
+    margin-left: 5px;
+    color: var(--admin-faint);
+    font-size: 10px;
+    font-weight: var(--operational-weight-medium);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: 12px;
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font: inherit;
+    font-size: var(--operational-text-base);
+
+    &:focus,
+    &:focus-visible {
+      border-color: var(--admin-gold);
+      outline: 0;
+      box-shadow: var(--admin-focus-ring);
+    }
+  }
+
+  textarea {
+    min-height: 76px;
+    max-height: 180px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+
+  input,
+  select {
+    min-height: 46px;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    border-color: var(--admin-gold);
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+.operation-create-modal .reservation-detail-form__optional-section {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 78%, transparent);
+
+  legend {
+    padding: 0 6px;
+    color: var(--admin-text);
+    font-size: var(--operational-text-section);
+    font-weight: var(--operational-weight-semibold);
+  }
+
+  label {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: 12px;
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font: inherit;
+    font-size: var(--operational-text-base);
+  }
+
+  textarea {
+    min-height: 76px;
+    max-height: 180px;
+    resize: vertical;
+    line-height: 1.45;
+  }
+}
+
+.operation-create-modal .reservation-detail-form__optional-section .reservation-detail-form__optional-label {
+  display: inline-block;
+  margin-left: 5px;
+  color: var(--admin-faint);
+  font-size: 10px;
+  font-weight: var(--operational-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.operation-create-modal .reservation-detail-form__assignment-section {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 78%, transparent);
+
+  legend {
+    padding: 0 6px;
+    color: var(--admin-text);
+    font-size: var(--operational-text-section);
+    font-weight: var(--operational-weight-semibold);
+  }
+}
+
+.operation-create-modal .reservation-detail-form__helper {
+  display: block;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.4;
+}
+
+// The operation date picker is reused by the page context bar, where it is
+// intentionally right-aligned. In the modal it needs to stay inside the form
+// column and remain visible above the modal scroll boundary.
+.operation-create-modal .date-picker-wrap .cp-calendar {
+  right: auto;
+  left: 0;
+}
+
+.operation-create-modal:has(.date-picker-wrap .cp-calendar.open) {
+  overflow: visible;
+
+  .operation-create-modal__body {
+    overflow: visible;
+  }
+
+  .date-picker-wrap .cp-calendar {
+    top: calc(100% + 8px);
+    bottom: auto;
+  }
+}
+
+.operation-create-modal:has(.hour-picker-wrap.is-open) {
+  overflow: visible;
+
+  .operation-create-modal__body {
+    overflow: visible;
+  }
+}
+
+.operation-create-modal .reservation-detail-form__wide {
+  grid-column: 1 / -1;
+}
+
+.operation-create-modal .reservation-detail-field-msg {
+  color: var(--admin-danger-text);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+  opacity: 0;
+
+  &.show {
+    opacity: 1;
+  }
+}
+
+.operation-create-modal .reservation-admin-form__check {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-sm);
+  line-height: 1.35;
+
+  .reservation-admin-form__check-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  small {
+    color: var(--admin-muted);
+    font-size: var(--operational-text-xs);
+    line-height: 1.35;
+  }
+
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    accent-color: var(--admin-gold);
+  }
+}
+
+.operation-create-modal .reservation-detail-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.operation-create-modal .date-picker-wrap,
+.operation-create-modal .hour-picker-wrap,
+.operation-create-modal .hour-picker-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.operation-confirm-modal {
+  width: min(620px, calc(100vw - 32px));
+
+  .operation-create-modal__body {
+    display: grid;
+    gap: 16px;
+  }
+
+  .admin-field {
+    display: grid;
+    gap: 7px;
+
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 11px 12px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: 12px;
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font: inherit;
+      resize: vertical;
+    }
+  }
+}
+
+.reservation-operation-conflicts {
+  display: grid;
+  gap: 10px;
+}
+
+.reservation-operation-conflict {
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+
+  strong {
+    color: var(--admin-text);
+  }
+
+  span {
+    color: var(--admin-muted);
+    font-size: var(--operational-text-sm);
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 640px) {
+  .operation-create-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    border-radius: 14px;
+  }
+
+  .operation-create-modal__head {
+    padding: 18px 16px 15px;
+  }
+
+  .operation-create-modal__body {
+    padding: 18px 16px 20px;
+  }
+
+  .operation-create-modal__footer {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 16px 16px;
+
+    .admin-btn {
+      width: 100%;
+    }
+  }
+
+  .operation-create-modal .reservation-detail-form__wide {
+    grid-column: auto;
+  }
+
+  .operation-create-modal .reservation-detail-form__actions {
+    flex-direction: column-reverse;
+
+    .admin-btn {
+      width: 100%;
+    }
+  }
+}

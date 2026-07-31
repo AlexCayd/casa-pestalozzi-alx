@@ -14,6 +14,7 @@ $queryString = (string)($queryString ?? '');
 $returnTo = '/admin/reservations' . ($queryString !== '' ? '?' . $queryString : '');
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
 $fechaOperacion = (string)($filtros['fecha_inicio'] ?? date('Y-m-d'));
+$developmentTools = (bool)($developmentTools ?? false);
 
 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaOperacion) !== 1) {
     $fechaOperacion = date('Y-m-d');
@@ -94,6 +95,9 @@ foreach ($alertas as $tipo => $mensajes) {
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
+            <?php if ($developmentTools) : ?>
+                <a class="admin-btn admin-btn--secondary" href="/admin/reservations/development-tools">Herramientas de desarrollo</a>
+            <?php endif; ?>
             <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-reservations__header-action" href="/admin/reservations/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/>
@@ -251,12 +255,12 @@ foreach ($alertas as $tipo => $mensajes) {
                             <?php
                             $id = (int)$valor($reservacion, 'id', 0);
                             $nombre = (string)$valor($reservacion, 'nombre');
-                            $email = (string)$valor($reservacion, 'email');
+                            $contacto = (string)$valor($reservacion, 'contacto');
                             $fecha = (string)$valor($reservacion, 'fecha');
                             $hora = (string)$valor($reservacion, 'hora');
                             $comensales = (int)$valor($reservacion, 'comensales', 0);
                             $nota = trim((string)$valor($reservacion, 'nota'));
-                            $estado = (string)$valor($reservacion, 'estado', 'pendiente');
+                            $estado = (string)$valor($reservacion, 'estado', 'confirmada');
                             $mesas = trim((string)$valor($reservacion, 'mesas_asignadas'));
                             $mesasCount = (int)$valor($reservacion, 'mesas_count', 0);
                             $mesasDetalle = $mesasListado($mesas);
@@ -267,7 +271,7 @@ foreach ($alertas as $tipo => $mensajes) {
                             $operationContextUrl = '/admin/reservations/operation?' . http_build_query([
                                 'fecha' => $fecha,
                                 'hora' => $horaLegible($hora),
-                                'reservacion_id' => $id,
+                                'reservation_id' => $id,
                                 'return_url' => $returnTo,
                             ]);
                             ?>
@@ -281,7 +285,7 @@ foreach ($alertas as $tipo => $mensajes) {
                                 <td class="reservations-table__customer-cell">
                                     <div class="reservations-table__customer">
                                         <strong><?php echo $h($nombre); ?></strong>
-                                        <span><?php echo $h($email); ?></span>
+                                        <span><?php echo $h($contacto); ?></span>
                                     </div>
                                 </td>
                                 <td class="reservations-table__guests-cell">
@@ -313,7 +317,10 @@ foreach ($alertas as $tipo => $mensajes) {
                                 </td>
                                 <td class="reservations-table__status-cell">
                                     <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
-                                        <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
+                                        <?php echo $h(
+                                            ($estadoLabels[$estado] ?? ucfirst($estado))
+                                            . (!empty($valor($reservacion, 'tolerancia_vencida', false)) ? ' · Tolerancia vencida' : '')
+                                        ); ?>
                                     </span>
                                 </td>
                                 <td class="reservations-table__note-cell">

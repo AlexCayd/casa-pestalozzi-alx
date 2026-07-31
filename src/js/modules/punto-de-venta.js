@@ -36,6 +36,9 @@ function initMapa() {
   var sugTicket           = null; // ticket dueño de las sugerencias en pantalla
   var sugEtapa            = '';   // etapa de la comida que detectó n8n
   var sugTimer            = null;
+  // Ya se pidieron sugerencias para el ticket abierto: evita que la pestaña de
+  // móvil vuelva a lanzar la consulta cada vez que se toca.
+  var sugPedidas          = false;
   var sugComensalesCount  = 0;
 
   // n8n decide la etapa (ENTRADAS/DESARROLLO/CIERRE) con el tiempo de la mesa
@@ -46,6 +49,7 @@ function initMapa() {
   var isLive        = false;
   var liveInterval  = null;
   var pollTimer     = null;
+  var temporalConfig = window.CP_RESERVATION_OPERATION_CONFIG || {};
 
   // ── Refs DOM ──────────────────────────────────────────────
   var slider        = $('#mapa-time-slider');
@@ -63,9 +67,6 @@ function initMapa() {
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
-
-  var DURACION = 90;
-  var BLOQUEO  = 30;
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -116,7 +117,37 @@ function initMapa() {
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  function snapTo30(min) { return Math.round(min / 30) * 30; }
+  function temporalNumber(key) {
+    var value = parseInt(temporalConfig[key] || '0', 10);
+    return value > 0 ? value : 0;
+  }
+
+  function tiempoRestanteReserva(reserva) {
+    var hora = String(reserva && reserva.hora || '').substring(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(hora)) return '';
+
+    var fecha = fechaInput ? String(fechaInput.value || '') : '';
+    var ahora = new Date();
+    var hoy = ahora.getFullYear() + '-' +
+      String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
+      String(ahora.getDate()).padStart(2, '0');
+    if (fecha && fecha !== hoy) return '';
+
+    var diferencia = minutos(hora) - (ahora.getHours() * 60 + ahora.getMinutes());
+    if (diferencia < 0) return 'Horario iniciado';
+    if (diferencia === 0) return 'Ahora';
+    if (diferencia >= 60) {
+      var horas = Math.floor(diferencia / 60);
+      var minutosRestantes = diferencia % 60;
+      return 'En ' + horas + ' h' + (minutosRestantes ? ' ' + minutosRestantes + ' min' : '');
+    }
+    return 'En ' + diferencia + ' min';
+  }
+
+  function snapToReservationInterval(min) {
+    var interval = temporalNumber('intervalo_reservacion_minutos');
+    return interval > 0 ? Math.round(min / interval) * interval : min;
+  }
 
   function mesaPorId(id) {
     for (var i = 0; i < mesas.length; i++) {
@@ -139,7 +170,9 @@ function initMapa() {
     receipt: '<path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
-    card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'
+    card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+    star:    '<path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.2l5.9-.9Z"/>'
   };
 
   function svgIcon(name, size) {
@@ -166,6 +199,21 @@ function initMapa() {
     var sel = modalContent.querySelector('#mmodal-mesero');
     if (!sel || !sel.value) return null;
     return parseInt(sel.value, 10);
+  }
+
+  function reservationAssignmentHref(reserva) {
+    var id = String(reserva && reserva.id || '').trim();
+    var fecha = String(reserva && reserva.fecha || '').trim();
+    var horaMatch = String(reserva && reserva.hora || '').match(/^([01]\d|2[0-3]):([0-5]\d)/);
+
+    if (!/^[1-9]\d*$/.test(id) || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !horaMatch) {
+      return '';
+    }
+
+    return '/admin/reservations/operation?fecha=' + encodeURIComponent(fecha) +
+      '&hora=' + encodeURIComponent(horaMatch[1] + ':' + horaMatch[2]) +
+      '&reservation_id=' + encodeURIComponent(id) +
+      '&mode=assign';
   }
 
   // ── Sugerencias de venta (flujo de n8n) ───────────────────
@@ -243,6 +291,7 @@ function initMapa() {
     sugTicket = ticket;
 
     if (!silencioso) {
+      sugPedidas  = true;
       SUGERENCIAS = [];
       sugCola     = [];
       if (!opts.conservarVistos) sugVistos = [];
@@ -311,6 +360,8 @@ function initMapa() {
   function sugTimerStart(ticket) {
     sugTimerStop();
     sugTimer = setInterval(function() {
+      if (document.hidden) return;
+      if (!modal || !modal.classList.contains('mesa-modal--open')) { sugTimerStop(); return; }
       if (!sugTicket || sugTicket.id !== ticket.id) { sugTimerStop(); return; }
       cargarSugerencias(ticket, { silencioso: true });
     }, SUG_REFRESCO);
@@ -318,6 +369,32 @@ function initMapa() {
 
   function sugTimerStop() {
     if (sugTimer) { clearInterval(sugTimer); sugTimer = null; }
+  }
+
+  /**
+   * Deja el panel listo para pedir sugerencias SIN llamar a n8n.
+   *
+   * Abrir una mesa no debe disparar el webhook: el servidor de desarrollo
+   * (php -S) atiende una petición a la vez, así que esos hasta 8 s de techo
+   * bloqueaban a /api/ticket-items, que es lo único que el mesero necesita ver
+   * de inmediato. Regla: una llamada a n8n por intención explícita.
+   */
+  function prepararSugerencias(ticket) {
+    sugTicket   = ticket;
+    SUGERENCIAS = [];
+    sugCola     = [];
+    sugVistos   = [];
+    sugEtapa    = '';
+    sugPedidas  = false;
+    sugTimerStop();
+    // El botón del estado ocioso ya está en el DOM; sin sugTicket no responde.
+    bindSugMore();
+  }
+
+  /** Una sola carga automática por apertura de modal (pestaña de móvil). */
+  function asegurarSugerencias(ticket) {
+    if (sugPedidas || !ticket) return;
+    cargarSugerencias(ticket);
   }
 
   // vacioTexto: al cargar aún no hubo sugerencias; tras los swaps, ya se agotaron.
@@ -349,12 +426,25 @@ function initMapa() {
 
   // Estado temporal de una reserva respecto al slider
   function temporalEstadoReserva(r) {
-    if (r.estado === 'cancelada') return 'cancelada';
+    if (!reservacionInfluye(r)) return r.estado === 'cancelada' ? 'cancelada' : 'vencida';
+    var duracion = temporalNumber('duracion_reservacion_minutos');
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
     var rMin = minutos(r.hora);
-    if (sliderMin >= rMin + DURACION)                     return 'vencida';
-    if (sliderMin >= rMin && sliderMin < rMin + DURACION) return 'en-curso';
-    if (sliderMin >= rMin - BLOQUEO && sliderMin < rMin)  return 'proxima';
+    if (['llego', 'en_curso'].indexOf(String(r.estado || '')) !== -1 && sliderMin >= rMin) return 'en-curso';
+    if (sliderMin >= rMin + duracion)                     return 'vencida';
+    if (sliderMin >= rMin && sliderMin < rMin + duracion) return 'en-curso';
+    if (sliderMin >= rMin - aviso && sliderMin < rMin - bloqueo) return 'proxima';
+    if (sliderMin >= rMin - bloqueo && sliderMin < rMin)  return 'proxima';
     return 'futura';
+  }
+
+  /**
+   * Usa las listas del backend y valida la retención pendiente con el reloj
+   * real. Un estado final nunca vuelve a ocupar por cálculos del slider.
+   */
+  function reservacionInfluye(reserva) {
+    return Boolean(reserva && reserva.influye_disponibilidad === true);
   }
 
   // ── Lookups de ticket y reserva ───────────────────────────
@@ -365,7 +455,8 @@ function initMapa() {
   function ticketActual(mesaId) {
     for (var i = 0; i < tickets.length; i++) {
       var t = tickets[i];
-      if (t.mesa_id === mesaId || t.mesa_secundaria_id === mesaId) return t;
+      var ids = Array.isArray(t.mesa_ids) ? t.mesa_ids.map(Number) : [];
+      if (ids.indexOf(Number(mesaId)) !== -1) return t;
     }
     return null;
   }
@@ -374,7 +465,8 @@ function initMapa() {
     var result = [];
     for (var i = 0; i < tickets.length; i++) {
       var t = tickets[i];
-      if (t.mesa_id === mesaId || t.mesa_secundaria_id === mesaId) result.push(t);
+      var ids = Array.isArray(t.mesa_ids) ? t.mesa_ids.map(Number) : [];
+      if (ids.indexOf(Number(mesaId)) !== -1) result.push(t);
     }
     return result;
   }
@@ -405,9 +497,18 @@ function initMapa() {
   function reservaParaModal(mesaId) {
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
+      if (!reservacionInfluye(r)) continue;
       if (!reservaTieneMesa(r, mesaId)) continue;
       return r;
+    }
+    return null;
+  }
+
+  function reservacionPorId(reservacionId) {
+    for (var i = 0; i < reservaciones.length; i++) {
+      if (parseInt(reservaciones[i].id, 10) === parseInt(reservacionId, 10)) {
+        return reservaciones[i];
+      }
     }
     return null;
   }
@@ -416,16 +517,20 @@ function initMapa() {
   function estadoMesa(mesaId, minActual) {
     if (ticketActual(mesaId)) return 'con-ticket';
     var estado = 'libre';
+    var duracion = temporalNumber('duracion_reservacion_minutos');
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
     for (var i = 0; i < reservaciones.length; i++) {
       var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
+      if (!reservacionInfluye(r)) continue;
       if (!reservaTieneMesa(r, mesaId)) continue;
       var rMin = minutos(r.hora);
-      var rIni = rMin - BLOQUEO;
-      var rFin = rMin + DURACION;
+      var rIni = rMin - bloqueo;
+      var rFin = rMin + duracion;
+      if (['llego', 'en_curso'].indexOf(String(r.estado || '')) !== -1 && minActual >= rMin) return 'ocupada';
       if (minActual >= rMin && minActual < rFin) return 'ocupada';
       if (minActual >= rIni && minActual < rMin) return 'bloqueada';
-      if (minActual >= rIni - 30 && minActual < rIni && estado === 'libre') estado = 'proxima';
+      if (minActual >= rMin - aviso && minActual < rIni && estado === 'libre') estado = 'proxima';
     }
     return estado;
   }
@@ -436,19 +541,7 @@ function initMapa() {
     if (!isLlevar(mesa) && ticketActual(mesaId)) return 'con-ticket';
     var now    = new Date();
     var minNow = now.getHours() * 60 + now.getMinutes();
-    var estado = 'libre';
-    for (var i = 0; i < reservaciones.length; i++) {
-      var r = reservaciones[i];
-      if (r.estado === 'cancelada') continue;
-      if (!reservaTieneMesa(r, mesaId)) continue;
-      var rMin = minutos(r.hora);
-      var rIni = rMin - BLOQUEO;
-      var rFin = rMin + DURACION;
-      if (minNow >= rMin && minNow < rFin) return 'ocupada';
-      if (minNow >= rIni && minNow < rMin) return 'bloqueada';
-      if (minNow >= rIni - 30 && minNow < rIni && estado === 'libre') estado = 'proxima';
-    }
-    return estado;
+    return estadoMesa(mesaId, minNow);
   }
 
   // ── Render: estados de todos los pines ────────────────────
@@ -466,17 +559,121 @@ function initMapa() {
     return Boolean(mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja');
   }
 
-  function estadoVisualMapa(mesa, estado) {
-    if (!mesaReservable(mesa)) return 'no-reservable';
-    if (estado === 'ocupada' || estado === 'con-ticket') return 'ocupada';
-    if (estado === 'bloqueada' || estado === 'proxima') return 'asignada';
-    return 'libre';
+  function minutoConsultaMapa() {
+    if (!isLive) return sliderMin;
+    var now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
   }
 
-  function clasesEstadoMapa(mesa, estado) {
-    var classes = ['mesa-pin--' + estado];
-    if (!mesaReservable(mesa)) classes.push('mesa-pin--zona');
-    return classes;
+  function reservacionProximaMesa(mesaId, minActual) {
+    var bloqueo = temporalNumber('bloqueo_previo_minutos');
+    var aviso = temporalNumber('advertencia_reservacion_minutos');
+    var candidate = null;
+    for (var i = 0; i < reservaciones.length; i++) {
+      var reservation = reservaciones[i];
+      if (!reservacionInfluye(reservation) || !reservaTieneMesa(reservation, mesaId)) continue;
+      var remaining = minutos(reservation.hora) - minActual;
+      if (remaining > bloqueo && remaining <= aviso && (!candidate || remaining < candidate.minutos_restantes)) {
+        candidate = {
+          id: parseInt(reservation.id, 10),
+          folio: '#' + reservation.id,
+          nombre: reservation.nombre || '',
+          hora: String(reservation.hora || '').substring(0, 5),
+          comensales: parseInt(reservation.comensales || '0', 10),
+          mesa_ids: mesaIdsReserva(reservation),
+          mesas: reservation.mesas || [],
+          minutos_restantes: remaining
+        };
+      }
+    }
+    return candidate;
+  }
+
+  /**
+   * Adapta el estado local del slider al contrato común. Las ventanas ya
+   * provienen de config y MapaVisual sólo dibuja este resultado.
+   */
+  function contratoMesaMapa(mesa, estado, minActual) {
+    var ticket = ticketActual(parseInt(mesa.id, 10));
+    var proxima = reservacionProximaMesa(parseInt(mesa.id, 10), minActual);
+    var stateBase = !mesaReservable(mesa)
+      ? 'no_reservable'
+      : (estado === 'ocupada' || estado === 'con-ticket' || estado === 'en-curso'
+        ? 'ocupada'
+        : (estado === 'bloqueada' ? 'bloqueada' : 'disponible'));
+    var modifiers = [];
+    var indicators = [];
+
+    if (ticket) {
+      modifiers.push('ticket_abierto');
+      indicators.push({ tipo: 'ticket_abierto', label: 'Servicio activo', simbolo: 'T' });
+      if (ticket.origen === 'walk_in') {
+        modifiers.push('walk_in');
+        indicators.push({ tipo: 'walk_in', label: 'Walk-in', simbolo: 'W' });
+      }
+      if ((ticket.mesa_ids || []).length > 1) {
+        // Expone la relación N:M sin sustituir el estado físico principal.
+        modifiers.push('varias_mesas');
+        indicators.push({
+          tipo: 'varias_mesas',
+          label: ticket.mesa_ids.length + ' mesas vinculadas al servicio',
+          simbolo: String(ticket.mesa_ids.length)
+        });
+      }
+    }
+    if (proxima) {
+      modifiers.push('reservacion_proxima');
+      indicators.push({
+        tipo: 'reservacion_proxima',
+        label: 'Reservación próxima a las ' + proxima.hora,
+        simbolo: 'P'
+      });
+    }
+    if (estado === 'bloqueada') {
+      indicators.push({ tipo: 'bloqueada', label: 'Bloqueada por reservación', simbolo: 'B' });
+    }
+
+    var normalized = Object.assign({}, mesa, {
+      estado_base: stateBase,
+      modificadores: modifiers,
+      indicadores: indicators,
+      reservacion_proxima: proxima,
+      minutos_restantes: proxima ? proxima.minutos_restantes : null,
+      ticket_abierto: ticket ? { id: ticket.id, reservacion_id: ticket.reservacion_id } : null,
+      walk_in: Boolean(ticket && ticket.origen === 'walk_in'),
+      seleccion_actual: false,
+      motivo_bloqueo: estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null,
+      titulo: mesa.nombre + '. ' + (
+        stateBase === 'ocupada' ? 'Ocupada por servicio activo.' :
+        stateBase === 'bloqueada' ? 'Bloqueada por reservación.' :
+        stateBase === 'no_reservable' ? 'No reservable.' : 'Disponible.'
+      ) + (proxima ? ' Reservación próxima a las ' + proxima.hora + '.' : '')
+    });
+    if (modifiers.indexOf('varias_mesas') !== -1) {
+      normalized.titulo += ' Vinculada a varias mesas.';
+    }
+    return normalized;
+  }
+
+  function opcionesVisualesMesa(mesa, estado) {
+    var ticket = ticketActual(parseInt(mesa.id, 10));
+    var ticketable = mesaTicketable(mesa);
+    return {
+      x: insetPos(mesa.pos_x),
+      y: insetPos(mesa.pos_y),
+      ancho: mesa.ancho,
+      alto: mesa.alto,
+      interactivo: ticketable || esCaja(mesa),
+      clasesEstado: !mesaReservable(mesa) ? ['mesa-pin--zona'] : [],
+      atributos: {
+        'data-id': mesa.id,
+        'data-numero': mesa.numero == null ? '' : mesa.numero,
+        'data-reservable': mesa.reservable,
+        'data-ticketable': ticketable ? '1' : '0',
+        'data-estado': estado,
+        'data-ticket-id': ticket ? ticket.id : ''
+      }
+    };
   }
 
   // Comprime el rango de coordenadas [0,100] a [PAD, 100-PAD] para dar aire
@@ -492,33 +689,14 @@ function initMapa() {
   function normalizarMesaMapa(mesa) {
     var ticketable = mesaTicketable(mesa);
     // La Caja no es "ticketable" (no lleva estado de mesa) pero sí es clickeable.
-    var clickable = ticketable || esCaja(mesa);
-    var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), sliderMin) : 'zona';
+    var minute = minutoConsultaMapa();
+    var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10), minute) : 'zona';
+    var contract = contratoMesaMapa(mesa, estado, minute);
 
-    return {
-      id: mesa.id,
-      nombre: mesa.nombre,
-      tipo: mesa.tipo,
-      estadoVisual: estadoVisualMapa(mesa, estado),
-      x: insetPos(mesa.pos_x),
-      y: insetPos(mesa.pos_y),
-      ancho: mesa.ancho,
-      alto: mesa.alto,
-      reservable: mesaReservable(mesa),
-      capacidad: mesa.capacidad,
-      seleccionada: false,
-      interactivo: clickable,
-      numero: mesa.numero,
-      titulo: mesa.nombre + (mesa.capacidad ? ' · Cap. ' + mesa.capacidad : ''),
-      clasesEstado: clasesEstadoMapa(mesa, estado),
-      atributos: {
-        'data-id': mesa.id,
-        'data-numero': mesa.numero == null ? '' : mesa.numero,
-        'data-reservable': mesa.reservable,
-        'data-ticketable': ticketable ? '1' : '0',
-        'data-estado': estado
-      }
-    };
+    return window.MesaEstadoAdapter.paraMapaVisual(
+      contract,
+      opcionesVisualesMesa(mesa, estado)
+    );
   }
 
   function renderEstados() {
@@ -526,11 +704,19 @@ function initMapa() {
       var mesa = mesas[i];
       if (!mesaTicketable(mesa)) continue;
 
-      var estado = estadoMesa(parseInt(mesa.id, 10), sliderMin);
+      var minute = minutoConsultaMapa();
+      var estado = estadoMesa(parseInt(mesa.id, 10), minute);
+      var visual = window.MesaEstadoAdapter.paraMapaVisual(
+        contratoMesaMapa(mesa, estado, minute),
+        opcionesVisualesMesa(mesa, estado)
+      );
       mapVisual.actualizarEstado(mesa.id, {
-        estadoVisual: estadoVisualMapa(mesa, estado),
-        clasesEstado: clasesEstadoMapa(mesa, estado),
-        atributos: { 'data-estado': estado }
+        estadoVisual: visual.estadoVisual,
+        modificadores: visual.modificadores,
+        indicadores: visual.indicadores,
+        clasesEstado: visual.clasesEstado,
+        titulo: visual.titulo,
+        atributos: visual.atributos
       });
     }
   }
@@ -837,6 +1023,8 @@ function initMapa() {
   function onCardClick(reservaId, mesaIds) {
     clearHighlight();
     highlightReserva(reservaId, mesaIds);
+    var reserva = reservacionPorId(reservaId);
+    if (reserva) showReservationModal(reserva);
   }
 
   function highlightReserva(reservaId, mesaIds) {
@@ -860,14 +1048,44 @@ function initMapa() {
     var ticket  = ticketActual(mesa.id);
 
     // El modal se arma de golpe a partir de CP_MENU, así que el catálogo tiene
-    // que estar cargado antes de pintarlo. Normalmente ya lo está (se pide al
-    // arrancar el POS); esto cubre el caso de abrir una mesa muy rápido.
+    // que estar cargado antes de pintarlo. Normalmente ya lo está (la vista lo
+    // emite en línea y se repide al arrancar el POS); esto cubre el caso de
+    // abrir una mesa muy rápido.
     cargarCatalogo().then(function() {
       modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
       modal.classList.add('mesa-modal--open');
       document.body.style.overflow = 'hidden';
+      // Detrás del modal no se ve el mapa, y el sondeo de 30 s compite por el
+      // único hilo del servidor de desarrollo. Se reanuda al cerrar.
+      stopPolling();
       bindModalActions(mesa, reserva, ticket);
     });
+  }
+
+  function showReservationModal(reserva) {
+    if (!modal || !modalContent || !reserva) return;
+
+    var mesaIds = mesaIdsReserva(reserva);
+    var mesa = mesaIds.length ? mesaPorId(mesaIds[0]) : null;
+    if (!mesa) {
+      mesa = {
+        id: 0,
+        nombre: 'Reservación #' + reserva.id,
+        numero: null,
+        reservable: false,
+        tipo: 'especial'
+      };
+    }
+
+    var estado = ['llego', 'en_curso'].indexOf(String(reserva.estado || '')) !== -1
+      ? 'ocupada'
+      : (reserva.llegada_tardia === true ? 'bloqueada' : 'reservada');
+    commandaItems = [];
+    selectedComensal = 0;
+    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null);
+    modal.classList.add('mesa-modal--open');
+    document.body.style.overflow = 'hidden';
+    bindModalActions(mesa, reserva, null);
   }
 
   function closeModal() {
@@ -876,31 +1094,332 @@ function initMapa() {
     document.body.style.overflow = '';
     sugTimerStop();
     sugTicket = null;
+    sugPedidas = false;
+    startPolling();
+    // Puesta al día de golpe: recupera lo que no se refrescó con el modal abierto.
+    silentRefresh();
   }
 
-  // Preset de layout del modal de comanda (ancho de columnas), persistido.
-  var POS_LAYOUT_KEY = 'cp-pos-modal-layout';
-  var POS_LAYOUTS = ['menu', 'balanced', 'compact'];
-  function getPosLayout() {
-    try {
-      var v = localStorage.getItem(POS_LAYOUT_KEY);
-      return POS_LAYOUTS.indexOf(v) !== -1 ? v : 'balanced';
-    } catch (e) { return 'balanced'; }
+  // Panel operativo de reservaciones: permanece dentro del POS y no mezcla
+  // walk-ins, porque éstos sólo existen como tickets abiertos.
+
+  // ── Preferencias del modal, por mesero ────────────────────
+  //
+  // La clave lleva el id de usuario porque la tablet es compartida: sin eso
+  // cada mesero heredaba la configuración del turno anterior. Se guarda en
+  // localStorage (no en la BD) para que funcione sin red y sin latencia; si
+  // algún día hace falta que el setup siga al mesero entre tablets, se sube a
+  // una tabla `usuario_preferencias` sin tocar esta interfaz.
+  var POS_PREFS_BASE = 'cp-pos-prefs';
+  var POS_LEGACY_LAYOUT_KEY = 'cp-pos-modal-layout';
+
+  var POS_OPCIONES = {
+    layout:    ['menu', 'balanced', 'compact'],
+    densidad:  ['comoda', 'compacta'],
+    texto:     ['s', 'm', 'l'],
+    toque:     ['normal', 'grande'],
+    vistaMenu: ['grid', 'lista'],
+    columnas:  ['2', '3', '4']
+  };
+
+  var POS_PREFS_DEFAULT = {
+    layout: 'balanced',
+    densidad: 'comoda',
+    texto: 'm',
+    toque: 'normal',
+    vistaMenu: 'grid',
+    columnas: '3',
+    verSugerencias: true,
+    verTicket: true,
+    // Orden de las 4 columnas del modal por su clave.
+    orden: ['menu', 'cart', 'resumen', 'sugerencias'],
+    categoriaInicial: 0,
+    favoritos: []
+  };
+
+  var POS_PANELES = {
+    menu:        { label: 'Menú' },
+    cart:        { label: 'Pedido' },
+    resumen:     { label: 'Estado del ticket' },
+    sugerencias: { label: 'Sugerencias' }
+  };
+
+  function posPrefsKey() {
+    var uid = (window.CP_USER && window.CP_USER.id) ? window.CP_USER.id : 'anon';
+    return POS_PREFS_BASE + ':' + uid;
   }
-  function setPosLayout(v) {
-    try { localStorage.setItem(POS_LAYOUT_KEY, v); } catch (e) {}
+
+  var posPrefs = null;
+
+  function getPosPrefs() {
+    if (posPrefs) return posPrefs;
+
+    var guardado = {};
+    try {
+      guardado = JSON.parse(localStorage.getItem(posPrefsKey()) || '{}') || {};
+    } catch (e) { guardado = {}; }
+
+    posPrefs = {};
+    for (var k in POS_PREFS_DEFAULT) {
+      if (POS_PREFS_DEFAULT.hasOwnProperty(k)) posPrefs[k] = POS_PREFS_DEFAULT[k];
+    }
+
+    // Solo se aceptan valores conocidos: una preferencia corrupta no debe
+    // dejar el POS en un estado que el mesero no pueda deshacer.
+    for (var key in POS_OPCIONES) {
+      if (POS_OPCIONES.hasOwnProperty(key) &&
+          POS_OPCIONES[key].indexOf(guardado[key]) !== -1) {
+        posPrefs[key] = guardado[key];
+      }
+    }
+    if (typeof guardado.verSugerencias === 'boolean') posPrefs.verSugerencias = guardado.verSugerencias;
+    if (typeof guardado.verTicket === 'boolean') posPrefs.verTicket = guardado.verTicket;
+    if (typeof guardado.categoriaInicial === 'number' && guardado.categoriaInicial >= 0) {
+      posPrefs.categoriaInicial = guardado.categoriaInicial;
+    }
+    if (Object.prototype.toString.call(guardado.favoritos) === '[object Array]') {
+      posPrefs.favoritos = guardado.favoritos.filter(function (n) { return typeof n === 'string'; });
+    }
+    if (Object.prototype.toString.call(guardado.orden) === '[object Array]') {
+      var limpio = guardado.orden.filter(function (p) { return POS_PANELES.hasOwnProperty(p); });
+      // Se completa con los que falten para no perder ningún panel.
+      POS_PREFS_DEFAULT.orden.forEach(function (p) {
+        if (limpio.indexOf(p) === -1) limpio.push(p);
+      });
+      posPrefs.orden = limpio;
+    }
+
+    // Migración del ajuste anterior, que era global y no por mesero.
+    try {
+      var viejo = localStorage.getItem(POS_LEGACY_LAYOUT_KEY);
+      if (viejo && !guardado.layout && POS_OPCIONES.layout.indexOf(viejo) !== -1) {
+        posPrefs.layout = viejo;
+      }
+    } catch (e) {}
+
+    return posPrefs;
+  }
+
+  function setPosPref(clave, valor) {
+    var prefs = getPosPrefs();
+    prefs[clave] = valor;
+    try { localStorage.setItem(posPrefsKey(), JSON.stringify(prefs)); } catch (e) {}
+    aplicarPosPrefs();
+  }
+
+  /**
+   * Vuelca las preferencias a atributos data- sobre .mmodal-panels. Toda la
+   * variación es CSS: el JS no vuelve a renderizar nada.
+   */
+  function aplicarPosPrefs() {
+    var panels = modalContent ? modalContent.querySelector('.mmodal-panels') : null;
+    if (!panels) return;
+
+    var p = getPosPrefs();
+    panels.setAttribute('data-layout', p.layout);
+    panels.setAttribute('data-densidad', p.densidad);
+    panels.setAttribute('data-texto', p.texto);
+    panels.setAttribute('data-toque', p.toque);
+    panels.setAttribute('data-vista-menu', p.vistaMenu);
+    panels.setAttribute('data-columnas', p.columnas);
+    panels.setAttribute('data-ocultos',
+      (p.verTicket ? '' : 'resumen ') + (p.verSugerencias ? '' : 'sugerencias'));
+
+    // El orden se aplica con `order`; el DOM no se toca.
+    p.orden.forEach(function (clave, i) {
+      var el = panels.querySelector('#mmodal-panel-' + clave);
+      if (el) el.style.order = String(i);
+    });
+  }
+
+  function moverPanel(clave, delta) {
+    var p = getPosPrefs();
+    var orden = p.orden.slice();
+    var i = orden.indexOf(clave);
+    var j = i + delta;
+    if (i === -1 || j < 0 || j >= orden.length) return;
+    orden[i] = orden[j];
+    orden[j] = clave;
+    setPosPref('orden', orden);
+  }
+
+  function esFavorito(nombre) {
+    return getPosPrefs().favoritos.indexOf(nombre) !== -1;
+  }
+
+  function toggleFavorito(nombre) {
+    var favs = getPosPrefs().favoritos.slice();
+    var i = favs.indexOf(nombre);
+    if (i === -1) favs.push(nombre); else favs.splice(i, 1);
+    setPosPref('favoritos', favs);
+  }
+
+  /** Categoría virtual "Favoritos" al frente de las pestañas del menú. */
+  function categoriasConFavoritos() {
+    var base = window.CP_MENU || [];
+    var favs = getPosPrefs().favoritos;
+    if (!favs.length) return base;
+
+    var platillos = [];
+    for (var i = 0; i < base.length; i++) {
+      var dishes = base[i].dishes || [];
+      for (var j = 0; j < dishes.length; j++) {
+        if (favs.indexOf(dishes[j].n) !== -1) platillos.push(dishes[j]);
+      }
+    }
+    if (!platillos.length) return base;
+
+    return [{ id: -1, label: '★ Favoritos', dishes: platillos }].concat(base);
+  }
+
+  /**
+   * Cuerpo del panel de ajustes. Se inyecta en #pos-prefs-panel, el contenedor
+   * que emite pos-workspace.php: ese nodo lleva ya la clase .mmodal-prefs, así
+   * que aquí solo se devuelven los grupos.
+   */
+  function panelAjustesHtml() {
+    var p = getPosPrefs();
+
+    function grupo(titulo, clave, opciones) {
+      var s = '<div class="mmodal-prefs__row"><span class="mmodal-prefs__label">' + titulo + '</span>' +
+              '<div class="mmodal-prefs__opts">';
+      for (var i = 0; i < opciones.length; i++) {
+        var activo = p[clave] === opciones[i][0] ? ' is-active' : '';
+        s += '<button type="button" class="mmodal-prefs__opt' + activo + '" ' +
+             'data-pref="' + clave + '" data-val="' + opciones[i][0] + '">' + opciones[i][1] + '</button>';
+      }
+      return s + '</div></div>';
+    }
+
+    function interruptor(titulo, clave) {
+      return '<div class="mmodal-prefs__row"><span class="mmodal-prefs__label">' + titulo + '</span>' +
+             '<div class="mmodal-prefs__opts">' +
+             '<button type="button" class="mmodal-prefs__opt' + (p[clave] ? ' is-active' : '') + '" ' +
+             'data-pref-bool="' + clave + '" data-val="1">Mostrar</button>' +
+             '<button type="button" class="mmodal-prefs__opt' + (!p[clave] ? ' is-active' : '') + '" ' +
+             'data-pref-bool="' + clave + '" data-val="0">Ocultar</button>' +
+             '</div></div>';
+    }
+
+    var h = '';
+
+    h += '<div class="mmodal-prefs__group"><h4>Layout y densidad</h4>';
+    h += grupo('Columnas', 'layout', [['menu', 'Menú amplio'], ['balanced', 'Equilibrado'], ['compact', 'Compacto']]);
+    h += grupo('Densidad', 'densidad', [['comoda', 'Cómoda'], ['compacta', 'Compacta']]);
+    h += grupo('Texto', 'texto', [['s', 'A-'], ['m', 'A'], ['l', 'A+']]);
+    h += grupo('Botones', 'toque', [['normal', 'Normal'], ['grande', 'Grandes']]);
+    h += '</div>';
+
+    h += '<div class="mmodal-prefs__group"><h4>Paneles</h4>';
+    h += interruptor('Estado del ticket', 'verTicket');
+    h += interruptor('Sugerencias', 'verSugerencias');
+    h += '<div class="mmodal-prefs__orden">';
+    for (var i = 0; i < p.orden.length; i++) {
+      var clave = p.orden[i];
+      h += '<div class="mmodal-prefs__orden-item">' +
+             '<span>' + POS_PANELES[clave].label + '</span>' +
+             '<span class="mmodal-prefs__orden-btns">' +
+               '<button type="button" data-mover="' + clave + '" data-dir="-1" aria-label="Subir"' +
+                 (i === 0 ? ' disabled' : '') + '>↑</button>' +
+               '<button type="button" data-mover="' + clave + '" data-dir="1" aria-label="Bajar"' +
+                 (i === p.orden.length - 1 ? ' disabled' : '') + '>↓</button>' +
+             '</span>' +
+           '</div>';
+    }
+    h += '</div></div>';
+
+    h += '<div class="mmodal-prefs__group"><h4>Vista del menú</h4>';
+    h += grupo('Presentación', 'vistaMenu', [['grid', 'Cuadrícula'], ['lista', 'Lista']]);
+    h += grupo('Columnas de platillos', 'columnas', [['2', '2'], ['3', '3'], ['4', '4']]);
+    h += '<p class="mmodal-prefs__hint">Marca la estrella de un platillo para tenerlo en Favoritos.</p>';
+    h += '</div>';
+
+    h += '<div class="mmodal-prefs__foot">' +
+           '<button type="button" class="mmodal-prefs__reset" id="mmodal-prefs-reset">Restablecer</button>' +
+         '</div>';
+
+    return h;
+  }
+
+  function resetPosPrefs() {
+    try { localStorage.removeItem(posPrefsKey()); } catch (e) {}
+    posPrefs = null;
+    aplicarPosPrefs();
+  }
+
+  // ── Overlay de ajustes (fuera del modal de mesa) ───────────
+  var prefsOverlay = null;
+  var prefsPanel   = null;
+  var prefsToggle  = null;
+
+  /** (Re)pinta el cuerpo del panel y lo vuelve a enlazar. */
+  function renderPrefsPanel() {
+    if (!prefsPanel) return;
+    prefsPanel.innerHTML = panelAjustesHtml();
+    bindPreferencias();
+  }
+
+  function prefsAbierto() {
+    return !!prefsOverlay && !prefsOverlay.hidden;
+  }
+
+  function abrirPrefs() {
+    if (!prefsOverlay) return;
+    renderPrefsPanel();
+    prefsOverlay.hidden = false;
+    if (prefsToggle) {
+      prefsToggle.setAttribute('aria-expanded', 'true');
+      prefsToggle.classList.add('is-active');
+    }
+  }
+
+  function cerrarPrefs() {
+    if (!prefsOverlay) return;
+    prefsOverlay.hidden = true;
+    if (prefsToggle) {
+      prefsToggle.setAttribute('aria-expanded', 'false');
+      prefsToggle.classList.remove('is-active');
+      prefsToggle.focus();
+    }
+  }
+
+  /** Se enlaza UNA vez: el overlay vive fuera del modal y no se destruye. */
+  function initPrefsOverlay() {
+    prefsOverlay = document.getElementById('pos-prefs-overlay');
+    prefsPanel   = document.getElementById('pos-prefs-panel');
+    prefsToggle  = document.getElementById('pos-prefs-toggle');
+    if (!prefsOverlay || !prefsPanel || !prefsToggle) return;
+
+    prefsToggle.addEventListener('click', function() {
+      if (prefsAbierto()) cerrarPrefs(); else abrirPrefs();
+    });
+
+    var bd = document.getElementById('pos-prefs-bd');
+    var cl = document.getElementById('pos-prefs-close');
+    if (bd) bd.addEventListener('click', cerrarPrefs);
+    if (cl) cl.addEventListener('click', cerrarPrefs);
   }
 
   function buildModalContent(mesa, estado, reserva, ticket) {
     var h = '';
+    var reservaChipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
+      : estado === 'ocupada' ? 'En ventana de reserva'
+      : estado === 'proxima' ? 'Próxima reservación'
+      : 'Mesa reservada';
 
-    // Header: nombre de mesa + nombre del cliente agrupados a la izquierda
+    // El encabezado identifica la mesa una sola vez y mantiene el estado cerca.
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(mesa.nombre) + '</span>';
-    if (ticket && ticket.nombre) {
-      h += '<span class="mmodal-title-cliente">— ' + escHtml(ticket.nombre) + '</span>';
+    if (mesa.numero) {
+      h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
-    h += '</div></div>';
+    h += '</div>';
+    if (ticket) {
+      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
+    } else if (reserva) {
+      h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + reservaChipLabel + '</span>';
+    }
+    h += '</div>';
 
     if (estado === 'con-ticket' && ticket) {
       // ── Vista de ticket abierto con sistema de comandas ────
@@ -913,6 +1432,9 @@ function initMapa() {
         : '--:--';
 
       h += '<div class="mmodal-ticket-meta">';
+      if (ticket.nombre) {
+        h += '<span>Cliente: ' + escHtml(ticket.nombre) + '</span>';
+      }
       h += '<span>👥 ' + ticket.comensales + ' com.</span>';
       h += '<span>🕐 ' + horaAp + '</span>';
       // La etapa la detecta n8n; se llena cuando responden las sugerencias.
@@ -931,17 +1453,12 @@ function initMapa() {
       h += '<button class="mmodal-tab" data-tab="sugerencias">Sugerencias</button>';
       h += '</div>';
 
-      // ── Presets de layout (solo desktop, 4 columnas) ──────
-      var lay = getPosLayout();
-      h += '<div class="mmodal-layout-presets" role="group" aria-label="Diseño de columnas">';
-      h += '<span class="mmodal-layout-presets__label">Vista</span>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'menu' ? ' is-active' : '') + '" data-pos-layout="menu">Menú amplio</button>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'balanced' ? ' is-active' : '') + '" data-pos-layout="balanced">Equilibrado</button>';
-      h += '<button type="button" class="mmodal-layout-btn' + (lay === 'compact' ? ' is-active' : '') + '" data-pos-layout="compact">Compacto</button>';
-      h += '</div>';
+      // Los ajustes viven en el engranaje del header (#pos-prefs-overlay), no
+      // aquí: este nodo se reescribe entero en cada apertura de mesa.
+      var prefs = getPosPrefs();
 
       // ── Panels wrapper (4 cols en desktop) ────────────────
-      h += '<div class="mmodal-panels" data-layout="' + lay + '">';
+      h += '<div class="mmodal-panels" data-layout="' + prefs.layout + '">';
 
       // ── Panel 1: Menú ──────────────────────────────────────
       h += '<div id="mmodal-panel-menu" class="mmodal-tab-panel mmodal-tab-panel--active">';
@@ -967,12 +1484,12 @@ function initMapa() {
       // Bloques de categoría (grid)
       h += '<div class="mmodal-section-label" id="mmodal-cats-label">Categoría</div>';
       h += '<div class="mmodal-cat-grid" id="mmodal-cats">';
-      if (window.CP_MENU && window.CP_MENU.length) {
-        for (var mi = 0; mi < window.CP_MENU.length; mi++) {
-          var mcat = window.CP_MENU[mi];
-          h += '<button class="mmodal-cat-block' + (mi === 0 ? ' mmodal-cat-block--active' : '') +
-               '" data-idx="' + mi + '">' + escHtml(mcat.label) + '</button>';
-        }
+      var catsMenu = categoriasConFavoritos();
+      var catInicial = prefs.categoriaInicial;
+      if (catInicial < 0 || catInicial >= catsMenu.length) catInicial = 0;
+      for (var mi = 0; mi < catsMenu.length; mi++) {
+        h += '<button class="mmodal-cat-block' + (mi === catInicial ? ' mmodal-cat-block--active' : '') +
+             '" data-idx="' + mi + '">' + escHtml(catsMenu[mi].label) + '</button>';
       }
       h += '</div>';
       h += '<div class="mmodal-dishes" id="mmodal-dishes"></div>';
@@ -1019,52 +1536,62 @@ function initMapa() {
       h += '<div id="mmodal-panel-sugerencias" class="mmodal-tab-panel">';
       h += '<div class="mmodal-panel-label">Sugerencias</div>';
       h += '<div class="mmodal-panel-scroll" id="mmodal-sug-list">';
-      h += sugEstadoHtml('Buscando sugerencias…', '⟳');
+      // Estado ocioso: no se pide nada hasta que el mesero lo pida (ver
+      // prepararSugerencias). El botón lo enlaza bindSugMore.
+      h += sugAccionHtml('Recomienda algo a esta mesa', '✨', 'Buscar sugerencias');
       h += '</div>'; // fin panel-scroll
       h += '</div>'; // fin panel-sugerencias
 
       h += '</div>'; // fin mmodal-panels
 
     } else if (reserva) {
-      // ── Vista de reservación activa ────────────────────────
-      var chipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
-        : estado === 'ocupada'              ? 'En ventana de reserva'
-        : estado === 'proxima'              ? 'Próxima reservación'
-        : 'Mesa reservada';
+      // ── Vista compacta de reservación activa ───────────────
+      var reservaHora = String(reserva.hora || '').substring(0, 5);
+      var reservaTiempo = tiempoRestanteReserva(reserva);
+      var reservaMesas = Array.isArray(reserva.mesas) ? reserva.mesas.map(function (mesaReservada) {
+        if (!mesaReservada) return '';
+        return String(mesaReservada.nombre || mesaReservada.id || mesaReservada);
+      }).filter(Boolean) : [];
 
-      h += '<div class="mmodal-reserva-grid">';
+      var reassignHref = reservationAssignmentHref(reserva);
+      var reservaEstado = String(reserva.estado || '');
 
-      // Col 1 — cliente
-      h += '<div class="mmodal-reserva-col">';
-      h += '<div class="mmodal-reserva-col-head">';
-      h += '<span class="mmodal-reserva-col__label">Cliente</span>';
-      h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + chipLabel + '</span>';
+      h += '<div class="mmodal-reserva-preview mmodal-reservation">';
+      h += '<div class="mmodal-reservation__identity">';
+      h += '<span>Cliente</span>';
+      h += '<strong>' + escHtml(reserva.nombre || 'Sin nombre') + '</strong>';
       h += '</div>';
-      h += '<div class="mmodal-reserva-nombre">' + escHtml(reserva.nombre) + '</div>';
-      h += '</div>';
-
-      // Col 2 — detalles
-      h += '<div class="mmodal-reserva-col">';
-      h += '<span class="mmodal-reserva-col__label">Reservación</span>';
-      h += '<div class="mmodal-reserva-stats">';
-      h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--hora"><span class="mmodal-reserva-stat__label">Hora</span>' +
-           '<span class="mmodal-reserva-stat__val">' + reserva.hora.substring(0, 5) + '</span></div>';
-      h += '<div class="mmodal-reserva-stat mmodal-reserva-stat--pax"><span class="mmodal-reserva-stat__label">Comensales</span>' +
-           '<span class="mmodal-reserva-stat__val">' + reserva.comensales + '</span></div>';
-      h += '</div>';
+      h += '<dl class="mmodal-reservation__facts">';
+      h += '<div><dt>Hora</dt><dd>' + escHtml(reservaHora || '--:--') +
+        (reservaTiempo ? '<small>' + escHtml(reservaTiempo) + '</small>' : '') + '</dd></div>';
+      h += '<div><dt>Comensales</dt><dd>' + escHtml(reserva.comensales || 0) + '</dd></div>';
+      h += '<div><dt>Contacto</dt><dd class="' + (reserva.contacto ? '' : 'is-empty') + '">' +
+        escHtml(reserva.contacto || 'Sin contacto') + '</dd></div>';
+      h += '<div><dt>Mesas</dt><dd class="' + (reservaMesas.length ? '' : 'is-empty') + '">' +
+        escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
+      h += '</dl>';
       if (reserva.nota) {
         h += '<div class="mmodal-reserva-nota"><span class="mmodal-reserva-nota__label">Nota</span>' + escHtml(reserva.nota) + '</div>';
       }
-      h += '</div>';
-
-      // Col 3 — acciones
-      h += '<div class="mmodal-reserva-col mmodal-reserva-col--actions">';
-      h += '<span class="mmodal-reserva-col__label">Acción</span>';
+      h += '<div class="mmodal-reservation__waiter">';
       h += buildMeseroSelectHtml();
-      h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-confirmar">✓ Confirmar llegada</button>';
-      h += '<button class="mmodal-btn mmodal-btn--ghost" id="mmodal-liberar">Liberar mesa</button>';
       h += '</div>';
-
+      h += '<div class="mmodal-reservation__actions">';
+      if (reservaEstado === 'confirmada' && reserva.puede_confirmar_llegada === true) {
+        h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llegada">✓ ' +
+          (reserva.llegada_tardia === true ? 'Registrar llegada tardía' : 'Confirmar llegada') +
+          '</button>';
+      }
+      if (['confirmada', 'llego'].indexOf(reservaEstado) !== -1) {
+        h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-iniciar">Iniciar servicio</button>';
+      }
+      if (reassignHref) {
+        h += '<a class="mmodal-btn mmodal-btn--outline" href="' + escHtml(reassignHref) +
+          '" data-reservation-id="' + escHtml(reserva.id) + '">Reasignar mesas</a>';
+      } else {
+        h += '<button class="mmodal-btn mmodal-btn--outline" type="button" disabled>Reasignar mesas</button>';
+      }
+      h += '</div>';
       h += '</div>';
 
     } else {
@@ -1117,6 +1644,22 @@ function initMapa() {
         '</div>' +
         '<span class="mmodal-dish-price">$' + dish.p + '</span>';
 
+      // Estrella de favorito: alimenta la categoría virtual "★ Favoritos".
+      var favBtn = document.createElement('button');
+      favBtn.className = 'mmodal-dish-fav' + (esFavorito(dish.n) ? ' is-on' : '');
+      favBtn.innerHTML = svgIcon('star', 14);
+      favBtn.setAttribute('aria-pressed', esFavorito(dish.n) ? 'true' : 'false');
+      favBtn.setAttribute('aria-label', 'Marcar ' + dish.n + ' como favorito');
+      (function(d, btn) {
+        btn.addEventListener('click', function(ev) {
+          ev.stopPropagation();
+          toggleFavorito(d.n);
+          btn.classList.toggle('is-on');
+          btn.setAttribute('aria-pressed', btn.classList.contains('is-on') ? 'true' : 'false');
+        });
+      })(dish, favBtn);
+      row.appendChild(favBtn);
+
       var addBtn = document.createElement('button');
       addBtn.className   = 'mmodal-dish-add';
       addBtn.textContent = '+';
@@ -1149,7 +1692,8 @@ function initMapa() {
       if (catsGrid)  catsGrid.style.display  = '';
       var activo = catsGrid ? catsGrid.querySelector('.mmodal-cat-block--active') : null;
       var idx = activo ? parseInt(activo.dataset.idx, 10) : 0;
-      if (window.CP_MENU && window.CP_MENU[idx]) renderCategoryDishes(window.CP_MENU[idx]);
+      var catsBusq = categoriasConFavoritos();
+      if (catsBusq[idx]) renderCategoryDishes(catsBusq[idx]);
       return;
     }
 
@@ -1437,13 +1981,42 @@ function initMapa() {
     }
   }
 
+  // ── Caché de los ítems del ticket ─────────────────────────
+  // La misma cuenta se pedía en cada cambio de pestaña y en cada paso del
+  // cierre. Se guarda la última respuesta por ticket y se invalida al enviar
+  // comanda, entregar o cancelar.
+  //
+  // El TTL corto existe porque las áreas de producción marcan entregas desde
+  // otra pantalla: sin él, el mesero podría ver un estado viejo. Los pasos de
+  // cobro piden refresco forzado, porque ahí el total tiene que ser exacto.
+  var TICKET_ITEMS_TTL = 15000;
+  var ticketItemsCache = {};
+
+  function cargarTicketItems(ticketId, forzar) {
+    var hit = ticketItemsCache[ticketId];
+    if (!forzar && hit && (Date.now() - hit.ts) < TICKET_ITEMS_TTL) {
+      return Promise.resolve(hit.data);
+    }
+    return fetch('/api/ticket-items?ticket_id=' + ticketId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.ok) ticketItemsCache[ticketId] = { ts: Date.now(), data: data };
+        return data;
+      });
+  }
+
+  function invalidarTicketItems(ticketId) {
+    delete ticketItemsCache[ticketId];
+  }
+
   function renderResumen(ticketId) {
     var resumenEl = modalContent.querySelector('#mmodal-resumen-content');
     if (!resumenEl) return;
-    resumenEl.innerHTML = '<div class="mmodal-cart-empty">Cargando…</div>';
+    if (!ticketItemsCache[ticketId]) {
+      resumenEl.innerHTML = '<div class="mmodal-cart-empty">Cargando…</div>';
+    }
 
-    fetch('/api/ticket-items?ticket_id=' + ticketId)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticketId, false)
       .then(function(data) {
         if (!data.ok || !data.items || !data.items.length) {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span><span>Sin comandas enviadas aún</span></div>';
@@ -1555,17 +2128,105 @@ function initMapa() {
       });
   }
 
+  /**
+   * Enlaza los controles del panel de ajustes. La raíz es #pos-prefs-panel, no
+   * el modal: el panel vive en el overlay del header y sobrevive a las
+   * reescrituras de #mesa-modal-content.
+   */
+  function bindPreferencias() {
+    if (!prefsPanel) return;
+
+    function marcarActivo(btn, selector) {
+      var hermanos = prefsPanel.querySelectorAll(selector);
+      for (var k = 0; k < hermanos.length; k++) hermanos[k].classList.remove('is-active');
+      btn.classList.add('is-active');
+    }
+
+    // Opciones de valor (layout, densidad, texto, toque, vista, columnas).
+    var opts = prefsPanel.querySelectorAll('[data-pref]');
+    for (var i = 0; i < opts.length; i++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var clave = btn.getAttribute('data-pref');
+          setPosPref(clave, btn.getAttribute('data-val'));
+          marcarActivo(btn, '[data-pref="' + clave + '"]');
+          if (clave === 'vistaMenu' || clave === 'columnas') renderCategoriaActual();
+        });
+      })(opts[i]);
+    }
+
+    // Mostrar/ocultar paneles.
+    var bools = prefsPanel.querySelectorAll('[data-pref-bool]');
+    for (var b = 0; b < bools.length; b++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var clave = btn.getAttribute('data-pref-bool');
+          setPosPref(clave, btn.getAttribute('data-val') === '1');
+          marcarActivo(btn, '[data-pref-bool="' + clave + '"]');
+        });
+      })(bools[b]);
+    }
+
+    // Reordenar columnas: se repinta el panel para refrescar el orden y los
+    // botones que ya llegaron al tope.
+    var movers = prefsPanel.querySelectorAll('[data-mover]');
+    for (var m = 0; m < movers.length; m++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          moverPanel(btn.getAttribute('data-mover'), parseInt(btn.getAttribute('data-dir'), 10));
+          renderPrefsPanel();
+          aplicarPosPrefs();
+        });
+      })(movers[m]);
+    }
+
+    var reset = prefsPanel.querySelector('#mmodal-prefs-reset');
+    if (reset) {
+      reset.addEventListener('click', function() {
+        resetPosPrefs();
+        renderPrefsPanel();
+        aplicarPosPrefs();
+        renderCategoriaActual();
+      });
+    }
+
+    aplicarPosPrefs();
+  }
+
+  /** Repinta la categoría abierta (tras cambiar vista o favoritos). */
+  function renderCategoriaActual() {
+    // Alcanzable desde el panel de ajustes, que se puede abrir sin ninguna
+    // mesa en pantalla.
+    if (!modalContent || !modalContent.querySelector('#mmodal-dishes')) return;
+    var activa = modalContent.querySelector('.mmodal-cat-block--active');
+    var cats = categoriasConFavoritos();
+    var idx = activa ? parseInt(activa.dataset.idx, 10) : 0;
+    if (cats[idx]) renderCategoryDishes(cats[idx]);
+  }
+
   function bindTabsAndComanda(mesa, ticket) {
     // Bloques de categoría (grid)
     var catTabs = modalContent.querySelectorAll('.mmodal-cat-block');
-    if (catTabs.length && window.CP_MENU && window.CP_MENU.length) {
-      renderCategoryDishes(window.CP_MENU[0]);
+    var cats = categoriasConFavoritos();
+    if (catTabs.length && cats.length) {
+      var inicial = getPosPrefs().categoriaInicial;
+      if (inicial < 0 || inicial >= cats.length) inicial = 0;
+      renderCategoryDishes(cats[inicial]);
+      for (var k0 = 0; k0 < catTabs.length; k0++) {
+        catTabs[k0].classList.toggle('mmodal-cat-block--active',
+          parseInt(catTabs[k0].dataset.idx, 10) === inicial);
+      }
       for (var i = 0; i < catTabs.length; i++) {
         (function(tab) {
           tab.addEventListener('click', function() {
             for (var k = 0; k < catTabs.length; k++) catTabs[k].classList.remove('mmodal-cat-block--active');
             tab.classList.add('mmodal-cat-block--active');
-            renderCategoryDishes(window.CP_MENU[parseInt(tab.dataset.idx, 10)]);
+            renderCategoryDishes(categoriasConFavoritos()[parseInt(tab.dataset.idx, 10)]);
+          });
+          // Mantener pulsado fija la categoría de arranque del mesero.
+          tab.addEventListener('contextmenu', function(ev) {
+            ev.preventDefault();
+            setPosPref('categoriaInicial', parseInt(tab.dataset.idx, 10));
           });
         })(catTabs[i]);
       }
@@ -1607,7 +2268,13 @@ function initMapa() {
       if (targetTab.dataset.tab === 'menu')         panel = panelMenu;
       if (targetTab.dataset.tab === 'cart')         panel = panelCart;
       if (targetTab.dataset.tab === 'resumen')      { panel = panelResumen; renderResumen(ticket.id); }
-      if (targetTab.dataset.tab === 'sugerencias')  panel = panelSugerencias;
+      if (targetTab.dataset.tab === 'sugerencias')  {
+        panel = panelSugerencias;
+        // La pestaña solo existe en móvil (.mmodal-tabs se oculta ≥768px), así
+        // que tocarla ES la intención explícita. En escritorio la columna se ve
+        // desde el inicio y ahí manda el botón del estado ocioso.
+        if (window.innerWidth < 768) asegurarSugerencias(ticket);
+      }
       if (panel) panel.classList.add('mmodal-tab-panel--active');
     }
 
@@ -1617,20 +2284,9 @@ function initMapa() {
       })(mainTabs[ti]);
     }
 
-    // Presets de layout: ajustan el ancho de las columnas y se recuerdan.
-    var layoutBtns = modalContent.querySelectorAll('.mmodal-layout-btn');
-    var panelsWrap = modalContent.querySelector('.mmodal-panels');
-    for (var li = 0; li < layoutBtns.length; li++) {
-      (function(btn) {
-        btn.addEventListener('click', function() {
-          var val = btn.dataset.posLayout;
-          if (panelsWrap) panelsWrap.setAttribute('data-layout', val);
-          for (var k = 0; k < layoutBtns.length; k++) layoutBtns[k].classList.remove('is-active');
-          btn.classList.add('is-active');
-          setPosLayout(val);
-        });
-      })(layoutBtns[li]);
-    }
+    // El panel de ajustes se enlaza aparte (vive en el header). Aquí basta con
+    // volcar las preferencias sobre las columnas recién construidas.
+    aplicarPosPrefs();
 
     // Botón "Confirmar y enviar" → envío directo (col 2 ya es el preview)
     var enviarBtn = modalContent.querySelector('#mmodal-enviar');
@@ -1648,8 +2304,9 @@ function initMapa() {
       renderResumen(ticket.id);
     }
 
-    // Sugerencias: el modal ya está en el DOM, se piden a n8n
-    cargarSugerencias(ticket);
+    // Sugerencias: NO se piden al abrir. Abrir la mesa deja exactamente una
+    // petición en vuelo (/api/ticket-items), que es lo que el mesero espera ver.
+    prepararSugerencias(ticket);
   }
 
   // ── Bind de acciones del modal ────────────────────────────
@@ -1680,24 +2337,22 @@ function initMapa() {
         if (isLlevar(mesa)) {
           apiAbrirLlevarTicket(mesa, comensales, nombre || null, meseroId);
         } else {
-          apiAbrirTicket(mesa.id, null, comensales, null, nombre || null, meseroId);
+          apiAbrirTicket([mesa.id], comensales, null, nombre || null, meseroId);
         }
       });
     }
 
-    var confirmarBtn = modalContent.querySelector('#mmodal-confirmar');
-    if (confirmarBtn && reserva) {
-      confirmarBtn.addEventListener('click', function() {
-        apiAbrirTicket(mesa.id, reserva.mesa_secundaria_id, reserva.comensales, reserva.id, reserva.nombre || null, selectedMeseroId());
+    var llegadaBtn = modalContent.querySelector('#mmodal-llegada');
+    if (llegadaBtn && reserva) {
+      llegadaBtn.addEventListener('click', function() {
+        apiConfirmarLlegada(reserva);
       });
     }
 
-    var liberarBtn = modalContent.querySelector('#mmodal-liberar');
-    if (liberarBtn && reserva) {
-      liberarBtn.addEventListener('click', function() {
-        if (confirm('¿Cancelar la reservación de ' + reserva.nombre + '?')) {
-          apiLiberarReservacion(reserva.id);
-        }
+    var iniciarBtn = modalContent.querySelector('#mmodal-iniciar');
+    if (iniciarBtn && reserva) {
+      iniciarBtn.addEventListener('click', function() {
+        apiIniciarServicio(reserva, selectedMeseroId());
       });
     }
 
@@ -1805,8 +2460,7 @@ function initMapa() {
     h += '<div class="mmodal-cerrar-confirm"><p class="mmodal-cerrar-confirm__sub">Cargando la cuenta…</p></div>';
     modalContent.innerHTML = h;
 
-    fetch('/api/ticket-items?ticket_id=' + ticket.id)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticket.id, true)
       .then(function(data) {
         renderPagoCompleto(mesa, ticket, (data.ok && data.items) ? data.items : []);
       })
@@ -1943,8 +2597,7 @@ function initMapa() {
     h += '</div>';
     modalContent.innerHTML = h;
 
-    fetch('/api/ticket-items?ticket_id=' + ticket.id)
-      .then(function(r) { return r.json(); })
+    cargarTicketItems(ticket.id, true)
       .then(function(data) {
         renderPagoDividido(mesa, ticket, metodoDefault, (data.ok && data.items) ? data.items : []);
       })
@@ -2237,9 +2890,172 @@ function initMapa() {
     .catch(function() { alert('Error de conexión'); });
   }
 
-  function apiAbrirTicket(mesaId, mesa2Id, comensales, reservaId, nombre, meseroId) {
-    apiPost('/api/abrir-ticket', {
-      mesa_id: mesaId, mesa2_id: mesa2Id,
+  function showOpenTicketNotice(options) {
+    options = options || {};
+    var overlay = document.createElement('div');
+    overlay.className = 'mmodal-cancel-confirm-overlay';
+    overlay.innerHTML =
+      '<div class="mmodal-cancel-confirm" role="alertdialog" aria-modal="true">' +
+        '<p class="mmodal-cancel-confirm__msg"><strong>' + escHtml(options.title || 'Aviso') + '</strong></p>' +
+        '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
+        '<div class="mmodal-cancel-confirm__btns">' +
+          '<button class="mmodal-btn mmodal-btn--ghost" type="button" data-ticket-notice-cancel>' +
+            escHtml(options.cancelLabel || 'Cerrar') +
+          '</button>' +
+          (options.onConfirm
+            ? '<button class="mmodal-btn mmodal-btn--primary" type="button" data-ticket-notice-confirm>' +
+                escHtml(options.confirmLabel || 'Continuar') +
+              '</button>'
+            : '') +
+        '</div>' +
+      '</div>';
+    modalContent.appendChild(overlay);
+
+    var cancel = overlay.querySelector('[data-ticket-notice-cancel]');
+    var confirm = overlay.querySelector('[data-ticket-notice-confirm]');
+    cancel.addEventListener('click', function() {
+      overlay.remove();
+    });
+    if (confirm) {
+      confirm.addEventListener('click', function() {
+        confirm.disabled = true;
+        overlay.remove();
+        options.onConfirm();
+      });
+    }
+    window.requestAnimationFrame(function() {
+      (options.onConfirm && confirm ? confirm : cancel).focus();
+    });
+  }
+
+  function requestOpenTicket(payload) {
+    fetch('/api/abrir-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+      return response.json().then(function(result) {
+        result.httpStatus = response.status;
+        return result;
+      });
+    })
+    .then(function(result) {
+      if (result.ok) {
+        closeModal();
+        silentRefresh();
+        return;
+      }
+
+      if (result.codigo === 'REQUIERE_CONFIRMACION' && result.advertencia) {
+        var warning = result.advertencia;
+        showOpenTicketNotice({
+          title: 'Reservación próxima',
+          message: 'Esta mesa tiene una reservación a las ' + String(warning.hora || '').substring(0, 5) +
+            '. Faltan ' + parseInt(warning.minutos_restantes || '0', 10) +
+            ' minutos. El servicio deberá finalizar o cambiar de mesa antes de esa hora.',
+          cancelLabel: 'Cancelar',
+          confirmLabel: 'Continuar y abrir ticket',
+          onConfirm: function() {
+            payload.confirmar_reservacion_proxima = 1;
+            requestOpenTicket(payload);
+          }
+        });
+        return;
+      }
+
+      var bloqueo = result.bloqueo || {};
+      var message = result.msg || 'No fue posible abrir el ticket.';
+      if (bloqueo.hora) {
+        message = 'La mesa tiene una reservación a las ' + String(bloqueo.hora).substring(0, 5) +
+          ' y faltan ' + parseInt(bloqueo.minutos_restantes || '0', 10) +
+          ' minutos. Dentro de los 30 minutos previos no se puede abrir un ticket incompatible.';
+      }
+      showOpenTicketNotice({
+        title: 'No se puede abrir el ticket',
+        message: message,
+        cancelLabel: 'Entendido'
+      });
+    })
+    .catch(function() {
+      showOpenTicketNotice({
+        title: 'Error de conexión',
+        message: 'No fue posible validar la mesa. Intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    });
+  }
+
+  function requestReservationOperation(endpoint, payload, options) {
+    options = options || {};
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+      return response.json().then(function(result) {
+        result.httpStatus = response.status;
+        return result;
+      });
+    })
+    .then(function(result) {
+      if (result.ok) {
+        closeModal();
+        silentRefresh();
+        return;
+      }
+
+      if (result.requiere_reasignacion || result.codigo === 'REQUIERE_REASIGNACION' || result.codigo === 'SIN_CAPACIDAD') {
+        showOpenTicketNotice({
+          title: 'La llegada requiere nuevas mesas',
+          message: result.msg || 'Las mesas originales ya no están disponibles. No se recuperó ninguna mesa automáticamente.',
+          cancelLabel: 'Cerrar',
+          confirmLabel: 'Resolver en mapa',
+          onConfirm: function() {
+            window.location.href = reservationAssignmentHref(options.reserva);
+          }
+        });
+        return;
+      }
+
+      showOpenTicketNotice({
+        title: options.errorTitle || 'No fue posible completar la acción',
+        message: result.msg || 'El estado operativo cambió. Actualiza la información e intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    })
+    .catch(function() {
+      showOpenTicketNotice({
+        title: 'Error de conexión',
+        message: 'No fue posible validar la reservación. Intenta nuevamente.',
+        cancelLabel: 'Entendido'
+      });
+    });
+  }
+
+  function apiConfirmarLlegada(reserva) {
+    requestReservationOperation(
+      '/api/punto-de-venta/reservaciones/llegada',
+      { reservacion_id: reserva.id },
+      { reserva: reserva, errorTitle: 'No se pudo registrar la llegada' }
+    );
+  }
+
+  function apiIniciarServicio(reserva, meseroId) {
+    requestReservationOperation(
+      '/api/punto-de-venta/reservaciones/comenzar',
+      {
+        reservacion_id: reserva.id,
+        mesero_id: meseroId || null
+      },
+      { reserva: reserva, errorTitle: 'No se pudo iniciar el servicio' }
+    );
+  }
+
+  function apiAbrirTicket(mesaIds, comensales, reservaId, nombre, meseroId) {
+    requestOpenTicket({
+      mesa_ids: mesaIds,
       comensales: comensales, reservacion_id: reservaId,
       nombre: nombre || null,
       mesero_id: meseroId || null
@@ -2252,7 +3068,7 @@ function initMapa() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        mesa_id:        mesa.id,
+        mesa_ids:       [mesa.id],
         comensales:     comensales,
         nombre:         nombre || null,
         mesero_id:      meseroId || null,
@@ -2264,7 +3080,7 @@ function initMapa() {
       if (result.ok) {
         var newTicket = {
           id:            result.id,
-          mesa_id:       mesa.id,
+          mesa_ids:      [mesa.id],
           nombre:        nombre,
           comensales:    comensales,
           hora_apertura: new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -2279,10 +3095,6 @@ function initMapa() {
       }
     })
     .catch(function() { alert('Error de conexión'); });
-  }
-
-  function apiLiberarReservacion(reservaId) {
-    apiPost('/api/liberar-reservacion', { reservacion_id: reservaId });
   }
 
   function apiCerrarTicket(ticketId, metodoPago, mesa, recibido) {
@@ -2359,6 +3171,7 @@ function initMapa() {
     .then(function(res) { return res.json(); })
     .then(function(result) {
       if (result.ok) {
+        invalidarTicketItems(ticketId);
         // Antes de limpiar el carrito: cerrar el ciclo de lo que se sugirió
         // y pasar la siguiente recomendación.
         avanzarSugerenciasEnviadas(commandaItems);
@@ -2384,7 +3197,12 @@ function initMapa() {
       body:    JSON.stringify({ item_id: itemId })
     })
     .then(function(r) { return r.json(); })
-    .then(function(result) { if (result.ok) renderResumen(ticketId); });
+    .then(function(result) {
+      if (result.ok) {
+        invalidarTicketItems(ticketId);
+        renderResumen(ticketId);
+      }
+    });
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {
@@ -2416,8 +3234,12 @@ function initMapa() {
     })
     .then(function(r) { return r.json(); })
     .then(function(result) {
-      if (result.ok) renderResumen(ticketId);
-      else alert(result.msg || 'No se pudo cancelar el platillo');
+      if (result.ok) {
+        invalidarTicketItems(ticketId);
+        renderResumen(ticketId);
+      } else {
+        alert(result.msg || 'No se pudo cancelar el platillo');
+      }
     })
     .catch(function() { alert('Error de conexión'); });
   }
@@ -2449,7 +3271,10 @@ function initMapa() {
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
       reservasList.innerHTML =
-        '<div class="mapa-empty-state"><span class="mapa-empty-icon">◌</span><span>Cargando…</span></div>';
+        '<div class="mapa-empty-state">' +
+          '<span class="mapa-empty-icon" aria-hidden="true"><span class="mapa-empty-spinner"></span></span>' +
+          '<span class="mapa-empty-title">Cargando reservaciones…</span>' +
+        '</div>';
     }
     fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha))
       .then(function(res) { return res.json(); })
@@ -2458,8 +3283,9 @@ function initMapa() {
           if (!silent) {
             reservasList.innerHTML =
               '<div class="mapa-empty-state mapa-empty-state--error">' +
-                '<span class="mapa-empty-icon">⚠</span>' +
-                '<span>' + (data.hint || data.error || 'Error de servidor') + '</span>' +
+                '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+                '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
+                '<span class="mapa-empty-hint">' + (data.hint || data.error || 'Error de servidor') + '</span>' +
               '</div>';
             if (loadingEl) loadingEl.classList.add('hidden');
           }
@@ -2469,6 +3295,7 @@ function initMapa() {
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
         meseros       = data.meseros        || [];
+        temporalConfig = (data.config && data.config.temporal) || temporalConfig;
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();
@@ -2484,7 +3311,9 @@ function initMapa() {
         if (!silent) {
           reservasList.innerHTML =
             '<div class="mapa-empty-state mapa-empty-state--error">' +
-              '<span class="mapa-empty-icon">⚠</span><span>Error al cargar datos.</span>' +
+              '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+              '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
+              '<span class="mapa-empty-hint">Revisa la conexión e inténtalo de nuevo.</span>' +
             '</div>';
           if (loadingEl) loadingEl.classList.add('hidden');
         }
@@ -2492,21 +3321,32 @@ function initMapa() {
   }
 
   function silentRefresh() {
+    // Con la tablet en otra app o con la pantalla bloqueada no hay nadie
+    // mirando el mapa: refrescar solo gasta batería y datos.
+    if (document.hidden) return;
     fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), true);
   }
 
   // ── Polling en tiempo real (cada 30 s) ────────────────────
   function startPolling() {
     stopPolling();
+    // Guarda para que activateLive() no reviva el sondeo con el modal abierto.
+    if (modal && modal.classList.contains('mesa-modal--open')) return;
     pollTimer = setInterval(silentRefresh, 30000);
   }
   function stopPolling() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
 
+  // Al volver a la pestaña, ponerse al día de inmediato en vez de esperar
+  // hasta 30 s al siguiente tick.
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && pollTimer) silentRefresh();
+  });
+
   // ── Modo en vivo ──────────────────────────────────────────
   function syncLive() {
-    var min = snapTo30(new Date().getHours() * 60 + new Date().getMinutes());
+    var min = snapToReservationInterval(new Date().getHours() * 60 + new Date().getMinutes());
     min = Math.max(510, Math.min(1320, min));
     sliderMin = min;
     renderEstados();
@@ -2518,7 +3358,10 @@ function initMapa() {
     if (ahoraBtn)  ahoraBtn.classList.add('mapa-ahora-btn--active');
     syncLive();
     if (liveInterval) clearInterval(liveInterval);
-    liveInterval = setInterval(syncLive, 60000);
+    var refreshSeconds = temporalNumber('refresco_estados_segundos');
+    if (refreshSeconds > 0) {
+      liveInterval = setInterval(syncLive, refreshSeconds * 1000);
+    }
     startPolling();
   }
 
@@ -2530,15 +3373,26 @@ function initMapa() {
 
   // ── Eventos ───────────────────────────────────────────────
   initMapaCalendar();
+  initPrefsOverlay();
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key !== 'Escape') return;
+    // El panel de ajustes se dibuja por encima del modal: cierra primero.
+    if (prefsAbierto()) { cerrarPrefs(); return; }
+    closeModal();
+  });
+  window.addEventListener('pagehide', function() {
+    stopPolling();
+    deactivateLive();
+  });
+  window.addEventListener('pageshow', function() {
+    if (!isLive) activateLive();
   });
 
   // ── Init ──────────────────────────────────────────────────
-  sliderMin = Math.max(510, Math.min(1320, snapTo30(new Date().getHours() * 60 + new Date().getMinutes())));
+  sliderMin = Math.max(510, Math.min(1320, snapToReservationInterval(new Date().getHours() * 60 + new Date().getMinutes())));
   cargarCatalogo();
   fetchData(fechaInput ? fechaInput.value : new Date().toISOString().slice(0, 10), false);
   activateLive();

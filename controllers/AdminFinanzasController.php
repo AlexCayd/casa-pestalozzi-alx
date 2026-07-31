@@ -35,25 +35,29 @@ class AdminFinanzasController
         try {
             $db = Producto::getDB();
 
+            // Las ventas se atribuyen al día del COBRO. COALESCE cubre los
+            // tickets cerrados antes de que existiera hora_cierre.
+            $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
+
             // Ingresos y tickets cerrados del mes en curso.
             $resIng = $db->query(
                 "SELECT COALESCE(SUM(ti.precio * ti.cantidad), 0) AS ingresos
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
                   WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                        AND YEAR(t.hora_apertura) = YEAR(CURDATE())
-                        AND MONTH(t.hora_apertura) = MONTH(CURDATE())"
+                        AND YEAR({$cierre}) = YEAR(CURDATE())
+                        AND MONTH({$cierre}) = MONTH(CURDATE())"
             );
             if ($resIng && ($row = $resIng->fetch_assoc())) {
                 $datos['ingresos'] = (float) $row['ingresos'];
             }
 
             $resTk = $db->query(
-                "SELECT COUNT(*) AS n, COALESCE(SUM(propina), 0) AS propinas
-                   FROM tickets
-                  WHERE estado = 'cerrado'
-                        AND YEAR(hora_apertura) = YEAR(CURDATE())
-                        AND MONTH(hora_apertura) = MONTH(CURDATE())"
+                "SELECT COUNT(*) AS n, COALESCE(SUM(t.propina), 0) AS propinas
+                   FROM tickets t
+                  WHERE t.estado = 'cerrado'
+                        AND YEAR({$cierre}) = YEAR(CURDATE())
+                        AND MONTH({$cierre}) = MONTH(CURDATE())"
             );
             if ($resTk && ($row = $resTk->fetch_assoc())) {
                 $datos['tickets'] = (int) $row['n'];
@@ -79,8 +83,8 @@ class AdminFinanzasController
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
                   WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                        AND YEAR(t.hora_apertura) = YEAR(CURDATE())
-                        AND MONTH(t.hora_apertura) = MONTH(CURDATE())
+                        AND YEAR({$cierre}) = YEAR(CURDATE())
+                        AND MONTH({$cierre}) = MONTH(CURDATE())
                   GROUP BY ti.nombre"
             );
             if ($resVend) {
@@ -235,11 +239,13 @@ class AdminFinanzasController
     {
         $db = Producto::getDB();
         $dias = [];
-        $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
+        // El corte del día es el del cobro, no el de la apertura de la mesa.
+        $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
+        $fTk = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
 
         // Consumo + propina por ticket, atribuido al método de pago.
         $resTickets = $db->query(
-            "SELECT DATE(t.hora_apertura) AS dia, t.metodo_pago,
+            "SELECT DATE({$cierre}) AS dia, t.metodo_pago,
                     COALESCE(t.propina, 0) AS propina,
                     COALESCE((SELECT SUM(ti.precio * ti.cantidad)
                               FROM ticket_items ti
@@ -269,7 +275,7 @@ class AdminFinanzasController
 
         // Desglose de cuentas divididas por método (ticket_pagos).
         $resPagos = $db->query(
-            "SELECT DATE(t.hora_apertura) AS dia, tp.metodo_pago,
+            "SELECT DATE({$cierre}) AS dia, tp.metodo_pago,
                     COALESCE(SUM(tp.monto), 0) AS monto
                FROM ticket_pagos tp
                JOIN tickets t ON t.id = tp.ticket_id

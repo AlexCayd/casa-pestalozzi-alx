@@ -9,16 +9,20 @@ namespace Controllers;
 
 use Model\Mesa;
 use Model\Reservacion;
+use Model\TicketMesa;
 use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\HorarioReservacionService;
+use Services\MesaEstadoService;
+use Services\OcupacionMesasService;
+use Services\PuntoVentaReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionService;
 
 class ReservacionOperacionController
 {
-    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v1';
-    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v1';
+    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v21';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v21';
 
     public static function operation(Router $router): void
     {
@@ -29,12 +33,47 @@ class ReservacionOperacionController
             ? ReservacionConfig::fechaActual()
             : $fechaSolicitada;
         $soloLectura = HorarioReservacionService::fechaPasada($fecha);
-        $hora = self::normalizarHoraCorta((string)($_GET['hora'] ?? ''));
-        $reservacionId = filter_var($_GET['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
+        $horaSolicitada = self::normalizarHoraCorta((string)($_GET['hora'] ?? ''));
+        $disponibilidadInicial = ReservacionService::obtenerHorariosDisponiblesParaFecha(
+            $fecha,
+            $soloLectura
+        );
+        $horariosIniciales = ($disponibilidadInicial['ok'] ?? false)
+            ? (array)($disponibilidadInicial['horarios'] ?? [])
+            : [];
+        $resolucionHorario = HorarioReservacionService::resolverHorarioOperativo(
+            $fecha,
+            $horaSolicitada,
+            $horariosIniciales,
+            $soloLectura
+        );
+        $hora = (string)$resolucionHorario['hora_resuelta'];
+        $operacionEditable = !$soloLectura && $horariosIniciales !== [];
+        $initialOperationNotice = null;
+        $reservacionIdRaw = trim((string)(
+            $_GET['reservation_id'] ?? $_GET['reservacion_id'] ?? ''
+        ));
+        $reservacionId = preg_match('/^[1-9]\d*$/D', $reservacionIdRaw) === 1
+            ? (int)$reservacionIdRaw
+            : 0;
+        $modoSolicitado = trim((string)($_GET['mode'] ?? ''));
+        $intencionAsignacion = false;
         $returnUrl = self::returnUrlSeguro($_GET['return_url'] ?? '');
         $alertas = self::alertasResultado($_GET['resultado'] ?? '');
+        if ($resolucionHorario['solicitada_vencida']) {
+            $sinHorarios = (bool)$resolucionHorario['sin_horarios_futuros'];
+            $initialOperationNotice = [
+                'type' => 'warning',
+                'title' => $sinHorarios ? 'No hay horarios disponibles' : 'Horario no disponible',
+                'summary' => $sinHorarios
+                    ? 'El horario solicitado ya pasó y hoy no quedan más bloques.'
+                    : 'El horario solicitado ya pasó para el día actual.',
+                'message' => $sinHorarios
+                    ? 'No puede abrirse como operación editable. Selecciona una fecha futura para continuar.'
+                    : 'No puede abrirse en modo operativo. Se cargó el siguiente horario disponible; usa la vista histórica de solo lectura cuando necesites consultar fechas anteriores.',
+                'hidden' => false,
+            ];
+        }
         if ($fechaInvalida) {
             http_response_code(422);
             $alertas['error'][] = 'La fecha seleccionada no tiene un formato valido. Se muestra la fecha actual.';
@@ -42,9 +81,61 @@ class ReservacionOperacionController
         if ($soloLectura) {
             $alertas['warning'][] = 'Operacion historica en modo de solo lectura.';
         }
+        if ($modoSolicitado !== '' && $modoSolicitado !== 'assign') {
+            $alertas['warning'][] = 'La intención solicitada no es válida. Se cargó el mapa normalmente.';
+            $reservacionId = false;
+        } elseif ($modoSolicitado === 'assign') {
+            $reservacionObjetivo = $reservacionId
+                ? Reservacion::findWithMesas((int)$reservacionId)
+                : null;
+            $horaObjetivo = $reservacionObjetivo
+                ? self::normalizarHoraCorta((string)$reservacionObjetivo->hora)
+                : '';
+            $vigenciaObjetivo = $reservacionObjetivo
+                ? ReservacionService::clasificarVigencia($reservacionObjetivo)
+                : [];
+            $permiteAsignacionObjetivo = $reservacionObjetivo && (
+                ReservacionService::puedeEditar($reservacionObjetivo)
+                || !empty($vigenciaObjetivo['puede_confirmar_llegada'])
+            );
+            $motivo = '';
+
+            if (!$reservacionObjetivo) {
+                $motivo = 'La reservación seleccionada no existe.';
+            } elseif (!$permiteAsignacionObjetivo) {
+                $motivo = 'La reservación seleccionada ya no permite cambiar mesas.';
+            } elseif ((string)$reservacionObjetivo->fecha !== $fecha) {
+                $motivo = 'La reservación seleccionada corresponde a otra fecha.';
+            } elseif ($horaSolicitada !== '' && $horaObjetivo !== $horaSolicitada) {
+                $motivo = 'La reservación seleccionada ya no corresponde al horario solicitado.';
+            }
+
+            if ($motivo !== '') {
+                $initialOperationNotice = [
+                    'type' => 'restricted',
+                    'title' => !$reservacionObjetivo
+                        ? 'Reservación no encontrada'
+                        : (!$permiteAsignacionObjetivo
+                            ? 'Reservación no editable'
+                            : 'No se pudo abrir la reasignación'),
+                    'summary' => $motivo,
+                    'message' => !$reservacionObjetivo
+                        ? 'La reservación solicitada no existe o ya no está disponible. Se cargó el mapa normalmente para que selecciones otra.'
+                        : (!$permiteAsignacionObjetivo
+                            ? 'La reservación pertenece a un estado final o su horario ya pasó. Continúa usando el mapa o selecciona otra reservación editable.'
+                            : 'Los datos de fecha u hora ya no coinciden. Se cargó el mapa normalmente para evitar modificar otra reservación.'),
+                    'hidden' => false,
+                ];
+                $alertas['warning'][] = $motivo . ' Se cargó el mapa normalmente.';
+                $reservacionId = false;
+            } else {
+                $hora = $horaObjetivo;
+                $intencionAsignacion = true;
+            }
+        }
 
         self::render('reservations/index', [
-            'title' => $soloLectura ? 'Operacion historica de reservaciones' : 'Operacion de reservaciones',
+            'title' => $soloLectura ? 'Mapa de reservaciones historico' : 'Mapa de reservaciones',
             'styles' => [self::OPERATION_CSS],
             'scripts' => [self::OPERATION_JS],
             'filtros' => [
@@ -55,9 +146,13 @@ class ReservacionOperacionController
             'alertas' => $alertas,
             'returnUrl' => $returnUrl,
             'initialReservacionId' => $reservacionId ? (int)$reservacionId : 0,
+            'initialOperationIntent' => $intencionAsignacion ? 'assign' : '',
             'comentarioAdminDisponible' => Reservacion::tieneComentarioAdmin(),
             'fechaMinima' => ReservacionConfig::fechaActual(),
             'modoSoloLectura' => $soloLectura,
+            'operacionEditable' => $operacionEditable,
+            'horaSolicitadaInicial' => $horaSolicitada,
+            'initialOperationNotice' => $initialOperationNotice,
             'fechaInvalidaRecibida' => $fechaInvalida ? $fechaSolicitada : '',
         ]);
     }
@@ -76,10 +171,12 @@ class ReservacionOperacionController
                 'fecha' => $fechaSolicitada,
                 'horarios' => [],
             ], 422);
+            return;
         }
 
         $fecha = $fechaFueEnviada ? $fechaSolicitada : ReservacionConfig::fechaActual();
         $soloLectura = HorarioReservacionService::fechaPasada($fecha);
+        $horaSolicitada = self::normalizarHoraCorta((string)($_GET['hora'] ?? ''));
         $disponibilidad = ReservacionService::obtenerHorariosDisponiblesParaFecha($fecha, $soloLectura);
         if (!($disponibilidad['ok'] ?? false)) {
             self::jsonResponse([
@@ -92,14 +189,90 @@ class ReservacionOperacionController
                 'mensaje' => $disponibilidad['mensaje'] ?? 'No fue posible consultar los horarios.',
                 'horarios' => [],
             ], ($disponibilidad['codigo'] ?? '') === ReservacionService::ERROR_INTERNO ? 500 : 422);
+            return;
         }
 
         $horarios = array_values(array_filter(array_map(static function ($horario): string {
             return HorarioReservacionService::normalizarHoraCorta((string)$horario);
         }, $disponibilidad['horarios'] ?? [])));
+        $resolucionHorario = HorarioReservacionService::resolverHorarioOperativo(
+            $fecha,
+            $horaSolicitada,
+            $horarios,
+            $soloLectura
+        );
         $reservaciones = Reservacion::buscarPorDiaOperacionAdmin($fecha);
-        $reservacionesSerializadas = self::serializarReservacionesOperacion($reservaciones);
-        $ocupacionPorReservacion = AsignacionMesasService::obtenerOcupacionPorReservacionDelDia($fecha, $reservaciones);
+        $ticketsAbiertos = TicketMesa::abiertosParaMapa();
+        $reservacionesSerializadas = self::serializarReservacionesOperacion(
+            $reservaciones,
+            $ticketsAbiertos
+        );
+        $horaResuelta = (string)($resolucionHorario['hora_resuelta'] ?: $horaSolicitada);
+        if ($horaResuelta === '') {
+            $horaResuelta = ReservacionConfig::ahora()->format('H:i');
+        }
+        $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
+            $fecha,
+            $horaResuelta,
+            0,
+            false,
+            $ticketsAbiertos
+        );
+        $alertasPorReservacion = [];
+        foreach ((array)($evaluacionOcupacion['alertas_operativas'] ?? []) as $alerta) {
+            $alertasPorReservacion[(int)($alerta['reservacion_id'] ?? 0)] = $alerta;
+        }
+        foreach ($reservacionesSerializadas as &$reservacionSerializada) {
+            $alerta = $alertasPorReservacion[(int)($reservacionSerializada['id'] ?? 0)] ?? null;
+            $reservacionSerializada['conflicto_proximo'] = $alerta !== null;
+            $reservacionSerializada['alerta_operativa'] = $alerta;
+        }
+        unset($reservacionSerializada);
+        $reservacionesOperativas = \Services\ReservacionVigenciaService::filtrarPendientesOperacion(
+            $reservacionesSerializadas,
+            $fecha,
+            $horarios
+        );
+        $idsOperativos = array_fill_keys(array_map(
+            static fn(array $reservacion): int => (int)($reservacion['id'] ?? 0),
+            $reservacionesOperativas
+        ), true);
+        foreach ($reservacionesSerializadas as &$reservacionSerializada) {
+            $reservacionSerializada['en_lista_operativa'] = isset(
+                $idsOperativos[(int)($reservacionSerializada['id'] ?? 0)]
+            );
+        }
+        unset($reservacionSerializada);
+        $mesasSerializadas = self::serializarMesasOperacion(self::mesasMapaOperacion());
+        $ocupacionPorReservacion = AsignacionMesasService::obtenerOcupacionPorReservacionDelDia(
+            $fecha,
+            $reservaciones,
+            $ticketsAbiertos
+        );
+        $estadosMesas = MesaEstadoService::normalizarMesas(
+            $mesasSerializadas,
+            $reservacionesSerializadas,
+            $ticketsAbiertos,
+            $fecha,
+            null,
+            $horaResuelta,
+            $evaluacionOcupacion
+        );
+        $resumenCapacidad = OcupacionMesasService::resumenCapacidad(
+            $mesasSerializadas,
+            $evaluacionOcupacion
+        );
+        $capacidadHorario = [
+            'capacidad_total' => (int)($resumenCapacidad['capacidad_total'] ?? 0),
+            'capacidad_realmente_libre' => (int)($resumenCapacidad['capacidad_realmente_libre'] ?? 0),
+            'capacidad_proyectada' => (int)($resumenCapacidad['capacidad_proyectada'] ?? 0),
+            'capacidad_estimada_horario' => (int)($resumenCapacidad['capacidad_estimada_horario'] ?? 0),
+        ];
+        $mostrarOcupacionFisica = in_array(
+            (string)($evaluacionOcupacion['contexto'] ?? ''),
+            [OcupacionMesasService::CONTEXTO_ACTUAL, OcupacionMesasService::CONTEXTO_PROYECTADO],
+            true
+        );
         $abierto = (bool)($disponibilidad['abierto'] ?? false);
         $estadoOperacion = !$abierto
             ? 'cerrado'
@@ -109,12 +282,20 @@ class ReservacionOperacionController
             'sin_horarios' => 'No existen horarios disponibles para esta fecha.',
             default => null,
         };
+        if (
+            $estadoOperacion === 'sin_horarios'
+            && $resolucionHorario['sin_horarios_futuros']
+            && $resolucionHorario['solicitada_vencida']
+        ) {
+            $mensajeOperacion = 'El horario solicitado ya pasó y no quedan horarios operativos disponibles para hoy. Selecciona una fecha futura.';
+        }
+        $editable = !$soloLectura && $estadoOperacion === 'disponible';
 
         self::jsonResponse([
             'ok' => true,
             'codigo' => $soloLectura ? 'FECHA_PASADA_SOLO_LECTURA' : null,
             'modo' => $soloLectura ? 'solo_lectura' : 'operacion',
-            'editable' => !$soloLectura,
+            'editable' => $editable,
             'fecha' => $fecha,
             'abierto' => $abierto,
             'estado_operacion' => $estadoOperacion,
@@ -122,25 +303,72 @@ class ReservacionOperacionController
             'tipo' => $disponibilidad['tipo'] ?? null,
             'mensaje' => $mensajeOperacion,
             'horarios' => $horarios,
-            'hora_sugerida' => HorarioReservacionService::horaPorDefecto($horarios, $fecha),
+            'hora_solicitada' => $resolucionHorario['hora_solicitada'],
+            'hora_sugerida' => $resolucionHorario['hora_resuelta'],
+            'hora_ajustada' => $resolucionHorario['ajustada'],
+            'hora_solicitada_vencida' => $resolucionHorario['solicitada_vencida'],
+            'sin_horarios_futuros' => $resolucionHorario['sin_horarios_futuros'],
             'reservaciones' => $reservacionesSerializadas,
-            'mesas' => self::serializarMesasOperacion(self::mesasMapaOperacion()),
+            'reservaciones_operativas' => $reservacionesOperativas,
+            'mesas' => $mesasSerializadas,
+            'mesas_estado' => $estadosMesas,
+            'contexto_ocupacion' => $evaluacionOcupacion['contexto'] ?? null,
+            'capacidad_horario' => $capacidadHorario,
+            'alertas_operativas' => $evaluacionOcupacion['alertas_operativas'] ?? [],
+            // El mapa sólo recibe contexto de ocupación; no se exponen
+            // consumos, importes ni acciones internas de los tickets.
+            'ocupacion_fisica' => $mostrarOcupacionFisica
+                ? self::serializarOcupacionFisica(
+                    (array)($evaluacionOcupacion['ocupacion_fisica'] ?? [])
+                )
+                : [],
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'config' => [
                 'estado_labels' => ReservacionService::estadoLabels(),
                 'estados_editables' => ReservacionService::estadosEditables(),
                 'transiciones' => ReservacionService::transiciones(),
                 'comentario_admin_disponible' => Reservacion::tieneComentarioAdmin(),
+                'temporal' => ReservacionConfig::configuracionOperacion(),
             ],
+            'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
         ]);
     }
 
     public static function apiAssignTables(): void
     {
         $id = self::reservacionIdOperacionPost();
-        $permitirCapacidadInsuficiente = (string)($_POST['permitir_capacidad_insuficiente'] ?? '') === '1';
+        if ($id < 1) {
+            self::jsonResponse([
+                'ok' => false,
+                'codigo' => AsignacionMesasService::DATOS_INCOMPLETOS,
+                'mensaje' => self::mensajeAsignacionApi(AsignacionMesasService::DATOS_INCOMPLETOS),
+            ], 422);
+            return;
+        }
+        $permitirCapacidadInsuficiente = false;
         $mesaIds = $_POST['mesa_ids'] ?? [];
-        $resultado = AsignacionMesasService::asignarManual($id, (array)$mesaIds, $permitirCapacidadInsuficiente);
+        $contextoCompleto = array_key_exists('fecha', $_POST)
+            && array_key_exists('hora', $_POST)
+            && trim((string)($_POST['version_esperada'] ?? '')) !== ''
+            && (string)($_POST['mesa_ids_actuales_presentes'] ?? '') === '1';
+        $resultado = AsignacionMesasService::asignarManual(
+            $id,
+            (array)$mesaIds,
+            $permitirCapacidadInsuficiente,
+            true,
+            [
+                'ticket_ids_aceptados' => (array)($_POST['ticket_ids_aceptados'] ?? []),
+                'conflicto_token' => (string)($_POST['conflicto_token'] ?? ''),
+                'version_esperada' => (string)($_POST['version_esperada'] ?? ''),
+                'usuario_id' => (int)($_SESSION['id'] ?? 0),
+                'validar_contexto' => true,
+                'contexto_completo' => $contextoCompleto,
+                'fecha_esperada' => (string)($_POST['fecha'] ?? ''),
+                'hora_esperada' => (string)($_POST['hora'] ?? ''),
+                'mesa_ids_actuales' => (array)($_POST['mesa_ids_actuales'] ?? []),
+                'permitir_superposicion_ticket_abierto' => true,
+            ]
+        );
 
         self::jsonResultadoAsignacion($resultado, 'Asignacion guardada.');
     }
@@ -172,7 +400,13 @@ class ReservacionOperacionController
         $estado = (string)($_POST['estado'] ?? '');
 
         self::jsonResultadoTransicion(
-            ReservacionService::cambiarEstado(self::reservacionIdOperacionPost(), $estado),
+            ReservacionService::ejecutarAccionOperativa(
+                self::reservacionIdOperacionPost(),
+                $estado,
+                (int)($_SESSION['id'] ?? 0),
+                trim((string)($_POST['motivo'] ?? '')),
+                !empty($_POST['mesero_id']) ? (int)$_POST['mesero_id'] : null
+            ),
             self::mensajeExitoEstado($estado)
         );
     }
@@ -280,7 +514,7 @@ class ReservacionOperacionController
         $fecha = (string)($params['fecha'] ?? '');
         $hora = self::normalizarHoraCorta((string)($params['hora'] ?? ''));
         $estado = (string)($params['estado'] ?? '');
-        $reservacionId = (int)($params['reservacion_id'] ?? 0);
+        $reservacionId = (int)($params['reservation_id'] ?? $params['reservacion_id'] ?? 0);
         $returnUrl = self::returnUrlSeguro($params['return_url'] ?? '');
         $resultado = (string)($params['resultado'] ?? '');
         $validacion = (string)($params['validacion'] ?? '');
@@ -298,7 +532,7 @@ class ReservacionOperacionController
         }
 
         if ($reservacionId > 0) {
-            $query['reservacion_id'] = $reservacionId;
+            $query['reservation_id'] = $reservacionId;
         }
 
         if ($returnUrl !== '') {
@@ -349,21 +583,55 @@ class ReservacionOperacionController
         return HorarioReservacionService::fechaValida($fecha);
     }
 
-    private static function serializarReservacionesOperacion(array $reservaciones): array
+    private static function serializarReservacionesOperacion(
+        array $reservaciones,
+        array $ticketsAbiertos = []
+    ): array
     {
-        return array_map(static function ($reservacion): array {
+        $ticketsPorReservacion = [];
+        foreach ($ticketsAbiertos as $ticket) {
+            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
+            if ($reservacionId > 0) {
+                $ticketsPorReservacion[$reservacionId] = $ticket;
+            }
+        }
+
+        return array_map(static function ($reservacion) use ($ticketsPorReservacion): array {
             $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($reservacion->mesa_ids ?? '')))));
             $mesasNombres = array_values(array_filter(array_map('trim', explode(',', (string)($reservacion->mesas_asignadas ?? '')))));
+            $reservacionId = (int)($reservacion->id ?? 0);
+            $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
+            $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticket);
 
-            return [
-                'id' => (int)($reservacion->id ?? 0),
+            return array_merge([
+                'id' => $reservacionId,
                 'nombre' => (string)($reservacion->nombre ?? ''),
-                'email' => (string)($reservacion->email ?? ''),
+                'contacto' => (string)($reservacion->contacto ?? ''),
                 'fecha' => (string)($reservacion->fecha ?? ''),
                 'hora' => substr((string)($reservacion->hora ?? ''), 0, 5),
                 'comensales' => (int)($reservacion->comensales ?? 0),
-                'estado' => (string)($reservacion->estado ?? 'pendiente'),
-                'editable' => ReservacionService::puedeEditar($reservacion),
+                'estado' => (string)($reservacion->estado ?? 'confirmada'),
+                'hold_expires_at' => $reservacion->hold_expires_at !== null
+                    ? (string)$reservacion->hold_expires_at
+                    : null,
+                'confirmed_at' => $reservacion->confirmed_at ?? null,
+                'arrived_at' => $reservacion->arrived_at ?? null,
+                'completed_at' => $reservacion->completed_at ?? null,
+                'version' => hash(
+                    'sha256',
+                    (string)(($reservacion->updated_at ?? null) ?: ($reservacion->created_at ?? ''))
+                        . '|' . implode(',', $mesaIds)
+                ),
+                'ticket_id' => $ticket['id'] ?? null,
+                'ticket_abierto' => $ticket !== null,
+                'ticket' => $ticket !== null ? [
+                    'id' => (int)$ticket['id'],
+                    'hora_apertura' => (string)$ticket['hora_apertura'],
+                    'origen' => (string)$ticket['origen'],
+                    'mesa_ids' => array_values(array_map('intval', $ticket['mesa_ids'] ?? [])),
+                ] : null,
+                'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
+                'editable' => (bool)$vigencia['editable'],
                 'motivo_no_editable' => ReservacionService::codigoNoEditable($reservacion),
                 'mesa_ids' => $mesaIds,
                 'mesas_asignadas' => $mesasNombres,
@@ -371,7 +639,7 @@ class ReservacionOperacionController
                 'capacidad_asignada' => (int)($reservacion->capacidad_total ?? 0),
                 'nota' => (string)($reservacion->nota ?? ''),
                 'comentario_admin' => (string)($reservacion->comentario_admin ?? ''),
-            ];
+            ], $vigencia);
         }, $reservaciones);
     }
 
@@ -392,6 +660,29 @@ class ReservacionOperacionController
         }, $mesas);
     }
 
+    /**
+     * Contrato mínimo de ocupación física para la vista de reservaciones.
+     *
+     * @param array<int, array<string, mixed>> $tickets
+     * @return array<int, array<string, mixed>>
+     */
+    private static function serializarOcupacionFisica(array $tickets): array
+    {
+        return array_map(static function (array $ticket): array {
+            return [
+                'ticket_id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
+                'reservacion_id' => $ticket['reservacion_id'] ?? null,
+                'mesa_ids' => array_values(array_map('intval', $ticket['mesa_ids'] ?? [])),
+                'ticket_abierto' => true,
+                'walk_in' => ($ticket['reservacion_id'] ?? null) === null,
+                'origen' => (string)($ticket['origen'] ?? 'walk_in'),
+                'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
+                'estado_proyeccion' => $ticket['estado_proyeccion'] ?? null,
+                'liberacion_proyectada' => $ticket['liberacion_proyectada'] ?? null,
+            ];
+        }, $tickets);
+    }
+
     private static function reservacionIdOperacionPost(): int
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -400,11 +691,14 @@ class ReservacionOperacionController
                 'codigo' => 'METODO_INVALIDO',
                 'mensaje' => 'Metodo invalido.',
             ], 405);
+            return 0;
         }
 
-        $id = filter_var($_POST['reservacion_id'] ?? ($_POST['id'] ?? 0), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
+        $id = filter_var(
+            $_POST['reservation_id'] ?? $_POST['reservacion_id'] ?? ($_POST['id'] ?? 0),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
 
         return $id ? (int)$id : 0;
     }
@@ -415,7 +709,12 @@ class ReservacionOperacionController
         $ok = (bool)($resultado['ok'] ?? false);
         $httpStatus = $ok ? 200 : match ($codigo) {
             AsignacionMesasService::ERROR_INTERNO => 500,
-            AsignacionMesasService::MESA_OCUPADA => 409,
+            AsignacionMesasService::CONFLICTO_CONCURRENTE,
+            AsignacionMesasService::VERSION_DESACTUALIZADA,
+            AsignacionMesasService::MESA_OCUPADA,
+            AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS,
+            AsignacionMesasService::RESERVACION_NO_EDITABLE => 409,
+            AsignacionMesasService::SUPERPOSICION_NO_AUTORIZADA => 403,
             AsignacionMesasService::RESERVACION_NO_EXISTE => 404,
             ReservacionService::RESERVACION_PASADA,
             ReservacionService::RESERVACION_HORARIO_PASADO => 409,
@@ -427,6 +726,14 @@ class ReservacionOperacionController
             'codigo' => $codigo,
             'mensaje' => $ok ? $mensajeExito : self::mensajeAsignacionApi($codigo),
             'mesa_ids' => $resultado['mesa_ids'] ?? [],
+            'requiere_confirmacion' => (bool)($resultado['requiere_confirmacion'] ?? false),
+            'conflictos_ticket' => $resultado['conflictos_ticket'] ?? [],
+            'conflicto_token' => $resultado['conflicto_token'] ?? null,
+            'tickets_aceptados' => $resultado['tickets_aceptados'] ?? [],
+            'version_actual' => $resultado['version_actual'] ?? null,
+            'depende_liberacion_proyectada' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
+            'mesas_proyectadas' => $resultado['mesas_proyectadas'] ?? [],
+            'advertencia' => $resultado['advertencia'] ?? null,
         ], $httpStatus);
     }
 
@@ -436,7 +743,9 @@ class ReservacionOperacionController
         $ok = (bool)($resultado['ok'] ?? false);
         $httpStatus = $ok ? 200 : match ($codigo) {
             ReservacionService::ERROR_INTERNO => 500,
-            ReservacionService::RESERVACION_NO_EXISTE => 404,
+            ReservacionService::RESERVACION_NO_EXISTE,
+            PuntoVentaReservacionService::NO_EXISTE => 404,
+            PuntoVentaReservacionService::CONFLICTO_CONCURRENTE => 409,
             ReservacionService::RESERVACION_PASADA,
             ReservacionService::RESERVACION_HORARIO_PASADO => 409,
             default => 422,
@@ -446,6 +755,10 @@ class ReservacionOperacionController
             'ok' => $ok,
             'codigo' => $codigo,
             'mensaje' => $ok ? $mensajeExito : self::mensajeTransicionApi($codigo),
+            'requiere_reasignacion' => (bool)($resultado['requiere_reasignacion'] ?? false),
+            'motivo' => $resultado['motivo'] ?? null,
+            'mesa_ids' => $resultado['mesa_ids'] ?? [],
+            'ticket_id' => $resultado['ticket_id'] ?? null,
         ], $httpStatus);
     }
 
@@ -476,6 +789,10 @@ class ReservacionOperacionController
             AsignacionMesasService::MESA_OCUPADA => 'mesa_ocupada',
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'capacidad_insuficiente',
             AsignacionMesasService::ESTADO_INVALIDO => 'estado_no_permite',
+            AsignacionMesasService::RESERVACION_NO_EDITABLE => 'estado_no_permite',
+            AsignacionMesasService::VERSION_DESACTUALIZADA,
+            AsignacionMesasService::CONFLICTO_CONCURRENTE => 'conflicto_concurrencia',
+            AsignacionMesasService::DATOS_INCOMPLETOS => 'datos_incompletos',
             AsignacionMesasService::RESERVACION_NO_EXISTE => 'no_existe',
             default => 'error_interno',
         };
@@ -487,7 +804,14 @@ class ReservacionOperacionController
             AsignacionMesasService::ASIGNACION_VACIA => 'Selecciona al menos una mesa.',
             AsignacionMesasService::MESAS_INVALIDAS => 'Una o mas mesas no estan disponibles para reserva.',
             AsignacionMesasService::MESA_OCUPADA => 'La mesa acaba de ser asignada a otra reservacion. Los datos fueron actualizados.',
+            AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS => 'La selección incluye mesas con servicio activo. Revisa los tickets antes de continuar.',
+            AsignacionMesasService::CONFLICTO_CONCURRENTE => 'La ocupación cambió mientras confirmabas. Revisa nuevamente las mesas y tickets.',
+            AsignacionMesasService::VERSION_DESACTUALIZADA => 'La reservación cambió desde que abriste el mapa. Actualiza los datos antes de reasignar.',
+            AsignacionMesasService::DATOS_INCOMPLETOS => 'Faltan la reservación, fecha, hora, versión o mesas actuales de la asignación.',
+            AsignacionMesasService::RESERVACION_NO_EDITABLE => 'La reservación ya no permite modificar sus mesas.',
+            AsignacionMesasService::SUPERPOSICION_NO_AUTORIZADA => 'La superposición con un ticket abierto sólo puede confirmarse desde el modo de asignación del mapa.',
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'La capacidad seleccionada es insuficiente.',
+            AsignacionMesasService::AGRUPACION_NO_AUTORIZADA => 'La selección no corresponde a una agrupación de mesas autorizada para reservaciones.',
             AsignacionMesasService::ESTADO_INVALIDO => 'Este estado no permite modificar mesas.',
             ReservacionService::RESERVACION_PASADA,
             ReservacionService::RESERVACION_HORARIO_PASADO => 'La operacion historica es de solo lectura.',
@@ -504,6 +828,11 @@ class ReservacionOperacionController
             ReservacionService::RESERVACION_PASADA,
             ReservacionService::RESERVACION_HORARIO_PASADO => 'La operacion historica es de solo lectura.',
             ReservacionService::RESERVACION_NO_EXISTE => 'La reservacion no existe.',
+            PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
+            PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservacion ya tiene un ticket abierto.',
+            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no estan disponibles. Reasigna mesas para registrar la llegada tardia.',
+            PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignacion actual no tiene capacidad suficiente. Resuelve las mesas manualmente.',
+            PuntoVentaReservacionService::DATOS_INVALIDOS => 'Completa los datos requeridos para esta accion.',
             default => 'No fue posible guardar los cambios. Intentalo nuevamente.',
         };
     }
@@ -551,7 +880,6 @@ class ReservacionOperacionController
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
-        exit;
     }
 
     private static function alertasResultado(string $resultado): array

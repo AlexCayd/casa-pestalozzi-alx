@@ -122,25 +122,31 @@
 }
 
 .operational-drawer__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 12px;
+  display: flex;
+  min-width: 0;
   align-items: center;
+  gap: 10px;
   padding-bottom: 13px;
   border-bottom: 1px solid var(--admin-border-soft);
 }
 
 .operational-page .operational-drawer__title {
+  min-width: 0;
+  flex: 1 1 auto;
   margin: 0;
+  overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .operational-drawer__meta {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   color: var(--admin-muted);
@@ -148,10 +154,68 @@
 }
 
 .operational-drawer__close {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  flex: 0 0 44px;
   align-self: center;
   padding: 0;
+}
+
+.operational-drawer__modules {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--admin-border-soft);
+  overflow: hidden;
+}
+
+.operational-drawer__module-link {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--admin-muted);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:hover,
+  &.is-active {
+    border-color: var(--admin-border);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  }
 }
 
 .operational-drawer__content {
@@ -164,9 +228,83 @@
 }
 
 .operational-reservation-list {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-items: start;
+  align-content: start;
+  gap: 9px;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
+   padding: 0 2px 12px 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--admin-border) transparent;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(245, 245, 245, 0.035);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--admin-border);
+    background-clip: padding-box;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--admin-border);
+    background-clip: padding-box;
+  }
+}
+
+.operational-drawer .reservation-operation-card {
+  min-width: 0;
+  height: auto;
+}
+
+.operational-drawer .reservation-operation-card__button {
+  min-width: 0;
+  min-height: 0;
+  padding: 11px 12px 12px;
+}
+
+.operational-drawer .reservation-operation-card__head {
+  align-items: flex-start;
+}
+
+.operational-drawer .reservation-operation-card__time {
+  flex: 0 0 auto;
+}
+
+.operational-drawer .reservation-operation-card__customer,
+.operational-drawer .reservation-operation-card__meta,
+.operational-drawer .reservation-operation-card__tables {
+  min-width: 0;
+}
+
+.operational-drawer .reservation-operation-card__customer strong {
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.operational-drawer .reservation-operation-card__meta,
+.operational-drawer .reservation-operation-card__tables {
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
+.operational-drawer .reservation-operation-card__tables span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .operational-drawer-backdrop {
@@ -199,7 +337,7 @@
 @media (max-width: 900px) {
   .operational-drawer,
   .operational-drawer-backdrop {
-    inset-block-start: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap));
+    inset-block-start: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap));
   }
 }
 

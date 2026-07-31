@@ -23,7 +23,7 @@
     }
 
     function defaultStateLabel(value) {
-        var label = String(value || 'pendiente').replace(/_/g, ' ');
+        var label = String(value || 'confirmada').replace(/_/g, ' ');
         return label.charAt(0).toUpperCase() + label.slice(1);
     }
 
@@ -37,7 +37,7 @@
         options = options || {};
 
         var id = Math.max(0, parseInt(reservation.id || '0', 10) || 0);
-        var state = safeClass(options.estado || reservation.estado || 'pendiente') || 'pendiente';
+        var state = safeClass(options.estado || reservation.estado || 'confirmada') || 'confirmada';
         var stateLabel = options.estadoLabel || defaultStateLabel(state);
         var hour = String(options.hora || reservation.hora || '').slice(0, 5) || '--:--';
         var customer = options.cliente || reservation.nombre || 'Sin nombre';

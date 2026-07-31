@@ -9,7 +9,6 @@ namespace Services;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
-use Model\DiaReservacion;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
@@ -34,7 +33,10 @@ class ReservacionService
     public const ESTADO_NO_EDITABLE = 'ESTADO_NO_EDITABLE';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const HORARIO_INVALIDO = 'HORARIO_INVALIDO';
+    public const SIN_DISPONIBILIDAD = 'SIN_DISPONIBILIDAD';
     public const CONFIRMAR_SIN_MESA = 'CONFIRMAR_SIN_MESA';
+    public const REQUIERE_CONFIRMACION_SIN_CONTACTO = 'REQUIERE_CONFIRMACION_SIN_CONTACTO';
+    public const REQUIERE_CONFIRMACION_CAPACIDAD = 'REQUIERE_CONFIRMACION_CAPACIDAD';
     public const COMENTARIO_NO_DISPONIBLE = 'COMENTARIO_NO_DISPONIBLE';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
 
@@ -43,18 +45,13 @@ class ReservacionService
         return bin2hex(random_bytes(32));
     }
 
-    public static function crearPublica(array $post): array
+    /** Punto estable para scripts y futura automatización de vencimientos. */
+    public static function expirarRetenciones(int $limite = 100, bool $simulacion = false): array
     {
-        return self::crearReservacion($post, [
-            'origen' => 'publica',
-            'max_comensales' => ReservacionConfig::MAX_COMENSALES_PUBLICO,
-            'tipo_asignacion' => 'publica',
-            'permitir_comentario_admin' => false,
-            'asignar_automaticamente' => true,
-        ]);
+        return ReservacionPublicaService::expirarRetenciones($limite, $simulacion);
     }
 
-    public static function crearAdministrativa(array $post): array
+    public static function crearAdministrativa(array $post, ?int $usuarioId = null): array
     {
         $asignarAutomaticamente = !array_key_exists('asignar_automaticamente', $post)
             || (string)$post['asignar_automaticamente'] === '1';
@@ -62,9 +59,10 @@ class ReservacionService
         return self::crearReservacion($post, [
             'origen' => 'administrativa',
             'max_comensales' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'tipo_asignacion' => 'general',
             'permitir_comentario_admin' => true,
+            'contacto_requerido' => false,
             'asignar_automaticamente' => $asignarAutomaticamente,
+            'usuario_id' => $usuarioId,
         ]);
     }
 
@@ -96,6 +94,7 @@ class ReservacionService
 
             $origen = (string) ($efectivo['origen'] ?? 'semanal');
             $tipo = $efectivo['tipo'] ?? null;
+            $detalleHorario = self::detalleHorarioPublico($efectivo);
 
             if (!($efectivo['abierto'] ?? false)) {
                 return [
@@ -104,6 +103,7 @@ class ReservacionService
                     'abierto' => false,
                     'origen' => $origen,
                     'tipo' => $tipo,
+                    'detalle_horario' => $detalleHorario,
                     'horarios' => [],
                     'mensaje' => $origen === 'excepcion'
                         ? 'El restaurante no estará disponible en esta fecha.'
@@ -111,30 +111,11 @@ class ReservacionService
                 ];
             }
 
-            if ($origen === 'excepcion' && $tipo === 'horario_especial') {
-                $horarios = HorarioReservacionService::generarIntervalos(
-                    (string) ($efectivo['hora_apertura'] ?? ''),
-                    (string) ($efectivo['hora_cierre'] ?? '')
-                );
-            } elseif ($origen === 'semanal') {
-                $fechaObjeto = DateTimeImmutable::createFromFormat(
-                    '!Y-m-d',
-                    $fecha,
-                    ReservacionConfig::timezone()
-                );
-                if (!$fechaObjeto instanceof DateTimeImmutable) {
-                    throw new \RuntimeException('No fue posible interpretar la fecha.');
-                }
-
-                $dia = DiaReservacion::buscarPorDiaSemana((int) $fechaObjeto->format('w'));
-                if (!$dia || (int) $dia->activo !== 1) {
-                    throw new \RuntimeException('El horario semanal no está sincronizado.');
-                }
-
-                $horarios = HorarioReservacionService::horariosPorDiaId((int) $dia->id);
-            } else {
-                throw new \RuntimeException('El origen del horario efectivo no es válido.');
-            }
+            // Los slots se calculan directamente desde el horario efectivo.
+            $horarios = HorarioReservacionService::generarIntervalos(
+                (string) ($efectivo['hora_apertura'] ?? ''),
+                (string) ($efectivo['hora_cierre'] ?? '')
+            );
 
             if (!$permitirHistorica) {
                 $horarios = HorarioReservacionService::filtrarHorariosPasados($fecha, $horarios);
@@ -146,6 +127,7 @@ class ReservacionService
                 'abierto' => true,
                 'origen' => $origen,
                 'tipo' => $tipo,
+                'detalle_horario' => $detalleHorario,
                 'horarios' => $horarios,
                 'mensaje' => $horarios === [] ? 'No hay horarios disponibles para esta fecha.' : null,
             ];
@@ -158,6 +140,28 @@ class ReservacionService
                 'No fue posible consultar los horarios. Inténtalo nuevamente.'
             );
         }
+    }
+
+    private static function detalleHorarioPublico(array $efectivo): array
+    {
+        $fecha = (string) ($efectivo['fecha'] ?? '');
+        $habitual = HorarioOperacionService::obtenerHorarioHabitualParaFecha($fecha);
+        $esExcepcion = ($efectivo['origen'] ?? '') === 'excepcion';
+
+        return [
+            'es_excepcion' => $esExcepcion,
+            'etiqueta' => ($efectivo['tipo'] ?? '') === 'cerrado' ? 'Cierre especial' : 'Horario especial',
+            'fecha' => $fecha,
+            'abierto' => (bool) ($efectivo['abierto'] ?? false),
+            'hora_apertura' => !empty($efectivo['hora_apertura'])
+                ? substr((string) $efectivo['hora_apertura'], 0, 5)
+                : null,
+            'hora_cierre' => !empty($efectivo['hora_cierre'])
+                ? substr((string) $efectivo['hora_cierre'], 0, 5)
+                : null,
+            'motivo' => trim((string) ($efectivo['motivo'] ?? '')),
+            'habitual' => $habitual,
+        ];
     }
 
     public static function validarHorarioDisponible(string $fecha, string $hora): array
@@ -195,12 +199,20 @@ class ReservacionService
             $codigo = HorarioReservacionService::horarioPasadoHoy($fecha, $horaSql)
                 ? HorarioReservacionService::HORARIO_PASADO
                 : HorarioReservacionService::HORARIO_INVALIDO;
+            $siguienteHorario = null;
+            foreach ($disponibilidad['horarios'] ?? [] as $candidato) {
+                if ($horaSql === '' || (string)$candidato > $horaSql) {
+                    $siguienteHorario = substr((string)$candidato, 0, 5);
+                    break;
+                }
+            }
 
             return [
                 'ok' => false,
                 'codigo' => $codigo,
                 'fecha' => $fecha,
                 'hora' => $horaSql,
+                'siguiente_horario_valido' => $siguienteHorario,
             ];
         }
 
@@ -217,18 +229,16 @@ class ReservacionService
 
     /**
      * Revalida mesas actuales cuando cambian fecha, hora o comensales.
-     * Si dejan de ser validas, libera la asignacion y revierte confirmada a pendiente.
+     * Si dejan de ser válidas, libera la asignación y solicita reasignación.
      */
-    public static function actualizarDatos(int $reservacionId, array $datos): array
+    public static function actualizarDatos(
+        int $reservacionId,
+        array $datos,
+        ?int $usuarioId = null
+    ): array
     {
         if ($reservacionId < 1) {
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
-        }
-
-        $normalizados = self::normalizarDatosAdmin($datos);
-
-        if (!$normalizados['ok']) {
-            return $normalizados;
         }
 
         $db = ActiveRecord::getDB();
@@ -237,7 +247,7 @@ class ReservacionService
             $db->begin_transaction();
 
             $reservacion = self::fila(
-                "SELECT id, nombre, email, fecha, hora, comensales, estado
+                "SELECT id, nombre, contacto_tipo, contacto, fecha, hora, comensales, estado
                  FROM reservaciones
                  WHERE id = {$reservacionId}
                  LIMIT 1
@@ -255,6 +265,14 @@ class ReservacionService
                 return $editable;
             }
 
+            // El selector administrativo puede cambiar el tipo. Ambos valores
+            // se validan juntos antes de persistirlos de manera atómica.
+            $normalizados = self::normalizarDatosAdmin($datos);
+            if (!$normalizados['ok']) {
+                $db->rollback();
+                return $normalizados;
+            }
+
             $datosLimpios = $normalizados['datos'];
             $fechaActual = (string)$reservacion['fecha'];
             $horaActual = HorarioReservacionService::normalizarHoraSql((string)$reservacion['hora']);
@@ -263,20 +281,38 @@ class ReservacionService
             $estadoNuevo = $estadoActual;
             $requiereAsignacion = false;
             $liberarAsignacion = false;
+            $dependeProyeccion = false;
+            $advertenciaProyeccion = null;
 
             $cambioFechaHora = $datosLimpios['fecha'] !== $fechaActual
                 || $datosLimpios['hora'] !== $horaActual;
             $cambioOperativo = $cambioFechaHora
                 || $datosLimpios['comensales'] !== $comensalesActuales;
 
+            $horario = self::validarHorarioDisponible(
+                $datosLimpios['fecha'],
+                $datosLimpios['hora']
+            );
+            if (!$horario['ok']) {
+                $db->rollback();
+                return self::respuestaHorarioInvalido($horario);
+            }
+            $datosLimpios['fecha'] = $horario['fecha'];
+            $datosLimpios['hora'] = $horario['hora'];
+
             if ($cambioOperativo) {
+                $disponibilidad = DisponibilidadReservacionService::resumenHorario(
+                    $datosLimpios['fecha'],
+                    $datosLimpios['hora'],
+                    $datosLimpios['comensales'],
+                    $reservacionId,
+                    true,
+                    false
+                );
                 $mesaIdsActuales = ReservacionMesa::obtenerIdsPorReservacion($reservacionId);
 
                 if (empty($mesaIdsActuales)) {
-                    if ($estadoActual === 'confirmada') {
-                        $estadoNuevo = 'pendiente';
-                        $requiereAsignacion = true;
-                    }
+                    $requiereAsignacion = true;
                 } else {
                     $mesasActuales = Mesa::reservablesParaActualizar($mesaIdsActuales);
                     $ocupacion = AsignacionMesasService::obtenerOcupacionParaHorario(
@@ -293,39 +329,58 @@ class ReservacionService
                     if (!$asignacionValida) {
                         $liberarAsignacion = true;
                         $requiereAsignacion = true;
-
-                        if ($estadoActual === 'confirmada') {
-                            $estadoNuevo = 'pendiente';
+                    } else {
+                        $dependeProyeccion = array_intersect(
+                            $mesaIdsActuales,
+                            array_map('intval', (array)($disponibilidad['mesas_proyectadas'] ?? []))
+                        ) !== [];
+                        if ($dependeProyeccion) {
+                            $advertenciaProyeccion = (string)($disponibilidad['advertencia'] ?? '');
                         }
                     }
                 }
-            }
 
-            if ($cambioFechaHora) {
-                $horario = self::validarHorarioDisponible($datosLimpios['fecha'], $datosLimpios['hora']);
-                if (!$horario['ok']) {
+                if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
-                    return self::respuestaHorarioInvalido($horario);
+                    $mensaje = 'No hay capacidad disponible para '
+                        . $datosLimpios['comensales']
+                        . ($datosLimpios['comensales'] === 1 ? ' persona' : ' personas')
+                        . ' en este horario.';
+                    return [
+                        'ok' => false,
+                        'codigo' => self::SIN_DISPONIBILIDAD,
+                        'msg' => $mensaje,
+                        'errors' => [
+                            'hora' => [$mensaje],
+                            'comensales' => [$mensaje],
+                        ],
+                        'field_codes' => [
+                            'hora' => ['HORARIO_SIN_CAPACIDAD'],
+                            'comensales' => ['CAPACIDAD_INSUFICIENTE'],
+                        ],
+                        'capacidad_disponible' => (int)($disponibilidad['capacidad_disponible'] ?? 0),
+                    ];
                 }
-
-                $datosLimpios['fecha'] = $horario['fecha'];
-                $datosLimpios['hora'] = $horario['hora'];
-            } else {
-                $datosLimpios['fecha'] = $fechaActual;
-                $datosLimpios['hora'] = $horaActual;
             }
 
             if ($liberarAsignacion) {
                 ReservacionMesa::eliminarAsignacion($reservacionId);
             }
 
-            self::actualizarFila($reservacionId, $datosLimpios, $estadoNuevo);
+            self::actualizarFila(
+                $reservacionId,
+                $datosLimpios,
+                $estadoNuevo,
+                $usuarioId
+            );
             $db->commit();
 
             return [
                 'ok' => true,
                 'codigo' => $requiereAsignacion ? self::ACTUALIZADA_REQUIERE_ASIGNACION : self::ACTUALIZADA,
                 'requiere_asignacion' => $requiereAsignacion,
+                'depende_liberacion_proyectada' => $dependeProyeccion,
+                'advertencia' => $advertenciaProyeccion ?: null,
             ];
         } catch (\Throwable $e) {
             try {
@@ -406,34 +461,72 @@ class ReservacionService
         }
     }
 
-    public static function confirmar(int $reservacionId): array
+    public static function confirmar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'confirmada');
+        return self::cambiarEstado($reservacionId, 'confirmada', $usuarioId);
     }
 
-    public static function completar(int $reservacionId): array
+    public static function completar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'completada');
+        return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
     }
 
-    public static function cancelar(int $reservacionId): array
+    public static function cancelar(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'cancelada');
+        return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
     }
 
-    public static function marcarNoShow(int $reservacionId): array
+    public static function marcarNoShow(int $reservacionId, ?int $usuarioId = null): array
     {
-        return self::cambiarEstado($reservacionId, 'no_show');
+        return PuntoVentaReservacionService::noShow(
+            $reservacionId,
+            (int)($usuarioId ?? 0),
+            false,
+            false
+        );
     }
 
-    public static function cambiarEstado(int $reservacionId, string $nuevoEstado): array
+    public static function ejecutarAccionOperativa(
+        int $reservacionId,
+        string $nuevoEstado,
+        int $usuarioId,
+        string $motivo = '',
+        ?int $meseroId = null
+    ): array {
+        return match ($nuevoEstado) {
+            'confirmada' => self::cambiarEstado($reservacionId, 'confirmada', $usuarioId),
+            'llego' => PuntoVentaReservacionService::registrarLlegada($reservacionId, $usuarioId),
+            'en_curso' => PuntoVentaReservacionService::comenzar($reservacionId, $usuarioId, $meseroId),
+            'no_show' => PuntoVentaReservacionService::noShow(
+                $reservacionId,
+                $usuarioId,
+                false,
+                false,
+                $motivo
+            ),
+            'cancelada' => PuntoVentaReservacionService::cancelar(
+                $reservacionId,
+                $usuarioId,
+                $motivo
+            ),
+            default => ['ok' => false, 'codigo' => self::ESTADO_INVALIDO],
+        };
+    }
+
+    public static function cambiarEstado(
+        int $reservacionId,
+        string $nuevoEstado,
+        ?int $usuarioId = null
+    ): array
     {
         if ($reservacionId < 1) {
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
         }
 
-        if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)
-            || $nuevoEstado === 'pendiente') {
+        if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)) {
+            return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
+        }
+        if (in_array($nuevoEstado, ['llego', 'en_curso', 'completada', 'cancelada', 'no_show'], true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
 
@@ -443,7 +536,7 @@ class ReservacionService
             $db->begin_transaction();
 
             $reservacion = self::fila(
-                "SELECT id, fecha, hora, estado
+                "SELECT *
                  FROM reservaciones
                  WHERE id = {$reservacionId}
                  LIMIT 1
@@ -477,7 +570,21 @@ class ReservacionService
             }
 
             $estadoSql = ActiveRecord::escaparString($nuevoEstado);
-            self::ejecutar("UPDATE reservaciones SET estado = '{$estadoSql}' WHERE id = {$reservacionId} LIMIT 1");
+            $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
+            self::ejecutar(
+                "UPDATE reservaciones
+                 SET estado = '{$estadoSql}',
+                     confirmed_at = CASE
+                         WHEN '{$estadoSql}' = 'confirmada' THEN COALESCE(confirmed_at, NOW())
+                         ELSE confirmed_at
+                     END,
+                     status_changed_at = NOW(),
+                     last_modified_by = {$usuarioSql},
+                     last_modified_source = 'personal',
+                     last_change_reason = 'Cambio administrativo de estado'
+                 WHERE id = {$reservacionId}
+                 LIMIT 1"
+            );
             $db->commit();
 
             return ['ok' => true, 'codigo' => self::codigoEstado($nuevoEstado)];
@@ -527,9 +634,17 @@ class ReservacionService
     {
         $estado = (string)self::valor($reservacion, 'estado', '');
         $fecha = (string)self::valor($reservacion, 'fecha', '');
-        $hora = HorarioReservacionService::normalizarHoraSql((string)self::valor($reservacion, 'hora', ''));
 
-        if (!self::estadoActivo($estado)) {
+        $vigencia = ReservacionVigenciaService::clasificar($reservacion);
+        if (!$vigencia['editable']) {
+            if ($fecha !== '' && $fecha < ReservacionConfig::fechaActual()) {
+                return self::RESERVACION_PASADA;
+            }
+
+            if ($vigencia['tolerancia_vencida']) {
+                return self::RESERVACION_HORARIO_PASADO;
+            }
+
             return self::ESTADO_NO_EDITABLE;
         }
 
@@ -537,11 +652,20 @@ class ReservacionService
             return self::RESERVACION_PASADA;
         }
 
-        if (HorarioReservacionService::horarioPasadoHoy($fecha, $hora)) {
-            return self::RESERVACION_HORARIO_PASADO;
-        }
-
         return '';
+    }
+
+    /**
+     * Expone el contrato derivado sin obligar a controladores o vistas a
+     * reconstruir reglas temporales.
+     *
+     * @param array<string, mixed>|object $reservacion
+     * @param array<string, mixed>|object|null $ticket
+     * @return array<string, mixed>
+     */
+    public static function clasificarVigencia($reservacion, $ticket = null): array
+    {
+        return ReservacionVigenciaService::clasificar($reservacion, null, $ticket);
     }
 
     public static function puedeEditar($reservacion): bool
@@ -568,6 +692,7 @@ class ReservacionService
             'max_comensales' => (int)$opciones['max_comensales'],
             'permitir_comentario_admin' => (bool)$opciones['permitir_comentario_admin'],
             'validar_nota' => true,
+            'contacto_requerido' => (bool)($opciones['contacto_requerido'] ?? true),
         ]);
 
         if (!$validacion['ok']) {
@@ -576,12 +701,32 @@ class ReservacionService
 
         $datos = $validacion['datos'];
         $horario = $validacion['horario'];
+        $sinContacto = $datos['contacto'] === '';
+        $confirmoSinContacto = (string)($post['confirmar_sin_contacto'] ?? '') === '1';
+        $permitirCapacidadInsuficiente =
+            (string)($post['permitir_capacidad_insuficiente'] ?? '') === '1';
+
+        if ($sinContacto && !$confirmoSinContacto) {
+            return [
+                'ok' => false,
+                'codigo' => self::REQUIERE_CONFIRMACION_SIN_CONTACTO,
+                'msg' => 'Confirma que deseas crear la reservación sin contacto.',
+                'errors' => [],
+                'requiere_confirmacion_sin_contacto' => true,
+            ];
+        }
+
         $db = ActiveRecord::getDB();
         $fechaLock = (string)$horario['fecha'];
+        $horarioLock = false;
         $lockAdquirido = false;
         $transaccionIniciada = false;
 
         try {
+            $horarioLock = HorarioConfigLock::adquirir($db);
+            if (!$horarioLock) {
+                throw new \RuntimeException('No fue posible bloquear la configuración de horarios.');
+            }
             $lockAdquirido = FechaOperacionLock::adquirir($db, $fechaLock);
             if (!$lockAdquirido) {
                 throw new \RuntimeException('No fue posible obtener el lock de la fecha.');
@@ -603,13 +748,19 @@ class ReservacionService
 
             $reservacion = new Reservacion();
             $reservacion->nombre = $datos['nombre'];
-            $reservacion->email = $datos['email'];
+            $reservacion->contacto_tipo = $datos['contacto_tipo'];
+            $reservacion->contacto = $datos['contacto'];
             $reservacion->fecha = $horario['fecha'];
             $reservacion->hora = $horario['hora'];
             $reservacion->comensales = $datos['comensales'];
             $reservacion->nota = $datos['nota'];
             $reservacion->request_token = $requestToken;
-            $reservacion->estado = 'pendiente';
+            $reservacion->estado = 'confirmada';
+            $reservacion->confirmed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+            $reservacion->status_changed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+            $reservacion->last_modified_by = $opciones['usuario_id'] ?? null;
+            $reservacion->last_modified_source = 'personal';
+            $reservacion->last_change_reason = 'Reservación administrativa creada';
 
             $horarioFinal = self::validarHorarioDisponible($datos['fecha'], $datos['hora']);
             if (!$horarioFinal['ok']) {
@@ -618,7 +769,40 @@ class ReservacionService
 
             $reservacion->fecha = $horarioFinal['fecha'];
             $reservacion->hora = $horarioFinal['hora'];
-            $guardado = $reservacion->guardar();
+            $capacidad = DisponibilidadReservacionService::resumenHorario(
+                (string)$reservacion->fecha,
+                (string)$reservacion->hora,
+                (int)$reservacion->comensales,
+                0,
+                true,
+                false
+            );
+            $capacidadDisponible = (int)($capacidad['capacidad_disponible'] ?? 0);
+            $capacidadSuficiente = ($capacidad['ok'] ?? false)
+                && $capacidadDisponible >= (int)$reservacion->comensales;
+
+            if (!$capacidadSuficiente && !$permitirCapacidadInsuficiente) {
+                return [
+                    'ok' => false,
+                    'codigo' => self::REQUIERE_CONFIRMACION_CAPACIDAD,
+                    'msg' => sprintf(
+                        'La reservación es para %d personas, pero sólo hay capacidad disponible para %d.',
+                        (int)$reservacion->comensales,
+                        $capacidadDisponible
+                    ),
+                    'errors' => [],
+                    'requiere_confirmacion_capacidad' => true,
+                    'capacidad_solicitada' => (int)$reservacion->comensales,
+                    'capacidad_disponible' => $capacidadDisponible,
+                    'capacidad_total' => (int)($capacidad['capacidad_total'] ?? 0),
+                ];
+            }
+
+            $asignarAutomaticamente = (bool)$opciones['asignar_automaticamente'];
+            if (!$capacidadSuficiente) {
+                $asignarAutomaticamente = false;
+            }
+            $guardado = $reservacion->crearAdministrativa();
 
             if (!$guardado || !$guardado['resultado']) {
                 throw new \RuntimeException('No se pudo guardar la reservacion.');
@@ -630,20 +814,18 @@ class ReservacionService
                 self::guardarComentarioAdmin($reservacionId, $datos['comentario_admin']);
             }
 
-            $asignarAutomaticamente = (bool)$opciones['asignar_automaticamente'];
             $asignacion = ['ok' => false, 'codigo' => AsignacionMesasService::SIN_CAPACIDAD, 'mesa_ids' => []];
 
             if ($asignarAutomaticamente) {
-                $asignacion = $opciones['tipo_asignacion'] === 'publica'
-                    ? AsignacionMesasService::asignarAutomaticamentePublica($reservacionId, false)
-                    : AsignacionMesasService::asignarAutomaticamente($reservacionId, false);
+                $asignacion = AsignacionMesasService::asignarAutomaticamente(
+                    $reservacionId,
+                    false
+                );
             }
 
             $codigoAsignacion = (string)($asignacion['codigo'] ?? AsignacionMesasService::ERROR_INTERNO);
-            $sinMesaPermitido = in_array($codigoAsignacion, [
-                AsignacionMesasService::SIN_CAPACIDAD,
-                AsignacionMesasService::CAPACIDAD_INSUFICIENTE,
-            ], true);
+            $sinMesaPermitido = !$asignarAutomaticamente
+                || $permitirCapacidadInsuficiente;
             if (!($asignacion['ok'] ?? false) && !$sinMesaPermitido) {
                 throw new \RuntimeException('La asignacion inicial fallo con codigo ' . $codigoAsignacion . '.');
             }
@@ -653,7 +835,16 @@ class ReservacionService
             }
             $transaccionIniciada = false;
 
-            return self::resultadoCreacion($reservacionId, $asignacion, false);
+            return array_merge(
+                self::resultadoCreacion($reservacionId, $asignacion, false),
+                [
+                    'sin_contacto' => $sinContacto,
+                    'capacidad_solicitada' => (int)$reservacion->comensales,
+                    'capacidad_disponible' => $capacidadDisponible,
+                    'capacidad_total' => (int)($capacidad['capacidad_total'] ?? 0),
+                    'requiere_asignacion_manual' => !($asignacion['ok'] ?? false),
+                ]
+            );
         } catch (\mysqli_sql_exception $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -687,6 +878,9 @@ class ReservacionService
             if ($lockAdquirido) {
                 FechaOperacionLock::liberar($db, $fechaLock);
             }
+            if ($horarioLock) {
+                HorarioConfigLock::liberar($db);
+            }
         }
     }
 
@@ -695,13 +889,16 @@ class ReservacionService
         $asignadas = ReservacionMesa::obtenerPorReservacion((int)$reservacion->id);
         $mesaIds = array_map(static fn($mesa): int => (int)$mesa->id, $asignadas);
 
-        return self::resultadoCreacion((int)$reservacion->id, [
+        return array_merge(self::resultadoCreacion((int)$reservacion->id, [
             'ok' => $mesaIds !== [],
             'codigo' => $mesaIds !== []
                 ? AsignacionMesasService::ASIGNACION_GUARDADA
                 : AsignacionMesasService::SIN_CAPACIDAD,
             'mesa_ids' => $mesaIds,
-        ], true);
+        ], true), [
+            'sin_contacto' => trim((string)($reservacion->contacto ?? '')) === '',
+            'requiere_asignacion_manual' => $mesaIds === [],
+        ]);
     }
 
     private static function resultadoCreacion(int $reservacionId, array $asignacion, bool $idempotente): array
@@ -727,7 +924,12 @@ class ReservacionService
                 : 'Reservacion creada y mesas asignadas correctamente.',
             'warning' => $sinMesas
                 ? 'Solicitud recibida. Confirmaremos la disponibilidad de mesa para este horario.'
-                : null,
+                : ($asignacion['advertencia'] ?? null),
+            'depende_liberacion_proyectada' => (bool)($asignacion['depende_liberacion_proyectada'] ?? false),
+            'mesas_proyectadas' => array_values(array_map(
+                'intval',
+                (array)($asignacion['mesas_proyectadas'] ?? [])
+            )),
         ];
     }
 
@@ -738,6 +940,8 @@ class ReservacionService
             'permitir_comentario_admin' => true,
             'validar_nota' => false,
             'validar_horario' => false,
+            'contacto_requerido' => false,
+            'preservar_tipo_sin_contacto' => true,
         ]);
     }
 
@@ -749,9 +953,13 @@ class ReservacionService
         $permitirComentarioAdmin = (bool)($opciones['permitir_comentario_admin'] ?? false);
         $validarNota = (bool)($opciones['validar_nota'] ?? true);
         $validarHorario = (bool)($opciones['validar_horario'] ?? true);
+        $contactoRequerido = (bool)($opciones['contacto_requerido'] ?? true);
+        $preservarTipoSinContacto = (bool)($opciones['preservar_tipo_sin_contacto'] ?? false);
 
         $nombre = trim((string)($datos['nombre'] ?? ''));
-        $email = strtolower(trim((string)($datos['email'] ?? '')));
+        $contactoTipo = trim((string)($datos['contacto_tipo'] ?? 'email'));
+        $contactoValor = trim((string)($datos['contacto'] ?? ''));
+        $contacto = '';
         $fecha = trim((string)($datos['fecha'] ?? ''));
         $horaOriginal = trim((string)($datos['hora'] ?? ''));
         $hora = HorarioReservacionService::normalizarHoraSql($horaOriginal);
@@ -761,6 +969,11 @@ class ReservacionService
         $comentario = trim((string)($datos['comentario_admin'] ?? ''));
         $horario = null;
         $codigoHorario = '';
+        if ($contactoValor === '' && $contactoTipo === '') {
+            // Compatibilidad con altas administrativas históricas sin
+            // contacto; el formulario actual siempre envía una opción válida.
+            $contactoTipo = 'email';
+        }
 
         if ($nombre === '') {
             self::agregarError($errors, $fieldCodes, 'nombre', 'Escribe un nombre para la reservacion.', 'NOMBRE_REQUERIDO');
@@ -770,10 +983,34 @@ class ReservacionService
             self::agregarError($errors, $fieldCodes, 'nombre', 'El nombre es demasiado largo.', 'NOMBRE_DEMASIADO_LARGO');
         }
 
-        if ($email === '') {
-            self::agregarError($errors, $fieldCodes, 'email', 'Escribe un correo electronico.', 'EMAIL_REQUERIDO');
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || self::longitud($email) > ReservacionConfig::EMAIL_MAX_CARACTERES) {
-            self::agregarError($errors, $fieldCodes, 'email', 'Escribe un correo electronico valido.', 'EMAIL_INVALIDO');
+        if (!in_array($contactoTipo, ContactoService::TIPOS, true)) {
+            self::agregarError(
+                $errors,
+                $fieldCodes,
+                'contacto_tipo',
+                'Selecciona correo electrónico o teléfono.',
+                'CONTACTO_TIPO_INVALIDO'
+            );
+        } elseif ($contactoValor !== '' || $contactoRequerido) {
+            try {
+                $contacto = ContactoService::normalizar($contactoTipo, $contactoValor);
+            } catch (\InvalidArgumentException $e) {
+                self::agregarError(
+                    $errors,
+                    $fieldCodes,
+                    'contacto',
+                    $e->getMessage(),
+                    'CONTACTO_INVALIDO'
+                );
+            }
+        }
+        if ($contactoValor === '') {
+            // El esquema vigente mantiene ambas columnas como NOT NULL. El
+            // valor vacío representa ausencia de contacto sin una migración.
+            if (!$preservarTipoSinContacto) {
+                $contactoTipo = 'email';
+            }
+            $contacto = '';
         }
 
         if ($fecha === '') {
@@ -840,6 +1077,9 @@ class ReservacionService
                 'msg' => self::primerError($errors),
                 'errors' => $errors,
                 'field_codes' => $fieldCodes,
+                'siguiente_horario_valido' => is_array($horario)
+                    ? ($horario['siguiente_horario_valido'] ?? null)
+                    : null,
             ];
         }
 
@@ -847,7 +1087,8 @@ class ReservacionService
             'ok' => true,
             'datos' => [
                 'nombre' => $nombre,
-                'email' => $email,
+                'contacto_tipo' => $contactoTipo,
+                'contacto' => $contacto,
                 'fecha' => $horario['fecha'] ?? $fecha,
                 'hora' => $horario['hora'] ?? $hora,
                 'comensales' => (int)$comensales,
@@ -877,15 +1118,24 @@ class ReservacionService
         ];
     }
 
-    private static function actualizarFila(int $reservacionId, array $datos, string $estado): void
+    private static function actualizarFila(
+        int $reservacionId,
+        array $datos,
+        string $estado,
+        ?int $usuarioId
+    ): void
     {
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
-            "email = '" . ActiveRecord::escaparString($datos['email']) . "'",
+            "contacto_tipo = '" . ActiveRecord::escaparString($datos['contacto_tipo']) . "'",
+            "contacto = '" . ActiveRecord::escaparString($datos['contacto']) . "'",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             "comensales = " . (int)$datos['comensales'],
             "estado = '" . ActiveRecord::escaparString($estado) . "'",
+            'last_modified_by = ' . ($usuarioId !== null ? (string)$usuarioId : 'NULL'),
+            "last_modified_source = 'personal'",
+            "last_change_reason = 'Reservación modificada por personal'",
         ];
 
         if (Reservacion::tieneComentarioAdmin()) {
@@ -947,6 +1197,10 @@ class ReservacionService
             'errors' => [
                 $field => [self::mensajeHorario($codigoHorario)],
             ],
+            'field_codes' => [
+                $field => [self::codigoCampoHorario($codigoHorario)],
+            ],
+            'siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null,
         ];
     }
 

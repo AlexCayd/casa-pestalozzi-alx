@@ -10,8 +10,13 @@
   gap: 1.1rem;
   align-items: flex-end;
   mix-blend-mode: difference;
+  // El contenedor ocupa el ancho de la etiqueta más larga. Evita que esa
+  // zona transparente intercepte controles de la página (p. ej. el botón
+  // de más comensales); sólo los enlaces reales deben recibir puntero.
+  pointer-events: none;
 
   a {
+    pointer-events: auto;
     display: flex;
     align-items: center;
     gap: 0.8rem;

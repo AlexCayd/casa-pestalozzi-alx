@@ -71,9 +71,25 @@
   --admin-surface-soft: #fbf9f4;
   --admin-surface-strong: #ffffff;
 
-  /* Sidebar (siempre tinta profunda, como el público) */
-  --admin-sidebar: #101213;
-  --admin-sidebar-soft: #15181a;
+  /*
+   * Sidebar: en claro también va en claro. Antes quedaba fijo en tinta
+   * profunda y el interruptor de tema no lo tocaba.
+   */
+  --admin-sidebar: #fffdf8;
+  --admin-sidebar-soft: #f6f1e7;
+  --admin-sidebar-border: rgba(11, 12, 13, 0.09);
+  --admin-sidebar-text: #0b0c0d;
+  --admin-sidebar-link: rgba(11, 12, 13, 0.68);
+  --admin-sidebar-link-hover: #0b0c0d;
+  --admin-sidebar-hover-bg: rgba(11, 12, 13, 0.05);
+  --admin-sidebar-active-bg: rgba(204, 163, 82, 0.18);
+  --admin-sidebar-active-text: #0b0c0d;
+  --admin-sidebar-mark-bg: rgba(11, 12, 13, 0.05);
+  --admin-sidebar-mark-active-text: #1b1a17;
+  --admin-sidebar-scroll: rgba(160, 126, 54, 0.36);
+  --admin-sidebar-scroll-hover: rgba(160, 126, 54, 0.55);
+  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.18);
+  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.35);
 
   /* Texto */
   --admin-text: #0b0c0d;
@@ -142,6 +158,19 @@
   /* Sidebar aún más profundo que el fondo */
   --admin-sidebar: #0b0c0d;
   --admin-sidebar-soft: #101213;
+  --admin-sidebar-border: transparent;
+  --admin-sidebar-text: #ede9df;
+  --admin-sidebar-link: rgba(248, 239, 226, 0.78);
+  --admin-sidebar-link-hover: #fff;
+  --admin-sidebar-hover-bg: rgba(248, 239, 226, 0.1);
+  --admin-sidebar-active-bg: rgba(248, 239, 226, 0.12);
+  --admin-sidebar-active-text: #fff;
+  --admin-sidebar-mark-bg: rgba(248, 239, 226, 0.08);
+  --admin-sidebar-mark-active-text: #101213;
+  --admin-sidebar-scroll: rgba(204, 163, 82, 0.32);
+  --admin-sidebar-scroll-hover: rgba(204, 163, 82, 0.5);
+  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.28);
+  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.5);
 
   /* Texto */
   --admin-text: #ede9df;

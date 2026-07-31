@@ -3,13 +3,12 @@
 namespace Model;
 
 use DateTimeImmutable;
+use Services\AnuncioConfig;
 use Services\ReservacionConfig;
 
 class ConfiguracionAnuncio extends ActiveRecord
 {
     private const ID_UNICO = 1;
-    private const TIPOS_PERMITIDOS = ['informativo', 'advertencia', 'importante'];
-
     protected static $tabla = 'configuracion_anuncio';
     protected static $columnasDB = [
         'id',
@@ -26,7 +25,7 @@ class ConfiguracionAnuncio extends ActiveRecord
 
     public $id = self::ID_UNICO;
     public $mensaje = '';
-    public $tipo = 'informativo';
+    public $tipo = AnuncioConfig::TIPO_PREDETERMINADO;
     public $activo = 0;
     public $fecha_inicio = null;
     public $fecha_fin = null;
@@ -34,6 +33,7 @@ class ConfiguracionAnuncio extends ActiveRecord
     public $url_enlace = null;
     public $updated_by = null;
     public $updated_at = null;
+    private array $erroresCampos = [];
 
     public function __construct(array $args = [])
     {
@@ -124,6 +124,7 @@ class ConfiguracionAnuncio extends ActiveRecord
     public function validar(): array
     {
         static::$alertas = [];
+        $this->erroresCampos = [];
         $mensaje = trim((string) $this->mensaje);
         $textoEnlace = trim((string) ($this->texto_enlace ?? ''));
         $urlEnlace = trim((string) ($this->url_enlace ?? ''));
@@ -140,7 +141,7 @@ class ConfiguracionAnuncio extends ActiveRecord
         if (self::contieneHtml($mensaje)) {
             static::setAlerta('error', 'El mensaje debe contener únicamente texto, sin etiquetas HTML.');
         }
-        if (!in_array((string) $this->tipo, self::TIPOS_PERMITIDOS, true)) {
+        if (!AnuncioConfig::tipoValido((string) $this->tipo)) {
             static::setAlerta('error', 'El tipo de anuncio no es válido.');
         }
 
@@ -164,17 +165,27 @@ class ConfiguracionAnuncio extends ActiveRecord
         }
 
         if (mb_strlen($textoEnlace) > 80) {
-            static::setAlerta('error', 'El texto del enlace no puede superar 80 caracteres.');
+            $this->registrarErrorCampo('texto_enlace', 'El texto del enlace no puede superar 80 caracteres.');
         }
         if (self::contieneHtml($textoEnlace)) {
-            static::setAlerta('error', 'El texto del enlace debe contener únicamente texto, sin etiquetas HTML.');
+            $this->registrarErrorCampo(
+                'texto_enlace',
+                'El texto del enlace debe contener únicamente texto, sin etiquetas HTML.'
+            );
         }
         if (mb_strlen($urlEnlace) > 500) {
-            static::setAlerta('error', 'La URL del enlace no puede superar 500 caracteres.');
+            $this->registrarErrorCampo('url_enlace', 'La URL del enlace no puede superar 500 caracteres.');
         }
-        self::validarParEnlace($textoEnlace, $urlEnlace);
+        if ($textoEnlace !== '' && $urlEnlace === '') {
+            $this->registrarErrorCampo('url_enlace', 'Ingresa también la URL del enlace.');
+        } elseif ($urlEnlace !== '' && $textoEnlace === '') {
+            $this->registrarErrorCampo('texto_enlace', 'Ingresa también el texto del enlace.');
+        }
         if ($urlEnlace !== '' && !self::esUrlPermitida($urlEnlace)) {
-            static::setAlerta('error', 'La URL debe ser una ruta interna o una URL absoluta con protocolo http o https.');
+            $this->registrarErrorCampo(
+                'url_enlace',
+                'La URL debe ser una ruta interna o una URL absoluta con protocolo http o https.'
+            );
         }
 
         return static::$alertas;
@@ -184,12 +195,14 @@ class ConfiguracionAnuncio extends ActiveRecord
     {
         $this->id = self::ID_UNICO;
         $this->mensaje = trim((string) $this->mensaje);
-        $this->tipo = trim((string) $this->tipo);
+        $this->tipo = AnuncioConfig::tipoValido(trim((string) $this->tipo))
+            ? trim((string) $this->tipo)
+            : AnuncioConfig::TIPO_PREDETERMINADO;
         $this->activo = (int) ((bool) $this->activo);
         $this->fecha_inicio = self::normalizarFecha($this->fecha_inicio);
         $this->fecha_fin = self::normalizarFecha($this->fecha_fin);
         $this->texto_enlace = self::normalizarOpcional($this->texto_enlace);
-        $this->url_enlace = self::normalizarOpcional($this->url_enlace);
+        $this->url_enlace = self::normalizarUrlOpcional($this->url_enlace);
         $this->updated_by = filter_var(
             $this->updated_by,
             FILTER_VALIDATE_INT,
@@ -250,10 +263,12 @@ class ConfiguracionAnuncio extends ActiveRecord
 
     public function valoresFormulario(): array
     {
+        $tipo = (string) $this->tipo;
+
         return [
             'activo' => (int) $this->activo === 1,
             'mensaje' => (string) $this->mensaje,
-            'tipo' => (string) $this->tipo,
+            'tipo' => AnuncioConfig::tipoValido($tipo) ? $tipo : AnuncioConfig::TIPO_PREDETERMINADO,
             'fecha_inicio' => self::fechaParaFormulario($this->fecha_inicio),
             'fecha_fin' => self::fechaParaFormulario($this->fecha_fin),
             'texto_enlace' => (string) ($this->texto_enlace ?? ''),
@@ -306,21 +321,34 @@ class ConfiguracionAnuncio extends ActiveRecord
         return $valor === '' ? null : $valor;
     }
 
+    public function erroresCampos(): array
+    {
+        return $this->erroresCampos;
+    }
+
+    private static function normalizarUrlOpcional($valor): ?string
+    {
+        $valor = trim((string) ($valor ?? ''));
+        if ($valor === '') {
+            return null;
+        }
+
+        $sanitizada = filter_var($valor, FILTER_SANITIZE_URL);
+
+        return is_string($sanitizada) && self::urlPermitida($sanitizada)
+            ? $sanitizada
+            : null;
+    }
+
     private static function contieneHtml(string $valor): bool
     {
         return $valor !== strip_tags($valor) || str_contains($valor, "\0");
     }
 
-    private static function validarParEnlace(string $textoEnlace, string $urlEnlace): void
+    private function registrarErrorCampo(string $campo, string $mensaje): void
     {
-        $tieneTexto = trim($textoEnlace) !== '';
-        $tieneUrl = trim($urlEnlace) !== '';
-
-        if ($tieneTexto && !$tieneUrl) {
-            static::setAlerta('error', 'Ingresa también la URL del enlace.');
-        } elseif ($tieneUrl && !$tieneTexto) {
-            static::setAlerta('error', 'Ingresa también el texto del enlace.');
-        }
+        $this->erroresCampos[$campo][] = $mensaje;
+        static::setAlerta('error', $mensaje);
     }
 
     private static function urlPermitida(string $url): bool

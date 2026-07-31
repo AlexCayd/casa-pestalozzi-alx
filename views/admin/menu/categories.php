@@ -16,7 +16,7 @@
                 </svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="/admin/menu/categories/create" title="Nueva categoría" aria-label="Nueva categoría">
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-create-button" href="/admin/menu" title="Se crean desde el listado de platillos" aria-label="Nueva categoría">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/>
                     <path d="M5 12h14"/>
@@ -66,11 +66,11 @@
                                         <img class="admin-menu__thumb" src="/<?php echo htmlspecialchars(ltrim($cat->img, '/')); ?>"
                                              alt="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>" loading="lazy">
                                     <?php else : ?>
-                                        <span class="admin-table__cell-sub">Sin imagen</span>
+                                        <span class="admin-badge admin-badge--warning" title="Sin imagen la carta pública no muestra previsualización de esta categoría">Sin imagen</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <form method="POST" action="/admin/menu/categories/edit?id=<?php echo (int) $cat->id; ?>">
+                                    <form method="POST" action="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>">
                                         <input type="hidden" name="nombre" value="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>">
                                         <?php if (!$cat->activo) : ?>
                                             <input type="hidden" name="activo" value="1">
@@ -92,7 +92,7 @@
                                     <div class="admin-table-actions">
                                         <a
                                             class="admin-icon-button admin-icon-button--edit"
-                                            href="/admin/menu/categories/edit?id=<?php echo (int) $cat->id; ?>"
+                                            href="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>"
                                             title="Editar"
                                             aria-label="Editar categoría <?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"
                                         >
@@ -101,7 +101,7 @@
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <form method="POST" action="/admin/menu/categories/delete" onsubmit="return confirm('Eliminar la categoría &quot;<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/menu/categorias/delete" onsubmit="return confirm('Eliminar la categoría &quot;<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>&quot;?');">
                                             <input type="hidden" name="id" value="<?php echo (int) $cat->id; ?>">
                                             <button
                                                 type="submit"

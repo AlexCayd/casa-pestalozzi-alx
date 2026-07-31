@@ -7,7 +7,7 @@
 
 namespace Model;
 
-use Services\ReservacionConfig;
+use Services\ReservacionVigenciaService;
 
 class ReservacionMesa extends ActiveRecord
 {
@@ -109,24 +109,23 @@ class ReservacionMesa extends ActiveRecord
         $fecha = self::escaparString($fecha);
         $excluirSql = $excluirReservacionId > 0 ? "AND r.id != {$excluirReservacionId}" : '';
         $bloqueoSql = $bloquear ? ' FOR UPDATE' : '';
-        $estadosOcupacion = implode(', ', array_map(
-            static fn(string $estado): string => "'" . self::escaparString($estado) . "'",
-            ReservacionConfig::ESTADOS_OCUPAN_MESA
-        ));
-
+        $condicionOcupacion = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r');
         $resultado = self::$db->query(
             "SELECT rm.mesa_id,
                     r.id AS reservacion_id,
                     r.nombre,
-                    r.email,
+                    r.contacto,
                     r.hora,
                     r.comensales,
-                    r.estado
+                    r.estado,
+                    r.hold_expires_at,
+                    r.arrived_at,
+                    " . ReservacionVigenciaService::condicionSqlTieneTicketAbierto('r') . " AS ticket_abierto
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE r.fecha = '{$fecha}'
                {$excluirSql}
-               AND r.estado IN ({$estadosOcupacion})
+               AND {$condicionOcupacion}
              ORDER BY r.hora ASC, rm.mesa_id ASC{$bloqueoSql}"
         );
 
@@ -140,10 +139,17 @@ class ReservacionMesa extends ActiveRecord
                 'mesa_id' => (int)$fila['mesa_id'],
                 'reservacion_id' => (int)$fila['reservacion_id'],
                 'nombre' => (string)$fila['nombre'],
-                'email' => (string)$fila['email'],
+                'contacto' => (string)$fila['contacto'],
                 'hora' => (string)$fila['hora'],
                 'comensales' => (int)$fila['comensales'],
                 'estado' => (string)$fila['estado'],
+                'hold_expires_at' => $fila['hold_expires_at'] !== null
+                    ? (string)$fila['hold_expires_at']
+                    : null,
+                'arrived_at' => $fila['arrived_at'] !== null
+                    ? (string)$fila['arrived_at']
+                    : null,
+                'ticket_abierto' => (bool)$fila['ticket_abierto'],
             ];
         }
 

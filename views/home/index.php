@@ -86,7 +86,7 @@ if ($schemaHorarios !== []) {
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
-  <link rel="stylesheet" href="/build/css/app.css?v=announcement-black-v6" />
+  <link rel="stylesheet" href="/build/css/app.css?v=reservations-public-redesign-v16" />
 </head>
 <body class="reveal-ready" data-hero="cinema" data-page="home">
 
@@ -125,7 +125,7 @@ if ($schemaHorarios !== []) {
   <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
-  <script src="/build/js/bundle.min.js"></script>
+  <script src="/build/js/bundle.min.js?v=reservations-public-redesign-v16"></script>
 
 </body>
 </html>

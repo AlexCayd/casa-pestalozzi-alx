@@ -10,9 +10,15 @@ $returnUrl = (string)($returnUrl ?? '');
 $fechaMinima = (string)($fechaMinima ?? \Services\ReservacionConfig::fechaActual());
 $fechaInicial = (string)($filtros['fecha'] ?? $fechaMinima);
 $modoSoloLectura = (bool)($modoSoloLectura ?? false);
+$operacionEditable = (bool)($operacionEditable ?? !$modoSoloLectura);
 $fechaInvalidaRecibida = (string)($fechaInvalidaRecibida ?? '');
 $horaInicial = \Services\HorarioReservacionService::normalizarHoraCorta((string)($filtros['hora'] ?? ''));
+$horaSolicitadaInicial = \Services\HorarioReservacionService::normalizarHoraCorta(
+    (string)($horaSolicitadaInicial ?? $horaInicial)
+);
 $initialReservacionId = (int)($initialReservacionId ?? 0);
+$initialOperationIntent = (string)($initialOperationIntent ?? '');
+$initialOperationNotice = is_array($initialOperationNotice ?? null) ? $initialOperationNotice : null;
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? false);
 
 $h = static function ($value): string {
@@ -39,6 +45,40 @@ $agregarAlerta = static function ($tipo, $mensajes) use (&$alertasNormalizadas, 
 foreach ($alertas as $tipo => $mensajes) {
     $agregarAlerta($tipo, $mensajes);
 }
+
+$operationalGlobalNotice = ['hidden' => true];
+if ($initialOperationNotice !== null) {
+    $operationalGlobalNotice = $initialOperationNotice;
+} elseif ($alertasNormalizadas !== []) {
+    $tipoInicial = (string)array_key_first($alertasNormalizadas);
+    $mensajesIniciales = $alertasNormalizadas[$tipoInicial] ?? [];
+    $tipoAvisoInicial = $tipoInicial === 'exito'
+        ? 'success'
+        : ($tipoInicial === 'warning' ? 'warning' : 'error');
+    $operationalGlobalNotice = [
+        'type' => $tipoAvisoInicial,
+        'hidden' => false,
+    ];
+    $operationalGlobalNotice['title'] = match ($tipoAvisoInicial) {
+        'success' => 'Cambios guardados',
+        'warning' => 'Aviso de operación',
+        default => 'No se pudo completar la operación',
+    };
+    $operationalGlobalNotice['summary'] = (string)($mensajesIniciales[0] ?? 'Consulta el estado de la operación.');
+    $operationalGlobalNotice['message'] = match ($tipoAvisoInicial) {
+        'success' => 'El servidor confirmó el cambio y la información visible quedó actualizada.',
+        'warning' => 'Revisa el contexto del aviso y continúa con una opción disponible.',
+        default => 'Los datos visibles no cambiaron. Revisa el estado actual antes de volver a intentar la acción desde su control original.',
+    };
+} elseif ($modoSoloLectura) {
+    $operationalGlobalNotice = [
+        'type' => 'info',
+        'title' => 'Modo histórico',
+        'summary' => 'Esta vista es solo de lectura.',
+        'message' => 'Estás consultando una fecha anterior. La asignación, los comentarios y los cambios de estado están deshabilitados; vuelve a una fecha vigente para operar.',
+        'hidden' => false,
+    ];
+}
 ?>
 
 <section
@@ -49,111 +89,96 @@ foreach ($alertas as $tipo => $mensajes) {
     data-min-fecha="<?php echo $h($fechaMinima); ?>"
     data-initial-date-warning="<?php echo $fechaInvalidaRecibida !== '' ? '1' : '0'; ?>"
     data-operation-mode="<?php echo $modoSoloLectura ? 'solo_lectura' : 'operacion'; ?>"
-    data-operation-editable="<?php echo $modoSoloLectura ? '0' : '1'; ?>"
+    data-operation-editable="<?php echo $operacionEditable ? '1' : '0'; ?>"
     data-initial-hora="<?php echo $h($horaInicial); ?>"
+    data-initial-requested-hour="<?php echo $h($horaSolicitadaInicial); ?>"
     data-initial-reservation-id="<?php echo $initialReservacionId; ?>"
+    data-initial-operation-intent="<?php echo $h($initialOperationIntent); ?>"
     data-return-url="<?php echo $h($returnUrl); ?>"
     data-comment-enabled="<?php echo $comentarioAdminDisponible ? '1' : '0'; ?>"
 >
     <?php
     ob_start();
+    $operationalMapToggleLabel = 'mapa de reservaciones';
+    $operationalMapToggleIconOnly = true;
+    include __DIR__ . '/../partials/map-toggle.php';
     include __DIR__ . '/_filters.php';
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
-    if (!$modoSoloLectura):
+    if ($operacionEditable):
     ?>
-        <a class="admin-btn admin-btn--primary" href="/admin/reservations/create?fecha=<?php echo $h($fechaInicial); ?>" data-operation-create>
+        <button class="admin-btn admin-btn--gold" type="button" data-operation-create data-create-date="<?php echo $h($fechaInicial); ?>">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <rect x="3" y="5" width="18" height="16" rx="2"></rect>
                 <path d="M8 3v4M16 3v4M3 10h18M12 13v6M9 16h6"></path>
             </svg>
             <span>Crear reservación</span>
-        </a>
+        </button>
     <?php
     endif;
     $operationalContextActionsHtml = (string)ob_get_clean();
     $operationalContextView = 'reservations';
-    $operationalDrawerId = 'operation-reservations-drawer';
-    $operationalDrawerInitialCount = '0';
-    include __DIR__ . '/../partials/context-bar.php';
+    $operationalContextSelectionHtml =
+        '<div class="operational-selection-context" role="status" aria-live="polite"><span data-operation-selection-copy>Ninguna reservación seleccionada</span></div>' .
+        '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
+            '<span>Total <strong data-operation-capacity-total>0</strong></span>' .
+            '<span>Libre ahora <strong data-operation-capacity-real>0</strong></span>' .
+            '<span>Proyectada <strong data-operation-capacity-projected>0</strong></span>' .
+            '<span>Estimada <strong data-operation-capacity-estimated>0</strong></span>' .
+            '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
+        '</div>';
+    $operationalContextIncludeDrawerToggle = false;
     ?>
-
-    <div class="reservation-operation-notice reservation-operation-notice--warning" role="status" aria-live="polite" data-operation-readonly-notice <?php echo $modoSoloLectura ? '' : 'hidden'; ?>>
-        <span class="reservation-operation-notice__icon" aria-hidden="true">i</span>
-        <span class="reservation-operation-notice__copy">
-            <strong>Modo historico de solo lectura</strong>
-            <span>Asignacion, reasignacion, comentarios y cambios de estado estan deshabilitados.</span>
-        </span>
-    </div>
-
-    <?php foreach ($alertasNormalizadas as $tipo => $mensajes): ?>
-        <?php
-        $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
-        $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atencion' : 'Revisa los siguientes datos');
-        ?>
-        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>" role="status">
-            <strong><?php echo $h($tituloAlerta); ?></strong>
-            <span><?php echo $h(implode(' ', $mensajes)); ?></span>
-        </div>
-    <?php endforeach; ?>
-
-    <div class="reservation-operation-notice reservation-operation-notice--neutral reservation-operation-context" data-operation-context role="status" aria-live="polite" hidden>
-        <span class="reservation-operation-notice__icon" aria-hidden="true">i</span>
-        <span class="reservation-operation-notice__copy">
-            <strong data-operation-context-title></strong>
-            <span data-operation-context-message></span>
-        </span>
-    </div>
-
-    <div class="reservation-operation-load-error" data-operation-load-error role="alert" hidden>
-        <span class="reservation-operation-load-error__copy">
-            <strong data-operation-load-error-title>No fue posible actualizar la operacion</strong>
-            <span data-operation-load-error-message></span>
-        </span>
-        <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-operation-retry>Reintentar</button>
-    </div>
 
     <?php
     $operationalDrawerId = 'operation-reservations-drawer';
     $operationalDrawerTitleId = 'operation-reservations-title';
     $operationalDrawerClass = 'reservation-operation__reservations';
     $operationalDrawerAttributes = ['data-operation-results' => true];
-    $operationalDrawerDateHtml = '<span data-operation-date-label>' . $h($fechaInicial) . '</span>';
+    $operationalDrawerDateHtml = '';
     $operationalDrawerCountHtml = '<span class="mapa-reserva-count" data-operation-count>0</span>';
-    $operationalDrawerSlotHtml = '<span data-operation-hour-label>Sin horario</span>';
+    $operationalDrawerSlotHtml = '';
     $operationalDrawerListAttributes = ['data-operation-reservations' => true];
     $operationalDrawerListHtml = '<div class="reservation-operation-skeleton"><span></span><span></span><span></span></div>';
+    $operationalActiveModule = 'reservations';
+    $operationalMapHref = '/punto-de-venta';
+    $operationalReservationsHref = '/admin/reservations/operation';
     include __DIR__ . '/../partials/drawer.php';
     ?>
 
     <div class="reservation-operation__workspace operational-workspace" data-operation-mobile-view="tables">
+        <?php include __DIR__ . '/../partials/context-bar.php'; ?>
+        <div class="operational-content reservation-operation__content">
             <?php
-            $mapVisual = [
-                'context' => 'operacion-reservaciones',
-                'title' => 'Mapa de mesas',
-                'subtitle' => 'Selecciona una reservación para ver disponibilidad.',
-                'canvasMode' => 'operation',
+                    $mapVisual = [
+                        'context' => 'operacion-reservaciones',
+                        'sectionClass' => 'reservation-operation__map',
+                        'title' => '',
+                        'subtitle' => '',
+                        'ariaLabel' => 'Mapa de reservaciones',
+                        'canvasMode' => 'operation',
                 'loadingMode' => 'empty',
+                'legendPosition' => 'footer',
             ];
             include __DIR__ . '/../partials/map.php';
             ?>
 
-            <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Panel operativo" aria-hidden="false">
+        <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Detalle operativo" aria-hidden="false">
                 <div class="reservation-operation__panel-toolbar reservation-operation__header">
                     <span>Detalle operativo</span>
-                    <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar panel operativo" data-operation-panel-close>
+                    <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar detalle" title="Cerrar detalle" data-operation-panel-close>
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
                     </button>
                 </div>
                 <div class="reservation-operation__panel-content reservation-operation__body" data-operation-panel>
                     <article class="reservation-operation-panel admin-card">
-                        <span class="reservation-operation-panel__label">Reservacion seleccionada</span>
-                        <h3>Sin seleccion</h3>
-                        <p class="reservation-operation-panel__muted">Cargando reservaciones del dia.</p>
+                        <h3>Selecciona una reservación</h3>
+                        <p class="reservation-operation-panel__muted">Elige una reservación del menú lateral para consultar sus datos y mesas.</p>
                     </article>
                 </div>
-            </aside>
+        </aside>
+        </div>
     </div>
 
         <section
@@ -180,5 +205,92 @@ foreach ($alertas as $tipo => $mensajes) {
             </div>
         </section>
 
-    <div class="reservation-operation-toast" data-operation-toast hidden></div>
+    <?php
+    $modalReservacion = new \Model\Reservacion();
+    $modalReservacion->fecha = $fechaInicial;
+    $modalReservacion->hora = '';
+    $modalReservacion->comensales = 2;
+    $modalReservacion->estado = 'confirmada';
+    $modalReservacion->request_token = \Services\ReservacionService::generarRequestToken();
+    $modalFormModo = 'crear';
+    $reservacion = $modalReservacion;
+    $errores = [];
+    $editable = true;
+    $fechaActual = $fechaMinima;
+    $diasActivos = range(0, 6);
+    $maxComensalesAdmin = \Services\ReservacionConfig::MAX_COMENSALES_ADMIN;
+    $asignarAutomaticamente = true;
+    $returnUrl = '/admin/reservations/operation?fecha=' . rawurlencode($fechaInicial);
+    $formTransport = 'json';
+    $formActionsExternal = true;
+    ob_start();
+    $modo = $modalFormModo;
+    include __DIR__ . '/../../admin/reservations/_form.php';
+    $modalFormHtml = (string)ob_get_clean();
+    ?>
+    <dialog class="operation-create-modal" aria-labelledby="operation-create-modal-title" data-operation-create-modal>
+        <div class="operation-create-modal__head">
+            <div>
+                <span class="operation-create-modal__eyebrow">Reservaciones</span>
+                <h2 id="operation-create-modal-title">Crear reservación</h2>
+            </div>
+            <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar crear reservación" data-operation-create-close>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+        </div>
+        <div class="operation-create-modal__body" data-operation-create-body>
+            <div class="operation-create-modal__error" role="alert" data-operation-create-error hidden></div>
+            <?php echo $modalFormHtml; ?>
+        </div>
+        <div class="operation-create-modal__footer" data-operation-create-footer>
+            <button type="button" class="admin-btn admin-btn--secondary" data-operation-create-cancel>Cancelar</button>
+            <button type="submit" class="admin-btn admin-btn--primary" data-form-save form="crear-reservation-admin-form">Crear reservación</button>
+        </div>
+    </dialog>
+
+    <dialog class="operation-create-modal operation-confirm-modal" aria-labelledby="operation-ticket-conflict-title" data-operation-ticket-conflict-modal>
+        <div class="operation-create-modal__head">
+            <div>
+                <span class="operation-create-modal__eyebrow">Excepción manual</span>
+                <h2 id="operation-ticket-conflict-title">Mesas con servicio activo</h2>
+            </div>
+            <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar confirmación" data-operation-ticket-conflict-close>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+        </div>
+        <div class="operation-create-modal__body">
+            <p>La selección coincide con tickets realmente abiertos. El ticket continuará abierto y no se vinculará con esta reservación.</p>
+            <div class="reservation-operation-conflicts" data-operation-ticket-conflict-list></div>
+            <p class="operation-create-modal__error" role="alert" data-operation-ticket-conflict-error hidden></p>
+        </div>
+        <div class="operation-create-modal__footer">
+            <button type="button" class="admin-btn admin-btn--secondary" data-operation-ticket-conflict-close>Volver</button>
+            <button type="button" class="admin-btn admin-btn--danger" data-operation-ticket-conflict-confirm>Confirmar uso manual</button>
+        </div>
+    </dialog>
+
+    <dialog class="operation-create-modal operation-confirm-modal" aria-labelledby="operation-action-confirm-title" data-operation-action-modal>
+        <div class="operation-create-modal__head">
+            <div>
+                <span class="operation-create-modal__eyebrow">Confirmación operativa</span>
+                <h2 id="operation-action-confirm-title" data-operation-action-title>Confirmar acción</h2>
+            </div>
+            <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar confirmación" data-operation-action-close>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+        </div>
+        <div class="operation-create-modal__body">
+            <p data-operation-action-description>Revisa la acción antes de continuar.</p>
+            <label class="admin-field" data-operation-action-reason-field hidden>
+                <span>Motivo</span>
+                <textarea rows="3" maxlength="500" data-operation-action-reason placeholder="Explica brevemente el motivo"></textarea>
+            </label>
+            <p class="operation-create-modal__error" role="alert" data-operation-action-error hidden></p>
+        </div>
+        <div class="operation-create-modal__footer">
+            <button type="button" class="admin-btn admin-btn--secondary" data-operation-action-close>Volver</button>
+            <button type="button" class="admin-btn admin-btn--danger" data-operation-action-confirm>Confirmar</button>
+        </div>
+    </dialog>
+
 </section>

@@ -49,46 +49,6 @@ $criterios = [
         <?php endforeach; ?>
     </section>
 
-    <?php $meseros = $meseros ?? []; ?>
-    <section class="admin-panel admin-card admin-fb__meseros" aria-label="Rendimiento de meseros">
-        <div class="admin-fb__meseros-head">
-            <h3 class="admin-fb__meseros-title">Rendimiento de meseros</h3>
-            <p class="admin-fb__meseros-sub">Atención según el feedback de sus tickets y la propina promedio que dejó el cliente.</p>
-        </div>
-        <?php if (empty($meseros)) : ?>
-            <div class="admin-menu__empty">Aún no hay tickets con mesero asignado para evaluar.</div>
-        <?php else : ?>
-            <div class="admin-fb__meseros-grid">
-                <?php foreach ($meseros as $m) : ?>
-                    <article class="admin-card admin-fb__mesero<?php echo $m['activo'] ? '' : ' admin-fb__mesero--inactivo'; ?>">
-                        <div class="admin-fb__mesero-top">
-                            <span class="admin-fb__mesero-name"><?php echo htmlspecialchars($m['nombre']); ?></span>
-                            <?php if (!$m['activo']) : ?><span class="admin-fb__mesero-tag">Inactivo</span><?php endif; ?>
-                        </div>
-                        <div class="admin-fb__mesero-score">
-                            <strong><?php echo $m['rendimiento'] !== null ? (int) $m['rendimiento'] : '—'; ?></strong>
-                            <small>/ 100 rendimiento</small>
-                        </div>
-                        <div class="admin-fb__mesero-metrics">
-                            <div class="admin-fb__mesero-metric">
-                                <span class="admin-fb__mesero-metric-label">Atención</span>
-                                <?php echo $stars($m['atencion']); ?>
-                                <span class="admin-fb__mesero-metric-num"><?php echo $m['atencion'] !== null ? number_format((float) $m['atencion'], 1) . ' / 5' : '—'; ?></span>
-                            </div>
-                            <div class="admin-fb__mesero-metric">
-                                <span class="admin-fb__mesero-metric-label">Propina prom.</span>
-                                <span class="admin-fb__mesero-metric-num admin-fb__mesero-tip"><?php echo $m['tip_pct'] !== null ? number_format((float) $m['tip_pct'], 1) . '%' : '—'; ?></span>
-                            </div>
-                        </div>
-                        <div class="admin-fb__mesero-foot">
-                            <?php echo (int) $m['tickets']; ?> ticket(s) · <?php echo (int) $m['resenas']; ?> reseña(s)
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-    </section>
-
     <?php
     // Las áreas de mejora llegan desde el flujo de n8n (AreasMejora::leer()).
     // Mientras no haya datos generados, se muestran ejemplos como marcador.
@@ -182,6 +142,46 @@ $criterios = [
                 </article>
             <?php endforeach; ?>
         </div>
+    </section>
+
+    <?php $meseros = $meseros ?? []; ?>
+    <section class="admin-panel admin-card admin-fb__meseros" aria-label="Rendimiento de meseros">
+        <div class="admin-fb__meseros-head">
+            <h3 class="admin-fb__meseros-title">Rendimiento de meseros</h3>
+            <p class="admin-fb__meseros-sub">Atención según el feedback de sus tickets y la propina promedio que dejó el cliente.</p>
+        </div>
+        <?php if (empty($meseros)) : ?>
+            <div class="admin-menu__empty">Aún no hay tickets con mesero asignado para evaluar.</div>
+        <?php else : ?>
+            <div class="admin-fb__meseros-grid">
+                <?php foreach ($meseros as $m) : ?>
+                    <article class="admin-card admin-fb__mesero<?php echo $m['activo'] ? '' : ' admin-fb__mesero--inactivo'; ?>">
+                        <div class="admin-fb__mesero-top">
+                            <span class="admin-fb__mesero-name"><?php echo htmlspecialchars($m['nombre']); ?></span>
+                            <?php if (!$m['activo']) : ?><span class="admin-fb__mesero-tag">Inactivo</span><?php endif; ?>
+                        </div>
+                        <div class="admin-fb__mesero-score">
+                            <strong><?php echo $m['rendimiento'] !== null ? (int) $m['rendimiento'] : '—'; ?></strong>
+                            <small>/ 100 rendimiento</small>
+                        </div>
+                        <div class="admin-fb__mesero-metrics">
+                            <div class="admin-fb__mesero-metric">
+                                <span class="admin-fb__mesero-metric-label">Atención</span>
+                                <?php echo $stars($m['atencion']); ?>
+                                <span class="admin-fb__mesero-metric-num"><?php echo $m['atencion'] !== null ? number_format((float) $m['atencion'], 1) . ' / 5' : '—'; ?></span>
+                            </div>
+                            <div class="admin-fb__mesero-metric">
+                                <span class="admin-fb__mesero-metric-label">Propina prom.</span>
+                                <span class="admin-fb__mesero-metric-num admin-fb__mesero-tip"><?php echo $m['tip_pct'] !== null ? number_format((float) $m['tip_pct'], 1) . '%' : '—'; ?></span>
+                            </div>
+                        </div>
+                        <div class="admin-fb__mesero-foot">
+                            <?php echo (int) $m['tickets']; ?> ticket(s) · <?php echo (int) $m['resenas']; ?> reseña(s)
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </section>
 
     <section class="admin-menu__panel admin-panel admin-card">

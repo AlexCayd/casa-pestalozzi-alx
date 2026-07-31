@@ -16,14 +16,49 @@
         var panelClose = page.querySelector('[data-operation-panel-close]');
         var operationRoot = page.querySelector('[data-page="reservation-operation"]');
         var mapToggles = Array.prototype.slice.call(page.querySelectorAll('[data-operational-map-toggle]'));
+        var userMenus = Array.prototype.slice.call(page.querySelectorAll('[data-operational-user-menu]'));
         var lastFocus = null;
-        var MAP_MAX_KEY = 'cp-pos-map-maximized';
+        var mapStateKey = page.getAttribute('data-operational-map-state-key') || 'pos';
+        var MAP_MAX_KEY = 'cp-' + mapStateKey + '-map-maximized';
+
+        function notifyMapResize(maximized) {
+            var dispatchResize = function () {
+                try {
+                    window.dispatchEvent(new Event('resize'));
+                } catch (error) {
+                    var resizeEvent = document.createEvent('Event');
+                    resizeEvent.initEvent('resize', true, true);
+                    window.dispatchEvent(resizeEvent);
+                }
+
+                page.dispatchEvent(new CustomEvent('operational:mapresize', {
+                    bubbles: true,
+                    detail: { maximized: Boolean(maximized) }
+                }));
+            };
+
+            if (window.requestAnimationFrame) {
+                window.requestAnimationFrame(function () {
+                    window.requestAnimationFrame(dispatchResize);
+                });
+            } else {
+                window.setTimeout(dispatchResize, 0);
+            }
+        }
 
         function setMapMaximized(on) {
+            if (on && page.classList.contains('is-drawer-open')) {
+                setDrawer(false, false);
+            }
             page.classList.toggle('is-map-maximized', on);
             mapToggles.forEach(function (toggle) {
                 toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
-                var label = on ? 'Restaurar vista' : 'Maximizar mapa';
+                var mapLabel = toggle.getAttribute('data-operational-map-label');
+                var label = toggle.classList.contains('operational-map-toggle--icon')
+                    ? (on ? 'Restaurar vista' : 'Maximizar mapa')
+                    : mapLabel
+                    ? (on ? 'Restaurar ' + mapLabel : 'Maximizar ' + mapLabel)
+                    : (on ? 'Restaurar vista' : 'Maximizar mapa');
                 toggle.setAttribute('aria-label', label);
                 toggle.setAttribute('title', label);
                 var text = toggle.querySelector('.operational-map-toggle__label');
@@ -36,6 +71,7 @@
             } catch (error) {
                 /* almacenamiento no disponible: se ignora */
             }
+            notifyMapResize(on);
         }
 
         if (mapToggles.length) {
@@ -52,6 +88,100 @@
                 });
             });
         }
+
+        function userMenuItems(menu) {
+            var panel = menu.querySelector('[data-operational-user-panel]');
+            if (!panel) {
+                return [];
+            }
+
+            return Array.prototype.slice.call(panel.querySelectorAll(
+                '[role="menuitem"], button:not([disabled]), a[href]'
+            )).filter(function (item) {
+                return !item.hidden && item.offsetParent !== null;
+            });
+        }
+
+        function setUserMenu(menu, open, restoreFocus) {
+            var toggle = menu.querySelector('[data-operational-user-toggle]');
+            var panel = menu.querySelector('[data-operational-user-panel]');
+            if (!toggle || !panel) {
+                return;
+            }
+
+            if (open) {
+                userMenus.forEach(function (otherMenu) {
+                    if (otherMenu !== menu) {
+                        setUserMenu(otherMenu, false, false);
+                    }
+                });
+            }
+
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel.hidden = !open;
+
+            if (!open && restoreFocus !== false) {
+                toggle.focus();
+            }
+        }
+
+        userMenus.forEach(function (menu) {
+            var toggle = menu.querySelector('[data-operational-user-toggle]');
+            var panel = menu.querySelector('[data-operational-user-panel]');
+
+            if (!toggle || !panel) {
+                return;
+            }
+
+            toggle.addEventListener('click', function () {
+                var open = toggle.getAttribute('aria-expanded') === 'true';
+                setUserMenu(menu, !open, false);
+            });
+
+            toggle.addEventListener('keydown', function (event) {
+                if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') {
+                    return;
+                }
+
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setUserMenu(menu, true, false);
+                    var firstItem = userMenuItems(menu)[0];
+                    if (firstItem) {
+                        firstItem.focus();
+                    }
+                }
+            });
+
+            panel.addEventListener('keydown', function (event) {
+                var items = userMenuItems(menu);
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setUserMenu(menu, false, true);
+                    return;
+                }
+                if (!items.length || ['ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(event.key) === -1) {
+                    return;
+                }
+
+                event.preventDefault();
+                var current = items.indexOf(document.activeElement);
+                var next = current === -1 ? 0 : current;
+                if (event.key === 'ArrowDown') next = Math.min(items.length - 1, next + 1);
+                if (event.key === 'ArrowUp') next = Math.max(0, next - 1);
+                if (event.key === 'Home') next = 0;
+                if (event.key === 'End') next = items.length - 1;
+                items[next].focus();
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            userMenus.forEach(function (menu) {
+                if (!menu.contains(event.target)) {
+                    setUserMenu(menu, false, false);
+                }
+            });
+        });
 
         function updateNavigation(fecha, hora) {
             var date = String(fecha || '').trim();
@@ -169,10 +299,21 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && page.classList.contains('is-drawer-open')) {
-                event.preventDefault();
-                setDrawer(false);
-                return;
+            if (event.key === 'Escape') {
+                var openUserMenu = userMenus.find(function (menu) {
+                    var toggle = menu.querySelector('[data-operational-user-toggle]');
+                    return toggle && toggle.getAttribute('aria-expanded') === 'true';
+                });
+                if (openUserMenu) {
+                    event.preventDefault();
+                    setUserMenu(openUserMenu, false, true);
+                    return;
+                }
+                if (page.classList.contains('is-drawer-open')) {
+                    event.preventDefault();
+                    setDrawer(false);
+                    return;
+                }
             }
             if (event.key !== 'Tab' || !page.classList.contains('is-drawer-open') || !drawer) {
                 return;

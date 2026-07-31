@@ -12,8 +12,22 @@
   // añadía un margin-top erróneo al 2º panel dentro de .admin-finanzas__grid
   // ("Gastos por categoría"), empujándolo hacia abajo dentro de su celda.
   > .admin-panel + .admin-panel,
-  > &__grid + .admin-panel {
-    margin-top: 18px;
+  > .admin-finanzas__grid + .admin-panel {
+    margin-top: 24px;
+  }
+
+  // Mismo ritmo vertical para todo: la franja de KPIs y la rejilla traían 18px
+  // propios y el resto 24px, así que la página respiraba distinto según dónde
+  // se mirara.
+  > .admin-stat-strip,
+  > .admin-finanzas__grid {
+    margin-bottom: 24px;
+  }
+
+  // El select del alta de gastos entra por select.js con 15.5px/46px; los
+  // inputs de al lado son 14px. Se igualan (mismo caso que en Menú).
+  .admin-finanzas__add .admin-select__trigger {
+    font-size: 14px;
   }
 }
 
@@ -62,16 +76,17 @@
     strong { color: var(--admin-gold); }
   }
 
+  // Cierre de la cascada: necesita aire propio para no leerse como una fila más.
   &--grand {
-    margin-top: 6px;
-    padding: 14px 12px;
+    margin-top: 14px;
+    padding: 18px 16px;
     border: 1px solid var(--admin-border);
     border-radius: 12px;
     background: var(--admin-surface-soft);
     color: var(--admin-text);
     font-weight: 800;
 
-    strong { font-size: 22px; }
+    strong { font-size: 24px; }
 
     &.is-pos { border-color: var(--admin-success-border); strong { color: var(--admin-success-text); } }
     &.is-neg { border-color: var(--admin-danger-border);  strong { color: var(--admin-danger-text); } }
@@ -147,16 +162,18 @@
 
   span {
     position: absolute;
-    left: 11px;
+    left: 14px;
     color: var(--admin-muted);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     pointer-events: none;
   }
 
   input {
     width: 100%;
-    padding-left: 24px;
+    // 24px dejaba la cifra pegada al símbolo: se alinea con el resto de
+    // campos (14px de padding) más el ancho del glifo.
+    padding-left: 30px;
   }
 }
 
@@ -165,6 +182,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
+  margin-top: 18px;
 }
 
 .admin-gasto-card {
@@ -196,8 +214,11 @@
     gap: 6px;
     min-width: 0;
 
+    // Canalón reservado para que el botón eliminar (38px en la esquina) no
+    // se monte sobre la etiqueta ni sobre el input del nombre.
     &--name {
       grid-column: 1 / -1;
+      padding-right: 46px;
     }
   }
 
@@ -209,13 +230,21 @@
     text-transform: uppercase;
   }
 
-  &__switch {
-    align-self: center;
+  // El switch y el botón Guardar comparten fila: se les da la misma altura de
+  // celda y se centran dentro, para que queden alineados entre sí.
+  &__switch,
+  &__actions {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
   }
 
   &__actions {
-    display: flex;
     justify-content: flex-end;
+
+    .admin-btn {
+      min-height: 38px;
+    }
   }
 
   // El botón eliminar va en la esquina superior derecha de la tarjeta.
@@ -246,6 +275,19 @@
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+    }
+  }
+
+  // Fecha y badge "Hoy" en la misma línea: .admin-table__cell-main es block y
+  // por sí solo empujaba el badge al renglón de abajo.
+  &__day {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .admin-table__cell-main {
+      display: inline-block;
     }
   }
 

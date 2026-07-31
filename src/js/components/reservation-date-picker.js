@@ -111,6 +111,7 @@
           btn.type = "button";
           btn.className = "cpc-day";
           btn.textContent = day;
+          btn.setAttribute("aria-label", day + " de " + MONTHS[curMonth] + " de " + curYear);
 
           var date = new Date(curYear, curMonth, day);
           date.setHours(0, 0, 0, 0);
@@ -120,7 +121,12 @@
             btn.disabled = true;
           }
           if (date.getTime() === today.getTime()) btn.classList.add("today");
-          if (selected && date.getTime() === selected.getTime()) btn.classList.add("selected");
+          if (selected && date.getTime() === selected.getTime()) {
+            btn.classList.add("selected");
+            btn.setAttribute("aria-selected", "true");
+          } else {
+            btn.setAttribute("aria-selected", "false");
+          }
 
           btn.addEventListener("click", function () {
             selected = date;
@@ -141,6 +147,11 @@
       calendar.setAttribute("aria-hidden", "false");
       display.setAttribute("aria-expanded", "true");
       render();
+    }
+
+    function focusPreferredDay() {
+      var preferred = grid.querySelector(".selected:not(:disabled), .today:not(:disabled), .cpc-day:not(:disabled)");
+      if (preferred) preferred.focus();
     }
 
     function closeCalendar() {
@@ -164,6 +175,12 @@
       }
     });
 
+    display.addEventListener("keyup", function (event) {
+      if ((event.key === "Enter" || event.key === " ") && calendar.classList.contains("open")) {
+        focusPreferredDay();
+      }
+    });
+
     prevBtn.addEventListener("click", function (event) {
       event.stopPropagation();
       curMonth--;
@@ -182,6 +199,30 @@
         curYear++;
       }
       render();
+    });
+
+    grid.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCalendar();
+        display.focus();
+        return;
+      }
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].indexOf(event.key) === -1) {
+        return;
+      }
+      var days = Array.from(grid.querySelectorAll(".cpc-day:not(.empty):not(:disabled)"));
+      var currentIndex = days.indexOf(document.activeElement);
+      if (currentIndex === -1) return;
+      event.preventDefault();
+      var nextIndex = currentIndex;
+      if (event.key === "ArrowLeft") nextIndex = Math.max(0, currentIndex - 1);
+      if (event.key === "ArrowRight") nextIndex = Math.min(days.length - 1, currentIndex + 1);
+      if (event.key === "ArrowUp") nextIndex = Math.max(0, currentIndex - 7);
+      if (event.key === "ArrowDown") nextIndex = Math.min(days.length - 1, currentIndex + 7);
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = days.length - 1;
+      days[nextIndex].focus();
     });
 
     document.addEventListener("click", function (event) {

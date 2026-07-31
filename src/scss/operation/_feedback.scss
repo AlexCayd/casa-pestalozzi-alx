@@ -1,6 +1,5 @@
 .reservation-operation .admin-alert,
-.reservation-operation-notice,
-.reservation-operation-load-error {
+.reservation-operation-notice {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
@@ -34,29 +33,253 @@
   font-weight: var(--operational-weight-bold);
 }
 
-.reservation-operation-notice__copy,
-.reservation-operation-load-error__copy {
+.reservation-operation-notice__copy {
   display: grid;
   gap: 2px;
+}
+
+.global-operation-notice-root,
+.operational-global-notice-stack {
+  position: fixed;
+  top: calc(var(--operation-header-height, var(--operational-header-height, 72px)) + 1rem);
+  left: 50%;
+  z-index: 10000;
+  display: grid;
+  width: min(calc(100vw - 2rem), 56rem);
+  min-width: 0;
+  gap: 8px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.operational-global-notice {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border-soft);
+  border-left-width: 3px;
+  border-radius: 12px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.45;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 38%), var(--admin-shadow-md);
+  pointer-events: auto;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+
+  &[hidden] {
+    display: none;
+  }
+
+  strong {
+    color: var(--admin-text);
+    font-weight: var(--operational-weight-semibold);
+  }
+
+  .operational-global-notice__head {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 11px;
+    padding: 12px 14px;
+  }
+}
+
+.operational-global-notice__controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.operational-global-notice__expand {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  color: currentColor;
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, currentColor 55%, transparent);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+.operational-global-notice__close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+.operational-global-notice__icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 50%;
+  color: var(--admin-muted);
+  font-weight: var(--operational-weight-bold);
+}
+
+.operational-global-notice__copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+
+  > strong {
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  > span {
+    min-width: 0;
+    color: currentColor;
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: .9;
+  }
+}
+
+.operational-global-notice__detail {
+  max-height: 0;
+  overflow: hidden;
+  border-top: 1px solid transparent;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    visibility 0s linear 220ms,
+    border-color 180ms ease;
+
+  p {
+    margin: 0;
+    padding: 0 14px 13px 53px;
+    color: currentColor;
+    font-size: 13px;
+    line-height: 1.5;
+    opacity: .88;
+  }
+}
+
+.operational-global-notice.is-expanded {
+  box-shadow: 0 18px 42px rgb(0 0 0 / 44%), var(--admin-shadow-md);
+
+  .operational-global-notice__detail {
+    max-height: 180px;
+    border-top-color: color-mix(in srgb, currentColor 18%, transparent);
+    opacity: 1;
+    visibility: visible;
+    transition:
+      max-height 220ms ease,
+      opacity 180ms ease,
+      visibility 0s linear 0s,
+      border-color 180ms ease;
+  }
+
+  .operational-global-notice__detail p {
+    padding-top: 11px;
+  }
+}
+
+.operational-global-notice--warning {
+  border-color: var(--admin-warning-border);
+  background: color-mix(in srgb, var(--admin-warning) 24%, var(--admin-surface-strong));
+  color: var(--admin-warning-text);
+
+  .operational-global-notice__icon {
+    border-color: var(--admin-warning-border);
+    color: var(--admin-warning-text);
+  }
+}
+
+.operational-global-notice--info,
+.operational-global-notice--restricted {
+  border-color: color-mix(in srgb, var(--admin-info-text) 62%, var(--admin-border-strong));
+  background: color-mix(in srgb, var(--admin-info-text) 18%, var(--admin-surface-strong));
+  color: #dceeff;
+  box-shadow:
+    0 14px 34px rgb(0 0 0 / 42%),
+    0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
+
+  .operational-global-notice__icon {
+    border-color: color-mix(in srgb, var(--admin-info-text) 65%, transparent);
+    background: color-mix(in srgb, var(--admin-info-text) 14%, transparent);
+    color: #e8f5ff;
+  }
+
+  .operational-global-notice__copy > span,
+  .operational-global-notice__detail p {
+    color: #c9def0;
+    opacity: 1;
+  }
+
+  .operational-global-notice__expand:hover {
+    background: color-mix(in srgb, #dceeff 16%, transparent);
+  }
+}
+
+.operational-global-notice--success {
+  border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
+  color: var(--admin-success-text);
+
+  .operational-global-notice__icon {
+    border-color: var(--admin-success-border);
+    color: var(--admin-success-text);
+  }
+}
+
+.operational-global-notice--error {
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
+
+  .operational-global-notice__icon {
+    border-color: var(--admin-danger-border);
+    color: var(--admin-danger-text);
+  }
 }
 
 .reservation-operation-notice--warning {
   border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);
-}
-
-.reservation-operation-notice--neutral {
-  border-color: var(--admin-info-border);
-  background: var(--admin-info-bg);
-  color: var(--admin-info-text);
-}
-
-.reservation-operation-load-error {
-  grid-template-columns: minmax(0, 1fr) auto;
-  border-color: var(--admin-danger-border);
-  background: var(--admin-danger-bg);
-  color: var(--admin-danger-text);
 }
 
 .reservation-operation-inline {
@@ -98,25 +321,36 @@
   }
 }
 
-.reservation-operation-toast {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  z-index: 100;
-  max-width: min(360px, calc(100vw - 32px));
-  padding: 11px 13px;
-  border: 1px solid var(--admin-success-border);
-  border-radius: 10px;
-  background: var(--admin-surface);
-  color: var(--admin-success-text);
-  font-size: var(--operational-text-xs);
-  font-weight: var(--operational-weight-semibold);
-  box-shadow: var(--admin-shadow-lg);
+@media (max-width: 640px) {
+  .global-operation-notice-root,
+  .operational-global-notice-stack {
+    width: calc(100vw - 20px);
+  }
+
+  .operational-global-notice__head {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 10px;
+    padding: 10px;
+  }
+
+  .operational-global-notice__controls {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .operational-global-notice__detail p {
+    padding-right: 10px;
+    padding-left: 48px;
+  }
 }
 
-.reservation-operation-toast--error {
-  border-color: var(--admin-danger-border);
-  color: var(--admin-danger-text);
+@media (prefers-reduced-motion: reduce) {
+  .operational-global-notice,
+  .operational-global-notice__detail,
+  .operational-global-notice__expand {
+    transition: none;
+  }
 }
 
 @keyframes reservation-operation-pulse {

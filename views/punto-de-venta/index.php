@@ -16,6 +16,16 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 $usuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
 $rolEtiquetas = ['admin' => 'Administrador', 'cashier' => 'Cajero', 'waiter' => 'Mesero', 'observer' => 'Observador'];
 $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
+
+// Identidad del mesero para el JS: las preferencias del modal se guardan con
+// su id, porque la tablet de piso es compartida entre turnos.
+$menuJson = $menuJson ?? '[]';
+$areasJson = $areasJson ?? '{}';
+$usuarioJson = json_encode([
+  'id'     => (int)($_SESSION['id'] ?? 0),
+  'nombre' => $usuarioNombre,
+  'rol'    => (string)($_SESSION['rol'] ?? ''),
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 ?>
 <!DOCTYPE html>
 <html lang="es" data-admin-theme="dark">
@@ -29,18 +39,12 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css">
+  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v2">
 </head>
 
-<body class="mapa-page operational-page" data-page="mapa" data-operational-page>
+<body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
-  ob_start();
-  $operationalDrawerId = 'map-reservations-drawer';
-  $operationalDrawerInitialCount = '0';
-  include __DIR__ . '/../operation/partials/drawer-toggle.php';
-  $drawerToggleHtml = (string)ob_get_clean();
-
   // Selector de fecha; se muestra dentro del cajón de reservaciones.
   ob_start();
   $rootId = 'mapa-date-picker';
@@ -72,6 +76,17 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   ?>
 
   <script>
+    /*
+     * Menú, áreas e identidad del mesero. Deben ir antes de map.js:
+     * punto-de-venta.js los lee de forma síncrona al construir el modal.
+     * CP_MENU/CP_AREAS salen de la BD (Services\Carta); antes vivían escritos
+     * a mano en src/js/data/menu-data.js, que ya no existe.
+     */
+    window.CP_MENU  = <?php echo $menuJson ?: '[]'; ?>;
+    window.CP_AREAS = <?php echo $areasJson ?: '{}'; ?>;
+    window.CP_USER  = <?php echo $usuarioJson ?: '{"id":0}'; ?>;
+  </script>
+  <script>
     window.CP_TWEAKS = {
       hero: 'cinema',
       accent: 'oro',
@@ -79,11 +94,19 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
       smooth: false,
       anim: false
     };
+    // El POS inicia con las mismas ventanas que usa el backend; la API vuelve
+    // a entregarlas en cada actualización para evitar valores divergentes.
+    window.CP_RESERVATION_OPERATION_CONFIG = <?php
+      echo json_encode(
+        \Services\ReservacionConfig::configuracionOperacion(),
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+      );
+    ?>;
   </script>
   <script>
     // Confirmación: en tablet un toque accidental no debe sacar del turno
     (function () {
-      var form = document.querySelector('.pos-header__logout-form');
+      var form = document.querySelector('.operational-header__logout-form');
       if (!form) return;
       form.addEventListener('submit', function (e) {
         if (!window.confirm('¿Cerrar sesión y salir del punto de venta?')) {
@@ -94,7 +117,7 @@ $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js"></script>
+  <script src="/build/js/admin/map.js?v=pos-reservations-v2"></script>
 </body>
 
 </html>

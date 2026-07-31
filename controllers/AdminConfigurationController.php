@@ -4,12 +4,13 @@ namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
 use MVC\Router;
+use Services\AnuncioConfig;
 use Services\HorarioOperacionService;
 
 class AdminConfigurationController
 {
-    private const MODULE_CSS = '/build/css/admin/configuration.css?v=announcement-black-v6';
-    private const MODULE_JS = '/build/js/admin/configuration.js?v=announcement-types-v4';
+    private const MODULE_CSS = '/build/css/admin/configuration.css?v=schedule-persistence-v1';
+    private const MODULE_JS = '/build/js/admin/configuration.js?v=schedule-persistence-v1';
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
 
@@ -59,7 +60,11 @@ class AdminConfigurationController
         $horarios = isset($_POST['horarios']) && is_array($_POST['horarios'])
             ? $_POST['horarios']
             : [];
-        $resultado = HorarioOperacionService::guardarHorarioSemanal($horarios, self::usuarioAutenticadoId());
+        $resultado = HorarioOperacionService::guardarHorarioSemanal(
+            $horarios,
+            self::usuarioAutenticadoId(),
+            (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+        );
 
         if ($resultado['ok']) {
             self::redirect(self::HOURS_PATH . '?resultado=horarios_actualizados');
@@ -70,6 +75,7 @@ class AdminConfigurationController
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible actualizar los horarios.']],
             'horarioSemanalConErrores' => true,
+            'conflictosHorarios' => $resultado['conflictos'] ?? [],
         ]);
     }
 
@@ -79,7 +85,11 @@ class AdminConfigurationController
             self::redirect(self::HOURS_PATH);
         }
 
-        $resultado = HorarioOperacionService::guardarExcepcion($_POST, self::usuarioAutenticadoId());
+        $resultado = HorarioOperacionService::guardarExcepcion(
+            $_POST,
+            self::usuarioAutenticadoId(),
+            (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+        );
         if ($resultado['ok']) {
             self::redirect(self::HOURS_PATH . '?resultado=' . (!empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada'));
         }
@@ -90,6 +100,7 @@ class AdminConfigurationController
             'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible guardar la excepción.']],
             'excepcionFormulario' => $resultado['datos'] ?? $_POST,
             'abrirModalExcepcion' => true,
+            'conflictosExcepcion' => $resultado['conflictos'] ?? [],
         ]);
     }
 
@@ -137,6 +148,77 @@ class AdminConfigurationController
         ]);
     }
 
+    /** POST /api/configuracion/horarios/semanales */
+    public static function apiGuardarHorarios(Router $router): void
+    {
+        try {
+            $datos = self::entradaApi();
+            $resultado = HorarioOperacionService::guardarHorarioSemanal(
+                is_array($datos['horarios'] ?? null) ? $datos['horarios'] : [],
+                self::usuarioAutenticadoId(),
+                !empty($datos['confirmar_conflictos'])
+            );
+            self::json($resultado);
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::apiGuardarHorarios - ' . $e->getMessage());
+            self::json([
+                'ok' => false,
+                'codigo' => 'ERROR_ACTUALIZACION_HORARIOS',
+                'mensaje' => 'No fue posible actualizar los horarios.',
+            ]);
+        }
+    }
+
+    /** GET /api/configuracion/horarios/semanales */
+    public static function apiObtenerHorarios(Router $router): void
+    {
+        try {
+            self::json([
+                'ok' => true,
+                'codigo' => 'HORARIOS_OBTENIDOS',
+                'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::apiObtenerHorarios - ' . $e->getMessage());
+            self::json([
+                'ok' => false,
+                'codigo' => 'ERROR_CONSULTA_HORARIOS',
+                'mensaje' => 'No fue posible consultar los horarios.',
+            ]);
+        }
+    }
+
+    /** POST /api/configuracion/horarios/especiales */
+    public static function apiGuardarEspecial(Router $router): void
+    {
+        $datos = self::entradaApi();
+        $datos['tipo'] = 'horario_especial';
+        self::json(HorarioOperacionService::guardarExcepcion(
+            $datos,
+            self::usuarioAutenticadoId(),
+            !empty($datos['confirmar_conflictos'])
+        ));
+    }
+
+    /** POST /api/configuracion/horarios/excepciones */
+    public static function apiGuardarExcepcion(Router $router): void
+    {
+        $datos = self::entradaApi();
+        self::json(HorarioOperacionService::guardarExcepcion(
+            $datos,
+            self::usuarioAutenticadoId(),
+            !empty($datos['confirmar_conflictos'])
+        ));
+    }
+
+    /** DELETE /api/configuracion/horarios/excepciones */
+    public static function apiEliminarExcepcion(Router $router): void
+    {
+        $datos = self::entradaApi();
+        $id = (int)($datos['id'] ?? $_GET['id'] ?? 0);
+        self::json(HorarioOperacionService::eliminarExcepcion($id));
+    }
+
     public static function announcement(Router $router): void
     {
         $alertas = self::alertasResultado((string) ($_GET['resultado'] ?? ''));
@@ -153,6 +235,7 @@ class AdminConfigurationController
             'title' => 'Anuncio principal',
             'topbarSection' => 'Configuración',
             'anuncio' => $anuncio,
+            'tiposAnuncio' => AnuncioConfig::TIPOS,
             'alertas' => $alertas,
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ]);
@@ -186,6 +269,8 @@ class AdminConfigurationController
             'title' => 'Anuncio principal',
             'topbarSection' => 'Configuración',
             'anuncio' => $datos,
+            'tiposAnuncio' => AnuncioConfig::TIPOS,
+            'erroresCampos' => $anuncio->erroresCampos(),
             'alertas' => $alertas,
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ]);
@@ -209,6 +294,8 @@ class AdminConfigurationController
             'excepcionFormulario' => [],
             'abrirModalExcepcion' => false,
             'horarioSemanalConErrores' => false,
+            'conflictosHorarios' => [],
+            'conflictosExcepcion' => [],
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
     }
@@ -241,12 +328,34 @@ class AdminConfigurationController
         return $usuarioId ? (int) $usuarioId : null;
     }
 
+    private static function entradaApi(): array
+    {
+        $datos = json_decode((string)file_get_contents('php://input'), true);
+        return is_array($datos) ? $datos : $_POST;
+    }
+
+    private static function json(array $resultado): void
+    {
+        $codigo = (string)($resultado['codigo'] ?? '');
+        $status = ($resultado['ok'] ?? false)
+            ? 200
+            : match ($codigo) {
+                'RESERVACIONES_AFECTADAS' => 409,
+                'HORARIO_INVALIDO' => 422,
+                'ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS' => 500,
+                default => 422,
+            };
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     private static function defaultAnnouncement(): array
     {
         return [
             'activo' => false,
             'mensaje' => '',
-            'tipo' => 'informativo',
+            'tipo' => AnuncioConfig::TIPO_PREDETERMINADO,
             'fecha_inicio' => '',
             'fecha_fin' => '',
             'texto_enlace' => '',

@@ -1,17 +1,4 @@
-<?php
-$hasAnnouncement = isset($anuncioPublico) && is_object($anuncioPublico);
-$announcementLinkText = $hasAnnouncement ? trim((string) ($anuncioPublico->texto_enlace ?? '')) : '';
-$announcementLinkUrl = $hasAnnouncement ? trim((string) ($anuncioPublico->url_enlace ?? '')) : '';
-$announcementHasLink = $hasAnnouncement
-  && $announcementLinkText !== ''
-  && \Model\ConfiguracionAnuncio::esUrlPermitida($announcementLinkUrl);
-$heroClasses = 'hero';
-if ($hasAnnouncement) {
-  $heroClasses .= ' hero--has-announcement';
-  $heroClasses .= $announcementHasLink ? ' hero--announcement-has-link' : ' hero--announcement-without-link';
-}
-?>
-<header class="<?php echo $heroClasses; ?>" id="hero" data-screen-label="Hero">
+<header class="hero" id="hero" data-screen-label="Hero">
   <div class="hero__bg" data-parallax-bg>
     <img src="/build/images/banner.webp" alt="Interior cálido de Casa Pestalozzi" />
   </div>

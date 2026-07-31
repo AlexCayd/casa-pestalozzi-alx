@@ -34,14 +34,15 @@
     function normalizeState(value) {
         var state = String(value || 'libre').toLowerCase();
         var aliases = {
-            bloqueada: 'asignada',
-            proxima: 'asignada',
+            disponible: 'libre',
+            no_reservable: 'no-reservable',
+            proxima: 'libre',
             'con-ticket': 'ocupada',
             zona: 'no-reservable'
         };
 
         state = aliases[state] || state;
-        return ['libre', 'ocupada', 'asignada', 'seleccionada', 'no-reservable'].indexOf(state) !== -1
+        return ['libre', 'ocupada', 'bloqueada', 'asignada', 'seleccionada', 'no-reservable'].indexOf(state) !== -1
             ? state
             : 'libre';
     }
@@ -72,6 +73,29 @@
         return attributes;
     }
 
+    function normalizeIndicators(value) {
+        if (!Array.isArray(value)) {
+            return [];
+        }
+
+        return value.map(function (indicator) {
+            indicator = indicator || {};
+            var type = String(indicator.tipo || 'estado')
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]/g, '-');
+            var label = String(indicator.label || '').trim();
+            if (!label) {
+                return null;
+            }
+
+            return {
+                tipo: type || 'estado',
+                label: label,
+                simbolo: String(indicator.simbolo || 'i').substring(0, 2)
+            };
+        }).filter(Boolean);
+    }
+
     function normalizeTable(raw) {
         raw = raw || {};
 
@@ -95,6 +119,9 @@
             interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
             titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
             numero: raw.numero == null ? '' : String(raw.numero),
+            estadoBase: String(raw.estadoBase || raw.estado_base || ''),
+            modificadores: normalizeClasses(raw.modificadores),
+            indicadores: normalizeIndicators(raw.indicadores),
             clasesEstado: normalizeClasses(raw.clasesEstado || raw.clases_estado),
             atributos: normalizeAttributes(raw.atributos)
         };
@@ -151,6 +178,12 @@
         }
 
         function applyState(pin, table) {
+            var previousClasses = String(pin.getAttribute('data-state-classes') || '')
+                .split(/\s+/)
+                .filter(Boolean);
+            previousClasses.forEach(function (className) {
+                pin.classList.remove(className);
+            });
             STATE_CLASSES.forEach(function (className) {
                 pin.classList.remove(className);
             });
@@ -160,9 +193,15 @@
             pin.classList.remove('reservation-operation-pin--selected');
 
             pin.classList.add('mesa-pin--' + table.estadoVisual);
-            table.clasesEstado.forEach(function (className) {
+            var stateClasses = table.clasesEstado.slice();
+            table.modificadores.forEach(function (modifier) {
+                stateClasses.push('mesa-pin--mod-' + modifier);
+            });
+            stateClasses = normalizeClasses(stateClasses);
+            stateClasses.forEach(function (className) {
                 pin.classList.add(className);
             });
+            pin.setAttribute('data-state-classes', stateClasses.join(' '));
 
             if (table.seleccionada) {
                 pin.classList.add('mesa-pin--seleccionada');
@@ -170,7 +209,35 @@
             }
 
             pin.setAttribute('data-estado-visual', table.estadoVisual);
+            pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
+            pin.setAttribute('data-modificadores', table.modificadores.join(' '));
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+        }
+
+        /**
+         * Los indicadores ya llegan descritos por el adaptador de contexto.
+         * El componente únicamente genera insignias accesibles.
+         */
+        function renderIndicators(pin, table) {
+            var previous = pin.querySelector('.mesa-pin__indicators');
+            if (previous) {
+                previous.remove();
+            }
+            if (!table.indicadores.length) {
+                return;
+            }
+
+            var container = document.createElement('span');
+            container.className = 'mesa-pin__indicators';
+            container.setAttribute('aria-hidden', 'true');
+            table.indicadores.forEach(function (indicator) {
+                var badge = document.createElement('span');
+                badge.className = 'mesa-pin__indicator mesa-pin__indicator--' + indicator.tipo;
+                badge.title = indicator.label;
+                badge.textContent = indicator.simbolo;
+                container.appendChild(badge);
+            });
+            pin.appendChild(container);
         }
 
         function createPin(table) {
@@ -208,6 +275,14 @@
             label.textContent = table.nombre;
             pin.appendChild(label);
 
+            if (!table.reservable) {
+                var typeLabel = document.createElement('span');
+                typeLabel.className = 'mesa-pin__type-label';
+                typeLabel.textContent = 'Área operativa';
+                pin.appendChild(typeLabel);
+            }
+
+            renderIndicators(pin, table);
             applyState(pin, table);
             return pin;
         }
@@ -283,6 +358,18 @@
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
             }
+            if (changes.modificadores != null) {
+                table.modificadores = normalizeClasses(changes.modificadores);
+            }
+            if (changes.indicadores != null) {
+                table.indicadores = normalizeIndicators(changes.indicadores);
+                renderIndicators(pin, table);
+            }
+            if (changes.titulo != null) {
+                table.titulo = String(changes.titulo);
+                pin.title = table.titulo;
+                pin.setAttribute('aria-label', table.titulo);
+            }
 
             applyState(pin, table);
 
@@ -334,6 +421,7 @@
                 reservable: table.reservable,
                 seleccionada: table.seleccionada,
                 capacidad: table.capacidad,
+                modificadores: table.modificadores.slice(),
                 seleccionMultiple: multiple
             });
         }

@@ -7,9 +7,6 @@
 namespace Services;
 
 use DateTimeImmutable;
-use Model\DiaReservacion;
-use Model\HorarioOperacion;
-use Model\HorarioReservacion;
 
 class HorarioReservacionService
 {
@@ -21,8 +18,10 @@ class HorarioReservacionService
     public const HORARIO_DISPONIBLE = 'HORARIO_DISPONIBLE';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
 
-    private const INTERVALO_GENERACION_MINUTOS = 30;
-
+    /**
+     * Genera la proyección reservable desde el horario operativo canónico.
+     * La última reservación comienza, como máximo, una hora antes del cierre.
+     */
     public static function generarIntervalos(string $horaApertura, string $horaCierre): array
     {
         $aperturaSql = self::normalizarHoraSql($horaApertura);
@@ -41,66 +40,11 @@ class HorarioReservacionService
             '-' . ReservacionConfig::MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION . ' minutes'
         );
         $intervalos = [];
-        for ($actual = $apertura; $actual <= $limiteUltimaReservacion; $actual = $actual->modify('+' . self::INTERVALO_GENERACION_MINUTOS . ' minutes')) {
+        for ($actual = $apertura; $actual <= $limiteUltimaReservacion; $actual = $actual->modify('+' . ReservacionConfig::INTERVALO_RESERVACION_MINUTOS . ' minutes')) {
             $intervalos[$actual->format('H:i:s')] = true;
         }
 
         return array_keys($intervalos);
-    }
-
-    /**
-     * Sincroniza un día dentro de la transacción abierta por HorarioOperacionService.
-     * No confirma ni revierte la transacción.
-     */
-    public static function sincronizarDesdeHorarioOperacion(
-        HorarioOperacion $horarioOperacion,
-        array $intervalos
-    ): void {
-        $diaSemana = filter_var($horarioOperacion->dia_semana, FILTER_VALIDATE_INT);
-        if ($diaSemana === false || $diaSemana < 0 || $diaSemana > 6) {
-            throw new \DomainException('El día de operación que se intenta sincronizar no es válido.');
-        }
-
-        $diaReservacion = DiaReservacion::buscarPorDiaSemana((int) $diaSemana);
-        if (!$diaReservacion) {
-            throw new \DomainException(
-                "No existe configuración de reservaciones para dia_semana {$diaSemana}."
-            );
-        }
-
-        $abierto = (int) $horarioOperacion->abierto === 1;
-        if ($abierto) {
-            $esperados = self::generarIntervalos(
-                (string) $horarioOperacion->hora_apertura,
-                (string) $horarioOperacion->hora_cierre
-            );
-            $normalizados = self::normalizarIntervalos($intervalos);
-            if ($normalizados !== $esperados) {
-                throw new \DomainException('Los intervalos reservables no coinciden con el horario de operación.');
-            }
-
-            $diaReservacion->actualizarDatosDeOperacion(
-                true,
-                self::normalizarHoraSql((string) $horarioOperacion->hora_apertura),
-                self::normalizarHoraSql((string) $horarioOperacion->hora_cierre)
-            );
-        } else {
-            if ($intervalos !== []) {
-                throw new \DomainException('Un día cerrado no puede contener horarios reservables.');
-            }
-            $diaReservacion->actualizarDatosDeOperacion(false);
-        }
-
-        $diaId = (int) $diaReservacion->id;
-        HorarioReservacion::eliminarPorDiaId($diaId);
-        if ($abierto) {
-            HorarioReservacion::insertarIntervalos($diaId, $intervalos);
-        }
-    }
-
-    public static function horariosPorDiaId(int $diaId): array
-    {
-        return HorarioReservacion::buscarPorDiaId($diaId);
     }
 
     public static function filtrarHorariosPasados(string $fecha, array $horarios): array
@@ -175,7 +119,7 @@ class HorarioReservacionService
         }
 
         if ($fecha === self::hoy()) {
-            $horaActual = (new DateTimeImmutable('now', ReservacionConfig::timezone()))->format('H:i');
+            $horaActual = ReservacionConfig::ahora()->format('H:i');
 
             foreach ($horasDisponibles as $hora) {
                 if ($hora >= $horaActual) {
@@ -185,6 +129,55 @@ class HorarioReservacionService
         }
 
         return $horasDisponibles[0];
+    }
+
+    /**
+     * Resuelve el horario que puede mostrarse como contexto operativo.
+     * Los horarios recibidos ya deben provenir de la disponibilidad canónica
+     * del servidor; nunca se completa la lista con valores del navegador.
+     *
+     * @return array{
+     *   hora_solicitada: string,
+     *   hora_resuelta: string,
+     *   ajustada: bool,
+     *   solicitada_vencida: bool,
+     *   sin_horarios_futuros: bool
+     * }
+     */
+    public static function resolverHorarioOperativo(
+        string $fecha,
+        string $horaSolicitada,
+        array $horarios,
+        bool $modoHistorico = false
+    ): array {
+        $horariosNormalizados = [];
+        foreach ($horarios as $horario) {
+            $valor = is_object($horario) ? (string)($horario->hora ?? '') : (string)$horario;
+            $hora = self::normalizarHoraCorta($valor);
+            if ($hora !== '') {
+                $horariosNormalizados[$hora] = true;
+            }
+        }
+        $horariosNormalizados = array_keys($horariosNormalizados);
+        sort($horariosNormalizados, SORT_STRING);
+
+        $solicitada = self::normalizarHoraCorta($horaSolicitada);
+        $solicitadaVencida = !$modoHistorico
+            && $solicitada !== ''
+            && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($solicitada));
+        $resuelta = $solicitada !== '' && in_array($solicitada, $horariosNormalizados, true)
+            ? $solicitada
+            : self::horaPorDefecto($horariosNormalizados, $fecha);
+
+        return [
+            'hora_solicitada' => $solicitada,
+            'hora_resuelta' => $resuelta,
+            'ajustada' => $solicitada !== '' && $resuelta !== $solicitada,
+            'solicitada_vencida' => $solicitadaVencida,
+            'sin_horarios_futuros' => !$modoHistorico
+                && $fecha === self::hoy()
+                && $horariosNormalizados === [],
+        ];
     }
 
     public static function hoy(): string
@@ -213,20 +206,7 @@ class HorarioReservacionService
             return true;
         }
 
-        return $horario <= new DateTimeImmutable('now', ReservacionConfig::timezone());
+        return $horario <= ReservacionConfig::ahora();
     }
 
-    private static function normalizarIntervalos(array $intervalos): array
-    {
-        $normalizados = [];
-        foreach ($intervalos as $intervalo) {
-            $hora = self::normalizarHoraSql((string) $intervalo);
-            if ($hora === '' || isset($normalizados[$hora])) {
-                throw new \DomainException('Los intervalos reservables contienen valores inválidos o duplicados.');
-            }
-            $normalizados[$hora] = true;
-        }
-
-        return array_keys($normalizados);
-    }
 }

@@ -2,7 +2,7 @@
     $subrecetas = isset($subrecetas) && is_iterable($subrecetas) ? $subrecetas : [];
     $conteosSub = is_array($conteosSub ?? null) ? $conteosSub : [];
 ?>
-<section class="admin-productos admin-page">
+<section class="admin-recetas admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Productos</span>
@@ -10,11 +10,11 @@
             <p class="admin-page__subtitle">Preparaciones intermedias reutilizables (salsas, bases, mezclas). Se componen de ingredientes y pueden usarse dentro de la receta de varios productos.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/productos">
+            <a class="admin-btn admin-btn--secondary admin-back-button" href="/admin/recetas">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/productos/subrecetas/create">
+            <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/recetas/subrecetas/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>Nueva subreceta</span>
             </a>
@@ -56,10 +56,10 @@
                                 <td><span class="admin-badge admin-badge--<?php echo $sub->activo ? 'neutral' : 'danger'; ?>"><?php echo $sub->activo ? 'Activa' : 'Inactiva'; ?></span></td>
                                 <td>
                                     <div class="admin-table-actions">
-                                        <a class="admin-icon-button admin-icon-button--edit" href="/admin/productos/subrecetas/edit?id=<?php echo (int) $sub->id; ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
+                                        <a class="admin-icon-button admin-icon-button--edit" href="/admin/recetas/subrecetas/edit?id=<?php echo (int) $sub->id; ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                         </a>
-                                        <form method="POST" action="/admin/productos/subrecetas/delete" onsubmit="return confirm('¿Eliminar la subreceta &quot;<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/recetas/subrecetas/delete" onsubmit="return confirm('¿Eliminar la subreceta &quot;<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>&quot;?');">
                                             <input type="hidden" name="id" value="<?php echo (int) $sub->id; ?>">
                                             <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Eliminar" aria-label="Eliminar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>

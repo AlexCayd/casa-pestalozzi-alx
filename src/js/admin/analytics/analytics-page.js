@@ -20,6 +20,36 @@
     }).format(new Date(value.replace(" ", "T")));
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value).replace(
+      /[&<>"']/g,
+      (ch) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[ch],
+    );
+  }
+
+  /** Propina en monto y, si el ticket tuvo consumo, su porcentaje. */
+  function tipCell(ticket) {
+    const tip = Number(ticket.propina) || 0;
+
+    if (tip <= 0) {
+      return '<span class="admin-tk__tip admin-tk__tip--none">—</span>';
+    }
+
+    const pct =
+      ticket.propina_pct != null
+        ? `<span class="admin-tk__tip-pct">${Number(ticket.propina_pct).toFixed(1)}%</span>`
+        : "";
+
+    return `<span class="admin-tk__tip">${formatCurrency(tip)}</span>${pct}`;
+  }
+
   function statusLabel(status) {
     const labels = {
       closed: "Cerrado",
@@ -30,44 +60,81 @@
     return labels[status] || status;
   }
 
+  function deltaBadge(metric) {
+    if (metric.delta == null) {
+      return "";
+    }
+
+    const up = metric.delta >= 0;
+    const sign = up ? "+" : "";
+    const dir = up ? "is-up" : "is-down";
+    const arrow = up ? "M7 14 12 9l5 5" : "M7 10l5 5 5-5";
+
+    return `
+      <span class="admin-hero__delta ${dir}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${arrow}"/></svg>
+        ${sign}${metric.delta}%
+        <small>${escapeHtml(metric.delta_label || "")}</small>
+      </span>
+    `;
+  }
+
   function renderMetrics(metrics) {
-    const primaryContainer = document.querySelector(
+    const heroContainer = document.querySelector("[data-admin-metrics-hero]");
+    const supportContainer = document.querySelector(
       "[data-admin-metrics-primary]",
     );
-    const secondaryContainer = document.querySelector(
+    const stripContainer = document.querySelector(
       "[data-admin-metrics-secondary]",
     );
 
-    if (!primaryContainer || !secondaryContainer) {
+    if (!heroContainer || !supportContainer || !stripContainer) {
       return;
     }
 
-    const metricMarkup = (metric) => {
-      const classes = [
-        "admin-metric-card",
-        metric.featured ? "admin-metric-card--featured" : "",
-        metric.priority === "secondary" ? "admin-metric-card--secondary" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
+    // Nivel 1 — el número con el que abre el tablero.
+    const hero = metrics.find((metric) => metric.featured);
 
-      return `
-            <article class="${classes}">
-                <span>${metric.label}</span>
-                <strong>${metric.value}</strong>
-                <small>${metric.detail}</small>
-            </article>
-        `;
-    };
+    heroContainer.innerHTML = hero
+      ? `
+        <article class="admin-hero">
+          <div class="admin-hero__main">
+            <span class="admin-hero__label">${escapeHtml(hero.label)}</span>
+            <strong class="admin-hero__value">${escapeHtml(hero.value)}</strong>
+            <span class="admin-hero__detail">${escapeHtml(hero.detail)}</span>
+          </div>
+          <div class="admin-hero__aside">
+            ${deltaBadge(hero)}
+          </div>
+        </article>
+      `
+      : "";
 
-    primaryContainer.innerHTML = metrics
-      .filter((metric) => metric.priority !== "secondary")
-      .map(metricMarkup)
+    // Niveles 2 y 3 — soporte y contexto.
+    const tile = (metric) => `
+      <article class="admin-metric-card">
+        <span>${escapeHtml(metric.label)}</span>
+        <strong>${escapeHtml(metric.value)}</strong>
+        <small>${escapeHtml(metric.detail)}</small>
+      </article>
+    `;
+
+    const chip = (metric) => `
+      <div class="admin-metric-chip">
+        <span class="admin-metric-chip__label">${escapeHtml(metric.label)}</span>
+        <strong class="admin-metric-chip__value">${escapeHtml(metric.value)}</strong>
+        <small class="admin-metric-chip__detail">${escapeHtml(metric.detail)}</small>
+      </div>
+    `;
+
+    supportContainer.innerHTML = metrics
+      .filter((metric) => !metric.featured && metric.priority !== "secondary")
+      .map(tile)
       .join("");
 
-    secondaryContainer.innerHTML = metrics
+    stripContainer.innerHTML = metrics
       .filter((metric) => metric.priority === "secondary")
-      .map(metricMarkup)
+      .map(chip)
       .join("");
   }
 
@@ -93,55 +160,16 @@
         return `
                 <tr>
                     <td>${ticket.folio}</td>
+                    <td>${escapeHtml(ticket.mesa || "—")}</td>
                     <td>${formatDate(ticket.created_at)}</td>
                     <td><span class="admin-status ${statusClass}">${statusLabel(ticket.status)}</span></td>
                     <td>${formatCurrency(ticket.total)}</td>
+                    <td>${tipCell(ticket)}</td>
                     <td>${payment ? payment.metodo : "Pendiente"}</td>
                 </tr>
             `;
       })
       .join("");
-  }
-
-  function initFilters() {
-    const rangeSelect = document.querySelector('[data-analytics-filter="range"]');
-    const rangeBox = document.querySelector("[data-analytics-range]");
-    const applyBtn = document.querySelector("[data-analytics-apply]");
-    const desdeInput = document.querySelector("[data-analytics-desde]");
-    const hastaInput = document.querySelector("[data-analytics-hasta]");
-
-    if (!rangeSelect) {
-      return;
-    }
-
-    // Navega recargando la página con los parámetros; el servidor filtra.
-    function go(params) {
-      const url = new URL(window.location.href);
-      url.search = "";
-      Object.keys(params).forEach((k) => {
-        if (params[k] !== "" && params[k] != null) url.searchParams.set(k, params[k]);
-      });
-      window.location.assign(url.toString());
-    }
-
-    rangeSelect.addEventListener("change", () => {
-      const val = rangeSelect.value;
-      if (val === "custom") {
-        // Mostrar el rango personalizado y esperar a "Aplicar".
-        if (rangeBox) rangeBox.hidden = false;
-        return;
-      }
-      go({ rango: val });
-    });
-
-    if (applyBtn) {
-      applyBtn.addEventListener("click", () => {
-        const desde = desdeInput ? desdeInput.value : "";
-        const hasta = hastaInput ? hastaInput.value : "";
-        if (!desde || !hasta) return;
-        go({ desde: desde, hasta: hasta });
-      });
-    }
   }
 
   function initAnalyticsPage() {
@@ -160,8 +188,7 @@
     if (window.AdminAnalyticsCharts) {
       window.AdminAnalyticsCharts.init(data.charts);
     }
-
-    initFilters();
+    // El filtro de periodo lo maneja range-picker.js, que se autoinicializa.
   }
 
   window.AdminAnalyticsPage = {

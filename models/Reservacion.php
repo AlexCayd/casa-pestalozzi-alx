@@ -8,21 +8,53 @@
 namespace Model;
 
 use Services\ReservacionConfig;
+use Services\ContactoService;
+use Services\ReservacionVigenciaService;
 
 class Reservacion extends ActiveRecord {
     protected static $tabla = 'reservaciones';
-    protected static $columnasDB = ['id', 'nombre', 'email', 'fecha', 'hora', 'comensales', 'nota', 'request_token', 'estado'];
+    protected static $columnasDB = [
+        'id',
+        'nombre',
+        'contacto_tipo',
+        'contacto',
+        'fecha',
+        'hora',
+        'comensales',
+        'nota',
+        'request_token',
+        'request_fingerprint',
+        'hold_expires_at',
+        'confirmed_at',
+        'arrived_at',
+        'completed_at',
+        'status_changed_at',
+        'last_modified_by',
+        'last_modified_source',
+        'last_change_reason',
+        'estado',
+    ];
 
     public $id;
     public $nombre;
-    public $email;
+    public $contacto_tipo = 'email';
+    public $contacto;
     public $fecha;
     public $hora;
     public $comensales = 2;
     public $nota;
     public $comentario_admin = null;
     public $request_token = null;
-    public $estado = 'pendiente';
+    public $request_fingerprint = null;
+    public $hold_expires_at = null;
+    public $confirmed_at = null;
+    public $arrived_at = null;
+    public $completed_at = null;
+    public $status_changed_at = null;
+    public $last_modified_by = null;
+    public $last_modified_source = 'sistema';
+    public $last_change_reason = null;
+    public $estado = 'pendiente_verificacion';
     public $created_at = null;
     // Asignación de mesas — no están en $columnasDB para no incluirlos en INSERTs
     public $mesas_asignadas = '';
@@ -44,7 +76,8 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -63,7 +96,8 @@ class Reservacion extends ActiveRecord {
                   GROUP BY
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
@@ -96,16 +130,81 @@ class Reservacion extends ActiveRecord {
     }
 
     /**
+     * Persiste la creación administrativa sin convertir columnas DATETIME
+     * opcionales a cadenas vacías. El ActiveRecord genérico entrecomilla todos
+     * los valores y no puede representar NULL de forma segura.
+     *
+     * @return array{resultado: bool, id: int}
+     */
+    public function crearAdministrativa(): array
+    {
+        $stmt = self::getDB()->prepare(
+            "INSERT INTO reservaciones
+                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                 request_token, request_fingerprint, hold_expires_at,
+                 confirmed_at, arrived_at, completed_at, status_changed_at,
+                 last_modified_by, last_modified_source, last_change_reason, estado)
+             VALUES
+                (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, NULL, NULL,
+                 ?, NULL, NULL, ?, ?, ?, ?, ?)"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la reservación administrativa.');
+        }
+
+        $nombre = (string)$this->nombre;
+        $contactoTipo = (string)$this->contacto_tipo;
+        $contacto = (string)$this->contacto;
+        $fecha = (string)$this->fecha;
+        $hora = (string)$this->hora;
+        $comensales = (int)$this->comensales;
+        $nota = (string)($this->nota ?? '');
+        $requestToken = (string)$this->request_token;
+        $confirmedAt = (string)$this->confirmed_at;
+        $statusChangedAt = (string)$this->status_changed_at;
+        $lastModifiedBy = $this->last_modified_by !== null
+            ? (int)$this->last_modified_by
+            : null;
+        $lastModifiedSource = (string)$this->last_modified_source;
+        $lastChangeReason = (string)$this->last_change_reason;
+        $estado = (string)$this->estado;
+
+        $stmt->bind_param(
+            'sssssissssisss',
+            $nombre,
+            $contactoTipo,
+            $contacto,
+            $fecha,
+            $hora,
+            $comensales,
+            $nota,
+            $requestToken,
+            $confirmedAt,
+            $statusChangedAt,
+            $lastModifiedBy,
+            $lastModifiedSource,
+            $lastChangeReason,
+            $estado
+        );
+        $resultado = $stmt->execute();
+        $id = (int)$stmt->insert_id;
+        $stmt->close();
+
+        return ['resultado' => $resultado, 'id' => $id];
+    }
+
+    /**
      * Reservaciones activas posteriores a la fecha y hora local indicadas.
      * La relación con dia_semana se resuelve en el servicio, no en SQL.
      */
     public static function buscarFuturasActivas(string $fechaActual, string $horaActual): array
     {
-        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        // Reutiliza la misma definición de ocupación que los mapas y validadores.
+        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva(static::$tabla);
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
-             WHERE estado IN ({$estadosOcupacion})
+             WHERE {$condicionOcupacion}
                AND (fecha > ? OR (fecha = ? AND hora > ?))
              ORDER BY fecha ASC, hora ASC, id ASC"
         );
@@ -131,12 +230,13 @@ class Reservacion extends ActiveRecord {
     /** Reservaciones pendientes o confirmadas de una fecha concreta. */
     public static function buscarActivasPorFecha(string $fecha): array
     {
-        $estadosOcupacion = self::estadosSql(ReservacionConfig::ESTADOS_OCUPAN_MESA);
+        // Mantiene sincronizado el tratamiento de estados finales y holds vencidos.
+        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva(static::$tabla);
         $stmt = self::getDB()->prepare(
             "SELECT id, nombre, fecha, hora, estado
              FROM " . static::$tabla . "
              WHERE fecha = ?
-               AND estado IN ({$estadosOcupacion})
+               AND {$condicionOcupacion}
              ORDER BY hora ASC, id ASC"
         );
         if (!$stmt) {
@@ -158,6 +258,98 @@ class Reservacion extends ActiveRecord {
         return $reservaciones;
     }
 
+    /**
+     * Consulta pública de solo lectura por la identidad obtenida de sesión.
+     *
+     * No acepta mesas, notas ni campos administrativos en el SELECT para que
+     * esos datos no puedan filtrarse accidentalmente en la respuesta.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buscarActivasPorContacto(
+        string $tipo,
+        string $contactoNormalizado,
+        string $fechaActual,
+        string $horaActual,
+        int $limite
+    ): array {
+        $ahora = self::fechaHoraConsulta($fechaActual, $horaActual);
+        $condicionVisible = ReservacionVigenciaService::condicionSqlVisibleCliente(
+            'reservaciones',
+            $ahora
+        );
+        $sql = "SELECT id, nombre, fecha, hora, comensales, nota, estado, contacto_tipo
+                FROM reservaciones
+                WHERE contacto_tipo = ?
+                  AND contacto = ?
+                  AND {$condicionVisible}
+                ORDER BY fecha ASC, hora ASC, id ASC
+                LIMIT ?";
+        $stmt = self::getDB()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta por contacto.');
+        }
+
+        $stmt->bind_param(
+            'ssi',
+            $tipo,
+            $contactoNormalizado,
+            $limite
+        );
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+
+        $resultado = $stmt->get_result();
+        $filas = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $filas[] = $fila;
+        }
+        $stmt->close();
+
+        return $filas;
+    }
+
+    /**
+     * Cuenta todas las activas futuras para aplicar el máximo aunque la lista
+     * visual esté limitada a cinco tarjetas.
+     */
+    public static function contarActivasPorContacto(
+        string $tipo,
+        string $contactoNormalizado,
+        string $fechaActual,
+        string $horaActual
+    ): int {
+        $ahora = self::fechaHoraConsulta($fechaActual, $horaActual);
+        $condicionLimite = ReservacionVigenciaService::condicionSqlCuentaLimite(
+            'reservaciones',
+            $ahora
+        );
+        $sql = "SELECT COUNT(*) AS total
+                FROM reservaciones
+                WHERE contacto_tipo = ?
+                  AND contacto = ?
+                  AND {$condicionLimite}";
+        $stmt = self::getDB()->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el conteo por contacto.');
+        }
+
+        $stmt->bind_param('ss', $tipo, $contactoNormalizado);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+
+        $fila = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return (int)($fila['total'] ?? 0);
+    }
+
     public static function buscarAdmin(array $filtros = []) {
         $condiciones = self::condicionesAdmin($filtros, true);
         $having = self::havingAsignacionAdmin($filtros);
@@ -166,13 +358,20 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
                     r.nota,
                     {$comentarioSelect},
                     r.estado,
+                    r.hold_expires_at,
+                    r.confirmed_at,
+                    r.arrived_at,
+                    r.completed_at,
+                    r.created_at,
+                    r.updated_at,
                     COUNT(rm.id) AS mesas_count,
                     COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
                     COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
@@ -187,12 +386,19 @@ class Reservacion extends ActiveRecord {
         $query .= " GROUP BY
                         r.id,
                         r.nombre,
-                        r.email,
+                        r.contacto_tipo,
+                        r.contacto,
                         r.fecha,
                         r.hora,
                         r.comensales,
                         r.nota,
-                        r.estado";
+                        r.estado,
+                        r.hold_expires_at,
+                        r.confirmed_at,
+                        r.arrived_at,
+                        r.completed_at,
+                        r.created_at,
+                        r.updated_at";
 
         if ($having) {
             $query .= " HAVING {$having}";
@@ -210,13 +416,20 @@ class Reservacion extends ActiveRecord {
         $query = "SELECT
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
                     r.nota,
                     {$comentarioSelect},
                     r.estado,
+                    r.hold_expires_at,
+                    r.confirmed_at,
+                    r.arrived_at,
+                    r.completed_at,
+                    r.created_at,
+                    r.updated_at,
                     COUNT(rm.id) AS mesas_count,
                     COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
                     COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas,
@@ -228,17 +441,36 @@ class Reservacion extends ActiveRecord {
                   GROUP BY
                     r.id,
                     r.nombre,
-                    r.email,
+                    r.contacto_tipo,
+                    r.contacto,
                     r.fecha,
                     r.hora,
                     r.comensales,
                     r.nota,
-                    r.estado
+                    r.estado,
+                    r.hold_expires_at,
+                    r.confirmed_at,
+                    r.arrived_at,
+                    r.completed_at,
+                    r.created_at,
+                    r.updated_at
                   ORDER BY r.hora ASC,
                     FIELD(r.estado, " . self::estadosSql(ReservacionConfig::ORDEN_ESTADOS) . "),
                     r.id ASC";
 
         return self::consultarSQL($query);
+    }
+
+    private static function fechaHoraConsulta(string $fecha, string $hora): \DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable(
+                trim($fecha) . ' ' . trim($hora),
+                ReservacionConfig::timezone()
+            );
+        } catch (\Throwable $e) {
+            return ReservacionConfig::ahora();
+        }
     }
 
     public static function metricasAdmin(array $filtros = []) {
@@ -261,7 +493,7 @@ class Reservacion extends ActiveRecord {
 
         $query = "SELECT
                     COUNT(*) AS total,
-                    COALESCE(SUM(estado = 'pendiente'), 0) AS pendientes,
+                    COALESCE(SUM(estado = 'pendiente_verificacion'), 0) AS pendientes,
                     COALESCE(SUM(estado = 'confirmada'), 0) AS confirmadas,
                     COALESCE(SUM(estado = 'completada'), 0) AS completadas,
                     COALESCE(SUM(estado = 'cancelada'), 0) AS canceladas,
@@ -322,7 +554,7 @@ class Reservacion extends ActiveRecord {
 
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
-            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR r.email LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
+            $condiciones[] = "(r.nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR r.contacto LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
         }
 
         if (self::fechaValidaAdmin($fechaInicio)) {
@@ -398,10 +630,13 @@ class Reservacion extends ActiveRecord {
         if (!$this->nombre) {
             static::setAlerta('error', 'El nombre es obligatorio');
         }
-        if (!$this->email) {
-            static::setAlerta('error', 'El correo es obligatorio');
-        } elseif (!filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
-            static::setAlerta('error', 'El correo no tiene un formato válido');
+        try {
+            $this->contacto = ContactoService::normalizar(
+                (string)$this->contacto_tipo,
+                (string)$this->contacto
+            );
+        } catch (\InvalidArgumentException $e) {
+            static::setAlerta('error', $e->getMessage());
         }
         if (!$this->fecha) {
             static::setAlerta('error', 'La fecha es obligatoria');

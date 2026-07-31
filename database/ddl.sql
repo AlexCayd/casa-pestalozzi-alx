@@ -24,45 +24,26 @@ DROP TABLE IF EXISTS reportes_sistema;
 DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS excepciones_operacion;
 DROP TABLE IF EXISTS horarios_operacion;
+DROP TABLE IF EXISTS verificaciones_contacto;
+DROP TABLE IF EXISTS ticket_mesas;
 DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
-DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS menu;
 DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
-DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS reservaciones;
+DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS areas_produccion;
 DROP TABLE IF EXISTS mesas;
-DROP TABLE IF EXISTS horarios_reservacion;
-DROP TABLE IF EXISTS dias_reservacion;
 
 -- -------------------------------------------------------
 -- CATÁLOGOS BASE
 -- -------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS dias_reservacion (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  dia_semana    TINYINT NOT NULL COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
-  nombre        VARCHAR(20) NOT NULL,
-  hora_apertura TIME NOT NULL,
-  hora_cierre   TIME NOT NULL,
-  activo        TINYINT(1) NOT NULL DEFAULT 1,
-  UNIQUE KEY uq_dias_reservacion_dia_semana (dia_semana)
-);
-
-CREATE TABLE IF NOT EXISTS horarios_reservacion (
-  id     INT AUTO_INCREMENT PRIMARY KEY,
-  dia_id INT NOT NULL,
-  hora   TIME NOT NULL,
-  FOREIGN KEY (dia_id) REFERENCES dias_reservacion(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_horarios_reservacion_dia_hora (dia_id, hora)
-);
 
 CREATE TABLE IF NOT EXISTS mesas (
   id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -70,10 +51,10 @@ CREATE TABLE IF NOT EXISTS mesas (
   nombre     VARCHAR(60) NOT NULL,
   tipo       ENUM('mesa','barra','especial') NOT NULL DEFAULT 'mesa',
   capacidad  INT NOT NULL DEFAULT 4,
-  pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT 'Posición % horizontal (centro del pin)',
-  pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0 COMMENT 'Posición % vertical (centro del pin)',
+  pos_x      DECIMAL(5,2) NOT NULL DEFAULT 0,
+  pos_y      DECIMAL(5,2) NOT NULL DEFAULT 0,
   activo     TINYINT(1) NOT NULL DEFAULT 1,
-  reservable TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = zona estática (barras, caja, llevar)'
+  reservable TINYINT(1) NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS areas_produccion (
@@ -99,7 +80,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  nip_hash      VARCHAR(255) NULL COMMENT 'NIP de acceso del personal de piso (bcrypt)',
+  nip_hash      VARCHAR(255) NULL,
   rol           ENUM('admin','observer','waiter','cashier') NOT NULL DEFAULT 'observer',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -111,22 +92,73 @@ CREATE TABLE IF NOT EXISTS usuarios (
 -- -------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS reservaciones (
-  id                 INT AUTO_INCREMENT PRIMARY KEY,
-  nombre             VARCHAR(100) NOT NULL,
-  email              VARCHAR(150) NOT NULL,
-  fecha              DATE NOT NULL,
-  hora               TIME NOT NULL,
-  comensales         INT NOT NULL DEFAULT 2,
-  nota               TEXT,
-  comentario_admin   TEXT NULL COMMENT 'Comentario interno de operación',
-  request_token      VARCHAR(64) NULL,
-  estado             ENUM('pendiente','confirmada','completada','cancelada','no_show') NOT NULL DEFAULT 'pendiente',
-  created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at         TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  id                   INT AUTO_INCREMENT PRIMARY KEY,
+  nombre               VARCHAR(100) NOT NULL,
+  contacto_tipo        ENUM('email','telefono') NOT NULL,
+  -- El contacto se persiste en su formato canónico, normalizado en PHP.
+  contacto             VARCHAR(150) NOT NULL,
+  fecha                DATE NOT NULL,
+  hora                 TIME NOT NULL,
+  comensales           INT NOT NULL DEFAULT 2,
+  nota                 TEXT,
+  comentario_admin     TEXT NULL,
+  request_token        VARCHAR(64) NULL,
+  request_fingerprint  CHAR(64) NULL,
+  -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
+  hold_expires_at      DATETIME NULL,
+  confirmed_at         DATETIME NULL,
+  arrived_at           DATETIME NULL,
+  completed_at         DATETIME NULL,
+  status_changed_at    DATETIME NULL,
+  last_modified_by     INT NULL,
+  last_modified_source ENUM('cliente','personal','sistema') NOT NULL DEFAULT 'sistema',
+  last_change_reason   VARCHAR(500) NULL,
+  estado               ENUM(
+                         'pendiente_verificacion',
+                         'confirmada',
+                         'llego',
+                         'en_curso',
+                         'completada',
+                         'cancelada',
+                         'no_show',
+                         'expirada'
+                       ) NOT NULL DEFAULT 'pendiente_verificacion',
+  created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
   INDEX idx_reservaciones_fecha_hora        (fecha, hora),
   INDEX idx_reservaciones_estado            (estado),
+  INDEX idx_reservaciones_contacto (contacto_tipo, contacto, estado, fecha, hora),
+  INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
+  CONSTRAINT chk_reservaciones_fingerprint
+    CHECK (request_fingerprint IS NULL OR CHAR_LENGTH(request_fingerprint) = 64),
+  CONSTRAINT chk_reservaciones_retencion_vencimiento
+    CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
+  CONSTRAINT fk_reservaciones_last_modified_by
+    FOREIGN KEY (last_modified_by) REFERENCES usuarios(id) ON DELETE SET NULL,
   UNIQUE KEY uq_reservaciones_request_token (request_token)
+);
+
+-- Desafíos OTP de un solo uso. Nunca se guarda el código original: codigo_hash
+-- contiene únicamente el resultado de password_hash() y se valida en PHP con
+-- password_verify(). reservacion_id puede ser NULL para acceso sin reserva.
+CREATE TABLE IF NOT EXISTS verificaciones_contacto (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id INT NULL,
+  contacto_tipo  ENUM('email','telefono') NOT NULL,
+  contacto       VARCHAR(150) NOT NULL,
+  -- Solamente se persiste el resultado de password_hash().
+  codigo_hash    VARCHAR(255) NOT NULL,
+  expires_at     DATETIME NOT NULL,
+  attempts       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  used_at        DATETIME NULL,
+  invalidated_at DATETIME NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_verificacion_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE CASCADE,
+  INDEX idx_verificacion_contacto (contacto_tipo, contacto, created_at),
+  INDEX idx_verificacion_reservacion (reservacion_id),
+  INDEX idx_verificacion_expiracion (expires_at)
 );
 
 CREATE TABLE IF NOT EXISTS reservacion_mesas (
@@ -141,7 +173,7 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
     FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE CASCADE,
   UNIQUE KEY uq_reservacion_mesa  (reservacion_id, mesa_id),
   UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
-  INDEX idx_rm_mesa        (mesa_id),
+  INDEX idx_rm_mesa (mesa_id),
   INDEX idx_rm_reservacion (reservacion_id)
 );
 
@@ -154,60 +186,84 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
 -- se mezclan metodos de pago (el detalle por comensal vive en ticket_pagos).
 CREATE TABLE IF NOT EXISTS tickets (
   id                 INT AUTO_INCREMENT PRIMARY KEY,
-  mesa_id            INT NOT NULL,
-  mesa_secundaria_id INT NULL,
   comensales         INT NOT NULL DEFAULT 1,
   nombre             VARCHAR(120) DEFAULT NULL,
   hora_apertura      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  closed_at          DATETIME NULL,
+  -- Momento del cobro usado por analítica y finanzas.
+  hora_cierre        DATETIME NULL,
   estado             ENUM('abierto','cerrado','cancelado') NOT NULL DEFAULT 'abierto',
   metodo_pago        ENUM('efectivo','tarjeta','dividido') NULL,
-  propina            DECIMAL(8,2) NOT NULL DEFAULT 0 COMMENT 'Propina al cerrar = pagado − total de la cuenta',
+  propina            DECIMAL(8,2) NOT NULL DEFAULT 0,
   reservacion_id     INT NULL,
   mesero_id          INT NULL,
-  FOREIGN KEY (mesa_id)            REFERENCES mesas(id),
-  FOREIGN KEY (mesa_secundaria_id) REFERENCES mesas(id) ON DELETE SET NULL,
   FOREIGN KEY (reservacion_id)     REFERENCES reservaciones(id) ON DELETE SET NULL,
   FOREIGN KEY (mesero_id)          REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_estado_mesa        (estado, mesa_id),
-  INDEX idx_ticket_reservacion (reservacion_id)
+  INDEX idx_ticket_estado      (estado),
+  INDEX idx_ticket_reservacion (reservacion_id),
+  UNIQUE KEY uq_ticket_reservacion (reservacion_id)
 );
--- Nota: mesero_id (para imprimir el mesero en el ticket) ya viene declarado con
--- su FK en el CREATE TABLE de arriba. El ALTER que lo añadía por separado se
--- eliminó: sobre una BD limpia fallaba con "Duplicate column name 'mesero_id'".
-
 -- Pago dividido por comensal: cuando la cuenta se separa, cada comensal puede
 -- pagar con un metodo distinto. El ticket registra 'dividido' si se mezclan metodos.
-ALTER TABLE tickets
-  MODIFY COLUMN metodo_pago ENUM('efectivo','tarjeta','dividido') NULL;
+-- Fuente canónica exclusiva de ocupación física.
+CREATE TABLE IF NOT EXISTS ticket_mesas (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id  INT NOT NULL,
+  mesa_id    INT NOT NULL,
+  orden      TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ticket_mesas_ticket
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ticket_mesas_mesa
+    FOREIGN KEY (mesa_id) REFERENCES mesas(id) ON DELETE RESTRICT,
+  UNIQUE KEY uq_ticket_mesa (ticket_id, mesa_id),
+  UNIQUE KEY uq_ticket_orden (ticket_id, orden),
+  INDEX idx_ticket_mesas_mesa (mesa_id)
+);
 
 
--- Catálogo único: la misma fila alimenta la carta pública (web + PDF) y el
--- catálogo del POS. Antes vivía partido en 'productos' (POS/comanda) y 'menu'
--- (carta), lo que dejaba borrar un platillo de la carta sin quitarlo del POS.
+-- MENÚ / PRODUCTOS — fuente única de los platillos.
 --
--- Una sola bandera: 'activo'. Si el producto está activo se vende en el POS y
--- se publica en la carta; no hay estados intermedios. El borrado del admin es
--- suave (activo = 0) para no romper el JOIN por nombre que hacen ticket_items,
--- Services\Sugerencias y n8n sobre tickets históricos.
+-- Antes existían dos tablas con los mismos platillos: `menu` (carta pública y
+-- PDF) y `productos` (inventario, COGS, ruteo por área). El único enlace entre
+-- ellas era el nombre en texto plano, y un tercer menú vivía escrito a mano en
+-- src/js/data/menu-data.js para el punto de venta. Ahora todo sale de aquí.
 --
--- descripcion es NULL-able: las bebidas se imprimen en la carta solo con
--- nombre y precio.
---
--- nombre es UNIQUE porque ticket_items, Services\Sugerencias y el flujo de n8n
--- resuelven el producto por nombre; un duplicado haría ambiguo ese JOIN.
+-- El UNIQUE sobre `nombre` es lo que sostiene el enlace por nombre que usan
+-- Inventario::aplicarVenta, el COGS de Finanzas y las sugerencias: un nombre
+-- duplicado rompía el descuento de stock sin dar ningún error.
 CREATE TABLE IF NOT EXISTS productos (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre       VARCHAR(120) NOT NULL,
-  descripcion  TEXT NULL COMMENT 'Texto de la carta; NULL en productos que se imprimen solo con nombre y precio',
+  -- La validación de Producto la exige en altas nuevas; permanece nullable
+  -- para aceptar catálogos históricos durante la transición.
+  descripcion  TEXT NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
-  tag          VARCHAR(60) NULL COMMENT 'Etiqueta de la carta: Especialidad C.P., Estrella…',
+  tag          VARCHAR(60) NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
-  activo       TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = retirado (borrado suave); no se vende ni se publica',
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  UNIQUE KEY uq_productos_nombre (nombre),
+  KEY idx_productos_cat_activo (categoria_id, activo),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id),
   UNIQUE KEY uq_productos_nombre (nombre),
   INDEX idx_productos_carta (activo, categoria_id)
+);
+
+-- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
+-- La aplicación usa `productos` como fuente funcional; esta tabla permite
+-- conservar datos descriptivos históricos durante la transición.
+CREATE TABLE IF NOT EXISTS menu (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  descripcion  TEXT NOT NULL,
+  precio       DECIMAL(10,2) NOT NULL,
+  tag          VARCHAR(60) NULL,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  categoria_id INT NOT NULL,
+  UNIQUE KEY uq_menu_nombre (nombre),
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_items (
@@ -217,7 +273,7 @@ CREATE TABLE IF NOT EXISTS ticket_items (
   precio     DECIMAL(8,2) NOT NULL,
   categoria  VARCHAR(60) NOT NULL,
   area_id    TINYINT UNSIGNED NOT NULL,
-  comensal   TINYINT UNSIGNED NULL COMMENT 'NULL = General',
+  comensal   TINYINT UNSIGNED NULL,
   cantidad   TINYINT UNSIGNED NOT NULL DEFAULT 1,
   nota       VARCHAR(280) NULL DEFAULT NULL,
   estado     ENUM('enviado','en_preparacion','listo','entregado','cancelado') NOT NULL DEFAULT 'enviado',
@@ -255,7 +311,8 @@ CREATE TABLE IF NOT EXISTS ingredientes (
   unidad       ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
   stock        DECIMAL(12,3) NOT NULL DEFAULT 0,
   stock_minimo DECIMAL(12,3) NOT NULL DEFAULT 0,
-  costo        DECIMAL(10,4) NOT NULL DEFAULT 0 COMMENT 'Costo por unidad (por g, ml, pza…)',
+  -- Costo por unidad de inventario (g, ml o pieza).
+  costo        DECIMAL(10,4) NOT NULL DEFAULT 0,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -267,7 +324,8 @@ CREATE TABLE IF NOT EXISTS subrecetas (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre      VARCHAR(120) NOT NULL,
   unidad      ENUM('g','kg','ml','l','pza') NOT NULL DEFAULT 'g',
-  rendimiento DECIMAL(12,3) NOT NULL DEFAULT 1 COMMENT 'Cantidad producida por la receta base',
+  -- Cantidad producida por la receta base.
+  rendimiento DECIMAL(12,3) NOT NULL DEFAULT 1,
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -290,7 +348,8 @@ CREATE TABLE IF NOT EXISTS producto_componentes (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   producto_id INT UNSIGNED NOT NULL,
   tipo        ENUM('ingrediente','subreceta') NOT NULL,
-  ref_id      INT UNSIGNED NOT NULL COMMENT 'ingredientes.id o subrecetas.id según tipo',
+  -- Apunta a ingredientes.id o subrecetas.id según tipo.
+  ref_id      INT UNSIGNED NOT NULL,
   cantidad    DECIMAL(12,3) NOT NULL DEFAULT 0,
   FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
   INDEX idx_pc_producto (producto_id)
@@ -301,7 +360,8 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   ingrediente_id INT UNSIGNED NOT NULL,
   tipo           ENUM('venta','cancelacion','ajuste') NOT NULL,
-  cantidad       DECIMAL(12,3) NOT NULL COMMENT 'Negativo descuenta, positivo repone',
+  -- Un valor negativo descuenta; uno positivo repone.
+  cantidad       DECIMAL(12,3) NOT NULL,
   ticket_item_id INT UNSIGNED NULL,
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
@@ -315,7 +375,8 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   nombre     VARCHAR(120) NOT NULL,
   categoria  ENUM('renta','servicios','nomina','insumos','otros') NOT NULL DEFAULT 'otros',
-  monto      DECIMAL(12,2) NOT NULL DEFAULT 0 COMMENT 'Monto mensual',
+  -- Monto mensual.
+  monto      DECIMAL(12,2) NOT NULL DEFAULT 0,
   activo     TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -325,13 +386,16 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
 -- MENÚ
 -- -------------------------------------------------------
 --
--- No hay tabla: la carta se sirve desde 'productos' (ver TICKETS / COMANDA).
+-- La carta se sirve desde 'productos' (definida arriba, ver TICKETS / COMANDA).
 --
 -- La tabla 'menu' se fusionó con 'productos': tenían el mismo contenido con
 -- llaves distintas, y el CRUD del admin solo tocaba 'menu', así que un platillo
 -- borrado de la carta seguía vivo para el POS y para las sugerencias de n8n.
 -- Ahora la carta y el POS son la misma consulta: 'productos WHERE activo = 1'.
--- El DROP TABLE de arriba se conserva para limpiar instalaciones previas.
+--
+-- 'productos' es la fuente funcional única. La tabla 'menu' se sigue creando
+-- arriba solo como compatibilidad de lectura para instalaciones y datos de
+-- siembra anteriores; ninguna consulta de la aplicación la toca.
 
 -- -------------------------------------------------------
 -- FEEDBACK
@@ -343,7 +407,8 @@ CREATE TABLE IF NOT EXISTS feedback_tokens (
   token      VARCHAR(64) NOT NULL UNIQUE,
   usado      TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_feedback_token_ticket (ticket_id)
 );
 
 CREATE TABLE IF NOT EXISTS feedback (
@@ -366,13 +431,13 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE TABLE IF NOT EXISTS impresoras (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   nombre      VARCHAR(60) NOT NULL,
-  area_id     TINYINT UNSIGNED NULL COMMENT 'NULL = impresora de cuenta/caja',
+  area_id     TINYINT UNSIGNED NULL,
   rol         ENUM('comanda','cuenta') NOT NULL DEFAULT 'comanda',
   conexion    ENUM('red','windows') NOT NULL DEFAULT 'red',
-  host        VARCHAR(64) NOT NULL COMMENT 'IP · sólo aplica a conexion=red',
-  puerto      INT NOT NULL DEFAULT 9100 COMMENT 'sólo aplica a conexion=red',
-  dispositivo VARCHAR(120) NULL DEFAULT NULL COMMENT 'windows: nombre de impresora o smb://host/recurso',
-  ancho       TINYINT NOT NULL DEFAULT 48 COMMENT 'caracteres (48=80mm, 32=58mm)',
+  host        VARCHAR(64) NOT NULL,
+  puerto      INT NOT NULL DEFAULT 9100,
+  dispositivo VARCHAR(120) NULL DEFAULT NULL,
+  ancho       TINYINT NOT NULL DEFAULT 48,
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
@@ -386,7 +451,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 --
 -- El motor (flujo de n8n) deduce qué ofrecer a partir de datos que ya existen:
 -- los tickets cerrados del mismo cliente — vía tickets.reservacion_id ->
--- reservaciones.email — y los tickets de otras mesas que pidieron platillos
+-- reservaciones.contacto — y los tickets de otras mesas que pidieron platillos
 -- parecidos a los de ticket_items. Nada de eso necesita un log propio.
 --
 -- Para no repetir lo ya ofrecido, el POS excluye lo que la mesa ya pidió
@@ -398,8 +463,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS horarios_operacion (
   id            TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  dia_semana    TINYINT UNSIGNED NOT NULL
-                  COMMENT '0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab',
+  dia_semana    TINYINT UNSIGNED NOT NULL,
   abierto       TINYINT(1) NOT NULL DEFAULT 1,
   hora_apertura TIME NULL,
   hora_cierre   TIME NULL,
@@ -441,8 +505,8 @@ CREATE TABLE IF NOT EXISTS excepciones_operacion (
 CREATE TABLE IF NOT EXISTS configuracion_anuncio (
   id            TINYINT UNSIGNED NOT NULL,
   mensaje       VARCHAR(255) NOT NULL DEFAULT '',
-  tipo          ENUM('informativo', 'advertencia', 'importante')
-                  NOT NULL DEFAULT 'informativo',
+  tipo          ENUM('evento', 'promocion', 'novedad_menu', 'aviso_operativo')
+                  NOT NULL DEFAULT 'evento',
   activo        TINYINT(1) NOT NULL DEFAULT 0,
   fecha_inicio  DATETIME NULL,
   fecha_fin     DATETIME NULL,

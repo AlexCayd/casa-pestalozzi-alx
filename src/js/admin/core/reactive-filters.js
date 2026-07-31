@@ -261,6 +261,46 @@
 
     window.AdminReactiveFilters = { init: init };
 
+    /*
+     * Las pestañas de tipo enlace (.admin-tabs--links) viven FUERA del bloque
+     * que se intercambia, así que tras una actualización parcial su estado
+     * activo se quedaría en la pestaña anterior. Se re-deriva de la URL
+     * canónica, comparando solo los parámetros que la propia pestaña fija.
+     */
+    function syncLinkTabs(canonicalUrl) {
+        var actual = new URL(canonicalUrl, window.location.origin);
+
+        document.querySelectorAll('.admin-tabs--links a[data-reactive-page]').forEach(function (link) {
+            var destino = new URL(link.href, window.location.origin);
+            var iguales = destino.pathname === actual.pathname;
+
+            if (iguales) {
+                // Coincide si cada parámetro del enlace tiene el mismo valor en
+                // la URL actual (la actual puede traer extras, como `page`).
+                destino.searchParams.forEach(function (valor, clave) {
+                    if (actual.searchParams.get(clave) !== valor) {
+                        iguales = false;
+                    }
+                });
+
+                // Una pestaña sin parámetros ("Todas") solo gana si la URL
+                // tampoco trae el filtro que fijan sus hermanas.
+                if (iguales && destino.searchParams.get('categoria') === null
+                    && actual.searchParams.get('categoria') !== null) {
+                    iguales = false;
+                }
+            }
+
+            link.classList.toggle('is-active', iguales);
+        });
+    }
+
+    document.addEventListener('admin:reactive-updated', function (event) {
+        if (event.detail && event.detail.url) {
+            syncLinkTabs(event.detail.url);
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('[data-reactive-filters]:not([data-reactive-manual])').forEach(function (form) {
             init(form);

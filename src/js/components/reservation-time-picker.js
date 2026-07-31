@@ -33,7 +33,9 @@
     var status = options.status || null;
     var endpoint = options.endpoint || root.getAttribute("data-schedules-endpoint") || "";
     var staticStep = options.staticStep || root.getAttribute("data-static-step") || 0;
+    var invalidateUnavailable = options.invalidateUnavailable === true;
     var initiallyDisabled = Boolean(display && display.disabled) || Boolean(input && input.disabled);
+    var controlDisabled = initiallyDisabled;
     var enabled = false;
     var availableHours = [];
     var requestId = 0;
@@ -61,6 +63,20 @@
       }
     }
 
+    function emitScheduleLoaded(data) {
+      var event;
+      try {
+        event = new CustomEvent("reservation:scheduleloaded", {
+          bubbles: true,
+          detail: data || {}
+        });
+      } catch (error) {
+        event = document.createEvent("CustomEvent");
+        event.initCustomEvent("reservation:scheduleloaded", true, true, data || {});
+      }
+      root.dispatchEvent(event);
+    }
+
     function setStatus(text, show) {
       if (!status) return;
       status.textContent = text || "";
@@ -72,6 +88,14 @@
       root.classList.remove("is-open");
       dropdown.setAttribute("aria-hidden", "true");
       display.setAttribute("aria-expanded", "false");
+    }
+
+    function focusHour(preferSelected) {
+      var option = preferSelected
+        ? optionsList.querySelector(".hour-option.sel")
+        : null;
+      option = option || optionsList.querySelector(".hour-option");
+      if (option) option.focus();
     }
 
     function clearValue(silent) {
@@ -91,6 +115,7 @@
       availableHours = [];
       clearValue(true);
       display.placeholder = text || "Elige una hora";
+      display.disabled = true;
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
@@ -110,12 +135,13 @@
       } else {
         clearValue(true);
       }
-      display.placeholder = "Consultando horarios...";
+      display.placeholder = "Consultando horarios…";
+      display.disabled = true;
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
       closeDropdown();
-      setStatus("Consultando horarios disponibles...", true);
+      setStatus("Consultando horarios…", true);
       emitChange();
     }
 
@@ -133,11 +159,40 @@
       display.value = hour;
       syncValueState();
       display.placeholder = "Elige una hora";
+      display.disabled = true;
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
       closeDropdown();
       setStatus(message, true);
+      if (!silent) emitChange();
+    }
+
+    function buildUnavailableMessage(preferredHour) {
+      var queryParams = typeof options.getQueryParams === "function"
+        ? (options.getQueryParams() || {})
+        : {};
+      var people = parseInt(queryParams.personas, 10) || 0;
+      return typeof options.unavailableMessage === "function"
+        ? options.unavailableMessage(preferredHour, queryParams)
+        : "La hora de las " + preferredHour + " ya no está disponible"
+          + (people ? " para " + people + (people === 1 ? " persona" : " personas") : "")
+          + ".";
+    }
+
+    function invalidatePreferredHour(preferredHour, silent, keepAlternatives) {
+      if (keepAlternatives && availableHours.length) {
+        enabled = true;
+        clearValue(true);
+        display.placeholder = "Elige otra hora";
+        display.disabled = controlDisabled;
+        display.setAttribute("aria-disabled", controlDisabled ? "true" : "false");
+        root.classList.toggle("is-disabled", controlDisabled);
+        closeDropdown();
+      } else {
+        setUnavailable("Sin horarios disponibles", true, true);
+      }
+      setStatus(buildUnavailableMessage(preferredHour), true);
       if (!silent) emitChange();
     }
 
@@ -164,6 +219,10 @@
       optionsList.innerHTML = "";
 
       (Array.isArray(hours) ? hours : []).forEach(function (hour) {
+        if (hour && typeof hour === "object") {
+          if (hour.disponible === false) return;
+          hour = hour.hora;
+        }
         hour = normalizeHour(hour);
         if (!hour || seen[hour]) return;
         seen[hour] = true;
@@ -173,7 +232,11 @@
 
       if (!normalized.length) {
         if (preferredHour) {
-          keepCurrentAfterLookupError(preferredHour, emptyMessage || "No hay horarios disponibles para la fecha seleccionada.", silent);
+          if (invalidateUnavailable) {
+            invalidatePreferredHour(preferredHour, silent, false);
+          } else {
+            keepCurrentAfterLookupError(preferredHour, emptyMessage || "No hay horarios disponibles para la fecha seleccionada.", silent);
+          }
           return;
         }
         setUnavailable("Sin horarios disponibles", true, silent);
@@ -182,8 +245,9 @@
       }
 
       enabled = true;
-      root.classList.remove("is-disabled");
-      display.removeAttribute("aria-disabled");
+      display.disabled = controlDisabled;
+      root.classList.toggle("is-disabled", controlDisabled);
+      display.setAttribute("aria-disabled", controlDisabled ? "true" : "false");
       display.placeholder = "Elige una hora";
       clearValue(true);
       setStatus("", false);
@@ -207,11 +271,15 @@
       if (preferredHour && seen[preferredHour]) {
         selectHour(preferredHour, true);
       } else if (preferredHour) {
-        input.value = preferredHour;
-        display.value = preferredHour;
-        syncValueState();
-        setStatus("El horario actual ya no está disponible; elige otro solo si deseas cambiarlo.", true);
-        if (!silent) emitChange();
+        if (invalidateUnavailable) {
+          invalidatePreferredHour(preferredHour, silent, true);
+        } else {
+          input.value = preferredHour;
+          display.value = preferredHour;
+          syncValueState();
+          setStatus("El horario actual ya no está disponible; elige otro solo si deseas cambiarlo.", true);
+          if (!silent) emitChange();
+        }
       } else if (!silent) {
         emitChange();
       }
@@ -228,7 +296,7 @@
       }
 
       if (!fecha) {
-        setUnavailable("Elige una fecha primero");
+        setUnavailable("Selecciona fecha y comensales");
         return Promise.resolve([]);
       }
       if (!endpoint) {
@@ -239,7 +307,17 @@
       setLoading(preferredHour);
       abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
 
-      return fetch(endpoint + "?fecha=" + encodeURIComponent(fecha), {
+      var params = new URLSearchParams({ fecha: fecha });
+      if (typeof options.getQueryParams === "function") {
+        var extras = options.getQueryParams() || {};
+        Object.keys(extras).forEach(function (key) {
+          if (extras[key] !== undefined && extras[key] !== null && extras[key] !== "") {
+            params.set(key, extras[key]);
+          }
+        });
+      }
+
+      return fetch(endpoint + "?" + params.toString(), {
         headers: { "Accept": "application/json" },
         credentials: "same-origin",
         signal: abortController ? abortController.signal : undefined
@@ -247,6 +325,7 @@
         .then(function (response) { return response.json(); })
         .then(function (data) {
           if (currentRequest !== requestId) return [];
+          emitScheduleLoaded(data);
 
           if (!data.ok) {
             var errorMessage = data.mensaje || "No fue posible consultar los horarios.";
@@ -262,7 +341,8 @@
           if (data.abierto === false) {
             var closedMessage = data.mensaje || "El restaurante no recibe reservaciones en esta fecha.";
             if (preferredHour) {
-              keepCurrentAfterLookupError(preferredHour, closedMessage);
+              invalidatePreferredHour(preferredHour, false, false);
+              setStatus(closedMessage, true);
             } else {
               setUnavailable("Restaurante cerrado", true);
               setStatus(closedMessage, true);
@@ -288,7 +368,8 @@
 
     function setControlDisabled(disabled) {
       disabled = Boolean(disabled);
-      display.disabled = disabled;
+      controlDisabled = disabled;
+      display.disabled = disabled || !enabled;
       input.disabled = disabled;
       display.setAttribute("aria-disabled", disabled || !enabled ? "true" : "false");
       root.classList.toggle("is-disabled", disabled || !enabled);
@@ -302,6 +383,7 @@
       root.classList.toggle("is-open", dropdown.classList.contains("open"));
       dropdown.setAttribute("aria-hidden", dropdown.classList.contains("open") ? "false" : "true");
       display.setAttribute("aria-expanded", dropdown.classList.contains("open") ? "true" : "false");
+      if (dropdown.classList.contains("open")) focusHour(true);
     });
 
     display.addEventListener("keydown", function (event) {
@@ -311,10 +393,30 @@
         root.classList.add("is-open");
         dropdown.setAttribute("aria-hidden", "false");
         display.setAttribute("aria-expanded", "true");
+        focusHour(true);
       }
       if (event.key === "Escape") {
         closeDropdown();
       }
+    });
+
+    optionsList.addEventListener("keydown", function (event) {
+      if (["ArrowDown", "ArrowUp", "Home", "End", "Escape"].indexOf(event.key) === -1) return;
+      var buttons = Array.from(optionsList.querySelectorAll(".hour-option"));
+      var index = buttons.indexOf(document.activeElement);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDropdown();
+        display.focus();
+        return;
+      }
+      if (index === -1 || !buttons.length) return;
+      event.preventDefault();
+      if (event.key === "ArrowDown") index = Math.min(buttons.length - 1, index + 1);
+      if (event.key === "ArrowUp") index = Math.max(0, index - 1);
+      if (event.key === "Home") index = 0;
+      if (event.key === "End") index = buttons.length - 1;
+      buttons[index].focus();
     });
 
     document.addEventListener("click", function (event) {
@@ -343,7 +445,7 @@
       optionsList.innerHTML = "";
       closeDropdown();
     } else {
-      setUnavailable("Elige una fecha primero", false, true);
+      setUnavailable("Selecciona fecha y comensales", false, true);
     }
 
     if (options.autoLoad !== false && options.initialDate && endpoint) {

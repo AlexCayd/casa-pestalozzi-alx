@@ -11,6 +11,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    // Separacion icono/texto por defecto: sin esto el SVG queda pegado a la
+    // etiqueta en todos los botones con .admin-btn__icon.
+    gap: 7px;
     min-height: 42px;
     padding: 0 16px;
     border: 1px solid var(--admin-border-soft);
@@ -168,6 +171,18 @@
     color: var(--admin-text);
 }
 
+// Sin este override, `.admin-body .admin-btn` (0,2,0) le gana a `.admin-btn--gold`
+// (0,1,0) y el dorado nunca llega a pintarse.
+.admin-body .admin-btn--gold {
+    background-color: var(--admin-gold);
+    color: #1b1a17;
+
+    &:hover {
+        background-color: var(--admin-gold-soft, #e0c184);
+        color: #1b1a17;
+    }
+}
+
 .admin-body .admin-btn--ghost {
     background-color: transparent;
     color: var(--admin-muted);
@@ -207,8 +222,8 @@
     height: 42px;
     flex: 0 0 42px;
     border-radius: 8px;
-    background: rgba(248, 239, 226, 0.1);
-    color: #fff;
+    background: var(--admin-sidebar-hover-bg);
+    color: var(--admin-sidebar-link-hover);
     font-size: 24px;
     line-height: 1;
 }

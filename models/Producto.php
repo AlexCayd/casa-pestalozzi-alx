@@ -2,18 +2,20 @@
 namespace Model;
 
 /**
- * Catalogo unico de platillos y bebidas (tabla 'productos').
+ * Catalogo unico de platillos y bebidas (tabla 'productos'): fuente unica.
  *
  * Absorbe a la antigua tabla 'menu': ambas guardaban lo mismo con llaves
- * distintas y el CRUD de la carta solo tocaba 'menu', asi que un platillo
- * borrado de la carta seguia vendiendose en el POS. Ahora hay una sola fila por
- * producto y una sola bandera: si esta activo se vende en el POS y se publica
- * en la carta. El borrado del admin es suave (activo = 0) para no romper el
- * JOIN por nombre que hacen ticket_items, Services\Sugerencias y n8n sobre
- * tickets historicos.
+ * distintas (enlazadas solo por el nombre) y el CRUD de la carta solo tocaba
+ * 'menu', asi que un platillo borrado de la carta seguia vendiendose en el POS.
+ * Ahora hay una sola fila por producto y una sola bandera: si esta activo se
+ * vende en el POS y se publica en la carta. Ver la migracion
+ * database/migrations/2026_07_26_002_fusion_menu_productos.sql
  *
- * Lo editan dos pantallas del admin: /admin/menu/items (la carta) y
- * /admin/productos (catalogo completo con receta).
+ * El borrado del admin es suave (activo = 0) para no romper el JOIN por nombre
+ * que hacen ticket_items, Services\Sugerencias y n8n sobre tickets historicos.
+ *
+ * Lo editan dos pantallas del admin: /admin/menu (la carta) y /admin/recetas
+ * (catalogo completo con receta).
  */
 class Producto extends ActiveRecord {
     protected static $tabla = 'productos';
@@ -116,6 +118,7 @@ class Producto extends ActiveRecord {
         return array_values($grupos);
     }
 
+    /** Listado paginado del admin, con los filtros de la barra superior. */
     public static function buscarAdmin(array $filtros = [], ?int $limite = null, int $offset = 0): array
     {
         $condiciones = self::condicionesAdmin($filtros);
@@ -183,8 +186,13 @@ class Producto extends ActiveRecord {
     {
         $condiciones = [];
         $q = trim((string) ($filtros['q'] ?? ''));
-        $categoriaId = (int) ($filtros['category_id'] ?? 0);
+        // La clave coincide con el nombre del parámetro de la URL:
+        // AdminController::filterUrl reconstruye el query string con estas claves.
+        // Se acepta también 'category_id', la clave que usaba la pantalla de la
+        // carta antes de la fusión, para no romper enlaces ya publicados.
+        $categoriaId = (int) ($filtros['categoria'] ?? $filtros['category_id'] ?? 0);
         $visible = (string) ($filtros['visible'] ?? '');
+        $areaId = (int) ($filtros['area'] ?? 0);
 
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
@@ -193,6 +201,10 @@ class Producto extends ActiveRecord {
 
         if ($categoriaId > 0) {
             $condiciones[] = "categoria_id = {$categoriaId}";
+        }
+
+        if ($areaId > 0) {
+            $condiciones[] = "area_id = {$areaId}";
         }
 
         if ($visible === '1' || $visible === '0') {
@@ -207,7 +219,12 @@ class Producto extends ActiveRecord {
         static::$alertas = [];
 
         if (!trim((string) $this->nombre)) {
-            static::setAlerta('error', 'El nombre del producto es obligatorio');
+            static::setAlerta('error', 'El nombre del platillo es obligatorio');
+        }
+        // La columna es NULL en el esquema (para no bloquear la migración),
+        // pero la carta pública y el PDF necesitan texto: se exige aquí.
+        if (!trim((string) $this->descripcion)) {
+            static::setAlerta('error', 'La descripción es obligatoria');
         }
         if (!$this->categoria_id || (int) $this->categoria_id < 1) {
             static::setAlerta('error', 'La categoría es obligatoria');

@@ -14,14 +14,15 @@
   height: 100vh;
   max-height: 100vh;
   padding: 22px 18px;
+  border-right: 1px solid var(--admin-sidebar-border);
   background: var(--admin-sidebar);
-  color: var(--admin-text-inverse);
+  color: var(--admin-sidebar-text);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204, 163, 82, 0.42) transparent;
+  scrollbar-color: var(--admin-sidebar-scroll-hover) transparent;
   transition:
     padding var(--admin-layout-transition),
     width var(--admin-layout-transition);
@@ -38,12 +39,12 @@
     border: 2px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
-    background-color: rgba(204, 163, 82, 0.32);
+    background-color: var(--admin-sidebar-scroll);
     transition: background-color var(--admin-t-base) var(--admin-ease-out);
   }
 
   &:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(204, 163, 82, 0.5);
+    background-color: var(--admin-sidebar-scroll-hover);
   }
 }
 
@@ -93,7 +94,7 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: rgba(248, 239, 226, 0.08);
+  background: var(--admin-sidebar-mark-bg);
   color: var(--admin-gold);
   font-weight: 800;
   line-height: 1;
@@ -111,7 +112,7 @@
 .admin-sidebar__link-mark {
   width: 36px;
   height: 36px;
-  color: rgba(248, 239, 226, 0.78);
+  color: var(--admin-sidebar-link);
 
   svg {
     width: 18px;
@@ -149,7 +150,7 @@
   min-height: 42px;
   padding: 4px 10px;
   border-radius: 8px;
-  color: rgba(248, 239, 226, 0.78);
+  color: var(--admin-sidebar-link);
   font-size: 13px;
   letter-spacing: 0.005em;
   text-decoration: none;
@@ -182,18 +183,18 @@
   }
 
   &:hover {
-    background: rgba(248, 239, 226, 0.1);
-    color: #fff;
+    background: var(--admin-sidebar-hover-bg);
+    color: var(--admin-sidebar-link-hover);
 
     .admin-sidebar__link-mark {
-      color: #fff;
+      color: var(--admin-sidebar-link-hover);
       transform: translateX(1px);
     }
   }
 
   &.is-active {
-    background: rgba(248, 239, 226, 0.12);
-    color: #fff;
+    background: var(--admin-sidebar-active-bg);
+    color: var(--admin-sidebar-active-text);
     font-weight: 700;
 
     &::before {
@@ -202,7 +203,7 @@
 
     .admin-sidebar__link-mark {
       background: var(--admin-gold);
-      color: #101213;
+      color: var(--admin-sidebar-mark-active-text);
     }
   }
 }
@@ -274,7 +275,7 @@
     transition:
       transform 180ms ease,
       visibility 180ms ease;
-    box-shadow: 20px 0 48px rgba(33, 31, 27, 0.28);
+    box-shadow: var(--admin-sidebar-shadow);
   }
 
   .admin-sidebar__brand {
@@ -313,7 +314,7 @@
     inset: 0;
     z-index: 30;
     display: block;
-    background: rgba(33, 31, 27, 0.5);
+    background: var(--admin-sidebar-backdrop);
     cursor: pointer;
     opacity: 0;
     visibility: hidden;

@@ -40,7 +40,7 @@
         </div>
         <div class="admin-actions">
             <a class="admin-btn admin-btn--secondary" href="/admin/inventario">Inventario</a>
-            <a class="admin-btn admin-btn--secondary" href="/admin/productos">Productos</a>
+            <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Recetas</a>
         </div>
     </header>
 
@@ -144,8 +144,10 @@
                         <?php foreach ($cortes as $c) : ?>
                             <tr<?php echo $c['fecha'] === $hoyIso ? ' class="is-today"' : ''; ?>>
                                 <td>
-                                    <span class="admin-table__cell-main"><?php echo htmlspecialchars($fechaBonita($c['fecha'])); ?></span>
-                                    <?php if ($c['fecha'] === $hoyIso) : ?><span class="admin-badge admin-badge--success">Hoy</span><?php endif; ?>
+                                    <div class="admin-cortes__day">
+                                        <span class="admin-table__cell-main"><?php echo htmlspecialchars($fechaBonita($c['fecha'])); ?></span>
+                                        <?php if ($c['fecha'] === $hoyIso) : ?><span class="admin-badge admin-badge--success">Hoy</span><?php endif; ?>
+                                    </div>
                                 </td>
                                 <td><span class="admin-table__cell-sub"><?php echo (int) $c['tickets']; ?></span></td>
                                 <td><?php echo $money($c['ventas']); ?></td>
@@ -172,7 +174,12 @@
                     <option value="<?php echo htmlspecialchars($c); ?>"><?php echo htmlspecialchars($etiquetaCat[$c] ?? $c); ?></option>
                 <?php endforeach; ?>
             </select>
-            <input type="number" name="monto" step="0.01" min="0" placeholder="Monto mensual" required aria-label="Monto">
+            <?php /* Mismo envoltorio que el input de edición: sin él, el gasto
+                     nuevo era el único campo de dinero sin su símbolo. */ ?>
+            <div class="admin-finanzas__money">
+                <span>$</span>
+                <input type="number" name="monto" step="0.01" min="0" placeholder="Monto mensual" required aria-label="Monto mensual">
+            </div>
             <button type="submit" class="admin-btn admin-btn--primary">Agregar</button>
         </form>
 

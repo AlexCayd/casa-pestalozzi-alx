@@ -2,8 +2,10 @@
    CASA PESTALOZZI — Entry point JS
    Gulp concatena src/js/**‌/*.js en orden alfabético de ruta:
    1. app.js (este archivo) — define estado compartido + boot()
-   2. data/menu-data.js      — window.CP_MENU
-   3. modules/*.js            — funciones init*, split*, etc.
+   2. modules/*.js            — funciones init*, split*, etc.
+   window.CP_MENU / CP_AREAS ya no viven aquí: el punto de venta las emite en
+   línea desde la BD (ver Services\Carta y views/punto-de-venta/index.php), y
+   la landing pide su carta a /menu.
    boot() se llama en DOMContentLoaded, cuando todo ya está definido.
    ============================================================ */
 
@@ -54,6 +56,7 @@ function boot() {
   initLightbox();
   initHours();
   initForm();
+  initReservationAccess();
   initAnnouncementDismiss();
   initTweaks();
 

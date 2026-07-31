@@ -116,6 +116,10 @@ class CategoriaMenuService
                 return ['ok' => false, 'codigo' => self::NO_EXISTE];
             }
 
+            // Los platillos viven en `productos` desde la fusión. Antes esta
+            // guarda miraba `menu`, así que una categoría usada solo por
+            // productos se podía borrar y reventaba contra la FK.
+            //
             // Incluye los productos retirados (activo = 0): la fila sigue viva
             // y la llave foránea a categorias impediría el DELETE de todos modos.
             $stmt = $db->prepare('SELECT id FROM productos WHERE categoria_id = ? LIMIT 1 FOR UPDATE');
