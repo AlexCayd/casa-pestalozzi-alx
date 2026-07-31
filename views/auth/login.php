@@ -44,8 +44,6 @@
             <span class="login-nip-dot"></span>
             <span class="login-nip-dot"></span>
             <span class="login-nip-dot"></span>
-            <span class="login-nip-dot"></span>
-            <span class="login-nip-dot"></span>
           </div>
 
           <div class="login-pad" id="login-pad">
