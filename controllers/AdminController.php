@@ -7,6 +7,7 @@
 namespace Controllers;
 
 use MVC\Router;
+use Services\Analiticas;
 use Services\AreasMejora;
 
 class AdminController
@@ -79,6 +80,10 @@ class AdminController
         // { metrics, tickets, payments, charts }.
         $rango = self::rangoAnalytics();
         $analytics = self::construirAnalytics($rango);
+
+        // Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3): ingeniería de
+        // menú, RevPASH, varianza de inventario y reglas de asociación.
+        $analytics['nivel1'] = Analiticas::nivel1($rango['start'], $rango['end']);
 
         self::render('analytics', [
             'activeModule' => 'analytics',

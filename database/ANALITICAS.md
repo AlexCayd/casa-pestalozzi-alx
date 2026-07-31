@@ -1,7 +1,14 @@
 # Casa Pestalozzi — Catálogo de analíticas propuestas
 
-> Documento de análisis y propuesta. **Nada de lo aquí descrito está implementado.**
+> Documento de análisis y propuesta.
 > Fecha: 2026-07-27 · Base: esquema de `database/ddl.sql`
+>
+> **Estado de implementación:** el **Nivel 1 (§3) está implementado** en la vista
+> `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
+> `views/admin/analytics.php`), con datos de demostración en
+> `database/analiticas.sql` (se carga después de `dml.sql`). El resto —Niveles 2
+> y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
+> implementada**.
 
 Este documento propone analíticas orientadas a la **toma de decisiones operativas**
 del restaurante, más allá de los agregados descriptivos que el panel ya muestra.
