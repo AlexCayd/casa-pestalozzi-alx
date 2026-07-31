@@ -213,4 +213,118 @@ $hoyIso = date('Y-m-d');
             </table>
         </div>
     </article>
+
+    <!-- ================= Analíticas diagnósticas (Nivel 1) ================= -->
+    <!-- Datos en window.AdminAnalyticsMock.nivel1 (Services\Analiticas). -->
+    <section class="admin-nivel1" data-admin-nivel1 aria-label="Analíticas diagnósticas de Nivel 1">
+        <header class="admin-page-header admin-nivel1__intro">
+            <div class="admin-page-header__intro">
+                <div class="admin-page-title-row">
+                    <h2>Analíticas diagnósticas</h2>
+                </div>
+                <p class="admin-page-summary">
+                    Del <em>qué pasó</em> al <em>por qué</em> y <em>qué hacer</em>
+                    <span aria-hidden="true">·</span> Nivel 1
+                </p>
+            </div>
+        </header>
+
+        <!-- §3.1 · Ingeniería de menú (matriz Kasavana-Smith) -->
+        <article class="admin-panel admin-nivel1-menu" data-n1-menu>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.1 · Ingeniería de menú</p>
+                    <h3>Matriz popularidad × margen</h3>
+                    <p>Qué platillo proteger, cuál subir de precio y cuál retirar de la carta</p>
+                </div>
+            </header>
+            <div class="admin-nivel1-menu__body">
+                <div class="admin-nivel1-menu__chart">
+                    <div class="admin-nivel1-legend" data-n1-menu-summary></div>
+                    <div class="admin-chart-card__canvas">
+                        <canvas id="menuEngineeringChart"></canvas>
+                    </div>
+                </div>
+                <div class="admin-table-wrap admin-nivel1-menu__table">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Platillo</th>
+                                <th>Clase</th>
+                                <th>Uds.</th>
+                                <th>Margen</th>
+                                <th>Categoría</th>
+                            </tr>
+                        </thead>
+                        <tbody data-n1-menu-table></tbody>
+                    </table>
+                </div>
+            </div>
+        </article>
+
+        <div class="admin-nivel1-grid">
+            <!-- §3.2 · RevPASH -->
+            <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-revpash>
+                <header>
+                    <div>
+                        <p class="admin-page-eyebrow">3.2 · RevPASH</p>
+                        <h3>Ingreso por asiento disponible por hora</h3>
+                    </div>
+                    <span data-n1-revpash-seats></span>
+                </header>
+                <div class="admin-chart-card__canvas">
+                    <canvas id="revpashChart"></canvas>
+                </div>
+                <p class="admin-nivel1-note" data-n1-revpash-note></p>
+            </article>
+
+            <!-- §3.3 · Varianza de inventario -->
+            <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-varianza>
+                <header>
+                    <div>
+                        <p class="admin-page-eyebrow">3.3 · Varianza de inventario</p>
+                        <h3>Merma: consumo teórico vs. real</h3>
+                    </div>
+                    <span data-n1-varianza-total></span>
+                </header>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Ingrediente</th>
+                                <th>Consumo teórico</th>
+                                <th>Merma</th>
+                            </tr>
+                        </thead>
+                        <tbody data-n1-varianza-table></tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+
+        <!-- §3.4 · Reglas de asociación con lift -->
+        <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.4 · Reglas de asociación</p>
+                    <h3>Qué se pide junto con qué</h3>
+                </div>
+                <span data-n1-asociacion-tickets></span>
+            </header>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Platillo A</th>
+                            <th>Platillo B</th>
+                            <th>Veces juntos</th>
+                            <th>Confianza</th>
+                            <th>Lift</th>
+                        </tr>
+                    </thead>
+                    <tbody data-n1-asociacion-table></tbody>
+                </table>
+            </div>
+        </article>
+    </section>
 </section>

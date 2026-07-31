@@ -147,6 +147,14 @@
     gap: 12px;
   }
 
+  // Nota aclaratoria bajo un control (cuándo aplica, qué implica marcarlo).
+  &__help {
+    margin-top: 6px;
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
   &__error {
     display: block;
     min-height: 18px;

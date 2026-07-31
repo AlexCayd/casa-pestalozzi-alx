@@ -58,5 +58,11 @@ el número 1/2/3) y las sugerencias, ya sea como `sugerencias[]` o como
 (obligatorio, contra la tabla `productos`), `argumento_mesero` y el puntaje.
 El nombre, precio y área se resuelven en la BD, no se confía en el flujo.
 
+> Los nodos de recomendación deben rankear **sobre `productos`**, que es de
+> donde `Services\Sugerencias::resolverProductos()` resuelve el `producto_id`.
+> Antes partían de la tabla `menu`, que tenía su propio `AUTO_INCREMENT`: el id
+> devuelto no correspondía al mismo platillo y la sugerencia salía cambiada o se
+> descartaba en silencio. `menu` ya no existe — se fusionó con `productos`.
+
 Un 200 con cuerpo vacío significa que el flujo reventó antes de llegar a
 "Respond to Webhook": revisa las ejecuciones en n8n.

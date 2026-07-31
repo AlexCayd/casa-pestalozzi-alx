@@ -2,6 +2,7 @@
 namespace Controllers;
 
 use Model\Mesa;
+use Model\Producto;
 use Model\Reservacion;
 use Model\Ticket;
 use Model\TicketItem;
@@ -37,6 +38,65 @@ class PuntoVentaController {
         );
 
         include_once __DIR__ . '/../views/punto-de-venta/index.php';
+    }
+
+    /**
+     * GET /api/productos — catalogo que el mesero ve en el modal de comanda.
+     *
+     * Antes vivia hardcodeado en src/js/data/menu-data.js (window.CP_MENU), que
+     * viajaba en el bundle: retirar un platillo del admin no lo quitaba del POS.
+     * Ahora sale de la BD, asi que el catalogo del mesero y la carta publica no
+     * pueden volver a desincronizarse.
+     *
+     * Devuelve el mismo shape que consumia CP_MENU para no tocar el render:
+     *   categorias: [{ id, label, dishes: [{ n, p, area, area_id }] }]
+     *   areas:      { slug: { id, label, color } }   (equivalente a CP_AREAS)
+     */
+    public static function productos(Router $router) {
+        header('Content-Type: application/json');
+
+        try {
+            $categorias = [];
+            foreach (Producto::catalogoPos() as $p) {
+                $catId = (int) $p->categoria_id;
+
+                if (!isset($categorias[$catId])) {
+                    $categorias[$catId] = [
+                        'id'     => $catId,
+                        'label'  => $p->categoria_nombre,
+                        'dishes' => [],
+                    ];
+                }
+
+                $categorias[$catId]['dishes'][] = [
+                    'n'       => $p->nombre,
+                    'p'       => (float) $p->precio,
+                    'area'    => $p->area_slug,
+                    'area_id' => (int) $p->area_id,
+                ];
+            }
+
+            $areas = [];
+            $res = Producto::ejecutarSQL('SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC');
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $areas[$row['slug']] = [
+                        'id'    => (int) $row['id'],
+                        'label' => $row['nombre'],
+                        'color' => $row['color'],
+                    ];
+                }
+            }
+
+            echo json_encode([
+                'ok'         => true,
+                'categorias' => array_values($categorias),
+                'areas'      => $areas,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('PuntoVentaController::productos - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el catálogo']);
+        }
     }
 
     // GET /admin/api/map?fecha=YYYY-MM-DD

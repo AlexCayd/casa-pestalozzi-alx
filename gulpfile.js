@@ -38,6 +38,7 @@ const paths = {
     // mock-data.js se retiró: los datos reales llegan desde PHP como
     // window.AdminAnalyticsMock (ver AdminController::construirAnalytics).
     "src/js/admin/analytics/charts.js",
+    "src/js/admin/analytics/nivel1.js",
     "src/js/admin/analytics/range-picker.js",
     "src/js/admin/analytics/analytics-page.js",
     "src/js/admin/analytics/analytics.js",

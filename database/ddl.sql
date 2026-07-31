@@ -246,7 +246,9 @@ CREATE TABLE IF NOT EXISTS productos (
   UNIQUE KEY uq_productos_nombre (nombre),
   KEY idx_productos_cat_activo (categoria_id, activo),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+  FOREIGN KEY (area_id) REFERENCES areas_produccion(id),
+  UNIQUE KEY uq_productos_nombre (nombre),
+  INDEX idx_productos_carta (activo, categoria_id)
 );
 
 -- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
@@ -380,8 +382,20 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- `productos` es la fuente funcional única. La tabla `menu` anterior se
--- conserva únicamente como compatibilidad de datos durante la transición.
+-- -------------------------------------------------------
+-- MENÚ
+-- -------------------------------------------------------
+--
+-- La carta se sirve desde 'productos' (definida arriba, ver TICKETS / COMANDA).
+--
+-- La tabla 'menu' se fusionó con 'productos': tenían el mismo contenido con
+-- llaves distintas, y el CRUD del admin solo tocaba 'menu', así que un platillo
+-- borrado de la carta seguía vivo para el POS y para las sugerencias de n8n.
+-- Ahora la carta y el POS son la misma consulta: 'productos WHERE activo = 1'.
+--
+-- 'productos' es la fuente funcional única. La tabla 'menu' se sigue creando
+-- arriba solo como compatibilidad de lectura para instalaciones y datos de
+-- siembra anteriores; ninguna consulta de la aplicación la toca.
 
 -- -------------------------------------------------------
 -- FEEDBACK
