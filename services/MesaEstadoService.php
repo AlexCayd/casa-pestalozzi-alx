@@ -53,7 +53,6 @@ final class MesaEstadoService
             $reservable = (int)self::valor($mesa, 'reservable', 0) === 1;
             $estadoBase = self::DISPONIBLE;
             $modificadores = [];
-            $indicadores = [];
             $reservacionProxima = null;
             $reservacionAsociada = null;
             $ticketAbierto = null;
@@ -76,44 +75,22 @@ final class MesaEstadoService
                 ];
                 $walkIn = $ticket['reservacion_id'] === null;
                 $modificadores[] = 'ticket_abierto';
-                $horaLiberacion = substr(
-                    (string)($ticket['liberacion_proyectada'] ?? ''),
-                    11,
-                    5
-                );
                 if (!empty($ticket['conflicto_proximo'])) {
                     $estadoBase = self::OCUPADA;
                     $modificadores[] = 'conflicto_proximo';
-                    $indicadores[] = self::indicador(
-                        'conflicto_proximo',
-                        'Ticket abierto dentro del bloqueo de una reservación',
-                        '!'
-                    );
                     $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
                 } elseif (!empty($ticket['disponible_proyectada'])) {
                     $estadoBase = self::DISPONIBLE;
                     $modificadores[] = 'disponible_proyectada';
-                    $indicadores[] = self::indicador(
-                        'disponible_proyectada',
-                        'Ticket abierto · Liberación estimada ' . $horaLiberacion,
-                        '~'
-                    );
                 } else {
                     $estadoBase = self::OCUPADA;
-                    $indicadores[] = self::indicador('ticket_abierto', 'Servicio activo', 'T');
                     $motivoBloqueo = 'Ocupada por servicio activo.';
                 }
                 if ($walkIn) {
                     $modificadores[] = 'walk_in';
-                    $indicadores[] = self::indicador('walk_in', 'Walk-in', 'W');
                 }
                 if (count($ticket['mesa_ids']) > 1) {
                     $modificadores[] = 'varias_mesas';
-                    $indicadores[] = self::indicador(
-                        'varias_mesas',
-                        count($ticket['mesa_ids']) . ' mesas vinculadas al servicio',
-                        (string)count($ticket['mesa_ids'])
-                    );
                 }
             }
 
@@ -129,11 +106,6 @@ final class MesaEstadoService
                 $resumen = self::resumenReservacion($candidata);
                 if (count($resumen['mesa_ids']) > 1 && !in_array('varias_mesas', $modificadores, true)) {
                     $modificadores[] = 'varias_mesas';
-                    $indicadores[] = self::indicador(
-                        'varias_mesas',
-                        count($resumen['mesa_ids']) . ' mesas vinculadas a la reservación',
-                        (string)count($resumen['mesa_ids'])
-                    );
                 }
 
                 if ($clasificacion['tipo'] === 'ocupada') {
@@ -157,7 +129,6 @@ final class MesaEstadoService
                             (int)$resumen['id'],
                             (string)$resumen['hora']
                         );
-                        $indicadores[] = self::indicador('bloqueada', 'Bloqueo de reservación', 'B');
                     }
                     continue;
                 }
@@ -167,11 +138,6 @@ final class MesaEstadoService
                     $reservacionProxima = $resumen;
                     $minutosRestantes = $clasificacion['minutos_restantes'];
                     $modificadores[] = 'reservacion_proxima';
-                    $indicadores[] = self::indicador(
-                        'reservacion_proxima',
-                        'Reservación próxima a las ' . $resumen['hora'],
-                        'P'
-                    );
                 }
             }
 
@@ -204,7 +170,6 @@ final class MesaEstadoService
                 'reservable' => $activada && $reservable,
                 'estado_base' => $estadoBase,
                 'modificadores' => $modificadores,
-                'indicadores' => $indicadores,
                 'reservacion_proxima' => $reservacionProxima,
                 'minutos_restantes' => $minutosRestantes,
                 'reservacion_asociada' => $reservacionAsociada,
@@ -347,12 +312,6 @@ final class MesaEstadoService
         } catch (\Throwable $e) {
             return null;
         }
-    }
-
-    /** @return array{tipo:string,label:string,simbolo:string} */
-    private static function indicador(string $tipo, string $label, string $simbolo): array
-    {
-        return ['tipo' => $tipo, 'label' => $label, 'simbolo' => $simbolo];
     }
 
     private static function tituloAccesible(

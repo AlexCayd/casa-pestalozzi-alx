@@ -8,13 +8,9 @@
     var STATE_CLASSES = [
         'mesa-pin--libre',
         'mesa-pin--ocupada',
-        'mesa-pin--asignada',
+        'mesa-pin--reservacion-proxima',
         'mesa-pin--seleccionada',
-        'mesa-pin--no-reservable',
-        'mesa-pin--bloqueada',
-        'mesa-pin--proxima',
-        'mesa-pin--con-ticket',
-        'mesa-pin--zona'
+        'mesa-pin--no-utilizable'
     ];
 
     function toBoolean(value) {
@@ -35,14 +31,17 @@
         var state = String(value || 'libre').toLowerCase();
         var aliases = {
             disponible: 'libre',
-            no_reservable: 'no-reservable',
-            proxima: 'libre',
+            no_reservable: 'no-utilizable',
+            'no-reservable': 'no-utilizable',
+            'no-utilizable': 'no-utilizable',
+            proxima: 'reservacion-proxima',
+            bloqueada: 'reservacion-proxima',
             'con-ticket': 'ocupada',
-            zona: 'no-reservable'
+            zona: 'no-utilizable'
         };
 
         state = aliases[state] || state;
-        return ['libre', 'ocupada', 'bloqueada', 'asignada', 'seleccionada', 'no-reservable'].indexOf(state) !== -1
+        return ['libre', 'ocupada', 'reservacion-proxima', 'seleccionada', 'no-utilizable'].indexOf(state) !== -1
             ? state
             : 'libre';
     }
@@ -73,35 +72,13 @@
         return attributes;
     }
 
-    function normalizeIndicators(value) {
-        if (!Array.isArray(value)) {
-            return [];
-        }
-
-        return value.map(function (indicator) {
-            indicator = indicator || {};
-            var type = String(indicator.tipo || 'estado')
-                .toLowerCase()
-                .replace(/[^a-z0-9_-]/g, '-');
-            var label = String(indicator.label || '').trim();
-            if (!label) {
-                return null;
-            }
-
-            return {
-                tipo: type || 'estado',
-                label: label,
-                simbolo: String(indicator.simbolo || 'i').substring(0, 2)
-            };
-        }).filter(Boolean);
-    }
-
     function normalizeTable(raw) {
         raw = raw || {};
 
         var id = parseInt(raw.id || '0', 10);
         var state = normalizeState(raw.estadoVisual || raw.estado_visual || raw.estado);
-        var selected = toBoolean(raw.seleccionada) || state === 'seleccionada';
+        var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
+        var selected = (toBoolean(raw.seleccionada) || state === 'seleccionada') && seleccionValida;
         var reservable = toBoolean(raw.reservable);
 
         return {
@@ -121,7 +98,7 @@
             numero: raw.numero == null ? '' : String(raw.numero),
             estadoBase: String(raw.estadoBase || raw.estado_base || ''),
             modificadores: normalizeClasses(raw.modificadores),
-            indicadores: normalizeIndicators(raw.indicadores),
+            seleccionValida: seleccionValida,
             clasesEstado: normalizeClasses(raw.clasesEstado || raw.clases_estado),
             atributos: normalizeAttributes(raw.atributos)
         };
@@ -214,32 +191,6 @@
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
         }
 
-        /**
-         * Los indicadores ya llegan descritos por el adaptador de contexto.
-         * El componente únicamente genera insignias accesibles.
-         */
-        function renderIndicators(pin, table) {
-            var previous = pin.querySelector('.mesa-pin__indicators');
-            if (previous) {
-                previous.remove();
-            }
-            if (!table.indicadores.length) {
-                return;
-            }
-
-            var container = document.createElement('span');
-            container.className = 'mesa-pin__indicators';
-            container.setAttribute('aria-hidden', 'true');
-            table.indicadores.forEach(function (indicator) {
-                var badge = document.createElement('span');
-                badge.className = 'mesa-pin__indicator mesa-pin__indicator--' + indicator.tipo;
-                badge.title = indicator.label;
-                badge.textContent = indicator.simbolo;
-                container.appendChild(badge);
-            });
-            pin.appendChild(container);
-        }
-
         function createPin(table) {
             var pin = document.createElement('button');
             var isInteractive = interactive && table.interactivo;
@@ -282,7 +233,6 @@
                 pin.appendChild(typeLabel);
             }
 
-            renderIndicators(pin, table);
             applyState(pin, table);
             return pin;
         }
@@ -353,17 +303,13 @@
                 table.estadoVisual = normalizeState(changes.estadoVisual);
             }
             if (changes.seleccionada != null) {
-                table.seleccionada = toBoolean(changes.seleccionada);
+                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida !== false;
             }
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
             }
             if (changes.modificadores != null) {
                 table.modificadores = normalizeClasses(changes.modificadores);
-            }
-            if (changes.indicadores != null) {
-                table.indicadores = normalizeIndicators(changes.indicadores);
-                renderIndicators(pin, table);
             }
             if (changes.titulo != null) {
                 table.titulo = String(changes.titulo);
@@ -390,7 +336,7 @@
             });
 
             tables.forEach(function (table) {
-                var nextSelected = Boolean(selected[table.id]);
+                var nextSelected = Boolean(selected[table.id]) && table.seleccionValida !== false;
                 if (table.seleccionada !== nextSelected) {
                     table.seleccionada = nextSelected;
                     var pin = canvas.querySelector('[data-mapa-mesa="' + table.id + '"]');

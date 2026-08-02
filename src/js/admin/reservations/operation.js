@@ -1504,23 +1504,12 @@
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
                 var modifiers = [];
-                var indicators = [];
 
                 if (assignedReservation) {
                     modifiers.push('asignada');
-                    indicators.push({
-                        tipo: 'asignada',
-                        label: 'Asignada a reservación #' + assignedReservation.id,
-                        simbolo: 'A'
-                    });
                 }
                 if (assigned) {
                     modifiers.push('seleccion_actual');
-                    indicators.push({
-                        tipo: 'seleccion_actual',
-                        label: 'Selección actual',
-                        simbolo: 'S'
-                    });
                 }
 
                 var associatedId = normalized.reservacion_asociada
@@ -1563,6 +1552,10 @@
                     (normalized.estado_base !== 'ocupada' || ticketConflict) &&
                     (normalized.estado_base !== 'bloqueada' || blockedBySelf);
                 var title = normalized.titulo;
+                if (assignedReservation) {
+                    title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
+                        ' a las ' + horaCorta(assignedReservation.hora) + '.';
+                }
                 if (conflict) {
                     title = ticketConflict
                         ? normalized.nombre + (
@@ -1575,11 +1568,11 @@
 
                 return window.MesaEstadoAdapter.paraMapaVisual(normalized, {
                     seleccionActual: assigned,
+                    seleccionValida: !ticketConflict,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     modificadores: modifiers,
-                    indicadores: indicators,
-                    clasesEstado: assigned ? ['reservation-operation-pin--selected'] : [],
+                    clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
                     atributos: {
                         'data-operation-table': mesaId,
                         'data-disabled': !selectable || state.guardando ? '1' : '0'
@@ -1735,7 +1728,6 @@
                         return Object.assign({}, mesa, {
                             estado_base: active && reservable ? 'disponible' : 'no_reservable',
                             modificadores: [],
-                            indicadores: [],
                             seleccion_actual: false,
                             titulo: mesa.nombre + (active && reservable ? '. Disponible.' : '. No reservable.')
                         });

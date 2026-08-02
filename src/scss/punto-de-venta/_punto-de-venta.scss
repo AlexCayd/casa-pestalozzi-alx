@@ -477,84 +477,6 @@
 
 // ── Pines de mesa ─────────────────────────────────────────────
 // ── Estados de mesa ───────────────────────────────────────────
-.pdv-page .mesa-pin--zona {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-faint);
-
-  &.mesa-pin--tipo-especial {
-    background: rgba(204, 163, 82, .15);
-    border-color: rgba(204, 163, 82, .25);
-    color: var(--gold-soft);
-  }
-}
-
-.pdv-page .mesa-pin--libre {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-mute);
-
-  &:hover {
-    background: var(--surface);
-    border-color: rgba(204, 163, 82, .3);
-    color: var(--txt);
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(0,0,0,.4);
-  }
-}
-
-.pdv-page .mesa-pin--mod-reservacion_proxima {
-  background: rgba(124, 61, 29, .18);
-  border-color: rgba(232, 160, 96, .4);
-  border-style: dashed;
-  color: #e8a060;
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(124,61,29,.35);
-  }
-}
-
-.pdv-page .mesa-pin--bloqueada {
-  background: rgba(204, 163, 82, .18);
-  border-color: rgba(224, 193, 132, .58);
-  color: var(--gold-soft);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(204, 163, 82, .3);
-  }
-}
-
-.pdv-page .mesa-pin--ocupada {
-  background: var(--admin-danger-bg);
-  border-color: var(--admin-danger-border);
-  color: var(--admin-danger-text);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--admin-danger) 16%, transparent);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px color-mix(in srgb, var(--admin-danger) 30%, transparent);
-  }
-}
-
-.pdv-page .mesa-pin--mod-ticket_abierto {
-  background: rgba(95, 125, 86, .22);
-  border-color: rgba(139, 191, 126, .55);
-  color: #8bbf7e;
-  box-shadow: 0 0 16px rgba(95, 125, 86, .15);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px rgba(95, 125, 86, .3);
-  }
-}
-
-.pdv-page .mesa-pin--highlight {
-  box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
-  z-index: 5;
-}
-
 // ── Controlador de tiempo ─────────────────────────────────────
 .pdv-time-ctrl {
   display: flex;
@@ -2796,12 +2718,14 @@
 
 // ── El mapa: único contenedor, llena el alto disponible ────────
 .mapa-page .pos-map {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
 }
 
 .mapa-page .pos-map .mesas-map {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -2815,7 +2739,23 @@
 // Se oculta el encabezado interno del mapa (título + leyenda): el título es
 // redundante y la leyenda se muestra debajo del mapa.
 .mapa-page .mesas-map__header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  min-height: 0;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.mapa-page .mesas-map__header .mesas-map__heading,
+.mapa-page .mesas-map__header .mesas-map__legend {
   display: none;
+}
+
+.mapa-page .mesas-map__toolbar-actions {
+  margin-left: auto;
+  pointer-events: auto;
 }
 
 .mapa-page .mesas-map__viewport {
@@ -2840,57 +2780,6 @@
   padding: 16px;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
-}
-
-.mapa-page .mesa-pin--mod-walk_in {
-  outline: 3px double rgba(126, 191, 160, .82);
-  outline-offset: 3px;
-}
-
-.mapa-page .mesa-pin--mod-ticket_abierto:not(.mesa-pin--mod-walk_in) {
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, .45), 0 10px 24px rgba(0, 0, 0, .32);
-}
-
-.mapa-page .mesa-pin__indicators {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  display: flex;
-  gap: 3px;
-  pointer-events: none;
-}
-
-.mapa-page .mesa-pin__indicator {
-  display: grid;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--txt-mute);
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .34);
-}
-
-.mapa-page .mesa-pin__indicator--reservacion_proxima,
-.mapa-page .mesa-pin__indicator--bloqueada {
-  border-color: rgba(232, 160, 96, .55);
-  color: #e8a060;
-}
-
-.mapa-page .mesa-pin__indicator--ticket_abierto,
-.mapa-page .mesa-pin__indicator--walk_in {
-  border-color: rgba(139, 191, 126, .55);
-  color: #8bbf7e;
-}
-
-.mapa-page .mesa-pin__indicator--varias_mesas {
-  border-color: rgba(232, 224, 212, .4);
-  color: rgba(232, 224, 212, .86);
 }
 
 .mapa-page .operational-drawer__content .mapa-reservas-list {

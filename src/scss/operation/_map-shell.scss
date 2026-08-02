@@ -4,6 +4,41 @@
   --mesas-map-aspect-ratio: 1.75 / 1;
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
+
+  /* Estados semanticos del mapa: una sola paleta reutilizable. */
+  --map-table-available-bg: rgba(139, 191, 126, 0.14);
+  --map-table-available-text: #9fd3a6;
+  --map-table-available-border: rgba(139, 191, 126, 0.32);
+  --map-table-occupied-bg: rgba(232, 112, 96, 0.14);
+  --map-table-occupied-text: #f0a79b;
+  --map-table-occupied-border: rgba(232, 112, 96, 0.34);
+  --map-table-selected-bg: rgba(224, 193, 132, 0.34);
+  --map-table-selected-text: #f2d89a;
+  --map-table-selected-border: var(--admin-border-soft);
+  --map-table-reservation-bg: rgba(103, 150, 192, 0.18);
+  --map-table-reservation-text: #b5d6f2;
+  --map-table-reservation-border: rgba(103, 150, 192, 0.38);
+  --map-table-unavailable-bg: rgba(128, 136, 143, 0.12);
+  --map-table-unavailable-text: var(--admin-faint);
+  --map-table-unavailable-border: var(--admin-border);
+}
+
+[data-admin-theme="light"] .operational-page {
+  --map-table-available-bg: #e3f1e1;
+  --map-table-available-text: #315d3e;
+  --map-table-available-border: #8fbd8b;
+  --map-table-occupied-bg: #f7dfdc;
+  --map-table-occupied-text: #81382f;
+  --map-table-occupied-border: #d69b92;
+  --map-table-selected-bg: #f5e4b5;
+  --map-table-selected-text: #664b16;
+  --map-table-selected-border: var(--admin-border-soft);
+  --map-table-reservation-bg: #e1eef8;
+  --map-table-reservation-text: #31506d;
+  --map-table-reservation-border: #94b9d6;
+  --map-table-unavailable-bg: #ecebe7;
+  --map-table-unavailable-text: rgba(11, 12, 13, 0.48);
+  --map-table-unavailable-border: rgba(11, 12, 13, 0.16);
 }
 
 .mesas-map {
@@ -98,10 +133,10 @@
 
 .mesas-map__legend {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px 14px;
   flex-wrap: wrap;
 }
 
@@ -142,91 +177,28 @@
 }
 
 .mesas-map__legend .mapa-leyenda-item--libre::before {
-  color: var(--admin-success);
-  background: var(--admin-success-bg);
+  color: var(--map-table-available-border);
+  background: var(--map-table-available-bg);
 }
 
 .mesas-map__legend .mapa-leyenda-item--ocupada::before {
-  color: var(--admin-danger);
-  background: var(--admin-danger-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--asignada::before {
-  color: var(--admin-warning);
-  background: var(--admin-warning-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--bloqueada::before {
-  color: var(--admin-warning);
-  background: var(--admin-warning-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--proxima::before {
-  color: var(--admin-gold-soft);
-  border-style: dashed;
-  background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
+  color: var(--map-table-occupied-border);
+  background: var(--map-table-occupied-bg);
 }
 
 .mesas-map__legend .mapa-leyenda-item--seleccionada::before {
-  color: var(--admin-gold-soft);
-  background: var(--admin-gold);
+  color: var(--map-table-selected-text);
+  background: var(--map-table-selected-bg);
 }
 
-.mesas-map__legend .mapa-leyenda-item--zona::before {
-  color: var(--admin-faint);
-  background: var(--admin-surface-soft);
+.mesas-map__legend .mapa-leyenda-item--reservacion-proxima::before {
+  color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
 }
 
-.mesas-map__legend .mapa-leyenda-item--signal {
-  gap: 4px;
-  color: var(--admin-muted);
-  font-size: var(--operational-text-sm);
-
-  &::before {
-    display: none;
-  }
-
-  b {
-    display: inline-flex;
-    width: 17px;
-    height: 17px;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid currentColor;
-    border-radius: 3px;
-    color: var(--admin-muted);
-    font-size: var(--operational-text-xs);
-    font-weight: var(--operational-weight-bold);
-    line-height: 1;
-  }
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--proxima,
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--bloqueada {
-  color: var(--admin-muted);
-
-  b {
-    border-style: dashed;
-    color: var(--admin-warning-text);
-  }
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--ticket {
-  color: var(--admin-muted);
-
-  b { color: var(--admin-success-text); }
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--walk-in {
-  color: var(--admin-muted);
-
-  b { color: var(--admin-info-text); }
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--varias-mesas {
-  color: var(--admin-muted);
-
-  b { color: var(--admin-text); }
+.mesas-map__legend .mapa-leyenda-item--no-utilizable::before {
+  color: var(--map-table-unavailable-border);
+  background: var(--map-table-unavailable-bg);
 }
 
 .mesas-map__viewport {
@@ -347,6 +319,11 @@
   cursor: not-allowed;
 }
 
+.mesas-map button.mesa-pin--seleccionada:hover:not(:disabled),
+.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled) {
+  border-color: var(--map-table-selected-border);
+}
+
 .mesas-map .mesa-pin--no-reservable:disabled {
   cursor: default;
 }
@@ -393,116 +370,44 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.mesas-map .mesa-pin__indicators {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  display: flex;
-  max-width: calc(100% + 18px);
-  gap: 3px;
-  pointer-events: none;
-}
-
-.mesas-map .mesa-pin__indicator {
-  display: grid;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  place-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
-  font-size: 9px;
-  font-weight: var(--operational-weight-bold);
-  line-height: 1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
-}
-
-.mesas-map .mesa-pin__indicator--reservacion_proxima,
-.mesas-map .mesa-pin__indicator--bloqueada {
-  border-color: var(--admin-warning-border);
-  color: var(--admin-warning-text);
-}
-
-.mesas-map .mesa-pin__indicator--ticket_abierto {
-  border-color: var(--admin-danger-border);
-  color: var(--admin-danger-text);
-}
-
-.mesas-map .mesa-pin__indicator--walk_in {
-  border-color: var(--admin-info-border);
-  color: var(--admin-info-text);
-}
-
-.mesas-map .mesa-pin--mod-disponible_proyectada {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--admin-info, #55a9d7) 70%, var(--admin-border));
-}
-
-.mesas-map .mesa-pin__indicator--disponible_proyectada {
-  border-color: color-mix(in srgb, var(--admin-info, #55a9d7) 60%, transparent);
-  color: #bde9ff;
-  background: color-mix(in srgb, var(--admin-info, #55a9d7) 24%, var(--admin-surface-strong));
-}
-
-.mesas-map .mesa-pin--mod-conflicto_proximo {
-  border-color: var(--admin-danger, #d95f5f);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-danger, #d95f5f) 23%, transparent);
-}
-
-.mesas-map .mesa-pin__indicator--conflicto_proximo {
-  color: #fff;
-  background: var(--admin-danger, #d95f5f);
-}
-
-.mesas-map .mesa-pin__indicator--varias_mesas {
-  border-color: color-mix(in srgb, var(--admin-text) 42%, var(--admin-border));
-  color: var(--admin-text);
-}
-
 .mesas-map .mesa-pin--libre {
-  border-color: color-mix(in srgb, var(--admin-success-border) 88%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-success-bg) 88%, transparent), color-mix(in srgb, var(--admin-success-bg) 52%, var(--admin-surface)));
-  color: var(--admin-success-text);
+  border-color: var(--map-table-available-border);
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
   box-shadow:
     0 10px 26px rgba(0, 0, 0, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .mesas-map .mesa-pin--ocupada {
-  border-color: var(--admin-danger-border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-danger-bg) 92%, transparent), color-mix(in srgb, var(--admin-danger-bg) 58%, var(--admin-surface)));
-  color: var(--admin-danger-text);
+  border-color: var(--map-table-occupied-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
   opacity: 0.96;
   box-shadow:
     0 10px 26px rgba(0, 0, 0, 0.26),
-    0 0 0 1px color-mix(in srgb, var(--admin-danger) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.mesas-map .mesa-pin--asignada,
-.mesas-map .mesa-pin--bloqueada {
-  border-color: var(--admin-warning-border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-warning-bg) 92%, transparent), color-mix(in srgb, var(--admin-warning-bg) 56%, var(--admin-surface)));
-  color: var(--admin-warning-text);
+.mesas-map .mesa-pin--reservacion-proxima {
+  border-color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
   box-shadow:
     0 10px 26px rgba(0, 0, 0, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.mesas-map .mesa-pin--no-utilizable,
 .mesas-map .mesa-pin--no-reservable,
 .mesas-map .mesa-pin--zona,
 .mesas-map .mesa-pin--tipo-barra,
 .mesas-map .mesa-pin--tipo-especial {
-  border-color: var(--admin-border);
+  border-color: var(--map-table-unavailable-border);
   border-style: solid;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 84%, var(--admin-surface-soft)), color-mix(in srgb, var(--admin-surface-soft) 88%, #000 6%));
-  color: var(--admin-muted);
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
   opacity: 0.94;
   box-shadow:
     0 8px 20px rgba(0, 0, 0, 0.2),
@@ -510,17 +415,13 @@
 }
 
 .mesas-map .mesa-pin--tipo-barra {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 94%, #fff 2%), color-mix(in srgb, var(--admin-surface-soft) 90%, #000 6%));
+  background: var(--map-table-unavailable-bg);
 }
 
-.mesas-map .mesa-pin--mod-reservacion_proxima {
-  border-color: color-mix(in srgb, var(--admin-gold) 78%, var(--admin-warning-border));
-  border-style: dashed;
-  box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.26),
-    0 0 0 2px color-mix(in srgb, var(--admin-gold) 16%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.mesas-map .mesa-pin--mod-reservacion_proxima:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+  border-color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
 }
 
 // ── Matices sin nomenclatura ─────────────────────────────────
@@ -545,35 +446,14 @@
 .mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {
-  border-color: var(--admin-gold);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-gold) 30%, var(--admin-surface)), color-mix(in srgb, var(--admin-gold) 16%, var(--admin-surface)));
-  color: var(--admin-gold-soft);
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
   opacity: 1;
   box-shadow:
-    0 0 0 3px rgba(204, 163, 82, 0.22),
     0 14px 34px rgba(0, 0, 0, 0.3),
-    0 0 20px rgba(204, 163, 82, 0.18);
-  outline: 1px solid var(--admin-gold-soft);
-  outline-offset: 2px;
-}
-
-.mesas-map .reservation-operation-pin--assigned::after,
-.mesas-map .mesa-pin--mod-asignada::after {
-  content: "Asignada";
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  padding: 2px 5px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold-soft) 52%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-surface) 70%, transparent);
-  color: var(--admin-gold-soft);
-  font-size: 9px;
-  font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0.03em;
-  line-height: 1;
-  text-transform: uppercase;
+    0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+  outline: 0;
 }
 
 @container mesas-map (max-width: 760px) {
