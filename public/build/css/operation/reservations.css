@@ -519,20 +519,6 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 
-.operational-header__pulse {
-  width: 9px;
-  height: 9px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--c-lima, #8ac926);
-  animation: operational-live-pulse 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .operational-header__pulse {
-    animation: none;
-  }
-}
 .operational-header__back {
   display: inline-grid;
   width: 44px;
@@ -1658,9 +1644,29 @@ html:has(.operation-body.is-assignment-mode) {
   --map-table-reservation-bg: rgba(103, 150, 192, 0.18);
   --map-table-reservation-text: #b5d6f2;
   --map-table-reservation-border: rgba(103, 150, 192, 0.38);
+  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
+  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
+  --map-table-reservation-overdue-border: rgba(161, 168, 176, 0.62);
   --map-table-unavailable-bg: rgba(128, 136, 143, 0.12);
   --map-table-unavailable-text: var(--admin-faint);
   --map-table-unavailable-border: var(--admin-border);
+  --map-action-primary-bg: var(--admin-gold);
+  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-border: var(--admin-gold);
+  --map-action-cancel-bg: var(--admin-danger-bg);
+  --map-action-cancel-text: var(--admin-danger-text);
+  --map-action-cancel-border: var(--admin-danger-border);
+  --map-action-utility-bg: var(--admin-surface-soft);
+  --map-action-utility-text: var(--admin-text);
+  --map-action-utility-border: var(--admin-border);
+  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 70%, var(--admin-border-soft));
+  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 5%, transparent);
+  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 88%, var(--admin-gold) 12%);
+  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 62%, var(--admin-border-soft));
+  --map-selection-message-text: var(--admin-text);
+  --map-reservation-warning-border: var(--map-table-reservation-border);
+  --map-reservation-block-bg: var(--map-table-reservation-bg);
+  --map-reservation-block-border: var(--map-table-reservation-border);
 }
 
 [data-admin-theme=light] .operational-page {
@@ -1676,9 +1682,29 @@ html:has(.operation-body.is-assignment-mode) {
   --map-table-reservation-bg: #e1eef8;
   --map-table-reservation-text: #31506d;
   --map-table-reservation-border: #94b9d6;
+  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
+  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
+  --map-table-reservation-overdue-border: #9299a1;
   --map-table-unavailable-bg: #ecebe7;
   --map-table-unavailable-text: rgba(11, 12, 13, 0.48);
   --map-table-unavailable-border: rgba(11, 12, 13, 0.16);
+  --map-action-primary-bg: var(--admin-gold);
+  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-border: var(--admin-gold);
+  --map-action-cancel-bg: var(--admin-danger-bg);
+  --map-action-cancel-text: var(--admin-danger-text);
+  --map-action-cancel-border: var(--admin-danger-border);
+  --map-action-utility-bg: var(--admin-surface-soft);
+  --map-action-utility-text: var(--admin-text);
+  --map-action-utility-border: var(--admin-border);
+  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 64%, var(--admin-border-soft));
+  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 6%, transparent);
+  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 92%, var(--admin-gold) 8%);
+  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 58%, var(--admin-border-soft));
+  --map-selection-message-text: var(--admin-text);
+  --map-reservation-warning-border: var(--map-table-reservation-border);
+  --map-reservation-block-bg: var(--map-table-reservation-bg);
+  --map-reservation-block-border: var(--map-table-reservation-border);
 }
 
 .mesas-map {
@@ -2027,20 +2053,74 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-unavailable-bg);
 }
 
-.mesas-map .mesa-pin--mod-reservacion_proxima:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
-  border-color: var(--map-table-reservation-border);
+.mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+}
+
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+}
+
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_bloqueante:not(.mesa-pin--mod-reservacion_vencida) {
+  border-color: var(--map-reservation-block-border);
+  border-style: solid;
+  border-width: 2px;
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
 }
 
-.mesas-map .mesa-pin--mod-walk_in {
-  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--admin-danger) 16%, transparent) 0 6px, transparent 6px 12px);
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_tolerancia {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2px;
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
 }
 
-.mesas-map .mesa-pin--mod-varias_mesas {
-  border-width: 2px;
-  border-style: double;
-  border-color: color-mix(in srgb, var(--admin-text) 52%, var(--admin-danger-border));
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_tolerancia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante:not(.mesa-pin--mod-reservacion_vencida) {
+  border-color: var(--map-reservation-block-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
+}
+
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_vencida {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 48%, transparent);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_vencida {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 58%, transparent);
 }
 
 .mesas-map .mesa-pin--seleccionada,
@@ -2054,6 +2134,136 @@ html:has(.operation-body.is-assignment-mode) {
   outline: 0;
 }
 
+.pos-map.is-ticket-selection-mode {
+  border: 2px solid var(--map-selection-mode-border);
+  border-radius: 16px;
+  background: var(--map-selection-mode-overlay);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 18%, transparent);
+}
+
+.pos-map.is-ticket-selection-mode .mesas-map__viewport {
+  background: var(--map-selection-mode-overlay);
+}
+
+.pos-ticket-selection-message {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: clamp(12px, 18%, 240px);
+  right: clamp(214px, 22%, 300px);
+  max-width: none;
+  padding: 9px 16px;
+  border: 1px solid var(--map-selection-message-border);
+  border-radius: 10px;
+  background: var(--map-selection-message-bg);
+  color: var(--map-selection-message-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+}
+
+.pos-map-actions {
+  display: flex;
+  width: clamp(170px, 16vw, 200px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.pos-ticket-selection-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.pos-map-actions__separator {
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+  background: var(--admin-border-soft);
+}
+
+.operational-map-action {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--map-action-utility-border);
+  border-radius: 10px;
+  background: var(--map-action-utility-bg);
+  color: var(--map-action-utility-text);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.operational-map-action--primary {
+  border-color: var(--map-action-primary-border);
+  background: var(--map-action-primary-bg);
+  color: var(--map-action-primary-text);
+}
+
+.operational-map-action--cancel {
+  border-color: var(--map-action-cancel-border);
+  background: var(--map-action-cancel-bg);
+  color: var(--map-action-cancel-text);
+}
+
+.operational-map-action:hover,
+.operational-map-action.is-active {
+  border-color: var(--map-action-primary-border);
+  background: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-gold-soft) 12%);
+  color: var(--map-action-primary-text);
+}
+
+.operational-map-action--cancel:hover {
+  border-color: var(--map-action-cancel-border);
+  background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
+  color: var(--map-action-cancel-text);
+}
+
+.operational-map-action:focus-visible,
+.pos-map-actions .operational-map-toggle:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operational-map-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.pos-map-actions .operational-map-toggle {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  border-color: var(--map-action-utility-border);
+  border-radius: 10px;
+  background: var(--map-action-utility-bg);
+  color: var(--map-action-utility-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante,
+  .operational-map-action {
+    transition: none;
+  }
+}
+@media (max-width: 640px) {
+  .pos-ticket-selection-message {
+    left: 12px;
+    right: 12px;
+    padding-right: 212px;
+    text-align: left;
+  }
+  .pos-map-actions {
+    width: min(190px, 100vw - 24px);
+  }
+}
 @container mesas-map (max-width: 760px) {
   .mesas-map__header,
   .mesas-map__header.operational-map-head--with-trigger {

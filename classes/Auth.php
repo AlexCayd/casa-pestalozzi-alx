@@ -34,7 +34,6 @@ class Auth {
         '/api/cancelar-item',
         '/api/punto-de-venta/reservaciones',
         '/api/punto-de-venta/mesa-contexto',
-        '/api/punto-de-venta/reservaciones/llegada',
         '/api/punto-de-venta/reservaciones/comenzar',
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',

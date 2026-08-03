@@ -120,9 +120,11 @@ class PuntoVentaController {
                     r.hora,
                     r.comensales,
                     r.nota,
+                    r.comentario_admin,
                     r.estado,
                     r.hold_expires_at,
                     r.arrived_at,
+                    r.status_changed_at,
                     COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
                     COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
                  FROM reservaciones r
@@ -130,7 +132,8 @@ class PuntoVentaController {
                  LEFT JOIN mesas m ON m.id = rm.mesa_id
                  WHERE r.fecha = '{$fecha}'
                  GROUP BY r.id, r.nombre, r.contacto, r.fecha, r.hora,
-                          r.comensales, r.nota, r.estado, r.hold_expires_at, r.arrived_at
+                          r.comensales, r.nota, r.comentario_admin, r.estado,
+                          r.hold_expires_at, r.arrived_at, r.status_changed_at
                  ORDER BY r.hora ASC"
             );
 
@@ -187,12 +190,17 @@ class PuntoVentaController {
                 'hora' => $r->hora,
                 'comensales' => (int)$r->comensales,
                 'nota' => $r->nota ?? '',
+                'comentario_admin' => $r->comentario_admin ?? '',
                 'estado' => $r->estado,
                 'hold_expires_at' => $r->hold_expires_at !== null
                     ? (string)$r->hold_expires_at
                     : null,
                 'arrived_at' => $r->arrived_at !== null ? (string)$r->arrived_at : null,
+                'status_changed_at' => $r->status_changed_at !== null
+                    ? (string)$r->status_changed_at
+                    : null,
                 'ticket_id' => $ticket['id'] ?? null,
+                'no_show_disponible' => (bool)$vigencia['elegible_no_show'],
                 'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
                 'mesa_ids' => $mesaIds,
                 'mesas' => $mesas,
@@ -832,16 +840,6 @@ class PuntoVentaController {
         self::responder(PuntoVentaReservacionService::contextoMesa((int)($_GET['mesa_id'] ?? 0)));
     }
 
-    /** POST /api/punto-de-venta/reservaciones/llegada */
-    public static function llegada(Router $router): void
-    {
-        $datos = self::entradaJson();
-        self::responder(PuntoVentaReservacionService::registrarLlegada(
-            (int)($datos['reservacion_id'] ?? 0),
-            (int)($_SESSION['id'] ?? 0)
-        ));
-    }
-
     /** POST /api/punto-de-venta/reservaciones/comenzar */
     public static function comenzarReservacion(Router $router): void
     {
@@ -914,7 +912,7 @@ class PuntoVentaController {
             PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
             PuntoVentaReservacionService::TICKET_CON_CONSUMO => 'La cuenta tiene productos. Ciérrala cobrando en lugar de liberar la mesa.',
             PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'La mesa tiene una reservación próxima. Confirma para continuar.',
-            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Reasigna mesas para continuar.',
+            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Actualiza la información e intenta nuevamente.',
             PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',
             PuntoVentaReservacionService::CONFLICTO_CONCURRENTE => 'La información cambió durante la operación. Actualiza y vuelve a intentarlo.',
             PuntoVentaReservacionService::DATOS_INVALIDOS => 'Los datos enviados no son válidos.',

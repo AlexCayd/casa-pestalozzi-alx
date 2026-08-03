@@ -74,10 +74,28 @@ $operationalHeaderActionsHtml = (string)ob_get_clean();
 ob_start();
 ?>
   <div class="pos-map" data-operational-workspace>
+  <div class="pos-ticket-selection-message" id="pos-ticket-selection-message" role="status" tabindex="-1" hidden>
+    Selecciona una o m&aacute;s mesas para abrir el ticket.
+  </div>
   <?php
   ob_start();
-  $operationalMapToggleLabel = 'mapa';
-  include __DIR__ . '/../../operation/partials/map-toggle.php';
+  ?>
+  <div class="pos-map-actions" aria-label="Controles del mapa">
+    <div class="pos-ticket-selection-actions" aria-label="Apertura de ticket">
+      <button type="button" class="operational-map-action operational-map-action--primary" id="pos-ticket-selection-toggle">
+        Abrir ticket
+      </button>
+      <button type="button" class="operational-map-action operational-map-action--cancel" id="pos-ticket-selection-cancel" hidden>
+        Cancelar
+      </button>
+    </div>
+    <div class="pos-map-actions__separator" aria-hidden="true"></div>
+    <?php
+    $operationalMapToggleLabel = 'mapa';
+    include __DIR__ . '/../../operation/partials/map-toggle.php';
+    ?>
+  </div>
+  <?php
   $mapToolbarActionsHtml = (string)ob_get_clean();
   $mapVisual = [
     'context' => 'mapa-mesas',

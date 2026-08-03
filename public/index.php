@@ -206,7 +206,6 @@ $router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
 $router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
 $router->get('/api/punto-de-venta/reservaciones', [PuntoVentaController::class, 'reservaciones']);
 $router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 'mesaContexto']);
-$router->post('/api/punto-de-venta/reservaciones/llegada', [PuntoVentaController::class, 'llegada']);
 $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);

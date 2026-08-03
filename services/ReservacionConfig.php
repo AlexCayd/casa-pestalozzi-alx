@@ -192,6 +192,7 @@ class ReservacionConfig
     public static function configuracionOperacion(): array
     {
         return [
+            'zona_horaria' => self::timezone()->getName(),
             'advertencia_reservacion_minutos' => self::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA,
             'bloqueo_previo_minutos' => self::MINUTOS_PREVIOS_BLOQUEO,
             'duracion_reservacion_minutos' => self::DURACION_RESERVACION_MINUTOS,

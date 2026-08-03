@@ -117,6 +117,48 @@ final class ReservacionVigenciaService
 
     /**
      * @param array<string, mixed>|object $reservacion
+     * @return array<string, mixed>
+     */
+    public static function resolverVentanaOperativa(
+        $reservacion,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        $ahora = $ahora ?? ReservacionConfig::ahora();
+        $fechaHora = self::fechaHoraProgramada($reservacion);
+        if (!$fechaHora) {
+            return [
+                'estado' => 'future',
+                'minutos_restantes' => null,
+                'minutos_retraso' => 0,
+            ];
+        }
+
+        $segundosRestantes = $fechaHora->getTimestamp() - $ahora->getTimestamp();
+        $minutosRestantes = (int)ceil($segundosRestantes / 60);
+        $minutosRetraso = $segundosRestantes < 0
+            ? (int)ceil(abs($segundosRestantes) / 60)
+            : 0;
+        $estado = match (true) {
+            $segundosRestantes > ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA * 60
+                => 'future',
+            $segundosRestantes > ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60
+                => 'warning',
+            $segundosRestantes >= 0 => 'service_window',
+            $segundosRestantes > -ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS * 60
+                => 'tolerance',
+            default => 'overdue',
+        };
+
+        return [
+            'estado' => $estado,
+            'minutos_restantes' => $minutosRestantes,
+            'minutos_retraso' => $minutosRetraso,
+            'inicio' => $fechaHora->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|object $reservacion
      * @param array<string, mixed>|object|null $ticket
      * @return array<string, mixed>
      */
@@ -169,13 +211,27 @@ final class ReservacionVigenciaService
             && $ahora >= $limiteTolerancia;
         $confirmadaVigente = $estado === 'confirmada' && (!$toleranciaVencida || $tieneEvidenciaFisica);
         $operativaPersistida = in_array($estado, ['llego', 'en_curso'], true);
-        $influyeDisponibilidad = $holdVigente || $confirmadaVigente || $operativaPersistida;
+        // Una reservación confirmada conserva la mesa hasta que se marque
+        // no_show, incluso después de vencer la tolerancia. Eso permite que el
+        // POS la pinte como vencida y habilite la acción de ausencia sin
+        // convertirla en una mesa libre o en una ocupación roja.
+        $influyeDisponibilidad = $holdVigente
+            || ($estado === 'confirmada' && !$ticketAbierto)
+            || $confirmadaVigente
+            || $operativaPersistida;
         $visibleCliente = $confirmadaVigente || $operativaPersistida;
         $cuentaLimite = $visibleCliente;
         $elegibleNoShow = $estado === 'confirmada'
             && $toleranciaVencida
             && !$tieneLlegada
             && !$ticketAbierto;
+        $puedeIniciarServicio = $estado === 'confirmada'
+            && !$ticketAbierto
+            && !$toleranciaVencida
+            && $fechaHora instanceof DateTimeImmutable
+            && $ahora >= $fechaHora->modify(
+                '-' . ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO . ' minutes'
+            );
         $puedeConfirmarLlegada = $estado === 'confirmada'
             && !$tieneLlegada
             && !$ticketAbierto;
@@ -199,9 +255,11 @@ final class ReservacionVigenciaService
                 || ($estado === 'llego' && $antesODuranteHora)
             ),
             'elegible_no_show' => $elegibleNoShow,
+            'puede_iniciar_servicio' => $puedeIniciarServicio,
             'tolerancia_vencida' => $toleranciaVencida,
             'puede_confirmar_llegada' => $puedeConfirmarLlegada,
             'llegada_tardia' => $puedeConfirmarLlegada && $toleranciaVencida,
+            'ventana_operativa' => self::resolverVentanaOperativa($reservacion, $ahora),
             'hold_vigente' => $holdVigente,
             'ticket_abierto' => $ticketAbierto,
             'tiene_llegada' => $tieneLlegada,
@@ -222,24 +280,13 @@ final class ReservacionVigenciaService
     ): string {
         self::validarAlias($alias);
         $instante = self::instanteSql($ahora);
-        $ticketAbierto = self::condicionSqlTieneTicketAbierto($alias);
-
         return "(
             (
                 {$alias}.estado = '" . ReservacionConfig::ESTADO_RETENCION_PENDIENTE . "'
                 AND {$alias}.hold_expires_at IS NOT NULL
                 AND {$alias}.hold_expires_at > {$instante}
             )
-            OR (
-                {$alias}.estado = 'confirmada'
-                AND (
-                    {$alias}.arrived_at IS NOT NULL
-                    OR {$ticketAbierto}
-                    OR TIMESTAMP({$alias}.fecha, {$alias}.hora)
-                        + INTERVAL " . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . " MINUTE
-                        > {$instante}
-                )
-            )
+            OR {$alias}.estado = 'confirmada'
             OR {$alias}.estado IN ('llego', 'en_curso')
         )";
     }

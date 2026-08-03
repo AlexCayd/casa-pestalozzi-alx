@@ -1,7 +1,7 @@
 <?php
-$mapFecha = trim((string)($_GET['fecha'] ?? date('Y-m-d')));
+$mapFecha = trim((string)($_GET['fecha'] ?? \Services\ReservacionConfig::fechaActual()));
 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $mapFecha) !== 1) {
-  $mapFecha = date('Y-m-d');
+  $mapFecha = \Services\ReservacionConfig::fechaActual();
 }
 $mapHora = trim((string)($_GET['hora'] ?? ''));
 if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $mapHora) !== 1) {
@@ -39,7 +39,7 @@ $usuarioJson = json_encode([
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v2">
+  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v3">
 </head>
 
 <body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos">
@@ -54,7 +54,7 @@ $usuarioJson = json_encode([
   $name = '';
   $value = $mapFecha;
   $min = '';
-  $today = date('Y-m-d');
+  $today = \Services\ReservacionConfig::fechaActual();
   $disabled = false;
   $enabledWeekdays = [];
   $allowPast = true;
@@ -117,7 +117,7 @@ $usuarioJson = json_encode([
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js?v=pos-reservations-v2"></script>
+  <script src="/build/js/admin/map.js?v=pos-reservations-v7"></script>
 </body>
 
 </html>
