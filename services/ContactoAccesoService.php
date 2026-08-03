@@ -145,7 +145,13 @@ class ContactoAccesoService
         ?int $reservacionId = null,
         ?ContactNotificationProvider $provider = null
     ): array {
-        $reciente = VerificacionContacto::buscarRecienteParaActualizar($tipo, $contactoNormalizado);
+        // Cada propósito tiene su propio espacio OTP. Un código de acceso no
+        // puede invalidar ni sustituir el código ligado a una reservación.
+        $reciente = VerificacionContacto::buscarRecienteParaActualizar(
+            $tipo,
+            $contactoNormalizado,
+            $reservacionId
+        );
         if ($reciente) {
             $creada = new DateTimeImmutable((string)$reciente['created_at'], ReservacionConfig::timezone());
             if (
@@ -160,7 +166,7 @@ class ContactoAccesoService
             }
         }
 
-        VerificacionContacto::invalidarActivas($tipo, $contactoNormalizado);
+        VerificacionContacto::invalidarActivas($tipo, $contactoNormalizado, $reservacionId);
         $codigo = (string)random_int(100000, 999999);
         $hash = password_hash($codigo, PASSWORD_DEFAULT);
         if (!is_string($hash)) {
@@ -215,7 +221,7 @@ class ContactoAccesoService
     ): array {
         $fila = $reservacionId
             ? VerificacionContacto::buscarParaRetencionActualizar($tipo, $contactoNormalizado, $reservacionId)
-            : VerificacionContacto::buscarRecienteParaActualizar($tipo, $contactoNormalizado);
+            : VerificacionContacto::buscarRecienteParaActualizar($tipo, $contactoNormalizado, null);
 
         if (!$fila || $fila['used_at'] !== null || $fila['invalidated_at'] !== null) {
             return [

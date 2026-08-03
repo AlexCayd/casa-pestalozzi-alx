@@ -68,68 +68,36 @@ class ReservacionService
 
     public static function obtenerHorariosDisponiblesParaFecha(string $fecha, bool $permitirHistorica = false): array
     {
-        $fecha = trim($fecha);
-
-        if (!HorarioReservacionService::fechaValida($fecha)) {
-            return self::respuestaDisponibilidadError(
-                $fecha,
-                HorarioReservacionService::FECHA_INVALIDA,
-                'Selecciona una fecha válida.'
-            );
-        }
-
-        if (!$permitirHistorica && HorarioReservacionService::fechaPasada($fecha)) {
-            return self::respuestaDisponibilidadError(
-                $fecha,
-                HorarioReservacionService::FECHA_PASADA,
-                'No se pueden elegir fechas anteriores.'
-            );
-        }
-
         try {
-            $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
-            if (!($efectivo['valido'] ?? false)) {
-                throw new \RuntimeException('No fue posible resolver el horario efectivo.');
-            }
-
-            $origen = (string) ($efectivo['origen'] ?? 'semanal');
-            $tipo = $efectivo['tipo'] ?? null;
-            $detalleHorario = self::detalleHorarioPublico($efectivo);
-
-            if (!($efectivo['abierto'] ?? false)) {
-                return [
-                    'ok' => true,
-                    'fecha' => $fecha,
-                    'abierto' => false,
-                    'origen' => $origen,
-                    'tipo' => $tipo,
-                    'detalle_horario' => $detalleHorario,
-                    'horarios' => [],
-                    'mensaje' => $origen === 'excepcion'
-                        ? 'El restaurante no estará disponible en esta fecha.'
-                        : 'El restaurante no recibe reservaciones en esta fecha.',
-                ];
-            }
-
-            // Los slots se calculan directamente desde el horario efectivo.
-            $horarios = HorarioReservacionService::generarIntervalos(
-                (string) ($efectivo['hora_apertura'] ?? ''),
-                (string) ($efectivo['hora_cierre'] ?? '')
+            $calendario = HorarioReservacionService::resolverFecha(
+                trim($fecha),
+                null,
+                $permitirHistorica
             );
-
-            if (!$permitirHistorica) {
-                $horarios = HorarioReservacionService::filtrarHorariosPasados($fecha, $horarios);
-            }
+            $codigo = (string)($calendario['codigo'] ?? HorarioReservacionService::ERROR_INTERNO);
+            $esFechaInvalida = in_array($codigo, [
+                HorarioReservacionService::FECHA_INVALIDA,
+                HorarioReservacionService::FECHA_PASADA,
+                'FECHA_FUERA_DE_HORIZONTE',
+            ], true);
 
             return [
-                'ok' => true,
-                'fecha' => $fecha,
-                'abierto' => true,
-                'origen' => $origen,
-                'tipo' => $tipo,
-                'detalle_horario' => $detalleHorario,
-                'horarios' => $horarios,
-                'mensaje' => $horarios === [] ? 'No hay horarios disponibles para esta fecha.' : null,
+                'ok' => !$esFechaInvalida && $codigo !== HorarioReservacionService::ERROR_INTERNO,
+                'codigo' => $codigo,
+                'fecha' => (string)($calendario['fecha'] ?? trim($fecha)),
+                'abierto' => (bool)($calendario['abierto'] ?? false),
+                'reservable' => (bool)($calendario['reservable'] ?? false),
+                'origen' => $calendario['origen'] ?? null,
+                'tipo' => $calendario['tipo'] ?? null,
+                'detalle_horario' => $calendario['detalle_horario'] ?? null,
+                'hora_apertura' => $calendario['hora_apertura'] ?? null,
+                'hora_cierre' => $calendario['hora_cierre'] ?? null,
+                'horarios_candidatos' => $calendario['horarios_candidatos'] ?? [],
+                'horarios' => $calendario['horarios'] ?? [],
+                'motivo_no_disponible' => $calendario['motivo_no_disponible'] ?? null,
+                'mensaje' => ($calendario['motivo_no_disponible'] ?? null) !== null
+                    ? 'No hay horarios reservables para esta fecha.'
+                    : null,
             ];
         } catch (\Throwable $e) {
             error_log('ReservacionService::obtenerHorariosDisponiblesParaFecha - ' . $e->getMessage());
@@ -166,65 +134,7 @@ class ReservacionService
 
     public static function validarHorarioDisponible(string $fecha, string $hora): array
     {
-        $horaSql = HorarioReservacionService::normalizarHoraSql($hora);
-        $disponibilidad = self::obtenerHorariosDisponiblesParaFecha($fecha);
-
-        if (!($disponibilidad['ok'] ?? false)) {
-            return [
-                'ok' => false,
-                'codigo' => (string) ($disponibilidad['codigo'] ?? HorarioReservacionService::ERROR_INTERNO),
-                'fecha' => $fecha,
-                'hora' => $horaSql,
-            ];
-        }
-
-        if (!($disponibilidad['abierto'] ?? false)) {
-            return [
-                'ok' => false,
-                'codigo' => HorarioReservacionService::DIA_INACTIVO,
-                'fecha' => $fecha,
-                'hora' => $horaSql,
-            ];
-        }
-
-        if ($horaSql === '') {
-            return [
-                'ok' => false,
-                'codigo' => HorarioReservacionService::HORARIO_INVALIDO,
-                'fecha' => $fecha,
-            ];
-        }
-
-        if (!in_array($horaSql, $disponibilidad['horarios'] ?? [], true)) {
-            $codigo = HorarioReservacionService::horarioPasadoHoy($fecha, $horaSql)
-                ? HorarioReservacionService::HORARIO_PASADO
-                : HorarioReservacionService::HORARIO_INVALIDO;
-            $siguienteHorario = null;
-            foreach ($disponibilidad['horarios'] ?? [] as $candidato) {
-                if ($horaSql === '' || (string)$candidato > $horaSql) {
-                    $siguienteHorario = substr((string)$candidato, 0, 5);
-                    break;
-                }
-            }
-
-            return [
-                'ok' => false,
-                'codigo' => $codigo,
-                'fecha' => $fecha,
-                'hora' => $horaSql,
-                'siguiente_horario_valido' => $siguienteHorario,
-            ];
-        }
-
-        return [
-            'ok' => true,
-            'codigo' => HorarioReservacionService::HORARIO_DISPONIBLE,
-            'fecha' => $fecha,
-            'hora' => $horaSql,
-            'hora_corta' => substr($horaSql, 0, 5),
-            'origen' => $disponibilidad['origen'] ?? null,
-            'tipo' => $disponibilidad['tipo'] ?? null,
-        ];
+        return HorarioReservacionService::validarHora($fecha, $hora);
     }
 
     /**

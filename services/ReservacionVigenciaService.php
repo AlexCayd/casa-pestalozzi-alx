@@ -215,8 +215,15 @@ final class ReservacionVigenciaService
         // convertirla en una mesa libre o en una ocupación roja.
         $influyeDisponibilidad = $holdVigente
             || ($estado === 'confirmada' && !$ticketAbierto);
-        $visibleCliente = $confirmadaVigente || $operativaPersistida;
-        $cuentaLimite = $visibleCliente;
+        // El portal sólo muestra reservaciones confirmadas que aún pueden
+        // resolverse públicamente. `en_curso` pertenece al POS y no se
+        // presenta como gestionable ni cuenta para el máximo por contacto.
+        $visibleCliente = $confirmadaVigente
+            && $limiteTolerancia instanceof DateTimeImmutable
+            && $ahora <= $limiteTolerancia;
+        $cuentaLimite = $confirmadaVigente
+            && $fechaHora instanceof DateTimeImmutable
+            && $fechaHora > $ahora;
         $elegibleNoShow = $estado === 'confirmada'
             && $toleranciaVencida
             && !$ticketAbierto;
@@ -286,12 +293,9 @@ final class ReservacionVigenciaService
         return "(
             (
                 {$alias}.estado = 'confirmada'
-                AND (
-                    TIMESTAMP({$alias}.fecha, {$alias}.hora)
-                        + INTERVAL " . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . " MINUTE
-                        > {$instante}
-                    OR {$ticketAbierto}
-                )
+                AND TIMESTAMP({$alias}.fecha, {$alias}.hora)
+                    + INTERVAL " . ReservacionConfig::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS . " MINUTE
+                    >= {$instante}
             )
         )";
     }
@@ -300,7 +304,22 @@ final class ReservacionVigenciaService
         string $alias = 'r',
         ?DateTimeImmutable $ahora = null
     ): string {
-        return self::condicionSqlVisibleCliente($alias, $ahora);
+        self::validarAlias($alias);
+        $instante = self::instanteSql($ahora);
+        $ticketAbierto = self::condicionSqlTieneTicketAbierto($alias);
+
+        return "(
+            (
+                {$alias}.estado = 'pendiente_verificacion'
+                AND {$alias}.reemplaza_reservacion_id IS NULL
+                AND {$alias}.hold_expires_at IS NOT NULL
+                AND {$alias}.hold_expires_at > {$instante}
+            )
+            OR (
+                {$alias}.estado = 'confirmada'
+                AND TIMESTAMP({$alias}.fecha, {$alias}.hora) > {$instante}
+            )
+        )";
     }
 
     public static function condicionSqlTieneTicketAbierto(string $reservacionAlias = 'r'): string

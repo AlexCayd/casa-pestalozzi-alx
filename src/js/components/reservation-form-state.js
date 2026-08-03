@@ -16,6 +16,33 @@
     return match ? match[1] + ":" + match[2] : "";
   }
 
+  function normalizeDate(value) {
+    var date = String(value || "");
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
+  }
+
+  function availabilityCacheKey(date, guests, hour) {
+    return normalizeDate(date)
+      + "|"
+      + (parseInt(guests, 10) || 0)
+      + "|"
+      + normalizeHour(hour);
+  }
+
+  function availabilityResponseMatches(request, payload) {
+    request = request || {};
+    payload = payload || {};
+    var requestDate = normalizeDate(request.date);
+    var responseDate = normalizeDate(payload.fecha);
+    if (requestDate && responseDate !== requestDate) return false;
+
+    if (payload.personas !== undefined && payload.personas !== null) {
+      return parseInt(payload.personas, 10) === (parseInt(request.guests, 10) || 0);
+    }
+
+    return true;
+  }
+
   function normalizeSlots(hours) {
     return (Array.isArray(hours) ? hours : []).reduce(function (slots, item) {
       if (item && typeof item === "object") {
@@ -114,6 +141,92 @@
     };
   }
 
+  function availabilityTransition(state, action) {
+    state = Object.assign({
+      status: "idle",
+      pending: false,
+      requestId: 0,
+      slots: []
+    }, state || {});
+    action = action || {};
+
+    if (action.type === "start") {
+      return Object.assign({}, state, {
+        status: "loading",
+        pending: true,
+        requestId: action.requestId,
+        date: normalizeDate(action.date),
+        guests: parseInt(action.guests, 10) || 0,
+        time: normalizeHour(action.hour),
+        queryKey: availabilityCacheKey(action.date, action.guests, action.hour),
+        slots: [],
+        message: "Consultando disponibilidad…"
+      });
+    }
+
+    if (action.type === "clear") {
+      return Object.assign({}, state, {
+        status: "idle",
+        pending: false,
+        slots: [],
+        time: "",
+        message: ""
+      });
+    }
+
+    if (action.requestId !== undefined && action.requestId !== state.requestId) {
+      return state;
+    }
+
+    if (action.type === "abort") {
+      if (action.stale === true || action.obsolete === true) return state;
+      return Object.assign({}, state, {
+        status: "idle",
+        pending: false,
+        slots: [],
+        time: "",
+        message: ""
+      });
+    }
+
+    if (action.type === "error") {
+      return Object.assign({}, state, {
+        status: "error",
+        pending: false,
+        slots: [],
+        message: action.message || "No fue posible consultar la disponibilidad."
+      });
+    }
+
+    if (action.type === "response") {
+      if (!availabilityResponseMatches({
+        date: state.date,
+        guests: state.guests
+      }, action.payload)) {
+        return Object.assign({}, state, {
+          status: "error",
+          pending: false,
+          slots: [],
+          message: "La respuesta no corresponde a la fecha o comensales seleccionados."
+        });
+      }
+      var computed = availabilityState(
+        action.payload,
+        action.selectedTime || "",
+        false
+      );
+      return Object.assign({}, state, {
+        status: computed.status,
+        pending: false,
+        slots: computed.slots,
+        time: normalizeHour(action.selectedTime || ""),
+        message: computed.message
+      });
+    }
+
+    return state;
+  }
+
   function canSubmitVisit(state) {
     state = state || {};
     var slots = Array.isArray(state.availableSlots) ? state.availableSlots : [];
@@ -132,10 +245,14 @@
 
   return {
     normalizeHour: normalizeHour,
+    normalizeDate: normalizeDate,
     normalizeSlots: normalizeSlots,
+    availabilityCacheKey: availabilityCacheKey,
+    availabilityResponseMatches: availabilityResponseMatches,
     contactPresentation: contactPresentation,
     guestTransition: guestTransition,
     availabilityState: availabilityState,
+    availabilityTransition: availabilityTransition,
     canSubmitVisit: canSubmitVisit
   };
 });

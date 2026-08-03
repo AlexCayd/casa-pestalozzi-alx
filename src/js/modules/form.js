@@ -19,6 +19,7 @@ function initCalendar() {
       display: display,
       calendar: cal,
       minDate: wrap.getAttribute("data-min-date"),
+      maxDate: wrap.getAttribute("data-max-date"),
       enabledWeekdays: wrap.getAttribute("data-enabled-weekdays")
     });
   }
@@ -28,7 +29,11 @@ function initCalendar() {
   var prevBtn = cal.querySelector(".cpc-prev");
   var nextBtn = cal.querySelector(".cpc-next");
 
-  var today = new Date();
+  var configuredToday = wrap.getAttribute("data-today-date")
+    || wrap.getAttribute("data-min-date");
+  var today = configuredToday
+    ? new Date(String(configuredToday) + "T00:00:00")
+    : new Date();
   today.setHours(0, 0, 0, 0);
   var curYear = today.getFullYear();
   var curMonth = today.getMonth();
@@ -133,6 +138,8 @@ function initHourPicker(form, getGuestCount) {
   var endpoint = form ? form.getAttribute("data-schedules-endpoint") : "";
   var requestId = 0;
   var abortController = null;
+  var requestTimeoutId = null;
+  var requestTimeoutMs = 10000;
   var enabled = false;
 
   if (!wrap || !display || !hidden || !dropdown || !dateInput || !endpoint) {
@@ -148,7 +155,12 @@ function initHourPicker(form, getGuestCount) {
       status: status,
       endpoint: endpoint,
       getQueryParams: function() {
-        return { personas: typeof getGuestCount === "function" ? getGuestCount() : 2 };
+        var selectedHour = hidden.value || "";
+        var params = {
+          personas: typeof getGuestCount === "function" ? getGuestCount() : 2
+        };
+        if (selectedHour) params.hora = selectedHour;
+        return params;
       },
       invalidateUnavailable: true,
       initialDate: dateInput.value,
@@ -173,6 +185,8 @@ function initHourPicker(form, getGuestCount) {
     enabled = false;
     hidden.value = "";
     display.value = "";
+    display.disabled = true;
+    hidden.disabled = true;
     display.placeholder = text || "Elige una hora";
     display.setAttribute("aria-disabled", "true");
     wrap.classList.add("is-disabled");
@@ -183,6 +197,24 @@ function initHourPicker(form, getGuestCount) {
   function setLoading() {
     setDisabled("Consultando horarios...");
     setStatus("Consultando horarios...", true);
+  }
+
+  function normalizeFallbackHours(hours) {
+    return (Array.isArray(hours) ? hours : []).reduce(function(result, item) {
+      if (item && typeof item === "object") {
+        if (item.disponible === false) return result;
+        item = item.hora;
+      }
+      var match = String(item || "").match(/^([01]\d|2[0-3]):([0-5]\d)/);
+      if (match) result.push(match[1] + ":" + match[2]);
+      return result;
+    }, []);
+  }
+
+  function emitScheduleLoaded(data) {
+    form.dispatchEvent(new CustomEvent("reservation:scheduleloaded", {
+      detail: data || {}
+    }));
   }
 
   function renderHours(hours) {
@@ -197,6 +229,8 @@ function initHourPicker(form, getGuestCount) {
     }
 
     enabled = true;
+    display.disabled = false;
+    hidden.disabled = false;
     wrap.classList.remove("is-disabled");
     display.removeAttribute("aria-disabled");
     display.placeholder = "Elige una hora";
@@ -229,19 +263,89 @@ function initHourPicker(form, getGuestCount) {
       abortController = null;
     }
 
+    if (requestTimeoutId !== null) {
+      clearTimeout(requestTimeoutId);
+      requestTimeoutId = null;
+    }
+
+    if (!fecha) {
+      setDisabled("Selecciona fecha y comensales");
+      setStatus("", false);
+      return Promise.resolve([]);
+    }
+
     setLoading();
     abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
 
-    fetch(endpoint + "?fecha=" + encodeURIComponent(fecha), {
+    var timedOut = false;
+    var timeoutNotified = false;
+    requestTimeoutId = setTimeout(function() {
+      if (currentRequest !== requestId) return;
+      timedOut = true;
+      requestTimeoutId = null;
+      requestId++;
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+      }
+      timeoutNotified = true;
+      setDisabled("Elige una hora");
+      setStatus("No fue posible consultar los horarios. Intenta nuevamente.", true);
+      emitScheduleLoaded({
+        ok: false,
+        mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+      });
+    }, requestTimeoutMs);
+
+    var fallbackParams = new URLSearchParams({
+      fecha: fecha,
+      personas: typeof getGuestCount === "function" ? getGuestCount() : 2
+    });
+    if (hidden.value) fallbackParams.set("hora", hidden.value);
+
+    return fetch(endpoint + "?" + fallbackParams.toString(), {
       headers: { "Accept": "application/json" },
+      credentials: "same-origin",
       signal: abortController ? abortController.signal : undefined
     })
-      .then(function(r) { return r.json(); })
+      .then(function(response) {
+        return response.text().then(function(raw) {
+          var data;
+          try {
+            data = JSON.parse(raw);
+          } catch (error) {
+            throw new Error("INVALID_AVAILABILITY_JSON");
+          }
+          if (!response.ok) {
+            return {
+              ok: false,
+              mensaje: data && data.mensaje
+                ? data.mensaje
+                : "No fue posible consultar los horarios."
+            };
+          }
+          return data;
+        });
+      })
       .then(function(res) {
+        if (currentRequest === requestId && requestTimeoutId !== null) {
+          clearTimeout(requestTimeoutId);
+          requestTimeoutId = null;
+        }
         if (currentRequest !== requestId) return;
-        form.dispatchEvent(new CustomEvent("reservation:scheduleloaded", {
-          detail: res || {}
-        }));
+        if (res && res.fecha !== undefined && String(res.fecha) !== String(fecha)) {
+          setDisabled("Elige una hora");
+          setStatus("La respuesta no corresponde a la fecha seleccionada.", true);
+          emitScheduleLoaded({
+            ok: false,
+            codigo: "FECHA_RESPUESTA_MISMATCH",
+            fecha: res.fecha,
+            requested_fecha: fecha,
+            mensaje: "La respuesta no corresponde a la fecha seleccionada."
+          });
+          return [];
+        }
+        emitScheduleLoaded(res);
 
         if (!res.ok) {
           setDisabled("Elige una hora");
@@ -255,13 +359,21 @@ function initHourPicker(form, getGuestCount) {
           return;
         }
 
-        renderHours(Array.isArray(res.horarios) ? res.horarios : []);
+        renderHours(normalizeFallbackHours(res.horarios));
       })
       .catch(function(error) {
-        if (error && error.name === "AbortError") return;
+        if (currentRequest === requestId && requestTimeoutId !== null) {
+          clearTimeout(requestTimeoutId);
+          requestTimeoutId = null;
+        }
+        if (error && error.name === "AbortError" && !timedOut) return [];
         if (currentRequest !== requestId) return;
-        setDisabled("Elige una hora");
-        setStatus("No fue posible consultar los horarios. Inténtalo nuevamente.", true);
+        if (timeoutNotified) return [];
+        emitScheduleLoaded({
+          ok: false,
+          mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+        });
+        return [];
       });
   }
 
@@ -289,6 +401,16 @@ function initHourPicker(form, getGuestCount) {
   setDisabled("Elige una fecha primero");
 
   return {
+    loadForDate: loadForDate,
+    setDisabled: function(disabled) {
+      if (disabled) {
+        setDisabled("Selecciona una fecha y hora");
+        return;
+      }
+      display.disabled = !enabled;
+      hidden.disabled = false;
+      display.setAttribute("aria-disabled", enabled ? "false" : "true");
+    },
     clear: function() {
       setDisabled("Elige una fecha primero");
       setStatus("", false);
@@ -371,6 +493,8 @@ function initForm() {
   if (!form) return;
 
   var formStateHelpers = window.ReservationFormState || {};
+  var csrfNode = document.querySelector("[data-reservation-csrf]");
+  var csrfToken = csrfNode ? csrfNode.getAttribute("data-reservation-csrf") || "" : "";
   var maxGuests = parseInt(form.getAttribute("data-max-guests"), 10) || 12;
   var reservationState = {
     currentStep: 1,
@@ -451,7 +575,10 @@ function initForm() {
   var holdExpiresAt = 0;
   var countdownTimer = null;
   var availabilityTimer = null;
+  var availabilityRequestId = 0;
   var availabilityKey = "";
+  var lastSubmittedFingerprint = "";
+  var holdExpiryHandled = false;
   var timePicker;
   var datePicker;
 
@@ -519,8 +646,20 @@ function initForm() {
     if (window.crypto && typeof window.crypto.randomUUID === "function") {
       return window.crypto.randomUUID().replace(/-/g, "") + Date.now().toString(36);
     }
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      var bytes = new Uint8Array(32);
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function(byte) {
+        return byte.toString(16).padStart(2, "0");
+      }).join("");
+    }
     return Date.now().toString(36) + Math.random().toString(36).slice(2)
       + Math.random().toString(36).slice(2);
+  }
+
+  function rotateRequestToken() {
+    form.elements.request_token.value = randomToken();
+    lastSubmittedFingerprint = "";
   }
 
   if (!form.elements.request_token.value) form.elements.request_token.value = randomToken();
@@ -957,8 +1096,52 @@ function initForm() {
     }, []);
   }
 
+  function applyAvailabilityTransition(action) {
+    action = action || {};
+    if (typeof formStateHelpers.availabilityTransition !== "function") {
+      if (action.type === "start") {
+        reservationState.availabilityStatus = "loading";
+        reservationState.availabilityPending = true;
+        reservationState.availableSlots = [];
+      } else if (action.type === "error") {
+        reservationState.availabilityStatus = "error";
+        reservationState.availabilityPending = false;
+        reservationState.availableSlots = [];
+      } else if (action.type === "response") {
+        var fallbackPayload = action.payload || {};
+        reservationState.availableSlots = fallbackPayload.ok === true
+          ? normalizeAvailableSlots(fallbackPayload.horarios)
+          : [];
+        reservationState.availabilityStatus = fallbackPayload.ok !== true
+          ? "error"
+          : (fallbackPayload.abierto === false
+            ? "closed"
+            : (reservationState.availableSlots.length ? "ready" : "unavailable"));
+        reservationState.availabilityPending = false;
+      }
+      return;
+    }
+
+    var next = formStateHelpers.availabilityTransition({
+      status: reservationState.availabilityStatus,
+      pending: reservationState.availabilityPending,
+      requestId: availabilityRequestId,
+      date: reservationState.date,
+      guests: reservationState.guests,
+      slots: reservationState.availableSlots,
+      name: reservationState.name,
+      contact: currentContact()
+    }, Object.assign({ requestId: availabilityRequestId }, action));
+
+    reservationState.availabilityStatus = next.status;
+    reservationState.availabilityPending = next.pending;
+    reservationState.availableSlots = Array.isArray(next.slots) ? next.slots : [];
+  }
+
   function reloadAvailability(immediate) {
     clearTimeout(availabilityTimer);
+    availabilityRequestId++;
+    var currentAvailabilityRequest = availabilityRequestId;
     syncStateFromControls();
     if (reservationState.largeParty || !reservationState.date) {
       reservationState.availabilityStatus = "idle";
@@ -970,27 +1153,63 @@ function initForm() {
       return;
     }
 
-    var requestedKey = reservationState.date + "|" + reservationState.guests;
-    reservationState.availabilityStatus = "loading";
-    reservationState.availabilityPending = true;
-    reservationState.availableSlots = [];
+    var requestedKey = reservationState.date + "|" + reservationState.guests + "|" + (reservationState.time || "");
+    applyAvailabilityTransition({
+      type: "start",
+      date: reservationState.date,
+      guests: reservationState.guests,
+      hour: reservationState.time
+    });
     updateInterface();
 
     availabilityTimer = setTimeout(function() {
-      if (!timePicker || typeof timePicker.loadForDate !== "function") return;
+      if (currentAvailabilityRequest !== availabilityRequestId) return;
+      if (!timePicker || typeof timePicker.loadForDate !== "function") {
+        applyAvailabilityTransition({
+          type: "error",
+          message: "No fue posible cargar el selector de horarios. Intenta nuevamente."
+        });
+        updateInterface();
+        return;
+      }
       availabilityKey = requestedKey;
-      timePicker.loadForDate(reservationState.date, reservationState.time || timeInput.value)
+      var loadResult;
+      try {
+        loadResult = timePicker.loadForDate(
+          reservationState.date,
+          reservationState.time || timeInput.value
+        );
+      } catch (error) {
+        loadResult = Promise.reject(error);
+      }
+
+      Promise.resolve(loadResult)
         .then(function(hours) {
-          var currentKey = reservationState.date + "|" + reservationState.guests;
-          if (requestedKey !== currentKey || availabilityKey !== requestedKey) return;
+          var currentKey = reservationState.date + "|" + reservationState.guests + "|" + (reservationState.time || "");
+          if (
+            currentAvailabilityRequest !== availabilityRequestId
+            || requestedKey !== currentKey
+            || availabilityKey !== requestedKey
+          ) return;
           if (reservationState.availabilityStatus === "loading") {
-            reservationState.availableSlots = normalizeAvailableSlots(hours);
-            reservationState.availabilityStatus = reservationState.availableSlots.length
-              ? "ready"
-              : "error";
-            reservationState.availabilityPending = false;
-            updateInterface();
+            applyAvailabilityTransition({
+              type: "response",
+              payload: { ok: true, abierto: true, horarios: hours }
+            });
           }
+          updateInterface();
+        }, function() {
+          if (currentAvailabilityRequest !== availabilityRequestId) return;
+          applyAvailabilityTransition({
+            type: "error",
+            message: "No fue posible consultar los horarios. Intenta nuevamente."
+          });
+          updateInterface();
+        })
+        .finally(function() {
+          if (currentAvailabilityRequest !== availabilityRequestId) return;
+          reservationState.availabilityPending = false;
+          updateInterface();
         });
     }, immediate ? 0 : 300);
   }
@@ -1154,19 +1373,30 @@ function initForm() {
   if (timeRoot) {
     timeRoot.addEventListener("reservation:scheduleloaded", function(event) {
       var data = event.detail || {};
-      reservationState.availabilityPending = false;
-      if (!data.ok) {
-        reservationState.availableSlots = [];
-        reservationState.availabilityStatus = "error";
-      } else if (data.abierto === false) {
-        reservationState.availableSlots = [];
-        reservationState.availabilityStatus = "closed";
-      } else {
-        reservationState.availableSlots = normalizeAvailableSlots(data.horarios);
-        reservationState.availabilityStatus = reservationState.availableSlots.length
-          ? "ready"
-          : "unavailable";
+      var selectedDate = String(reservationState.date || dateInput.value || "");
+      var responseDate = String(data.fecha || "");
+      var responsePeople = data.personas === undefined || data.personas === null
+        ? null
+        : parseInt(data.personas, 10);
+      if (
+        data.ok === true
+        && (!responseDate || responseDate !== selectedDate
+          || (responsePeople !== null && responsePeople !== guests))
+      ) {
+        if (reservationState.availabilityPending) {
+          applyAvailabilityTransition({
+            type: "error",
+            message: "La respuesta no corresponde a la fecha o comensales seleccionados."
+          });
+        }
+        updateInterface();
+        return;
       }
+      applyAvailabilityTransition({
+        type: "response",
+        payload: data,
+        selectedTime: timeInput.value
+      });
       updateInterface();
     });
   }
@@ -1174,10 +1404,17 @@ function initForm() {
   dateInput.addEventListener("reservation:datechange", function() {
     clearFieldError("fecha");
     availabilityKey = "";
+    reservationState.time = "";
+    timeInput.value = "";
+    if (timePicker && typeof timePicker.clear === "function") timePicker.clear(true);
     reloadAvailability(true);
   });
   timeInput.addEventListener("reservation:timechange", function() {
     clearFieldError("hora");
+    if (!reservationState.availabilityPending && reservationState.date && timeInput.value) {
+      reloadAvailability(true);
+      return;
+    }
     updateInterface();
   });
   form.elements.nombre.addEventListener("input", function() {
@@ -1275,8 +1512,21 @@ function initForm() {
       hora: timeInput.value,
       personas: guests,
       notas: form.elements.nota.value.trim(),
-      request_token: form.elements.request_token.value
+      request_token: form.elements.request_token.value,
+      csrf_token: csrfToken
     };
+  }
+
+  function payloadFingerprint(requestPayload) {
+    return JSON.stringify({
+      nombre: requestPayload.nombre,
+      tipo_contacto: requestPayload.tipo_contacto,
+      contacto: normalizeContact(requestPayload.tipo_contacto, requestPayload.contacto),
+      fecha: requestPayload.fecha,
+      hora: requestPayload.hora,
+      personas: requestPayload.personas,
+      notas: requestPayload.notas
+    });
   }
 
   function showConfirmation(data) {
@@ -1343,17 +1593,46 @@ function initForm() {
         ? "Tu retención vence en " + minutes + ":" + rest + "."
         : "La retención venció. Vuelve a elegir un horario.";
       verifyButton.disabled = remaining <= 0;
+      if (remaining <= 0) handleHoldExpired();
     }
     tick();
-    countdownTimer = setInterval(tick, 1000);
+    if (holdExpiresAt > Date.now()) countdownTimer = setInterval(tick, 1000);
+  }
+
+  function handleHoldExpired() {
+    if (holdExpiryHandled) return;
+    holdExpiryHandled = true;
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+    activeIdentity = null;
+    rotateRequestToken();
+    form.hidden = false;
+    otpStep.hidden = true;
+    if (confirm) confirm.classList.remove("show");
+    otpInput.value = "";
+    clearOtpError();
+    setCurrentStep(1, false);
+    reservationState.maxCompletedStep = 0;
+    reservationState.time = "";
+    reservationState.availabilityStatus = "idle";
+    reservationState.availabilityPending = false;
+    if (timePicker && typeof timePicker.clear === "function") timePicker.clear(true);
+    if (timePicker && typeof timePicker.setDisabled === "function") timePicker.setDisabled(false);
+    timeInput.value = "";
+    setMessage("El tiempo para confirmar terminó. Elige un horario nuevamente.", true);
+    reloadAvailability(true);
+    updateInterface();
+    if (window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
   function showOtp(data, requestPayload) {
     activeIdentity = {
       tipo: requestPayload.tipo_contacto,
       contacto: requestPayload.contacto,
-      request_token: requestPayload.request_token
+      request_token: requestPayload.request_token,
+      csrf_token: csrfToken
     };
+    holdExpiryHandled = false;
     form.hidden = true;
     otpStep.hidden = false;
     if (otpContact) otpContact.textContent = requestPayload.contacto;
@@ -1388,6 +1667,15 @@ function initForm() {
         setMessage("Tu autorización temporal venció. Confirma nuevamente tu contacto.", true);
         return;
       }
+      if (data.codigo === "RETENCION_EXPIRADA") {
+        handleHoldExpired();
+        return;
+      }
+      if (data.codigo === "REQUEST_TOKEN_CONFLICTO") {
+        rotateRequestToken();
+        setMessage("La solicitud cambió. Revisa los datos y vuelve a intentarlo.", true);
+        return;
+      }
       setMessage(data.mensaje || "No fue posible crear la reservación.", true);
     }).catch(function() {
       setMessage("No fue posible crear la reservación.", true);
@@ -1413,7 +1701,14 @@ function initForm() {
     }
     submitting = true;
     updateInterface();
-    submitReservation(payload());
+    var requestPayload = payload();
+    var fingerprint = payloadFingerprint(requestPayload);
+    if (lastSubmittedFingerprint && lastSubmittedFingerprint !== fingerprint) {
+      rotateRequestToken();
+      requestPayload.request_token = form.elements.request_token.value;
+    }
+    lastSubmittedFingerprint = fingerprint;
+    submitReservation(requestPayload);
   });
 
   verifyButton.addEventListener("click", function() {
@@ -1440,10 +1735,15 @@ function initForm() {
         tipo: activeIdentity.tipo,
         contacto: activeIdentity.contacto,
         codigo: code,
-        request_token: activeIdentity.request_token
+        request_token: activeIdentity.request_token,
+        csrf_token: activeIdentity.csrf_token
       })
     }).then(function(data) {
       if (!data.ok) {
+        if (data.codigo === "RETENCION_EXPIRADA") {
+          handleHoldExpired();
+          return;
+        }
         setOtpError(data.mensaje || "El código no es válido.");
         otpMessage.textContent = data.mensaje || "No fue posible verificar el código.";
         otpInput.focus();
@@ -1467,6 +1767,8 @@ function initForm() {
       otpMessage.textContent = data.mensaje || "";
       if (data.ok) {
         renderPreview(data.preview_code || "");
+      } else if (data.codigo === "RETENCION_EXPIRADA") {
+        handleHoldExpired();
       }
     }).catch(function() {
       otpMessage.textContent = "No fue posible reenviar el código.";

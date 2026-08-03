@@ -46,6 +46,7 @@ $router->get('/api/operacion/horario-efectivo', [ReservacionController::class, '
 $router->post('/api/reservaciones/retencion', [ReservacionController::class, 'retencion']);
 $router->post('/api/reservaciones/crear', [ReservacionController::class, 'crearVerificada']);
 $router->post('/api/reservaciones/modificar', [ReservacionController::class, 'modificarPublica']);
+$router->post('/api/reservaciones/confirmar-modificacion', [ReservacionController::class, 'confirmarModificacion']);
 $router->post('/api/reservaciones/cancelar', [ReservacionController::class, 'cancelarPublica']);
 $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::class, 'solicitarCodigo']);
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);

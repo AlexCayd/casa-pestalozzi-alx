@@ -16,6 +16,7 @@ $calendarId = (string)($calendarId ?? 'cpCalendar');
 $name = (string)($name ?? 'fecha');
 $value = (string)($value ?? '');
 $min = (string)($min ?? '');
+$maxDate = (string)($maxDate ?? '');
 $today = (string)($today ?? $min);
 $disabled = (bool)($disabled ?? false);
 $enabledWeekdays = $enabledWeekdays ?? [];
@@ -44,6 +45,7 @@ $h = static function ($item): string {
     id="<?php echo $h($rootId); ?>"
     data-reservation-date-picker
     data-min-date="<?php echo $h($min); ?>"
+    data-max-date="<?php echo $h($maxDate); ?>"
     data-today-date="<?php echo $h($today); ?>"
     data-enabled-weekdays="<?php echo $h(implode(',', array_map('intval', $enabledWeekdays))); ?>"
     data-allow-past="<?php echo $allowPast ? '1' : '0'; ?>"

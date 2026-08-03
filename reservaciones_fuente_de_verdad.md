@@ -745,6 +745,28 @@ Panel y mapa utilizan exactamente el mismo servicio.
 - Si la reservación fue creada con `contacto_tipo = ninguno`, puede agregarse contacto.
 - Si ya existe contacto, no se modifica desde el flujo normal.
 
+### 18.1 Creación administrativa y asignación — Etapa 8
+
+La creación administrativa y la asignación manual se implementarán en la
+**Etapa 8 — Administración de reservaciones**. Esta regla no aplica a la
+landing ni a la gestión pública de la Etapa 7.
+
+- La asignación automática administrativa es opcional.
+- Para 1–12 personas puede utilizar el mismo algoritmo estricto de la landing.
+- Para más de 12 personas la asignación automática queda deshabilitada.
+- Si no existe un grupo predefinido disponible, administración puede crear la
+  reservación sin mesas después de aceptar una advertencia.
+- Una capacidad estimada insuficiente no bloquea definitivamente la creación
+  administrativa.
+- En ese caso se exige una advertencia reforzada y asignación manual posterior.
+- Una reservación administrativa activa sin filas en `reservacion_mesas` se
+  considera pendiente de asignación manual.
+- La capacidad administrativa se calcula con todas las mesas físicas
+  reservables disponibles, sin exigir grupos predefinidos.
+- La landing y la modificación pública continúan siendo estrictas y sólo
+  permiten crear un reemplazo cuando existe una combinación física automática
+  válida.
+
 ---
 
 ## 19. Estados de reservación

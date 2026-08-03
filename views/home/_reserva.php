@@ -22,7 +22,11 @@ $mesesCortos = [
   11 => 'NOV',
   12 => 'DIC',
 ];
-$hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
+$hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
+  '!Y-m-d',
+  \Services\ReservacionConfig::fechaActual(),
+  \Services\ReservacionConfig::timezone()
+)->format('w');
 ?>
 <section class="section reserva" id="reserva" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
   data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
@@ -185,6 +189,9 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               $name = 'fecha';
               $value = '';
               $min = \Services\ReservacionConfig::fechaActual();
+              $maxDate = \Services\ReservacionConfig::ahora()
+                ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+                ->format('Y-m-d');
               $disabled = false;
               $showIcon = true;
               // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
@@ -489,7 +496,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               title="Finaliza el acceso a las reservaciones asociadas a este contacto">Salir de gestión</button>
           </div>
           <p class="reservation-portal__lead">
-            Puedes consultar tus reservaciones o crear una nueva sin volver a verificar este contacto durante esta sesión.
+            Puedes consultar tus reservaciones y gestionar los cambios disponibles durante esta sesión.
           </p>
           <p class="reservation-portal__summary" data-reservation-summary></p>
           <div class="reservation-portal__list" data-reservation-list></div>
@@ -503,7 +510,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
     <form class="reservation-card__editor" novalidate>
       <div class="field reservation-field">
         <label class="reservation-field__label" data-editor-name-label>Nombre</label>
-        <input class="reservation-control reservation-control--text" name="nombre" type="text" required>
+        <input class="reservation-control reservation-control--text" name="nombre" type="text" required readonly aria-readonly="true">
       </div>
       <div class="field reservation-field">
         <label class="reservation-field__label" data-editor-date-label>Fecha</label>
@@ -515,6 +522,9 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
           $name = 'fecha';
           $value = '';
           $min = \Services\ReservacionConfig::fechaActual();
+          $maxDate = \Services\ReservacionConfig::ahora()
+            ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+            ->format('Y-m-d');
           $disabled = false;
           $enabledWeekdays = range(0, 6);
           include __DIR__ . '/../components/reservations/date-picker.php';
@@ -555,6 +565,21 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
         <button type="button" class="reservation-access__link" data-editor-cancel>Cancelar modificación</button>
       </div>
       <p class="reservation-access__message" data-editor-message role="status" aria-live="polite"></p>
+      <section class="reservation-access__verify reservation-card__editor-otp" data-editor-otp hidden aria-live="polite">
+        <p>La reservación original sigue vigente. Confirma el código para aplicar los cambios.</p>
+        <p data-editor-countdown></p>
+        <div class="field">
+          <label for="reservation-editor-otp">Código de seis dígitos</label>
+          <input id="reservation-editor-otp" name="editor_codigo" type="text" inputmode="numeric"
+            autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" data-editor-otp-input>
+          <span class="field__msg reservation-field__error" data-editor-otp-error role="status" aria-live="polite"></span>
+        </div>
+        <div class="reservation-access__preview" data-editor-otp-preview hidden></div>
+        <div class="reservation-card__editor-actions">
+          <button type="button" class="btn-line" data-editor-otp-confirm><span>Confirmar cambios</span></button>
+          <button type="button" class="reservation-access__link" data-editor-otp-resend>Reenviar código</button>
+        </div>
+      </section>
     </form>
   </template>
 </section>

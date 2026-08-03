@@ -130,68 +130,7 @@ class AsignacionMesasService
         array $mesaIdsProyectadas = []
     ): array
     {
-        $comensales = max(1, $comensales);
-
-        if (empty($mesasDisponibles)) {
-            return [];
-        }
-        if ($comensales <= ReservacionConfig::MAX_PUBLIC_GUESTS) {
-            return OcupacionMesasService::seleccionarAgrupacionAutorizada(
-                $mesasDisponibles,
-                $comensales,
-                $mesaIdsProyectadas
-            );
-        }
-
-        $candidatas = [];
-
-        foreach ($mesasDisponibles as $mesa) {
-            if ((int)$mesa->capacidad >= $comensales) {
-                $candidatas[] = [$mesa];
-            }
-        }
-
-        $seleccion = [];
-        $capacidad = 0;
-
-        foreach ($mesasDisponibles as $mesa) {
-            $seleccion[] = $mesa;
-            $capacidad += (int)$mesa->capacidad;
-
-            if ($capacidad >= $comensales) {
-                $candidatas[] = $seleccion;
-                break;
-            }
-        }
-
-        if (empty($candidatas)) {
-            return [];
-        }
-
-        $proyectadas = array_fill_keys(self::normalizarMesaIds($mesaIdsProyectadas), true);
-        usort($candidatas, static function (array $a, array $b) use (
-            $comensales,
-            $proyectadas
-        ): int {
-            $capacidadA = self::capacidadSeleccion($a);
-            $capacidadB = self::capacidadSeleccion($b);
-            $proyectadasA = count(array_filter(
-                array_map(static fn($mesa): int => (int)$mesa->id, $a),
-                static fn(int $id): bool => isset($proyectadas[$id])
-            ));
-            $proyectadasB = count(array_filter(
-                array_map(static fn($mesa): int => (int)$mesa->id, $b),
-                static fn(int $id): bool => isset($proyectadas[$id])
-            ));
-
-            return ($proyectadasA <=> $proyectadasB)
-                ?: (($capacidadA - $comensales) <=> ($capacidadB - $comensales))
-                ?: (count($a) <=> count($b))
-                ?: ($capacidadA <=> $capacidadB)
-                ?: (self::numerosSeleccion($a) <=> self::numerosSeleccion($b));
-        });
-
-        return $candidatas[0];
+        return self::seleccionarCanonica($mesasDisponibles, $comensales);
     }
 
     public static function seleccionarMesasPublicas(
@@ -200,11 +139,7 @@ class AsignacionMesasService
         array $mesaIdsProyectadas = []
     ): array
     {
-        return OcupacionMesasService::seleccionarAgrupacionAutorizada(
-            $mesasDisponibles,
-            $comensales,
-            $mesaIdsProyectadas
-        );
+        return self::seleccionarCanonica($mesasDisponibles, $comensales);
     }
 
     public static function validarCapacidad(array $mesas, array $mesaIds, int $comensales): bool
@@ -238,6 +173,84 @@ class AsignacionMesasService
 
             return $total + (int)($mesa->capacidad ?? 0);
         }, 0);
+    }
+
+    /**
+     * Selección pura y determinista. Las combinaciones se resuelven por
+     * mesas.numero, nunca por IDs ni por una suma arbitraria de capacidad.
+     *
+     * @return array<int, object>
+     */
+    private static function seleccionarCanonica(array $mesasDisponibles, int $comensales): array
+    {
+        $comensales = (int)$comensales;
+        if ($comensales < 1 || $comensales > ReservacionConfig::MAX_PUBLIC_GUESTS) {
+            return [];
+        }
+
+        $elegibles = [];
+        foreach ($mesasDisponibles as $mesa) {
+            if (
+                (int)($mesa->activo ?? 0) === 1
+                && (int)($mesa->reservable ?? 0) === 1
+                && (string)($mesa->tipo ?? '') === 'mesa'
+                && (int)($mesa->capacidad ?? 0) > 0
+            ) {
+                $elegibles[(int)($mesa->numero ?? 0)] = $mesa;
+            }
+        }
+        ksort($elegibles, SORT_NUMERIC);
+
+        $candidatas = [];
+        if ($comensales <= 4) {
+            foreach ($elegibles as $mesa) {
+                if ((int)$mesa->capacidad >= $comensales) {
+                    $candidatas[] = [[$mesa], 0];
+                }
+            }
+        } else {
+            foreach (ReservacionConfig::GRUPOS_DOS_MESAS as $indice => $grupo) {
+                $candidata = self::resolverGrupo($grupo, $elegibles);
+                if ($candidata !== [] && self::capacidadSeleccion($candidata) >= $comensales) {
+                    $candidatas[] = [$candidata, $indice];
+                }
+            }
+            foreach (ReservacionConfig::GRUPOS_TRES_MESAS as $indice => $grupo) {
+                $candidata = self::resolverGrupo($grupo, $elegibles);
+                if ($candidata !== [] && self::capacidadSeleccion($candidata) >= $comensales) {
+                    $candidatas[] = [$candidata, count(ReservacionConfig::GRUPOS_DOS_MESAS) + $indice];
+                }
+            }
+        }
+
+        if ($candidatas === []) {
+            return [];
+        }
+
+        usort($candidatas, static function (array $a, array $b) use ($comensales): int {
+            $mesasA = $a[0];
+            $mesasB = $b[0];
+            return (count($mesasA) <=> count($mesasB))
+                ?: ((self::capacidadSeleccion($mesasA) - $comensales)
+                    <=> (self::capacidadSeleccion($mesasB) - $comensales))
+                ?: (($a[1] ?? 0) <=> ($b[1] ?? 0))
+                ?: (self::numerosSeleccion($mesasA) <=> self::numerosSeleccion($mesasB));
+        });
+
+        return $candidatas[0][0];
+    }
+
+    /** @return array<int, object> */
+    private static function resolverGrupo(array $numeros, array $porNumero): array
+    {
+        $resultado = [];
+        foreach ($numeros as $numero) {
+            if (!isset($porNumero[(int)$numero])) {
+                return [];
+            }
+            $resultado[] = $porNumero[(int)$numero];
+        }
+        return $resultado;
     }
 
     private static function asignar(
@@ -626,9 +639,9 @@ class AsignacionMesasService
     {
         $a = self::minutosDesdeHora($horaA);
         $b = self::minutosDesdeHora($horaB);
-        $inicioA = $a - ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO;
+        $inicioA = $a - ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
         $finA = $a + ReservacionConfig::DURACION_RESERVACION_MINUTOS;
-        $inicioB = $b - ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO;
+        $inicioB = $b - ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
         $finB = $b + ReservacionConfig::DURACION_RESERVACION_MINUTOS;
 
         return $inicioA < $finB && $inicioB < $finA;

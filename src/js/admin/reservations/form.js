@@ -410,10 +410,13 @@
                     invalidateUnavailable: true,
                     autoLoad: mode === 'crear' || isEditing,
                     getQueryParams: function () {
-                        return {
+                        var params = {
                             personas: parseInt(formValue(form, 'comensales') || '0', 10) || 1,
                             reservacion_id: reservationId || ''
                         };
+                        var selectedHour = timeInput ? normalizeHour(timeInput.value) : '';
+                        if (selectedHour) params.hora = selectedHour;
+                        return params;
                     }
                 });
                 form.__reservationTimePicker = timePicker;
@@ -501,6 +504,13 @@
                     return Promise.resolve([]);
                 }
 
+                fecha = String(fecha || (dateInput ? dateInput.value : '')).trim();
+                if (dateInput && fecha && dateInput.value !== fecha) {
+                    dateInput.value = fecha;
+                }
+                availabilityDetails = {};
+                renderCapacitySummary();
+
                 isLoadingSchedules = true;
                 updateSaveState();
 
@@ -546,6 +556,8 @@
                 dateInput.addEventListener('reservation:datechange', function (event) {
                     if (!isEditing) return;
                     var fecha = (event.detail && event.detail.fecha) || dateInput.value;
+                    if (timePicker && typeof timePicker.clear === 'function') timePicker.clear(true);
+                    if (timeInput) timeInput.value = '';
                     loadSchedules(fecha, '');
                 });
             }
@@ -554,11 +566,20 @@
                 timeInput.addEventListener('reservation:timechange', function () {
                     renderCapacitySummary();
                     updateSaveState();
+                    if (!isLoadingSchedules && isEditing && dateInput && timeInput.value) {
+                        loadSchedules(dateInput.value, timeInput.value);
+                    }
                 });
             }
             if (timeRoot) {
                 timeRoot.addEventListener('reservation:scheduleloaded', function (event) {
                     var payload = event.detail || {};
+                    var expectedDate = dateInput ? String(dateInput.value || '') : '';
+                    if (payload.ok === true && String(payload.fecha || '') !== expectedDate) {
+                        availabilityDetails = {};
+                        renderCapacitySummary();
+                        return;
+                    }
                     availabilityDetails = payload.detalle_horarios || {};
                     if (!Object.keys(availabilityDetails).length) {
                         (payload.horarios || []).forEach(function (slot) {

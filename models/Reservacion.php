@@ -307,7 +307,8 @@ class Reservacion extends ActiveRecord {
         string $tipo,
         string $contactoNormalizado,
         string $fechaActual,
-        string $horaActual
+        string $horaActual,
+        int $excluirReservacionId = 0
     ): int {
         $ahora = self::fechaHoraConsulta($fechaActual, $horaActual);
         $condicionLimite = ReservacionVigenciaService::condicionSqlCuentaLimite(
@@ -319,12 +320,19 @@ class Reservacion extends ActiveRecord {
                 WHERE contacto_tipo = ?
                   AND contacto = ?
                   AND {$condicionLimite}";
+        if ($excluirReservacionId > 0) {
+            $sql .= ' AND id <> ?';
+        }
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el conteo por contacto.');
         }
 
-        $stmt->bind_param('ss', $tipo, $contactoNormalizado);
+        if ($excluirReservacionId > 0) {
+            $stmt->bind_param('ssi', $tipo, $contactoNormalizado, $excluirReservacionId);
+        } else {
+            $stmt->bind_param('ss', $tipo, $contactoNormalizado);
+        }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
@@ -335,6 +343,52 @@ class Reservacion extends ActiveRecord {
         $stmt->close();
 
         return (int)($fila['total'] ?? 0);
+    }
+
+    /**
+     * Devuelve únicamente datos públicos de reemplazos aún pendientes para
+     * que la interfaz pueda avisar que la reservación original sigue vigente.
+     * No expone IDs internos ni request_token.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buscarReemplazosPendientesPorContacto(
+        string $tipo,
+        string $contactoNormalizado,
+        string $fechaActual,
+        string $horaActual
+    ): array {
+        $ahora = self::fechaHoraConsulta($fechaActual, $horaActual);
+        $stmt = self::getDB()->prepare(
+            "SELECT reemplaza_reservacion_id, fecha, hora, comensales, nota, hold_expires_at
+             FROM reservaciones
+             WHERE contacto_tipo = ?
+               AND contacto = ?
+               AND estado = 'pendiente_verificacion'
+               AND reemplaza_reservacion_id IS NOT NULL
+               AND hold_expires_at > ?
+             ORDER BY fecha ASC, hora ASC, id ASC"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la consulta de cambios pendientes.');
+        }
+
+        $instante = $ahora->format('Y-m-d H:i:s');
+        $stmt->bind_param('sss', $tipo, $contactoNormalizado, $instante);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+
+        $resultado = $stmt->get_result();
+        $filas = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $filas[] = $fila;
+        }
+        $stmt->close();
+
+        return $filas;
     }
 
     public static function buscarAdmin(array $filtros = []) {

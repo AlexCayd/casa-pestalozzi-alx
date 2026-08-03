@@ -33,6 +33,24 @@ function initReservationAccess() {
   var contactValues = { email: "", telefono: "" };
   var activeContactType = "email";
 
+  function csrfTokenValue() {
+    return csrfToken ? csrfToken.getAttribute("data-reservation-csrf") || "" : "";
+  }
+
+  function operationToken() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID().replace(/-/g, "") + Date.now().toString(36);
+    }
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      var bytes = new Uint8Array(32);
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function(byte) {
+        return byte.toString(16).padStart(2, "0");
+      }).join("");
+    }
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
   function confirmCancellation(reservation, onConfirm) {
     var previous = document.querySelector("[data-reservation-cancel-dialog]");
     if (previous) previous.remove();
@@ -85,7 +103,7 @@ function initReservationAccess() {
       ? "Contacto verificado"
       : "Verifica tu contacto";
     if (accessDescription) accessDescription.textContent = verified
-      ? "Puedes consultar tus reservaciones o crear una nueva sin volver a verificar este contacto durante esta sesión."
+      ? "Puedes consultar tus reservaciones y gestionar los cambios disponibles durante esta sesión."
       : "Te enviaremos un código temporal para consultar y gestionar tus reservaciones";
   }
 
@@ -126,14 +144,12 @@ function initReservationAccess() {
   }
 
   function publishVerifiedSession(data) {
-    var type = String(data.verified_contact_type || "");
-    var contact = String(data.verified_contact || "");
     window.CP_RESERVATION_SESSION = true;
-    window.CP_RESERVATION_CONTACT = type && contact
-      ? { tipo: type, contacto: contact }
-      : null;
+    // La sesión PHP conserva el contacto; el portal no lo vuelve a publicar
+    // en HTML o JavaScript después de verificarlo.
+    window.CP_RESERVATION_CONTACT = null;
     window.dispatchEvent(new CustomEvent("reservation:sessionchange", {
-      detail: { verified: true, tipo: type, contacto: contact, source: "manage" }
+      detail: { verified: true, source: "manage" }
     }));
   }
 
@@ -295,7 +311,7 @@ function initReservationAccess() {
     jsonRequest("/api/reservaciones/contacto/codigo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(currentIdentity)
+      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
     }).then(function(data) {
       if (!data.ok) {
         setMessage(data.mensaje || "No fue posible solicitar el código.", true);
@@ -341,7 +357,8 @@ function initReservationAccess() {
       body: JSON.stringify({
         tipo: currentIdentity.tipo,
         contacto: currentIdentity.contacto,
-        codigo: code
+        codigo: code,
+        csrf_token: csrfTokenValue()
       })
     }).then(function(data) {
       if (!data.ok) {
@@ -381,7 +398,7 @@ function initReservationAccess() {
     jsonRequest("/api/reservaciones/contacto/codigo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(currentIdentity)
+      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
     }).then(function(data) {
       if (!data.ok) {
         setMessage(data.mensaje || "No fue posible reenviar el código.", true);
@@ -427,6 +444,13 @@ function initReservationAccess() {
     dropdown.id += suffix;
     timeDisplay.setAttribute("aria-controls", dropdown.id);
     editor.querySelector("[data-editor-time-label]").setAttribute("for", timeDisplay.id);
+
+    var editorOtpInput = editor.querySelector("[data-editor-otp-input]");
+    if (editorOtpInput) {
+      editorOtpInput.id = "reservationEditorOtp" + suffix;
+      var editorOtpLabel = editor.querySelector("label[for='reservation-editor-otp']");
+      if (editorOtpLabel) editorOtpLabel.setAttribute("for", editorOtpInput.id);
+    }
   }
 
   function initializeEditorGuestPicker(editor, reservation) {
@@ -604,6 +628,13 @@ function initReservationAccess() {
 
     card.append(kicker, date, details, status);
 
+    if (reservation.pending_modification) {
+      var pending = document.createElement("p");
+      pending.className = "reservation-card__pending";
+      pending.textContent = "Cambio pendiente de confirmación. La reservación original sigue vigente.";
+      card.append(pending);
+    }
+
     if (reservation.can_modify || reservation.can_cancel) {
       var actions = document.createElement("div");
       actions.className = "reservation-card__actions";
@@ -628,8 +659,82 @@ function initReservationAccess() {
         var editorGuestPicker = initializeEditorGuestPicker(editor, reservation);
         var editorPickers = initializeEditorPickers(editor, reservation);
         var editorCancel = editor.querySelector("[data-editor-cancel]");
+        var editorMainActions = editor.querySelector(".reservation-card__editor-actions");
+        var editorOtp = editor.querySelector("[data-editor-otp]");
+        var editorOtpInput = editor.querySelector("[data-editor-otp-input]");
+        var editorOtpError = editor.querySelector("[data-editor-otp-error]");
+        var editorOtpPreview = editor.querySelector("[data-editor-otp-preview]");
+        var editorOtpConfirm = editor.querySelector("[data-editor-otp-confirm]");
+        var editorOtpResend = editor.querySelector("[data-editor-otp-resend]");
+        var editorCountdown = editor.querySelector("[data-editor-countdown]");
+        var editorOperation = null;
+        var editorCountdownTimer = null;
+
+        function resetEditorOtp() {
+          if (editorCountdownTimer) window.clearInterval(editorCountdownTimer);
+          editorCountdownTimer = null;
+          editorOperation = null;
+          if (editorOtp) editorOtp.hidden = true;
+          if (editorMainActions) editorMainActions.hidden = false;
+          if (editorOtpInput) editorOtpInput.value = "";
+          if (editorOtpError) editorOtpError.textContent = "";
+          if (editorOtpPreview) {
+            editorOtpPreview.hidden = true;
+            editorOtpPreview.replaceChildren();
+          }
+          if (editorCountdown) editorCountdown.textContent = "";
+        }
+
+        function renderEditorPreview(code) {
+          if (!editorOtpPreview) return;
+          editorOtpPreview.replaceChildren();
+          editorOtpPreview.hidden = !code;
+          if (!code) return;
+          var label = document.createElement("strong");
+          label.textContent = "Modo de desarrollo";
+          var value = document.createElement("span");
+          value.textContent = "Código de prueba: " + code;
+          var use = document.createElement("button");
+          use.type = "button";
+          use.className = "reservation-access__link";
+          use.textContent = "Usar código de prueba";
+          use.addEventListener("click", function() {
+            editorOtpInput.value = code;
+            editorOtpInput.focus();
+          });
+          editorOtpPreview.append(label, value, use);
+        }
+
+        function startEditorCountdown(expiresAt) {
+          var expiry = Date.parse(expiresAt || "");
+          if (!editorCountdown || !Number.isFinite(expiry)) return;
+          function tick() {
+            var remaining = Math.max(0, expiry - Date.now());
+            var seconds = Math.ceil(remaining / 1000);
+            editorCountdown.textContent = remaining > 0
+              ? "El código y la retención vencen en " + Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0") + "."
+              : "El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.";
+            if (editorOtpConfirm) editorOtpConfirm.disabled = remaining <= 0;
+            if (remaining <= 0 && editorCountdownTimer) {
+              window.clearInterval(editorCountdownTimer);
+              editorCountdownTimer = null;
+            }
+          }
+          tick();
+          editorCountdownTimer = window.setInterval(tick, 1000);
+        }
+
+        function showEditorOtp(data, requestToken) {
+          editorOperation = { request_token: requestToken, csrf_token: csrfTokenValue() };
+          if (editorMainActions) editorMainActions.hidden = true;
+          if (editorOtp) editorOtp.hidden = false;
+          renderEditorPreview(data.preview_code || "");
+          startEditorCountdown(data.hold_expires_at || data.otp_expires_at || "");
+          if (editorOtpInput) editorOtpInput.focus();
+        }
 
         function restoreEditor() {
+          resetEditorOtp();
           editor.elements.nombre.value = reservation.nombre || "";
           editor.elements.personas.value = reservation.comensales || 2;
           editor.elements.notas.value = reservation.nota || "";
@@ -693,11 +798,12 @@ function initReservationAccess() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               reservacion_id: reservation.id,
-              nombre: editor.elements.nombre.value.trim(),
               fecha: editor.elements.fecha.value,
               hora: editor.elements.hora.value,
               personas: parseInt(editor.elements.personas.value, 10),
-              notas: editor.elements.notas.value.trim()
+              notas: editor.elements.notas.value.trim(),
+              request_token: operationToken(),
+              csrf_token: csrfTokenValue()
             })
           }).then(function(data) {
             if (!data.ok) {
@@ -705,8 +811,8 @@ function initReservationAccess() {
                 || "No fue posible modificar; tu reservación original se conserva.";
               return;
             }
-            setMessage(data.mensaje || "Reservación modificada.");
-            loadReservations();
+            showEditorOtp(data, data.request_token);
+            editorMessage.textContent = data.mensaje || "Confirma el código para aplicar los cambios.";
           }).catch(function() {
             editorMessage.textContent = "No fue posible modificar; tu reservación original se conserva.";
           }).finally(function() {
@@ -716,6 +822,61 @@ function initReservationAccess() {
             }
           });
         });
+        if (editorOtpConfirm) {
+          editorOtpConfirm.addEventListener("click", function() {
+            if (!editorOperation) return;
+            var code = (editorOtpInput.value || "").replace(/\D/g, "").slice(0, 6);
+            editorOtpInput.value = code;
+            if (!/^\d{6}$/.test(code)) {
+              editorOtpError.textContent = "Escribe el código de seis dígitos.";
+              editorOtpInput.focus();
+              return;
+            }
+            editorOtpConfirm.disabled = true;
+            jsonRequest("/api/reservaciones/confirmar-modificacion", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                request_token: editorOperation.request_token,
+                codigo: code,
+                csrf_token: editorOperation.csrf_token
+              })
+            }).then(function(data) {
+              if (!data.ok) {
+                editorOtpError.textContent = data.mensaje || "El código no es válido.";
+                return;
+              }
+              setMessage(data.mensaje || "Tu reservación fue actualizada.");
+              loadReservations();
+            }).catch(function() {
+              editorOtpError.textContent = "No fue posible confirmar el cambio.";
+            }).finally(function() {
+              if (editorOtpConfirm && editorOperation) editorOtpConfirm.disabled = false;
+            });
+          });
+        }
+        if (editorOtpResend) {
+          editorOtpResend.addEventListener("click", function() {
+            if (!editorOperation) return;
+            jsonRequest("/api/reservaciones/contacto/codigo", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                request_token: editorOperation.request_token,
+                operacion: "modificacion",
+                csrf_token: editorOperation.csrf_token
+              })
+            }).then(function(data) {
+              if (!data.ok) {
+                editorOtpError.textContent = data.mensaje || "No fue posible reenviar el código.";
+                return;
+              }
+              editorOtpError.textContent = "Código reenviado.";
+              renderEditorPreview(data.preview_code || "");
+              startEditorCountdown(data.hold_expires_at || data.otp_expires_at || "");
+            });
+          });
+        }
         actions.append(modify);
         card.append(editor);
       }
@@ -730,7 +891,10 @@ function initReservationAccess() {
             jsonRequest("/api/reservaciones/cancelar", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reservacion_id: reservation.id })
+              body: JSON.stringify({
+                reservacion_id: reservation.id,
+                csrf_token: csrfTokenValue()
+              })
             }).then(function(data) {
               if (!data.ok) {
                 setMessage(data.mensaje || "No fue posible cancelar la reservación.", true);

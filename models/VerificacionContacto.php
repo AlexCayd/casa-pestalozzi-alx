@@ -19,22 +19,30 @@ class VerificacionContacto extends ActiveRecord
      *
      * @return array<string, mixed>|null
      */
-    public static function buscarRecienteParaActualizar(string $tipo, string $contacto): ?array
+    public static function buscarRecienteParaActualizar(
+        string $tipo,
+        string $contacto,
+        ?int $reservacionId = null
+    ): ?array
     {
-        $stmt = self::getDB()->prepare(
-            'SELECT id, contacto_tipo, contacto, codigo_hash, expires_at,
-                    attempts, used_at, invalidated_at, created_at
-             FROM verificaciones_contacto
-             WHERE contacto_tipo = ? AND contacto = ?
-             ORDER BY id DESC
-             LIMIT 1
-             FOR UPDATE'
-        );
+        $sql = 'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
+                       attempts, used_at, invalidated_at, created_at
+                FROM verificaciones_contacto
+                WHERE contacto_tipo = ? AND contacto = ? AND ';
+        $sql .= $reservacionId === null
+            ? 'reservacion_id IS NULL '
+            : 'reservacion_id = ? ';
+        $sql .= 'ORDER BY id DESC LIMIT 1 FOR UPDATE';
+        $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la consulta de verificación.');
         }
 
-        $stmt->bind_param('ss', $tipo, $contacto);
+        if ($reservacionId === null) {
+            $stmt->bind_param('ss', $tipo, $contacto);
+        } else {
+            $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+        }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
@@ -84,21 +92,30 @@ class VerificacionContacto extends ActiveRecord
     /**
      * Invalida desafíos anteriores aún utilizables antes de emitir uno nuevo.
      */
-    public static function invalidarActivas(string $tipo, string $contacto): void
+    public static function invalidarActivas(
+        string $tipo,
+        string $contacto,
+        ?int $reservacionId = null
+    ): void
     {
-        $stmt = self::getDB()->prepare(
-            'UPDATE verificaciones_contacto
-             SET invalidated_at = NOW()
-             WHERE contacto_tipo = ?
-               AND contacto = ?
-               AND used_at IS NULL
-               AND invalidated_at IS NULL'
-        );
+        $sql = 'UPDATE verificaciones_contacto
+                SET invalidated_at = NOW()
+                WHERE contacto_tipo = ?
+                  AND contacto = ?
+                  AND used_at IS NULL
+                  AND invalidated_at IS NULL
+                  AND ';
+        $sql .= $reservacionId === null ? 'reservacion_id IS NULL' : 'reservacion_id = ?';
+        $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar la invalidación de códigos anteriores.');
         }
 
-        $stmt->bind_param('ss', $tipo, $contacto);
+        if ($reservacionId === null) {
+            $stmt->bind_param('ss', $tipo, $contacto);
+        } else {
+            $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+        }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
@@ -117,23 +134,30 @@ class VerificacionContacto extends ActiveRecord
         string $expiresAt,
         ?int $reservacionId = null
     ): int {
-        $stmt = self::getDB()->prepare(
-            'INSERT INTO verificaciones_contacto
+        $sql = $reservacionId === null
+            ? 'INSERT INTO verificaciones_contacto
                 (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at, attempts)
-             VALUES (?, ?, ?, ?, ?, 0)'
-        );
+               VALUES (NULL, ?, ?, ?, ?, 0)'
+            : 'INSERT INTO verificaciones_contacto
+                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at, attempts)
+               VALUES (?, ?, ?, ?, ?, 0)';
+        $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del código.');
         }
 
-        $stmt->bind_param(
-            'issss',
-            $reservacionId,
-            $tipo,
-            $contacto,
-            $codigoHash,
-            $expiresAt
-        );
+        if ($reservacionId === null) {
+            $stmt->bind_param('ssss', $tipo, $contacto, $codigoHash, $expiresAt);
+        } else {
+            $stmt->bind_param(
+                'issss',
+                $reservacionId,
+                $tipo,
+                $contacto,
+                $codigoHash,
+                $expiresAt
+            );
+        }
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();

@@ -56,6 +56,7 @@
     var allowPast = options.allowPast === true || root.getAttribute("data-allow-past") === "1";
     var configuredMinDate = parseDate(options.minDate || root.getAttribute("data-min-date"));
     var minDate = configuredMinDate || (allowPast ? null : (configuredToday || parseDate(formatValue(new Date()))));
+    var maxDate = parseDate(options.maxDate || root.getAttribute("data-max-date"));
     var enabledWeekdays = parseWeekdays(options.enabledWeekdays || root.getAttribute("data-enabled-weekdays"));
     var MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     var selected = parseDate(options.initialValue || (input ? input.value : ""));
@@ -74,6 +75,7 @@
 
     function isDisabled(date) {
       if (minDate && date < minDate) return true;
+      if (maxDate && date > maxDate) return true;
       return enabledWeekdays.length > 0 && enabledWeekdays.indexOf(date.getDay()) === -1;
     }
 

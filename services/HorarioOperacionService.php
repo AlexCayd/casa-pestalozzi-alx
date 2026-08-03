@@ -471,6 +471,7 @@ class HorarioOperacionService
                 'origen' => 'excepcion',
                 'tipo' => (string) $excepcion->tipo,
                 'motivo' => $excepcion->motivo !== null ? (string) $excepcion->motivo : null,
+                'configurado' => true,
                 'valido' => true,
             ];
         }
@@ -490,6 +491,7 @@ class HorarioOperacionService
             'origen' => 'semanal',
             'tipo' => null,
             'motivo' => null,
+            'configurado' => $horario !== null,
             'valido' => true,
         ];
     }

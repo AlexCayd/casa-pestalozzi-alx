@@ -38,8 +38,11 @@
     var controlDisabled = initiallyDisabled;
     var enabled = false;
     var availableHours = [];
+    var lastAlternatives = [];
     var requestId = 0;
     var abortController = null;
+    var requestTimeoutId = null;
+    var requestTimeoutMs = parseInt(options.requestTimeoutMs, 10) || 10000;
 
     if (!display || !input || !dropdown || !optionsList) {
       return null;
@@ -81,6 +84,12 @@
       if (!status) return;
       status.textContent = text || "";
       status.classList.toggle("show", Boolean(show && text));
+    }
+
+    function clearRequestTimeout() {
+      if (requestTimeoutId === null) return;
+      clearTimeout(requestTimeoutId);
+      requestTimeoutId = null;
     }
 
     function closeDropdown() {
@@ -177,7 +186,9 @@
         ? options.unavailableMessage(preferredHour, queryParams)
         : "La hora de las " + preferredHour + " ya no está disponible"
           + (people ? " para " + people + (people === 1 ? " persona" : " personas") : "")
-          + ".";
+          + (lastAlternatives.length
+            ? ". Prueba: " + lastAlternatives.join(", ") + "."
+            : ".");
     }
 
     function invalidatePreferredHour(preferredHour, silent, keepAlternatives) {
@@ -294,6 +305,7 @@
         abortController.abort();
         abortController = null;
       }
+      clearRequestTimeout();
 
       if (!fecha) {
         setUnavailable("Selecciona fecha y comensales");
@@ -306,6 +318,8 @@
 
       setLoading(preferredHour);
       abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timedOut = false;
+      var timeoutNotified = false;
 
       var params = new URLSearchParams({ fecha: fecha });
       if (typeof options.getQueryParams === "function") {
@@ -317,15 +331,71 @@
         });
       }
 
+      requestTimeoutId = setTimeout(function () {
+        if (currentRequest !== requestId) return;
+        timedOut = true;
+        requestTimeoutId = null;
+        requestId++;
+        if (abortController) {
+          abortController.abort();
+          abortController = null;
+        }
+        timeoutNotified = true;
+        keepCurrentAfterLookupError(
+          preferredHour,
+          "No fue posible consultar los horarios. Intenta nuevamente."
+        );
+        emitScheduleLoaded({
+          ok: false,
+          mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+        });
+      }, requestTimeoutMs);
+
       return fetch(endpoint + "?" + params.toString(), {
         headers: { "Accept": "application/json" },
         credentials: "same-origin",
         signal: abortController ? abortController.signal : undefined
       })
-        .then(function (response) { return response.json(); })
+        .then(function (response) {
+          return response.text().then(function (raw) {
+            var data;
+            try {
+              data = JSON.parse(raw);
+            } catch (error) {
+              throw new Error("INVALID_AVAILABILITY_JSON");
+            }
+            if (!response.ok) {
+              return {
+                ok: false,
+                mensaje: data && data.mensaje
+                  ? data.mensaje
+                  : "No fue posible consultar los horarios."
+              };
+            }
+            return data;
+          });
+        })
         .then(function (data) {
+          if (currentRequest === requestId) clearRequestTimeout();
           if (currentRequest !== requestId) return [];
+          if (data && data.fecha !== undefined && String(data.fecha) !== String(fecha)) {
+            keepCurrentAfterLookupError(
+              preferredHour,
+              "La respuesta no corresponde a la fecha seleccionada."
+            );
+            emitScheduleLoaded({
+              ok: false,
+              codigo: "FECHA_RESPUESTA_MISMATCH",
+              fecha: data.fecha,
+              requested_fecha: fecha,
+              mensaje: "La respuesta no corresponde a la fecha seleccionada."
+            });
+            return [];
+          }
           emitScheduleLoaded(data);
+          lastAlternatives = Array.isArray(data.alternativas)
+            ? data.alternativas.map(normalizeHour).filter(Boolean).slice(0, 5)
+            : [];
 
           if (!data.ok) {
             var errorMessage = data.mensaje || "No fue posible consultar los horarios.";
@@ -359,9 +429,19 @@
           return data.horarios || [];
         })
         .catch(function (error) {
-          if (error && error.name === "AbortError") return [];
+          if (currentRequest === requestId) clearRequestTimeout();
+          if (error && error.name === "AbortError" && !timedOut) return [];
           if (currentRequest !== requestId) return [];
-          keepCurrentAfterLookupError(preferredHour, "No fue posible consultar los horarios. Intenta nuevamente.");
+          if (!timeoutNotified) {
+            keepCurrentAfterLookupError(
+              preferredHour,
+              "No fue posible consultar los horarios. Intenta nuevamente."
+            );
+            emitScheduleLoaded({
+              ok: false,
+              mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+            });
+          }
           return [];
         });
     }

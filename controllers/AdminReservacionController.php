@@ -21,7 +21,7 @@ use Services\ReservacionService;
 class AdminReservacionController
 {
     private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v6';
-    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v6';
+    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v7';
 
     public static function index(Router $router): void
     {
@@ -99,7 +99,8 @@ class AdminReservacionController
         $respuesta = DisponibilidadReservacionService::consultarAdministrativa(
             (string)($_GET['fecha'] ?? ''),
             $_GET['personas'] ?? $_GET['comensales'] ?? null,
-            $reservacionId ? (int)$reservacionId : 0
+            $reservacionId ? (int)$reservacionId : 0,
+            isset($_GET['hora']) ? (string)$_GET['hora'] : null
         );
         self::jsonResponse(
             $respuesta,

@@ -76,11 +76,12 @@ class ReservationClientSession
     }
 
     /**
-     * Devuelve la identidad verificada y renueva su vencimiento por actividad.
+     * Devuelve la identidad verificada sin extender su vencimiento.
+     * Una nueva verificación es la única forma de crear otra sesión.
      *
      * @return array{contacto_tipo: string, contacto: string, verified_at: int, expires_at: int}|null
      */
-    public static function obtener(bool $renovar = true): ?array
+    public static function obtener(bool $renovar = false): ?array
     {
         self::start();
         $sesion = $_SESSION[self::SESSION_KEY] ?? null;
@@ -96,12 +97,6 @@ class ReservationClientSession
         ) {
             unset($_SESSION[self::SESSION_KEY]);
             return null;
-        }
-
-        if ($renovar) {
-            $_SESSION[self::SESSION_KEY]['expires_at'] =
-                time() + (ReservacionConfig::CLIENT_SESSION_IDLE_MINUTES * 60);
-            $sesion = $_SESSION[self::SESSION_KEY];
         }
 
         return $sesion;
