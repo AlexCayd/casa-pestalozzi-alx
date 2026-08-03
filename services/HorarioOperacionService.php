@@ -134,16 +134,6 @@ class HorarioOperacionService
 
             self::verificarHorarioCanonico($validacion['datos']);
 
-            if ($conflictos !== []) {
-                foreach ($conflictos as $conflicto) {
-                    self::registrarUltimoCambio(
-                        (int)$conflicto['id'],
-                        $usuarioId,
-                        'Horario semanal confirmado conservando la reservación'
-                    );
-                }
-            }
-
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
@@ -277,14 +267,6 @@ class HorarioOperacionService
 
             if (!$excepcion->guardarExcepcion()) {
                 throw new \RuntimeException('El guardado de la excepción no fue confirmado.');
-            }
-
-            foreach ($conflictos as $conflicto) {
-                self::registrarUltimoCambio(
-                    (int)$conflicto['id'],
-                    $usuarioId,
-                    'Excepción confirmada conservando la reservación'
-                );
             }
 
             if (!$db->commit()) {
@@ -1071,26 +1053,6 @@ class HorarioOperacionService
     private static function normalizarBooleano($valor): bool
     {
         return in_array($valor, [1, '1', true, 'true', 'on'], true);
-    }
-
-    private static function registrarUltimoCambio(
-        int $reservacionId,
-        ?int $usuarioId,
-        string $motivo
-    ): void {
-        $db = ActiveRecord::getDB();
-        $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
-        $fuente = $usuarioId !== null ? 'personal' : 'sistema';
-        $motivoSql = $db->real_escape_string($motivo);
-        if (!$db->query(
-            "UPDATE reservaciones
-             SET last_modified_by = {$usuarioSql},
-                 last_modified_source = '{$fuente}',
-                 last_change_reason = '{$motivoSql}'
-             WHERE id = {$reservacionId}"
-        )) {
-            throw new \RuntimeException($db->error);
-        }
     }
 
     private static function horaCorta(string $hora): string

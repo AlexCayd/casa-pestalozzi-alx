@@ -102,50 +102,76 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS reservaciones (
   id                   INT AUTO_INCREMENT PRIMARY KEY,
   nombre               VARCHAR(100) NOT NULL,
-  contacto_tipo        ENUM('email','telefono') NOT NULL,
+  contacto_tipo        ENUM('email','telefono','ninguno') NOT NULL DEFAULT 'ninguno',
   -- El contacto se persiste en su formato canónico, normalizado en PHP.
-  contacto             VARCHAR(150) NOT NULL,
+  contacto             VARCHAR(150) NULL,
   fecha                DATE NOT NULL,
   hora                 TIME NOT NULL,
-  comensales           INT NOT NULL DEFAULT 2,
+  comensales           INT UNSIGNED NOT NULL DEFAULT 2,
   nota                 TEXT,
   comentario_admin     TEXT NULL,
+  origen               ENUM('landing','admin') NOT NULL,
   request_token        VARCHAR(64) NULL,
-  request_fingerprint  CHAR(64) NULL,
   -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
   hold_expires_at      DATETIME NULL,
-  confirmed_at         DATETIME NULL,
-  arrived_at           DATETIME NULL,
-  completed_at         DATETIME NULL,
-  status_changed_at    DATETIME NULL,
-  last_modified_by     INT NULL,
-  last_modified_source ENUM('cliente','personal','sistema') NOT NULL DEFAULT 'sistema',
-  last_change_reason   VARCHAR(500) NULL,
   estado               ENUM(
                          'pendiente_verificacion',
                          'confirmada',
-                         'llego',
                          'en_curso',
                          'completada',
                          'cancelada',
                          'no_show',
-                         'expirada'
+                         'expirada',
+                         'reemplazada'
                        ) NOT NULL DEFAULT 'pendiente_verificacion',
+  reemplaza_reservacion_id INT NULL,
+  estado_changed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
-  INDEX idx_reservaciones_fecha_hora        (fecha, hora),
-  INDEX idx_reservaciones_estado            (estado),
-  INDEX idx_reservaciones_contacto (contacto_tipo, contacto, estado, fecha, hora),
+  INDEX idx_reservaciones_contacto_horario (contacto_tipo, contacto, fecha, hora, estado),
   INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
-  CONSTRAINT chk_reservaciones_fingerprint
-    CHECK (request_fingerprint IS NULL OR CHAR_LENGTH(request_fingerprint) = 64),
+  INDEX idx_reservaciones_reemplazo (reemplaza_reservacion_id),
+  CONSTRAINT chk_reservaciones_comensales
+    CHECK (comensales > 0),
+  CONSTRAINT chk_reservaciones_contacto
+    CHECK (
+      (contacto_tipo = 'ninguno' AND contacto IS NULL)
+      OR
+      (contacto_tipo IN ('email','telefono') AND contacto IS NOT NULL AND TRIM(contacto) <> '')
+    ),
   CONSTRAINT chk_reservaciones_retencion_vencimiento
     CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
-  CONSTRAINT fk_reservaciones_last_modified_by
-    FOREIGN KEY (last_modified_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_reservacion_reemplazada
+    FOREIGN KEY (reemplaza_reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
   UNIQUE KEY uq_reservaciones_request_token (request_token)
 );
+
+-- MySQL no permite referenciar una columna AUTO_INCREMENT desde un CHECK.
+-- La regla de no auto-reemplazo se mantiene en la frontera de persistencia.
+DELIMITER //
+DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_insert//
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_insert
+BEFORE INSERT ON reservaciones
+FOR EACH ROW
+BEGIN
+  IF NEW.reemplaza_reservacion_id IS NOT NULL
+     AND NEW.id IS NOT NULL
+     AND NEW.reemplaza_reservacion_id = NEW.id THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
+  END IF;
+END//
+DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_update//
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_update
+BEFORE UPDATE ON reservaciones
+FOR EACH ROW
+BEGIN
+  IF NEW.reemplaza_reservacion_id IS NOT NULL
+     AND NEW.reemplaza_reservacion_id = NEW.id THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
+  END IF;
+END//
+DELIMITER ;
 
 -- Desafíos OTP de un solo uso. Nunca se guarda el código original: codigo_hash
 -- contiene únicamente el resultado de password_hash() y se valida en PHP con

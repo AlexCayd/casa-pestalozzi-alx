@@ -810,81 +810,74 @@ WHERE estado = 'abierto';
 -- Límites por contacto: cero, una, cuatro y cinco activas.
 -- limite.cero@example.test no requiere una fila.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Límite Una', 'email', 'limite.una@example.test',
-   @fecha_principal, '13:00:00', 2, 'Una activa', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-una-0001'),
+   @fecha_principal, '13:00:00', 2, 'Una activa', 'admin', 'confirmada',
+   'fx-limite-una-0001', @reloj_prueba),
 
   ('Límite Cuatro 1', 'email', 'limite.cuatro@example.test',
-   @fecha_principal, '14:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-01'),
+   @fecha_principal, '14:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-01', @reloj_prueba),
   ('Límite Cuatro 2', 'email', 'limite.cuatro@example.test',
-   @fecha_posterior, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-02'),
+   @fecha_posterior, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-02', @reloj_prueba),
   ('Límite Cuatro 3', 'email', 'limite.cuatro@example.test',
-   @fecha_especial, '16:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-03'),
+   @fecha_especial, '16:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-03', @reloj_prueba),
   ('Límite Cuatro 4', 'email', 'limite.cuatro@example.test',
-   @fecha_futura, '17:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-04'),
+   @fecha_futura, '17:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-04', @reloj_prueba),
 
   ('Límite Cinco 1', 'email', 'limite.cinco@example.test',
-   @fecha_principal, '13:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-01'),
+   @fecha_principal, '13:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-01', @reloj_prueba),
   ('Límite Cinco 2', 'email', 'limite.cinco@example.test',
-   @fecha_principal, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-02'),
+   @fecha_principal, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-02', @reloj_prueba),
   ('Límite Cinco 3', 'email', 'limite.cinco@example.test',
-   @fecha_posterior, '16:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-03'),
+   @fecha_posterior, '16:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-03', @reloj_prueba),
   ('Límite Cinco 4', 'email', 'limite.cinco@example.test',
-   @fecha_especial, '18:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-04'),
+   @fecha_especial, '18:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-04', @reloj_prueba),
   ('Límite Cinco 5', 'email', 'limite.cinco@example.test',
-   @fecha_futura, '19:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-05'),
+   @fecha_futura, '19:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-05', @reloj_prueba),
 
   ('Identidad Teléfono', 'telefono', '+525544442026',
-   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-contacto-tel-001'),
+   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'landing', 'confirmada',
+   'fx-contacto-tel-001', @reloj_prueba),
   ('Histórica', 'email', 'historial@example.test',
-   @fecha_historica, '18:00:00', 2, '', 'completada',
-   '2026-11-27 17:50:00', '2026-11-27 19:30:00', 'sistema',
-   'Ticket cerrado', 'fx-historica-000001');
+   @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
+   'fx-historica-000001', '2026-11-27 19:30:00');
 
 -- Retenciones, modificación, cancelación y falta de capacidad.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   hold_expires_at, confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   hold_expires_at, request_token, estado_changed_at)
 VALUES
   ('Retención Vigente', 'email', 'hold.vigente@example.test',
-   @fecha_principal, '17:30:00', 2, '', 'pendiente_verificacion',
-   '2026-11-30 12:05:00', NULL, @reloj_prueba, 'cliente',
-   'Retención creada para verificación', 'fx-hold-vigente-001'),
+   @fecha_principal, '17:30:00', 2, '', 'landing', 'pendiente_verificacion',
+   '2026-11-30 12:05:00',
+   'fx-hold-vigente-001', @reloj_prueba),
   ('Retención Vencida', 'email', 'hold.vencida@example.test',
-   @fecha_principal, '18:00:00', 2, '', 'pendiente_verificacion',
-   '2026-11-30 11:59:59', NULL, @reloj_prueba, 'cliente',
-   'Retención creada para verificación', 'fx-hold-vencida-001'),
+   @fecha_principal, '18:00:00', 2, '', 'landing', 'pendiente_verificacion',
+   '2026-11-30 11:59:59',
+   'fx-hold-vencida-001', @reloj_prueba),
   ('Modificable', 'email', 'modificar@example.test',
-   @fecha_principal, '18:30:00', 2, 'Mover a otra hora', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-modificable-0001'),
+   @fecha_principal, '18:30:00', 2, 'Mover a otra hora',
+   'admin', 'confirmada', NULL, 'fx-modificable-0001', @reloj_prueba),
   ('Cancelable', 'email', 'cancelar@example.test',
-   @fecha_principal, '19:00:00', 2, '', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-cancelable-0001'),
+   @fecha_principal, '19:00:00', 2, '',
+   'admin', 'confirmada', NULL, 'fx-cancelable-0001', @reloj_prueba),
   ('Sin Capacidad', 'email', 'sin.capacidad@example.test',
-   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-sin-capacidad-01'),
+   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación',
+   'admin', 'confirmada', NULL, 'fx-sin-capacidad-01', @reloj_prueba),
   ('Bloqueo Total', 'email', 'bloqueo@example.test',
-   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-bloqueo-total-01');
+   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas',
+   'admin', 'confirmada', NULL, 'fx-bloqueo-total-01', @reloj_prueba);
 
 SET @hold_vigente = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vigente-001');
 SET @hold_vencida = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vencida-001');
@@ -908,28 +901,27 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Asignaciones de una, dos y tres mesas, más reservas consecutivas.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Una Mesa', 'email', 'una.mesa@example.test',
-   @fecha_principal, '13:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-una-mesa-000001'),
+   @fecha_principal, '13:00:00', 2, '', 'admin', 'confirmada',
+   'fx-una-mesa-000001', @reloj_prueba),
   ('Dos Mesas', 'email', 'dos.mesas@example.test',
-   @fecha_principal, '14:30:00', 6, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-dos-mesas-00001'),
+   @fecha_principal, '14:30:00', 6, '', 'admin', 'confirmada',
+   'fx-dos-mesas-00001', @reloj_prueba),
   ('Tres Mesas', 'email', 'tres.mesas@example.test',
-   @fecha_principal, '16:00:00', 10, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-tres-mesas-0001'),
+   @fecha_principal, '16:00:00', 10, '', 'admin', 'confirmada',
+   'fx-tres-mesas-0001', @reloj_prueba),
   ('Cuatro Mesas Administrativa', 'email', 'cuatro.mesas@example.test',
-   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture administrativo', 'fx-cuatro-mesas-001'),
+   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'admin', 'confirmada',
+   'fx-cuatro-mesas-001', @reloj_prueba),
   ('Consecutiva A', 'email', 'consecutiva@example.test',
-   @fecha_futura, '13:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-a-01'),
+   @fecha_futura, '13:00:00', 2, '', 'admin', 'confirmada',
+   'fx-consecutiva-a-01', @reloj_prueba),
   ('Consecutiva B', 'email', 'consecutiva@example.test',
-   @fecha_futura, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-b-01');
+   @fecha_futura, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-consecutiva-b-01', @reloj_prueba);
 
 SET @una_mesa = (SELECT id FROM reservaciones WHERE request_token = 'fx-una-mesa-000001');
 SET @dos_mesas = (SELECT id FROM reservaciones WHERE request_token = 'fx-dos-mesas-00001');
@@ -948,37 +940,30 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Estados operativos: llegada, tolerancia, no-show, servicio y cierre.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, arrived_at, completed_at, status_changed_at,
-   last_modified_source, last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('POS Confirmada', 'email', 'pos.confirmada@example.test',
-   @fecha_principal, '19:30:00', 2, '', 'confirmada',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-confirmada-01'),
-  ('POS Llegó', 'email', 'pos.llego@example.test',
-   @fecha_principal, '20:00:00', 2, '', 'llego',
-   @reloj_prueba, '2026-11-30 19:50:00', NULL, '2026-11-30 19:50:00',
-   'personal', 'Llegada registrada', 'fx-pos-llego-000001'),
+   @fecha_principal, '19:30:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-confirmada-01', @reloj_prueba),
+  ('POS Convertida', 'email', 'pos.convertida@example.test',
+   @fecha_principal, '20:00:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-convertida-000001', '2026-11-30 19:50:00'),
   ('POS En Curso', 'email', 'pos.encurso@example.test',
-   @fecha_principal, '20:00:00', 6, '', 'en_curso',
-   @reloj_prueba, '2026-11-30 19:55:00', NULL, '2026-11-30 20:00:00',
-   'personal', 'Servicio iniciado', 'fx-pos-encurso-001'),
+   @fecha_principal, '20:00:00', 6, '', 'admin', 'en_curso',
+   'fx-pos-encurso-001', '2026-11-30 20:00:00'),
   ('POS Completada', 'email', 'pos.completa@example.test',
-   @fecha_historica, '18:00:00', 2, '', 'completada',
-   '2026-11-27 17:00:00', '2026-11-27 17:55:00', '2026-11-27 19:30:00',
-   '2026-11-27 19:30:00', 'personal', 'Ticket cerrado', 'fx-pos-completa-001'),
+   @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
+   'fx-pos-completa-001', '2026-11-27 19:30:00'),
   ('POS Tolerancia', 'email', 'pos.tolerancia@example.test',
-   @fecha_principal, '20:30:00', 2, '', 'confirmada',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-tolerancia-1'),
+   @fecha_principal, '20:30:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-tolerancia-1', @reloj_prueba),
   ('POS No Show', 'email', 'pos.noshow@example.test',
-   @fecha_principal, '19:00:00', 2, '', 'no_show',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'personal', 'Tolerancia vencida',
-   'fx-pos-noshow-0001');
+   @fecha_principal, '19:00:00', 2, '', 'admin', 'no_show',
+   'fx-pos-noshow-0001', @reloj_prueba);
 
 SET @pos_confirmada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-confirmada-01');
-SET @pos_llego = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-llego-000001');
+SET @pos_convertida = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-convertida-000001');
 SET @pos_en_curso = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-encurso-001');
 SET @pos_completada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-completa-001');
 SET @pos_tolerancia = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-tolerancia-1');
@@ -986,7 +971,7 @@ SET @pos_noshow = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-no
 
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@pos_confirmada, 3, 1),
-  (@pos_llego, 4, 1),
+  (@pos_convertida, 4, 1),
   (@pos_en_curso, 5, 1), (@pos_en_curso, 6, 2),
   (@pos_completada, 6, 1),
   (@pos_tolerancia, 7, 1),
@@ -1024,18 +1009,15 @@ INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
   (@walkin_varias, 1, 1), (@walkin_varias, 11, 2);
 
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Reserva Futura', 'email', 'pos.futura@example.test',
    @fecha_posterior, '13:00:00', 2, 'Advertencia de reserva próxima',
-   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-futura-00001'),
+   'admin', 'confirmada', 'fx-pos-futura-00001', @reloj_prueba),
   ('Horario Afectado', 'email', 'horario@example.test',
    @fecha_principal, '21:00:00', 2, 'Conflicto al adelantar el cierre',
-   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-horario-afectado');
+   'admin', 'confirmada', 'fx-horario-afectado', @reloj_prueba);
 
 SET @reserva_futura = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-futura-00001');
 SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-horario-afectado');

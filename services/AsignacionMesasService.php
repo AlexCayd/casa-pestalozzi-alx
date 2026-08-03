@@ -262,7 +262,7 @@ class AsignacionMesasService
             }
 
             $reservacion = self::fila(
-                "SELECT id, fecha, hora, comensales, estado, arrived_at,
+                "SELECT id, fecha, hora, comensales, estado,
                         created_at, updated_at
                  FROM reservaciones
                  WHERE id = {$reservacionId}
@@ -471,8 +471,6 @@ class AsignacionMesasService
             }
 
             ReservacionMesa::reemplazarAsignacion($reservacionId, $mesaIds);
-            $usuarioId = (int)($opciones['usuario_id'] ?? 0);
-            $usuarioSql = $usuarioId > 0 ? (string)$usuarioId : 'NULL';
             $seleccionProyectada = array_values(array_intersect(
                 self::normalizarMesaIds($mesaIds),
                 $mesaIdsProyectadas
@@ -486,16 +484,6 @@ class AsignacionMesasService
                     . implode(', #', $seleccionProyectada);
             }
             $motivo = ActiveRecord::escaparString($motivo);
-            if (!$db->query(
-                "UPDATE reservaciones
-                 SET last_modified_by = {$usuarioSql},
-                     last_modified_source = 'personal',
-                     last_change_reason = '{$motivo}'
-                 WHERE id = {$reservacionId}
-                 LIMIT 1"
-            )) {
-                throw new \RuntimeException($db->error);
-            }
             if ($gestionarTransaccion && !$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transaccion de asignacion.');
             }

@@ -170,7 +170,6 @@ final class ReservacionVigenciaService
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $estado = (string)self::valor($reservacion, 'estado', '');
         $holdExpiresAt = self::fechaOpcional(self::valor($reservacion, 'hold_expires_at'));
-        $arrivedAt = self::fechaOpcional(self::valor($reservacion, 'arrived_at'));
         $fechaHora = self::fechaHoraProgramada($reservacion);
         $limiteTolerancia = $fechaHora?->modify(
             '+' . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . ' minutes'
@@ -203,8 +202,7 @@ final class ReservacionVigenciaService
         $holdVigente = $estado === ReservacionConfig::ESTADO_RETENCION_PENDIENTE
             && $holdExpiresAt instanceof DateTimeImmutable
             && $holdExpiresAt > $ahora;
-        $tieneLlegada = $arrivedAt instanceof DateTimeImmutable;
-        $tieneEvidenciaFisica = $tieneLlegada || $ticketAbierto || $estado === 'en_curso';
+        $tieneEvidenciaFisica = $ticketAbierto || $estado === 'en_curso';
         $toleranciaVencida = $estado === 'confirmada'
             && !$tieneEvidenciaFisica
             && $limiteTolerancia instanceof DateTimeImmutable
@@ -221,20 +219,11 @@ final class ReservacionVigenciaService
         $cuentaLimite = $visibleCliente;
         $elegibleNoShow = $estado === 'confirmada'
             && $toleranciaVencida
-            && !$tieneLlegada
             && !$ticketAbierto;
         $ventana = self::resolverVentanaOperativa($reservacion, $ahora);
         $puedeIniciarServicio = $estado === 'confirmada'
             && !$ticketAbierto
             && in_array($ventana['estado'], ['0_30', 'tolerancia', 'tolerancia_vencida'], true);
-        $puedeConfirmarLlegada = false;
-        $inconsistenciaRecuperable = (
-            $estado === 'confirmada'
-            && $tieneEvidenciaFisica
-        ) || (
-            $estado === 'llego'
-            && $ticketAbierto
-        );
         $antesODuranteHora = !($fechaHora instanceof DateTimeImmutable) || $ahora <= $fechaHora;
 
         return [
@@ -249,14 +238,9 @@ final class ReservacionVigenciaService
             'elegible_no_show' => $elegibleNoShow,
             'puede_iniciar_servicio' => $puedeIniciarServicio,
             'tolerancia_vencida' => $toleranciaVencida,
-            'puede_confirmar_llegada' => $puedeConfirmarLlegada,
-            'llegada_tardia' => $puedeConfirmarLlegada && $toleranciaVencida,
             'ventana_operativa' => $ventana,
             'hold_vigente' => $holdVigente,
             'ticket_abierto' => $ticketAbierto,
-            'tiene_llegada' => $tieneLlegada,
-            'inconsistencia_recuperable' => $inconsistenciaRecuperable,
-            'estado_legado' => $estado === 'llego',
             'limite_tolerancia' => $limiteTolerancia?->format('Y-m-d H:i:s'),
         ];
     }

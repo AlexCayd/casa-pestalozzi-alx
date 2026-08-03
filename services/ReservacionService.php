@@ -400,10 +400,6 @@ class ReservacionService
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
         }
 
-        if (!Reservacion::tieneComentarioAdmin()) {
-            return ['ok' => false, 'codigo' => self::COMENTARIO_NO_DISPONIBLE];
-        }
-
         $db = ActiveRecord::getDB();
         $comentario = trim($comentario);
 
@@ -525,7 +521,7 @@ class ReservacionService
         if (!in_array($nuevoEstado, ReservacionConfig::estadosPermitidos(), true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
-        if (in_array($nuevoEstado, ['llego', 'en_curso', 'completada', 'cancelada', 'no_show'], true)) {
+        if (in_array($nuevoEstado, ['en_curso', 'completada', 'cancelada', 'no_show'], true)) {
             return ['ok' => false, 'codigo' => self::ESTADO_INVALIDO];
         }
 
@@ -569,18 +565,10 @@ class ReservacionService
             }
 
             $estadoSql = ActiveRecord::escaparString($nuevoEstado);
-            $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
             self::ejecutar(
                 "UPDATE reservaciones
                  SET estado = '{$estadoSql}',
-                     confirmed_at = CASE
-                         WHEN '{$estadoSql}' = 'confirmada' THEN COALESCE(confirmed_at, NOW())
-                         ELSE confirmed_at
-                     END,
-                     status_changed_at = NOW(),
-                     last_modified_by = {$usuarioSql},
-                     last_modified_source = 'personal',
-                     last_change_reason = 'Cambio administrativo de estado'
+                     estado_changed_at = NOW()
                  WHERE id = {$reservacionId}
                  LIMIT 1"
             );
@@ -700,7 +688,7 @@ class ReservacionService
 
         $datos = $validacion['datos'];
         $horario = $validacion['horario'];
-        $sinContacto = $datos['contacto'] === '';
+        $sinContacto = $datos['contacto'] === null || $datos['contacto'] === '';
         $confirmoSinContacto = (string)($post['confirmar_sin_contacto'] ?? '') === '1';
         $permitirCapacidadInsuficiente =
             (string)($post['permitir_capacidad_insuficiente'] ?? '') === '1';
@@ -753,13 +741,10 @@ class ReservacionService
             $reservacion->hora = $horario['hora'];
             $reservacion->comensales = $datos['comensales'];
             $reservacion->nota = $datos['nota'];
+            $reservacion->comentario_admin = $datos['comentario_admin'];
+            $reservacion->origen = 'admin';
             $reservacion->request_token = $requestToken;
             $reservacion->estado = 'confirmada';
-            $reservacion->confirmed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
-            $reservacion->status_changed_at = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
-            $reservacion->last_modified_by = $opciones['usuario_id'] ?? null;
-            $reservacion->last_modified_source = 'personal';
-            $reservacion->last_change_reason = 'Reservación administrativa creada';
 
             $horarioFinal = self::validarHorarioDisponible($datos['fecha'], $datos['hora']);
             if (!$horarioFinal['ok']) {
@@ -956,9 +941,9 @@ class ReservacionService
         $preservarTipoSinContacto = (bool)($opciones['preservar_tipo_sin_contacto'] ?? false);
 
         $nombre = trim((string)($datos['nombre'] ?? ''));
-        $contactoTipo = trim((string)($datos['contacto_tipo'] ?? 'email'));
+        $contactoTipo = trim((string)($datos['contacto_tipo'] ?? ''));
         $contactoValor = trim((string)($datos['contacto'] ?? ''));
-        $contacto = '';
+        $contacto = null;
         $fecha = trim((string)($datos['fecha'] ?? ''));
         $horaOriginal = trim((string)($datos['hora'] ?? ''));
         $hora = HorarioReservacionService::normalizarHoraSql($horaOriginal);
@@ -968,10 +953,8 @@ class ReservacionService
         $comentario = trim((string)($datos['comentario_admin'] ?? ''));
         $horario = null;
         $codigoHorario = '';
-        if ($contactoValor === '' && $contactoTipo === '') {
-            // Compatibilidad con altas administrativas históricas sin
-            // contacto; el formulario actual siempre envía una opción válida.
-            $contactoTipo = 'email';
+        if ($contactoValor === '' && !$contactoRequerido) {
+            $contactoTipo = 'ninguno';
         }
 
         if ($nombre === '') {
@@ -982,7 +965,18 @@ class ReservacionService
             self::agregarError($errors, $fieldCodes, 'nombre', 'El nombre es demasiado largo.', 'NOMBRE_DEMASIADO_LARGO');
         }
 
-        if (!in_array($contactoTipo, ContactoService::TIPOS, true)) {
+        if ($contactoTipo === 'ninguno') {
+            if ($contactoRequerido) {
+                self::agregarError(
+                    $errors,
+                    $fieldCodes,
+                    'contacto_tipo',
+                    'Selecciona correo electrónico o teléfono.',
+                    'CONTACTO_TIPO_INVALIDO'
+                );
+            }
+            $contacto = null;
+        } elseif (!in_array($contactoTipo, ContactoService::TIPOS, true)) {
             self::agregarError(
                 $errors,
                 $fieldCodes,
@@ -1003,13 +997,9 @@ class ReservacionService
                 );
             }
         }
-        if ($contactoValor === '') {
-            // El esquema vigente mantiene ambas columnas como NOT NULL. El
-            // valor vacío representa ausencia de contacto sin una migración.
-            if (!$preservarTipoSinContacto) {
-                $contactoTipo = 'email';
-            }
-            $contacto = '';
+        if ($contactoValor === '' && !$contactoRequerido) {
+            $contactoTipo = 'ninguno';
+            $contacto = null;
         }
 
         if ($fecha === '') {
@@ -1124,22 +1114,21 @@ class ReservacionService
         ?int $usuarioId
     ): void
     {
+        $contactoSql = $datos['contacto'] === null || $datos['contacto'] === ''
+            ? 'NULL'
+            : "'" . ActiveRecord::escaparString($datos['contacto']) . "'";
+        $estadoSql = ActiveRecord::escaparString($estado);
         $sets = [
             "nombre = '" . ActiveRecord::escaparString($datos['nombre']) . "'",
             "contacto_tipo = '" . ActiveRecord::escaparString($datos['contacto_tipo']) . "'",
-            "contacto = '" . ActiveRecord::escaparString($datos['contacto']) . "'",
+            "contacto = {$contactoSql}",
             "fecha = '" . ActiveRecord::escaparString($datos['fecha']) . "'",
             "hora = '" . ActiveRecord::escaparString($datos['hora']) . "'",
             "comensales = " . (int)$datos['comensales'],
-            "estado = '" . ActiveRecord::escaparString($estado) . "'",
-            'last_modified_by = ' . ($usuarioId !== null ? (string)$usuarioId : 'NULL'),
-            "last_modified_source = 'personal'",
-            "last_change_reason = 'Reservación modificada por personal'",
+            "estado_changed_at = CASE WHEN estado <> '{$estadoSql}' THEN NOW() ELSE estado_changed_at END",
+            "estado = '{$estadoSql}'",
+            "comentario_admin = '" . ActiveRecord::escaparString($datos['comentario_admin']) . "'",
         ];
-
-        if (Reservacion::tieneComentarioAdmin()) {
-            $sets[] = "comentario_admin = '" . ActiveRecord::escaparString($datos['comentario_admin']) . "'";
-        }
 
         self::ejecutar(
             "UPDATE reservaciones
@@ -1151,12 +1140,8 @@ class ReservacionService
 
     private static function guardarComentarioAdmin(int $reservacionId, string $comentario): void
     {
-        if ($reservacionId < 1 || $comentario === '') {
+        if ($reservacionId < 1) {
             return;
-        }
-
-        if (!Reservacion::tieneComentarioAdmin()) {
-            throw new \RuntimeException('La columna comentario_admin no esta disponible.');
         }
 
         self::ejecutar(

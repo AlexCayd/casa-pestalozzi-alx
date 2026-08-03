@@ -113,7 +113,7 @@ final class ReservacionPublicaService
 
                 $existente = self::buscarPorTokenParaActualizar($datos['request_token']);
                 if ($existente) {
-                    $resultado = self::resolverIdempotencia($existente, $datos['fingerprint'], true);
+                    $resultado = self::resolverIdempotencia($existente, true);
                     $db->commit();
                     $transaccion = false;
                     return $resultado;
@@ -155,8 +155,7 @@ final class ReservacionPublicaService
                 $reservacionId = self::insertarReservacion(
                     $datos,
                     'pendiente_verificacion',
-                    $vence,
-                    null
+                    $vence
                 );
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
@@ -285,11 +284,7 @@ final class ReservacionPublicaService
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
                      SET estado = 'confirmada',
-                         confirmed_at = NOW(),
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'cliente',
-                         last_change_reason = 'Contacto verificado mediante OTP'
+                         estado_changed_at = NOW()
                      WHERE id = ? AND estado = 'pendiente_verificacion'"
                 );
                 self::ejecutarStmt($stmt, 'i', [(int)$retencion['id']]);
@@ -299,7 +294,6 @@ final class ReservacionPublicaService
                 $transaccion = false;
                 ReservationClientSession::crear($tipo, $contacto);
                 $retencion['estado'] = 'confirmada';
-                $retencion['confirmed_at'] = ReservacionConfig::fechaActual() . ' ' . ReservacionConfig::horaActual();
 
                 return self::resultadoReservacion($retencion, false);
             } catch (\Throwable $e) {
@@ -405,7 +399,7 @@ final class ReservacionPublicaService
                 $transaccion = true;
                 $existente = self::buscarPorTokenParaActualizar($datos['request_token']);
                 if ($existente) {
-                    $resultado = self::resolverIdempotencia($existente, $datos['fingerprint'], false);
+                    $resultado = self::resolverIdempotencia($existente, false);
                     $db->commit();
                     $transaccion = false;
                     return $resultado;
@@ -441,8 +435,7 @@ final class ReservacionPublicaService
                 $reservacionId = self::insertarReservacion(
                     $datos,
                     'confirmada',
-                    null,
-                    ReservacionConfig::ahora()->format('Y-m-d H:i:s')
+                    null
                 );
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
@@ -534,10 +527,7 @@ final class ReservacionPublicaService
 
                 $stmt = $db->prepare(
                     'UPDATE reservaciones
-                     SET nombre = ?, fecha = ?, hora = ?, comensales = ?, nota = ?,
-                         last_modified_by = NULL,
-                         last_modified_source = "cliente",
-                         last_change_reason = "Reservación modificada por el cliente"
+                     SET nombre = ?, fecha = ?, hora = ?, comensales = ?, nota = ?
                      WHERE id = ? AND estado = ?'
                 );
                 self::ejecutarStmt($stmt, 'sssisis', [
@@ -621,10 +611,7 @@ final class ReservacionPublicaService
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
                      SET estado = 'cancelada',
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'cliente',
-                         last_change_reason = 'Cancelación solicitada por el cliente'
+                         estado_changed_at = NOW()
                      WHERE id = ? AND estado = 'confirmada'"
                 );
                 self::ejecutarStmt($stmt, 'i', [$id]);
@@ -681,10 +668,7 @@ final class ReservacionPublicaService
                 if ($db->query(
                     "UPDATE reservaciones
                      SET estado = 'expirada',
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'sistema',
-                         last_change_reason = 'Retención vencida'
+                         estado_changed_at = NOW()
                      WHERE id IN ({$lista})
                        AND estado = 'pendiente_verificacion'"
                 ) === false) {
@@ -785,10 +769,6 @@ final class ReservacionPublicaService
             'personas' => (int)$personas,
             'notas' => $notas,
         ];
-        $payload['fingerprint'] = hash(
-            'sha256',
-            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        );
         $payload['request_token'] = $requestToken;
         return ['ok' => true, 'datos' => $payload];
     }
@@ -796,22 +776,16 @@ final class ReservacionPublicaService
     private static function insertarReservacion(
         array $datos,
         string $estado,
-        ?string $holdExpiresAt,
-        ?string $confirmedAt
+        ?string $holdExpiresAt
     ): int {
         $db = ActiveRecord::getDB();
-        $motivo = $estado === 'confirmada'
-            ? 'Reservación creada con sesión verificada'
-            : 'Retención creada para verificación';
         $stmt = $db->prepare(
             'INSERT INTO reservaciones
                 (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
-                 request_token, request_fingerprint, hold_expires_at,
-                 confirmed_at, status_changed_at, last_modified_source,
-                 last_change_reason, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), "cliente", ?, ?)'
+                 origen, estado, hold_expires_at, request_token)
+             VALUES (?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?)'
         );
-        self::ejecutarStmt($stmt, 'sssssisssssss', [
+        self::ejecutarStmt($stmt, 'sssssissss', [
             $datos['nombre'],
             $datos['tipo'],
             $datos['contacto'],
@@ -819,12 +793,9 @@ final class ReservacionPublicaService
             $datos['hora'],
             $datos['personas'],
             $datos['notas'],
-            $datos['request_token'],
-            $datos['fingerprint'],
-            $holdExpiresAt,
-            $confirmedAt,
-            $motivo,
             $estado,
+            $holdExpiresAt,
+            $datos['request_token'],
         ]);
 
         return (int)$db->insert_id;
@@ -923,15 +894,8 @@ final class ReservacionPublicaService
         }
     }
 
-    private static function resolverIdempotencia(array $fila, string $fingerprint, bool $retencion): array
+    private static function resolverIdempotencia(array $fila, bool $retencion): array
     {
-        if (!hash_equals((string)($fila['request_fingerprint'] ?? ''), $fingerprint)) {
-            return [
-                'ok' => false,
-                'codigo' => self::REQUEST_TOKEN_CONFLICTO,
-                'mensaje' => 'Ese identificador ya se utilizó con datos diferentes.',
-            ];
-        }
         if ($retencion) {
             if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['hold_expires_at'])) {
                 return [
@@ -1010,10 +974,7 @@ final class ReservacionPublicaService
         if (ActiveRecord::getDB()->query(
             "UPDATE reservaciones
              SET estado = 'expirada',
-                 status_changed_at = NOW(),
-                 last_modified_by = NULL,
-                 last_modified_source = 'sistema',
-                 last_change_reason = 'Retención vencida'
+                 estado_changed_at = NOW()
              WHERE id = {$id} AND estado = 'pendiente_verificacion'"
         ) === false) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);

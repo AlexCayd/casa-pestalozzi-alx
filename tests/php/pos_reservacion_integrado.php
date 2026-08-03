@@ -9,7 +9,28 @@ declare(strict_types=1);
  * mutaciones de servicio se ejecutan de verdad y se limpian al terminar.
  */
 
-require dirname(__DIR__, 2) . '/includes/app.php';
+$dbArgument = getenv('ETAPA4_TEST_DB_NAME') ?: '';
+$allowActive = false;
+foreach ($argv as $argumento) {
+    if (str_starts_with($argumento, '--db=')) {
+        $dbArgument = substr($argumento, 5);
+    } elseif ($argumento === '--allow-active') {
+        $allowActive = true;
+    }
+}
+if ($dbArgument === '') {
+    fwrite(STDERR, "Uso: php pos_reservacion_integrado.php --db=casa_pestalozzi_etapa4_test [--allow-active]\n");
+    exit(2);
+}
+if ($dbArgument === 'casa-pestalozzi' && !$allowActive) {
+    fwrite(STDERR, "La base activa requiere --allow-active de forma explícita.\n");
+    exit(2);
+}
+if ($allowActive) {
+    putenv('ETAPA45_ALLOW_ACTIVE=YES');
+}
+putenv('ETAPA4_TEST_DB_NAME=' . $dbArgument);
+require __DIR__ . '/bootstrap_etapa4.php';
 
 use Controllers\PuntoVentaController;
 use Controllers\ReservacionOperacionController;
@@ -171,6 +192,14 @@ try {
         "SELECT id, numero, nombre, capacidad
          FROM mesas
          WHERE activo = 1 AND reservable = 1 AND tipo = 'mesa'
+           AND NOT EXISTS (
+             SELECT 1
+             FROM ticket_mesas tm
+             INNER JOIN tickets t ON t.id = tm.ticket_id
+             WHERE tm.mesa_id = mesas.id
+               AND t.estado = 'abierto'
+               AND t.closed_at IS NULL
+           )
          ORDER BY numero ASC, id ASC"
     );
     if (!$resultadoMesas) {
@@ -180,9 +209,9 @@ try {
         $mesas[] = $mesa;
     }
     $resultadoMesas->free();
-    if (count($mesas) < 10) {
+    if (count($mesas) < 9) {
         throw new RuntimeException(
-            'La base de pruebas necesita al menos 10 mesas reservables activas; hay ' . count($mesas) . '.'
+            'La base de pruebas necesita al menos 9 mesas reservables activas libres; hay ' . count($mesas) . '.'
         );
     }
     $usuarioResultado = $db->query(
@@ -212,8 +241,8 @@ try {
         $stmt = $db->prepare(
             "INSERT INTO reservaciones
                 (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
-                 confirmed_at, status_changed_at, last_modified_source, estado)
-             VALUES (?, 'email', ?, ?, ?, ?, ?, NOW(), NOW(), 'sistema', ?)"
+                 origen, estado)
+             VALUES (?, 'email', ?, ?, ?, ?, ?, 'admin', ?)"
         );
         if (!$stmt) {
             throw new RuntimeException('No fue posible preparar fixture de reservacion: ' . $db->error);
@@ -333,29 +362,20 @@ try {
     $r6 = $crear('R6_EN_CURSO_DIFERENCIA', $ahoraFijo->modify('-45 minutes'), 'en_curso', 4, [$mesa(6), $mesa(7)]);
     $r8 = $crear('R8_SIN_MESAS', $ahoraFijo->modify('+90 minutes'), 'confirmada', 12, []);
     $r11 = $crear('R11_FUTURA_MISMA_MESA', $ahoraFijo->modify('+40 minutes'), 'confirmada', 2, [$mesa(1)]);
-    $r13 = $crear('R13_LEGADO_LLEGO', $ahoraFijo->modify('+20 minutes'), 'llego', 2, []);
     $fixtureIds = array_column($fixture, 'id');
 
-    $stmt = $db->prepare("UPDATE reservaciones SET arrived_at = NOW() WHERE id = ?");
-    if (!$stmt) {
-        throw new RuntimeException('No fue posible preparar marca legado: ' . $db->error);
-    }
-    $stmt->bind_param('i', $r13);
-    $stmt->execute();
-    $stmt->close();
-
-    $ticketR6 = $insertarTicket($db, $marker . ' T9_EN_CURSO_MULTIMESA', $fixture['R6_EN_CURSO_DIFERENCIA']['inicio'], $r6, [$mesa(8), $mesa(9)]);
+    $ticketR6 = $insertarTicket($db, $marker . ' T9_EN_CURSO_MULTIMESA', $fixture['R6_EN_CURSO_DIFERENCIA']['inicio'], $r6, [$mesa(0), $mesa(8)]);
     $ticketR10 = $insertarTicket($db, $marker . ' T10_WALKIN_ADVERTENCIA', $fixture['R2_ADVERTENCIA']['inicio'], null, [$mesa(1)]);
     $ticketIds = [$ticketR6, $ticketR10];
     $fixture['R6_EN_CURSO_DIFERENCIA']['ticket_id'] = $ticketR6;
-    $fixture['R6_EN_CURSO_DIFERENCIA']['ticket_mesa_ids'] = [$mesa(8), $mesa(9)];
+    $fixture['R6_EN_CURSO_DIFERENCIA']['ticket_mesa_ids'] = [$mesa(0), $mesa(8)];
     $fixture['R10_TICKET_PROXIMO'] = [
         'ticket_id' => $ticketR10,
         'mesa_ids' => [$mesa(1)],
         'fecha' => $fixture['R2_ADVERTENCIA']['fecha'],
     ];
 
-    $registrar('fixtures insertados', count($fixture) === 10 && count($ticketIds) === 2, 'marker=' . $marker);
+    $registrar('fixtures insertados', count($fixture) === 9 && count($ticketIds) === 2, 'marker=' . $marker);
 
     $fechas = array_values(array_unique(array_column($fixture, 'fecha')));
     foreach ($fechas as $fecha) {
@@ -382,7 +402,6 @@ try {
         'R6_EN_CURSO_DIFERENCIA' => ['ventana' => 'en_curso', 'advertencia' => false, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
         'R8_SIN_MESAS' => ['ventana' => 'futura', 'advertencia' => false, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
         'R11_FUTURA_MISMA_MESA' => ['ventana' => '30_60', 'advertencia' => true, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
-        'R13_LEGADO_LLEGO' => ['ventana' => '0_30', 'advertencia' => false, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
     ];
 
     foreach ($esperadas as $codigo => $esperada) {
@@ -420,7 +439,7 @@ try {
             && $r6Data['ticket_abierto'] === true
             && $r6Data['ticket_id'] === $ticketR6
             && $r6MesaIds === [$mesa(6), $mesa(7)]
-            && $r6TicketMesaIds === [$mesa(8), $mesa(9)]
+            && $r6TicketMesaIds === [$mesa(0), $mesa(8)]
             && $r6MesaIds !== $r6TicketMesaIds,
         json_encode(['mesa_ids' => $r6MesaIds, 'ticket_mesa_ids' => $r6TicketMesaIds])
     );
@@ -474,14 +493,6 @@ try {
         json_encode(['r3' => $r3State, 'r4' => $r4State], JSON_UNESCAPED_UNICODE)
     );
 
-    $registrar(
-        'R13 legado sin nueva capacidad',
-        ($buscarReservacion($lecturas[$fixture['R13_LEGADO_LLEGO']['fecha']], $r13)['estado_legado'] ?? false) === true
-            && ($buscarReservacion($lecturas[$fixture['R13_LEGADO_LLEGO']['fecha']], $r13)['puede_iniciar_servicio'] ?? true) === false
-            && !in_array('llego', ReservacionConfig::TRANSICIONES['confirmada'] ?? [], true),
-        'estado_legado y transiciones revisados'
-    );
-
     $inicioMulti = PuntoVentaReservacionService::comenzar($r3, $usuarioId, null);
     $inicioSingle = PuntoVentaReservacionService::comenzar($r4, $usuarioId, null);
     $resultadoMutaciones['inicio_multimesa'] = $inicioMulti;
@@ -517,7 +528,7 @@ try {
     );
 
     $walkInDatos = [
-        'mesa_ids' => [$mesa(0)],
+        'mesa_ids' => [$mesa(7)],
         'comensales' => 2,
         'nombre' => $marker . ' T_CONCURRENCIA_WALKIN',
     ];

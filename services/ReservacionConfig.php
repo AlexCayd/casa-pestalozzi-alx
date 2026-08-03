@@ -41,15 +41,15 @@ class ReservacionConfig
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',
         'confirmada' => 'Confirmada',
-        'llego' => 'Cliente llegó',
         'en_curso' => 'En curso',
         'expirada' => 'Expirada',
         'completada' => 'Completada',
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
+        'reemplazada' => 'Reemplazada',
     ];
     public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada'];
-    public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show'];
+    public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show', 'reemplazada'];
     /**
      * `pendiente_verificacion` se añade mediante una condición temporal en las
      * consultas: sólo ocupa mientras hold_expires_at sea futura.
@@ -60,21 +60,22 @@ class ReservacionConfig
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
         'confirmada',
-        'llego',
         'en_curso',
         'completada',
         'no_show',
         'cancelada',
         'expirada',
+        'reemplazada',
     ];
     public const TRANSICIONES = [
         'pendiente_verificacion' => ['confirmada', 'expirada'],
-        'confirmada' => ['en_curso', 'cancelada', 'no_show'],
+        'confirmada' => ['en_curso', 'cancelada', 'no_show', 'reemplazada'],
         'en_curso' => ['completada'],
         'expirada' => [],
         'completada' => [],
         'cancelada' => [],
         'no_show' => [],
+        'reemplazada' => [],
     ];
 
     public const VENTANAS_OPERATIVAS = [
@@ -274,7 +275,6 @@ class ReservacionConfig
         ?\DateTimeImmutable $ahora = null,
         ?string $fecha = null,
         ?string $hora = null,
-        ?string $arrivedAt = null,
         bool $ticketAbierto = false
     ): bool {
         return (bool)ReservacionVigenciaService::clasificar([
@@ -282,7 +282,6 @@ class ReservacionConfig
             'fecha' => $fecha,
             'hora' => $hora,
             'hold_expires_at' => $holdExpiresAt,
-            'arrived_at' => $arrivedAt,
             'ticket_abierto' => $ticketAbierto,
         ], $ahora)['influye_disponibilidad'];
     }

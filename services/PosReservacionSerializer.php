@@ -49,18 +49,14 @@ final class PosReservacionSerializer
         }
 
         $estado = (string)($datos['estado'] ?? '');
-        $estadoLegado = $estado === 'llego';
         $conflictoFisico = (bool)($opciones['conflicto_fisico'] ?? false);
         $sinMesas = $mesaIds === [];
-        $puedeIniciar = !$estadoLegado
-            && (bool)$vigencia['puede_iniciar_servicio']
+        $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio']
             && !$sinMesas
             && !$conflictoFisico;
-        $puedeAusencia = !$estadoLegado
-            && (bool)$vigencia['elegible_no_show']
+        $puedeAusencia = (bool)$vigencia['elegible_no_show']
             && !$conflictoFisico;
-        $bloqueaWalkIns = !$estadoLegado
-            && (
+        $bloqueaWalkIns = (
                 $estado === 'pendiente_verificacion'
                 || ($estado === 'confirmada'
                     && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true))
@@ -74,8 +70,7 @@ final class PosReservacionSerializer
             $ventana,
             $sinMesas,
             $conflictoFisico,
-            $ticket !== null,
-            $estadoLegado
+            $ticket !== null
         );
         $minutosRestantes = $vigencia['ventana_operativa']['minutos_restantes'] ?? null;
         $minutosPara = $minutosRestantes === null
@@ -102,7 +97,6 @@ final class PosReservacionSerializer
             // identidad canÃ³nica es reservacion_id.
             'id' => $reservacionId,
             'estado' => $estado,
-            'estado_legado' => $estadoLegado,
             'fecha' => (string)($datos['fecha'] ?? ''),
             'hora' => (string)($datos['hora'] ?? ''),
             'date' => (string)($datos['fecha'] ?? ''),
@@ -139,7 +133,7 @@ final class PosReservacionSerializer
             'motivo_operativo' => $motivo,
             'conflicto_fisico' => $conflictoFisico,
             'hold_expires_at' => $datos['hold_expires_at'] ?? null,
-            'status_changed_at' => $datos['status_changed_at'] ?? null,
+            'estado_changed_at' => $datos['estado_changed_at'] ?? null,
             'tolerancia_hasta' => $vigencia['limite_tolerancia'],
             'no_show_disponible' => $puedeAusencia,
             'elegible_no_show' => $puedeAusencia,
@@ -283,12 +277,8 @@ final class PosReservacionSerializer
         string $ventana,
         bool $sinMesas,
         bool $conflicto,
-        bool $ticketAbierto,
-        bool $estadoLegado
+        bool $ticketAbierto
     ): string {
-        if ($estadoLegado) {
-            return 'estado_legado';
-        }
         if ($ticketAbierto && $estado === 'en_curso') {
             return 'ticket_abierto';
         }

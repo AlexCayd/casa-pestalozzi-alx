@@ -162,10 +162,7 @@ final class PuntoVentaReservacionService
                 $db,
                 $reservacionId,
                 "estado = 'en_curso',
-                 status_changed_at = NOW(),
-                 last_modified_by = {$usuarioId},
-                 last_modified_source = 'personal',
-                 last_change_reason = 'Servicio iniciado'"
+                 estado_changed_at = NOW()"
             );
             $db->commit();
             $transaccion = false;
@@ -228,18 +225,11 @@ final class PuntoVentaReservacionService
                 ];
             }
 
-            $razon = trim($motivo) !== ''
-                ? trim($motivo)
-                : 'Tolerancia vencida';
-            $razon = $db->real_escape_string($razon);
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
                 "estado = 'no_show',
-                 status_changed_at = NOW(),
-                 last_modified_by = {$usuarioId},
-                 last_modified_source = 'personal',
-                 last_change_reason = '{$razon}'"
+                 estado_changed_at = NOW()"
             );
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
@@ -266,17 +256,11 @@ final class PuntoVentaReservacionService
                 return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
             }
 
-            $razon = $db->real_escape_string(
-                trim($motivo)
-            );
             self::actualizarReservacion(
                 $db,
                 (int)$r['id'],
                 "estado = 'cancelada',
-                 status_changed_at = NOW(),
-                 last_modified_by = {$usuarioId},
-                 last_modified_source = 'personal',
-                 last_change_reason = '{$razon}'"
+                 estado_changed_at = NOW()"
             );
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
@@ -384,19 +368,6 @@ final class PuntoVentaReservacionService
                 $meseroId
             );
             TicketMesa::insertarTodas($ticketId, $mesaIds);
-            if ($warning) {
-                $razon = $db->real_escape_string(
-                    trim((string)($datos['motivo'] ?? ''))
-                        ?: 'Walk-in aceptado con reservación próxima'
-                );
-                self::actualizarReservacion(
-                    $db,
-                    (int)$warning['reservacion_id'],
-                    "last_modified_by = {$usuarioId},
-                     last_modified_source = 'personal',
-                     last_change_reason = '{$razon}'"
-                );
-            }
             $db->commit();
             $transaccion = false;
 
@@ -496,11 +467,7 @@ final class PuntoVentaReservacionService
                     $db,
                     $reservacionId,
                     "estado = 'completada',
-                     completed_at = COALESCE(completed_at, NOW()),
-                     status_changed_at = NOW(),
-                     last_modified_by = {$usuarioId},
-                     last_modified_source = 'personal',
-                     last_change_reason = 'Ticket cerrado'"
+                     estado_changed_at = NOW()"
                 );
             }
             $db->commit();
