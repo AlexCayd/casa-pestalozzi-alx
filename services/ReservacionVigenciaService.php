@@ -127,7 +127,7 @@ final class ReservacionVigenciaService
         $fechaHora = self::fechaHoraProgramada($reservacion);
         if (!$fechaHora) {
             return [
-                'estado' => 'future',
+                'estado' => 'futura',
                 'minutos_restantes' => null,
                 'minutos_retraso' => 0,
             ];
@@ -140,13 +140,13 @@ final class ReservacionVigenciaService
             : 0;
         $estado = match (true) {
             $segundosRestantes > ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA * 60
-                => 'future',
+                => 'futura',
             $segundosRestantes > ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60
-                => 'warning',
-            $segundosRestantes >= 0 => 'service_window',
+                => '30_60',
+            $segundosRestantes >= 0 => '0_30',
             $segundosRestantes > -ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS * 60
-                => 'tolerance',
-            default => 'overdue',
+                => 'tolerancia',
+            default => 'tolerancia_vencida',
         };
 
         return [
@@ -203,38 +203,31 @@ final class ReservacionVigenciaService
         $holdVigente = $estado === ReservacionConfig::ESTADO_RETENCION_PENDIENTE
             && $holdExpiresAt instanceof DateTimeImmutable
             && $holdExpiresAt > $ahora;
-        $tieneLlegada = $arrivedAt instanceof DateTimeImmutable || in_array($estado, ['llego', 'en_curso'], true);
-        $tieneEvidenciaFisica = $tieneLlegada || $ticketAbierto;
+        $tieneLlegada = $arrivedAt instanceof DateTimeImmutable;
+        $tieneEvidenciaFisica = $tieneLlegada || $ticketAbierto || $estado === 'en_curso';
         $toleranciaVencida = $estado === 'confirmada'
             && !$tieneEvidenciaFisica
             && $limiteTolerancia instanceof DateTimeImmutable
             && $ahora >= $limiteTolerancia;
-        $confirmadaVigente = $estado === 'confirmada' && (!$toleranciaVencida || $tieneEvidenciaFisica);
-        $operativaPersistida = in_array($estado, ['llego', 'en_curso'], true);
+        $confirmadaVigente = $estado === 'confirmada';
+        $operativaPersistida = $estado === 'en_curso';
         // Una reservación confirmada conserva la mesa hasta que se marque
         // no_show, incluso después de vencer la tolerancia. Eso permite que el
         // POS la pinte como vencida y habilite la acción de ausencia sin
         // convertirla en una mesa libre o en una ocupación roja.
         $influyeDisponibilidad = $holdVigente
-            || ($estado === 'confirmada' && !$ticketAbierto)
-            || $confirmadaVigente
-            || $operativaPersistida;
+            || ($estado === 'confirmada' && !$ticketAbierto);
         $visibleCliente = $confirmadaVigente || $operativaPersistida;
         $cuentaLimite = $visibleCliente;
         $elegibleNoShow = $estado === 'confirmada'
             && $toleranciaVencida
             && !$tieneLlegada
             && !$ticketAbierto;
+        $ventana = self::resolverVentanaOperativa($reservacion, $ahora);
         $puedeIniciarServicio = $estado === 'confirmada'
             && !$ticketAbierto
-            && !$toleranciaVencida
-            && $fechaHora instanceof DateTimeImmutable
-            && $ahora >= $fechaHora->modify(
-                '-' . ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO . ' minutes'
-            );
-        $puedeConfirmarLlegada = $estado === 'confirmada'
-            && !$tieneLlegada
-            && !$ticketAbierto;
+            && in_array($ventana['estado'], ['0_30', 'tolerancia', 'tolerancia_vencida'], true);
+        $puedeConfirmarLlegada = false;
         $inconsistenciaRecuperable = (
             $estado === 'confirmada'
             && $tieneEvidenciaFisica
@@ -252,18 +245,18 @@ final class ReservacionVigenciaService
             'editable' => !$ticketAbierto && (
                 $holdVigente
                 || ($confirmadaVigente && $antesODuranteHora)
-                || ($estado === 'llego' && $antesODuranteHora)
             ),
             'elegible_no_show' => $elegibleNoShow,
             'puede_iniciar_servicio' => $puedeIniciarServicio,
             'tolerancia_vencida' => $toleranciaVencida,
             'puede_confirmar_llegada' => $puedeConfirmarLlegada,
             'llegada_tardia' => $puedeConfirmarLlegada && $toleranciaVencida,
-            'ventana_operativa' => self::resolverVentanaOperativa($reservacion, $ahora),
+            'ventana_operativa' => $ventana,
             'hold_vigente' => $holdVigente,
             'ticket_abierto' => $ticketAbierto,
             'tiene_llegada' => $tieneLlegada,
             'inconsistencia_recuperable' => $inconsistenciaRecuperable,
+            'estado_legado' => $estado === 'llego',
             'limite_tolerancia' => $limiteTolerancia?->format('Y-m-d H:i:s'),
         ];
     }
@@ -286,8 +279,15 @@ final class ReservacionVigenciaService
                 AND {$alias}.hold_expires_at IS NOT NULL
                 AND {$alias}.hold_expires_at > {$instante}
             )
-            OR {$alias}.estado = 'confirmada'
-            OR {$alias}.estado IN ('llego', 'en_curso')
+            OR (
+                {$alias}.estado = 'confirmada'
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM tickets vigencia_ticket
+                    WHERE vigencia_ticket.reservacion_id = {$alias}.id
+                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
+                )
+            )
         )";
     }
 
@@ -303,14 +303,12 @@ final class ReservacionVigenciaService
             (
                 {$alias}.estado = 'confirmada'
                 AND (
-                    {$alias}.arrived_at IS NOT NULL
-                    OR {$ticketAbierto}
-                    OR TIMESTAMP({$alias}.fecha, {$alias}.hora)
+                    TIMESTAMP({$alias}.fecha, {$alias}.hora)
                         + INTERVAL " . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . " MINUTE
                         > {$instante}
+                    OR {$ticketAbierto}
                 )
             )
-            OR {$alias}.estado IN ('llego', 'en_curso')
         )";
     }
 

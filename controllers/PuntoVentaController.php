@@ -1,9 +1,6 @@
 <?php
 namespace Controllers;
 
-use Model\Mesa;
-use Model\Producto;
-use Model\Reservacion;
 use Model\Ticket;
 use Model\TicketItem;
 use Model\TicketMesa;
@@ -14,10 +11,9 @@ use MVC\Router;
 use Services\Carta;
 use Services\HorarioReservacionService;
 use Services\Inventario;
-use Services\MesaEstadoService;
 use Services\ReservacionService;
 use Services\ReservacionConfig;
-use Services\ReservacionVigenciaService;
+use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
 
@@ -40,65 +36,6 @@ class PuntoVentaController {
         include_once __DIR__ . '/../views/punto-de-venta/index.php';
     }
 
-    /**
-     * GET /api/productos — catalogo que el mesero ve en el modal de comanda.
-     *
-     * Antes vivia hardcodeado en src/js/data/menu-data.js (window.CP_MENU), que
-     * viajaba en el bundle: retirar un platillo del admin no lo quitaba del POS.
-     * Ahora sale de la BD, asi que el catalogo del mesero y la carta publica no
-     * pueden volver a desincronizarse.
-     *
-     * Devuelve el mismo shape que consumia CP_MENU para no tocar el render:
-     *   categorias: [{ id, label, dishes: [{ n, p, area, area_id }] }]
-     *   areas:      { slug: { id, label, color } }   (equivalente a CP_AREAS)
-     */
-    public static function productos(Router $router) {
-        header('Content-Type: application/json');
-
-        try {
-            $categorias = [];
-            foreach (Producto::catalogoPos() as $p) {
-                $catId = (int) $p->categoria_id;
-
-                if (!isset($categorias[$catId])) {
-                    $categorias[$catId] = [
-                        'id'     => $catId,
-                        'label'  => $p->categoria_nombre,
-                        'dishes' => [],
-                    ];
-                }
-
-                $categorias[$catId]['dishes'][] = [
-                    'n'       => $p->nombre,
-                    'p'       => (float) $p->precio,
-                    'area'    => $p->area_slug,
-                    'area_id' => (int) $p->area_id,
-                ];
-            }
-
-            $areas = [];
-            $res = Producto::ejecutarSQL('SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC');
-            if ($res) {
-                while ($row = $res->fetch_assoc()) {
-                    $areas[$row['slug']] = [
-                        'id'    => (int) $row['id'],
-                        'label' => $row['nombre'],
-                        'color' => $row['color'],
-                    ];
-                }
-            }
-
-            echo json_encode([
-                'ok'         => true,
-                'categorias' => array_values($categorias),
-                'areas'      => $areas,
-            ]);
-        } catch (\Throwable $e) {
-            error_log('PuntoVentaController::productos - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el catálogo']);
-        }
-    }
-
     // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
         header('Content-Type: application/json');
@@ -107,38 +44,13 @@ class PuntoVentaController {
         $fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ''));
 
         try {
-            $mesas = Mesa::consultarSQL(
-                "SELECT * FROM mesas WHERE activo = 1 ORDER BY numero ASC"
-            );
-
-            $reservaciones = Reservacion::consultarSQL(
-                "SELECT
-                    r.id,
-                    r.nombre,
-                    r.contacto,
-                    r.fecha,
-                    r.hora,
-                    r.comensales,
-                    r.nota,
-                    r.comentario_admin,
-                    r.estado,
-                    r.hold_expires_at,
-                    r.arrived_at,
-                    r.status_changed_at,
-                    COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
-                    COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
-                 FROM reservaciones r
-                 LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-                 LEFT JOIN mesas m ON m.id = rm.mesa_id
-                 WHERE r.fecha = '{$fecha}'
-                 GROUP BY r.id, r.nombre, r.contacto, r.fecha, r.hora,
-                          r.comensales, r.nota, r.comentario_admin, r.estado,
-                          r.hold_expires_at, r.arrived_at, r.status_changed_at
-                 ORDER BY r.hora ASC"
-            );
-
-            // POS y reservaciones consumen la misma consulta N:M de tickets.
-            $tickets = TicketMesa::abiertosParaMapa();
+            $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
+                'incluir_inactivas' => false,
+                'calcular_conflictos' => true,
+            ]);
+            if (!($lectura['ok'] ?? false)) {
+                throw new \RuntimeException((string)($lectura['mensaje'] ?? 'Lectura inválida.'));
+            }
 
             $meseros = Usuario::consultarSQL(
                 "SELECT id, nombre FROM usuarios
@@ -154,72 +66,6 @@ class PuntoVentaController {
             return;
         }
 
-        $mesasArr = array_map(function($m) {
-            return [
-                'id'         => (int)$m->id,
-                'numero'     => (int)$m->numero,
-                'nombre'     => $m->nombre,
-                'tipo'       => $m->tipo,
-                'capacidad'  => (int)$m->capacidad,
-                'pos_x'      => (float)$m->pos_x,
-                'pos_y'      => (float)$m->pos_y,
-                'reservable' => (int)$m->reservable,
-            ];
-        }, $mesas);
-
-        $ticketsPorReservacion = [];
-        foreach ($tickets as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
-
-        $reservasArr = array_map(function($r) use ($ticketsPorReservacion) {
-            $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($r->mesa_ids ?? '')))));
-            $mesas = array_values(array_filter(array_map('trim', explode(',', (string)($r->mesas_asignadas ?? '')))));
-            $reservacionId = (int)$r->id;
-            $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
-            $vigencia = ReservacionVigenciaService::clasificar($r, null, $ticket);
-
-            return array_merge([
-                'id' => $reservacionId,
-                'nombre' => $r->nombre,
-                'contacto' => $r->contacto ?? '',
-                'fecha' => (string)($r->fecha ?? ''),
-                'hora' => $r->hora,
-                'comensales' => (int)$r->comensales,
-                'nota' => $r->nota ?? '',
-                'comentario_admin' => $r->comentario_admin ?? '',
-                'estado' => $r->estado,
-                'hold_expires_at' => $r->hold_expires_at !== null
-                    ? (string)$r->hold_expires_at
-                    : null,
-                'arrived_at' => $r->arrived_at !== null ? (string)$r->arrived_at : null,
-                'status_changed_at' => $r->status_changed_at !== null
-                    ? (string)$r->status_changed_at
-                    : null,
-                'ticket_id' => $ticket['id'] ?? null,
-                'no_show_disponible' => (bool)$vigencia['elegible_no_show'],
-                'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
-                'mesa_ids' => $mesaIds,
-                'mesas' => $mesas,
-            ], $vigencia);
-        }, $reservaciones);
-
-        $ticketsArr = array_map(function(array $t) {
-            return [
-                'id'                 => (int)$t['id'],
-                'nombre'             => $t['nombre'] ?? null,
-                'comensales'         => (int)$t['comensales'],
-                'hora_apertura'      => (string)$t['hora_apertura'],
-                'reservacion_id'     => $t['reservacion_id'] ?? null,
-                'mesero_id'          => $t['mesero_id'] ?? null,
-                'mesa_ids'           => array_values(array_map('intval', $t['mesa_ids'] ?? [])),
-                'origen'             => (string)($t['origen'] ?? 'walk_in'),
-            ];
-        }, $tickets);
-
         $meserosArr = array_map(function($u) {
             return [
                 'id'     => (int)$u->id,
@@ -229,21 +75,18 @@ class PuntoVentaController {
 
         echo json_encode([
             'ok'            => true,
+            'schema_version'=> $lectura['schema_version'],
             'fecha'         => $fecha,
-            'mesas'         => $mesasArr,
-            'mesas_estado'  => MesaEstadoService::normalizarMesas(
-                $mesasArr,
-                $reservasArr,
-                $ticketsArr,
-                $fecha
-            ),
-            'reservaciones' => $reservasArr,
-            'tickets'       => $ticketsArr,
+            'mesas'         => $lectura['mesas'],
+            'mesas_estado'  => $lectura['mesas_estado'],
+            'reservaciones' => $lectura['reservaciones'],
+            'reservaciones_operativas' => $lectura['reservaciones_operativas'],
+            'tickets'       => $lectura['tickets'],
             'meseros'       => $meserosArr,
-            'config'        => [
-                'temporal' => ReservacionConfig::configuracionOperacion(),
-            ],
-            'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
+            'server_time'   => $lectura['server_time'],
+            'timezone'      => $lectura['timezone'],
+            'config'        => $lectura['config'],
+            'actualizado_en' => $lectura['actualizado_en'],
         ]);
     }
 
@@ -275,20 +118,6 @@ class PuntoVentaController {
             $reservaId,
             (int)($_SESSION['id'] ?? 0),
             trim((string)($data['motivo'] ?? ''))
-        ));
-    }
-
-    /**
-     * POST /api/liberar-mesa  { ticket_id }
-     *
-     * Para la mesa que se ocupó y no consumió: borra el ticket y suelta las
-     * mesas. Cerrarlo lo registraría como una venta de $0.
-     */
-    public static function liberarMesa(Router $router) {
-        $datos = self::entradaJson();
-        self::responder(PuntoVentaReservacionService::liberarMesa(
-            (int)($datos['ticket_id'] ?? 0),
-            (int)($_SESSION['id'] ?? 0)
         ));
     }
 
@@ -325,8 +154,6 @@ class PuntoVentaController {
 
         // No se cierra una cuenta con productos sin entregar: el mesero debe
         // haber entregado todo (los cancelados no cuentan) antes de cobrar.
-        // Desde que el mesero puede entregar cualquier producto sin esperar al
-        // área, esta regla es un recordatorio y no un bloqueo sin salida.
         // Se usa ejecutarSQL+fetch_assoc: consultarSQL descarta los alias como
         // "AS n" que no son propiedades del modelo.
         $pendientes = 0;
@@ -366,17 +193,6 @@ class PuntoVentaController {
             return;
         }
         $totalCents = (int)round($total * 100);
-
-        // Una cuenta sin consumo no es una venta de $0: es una mesa que se
-        // ocupó y no consumió. Para eso está "Liberar mesa", que borra el
-        // ticket en lugar de dejarlo en el histórico como cerrado.
-        if ($totalCents <= 0) {
-            echo json_encode([
-                'ok'  => false,
-                'msg' => 'La cuenta no tiene consumo. Usa "Liberar mesa" para dejar la mesa libre.',
-            ]);
-            return;
-        }
 
         $allowedMetodos = ['efectivo', 'tarjeta'];
         $pagosLimpios   = [];
@@ -430,20 +246,11 @@ class PuntoVentaController {
                 echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
                 return;
             }
-            // El monto recibido es obligatorio: cerrar sin capturarlo permitía
-            // dar por cobrada una cuenta que nadie contó. El cliente ofrece un
-            // botón "Exacto" para capturarlo de un toque.
-            if ($recibido === null || $recibido < 0) {
-                echo json_encode([
-                    'ok'    => false,
-                    'msg'   => 'Captura el monto recibido para cerrar la cuenta',
-                    'total' => $total,
-                ]);
-                return;
+            // Sin monto recibido se asume pago exacto (sin propina).
+            if ($recibido === null) {
+                $recibido = $total;
             }
-            // Sin la holgura de 1 centavo de la cuenta dividida: un importe
-            // tecleado no arrastra el redondeo de repartir().
-            if ((int)round($recibido * 100) < $totalCents) {
+            if ((int)round($recibido * 100) < $totalCents - 1) {
                 echo json_encode([
                     'ok'    => false,
                     'msg'   => 'El monto recibido ($' . number_format($recibido, 2) .
@@ -656,17 +463,7 @@ class PuntoVentaController {
         }
     }
 
-    /**
-     * POST /api/entregar-item  { item_id: X }
-     *
-     * El mesero puede entregar cualquier producto del pedido sin importar en
-     * qué punto lo tenga el área: es él quien está frente a la mesa y sabe si
-     * el plato ya salió. Antes se exigía estado 'listo' y en horas pico eso
-     * dejaba la cuenta bloqueada esperando a que alguien tocara el tablero.
-     *
-     * El tablero del área sigue mostrando el registro en la columna Listos,
-     * marcado como entregado, para que producción vea que se lo llevaron.
-     */
+    // POST /admin/api/deliver-item  { item_id: X }
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
@@ -681,28 +478,9 @@ class PuntoVentaController {
         try {
             TicketItem::ejecutarSQL(
                 "UPDATE ticket_items SET estado = 'entregado'
-                 WHERE id = {$itemId} AND estado IN ('enviado','en_preparacion','listo')"
+                 WHERE id = {$itemId} AND estado = 'listo'"
             );
-
-            // 'entregado' está fuera del conjunto del WHERE, así que toda fila
-            // que empareje cambia de verdad: affected_rows sirve como señal.
-            if (TicketItem::getDB()->affected_rows > 0) {
-                echo json_encode(['ok' => true]);
-                return;
-            }
-
-            $fila = TicketItem::consultarSQL(
-                "SELECT estado FROM ticket_items WHERE id = {$itemId} LIMIT 1"
-            )[0] ?? null;
-
-            if (!$fila) {
-                echo json_encode(['ok' => false, 'msg' => 'El producto ya no existe.']);
-            } elseif ($fila->estado === 'entregado') {
-                // Doble toque en la tablet: no es un error que valga una alerta.
-                echo json_encode(['ok' => true, 'ya_entregado' => true]);
-            } else {
-                echo json_encode(['ok' => false, 'msg' => 'El producto está cancelado y no se puede entregar.']);
-            }
+            echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::entregarItem - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
@@ -891,7 +669,6 @@ class PuntoVentaController {
                 PuntoVentaReservacionService::TICKET_ABIERTO,
                 PuntoVentaReservacionService::ESTADO_INVALIDO,
                 PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
-                PuntoVentaReservacionService::TICKET_CON_CONSUMO,
             ], true) ? 409 : 422);
             $resultado['msg'] = $resultado['msg'] ?? (
                 !empty($resultado['bloqueo'])
@@ -910,7 +687,6 @@ class PuntoVentaController {
             PuntoVentaReservacionService::MESA_OCUPADA => 'Una de las mesas ya tiene un ticket abierto.',
             PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
             PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
-            PuntoVentaReservacionService::TICKET_CON_CONSUMO => 'La cuenta tiene productos. Ciérrala cobrando en lugar de liberar la mesa.',
             PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'La mesa tiene una reservación próxima. Confirma para continuar.',
             PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Actualiza la información e intenta nuevamente.',
             PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',

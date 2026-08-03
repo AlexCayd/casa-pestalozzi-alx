@@ -275,11 +275,8 @@ class AsignacionMesasService
                 return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
             }
 
-            $vigencia = ReservacionVigenciaService::clasificar($reservacion);
-            $permiteResolucionLlegada = !$automatico
-                && !empty($vigencia['puede_confirmar_llegada']);
             $codigoNoEditable = ReservacionService::codigoNoEditable($reservacion);
-            if ($codigoNoEditable !== '' && !$permiteResolucionLlegada) {
+            if ($codigoNoEditable !== '') {
                 self::rollbackSiPropia($db, $gestionarTransaccion);
                 return [
                     'ok' => false,

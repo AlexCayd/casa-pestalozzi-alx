@@ -24,6 +24,7 @@ function initMapa() {
 
   // ── Estado ────────────────────────────────────────────────
   var mesas         = [];
+  var mesasEstado   = [];
   var reservaciones = [];
   var tickets       = [];
   var ticketSelectionMode = false;
@@ -85,12 +86,12 @@ function initMapa() {
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
-    'future': 'Futura',
-    'warning': 'Reservaci\u00f3n pr\u00f3xima',
-    'service_window': 'Puede iniciar servicio',
-    'tolerance': 'Dentro de la tolerancia',
-    'overdue': 'Tolerancia vencida',
-    'en-curso': 'En curso',
+    'futura': 'Futura',
+    '30_60': 'Reservaci\u00f3n pr\u00f3xima',
+    '0_30': 'Puede iniciar servicio',
+    'tolerancia': 'Dentro de la tolerancia',
+    'tolerancia_vencida': 'Tolerancia vencida',
+    'en_curso': 'En curso',
     'cancelada': 'Cancelada'
   };
 
@@ -152,52 +153,6 @@ function initMapa() {
     var timestamp = Date.parse(String(valor || ''));
     if (Number.isFinite(timestamp)) {
       serverClockOffsetMs = timestamp - Date.now();
-    }
-  }
-
-  function fechaHoraOperativa(fecha, hora) {
-    var partesFecha = String(fecha || '').split('-').map(Number);
-    var partesHora = String(hora || '').substring(0, 5).split(':').map(Number);
-    var year = partesFecha[0];
-    var month = partesFecha[1];
-    var day = partesFecha[2];
-    var hours = partesHora[0];
-    var minutes = partesHora[1];
-    if (!year || !month || !day || !Number.isFinite(hours) || !Number.isFinite(minutes)) {
-      return new Date(NaN);
-    }
-
-    try {
-      var targetUtc = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
-      var guessUtc = targetUtc;
-      var formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: operationalTimeZone(),
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23'
-      });
-      for (var intento = 0; intento < 3; intento++) {
-        var partes = formatter.formatToParts(new Date(guessUtc));
-        var valores = {};
-        partes.forEach(function(parte) { valores[parte.type] = parseInt(parte.value, 10); });
-        var representadoUtc = Date.UTC(
-          valores.year,
-          valores.month - 1,
-          valores.day,
-          valores.hour,
-          valores.minute,
-          valores.second || 0,
-          0
-        );
-        guessUtc = targetUtc - (representadoUtc - guessUtc);
-      }
-      return new Date(guessUtc);
-    } catch (error) {
-      return new Date(year, month - 1, day, hours, minutes, 0, 0);
     }
   }
 
@@ -466,80 +421,46 @@ function initMapa() {
   }
 
 
-  function resolverVentanaOperativaReservacion(reserva, ahora) {
-    var reloj = ahora instanceof Date ? ahora : ahoraOperativa();
-    var fecha = String(reserva && reserva.fecha || '');
-    var hora = String(reserva && reserva.hora || '').substring(0, 5);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}$/.test(hora)) {
-      return {
-        estado: 'future',
-        minutos_restantes: null,
-        minutos_retraso: 0,
-        etiqueta: 'Reservaci\u00f3n futura',
-        mensaje: ''
-      };
-    }
-
-    var inicio = fechaHoraOperativa(fecha, hora);
-    var segundosRestantes = inicio.getTime() - reloj.getTime();
-    var minutosRestantes = Math.ceil(segundosRestantes / 60000);
-    var minutosRetraso = segundosRestantes < 0
-      ? Math.ceil(Math.abs(segundosRestantes) / 60000)
-      : 0;
-    var aviso = temporalNumber('advertencia_reservacion_minutos');
-    var bloqueo = temporalNumber('bloqueo_previo_minutos');
-    var tolerancia = temporalNumber('tolerancia_llegada_minutos');
-    var estado = segundosRestantes > aviso * 60000
-      ? 'future'
-      : segundosRestantes > bloqueo * 60000
-        ? 'warning'
-        : segundosRestantes >= 0
-          ? 'service_window'
-          : segundosRestantes > -tolerancia * 60000
-            ? 'tolerance'
-            : 'overdue';
-    var etiqueta = {
-      future: 'Reservaci\u00f3n futura',
-      warning: 'Reservaci\u00f3n en ' + minutosRestantes + ' min',
-      service_window: 'Puede iniciar servicio',
-      tolerance: 'Dentro de la tolerancia',
-      overdue: 'Tolerancia vencida'
-    }[estado];
-    var mensaje = {
-      future: '',
-      warning: 'Podr\u00e1s iniciar el servicio dentro de ' +
-        Math.max(0, minutosRestantes - bloqueo) + ' minutos.',
-      service_window: 'Puede iniciar servicio.',
-      tolerance: 'Cliente con ' + minutosRetraso +
-        ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.',
-      overdue: 'Tolerancia vencida. El cliente lleva ' + minutosRetraso +
-        ' minutos de retraso.'
-    }[estado];
+  function resolverVentanaOperativaReservacion(reserva) {
+    var estado = String(reserva && reserva.ventana_operativa || 'futura');
+    var minutosRestantes = reserva && reserva.minutos_para_reservacion != null
+      ? parseInt(reserva.minutos_para_reservacion, 10)
+      : null;
+    var minutosRetraso = parseInt(reserva && reserva.minutos_retraso || '0', 10) || 0;
+    var etiquetas = {
+      futura: 'Reservaci\u00f3n futura',
+      '30_60': minutosRestantes == null
+        ? 'Reservaci\u00f3n pr\u00f3xima'
+        : 'Reservaci\u00f3n en ' + minutosRestantes + ' min',
+      '0_30': 'Puede iniciar servicio',
+      tolerancia: 'Dentro de la tolerancia',
+      tolerancia_vencida: 'Tolerancia vencida',
+      en_curso: 'En curso'
+    };
+    var mensajes = {
+      futura: '',
+      '30_60': 'El backend mantiene la advertencia; el servicio aún no puede iniciar.',
+      '0_30': 'Puede iniciar servicio.',
+      tolerancia: 'Cliente con ' + minutosRetraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.',
+      tolerancia_vencida: 'Tolerancia vencida. Registra ausencia o inicia el servicio según la capacidad autorizada.',
+      en_curso: 'Servicio en curso.'
+    };
 
     return {
-      estado: estado,
+      estado: TEMPORAL_LABELS[estado] ? estado : 'futura',
       minutos_restantes: minutosRestantes,
       minutos_retraso: minutosRetraso,
-      etiqueta: etiqueta,
-      mensaje: mensaje,
-      hora: hora,
-      inicio: inicio
+      etiqueta: etiquetas[estado] || 'Reservaci\u00f3n futura',
+      mensaje: mensajes[estado] || '',
+      hora: String(reserva && reserva.hora || '').substring(0, 5)
     };
-  }
-
-  function relojMapa(minActual) {
-    var fecha = fechaInput && /^\d{4}-\d{2}-\d{2}$/.test(String(fechaInput.value || ''))
-      ? String(fechaInput.value)
-      : fechaHoyLocal();
-    var minutosMapa = Number.isFinite(Number(minActual)) ? Number(minActual) : 0;
-    return fechaHoraOperativa(fecha, formatTime(minutosMapa));
   }
 
   // Estado temporal de una reservacion respecto al reloj del mapa.
   function temporalEstadoReserva(r) {
     if (r.estado === 'cancelada') return 'cancelada';
-    if (r.estado === 'en_curso') return 'en-curso';
-    return resolverVentanaOperativaReservacion(r, relojMapa(sliderMin)).estado;
+    if (r.estado === 'en_curso') return 'en_curso';
+    return String(r.ventana_operativa || 'futura');
   }
 
   /**
@@ -628,28 +549,33 @@ function initMapa() {
 
   function reservacionOperativa(reserva) {
     return Boolean(reserva && (
-      reservacionInfluye(reserva)
-      || ['confirmada', 'en_curso'].indexOf(String(reserva.estado || '')) !== -1
+      reserva.muestra_advertencia === true
+      || reserva.bloquea_walk_ins === true
+      || reserva.ticket_abierto === true
+      || String(reserva.estado || '') === 'en_curso'
     ));
   }
 
-  // ── Estado de mesa según slider (incluye tickets abiertos) ─
+  function mesaEstadoPorId(mesaId) {
+    mesaId = parseInt(mesaId, 10);
+    return mesasEstado.find(function(mesaEstado) {
+      return parseInt(mesaEstado.id, 10) === mesaId;
+    }) || null;
+  }
+
+  // El estado del mapa ya fue decidido por MesaEstadoService en el servidor.
   function estadoMesa(mesaId, minActual) {
-    if (ticketActual(mesaId)) return 'con-ticket';
-    var estado = 'libre';
-    var reloj = relojMapa(minActual);
-    for (var i = 0; i < reservaciones.length; i++) {
-      var r = reservaciones[i];
-      if (!reservacionInfluye(r)) continue;
-      if (!reservaTieneMesa(r, mesaId)) continue;
-      if (r.estado === 'en_curso') return 'ocupada';
-      var ventana = resolverVentanaOperativaReservacion(r, reloj);
-      if (ventana.estado === 'warning' && estado === 'libre') estado = 'proxima';
-      if (['service_window', 'tolerance', 'overdue'].indexOf(ventana.estado) !== -1) {
-        return 'bloqueada';
-      }
+    var estado = mesaEstadoPorId(mesaId);
+    if (!estado) return 'libre';
+    if (estado.ticket_abierto || (estado.modificadores || []).indexOf('ticket_abierto') !== -1) {
+      return 'con-ticket';
     }
-    return estado;
+    if (estado.estado_base === 'no_reservable') return 'zona';
+    if (estado.estado_base === 'ocupada') return 'ocupada';
+    if (estado.estado_base === 'bloqueada') return 'bloqueada';
+    return (estado.modificadores || []).indexOf('reservacion_proxima') !== -1
+      ? 'proxima'
+      : 'libre';
   }
 
   // Estado con tiempo real (para el modal)
@@ -683,54 +609,43 @@ function initMapa() {
   }
 
   function reservacionProximaMesa(mesaId, minActual) {
-    var reloj = relojMapa(minActual);
-    var candidate = null;
-    for (var i = 0; i < reservaciones.length; i++) {
-      var reservation = reservaciones[i];
-      if (!reservacionInfluye(reservation) || !reservaTieneMesa(reservation, mesaId)) continue;
-      var ventana = resolverVentanaOperativaReservacion(reservation, reloj);
-      if (ventana.estado === 'future') continue;
-      if (!candidate || ventana.minutos_restantes < candidate.minutos_restantes) {
-        candidate = {
-          id: parseInt(reservation.id, 10),
-          folio: '#' + reservation.id,
-          nombre: reservation.nombre || '',
-          hora: String(reservation.hora || '').substring(0, 5),
-          comensales: parseInt(reservation.comensales || reservation.personas || '0', 10),
-          mesa_ids: mesaIdsReserva(reservation),
-          mesas: Array.isArray(reservation.mesas) ? reservation.mesas : [],
-          ventana_operativa: ventana.estado,
-          minutos_restantes: ventana.minutos_restantes,
-          minutos_retraso: ventana.minutos_retraso,
-          nivel: ventana.estado === 'warning' ? 'advertencia' : 'bloqueo'
-        };
-      }
-    }
-    return candidate;
+    var estado = mesaEstadoPorId(mesaId);
+    var resumen = estado && estado.reservacion_proxima;
+    if (!resumen) return null;
+    var reservation = reservacionPorId(resumen.reservacion_id || resumen.id) || resumen;
+    var ventana = resolverVentanaOperativaReservacion(reservation);
+    return {
+      id: parseInt(reservation.reservacion_id || reservation.id, 10),
+      reservacion_id: parseInt(reservation.reservacion_id || reservation.id, 10),
+      folio: '#' + (reservation.reservacion_id || reservation.id),
+      nombre: reservation.nombre || '',
+      hora: String(reservation.hora || '').substring(0, 5),
+      comensales: parseInt(reservation.comensales || reservation.personas || '0', 10),
+      mesa_ids: mesaIdsReserva(reservation),
+      mesas: Array.isArray(reservation.mesas_asignadas)
+        ? reservation.mesas_asignadas
+        : [],
+      ventana_operativa: ventana.estado,
+      minutos_restantes: ventana.minutos_restantes,
+      minutos_retraso: ventana.minutos_retraso,
+      nivel: reservation.bloquea_walk_ins === true ? 'bloqueo' : 'advertencia'
+    };
   }
 
   function reservacionesProximasParaTicket(ticket) {
     var resultado = [];
-    var vistos = {};
-    var ids = Array.isArray(ticket && ticket.mesa_ids) ? ticket.mesa_ids : [];
-    var reloj = relojMapa(minutoConsultaMapa());
-
-    ids.forEach(function(mesaId) {
-      for (var i = 0; i < reservaciones.length; i++) {
-        var reserva = reservaciones[i];
-        if (!reservacionInfluye(reserva) || !reservaTieneMesa(reserva, Number(mesaId))) continue;
-        var ventana = resolverVentanaOperativaReservacion(reserva, reloj);
-        if (ventana.estado !== 'warning') continue;
-        var clave = String(reserva.id) + ':' + String(mesaId);
-        if (vistos[clave]) continue;
-        vistos[clave] = true;
-        resultado.push({
-          reservacion: reserva,
-          mesaId: Number(mesaId),
-          minutos_restantes: ventana.minutos_restantes,
-          nivel: 'advertencia'
-        });
-      }
+    var advertencias = Array.isArray(ticket && ticket.reservaciones_proximas)
+      ? ticket.reservaciones_proximas
+      : [];
+    advertencias.forEach(function(advertencia) {
+      var reserva = reservacionPorId(advertencia.reservacion_id || advertencia.id) || advertencia;
+      var mesaId = mesaIdsReserva(reserva)[0] || (ticket.mesa_ids || [])[0];
+      resultado.push({
+        reservacion: reserva,
+        mesaId: Number(mesaId),
+        minutos_restantes: advertencia.minutos_para_reservacion,
+        nivel: 'advertencia'
+      });
     });
     return resultado;
   }
@@ -768,29 +683,26 @@ function initMapa() {
     }
 
     if (proxima) {
-      var ventana = proxima.ventana_operativa || 'warning';
-      if (ventana === 'warning') {
+      var ventana = proxima.ventana_operativa || '30_60';
+      if (ventana === '30_60') {
         if (!ticket) {
           return String(mesa.nombre || 'Mesa') + ', disponible, reservaci\u00f3n dentro de ' +
             proxima.minutos_restantes + ' minutos.';
         }
         partes.push('Reservaci\u00f3n dentro de ' + proxima.minutos_restantes + ' minutos.');
-      } else if (ventana === 'service_window') {
+      } else if (ventana === '0_30') {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Puede iniciar servicio.');
-      } else if (ventana === 'tolerance') {
+      } else if (ventana === 'tolerancia') {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Cliente con ' +
           proxima.minutos_retraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.');
-      } else if (ventana === 'overdue') {
+      } else if (ventana === 'tolerancia_vencida') {
         partes.push('Reservaci\u00f3n con tolerancia vencida. El cliente lleva ' +
           proxima.minutos_retraso + ' minutos de retraso.');
       }
     } else {
       var reservaContextual = reservaParaModal(parseInt(mesa.id, 10));
-      if (reservaContextual) {
-        var ventanaContextual = resolverVentanaOperativaReservacion(reservaContextual, ahoraOperativa());
-        if (ventanaContextual.estado !== 'future') {
-          partes.push(ventanaContextual.mensaje);
-        }
+      if (reservaContextual && reservaContextual.ventana_operativa !== 'futura') {
+        partes.push(resolverVentanaOperativaReservacion(reservaContextual).mensaje);
       }
     }
     if (ticket && Array.isArray(ticket.mesa_ids) && ticket.mesa_ids.length > 1) {
@@ -805,33 +717,32 @@ function initMapa() {
    */
   function contratoMesaMapa(mesa, estado, minActual) {
     var ticket = ticketActual(parseInt(mesa.id, 10));
+    var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     var proxima = reservacionProximaMesa(parseInt(mesa.id, 10), minActual);
-    var stateBase = (!mesaReservable(mesa) && !mesaTicketable(mesa))
-      ? 'no_reservable'
-      : (ticket || estado === 'ocupada' || estado === 'con-ticket' || estado === 'en-curso'
-        ? 'ocupada'
-        : (estado === 'bloqueada' ? 'bloqueada' : 'disponible'));
-    var modifiers = [];
+    var stateBase = backend.estado_base || (estado === 'zona' ? 'no_reservable' : 'disponible');
+    var modifiers = Array.isArray(backend.modificadores)
+      ? backend.modificadores.slice()
+      : [];
+
+    // Barras, llevar y caja siguen siendo operables en POS aunque no sean
+    // reservables para el módulo de reservaciones.
+    if (mesaTicketable(mesa) || esCaja(mesa)) {
+      stateBase = stateBase === 'no_reservable' ? 'disponible' : stateBase;
+    }
 
     if (ticket) {
-      modifiers.push('ticket_abierto');
-      if (ticket.origen === 'walk_in') {
-        modifiers.push('walk_in');
-      }
-      if ((ticket.mesa_ids || []).length > 1) {
-        // Expone la relación N:M sin sustituir el estado físico principal.
-        modifiers.push('varias_mesas');
-      }
+      stateBase = 'ocupada';
+      if (modifiers.indexOf('ticket_abierto') === -1) modifiers.push('ticket_abierto');
     }
     if (proxima) {
-      modifiers.push('reservacion_proxima');
-      if (proxima.ventana_operativa === 'warning') {
+      if (modifiers.indexOf('reservacion_proxima') === -1) modifiers.push('reservacion_proxima');
+      if (proxima.ventana_operativa === '30_60') {
         modifiers.push('reservacion_advertencia');
-      } else if (proxima.ventana_operativa === 'service_window') {
+      } else if (proxima.ventana_operativa === '0_30') {
         modifiers.push('reservacion_inminente', 'reservacion_bloqueante');
-      } else if (proxima.ventana_operativa === 'tolerance') {
+      } else if (proxima.ventana_operativa === 'tolerancia') {
         modifiers.push('reservacion_tolerancia', 'reservacion_bloqueante');
-      } else if (proxima.ventana_operativa === 'overdue') {
+      } else if (proxima.ventana_operativa === 'tolerancia_vencida') {
         modifiers.push('reservacion_vencida', 'reservacion_bloqueante');
       } else if (proxima.nivel === 'bloqueo') {
         modifiers.push('reservacion_bloqueante');
@@ -857,7 +768,9 @@ function initMapa() {
     var ticketable = mesaTicketable(mesa);
     var seleccionValida = ticketSelectionMode
       ? mesaPuedeSeleccionarse(mesa, estado)
-      : mesaReservable(mesa) && !ticket;
+      : mesaReservable(mesa) && !ticket && !(
+        reservaParaModal(parseInt(mesa.id, 10)) || {}
+      ).bloquea_walk_ins;
     return {
       x: insetPos(mesa.pos_x),
       y: insetPos(mesa.pos_y),
@@ -889,11 +802,7 @@ function initMapa() {
     var reserva = reservaParaModal(parseInt(mesa.id, 10));
     if (!reserva) return true;
 
-    var ventana = resolverVentanaOperativaReservacion(
-      reserva,
-      relojMapa(minutoConsultaMapa())
-    );
-    return ['future', 'warning'].indexOf(ventana.estado) !== -1;
+    return reserva.bloquea_walk_ins !== true;
   }
 
   // Comprime el rango de coordenadas [0,100] a [PAD, 100-PAD] para dar aire
@@ -976,10 +885,10 @@ function initMapa() {
         return mesa ? mesa.nombre : '';
       }).filter(Boolean);
 
-      if (r.estado === 'cancelada' || tempEstado === 'overdue') cardClasses.push('reserva-card--pasada');
-      else if (['en-curso', 'service_window', 'tolerance'].indexOf(tempEstado) !== -1) {
+      if (r.estado === 'cancelada' || tempEstado === 'tolerancia_vencida') cardClasses.push('reserva-card--pasada');
+      else if (['en_curso', '0_30', 'tolerancia'].indexOf(tempEstado) !== -1) {
         cardClasses.push('reserva-card--activa');
-      } else if (tempEstado === 'warning') cardClasses.push('reserva-card--proxima');
+      } else if (tempEstado === '30_60') cardClasses.push('reserva-card--proxima');
 
       var card = window.OperationalReservationCard.create(r, {
         hora: r.hora.substring(0, 5),
@@ -1031,10 +940,7 @@ function initMapa() {
       return;
     }
     var reserva = reservaParaModal(mesaId);
-    var ventanaReserva = reserva
-      ? resolverVentanaOperativaReservacion(reserva, relojMapa(minutoConsultaMapa()))
-      : null;
-    var reservaCercana = reserva && ventanaReserva && ventanaReserva.estado !== 'future';
+    var reservaCercana = reserva && reserva.ventana_operativa !== 'futura';
     if (reservaCercana) {
       showReservationModal(reserva);
       return;
@@ -1764,7 +1670,7 @@ function initMapa() {
       : estado === 'ocupada' ? 'En ventana de reserva'
       : estado === 'proxima' ? 'Próxima reservación'
       : 'Mesa reservada';
-    var reservaVentana = reserva ? resolverVentanaOperativaReservacion(reserva, ahoraOperativa()) : null;
+    var reservaVentana = reserva ? resolverVentanaOperativaReservacion(reserva) : null;
     var reservaDisplayName = reserva ? nombresMesasReserva(reserva) : mesa.nombre;
     var reservaChipClass = estado;
     if (reservaVentana) {
@@ -1934,7 +1840,7 @@ function initMapa() {
     } else if (reserva) {
       // ── Resumen compacto de reservación ────────────────────
       var reservaHora = String(reserva.hora || '').substring(0, 5);
-      var reservaVentanaActual = reservaVentana || resolverVentanaOperativaReservacion(reserva, ahoraOperativa());
+      var reservaVentanaActual = reservaVentana || resolverVentanaOperativaReservacion(reserva);
       var reservaMesas = mesaIdsReserva(reserva).map(function (mesaId) {
         var mesaReservada = mesaPorId(mesaId);
         return mesaReservada ? mesaReservada.nombre : 'Mesa ' + mesaId;
@@ -1970,26 +1876,18 @@ function initMapa() {
       h += '</div>';
       h += '<div class="mmodal-reservation__actions">';
       if (reservaEstado === 'confirmada') {
-        var puedeIniciar = reserva.puede_iniciar_servicio === true
-          && reservaVentanaActual.estado !== 'overdue';
-        if (reservaVentanaActual.estado !== 'overdue') {
-          h += '<button class="mmodal-btn mmodal-btn--primary' + (puedeIniciar ? '' : ' mmodal-btn--pending') +
-            '" id="mmodal-iniciar"' + (puedeIniciar ? '' : ' disabled') + '>Iniciar servicio</button>';
-        }
+        var puedeIniciar = reserva.puede_iniciar_servicio === true;
+        h += '<button class="mmodal-btn mmodal-btn--primary' + (puedeIniciar ? '' : ' mmodal-btn--pending') +
+          '" id="mmodal-iniciar"' + (puedeIniciar ? '' : ' disabled') + '>Iniciar servicio</button>';
         h += '<div class="mmodal-reservation__action-hint">' +
           escHtml(puedeIniciar
             ? 'El ticket y el servicio se crearán en un solo paso.'
             : (reservaVentanaActual.mensaje || 'Disponible desde 30 minutos antes.')) +
           '</div>';
-        var puedeMarcarAusencia = reservaEstado === 'confirmada'
-          && reservaVentanaActual.estado === 'overdue'
-          && (reserva.no_show_disponible === true || reserva.elegible_no_show === true)
-          && !reserva.ticket_id;
+        var puedeMarcarAusencia = reserva.puede_registrar_ausencia === true && !reserva.ticket_abierto;
         if (puedeMarcarAusencia) {
           h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Cliente no se presentó</button>';
         }
-      } else if (reservaEstado === 'llego') {
-        h += '<div class="mmodal-reservation__action-hint">La llegada del cliente ya fue registrada; esta reservación no puede registrarse como ausencia.</div>';
       }
       h += '</div>';
       h += '</div>';
@@ -3925,11 +3823,12 @@ function initMapa() {
           return;
         }
         mesas         = data.mesas         || [];
+        mesasEstado   = data.mesas_estado  || [];
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
         meseros       = data.meseros        || [];
         temporalConfig = (data.config && data.config.temporal) || temporalConfig;
-        sincronizarRelojOperativo(data.actualizado_en);
+        sincronizarRelojOperativo(data.server_time || data.actualizado_en);
         if (ticketSelectionMode) {
           selectedMesaIds = selectedMesaIds.filter(function(mesaId) {
             var mesa = mesaPorId(mesaId);

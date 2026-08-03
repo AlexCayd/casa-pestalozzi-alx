@@ -7,14 +7,12 @@
 
 namespace Controllers;
 
-use Model\Mesa;
 use Model\Reservacion;
-use Model\TicketMesa;
 use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\HorarioReservacionService;
-use Services\MesaEstadoService;
 use Services\OcupacionMesasService;
+use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionService;
@@ -91,13 +89,8 @@ class ReservacionOperacionController
             $horaObjetivo = $reservacionObjetivo
                 ? self::normalizarHoraCorta((string)$reservacionObjetivo->hora)
                 : '';
-            $vigenciaObjetivo = $reservacionObjetivo
-                ? ReservacionService::clasificarVigencia($reservacionObjetivo)
-                : [];
-            $permiteAsignacionObjetivo = $reservacionObjetivo && (
-                ReservacionService::puedeEditar($reservacionObjetivo)
-                || !empty($vigenciaObjetivo['puede_confirmar_llegada'])
-            );
+            $permiteAsignacionObjetivo = $reservacionObjetivo
+                && ReservacionService::puedeEditar($reservacionObjetivo);
             $motivo = '';
 
             if (!$reservacionObjetivo) {
@@ -201,23 +194,24 @@ class ReservacionOperacionController
             $horarios,
             $soloLectura
         );
-        $reservaciones = Reservacion::buscarPorDiaOperacionAdmin($fecha);
-        $ticketsAbiertos = TicketMesa::abiertosParaMapa();
-        $reservacionesSerializadas = self::serializarReservacionesOperacion(
-            $reservaciones,
-            $ticketsAbiertos
-        );
         $horaResuelta = (string)($resolucionHorario['hora_resuelta'] ?: $horaSolicitada);
         if ($horaResuelta === '') {
             $horaResuelta = ReservacionConfig::ahora()->format('H:i');
         }
-        $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
-            $fecha,
-            $horaResuelta,
-            0,
-            false,
-            $ticketsAbiertos
-        );
+        $lectura = PosReservacionQueryService::paraFecha($fecha, $horaResuelta, [
+            'incluir_inactivas' => true,
+            'calcular_conflictos' => true,
+        ]);
+        if (!($lectura['ok'] ?? false)) {
+            self::jsonResponse([
+                'ok' => false,
+                'codigo' => $lectura['codigo'] ?? ReservacionService::ERROR_INTERNO,
+                'mensaje' => $lectura['mensaje'] ?? 'No se pudo cargar la operación.',
+            ], 422);
+            return;
+        }
+        $reservacionesSerializadas = (array)$lectura['reservaciones'];
+        $evaluacionOcupacion = (array)$lectura['evaluacion_ocupacion'];
         $alertasPorReservacion = [];
         foreach ((array)($evaluacionOcupacion['alertas_operativas'] ?? []) as $alerta) {
             $alertasPorReservacion[(int)($alerta['reservacion_id'] ?? 0)] = $alerta;
@@ -243,21 +237,9 @@ class ReservacionOperacionController
             );
         }
         unset($reservacionSerializada);
-        $mesasSerializadas = self::serializarMesasOperacion(self::mesasMapaOperacion());
-        $ocupacionPorReservacion = AsignacionMesasService::obtenerOcupacionPorReservacionDelDia(
-            $fecha,
-            $reservaciones,
-            $ticketsAbiertos
-        );
-        $estadosMesas = MesaEstadoService::normalizarMesas(
-            $mesasSerializadas,
-            $reservacionesSerializadas,
-            $ticketsAbiertos,
-            $fecha,
-            null,
-            $horaResuelta,
-            $evaluacionOcupacion
-        );
+        $mesasSerializadas = (array)$lectura['mesas'];
+        $ocupacionPorReservacion = (array)$lectura['ocupacion_por_reservacion'];
+        $estadosMesas = (array)$lectura['mesas_estado'];
         $resumenCapacidad = OcupacionMesasService::resumenCapacidad(
             $mesasSerializadas,
             $evaluacionOcupacion
@@ -312,6 +294,9 @@ class ReservacionOperacionController
             'reservaciones_operativas' => $reservacionesOperativas,
             'mesas' => $mesasSerializadas,
             'mesas_estado' => $estadosMesas,
+            'schema_version' => $lectura['schema_version'],
+            'server_time' => $lectura['server_time'],
+            'timezone' => $lectura['timezone'],
             'contexto_ocupacion' => $evaluacionOcupacion['contexto'] ?? null,
             'capacidad_horario' => $capacidadHorario,
             'alertas_operativas' => $evaluacionOcupacion['alertas_operativas'] ?? [],
@@ -328,7 +313,7 @@ class ReservacionOperacionController
                 'estados_editables' => ReservacionService::estadosEditables(),
                 'transiciones' => ReservacionService::transiciones(),
                 'comentario_admin_disponible' => Reservacion::tieneComentarioAdmin(),
-                'temporal' => ReservacionConfig::configuracionOperacion(),
+                'temporal' => $lectura['config']['temporal'],
             ],
             'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
         ]);
@@ -492,11 +477,6 @@ class ReservacionOperacionController
         return HorarioReservacionService::normalizarHoraCorta($hora);
     }
 
-    private static function mesasMapaOperacion(): array
-    {
-        return Mesa::buscarTodasParaMapa();
-    }
-
     private static function returnUrlSeguro($url, string $fallback = ''): string
     {
         $url = (string)$url;
@@ -581,83 +561,6 @@ class ReservacionOperacionController
     private static function fechaValida(string $fecha): bool
     {
         return HorarioReservacionService::fechaValida($fecha);
-    }
-
-    private static function serializarReservacionesOperacion(
-        array $reservaciones,
-        array $ticketsAbiertos = []
-    ): array
-    {
-        $ticketsPorReservacion = [];
-        foreach ($ticketsAbiertos as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
-
-        return array_map(static function ($reservacion) use ($ticketsPorReservacion): array {
-            $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($reservacion->mesa_ids ?? '')))));
-            $mesasNombres = array_values(array_filter(array_map('trim', explode(',', (string)($reservacion->mesas_asignadas ?? '')))));
-            $reservacionId = (int)($reservacion->id ?? 0);
-            $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
-            $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticket);
-
-            return array_merge([
-                'id' => $reservacionId,
-                'nombre' => (string)($reservacion->nombre ?? ''),
-                'contacto' => (string)($reservacion->contacto ?? ''),
-                'fecha' => (string)($reservacion->fecha ?? ''),
-                'hora' => substr((string)($reservacion->hora ?? ''), 0, 5),
-                'comensales' => (int)($reservacion->comensales ?? 0),
-                'estado' => (string)($reservacion->estado ?? 'confirmada'),
-                'hold_expires_at' => $reservacion->hold_expires_at !== null
-                    ? (string)$reservacion->hold_expires_at
-                    : null,
-                'confirmed_at' => $reservacion->confirmed_at ?? null,
-                'arrived_at' => $reservacion->arrived_at ?? null,
-                'completed_at' => $reservacion->completed_at ?? null,
-                'version' => hash(
-                    'sha256',
-                    (string)(($reservacion->updated_at ?? null) ?: ($reservacion->created_at ?? ''))
-                        . '|' . implode(',', $mesaIds)
-                ),
-                'ticket_id' => $ticket['id'] ?? null,
-                'ticket_abierto' => $ticket !== null,
-                'ticket' => $ticket !== null ? [
-                    'id' => (int)$ticket['id'],
-                    'hora_apertura' => (string)$ticket['hora_apertura'],
-                    'origen' => (string)$ticket['origen'],
-                    'mesa_ids' => array_values(array_map('intval', $ticket['mesa_ids'] ?? [])),
-                ] : null,
-                'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
-                'editable' => (bool)$vigencia['editable'],
-                'motivo_no_editable' => ReservacionService::codigoNoEditable($reservacion),
-                'mesa_ids' => $mesaIds,
-                'mesas_asignadas' => $mesasNombres,
-                'mesas_count' => (int)($reservacion->mesas_count ?? 0),
-                'capacidad_asignada' => (int)($reservacion->capacidad_total ?? 0),
-                'nota' => (string)($reservacion->nota ?? ''),
-                'comentario_admin' => (string)($reservacion->comentario_admin ?? ''),
-            ], $vigencia);
-        }, $reservaciones);
-    }
-
-    private static function serializarMesasOperacion(array $mesas): array
-    {
-        return array_map(static function ($mesa): array {
-            return [
-                'id' => (int)($mesa->id ?? 0),
-                'numero' => (int)($mesa->numero ?? 0),
-                'nombre' => (string)($mesa->nombre ?? ''),
-                'tipo' => (string)($mesa->tipo ?? 'mesa'),
-                'capacidad' => (int)($mesa->capacidad ?? 0),
-                'pos_x' => (float)($mesa->pos_x ?? 50),
-                'pos_y' => (float)($mesa->pos_y ?? 50),
-                'activo' => (int)($mesa->activo ?? 0),
-                'reservable' => (int)($mesa->reservable ?? 0),
-            ];
-        }, $mesas);
     }
 
     /**

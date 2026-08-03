@@ -103,7 +103,7 @@ $createdAt = (string)$valor($reservacion, 'created_at', '');
 $mesasCount = count($mesasAsignadas);
 $tieneMesa = $mesasCount > 0;
 $estadoFinal = in_array($estado, ['completada', 'cancelada', 'no_show', 'expirada'], true);
-$puedeAsignar = $editable || (bool)($vigencia['puede_confirmar_llegada'] ?? false);
+$puedeAsignar = $editable;
 $capacidadRestaurante = max((int)($capacidadRestaurante ?? 0), $comensales, 1);
 $diferenciaCapacidad = $capacidadTotal - $comensales;
 $horaCorta = $horaLegible($hora);
@@ -284,13 +284,10 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                         <?php if ($estado === 'pendiente_verificacion' && $editable) : ?>
                             <?php $actionButton('confirmada', 'Confirmar verificación', 'admin-btn admin-btn--primary'); ?>
                         <?php endif; ?>
-                        <?php if (!empty($vigencia['puede_confirmar_llegada'])) : ?>
-                            <?php $actionButton('llego', !empty($vigencia['llegada_tardia']) ? 'Registrar llegada tardía' : 'Confirmar llegada', 'admin-btn admin-btn--primary'); ?>
-                        <?php endif; ?>
                         <?php if (!empty($vigencia['elegible_no_show'])) : ?>
                             <?php $actionButton('no_show', 'Marcar no show', 'admin-btn admin-btn--ghost'); ?>
                         <?php endif; ?>
-                        <?php if (in_array($estado, ['confirmada', 'llego'], true) && !$ticketAbierto) : ?>
+                        <?php if ($estado === 'confirmada' && !$ticketAbierto) : ?>
                             <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--danger', true); ?>
                         <?php endif; ?>
                         <?php if ($ticketAbierto) : ?>

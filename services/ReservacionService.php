@@ -495,7 +495,6 @@ class ReservacionService
     ): array {
         return match ($nuevoEstado) {
             'confirmada' => self::cambiarEstado($reservacionId, 'confirmada', $usuarioId),
-            'llego' => PuntoVentaReservacionService::registrarLlegada($reservacionId, $usuarioId),
             'en_curso' => PuntoVentaReservacionService::comenzar($reservacionId, $usuarioId, $meseroId),
             'no_show' => PuntoVentaReservacionService::noShow(
                 $reservacionId,

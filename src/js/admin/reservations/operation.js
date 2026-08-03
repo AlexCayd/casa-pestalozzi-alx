@@ -390,10 +390,7 @@
         }
 
         function canAssignTables(reservacion) {
-            return state.editable && reservacion && (
-                isEditable(reservacion)
-                || reservacion.puede_confirmar_llegada === true
-            );
+            return state.editable && reservacion && isEditable(reservacion);
         }
 
         function canTransition(reservacion, targetState) {
@@ -878,10 +875,8 @@
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
             var minutos = parseInt((mesaEstado && mesaEstado.minutos_restantes) || '0', 10);
-            var bloqueo = parseInt(state.config.temporal.bloqueo_previo_minutos || '0', 10);
-            var aviso = parseInt(state.config.temporal.advertencia_reservacion_minutos || '0', 10);
 
-            if (!proxima || minutos <= bloqueo || minutos > aviso) {
+            if (!proxima || proxima.ventana_operativa !== '30_60') {
                 hideTableWarning();
                 return;
             }
@@ -1333,21 +1328,7 @@
             if (String(reservacion.estado) === 'pendiente_verificacion' && editable) {
                 return { key: 'verify', html: renderActionButton('verify', 'Confirmar verificación', 'admin-btn admin-btn--primary', false) };
             }
-            if (reservacion.puede_confirmar_llegada === true) {
-                return {
-                    key: 'arrival',
-                    html: renderActionButton(
-                        'arrival',
-                        reservacion.llegada_tardia === true ? 'Registrar llegada tardía' : 'Confirmar llegada',
-                        'admin-btn admin-btn--primary',
-                        false
-                    )
-                };
-            }
-            if (
-                ['confirmada', 'llego'].indexOf(String(reservacion.estado)) !== -1
-                && !reservacion.ticket_abierto
-            ) {
+            if (reservacion.puede_iniciar_servicio === true) {
                 return { key: 'start-service', html: renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--primary', false) };
             }
             return { key: '', html: '' };
@@ -1417,13 +1398,10 @@
                             var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
                             var other = '';
                             if (recommended.key !== 'reassign') other += renderActionButton('reassign', 'Cambiar mesas', 'admin-btn admin-btn--secondary', !assignable);
-                            if (recommended.key !== 'arrival' && reservacion.puede_confirmar_llegada === true) {
-                                other += renderActionButton('arrival', reservacion.llegada_tardia === true ? 'Llegada tardía' : 'Confirmar llegada', 'admin-btn admin-btn--secondary', false);
-                            }
-                            if (recommended.key !== 'start-service' && ['confirmada', 'llego'].indexOf(estado) !== -1 && !reservacion.ticket_abierto) {
+                            if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true) {
                                 other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', !mesaIds.length);
                             }
-                            if (reservacion.elegible_no_show === true) {
+                            if (reservacion.puede_registrar_ausencia === true) {
                                 other += renderActionButton('no-show', 'Marcar no show', 'admin-btn admin-btn--ghost', false);
                             }
                             if (reservacion.ticket_abierto && reservacion.ticket_id) {
@@ -1431,7 +1409,7 @@
                             }
                             return '<div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + (recommended.html || '<p class="reservation-operation-panel__muted">No hay una acción recomendada para este estado.</p>') + '</div>' +
                                 '<div class="reservation-operation-action-group"><h4>Otras acciones</h4><div class="reservation-operation-actions">' + (other || '<p class="reservation-operation-panel__muted">No hay otras acciones disponibles.</p>') + '</div></div>' +
-                                '<div class="reservation-operation-action-group reservation-operation-action-group--danger"><h4>Cancelar reservación</h4>' + renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', !(['confirmada', 'llego'].indexOf(estado) !== -1 && !reservacion.ticket_abierto)) + '</div>';
+                                '<div class="reservation-operation-action-group reservation-operation-action-group--danger"><h4>Cancelar reservación</h4>' + renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', !(estado === 'confirmada' && !reservacion.ticket_abierto)) + '</div>';
                         })() +
                     '</section>' +
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
@@ -1722,16 +1700,7 @@
                     state.horarios = data.horarios || [];
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
-                    state.mesasEstado = data.mesas_estado || state.mesas.map(function (mesa) {
-                        var active = parseInt(mesa.activo || '0', 10) === 1;
-                        var reservable = parseInt(mesa.reservable || '0', 10) === 1;
-                        return Object.assign({}, mesa, {
-                            estado_base: active && reservable ? 'disponible' : 'no_reservable',
-                            modificadores: [],
-                            seleccion_actual: false,
-                            titulo: mesa.nombre + (active && reservable ? '. Disponible.' : '. No reservable.')
-                        });
-                    });
+                    state.mesasEstado = data.mesas_estado || [];
                     state.ocupacionFisica = data.ocupacion_fisica || [];
                     state.ocupacionPorReservacion = data.ocupacion_por_reservacion || {};
                     state.capacidadHorario = data.capacidad_horario || {};
@@ -2084,20 +2053,14 @@
             if (action === 'verify') {
                 return estado === 'pendiente_verificacion' && isEditable(reservacion);
             }
-            if (action === 'arrival') {
-                return reservacion.puede_confirmar_llegada === true;
-            }
             if (action === 'start-service') {
-                return ['confirmada', 'llego'].indexOf(estado) !== -1
-                    && !reservacion.ticket_abierto
-                    && Array.isArray(reservacion.mesa_ids)
-                    && reservacion.mesa_ids.length > 0;
+                return reservacion.puede_iniciar_servicio === true;
             }
             if (action === 'no-show') {
-                return reservacion.elegible_no_show === true;
+                return reservacion.puede_registrar_ausencia === true;
             }
             if (action === 'cancel') {
-                return ['confirmada', 'llego'].indexOf(estado) !== -1
+                return estado === 'confirmada'
                     && !reservacion.ticket_abierto;
             }
             return false;
@@ -2112,14 +2075,12 @@
 
             var estados = {
                 verify: 'confirmada',
-                arrival: 'llego',
                 'start-service': 'en_curso',
                 cancel: 'cancelada',
                 'no-show': 'no_show'
             };
             var labels = {
                 verify: 'Verificación confirmada.',
-                arrival: reservacion.llegada_tardia === true ? 'Llegada tardía registrada.' : 'Llegada registrada.',
                 'start-service': 'Servicio iniciado.',
                 cancel: 'Reservación cancelada.',
                 'no-show': 'Reservación marcada como no show.'
@@ -2139,9 +2100,9 @@
                 .catch(function (error) {
                     if (error && error.requiere_reasignacion) {
                         showGlobalNotice({
-                            source: 'late-arrival',
+                            source: 'service-start-conflict',
                             type: 'warning',
-                            title: 'La llegada requiere nuevas mesas',
+                            title: 'El inicio de servicio requiere nuevas mesas',
                             summary: error.mensaje || 'Las mesas originales ya no están disponibles.',
                             message: 'Selecciona una asignación válida en el mapa y vuelve a confirmar la llegada. No se recuperó ninguna mesa automáticamente.'
                         });

@@ -16,7 +16,7 @@ class ReservacionConfig
     public const OTP_MAX_ATTEMPTS = 5;
     public const OTP_RESEND_SECONDS = 60;
     public const CLIENT_SESSION_IDLE_MINUTES = 15;
-    public const RESERVATION_HOLD_MINUTES = 5;
+    public const RESERVATION_HOLD_MINUTES = 15;
     public const MAX_ACTIVE_RESERVATIONS = 5;
     public const MAX_PUBLIC_GUESTS = 12;
     public const MAX_PUBLIC_TABLES = 3;
@@ -28,6 +28,8 @@ class ReservacionConfig
     public const COMENTARIO_ADMIN_MAX_CARACTERES = 5000;
     public const MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA = 60;
     public const MINUTOS_PREVIOS_BLOQUEO = 30;
+    public const ANTICIPACION_MINIMA_MINUTOS = 40;
+    public const LLEGADA_ANTICIPADA_MINUTOS = 30;
     public const INTERVALO_RESERVACION_MINUTOS = 30;
     public const TIMEZONE = 'America/Mexico_City';
     public const TOLERANCIA_RESERVACION_MINUTOS = 15;
@@ -46,14 +48,14 @@ class ReservacionConfig
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
     ];
-    public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada', 'llego'];
+    public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada'];
     public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show'];
     /**
      * `pendiente_verificacion` se añade mediante una condición temporal en las
      * consultas: sólo ocupa mientras hold_expires_at sea futura.
      */
-    public const ESTADOS_OCUPAN_MESA = ['confirmada', 'llego', 'en_curso'];
-    public const ESTADOS_LISTA_OPERATIVA = ['confirmada', 'llego', 'en_curso'];
+    public const ESTADOS_OCUPAN_MESA = ['confirmada'];
+    public const ESTADOS_LISTA_OPERATIVA = ['confirmada', 'en_curso'];
     public const ESTADOS_CUENTAN_LIMITE = ['confirmada'];
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',
@@ -67,8 +69,7 @@ class ReservacionConfig
     ];
     public const TRANSICIONES = [
         'pendiente_verificacion' => ['confirmada', 'expirada'],
-        'confirmada' => ['llego', 'en_curso', 'cancelada', 'no_show'],
-        'llego' => ['en_curso', 'cancelada'],
+        'confirmada' => ['en_curso', 'cancelada', 'no_show'],
         'en_curso' => ['completada'],
         'expirada' => [],
         'completada' => [],
@@ -76,9 +77,18 @@ class ReservacionConfig
         'no_show' => [],
     ];
 
-    // Genera los horarios de reservaciones hasta estos minutos antes
-    public const MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION = 60;
+    public const VENTANAS_OPERATIVAS = [
+        'futura',
+        '30_60',
+        '0_30',
+        'tolerancia',
+        'tolerancia_vencida',
+        'en_curso',
+    ];
+
+    // Genera los horarios de reservaciones hasta estos minutos antes.
     public const DURACION_RESERVACION_MINUTOS = 90;
+    public const MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION = 90;
     /**
      * Agrupaciones físicas autorizadas por ID de mesa. No se infieren por
      * capacidad ni por número para evitar unir mesas que no son contiguas.
@@ -101,6 +111,19 @@ class ReservacionConfig
         [8, 9],
         [2, 4, 5],
         [8, 9, 10],
+    ];
+
+    /** Fuente canónica: las agrupaciones se expresan por mesas.numero. */
+    public const GRUPOS_DOS_MESAS = [
+        [7, 8],
+        [6, 9],
+        [10, 11],
+        [3, 4],
+    ];
+
+    public const GRUPOS_TRES_MESAS = [
+        [2, 4, 5],
+        [11, 10, 9],
     ];
 
     public static function timezone(): DateTimeZone
@@ -193,6 +216,8 @@ class ReservacionConfig
     {
         return [
             'zona_horaria' => self::timezone()->getName(),
+            'ventanas_operativas' => self::VENTANAS_OPERATIVAS,
+            'server_time' => self::ahora()->format(DATE_ATOM),
             'advertencia_reservacion_minutos' => self::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA,
             'bloqueo_previo_minutos' => self::MINUTOS_PREVIOS_BLOQUEO,
             'duracion_reservacion_minutos' => self::DURACION_RESERVACION_MINUTOS,
