@@ -91,7 +91,7 @@ foreach ($alertas as $tipo => $mensajes) {
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Administración</span>
-            <h2 class="admin-page__title">Reservaciones</h2>
+            <h1 class="admin-page__title">Reservaciones</h1>
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
@@ -121,7 +121,7 @@ foreach ($alertas as $tipo => $mensajes) {
         $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
         $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atención' : 'Revisa los siguientes datos');
         ?>
-        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>">
+        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>" role="<?php echo $tipoAlerta === 'error' ? 'alert' : 'status'; ?>" aria-live="polite">
             <strong><?php echo $h($tituloAlerta); ?></strong>
             <span><?php echo $h(implode(' ', $mensajes)); ?></span>
         </div>
@@ -227,11 +227,11 @@ foreach ($alertas as $tipo => $mensajes) {
         </div>
     </section>
 
-    <section class="reservations-table-card admin-card">
+    <section class="reservations-table-card admin-card" aria-labelledby="reservations-results-title">
         <div class="reservations-table-card__header">
             <div>
                 <?php $totalEncontradas = count($reservaciones); ?>
-                <h3><?php echo $totalEncontradas; ?> <?php echo $totalEncontradas === 1 ? 'reservación encontrada' : 'reservaciones encontradas'; ?></h3>
+                <h2 id="reservations-results-title"><?php echo $totalEncontradas; ?> <?php echo $totalEncontradas === 1 ? 'reservación encontrada' : 'reservaciones encontradas'; ?></h2>
                 <p>Periodo: <?php echo $h($fechaLegible($filtros['fecha_inicio'] ?? date('Y-m-d'))); ?> - <?php echo $h($fechaLegible($filtros['fecha_fin'] ?? date('Y-m-d'))); ?></p>
             </div>
         </div>
@@ -246,18 +246,19 @@ foreach ($alertas as $tipo => $mensajes) {
         <?php else : ?>
             <div class="reservations-table-wrapper">
                 <table class="reservations-table">
+                    <caption class="admin-visually-hidden">Reservaciones encontradas en el periodo seleccionado</caption>
                     <thead>
                         <tr>
-                            <th>Fecha</th>
-                            <th>Hora</th>
-                            <th>Cliente</th>
-                            <th>Origen</th>
-                            <th>Comensales</th>
-                            <th>Mesas</th>
-                            <th>Estado</th>
-                            <th>Ticket</th>
-                            <th>Nota</th>
-                            <th>Acciones</th>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Hora</th>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">Origen</th>
+                            <th scope="col">Comensales</th>
+                            <th scope="col">Mesas</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Ticket</th>
+                            <th scope="col">Nota</th>
+                            <th scope="col">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -355,7 +356,7 @@ foreach ($alertas as $tipo => $mensajes) {
                                 </td>
                                 <td class="reservations-table__actions-cell">
                                     <div class="reservations-table__actions">
-                                        <a class="admin-btn admin-btn--small admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación">Ver</a>
+                                        <a class="admin-btn admin-btn--small admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
                                         <a
                                             class="admin-btn admin-btn--small admin-btn--ghost reservations-table__operate-action"
                                             href="<?php echo $h($operationContextUrl); ?>"

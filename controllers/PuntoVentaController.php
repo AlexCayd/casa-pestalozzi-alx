@@ -189,7 +189,8 @@ class PuntoVentaController {
             }
             $total = round($total, 2);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('PuntoVentaController::cerrarTicket total - ' . $e->getMessage());
+            echo json_encode(['ok' => false, 'msg' => 'No se pudo calcular el total. Intenta de nuevo.']);
             return;
         }
         $totalCents = (int)round($total * 100);

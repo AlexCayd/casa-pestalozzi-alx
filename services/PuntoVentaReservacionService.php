@@ -11,6 +11,7 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Model\VerificacionContacto;
 
 final class PuntoVentaReservacionService
 {
@@ -109,6 +110,9 @@ final class PuntoVentaReservacionService
                        AND " . TicketMesa::condicionSqlAbierto('t') . "
                      FOR UPDATE"
                 );
+                if (!$ticket) {
+                    return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+                }
                 $db->commit();
                 $transaccion = false;
                 return [
@@ -164,6 +168,7 @@ final class PuntoVentaReservacionService
                 "estado = 'en_curso',
                  estado_changed_at = NOW()"
             );
+            self::invalidarReemplazosPendientes($db, $reservacionId);
             $db->commit();
             $transaccion = false;
 
@@ -231,6 +236,7 @@ final class PuntoVentaReservacionService
                 "estado = 'no_show',
                  estado_changed_at = NOW()"
             );
+            self::invalidarReemplazosPendientes($db, (int)$r['id']);
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
         });
@@ -262,6 +268,7 @@ final class PuntoVentaReservacionService
                 "estado = 'cancelada',
                  estado_changed_at = NOW()"
             );
+            self::invalidarReemplazosPendientes($db, (int)$r['id']);
 
             return ['ok' => true, 'codigo' => self::OK, 'idempotente' => false];
         });
@@ -407,15 +414,49 @@ final class PuntoVentaReservacionService
         int $usuarioId
     ): array {
         $db = ActiveRecord::getDB();
+        $lockHorario = false;
+        $lockFecha = null;
         $transaccion = false;
         try {
+            $previo = self::fila(
+                "SELECT t.reservacion_id, t.hora_apertura, r.fecha AS reservacion_fecha
+                 FROM tickets t
+                 LEFT JOIN reservaciones r ON r.id = t.reservacion_id
+                 WHERE t.id = {$ticketId}
+                 LIMIT 1"
+            );
+            if (!$previo) {
+                return ['ok' => false, 'codigo' => self::NO_EXISTE];
+            }
+            $lockFecha = trim((string)($previo['reservacion_fecha'] ?? ''));
+            if ($lockFecha === '') {
+                $apertura = trim((string)($previo['hora_apertura'] ?? ''));
+                $lockFecha = substr($apertura, 0, 10) ?: ReservacionConfig::fechaActual();
+            }
+            $lockHorario = HorarioConfigLock::adquirir($db);
+            if (!$lockHorario || !FechaOperacionLock::adquirir($db, $lockFecha, 10)) {
+                throw new \RuntimeException('No fue posible bloquear la fecha operativa.');
+            }
             $db->begin_transaction();
             $transaccion = true;
+            $reservacionId = $previo['reservacion_id'] !== null ? (int)$previo['reservacion_id'] : null;
+            $reservacion = null;
+            if ($reservacionId) {
+                $reservacion = self::fila(
+                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
+                );
+                if (!$reservacion) {
+                    return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+                }
+            }
             $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId} FOR UPDATE");
             if (!$ticket) {
                 return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
             }
             if ($ticket['estado'] === 'cerrado') {
+                if ($reservacionId && (!$reservacion || $reservacion['estado'] !== 'completada')) {
+                    return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+                }
                 $token = self::tokenFeedback($db, $ticketId);
                 $db->commit();
                 $transaccion = false;
@@ -425,12 +466,14 @@ final class PuntoVentaReservacionService
                 return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
             }
 
-            $reservacionId = $ticket['reservacion_id'] !== null ? (int)$ticket['reservacion_id'] : null;
-            $reservacion = null;
-            if ($reservacionId) {
-                $reservacion = self::fila(
-                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
-                );
+            $mesasTicket = self::fila(
+                "SELECT COUNT(*) AS total FROM ticket_mesas WHERE ticket_id = {$ticketId} FOR UPDATE"
+            );
+            if ((int)($mesasTicket['total'] ?? 0) < 1) {
+                return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+            }
+            if ($reservacionId && (!$reservacion || $reservacion['estado'] !== 'en_curso')) {
+                return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
             }
             $metodo = $db->real_escape_string($metodoPago);
             $propinaSql = number_format(max(0, $propina), 2, '.', '');
@@ -485,6 +528,13 @@ final class PuntoVentaReservacionService
             }
             error_log('PuntoVentaReservacionService::cerrarTicket - ' . $e->getMessage());
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
+        } finally {
+            if ($lockFecha !== null) {
+                FechaOperacionLock::liberar($db, $lockFecha);
+            }
+            if ($lockHorario) {
+                HorarioConfigLock::liberar($db);
+            }
         }
     }
 
@@ -801,6 +851,38 @@ final class PuntoVentaReservacionService
                AND " . TicketMesa::condicionSqlAbierto('t') . "
              LIMIT 1 FOR UPDATE"
         ) !== null;
+    }
+
+    /** Invalida reemplazos que ya no pueden convertirse en una reservación operativa. */
+    private static function invalidarReemplazosPendientes(\mysqli $db, int $reservacionId): void
+    {
+        $resultado = $db->query(
+            "SELECT id FROM reservaciones
+             WHERE reemplaza_reservacion_id = {$reservacionId}
+               AND estado = 'pendiente_verificacion'
+             ORDER BY id DESC
+             FOR UPDATE"
+        );
+        if ($resultado === false) {
+            throw new \RuntimeException($db->error);
+        }
+        $ids = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $ids[] = (int)$fila['id'];
+        }
+        $resultado->free();
+        if ($ids === []) {
+            return;
+        }
+        $lista = implode(',', $ids);
+        if (!$db->query(
+            "UPDATE reservaciones
+             SET estado = 'expirada', hold_expires_at = NULL, estado_changed_at = NOW()
+             WHERE id IN ({$lista}) AND estado = 'pendiente_verificacion'"
+        )) {
+            throw new \RuntimeException($db->error);
+        }
+        VerificacionContacto::invalidarPorReservaciones($ids);
     }
 
     /**

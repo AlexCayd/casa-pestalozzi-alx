@@ -182,7 +182,14 @@ try {
     $assert(($originalBefore['estado'] ?? '') === 'confirmada' && ($rowByToken($originalPayload['request_token'])['estado'] ?? '') === 'confirmada', '7.3: original intacta antes del OTP');
     $assert($replacementId > 0 && (int)$replacementRow['reemplaza_reservacion_id'] === $originalId, '7.3: relación de reemplazo');
     $assert($count('reservacion_mesas', 'reservacion_id = ' . $replacementId) > 0, '7.3: reemplazo tiene asignación propia');
-    $assert(Reservacion::contarActivasPorContacto('email', $contact, $dateOriginal, '12:00:00') === 1, '7.3: reemplazo pendiente no duplica el límite de cinco');
+    $ahoraConsulta = ReservacionConfig::ahora();
+    $activeCountDuringReplacement = Reservacion::contarActivasPorContacto(
+        'email',
+        $contact,
+        $ahoraConsulta->format('Y-m-d'),
+        $ahoraConsulta->format('H:i:s')
+    );
+    $assert($activeCountDuringReplacement === 1, '7.3: reemplazo pendiente no duplica el límite de cinco (actual=' . $activeCountDuringReplacement . ')');
 
     $repeatReplacement = ReservacionPublicaService::crearReemplazo($replacementPayload, [
         'contacto_tipo' => 'email',

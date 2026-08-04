@@ -12,10 +12,6 @@ $operationalDate = (string)($operationalDate ?? date('Y-m-d'));
 $operationalHour = (string)($operationalHour ?? '');
 $operationalBrandHref = (string)($operationalBrandHref ?? '/punto-de-venta');
 $operationalHeaderBackUrl = (string)($operationalHeaderBackUrl ?? '');
-// Las vistas que no quieren flecha ni reloj lo dicen explícitamente; el resto
-// conserva el comportamiento anterior.
-$operationalHeaderBack = (bool)($operationalHeaderBack ?? true);
-$operationalShowLastUpdate = (bool)($operationalShowLastUpdate ?? true);
 $operationalDrawerId = (string)($operationalDrawerId ?? 'operational-reservations-drawer');
 $operationalHeaderDrawerToggleHtml = (string)($operationalHeaderDrawerToggleHtml ?? '');
 $operationalHeaderActionsHtml = (string)($operationalHeaderActionsHtml ?? '');
@@ -35,16 +31,12 @@ $operationalHeaderInitial = $operationalUsuarioNombre !== ''
     ? function_exists('mb_substr') ? mb_strtoupper(mb_substr($operationalUsuarioNombre, 0, 1)) : strtoupper(substr($operationalUsuarioNombre, 0, 1))
     : '';
 
-if ($operationalHeaderBack && $operationalHeaderBackUrl === '') {
+if ($operationalHeaderBackUrl === '') {
     $operationalHeaderQuery = http_build_query(array_filter([
         'fecha' => $operationalDate,
         'hora' => $operationalHour,
     ], static fn($value): bool => $value !== ''));
     $operationalHeaderBackUrl = '/admin/reservations' . ($operationalHeaderQuery !== '' ? '?' . $operationalHeaderQuery : '');
-}
-
-if (!$operationalHeaderBack) {
-    $operationalHeaderBackUrl = '';
 }
 ?>
 <header
@@ -65,49 +57,34 @@ if (!$operationalHeaderBack) {
         </a>
     </div>
 
-    <?php /* El título solo se pinta si la vista lo pide: el POS prescinde de él. */ ?>
-    <?php if ($operationalModuleTitle !== ''): ?>
-        <div class="operational-header__region operational-header__region--center">
-            <span class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></span>
-        </div>
-    <?php endif; ?>
+    <div class="operational-header__region operational-header__region--center">
+        <h1 class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></h1>
+    </div>
 
     <div class="operational-header__region operational-header__region--right">
-        <?php if ($operationalShowLastUpdate): ?>
-            <div class="operational-header__last-update" aria-label="Última actualización">
-                <?php
-                $operationalUpdateId = $operationalView === 'map' ? 'mapa-live-badge' : '';
-                $operationalUpdateTextId = $operationalView === 'map' ? 'mapa-update-status' : '';
-                $operationalUpdateText = $operationalView === 'map' ? 'En vivo' : 'Preparando operación';
-                $operationalUpdateTextAttributes = $operationalView === 'reservations'
-                    ? ['data-operation-update-status' => true]
-                    : [];
-                $operationalUpdateClass = $operationalView === 'map' ? 'mapa-live-badge' : '';
-                include __DIR__ . '/last-update.php';
-                ?>
-            </div>
-        <?php else: ?>
-            <?php /*
-              Sin texto de "Actualizado HH:MM": el punto basta para saber que el
-              mapa sigue vivo. Conserva el id para que el JS de refresco no
-              tenga que ramificar por vista.
-            */ ?>
-            <span class="operational-header__pulse mapa-live-badge" id="mapa-live-badge"
-                  role="status" aria-label="Mapa actualizándose en vivo"></span>
-        <?php endif; ?>
+        <div class="operational-header__last-update" aria-label="Última actualización">
+            <?php
+            $operationalUpdateId = $operationalView === 'map' ? 'mapa-live-badge' : '';
+            $operationalUpdateTextId = $operationalView === 'map' ? 'mapa-update-status' : '';
+            $operationalUpdateText = $operationalView === 'map' ? 'En vivo' : 'Preparando operación';
+            $operationalUpdateTextAttributes = $operationalView === 'reservations'
+                ? ['data-operation-update-status' => true]
+                : [];
+            $operationalUpdateClass = $operationalView === 'map' ? 'mapa-live-badge' : '';
+            include __DIR__ . '/last-update.php';
+            ?>
+        </div>
 
         <?php echo $operationalHeaderActionsHtml; ?>
 
-        <?php if ($operationalHeaderBackUrl !== ''): ?>
-            <a
-                class="operational-header__back"
-                href="<?php echo $operationalHeaderH($operationalHeaderBackUrl); ?>"
-                aria-label="Volver a la gestión"
-                title="Volver a la gestión"
-            >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
-            </a>
-        <?php endif; ?>
+        <a
+            class="operational-header__back"
+            href="<?php echo $operationalHeaderH($operationalHeaderBackUrl); ?>"
+            aria-label="Volver a la gestión"
+            title="Volver a la gestión"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+        </a>
 
         <?php if ($operationalUsuarioNombre !== ''): ?>
             <div class="operational-user-menu" data-operational-user-menu>
@@ -144,5 +121,4 @@ if (!$operationalHeaderBack) {
         <?php endif; ?>
     </div>
 </header>
-<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial,
-    $operationalHeaderBack, $operationalShowLastUpdate); ?>
+<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial); ?>

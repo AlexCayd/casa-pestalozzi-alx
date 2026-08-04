@@ -13,6 +13,14 @@
         'mesa-pin--no-utilizable'
     ];
 
+    var STATE_LABELS = {
+        libre: 'disponible',
+        ocupada: 'ocupada',
+        'reservacion-proxima': 'con reservación próxima',
+        seleccionada: 'seleccionada',
+        'no-utilizable': 'no utilizable'
+    };
+
     function toBoolean(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
     }
@@ -122,6 +130,20 @@
         var tablesById = {};
         var resizeObserver = null;
         var lastSelectionKey = '';
+        var card = canvas.closest('[data-map-component]');
+        var structuredList = card ? card.querySelector('[data-map-structured-list]') : null;
+
+        function accessibleTableLabel(table) {
+            var parts = [table.titulo];
+            if (table.capacidad > 0) {
+                parts.push('capacidad ' + table.capacidad);
+            }
+            parts.push(STATE_LABELS[table.estadoVisual] || table.estadoVisual);
+            if (table.seleccionada) {
+                parts.push('seleccionada');
+            }
+            return parts.join(', ');
+        }
 
         function dispatch(name, detail) {
             canvas.dispatchEvent(new CustomEvent(name, {
@@ -189,6 +211,63 @@
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+            pin.setAttribute('aria-label', accessibleTableLabel(table));
+        }
+
+        function syncStructuredTable(table) {
+            if (!structuredList) {
+                return;
+            }
+
+            var button = structuredList.querySelector('[data-structured-mesa="' + table.id + '"]');
+            if (!button) {
+                return;
+            }
+
+            var state = button.querySelector('.operational-map__structured-state');
+            button.disabled = !(interactive && table.interactivo);
+            button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+            button.setAttribute('aria-label', accessibleTableLabel(table));
+            if (state) {
+                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+            }
+        }
+
+        function renderStructuredList() {
+            if (!structuredList) {
+                return;
+            }
+
+            structuredList.innerHTML = '';
+            tables.forEach(function (table) {
+                var item = document.createElement('li');
+                item.setAttribute('role', 'listitem');
+
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('data-structured-mesa', String(table.id));
+                button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+                button.disabled = !(interactive && table.interactivo);
+                button.setAttribute('aria-label', accessibleTableLabel(table));
+
+                var name = document.createElement('span');
+                name.className = 'operational-map__structured-name';
+                name.textContent = table.titulo;
+                button.appendChild(name);
+
+                var state = document.createElement('span');
+                state.className = 'operational-map__structured-state';
+                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                button.appendChild(state);
+
+                button.addEventListener('click', function () {
+                    dispatchTableClick(table);
+                });
+                item.appendChild(button);
+                structuredList.appendChild(item);
+            });
         }
 
         function createPin(table) {
@@ -204,7 +283,7 @@
             pin.setAttribute('data-mapa-mesa', String(table.id));
             pin.setAttribute('data-reservable', table.reservable ? '1' : '0');
             pin.setAttribute('data-disabled', isInteractive ? '0' : '1');
-            pin.setAttribute('aria-label', table.titulo);
+            pin.setAttribute('aria-label', accessibleTableLabel(table));
 
             if (table.numero !== '') {
                 pin.setAttribute('data-numero', table.numero);
@@ -260,6 +339,7 @@
             canvas.innerHTML = '';
             canvas.appendChild(fragment);
             canvas.setAttribute('data-map-ready', '1');
+            renderStructuredList();
             emitSelectionIfChanged();
         }
 
@@ -268,6 +348,9 @@
             tablesById = {};
             canvas.removeAttribute('data-map-ready');
             canvas.innerHTML = '';
+            if (structuredList) {
+                structuredList.innerHTML = '';
+            }
 
             if (message) {
                 var empty = document.createElement('div');
@@ -318,6 +401,7 @@
             }
 
             applyState(pin, table);
+            syncStructuredTable(table);
 
             if (changes.atributos) {
                 var attributes = normalizeAttributes(changes.atributos);
@@ -343,10 +427,24 @@
                     if (pin) {
                         applyState(pin, table);
                     }
+                    syncStructuredTable(table);
                 }
             });
 
             emitSelectionIfChanged();
+        }
+
+        function dispatchTableClick(table) {
+            dispatch('mapa:mesa-click', {
+                contexto: context,
+                mesaId: table.id,
+                estado: table.estadoVisual,
+                reservable: table.reservable,
+                seleccionada: table.seleccionada,
+                capacidad: table.capacidad,
+                modificadores: table.modificadores.slice(),
+                seleccionMultiple: multiple
+            });
         }
 
         function onClick(event) {
@@ -360,16 +458,7 @@
                 return;
             }
 
-            dispatch('mapa:mesa-click', {
-                contexto: context,
-                mesaId: table.id,
-                estado: table.estadoVisual,
-                reservable: table.reservable,
-                seleccionada: table.seleccionada,
-                capacidad: table.capacidad,
-                modificadores: table.modificadores.slice(),
-                seleccionMultiple: multiple
-            });
+            dispatchTableClick(table);
         }
 
         function onResize(entries) {
@@ -395,7 +484,6 @@
         canvas.setAttribute('data-map-context', context);
         canvas.addEventListener('click', onClick);
 
-        var card = canvas.closest('[data-map-component]');
         var legend = card ? card.querySelector('[data-map-legend]') : null;
         if (legend && options.mostrarLeyenda === false) {
             legend.hidden = true;

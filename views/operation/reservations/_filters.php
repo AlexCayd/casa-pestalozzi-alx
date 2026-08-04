@@ -82,4 +82,19 @@
         ?>
     </div>
 
+    <div class="reservation-operation__filter reservation-operation__assignment-filter">
+        <label class="operational-visually-hidden" for="operation-asignacion-filtro">Estado de asignacion</label>
+        <select id="operation-asignacion-filtro" data-operation-assignment-filter>
+            <option value="all">Todas</option>
+            <option value="pending">Pendientes de asignar</option>
+            <option value="assigned">Con mesas</option>
+            <option value="in_course">En curso</option>
+        </select>
+    </div>
+
+    <div class="reservation-operation__filter reservation-operation__search-filter">
+        <label class="operational-visually-hidden" for="operation-reservacion-busqueda">Nombre o contacto</label>
+        <input id="operation-reservacion-busqueda" type="search" placeholder="Nombre o contacto" autocomplete="off" data-operation-reservation-search>
+    </div>
+
 </form>

@@ -7,6 +7,31 @@
             return;
         }
 
+        var skipLink = page.querySelector('.skip-link');
+        if (skipLink) {
+            function focusOperationalMain(event) {
+                var targetId = skipLink.getAttribute('href');
+                var target = targetId ? document.querySelector(targetId) : null;
+                if (!target) {
+                    return;
+                }
+                if (event) {
+                    event.preventDefault();
+                }
+                target.focus({ preventScroll: true });
+                target.scrollIntoView({
+                    behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+                });
+            }
+
+            skipLink.addEventListener('click', focusOperationalMain);
+            skipLink.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    focusOperationalMain(event);
+                }
+            });
+        }
+
         var drawer = page.querySelector('[data-operational-drawer]');
         var backdrop = page.querySelector('[data-operational-drawer-backdrop]');
         var toggles = Array.prototype.slice.call(page.querySelectorAll('[data-operational-drawer-toggle]'));

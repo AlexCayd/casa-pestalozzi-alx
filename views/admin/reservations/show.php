@@ -129,7 +129,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
     <header class="admin-menu__header admin-page__header reservation-detail-header">
         <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
         <div class="admin-page__intro">
-            <h2 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h2>
+            <h1 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h1>
         </div>
         <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
             <?php echo $h(($estadoLabels[$estado] ?? ucfirst($estado)) . (!empty($vigencia['tolerancia_vencida']) ? ' · Tolerancia vencida' : '')); ?>
@@ -141,7 +141,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
         $tipoAlerta = $tipo === 'exito' ? 'success' : ($tipo === 'warning' ? 'warning' : 'error');
         $tituloAlerta = $tipoAlerta === 'success' ? 'Listo' : ($tipoAlerta === 'warning' ? 'Atencion' : 'Revisa los siguientes datos');
         ?>
-        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>">
+        <div class="admin-alert admin-alert--<?php echo $h($tipoAlerta); ?>" role="<?php echo $tipoAlerta === 'error' ? 'alert' : 'status'; ?>" aria-live="polite">
             <strong><?php echo $h($tituloAlerta); ?></strong>
             <span><?php echo $h(implode(' ', $mensajes)); ?></span>
         </div>
@@ -340,7 +340,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                             <?php $actionButton('confirmada', 'Confirmar verificación', 'admin-btn admin-btn--primary'); ?>
                         <?php endif; ?>
                         <?php if (!empty($vigencia['elegible_no_show'])) : ?>
-                            <?php $actionButton('no_show', 'Marcar no show', 'admin-btn admin-btn--ghost'); ?>
+                            <?php $actionButton('no_show', 'Registrar que el cliente no se presentó', 'admin-btn admin-btn--ghost'); ?>
                         <?php endif; ?>
                         <?php if (in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
                             <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--danger', true); ?>
@@ -377,7 +377,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                     <span>Motivo</span>
                     <textarea name="motivo" rows="3" maxlength="500" data-reservation-action-reason></textarea>
                 </label>
-                <p class="admin-form-status admin-modal__field--wide" data-reservation-action-error aria-live="polite"></p>
+                <p class="admin-form-status admin-modal__field--wide" data-reservation-action-error role="alert" aria-live="assertive"></p>
                 <div class="admin-modal__actions admin-modal__field--wide">
                     <button type="button" class="admin-btn admin-btn--secondary" data-reservation-action-close>Volver</button>
                     <button type="submit" class="admin-btn admin-btn--danger" data-reservation-action-submit>Confirmar</button>

@@ -187,6 +187,8 @@ try {
     $assert(HorarioReservacionService::validarHora('2026-11-01', '13:00', $now)['ok'] === true, '5.1: primera hora válida ' . json_encode(HorarioReservacionService::validarHora('2026-11-01', '13:00', $now), JSON_UNESCAPED_UNICODE));
     $assert(HorarioReservacionService::validarHora($normalDate, '21:00', $now)['motivo_no_disponible'] === 'despues_de_ultima_reservacion', '5.1: después de última reservación');
     $horizonte = $now->modify('+' . ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')->format('Y-m-d');
+    $horizonteDia = (int)(new DateTimeImmutable($horizonte . ' 12:00:00', ReservacionConfig::timezone()))->format('w');
+    $query("UPDATE horarios_operacion SET abierto = 1, hora_apertura = '08:30:00', hora_cierre = '19:00:00' WHERE dia_semana = {$horizonteDia}");
     $assert(HorarioReservacionService::resolverFecha($horizonte, $now)['motivo_no_disponible'] === null, '5.1: límite de horizonte incluido');
     $assert(HorarioReservacionService::resolverFecha($now->modify('+91 days')->format('Y-m-d'), $now)['motivo_no_disponible'] === 'fecha_fuera_de_horizonte', '5.1: fecha fuera de horizonte');
     $assert(HorarioReservacionService::resolverFecha('2026-10-31', $now)['motivo_no_disponible'] === 'fecha_pasada', '5.1: fecha pasada');
@@ -199,6 +201,9 @@ try {
     $query("INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre) VALUES (0, 1, '08:30:00', '19:00:00')");
 
     // 5.2 — fixtures de ocupación sobre el día actual.
+    // El DML trae tickets abiertos de demostración; se aíslan dentro de la
+    // transacción para que no falseen el caso específico del hold vencido.
+    $query("UPDATE tickets SET estado = 'cerrado', closed_at = '2026-11-01 12:00:00' WHERE estado = 'abierto' AND closed_at IS NULL");
     $todayDate = '2026-11-01';
     $hold = $insertReservation('ETAPA5_HOLD_VIGENTE', $todayDate, '14:00:00', 2, 'pendiente_verificacion', '2026-11-01 12:15:00');
     $expiredHold = $insertReservation('ETAPA5_HOLD_VENCIDO', $todayDate, '14:00:00', 2, 'pendiente_verificacion', '2026-11-01 11:59:59');

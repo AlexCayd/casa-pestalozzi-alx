@@ -1,4 +1,5 @@
 const { src, dest, watch, parallel, series } = require("gulp");
+const fs = require("fs");
 
 // CSS
 const sass = require("gulp-sass")(require("sass"));
@@ -81,6 +82,24 @@ const paths = {
   chartJs: "node_modules/chart.js/dist/chart.umd.min.js",
 };
 
+// En Windows, antivirus/indexadores pueden conservar brevemente los mapas
+// generados. El build es finito e idempotente: elimina sólo sus dos salidas
+// temporales antes de reemplazarlas, evitando que un handle viejo rompa toda
+// la compilación.
+function limpiarSalidaMapa() {
+  [
+    "public/build/js/admin/map.js",
+    "public/build/js/admin/map.js.map",
+  ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
+}
+
+function limpiarSalidaFormularioReservacion() {
+  [
+    "public/build/js/admin/reservation-form.js",
+    "public/build/js/admin/reservation-form.js.map",
+  ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
+}
+
 function css() {
   return src(paths.scss)
     .pipe(sourcemaps.init())
@@ -108,8 +127,8 @@ function javascript() {
     .pipe(sourcemaps.init())
     .pipe(concat("bundle.js"))
     .pipe(terser())
-    .pipe(sourcemaps.write("."))
     .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js")) // auth views
     .pipe(dest("./assets/js")); // home view + index.html estatico
 }
@@ -133,6 +152,7 @@ function adminAnalyticsJavascript() {
 }
 
 function adminMapJavascript() {
+  limpiarSalidaMapa();
   return src(paths.adminMapJs)
     .pipe(sourcemaps.init())
     .pipe(concat("map.js"))
@@ -184,6 +204,7 @@ function operationCss() {
 }
 
 function adminReservationFormJavascript() {
+  limpiarSalidaFormularioReservacion();
   return src(paths.adminReservationFormJs)
     .pipe(sourcemaps.init())
     .pipe(concat("reservation-form.js"))

@@ -90,6 +90,7 @@ final class PosReservacionQueryService
                         $reservacionId,
                         $mesaIds
                     ),
+                    'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
         }

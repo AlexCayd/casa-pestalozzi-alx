@@ -722,6 +722,8 @@ function initForm() {
     message.textContent = text || "";
     message.classList.toggle("show", Boolean(text));
     message.classList.toggle("is-error", Boolean(error));
+    message.setAttribute("role", error ? "alert" : "status");
+    message.setAttribute("aria-live", error ? "assertive" : "polite");
   }
 
   function fieldControl(field) {

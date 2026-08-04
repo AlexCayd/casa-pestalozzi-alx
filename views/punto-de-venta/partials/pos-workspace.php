@@ -130,11 +130,11 @@ include __DIR__ . '/../../operation/partials/drawer.php';
 
 ?>
 
-<div class="mesa-modal" id="mesa-modal">
+<div class="mesa-modal" id="mesa-modal" role="dialog" aria-modal="true" aria-hidden="true" inert aria-labelledby="mesa-modal-title" tabindex="-1">
   <div class="mesa-modal__bd" id="mesa-modal-bd"></div>
   <div class="mesa-modal__panel">
     <div class="mesa-modal__handle"></div>
-    <button class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar">×</button>
+    <button type="button" class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar detalle de mesa">×</button>
     <div id="mesa-modal-content"></div>
   </div>
 </div>
@@ -143,7 +143,7 @@ include __DIR__ . '/../../operation/partials/drawer.php';
   Preferencias del mesero. Va fuera de #mesa-modal: el modal se abre y cierra
   de forma independiente y #mesa-modal-content se reescribe en cada apertura.
 */ ?>
-<div class="pos-prefs" id="pos-prefs-overlay" hidden>
+<div class="pos-prefs" id="pos-prefs-overlay" hidden aria-hidden="true">
   <div class="pos-prefs__bd" id="pos-prefs-bd"></div>
   <div class="pos-prefs__dialog" role="dialog" aria-modal="true" aria-labelledby="pos-prefs-title">
     <header class="pos-prefs__head">

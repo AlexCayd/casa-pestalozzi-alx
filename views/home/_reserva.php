@@ -37,7 +37,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
     </div>
     <div class="reserva__hours" data-reveal>
-        <h5>Horario habitual</h5>
+      <h3>Horario habitual</h3>
         <?php if ($horariosOperacionDisponibles) : ?>
           <?php foreach ($horariosOperacion as $horario) : ?>
             <?php $esHoy = (int)($horario['dia_semana'] ?? -1) === $hoyDiaSemana; ?>
@@ -196,6 +196,8 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
               $showIcon = true;
               // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
               $enabledWeekdays = range(0, 6);
+              $displayAriaDescribedby = 'dateError';
+              $displayAriaInvalid = false;
               include __DIR__ . '/../components/reservations/date-picker.php';
             ?>
             <span class="field__msg reservation-field__error" id="dateError" data-field-error="fecha"></span>
@@ -233,6 +235,8 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
               $value = '';
               $endpoint = '/api/reservaciones/disponibilidad';
               $disabled = false;
+              $displayAriaDescribedby = 'hourStatus';
+              $displayAriaInvalid = false;
               include __DIR__ . '/../components/reservations/time-picker.php';
             ?>
             <span class="field__msg reservation-field__error" id="hourStatus" data-field-error="hora" role="status" aria-live="polite"></span>
@@ -409,7 +413,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
           <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
         </div>
-        <p class="reservation-access__message" data-new-reservation-otp-message></p>
+        <p class="reservation-access__message" data-new-reservation-otp-message role="status" aria-live="polite"></p>
       </section>
       <div class="reserva__confirm" id="reservaConfirm" aria-live="polite">
         <div class="reserva__confirm-header">
@@ -513,7 +517,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
         <input class="reservation-control reservation-control--text" name="nombre" type="text" required readonly aria-readonly="true">
       </div>
       <div class="field reservation-field">
-        <label class="reservation-field__label" data-editor-date-label>Fecha</label>
+        <label class="reservation-field__label" data-editor-date-label for="reservationEditorDateDisplay">Fecha</label>
         <?php
           $rootId = 'reservationEditorDatePicker';
           $inputId = 'reservationEditorDate';
@@ -531,7 +535,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
         ?>
       </div>
       <div class="field reservation-field">
-        <label class="reservation-field__label" data-editor-time-label>Hora</label>
+        <label class="reservation-field__label" data-editor-time-label for="reservationEditorTimeDisplay">Hora</label>
         <?php
           $rootId = 'reservationEditorTimePicker';
           $inputId = 'reservationEditorTime';

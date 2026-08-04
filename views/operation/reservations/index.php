@@ -200,8 +200,10 @@ if ($initialOperationNotice !== null) {
                 <span><small>Diferencia</small><strong data-operation-assignment-difference>0</strong></span>
                 <span class="reservation-operation-assignment-bar__tables"><small>Mesas</small><strong data-operation-assignment-tables>Sin mesas seleccionadas</strong></span>
             </div>
+            <p class="reservation-operation-assignment-bar__refresh" data-operation-assignment-refresh role="status" aria-live="polite" hidden>Los datos se actualizaron. Tu selecciÃ³n local se conserva; vuelve a validar antes de guardar.</p>
             <div class="reservation-operation-assignment-bar__actions">
                 <button type="button" class="admin-btn admin-btn--secondary" data-operation-assignment-cancel>Cancelar</button>
+                <button type="button" class="admin-btn admin-btn--danger" data-operation-clear hidden>Dejar pendiente</button>
                 <button type="button" class="admin-btn admin-btn--primary" data-operation-save data-operation-assignment-save data-disabled="1" disabled>Guardar asignación</button>
             </div>
         </section>
@@ -253,7 +255,7 @@ if ($initialOperationNotice !== null) {
         <div class="operation-create-modal__head">
             <div>
                 <span class="operation-create-modal__eyebrow">Excepción manual</span>
-                <h2 id="operation-ticket-conflict-title">Mesas con servicio activo</h2>
+                <h2 id="operation-ticket-conflict-title">Confirmar advertencias de asignacion</h2>
             </div>
             <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar confirmación" data-operation-ticket-conflict-close>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
@@ -266,7 +268,7 @@ if ($initialOperationNotice !== null) {
         </div>
         <div class="operation-create-modal__footer">
             <button type="button" class="admin-btn admin-btn--secondary" data-operation-ticket-conflict-close>Volver</button>
-            <button type="button" class="admin-btn admin-btn--danger" data-operation-ticket-conflict-confirm>Confirmar uso manual</button>
+            <button type="button" class="admin-btn admin-btn--danger" data-operation-ticket-conflict-confirm>Confirmar y guardar</button>
         </div>
     </dialog>
 

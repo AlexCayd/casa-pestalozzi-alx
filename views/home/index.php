@@ -90,10 +90,11 @@ if ($schemaHorarios !== []) {
 </head>
 <body class="reveal-ready" data-hero="cinema" data-page="home">
 
+  <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
   <?php include_once __DIR__ . '/_cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
 
-  <main>
+  <main id="main-content" tabindex="-1">
     <?php include_once __DIR__ . '/_hero.php'; ?>
     <?php include_once __DIR__ . '/_nosotros.php'; ?>
     <?php include_once __DIR__ . '/_menu.php'; ?>

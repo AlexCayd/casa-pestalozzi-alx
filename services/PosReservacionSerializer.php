@@ -90,7 +90,7 @@ final class PosReservacionSerializer
         $updatedAt = (string)($datos['updated_at'] ?? $datos['created_at'] ?? '');
         $version = hash('sha256', $updatedAt . '|' . implode(',', $mesaIds));
 
-        return [
+        $serializado = [
             'schema_version' => self::SCHEMA_VERSION,
             'reservacion_id' => $reservacionId,
             // Alias de transporte conservado para consumidores existentes; la
@@ -143,6 +143,15 @@ final class PosReservacionSerializer
             'motivo_no_editable' => $opciones['motivo_no_editable'] ?? null,
             'version' => $version,
         ];
+
+        // El origen es contexto exclusivo del mapa administrativo. Se agrega
+        // sólo cuando ese consumidor lo solicita para no modificar la
+        // respuesta canónica que consumen POS y la operación pública.
+        if (!empty($opciones['incluir_contexto_administrativo'])) {
+            $serializado['origen'] = (string)($datos['origen'] ?? '');
+        }
+
+        return $serializado;
     }
 
     /**

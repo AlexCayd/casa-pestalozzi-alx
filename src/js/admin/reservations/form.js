@@ -376,9 +376,23 @@
                     });
                 }
                 document.addEventListener('keydown', function (event) {
-                    if (!confirmation.hidden && event.key === 'Escape') {
+                    if (confirmation.hidden) return;
+                    if (event.key === 'Escape') {
                         event.preventDefault();
                         closeConfirmation(true);
+                        return;
+                    }
+                    if (event.key !== 'Tab') return;
+                    var focusable = Array.prototype.slice.call(confirmation.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+                    if (!focusable.length) return;
+                    var first = focusable[0];
+                    var last = focusable[focusable.length - 1];
+                    if (event.shiftKey && document.activeElement === first) {
+                        event.preventDefault();
+                        last.focus();
+                    } else if (!event.shiftKey && document.activeElement === last) {
+                        event.preventDefault();
+                        first.focus();
                     }
                 });
                 form.addEventListener('reservation:capacity-warning', function (event) {
@@ -1021,9 +1035,23 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && !modal.hidden) {
+            if (modal.hidden) return;
+            if (event.key === 'Escape') {
                 event.preventDefault();
                 close();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            var focusable = Array.prototype.slice.call(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+            if (!focusable.length) return;
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         });
     }

@@ -143,7 +143,7 @@ $now = new DateTimeImmutable('2026-11-01 12:00:00', ReservacionConfig::timezone(
 $lunes = $findFreeDate(1);
 $martes = $findFreeDate(2, [$lunes]);
 $miercoles = $findFreeDate(3, [$lunes, $martes]);
-$lunesEspecial = $findFreeDate(1, [$lunes, $martes, $miercoles]);
+$juevesEspecial = $findFreeDate(4, [$lunes, $martes, $miercoles]);
 
 try {
     $db->begin_transaction();
@@ -153,12 +153,12 @@ try {
     $query("UPDATE horarios_operacion SET abierto = 1, hora_apertura = '09:00:00', hora_cierre = '18:00:00' WHERE dia_semana = 1");
     $query("UPDATE horarios_operacion SET abierto = 1, hora_apertura = '12:00:00', hora_cierre = '22:00:00' WHERE dia_semana = 2");
     $query("UPDATE horarios_operacion SET abierto = 1, hora_apertura = '10:00:00', hora_cierre = '20:00:00' WHERE dia_semana = 0");
-    $insertException($lunesEspecial, 'horario_especial', '14:00:00', '20:00:00');
+    $insertException($juevesEspecial, 'horario_especial', '14:00:00', '20:00:00');
 
     $lunesCalendar = HorarioReservacionService::resolverFecha($lunes, $now);
     $martesCalendar = HorarioReservacionService::resolverFecha($martes, $now);
     $miercolesCalendar = HorarioReservacionService::resolverFecha($miercoles, $now);
-    $specialCalendar = HorarioReservacionService::resolverFecha($lunesEspecial, $now);
+    $specialCalendar = HorarioReservacionService::resolverFecha($juevesEspecial, $now);
     $todayCalendar = HorarioReservacionService::resolverFecha('2026-11-01', $now);
 
     $assert(($lunesCalendar['horarios_candidatos'][0] ?? '') === '09:00', '6.2: lunes usa su horario semanal');
@@ -183,14 +183,14 @@ try {
     $publicA = DisponibilidadReservacionService::consultar($lunes, 2, 0, '13:00');
     $publicB = DisponibilidadReservacionService::consultar($martes, 2, 0, '13:00');
     $adminB = DisponibilidadReservacionService::consultarAdministrativa($martes, 2, 0, '13:00');
-    $adminSpecial = DisponibilidadReservacionService::consultarAdministrativa($lunesEspecial, 2, 0);
+    $adminSpecial = DisponibilidadReservacionService::consultarAdministrativa($juevesEspecial, 2, 0);
 
     $assert(($publicA['fecha'] ?? '') === $lunes && ($publicA['disponible'] ?? true) === false, '6.2: fecha A ocupada no disponible');
     $assert(($publicB['fecha'] ?? '') === $martes && ($publicB['disponible'] ?? false) === true, '6.2: fecha B conserva capacidad propia');
     $assert(($publicB['hora'] ?? '') === '13:00', '6.2: respuesta pública puntual devuelve fecha y hora solicitadas');
     $assert(($adminB['fecha'] ?? '') === $martes && ($adminB['hora'] ?? '') === '13:00', '6.2: respuesta administrativa devuelve fecha y hora solicitadas');
     $assert(isset($adminB['detalle_horarios']['13:00']['capacidad_estimada_horario']), '6.2: administración expone capacidad por horario');
-    $assert(($adminSpecial['fecha'] ?? '') === $lunesEspecial && ($adminSpecial['detalle_horario']['es_excepcion'] ?? false) === true, '6.2: administración conserva excepción de la fecha seleccionada');
+    $assert(($adminSpecial['fecha'] ?? '') === $juevesEspecial && ($adminSpecial['detalle_horario']['es_excepcion'] ?? false) === true, '6.2: administración conserva excepción de la fecha seleccionada');
 
     $currentOccupancy = OcupacionMesasService::evaluarHorario('2026-11-01', '12:00', 0, false, null, $now);
     $futureOccupancy = OcupacionMesasService::evaluarHorario($martes, '12:00', 0, false, null, $now);
@@ -240,7 +240,7 @@ echo json_encode([
         'lunes' => $lunes,
         'martes' => $martes,
         'miercoles' => $miercoles,
-        'lunes_especial' => $lunesEspecial,
+        'jueves_especial' => $juevesEspecial,
     ],
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
 

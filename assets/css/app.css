@@ -413,6 +413,44 @@ a {
   text-decoration: none;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: fixed;
+  inset-block-start: 1rem;
+  inset-inline-start: 1rem;
+  z-index: 10000;
+  padding: 0.7rem 1rem;
+  transform: translateY(-220%);
+  border: 2px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--ink);
+  color: var(--beige);
+  font-weight: 600;
+  line-height: 1.2;
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--accent-soft);
+  outline-offset: 3px;
+}
+
+main:focus {
+  outline: none;
+}
+
 button {
   font-family: inherit;
   cursor: none;
@@ -421,6 +459,14 @@ button {
   color: inherit;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .nav-overlay,
+  .lightbox,
+  #tweaks {
+    transition: none !important;
+  }
+}
 ::selection {
   background: var(--accent);
   color: var(--ink);
@@ -7629,6 +7675,83 @@ footer.foot {
   justify-content: center;
   gap: 8px 14px;
   flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mapa-leyenda__note {
+  margin: 0.35rem 0 0;
+  color: var(--admin-faint);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+}
+
+.operational-map__structured {
+  margin-top: 0.75rem;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--admin-surface-soft) 72%, transparent);
+}
+
+.operational-map__structured summary {
+  cursor: pointer;
+  padding: 0.7rem 0.85rem;
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+}
+
+.operational-map__structured-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.operational-map__structured-list > li {
+  min-width: 0;
+  list-style: none;
+}
+
+.operational-map__structured-list button {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  min-height: 3.25rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 0.55rem;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  text-align: start;
+}
+
+.operational-map__structured-list button:not(:disabled) {
+  cursor: pointer;
+}
+
+.operational-map__structured-list button:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operational-map__structured-list button[aria-pressed=true] {
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-selected-bg);
+}
+
+.operational-map__structured-list button:disabled {
+  opacity: 0.7;
+}
+
+.operational-map__structured-name {
+  font-weight: var(--operational-weight-semibold);
+}
+
+.operational-map__structured-state {
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
 }
 
 .mesas-map__legend .mapa-leyenda-item {
@@ -7954,6 +8077,29 @@ footer.foot {
   opacity: 1;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
   outline: 0;
+}
+
+/* La seleccion manual no oculta una ocupacion fisica real. */
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada {
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/*
+ * Estado superpuesto: la ocupación física conserva el fondo rojo, la
+ * reservación conserva su borde azul y la selección queda como indicador
+ * amarillo secundario. Ningún estado informativo se pierde por la selección.
+ */
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_tolerancia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_bloqueante {
+  border-color: var(--map-reservation-warning-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .pos-map.is-ticket-selection-mode {
@@ -8352,7 +8498,7 @@ footer.foot {
   min-height: 44px;
   flex: 0 1 auto;
   min-width: 0;
-  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
+  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px) minmax(150px, 190px) minmax(180px, 230px);
   align-items: center;
   justify-content: start;
   gap: 10px;
@@ -8368,6 +8514,20 @@ footer.foot {
   min-width: 0;
   margin-block: 0;
   align-self: center;
+}
+
+.reservation-operation__assignment-filter select,
+.reservation-operation__search-filter input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm, 8px);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
 }
 
 .reservation-operation__filter-actions {
@@ -8783,6 +8943,22 @@ footer.foot {
 
 .reservation-operation-card__secondary--warning {
   color: var(--admin-warning-text);
+}
+
+.reservation-operation-card__admin-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation-card__note {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .reservation-operation-card__tables {

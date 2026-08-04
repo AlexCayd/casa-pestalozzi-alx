@@ -42,6 +42,9 @@
         var hour = String(options.hora || reservation.hora || '').slice(0, 5) || '--:--';
         var customer = options.cliente || reservation.nombre || 'Sin nombre';
         var people = options.comensales == null ? reservation.comensales : options.comensales;
+        var contact = options.contacto || reservation.contacto_visible || reservation.contacto || 'Sin contacto';
+        var origin = options.origen || reservation.origen_visible || '';
+        var note = options.nota || reservation.nota_breve || '';
         var tables = Array.isArray(options.mesas)
             ? options.mesas
             : (Array.isArray(reservation.mesas_asignadas) ? reservation.mesas_asignadas : []);
@@ -72,14 +75,24 @@
             secondaryMeta = '<span class="reservation-operation-card__secondary reservation-operation-card__secondary--warning">Sin asignar</span>';
         }
 
+        var accessibleLabel = 'Reservación ' + id + ', ' + customer + ', ' + hour + ', ' + pluralPeople(people) + ', estado ' + stateLabel;
+        if (tables.length) {
+            accessibleLabel += ', mesas ' + tables.join(', ');
+        } else {
+            accessibleLabel += ', sin mesas asignadas';
+        }
+
         return '<article class="' + articleClasses.join(' ') + '" data-id="' + id + '">' +
-            '<button type="button" class="reservation-operation-card__button" data-operation-reservation="' + id + '" aria-pressed="' + (options.seleccionada ? 'true' : 'false') + '">' +
+            '<button type="button" class="reservation-operation-card__button" data-operation-reservation="' + id + '" aria-label="' + escapeHtml(accessibleLabel) + '" aria-pressed="' + (options.seleccionada ? 'true' : 'false') + '">' +
                 '<div class="reservation-operation-card__head">' +
                     '<time class="reservation-operation-card__time">' + escapeHtml(hour) + '</time>' +
                     '<span class="reservations-table__status reservations-table__status--' + state + '">' + escapeHtml(stateLabel) + '</span>' +
                 '</div>' +
                 '<div class="reservation-operation-card__customer"><strong>' + escapeHtml(customer) + '</strong></div>' +
                 '<div class="reservation-operation-card__meta"><span>' + escapeHtml(pluralPeople(people)) + '</span>' + secondaryMeta + '</div>' +
+                (options.mostrarContextoAdmin ? '<div class="reservation-operation-card__admin-meta"><span>' + escapeHtml(contact) + '</span>' +
+                    (origin ? '<span>' + escapeHtml(origin) + '</span>' : '') + '</div>' : '') +
+                (options.mostrarContextoAdmin && note ? '<p class="reservation-operation-card__note">' + escapeHtml(note) + '</p>' : '') +
                 '<div class="reservation-operation-card__tables">' + tableMarkup + '</div>' +
             '</button>' +
         '</article>';

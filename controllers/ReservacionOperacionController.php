@@ -8,6 +8,7 @@
 namespace Controllers;
 
 use Model\Reservacion;
+use Model\ReservacionMesa;
 use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
@@ -16,6 +17,7 @@ use Services\OcupacionMesasService;
 use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\ReservacionConfig;
+use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionService;
 
 class ReservacionOperacionController
@@ -203,6 +205,7 @@ class ReservacionOperacionController
         $lectura = PosReservacionQueryService::paraFecha($fecha, $horaResuelta, [
             'incluir_inactivas' => true,
             'calcular_conflictos' => true,
+            'incluir_contexto_administrativo' => true,
         ]);
         if (!($lectura['ok'] ?? false)) {
             self::jsonResponse([
@@ -229,6 +232,12 @@ class ReservacionOperacionController
             $fecha,
             $horarios
         );
+        $proyeccionAdministrativa = ReservacionMapaAdministrativaService::proyectar(
+            $reservacionesSerializadas,
+            $reservacionesOperativas
+        );
+        $reservacionesSerializadas = $proyeccionAdministrativa['reservaciones'];
+        $reservacionesAdministrativas = $proyeccionAdministrativa['reservaciones_admin'];
         $idsOperativos = array_fill_keys(array_map(
             static fn(array $reservacion): int => (int)($reservacion['id'] ?? 0),
             $reservacionesOperativas
@@ -294,6 +303,7 @@ class ReservacionOperacionController
             'sin_horarios_futuros' => $resolucionHorario['sin_horarios_futuros'],
             'reservaciones' => $reservacionesSerializadas,
             'reservaciones_operativas' => $reservacionesOperativas,
+            'reservaciones_admin' => $reservacionesAdministrativas,
             'mesas' => $mesasSerializadas,
             'mesas_estado' => $estadosMesas,
             'schema_version' => $lectura['schema_version'],
@@ -335,17 +345,14 @@ class ReservacionOperacionController
             ], 422);
             return;
         }
-        $permitirCapacidadInsuficiente = false;
         $mesaIds = $_POST['mesa_ids'] ?? [];
         $contextoCompleto = array_key_exists('fecha', $_POST)
             && array_key_exists('hora', $_POST)
             && trim((string)($_POST['version_esperada'] ?? '')) !== ''
             && (string)($_POST['mesa_ids_actuales_presentes'] ?? '') === '1';
-        $resultado = AsignacionMesasService::asignarManual(
+        $resultado = ReservacionMapaAdministrativaService::guardarAsignacion(
             $id,
             (array)$mesaIds,
-            $permitirCapacidadInsuficiente,
-            true,
             [
                 'ticket_ids_aceptados' => (array)($_POST['ticket_ids_aceptados'] ?? []),
                 'conflicto_token' => (string)($_POST['conflicto_token'] ?? ''),
@@ -357,10 +364,43 @@ class ReservacionOperacionController
                 'hora_esperada' => (string)($_POST['hora'] ?? ''),
                 'mesa_ids_actuales' => (array)($_POST['mesa_ids_actuales'] ?? []),
                 'permitir_superposicion_ticket_abierto' => true,
+                'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
             ]
         );
 
         self::jsonResultadoAsignacion($resultado, 'Asignacion guardada.');
+    }
+
+    public static function apiClearTables(): void
+    {
+        if (!self::csrfValido()) {
+            self::csrfFailure();
+        }
+        $id = self::reservacionIdOperacionPost();
+        if ($id < 1) {
+            self::jsonResponse([
+                'ok' => false,
+                'codigo' => AsignacionMesasService::DATOS_INCOMPLETOS,
+                'mensaje' => self::mensajeAsignacionApi(AsignacionMesasService::DATOS_INCOMPLETOS),
+            ], 422);
+            return;
+        }
+
+        $contextoCompleto = array_key_exists('fecha', $_POST)
+            && array_key_exists('hora', $_POST)
+            && trim((string)($_POST['version_esperada'] ?? '')) !== ''
+            && (string)($_POST['mesa_ids_actuales_presentes'] ?? '') === '1';
+        $resultado = ReservacionMapaAdministrativaService::liberarAsignacion($id, [
+            'version_esperada' => (string)($_POST['version_esperada'] ?? ''),
+            'validar_contexto' => true,
+            'contexto_completo' => $contextoCompleto,
+            'fecha_esperada' => (string)($_POST['fecha'] ?? ''),
+            'hora_esperada' => (string)($_POST['hora'] ?? ''),
+            'mesa_ids_actuales' => (array)($_POST['mesa_ids_actuales'] ?? []),
+            'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
+        ]);
+
+        self::jsonResultadoAsignacion($resultado, 'Asignacion liberada.');
     }
 
     public static function apiReasignarAutomaticamente(): void
@@ -433,7 +473,26 @@ class ReservacionOperacionController
         }
 
         $mesaIds = $_POST['mesa_ids'] ?? [];
-        $resultado = AsignacionMesasService::asignarManual((int)$reservacion->id, (array)$mesaIds);
+        $mesaIdsActuales = ReservacionMesa::obtenerIdsPorReservacion((int)$reservacion->id);
+        sort($mesaIdsActuales, SORT_NUMERIC);
+        $resultado = ReservacionMapaAdministrativaService::guardarAsignacion(
+            (int)$reservacion->id,
+            (array)$mesaIds,
+            [
+                'validar_contexto' => true,
+                'contexto_completo' => true,
+                'version_esperada' => hash(
+                    'sha256',
+                    (string)($reservacion->updated_at ?: $reservacion->created_at)
+                        . '|' . implode(',', $mesaIdsActuales)
+                ),
+                'fecha_esperada' => (string)$reservacion->fecha,
+                'hora_esperada' => (string)$reservacion->hora,
+                'mesa_ids_actuales' => $mesaIdsActuales,
+                'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
+                'permitir_superposicion_ticket_abierto' => false,
+            ]
+        );
         self::redirectOperacionDesdePost(
             self::resultadoAsignacion($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO),
             $reservacion
@@ -636,6 +695,10 @@ class ReservacionOperacionController
             AsignacionMesasService::VERSION_DESACTUALIZADA,
             AsignacionMesasService::MESA_OCUPADA,
             AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS,
+            AsignacionMesasService::CONFLICTO_TICKET_ABIERTO,
+            AsignacionMesasService::DEPENDE_LIBERACION_PROYECTADA,
+            AsignacionMesasService::LIBERAR_ASIGNACION_ACTUAL,
+            AsignacionMesasService::LIBERACION_NO_AUTORIZADA,
             AsignacionMesasService::RESERVACION_NO_EDITABLE => 409,
             AsignacionMesasService::SUPERPOSICION_NO_AUTORIZADA => 403,
             AsignacionMesasService::RESERVACION_NO_EXISTE => 404,
@@ -657,6 +720,9 @@ class ReservacionOperacionController
             'depende_liberacion_proyectada' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
             'mesas_proyectadas' => $resultado['mesas_proyectadas'] ?? [],
             'advertencia' => $resultado['advertencia'] ?? null,
+            'advertencias' => $resultado['advertencias'] ?? [],
+            'confirmaciones_requeridas' => $resultado['confirmaciones_requeridas'] ?? [],
+            'mesas_liberadas' => $resultado['mesas_liberadas'] ?? [],
         ], $httpStatus);
     }
 
@@ -711,6 +777,10 @@ class ReservacionOperacionController
             AsignacionMesasService::MESAS_INVALIDAS => 'mesas_invalidas',
             AsignacionMesasService::MESA_OCUPADA => 'mesa_ocupada',
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'capacidad_insuficiente',
+            AsignacionMesasService::CONFLICTO_TICKET_ABIERTO,
+            AsignacionMesasService::CONFLICTO_TICKETS_ABIERTOS,
+            AsignacionMesasService::DEPENDE_LIBERACION_PROYECTADA => 'conflicto_tickets',
+            AsignacionMesasService::SIN_CONTACTO => 'asignacion_guardada',
             AsignacionMesasService::ESTADO_INVALIDO => 'estado_no_permite',
             AsignacionMesasService::RESERVACION_NO_EDITABLE => 'estado_no_permite',
             AsignacionMesasService::VERSION_DESACTUALIZADA,
@@ -736,6 +806,11 @@ class ReservacionOperacionController
             AsignacionMesasService::CAPACIDAD_INSUFICIENTE => 'La capacidad seleccionada es insuficiente.',
             AsignacionMesasService::AGRUPACION_NO_AUTORIZADA => 'La selección no corresponde a una agrupación de mesas autorizada para reservaciones.',
             AsignacionMesasService::ESTADO_INVALIDO => 'Este estado no permite modificar mesas.',
+            AsignacionMesasService::CONFLICTO_TICKET_ABIERTO => 'La seleccion incluye un ticket abierto. Confirma la excepcion manual para continuar.',
+            AsignacionMesasService::DEPENDE_LIBERACION_PROYECTADA => 'La seleccion depende de la liberacion proyectada de un servicio activo. Confirma el riesgo operativo.',
+            AsignacionMesasService::SIN_CONTACTO => 'La reservacion no tiene contacto registrado.',
+            AsignacionMesasService::LIBERAR_ASIGNACION_ACTUAL => 'Confirma que deseas dejar esta reservacion sin mesas asignadas.',
+            AsignacionMesasService::LIBERACION_NO_AUTORIZADA => 'Una reservacion publica no puede quedar sin mesas desde este mapa.',
             ReservacionService::RESERVACION_PASADA,
             ReservacionService::RESERVACION_HORARIO_PASADO => 'La operacion historica es de solo lectura.',
             AsignacionMesasService::RESERVACION_NO_EXISTE => 'La reservacion no existe.',
@@ -840,6 +915,9 @@ class ReservacionOperacionController
             'mesas_invalidas' => ['error' => ['Una o mas mesas no existen, no estan activas o no son reservables.']],
             'mesa_ocupada' => ['error' => ['Una de las mesas seleccionadas ya esta ocupada por otra reservacion activa en esa ventana horaria.']],
             'capacidad_insuficiente' => ['error' => ['La capacidad seleccionada no cubre los comensales de la reservacion.']],
+            'conflicto_tickets' => ['error' => ['La asignacion depende de un ticket abierto y requiere confirmacion desde el mapa.']],
+            'conflicto_concurrencia' => ['error' => ['La reservacion o sus mesas cambiaron mientras se guardaba la asignacion.']],
+            'datos_incompletos' => ['error' => ['Falta contexto vigente para guardar la asignacion.']],
             'estado_no_permite' => ['error' => ['El estado de la reservacion no permite modificar mesas.']],
             'estado_invalido' => ['error' => ['La accion no es valida para el estado actual de la reservacion.']],
             'datos_invalidos' => ['error' => ['Revisa los datos de la reservacion.']],

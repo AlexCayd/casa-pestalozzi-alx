@@ -15,6 +15,7 @@ use InvalidArgumentException;
 use Model\ActiveRecord;
 use Model\Reservacion;
 use Model\ReservacionMesa;
+use Model\TicketMesa;
 use Model\VerificacionContacto;
 
 final class ReservacionPublicaService
@@ -892,6 +893,26 @@ final class ReservacionPublicaService
                         'ok' => false,
                         'codigo' => self::CANCELACION_NO_PERMITIDA,
                         'mensaje' => 'Ya no es posible cancelar en línea. Contacta al restaurante.',
+                    ];
+                }
+                $ticket = $db->query(
+                    "SELECT t.id FROM tickets t
+                     WHERE t.reservacion_id = {$id}
+                       AND " . TicketMesa::condicionSqlAbierto('t') . "
+                     LIMIT 1 FOR UPDATE"
+                );
+                if ($ticket === false) {
+                    throw new \RuntimeException($db->error);
+                }
+                $ticketAbierto = $ticket->num_rows > 0;
+                $ticket->free();
+                if ($ticketAbierto) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return [
+                        'ok' => false,
+                        'codigo' => self::CANCELACION_NO_PERMITIDA,
+                        'mensaje' => 'El servicio ya comenzó y no puede cancelarse en línea.',
                     ];
                 }
 

@@ -5,6 +5,16 @@
  * modificadores e incorpora opciones propias de cada pantalla.
  */
 (function () {
+    // La precedencia decide el fondo principal; los modificadores conservan
+    // las advertencias secundarias (por ejemplo, ticket + reservación).
+    var VISUAL_PRECEDENCE = [
+        'no-utilizable',
+        'ocupada',
+        'seleccionada',
+        'reservacion-proxima',
+        'libre'
+    ];
+
     function booleanValue(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
     }
@@ -57,6 +67,18 @@
         return modifiers.indexOf(name) !== -1;
     }
 
+    function isUnusable(raw, options, state) {
+        if (options.noUtilizable != null) {
+            return booleanValue(options.noUtilizable);
+        }
+
+        return state === 'no_reservable'
+            || raw.activo === false
+            || raw.activo === 0
+            || raw.activo === '0'
+            || (raw.reservable != null && !booleanValue(raw.reservable));
+    }
+
     /**
      * Resuelve la apariencia sin mezclar estados ni crear etiquetas auxiliares:
      * seleccion valida, ticket/ocupacion, reservacion proxima, no utilizable
@@ -74,14 +96,17 @@
         var hasTicket = Boolean(raw.ticket_abierto || options.ticketAbierto) || hasModifier(modifiers, 'ticket_abierto');
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima') || state === 'bloqueada' || state === 'proxima';
-        var unusable = options.noUtilizable != null
-            ? Boolean(options.noUtilizable)
-            : state === 'no_reservable' || raw.activo === false || raw.activo === 0 || raw.activo === '0';
+        var unusable = isUnusable(raw, options, state);
 
-        if (selected && selectionValid) return 'seleccionada';
-        if (hasTicket || state === 'ocupada') return 'ocupada';
-        if (hasUpcomingReservation) return 'reservacion-proxima';
+        // Una mesa no reservable nunca puede quedar seleccionada, aunque el
+        // consumidor haya enviado una intención stale o una opción incompleta.
         if (unusable) return 'no-utilizable';
+
+        // Un ticket abierto conserva la base física roja. La selección se
+        // expresa como modificador/ring, no sustituyendo ese estado.
+        if (hasTicket || state === 'ocupada') return 'ocupada';
+        if (selected && selectionValid) return 'seleccionada';
+        if (hasUpcomingReservation) return 'reservacion-proxima';
         return 'libre';
     }
 
@@ -97,7 +122,8 @@
         var selected = options.seleccionActual != null
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
-        var seleccionValida = options.seleccionValida !== false;
+        var noUtilizable = isUnusable(raw, options, stateBase);
+        var seleccionValida = options.seleccionValida !== false && !noUtilizable;
         selected = selected && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
             modifiers.push('seleccion_actual');
@@ -126,7 +152,8 @@
                 estadoBase: stateBase,
                 modificadores: modifiers,
                 seleccionActual: selected,
-                seleccionValida: seleccionValida
+                seleccionValida: seleccionValida,
+                noUtilizable: noUtilizable
             })),
             clasesEstado: modifiers.map(modifierClass).concat(options.clasesEstado || []),
             atributos: Object.assign({
@@ -139,6 +166,7 @@
     window.MesaEstadoAdapter = {
         fusionar: merge,
         paraMapaVisual: toMapVisual,
-        resolverEstadoVisualMesa: resolverEstadoVisualMesa
+        resolverEstadoVisualMesa: resolverEstadoVisualMesa,
+        precedenciaVisual: VISUAL_PRECEDENCE.slice()
     };
 })();

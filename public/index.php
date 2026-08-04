@@ -112,6 +112,7 @@ $router->post('/admin/reservations/development-tools/cleanup-preview', [Reservac
 $router->post('/admin/reservations/development-tools/cleanup', [ReservacionMantenimientoController::class, 'limpiar']);
 $router->get('/admin/api/reservations/operation', [ReservacionOperacionController::class, 'operationData']);
 $router->post('/admin/api/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'apiAssignTables']);
+$router->post('/admin/api/reservations/operation/clear-tables', [ReservacionOperacionController::class, 'apiClearTables']);
 $router->post('/admin/api/reservations/operation/reassign', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
 $router->post('/admin/api/reservations/operation/update-comment', [ReservacionOperacionController::class, 'apiUpdateComment']);
 $router->post('/admin/api/reservations/operation/status', [ReservacionOperacionController::class, 'apiStatus']);

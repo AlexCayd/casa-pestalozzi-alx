@@ -59,6 +59,8 @@ function initMapa() {
   var isLive        = false;
   var liveInterval  = null;
   var pollTimer     = null;
+  var dataRequestSequence = 0;
+  var dataAbortController = null;
   var temporalConfig = window.CP_RESERVATION_OPERATION_CONFIG || {};
   var POS_REQUEST_TIMEOUT_MS = 15000;
   var serverClockOffsetMs = 0;
@@ -83,6 +85,7 @@ function initMapa() {
   var modalContent  = $('#mesa-modal-content');
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
+  var modalLastFocus = null;
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -174,6 +177,29 @@ function initMapa() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function modalFocusables() {
+    return modal ? Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')) : [];
+  }
+
+  function openModalShell() {
+    if (!modal) return;
+    modalLastFocus = document.activeElement;
+    var title = modal.querySelector('.mmodal-title');
+    if (title) title.id = 'mesa-modal-title';
+    modal.querySelectorAll('button:not([type])').forEach(function(button) {
+      button.type = 'button';
+    });
+    modal.classList.add('mesa-modal--open');
+    modal.setAttribute('aria-hidden', 'false');
+    modal.inert = false;
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(function() {
+      var items = modalFocusables();
+      if (items.length) items[0].focus();
+      else modal.focus();
+    });
   }
 
   // ── Iconos SVG en línea (heredan currentColor) ────────────
@@ -1079,8 +1105,7 @@ function initMapa() {
     h += '</div></div>';
     h += '<div class="mmodal-caja"><p class="mmodal-cerrar-confirm__sub" style="text-align:center">Cargando el resumen…</p></div>';
     modalContent.innerHTML = h;
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
+    openModalShell();
 
     fetch('/api/corte-caja')
       .then(function(r) { return r.json(); })
@@ -1217,8 +1242,7 @@ function initMapa() {
     } else {
       modalContent.innerHTML = buildLlevarList(mesa, llevarTickets);
     }
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
+    openModalShell();
     if (llevarTickets.length === 0) {
       bindModalActions(mesa, null, null);
     } else {
@@ -1317,8 +1341,7 @@ function initMapa() {
       : reservaOverride;
     var ticket  = ticketOverride || ticketActual(mesa.id);
     modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
+    openModalShell();
     // Detrás del modal no se ve el mapa, y el sondeo de 30 s compite por el
     // único hilo del servidor de desarrollo. Se reanuda al cerrar.
     stopPolling();
@@ -1346,8 +1369,7 @@ function initMapa() {
     commandaItems = [];
     selectedComensal = 0;
     modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null);
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
+    openModalShell();
     bindModalActions(mesa, reserva, null);
   }
 
@@ -1355,10 +1377,14 @@ function initMapa() {
     if (!modal) return;
     options = options || {};
     modal.classList.remove('mesa-modal--open');
+    modal.setAttribute('aria-hidden', 'true');
+    modal.inert = true;
     document.body.style.overflow = '';
     sugTimerStop();
     sugTicket = null;
     sugPedidas = false;
+    if (modalLastFocus && document.contains(modalLastFocus)) modalLastFocus.focus();
+    modalLastFocus = null;
     startPolling();
     // Puesta al día de golpe: recupera lo que no se refrescó con el modal abierto.
     return options.refresh === false ? null : silentRefresh();
@@ -1615,6 +1641,7 @@ function initMapa() {
   var prefsOverlay = null;
   var prefsPanel   = null;
   var prefsToggle  = null;
+  var prefsLastFocus = null;
 
   /** (Re)pinta el cuerpo del panel y lo vuelve a enlazar. */
   function renderPrefsPanel() {
@@ -1629,22 +1656,31 @@ function initMapa() {
 
   function abrirPrefs() {
     if (!prefsOverlay) return;
+    prefsLastFocus = document.activeElement;
     renderPrefsPanel();
     prefsOverlay.hidden = false;
+    prefsOverlay.setAttribute('aria-hidden', 'false');
     if (prefsToggle) {
       prefsToggle.setAttribute('aria-expanded', 'true');
       prefsToggle.classList.add('is-active');
     }
+    window.requestAnimationFrame(function() {
+      var first = prefsOverlay.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (first) first.focus();
+    });
   }
 
   function cerrarPrefs() {
     if (!prefsOverlay) return;
     prefsOverlay.hidden = true;
+    prefsOverlay.setAttribute('aria-hidden', 'true');
     if (prefsToggle) {
       prefsToggle.setAttribute('aria-expanded', 'false');
       prefsToggle.classList.remove('is-active');
-      prefsToggle.focus();
+      var restore = prefsLastFocus && document.contains(prefsLastFocus) ? prefsLastFocus : prefsToggle;
+      if (restore) restore.focus();
     }
+    prefsLastFocus = null;
   }
 
   /** Se enlaza UNA vez: el overlay vive fuera del modal y no se destruye. */
@@ -3270,9 +3306,9 @@ function initMapa() {
       ? 'mmodal-btn--release'
       : 'mmodal-btn--primary';
     overlay.innerHTML =
-      '<div class="mmodal-cancel-confirm' + noticeClass + '" role="alertdialog" aria-modal="true">' +
+      '<div class="mmodal-cancel-confirm' + noticeClass + '" role="alertdialog" aria-modal="true" aria-labelledby="mesa-modal-title">' +
         noticeIcon +
-        '<p class="mmodal-cancel-confirm__msg"><strong>' + escHtml(options.title || 'Aviso') + '</strong></p>' +
+        '<p class="mmodal-cancel-confirm__msg" id="mesa-modal-title"><strong>' + escHtml(options.title || 'Aviso') + '</strong></p>' +
         '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
         (Array.isArray(options.details) && options.details.length
           ? '<ul class="mmodal-operation-details">' + options.details.map(function(detail) {
@@ -3298,8 +3334,7 @@ function initMapa() {
     sugPedidas = false;
     modalContent.innerHTML = '';
     modalContent.appendChild(overlay);
-    modal.classList.add('mesa-modal--open');
-    document.body.style.overflow = 'hidden';
+    openModalShell();
 
     var cancel = overlay.querySelector('[data-ticket-notice-cancel]');
     var confirm = overlay.querySelector('[data-ticket-notice-confirm]');
@@ -3799,6 +3834,14 @@ function initMapa() {
 
   // ── Fetch datos ───────────────────────────────────────────
   function fetchData(fecha, silent) {
+    var requestSequence = ++dataRequestSequence;
+    if (dataAbortController && typeof dataAbortController.abort === 'function') {
+      dataAbortController.abort();
+    }
+    dataAbortController = typeof window.AbortController === 'function'
+      ? new window.AbortController()
+      : null;
+    var requestOptions = dataAbortController ? { signal: dataAbortController.signal } : {};
     if (!silent) {
       if (loadingEl) loadingEl.classList.remove('hidden');
       reservasList.innerHTML =
@@ -3807,9 +3850,13 @@ function initMapa() {
           '<span class="mapa-empty-title">Cargando reservaciones…</span>' +
         '</div>';
     }
-    return fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha))
+    return fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha), requestOptions)
       .then(function(res) { return res.json(); })
       .then(function(data) {
+        var fechaSeleccionada = fechaInput ? fechaInput.value : fecha;
+        if (requestSequence !== dataRequestSequence || fechaSeleccionada !== fecha) {
+          return;
+        }
         if (data.ok === false) {
           if (!silent) {
             reservasList.innerHTML =
@@ -3846,7 +3893,9 @@ function initMapa() {
         }
         if (loadingEl) loadingEl.classList.add('hidden');
       })
-      .catch(function() {
+      .catch(function(error) {
+        if (error && error.name === 'AbortError') return;
+        if (requestSequence !== dataRequestSequence) return;
         if (!silent) {
           reservasList.innerHTML =
             '<div class="mapa-empty-state mapa-empty-state--error">' +
@@ -3921,14 +3970,59 @@ function initMapa() {
   if (modalBd)    modalBd.addEventListener('click', closeModal);
   if (modalClose) modalClose.addEventListener('click', closeModal);
   document.addEventListener('keydown', function(e) {
-    if (e.key !== 'Escape') return;
     // El panel de ajustes se dibuja por encima del modal: cierra primero.
-    if (prefsAbierto()) { cerrarPrefs(); return; }
-    closeModal();
+    if (prefsAbierto()) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cerrarPrefs();
+        return;
+      }
+      if (e.key === 'Tab') {
+        var prefsItems = Array.from(prefsOverlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+        if (!prefsItems.length) return;
+        var prefsFirst = prefsItems[0];
+        var prefsLast = prefsItems[prefsItems.length - 1];
+        if (e.shiftKey && document.activeElement === prefsFirst) {
+          e.preventDefault();
+          prefsLast.focus();
+        } else if (!e.shiftKey && document.activeElement === prefsLast) {
+          e.preventDefault();
+          prefsFirst.focus();
+        }
+      }
+      return;
+    }
+    if (!modal || !modal.classList.contains('mesa-modal--open')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeModal();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    var modalItems = modalFocusables();
+    if (!modalItems.length) {
+      e.preventDefault();
+      modal.focus();
+      return;
+    }
+    var modalFirst = modalItems[0];
+    var modalLast = modalItems[modalItems.length - 1];
+    if (e.shiftKey && document.activeElement === modalFirst) {
+      e.preventDefault();
+      modalLast.focus();
+    } else if (!e.shiftKey && document.activeElement === modalLast) {
+      e.preventDefault();
+      modalFirst.focus();
+    }
   });
   window.addEventListener('pagehide', function() {
     stopPolling();
     deactivateLive();
+    dataRequestSequence++;
+    if (dataAbortController && typeof dataAbortController.abort === 'function') {
+      dataAbortController.abort();
+    }
+    dataAbortController = null;
   });
   window.addEventListener('pageshow', function() {
     if (!isLive) activateLive();

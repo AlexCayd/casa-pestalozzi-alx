@@ -112,7 +112,6 @@
       display.value = "";
       optionsList.querySelectorAll(".hour-option").forEach(function (button) {
         button.classList.remove("sel");
-        button.setAttribute("aria-pressed", "false");
         button.setAttribute("aria-selected", "false");
       });
       syncValueState();
@@ -215,7 +214,6 @@
       optionsList.querySelectorAll(".hour-option").forEach(function (button) {
         var selected = button.getAttribute("data-hour") === hour;
         button.classList.toggle("sel", selected);
-        button.setAttribute("aria-pressed", selected ? "true" : "false");
         button.setAttribute("aria-selected", selected ? "true" : "false");
       });
       setStatus("", false);
@@ -270,7 +268,6 @@
         button.textContent = hour;
         button.setAttribute("data-hour", hour);
         button.setAttribute("role", "option");
-        button.setAttribute("aria-pressed", "false");
         button.setAttribute("aria-selected", "false");
         button.addEventListener("click", function (event) {
           event.stopPropagation();
