@@ -191,6 +191,14 @@ foreach ($alertas as $tipo => $mensajes) {
                 <option value="sin_mesa" <?php echo ($filtros['asignacion'] ?? '') === 'sin_mesa' ? 'selected' : ''; ?>>Sin mesas asignadas</option>
             </select>
         </div>
+        <div class="admin-filters__group">
+            <label for="reservations-origen">Origen</label>
+            <select id="reservations-origen" name="origen" data-reactive-control data-reactive-default="">
+                <option value="">Todos</option>
+                <option value="admin" <?php echo ($filtros['origen'] ?? '') === 'admin' ? 'selected' : ''; ?>>Administrativa</option>
+                <option value="landing" <?php echo ($filtros['origen'] ?? '') === 'landing' ? 'selected' : ''; ?>>Landing publica</option>
+            </select>
+        </div>
         <div class="admin-filters__actions">
             <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="/admin/reservations" data-reactive-clear <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>Limpiar filtros</a>
@@ -243,9 +251,11 @@ foreach ($alertas as $tipo => $mensajes) {
                             <th>Fecha</th>
                             <th>Hora</th>
                             <th>Cliente</th>
+                            <th>Origen</th>
                             <th>Comensales</th>
                             <th>Mesas</th>
                             <th>Estado</th>
+                            <th>Ticket</th>
                             <th>Nota</th>
                             <th>Acciones</th>
                         </tr>
@@ -267,6 +277,9 @@ foreach ($alertas as $tipo => $mensajes) {
                             $mesasVisibles = array_slice($mesasDetalle, 0, 3);
                             $mesasRestantes = max(0, $mesasCount - count($mesasVisibles));
                             $tieneMesa = $mesasCount > 0;
+                            $origen = (string)$valor($reservacion, 'origen', 'admin');
+                            $ticketId = (int)$valor($reservacion, 'ticket_id_abierto', 0);
+                            $pendienteManual = $origen === 'admin' && $estado === 'confirmada' && !$tieneMesa;
                             $showUrl = '/admin/reservations/show?id=' . $id . '&return_url=' . rawurlencode($returnTo);
                             $operationContextUrl = '/admin/reservations/operation?' . http_build_query([
                                 'fecha' => $fecha,
@@ -285,8 +298,11 @@ foreach ($alertas as $tipo => $mensajes) {
                                 <td class="reservations-table__customer-cell">
                                     <div class="reservations-table__customer">
                                         <strong><?php echo $h($nombre); ?></strong>
-                                        <span><?php echo $h($contacto); ?></span>
+                                        <span><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></span>
                                     </div>
+                                </td>
+                                <td class="reservations-table__origin-cell">
+                                    <span class="admin-badge admin-badge--<?php echo $origen === 'admin' ? 'info' : 'neutral'; ?>"><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing'; ?></span>
                                 </td>
                                 <td class="reservations-table__guests-cell">
                                     <span class="reservations-table__guests"><?php echo $h($pluralPersonas($comensales)); ?></span>
@@ -310,8 +326,8 @@ foreach ($alertas as $tipo => $mensajes) {
                                         </div>
                                     <?php else : ?>
                                         <div class="reservations-table__needs-table">
-                                            <strong>Sin mesas asignadas</strong>
-                                            <span class="admin-badge admin-badge--warning">Sin mesas asignadas</span>
+                                            <strong><?php echo $pendienteManual ? 'Pendiente de asignar mesas' : 'Sin mesas asignadas'; ?></strong>
+                                            <span class="admin-badge admin-badge--warning"><?php echo $pendienteManual ? 'Pendiente de asignar' : 'Sin mesas'; ?></span>
                                         </div>
                                     <?php endif; ?>
                                 </td>
@@ -322,6 +338,13 @@ foreach ($alertas as $tipo => $mensajes) {
                                             . (!empty($valor($reservacion, 'tolerancia_vencida', false)) ? ' · Tolerancia vencida' : '')
                                         ); ?>
                                     </span>
+                                </td>
+                                <td class="reservations-table__ticket-cell">
+                                    <?php if ($ticketId > 0) : ?>
+                                        <span class="admin-badge admin-badge--success">Abierto #<?php echo $ticketId; ?></span>
+                                    <?php else : ?>
+                                        <span class="reservations-table__muted">Sin ticket abierto</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="reservations-table__note-cell">
                                     <?php if ($nota !== '') : ?>

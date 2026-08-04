@@ -516,7 +516,7 @@ class Reservacion extends ActiveRecord {
         $condiciones = self::condicionesAdmin($filtros, false);
         $having = self::havingAsignacionAdmin($filtros);
 
-        $subquery = "SELECT r.id, r.estado, COUNT(rm.id) AS mesas_count
+        $subquery = "SELECT r.id, r.estado, r.origen, COUNT(rm.id) AS mesas_count
                      FROM reservaciones r
                      LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id";
 
@@ -524,7 +524,7 @@ class Reservacion extends ActiveRecord {
             $subquery .= " WHERE " . implode(' AND ', $condiciones);
         }
 
-        $subquery .= " GROUP BY r.id, r.estado";
+        $subquery .= " GROUP BY r.id, r.estado, r.origen";
 
         if ($having) {
             $subquery .= " HAVING {$having}";
@@ -537,7 +537,7 @@ class Reservacion extends ActiveRecord {
                     COALESCE(SUM(estado = 'completada'), 0) AS completadas,
                     COALESCE(SUM(estado = 'cancelada'), 0) AS canceladas,
                     COALESCE(SUM(estado = 'no_show'), 0) AS no_show,
-                    COALESCE(SUM(mesas_count = 0), 0) AS sin_mesa
+                    COALESCE(SUM(origen = 'admin' AND estado = 'confirmada' AND mesas_count = 0), 0) AS sin_mesa
                   FROM ({$subquery}) resumen";
 
         $resultado = self::$db->query($query);
@@ -574,6 +574,7 @@ class Reservacion extends ActiveRecord {
         $fechaInicio = (string)($filtros['fecha_inicio'] ?? '');
         $fechaFin = (string)($filtros['fecha_fin'] ?? '');
         $estado = (string)($filtros['estado'] ?? '');
+        $origen = (string)($filtros['origen'] ?? '');
 
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
@@ -593,6 +594,11 @@ class Reservacion extends ActiveRecord {
         if ($incluirEstado && in_array($estado, ReservacionConfig::estadosPermitidos(), true)) {
             $estado = self::escaparString($estado);
             $condiciones[] = "r.estado = '{$estado}'";
+        }
+
+        if (in_array($origen, ['landing', 'admin'], true)) {
+            $origen = self::escaparString($origen);
+            $condiciones[] = "r.origen = '{$origen}'";
         }
 
         return $condiciones;

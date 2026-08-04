@@ -14,7 +14,7 @@ $fechaActual = (string)($fechaActual ?? \Services\ReservacionConfig::fechaActual
 $diasActivos = is_array($diasActivos ?? null) ? $diasActivos : [];
 $maxComensalesAdmin = (int)($maxComensalesAdmin ?? \Services\ReservacionConfig::MAX_COMENSALES_ADMIN);
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? true);
-$asignarAutomaticamente = (bool)($asignarAutomaticamente ?? true);
+$asignarAutomaticamente = (bool)($asignarAutomaticamente ?? ($modo === 'crear'));
 $mesasAsignadas = isset($mesasAsignadas) && is_iterable($mesasAsignadas) ? $mesasAsignadas : [];
 $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_array($mesasAsignadas);
 $motivoNoEditable = (string)($motivoNoEditable ?? '');
@@ -23,7 +23,7 @@ $formActionsExternal = (bool)($formActionsExternal ?? false);
 $capacidadWarning = is_array($capacidadWarning ?? null) ? $capacidadWarning : [];
 $mostrarCapacidadWarning = $modo === 'crear'
     && $formTransport === 'html'
-    && !empty($capacidadWarning['requiere_confirmacion_capacidad']);
+    && !empty($capacidadWarning['confirmaciones_requeridas']);
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -59,9 +59,10 @@ $tiposContacto = [
     'email' => 'Correo',
     'telefono' => 'Teléfono',
 ];
+$tiposContacto['ninguno'] = 'Sin contacto';
 $contactoTipo = in_array($contactoTipoRegistrado, array_keys($tiposContacto), true)
     ? $contactoTipoRegistrado
-    : 'email';
+    : 'ninguno';
 $fecha = (string)$valor($reservacion, 'fecha', $fechaActual);
 $hora = \Services\HorarioReservacionService::normalizarHoraCorta((string)$valor($reservacion, 'hora'));
 $comensales = max(1, (int)$valor($reservacion, 'comensales', 2));
@@ -74,6 +75,9 @@ $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $disabled = !$iniciarEdicion;
 $action = $modo === 'crear' ? '/admin/reservations/create' : '/admin/reservations/update';
 $formId = $modo . '-reservation-admin-form';
+$adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
+$autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_PUBLIC_GUESTS;
+$contactInputDisabled = $disabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
     \Services\ReservacionService::RESERVACION_PASADA => 'No se pueden modificar reservaciones de fechas anteriores.',
@@ -135,9 +139,9 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             <input type="hidden" name="id" value="<?php echo $id; ?>">
         <?php else : ?>
             <input type="hidden" name="request_token" value="<?php echo $h($requestToken); ?>">
-            <input type="hidden" name="confirmar_sin_contacto" value="<?php echo $h((string)$valor($reservacion, 'confirmar_sin_contacto', '0')); ?>">
-            <input type="hidden" name="permitir_capacidad_insuficiente" value="<?php echo $h((string)$valor($reservacion, 'permitir_capacidad_insuficiente', '0')); ?>">
         <?php endif; ?>
+        <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
+        <input type="hidden" name="confirmaciones" value="" data-admin-confirmations>
         <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
         <?php if ($formTransport === 'json') : ?>
             <input type="hidden" name="response_format" value="json">
@@ -236,6 +240,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <span>Tipo de contacto</span>
                         <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $disabled ? 'disabled' : ''; ?>>
                                 <option value="email" <?php echo $contactoTipo === 'email' ? 'selected' : ''; ?>>Correo</option>
+                                <option value="ninguno" <?php echo $contactoTipo === 'ninguno' ? 'selected' : ''; ?>>Sin contacto</option>
                                 <option value="telefono" <?php echo $contactoTipo === 'telefono' ? 'selected' : ''; ?>>Teléfono</option>
                         </select>
                         <?php $error = $errorCampo('contacto_tipo'); ?>
@@ -256,7 +261,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                             inputmode="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
                             data-reservation-control
                             data-contact-value
-                            <?php echo $disabled ? 'disabled' : ''; ?>
+                            <?php echo $contactInputDisabled ? 'disabled' : ''; ?>
                         >
                         <?php $error = $errorCampo('contacto'); ?>
                         <small class="reservation-detail-form__helper" data-contact-help><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Incluye lada y diez dígitos; el sistema normalizará el prefijo de México.' : 'Escribe un correo electrónico válido.') : ''; ?></small>
@@ -298,15 +303,16 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             </fieldset>
         <?php endif; ?>
 
-        <?php if ($modo === 'crear') : ?>
+        <?php if ($modo === 'crear' || $modo === 'editar') : ?>
             <fieldset class="reservation-detail-form__assignment-section">
                 <legend>Asignación de mesas</legend>
                 <p class="reservation-detail-form__section-description">El sistema buscara una combinacion de mesas que cubra el numero de comensales.</p>
             <label class="reservation-admin-form__check">
                 <input type="hidden" name="asignar_automaticamente" value="0">
-                <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente ? 'checked' : ''; ?> data-reservation-control>
+                <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
                 <span class="reservation-admin-form__check-copy">
                     <span>Asignar automáticamente las mesas disponibles.</span>
+                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para mas de 12 personas se requiere asignacion manual.' : 'Puedes guardar sin mesas y asignarlas despues desde Operacion.'; ?></small>
                 </span>
             </label>
             </fieldset>

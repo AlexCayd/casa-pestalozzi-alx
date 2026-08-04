@@ -11,8 +11,10 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Model\Ticket;
 use MVC\Router;
 use Services\AsignacionMesasService;
+use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
 use Services\HorarioReservacionService;
 use Services\ReservacionConfig;
@@ -20,8 +22,8 @@ use Services\ReservacionService;
 
 class AdminReservacionController
 {
-    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v6';
-    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v7';
+    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v8';
+    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v8';
 
     public static function index(Router $router): void
     {
@@ -43,6 +45,7 @@ class AdminReservacionController
             foreach ($vigencia as $campo => $valor) {
                 $reservacion->{$campo} = $valor;
             }
+            $reservacion->ticket_id_abierto = (int)($ticketsPorReservacion[(int)($reservacion->id ?? 0)]['id'] ?? 0);
         }
 
         $data = [
@@ -127,6 +130,10 @@ class AdminReservacionController
             self::redirectToIndex('metodo_invalido');
         }
 
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::csrfFailure($expectsJson);
+        }
+
         $resultado = ReservacionService::crearAdministrativa(
             $_POST,
             (int)($_SESSION['id'] ?? 0) ?: null
@@ -158,6 +165,8 @@ class AdminReservacionController
                         (array)($resultado['mesas_proyectadas'] ?? [])
                     )),
                     'idempotent' => (bool)($resultado['idempotente'] ?? false),
+                    'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                    'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
                 ]);
                 return;
             }
@@ -180,6 +189,8 @@ class AdminReservacionController
                 'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
                 'requiresContactConfirmation' => (bool)($resultado['requiere_confirmacion_sin_contacto'] ?? false),
                 'requiresCapacityConfirmation' => (bool)($resultado['requiere_confirmacion_capacidad'] ?? false),
+                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
                 'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                 'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
                 'nextValidTime' => $resultado['siguiente_horario_valido'] ?? null,
@@ -221,6 +232,7 @@ class AdminReservacionController
                 break;
             }
         }
+        $ticketFisico = Ticket::buscarPorReservacion((int)$reservacion->id);
         $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticketAbierto);
 
         self::render('reservations/show', [
@@ -236,6 +248,8 @@ class AdminReservacionController
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => $vigencia,
             'ticketAbierto' => $ticketAbierto,
+            'ticketFisico' => $ticketFisico,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
             'diasActivos' => range(0, 6),
@@ -251,6 +265,12 @@ class AdminReservacionController
     public static function update(Router $router): void
     {
         $expectsJson = self::expectsJsonRequest();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::csrfFailure($expectsJson, 405, 'Metodo no permitido.');
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::csrfFailure($expectsJson);
+        }
         $resultado = ReservacionService::actualizarDatos(
             self::reservacionIdDesdePost(),
             $_POST,
@@ -326,6 +346,8 @@ class AdminReservacionController
                 'fieldCodes' => is_array($resultado['field_codes'] ?? null)
                     ? $resultado['field_codes']
                     : [],
+                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
             ], $status);
             return;
         }
@@ -353,6 +375,8 @@ class AdminReservacionController
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => ReservacionService::clasificarVigencia($reservacion),
             'ticketAbierto' => null,
+            'ticketFisico' => null,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
             'diasActivos' => range(0, 6),
@@ -367,6 +391,12 @@ class AdminReservacionController
 
     public static function status(): void
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectBack('metodo_invalido');
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirectBack('csrf_invalido');
+        }
         $estado = (string)($_POST['estado'] ?? '');
         $resultado = ReservacionService::ejecutarAccionOperativa(
             self::reservacionIdDesdePost(),
@@ -387,6 +417,12 @@ class AdminReservacionController
 
     public static function reasignarAutomaticamente(): void
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectBack('metodo_invalido');
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirectBack('csrf_invalido');
+        }
         $resultado = AsignacionMesasService::asignarAutomaticamente(self::reservacionIdDesdePost());
         self::redirectBack(self::resultadoAsignacion($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO, true));
     }
@@ -416,6 +452,8 @@ class AdminReservacionController
             'comentarioAdminDisponible' => true,
             'asignarAutomaticamente' => $asignarAutomaticamente,
             'capacidadWarning' => $capacidadWarning,
+            'formTransport' => 'json',
+            'adminCsrfToken' => AdminCsrfService::token(),
             'returnUrl' => '/admin/reservations',
             'backUrl' => '/admin/reservations',
             'scripts' => [self::RESERVATION_FORM_JS],
@@ -427,7 +465,7 @@ class AdminReservacionController
         $reservacion = $base ?: new Reservacion();
         $reservacion->id = (int)($post['id'] ?? ($reservacion->id ?? 0));
         $reservacion->nombre = (string)($post['nombre'] ?? '');
-        $reservacion->contacto_tipo = (string)($post['contacto_tipo'] ?? 'email');
+        $reservacion->contacto_tipo = (string)($post['contacto_tipo'] ?? 'ninguno');
         $reservacion->contacto = (string)($post['contacto'] ?? '');
         $reservacion->fecha = (string)($post['fecha'] ?? '');
         $reservacion->hora = HorarioReservacionService::normalizarHoraSql((string)($post['hora'] ?? ''));
@@ -469,6 +507,22 @@ class AdminReservacionController
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    private static function csrfFailure(bool $json, int $status = 419, string $message = 'La sesion administrativa expiro. Recarga la pagina.'): void
+    {
+        if ($json) {
+            self::jsonResponse([
+                'ok' => false,
+                'success' => false,
+                'codigo' => 'CSRF_INVALIDO',
+                'mensaje' => $message,
+                'fieldErrors' => [],
+            ], $status);
+            return;
+        }
+
+        self::redirectToIndex('csrf_invalido');
+    }
+
     private static function leerFiltros(): array
     {
         $hoy = ReservacionConfig::fechaActual();
@@ -477,6 +531,7 @@ class AdminReservacionController
         $fechaFin = (string)($_GET['fecha_fin'] ?? '');
         $estado = (string)($_GET['estado'] ?? '');
         $asignacion = (string)($_GET['asignacion'] ?? '');
+        $origen = (string)($_GET['origen'] ?? '');
 
         if ($fechaInicio === '' && $fechaFin === '') {
             $fechaInicio = $hoy;
@@ -507,12 +562,17 @@ class AdminReservacionController
             $asignacion = '';
         }
 
+        if (!in_array($origen, ['', 'landing', 'admin'], true)) {
+            $origen = '';
+        }
+
         return [
             'q' => $q,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
             'estado' => $estado,
             'asignacion' => $asignacion,
+            'origen' => $origen,
         ];
     }
 
@@ -523,6 +583,7 @@ class AdminReservacionController
         return (string)($filtros['q'] ?? '') !== ''
             || (string)($filtros['estado'] ?? '') !== ''
             || (string)($filtros['asignacion'] ?? '') !== ''
+            || (string)($filtros['origen'] ?? '') !== ''
             || (string)($filtros['fecha_inicio'] ?? '') !== $hoy
             || (string)($filtros['fecha_fin'] ?? '') !== $hoy;
     }

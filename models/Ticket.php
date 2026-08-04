@@ -28,4 +28,32 @@ class Ticket extends ActiveRecord {
     public $mesa_numero;  // m.numero AS mesa_numero
     public $mesa_nombre;  // m.nombre AS mesa_nombre
     public $mesero;       // u.nombre AS mesero
+
+    /** Ticket mas reciente ligado a una reservacion, abierto o cerrado. */
+    public static function buscarPorReservacion(int $reservacionId): ?array
+    {
+        if ($reservacionId < 1) {
+            return null;
+        }
+        $resultado = self::getDB()->query(
+            "SELECT t.id, t.nombre, t.comensales, t.hora_apertura, t.closed_at,
+                    t.hora_cierre, t.estado, t.reservacion_id
+             FROM tickets t
+             WHERE t.reservacion_id = {$reservacionId}
+             ORDER BY t.id DESC
+             LIMIT 1"
+        );
+        if ($resultado === false) {
+            throw new \RuntimeException(self::getDB()->error);
+        }
+        $fila = $resultado->fetch_assoc() ?: null;
+        $resultado->free();
+        if (!$fila) {
+            return null;
+        }
+        $fila['id'] = (int)$fila['id'];
+        $fila['reservacion_id'] = (int)$fila['reservacion_id'];
+        $fila['mesa_ids'] = TicketMesa::idsPorTicket((int)$fila['id']);
+        return $fila;
+    }
 }

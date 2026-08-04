@@ -194,13 +194,10 @@ final class DisponibilidadReservacionService
         int $excluirReservacionId = 0,
         ?string $hora = null
     ): array {
-        return self::consultarSlots(
+        return ReservacionAdministrativaService::consultarDisponibilidad(
             $fecha,
             $personas,
-            ReservacionConfig::MAX_COMENSALES_ADMIN,
             max(0, $excluirReservacionId),
-            false,
-            null,
             $hora
         );
     }

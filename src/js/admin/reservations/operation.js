@@ -11,6 +11,7 @@
         if (!root) {
             return;
         }
+        var csrfToken = root.getAttribute('data-admin-csrf') || '';
 
         var state = {
             fecha: root.getAttribute('data-initial-fecha') || '',
@@ -1806,6 +1807,9 @@
         }
 
         function postJson(url, data) {
+            if (csrfToken && data && typeof data.set === 'function') {
+                data.set('admin_csrf', csrfToken);
+            }
             var controller = new AbortController();
             var timeoutId = window.setTimeout(function () {
                 controller.abort();
@@ -2051,7 +2055,7 @@
         function actionAllowed(reservacion, action) {
             var estado = String(reservacion.estado || '');
             if (action === 'verify') {
-                return estado === 'pendiente_verificacion' && isEditable(reservacion);
+                return false;
             }
             if (action === 'start-service') {
                 return reservacion.puede_iniciar_servicio === true;
@@ -2060,7 +2064,7 @@
                 return reservacion.puede_registrar_ausencia === true;
             }
             if (action === 'cancel') {
-                return estado === 'confirmada'
+                return (estado === 'confirmada' || estado === 'pendiente_verificacion')
                     && !reservacion.ticket_abierto;
             }
             return false;

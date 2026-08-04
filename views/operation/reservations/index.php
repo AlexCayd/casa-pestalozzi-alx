@@ -96,6 +96,7 @@ if ($initialOperationNotice !== null) {
     data-initial-operation-intent="<?php echo $h($initialOperationIntent); ?>"
     data-return-url="<?php echo $h($returnUrl); ?>"
     data-comment-enabled="<?php echo $comentarioAdminDisponible ? '1' : '0'; ?>"
+    data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
     <?php
     ob_start();

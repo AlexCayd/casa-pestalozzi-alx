@@ -53,17 +53,7 @@ class ReservacionService
 
     public static function crearAdministrativa(array $post, ?int $usuarioId = null): array
     {
-        $asignarAutomaticamente = !array_key_exists('asignar_automaticamente', $post)
-            || (string)$post['asignar_automaticamente'] === '1';
-
-        return self::crearReservacion($post, [
-            'origen' => 'administrativa',
-            'max_comensales' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'permitir_comentario_admin' => true,
-            'contacto_requerido' => false,
-            'asignar_automaticamente' => $asignarAutomaticamente,
-            'usuario_id' => $usuarioId,
-        ]);
+        return ReservacionAdministrativaService::crear($post, $usuarioId);
     }
 
     public static function obtenerHorariosDisponiblesParaFecha(string $fecha, bool $permitirHistorica = false): array
@@ -147,6 +137,11 @@ class ReservacionService
         ?int $usuarioId = null
     ): array
     {
+        return ReservacionAdministrativaService::actualizar($reservacionId, $datos, $usuarioId);
+
+        // La implementacion historica se conserva debajo durante esta etapa
+        // para no romper referencias de mantenimiento mientras los consumidores
+        // terminan de migrar a la fachada administrativa.
         if ($reservacionId < 1) {
             return ['ok' => false, 'codigo' => self::RESERVACION_NO_EXISTE];
         }
@@ -409,7 +404,7 @@ class ReservacionService
                 false,
                 $motivo
             ),
-            'cancelada' => PuntoVentaReservacionService::cancelar(
+            'cancelada' => ReservacionAdministrativaService::cancelar(
                 $reservacionId,
                 $usuarioId,
                 $motivo
@@ -454,6 +449,13 @@ class ReservacionService
             }
 
             $estadoActual = (string)$reservacion['estado'];
+            // La confirmacion de una retencion publica requiere su flujo OTP;
+            // el backoffice solo puede crear en estado confirmado y no puede
+            // saltarse esa verificacion con una transicion operativa.
+            if ($nuevoEstado === 'confirmada' && $estadoActual === 'pendiente_verificacion') {
+                $db->rollback();
+                return ['ok' => false, 'codigo' => self::ESTADO_NO_EDITABLE];
+            }
             $codigoNoEditable = self::codigoNoEditable($reservacion);
             if ($codigoNoEditable === self::RESERVACION_PASADA
                 || $codigoNoEditable === self::RESERVACION_HORARIO_PASADO) {
@@ -532,6 +534,10 @@ class ReservacionService
         $estado = (string)self::valor($reservacion, 'estado', '');
         $fecha = (string)self::valor($reservacion, 'fecha', '');
 
+        if ($estado === 'pendiente_verificacion') {
+            return self::ESTADO_NO_EDITABLE;
+        }
+
         $vigencia = ReservacionVigenciaService::clasificar($reservacion);
         if (!$vigencia['editable']) {
             if ($fecha !== '' && $fecha < ReservacionConfig::fechaActual()) {
@@ -567,7 +573,8 @@ class ReservacionService
 
     public static function puedeEditar($reservacion): bool
     {
-        return self::codigoNoEditable($reservacion) === '';
+        return (string)self::valor($reservacion, 'estado', '') === 'confirmada'
+            && self::codigoNoEditable($reservacion) === '';
     }
 
     private static function crearReservacion(array $post, array $opciones): array

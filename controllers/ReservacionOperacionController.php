@@ -10,6 +10,7 @@ namespace Controllers;
 use Model\Reservacion;
 use MVC\Router;
 use Services\AsignacionMesasService;
+use Services\AdminCsrfService;
 use Services\HorarioReservacionService;
 use Services\OcupacionMesasService;
 use Services\PosReservacionQueryService;
@@ -147,6 +148,7 @@ class ReservacionOperacionController
             'horaSolicitadaInicial' => $horaSolicitada,
             'initialOperationNotice' => $initialOperationNotice,
             'fechaInvalidaRecibida' => $fechaInvalida ? $fechaSolicitada : '',
+            'adminCsrfToken' => AdminCsrfService::token(),
         ]);
     }
 
@@ -321,6 +323,9 @@ class ReservacionOperacionController
 
     public static function apiAssignTables(): void
     {
+        if (!self::csrfValido()) {
+            self::csrfFailure();
+        }
         $id = self::reservacionIdOperacionPost();
         if ($id < 1) {
             self::jsonResponse([
@@ -360,6 +365,9 @@ class ReservacionOperacionController
 
     public static function apiReasignarAutomaticamente(): void
     {
+        if (!self::csrfValido()) {
+            self::csrfFailure();
+        }
         $resultado = AsignacionMesasService::asignarAutomaticamente(self::reservacionIdOperacionPost());
 
         self::jsonResultadoAsignacion($resultado, 'Asignacion guardada.');
@@ -367,6 +375,9 @@ class ReservacionOperacionController
 
     public static function apiUpdateComment(): void
     {
+        if (!self::csrfValido()) {
+            self::csrfFailure();
+        }
         $id = self::reservacionIdOperacionPost();
 
         $comentario = substr((string)($_POST['comentario_admin'] ?? ''), 0, 5000);
@@ -382,6 +393,9 @@ class ReservacionOperacionController
 
     public static function apiStatus(): void
     {
+        if (!self::csrfValido()) {
+            self::csrfFailure();
+        }
         $estado = (string)($_POST['estado'] ?? '');
 
         self::jsonResultadoTransicion(
@@ -400,6 +414,9 @@ class ReservacionOperacionController
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirectOperacionDesdePost('metodo_invalido');
+        }
+        if (!self::csrfValido()) {
+            self::redirectOperacionDesdePost('csrf_invalido');
         }
 
         $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
@@ -427,6 +444,9 @@ class ReservacionOperacionController
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             self::redirectOperacionDesdePost('metodo_invalido');
+        }
+        if (!self::csrfValido()) {
+            self::redirectOperacionDesdePost('csrf_invalido');
         }
 
         $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
@@ -783,6 +803,22 @@ class ReservacionOperacionController
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function csrfValido(): bool
+    {
+        return AdminCsrfService::validar(
+            $_POST['admin_csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)
+        );
+    }
+
+    private static function csrfFailure(): void
+    {
+        self::jsonResponse([
+            'ok' => false,
+            'codigo' => 'CSRF_INVALIDO',
+            'mensaje' => 'La sesion administrativa expiro. Recarga la pagina.',
+        ], 419);
     }
 
     private static function alertasResultado(string $resultado): array
