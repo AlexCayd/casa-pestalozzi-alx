@@ -13,6 +13,8 @@ includes("views/home/index.php", 'class="skip-link" href="#main-content"');
 includes("views/home/index.php", '<main id="main-content" tabindex="-1">');
 includes("views/home/_nav.php", 'aria-controls="navOverlay" aria-expanded="false"');
 includes("views/home/_nav.php", 'aria-hidden="true" inert');
+includes("views/home/_nav.php", '<nav class="rail" id="rail" aria-label="Secciones principales">');
+assert.strictEqual(read("views/home/_nav.php").includes('<nav class="rail" id="rail" aria-hidden="true" inert>'), false, "el rail no debe iniciar inert");
 includes("views/home/_footer.php", 'role="dialog" aria-modal="true" aria-hidden="true" inert');
 includes("views/home/_footer.php", 'aria-labelledby="lightbox-title"');
 includes("views/home/_reserva.php", '$displayAriaDescribedby = \'dateError\';');
@@ -29,6 +31,31 @@ includes("views/operation/partials/map-legend.php", '<ul class="mapa-leyenda__ro
 includes("views/punto-de-venta/partials/pos-workspace.php", 'role="dialog" aria-modal="true" aria-hidden="true" inert');
 
 includes("src/js/modules/nav.js", "nav.inert = !open;");
+includes("src/js/modules/rail.js", "data-rail");
+includes("src/js/components/reservation-date-picker.js", "ReservationPopoverCoordinator");
+includes("src/js/components/reservation-time-picker.js", "popoverCoordinator");
+includes("views/home/_reserva.php", "Confirmar modificación");
+includes("views/home/_reserva.php", ">Aceptar</span>");
+includes("views/home/_reserva.php", ">Cancelar</button>");
+assert.strictEqual(read("views/home/_reserva.php").includes("Guardar cambios"), false, "el editor no debe conservar Guardar cambios");
+includes("src/js/modules/reservation-access.js", "request_token: editorOperation.request_token");
+includes("src/js/modules/reservation-access.js", "function fechaLegible(value)");
+[
+  "editing",
+  "creating_replacement",
+  "reviewing",
+  "confirming",
+  "success",
+  "error"
+].forEach((state) => includes("src/js/modules/reservation-access.js", 'setEditorState("' + state + '")'));
+includes("src/js/modules/reservation-access.js", "data.propuesta || data.replacement");
+assert.strictEqual(
+  (read("src/js/modules/reservation-access.js").match(/editor\.addEventListener\("submit"/g) || []).length,
+  1,
+  "el editor debe tener un solo listener de submit"
+);
+includes("src/js/modules/punto-de-venta.js", "Hay una reservación próxima");
+includes("src/js/admin/reservations/operation.js", "state.assignmentMode && Boolean(reservacion)");
 includes("src/js/admin/admin.js", "function initAdminSkipLink()");
 includes("src/js/operation/shell.js", "function focusOperationalMain(event)");
 includes("src/js/modules/lightbox.js", "if (e.key === \"Enter\" || e.key === \" \")");

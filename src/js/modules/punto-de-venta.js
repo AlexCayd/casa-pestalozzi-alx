@@ -3452,11 +3452,15 @@ function initMapa() {
             );
           });
         });
+        var warningMinutes = parseInt(warning.minutos_restantes || '0', 10);
+        var warningPeople = parseInt(warning.comensales || '0', 10);
+        var warningMessage = 'Hay una reservación a las ' + String(warning.hora || '').substring(0, 5) +
+          (warning.nombre ? ' para ' + warning.nombre : '') +
+          (warningPeople ? ' (' + warningPeople + (warningPeople === 1 ? ' persona' : ' personas') + ')' : '') +
+          '. Faltan ' + warningMinutes + ' minutos. Si abres el ticket, el servicio deberá terminar o cambiar de mesa antes de esa hora.';
         showOpenTicketNotice({
-          title: 'Reservación próxima',
-          message: 'Esta mesa tiene una reservación a las ' + String(warning.hora || '').substring(0, 5) +
-            '. Faltan ' + parseInt(warning.minutos_restantes || '0', 10) +
-            ' minutos. El servicio deberá finalizar o cambiar de mesa antes de esa hora.',
+          title: 'Hay una reservación próxima',
+          message: warningMessage,
           details: details,
           cancelLabel: 'Volver a la selección',
           confirmLabel: 'Abrir ticket de todas formas',

@@ -466,7 +466,9 @@
 
         function activeReservationsForSelectedHour() {
             return reservationsForSelectedHour().filter(function (reservacion) {
-                return reservacion.influye_disponibilidad === true;
+                return reservacion.influye_disponibilidad === true
+                    && reservacion.en_proyeccion_mapa !== false
+                    && String(reservacion.estado || '') !== 'reemplazada';
             });
         }
 
@@ -1588,7 +1590,7 @@
                     conflict &&
                     (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
                 );
-                var selectable = Boolean(reservacion) &&
+                var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
                     (!conflict || ticketConflict) &&
@@ -1773,7 +1775,7 @@
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
                     state.editable = data.editable !== false;
-                    state.horarios = data.horarios || [];
+                    state.horarios = data.horarios_mapa || data.horarios || [];
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
                     state.mesasEstado = data.mesas_estado || [];
@@ -2605,8 +2607,15 @@
                 return;
             }
 
-            if (!state.assignmentMode && window.matchMedia('(max-width: 1199px)').matches) {
-                enterAssignmentMode(null, { focus: false });
+            if (!state.assignmentMode) {
+                showGlobalNotice({
+                    source: 'assignment',
+                    type: 'info',
+                    title: 'Modo de asignación inactivo',
+                    summary: 'Selecciona una reservación y pulsa “Cambiar mesas”.',
+                    message: 'El mapa solo cambia mesas dentro del modo de asignación explícito. La vista actual no se modificó.'
+                });
+                return;
             }
 
             var mesaId = parseInt(event.detail.mesaId, 10);

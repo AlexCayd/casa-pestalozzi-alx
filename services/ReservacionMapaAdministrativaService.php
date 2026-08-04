@@ -44,6 +44,7 @@ final class ReservacionMapaAdministrativaService
 
             $reservacion['en_lista_operativa'] = $enListaOperativa;
             $reservacion['en_lista_terminal'] = $terminal;
+            $reservacion['en_proyeccion_mapa'] = $estado !== 'reemplazada' && $enListaOperativa;
             $reservacion['asignacion_pendiente'] = $estado === 'confirmada'
                 && empty($reservacion['mesa_ids']);
             $reservacion['contacto_presente'] = $tieneContacto;
@@ -185,6 +186,16 @@ final class ReservacionMapaAdministrativaService
                 }
 
                 ReservacionMesa::eliminarAsignacion($reservacionId);
+                if (!$db->query(
+                    "UPDATE reservaciones
+                     SET updated_at = CASE
+                         WHEN updated_at IS NULL THEN CURRENT_TIMESTAMP
+                         ELSE GREATEST(CURRENT_TIMESTAMP, updated_at + INTERVAL 1 SECOND)
+                     END
+                     WHERE id = {$reservacionId}"
+                )) {
+                    throw new \RuntimeException('No fue posible actualizar la version de liberacion.');
+                }
                 if (!$db->commit()) {
                     throw new \RuntimeException('No fue posible confirmar la liberacion de mesas.');
                 }

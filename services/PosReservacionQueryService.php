@@ -138,6 +138,15 @@ final class PosReservacionQueryService
         $config['server_time'] = $ahora->format(DATE_ATOM);
         $config['timezone'] = $ahora->getTimezone()->getName();
 
+        $reservacionesOperativas = array_values(array_filter(
+            ReservacionVigenciaService::filtrarPendientesOperacion(
+                $reservaciones,
+                $fecha,
+                []
+            ),
+            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') !== 'reemplazada'
+        ));
+
         return [
             'ok' => true,
             'codigo' => 'OK',
@@ -147,11 +156,7 @@ final class PosReservacionQueryService
             'mesas' => $mesas,
             'mesas_estado' => $mesasEstado,
             'reservaciones' => $reservaciones,
-            'reservaciones_operativas' => ReservacionVigenciaService::filtrarPendientesOperacion(
-                $reservaciones,
-                $fecha,
-                []
-            ),
+            'reservaciones_operativas' => $reservacionesOperativas,
             'tickets' => $tickets,
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'evaluacion_ocupacion' => $evaluacionOcupacion,

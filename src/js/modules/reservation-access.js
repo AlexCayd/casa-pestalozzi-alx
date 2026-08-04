@@ -1,8 +1,39 @@
 /* ============================================================
    Acceso público a reservaciones por contacto verificado.
-   La UI nunca decide si un OTP puede mostrarse: solo renderiza
-   preview_code cuando el servidor lo incluyó de forma explícita.
+   La sesión verificada autoriza la modificación sin un segundo OTP.
    ============================================================ */
+
+function fechaLegible(value) {
+  var match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value || "");
+  var date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return date.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function mensajeOperacionModificacion(data, phase) {
+  var code = String(data && data.codigo || "");
+  var known = {
+    SIN_DISPONIBILIDAD: "Ese nuevo horario ya no está disponible. Tu reservación original sigue vigente.",
+    SESION_EXPIRADA: "Tu sesión expiró. Verifica nuevamente tu contacto para continuar.",
+    RETENCION_EXPIRADA: "El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.",
+    LIMITE_RESERVACIONES_ALCANZADO: "Ya no puedes mantener otra reservación pendiente en este momento.",
+    REQUEST_TOKEN_CONFLICTO: "Este cambio ya no coincide con la operación activa. Vuelve a revisarlo.",
+    RESERVACION_NO_PERTENECE_AL_CONTACTO: "La reservación no pertenece al contacto verificado.",
+    MODIFICACION_NO_PERMITIDA: "La reservación ya no puede modificarse.",
+    ERROR_INTERNO: "No fue posible completar el cambio. Tu reservación original sigue vigente."
+  };
+  if (known[code]) return known[code];
+  if (data && data.mensaje && code !== "ERROR_INTERNO") return data.mensaje;
+  return phase === "confirm"
+    ? "No fue posible confirmar el cambio. Tu reservación original sigue vigente."
+    : "No fue posible preparar el cambio. Tu reservación original sigue vigente.";
+}
 
 function initReservationAccess() {
   var root = document.querySelector("[data-reservation-panel='manage']");
@@ -445,12 +476,6 @@ function initReservationAccess() {
     timeDisplay.setAttribute("aria-controls", dropdown.id);
     editor.querySelector("[data-editor-time-label]").setAttribute("for", timeDisplay.id);
 
-    var editorOtpInput = editor.querySelector("[data-editor-otp-input]");
-    if (editorOtpInput) {
-      editorOtpInput.id = "reservationEditorOtp" + suffix;
-      var editorOtpLabel = editor.querySelector("label[for='reservation-editor-otp']");
-      if (editorOtpLabel) editorOtpLabel.setAttribute("for", editorOtpInput.id);
-    }
   }
 
   function initializeEditorGuestPicker(editor, reservation) {
@@ -660,92 +685,113 @@ function initReservationAccess() {
         var editorPickers = initializeEditorPickers(editor, reservation);
         var editorCancel = editor.querySelector("[data-editor-cancel]");
         var editorMainActions = editor.querySelector(".reservation-card__editor-actions");
-        var editorOtp = editor.querySelector("[data-editor-otp]");
-        var editorOtpInput = editor.querySelector("[data-editor-otp-input]");
-        var editorOtpError = editor.querySelector("[data-editor-otp-error]");
-        var editorOtpPreview = editor.querySelector("[data-editor-otp-preview]");
-        var editorOtpConfirm = editor.querySelector("[data-editor-otp-confirm]");
-        var editorOtpResend = editor.querySelector("[data-editor-otp-resend]");
-        var editorCountdown = editor.querySelector("[data-editor-countdown]");
+        var editorComparison = editor.querySelector("[data-editor-comparison]");
+        var editorComparisonBack = editor.querySelector("[data-editor-comparison-back]");
+        var editorComparisonConfirm = editor.querySelector("[data-editor-comparison-confirm]");
+        var editorComparisonError = editor.querySelector("[data-editor-comparison-error]");
+        var editorComparisonTitle = editor.querySelector("[data-editor-comparison-title]");
+        var editorComparisonHold = editor.querySelector("[data-editor-comparison-hold]");
+        var editorComparisonCurrentDate = editor.querySelector("[data-editor-comparison-current-date]");
+        var editorComparisonCurrentTime = editor.querySelector("[data-editor-comparison-current-time]");
+        var editorComparisonCurrentPeople = editor.querySelector("[data-editor-comparison-current-people]");
+        var editorComparisonCurrentNotes = editor.querySelector("[data-editor-comparison-current-notes]");
+        var editorComparisonDate = editor.querySelector("[data-editor-comparison-date]");
+        var editorComparisonTime = editor.querySelector("[data-editor-comparison-time]");
+        var editorComparisonPeople = editor.querySelector("[data-editor-comparison-people]");
+        var editorComparisonNotes = editor.querySelector("[data-editor-comparison-notes]");
+        var editorSubmit = editor.querySelector('button[type="submit"]');
+        var originalReservation = {
+          id: reservation.id,
+          nombre: reservation.nombre || "",
+          fecha: reservation.fecha || "",
+          hora: String(reservation.hora || "").slice(0, 5),
+          comensales: parseInt(reservation.comensales, 10) || 2,
+          nota: reservation.nota || ""
+        };
         var editorOperation = null;
-        var editorCountdownTimer = null;
+        var editorState = "editing";
 
-        function resetEditorOtp() {
-          if (editorCountdownTimer) window.clearInterval(editorCountdownTimer);
-          editorCountdownTimer = null;
+        function setEditorState(state) {
+          editorState = state;
+          editor.setAttribute("data-editor-state", state);
+        }
+
+        function publicValue(reservationData, field) {
+          if (!reservationData) return "";
+          if (field === "fecha") return fechaLegible(reservationData.fecha);
+          if (field === "hora") return String(reservationData.hora || "").slice(0, 5);
+          if (field === "personas") return String(reservationData.comensales || "");
+          return String(reservationData.nota || "").trim() || "Sin indicaciones";
+        }
+
+        function sameValue(current, proposed, field) {
+          if (field === "hora") {
+            return String(current || "").slice(0, 5) === String(proposed || "").slice(0, 5);
+          }
+          if (field === "personas") return Number(current || 0) === Number(proposed || 0);
+          return String(current || "").trim() === String(proposed || "").trim();
+        }
+
+        function resetEditorComparison() {
           editorOperation = null;
-          if (editorOtp) editorOtp.hidden = true;
+          setEditorState("editing");
+          if (editorComparison) editorComparison.hidden = true;
           if (editorMainActions) editorMainActions.hidden = false;
-          if (editorOtpInput) editorOtpInput.value = "";
-          if (editorOtpError) editorOtpError.textContent = "";
-          if (editorOtpPreview) {
-            editorOtpPreview.hidden = true;
-            editorOtpPreview.replaceChildren();
-          }
-          if (editorCountdown) editorCountdown.textContent = "";
+          if (editorComparisonError) editorComparisonError.textContent = "";
         }
 
-        function renderEditorPreview(code) {
-          if (!editorOtpPreview) return;
-          editorOtpPreview.replaceChildren();
-          editorOtpPreview.hidden = !code;
-          if (!code) return;
-          var label = document.createElement("strong");
-          label.textContent = "Modo de desarrollo";
-          var value = document.createElement("span");
-          value.textContent = "Código de prueba: " + code;
-          var use = document.createElement("button");
-          use.type = "button";
-          use.className = "reservation-access__link";
-          use.textContent = "Usar código de prueba";
-          use.addEventListener("click", function() {
-            editorOtpInput.value = code;
-            editorOtpInput.focus();
-          });
-          editorOtpPreview.append(label, value, use);
-        }
+        function showEditorComparison(data, requestToken) {
+          var proposed = data && (data.propuesta || data.replacement);
+          var current = data && data.original;
+          if (!requestToken || !current || !proposed) return false;
 
-        function startEditorCountdown(expiresAt) {
-          var expiry = Date.parse(expiresAt || "");
-          if (!editorCountdown || !Number.isFinite(expiry)) return;
-          function tick() {
-            var remaining = Math.max(0, expiry - Date.now());
-            var seconds = Math.ceil(remaining / 1000);
-            editorCountdown.textContent = remaining > 0
-              ? "El código y la retención vencen en " + Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0") + "."
-              : "El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.";
-            if (editorOtpConfirm) editorOtpConfirm.disabled = remaining <= 0;
-            if (remaining <= 0 && editorCountdownTimer) {
-              window.clearInterval(editorCountdownTimer);
-              editorCountdownTimer = null;
-            }
-          }
-          tick();
-          editorCountdownTimer = window.setInterval(tick, 1000);
-        }
-
-        function showEditorOtp(data, requestToken) {
-          editorOperation = { request_token: requestToken, csrf_token: csrfTokenValue() };
+          editorOperation = {
+            request_token: requestToken,
+            csrf_token: csrfTokenValue(),
+            original: current,
+            propuesta: proposed,
+            hold_minutes: Number(data.hold_minutes) || 15
+          };
+          setEditorState("reviewing");
+          if (editorComparisonTitle) editorComparisonTitle.id = "reservationEditorComparisonTitle-" + reservation.id;
+          if (editorComparison) editorComparison.setAttribute("aria-labelledby", "reservationEditorComparisonTitle-" + reservation.id);
           if (editorMainActions) editorMainActions.hidden = true;
-          if (editorOtp) editorOtp.hidden = false;
-          renderEditorPreview(data.preview_code || "");
-          startEditorCountdown(data.hold_expires_at || data.otp_expires_at || "");
-          if (editorOtpInput) editorOtpInput.focus();
+          if (editorComparison) editorComparison.hidden = false;
+          if (editorComparisonHold) editorComparisonHold.textContent = "Esta disponibilidad se conservará durante " + editorOperation.hold_minutes + " minutos.";
+          var fields = [
+            { name: "fecha", current: editorComparisonCurrentDate, proposed: editorComparisonDate },
+            { name: "hora", current: editorComparisonCurrentTime, proposed: editorComparisonTime },
+            { name: "personas", current: editorComparisonCurrentPeople, proposed: editorComparisonPeople },
+            { name: "notas", current: editorComparisonCurrentNotes, proposed: editorComparisonNotes }
+          ];
+          fields.forEach(function(field) {
+            var row = editor.querySelector("[data-editor-comparison-row='" + field.name + "']");
+            var currentValue = current[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
+            var proposedValue = proposed[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
+            if (field.current) field.current.textContent = publicValue(current, field.name);
+            if (field.proposed) field.proposed.textContent = publicValue(proposed, field.name);
+            if (row) row.classList.toggle("is-changed", !sameValue(currentValue, proposedValue, field.name));
+          });
+          if (editorComparisonError) editorComparisonError.textContent = "";
+          if (editorComparisonConfirm) editorComparisonConfirm.focus();
+          return true;
         }
+
+        setEditorState("editing");
 
         function restoreEditor() {
-          resetEditorOtp();
-          editor.elements.nombre.value = reservation.nombre || "";
-          editor.elements.personas.value = reservation.comensales || 2;
-          editor.elements.notas.value = reservation.nota || "";
-          editorGuestPicker(reservation.comensales || 2);
+          resetEditorComparison();
+          editor.elements.nombre.value = originalReservation.nombre;
+          editor.elements.personas.value = originalReservation.comensales;
+          editor.elements.notas.value = originalReservation.nota;
+          editorGuestPicker(originalReservation.comensales);
           if (editorPickers.date) {
-            editorPickers.date.setValue(reservation.fecha || "", true);
+            editorPickers.date.setValue(originalReservation.fecha, true);
           }
           if (editorPickers.time) {
             editorPickers.loadAvailability(
-              reservation.fecha || "",
-              String(reservation.hora || "").slice(0, 5)
+              originalReservation.fecha,
+              originalReservation.hora
             );
           }
           var editorMessage = editor.querySelector("[data-editor-message]");
@@ -786,13 +832,15 @@ function initReservationAccess() {
             || !editorPickers.isAvailable()
           ) {
             editorMessage.textContent = "Selecciona fecha, horario y comensales con disponibilidad confirmada.";
+            setEditorState("error");
             return;
           }
-          var editorSubmit = editor.querySelector('button[type="submit"]');
           if (editorSubmit) {
             editorSubmit.disabled = true;
             editorSubmit.setAttribute("aria-busy", "true");
           }
+          setEditorState("creating_replacement");
+          var requestToken = operationToken();
           jsonRequest("/api/reservaciones/modificar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -802,19 +850,24 @@ function initReservationAccess() {
               hora: editor.elements.hora.value,
               personas: parseInt(editor.elements.personas.value, 10),
               notas: editor.elements.notas.value.trim(),
-              request_token: operationToken(),
+              request_token: requestToken,
               csrf_token: csrfTokenValue()
             })
           }).then(function(data) {
             if (!data.ok) {
-              editorMessage.textContent = data.mensaje
-                || "No fue posible modificar; tu reservación original se conserva.";
+              setEditorState("error");
+              editorMessage.textContent = mensajeOperacionModificacion(data, "create");
               return;
             }
-            showEditorOtp(data, data.request_token);
-            editorMessage.textContent = data.mensaje || "Confirma el código para aplicar los cambios.";
+            if (!showEditorComparison(data, data.request_token)) {
+              setEditorState("error");
+              editorMessage.textContent = "El servidor no devolvió el resumen completo del cambio. Tu reservación original sigue vigente.";
+              return;
+            }
+            editorMessage.textContent = data.mensaje || "Revisa el cambio y confírmalo para aplicarlo.";
           }).catch(function() {
-            editorMessage.textContent = "No fue posible modificar; tu reservación original se conserva.";
+            setEditorState("error");
+            editorMessage.textContent = mensajeOperacionModificacion(null, "create");
           }).finally(function() {
             if (editorSubmit) {
               editorSubmit.disabled = !editorPickers.isAvailable();
@@ -822,58 +875,41 @@ function initReservationAccess() {
             }
           });
         });
-        if (editorOtpConfirm) {
-          editorOtpConfirm.addEventListener("click", function() {
+        if (editorComparisonBack) {
+          editorComparisonBack.addEventListener("click", function() {
+            resetEditorComparison();
+            var comparisonMessage = editor.querySelector("[data-editor-message]");
+            if (comparisonMessage) comparisonMessage.textContent = "Puedes ajustar los datos antes de confirmar.";
+            if (editorSubmit) editorSubmit.focus();
+          });
+        }
+        if (editorComparisonConfirm) {
+          editorComparisonConfirm.addEventListener("click", function() {
             if (!editorOperation) return;
-            var code = (editorOtpInput.value || "").replace(/\D/g, "").slice(0, 6);
-            editorOtpInput.value = code;
-            if (!/^\d{6}$/.test(code)) {
-              editorOtpError.textContent = "Escribe el código de seis dígitos.";
-              editorOtpInput.focus();
-              return;
-            }
-            editorOtpConfirm.disabled = true;
+            editorComparisonConfirm.disabled = true;
+            setEditorState("confirming");
             jsonRequest("/api/reservaciones/confirmar-modificacion", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 request_token: editorOperation.request_token,
-                codigo: code,
                 csrf_token: editorOperation.csrf_token
               })
             }).then(function(data) {
               if (!data.ok) {
-                editorOtpError.textContent = data.mensaje || "El código no es válido.";
+                setEditorState("error");
+                if (editorComparisonError) editorComparisonError.textContent = mensajeOperacionModificacion(data, "confirm");
                 return;
               }
-              setMessage(data.mensaje || "Tu reservación fue actualizada.");
+              setEditorState("success");
+              editorOperation = null;
+              setMessage(data.mensaje || "Tu reservación fue modificada.");
               loadReservations();
             }).catch(function() {
-              editorOtpError.textContent = "No fue posible confirmar el cambio.";
+              setEditorState("error");
+              if (editorComparisonError) editorComparisonError.textContent = mensajeOperacionModificacion(null, "confirm");
             }).finally(function() {
-              if (editorOtpConfirm && editorOperation) editorOtpConfirm.disabled = false;
-            });
-          });
-        }
-        if (editorOtpResend) {
-          editorOtpResend.addEventListener("click", function() {
-            if (!editorOperation) return;
-            jsonRequest("/api/reservaciones/contacto/codigo", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                request_token: editorOperation.request_token,
-                operacion: "modificacion",
-                csrf_token: editorOperation.csrf_token
-              })
-            }).then(function(data) {
-              if (!data.ok) {
-                editorOtpError.textContent = data.mensaje || "No fue posible reenviar el código.";
-                return;
-              }
-              editorOtpError.textContent = "Código reenviado.";
-              renderEditorPreview(data.preview_code || "");
-              startEditorCountdown(data.hold_expires_at || data.otp_expires_at || "");
+              if (editorComparisonConfirm && editorOperation) editorComparisonConfirm.disabled = false;
             });
           });
         }

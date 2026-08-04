@@ -705,7 +705,7 @@ try {
     $modOriginalAfter = $rowById($modFixture['id']);
     $assert(count($pendingMods) === 1, 'Carrera 4: sólo un reemplazo pendiente vigente');
     $assert(($modOriginalAfter['estado'] ?? '') === 'confirmada', 'Carrera 4: original permanece confirmada');
-    $assert($activeOtpCount === 1, 'Carrera 4: sólo un OTP ligado permanece activo');
+    $assert($activeOtpCount === 0, 'Carrera 4: las modificaciones no crean OTP ligado');
     $resultSummary['dos_modificaciones'] = [
         'workers' => $workerResults($race),
         'reemplazos' => array_map(

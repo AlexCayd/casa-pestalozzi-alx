@@ -89,4 +89,4 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>

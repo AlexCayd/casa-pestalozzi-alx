@@ -56,7 +56,7 @@ class ReservacionConfig
         'completada' => 'Completada',
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
-        'reemplazada' => 'Reemplazada',
+        'reemplazada' => 'Versión anterior',
     ];
     public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada'];
     public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show', 'reemplazada'];

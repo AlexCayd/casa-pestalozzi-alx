@@ -435,6 +435,74 @@ class HorarioReservacionService
         ];
     }
 
+    /**
+     * Devuelve los bloques configurados para navegar el mapa, sin aplicar la
+     * anticipación mínima que sólo rige para crear nuevas reservaciones.
+     */
+    public static function horariosConfiguradosParaMapa(string $fecha): array
+    {
+        try {
+            $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
+            if (!($efectivo['abierto'] ?? false)) {
+                return [];
+            }
+
+            return self::generarIntervalos(
+                (string)($efectivo['hora_apertura'] ?? ''),
+                (string)($efectivo['hora_cierre'] ?? '')
+            );
+        } catch (\Throwable $error) {
+            return [];
+        }
+    }
+
+    /** Resuelve el bloque inicial del mapa, incluido el bloque actual. */
+    public static function resolverHorarioMapa(
+        string $fecha,
+        string $horaSolicitada,
+        array $horariosAlternativos = []
+    ): array {
+        $horarios = self::horariosConfiguradosParaMapa($fecha);
+        if ($horarios === []) {
+            $horarios = $horariosAlternativos;
+        }
+
+        $normalizados = [];
+        foreach ($horarios as $horario) {
+            $valor = is_object($horario) ? (string)($horario->hora ?? '') : (string)$horario;
+            $hora = self::normalizarHoraCorta($valor);
+            if ($hora !== '') {
+                $normalizados[$hora] = true;
+            }
+        }
+        $normalizados = array_keys($normalizados);
+        sort($normalizados, SORT_STRING);
+
+        $solicitada = self::normalizarHoraCorta($horaSolicitada);
+        $resuelta = $solicitada !== '' && in_array($solicitada, $normalizados, true)
+            ? $solicitada
+            : '';
+        if ($resuelta === '' && $normalizados !== []) {
+            $reloj = ReservacionConfig::ahora()->format('H:i');
+            foreach ($normalizados as $hora) {
+                if ($hora <= $reloj) {
+                    $resuelta = $hora;
+                    continue;
+                }
+                break;
+            }
+            $resuelta = $resuelta !== '' ? $resuelta : $normalizados[0];
+        }
+
+        return [
+            'hora_solicitada' => $solicitada,
+            'hora_resuelta' => $resuelta,
+            'ajustada' => $solicitada !== '' && $resuelta !== $solicitada,
+            'solicitada_vencida' => false,
+            'sin_horarios_futuros' => false,
+        ];
+    }
+
     public static function hoy(): string
     {
         return ReservacionConfig::fechaActual();

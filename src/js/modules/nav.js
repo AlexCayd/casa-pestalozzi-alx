@@ -44,7 +44,7 @@ function initNav() {
 
   // brand + rail + footer + anchors in-page
   $$('a[href^="#"]').forEach(function(a) {
-    if (a.hasAttribute("data-nav")) return;
+    if (a.hasAttribute("data-nav") || a.hasAttribute("data-rail")) return;
     a.addEventListener("click", function(e) {
       var id = a.getAttribute("href");
       if (id.length < 2 || !$(id)) return;

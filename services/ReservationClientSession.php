@@ -22,6 +22,13 @@ class ReservationClientSession
     {
         if (session_status() === PHP_SESSION_NONE) {
             $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $environment = ReservacionConfig::appEnvironment();
+            if (in_array($environment, ['development', 'testing'], true)) {
+                $sessionPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . '.sessions';
+                if (is_dir($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                }
+            }
             session_set_cookie_params([
                 'lifetime' => 0,
                 'path' => '/',

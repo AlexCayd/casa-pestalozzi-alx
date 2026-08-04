@@ -28,7 +28,7 @@
   </div>
 </nav>
 
-<div class="rail" id="rail" aria-hidden="true" inert>
+<nav class="rail" id="rail" aria-label="Secciones principales">
   <a href="#hero" data-rail="hero"><span class="rlabel">Inicio</span><span class="tick"></span></a>
   <a href="#nosotros" data-rail="nosotros"><span class="rlabel">Nosotros</span><span class="tick"></span></a>
   <a href="#menu" data-rail="menu"><span class="rlabel">Carta</span><span class="tick"></span></a>
@@ -38,4 +38,4 @@
   <a href="#panaderia" data-rail="panaderia"><span class="rlabel">Panadería</span><span class="tick"></span></a>
   <a href="#eventos" data-rail="eventos"><span class="rlabel">Eventos</span><span class="tick"></span></a>
   <a href="#reserva" data-rail="reserva"><span class="rlabel">Reservar</span><span class="tick"></span></a>
-</div>
+</nav>

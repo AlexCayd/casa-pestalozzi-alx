@@ -309,11 +309,11 @@ try {
         'reservacion_id' => $h, 'fecha' => '2026-11-08', 'hora' => '14:00', 'personas' => 2,
         'notas' => 'Reemplazo controlado Etapa 9.5', 'request_token' => $hToken,
     ], ['contacto_tipo' => 'email', 'contacto' => $hContact]);
-    $hOtp = (string)($hReplacement['preview_code'] ?? ''); $hReplacementId = (int)($hReplacement['replacement']['id'] ?? $hReplacement['id'] ?? $hReplacement['reservacion_id'] ?? 0);
-    if ($hOtp === '' || $hReplacementId < 1) throw new RuntimeException('No se pudo preparar H: ' . json_encode($hReplacement, JSON_UNESCAPED_UNICODE));
+    $hReplacementId = (int)($hReplacement['replacement']['id'] ?? $hReplacement['id'] ?? $hReplacement['reservacion_id'] ?? 0);
+    if ($hReplacementId < 1) throw new RuntimeException('No se pudo preparar H: ' . json_encode($hReplacement, JSON_UNESCAPED_UNICODE));
     $hWorkers = $runRace('H_reasignacion_vs_reemplazo', [
         ['kind' => 'map_assign', 'reservation-id' => $h, 'target-ids' => [$t3]],
-        ['kind' => 'confirm_replacement', 'contact' => $hContact, 'token' => $hToken, 'otp' => $hOtp],
+        ['kind' => 'confirm_replacement', 'contact' => $hContact, 'token' => $hToken],
     ]);
     $hMap = $resultado($hWorkers, 'map_assign'); $hConfirm = $resultado($hWorkers, 'confirm_replacement'); $hRow = $rowById($h); $hNewRow = $rowById($hReplacementId);
     $hValid = $okResultado($hConfirm)

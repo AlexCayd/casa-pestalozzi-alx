@@ -3,6 +3,7 @@
 namespace Classes;
 
 use Model\Usuario;
+use Services\ReservacionConfig;
 
 /**
  * Sesión y protección de rutas del personal.
@@ -64,6 +65,13 @@ class Auth {
 
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            $environment = ReservacionConfig::appEnvironment();
+            if (in_array($environment, ['development', 'testing'], true)) {
+                $sessionPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . '.sessions';
+                if (is_dir($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                }
+            }
             session_start();
         }
     }

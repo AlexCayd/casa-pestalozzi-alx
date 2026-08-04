@@ -42,11 +42,10 @@ class ReservacionOperacionController
         $horariosIniciales = ($disponibilidadInicial['ok'] ?? false)
             ? (array)($disponibilidadInicial['horarios'] ?? [])
             : [];
-        $resolucionHorario = HorarioReservacionService::resolverHorarioOperativo(
+        $resolucionHorario = HorarioReservacionService::resolverHorarioMapa(
             $fecha,
             $horaSolicitada,
-            $horariosIniciales,
-            $soloLectura
+            $horariosIniciales
         );
         $hora = (string)$resolucionHorario['hora_resuelta'];
         $operacionEditable = !$soloLectura && $horariosIniciales !== [];
@@ -192,11 +191,10 @@ class ReservacionOperacionController
         $horarios = array_values(array_filter(array_map(static function ($horario): string {
             return HorarioReservacionService::normalizarHoraCorta((string)$horario);
         }, $disponibilidad['horarios'] ?? [])));
-        $resolucionHorario = HorarioReservacionService::resolverHorarioOperativo(
+        $resolucionHorario = HorarioReservacionService::resolverHorarioMapa(
             $fecha,
             $horaSolicitada,
-            $horarios,
-            $soloLectura
+            $horarios
         );
         $horaResuelta = (string)($resolucionHorario['hora_resuelta'] ?: $horaSolicitada);
         if ($horaResuelta === '') {
@@ -283,6 +281,10 @@ class ReservacionOperacionController
             $mensajeOperacion = 'El horario solicitado ya pasó y no quedan horarios operativos disponibles para hoy. Selecciona una fecha futura.';
         }
         $editable = !$soloLectura && $estadoOperacion === 'disponible';
+        $horariosMapa = array_values(array_filter(array_map(
+            static fn($horario): string => HorarioReservacionService::normalizarHoraCorta((string)$horario),
+            HorarioReservacionService::horariosConfiguradosParaMapa($fecha)
+        )));
 
         self::jsonResponse([
             'ok' => true,
@@ -296,6 +298,7 @@ class ReservacionOperacionController
             'tipo' => $disponibilidad['tipo'] ?? null,
             'mensaje' => $mensajeOperacion,
             'horarios' => $horarios,
+            'horarios_mapa' => $horariosMapa,
             'hora_solicitada' => $resolucionHorario['hora_solicitada'],
             'hora_sugerida' => $resolucionHorario['hora_resuelta'],
             'hora_ajustada' => $resolucionHorario['ajustada'],

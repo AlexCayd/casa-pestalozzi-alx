@@ -2,6 +2,28 @@
  * Shared reservation date picker.
  */
 (function () {
+  if (!window.ReservationPopoverCoordinator) {
+    var activePopover = null;
+    window.ReservationPopoverCoordinator = {
+      register: function () {},
+      open: function (popover) {
+        if (activePopover && activePopover !== popover) {
+          activePopover.close(false);
+        }
+        activePopover = popover;
+      },
+      close: function (popover, restoreFocus) {
+        if (activePopover === popover) activePopover = null;
+        popover.close(Boolean(restoreFocus));
+      }
+    };
+    document.addEventListener("click", function (event) {
+      if (activePopover && !activePopover.root.contains(event.target)) {
+        window.ReservationPopoverCoordinator.close(activePopover, false);
+      }
+    });
+  }
+
   function pad(n) {
     return n < 10 ? "0" + n : "" + n;
   }
@@ -143,8 +165,19 @@
       }
     }
 
+    var popover = {
+      root: root,
+      close: function (restoreFocus) {
+        calendar.classList.remove("open");
+        calendar.setAttribute("aria-hidden", "true");
+        display.setAttribute("aria-expanded", "false");
+        if (restoreFocus) display.focus();
+      }
+    };
+
     function openCalendar() {
       if (display.disabled) return;
+      window.ReservationPopoverCoordinator.open(popover);
       calendar.classList.add("open");
       calendar.setAttribute("aria-hidden", "false");
       display.setAttribute("aria-expanded", "true");
@@ -156,10 +189,8 @@
       if (preferred) preferred.focus();
     }
 
-    function closeCalendar() {
-      calendar.classList.remove("open");
-      calendar.setAttribute("aria-hidden", "true");
-      display.setAttribute("aria-expanded", "false");
+    function closeCalendar(restoreFocus) {
+      window.ReservationPopoverCoordinator.close(popover, restoreFocus === true);
     }
 
     display.addEventListener("click", function (event) {
@@ -173,7 +204,7 @@
         openCalendar();
       }
       if (event.key === "Escape") {
-        closeCalendar();
+        closeCalendar(true);
       }
     });
 
@@ -206,8 +237,7 @@
     grid.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeCalendar();
-        display.focus();
+        closeCalendar(true);
         return;
       }
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].indexOf(event.key) === -1) {
@@ -227,11 +257,7 @@
       days[nextIndex].focus();
     });
 
-    document.addEventListener("click", function (event) {
-      if (!root.contains(event.target)) {
-        closeCalendar();
-      }
-    });
+    window.ReservationPopoverCoordinator.register(popover);
 
     return {
       setDisabled: function (disabled) {

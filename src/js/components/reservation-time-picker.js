@@ -92,11 +92,36 @@
       requestTimeoutId = null;
     }
 
-    function closeDropdown() {
+    var popoverCoordinator = window.ReservationPopoverCoordinator || null;
+    var popover = {
+      root: root,
+      close: function (restoreFocus) {
+        dropdown.classList.remove("open");
+        root.classList.remove("is-open");
+        dropdown.setAttribute("aria-hidden", "true");
+        display.setAttribute("aria-expanded", "false");
+        if (restoreFocus) display.focus();
+      }
+    };
+
+    function closeDropdown(restoreFocus) {
+      if (popoverCoordinator) {
+        popoverCoordinator.close(popover, restoreFocus === true);
+        return;
+      }
       dropdown.classList.remove("open");
       root.classList.remove("is-open");
       dropdown.setAttribute("aria-hidden", "true");
       display.setAttribute("aria-expanded", "false");
+      if (restoreFocus) display.focus();
+    }
+
+    function openDropdown() {
+      if (popoverCoordinator) popoverCoordinator.open(popover);
+      dropdown.classList.add("open");
+      root.classList.add("is-open");
+      dropdown.setAttribute("aria-hidden", "false");
+      display.setAttribute("aria-expanded", "true");
     }
 
     function focusHour(preferSelected) {
@@ -198,7 +223,7 @@
         display.disabled = controlDisabled;
         display.setAttribute("aria-disabled", controlDisabled ? "true" : "false");
         root.classList.toggle("is-disabled", controlDisabled);
-        closeDropdown();
+        closeDropdown(true);
       } else {
         setUnavailable("Sin horarios disponibles", true, true);
       }
@@ -456,24 +481,22 @@
     display.addEventListener("click", function (event) {
       event.stopPropagation();
       if (!enabled || display.disabled) return;
-      dropdown.classList.toggle("open");
-      root.classList.toggle("is-open", dropdown.classList.contains("open"));
-      dropdown.setAttribute("aria-hidden", dropdown.classList.contains("open") ? "false" : "true");
-      display.setAttribute("aria-expanded", dropdown.classList.contains("open") ? "true" : "false");
-      if (dropdown.classList.contains("open")) focusHour(true);
+      if (dropdown.classList.contains("open")) {
+        closeDropdown();
+      } else {
+        openDropdown();
+        focusHour(true);
+      }
     });
 
     display.addEventListener("keydown", function (event) {
       if ((event.key === "Enter" || event.key === " ") && enabled && !display.disabled) {
         event.preventDefault();
-        dropdown.classList.add("open");
-        root.classList.add("is-open");
-        dropdown.setAttribute("aria-hidden", "false");
-        display.setAttribute("aria-expanded", "true");
+        openDropdown();
         focusHour(true);
       }
       if (event.key === "Escape") {
-        closeDropdown();
+        closeDropdown(true);
       }
     });
 
@@ -483,8 +506,7 @@
       var index = buttons.indexOf(document.activeElement);
       if (event.key === "Escape") {
         event.preventDefault();
-        closeDropdown();
-        display.focus();
+        closeDropdown(true);
         return;
       }
       if (index === -1 || !buttons.length) return;
@@ -496,11 +518,7 @@
       buttons[index].focus();
     });
 
-    document.addEventListener("click", function (event) {
-      if (!root.contains(event.target)) {
-        closeDropdown();
-      }
-    });
+    if (popoverCoordinator) popoverCoordinator.register(popover);
 
     var initialTime = normalizeHour(options.initialTime || input.value);
     var suppliedHours = Array.isArray(options.hours) ? options.hours.slice() : buildStaticHours(staticStep);

@@ -1,7 +1,8 @@
 # Módulo de reservaciones — Fuente de verdad funcional y técnica
 
 **Proyecto:** Casa Pestalozzi  
-**Estado del documento:** Fuente de verdad funcional y técnica para reconstrucción  
+**Estado del documento:** Fuente de verdad funcional y técnica vigente  
+**Última actualización funcional:** 2026-08-04 — interacción pública, modificación, proyección temporal de mapas y lenguaje operativo  
 **Propósito:** Establecer el comportamiento esperado del módulo, sus reglas, estructura de datos, flujos, validaciones y plan de desarrollo.  
 **Uso previsto:** Este documento debe utilizarse para diseñar, implementar, revisar y validar el módulo. Cualquier comportamiento que contradiga esta definición debe considerarse incorrecto, salvo que el documento sea actualizado de forma explícita.
 
@@ -604,7 +605,7 @@ No debe revelarse si un contacto existe antes de verificarlo.
 
 ## 15. Modificación pública
 
-La modificación se permite hasta 30 minutos antes del inicio.
+La modificación se permite hasta 30 minutos antes del inicio de la reservación original.
 
 La interfaz debe mostrar una nota clara:
 
@@ -625,22 +626,72 @@ reemplaza_reservacion_id = reservación original
 origen = landing
 ```
 
-La reservación original permanece confirmada hasta que el cambio se confirme.
+La reservación original permanece `confirmada` y conserva su asignación hasta que el cambio se confirme.
 
-### 15.2 Confirmación del cambio
+### 15.2 Autorización y secuencia visual
 
-Al validar el OTP, dentro de una transacción:
+El contacto se verifica mediante OTP para acceder a sus reservaciones. Mientras la sesión pública siga vigente, no se solicita un segundo OTP específico para modificar.
 
-1. Bloquear la reservación original.
-2. Bloquear la nueva versión.
-3. Validar que el hold siga vigente.
-4. Revalidar disponibilidad.
-5. Cambiar la nueva versión a `confirmada`.
-6. Cambiar la original a `reemplazada`.
-7. Actualizar `estado_changed_at` en ambas.
-8. Liberar la asignación anterior para futuros cálculos.
+La secuencia aprobada es:
 
-### 15.3 Expiración del cambio
+```text
+Modificar
+→ editar fecha, hora, comensales o nota
+→ Aceptar
+→ crear o recuperar el reemplazo pendiente
+→ Revisa tu cambio
+→ Confirmar modificación
+```
+
+El botón **Aceptar**:
+
+1. Valida los datos.
+2. Comprueba el límite de modificación.
+3. Crea o recupera idempotentemente el reemplazo pendiente.
+4. Revalida disponibilidad.
+5. Asigna provisionalmente las mesas.
+6. Mantiene la disponibilidad durante 15 minutos.
+7. Abre un modal con la comparación entre la reservación actual y la propuesta.
+
+El botón **Aceptar** no cambia el estado de la reservación original.
+
+El modal debe mostrar:
+
+- Fecha actual y propuesta.
+- Hora actual y propuesta.
+- Comensales actuales y propuestos.
+- Nota actual y propuesta.
+- Los campos que realmente cambiaron.
+- El mensaje: `Tu reservación actual seguirá vigente hasta que confirmes este cambio.`
+- El mensaje: `Esta disponibilidad se conservará durante 15 minutos.`
+
+Acciones del modal:
+
+```text
+Volver a editar
+Confirmar modificación
+```
+
+### 15.3 Confirmación del cambio
+
+`Confirmar modificación` utiliza la sesión pública vigente, CSRF y `request_token`. No solicita otro OTP.
+
+Dentro de una transacción:
+
+1. Validar la sesión y la pertenencia de la reservación.
+2. Bloquear la reservación original.
+3. Bloquear la nueva versión.
+4. Validar que el hold siga vigente.
+5. Revalidar disponibilidad y asignación.
+6. Cambiar la nueva versión a `confirmada`.
+7. Cambiar la original a `reemplazada`.
+8. Actualizar `estado_changed_at` en ambas.
+9. Liberar la asignación anterior para futuros cálculos.
+10. Confirmar la transacción.
+
+La operación debe ser idempotente. Si la sesión pública expiró, se solicita nuevamente la verificación del contacto y no se confirma el cambio mediante un bypass.
+
+### 15.4 Expiración del cambio
 
 Si no se confirma:
 
@@ -648,16 +699,17 @@ Si no se confirma:
 - La reservación original continúa `confirmada`.
 - La asignación original se conserva.
 - Las mesas retenidas por la nueva versión se liberan.
+- El reemplazo vencido no puede confirmarse posteriormente.
 
-### 15.4 Disminución de comensales
+### 15.5 Disminución de comensales
 
 Al disminuir comensales:
 
 - Se recalcula la mejor asignación.
-- Se liberan mesas adicionales al confirmar el cambio.
+- Se liberan mesas adicionales únicamente al confirmar el cambio.
 - No se liberan antes de la confirmación.
 
-### 15.5 Aumento de comensales sin cambiar fecha u hora
+### 15.6 Aumento de comensales sin cambiar fecha u hora
 
 Orden de búsqueda:
 
@@ -665,9 +717,68 @@ Orden de búsqueda:
 2. Si no es posible, buscar otra combinación completa.
 3. Si no existe una combinación válida, rechazar el cambio.
 
-### 15.6 Cambio de fecha u hora
+La reservación original se excluye del conflicto durante la evaluación porque sólo será sustituida si la propuesta se confirma.
 
-La nueva solicitud se evalúa como una reservación nueva.
+### 15.7 Horario original y anticipación mínima
+
+La anticipación mínima de 40 minutos se aplica cuando el cliente elige una fecha o una hora distinta.
+
+Cuando la modificación conserva la fecha y hora originales, el horario original debe permanecer disponible mientras:
+
+- La reservación continúe `confirmada`.
+- Todavía falten al menos 30 minutos para su inicio.
+- El horario siga siendo operativo para esa fecha.
+- La nueva cantidad de comensales pueda resolverse con una asignación física válida.
+
+El selector de modificación se construye con:
+
+```text
+horarios válidos para una nueva fecha u hora
++
+horario original preservable
+```
+
+El sistema no debe desplazar silenciosamente el horario original al siguiente bloque.
+
+La anticipación se calcula sobre la hora exacta actual antes de elegir el bloque configurado:
+
+```text
+límite = hora actual + 40 minutos
+primer horario nuevo válido = primer bloque configurado >= límite
+```
+
+No se redondea la hora actual antes de sumar los 40 minutos.
+
+Ejemplo:
+
+```text
+Hora actual: 15:15
+Límite exacto: 15:55
+Bloques: 15:30, 16:00, 16:30
+Primer horario nuevo válido: 16:00
+```
+
+Ejemplo de preservación:
+
+```text
+Hora actual: 15:25
+Reservación original: 16:00
+Modificar la misma reservación conservando 16:00: permitido
+Mover otra reservación a las 16:00: no permitido por anticipación mínima
+```
+
+Si faltan menos de 30 minutos para el inicio, la modificación queda bloqueada aunque se pretenda conservar el horario original.
+
+### 15.8 Cambio de fecha u hora
+
+Una fecha u hora distinta se evalúa como una reservación nueva y debe cumplir:
+
+- Horario operativo.
+- Anticipación mínima exacta de 40 minutos.
+- Última reservación antes del cierre.
+- Disponibilidad física.
+- Grupos autorizados.
+- Reglas públicas de 1 a 12 comensales.
 
 La reservación original se excluye del conflicto únicamente porque será reemplazada si el cambio se confirma.
 
@@ -767,6 +878,30 @@ landing ni a la gestión pública de la Etapa 7.
   permiten crear un reemplazo cuando existe una combinación física automática
   válida.
 
+
+### 18.2 Presentación del listado administrativo
+
+El listado principal debe ser compacto.
+
+Para mesas asignadas muestra únicamente:
+
+```text
+Sin mesas
+1 mesa
+2 mesas
+3 mesas
+```
+
+No muestra en el listado:
+
+- Números o nombres de mesas.
+- Lista completa de mesas asignadas.
+- Indicador de ticket abierto.
+- ID del ticket.
+- Mesas físicas del ticket.
+
+La vista de detalle conserva la información completa de mesas planificadas, ticket relacionado, estado del ticket y diferencias entre asignación planificada y ocupación física cuando sean relevantes.
+
 ---
 
 ## 19. Estados de reservación
@@ -783,6 +918,8 @@ landing ni a la gestión pública de la Etapa 7.
 | `no_show` | No llegó dentro de la tolerancia | No |
 | `expirada` | Hold vencido | No |
 | `reemplazada` | Versión sustituida por una modificación | No |
+
+La etiqueta visible del estado debe ser **Reemplazada**, igual que el valor canónico. No se utiliza ninguna etiqueta alternativa como `Versión anterior`.
 
 ### 19.2 Transiciones permitidas
 
@@ -829,11 +966,11 @@ No puede modificarse ni cancelarse desde la landing.
 
 Desde 30 minutos antes del horario:
 
-- Al seleccionar una mesa en el punto de venta, debe mostrarse la reservación próxima asociada.
-- Debe permitirse abrir el ticket.
+- Al seleccionar una mesa en el punto de venta, debe mostrarse la reservación `confirmada` próxima asociada.
+- Debe permitirse iniciar el servicio cuando corresponda.
 - No existe estado `llego`.
 
-Al abrir el ticket:
+Al abrir el ticket desde la reservación:
 
 ```text
 confirmada → en_curso
@@ -845,12 +982,90 @@ En una transacción:
 
 1. Validar que la reservación esté `confirmada`.
 2. Validar que se encuentre dentro de la ventana permitida.
-3. Crear el ticket con `reservacion_id`.
-4. Crear `ticket_mesas`.
-5. Cambiar la reservación a `en_curso`.
-6. Actualizar `estado_changed_at`.
+3. Revalidar las mesas y la ocupación física.
+4. Crear el ticket con `reservacion_id`.
+5. Crear `ticket_mesas`.
+6. Cambiar la reservación a `en_curso`.
+7. Actualizar `estado_changed_at`.
 
-### 20.3 Cierre del ticket
+### 20.3 Apertura walk-in con reservación próxima de 60 a 30 minutos
+
+Cuando se intenta abrir un ticket walk-in en una mesa con una reservación `confirmada` dentro de los siguientes 60 a 30 minutos, se permite continuar únicamente después de una advertencia explícita.
+
+Se reutiliza el componente modal existente, pero con contenido específico.
+
+Título:
+
+```text
+Hay una reservación próxima
+```
+
+El contenido debe informar:
+
+- Mesa o mesas involucradas.
+- Hora de la reservación.
+- Nombre, cuando corresponda mostrarlo al personal.
+- Número de comensales.
+- Minutos restantes.
+- Consecuencia de abrir el ticket.
+
+Ejemplo:
+
+```text
+Esta mesa tiene una reservación a las 15:00 para 4 personas. Faltan 42 minutos.
+Puedes abrir el ticket, pero la mesa deberá estar disponible antes de la reservación.
+```
+
+Si la duración estimada del servicio supera el tiempo restante, agregar:
+
+```text
+La duración estimada del servicio supera el tiempo disponible antes de la reservación.
+```
+
+Acciones:
+
+```text
+Volver a la selección
+Abrir ticket de todas formas
+```
+
+No se muestran códigos, flags, ventanas internas ni explicaciones de backend. El servidor vuelve a validar la ocupación, la reservación próxima y la idempotencia antes de abrir.
+
+### 20.4 Confirmación de ausencia
+
+El modal de ausencia utiliza el mismo shell visual, pero una variante y contenido propios.
+
+Título:
+
+```text
+Registrar que el cliente no se presentó
+```
+
+El contenido debe explicar:
+
+- Hora de la reservación.
+- Tolerancia de 15 minutos.
+- Que la tolerancia ya terminó.
+- Que la reservación cambiará a `no_show`.
+- Que sus mesas dejarán de estar comprometidas por la reservación.
+
+Ejemplo:
+
+```text
+La reservación era a las 15:00 y la tolerancia de 15 minutos ya terminó.
+Al confirmar, se registrará que el cliente no se presentó y sus mesas dejarán de estar comprometidas.
+```
+
+Acciones:
+
+```text
+Volver
+Registrar ausencia
+```
+
+Los modales de reservación próxima y ausencia comparten overlay, foco, estructura y responsive, pero nunca un cuerpo genérico vacío. Toda confirmación debe explicar la causa y la consecuencia de la acción.
+
+### 20.5 Cierre del ticket
 
 Al cerrar:
 
@@ -862,39 +1077,52 @@ Actualizar `estado_changed_at`.
 
 ---
 
-## 21. Mapa de reservaciones
+## 21. Mapas operativos de punto de venta y reservaciones
 
-### 21.1 Acceso y continuidad visual
+### 21.1 Componente compartido y continuidad visual
 
-El mapa se abre desde el punto de venta.
+El punto de venta y la gestión de reservaciones deben reutilizar el mismo componente de mapa, coordenadas, shell, toolbar, leyenda, paneles y patrones de interacción.
 
-Debe reutilizar el mismo componente de mapa y la misma estructura de pantalla.
+No debe desarrollarse un segundo motor de mapa ni una segunda interpretación de disponibilidad.
 
-La diferencia entre ambos modos debe limitarse a:
+Ambos mapas consumen la misma proyección de ocupación. Sólo difieren en las acciones disponibles:
 
-- Controles de fecha y hora.
-- Listado de reservaciones.
-- Detalle de reservación seleccionada.
-- Edición de asignación.
-- Alertas operativas.
-- Acción para crear reservación.
-- Acción para volver al modo normal.
+| Superficie | Información | Acciones principales |
+|---|---|---|
+| Punto de venta | Estado actual o proyectado, tickets y reservaciones confirmadas | Abrir ticket, iniciar servicio, registrar ausencia |
+| Gestión de reservaciones | La misma ocupación actual o proyectada | Consultar, crear, asignar y reasignar mesas |
 
-No debe desarrollarse un segundo mapa independiente.
-
-### 21.2 Estado inicial
+### 21.2 Estado inicial del día actual
 
 Al entrar:
 
 - Fecha: día actual.
-- Hora: horario configurado inmediatamente anterior o igual a la hora actual.
-- Ejemplo: a las 09:27, seleccionar 09:00 cuando los horarios son cada 30 minutos.
-- Si la hora actual es anterior a la apertura, seleccionar el primer horario.
-- No seleccionar ninguna reservación.
-- Mostrar reservaciones del día en la barra lateral.
-- Resaltar visualmente las correspondientes al horario actual.
+- Hora: último bloque configurado menor o igual a la hora actual.
+- Los bloques anteriores no aparecen en el selector.
+- Si la hora actual es anterior a la apertura, se selecciona el primer bloque.
+- Si la jornada terminó, se muestra el último bloque consultable o el estado de jornada terminada conforme al diseño.
+- No se selecciona automáticamente una reservación.
 
-### 21.3 Controles
+Ejemplo:
+
+```text
+Horario de operación: 10:00–19:00
+Hora actual: 11:05
+Primer horario visible y seleccionado: 11:00
+```
+
+Ejemplos de redondeo:
+
+```text
+11:05 → 11:00
+11:29 → 11:00
+11:30 → 11:30
+11:59 → 11:30
+```
+
+Un horario anterior enviado por URL, caché o estado persistido se normaliza al primer bloque visible del día actual. No se ofrece una vista histórica desde estos mapas.
+
+### 21.3 Controles de fecha y hora
 
 #### Fecha
 
@@ -903,19 +1131,108 @@ Al entrar:
 - Máximo 90 días.
 - Respetar cierres y excepciones.
 
-#### Hora
+#### Hora del día actual
 
-- Mostrar horarios válidos para la fecha.
-- Considerar excepción antes que horario semanal.
-- No mostrar horarios pasados que violen la anticipación mínima.
+- Mostrar únicamente el bloque actual y los bloques posteriores.
+- No aplicar la anticipación mínima de 40 minutos a la navegación del mapa.
+- El primer bloque visible es el configurado inmediatamente anterior o igual a la hora actual.
+- Cambiar de horario actualiza la misma proyección en ambos mapas.
 
-### 21.4 Selección de reservación
+#### Hora de una fecha futura
 
-Al seleccionar una reservación:
+- Mostrar todos los bloques operativos válidos desde la apertura.
+- Considerar excepciones antes que horario semanal.
 
-- Ajustar fecha y hora del mapa.
+#### Creación de reservaciones
+
+Los horarios visibles del mapa no determinan por sí solos si puede crearse una reservación. Las nuevas altas continúan usando la regla independiente de `hora actual + 40 minutos`.
+
+### 21.4 Fotografía actual y proyección futura
+
+El bloque actual representa la fotografía operativa real.
+
+Debe considerar:
+
+- Tickets físicamente abiertos.
+- Reservaciones `confirmada` que se traslapen con el bloque.
+- Holds vigentes como bloqueo temporal.
+- Mesas activas y reservables.
+- Ocupación física real.
+
+Un ticket abierto sigue ocupando su mesa en el bloque actual aunque haya superado su liberación estimada.
+
+Los bloques posteriores representan una proyección estimada. Se calcula con la misma lógica de ocupación y disponibilidad utilizada para crear reservaciones:
+
+```text
+fecha y hora consultadas
++ tickets abiertos y liberación estimada
++ reservaciones confirmadas
++ holds vigentes
++ mesas reservables
++ conflictos por intervalo
+= estado proyectado por mesa
+```
+
+Para tickets abiertos:
+
+```text
+liberación estimada =
+hora_apertura
++ DURACION_ESTIMADA_TICKET_MINUTOS
++ RETRASO_ESTIMADO_TICKET_MINUTOS
+```
+
+Para reservaciones confirmadas:
+
+```text
+[inicio, inicio + 90 minutos)
+```
+
+Un bloque futuro puede mostrar una mesa como disponible después de su liberación estimada, siempre que no exista otra reservación, hold o conflicto.
+
+La proyección es orientativa. Toda creación, asignación o apertura vuelve a validar dentro de una transacción.
+
+### 21.5 Reservaciones visibles en los mapas
+
+Los mapas muestran como reservaciones operativas únicamente:
+
+```text
+estado = confirmada
+```
+
+Esto aplica a:
+
+- Tarjetas del panel lateral.
+- Reservaciones próximas.
+- Advertencias vinculadas a una reservación.
+- Tooltips con identidad.
+- Selección operativa.
+- Asignación y reasignación.
+- Resaltado azul por reservación.
+
+No se muestran como reservaciones:
+
+- `pendiente_verificacion`.
+- `en_curso`.
+- `completada`.
+- `cancelada`.
+- `no_show`.
+- `expirada`.
+- `reemplazada`.
+
+Los holds vigentes continúan afectando disponibilidad y pueden marcar una mesa como temporalmente comprometida, pero no exponen una tarjeta ni datos de cliente.
+
+`en_curso` se representa exclusivamente mediante el ticket abierto y `ticket_mesas`, evitando duplicidad visual y de ocupación.
+
+Una reservación anterior al bloque seleccionado puede continuar apareciendo cuando siga `confirmada` y su intervalo se traslape con el bloque actual. Por ejemplo, una reservación de las 11:00 que continúa confirmada a las 11:35 sigue siendo operativamente visible en el bloque 11:30. No se crea una sección separada de incidencias o acciones vencidas; el retraso, la tolerancia y la acción de ausencia se presentan dentro del flujo normal.
+
+### 21.6 Selección de reservación
+
+Al seleccionar una reservación `confirmada`:
+
+- Ajustar fecha y hora del mapa cuando corresponda.
 - Resaltar sus mesas.
-- Mostrar detalle:
+- Mostrar:
   - Nombre.
   - Contacto.
   - Fecha.
@@ -924,223 +1241,95 @@ Al seleccionar una reservación:
   - Nota.
   - Comentario administrativo.
   - Estado.
-- Mostrar:
-  - Capacidad total de mesas seleccionadas.
-  - Comensales.
-  - Diferencia.
-- Resaltar si la capacidad es insuficiente.
+  - Capacidad total de sus mesas.
+  - Diferencia entre capacidad y comensales.
 
-### 21.5 Edición de mesas
+No se habilita selección operativa para estados distintos de `confirmada`.
 
-La asignación no debe cambiar inmediatamente al tocar una mesa.
+### 21.7 Edición explícita de mesas
+
+La asignación no cambia inmediatamente al tocar una mesa.
 
 Flujo:
 
-1. Seleccionar reservación.
-2. Activar **Editar asignación**.
-3. Seleccionar o deseleccionar mesas.
-4. Mostrar resultado provisional.
-5. Validar grupos permitidos.
-6. Mostrar conflictos.
-7. Presionar **Guardar asignación**.
-8. Revalidar disponibilidad.
-9. Guardar dentro de una transacción.
+1. Seleccionar una reservación `confirmada`.
+2. Activar **Editar asignación** o **Cambiar mesas**.
+3. Capturar el snapshot y la versión actual.
+4. Seleccionar o deseleccionar mesas provisionalmente.
+5. Mostrar capacidad, diferencia, conflictos y advertencias.
+6. Presionar **Guardar asignación**.
+7. Revalidar disponibilidad, versión, estado y tickets.
+8. Guardar dentro de una transacción.
 
-### 21.6 Sistema visual y colores del mapa
+Fuera del modo de edición:
 
-El punto de venta y el modo de reservaciones deben utilizar la misma paleta y las mismas reglas visuales.
+- Los pines sólo informan.
+- No cambian la selección persistente.
+- No aparece `Guardar asignación`.
+- No se envía ninguna mutación.
 
-No se utilizan indicadores operativos con letras.
+Cancelar restaura el snapshot exacto.
 
-La paleta debe mantenerse reducida:
+### 21.8 Sistema visual y colores
 
-| Apariencia | Significado | Aplicación |
-|---|---|---|
-| Verde | Disponible | Mesa utilizable y libre para la acción actual |
-| Rojo | Ocupada | Mesa con ticket abierto |
-| Amarillo | Selección actual | Mesa seleccionada por el usuario en la operación en curso |
-| Azul | Reservación próxima o mesa comprometida | Reservación confirmada, hold vigente o reservación próxima según el modo |
-| Sin color, apariencia neutra | No utilizable | Mesa inactiva o elemento no reservable en modo reservaciones |
+El punto de venta y el modo de reservaciones utilizan la misma paleta:
 
-Los tonos exactos deben definirse mediante variables CSS compartidas. No deben escribirse colores directamente en componentes, vistas o scripts.
+| Apariencia | Significado |
+|---|---|
+| Verde | Disponible |
+| Rojo | Ticket abierto u ocupación física |
+| Amarillo | Selección actual |
+| Azul | Reservación próxima o mesa comprometida |
+| Neutro | No utilizable |
 
-#### 21.6.1 Verde — disponible
+Los colores provienen de variables CSS compartidas.
 
-Una mesa se muestra en verde cuando:
-
-- Está activa.
-- Puede utilizarse en el modo actual.
-- No tiene ticket abierto.
-- No está comprometida por una reservación o hold aplicable al horario consultado.
-- No forma parte de la selección actual.
-
-En modo reservaciones también debe cumplir:
-
-```text
-mesas.reservable = 1
-mesas.tipo = 'mesa'
-```
-
-#### 21.6.2 Rojo — ocupada
-
-Una mesa se muestra en rojo cuando tiene un ticket abierto.
-
-El rojo tiene prioridad sobre una reservación próxima. Si una mesa está ocupada y además tiene una reservación cercana:
-
-- Continúa en rojo.
-- El panel de detalle o la alerta informa que existe una reservación próxima.
-- No se agrega otro color ni un indicador con letra.
-
-El rojo también se utiliza en mensajes de error o conflicto, pero no se crea un estado adicional permanente para la mesa.
-
-#### 21.6.3 Amarillo — selección actual
-
-El amarillo representa únicamente la selección que el usuario está realizando en ese momento.
-
-Se aplica como color de fondo o relleno de la mesa seleccionada.
-
-No debe utilizarse un borde amarillo.
-
-Casos:
-
-- Mesa seleccionada para abrir o revisar un ticket.
-- Mesa seleccionada durante una reasignación.
-- Mesas pertenecientes a la reservación actualmente seleccionada.
-- Selección provisional antes de guardar.
-
-Al cancelar la selección, la mesa recupera el color de su estado real.
-
-#### 21.6.4 Azul — reservación próxima o mesa comprometida
-
-El azul indica que la mesa está relacionada con una reservación y no debe considerarse libre para la operación mostrada.
-
-En el mapa del punto de venta se muestra en azul cuando:
-
-- La mesa está libre físicamente.
-- Tiene una reservación confirmada dentro de los siguientes 60 minutos.
-- El periodo se calcula con `AVISO_RESERVACION_PROXIMA_MINUTOS`.
-
-En el modo de reservaciones se muestra en azul cuando, para la fecha y hora consultadas:
-
-- Está asignada a otra reservación confirmada.
-- Está retenida por un hold vigente.
-- Forma parte de una ocupación reservada que entra en conflicto con la selección.
-
-No se agrega un color distinto para diferenciar una reservación confirmada de un hold. Esa diferencia se muestra en:
-
-- Tooltip.
-- Panel lateral.
-- Detalle de la reservación.
-- Texto de una alerta cuando sea necesario.
-
-#### 21.6.5 Sin color — no utilizable
-
-Se utiliza una apariencia neutra y sin color de estado cuando el elemento no puede utilizarse.
-
-En modo reservaciones aplica a:
-
-- Mesas con `activo = 0`.
-- Mesas con `reservable = 0`.
-- Barras.
-- Caja.
-- Para llevar.
-- Elementos especiales que no representen una mesa reservable.
-
-Las mesas inactivas y los elementos no reservables utilizan la misma apariencia porque ambos son inutilizables para asignar una reservación.
-
-La apariencia debe incluir:
-
-- Color de fondo neutro.
-- Menor contraste u opacidad.
-- Cursor deshabilitado.
-- Sin respuesta a selección de reservaciones.
-
-En el punto de venta, barras, caja o para llevar pueden continuar siendo operables según su lógica propia. La apariencia neutra obligatoria para estos elementos aplica específicamente al modo de reservaciones.
-
-#### 21.6.6 Prioridad de estados
-
-Para evitar combinaciones ambiguas, el estado visual se resuelve en este orden:
+#### Prioridad
 
 ```text
 1. Selección actual → amarillo
 2. Ticket abierto → rojo
-3. Reservación o hold aplicable → azul
-4. No utilizable → sin color
+3. Reservación confirmada o hold aplicable → azul
+4. No utilizable → neutro
 5. Disponible → verde
 ```
 
-La selección amarilla es temporal. Antes de permitirla, el sistema debe validar que la mesa pueda formar parte de la operación.
+Una mesa con ticket abierto y reservación próxima continúa roja; el riesgo se explica mediante texto o modal.
 
-Cuando el usuario intenta seleccionar una mesa ocupada, no reservable o en conflicto:
+Los holds no crean una tarjeta identificable y pueden describirse como:
 
-- No debe quedar amarilla.
-- Conserva su color real.
-- Se muestra una alerta clara.
+```text
+Mesa temporalmente comprometida
+```
 
-#### 21.6.7 Casos que no requieren otro color
+No se agregan colores para estados históricos, conflictos, capacidad insuficiente o liberación estimada.
 
-No se agrega un color adicional para:
+### 21.9 Leyenda e información complementaria
 
-- Hold pendiente.
-- Conflicto.
-- Capacidad insuficiente.
-- Reservación seleccionada frente a otra reservación.
-- Liberación futura estimada.
-- No-show.
-- Cancelada.
-- Expirada.
-- Reemplazada.
-- Completada.
+La leyenda muestra únicamente:
 
-Estos casos se resuelven mediante:
+- Disponible.
+- Ocupada.
+- Selección actual.
+- Reservación próxima, en punto de venta.
+- Mesa comprometida, en gestión de reservaciones.
+- No utilizable.
 
-- Amarillo para la selección actual.
-- Azul para reservas y holds aplicables.
-- Rojo para ocupación física.
-- Alertas.
-- Tooltips.
-- Panel de detalle.
-- Mensajes de validación.
+No muestra estados técnicos, letras, códigos ni explicaciones de implementación.
 
-Los estados históricos no se representan en el mapa porque no bloquean mesas.
-
-#### 21.6.8 Leyenda
-
-La leyenda debe mostrar únicamente:
-
-- Verde — Disponible.
-- Rojo — Ocupada.
-- Amarillo — Selección actual.
-- Azul — Reservación próxima o comprometida.
-- Neutro — No utilizable.
-
-No debe contener letras, abreviaturas ni estados técnicos.
-
-La leyenda debe ser igual en el punto de venta y en el modo de reservaciones, con una aclaración contextual para el azul:
-
-- En punto de venta: reservación próxima.
-- En modo reservaciones: mesa comprometida para el horario consultado.
-
-#### 21.6.9 Información complementaria
-
-Como no se utilizarán letras ni una paleta extensa, el detalle se muestra mediante texto.
-
-Cada mesa debe exponer, según corresponda:
+Cada mesa expone mediante tooltip, panel, lista estructurada y atributos accesibles:
 
 - Número o nombre.
-- Disponible.
-- Ocupada con ticket abierto.
+- Estado actual o proyectado.
+- Ticket abierto y liberación estimada cuando aplique.
 - Reservación próxima y hora.
-- Reservada para el horario consultado.
-- Hold vigente.
+- Mesa comprometida.
 - No utilizable.
 - Seleccionada.
 
-Esta información puede aparecer en tooltip, panel lateral y atributos accesibles. No debe colocarse como una letra sobre la mesa.
+### 21.10 Alertas
 
-### 21.7 Alertas
-
-Las alertas deben aparecer como una capa superpuesta, sin desplazar el contenido.
+Las alertas aparecen superpuestas sin desplazar el contenido.
 
 Casos:
 
@@ -1339,9 +1528,11 @@ Debe conservar:
 
 Usos:
 
-- Confirmación de reservación.
-- Confirmación de modificación.
+- Confirmación inicial de una reservación creada desde la landing.
 - Acceso público a reservaciones por contacto.
+- Renovación de una sesión pública expirada antes de consultar, modificar o cancelar.
+
+La modificación pública no genera un segundo OTP específico; se confirma mediante la sesión pública vigente, CSRF y `request_token`.
 
 ### 23.5 `reservacion_mesas`
 
@@ -1505,6 +1696,16 @@ El módulo se considera correcto cuando:
 26. Mesas inactivas y elementos no reservables comparten la misma apariencia neutra en modo reservaciones.
 27. No se agregan colores adicionales para holds, conflictos o estados históricos.
 28. Los colores provienen de variables compartidas y no de valores escritos directamente en los componentes.
+29. Para hoy, ambos mapas comienzan en el bloque actual y no muestran horarios anteriores.
+30. El bloque actual muestra la ocupación real y los bloques posteriores una proyección común.
+31. Ambos mapas muestran como reservaciones únicamente las que están `confirmada`.
+32. Los holds afectan disponibilidad sin exponerse como reservaciones con identidad.
+33. Las reservaciones confirmadas retrasadas se resuelven dentro del flujo normal, sin una sección duplicada de incidencias.
+34. Los modales de reservación próxima y ausencia explican causa y consecuencia.
+35. El listado administrativo muestra sólo la cantidad de mesas y reserva los datos de ticket para el detalle.
+36. `reemplazada` se presenta visualmente como `Reemplazada`.
+37. El horario original puede preservarse durante una modificación válida aunque no cumpla la anticipación de una hora nueva.
+38. La anticipación de 40 minutos se calcula desde la hora exacta actual, sin redondeo previo.
 
 ---
 
@@ -1778,6 +1979,8 @@ Crear un CRUD simple y consistente.
 - Cancelación.
 - Acceso al mapa.
 - Advertencia para grupos grandes sin mesas.
+- Cantidad de mesas asignadas en el listado, sin mostrar sus números.
+- Datos de mesas y ticket únicamente en el detalle.
 
 ### Resultado
 
@@ -1959,3 +2162,148 @@ Cuando una decisión funcional cambie:
 6. Evitar correcciones aisladas en una sola interfaz.
 
 Este documento debe permanecer como la referencia principal para evaluar si el enfoque técnico y el comportamiento implementado son correctos.
+## Anexo aprobado — Etapa 11.7: interacción, lenguaje operativo y modos del mapa
+
+Este anexo documenta decisiones de presentación e interacción aprobadas para la Etapa 11.7 sin cambiar el esquema, los estados canónicos, las transiciones, la ocupación física, la disponibilidad, la asignación pública ni `pos-reservacion.v1`.
+
+### 27.1 Estado `reemplazada`
+
+`reemplazada` permanece como estado terminal canónico y como valor interno de base de datos, servicios, filtros, payloads, logs y pruebas.
+
+Su etiqueta visible es:
+
+```text
+Reemplazada
+```
+
+No se utiliza ninguna etiqueta alternativa como `Versión anterior`.
+
+Las reservaciones `reemplazada` no bloquean mesas, no cuentan como activas y se excluyen de POS, mapa de reservaciones, panel lateral operativo, reservaciones próximas, warnings, tooltips con identidad, selección y acciones. La nueva versión `confirmada` sí permanece visible y operativa.
+
+### 27.2 Modificación pública bajo sesión verificada
+
+El contacto se verifica mediante OTP para acceder a sus reservaciones. Mientras la sesión pública verificada siga vigente, la modificación se autoriza con esa sesión, CSRF, token de operación, reemplazo pendiente, hold vigente, disponibilidad, locks e idempotencia dentro de una transacción. No se solicita un segundo OTP específico para confirmar la modificación.
+
+La original permanece `confirmada` hasta la confirmación final; el reemplazo conserva hold y mesas provisionales; el modal comparativo confirma el cambio; después la original pasa a `reemplazada` y la nueva versión a `confirmada`. Si la sesión expira, no existe bypass: se solicita nueva verificación de contacto.
+
+### 27.3 Horario y proyección compartida de los mapas
+
+Para el día actual, ambos mapas comienzan en el último bloque configurado menor o igual a la hora actual. Los bloques anteriores no se muestran ni pueden recuperarse mediante URL, caché o estado persistido.
+
+El bloque actual presenta la ocupación real. Los bloques posteriores presentan una proyección común calculada con tickets abiertos, liberación estimada, reservaciones `confirmada`, holds vigentes, mesas reservables y conflictos de intervalo.
+
+La anticipación mínima de 40 minutos se usa para crear o mover una reservación a un nuevo horario, no para navegar el mapa.
+
+Los mapas muestran como reservaciones únicamente las que están `confirmada`. Un hold puede comprometer una mesa sin mostrarse como tarjeta. Una reservación retrasada que siga `confirmada` continúa apareciendo dentro de la operación normal cuando su intervalo afecte el bloque seleccionado; no se crea una sección independiente de incidencias vencidas.
+
+### 27.4 Modo explícito de asignación
+
+El mapa opera en los estados de frontend `viewing`, `assignment_edit`, `saving` y `conflict`.
+
+La secuencia de edición es:
+
+```text
+Seleccionar reservación
+→ Editar asignación
+→ modificar selección provisional
+→ Guardar asignación
+```
+
+En `viewing`, tocar mesas no modifica la asignación, no muestra guardar y no envía mutaciones. Al entrar en edición se capturan mesas y versión esperadas; se muestran capacidad, diferencia, warnings, `Guardar asignación` y `Cancelar cambios`. Cancelar restaura el snapshot y vuelve a `viewing`. Guardar revalida versión, estado, tickets, conflictos y payload en el backend transaccional.
+
+### 27.5 Modales operativos con causa y consecuencia
+
+Entre 60 y 30 minutos antes de una reservación `confirmada`, el intento de abrir un ticket walk-in reutiliza el modal existente con:
+
+```text
+Volver a la selección
+Abrir ticket de todas formas
+```
+
+El modal informa mesa, hora, nombre cuando aplique, comensales, minutos restantes y el riesgo de que la mesa no se libere a tiempo.
+
+El registro de ausencia utiliza el mismo shell, pero explica la hora reservada, la tolerancia vencida, el cambio a `no_show` y la liberación de la ocupación planificada.
+
+Ambas variantes deben tener título, resumen y consecuencia propios. No se acepta un cuerpo genérico con sólo botones ni lenguaje técnico de backend.
+
+### 27.6 Interacción de landing y selectores
+
+El rail debe cerrar, retirar `inert`, liberar scroll, actualizar `aria-expanded`, compensar el header fijo y navegar de forma nativa si JavaScript no carga. Debe operar con Tab, Shift+Tab, Enter, Space y Escape sin overlay residual ni listeners duplicados.
+
+Los selectores de fecha y hora comparten un coordinador: como máximo uno puede estar abierto. Abrir uno cierra el otro, Escape cierra sólo el activo y restaura foco, seleccionar fecha cierra fecha e invalida una hora incompatible, y el clic fuera cierra el selector activo.
+
+### 27.7 Lenguaje y leyenda
+
+La leyenda sólo muestra `Disponible`, `Ocupada`, `Selección actual`, `Reservación próxima` o `Mesa comprometida` según el modo, y `No utilizable`. No muestra explicaciones de implementación, accesibilidad, backend, clases, estados de base de datos ni códigos internos. El texto de cada mesa, tooltip, panel y lista estructurada mantiene la información accesible sin depender sólo del color.
+
+### 27.8 Corrección 11.7.1 — rail y modificación pública
+
+Esta corrección mantiene el modelo canónico de la sección 27.2 y no agrega estados de base de datos ni un segundo OTP.
+
+#### Secuencia visual aprobada de modificación
+
+```text
+Modificar
+  ↓
+editar fecha / hora / personas / nota
+  ↓
+Aceptar
+  ↓  (se crea o recupera un reemplazo pendiente y se reserva durante 15 minutos)
+Revisa tu cambio
+  ↓
+Volver a editar                  Confirmar modificación
+                                      ↓
+                             Tu reservación fue modificada.
+```
+
+El editor muestra exactamente `Aceptar` y `Cancelar`. La revisión muestra lado a lado la reservación actual y la nueva propuesta con fecha, hora, personas y nota; sólo los renglones modificados se resaltan. Incluye `Tu reservación actual seguirá vigente hasta que confirmes este cambio.` y `Esta disponibilidad se conservará durante 15 minutos.` No muestra timestamps técnicos.
+
+`Volver a editar` cierra la revisión, devuelve el foco a `Aceptar`, conserva los valores editados y no hace POST ni crea otro reemplazo. `Confirmar modificación` envía sólo `request_token` y CSRF; la sesión verificada es la identidad. La secuencia visual y sus estados de frontend son `editing`, `creating_replacement`, `reviewing`, `confirming`, `success` y `error`.
+
+La respuesta de creación o recuperación entrega `request_token`, la retención y los valores públicos de `original` y `propuesta`. La original permanece `confirmada` hasta la confirmación final; la propuesta es `pendiente_verificacion` con hold. La confirmación final es transaccional e idempotente: original `reemplazada` y propuesta `confirmada`. Los errores de disponibilidad, sesión, hold, límite de tiempo, conflicto de token, cambio concurrente e inesperado se traducen a lenguaje operativo.
+
+El rail conserva anchors nativos `href="#..."`, queda operable con ratón, Tab, Shift+Tab, Enter y Space, y mantiene la navegación nativa si JavaScript no carga. Al abrir o cerrar cualquier overlay se retiran `inert` y `aria-hidden` donde corresponda, se libera scroll, se compensa el header fijo, se restaura el foco y no se registran listeners duplicados.
+### 27.9 Proyección operativa exclusiva de estados confirmados
+
+Las proyecciones operativas de ambos mapas incluyen únicamente reservaciones `confirmada`.
+
+- `en_curso` se representa mediante el ticket abierto.
+- `pendiente_verificacion` puede bloquear temporalmente como hold sin exponer identidad.
+- Estados terminales no se muestran.
+- `reemplazada` conserva su etiqueta canónica `Reemplazada` únicamente en administración e historial.
+
+Esta regla separa ocupación esperada, ocupación física y trazabilidad.
+
+### 27.10 Listado administrativo compacto
+
+El listado administrativo muestra solamente la cantidad de mesas asignadas y no sus números. Tampoco muestra si existe ticket abierto.
+
+Los números de mesa, el ticket y su estado quedan disponibles en la vista detallada.
+
+### 27.11 Preservación del horario original al modificar
+
+El horario original se conserva como opción válida cuando la fecha y hora no cambian y todavía faltan al menos 30 minutos.
+
+La anticipación mínima de 40 minutos se aplica sólo a una fecha u hora diferente. El umbral se calcula sumando 40 minutos a la hora exacta actual y después seleccionando el primer bloque configurado igual o posterior.
+
+No se redondea la hora actual antes de sumar la anticipación y no se reemplaza silenciosamente el horario original por el siguiente bloque.
+
+### 27.12 Fuente común de capacidad y estado visual
+
+El mapa y los formularios de creación consumen los mismos servicios de ocupación y disponibilidad.
+
+La interfaz del mapa transforma ese resultado en estado visual por mesa y, para uso interno, puede presentar capacidad proyectada. La landing continúa mostrando únicamente disponibilidad binaria.
+
+No se permite que JavaScript vuelva a calcular independientemente liberación, conflictos, elegibilidad o capacidad.
+
+### 27.13 Criterio de sincronía entre mapas
+
+Para la misma fecha y hora, punto de venta y gestión de reservaciones deben recibir la misma ocupación actual o proyectada.
+
+Las diferencias entre ambos modos se limitan a:
+
+- Acciones disponibles.
+- Información administrativa adicional.
+- Elegibilidad de elementos no reservables.
+
+No puede existir una mesa disponible en un mapa y comprometida en el otro por usar motores temporales diferentes.

@@ -490,10 +490,9 @@ final class ReservacionPublicaService
         });
     }
 
-    /** Modifica sin liberar la asignación original fuera de la transacción. */
     /**
      * Crea una nueva versión pendiente. La reservación original y sus mesas
-     * permanecen intactas hasta que el OTP del reemplazo sea consumido.
+     * permanecen intactas hasta que la sesión verificada confirme el cambio.
      */
     public static function crearReemplazo(array $entrada, array $sesion): array
     {
@@ -640,12 +639,6 @@ final class ReservacionPublicaService
                     throw new \RuntimeException('El reemplazo quedó sin mesas.');
                 }
 
-                $otp = ContactoAccesoService::emitirCodigoEnTransaccion($tipo, $contacto, $reemplazoId);
-                if (!($otp['ok'] ?? false)) {
-                    $db->rollback();
-                    $transaccion = false;
-                    return $otp;
-                }
                 if (!$db->commit()) {
                     throw new \RuntimeException('No fue posible confirmar el reemplazo.');
                 }
@@ -663,10 +656,7 @@ final class ReservacionPublicaService
                     'estado' => 'pendiente_verificacion',
                     'hold_expires_at' => $vence,
                 ];
-                return array_merge(
-                    self::resultadoReemplazoPendiente($reemplazo, false),
-                    self::camposPreviewOtp($otp)
-                );
+                return self::resultadoReemplazoPendiente($reemplazo, false, $fila);
             } catch (\Throwable $e) {
                 if ($transaccion) {
                     $db->rollback();
@@ -687,17 +677,16 @@ final class ReservacionPublicaService
     public static function confirmarReemplazo(array $entrada, array $sesion): array
     {
         $token = trim((string)($entrada['request_token'] ?? ''));
-        $codigo = preg_replace('/\D+/', '', (string)($entrada['codigo'] ?? '')) ?? '';
         $tipo = (string)($sesion['contacto_tipo'] ?? '');
         $contacto = (string)($sesion['contacto'] ?? '');
-        if (!self::tokenValido($token) || !preg_match('/^\d{6}$/', $codigo)) {
-            return self::datosInvalidos('Escribe el código de seis dígitos.');
+        if (!self::tokenValido($token)) {
+            return self::datosInvalidos('La operación de cambio no es válida.');
         }
         if ($tipo === '' || $contacto === '') {
             return ['ok' => false, 'codigo' => self::SESION_EXPIRADA, 'mensaje' => 'Verifica nuevamente tu contacto.'];
         }
 
-        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($token, $codigo, $tipo, $contacto): array {
+        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($token, $tipo, $contacto): array {
             $transaccion = false;
             try {
                 if (!$db->begin_transaction()) {
@@ -749,23 +738,6 @@ final class ReservacionPublicaService
                     return self::sinDisponibilidad('El cambio ya no tiene una asignación válida. Tu reservación original sigue confirmada.');
                 }
 
-                $otp = ContactoAccesoService::validarCodigoEnTransaccion(
-                    $tipo,
-                    $contacto,
-                    $codigo,
-                    (int)$reemplazo['id']
-                );
-                if (!($otp['ok'] ?? false)) {
-                    if (($otp['registrar_intento'] ?? false) === true) {
-                        $db->commit();
-                    } else {
-                        $db->rollback();
-                    }
-                    $transaccion = false;
-                    unset($otp['registrar_intento']);
-                    return $otp;
-                }
-
                 $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
@@ -800,7 +772,7 @@ final class ReservacionPublicaService
         });
     }
 
-    /** Reenvía únicamente el OTP ligado a un reemplazo ya creado. */
+    /** Compatibilidad de ruta: una sesión verificada no necesita otro OTP. */
     public static function reenviarOtpModificacion(array $entrada, array $sesion): array
     {
         $token = trim((string)($entrada['request_token'] ?? ''));
@@ -810,43 +782,7 @@ final class ReservacionPublicaService
             return self::datosInvalidos('La operación de cambio no es válida.');
         }
 
-        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($token, $tipo, $contacto): array {
-            $transaccion = false;
-            try {
-                $db->begin_transaction();
-                $transaccion = true;
-                $reemplazo = self::buscarPorTokenParaActualizar($token);
-                if (!$reemplazo || (int)($reemplazo['reemplaza_reservacion_id'] ?? 0) < 1
-                    || !self::mismoContacto($reemplazo, $tipo, $contacto)
-                    || (string)$reemplazo['estado'] !== 'pendiente_verificacion') {
-                    $db->rollback();
-                    $transaccion = false;
-                    return self::noEncontrada();
-                }
-                if (self::timestampVencido((string)$reemplazo['hold_expires_at'])) {
-                    self::marcarReemplazoExpirado((int)$reemplazo['id']);
-                    VerificacionContacto::invalidarPorReservaciones([(int)$reemplazo['id']]);
-                    $db->commit();
-                    $transaccion = false;
-                    return self::reemplazoExpirado();
-                }
-                $otp = ContactoAccesoService::emitirCodigoEnTransaccion($tipo, $contacto, (int)$reemplazo['id']);
-                if (!($otp['ok'] ?? false)) {
-                    $db->rollback();
-                    $transaccion = false;
-                    return $otp;
-                }
-                $db->commit();
-                $transaccion = false;
-                return $otp;
-            } catch (\Throwable $e) {
-                if ($transaccion) {
-                    $db->rollback();
-                }
-                error_log('ReservacionPublicaService::reenviarOtpModificacion - ' . $e->getMessage());
-                return self::errorInterno();
-            }
-        });
+        return self::datosInvalidos('La sesión verificada ya autoriza este cambio. Revisa la comparación y confirma la modificación.');
     }
 
     /** Cancelación lógica; conserva reservación y relaciones históricas. */
@@ -1449,17 +1385,28 @@ final class ReservacionPublicaService
         ];
     }
 
-    private static function resultadoReemplazoPendiente(array $fila, bool $idempotente): array
+    private static function resultadoReemplazoPendiente(
+        array $fila,
+        bool $idempotente,
+        ?array $original = null
+    ): array
     {
+        if (!$original && (int)($fila['reemplaza_reservacion_id'] ?? 0) > 0) {
+            $original = self::buscarPorId((int)$fila['reemplaza_reservacion_id']);
+        }
+
         return [
             'ok' => true,
             'codigo' => self::REEMPLAZO_CREADO,
             'mensaje' => $idempotente
                 ? 'El cambio sigue pendiente de confirmación.'
-                : 'Confirma el código para aplicar los cambios. Tu reservación original sigue confirmada.',
+                : 'Revisa el cambio y confírmalo para aplicarlo. Tu reservación original sigue confirmada.',
             'idempotente' => $idempotente,
             'request_token' => (string)($fila['request_token'] ?? ''),
             'hold_expires_at' => self::fechaAtom((string)($fila['hold_expires_at'] ?? '')),
+            'hold_minutes' => ReservacionConfig::VIGENCIA_HOLD_MINUTOS,
+            'original' => $original ? self::publicar($original) : null,
+            'propuesta' => self::publicar($fila),
             'replacement' => self::publicar($fila),
             'original_still_confirmed' => true,
         ];

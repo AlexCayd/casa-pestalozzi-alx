@@ -162,7 +162,7 @@ try {
     ContactoAccesoService::verificarCodigo('email', $contact, (string)$accessAgain['preview_code']);
 
     // Creación de reemplazo: la original queda confirmada y el hold tiene sus
-    // propias mesas y su propio request_token/OTP.
+    // propias mesas y su propio request_token, sin segundo OTP.
     $replacementToken = 'ETAPA7_REEMPLAZO_' . bin2hex(random_bytes(8));
     $replacementPayload = [
         'reservacion_id' => $originalId,
@@ -179,9 +179,14 @@ try {
     $replacementRow = $rowByToken($replacementToken);
     $replacementId = (int)($replacementRow['id'] ?? 0);
     $assert(($replacement['ok'] ?? false) === true && ($replacement['codigo'] ?? '') === ReservacionPublicaService::REEMPLAZO_CREADO, '7.3: crea reemplazo pendiente');
-    $assert(($originalBefore['estado'] ?? '') === 'confirmada' && ($rowByToken($originalPayload['request_token'])['estado'] ?? '') === 'confirmada', '7.3: original intacta antes del OTP');
+    $assert(($replacement['original']['id'] ?? 0) === $originalId && ($replacement['original']['estado_label'] ?? '') !== '', '7.3: respuesta incluye reservación actual pública');
+    $assert(($replacement['propuesta']['id'] ?? 0) === $replacementId && ($replacement['propuesta']['fecha'] ?? '') === $dateExpired, '7.3: respuesta incluye propuesta pública');
+    $assert(($replacement['hold_minutes'] ?? 0) === ReservacionConfig::VIGENCIA_HOLD_MINUTOS && !array_key_exists('preview_code', $replacement['propuesta'] ?? []), '7.3: contrato expone hold sin segundo OTP');
+    $replacementOtpCount = $count('verificaciones_contacto', 'reservacion_id = ' . $replacementId);
+    $assert(($originalBefore['estado'] ?? '') === 'confirmada' && ($rowByToken($originalPayload['request_token'])['estado'] ?? '') === 'confirmada', '7.3: original intacta antes de confirmar');
     $assert($replacementId > 0 && (int)$replacementRow['reemplaza_reservacion_id'] === $originalId, '7.3: relación de reemplazo');
     $assert($count('reservacion_mesas', 'reservacion_id = ' . $replacementId) > 0, '7.3: reemplazo tiene asignación propia');
+    $assert(!array_key_exists('preview_code', $replacement) && !array_key_exists('otp_expires_at', $replacement) && $replacementOtpCount === 0, '7.3: modificación no crea un segundo OTP');
     $ahoraConsulta = ReservacionConfig::ahora();
     $activeCountDuringReplacement = Reservacion::contarActivasPorContacto(
         'email',
@@ -206,7 +211,7 @@ try {
     ]);
     $originalAfter = $rowByToken($originalPayload['request_token']);
     $replacementAfter = $rowByToken($replacementToken);
-    $assert(($confirmedReplacement['ok'] ?? false) === true && ($replacementAfter['estado'] ?? '') === 'confirmada', '7.4: OTP confirma reemplazo');
+    $assert(($confirmedReplacement['ok'] ?? false) === true && ($replacementAfter['estado'] ?? '') === 'confirmada', '7.4: sesión verificada confirma reemplazo');
     $assert(($originalAfter['estado'] ?? '') === 'reemplazada', '7.4: original pasa a reemplazada');
     $repeatConfirmation = ReservacionPublicaService::confirmarReemplazo([
         'request_token' => $replacementToken,
@@ -280,7 +285,7 @@ try {
     $cancelRepeat = ReservacionPublicaService::cancelar($cancelOriginalId, ['contacto_tipo' => 'email', 'contacto' => $contact]);
     $cancelOriginalRepeat = $rowByToken($cancelPayload['request_token']);
     $assert(($cancelResult['ok'] ?? false) === true && ($cancelOriginalAfter['estado'] ?? '') === 'cancelada', '7.6: cancelación pública cambia estado');
-    $assert(($cancelReplacementAfter['estado'] ?? '') === 'expirada' && $cancelOtpInvalidated === 1, '7.6: cancelación invalida reemplazo y OTP');
+    $assert(($cancelReplacementAfter['estado'] ?? '') === 'expirada' && $cancelOtpInvalidated === 0, '7.6: cancelación expira reemplazo sin OTP adicional');
     $assert(($cancelRepeat['ok'] ?? false) === true && ($cancelRepeat['idempotente'] ?? false) === true && $cancelChangedAt === ($cancelOriginalRepeat['estado_changed_at'] ?? ''), '7.6: cancelación repetida idempotente');
 
     // La consulta visible no devuelve estados técnicos ni datos de operación.
