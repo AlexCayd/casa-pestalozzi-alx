@@ -1178,6 +1178,38 @@
   }
 }
 
+.mmodal-reservation__pending {
+  display: grid;
+  gap: .55rem;
+  margin: .15rem 0 .8rem;
+  padding: .75rem .8rem;
+  border: 1px solid var(--map-table-reservation-overdue-border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--txt);
+  font-size: .75rem;
+  line-height: 1.4;
+
+  strong { color: var(--txt); }
+  p { margin: 0; }
+}
+
+.mmodal-reservation__pending-facts {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+
+  dt { color: var(--txt-mute); }
+  dd { margin: 0; text-align: right; }
+}
+
 // ── Input nombre de cliente al abrir ticket ───────────────────
 .mmodal-ticket-tables {
   width: 100%;

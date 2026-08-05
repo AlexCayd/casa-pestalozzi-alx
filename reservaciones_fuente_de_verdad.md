@@ -1002,6 +1002,39 @@ Cuando una reservación utiliza varias mesas, su inicio es atómico: todas las m
 
 La validación canónica debe revisar el conjunto completo de mesas dentro de la misma transacción. No se crea un ticket con un subconjunto libre, no se desasigna una mesa en conflicto de forma automática y no se reasigna la reservación como efecto lateral del intento.
 
+#### 20.2.2 Confirmada con tolerancia vencida y ausencia pendiente
+
+Una reservación permanece en estado `confirmada` hasta que el operador registra una transición válida. Cuando:
+
+```text
+ahora > fecha_hora_reservacion + TOLERANCIA_LLEGADA_MINUTOS
+AND estado = confirmada
+AND no existe ticket abierto vinculado
+```
+
+la condición derivada es `accion_pendiente = REGISTRAR_AUSENCIA`. No es un estado persistido ni un nuevo estado de mesa.
+
+La disponibilidad física de la mesa y la resolución pendiente de la reservación son conceptos distintos:
+
+- Si no tiene ticket abierto ni otro bloqueo físico, la mesa conserva fondo verde de disponibilidad.
+- La mesa añade borde gris y una explicación accesible: `Acción pendiente: registrar ausencia`.
+- La reservación continúa visible como `confirmada` y no se convierte automáticamente en `no_show`.
+- `puede_iniciar = false`; el backend rechaza el inicio tardío con `TOLERANCIA_LLEGADA_VENCIDA`.
+- `puede_marcar_no_show = true`; la única acción operativa sobre la reservación es registrar la ausencia.
+- Un ticket abierto conserva prioridad visual roja. Si existe un ticket vinculado, la reservación se representa mediante ese ticket y no como ausencia pendiente.
+
+Al registrar el `no_show`, se libera toda la asignación de la reservación de forma atómica. Desaparecen el borde gris, el resumen y el tooltip de ausencia; si las mesas continúan físicamente libres, conservan fondo verde. El sistema no abre automáticamente un walk-in.
+
+La comparación temporal canónica es inclusiva en el límite:
+
+```text
+ahora <= fecha_hora_reservacion + TOLERANCIA_LLEGADA_MINUTOS
+→ dentro de tolerancia
+
+ahora > fecha_hora_reservacion + TOLERANCIA_LLEGADA_MINUTOS
+→ tolerancia vencida y ausencia pendiente
+```
+
 ### 20.3 Apertura walk-in con reservación próxima de 60 a 30 minutos
 
 Cuando se intenta abrir un ticket walk-in en una mesa con una reservación `confirmada` dentro de los siguientes 60 a 30 minutos, se permite continuar únicamente después de una advertencia explícita.
@@ -2332,3 +2365,15 @@ Las diferencias entre ambos modos se limitan a:
 - Elegibilidad de elementos no reservables.
 
 No puede existir una mesa disponible en un mapa y comprometida en el otro por usar motores temporales diferentes.
+
+## Anexo aprobado — cierre técnico de Etapa 12
+
+La implementación final se documenta en `docs/reservaciones_arquitectura_final.md`. La cadena canónica es:
+
+`ReservacionController` / `ReservacionOperacionController` / `PuntoVentaController` → servicios de dominio → `OcupacionMesasService` / `PosReservacionQueryService` → `PosReservacionSerializer` (`pos-reservacion.v1`) → MySQL.
+
+La fachada `ReservacionService` permanece por compatibilidad, pero delega en `ReservacionAdministrativaService`; no contiene una segunda implementación. La liberación estimada de ticket usa únicamente duración y retraso estimados canónicos. El margen de preparación sólo se expone como objetivo informativo.
+
+El OTP de modificación no tiene flujo separado: la modificación pública usa una sesión de contacto verificada y CSRF. Se retiraron aliases de constantes, ocupación física forzada, rutas duplicadas y métodos sin consumidores activos. Las lecturas históricas necesarias para migración están clasificadas como `PRUEBA_DE_MIGRACION`.
+
+La instalación reproducible es `php tests/php/etapa12_instalacion_limpia.php`; crea y elimina una base temporal, carga `database/ddl.sql` y `database/dml.sql`, y ejecuta los contratos públicos, administrativos, POS y de concurrencia.

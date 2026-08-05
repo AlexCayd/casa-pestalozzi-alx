@@ -76,7 +76,7 @@ $disabled = !$iniciarEdicion;
 $action = $modo === 'crear' ? '/admin/reservations/create' : '/admin/reservations/update';
 $formId = $modo . '-reservation-admin-form';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
-$autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_PUBLIC_GUESTS;
+$autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
 $contactInputDisabled = $disabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {

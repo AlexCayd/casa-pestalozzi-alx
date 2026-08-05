@@ -170,7 +170,7 @@ class TicketMesa extends ActiveRecord
                     ReservacionConfig::timezone()
                 );
                 $liberacionBase = $apertura->modify(
-                    '+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes'
+                    '+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes'
                 )->modify(
                     '+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes'
                 );

@@ -8,7 +8,6 @@
 namespace Controllers;
 
 use Model\Reservacion;
-use Model\ReservacionMesa;
 use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
@@ -454,86 +453,6 @@ class ReservacionOperacionController
                 !empty($_POST['mesero_id']) ? (int)$_POST['mesero_id'] : null
             ),
             self::mensajeExitoEstado($estado)
-        );
-    }
-
-    public static function assignTables(): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirectOperacionDesdePost('metodo_invalido');
-        }
-        if (!self::csrfValido()) {
-            self::redirectOperacionDesdePost('csrf_invalido');
-        }
-
-        $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
-
-        if (!$id) {
-            self::redirectOperacionDesdePost('no_existe');
-        }
-
-        $reservacion = Reservacion::find((int)$id);
-        if (!$reservacion) {
-            self::redirectOperacionDesdePost('no_existe');
-        }
-
-        $mesaIds = $_POST['mesa_ids'] ?? [];
-        $mesaIdsActuales = ReservacionMesa::obtenerIdsPorReservacion((int)$reservacion->id);
-        sort($mesaIdsActuales, SORT_NUMERIC);
-        $resultado = ReservacionMapaAdministrativaService::guardarAsignacion(
-            (int)$reservacion->id,
-            (array)$mesaIds,
-            [
-                'validar_contexto' => true,
-                'contexto_completo' => true,
-                'version_esperada' => hash(
-                    'sha256',
-                    (string)($reservacion->updated_at ?: $reservacion->created_at)
-                        . '|' . implode(',', $mesaIdsActuales)
-                ),
-                'fecha_esperada' => (string)$reservacion->fecha,
-                'hora_esperada' => (string)$reservacion->hora,
-                'mesa_ids_actuales' => $mesaIdsActuales,
-                'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
-                'permitir_superposicion_ticket_abierto' => false,
-            ]
-        );
-        self::redirectOperacionDesdePost(
-            self::resultadoAsignacion($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO),
-            $reservacion
-        );
-    }
-
-    public static function updateComment(): void
-    {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            self::redirectOperacionDesdePost('metodo_invalido');
-        }
-        if (!self::csrfValido()) {
-            self::redirectOperacionDesdePost('csrf_invalido');
-        }
-
-        $id = filter_var($_POST['reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
-
-        if (!$id) {
-            self::redirectOperacionDesdePost('no_existe');
-        }
-
-        $reservacion = Reservacion::find((int)$id);
-        if (!$reservacion) {
-            self::redirectOperacionDesdePost('no_existe');
-        }
-
-        $comentario = substr((string)($_POST['comentario_admin'] ?? ''), 0, 5000);
-        $resultado = ReservacionService::actualizarComentario((int)$reservacion->id, $comentario);
-
-        self::redirectOperacionDesdePost(
-            $resultado['ok'] ? 'comentario_guardado' : self::resultadoActualizacion($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
-            $reservacion
         );
     }
 

@@ -94,6 +94,8 @@
             : booleanValue(raw.seleccion_actual);
         var selectionValid = options.seleccionValida !== false;
         var hasTicket = Boolean(raw.ticket_abierto || options.ticketAbierto) || hasModifier(modifiers, 'ticket_abierto');
+        var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
+            String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima') || state === 'bloqueada' || state === 'proxima';
         var unusable = isUnusable(raw, options, state);
@@ -106,6 +108,10 @@
         // expresa como modificador/ring, no sustituyendo ese estado.
         if (hasTicket || state === 'ocupada') return 'ocupada';
         if (selected && selectionValid) return 'seleccionada';
+        // La ausencia pendiente no reemplaza la disponibilidad física: el
+        // fondo sigue siendo verde y el borde se expresa mediante el
+        // modificador `accion_pendiente`.
+        if (hasPendingAbsence) return 'libre';
         if (hasUpcomingReservation) return 'reservacion-proxima';
         return 'libre';
     }

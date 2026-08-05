@@ -398,7 +398,7 @@ try {
         'R2_ADVERTENCIA' => ['ventana' => '30_60', 'advertencia' => true, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
         'R3_INICIO_MULTIMESA' => ['ventana' => '0_30', 'advertencia' => false, 'bloqueo' => true, 'inicio' => true, 'ausencia' => false],
         'R4_TOLERANCIA' => ['ventana' => 'tolerancia', 'advertencia' => false, 'bloqueo' => true, 'inicio' => true, 'ausencia' => false],
-        'R5_VENCIDA' => ['ventana' => 'tolerancia_vencida', 'advertencia' => false, 'bloqueo' => true, 'inicio' => true, 'ausencia' => true],
+        'R5_VENCIDA' => ['ventana' => 'tolerancia_vencida', 'advertencia' => false, 'bloqueo' => true, 'inicio' => false, 'ausencia' => true],
         'R6_EN_CURSO_DIFERENCIA' => ['ventana' => 'en_curso', 'advertencia' => false, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
         'R8_SIN_MESAS' => ['ventana' => 'futura', 'advertencia' => false, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],
         'R11_FUTURA_MISMA_MESA' => ['ventana' => '30_60', 'advertencia' => true, 'bloqueo' => false, 'inicio' => false, 'ausencia' => false],

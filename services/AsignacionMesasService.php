@@ -77,26 +77,8 @@ class AsignacionMesasService
         string $fecha,
         string $hora,
         int $excluirReservacionId = 0,
-        bool $bloquear = false,
-        bool $forzarOcupacionFisica = false
+        bool $bloquear = false
     ): array {
-        if ($forzarOcupacionFisica) {
-            $asignaciones = ReservacionMesa::obtenerOcupacionDelDia(
-                $fecha,
-                $excluirReservacionId,
-                $bloquear
-            );
-
-            return self::combinarOcupacion(
-                OcupacionMesasService::ocupacionReservacionesEnVentana(
-                    $asignaciones,
-                    $hora,
-                    $excluirReservacionId
-                ),
-                TicketMesa::ocupacionAbierta($bloquear)
-            );
-        }
-
         return (array)(OcupacionMesasService::evaluarHorario(
             $fecha,
             $hora,
@@ -213,7 +195,7 @@ class AsignacionMesasService
     private static function seleccionarCanonica(array $mesasDisponibles, int $comensales): array
     {
         $comensales = (int)$comensales;
-        if ($comensales < 1 || $comensales > ReservacionConfig::MAX_PUBLIC_GUESTS) {
+        if ($comensales < 1 || $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
             return [];
         }
 
@@ -510,7 +492,7 @@ class AsignacionMesasService
 
             if (
                 !$modoMapaAdministrativo
-                && (int)$reservacion['comensales'] <= ReservacionConfig::MAX_PUBLIC_GUESTS
+                && (int)$reservacion['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO
                 && !OcupacionMesasService::agrupacionValida(
                     $mesas,
                     (int)$reservacion['comensales']
@@ -736,33 +718,6 @@ class AsignacionMesasService
      * La ocupación física prevalece sobre la agenda: un estado final erróneo
      * no libera una mesa mientras su ticket continúe abierto.
      */
-    private static function combinarOcupacion(array $reservaciones, array $tickets): array
-    {
-        $ocupacion = $reservaciones;
-        foreach ($tickets as $ticket) {
-            $mesaId = (int)($ticket['mesa_id'] ?? 0);
-            if ($mesaId < 1) {
-                continue;
-            }
-
-            $ocupacion[$mesaId] = [
-                'tipo' => 'ticket_abierto',
-                'ticket_id' => (int)($ticket['ticket_id'] ?? 0),
-                'reservacion_id' => $ticket['reservacion_id'] ?? null,
-                'nombre' => 'Servicio activo',
-                'contacto' => '',
-                'hora' => '',
-                'comensales' => 0,
-                'estado' => 'ticket_abierto',
-                'walk_in' => !empty($ticket['walk_in']),
-                'mesa_ids' => $ticket['mesa_ids'] ?? [$mesaId],
-                'liberacion_estimada' => $ticket['liberacion_estimada'] ?? null,
-            ];
-        }
-
-        return $ocupacion;
-    }
-
     /**
      * La ventana es simetrica: dos reservaciones chocan si sus rangos
      * [hora - bloqueo previo, hora + duracion) se traslapan.

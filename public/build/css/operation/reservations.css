@@ -2143,6 +2143,33 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--map-table-available-text);
 }
 
+/* La mesa sigue físicamente disponible; la ausencia pendiente sólo añade
+ * una señal secundaria de resolución operativa. */
+.mesas-map .mesa-pin--libre.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 48%, transparent);
+}
+
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+}
+
 .mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;

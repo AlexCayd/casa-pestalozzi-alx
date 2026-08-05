@@ -124,7 +124,7 @@ final class ReservacionPublicaService
 
         // La comprobación preliminar mejora la respuesta, pero sólo la segunda,
         // dentro del lock por contacto, protege contra solicitudes simultáneas.
-        if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+        if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
             return self::limiteAlcanzado();
         }
 
@@ -157,7 +157,7 @@ final class ReservacionPublicaService
                     return self::duplicada();
                 }
 
-                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -178,7 +178,7 @@ final class ReservacionPublicaService
                 }
 
                 $vence = ReservacionConfig::ahora()
-                    ->modify('+' . ReservacionConfig::RESERVATION_HOLD_MINUTES . ' minutes')
+                    ->modify('+' . ReservacionConfig::VIGENCIA_HOLD_MINUTOS . ' minutes')
                     ->format('Y-m-d H:i:s');
                 $reservacionId = self::insertarReservacion(
                     $datos,
@@ -276,7 +276,7 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return self::retencionExpirada();
                 }
-                if (self::contarActivas($tipo, $contacto, (int)$retencion['id']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($tipo, $contacto, (int)$retencion['id']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -447,7 +447,7 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return self::duplicada();
                 }
-                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -512,7 +512,7 @@ final class ReservacionPublicaService
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
             return self::datosInvalidos('Selecciona una fecha y un horario válidos.');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_PUBLIC_GUESTS) {
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
             return self::datosInvalidos('Las reservaciones en línea son de 1 a 12 personas.');
         }
         if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
@@ -823,19 +823,6 @@ final class ReservacionPublicaService
         });
     }
 
-    /** Compatibilidad de ruta: una sesión verificada no necesita otro OTP. */
-    public static function reenviarOtpModificacion(array $entrada, array $sesion): array
-    {
-        $token = trim((string)($entrada['request_token'] ?? ''));
-        $tipo = (string)($sesion['contacto_tipo'] ?? '');
-        $contacto = (string)($sesion['contacto'] ?? '');
-        if (!self::tokenValido($token) || $tipo === '' || $contacto === '') {
-            return self::datosInvalidos('La operación de cambio no es válida.');
-        }
-
-        return self::datosInvalidos('La sesión verificada ya autoriza este cambio. Revisa la comparación y confirma la modificación.');
-    }
-
     /** Cancelación lógica; conserva reservación y relaciones históricas. */
     public static function cancelar(int $id, array $sesion): array
     {
@@ -1022,7 +1009,7 @@ final class ReservacionPublicaService
         if ($nombre === '' || self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
             return self::datosInvalidos('Escribe un nombre válido.');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_PUBLIC_GUESTS) {
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
             return self::datosInvalidos('Las reservaciones en línea son de 1 a 12 personas.');
         }
         if (self::longitud($notas) > ReservacionConfig::NOTA_MAX_CARACTERES) {

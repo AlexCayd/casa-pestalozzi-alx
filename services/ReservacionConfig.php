@@ -16,20 +16,17 @@ class ReservacionConfig
     public const OTP_MAX_ATTEMPTS = 5;
     public const OTP_RESEND_SECONDS = 60;
     public const CLIENT_SESSION_IDLE_MINUTES = 15;
-    /** Vigencia canónica del hold; el alias anterior se conserva para POS. */
+    /** Vigencia canónica del hold. */
     public const VIGENCIA_HOLD_MINUTOS = 15;
-    public const RESERVATION_HOLD_MINUTES = self::VIGENCIA_HOLD_MINUTOS;
     public const MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO = 5;
-    public const MAX_ACTIVE_RESERVATIONS = self::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO;
-    public const MAX_PUBLIC_GUESTS = 12;
+    public const MAX_COMENSALES_PUBLICO = 12;
     public const MAX_PUBLIC_TABLES = 3;
     public const NOMBRE_MAX_CARACTERES = 100;
     public const EMAIL_MAX_CARACTERES = 150;
-    public const MAX_COMENSALES_PUBLICO = self::MAX_PUBLIC_GUESTS;
     public const MAX_COMENSALES_ADMIN = 44;
     public const NOTA_MAX_CARACTERES = 500;
     public const COMENTARIO_ADMIN_MAX_CARACTERES = 5000;
-    public const MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA = 60;
+    public const AVISO_RESERVACION_PROXIMA_MINUTOS = 60;
     /**
      * Ventana operativa del POS. No es un bloqueo previo de reservación.
      * La fuente de verdad define la ocupación como [inicio, inicio + 90).
@@ -40,9 +37,8 @@ class ReservacionConfig
     public const LLEGADA_ANTICIPADA_MINUTOS = 30;
     public const INTERVALO_RESERVACION_MINUTOS = 30;
     public const TIMEZONE = 'America/Mexico_City';
-    public const TOLERANCIA_RESERVACION_MINUTOS = 15;
+    public const TOLERANCIA_LLEGADA_MINUTOS = 15;
     public const DURACION_ESTIMADA_TICKET_MINUTOS = 90;
-    public const DURACION_SERVICIO_ESTIMADA_MINUTOS = self::DURACION_ESTIMADA_TICKET_MINUTOS;
     public const RETRASO_ESTIMADO_TICKET_MINUTOS = 0;
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
     public const MARGEN_MINIMO_SEGURIDAD_MINUTOS = 30;
@@ -100,7 +96,6 @@ class ReservacionConfig
     // Genera los horarios de reservaciones hasta estos minutos antes.
     public const DURACION_RESERVACION_MINUTOS = 90;
     public const MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION = 90;
-    public const AVISO_RESERVACION_PROXIMA_MINUTOS = 60;
     public const LIMITE_MODIFICACION_MINUTOS = 30;
     public const TOLERANCIA_CANCELACION_PUBLICA_MINUTOS = 15;
     public const HORIZONTE_MAXIMO_DIAS = 90;
@@ -114,18 +109,6 @@ class ReservacionConfig
     ];
 
     public const GRUPOS_TRES_MESAS = [
-        [2, 4, 5],
-        [11, 10, 9],
-    ];
-
-    /** Alias históricos; los valores ya siguen la fuente canónica por número. */
-    public const PAREJAS_MESAS_PUBLICAS_AUTORIZADAS = self::GRUPOS_DOS_MESAS;
-    public const TRIOS_MESAS_PUBLICAS_AUTORIZADOS = self::GRUPOS_TRES_MESAS;
-    public const COMBINACIONES_PUBLICAS_AUTORIZADAS = [
-        [7, 8],
-        [6, 9],
-        [10, 11],
-        [3, 4],
         [2, 4, 5],
         [11, 10, 9],
     ];
@@ -222,20 +205,20 @@ class ReservacionConfig
             'zona_horaria' => self::timezone()->getName(),
             'ventanas_operativas' => self::VENTANAS_OPERATIVAS,
             'server_time' => self::ahora()->format(DATE_ATOM),
-            'advertencia_reservacion_minutos' => self::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA,
+            'advertencia_reservacion_minutos' => self::AVISO_RESERVACION_PROXIMA_MINUTOS,
             'bloqueo_previo_minutos' => self::MINUTOS_PREVIOS_BLOQUEO,
             'duracion_reservacion_minutos' => self::DURACION_RESERVACION_MINUTOS,
             'duracion_estimada_ticket_minutos' => self::DURACION_ESTIMADA_TICKET_MINUTOS,
             'retraso_estimado_ticket_minutos' => self::RETRASO_ESTIMADO_TICKET_MINUTOS,
             'anticipacion_minima_minutos' => self::ANTICIPACION_MINIMA_MINUTOS,
             'vigencia_hold_minutos' => self::VIGENCIA_HOLD_MINUTOS,
-            'tolerancia_llegada_minutos' => self::TOLERANCIA_RESERVACION_MINUTOS,
+            'tolerancia_llegada_minutos' => self::TOLERANCIA_LLEGADA_MINUTOS,
             'limite_modificacion_minutos' => self::LIMITE_MODIFICACION_MINUTOS,
             'tolerancia_cancelacion_publica_minutos' => self::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS,
             'max_reservaciones_activas_por_contacto' => self::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO,
             'horizonte_maximo_dias' => self::HORIZONTE_MAXIMO_DIAS,
             'intervalo_reservacion_minutos' => self::INTERVALO_RESERVACION_MINUTOS,
-            'duracion_servicio_estimada_minutos' => self::DURACION_SERVICIO_ESTIMADA_MINUTOS,
+            'duracion_servicio_estimada_minutos' => self::DURACION_ESTIMADA_TICKET_MINUTOS,
             'margen_preparacion_mesa_minutos' => self::MARGEN_PREPARACION_MESA_MINUTOS,
             'margen_minimo_seguridad_minutos' => self::MARGEN_MINIMO_SEGURIDAD_MINUTOS,
             'refresco_estados_segundos' => self::REFRESCO_ESTADOS_SEGUNDOS,

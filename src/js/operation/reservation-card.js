@@ -81,6 +81,9 @@
         } else {
             accessibleLabel += ', sin mesas asignadas';
         }
+        if (reservation.accion_pendiente === 'REGISTRAR_AUSENCIA') {
+            accessibleLabel += ', acción pendiente: registrar ausencia';
+        }
 
         return '<article class="' + articleClasses.join(' ') + '" data-id="' + id + '">' +
             '<button type="button" class="reservation-operation-card__button" data-operation-reservation="' + id + '" aria-label="' + escapeHtml(accessibleLabel) + '" aria-pressed="' + (options.seleccionada ? 'true' : 'false') + '">' +

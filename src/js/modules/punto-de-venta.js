@@ -186,7 +186,9 @@ function initMapa() {
 
   function openModalShell() {
     if (!modal) return;
-    modalLastFocus = document.activeElement;
+    if (!modal.classList.contains('mesa-modal--open')) {
+      modalLastFocus = document.activeElement;
+    }
     var title = modal.querySelector('.mmodal-title');
     if (title) title.id = 'mesa-modal-title';
     modal.querySelectorAll('button:not([type])').forEach(function(button) {
@@ -469,7 +471,7 @@ function initMapa() {
       '30_60': 'El backend mantiene la advertencia; el servicio aún no puede iniciar.',
       '0_30': 'Puede iniciar servicio.',
       tolerancia: 'Cliente con ' + minutosRetraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.',
-      tolerancia_vencida: 'Tolerancia vencida. Registra ausencia o inicia el servicio según la capacidad autorizada.',
+      tolerancia_vencida: 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
       en_curso: 'Servicio en curso.'
     };
 
@@ -655,7 +657,12 @@ function initMapa() {
       ventana_operativa: ventana.estado,
       minutos_restantes: ventana.minutos_restantes,
       minutos_retraso: ventana.minutos_retraso,
-      nivel: reservation.bloquea_walk_ins === true ? 'bloqueo' : 'advertencia'
+      nivel: reservation.accion_pendiente === 'REGISTRAR_AUSENCIA'
+        ? 'accion-pendiente'
+        : (reservation.bloquea_walk_ins === true ? 'bloqueo' : 'advertencia'),
+      accion_pendiente: reservation.accion_pendiente || null,
+      motivo_bloqueo: reservation.motivo_bloqueo || null,
+      mensaje_bloqueo: reservation.mensaje_bloqueo || null
     };
   }
 
@@ -723,8 +730,13 @@ function initMapa() {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Cliente con ' +
           proxima.minutos_retraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.');
       } else if (ventana === 'tolerancia_vencida') {
-        partes.push('Reservaci\u00f3n con tolerancia vencida. El cliente lleva ' +
-          proxima.minutos_retraso + ' minutos de retraso.');
+        if (proxima.accion_pendiente === 'REGISTRAR_AUSENCIA') {
+          partes.push('Acci\u00f3n pendiente: registrar ausencia. La tolerancia de llegada ya venci\u00f3; el cliente lleva ' +
+            proxima.minutos_retraso + ' minutos de retraso.');
+        } else {
+          partes.push('Reservaci\u00f3n con tolerancia vencida. El cliente lleva ' +
+            proxima.minutos_retraso + ' minutos de retraso.');
+        }
       }
     } else {
       var reservaContextual = reservaParaModal(parseInt(mesa.id, 10));
@@ -770,7 +782,10 @@ function initMapa() {
       } else if (proxima.ventana_operativa === 'tolerancia') {
         modifiers.push('reservacion_tolerancia', 'reservacion_bloqueante');
       } else if (proxima.ventana_operativa === 'tolerancia_vencida') {
-        modifiers.push('reservacion_vencida', 'reservacion_bloqueante');
+        modifiers.push('reservacion_vencida');
+        if (proxima.accion_pendiente === 'REGISTRAR_AUSENCIA') {
+          modifiers.push('accion_pendiente', 'reservacion_bloqueante');
+        }
       } else if (proxima.nivel === 'bloqueo') {
         modifiers.push('reservacion_bloqueante');
       }
@@ -784,7 +799,9 @@ function initMapa() {
       ticket_abierto: ticket ? { id: ticket.id, reservacion_id: ticket.reservacion_id } : null,
       walk_in: Boolean(ticket && ticket.origen === 'walk_in'),
       seleccion_actual: selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
-      motivo_bloqueo: estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null,
+      accion_pendiente: backend.accion_pendiente || (proxima && proxima.accion_pendiente) || null,
+      motivo_bloqueo: backend.motivo_bloqueo || (estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null),
+      mensaje_bloqueo: backend.mensaje_bloqueo || (proxima && proxima.mensaje_bloqueo) || null,
       titulo: tituloMesaMapa(mesa, estado, ticket, proxima)
     });
     return normalized;
@@ -917,13 +934,16 @@ function initMapa() {
         cardClasses.push('reserva-card--activa');
       } else if (tempEstado === '30_60') cardClasses.push('reserva-card--proxima');
 
+      var temporalLabel = r.accion_pendiente === 'REGISTRAR_AUSENCIA'
+        ? 'Acción pendiente: registrar ausencia'
+        : TEMPORAL_LABELS[tempEstado];
       var card = window.OperationalReservationCard.create(r, {
         hora: r.hora.substring(0, 5),
         estado: r.estado,
         mesas: tableNames,
         clases: cardClasses,
-        meta: TEMPORAL_LABELS[tempEstado] ? {
-          label: TEMPORAL_LABELS[tempEstado],
+        meta: temporalLabel ? {
+          label: temporalLabel,
           className: 'reserva-card__temporal reserva-card__temporal--' + tempEstado
         } : null
       });
@@ -1894,6 +1914,9 @@ function initMapa() {
       });
       var reservaEstado = String(reserva.estado || '');
       var reservaComensales = parseInt(reserva.comensales || reserva.personas || '0', 10);
+      var ausenciaPendiente = reservaEstado === 'confirmada'
+        && reserva.accion_pendiente === 'REGISTRAR_AUSENCIA'
+        && reserva.ticket_abierto !== true;
 
       h += '<div class="mmodal-reserva-preview mmodal-reservation">';
       h += '<div class="mmodal-reservation__identity">';
@@ -1911,6 +1934,20 @@ function initMapa() {
       h += '<div><dt>Mesas</dt><dd class="' + (reservaMesas.length ? '' : 'is-empty') + '">' +
         escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
       h += '</dl>';
+      if (ausenciaPendiente) {
+        var toleranciaMinutos = temporalNumber('tolerancia_reservacion_minutos') || 15;
+        var toleranciaHora = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
+        var toleranciaHasta = toleranciaHora ? toleranciaHora[1] : '';
+        h += '<section class="mmodal-reservation__pending" id="mmodal-reservation-pending" role="alert" aria-live="assertive" aria-labelledby="mmodal-reservation-pending-title">';
+        h += '<strong id="mmodal-reservation-pending-title">Acción pendiente: registrar ausencia</strong>';
+        h += '<p>La tolerancia de llegada de esta reservación ya venció.</p>';
+        h += '<dl class="mmodal-reservation__pending-facts">';
+        h += '<div><dt>Tolerancia</dt><dd>' + toleranciaMinutos + ' minutos' + (toleranciaHasta ? ' · hasta las ' + escHtml(toleranciaHasta) : '') + '</dd></div>';
+        h += '<div><dt>Retraso</dt><dd>' + (parseInt(reserva.minutos_retraso || '0', 10) || 0) + ' minutos</dd></div>';
+        h += '</dl>';
+        h += '<p>Al registrar la ausencia, la reservación quedará como no show y las mesas dejarán de estar comprometidas.</p>';
+        h += '</section>';
+      }
       if (reserva.nota) {
         h += '<div class="mmodal-reserva-nota"><span class="mmodal-reserva-nota__label">Nota</span>' + escHtml(reserva.nota) + '</div>';
       }
@@ -1922,7 +1959,10 @@ function initMapa() {
       h += buildMeseroSelectHtml();
       h += '</div>';
       h += '<div class="mmodal-reservation__actions">';
-      if (reservaEstado === 'confirmada') {
+      if (reservaEstado === 'confirmada' && ausenciaPendiente) {
+        h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Registrar ausencia</button>';
+        h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-reservation-back">Volver</button>';
+      } else if (reservaEstado === 'confirmada') {
         var puedeIniciar = reserva.puede_iniciar_servicio === true;
         var mesasBloqueantes = Array.isArray(reserva.mesas_bloqueantes)
           ? reserva.mesas_bloqueantes
@@ -2741,23 +2781,38 @@ function initMapa() {
         var toleranceUntil = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
         var toleranceText = toleranceUntil ? toleranceUntil[1] : '';
         var delayMinutes = parseInt(reserva.minutos_retraso || '0', 10) || 0;
-        var noShowMessage = 'La reservación era a las ' + noShowHour +
-          (reserva.nombre ? ' de ' + reserva.nombre : '') +
-          (noShowPeople ? ' para ' + noShowPeople + (noShowPeople === 1 ? ' persona' : ' personas') : '') +
-          '. La tolerancia configurada es de ' + toleranceMinutes + ' minutos' +
-          (toleranceText ? ' y terminó a las ' + toleranceText : '') +
-          '. Tiene ' + delayMinutes + ' minutos de retraso. Al confirmar, la reservación se marcará como no show y sus mesas dejarán de estar comprometidas.';
+        var noShowMessage = 'La tolerancia de llegada de esta reservación ya venció.';
+        var noShowTables = mesaIdsReserva(reserva).map(function(mesaId) {
+          var mesaNoShow = mesaPorId(mesaId);
+          return mesaNoShow ? mesaNoShow.nombre : 'Mesa ' + mesaId;
+        });
         showOpenTicketNotice({
           variant: 'absence',
           confirmButtonVariant: 'warning',
           title: 'Registrar que el cliente no se presentó',
           message: noShowMessage,
+          details: [
+            'Nombre: ' + (reserva.nombre || 'Sin nombre'),
+            'Hora de la reservación: ' + (noShowHour || '--:--'),
+            'Comensales: ' + noShowPeople,
+            'Mesa(s): ' + (noShowTables.length ? noShowTables.join(', ') : 'Sin mesas asignadas'),
+            'Tolerancia configurada: ' + toleranceMinutes + ' minutos' + (toleranceText ? ' · terminó a las ' + toleranceText : ''),
+            'Minutos de retraso: ' + delayMinutes,
+            'Al registrar la ausencia, la reservación quedará como no show y las mesas dejarán de estar comprometidas.'
+          ],
           cancelLabel: 'Volver',
           confirmLabel: 'Registrar ausencia',
           onConfirm: function() {
             apiMarcarNoShow(reserva, noShowBtn);
           }
         });
+      });
+    }
+
+    var reservationBackBtn = modalContent.querySelector('#mmodal-reservation-back');
+    if (reservationBackBtn) {
+      reservationBackBtn.addEventListener('click', function() {
+        closeModal();
       });
     }
 

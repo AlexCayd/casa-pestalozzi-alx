@@ -91,6 +91,8 @@ $columnasAnteriores = array_column(
     'COLUMN_NAME'
 );
 
+// PRUEBA_DE_MIGRACION: esta suite reconstruye deliberadamente desde un clon
+// heredado y por eso necesita detectar el campo que la instalación canónica retiró.
 if (!in_array('status_changed_at', $columnasAnteriores, true)) {
     throw new RuntimeException('El clon ya no tiene el esquema heredado; no se repite la reconstrucción.');
 }
@@ -176,6 +178,8 @@ etapa4Exec(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci"
 );
 
+// PRUEBA_DE_MIGRACION: la lectura de status_changed_at y la traducción de
+// estados históricos pertenecen al flujo de migración, no al runtime activo.
 $filasAnteriores = etapa4Rows(
     $db,
     "SELECT id, nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
@@ -229,7 +233,7 @@ foreach ($filasAnteriores as $fila) {
     $hold = $fila['hold_expires_at'] !== null ? (string)$fila['hold_expires_at'] : null;
     if ($estado === 'pendiente_verificacion') {
         if ($hold === null || trim($hold) === '') {
-            $hold = $ahoraObjeto->modify('+' . ReservacionConfig::RESERVATION_HOLD_MINUTES . ' minutes')->format('Y-m-d H:i:s');
+            $hold = $ahoraObjeto->modify('+' . ReservacionConfig::VIGENCIA_HOLD_MINUTOS . ' minutes')->format('Y-m-d H:i:s');
             $conteosMigracion['holds_sin_fecha_reparados']++;
         } elseif (new DateTimeImmutable($hold, ReservacionConfig::timezone()) <= $ahoraObjeto) {
             $estado = 'expirada';

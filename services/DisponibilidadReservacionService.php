@@ -133,7 +133,7 @@ final class DisponibilidadReservacionService
             $fecha,
             $hora,
             $personas,
-            $asignacionPublica ? ReservacionConfig::MAX_PUBLIC_GUESTS : ReservacionConfig::MAX_COMENSALES_ADMIN,
+            $asignacionPublica ? ReservacionConfig::MAX_COMENSALES_PUBLICO : ReservacionConfig::MAX_COMENSALES_ADMIN,
             $excluirReservacionId,
             $asignacionPublica,
             null,
@@ -182,7 +182,7 @@ final class DisponibilidadReservacionService
         return self::consultarSlots(
             $fecha,
             $personas,
-            ReservacionConfig::MAX_PUBLIC_GUESTS,
+            ReservacionConfig::MAX_COMENSALES_PUBLICO,
             max(0, $excluirReservacionId),
             true,
             null,
@@ -226,7 +226,7 @@ final class DisponibilidadReservacionService
                 'disponible' => false,
                 'motivo' => $publico
                     && $personasValidas !== false
-                    && $personasValidas > ReservacionConfig::MAX_PUBLIC_GUESTS
+                    && $personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO
                     ? 'requiere_contactar_restaurante'
                     : 'comensales_invalidos',
                 'fecha' => trim($fecha),
@@ -379,7 +379,7 @@ final class DisponibilidadReservacionService
             $base['motivo'] = 'comensales_invalidos';
             return $base;
         }
-        if ($personasValidas > ReservacionConfig::MAX_PUBLIC_GUESTS) {
+        if ($personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
             $base['motivo'] = $asignacionPublica
                 ? 'requiere_contactar_restaurante'
                 : 'requiere_asignacion_manual';

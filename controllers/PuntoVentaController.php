@@ -117,20 +117,6 @@ class PuntoVentaController {
         self::responder($resultado);
     }
 
-    // POST /admin/api/release-reservation
-    public static function liberarReservacion(Router $router) {
-        $data      = self::entradaJson();
-        if (!self::validarCsrfMutacion($data)) {
-            return;
-        }
-        $reservaId = isset($data['reservacion_id']) ? (int)$data['reservacion_id'] : 0;
-        self::responder(PuntoVentaReservacionService::cancelar(
-            $reservaId,
-            (int)($_SESSION['id'] ?? 0),
-            trim((string)($data['motivo'] ?? ''))
-        ));
-    }
-
     // POST /admin/api/close-ticket
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
@@ -720,6 +706,7 @@ class PuntoVentaController {
             http_response_code(in_array($codigo, [
                 PuntoVentaReservacionService::MESA_OCUPADA,
                 PuntoVentaReservacionService::TICKET_ABIERTO,
+                PuntoVentaReservacionService::TOLERANCIA_LLEGADA_VENCIDA,
                 PuntoVentaReservacionService::ESTADO_INVALIDO,
                 PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
             ], true) ? 409 : 422);
@@ -741,6 +728,7 @@ class PuntoVentaController {
             PuntoVentaReservacionService::ESTADO_INVALIDO => 'El estado actual no permite esta acción.',
             PuntoVentaReservacionService::MESA_OCUPADA => 'Una de las mesas ya tiene un ticket abierto.',
             PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
+            PuntoVentaReservacionService::TOLERANCIA_LLEGADA_VENCIDA => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
             PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
             PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'Hay una reservación próxima en la mesa seleccionada. Revisa el aviso antes de continuar.',
             PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Actualiza la información e intenta nuevamente.',

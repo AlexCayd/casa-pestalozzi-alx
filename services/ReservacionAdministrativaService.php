@@ -162,7 +162,7 @@ final class ReservacionAdministrativaService
             'capacidad_asignada' => 0,
             'mesa_ids' => [],
             'asignacion_automatica_solicitada' => false,
-            'asignacion_automatica_habilitada' => $personas <= ReservacionConfig::MAX_PUBLIC_GUESTS,
+            'asignacion_automatica_habilitada' => $personas <= ReservacionConfig::MAX_COMENSALES_PUBLICO,
             'asignacion_automatica_posible' => false,
             'requiere_asignacion_manual' => true,
             'nivel_advertencia' => 'ninguno',
@@ -206,7 +206,7 @@ final class ReservacionAdministrativaService
         ));
         usort($disponibles, static fn($a, $b): int => ((int)$a->numero <=> (int)$b->numero) ?: ((int)$a->id <=> (int)$b->id));
 
-        if ($personas <= ReservacionConfig::MAX_PUBLIC_GUESTS) {
+        if ($personas <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
             $seleccion = AsignacionMesasService::seleccionarMesasGeneral(
                 $disponibles,
                 $personas,
@@ -296,7 +296,7 @@ final class ReservacionAdministrativaService
             }
             $id = (int)$guardado['id'];
             $asignacion = ['ok' => false, 'mesa_ids' => [], 'codigo' => AsignacionMesasService::SIN_CAPACIDAD];
-            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_PUBLIC_GUESTS) {
+            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
                 $asignacion = AsignacionMesasService::asignarAutomaticamente($id, false);
                 if (!($asignacion['ok'] ?? false)) {
                     $faltantes = array_values(array_unique(array_merge($warningCodes, [self::SIN_ASIGNACION])));
@@ -398,7 +398,7 @@ final class ReservacionAdministrativaService
             self::actualizarFila($id, $datos);
 
             $asignacion = ['ok' => false, 'mesa_ids' => [], 'codigo' => AsignacionMesasService::SIN_CAPACIDAD];
-            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_PUBLIC_GUESTS) {
+            if ($solicitaAsignacion && $datos['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
                 $asignacion = AsignacionMesasService::asignarAutomaticamente($id, false);
                 if (!($asignacion['ok'] ?? false)) {
                     $warning = self::SIN_ASIGNACION;

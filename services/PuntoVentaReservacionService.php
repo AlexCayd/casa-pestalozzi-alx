@@ -21,6 +21,7 @@ final class PuntoVentaReservacionService
     public const ESTADO_INVALIDO = 'ESTADO_INVALIDO';
     public const MESA_OCUPADA = 'MESA_OCUPADA';
     public const TOLERANCIA_VIGENTE = 'TOLERANCIA_VIGENTE';
+    public const TOLERANCIA_LLEGADA_VENCIDA = 'TOLERANCIA_LLEGADA_VENCIDA';
     public const REQUIERE_CONFIRMACION = 'REQUIERE_CONFIRMACION';
     public const TICKET_ABIERTO = 'TICKET_ABIERTO';
     public const TICKET_CON_CONSUMO = 'TICKET_CON_CONSUMO';
@@ -128,7 +129,20 @@ final class PuntoVentaReservacionService
             if ((string)$r['fecha'] !== ReservacionConfig::fechaActual()) {
                 return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
             }
-            if (!ReservacionVigenciaService::clasificar($r)['puede_iniciar_servicio']) {
+            $vigencia = ReservacionVigenciaService::clasificar($r);
+            if (!empty($vigencia['tolerancia_vencida'])) {
+                return self::rollbackResultado(
+                    $db,
+                    $transaccion,
+                    self::TOLERANCIA_LLEGADA_VENCIDA,
+                    [
+                        'motivo_bloqueo' => self::TOLERANCIA_LLEGADA_VENCIDA,
+                        'mensaje_bloqueo' => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
+                        'accion_pendiente' => 'REGISTRAR_AUSENCIA',
+                    ]
+                );
+            }
+            if (!$vigencia['puede_iniciar_servicio']) {
                 return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
             }
             if (self::ticketAbiertoReservacion($db, $reservacionId)) {
@@ -747,25 +761,26 @@ final class PuntoVentaReservacionService
             }
         }
 
-        $liberacion = null;
+        $liberacionEstimada = null;
+        $horaObjetivoPreparacion = null;
         if ($ticket) {
             $apertura = new DateTimeImmutable((string)$ticket['hora_apertura'], ReservacionConfig::timezone());
-            $a = $apertura
-                ->modify('+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes')
-                ->modify('+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes');
-            $b = $ahora->modify('+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes');
-            $liberacion = ($a > $b ? $a : $b)->format('Y-m-d H:i:s');
+            $liberacionEstimada = $apertura
+                ->modify('+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes')
+                ->modify('+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes')
+                ->format('Y-m-d H:i:s');
         }
         $advertencia = null;
         if ($ticket && $proxima) {
-            $recomendada = (new DateTimeImmutable(
+            $horaObjetivoPreparacion = (new DateTimeImmutable(
                 $proxima['fecha'] . ' ' . $proxima['hora'],
                 ReservacionConfig::timezone()
-            ))->modify('-' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes');
+            ))->modify('-' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes')
+                ->format('Y-m-d H:i:s');
             $advertencia = sprintf(
                 'Esta mesa tiene una reservación a las %s. Se recomienda liberarla antes de las %s.',
                 $proxima['hora'],
-                $recomendada->format('H:i')
+                substr($horaObjetivoPreparacion, 11, 5)
             );
         }
 
@@ -783,7 +798,8 @@ final class PuntoVentaReservacionService
                 'puede_cerrar_ticket' => $ticket !== null,
             ],
             'advertencia' => $advertencia,
-            'liberacion_estimada' => $liberacion,
+            'liberacion_estimada' => $liberacionEstimada,
+            'hora_objetivo_preparacion' => $horaObjetivoPreparacion,
         ];
     }
 
@@ -962,7 +978,7 @@ final class PuntoVentaReservacionService
         $reloj = ReservacionConfig::ahora();
         $ahora = $reloj->format('Y-m-d H:i:s');
         $limite = $reloj
-            ->modify('+' . ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA . ' minutes')
+            ->modify('+' . ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS . ' minutes')
             ->format('Y-m-d H:i:s');
         $resultado = $db->query(
             "SELECT r.id AS reservacion_id,

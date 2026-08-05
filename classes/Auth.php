@@ -26,7 +26,6 @@ class Auth {
     private const APIS_POS = [
         '/api/punto-de-venta',
         '/api/abrir-ticket',
-        '/api/liberar-reservacion',
         '/api/cerrar-ticket',
         '/api/liberar-mesa',
         '/api/enviar-comanda',

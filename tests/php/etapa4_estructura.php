@@ -96,6 +96,8 @@ try {
         json_encode(['esperadas' => $esperadas, 'actuales' => $actuales], JSON_UNESCAPED_UNICODE)
     );
 
+    // PRUEBA_DE_MIGRACION: estos nombres se conservan únicamente para demostrar
+    // que el esquema legado quedó fuera de la instalación canónica.
     $retiradas = [
         'llego', 'arrived_at', 'confirmed_at', 'completed_at',
         'request_fingerprint', 'last_modified_by', 'last_modified_source',

@@ -96,6 +96,24 @@ ReservacionMapaAdministrativaService ─ snapshot/version/conflicto
 
 No se identificó un segundo lector completo de mapa activo. Sí existe la rama de compatibilidad de ocupación en `AsignacionMesasService.php:76-105` y la consulta informativa independiente de `contextoMesa()`, ambas listadas como deuda técnica.
 
+## Resultado posterior a Etapa 12
+
+Este anexo actualiza el inventario anterior sin reescribir su fotografía histórica.
+
+| Deuda | Resultado Etapa 12 |
+|---|---|
+| T-01 aliases/constants | **RESUELTA**. Los consumidores activos usan los nombres canónicos de `ReservacionConfig`. |
+| T-02 margen POS | **RESUELTA**. `liberacion_estimada` usa duración + retraso; el margen queda sólo como objetivo informativo. |
+| T-03 ocupación forzada | **RESUELTA**. Se retiró el parámetro y la rama sin consumidores. |
+| T-04 rutas legacy | **RESUELTA**. Se retiraron horario efectivo legacy, liberar reservación y duplicados administrativos. |
+| P-01 segundo OTP | **RESUELTA**. Se eliminó `reenviarOtpModificacion`; la modificación usa sesión verificada. |
+| R-01 código inalcanzable | **RESUELTA**. La fachada delega y no conserva una implementación duplicada. |
+| R-02 código inalcanzable | **RESUELTA**. El normalizador retorna exclusivamente la ruta canónica. |
+| R-03 vocabulario histórico | **CLASIFICADA**. Permanece sólo en pruebas de migración etiquetadas `PRUEBA_DE_MIGRACION`. |
+| N-01 validación de navegador | **NO VERIFICABLE en este corte**. Requiere servidor local/MySQL y sesión operativa. |
+
+La decisión pasa a **Etapa 12 ejecutada y cerrada técnicamente**, con validación funcional de base pendiente únicamente cuando MySQL/XAMPP esté disponible.
+
 ## Bundles y fuentes
 
 `gulpfile.js` define estos consumidores compilados:

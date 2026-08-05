@@ -139,12 +139,12 @@ final class ReservacionVigenciaService
             ? (int)ceil(abs($segundosRestantes) / 60)
             : 0;
         $estado = match (true) {
-            $segundosRestantes > ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA * 60
+            $segundosRestantes > ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60
                 => 'futura',
             $segundosRestantes > ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60
                 => '30_60',
             $segundosRestantes >= 0 => '0_30',
-            $segundosRestantes > -ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS * 60
+            $segundosRestantes >= -ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS * 60
                 => 'tolerancia',
             default => 'tolerancia_vencida',
         };
@@ -172,7 +172,7 @@ final class ReservacionVigenciaService
         $holdExpiresAt = self::fechaOpcional(self::valor($reservacion, 'hold_expires_at'));
         $fechaHora = self::fechaHoraProgramada($reservacion);
         $limiteTolerancia = $fechaHora?->modify(
-            '+' . ReservacionConfig::TOLERANCIA_RESERVACION_MINUTOS . ' minutes'
+            '+' . ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS . ' minutes'
         );
 
         $ticketEstado = (string)self::valor(
@@ -206,7 +206,7 @@ final class ReservacionVigenciaService
         $toleranciaVencida = $estado === 'confirmada'
             && !$tieneEvidenciaFisica
             && $limiteTolerancia instanceof DateTimeImmutable
-            && $ahora >= $limiteTolerancia;
+            && $ahora > $limiteTolerancia;
         $confirmadaVigente = $estado === 'confirmada';
         $operativaPersistida = $estado === 'en_curso';
         // Una reservación confirmada conserva la mesa hasta que se marque
@@ -230,7 +230,7 @@ final class ReservacionVigenciaService
         $ventana = self::resolverVentanaOperativa($reservacion, $ahora);
         $puedeIniciarServicio = $estado === 'confirmada'
             && !$ticketAbierto
-            && in_array($ventana['estado'], ['0_30', 'tolerancia', 'tolerancia_vencida'], true);
+            && in_array($ventana['estado'], ['0_30', 'tolerancia'], true);
         $antesODuranteHora = !($fechaHora instanceof DateTimeImmutable) || $ahora <= $fechaHora;
 
         return [

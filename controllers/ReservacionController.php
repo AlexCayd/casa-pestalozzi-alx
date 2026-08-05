@@ -13,8 +13,6 @@ use Model\Reservacion;
 use MVC\Router;
 use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
-use Services\HorarioOperacionService;
-use Services\HorarioReservacionService;
 use Services\ReservationClientSession;
 use Services\ReservacionConfig;
 use Services\ReservacionPublicaService;
@@ -31,16 +29,7 @@ class ReservacionController
         if (!self::validarCsrfPublico($entrada)) {
             return;
         }
-        if (!empty($entrada['request_token']) && ($entrada['operacion'] ?? '') === 'modificacion') {
-            $sesion = ReservationClientSession::obtener();
-            $respuesta = $sesion
-                ? ReservacionPublicaService::reenviarOtpModificacion($entrada, $sesion)
-                : [
-                    'ok' => false,
-                    'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
-                    'mensaje' => 'Verifica nuevamente tu contacto.',
-                ];
-        } elseif (!empty($entrada['request_token'])) {
+        if (!empty($entrada['request_token'])) {
             $respuesta = ReservacionPublicaService::reenviarOtpRetencion($entrada);
         } else {
             $respuesta = ContactoAccesoService::solicitarCodigo(
@@ -101,7 +90,7 @@ class ReservacionController
                 $contacto,
                 $fecha,
                 $hora,
-                ReservacionConfig::MAX_ACTIVE_RESERVATIONS
+                ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO
             );
             $pendientes = Reservacion::buscarReemplazosPendientesPorContacto(
                 $tipo,
@@ -147,8 +136,8 @@ class ReservacionController
                 'ok' => true,
                 'session_verified' => true,
                 'active_reservations_count' => $total,
-                'max_active_reservations' => ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
-                'can_create_reservation' => $total < ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
+                'max_active_reservations' => ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO,
+                'can_create_reservation' => $total < ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO,
                 'reservations' => $reservaciones,
             ]);
         } catch (\Throwable $e) {
@@ -247,51 +236,6 @@ class ReservacionController
                 'mensaje' => 'No fue posible consultar la disponibilidad en este momento.',
             ], 500);
         }
-    }
-
-    /** Resolución pública uniforme del horario operativo y sus slots. */
-    public static function horarioEfectivo(Router $router): void
-    {
-        $fecha = trim((string)($_GET['fecha'] ?? ''));
-        if (!HorarioReservacionService::fechaValida($fecha)) {
-            self::json([
-                'ok' => false,
-                'codigo' => HorarioReservacionService::FECHA_INVALIDA,
-                'fecha' => $fecha,
-            ], 422);
-            return;
-        }
-
-        $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
-        $slots = ($efectivo['abierto'] ?? false)
-            ? HorarioReservacionService::generarIntervalos(
-                (string)$efectivo['hora_apertura'],
-                (string)$efectivo['hora_cierre']
-            )
-            : [];
-        self::json([
-            'ok' => true,
-            'fecha' => $fecha,
-            'abierto' => (bool)($efectivo['abierto'] ?? false),
-            'origen' => $efectivo['origen'] ?? 'semanal',
-            'hora_apertura' => !empty($efectivo['hora_apertura'])
-                ? substr((string)$efectivo['hora_apertura'], 0, 5)
-                : null,
-            'hora_cierre' => !empty($efectivo['hora_cierre'])
-                ? substr((string)$efectivo['hora_cierre'], 0, 5)
-                : null,
-            'slots_reservables' => array_map(
-                static fn(string $hora): string => substr($hora, 0, 5),
-                $slots
-            ),
-            'excepcion_aplicada' => ($efectivo['origen'] ?? '') === 'excepcion'
-                ? [
-                    'tipo' => $efectivo['tipo'] ?? null,
-                    'motivo' => $efectivo['motivo'] ?? null,
-                ]
-                : null,
-            'zona_horaria' => ReservacionConfig::TIMEZONE,
-        ]);
     }
 
     public static function retencion(Router $router): void

@@ -59,7 +59,8 @@ final class PosReservacionSerializer
             && !$sinMesas
             && !$conflictoFisico;
         $puedeAusencia = (bool)$vigencia['elegible_no_show']
-            && !$conflictoFisico;
+            && $ticket === null;
+        $accionPendiente = $puedeAusencia ? 'REGISTRAR_AUSENCIA' : null;
         $bloqueaWalkIns = $estado === 'confirmada'
             && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true)
             && (bool)$vigencia['influye_disponibilidad'];
@@ -79,7 +80,8 @@ final class PosReservacionSerializer
             $conflictoFisico,
             $mesasBloqueantes,
             $ticket !== null,
-            (bool)$vigencia['puede_iniciar_servicio']
+            (bool)$vigencia['puede_iniciar_servicio'],
+            (bool)$vigencia['tolerancia_vencida']
         );
         $mensajeBloqueo = self::mensajeBloqueo(
             $motivoBloqueo,
@@ -145,6 +147,8 @@ final class PosReservacionSerializer
             'motivo_bloqueo' => $motivoBloqueo,
             'mensaje_bloqueo' => $mensajeBloqueo,
             'accion_sugerida' => $accionSugerida,
+            'accion_pendiente' => $accionPendiente,
+            'puede_marcar_no_show' => $puedeAusencia,
             'mesas_bloqueantes' => $mesasBloqueantes,
             'puede_registrar_ausencia' => $puedeAusencia,
             'bloquea_walk_ins' => $bloqueaWalkIns,
@@ -450,13 +454,17 @@ final class PosReservacionSerializer
         bool $conflictoFisico,
         array $mesasBloqueantes,
         bool $ticketAbierto,
-        bool $ventanaPermitida
+        bool $ventanaPermitida,
+        bool $toleranciaVencida
     ): ?string {
         if ($mesasBloqueantes !== [] || $conflictoFisico) {
             return 'MESAS_ASIGNADAS_NO_DISPONIBLES';
         }
         if ($ticketAbierto) {
             return 'TICKET_ABIERTO';
+        }
+        if ($estado === 'confirmada' && $toleranciaVencida) {
+            return 'TOLERANCIA_LLEGADA_VENCIDA';
         }
         if ($sinMesas && $estado === 'confirmada') {
             return 'MESAS_SIN_ASIGNAR';
@@ -483,6 +491,7 @@ final class PosReservacionSerializer
         return match ($motivo) {
             'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'No se puede iniciar el servicio porque una de las mesas asignadas no está disponible.',
             'TICKET_ABIERTO' => 'Esta reservación ya tiene un ticket abierto; continúa desde ese servicio.',
+            'TOLERANCIA_LLEGADA_VENCIDA' => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
             'MESAS_SIN_ASIGNAR' => 'No se puede iniciar el servicio porque la reservación no tiene mesas asignadas.',
             'VENTANA_NO_PERMITIDA' => 'El servicio aún no puede iniciar porque la reservación está fuera de la ventana permitida.',
             'ESTADO_NO_PERMITE_INICIO' => 'El estado actual de la reservación no permite iniciar el servicio.',
@@ -506,6 +515,7 @@ final class PosReservacionSerializer
         return match ($motivo) {
             'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'Actualiza la información de disponibilidad antes de volver a intentar.',
             'TICKET_ABIERTO' => 'Continúa desde el ticket abierto.',
+            'TOLERANCIA_LLEGADA_VENCIDA' => 'Registra la ausencia antes de utilizar la mesa.',
             'MESAS_SIN_ASIGNAR' => 'Actualiza la asignación antes de iniciar.',
             'VENTANA_NO_PERMITIDA' => 'Espera a la ventana permitida para iniciar.',
             'ESTADO_NO_PERMITE_INICIO' => 'Actualiza la reservación antes de iniciar.',

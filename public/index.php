@@ -42,7 +42,6 @@ $router->get('/reservaciones', [HomeController::class, 'index']);
 // Reservaciones
 $router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);
 $router->get('/api/reservaciones/disponibilidad', [ReservacionController::class, 'disponibilidad']);
-$router->get('/api/operacion/horario-efectivo', [ReservacionController::class, 'horarioEfectivo']);
 $router->post('/api/reservaciones/retencion', [ReservacionController::class, 'retencion']);
 $router->post('/api/reservaciones/crear', [ReservacionController::class, 'crearVerificada']);
 $router->post('/api/reservaciones/modificar', [ReservacionController::class, 'modificarPublica']);
@@ -114,8 +113,6 @@ $router->post('/admin/api/reservations/operation/clear-tables', [ReservacionOper
 $router->post('/admin/api/reservations/operation/reassign', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
 $router->post('/admin/api/reservations/operation/update-comment', [ReservacionOperacionController::class, 'apiUpdateComment']);
 $router->post('/admin/api/reservations/operation/status', [ReservacionOperacionController::class, 'apiStatus']);
-$router->post('/admin/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'assignTables']);
-$router->post('/admin/reservations/operation/update-comment', [ReservacionOperacionController::class, 'updateComment']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
@@ -210,7 +207,6 @@ $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaControlle
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
-$router->post('/api/liberar-reservacion', [PuntoVentaController::class, 'liberarReservacion']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
 // Mesa ocupada que no consumió: borra el ticket en vez de cerrarlo en $0.
 $router->post('/api/liberar-mesa',        [PuntoVentaController::class, 'liberarMesa']);

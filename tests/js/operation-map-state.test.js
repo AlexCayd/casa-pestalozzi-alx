@@ -49,6 +49,23 @@ assert.strictEqual(table.estadoVisual, "reservacion-proxima");
 assert.ok(classNames(table).has("mesa-pin--mod-reservacion_advertencia"));
 
 table = normalize({
+  reservacion_proxima: { id: 11 },
+  accion_pendiente: "REGISTRAR_AUSENCIA",
+  modificadores: ["reservacion_proxima", "reservacion_vencida", "accion_pendiente"]
+});
+assert.strictEqual(table.estadoVisual, "libre");
+assert.ok(classNames(table).has("mesa-pin--libre"));
+assert.ok(classNames(table).has("mesa-pin--mod-accion_pendiente"));
+
+table = normalize({
+  reservacion_proxima: { id: 11 },
+  accion_pendiente: "REGISTRAR_AUSENCIA",
+  modificadores: ["reservacion_proxima", "accion_pendiente"]
+}, { seleccionActual: true });
+assert.strictEqual(table.estadoVisual, "seleccionada");
+assert.ok(classNames(table).has("mesa-pin--mod-accion_pendiente"));
+
+table = normalize({
   ticket_abierto: { id: 20 },
   modificadores: ["ticket_abierto"]
 });

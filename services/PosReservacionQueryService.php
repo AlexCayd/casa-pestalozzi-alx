@@ -121,6 +121,15 @@ final class PosReservacionQueryService
                         $reservacion,
                         $horaEvaluacion
                     );
+                    // Una confirmada con tolerancia vencida sigue siendo una
+                    // acción pendiente aunque ya haya terminado su intervalo
+                    // estimado de servicio. No se oculta hasta registrar el
+                    // no-show o vincular un ticket.
+                    if (($reservacion['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA'
+                        && empty($reservacion['ticket_abierto'])) {
+                        $reservacion['aplica_hora_consultada'] = true;
+                        $reservacion['muestra_advertencia'] = true;
+                    }
                     if ($reservacion['aplica_hora_consultada']) {
                         $reservacion['muestra_advertencia'] = true;
                     }

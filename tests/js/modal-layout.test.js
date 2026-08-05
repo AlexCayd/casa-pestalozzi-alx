@@ -21,7 +21,10 @@ assert.strictEqual(
   "aria-describedby=\"mesa-modal-description\"",
   "noticeBody.scrollTop = 0",
   "Hay una reservación próxima",
-  "Registrar que el cliente no se presentó"
+  "Registrar que el cliente no se presentó",
+  "accion_pendiente",
+  "mmodal-reservation-back",
+  "La tolerancia de llegada de esta reservación ya venció"
 ].forEach((fragment) => {
   assert.ok(source.includes(fragment), `el shell JS debe incluir: ${fragment}`);
 });
