@@ -29,30 +29,6 @@ final class ReservacionMantenimientoController
         ]);
     }
 
-    public static function vistaPreviaLimpieza(Router $router): void
-    {
-        self::protegerAmbiente();
-        self::protegerPost();
-        self::render([
-            'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
-            'filtrosLimpieza' => $_POST,
-            'vistaPreviaLimpieza' => ReservacionMantenimientoService::vistaPreviaLimpieza($_POST),
-        ]);
-    }
-
-    public static function limpiar(Router $router): void
-    {
-        self::protegerAmbiente();
-        self::protegerPost();
-        $resultado = ReservacionMantenimientoService::limpiar($_POST);
-        self::render([
-            'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
-            'filtrosLimpieza' => $_POST,
-            'resultadoLimpieza' => $resultado,
-            'vistaPreviaLimpieza' => ReservacionMantenimientoService::vistaPreviaLimpieza($_POST),
-        ]);
-    }
-
     private static function protegerAmbiente(): void
     {
         if (ReservacionConfig::appEnvironment() === 'development') {

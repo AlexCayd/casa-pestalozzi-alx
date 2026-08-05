@@ -30,7 +30,7 @@ final class OcupacionMesasService
     public static function evaluarHorario(
         string $fecha,
         string $hora,
-        int $excluirReservacionId = 0,
+        int|array $excluirReservacionId = 0,
         bool $bloquear = false,
         ?array $ticketsAbiertos = null,
         ?DateTimeImmutable $ahora = null
@@ -59,7 +59,11 @@ final class OcupacionMesasService
             'fin' => $objetivo->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'),
         ];
         $reservaciones = self::reservacionesDelDia($fecha, $excluirReservacionId, $ahora, $bloquear);
-        $ocupacionReservaciones = self::ocupacionReservacionesEnIntervalo($reservaciones, $intervalo);
+        $ocupacionReservaciones = self::ocupacionReservacionesEnIntervalo(
+            $reservaciones,
+            $intervalo,
+            $excluirReservacionId
+        );
 
         $tickets = $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear);
         $evaluacionTickets = self::evaluarTickets($tickets, $fecha, $horaSql, $ahora);
@@ -374,7 +378,7 @@ final class OcupacionMesasService
     /** @return array<int, array<string, mixed>> */
     private static function reservacionesDelDia(
         string $fecha,
-        int $excluirReservacionId,
+        int|array $excluirReservacionId,
         DateTimeImmutable $ahora,
         bool $bloquear
     ): array {
@@ -384,7 +388,10 @@ final class OcupacionMesasService
         }
         $fechaSql = $db->real_escape_string($fecha);
         $ahoraSql = $db->real_escape_string($ahora->format('Y-m-d H:i:s'));
-        $excluir = $excluirReservacionId > 0 ? 'AND r.id <> ' . (int)$excluirReservacionId : '';
+        $exclusiones = self::normalizarExclusiones($excluirReservacionId);
+        $excluir = $exclusiones !== []
+            ? 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')'
+            : '';
         $lock = $bloquear ? ' FOR UPDATE' : '';
         $sql = "SELECT rm.mesa_id, r.id AS reservacion_id, r.nombre, r.contacto,
                        r.fecha, r.hora, r.comensales, r.estado, r.hold_expires_at,
@@ -430,12 +437,20 @@ final class OcupacionMesasService
     }
 
     /** @return array<int, array<string, mixed>> */
-    private static function ocupacionReservacionesEnIntervalo(array $asignaciones, array $intervalo): array
+    private static function ocupacionReservacionesEnIntervalo(
+        array $asignaciones,
+        array $intervalo,
+        int|array $excluirReservacionId = 0
+    ): array
     {
+        $exclusiones = array_fill_keys(self::normalizarExclusiones($excluirReservacionId), true);
         $resultado = [];
         $inicio = $intervalo['inicio'];
         $fin = $intervalo['fin'];
         foreach ($asignaciones as $asignacion) {
+            if (isset($exclusiones[(int)($asignacion['reservacion_id'] ?? 0)])) {
+                continue;
+            }
             $reserva = self::fechaHora((string)$asignacion['fecha'], (string)$asignacion['hora']);
             if (!$reserva) {
                 continue;
@@ -446,6 +461,19 @@ final class OcupacionMesasService
             }
         }
         return $resultado;
+    }
+
+    /** @return array<int, int> */
+    private static function normalizarExclusiones(int|array $ids): array
+    {
+        if (!is_array($ids)) {
+            $ids = [$ids];
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0)));
+        sort($ids, SORT_NUMERIC);
+
+        return $ids;
     }
 
     private static function mesaElegible($mesa): bool

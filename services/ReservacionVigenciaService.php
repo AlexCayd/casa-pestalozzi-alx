@@ -288,14 +288,10 @@ final class ReservacionVigenciaService
     ): string {
         self::validarAlias($alias);
         $instante = self::instanteSql($ahora);
-        $ticketAbierto = self::condicionSqlTieneTicketAbierto($alias);
-
         return "(
             (
                 {$alias}.estado = 'confirmada'
-                AND TIMESTAMP({$alias}.fecha, {$alias}.hora)
-                    + INTERVAL " . ReservacionConfig::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS . " MINUTE
-                    >= {$instante}
+                AND {$alias}.fecha >= DATE({$instante})
             )
         )";
     }
@@ -306,18 +302,17 @@ final class ReservacionVigenciaService
     ): string {
         self::validarAlias($alias);
         $instante = self::instanteSql($ahora);
-        $ticketAbierto = self::condicionSqlTieneTicketAbierto($alias);
-
         return "(
             (
                 {$alias}.estado = 'pendiente_verificacion'
                 AND {$alias}.reemplaza_reservacion_id IS NULL
+                AND {$alias}.fecha >= DATE({$instante})
                 AND {$alias}.hold_expires_at IS NOT NULL
                 AND {$alias}.hold_expires_at > {$instante}
             )
             OR (
                 {$alias}.estado = 'confirmada'
-                AND TIMESTAMP({$alias}.fecha, {$alias}.hora) > {$instante}
+                AND {$alias}.fecha >= DATE({$instante})
             )
         )";
     }

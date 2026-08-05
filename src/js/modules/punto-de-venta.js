@@ -326,7 +326,7 @@ function initMapa() {
 
     fetch('/api/sugerencias', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify({ ticket_id: ticket.id, vistos: sugVistos })
     })
     .then(function(res) { return res.json(); })
@@ -3277,6 +3277,13 @@ function initMapa() {
   }
 
   // ── Llamadas API ──────────────────────────────────────────
+  function staffJsonHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': String(window.CP_STAFF_CSRF_TOKEN || document.body.getAttribute('data-staff-csrf') || '')
+    };
+  }
+
   function postJson(url, payload, timeoutMs) {
     var controller = typeof window.AbortController === 'function'
       ? new window.AbortController()
@@ -3284,7 +3291,7 @@ function initMapa() {
     var timer = null;
     var requestOptions = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body: JSON.stringify(payload)
     };
 
@@ -3741,7 +3748,7 @@ function initMapa() {
   function apiCerrarTicket(ticketId, metodoPago, mesa, recibido) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify({
         ticket_id:          ticketId,
         metodo_pago:        metodoPago,
@@ -3764,7 +3771,7 @@ function initMapa() {
   function apiCerrarTicketDividido(ticketId, pagos, mesa) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify({
         ticket_id:          ticketId,
         separar_comensales: true,
@@ -3806,7 +3813,7 @@ function initMapa() {
 
     fetch('/api/enviar-comanda', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify(payload)
     })
     .then(function(res) { return res.json(); })
@@ -3834,7 +3841,7 @@ function initMapa() {
   function apiEntregarItem(itemId, ticketId) {
     fetch('/api/entregar-item', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify({ item_id: itemId })
     })
     .then(function(r) { return r.json(); })
@@ -3870,7 +3877,7 @@ function initMapa() {
   function apiCancelarItem(itemId, ticketId) {
     fetch('/api/cancelar-item', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffJsonHeaders(),
       body:    JSON.stringify({ item_id: itemId })
     })
     .then(function(r) { return r.json(); })

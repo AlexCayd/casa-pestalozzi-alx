@@ -21,6 +21,7 @@ $reservationId = (int)($args['reservation-id'] ?? 0);
 $kind = (string)($args['kind'] ?? '');
 $scenario = (string)($args['scenario'] ?? '');
 $now = (string)($args['now'] ?? '2026-11-01 12:00:00');
+$ready = (string)($args['ready'] ?? '');
 
 if ($database === '' || preg_match('/^[A-Za-z0-9_-]+$/', $database) !== 1 || $barrier === '' || $kind === '') {
     fwrite(STDERR, "Uso: php etapa9_5_concurrencia_worker.php --db=BASE --kind=TIPO --barrier=RUTA\n");
@@ -85,6 +86,9 @@ $context = static function (int $id) use ($db): array {
 $snapshotBeforeBarrier = in_array($kind, ['map_assign', 'release'], true)
     ? $context($reservationId)
     : null;
+if ($ready !== '' && !touch($ready)) {
+    throw new RuntimeException('No se pudo registrar que el worker está listo.');
+}
 
 $deadline = microtime(true) + 20;
 while (!is_file($barrier) && microtime(true) < $deadline) {

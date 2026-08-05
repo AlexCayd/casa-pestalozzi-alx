@@ -16,6 +16,7 @@ use Services\ReservacionConfig;
 use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
+use Services\StaffCsrfService;
 
 class PuntoVentaController {
 
@@ -96,6 +97,9 @@ class PuntoVentaController {
     // POST /admin/api/open-ticket
     public static function abrirTicket(Router $router) {
         $data = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $reservacionId = (int)($data['reservacion_id'] ?? 0);
         $resultado = $reservacionId > 0
             ? PuntoVentaReservacionService::comenzar(
@@ -116,6 +120,9 @@ class PuntoVentaController {
     // POST /admin/api/release-reservation
     public static function liberarReservacion(Router $router) {
         $data      = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $reservaId = isset($data['reservacion_id']) ? (int)$data['reservacion_id'] : 0;
         self::responder(PuntoVentaReservacionService::cancelar(
             $reservaId,
@@ -128,7 +135,10 @@ class PuntoVentaController {
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
 
-        $data       = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data       = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId   = isset($data['ticket_id'])   ? (int)$data['ticket_id']              : 0;
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
         $separar    = !empty($data['separar_comensales']);
@@ -331,7 +341,10 @@ class PuntoVentaController {
     public static function enviarComanda(Router $router) {
         header('Content-Type: application/json');
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         $items    = isset($data['items']) && is_array($data['items']) ? $data['items'] : [];
 
@@ -441,7 +454,10 @@ class PuntoVentaController {
     public static function cancelarItem(Router $router) {
         header('Content-Type: application/json');
 
-        $data   = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data   = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
@@ -471,7 +487,10 @@ class PuntoVentaController {
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
-        $data   = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data   = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
@@ -495,7 +514,10 @@ class PuntoVentaController {
     public static function actualizarTicket(Router $router) {
         header('Content-Type: application/json');
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         $nombre   = isset($data['nombre']) && trim($data['nombre'] ?? '') !== ''
                     ? trim($data['nombre']) : null;
@@ -576,7 +598,10 @@ class PuntoVentaController {
         // soltar el candado, bloquea al resto de peticiones del mismo mesero.
         \Classes\Auth::liberarSesion();
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         // vistos = producto_id que el modal ya mostró en esta sesión, para no
         // repetirlos. Es la única memoria: no se persiste nada.
@@ -626,6 +651,9 @@ class PuntoVentaController {
     public static function comenzarReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::comenzar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -637,6 +665,9 @@ class PuntoVentaController {
     public static function cancelarReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::cancelar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -648,6 +679,9 @@ class PuntoVentaController {
     public static function noShowReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::noShow(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -661,6 +695,21 @@ class PuntoVentaController {
     {
         $datos = json_decode((string)file_get_contents('php://input'), true);
         return is_array($datos) ? $datos : $_POST;
+    }
+
+    private static function validarCsrfMutacion(array $datos): bool
+    {
+        if (StaffCsrfService::validarRequest($datos)) {
+            return true;
+        }
+
+        http_response_code(419);
+        echo json_encode([
+            'ok' => false,
+            'codigo' => 'CSRF_INVALIDO',
+            'msg' => 'La sesión del punto de venta expiró. Recarga la página e intenta de nuevo.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return false;
     }
 
     private static function responder(array $resultado): void

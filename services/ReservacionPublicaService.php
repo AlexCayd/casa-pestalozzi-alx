@@ -13,6 +13,7 @@ namespace Services;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Model\ActiveRecord;
+use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
@@ -694,7 +695,17 @@ final class ReservacionPublicaService
             return ['ok' => false, 'codigo' => self::SESION_EXPIRADA, 'mensaje' => 'Verifica nuevamente tu contacto.'];
         }
 
-        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($token, $tipo, $contacto): array {
+        $previsualizacion = self::buscarPorToken($token);
+        $fechas = [];
+        if ($previsualizacion) {
+            $fechas[] = (string)($previsualizacion['fecha'] ?? '');
+            $originalPrevio = self::buscarPorId((int)($previsualizacion['reemplaza_reservacion_id'] ?? 0));
+            if ($originalPrevio) {
+                $fechas[] = (string)($originalPrevio['fecha'] ?? '');
+            }
+        }
+
+        return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use ($token, $tipo, $contacto): array {
             $transaccion = false;
             try {
                 if (!$db->begin_transaction()) {
@@ -744,6 +755,38 @@ final class ReservacionPublicaService
                     $db->rollback();
                     $transaccion = false;
                     return self::sinDisponibilidad('El cambio ya no tiene una asignación válida. Tu reservación original sigue confirmada.');
+                }
+
+                $reemplazoId = (int)$reemplazo['id'];
+                $mesasProvisionales = ReservacionMesa::obtenerIdsPorReservacion($reemplazoId);
+                sort($mesasProvisionales, SORT_NUMERIC);
+                $mesas = Mesa::reservablesParaActualizar($mesasProvisionales);
+                $conservaHorarioOriginal = (string)$original['fecha'] === (string)$reemplazo['fecha']
+                    && HorarioReservacionService::normalizarHoraSql((string)$original['hora'])
+                        === HorarioReservacionService::normalizarHoraSql((string)$reemplazo['hora']);
+                $disponibilidad = DisponibilidadReservacionService::evaluarHorario(
+                    (string)$reemplazo['fecha'],
+                    (string)$reemplazo['hora'],
+                    (int)$reemplazo['comensales'],
+                    [$originalId, $reemplazoId],
+                    true,
+                    true,
+                    $conservaHorarioOriginal
+                );
+                $ocupacion = (array)($disponibilidad['ocupacion'] ?? []);
+                if (!($disponibilidad['ok'] ?? false)
+                    || count($mesas) !== count($mesasProvisionales)
+                    || AsignacionMesasService::hayConflictoHorario(
+                        (array)($ocupacion['ocupacion_bloqueante'] ?? []),
+                        $mesasProvisionales
+                    )
+                    || !AsignacionMesasService::agrupacionPublicaValida(
+                        $mesas,
+                        (int)$reemplazo['comensales']
+                    )) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::sinDisponibilidad('El cambio ya no estÃƒÂ¡ disponible. Tu reservaciÃƒÂ³n original sigue confirmada.');
                 }
 
                 $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
@@ -1182,6 +1225,19 @@ final class ReservacionPublicaService
         }
 
         return self::resultadoReservacion($fila, true);
+    }
+
+    private static function buscarPorToken(string $token): ?array
+    {
+        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la idempotencia.');
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        return $fila;
     }
 
     private static function buscarPorTokenParaActualizar(string $token): ?array

@@ -164,17 +164,33 @@ $runRace = static function (string $name, array $specs) use (&$barriers, $databa
     $barriers[] = $barrier;
     $processes = [];
     $outputs = [];
+    $readyPaths = [];
     $base = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($workerPath)
         . ' ' . $workerArg('db', $database)
         . ' ' . $workerArg('scenario', $name)
         . ' ' . $workerArg('barrier', $barrier)
         . ' ' . $workerArg('now', '2026-11-01 12:00:00');
-    foreach ($specs as $spec) {
-        $command = $base;
+    foreach ($specs as $index => $spec) {
+        $ready = $barrier . '.ready.' . $index;
+        $readyPaths[] = $ready;
+        $command = $base . ' ' . $workerArg('ready', $ready);
         foreach ($spec as $key => $value) $command .= ' ' . $workerArg((string)$key, $value);
         $pipes = [];
         $resource = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2));
         $processes[] = ['resource' => $resource, 'pipes' => $pipes];
+    }
+    $readyDeadline = microtime(true) + 20;
+    do {
+        $ready = count(array_filter($readyPaths, 'is_file'));
+        if ($ready === count($readyPaths)) {
+            break;
+        }
+        if (microtime(true) < $readyDeadline) {
+            usleep(10000);
+        }
+    } while (microtime(true) < $readyDeadline);
+    if (count(array_filter($readyPaths, 'is_file')) !== count($readyPaths)) {
+        throw new RuntimeException('Los workers no capturaron su snapshot antes de la barrera de ' . $name . '.');
     }
     if (!touch($barrier)) throw new RuntimeException('No se pudo abrir la barrera de ' . $name . '.');
     $deadline = microtime(true) + 25;
@@ -203,6 +219,7 @@ $runRace = static function (string $name, array $specs) use (&$barriers, $databa
             : ['ok_proceso' => false, 'raw' => trim((string)$stdout), 'stderr' => trim((string)$stderr), 'exit_code' => $exit];
     }
     @unlink($barrier);
+    foreach ($readyPaths as $readyPath) @unlink($readyPath);
     return $outputs;
 };
 $resultado = static function (array $workers, string $kind): ?array {

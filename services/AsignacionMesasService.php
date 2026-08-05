@@ -152,6 +152,30 @@ class AsignacionMesasService
         return self::capacidadTotal($mesas, $mesaIds) >= $comensales;
     }
 
+    /** Valida la agrupacion publica sin seleccionar ni mutar mesas. */
+    public static function agrupacionPublicaValida(array $mesas, int $comensales): bool
+    {
+        if (!OcupacionMesasService::agrupacionValida($mesas, $comensales)) {
+            return false;
+        }
+
+        if ($comensales <= 4) {
+            return count($mesas) === 1;
+        }
+
+        $numeros = array_map(static fn($mesa): int => (int)($mesa->numero ?? 0), $mesas);
+        sort($numeros, SORT_NUMERIC);
+        foreach (array_merge(ReservacionConfig::GRUPOS_DOS_MESAS, ReservacionConfig::GRUPOS_TRES_MESAS) as $grupo) {
+            $grupo = array_map('intval', (array)$grupo);
+            sort($grupo, SORT_NUMERIC);
+            if ($grupo === $numeros) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function hayConflictoHorario(array $ocupacion, array $mesaIds): bool
     {
         foreach (self::normalizarMesaIds($mesaIds) as $mesaId) {

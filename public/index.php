@@ -108,8 +108,6 @@ $router->post('/admin/reservations/status', [AdminReservacionController::class, 
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
 $router->get('/admin/reservations/development-tools', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservations/development-tools/process-expired', [ReservacionMantenimientoController::class, 'procesarPendientes']);
-$router->post('/admin/reservations/development-tools/cleanup-preview', [ReservacionMantenimientoController::class, 'vistaPreviaLimpieza']);
-$router->post('/admin/reservations/development-tools/cleanup', [ReservacionMantenimientoController::class, 'limpiar']);
 $router->get('/admin/api/reservations/operation', [ReservacionOperacionController::class, 'operationData']);
 $router->post('/admin/api/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'apiAssignTables']);
 $router->post('/admin/api/reservations/operation/clear-tables', [ReservacionOperacionController::class, 'apiClearTables']);

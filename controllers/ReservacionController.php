@@ -313,7 +313,7 @@ class ReservacionController
             return;
         }
         $entrada = self::entrada();
-        if (!empty($entrada['request_token']) && !self::validarCsrfPublico($entrada)) {
+        if (!self::validarCsrfPublico($entrada)) {
             return;
         }
         $sesion = ReservationClientSession::obtener();

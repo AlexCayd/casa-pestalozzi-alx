@@ -124,7 +124,7 @@ final class DisponibilidadReservacionService
         string $fecha,
         string $hora,
         int $personas,
-        int $excluirReservacionId = 0,
+        int|array $excluirReservacionId = 0,
         bool $bloquear = false,
         bool $asignacionPublica = false,
         bool $permitirHorarioOriginal = false
@@ -352,7 +352,7 @@ final class DisponibilidadReservacionService
         string $hora,
         $personas,
         int $maximoPersonas,
-        int $excluirReservacionId,
+        int|array $excluirReservacionId,
         bool $asignacionPublica,
         ?DateTimeImmutable $ahora,
         bool $bloquear = false,

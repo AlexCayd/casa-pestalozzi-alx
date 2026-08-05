@@ -140,6 +140,8 @@ Funciones:
 - Cancelar reservaciones.
 - Acceder al mapa para asignar o revisar mesas.
 
+La interfaz web de desarrollo no permite eliminar fisicamente. La limpieza de fixtures solo se ejecuta mediante CLI aislado sobre una base de pruebas y rechaza la base activa.
+
 No existe eliminación física desde la interfaz.
 
 ### 4.3 Mapa de reservaciones integrado al punto de venta
@@ -563,6 +565,9 @@ Una modificación pendiente vinculada a otra reservación no debe considerarse u
 
 Cada contacto puede tener como máximo cinco reservaciones activas futuras.
 
+1. Reservaciones confirmadas con fecha >= fecha_actual.
+2. Holds vigentes de reservaciones nuevas con fecha >= fecha_actual.
+
 La constante es:
 
 ```text
@@ -573,6 +578,8 @@ Cuentan:
 
 - Holds vigentes de reservaciones nuevas.
 - Reservaciones confirmadas futuras.
+
+La regla exacta de conteo es: reservaciones `confirmada` con `fecha >= fecha_actual` del restaurante y holds vigentes de reservaciones nuevas (no modificaciones pendientes) con `fecha >= fecha_actual` del restaurante. `fecha_actual` usa la zona horaria canonica del restaurante.
 
 No cuentan:
 
@@ -598,6 +605,8 @@ Flujo:
 4. El sistema crea una sesión temporal para ese contacto.
 5. Se muestran sus reservaciones confirmadas futuras.
 6. Se habilitan modificar y cancelar cuando correspondan.
+
+La consulta publica muestra unicamente reservaciones en estado `confirmada` cuya fecha sea igual o posterior a la fecha actual del restaurante. Las confirmadas del dia actual siguen visibles aunque su horario ya haya pasado. Los permisos de modificar y cancelar se calculan por separado mediante sus limites temporales; nunca se excluye el dia actual por comparar solo la hora.
 
 No debe revelarse si un contacto existe antes de verificarlo.
 
@@ -878,7 +887,6 @@ landing ni a la gestión pública de la Etapa 7.
   permiten crear un reemplazo cuando existe una combinación física automática
   válida.
 
-
 ### 18.2 Presentación del listado administrativo
 
 El listado principal debe ser compacto.
@@ -908,16 +916,16 @@ La vista de detalle conserva la información completa de mesas planificadas, tic
 
 ### 19.1 Estados definitivos
 
-| Estado | Significado | Bloquea mesas |
-|---|---|---:|
-| `pendiente_verificacion` | Hold esperando OTP | Sí, mientras siga vigente |
-| `confirmada` | Reservación aceptada y futura | Sí |
-| `en_curso` | Existe ticket abierto asociado | No desde la reservación; sí mediante `ticket_mesas` |
-| `completada` | Ticket cerrado | No |
-| `cancelada` | Cancelación explícita | No |
-| `no_show` | No llegó dentro de la tolerancia | No |
-| `expirada` | Hold vencido | No |
-| `reemplazada` | Versión sustituida por una modificación | No |
+| Estado                   | Significado                             |                                       Bloquea mesas |
+| ------------------------ | --------------------------------------- | --------------------------------------------------: |
+| `pendiente_verificacion` | Hold esperando OTP                      |                           Sí, mientras siga vigente |
+| `confirmada`             | Reservación aceptada y futura           |                                                  Sí |
+| `en_curso`               | Existe ticket abierto asociado          | No desde la reservación; sí mediante `ticket_mesas` |
+| `completada`             | Ticket cerrado                          |                                                  No |
+| `cancelada`              | Cancelación explícita                   |                                                  No |
+| `no_show`                | No llegó dentro de la tolerancia        |                                                  No |
+| `expirada`               | Hold vencido                            |                                                  No |
+| `reemplazada`            | Versión sustituida por una modificación |                                                  No |
 
 La etiqueta visible del estado debe ser **Reemplazada**, igual que el valor canónico. No se utiliza ninguna etiqueta alternativa como `Versión anterior`.
 
@@ -1030,6 +1038,8 @@ La duración estimada del servicio supera el tiempo disponible antes de la reser
 
 Acciones:
 
+Los holds vigentes forman parte de la ocupacion canonica: si afectan la ventana operativa, bloquean el walk-in y la apertura de tickets. El servidor repite esa validacion dentro de la misma transaccion y con la zona horaria del restaurante.
+
 ```text
 Volver a la selección
 Abrir ticket de todas formas
@@ -1093,10 +1103,10 @@ No debe desarrollarse un segundo motor de mapa ni una segunda interpretación de
 
 Ambos mapas consumen la misma proyección de ocupación. Sólo difieren en las acciones disponibles:
 
-| Superficie | Información | Acciones principales |
-|---|---|---|
-| Punto de venta | Estado actual o proyectado, tickets y reservaciones confirmadas | Abrir ticket, iniciar servicio, registrar ausencia |
-| Gestión de reservaciones | La misma ocupación actual o proyectada | Consultar, crear, asignar y reasignar mesas |
+| Superficie               | Información                                                     | Acciones principales                               |
+| ------------------------ | --------------------------------------------------------------- | -------------------------------------------------- |
+| Punto de venta           | Estado actual o proyectado, tickets y reservaciones confirmadas | Abrir ticket, iniciar servicio, registrar ausencia |
+| Gestión de reservaciones | La misma ocupación actual o proyectada                          | Consultar, crear, asignar y reasignar mesas        |
 
 ### 21.2 Estado inicial del día actual
 
@@ -1280,13 +1290,13 @@ Cancelar restaura el snapshot exacto.
 
 El punto de venta y el modo de reservaciones utilizan la misma paleta:
 
-| Apariencia | Significado |
-|---|---|
-| Verde | Disponible |
-| Rojo | Ticket abierto u ocupación física |
-| Amarillo | Selección actual |
-| Azul | Reservación próxima o mesa comprometida |
-| Neutro | No utilizable |
+| Apariencia | Significado                             |
+| ---------- | --------------------------------------- |
+| Verde      | Disponible                              |
+| Rojo       | Ticket abierto u ocupación física       |
+| Amarillo   | Selección actual                        |
+| Azul       | Reservación próxima o mesa comprometida |
+| Neutro     | No utilizable                           |
 
 Los colores provienen de variables CSS compartidas.
 
@@ -1382,9 +1392,15 @@ No se utiliza para:
 
 No se utiliza `request_fingerprint`.
 
+Toda mutacion publica exige CSRF aunque tambien lleve `request_token`; el token de idempotencia nunca sustituye al CSRF. Toda mutacion del punto de venta autenticada por cookie exige el CSRF comun del personal mediante encabezado o campo de cuerpo, nunca por URL. Las lecturas no requieren ese token.
+
+En la confirmacion final del cambio, la revalidacion bloquea las mesas provisionales en orden estable, recalcula la ocupacion canonica excluyendo original y propuesta segun corresponda, y valida cada mesa, agrupacion y capacidad. Si existe conflicto, hace rollback completo y la original conserva estado `confirmada`.
+
 ---
 
 ## 23. Estructura simplificada de base de datos
+
+La instalacion canonica se ejecuta desde `database/ddl.sql` y `database/dml.sql`; este apartado describe el contrato de tablas y no sustituye esos archivos fuente.
 
 ### 23.1 Tabla `reservaciones`
 
@@ -1693,6 +1709,7 @@ El módulo se considera correcto cuando:
 17. El mismo contacto no puede reservar dos veces el mismo día y hora.
 18. `estado_changed_at` se actualiza solo cuando cambia el estado.
 19. Las reservaciones mayores de 13 quedan claramente marcadas cuando no tienen mesas.
+La regla de eliminacion fisica no tiene excepciones para la interfaz web de desarrollo: la limpieza de fixtures solo puede ejecutarse con un comando CLI aislado sobre una base de pruebas.
 20. No existe eliminación física desde las interfaces.
 21. No existen indicadores operativos con letras en el mapa.
 22. Verde significa disponible en ambos modos.
@@ -2168,6 +2185,7 @@ Cuando una decisión funcional cambie:
 6. Evitar correcciones aisladas en una sola interfaz.
 
 Este documento debe permanecer como la referencia principal para evaluar si el enfoque técnico y el comportamiento implementado son correctos.
+
 ## Anexo aprobado — Etapa 11.7: interacción, lenguaje operativo y modos del mapa
 
 Este anexo documenta decisiones de presentación e interacción aprobadas para la Etapa 11.7 sin cambiar el esquema, los estados canónicos, las transiciones, la ocupación física, la disponibilidad, la asignación pública ni `pos-reservacion.v1`.
@@ -2269,6 +2287,7 @@ El editor muestra exactamente `Aceptar` y `Cancelar`. La revisión muestra lado 
 La respuesta de creación o recuperación entrega `request_token`, la retención y los valores públicos de `original` y `propuesta`. La original permanece `confirmada` hasta la confirmación final; la propuesta es `pendiente_verificacion` con hold. La confirmación final es transaccional e idempotente: original `reemplazada` y propuesta `confirmada`. Los errores de disponibilidad, sesión, hold, límite de tiempo, conflicto de token, cambio concurrente e inesperado se traducen a lenguaje operativo.
 
 El rail conserva anchors nativos `href="#..."`, queda operable con ratón, Tab, Shift+Tab, Enter y Space, y mantiene la navegación nativa si JavaScript no carga. Al abrir o cerrar cualquier overlay se retiran `inert` y `aria-hidden` donde corresponda, se libera scroll, se compensa el header fijo, se restaura el foco y no se registran listeners duplicados.
+
 ### 27.9 Proyección operativa exclusiva de estados confirmados
 
 Las proyecciones operativas de ambos mapas incluyen únicamente reservaciones `confirmada`.

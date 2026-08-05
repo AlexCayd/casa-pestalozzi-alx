@@ -148,7 +148,7 @@ final class PuntoVentaReservacionService
                 (string)$r['hora'],
                 $reservacionId,
                 true,
-                true
+                false
             );
             if (AsignacionMesasService::hayConflictoHorario($ocupacion, $mesaIds)) {
                 $mesasContrato = array_map(
@@ -354,6 +354,29 @@ final class PuntoVentaReservacionService
                         ['mesas_conflicto' => self::csvIds($conflicto['mesa_ids'] ?? '')]
                     );
                 }
+            }
+
+            $ocupacionCanonica = OcupacionMesasService::evaluarHorario(
+                ReservacionConfig::fechaActual(),
+                ReservacionConfig::horaActual(),
+                0,
+                true
+            );
+            $mesasBloqueantes = (array)($ocupacionCanonica['ocupacion_bloqueante'] ?? []);
+            $bloqueoHold = [];
+            foreach ($mesaIds as $mesaId) {
+                $estadoMesa = $mesasBloqueantes[$mesaId] ?? null;
+                if (is_array($estadoMesa) && ($estadoMesa['fuente'] ?? '') === 'hold') {
+                    $bloqueoHold[] = $mesaId;
+                }
+            }
+            if ($bloqueoHold !== []) {
+                return self::rollbackResultado(
+                    $db,
+                    $transaccion,
+                    self::MESA_OCUPADA,
+                    ['mesas_conflicto' => $bloqueoHold, 'fuente' => 'hold']
+                );
             }
 
             $warnings = self::proximasReservaciones($db, $mesaIds);
@@ -684,7 +707,22 @@ final class PuntoVentaReservacionService
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE rm.mesa_id = {$mesaId}
-               AND r.estado = 'confirmada'
+               AND (
+                    (
+                        r.estado = 'confirmada'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM tickets vigencia_ticket
+                            WHERE vigencia_ticket.reservacion_id = r.id
+                              AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
+                        )
+                    )
+                    OR (
+                        r.estado = 'pendiente_verificacion'
+                        AND r.reemplaza_reservacion_id IS NULL
+                        AND r.hold_expires_at IS NOT NULL
+                        AND r.hold_expires_at > '{$ahora}'
+                    )
+               )
                AND NOT EXISTS (
                     SELECT 1 FROM tickets vigencia_ticket
                     WHERE vigencia_ticket.reservacion_id = r.id
