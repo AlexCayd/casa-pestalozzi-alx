@@ -208,8 +208,6 @@ $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaControlle
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
-// Mesa ocupada que no consumió: borra el ticket en vez de cerrarlo en $0.
-$router->post('/api/liberar-mesa',        [PuntoVentaController::class, 'liberarMesa']);
 $router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
 $router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCaja']);

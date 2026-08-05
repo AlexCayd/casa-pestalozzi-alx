@@ -330,70 +330,16 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
     <?php if ($modo === 'crear') : ?>
         <div
-            class="admin-modal reservation-business-confirmation"
-            hidden
+            class="reservation-business-confirmation-host"
             data-reservation-confirmation
             data-confirmation-autostart="<?php echo $mostrarCapacidadWarning ? 'capacity' : ''; ?>"
             data-confirmation-requested="<?php echo (int)($capacidadWarning['capacidad_solicitada'] ?? 0); ?>"
             data-confirmation-available="<?php echo (int)($capacidadWarning['capacidad_disponible'] ?? 0); ?>"
-        >
-            <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-confirmation-close></button>
-            <div
-                class="admin-modal__dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="<?php echo $h($formId . '-confirmation-title'); ?>"
-                aria-describedby="<?php echo $h($formId . '-confirmation-description'); ?>"
-                tabindex="-1"
-                data-confirmation-dialog
-            >
-                <div class="admin-modal__head">
-                    <div>
-                        <span class="admin-modal__eyebrow" data-confirmation-eyebrow>Contacto opcional</span>
-                        <h2 class="admin-modal__title" id="<?php echo $h($formId . '-confirmation-title'); ?>" data-confirmation-title>Crear reservación sin contacto</h2>
-                    </div>
-                    <button class="admin-modal__close" type="button" aria-label="Cerrar" data-confirmation-close>&times;</button>
-                </div>
-                <p class="admin-modal__text" id="<?php echo $h($formId . '-confirmation-description'); ?>" data-confirmation-description>
-                    Esta reservación no tendrá un correo o teléfono asociado. No será posible contactar al cliente desde el sistema.
-                </p>
-                <div class="admin-modal__actions">
-                    <button type="button" class="admin-btn admin-btn--secondary" data-confirmation-back>Volver y agregar contacto</button>
-                    <button type="button" class="admin-btn admin-btn--primary" data-confirmation-confirm>Crear sin contacto</button>
-                </div>
-            </div>
-        </div>
+        ></div>
     <?php elseif ($modo === 'editar') : ?>
         <div
-            class="admin-modal reservation-business-confirmation"
-            hidden
+            class="reservation-business-confirmation-host"
             data-reservation-confirmation
-        >
-            <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-confirmation-close></button>
-            <div
-                class="admin-modal__dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="<?php echo $h($formId . '-contact-confirmation-title'); ?>"
-                aria-describedby="<?php echo $h($formId . '-contact-confirmation-description'); ?>"
-                tabindex="-1"
-                data-confirmation-dialog
-            >
-                <div class="admin-modal__head">
-                    <div>
-                        <span class="admin-modal__eyebrow" data-confirmation-eyebrow>Cambio de contacto</span>
-                        <h2 class="admin-modal__title" id="<?php echo $h($formId . '-contact-confirmation-title'); ?>" data-confirmation-title>Guardar contacto</h2>
-                    </div>
-                    <button class="admin-modal__close" type="button" aria-label="Cerrar" data-confirmation-close>&times;</button>
-                </div>
-                <p class="admin-modal__text" id="<?php echo $h($formId . '-contact-confirmation-description'); ?>" data-confirmation-description>
-                    Confirma que deseas guardar el cambio de contacto.
-                </p>
-                <div class="admin-modal__actions">
-                    <button type="button" class="admin-btn admin-btn--secondary" data-confirmation-back>Seguir editando</button>
-                    <button type="button" class="admin-btn admin-btn--primary" data-confirmation-confirm>Guardar contacto</button>
-                </div>
-            </div>
-        </div>
+        ></div>
     <?php endif; ?>
 </article>

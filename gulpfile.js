@@ -46,6 +46,7 @@ const paths = {
     "src/js/admin/analytics/analytics.js",
   ],
   adminMapJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/operation/shell.js",
     "src/js/operation/table-state-adapter.js",
@@ -57,12 +58,14 @@ const paths = {
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminReservationFormJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/reservations/form.js",
   ],
   adminReservationOperationJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",

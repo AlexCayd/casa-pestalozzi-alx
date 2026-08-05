@@ -1503,7 +1503,7 @@
                         '<h4>Mesas asignadas</h4>' +
                         (!assignable ? '<p class="reservation-operation-inline reservation-operation-inline--muted">Este estado no permite cambiar mesas.</p>' : '') +
                         (assignable ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
-                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Dejar pendiente de asignacion</button>' : '') +
+                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Asignar mesas después</button>' : '') +
                         '<div class="reservation-operation-summary">' +
                             '<div><span>Reservación</span><strong>' + comensales + ' personas</strong></div>' +
                             '<div><span>Capacidad total</span><strong class="' + (insufficient ? 'is-insufficient' : '') + '">' + capacidad + '</strong></div>' +
@@ -1958,9 +1958,9 @@
 
         function operationErrorMessage(error, fallback) {
             if (error && error.codigo === 'CSRF_INVALIDO') {
-                return 'La sesión de seguridad expiró. Recarga la página e intenta nuevamente.';
+                return 'La validación de seguridad no coincide. Recarga la página e intenta nuevamente.';
             }
-            if (error && error.codigo === 'SESION_EXPIRADA') {
+            if (error && error.codigo === 'SESION_PUBLICA_EXPIRADA') {
                 return 'Tu sesión expiró. Inicia sesión nuevamente para continuar.';
             }
             if (error && error.codigo === 'MESA_OCUPADA') {
@@ -2328,16 +2328,16 @@
             var isCancel = action === 'cancel';
             var isClearAssignment = action === 'clear-assignment';
             if (isClearAssignment) {
-                actionTitle.textContent = 'Dejar reservacion sin mesas';
-                actionDescription.textContent = 'La reservacion administrativa conservara su estado confirmado, pero quedara pendiente de asignacion. Esta accion requiere una confirmacion explicita.';
+                actionTitle.textContent = 'Asignar mesas después';
+                actionDescription.textContent = 'La reservacion administrativa conservara el estado confirmado y quedara sin mesas asignadas para completar la asignacion manual.';
             }
             actionTitle.textContent = isCancel ? 'Cancelar reservación' : 'Marcar como no show';
             actionDescription.textContent = isCancel
                 ? 'La reservación conservará sus relaciones históricas. No puede cancelarse si el servicio ya comenzó.'
                 : 'Confirma que la tolerancia venció y que el cliente no llegó. Esta acción no puede revertirse desde el mapa.';
             if (isClearAssignment) {
-                actionTitle.textContent = 'Dejar reservacion sin mesas';
-                actionDescription.textContent = 'La reservacion administrativa conservara su estado confirmado, pero quedara pendiente de asignacion. Esta accion requiere una confirmacion explicita.';
+                actionTitle.textContent = 'Asignar mesas después';
+                actionDescription.textContent = 'La reservacion administrativa conservara el estado confirmado y quedara sin mesas asignadas para completar la asignacion manual.';
             }
             actionReasonField.hidden = !isCancel;
             if (!isCancel) {

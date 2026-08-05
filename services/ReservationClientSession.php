@@ -23,10 +23,37 @@ class ReservationClientSession
         if (session_status() === PHP_SESSION_NONE) {
             $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
             $environment = ReservacionConfig::appEnvironment();
+            $configuredPath = trim((string)ini_get('session.save_path'));
+            $usingDedicatedPath = false;
             if (in_array($environment, ['development', 'testing'], true)) {
                 $sessionPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . '.sessions';
                 if (is_dir($sessionPath)) {
                     ini_set('session.save_path', $sessionPath);
+                    $usingDedicatedPath = true;
+                }
+            }
+            if (!$usingDedicatedPath) {
+                // XAMPP puede apuntar a C:\xampp\tmp, una carpeta que existe
+                // pero no siempre es escribible por el usuario que ejecuta
+                // Apache/PHP. Sin persistencia aquí, el CSRF y el OTP quedan
+                // aislados entre peticiones aunque el navegador conserve la
+                // cookie.
+                $pathToCheck = str_contains($configuredPath, ';')
+                    ? substr($configuredPath, strrpos($configuredPath, ';') + 1)
+                    : $configuredPath;
+                $localPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions';
+                $localRequest = in_array((string)($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1'], true)
+                    || in_array(strtolower((string)($_SERVER['SERVER_NAME'] ?? '')), ['localhost', '127.0.0.1'], true);
+                if ($localRequest || $configuredPath === '' || !is_dir($pathToCheck) || !is_writable($pathToCheck)) {
+                    if (!is_dir($localPath)) {
+                        @mkdir($localPath, 0770, true);
+                    }
+                    if (!is_dir($localPath) || !is_writable($localPath)) {
+                        $localPath = sys_get_temp_dir();
+                    }
+                }
+                if (is_dir($localPath) && is_writable($localPath)) {
+                    ini_set('session.save_path', $localPath);
                 }
             }
             session_set_cookie_params([

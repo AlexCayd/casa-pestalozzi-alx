@@ -29,7 +29,7 @@ final class ReservacionPublicaService
     public const REQUEST_TOKEN_CONFLICTO = 'REQUEST_TOKEN_CONFLICTO';
     public const CONTACTO_NO_VERIFICADO = 'CONTACTO_NO_VERIFICADO';
     public const CONTACTO_NO_COINCIDE = 'CONTACTO_NO_COINCIDE';
-    public const SESION_EXPIRADA = 'SESION_EXPIRADA';
+    public const SESION_PUBLICA_EXPIRADA = 'SESION_PUBLICA_EXPIRADA';
     public const RESERVACION_NO_ENCONTRADA = 'RESERVACION_NO_ENCONTRADA';
     public const RESERVACION_NO_PERTENECE_AL_CONTACTO = 'RESERVACION_NO_PERTENECE_AL_CONTACTO';
     public const MODIFICACION_NO_PERMITIDA = 'MODIFICACION_NO_PERMITIDA';
@@ -404,7 +404,7 @@ final class ReservacionPublicaService
         if ($tipo === '' || $contacto === '') {
             return [
                 'ok' => false,
-                'codigo' => self::SESION_EXPIRADA,
+                'codigo' => self::SESION_PUBLICA_EXPIRADA,
                 'mensaje' => 'Verifica nuevamente tu contacto.',
             ];
         }
@@ -692,7 +692,7 @@ final class ReservacionPublicaService
             return self::datosInvalidos('La operación de cambio no es válida.');
         }
         if ($tipo === '' || $contacto === '') {
-            return ['ok' => false, 'codigo' => self::SESION_EXPIRADA, 'mensaje' => 'Verifica nuevamente tu contacto.'];
+            return ['ok' => false, 'codigo' => self::SESION_PUBLICA_EXPIRADA, 'mensaje' => 'Verifica nuevamente tu contacto.'];
         }
 
         $previsualizacion = self::buscarPorToken($token);
@@ -786,7 +786,7 @@ final class ReservacionPublicaService
                     )) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad('El cambio ya no estÃƒÂ¡ disponible. Tu reservaciÃƒÂ³n original sigue confirmada.');
+                    return self::sinDisponibilidad('El cambio ya no está disponible. Tu reservación original sigue confirmada.');
                 }
 
                 $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');

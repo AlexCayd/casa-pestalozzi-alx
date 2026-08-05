@@ -20,7 +20,13 @@ function mensajeOperacionModificacion(data, phase) {
   var code = String(data && data.codigo || "");
   var known = {
     SIN_DISPONIBILIDAD: "Ese nuevo horario ya no está disponible. Tu reservación original sigue vigente.",
-    SESION_EXPIRADA: "Tu sesión expiró. Verifica nuevamente tu contacto para continuar.",
+    SESION_PUBLICA_EXPIRADA: "Tu sesión pública expiró. Verifica nuevamente tu contacto para continuar.",
+    CSRF_INVALIDO: "La validación de seguridad venció. Recarga la página e inténtalo nuevamente.",
+    OTP_INCORRECTO: "El código no coincide. Revisa los seis dígitos e inténtalo nuevamente.",
+    OTP_EXPIRADO: "El código venció. Solicita uno nuevo para continuar.",
+    OTP_INTENTOS_AGOTADOS: "Agotaste los intentos. Solicita un código nuevo para continuar.",
+    VERIFICACION_NO_ENCONTRADA: "No hay una verificación activa. Solicita un código nuevo.",
+    CONTACTO_NO_COINCIDE: "El contacto enviado no coincide con el contacto verificado.",
     RETENCION_EXPIRADA: "El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.",
     LIMITE_RESERVACIONES_ALCANZADO: "Ya no puedes mantener otra reservación pendiente en este momento.",
     REQUEST_TOKEN_CONFLICTO: "Este cambio ya no coincide con la operación activa. Vuelve a revisarlo.",
@@ -83,50 +89,24 @@ function initReservationAccess() {
   }
 
   function confirmCancellation(reservation, onConfirm) {
-    var previous = document.querySelector("[data-reservation-cancel-dialog]");
-    if (previous) previous.remove();
-
-    var dialog = document.createElement("dialog");
-    dialog.className = "reservation-cancel-dialog";
-    dialog.dataset.reservationCancelDialog = "";
-    dialog.setAttribute("aria-labelledby", "reservation-cancel-title");
-    dialog.innerHTML = [
-      '<div class="reservation-cancel-dialog__body">',
-      '<span class="reservation-cancel-dialog__eyebrow">Acción irreversible</span>',
-      '<h3 id="reservation-cancel-title">Cancelar reservación</h3>',
-      '<p>Se cancelará la reservación de <strong></strong>. Esta acción liberará sus mesas.</p>',
-      '<div class="reservation-cancel-dialog__actions">',
-      '<button type="button" class="reservation-access__link" data-reservation-cancel-close>Volver</button>',
-      '<button type="button" class="form__submit reservation-cancel-dialog__confirm" data-reservation-cancel-confirm>Cancelar reservación</button>',
-      "</div>",
-      "</div>"
-    ].join("");
-    dialog.querySelector("strong").textContent = [
+    var when = [
       reservation.fecha || "",
       String(reservation.hora || "").slice(0, 5)
     ].filter(Boolean).join(" a las ");
-
-    function closeDialog() {
-      dialog.close();
-      dialog.remove();
-    }
-
-    dialog.querySelector("[data-reservation-cancel-close]").addEventListener("click", closeDialog);
-    dialog.addEventListener("cancel", function(event) {
-      event.preventDefault();
-      closeDialog();
-    });
-    dialog.addEventListener("click", function(event) {
-      if (event.target === dialog) closeDialog();
-    });
-    dialog.querySelector("[data-reservation-cancel-confirm]").addEventListener("click", function() {
-      closeDialog();
+    if (!window.CPConfirmationModal) {
       onConfirm();
+      return;
+    }
+    window.CPConfirmationModal.get().open({
+      variant: "danger",
+      eyebrow: "Acción irreversible",
+      title: "Cancelar reservación",
+      description: "Se cancelará la reservación de " + when + ".",
+      consequence: "Esta acción liberará sus mesas y no se puede deshacer.",
+      secondaryLabel: "Volver",
+      primaryLabel: "Cancelar reservación",
+      onPrimary: onConfirm
     });
-
-    document.body.append(dialog);
-    dialog.showModal();
-    dialog.querySelector("[data-reservation-cancel-close]").focus();
   }
 
   function setAccessCopy(verified) {

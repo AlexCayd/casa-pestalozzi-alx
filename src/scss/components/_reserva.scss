@@ -2041,7 +2041,23 @@
 .reservation-visit-grid,
 .reservation-data-grid { gap: 1.5rem; }
 
-.reservation-visit-grid { grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.35fr); }
+.reservation-visit-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "date time"
+    "guests guests";
+  align-items: start;
+}
+
+.reservation-field--date { grid-area: date; }
+.reservation-field--time {
+  grid-area: time;
+  grid-column: auto;
+}
+.reservation-field--guests {
+  grid-area: guests;
+  grid-column: auto;
+}
 
 .reservation-field__label,
 .reservation-access__types legend {
@@ -2285,6 +2301,15 @@
   .reservation-visit-grid,
   .reservation-data-grid,
   .reservation-contact-row { grid-template-columns: 1fr; }
+  .reservation-visit-grid {
+    grid-template-areas:
+      "date"
+      "time"
+      "guests";
+  }
+  .reservation-field--date { grid-area: date; }
+  .reservation-field--time { grid-area: time; }
+  .reservation-field--guests { grid-area: guests; }
   .reservation-field--guests,
   .reservation-field--time,
   .reservation-field--contact,

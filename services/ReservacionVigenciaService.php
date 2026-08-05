@@ -170,6 +170,8 @@ final class ReservacionVigenciaService
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $estado = (string)self::valor($reservacion, 'estado', '');
         $holdExpiresAt = self::fechaOpcional(self::valor($reservacion, 'hold_expires_at'));
+        $fechaReservacion = trim((string)self::valor($reservacion, 'fecha', ''));
+        $fechaActualRestaurante = self::fechaActualRestaurante($ahora);
         $fechaHora = self::fechaHoraProgramada($reservacion);
         $limiteTolerancia = $fechaHora?->modify(
             '+' . ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS . ' minutes'
@@ -219,11 +221,11 @@ final class ReservacionVigenciaService
         // resolverse públicamente. `en_curso` pertenece al POS y no se
         // presenta como gestionable ni cuenta para el máximo por contacto.
         $visibleCliente = $confirmadaVigente
-            && $limiteTolerancia instanceof DateTimeImmutable
-            && $ahora <= $limiteTolerancia;
+            && $fechaReservacion !== ''
+            && $fechaReservacion >= $fechaActualRestaurante;
         $cuentaLimite = $confirmadaVigente
-            && $fechaHora instanceof DateTimeImmutable
-            && $fechaHora > $ahora;
+            && $fechaReservacion !== ''
+            && $fechaReservacion >= $fechaActualRestaurante;
         $elegibleNoShow = $estado === 'confirmada'
             && $toleranciaVencida
             && !$ticketAbierto;
@@ -282,16 +284,21 @@ final class ReservacionVigenciaService
         )";
     }
 
+    public static function fechaActualRestaurante(?DateTimeImmutable $ahora = null): string
+    {
+        return ($ahora ?? ReservacionConfig::ahora())->format('Y-m-d');
+    }
+
     public static function condicionSqlVisibleCliente(
         string $alias = 'r',
         ?DateTimeImmutable $ahora = null
     ): string {
         self::validarAlias($alias);
-        $instante = self::instanteSql($ahora);
+        $fechaActual = self::fechaActualRestaurante($ahora);
         return "(
             (
                 {$alias}.estado = 'confirmada'
-                AND {$alias}.fecha >= DATE({$instante})
+                AND {$alias}.fecha >= '{$fechaActual}'
             )
         )";
     }
@@ -302,17 +309,18 @@ final class ReservacionVigenciaService
     ): string {
         self::validarAlias($alias);
         $instante = self::instanteSql($ahora);
+        $fechaActual = self::fechaActualRestaurante($ahora);
         return "(
             (
                 {$alias}.estado = 'pendiente_verificacion'
                 AND {$alias}.reemplaza_reservacion_id IS NULL
-                AND {$alias}.fecha >= DATE({$instante})
+                AND {$alias}.fecha >= '{$fechaActual}'
                 AND {$alias}.hold_expires_at IS NOT NULL
                 AND {$alias}.hold_expires_at > {$instante}
             )
             OR (
                 {$alias}.estado = 'confirmada'
-                AND {$alias}.fecha >= DATE({$instante})
+                AND {$alias}.fecha >= '{$fechaActual}'
             )
         )";
     }

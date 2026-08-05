@@ -179,7 +179,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
           </div>
           <p class="reservation-step__intro">Fecha, número de personas y horario.</p>
           <div class="reservation-visit-grid">
-          <div class="field reservation-field">
+          <div class="field reservation-field reservation-field--date">
             <label class="reservation-field__label" for="dateDisplay">Fecha</label>
             <?php
               $rootId = 'datePicker';
@@ -225,7 +225,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
             <span class="field__msg reservation-field__error" data-field-error="comensales"></span>
           </div>
           <div class="field reservation-field reservation-field--time">
-            <label class="reservation-field__label" for="hourDisplay">Hora</label>
+            <label class="reservation-field__label" for="hourDisplay">Horario</label>
             <?php
               $rootId = 'hourPicker';
               $inputId = 'horaHidden';

@@ -70,14 +70,9 @@
             var datePicker = null;
             var timePicker = null;
             var confirmation = card.querySelector('[data-reservation-confirmation]');
-            var confirmationDialog = confirmation ? confirmation.querySelector('[data-confirmation-dialog]') : null;
-            var confirmationEyebrow = confirmation ? confirmation.querySelector('[data-confirmation-eyebrow]') : null;
-            var confirmationTitle = confirmation ? confirmation.querySelector('[data-confirmation-title]') : null;
-            var confirmationDescription = confirmation ? confirmation.querySelector('[data-confirmation-description]') : null;
-            var confirmationBack = confirmation ? confirmation.querySelector('[data-confirmation-back]') : null;
-            var confirmationConfirm = confirmation ? confirmation.querySelector('[data-confirmation-confirm]') : null;
-            var confirmationLastFocused = null;
-            var confirmationPreviousOverflow = '';
+            var confirmationController = confirmation && window.CPConfirmationModal
+                ? window.CPConfirmationModal.create(confirmation)
+                : null;
             var activeConfirmation = null;
             var saveLabel = saveButton ? saveButton.textContent : 'Guardar cambios';
             var jsonTransport = form.getAttribute('data-form-transport') === 'json';
@@ -204,16 +199,19 @@
                     var codes = Array.isArray(detail.codes) ? detail.codes : [];
                     var labels = {
                         SIN_CONTACTO: 'Sin contacto: el equipo no podra contactar al cliente desde el sistema.',
-                        SIN_ASIGNACION: 'Sin asignacion: la reservacion quedara pendiente de asignar mesas.',
+                        SIN_ASIGNACION: 'Sin mesas: la reservacion quedara confirmada y requerira asignacion manual.',
                         CAPACIDAD_INSUFICIENTE: 'Capacidad insuficiente: la capacidad estimada no cubre a todos los comensales.'
                     };
+                    var requiresManualAssignment = codes.indexOf('SIN_ASIGNACION') !== -1;
                     return {
                         type: type,
                         eyebrow: 'Advertencias de guardado',
                         title: 'Revisa las condiciones de la reservacion',
                         description: codes.map(function (code) { return labels[code] || code; }).join(' '),
                         backLabel: 'Seguir editando',
-                        confirmLabel: mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias',
+                        confirmLabel: requiresManualAssignment
+                            ? 'Confirmar sin mesas'
+                            : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias'),
                         focusTarget: saveButton,
                         onConfirm: function () {
                             if (confirmationInput) confirmationInput.value = codes.join(',');
@@ -232,7 +230,7 @@
                             ' personas y sólo hay capacidad disponible para ' + available +
                             '. Puedes crearla sin mesas y completar la asignación manualmente.',
                         backLabel: 'Cancelar',
-                        confirmLabel: 'Crear sin mesas',
+                        confirmLabel: 'Confirmar sin mesas',
                         focusTarget: form.elements.comensales,
                         onConfirm: function () {
                             if (confirmationInput) confirmationInput.value = 'CAPACIDAD_INSUFICIENTE';
@@ -314,87 +312,37 @@
             }
 
             function closeConfirmation(restoreFocus) {
-                if (!confirmation) return;
-
-                confirmation.classList.remove('is-open');
-                confirmation.hidden = true;
-                document.body.style.overflow = confirmationPreviousOverflow;
-                var current = activeConfirmation;
+                if (!confirmationController) return;
+                confirmationController.close(restoreFocus);
                 activeConfirmation = null;
-
-                if (restoreFocus !== false) {
-                    var target = current && current.focusTarget
-                        ? current.focusTarget
-                        : confirmationLastFocused;
-                    if (target && document.contains(target) && typeof target.focus === 'function') {
-                        target.focus();
-                    }
-                }
-                confirmationLastFocused = null;
             }
 
             function openConfirmation(type, detail) {
-                if (!confirmation) return false;
+                if (!confirmationController) return false;
 
                 activeConfirmation = confirmationOptions(type, detail);
-                confirmationLastFocused = document.activeElement;
-                confirmationPreviousOverflow = document.body.style.overflow;
-                if (confirmationEyebrow) confirmationEyebrow.textContent = activeConfirmation.eyebrow;
-                if (confirmationTitle) confirmationTitle.textContent = activeConfirmation.title;
-                if (confirmationDescription) confirmationDescription.textContent = activeConfirmation.description;
-                if (confirmationBack) confirmationBack.textContent = activeConfirmation.backLabel;
-                if (confirmationConfirm) confirmationConfirm.textContent = activeConfirmation.confirmLabel;
-                confirmation.hidden = false;
-                document.body.style.overflow = 'hidden';
-
-                window.requestAnimationFrame(function () {
-                    confirmation.classList.add('is-open');
-                    var preferred = confirmationBack || confirmationDialog;
-                    if (preferred) preferred.focus();
+                var configured = activeConfirmation;
+                confirmationController.open({
+                    variant: type === 'capacity' || type === 'warnings' ? 'warning' : 'default',
+                    eyebrow: configured.eyebrow,
+                    title: configured.title,
+                    description: configured.description,
+                    secondaryLabel: configured.backLabel,
+                    primaryLabel: configured.confirmLabel,
+                    focusTarget: configured.focusTarget,
+                    onSecondary: function () {
+                        if (configured.onBack) configured.onBack();
+                    },
+                    onPrimary: function () {
+                        confirmationController.close(false);
+                        activeConfirmation = null;
+                        if (configured.onConfirm) configured.onConfirm();
+                    }
                 });
                 return true;
             }
 
-            if (confirmation) {
-                confirmation.querySelectorAll('[data-confirmation-close]').forEach(function (closer) {
-                    closer.addEventListener('click', function () {
-                        closeConfirmation(true);
-                    });
-                });
-                if (confirmationBack) {
-                    confirmationBack.addEventListener('click', function () {
-                        var current = activeConfirmation;
-                        closeConfirmation(true);
-                        if (current && current.onBack) current.onBack();
-                    });
-                }
-                if (confirmationConfirm) {
-                    confirmationConfirm.addEventListener('click', function () {
-                        var current = activeConfirmation;
-                        closeConfirmation(false);
-                        if (current && current.onConfirm) current.onConfirm();
-                    });
-                }
-                document.addEventListener('keydown', function (event) {
-                    if (confirmation.hidden) return;
-                    if (event.key === 'Escape') {
-                        event.preventDefault();
-                        closeConfirmation(true);
-                        return;
-                    }
-                    if (event.key !== 'Tab') return;
-                    var focusable = Array.prototype.slice.call(confirmation.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
-                    if (!focusable.length) return;
-                    var first = focusable[0];
-                    var last = focusable[focusable.length - 1];
-                    if (event.shiftKey && document.activeElement === first) {
-                        event.preventDefault();
-                        last.focus();
-                    } else if (!event.shiftKey && document.activeElement === last) {
-                        event.preventDefault();
-                        first.focus();
-                    }
-                });
+            if (confirmationController) {
                 form.addEventListener('reservation:capacity-warning', function (event) {
                     openConfirmation('capacity', event.detail || {});
                 });

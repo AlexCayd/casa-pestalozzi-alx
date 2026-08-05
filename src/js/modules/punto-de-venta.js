@@ -1935,14 +1935,15 @@ function initMapa() {
         escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
       h += '</dl>';
       if (ausenciaPendiente) {
-        var toleranciaMinutos = temporalNumber('tolerancia_reservacion_minutos') || 15;
+        var toleranciaMinutos = temporalNumber('tolerancia_llegada_minutos');
+        var toleranciaLabel = toleranciaMinutos > 0 ? toleranciaMinutos + ' minutos' : 'No disponible';
         var toleranciaHora = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
         var toleranciaHasta = toleranciaHora ? toleranciaHora[1] : '';
         h += '<section class="mmodal-reservation__pending" id="mmodal-reservation-pending" role="alert" aria-live="assertive" aria-labelledby="mmodal-reservation-pending-title">';
         h += '<strong id="mmodal-reservation-pending-title">Acción pendiente: registrar ausencia</strong>';
         h += '<p>La tolerancia de llegada de esta reservación ya venció.</p>';
         h += '<dl class="mmodal-reservation__pending-facts">';
-        h += '<div><dt>Tolerancia</dt><dd>' + toleranciaMinutos + ' minutos' + (toleranciaHasta ? ' · hasta las ' + escHtml(toleranciaHasta) : '') + '</dd></div>';
+        h += '<div><dt>Tolerancia</dt><dd>' + toleranciaLabel + (toleranciaHasta ? ' · hasta las ' + escHtml(toleranciaHasta) : '') + '</dd></div>';
         h += '<div><dt>Retraso</dt><dd>' + (parseInt(reserva.minutos_retraso || '0', 10) || 0) + ' minutos</dd></div>';
         h += '</dl>';
         h += '<p>Al registrar la ausencia, la reservación quedará como no show y las mesas dejarán de estar comprometidas.</p>';
@@ -2777,7 +2778,8 @@ function initMapa() {
       noShowBtn.addEventListener('click', function() {
         var noShowHour = String(reserva.hora || '').substring(0, 5);
         var noShowPeople = parseInt(reserva.comensales || '0', 10) || 0;
-        var toleranceMinutes = temporalNumber('tolerancia_reservacion_minutos') || 15;
+        var toleranceMinutes = temporalNumber('tolerancia_llegada_minutos');
+        var toleranceLabel = toleranceMinutes > 0 ? toleranceMinutes + ' minutos' : 'No disponible';
         var toleranceUntil = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
         var toleranceText = toleranceUntil ? toleranceUntil[1] : '';
         var delayMinutes = parseInt(reserva.minutos_retraso || '0', 10) || 0;
@@ -2796,7 +2798,7 @@ function initMapa() {
             'Hora de la reservación: ' + (noShowHour || '--:--'),
             'Comensales: ' + noShowPeople,
             'Mesa(s): ' + (noShowTables.length ? noShowTables.join(', ') : 'Sin mesas asignadas'),
-            'Tolerancia configurada: ' + toleranceMinutes + ' minutos' + (toleranceText ? ' · terminó a las ' + toleranceText : ''),
+            'Tolerancia configurada: ' + toleranceLabel + (toleranceText ? ' · terminó a las ' + toleranceText : ''),
             'Minutos de retraso: ' + delayMinutes,
             'Al registrar la ausencia, la reservación quedará como no show y las mesas dejarán de estar comprometidas.'
           ],
@@ -3419,74 +3421,31 @@ function initMapa() {
     options = options || {};
     if (!modal || !modalContent) return;
     activeReservationModal = null;
-    var overlay = document.createElement('div');
-    overlay.className = 'mmodal-cancel-confirm-overlay';
-    var isAbsenceNotice = options.variant === 'absence';
-    var noticeClass = ' mmodal-cancel-confirm--operation' +
-      (isAbsenceNotice ? ' mmodal-cancel-confirm--absence' : '');
-    var noticeIcon = isAbsenceNotice
-      ? '<div class="mmodal-cancel-confirm__icon" aria-hidden="true">!</div>'
-      : '';
-    var confirmButtonClass = options.confirmButtonVariant === 'warning'
-      ? 'mmodal-btn--release'
-      : 'mmodal-btn--primary';
-    overlay.innerHTML =
-      '<div class="mmodal-cancel-confirm' + noticeClass + '" role="alertdialog" aria-modal="true" aria-labelledby="mesa-modal-title" aria-describedby="mesa-modal-description">' +
-        '<header class="mmodal-cancel-confirm__header">' +
-          noticeIcon +
-          '<h2 class="mmodal-cancel-confirm__msg" id="mesa-modal-title"><strong>' + escHtml(options.title || 'Aviso') + '</strong></h2>' +
-        '</header>' +
-        '<div class="mmodal-cancel-confirm__body" id="mesa-modal-description">' +
-          '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
-          (Array.isArray(options.details) && options.details.length
-            ? '<ul class="mmodal-operation-details">' + options.details.map(function(detail) {
-                return '<li>' + escHtml(detail) + '</li>';
-              }).join('') + '</ul>'
-            : '') +
-        '</div>' +
-        '<footer class="mmodal-cancel-confirm__actions mmodal-cancel-confirm__btns">' +
-          '<button class="mmodal-btn mmodal-btn--ghost" type="button" data-ticket-notice-cancel>' +
-            escHtml(options.cancelLabel || 'Cerrar') +
-          '</button>' +
-          (options.onConfirm
-            ? '<button class="mmodal-btn ' + confirmButtonClass + '" type="button" data-ticket-notice-confirm>' +
-                escHtml(options.confirmLabel || 'Continuar') +
-              '</button>'
-            : '') +
-        '</footer>' +
-      '</div>';
-    // El aviso reemplaza el contenido anterior del mismo root modal. Esto
-    // evita que un resumen de reservación o un ticket quede activo debajo del
-    // warning y también elimina listeners temporales del flujo anterior.
+    if (!window.CPConfirmationModal) return;
     sugTimerStop();
     sugTicket = null;
     sugPedidas = false;
     modalContent.innerHTML = '';
-    modalContent.appendChild(overlay);
-    var noticeBody = overlay.querySelector('.mmodal-cancel-confirm__body');
-    if (noticeBody) noticeBody.scrollTop = 0;
     openModalShell();
-
-    var cancel = overlay.querySelector('[data-ticket-notice-cancel]');
-    var confirm = overlay.querySelector('[data-ticket-notice-confirm]');
-    cancel.addEventListener('click', function(event) {
-      event.preventDefault();
-      event.stopPropagation();
-      overlay.remove();
-      if (typeof options.onCancel === 'function') options.onCancel();
-      closeModal({ refresh: options.refreshOnCancel !== false });
-    });
-    if (confirm) {
-      confirm.addEventListener('click', function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        confirm.disabled = true;
-        overlay.remove();
+    window.CPConfirmationModal.create(modalContent).open({
+      variant: options.variant === 'absence' || options.confirmButtonVariant === 'warning'
+        ? 'warning'
+        : 'default',
+      eyebrow: options.variant === 'absence' ? 'Registro operativo' : 'Confirmación operativa',
+      title: options.title || 'Aviso',
+      description: options.message || '',
+      summary: options.details || [],
+      consequence: options.consequence || '',
+      secondaryLabel: options.cancelLabel || 'Cerrar',
+      primaryLabel: options.confirmLabel || 'Continuar',
+      primaryHidden: !options.onConfirm,
+      onSecondary: function () {
+        if (typeof options.onCancel === 'function') options.onCancel();
+        closeModal({ refresh: options.refreshOnCancel !== false });
+      },
+      onPrimary: function () {
         if (typeof options.onConfirm === 'function') options.onConfirm();
-      });
-    }
-    window.requestAnimationFrame(function() {
-      (options.onConfirm && confirm ? confirm : cancel).focus();
+      }
     });
   }
 
@@ -3909,23 +3868,18 @@ function initMapa() {
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {
-    var overlay = document.createElement('div');
-    overlay.className = 'mmodal-cancel-confirm-overlay';
-    overlay.innerHTML =
-      '<div class="mmodal-cancel-confirm">' +
-        '<p class="mmodal-cancel-confirm__msg">¿Cancelar <strong>' + escHtml(nombre) + '</strong>?</p>' +
-        '<p class="mmodal-cancel-confirm__sub">El área dejará de prepararlo. Esta acción no se puede deshacer.</p>' +
-        '<div class="mmodal-cancel-confirm__btns">' +
-          '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver">No, conservar</button>' +
-          '<button class="mmodal-btn mmodal-btn--danger" id="cc-confirm">Sí, cancelar</button>' +
-        '</div>' +
-      '</div>';
-    var panel = modalContent.querySelector('#mmodal-panel-resumen');
-    if (panel) panel.appendChild(overlay);
-    overlay.querySelector('#cc-volver').addEventListener('click', function() { overlay.remove(); });
-    overlay.querySelector('#cc-confirm').addEventListener('click', function() {
-      overlay.remove();
-      apiCancelarItem(itemId, ticketId);
+    if (!window.CPConfirmationModal) return;
+    window.CPConfirmationModal.get().open({
+      variant: 'danger',
+      eyebrow: 'Acción irreversible',
+      title: 'Cancelar preparación',
+      description: '¿Cancelar ' + nombre + '?',
+      consequence: 'El área dejará de prepararlo. Esta acción no se puede deshacer.',
+      secondaryLabel: 'No, conservar',
+      primaryLabel: 'Sí, cancelar',
+      onPrimary: function() {
+        apiCancelarItem(itemId, ticketId);
+      }
     });
   }
 
@@ -4040,6 +3994,7 @@ function initMapa() {
           '<span class="mapa-empty-title">Cargando reservaciones…</span>' +
         '</div>';
     }
+    requestOptions.cache = 'no-store';
     return fetch('/api/punto-de-venta?fecha=' + encodeURIComponent(fecha), requestOptions)
       .then(function(res) { return res.json(); })
       .then(function(data) {

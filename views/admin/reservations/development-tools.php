@@ -45,6 +45,7 @@ $resultadoPendientes = is_array($resultadoPendientes ?? null) ? $resultadoPendie
             </div>
             <p class="admin-modal__text">Solo se procesarán retenciones vencidas; las pendientes vigentes no cambiarán.</p>
             <form method="POST" action="/admin/reservations/development-tools/process-expired">
+                <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string)($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="confirmar" value="1">
                 <div class="admin-modal__actions">
                     <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Volver</button>

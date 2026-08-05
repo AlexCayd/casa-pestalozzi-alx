@@ -18,10 +18,10 @@ class ContactoAccesoService
     public const CONTACTO_VERIFICADO = 'CONTACTO_VERIFICADO';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const REENVIO_NO_DISPONIBLE = 'REENVIO_NO_DISPONIBLE';
-    public const CODIGO_INVALIDO = 'CODIGO_INVALIDO';
-    public const CODIGO_EXPIRADO = 'CODIGO_EXPIRADO';
-    public const CODIGO_NO_DISPONIBLE = 'CODIGO_NO_DISPONIBLE';
-    public const DEMASIADOS_INTENTOS = 'DEMASIADOS_INTENTOS';
+    public const OTP_INCORRECTO = 'OTP_INCORRECTO';
+    public const OTP_EXPIRADO = 'OTP_EXPIRADO';
+    public const VERIFICACION_NO_ENCONTRADA = 'VERIFICACION_NO_ENCONTRADA';
+    public const OTP_INTENTOS_AGOTADOS = 'OTP_INTENTOS_AGOTADOS';
     public const ERROR_INTERNO = 'ERROR_INTERNO';
 
     /** @return array<string, mixed> */
@@ -226,7 +226,7 @@ class ContactoAccesoService
         if (!$fila || $fila['used_at'] !== null || $fila['invalidated_at'] !== null) {
             return [
                 'ok' => false,
-                'codigo' => self::CODIGO_NO_DISPONIBLE,
+                'codigo' => self::VERIFICACION_NO_ENCONTRADA,
                 'mensaje' => 'El código no está disponible. Solicita uno nuevo.',
             ];
         }
@@ -236,7 +236,7 @@ class ContactoAccesoService
         if ($attempts >= $maxAttempts) {
             return [
                 'ok' => false,
-                'codigo' => self::DEMASIADOS_INTENTOS,
+                'codigo' => self::OTP_INTENTOS_AGOTADOS,
                 'mensaje' => 'Solicita un código nuevo para continuar.',
             ];
         }
@@ -245,7 +245,7 @@ class ContactoAccesoService
         if ($expira <= ReservacionConfig::ahora()) {
             return [
                 'ok' => false,
-                'codigo' => self::CODIGO_EXPIRADO,
+                'codigo' => self::OTP_EXPIRADO,
                 'mensaje' => 'El código venció. Solicita uno nuevo.',
             ];
         }
@@ -259,8 +259,8 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => $siguienteIntento >= $maxAttempts
-                    ? self::DEMASIADOS_INTENTOS
-                    : self::CODIGO_INVALIDO,
+                    ? self::OTP_INTENTOS_AGOTADOS
+                    : self::OTP_INCORRECTO,
                 'mensaje' => $siguienteIntento >= $maxAttempts
                     ? 'Solicita un código nuevo para continuar.'
                     : 'El código no es válido.',

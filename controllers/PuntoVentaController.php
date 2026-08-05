@@ -39,6 +39,8 @@ class PuntoVentaController {
 
     // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
         header('Content-Type: application/json');
         \Classes\Auth::liberarSesion();
 
@@ -85,7 +87,15 @@ class PuntoVentaController {
                 static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
             )),
             'reservaciones_operativas' => $lectura['reservaciones_operativas'],
-            'tickets'       => $lectura['tickets'],
+            // PosReservacionQueryService already reads the canonical open
+            // projection. Keep the response contract defensive at the HTTP
+            // boundary so a stale/legacy adapter cannot resurrect a closed
+            // ticket in the client.
+            'tickets'       => array_values(array_filter(
+                (array)$lectura['tickets'],
+                static fn(array $ticket): bool => (string)($ticket['estado'] ?? '') === 'abierto'
+                    && ($ticket['closed_at'] ?? null) === null
+            )),
             'meseros'       => $meserosArr,
             'server_time'   => $lectura['server_time'],
             'timezone'      => $lectura['timezone'],

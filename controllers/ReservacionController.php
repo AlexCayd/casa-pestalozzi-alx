@@ -73,7 +73,7 @@ class ReservacionController
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
                 'mensaje' => 'Verifica tu contacto para consultar reservaciones.',
             ], 401);
             return;
@@ -271,7 +271,11 @@ class ReservacionController
         }
         $respuesta = ReservacionPublicaService::contactoCoincideConSesion($entrada, $sesion)
             ? ReservacionPublicaService::crearConfirmada($entrada, $sesion)
-            : ReservacionPublicaService::crearRetencion($entrada);
+            : [
+                'ok' => false,
+                'codigo' => ReservacionPublicaService::CONTACTO_NO_COINCIDE,
+                'mensaje' => 'El contacto enviado no coincide con el contacto verificado.',
+            ];
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -288,7 +292,7 @@ class ReservacionController
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
                 'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
@@ -310,7 +314,7 @@ class ReservacionController
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
                 'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
@@ -332,7 +336,7 @@ class ReservacionController
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
                 'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
@@ -373,7 +377,7 @@ class ReservacionController
         self::json([
             'ok' => false,
             'codigo' => 'CSRF_INVALIDO',
-            'mensaje' => 'La sesión de reservación venció. Recarga la página e inténtalo nuevamente.',
+            'mensaje' => 'La validación de seguridad no coincide. Recarga la página e inténtalo nuevamente.',
         ], 403);
         return false;
     }
@@ -396,7 +400,7 @@ class ReservacionController
         return match ((string)($respuesta['codigo'] ?? '')) {
             ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
             ReservacionPublicaService::CONTACTO_NO_COINCIDE,
-            ReservacionPublicaService::SESION_EXPIRADA => 401,
+            ReservacionPublicaService::SESION_PUBLICA_EXPIRADA => 401,
             ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO,
             ReservacionPublicaService::MODIFICACION_NO_PERMITIDA,
             ReservacionPublicaService::CANCELACION_NO_PERMITIDA => 403,
@@ -406,7 +410,11 @@ class ReservacionController
             ReservacionPublicaService::LIMITE_RESERVACIONES_ALCANZADO,
             ReservacionPublicaService::REQUEST_TOKEN_CONFLICTO => 409,
             ContactoAccesoService::REENVIO_NO_DISPONIBLE,
-            ContactoAccesoService::DEMASIADOS_INTENTOS => 429,
+            ContactoAccesoService::OTP_INTENTOS_AGOTADOS => 429,
+            ContactoAccesoService::OTP_EXPIRADO => 410,
+            ContactoAccesoService::OTP_INCORRECTO,
+            ContactoAccesoService::VERIFICACION_NO_ENCONTRADA => 422,
+            'CSRF_INVALIDO' => 403,
             ReservacionPublicaService::ERROR_INTERNO,
             ContactoAccesoService::ERROR_INTERNO => 500,
             default => 422,

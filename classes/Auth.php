@@ -25,19 +25,17 @@ class Auth {
     private const APIS_POS = [
         '/api/punto-de-venta',
         '/api/abrir-ticket',
-        '/api/liberar-reservacion',
         '/api/cerrar-ticket',
-        '/api/liberar-mesa',
         '/api/enviar-comanda',
         '/api/entregar-item',
         '/api/actualizar-ticket',
         '/api/cancelar-item',
         '/api/punto-de-venta/reservaciones',
         '/api/punto-de-venta/mesa-contexto',
-        '/api/punto-de-venta/reservaciones/llegada',
         '/api/punto-de-venta/reservaciones/comenzar',
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',
+        '/api/corte-caja',
     ];
 
     /** APIs de los tableros de producción: cocineros y admin. */
