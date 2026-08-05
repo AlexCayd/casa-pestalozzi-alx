@@ -7,7 +7,7 @@
     "dev": "gulp dev",
     "build": "gulp build",
     "test:php": "php scripts/run-tests.php",
-    "test:js": "node tests/js/reservation-form-state.test.js && node tests/js/operation-map-state.test.js && node tests/js/accessibility-contract.test.js",
+    "test:js": "node tests/js/reservation-form-state.test.js && node tests/js/operation-map-state.test.js && node tests/js/accessibility-contract.test.js && node tests/js/modal-layout.test.js && node tests/js/multitable-blocking.test.js",
     "test": "npm run test:php && npm run test:js"
   },
   "author": "",

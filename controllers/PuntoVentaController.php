@@ -79,7 +79,10 @@ class PuntoVentaController {
             'fecha'         => $fecha,
             'mesas'         => $lectura['mesas'],
             'mesas_estado'  => $lectura['mesas_estado'],
-            'reservaciones' => $lectura['reservaciones'],
+            'reservaciones' => array_values(array_filter(
+                (array)$lectura['reservaciones'],
+                static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+            )),
             'reservaciones_operativas' => $lectura['reservaciones_operativas'],
             'tickets'       => $lectura['tickets'],
             'meseros'       => $meserosArr,
@@ -672,9 +675,11 @@ class PuntoVentaController {
                 PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
             ], true) ? 409 : 422);
             $resultado['msg'] = $resultado['msg'] ?? (
-                !empty($resultado['bloqueo'])
+                !empty($resultado['mensaje_bloqueo'])
+                    ? (string)$resultado['mensaje_bloqueo']
+                    : (!empty($resultado['bloqueo'])
                     ? 'La reservación comienza dentro de 30 minutos o menos; no se puede abrir un ticket incompatible.'
-                    : self::mensajeOperacion($codigo)
+                    : self::mensajeOperacion($codigo))
             );
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

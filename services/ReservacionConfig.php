@@ -56,7 +56,7 @@ class ReservacionConfig
         'completada' => 'Completada',
         'cancelada' => 'Cancelada',
         'no_show' => 'No show',
-        'reemplazada' => 'Versión anterior',
+        'reemplazada' => 'Reemplazada',
     ];
     public const ESTADOS_EDITABLES = ['pendiente_verificacion', 'confirmada'];
     public const ESTADOS_FINALES = ['expirada', 'completada', 'cancelada', 'no_show', 'reemplazada'];
@@ -65,7 +65,7 @@ class ReservacionConfig
      * consultas: sólo ocupa mientras hold_expires_at sea futura.
      */
     public const ESTADOS_OCUPAN_MESA = ['confirmada'];
-    public const ESTADOS_LISTA_OPERATIVA = ['confirmada', 'en_curso'];
+    public const ESTADOS_LISTA_OPERATIVA = ['confirmada'];
     public const ESTADOS_CUENTAN_LIMITE = ['confirmada'];
     public const ORDEN_ESTADOS = [
         'pendiente_verificacion',

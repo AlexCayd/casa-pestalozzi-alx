@@ -787,6 +787,52 @@
   }
 }
 
+// El aviso operativo usa el mismo panel, pero necesita un shell más amplio
+// y una fila de acciones independiente para que la consecuencia no quede
+// debajo del desplazamiento del contenido.
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
+  left: .75rem;
+  right: .75rem;
+  bottom: .75rem;
+  width: auto;
+  max-height: calc(100dvh - 1.5rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: .75rem .75rem calc(.75rem + env(safe-area-inset-bottom));
+  border-radius: 16px;
+}
+
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) #mesa-modal-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) .mmodal-cancel-confirm-overlay {
+  position: static;
+  inset: auto;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+@media (min-width: 640px) {
+  .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: min(46rem, calc(100vw - 3rem));
+    max-height: min(85dvh, 48rem);
+    padding: 1.5rem;
+  }
+}
+
 .mesa-modal__handle {
   width: 36px;
   height: 4px;
@@ -1071,6 +1117,45 @@
 .mmodal-reservation__waiter {
   .mmodal-name-wrap {
     margin: 0;
+  }
+}
+
+.mmodal-reservation__blocking {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding: .65rem .75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-soft);
+  border-radius: 6px;
+  color: var(--txt-mute);
+  font-size: .76rem;
+  line-height: 1.4;
+
+  > strong {
+    color: var(--txt);
+    font-size: .82rem;
+  }
+
+  p { margin: 0; }
+
+  &-list {
+    display: grid;
+    gap: .42rem;
+    margin: .1rem 0 0;
+    padding-left: 1.1rem;
+
+    li { padding-left: .1rem; }
+
+    strong { color: var(--txt); }
+
+    small {
+      display: block;
+      margin-top: .12rem;
+      color: var(--txt-faint);
+      font-size: .68rem;
+    }
   }
 }
 
@@ -2454,6 +2539,74 @@
 
 @media (max-width: 520px) {
   .mmodal-cancel-confirm--absence .mmodal-cancel-confirm__btns {
+    flex-direction: column-reverse;
+
+    .mmodal-btn { width: 100%; }
+  }
+}
+
+// ── Shell compartido de confirmaciones operativas ────────────
+.mmodal-cancel-confirm--operation {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  text-align: left;
+  overflow: hidden;
+}
+
+.mmodal-cancel-confirm--operation.mmodal-cancel-confirm--absence {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  gap: 0;
+}
+
+.mmodal-cancel-confirm__header {
+  flex-shrink: 0;
+  padding-bottom: .85rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.mmodal-cancel-confirm__header .mmodal-cancel-confirm__icon {
+  margin: 0 0 .55rem;
+}
+
+.mmodal-cancel-confirm__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .9rem 0 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,163,82,.4) transparent;
+
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.4); border-radius: 2px; }
+}
+
+.mmodal-cancel-confirm--operation .mmodal-cancel-confirm__sub {
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.mmodal-cancel-confirm--operation .mmodal-cancel-confirm__actions {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding-top: .9rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+@media (max-width: 520px) {
+  .mmodal-cancel-confirm--operation .mmodal-cancel-confirm__actions {
     flex-direction: column-reverse;
 
     .mmodal-btn { width: 100%; }

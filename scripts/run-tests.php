@@ -22,6 +22,7 @@ $_SERVER['APP_ENV'] = 'testing';
 $scripts = [
     'etapa5_instalacion_limpia.php',
     'etapa11_5_instalacion_limpia.php',
+    'etapa11_7_2_instalacion_limpia.php',
 ];
 $results = [];
 $ok = true;

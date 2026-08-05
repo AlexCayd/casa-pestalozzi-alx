@@ -52,11 +52,6 @@ $pluralPersonas = static function ($total): string {
     return $total . ' ' . ($total === 1 ? 'persona' : 'personas');
 };
 
-$mesasListado = static function (string $mesas): array {
-    $partes = preg_split('/\s*,\s*/', $mesas, -1, PREG_SPLIT_NO_EMPTY);
-    return array_values(array_filter(array_map('trim', $partes ?: [])));
-};
-
 $metricCards = [
     ['label' => 'Reservaciones totales', 'value' => $metricas['total'] ?? 0],
     ['label' => 'Por confirmar', 'value' => $metricas['pendientes'] ?? 0, 'tone' => 'pending'],
@@ -254,9 +249,8 @@ foreach ($alertas as $tipo => $mensajes) {
                             <th scope="col">Cliente</th>
                             <th scope="col">Origen</th>
                             <th scope="col">Comensales</th>
-                            <th scope="col">Mesas</th>
+                            <th scope="col">Asignación</th>
                             <th scope="col">Estado</th>
-                            <th scope="col">Ticket</th>
                             <th scope="col">Nota</th>
                             <th scope="col">Acciones</th>
                         </tr>
@@ -272,15 +266,9 @@ foreach ($alertas as $tipo => $mensajes) {
                             $comensales = (int)$valor($reservacion, 'comensales', 0);
                             $nota = trim((string)$valor($reservacion, 'nota'));
                             $estado = (string)$valor($reservacion, 'estado', 'confirmada');
-                            $mesas = trim((string)$valor($reservacion, 'mesas_asignadas'));
                             $mesasCount = (int)$valor($reservacion, 'mesas_count', 0);
-                            $mesasDetalle = $mesasListado($mesas);
-                            $mesasVisibles = array_slice($mesasDetalle, 0, 3);
-                            $mesasRestantes = max(0, $mesasCount - count($mesasVisibles));
                             $tieneMesa = $mesasCount > 0;
                             $origen = (string)$valor($reservacion, 'origen', 'admin');
-                            $ticketId = (int)$valor($reservacion, 'ticket_id_abierto', 0);
-                            $pendienteManual = $origen === 'admin' && $estado === 'confirmada' && !$tieneMesa;
                             $showUrl = '/admin/reservations/show?id=' . $id . '&return_url=' . rawurlencode($returnTo);
                             $operationContextUrl = '/admin/reservations/operation?' . http_build_query([
                                 'fecha' => $fecha,
@@ -309,28 +297,11 @@ foreach ($alertas as $tipo => $mensajes) {
                                     <span class="reservations-table__guests"><?php echo $h($pluralPersonas($comensales)); ?></span>
                                 </td>
                                 <td class="reservations-table__tables-cell">
-                                    <?php if ($tieneMesa) : ?>
-                                        <div class="reservations-table__tables">
-                                            <strong><?php echo $mesasCount . ' ' . ($mesasCount === 1 ? 'mesa asignada' : 'mesas asignadas'); ?></strong>
-                                            <?php if (!empty($mesasVisibles)) : ?>
-                                                <span class="reservations-table__chips" aria-label="<?php echo $h($mesas); ?>">
-                                                    <?php foreach ($mesasVisibles as $mesaAsignada) : ?>
-                                                        <span class="reservations-table__chip"><?php echo $h($mesaAsignada); ?></span>
-                                                    <?php endforeach; ?>
-                                                    <?php if ($mesasRestantes > 0) : ?>
-                                                        <span class="reservations-table__chip reservations-table__chip--more">+<?php echo $mesasRestantes; ?></span>
-                                                    <?php endif; ?>
-                                                </span>
-                                            <?php else : ?>
-                                                <span class="reservations-table__muted"><?php echo $h($mesas); ?></span>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php else : ?>
-                                        <div class="reservations-table__needs-table">
-                                            <strong><?php echo $pendienteManual ? 'Pendiente de asignar mesas' : 'Sin mesas asignadas'; ?></strong>
-                                            <span class="admin-badge admin-badge--warning"><?php echo $pendienteManual ? 'Pendiente de asignar' : 'Sin mesas'; ?></span>
-                                        </div>
-                                    <?php endif; ?>
+                                    <span class="reservations-table__assignment">
+                                        <?php echo $tieneMesa
+                                            ? $mesasCount . ' ' . ($mesasCount === 1 ? 'mesa' : 'mesas')
+                                            : 'Sin mesas'; ?>
+                                    </span>
                                 </td>
                                 <td class="reservations-table__status-cell">
                                     <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
@@ -339,13 +310,6 @@ foreach ($alertas as $tipo => $mensajes) {
                                             . (!empty($valor($reservacion, 'tolerancia_vencida', false)) ? ' · Tolerancia vencida' : '')
                                         ); ?>
                                     </span>
-                                </td>
-                                <td class="reservations-table__ticket-cell">
-                                    <?php if ($ticketId > 0) : ?>
-                                        <span class="admin-badge admin-badge--success">Abierto #<?php echo $ticketId; ?></span>
-                                    <?php else : ?>
-                                        <span class="reservations-table__muted">Sin ticket abierto</span>
-                                    <?php endif; ?>
                                 </td>
                                 <td class="reservations-table__note-cell">
                                     <?php if ($nota !== '') : ?>

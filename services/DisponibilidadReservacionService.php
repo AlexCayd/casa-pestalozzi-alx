@@ -126,7 +126,8 @@ final class DisponibilidadReservacionService
         int $personas,
         int $excluirReservacionId = 0,
         bool $bloquear = false,
-        bool $asignacionPublica = false
+        bool $asignacionPublica = false,
+        bool $permitirHorarioOriginal = false
     ): array {
         $resultado = self::evaluarSolicitud(
             $fecha,
@@ -136,7 +137,8 @@ final class DisponibilidadReservacionService
             $excluirReservacionId,
             $asignacionPublica,
             null,
-            $bloquear
+            $bloquear,
+            $permitirHorarioOriginal
         );
         return $resultado + [
             'ok' => (bool)($resultado['disponible'] ?? false),
@@ -174,7 +176,8 @@ final class DisponibilidadReservacionService
         string $fecha,
         $personas,
         int $excluirReservacionId = 0,
-        ?string $hora = null
+        ?string $hora = null,
+        ?array $horarioOriginalPreservable = null
     ): array {
         return self::consultarSlots(
             $fecha,
@@ -183,7 +186,8 @@ final class DisponibilidadReservacionService
             max(0, $excluirReservacionId),
             true,
             null,
-            $hora
+            $hora,
+            $horarioOriginalPreservable
         );
     }
 
@@ -210,7 +214,8 @@ final class DisponibilidadReservacionService
         int $excluirReservacionId,
         bool $publico,
         ?DateTimeImmutable $ahora,
-        ?string $horaSolicitada = null
+        ?string $horaSolicitada = null,
+        ?array $horarioOriginalPreservable = null
     ): array {
         $fecha = trim($fecha);
         $personasValidas = filter_var($personas, FILTER_VALIDATE_INT);
@@ -258,7 +263,27 @@ final class DisponibilidadReservacionService
 
         $slots = [];
         $alternativas = [];
-        foreach ($calendario['horarios'] as $hora) {
+        $horariosCandidatos = array_values(array_unique(array_map(
+            static fn($hora): string => HorarioReservacionService::normalizarHoraSql((string)$hora),
+            (array)$calendario['horarios']
+        )));
+        $horaOriginal = $horarioOriginalPreservable !== null
+            && (string)($horarioOriginalPreservable['fecha'] ?? '') === $fecha
+            ? HorarioReservacionService::normalizarHoraSql((string)($horarioOriginalPreservable['hora'] ?? ''))
+            : '';
+        if ($horaOriginal !== '' && !in_array($horaOriginal, $horariosCandidatos, true)) {
+            $validacionOriginal = HorarioReservacionService::validarHoraParaModificacion(
+                $fecha,
+                $horaOriginal,
+                $ahora
+            );
+            if ($validacionOriginal['ok'] ?? false) {
+                $horariosCandidatos[] = $horaOriginal;
+                sort($horariosCandidatos, SORT_STRING);
+            }
+        }
+
+        foreach ($horariosCandidatos as $hora) {
             $evaluacion = self::evaluarSolicitud(
                 (string)$fecha,
                 (string)$hora,
@@ -266,7 +291,9 @@ final class DisponibilidadReservacionService
                 $maximoPersonas,
                 $excluirReservacionId,
                 $publico,
-                $ahora
+                $ahora,
+                false,
+                $horaOriginal !== '' && $hora === $horaOriginal
             );
             $disponible = (bool)($evaluacion['disponible'] ?? false);
             $horaCorta = substr((string)$hora, 0, 5);
@@ -328,10 +355,13 @@ final class DisponibilidadReservacionService
         int $excluirReservacionId,
         bool $asignacionPublica,
         ?DateTimeImmutable $ahora,
-        bool $bloquear = false
+        bool $bloquear = false,
+        bool $permitirHorarioOriginal = false
     ): array {
         $personasValidas = filter_var($personas, FILTER_VALIDATE_INT);
-        $horaValidada = HorarioReservacionService::validarHora($fecha, $hora, $ahora);
+        $horaValidada = $permitirHorarioOriginal
+            ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora, $ahora)
+            : HorarioReservacionService::validarHora($fecha, $hora, $ahora);
         $base = [
             'disponible' => false,
             'motivo' => null,

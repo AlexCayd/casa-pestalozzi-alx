@@ -988,6 +988,12 @@ En una transacción:
 6. Cambiar la reservación a `en_curso`.
 7. Actualizar `estado_changed_at`.
 
+#### 20.2.1 Inicio atómico de reservaciones multimesa
+
+Cuando una reservación utiliza varias mesas, su inicio es atómico: todas las mesas asignadas deben estar disponibles y ser válidas. Si una o más mesas bloquean el inicio, el modal de la reservación debe mostrar la causa, identificar las mesas afectadas y mantener deshabilitada la acción **Iniciar servicio**. No se permite iniciar la reservación parcialmente.
+
+La validación canónica debe revisar el conjunto completo de mesas dentro de la misma transacción. No se crea un ticket con un subconjunto libre, no se desasigna una mesa en conflicto de forma automática y no se reasigna la reservación como efecto lateral del intento.
+
 ### 20.3 Apertura walk-in con reservación próxima de 60 a 30 minutos
 
 Cuando se intenta abrir un ticket walk-in en una mesa con una reservación `confirmada` dentro de los siguientes 60 a 30 minutos, se permite continuar únicamente después de una advertencia explícita.

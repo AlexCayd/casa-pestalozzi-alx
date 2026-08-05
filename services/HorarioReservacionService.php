@@ -65,7 +65,8 @@ class HorarioReservacionService
     public static function resolverFecha(
         string $fecha,
         ?DateTimeImmutable $ahora = null,
-        bool $permitirHistorica = false
+        bool $permitirHistorica = false,
+        bool $ignorarAnticipacion = false
     ): array {
         $fecha = trim($fecha);
         $ahora = $ahora ?? ReservacionConfig::ahora();
@@ -161,7 +162,7 @@ class HorarioReservacionService
             ]);
         }
 
-        if (!$permitirHistorica && $fecha === $hoy) {
+        if (!$permitirHistorica && !$ignorarAnticipacion && $fecha === $hoy) {
             $limite = $ahora->modify('+' . ReservacionConfig::ANTICIPACION_MINIMA_MINUTOS . ' minutes');
             $intervalos = array_values(array_filter(
                 $intervalos,
@@ -213,10 +214,11 @@ class HorarioReservacionService
         string $fecha,
         string $hora,
         ?DateTimeImmutable $ahora = null,
-        bool $permitirHistorica = false
+        bool $permitirHistorica = false,
+        bool $ignorarAnticipacion = false
     ): array {
         $horaSql = self::normalizarHoraSql($hora);
-        $calendario = self::resolverFecha($fecha, $ahora, $permitirHistorica);
+        $calendario = self::resolverFecha($fecha, $ahora, $permitirHistorica, $ignorarAnticipacion);
         $resultado = $calendario + [
             'hora' => $horaSql,
             'hora_corta' => $horaSql !== '' ? substr($horaSql, 0, 5) : '',
@@ -241,7 +243,9 @@ class HorarioReservacionService
             $codigo = self::HORARIO_INVALIDO;
             if ($fecha === $reloj->format('Y-m-d')
                 && $inicio instanceof DateTimeImmutable
-                && $inicio < $reloj->modify('+' . ReservacionConfig::ANTICIPACION_MINIMA_MINUTOS . ' minutes')
+                && ($ignorarAnticipacion
+                    ? $inicio <= $reloj
+                    : $inicio < $reloj->modify('+' . ReservacionConfig::ANTICIPACION_MINIMA_MINUTOS . ' minutes'))
             ) {
                 $motivo = self::MOTIVO_ANTICIPACION_INSUFICIENTE;
                 $codigo = self::HORARIO_PASADO;
@@ -270,6 +274,18 @@ class HorarioReservacionService
         }
 
         return ['ok' => true, 'codigo' => self::HORARIO_DISPONIBLE] + $resultado;
+    }
+
+    /**
+     * Valida un bloque para una modificación que conserva exactamente el
+     * horario original. Sólo relaja el +40; nunca permite un bloque pasado.
+     */
+    public static function validarHoraParaModificacion(
+        string $fecha,
+        string $hora,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        return self::validarHora($fecha, $hora, $ahora, false, true);
     }
 
     /** Devuelve el intervalo canónico [inicio, fin). */
@@ -439,7 +455,7 @@ class HorarioReservacionService
      * Devuelve los bloques configurados para navegar el mapa, sin aplicar la
      * anticipación mínima que sólo rige para crear nuevas reservaciones.
      */
-    public static function horariosConfiguradosParaMapa(string $fecha): array
+    public static function horariosOperativosConfigurados(string $fecha): array
     {
         try {
             $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
@@ -456,13 +472,54 @@ class HorarioReservacionService
         }
     }
 
+    /**
+     * Bloques consultables del mapa. Hoy empieza en el bloque actual (el
+     * último configurado menor o igual al reloj) y las fechas futuras muestran
+     * la jornada completa. Después del cierre sólo queda el último bloque como
+     * consulta histórica del día.
+     */
+    public static function horariosConfiguradosParaMapa(
+        string $fecha,
+        ?DateTimeImmutable $ahora = null
+    ): array
+    {
+        $horarios = self::horariosOperativosConfigurados($fecha);
+        if ($horarios === [] || $fecha !== ($ahora ?? ReservacionConfig::ahora())->format('Y-m-d')) {
+            return $horarios;
+        }
+
+        $ahora = $ahora ?? ReservacionConfig::ahora();
+        $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
+        $cierre = self::fechaHora($fecha, (string)($efectivo['hora_cierre'] ?? ''));
+        $ultimo = count($horarios) - 1;
+        if ($cierre instanceof DateTimeImmutable && $ahora > $cierre) {
+            return [$horarios[$ultimo]];
+        }
+
+        $indiceActual = null;
+        foreach ($horarios as $indice => $hora) {
+            $bloque = self::fechaHora($fecha, $hora);
+            if ($bloque instanceof DateTimeImmutable && $bloque <= $ahora) {
+                $indiceActual = $indice;
+                continue;
+            }
+            break;
+        }
+
+        return $indiceActual === null
+            ? $horarios
+            : array_values(array_slice($horarios, $indiceActual));
+    }
+
     /** Resuelve el bloque inicial del mapa, incluido el bloque actual. */
     public static function resolverHorarioMapa(
         string $fecha,
         string $horaSolicitada,
-        array $horariosAlternativos = []
+        array $horariosAlternativos = [],
+        ?DateTimeImmutable $ahora = null
     ): array {
-        $horarios = self::horariosConfiguradosParaMapa($fecha);
+        $ahora = $ahora ?? ReservacionConfig::ahora();
+        $horarios = self::horariosConfiguradosParaMapa($fecha, $ahora);
         if ($horarios === []) {
             $horarios = $horariosAlternativos;
         }
@@ -483,7 +540,7 @@ class HorarioReservacionService
             ? $solicitada
             : '';
         if ($resuelta === '' && $normalizados !== []) {
-            $reloj = ReservacionConfig::ahora()->format('H:i');
+            $reloj = $ahora->format('H:i');
             foreach ($normalizados as $hora) {
                 if ($hora <= $reloj) {
                     $resuelta = $hora;
@@ -493,13 +550,22 @@ class HorarioReservacionService
             }
             $resuelta = $resuelta !== '' ? $resuelta : $normalizados[0];
         }
+        $solicitadaVencida = $fecha === $ahora->format('Y-m-d')
+            && $solicitada !== ''
+            && !in_array($solicitada, $normalizados, true)
+            && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($solicitada), $ahora);
 
         return [
             'hora_solicitada' => $solicitada,
             'hora_resuelta' => $resuelta,
             'ajustada' => $solicitada !== '' && $resuelta !== $solicitada,
-            'solicitada_vencida' => false,
-            'sin_horarios_futuros' => false,
+            'solicitada_vencida' => $solicitadaVencida,
+            'sin_horarios_futuros' => $fecha === $ahora->format('Y-m-d') && $normalizados === [],
+            'jornada_terminada' => $fecha === $ahora->format('Y-m-d')
+                && $normalizados !== []
+                && count($normalizados) === 1
+                && $resuelta === $normalizados[0]
+                && self::horarioPasadoHoy($fecha, self::normalizarHoraSql($resuelta), $ahora),
         ];
     }
 

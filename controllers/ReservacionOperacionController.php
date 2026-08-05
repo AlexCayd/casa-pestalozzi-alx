@@ -213,7 +213,10 @@ class ReservacionOperacionController
             ], 422);
             return;
         }
-        $reservacionesSerializadas = (array)$lectura['reservaciones'];
+        $reservacionesSerializadas = array_values(array_filter(
+            (array)$lectura['reservaciones'],
+            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+        ));
         $evaluacionOcupacion = (array)$lectura['evaluacion_ocupacion'];
         $alertasPorReservacion = [];
         foreach ((array)($evaluacionOcupacion['alertas_operativas'] ?? []) as $alerta) {
@@ -298,6 +301,7 @@ class ReservacionOperacionController
             'tipo' => $disponibilidad['tipo'] ?? null,
             'mensaje' => $mensajeOperacion,
             'horarios' => $horarios,
+            'horarios_reservables' => $disponibilidad['horarios_reservables'] ?? $horarios,
             'horarios_mapa' => $horariosMapa,
             'hora_solicitada' => $resolucionHorario['hora_solicitada'],
             'hora_sugerida' => $resolucionHorario['hora_resuelta'],

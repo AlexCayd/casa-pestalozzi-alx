@@ -86,6 +86,7 @@ function initMapa() {
   var modalBd       = $('#mesa-modal-bd');
   var modalClose    = $('#mesa-modal-close');
   var modalLastFocus = null;
+  var activeReservationModal = null;
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -1234,6 +1235,7 @@ function initMapa() {
   // ── Modal Llevar ──────────────────────────────────────────
   function showLlevarModal(mesa) {
     if (!modal || !modalContent) return;
+    activeReservationModal = null;
     var llevarTickets = ticketsParaMesa(mesa.id);
     commandaItems    = [];
     selectedComensal = 0;
@@ -1334,6 +1336,7 @@ function initMapa() {
   // ── Modal ─────────────────────────────────────────────────
   function showModal(mesa, estado, reservaOverride, ticketOverride) {
     if (!modal || !modalContent) return;
+    activeReservationModal = null;
     commandaItems    = [];
     selectedComensal = 0;
     var reserva = reservaOverride === undefined
@@ -1363,6 +1366,12 @@ function initMapa() {
       };
     }
 
+    activeReservationModal = {
+      id: parseInt(reserva.id || reserva.reservacion_id, 10),
+      mesaId: mesa.id,
+      reserva: reserva
+    };
+
     var estado = reserva.estado === 'en_curso'
       ? 'ocupada'
       : 'reservada';
@@ -1376,6 +1385,7 @@ function initMapa() {
   function closeModal(options) {
     if (!modal) return;
     options = options || {};
+    activeReservationModal = null;
     modal.classList.remove('mesa-modal--open');
     modal.setAttribute('aria-hidden', 'true');
     modal.inert = true;
@@ -1877,7 +1887,8 @@ function initMapa() {
       // ── Resumen compacto de reservación ────────────────────
       var reservaHora = String(reserva.hora || '').substring(0, 5);
       var reservaVentanaActual = reservaVentana || resolverVentanaOperativaReservacion(reserva);
-      var reservaMesas = mesaIdsReserva(reserva).map(function (mesaId) {
+      var reservaMesaIds = mesaIdsReserva(reserva);
+      var reservaMesas = reservaMesaIds.map(function (mesaId) {
         var mesaReservada = mesaPorId(mesaId);
         return mesaReservada ? mesaReservada.nombre : 'Mesa ' + mesaId;
       });
@@ -1913,8 +1924,46 @@ function initMapa() {
       h += '<div class="mmodal-reservation__actions">';
       if (reservaEstado === 'confirmada') {
         var puedeIniciar = reserva.puede_iniciar_servicio === true;
+        var mesasBloqueantes = Array.isArray(reserva.mesas_bloqueantes)
+          ? reserva.mesas_bloqueantes
+          : [];
+        var mostrarBloqueo = !puedeIniciar && (
+          mesasBloqueantes.length > 0 ||
+          ['MESAS_ASIGNADAS_NO_DISPONIBLES', 'MESAS_SIN_ASIGNAR', 'TICKET_ABIERTO'].indexOf(
+            String(reserva.motivo_bloqueo || '')
+          ) !== -1
+        );
+        if (mostrarBloqueo) {
+          var bloqueoGeneral = reservaMesaIds.length > 1
+            ? 'Esta reservación utiliza varias mesas y todas deben estar disponibles para iniciar.'
+            : 'Todas las mesas asignadas deben estar disponibles para iniciar.';
+          h += '<section class="mmodal-reservation__blocking" id="mmodal-reservation-blocking" role="alert" aria-live="polite" aria-labelledby="mmodal-reservation-blocking-title">';
+          h += '<strong id="mmodal-reservation-blocking-title">No se puede iniciar el servicio</strong>';
+          h += '<p>' + escHtml(bloqueoGeneral) + '</p>';
+          if (reserva.mensaje_bloqueo && String(reserva.mensaje_bloqueo) !== bloqueoGeneral) {
+            h += '<p>' + escHtml(reserva.mensaje_bloqueo) + '</p>';
+          }
+          if (mesasBloqueantes.length) {
+            h += '<ul class="mmodal-reservation__blocking-list">';
+            mesasBloqueantes.forEach(function (bloqueo) {
+              var numero = String(bloqueo.numero || bloqueo.mesa_id || '');
+              h += '<li><strong>Mesa ' + escHtml(numero) + '</strong> — ' +
+                escHtml(bloqueo.descripcion || 'No está disponible.') +
+                (bloqueo.accion_sugerida
+                  ? '<small>Acción sugerida: ' + escHtml(bloqueo.accion_sugerida) + '</small>'
+                  : '') + '</li>';
+            });
+            h += '</ul>';
+          } else if (reserva.accion_sugerida) {
+            h += '<p><strong>Acción sugerida:</strong> ' + escHtml(reserva.accion_sugerida) + '</p>';
+          }
+          h += '</section>';
+        }
+        var iniciarDescribedBy = mostrarBloqueo
+          ? ' aria-describedby="mmodal-reservation-blocking"'
+          : '';
         h += '<button class="mmodal-btn mmodal-btn--primary' + (puedeIniciar ? '' : ' mmodal-btn--pending') +
-          '" id="mmodal-iniciar"' + (puedeIniciar ? '' : ' disabled') + '>Iniciar servicio</button>';
+          '" id="mmodal-iniciar"' + iniciarDescribedBy + (puedeIniciar ? '' : ' disabled') + '>Iniciar servicio</button>';
         h += '<div class="mmodal-reservation__action-hint">' +
           escHtml(puedeIniciar
             ? 'El ticket y el servicio se crearán en un solo paso.'
@@ -2686,13 +2735,25 @@ function initMapa() {
     var noShowBtn = modalContent.querySelector('#mmodal-no-show');
     if (noShowBtn && reserva) {
       noShowBtn.addEventListener('click', function() {
+        var noShowHour = String(reserva.hora || '').substring(0, 5);
+        var noShowPeople = parseInt(reserva.comensales || '0', 10) || 0;
+        var toleranceMinutes = temporalNumber('tolerancia_reservacion_minutos') || 15;
+        var toleranceUntil = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
+        var toleranceText = toleranceUntil ? toleranceUntil[1] : '';
+        var delayMinutes = parseInt(reserva.minutos_retraso || '0', 10) || 0;
+        var noShowMessage = 'La reservación era a las ' + noShowHour +
+          (reserva.nombre ? ' de ' + reserva.nombre : '') +
+          (noShowPeople ? ' para ' + noShowPeople + (noShowPeople === 1 ? ' persona' : ' personas') : '') +
+          '. La tolerancia configurada es de ' + toleranceMinutes + ' minutos' +
+          (toleranceText ? ' y terminó a las ' + toleranceText : '') +
+          '. Tiene ' + delayMinutes + ' minutos de retraso. Al confirmar, la reservación se marcará como no show y sus mesas dejarán de estar comprometidas.';
         showOpenTicketNotice({
           variant: 'absence',
           confirmButtonVariant: 'warning',
-          title: 'Registrar ausencia',
-          message: '¿Confirmas que el cliente no se presentó? La reservación se registrará como ausencia y las mesas quedarán disponibles.',
+          title: 'Registrar que el cliente no se presentó',
+          message: noShowMessage,
           cancelLabel: 'Volver',
-          confirmLabel: 'Confirmar ausencia',
+          confirmLabel: 'Registrar ausencia',
           onConfirm: function() {
             apiMarcarNoShow(reserva, noShowBtn);
           }
@@ -3295,10 +3356,12 @@ function initMapa() {
   function showOpenTicketNotice(options) {
     options = options || {};
     if (!modal || !modalContent) return;
+    activeReservationModal = null;
     var overlay = document.createElement('div');
     overlay.className = 'mmodal-cancel-confirm-overlay';
     var isAbsenceNotice = options.variant === 'absence';
-    var noticeClass = isAbsenceNotice ? ' mmodal-cancel-confirm--absence' : '';
+    var noticeClass = ' mmodal-cancel-confirm--operation' +
+      (isAbsenceNotice ? ' mmodal-cancel-confirm--absence' : '');
     var noticeIcon = isAbsenceNotice
       ? '<div class="mmodal-cancel-confirm__icon" aria-hidden="true">!</div>'
       : '';
@@ -3306,16 +3369,20 @@ function initMapa() {
       ? 'mmodal-btn--release'
       : 'mmodal-btn--primary';
     overlay.innerHTML =
-      '<div class="mmodal-cancel-confirm' + noticeClass + '" role="alertdialog" aria-modal="true" aria-labelledby="mesa-modal-title">' +
-        noticeIcon +
-        '<p class="mmodal-cancel-confirm__msg" id="mesa-modal-title"><strong>' + escHtml(options.title || 'Aviso') + '</strong></p>' +
-        '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
-        (Array.isArray(options.details) && options.details.length
-          ? '<ul class="mmodal-operation-details">' + options.details.map(function(detail) {
-              return '<li>' + escHtml(detail) + '</li>';
-            }).join('') + '</ul>'
-          : '') +
-        '<div class="mmodal-cancel-confirm__btns">' +
+      '<div class="mmodal-cancel-confirm' + noticeClass + '" role="alertdialog" aria-modal="true" aria-labelledby="mesa-modal-title" aria-describedby="mesa-modal-description">' +
+        '<header class="mmodal-cancel-confirm__header">' +
+          noticeIcon +
+          '<h2 class="mmodal-cancel-confirm__msg" id="mesa-modal-title"><strong>' + escHtml(options.title || 'Aviso') + '</strong></h2>' +
+        '</header>' +
+        '<div class="mmodal-cancel-confirm__body" id="mesa-modal-description">' +
+          '<p class="mmodal-cancel-confirm__sub">' + escHtml(options.message || '') + '</p>' +
+          (Array.isArray(options.details) && options.details.length
+            ? '<ul class="mmodal-operation-details">' + options.details.map(function(detail) {
+                return '<li>' + escHtml(detail) + '</li>';
+              }).join('') + '</ul>'
+            : '') +
+        '</div>' +
+        '<footer class="mmodal-cancel-confirm__actions mmodal-cancel-confirm__btns">' +
           '<button class="mmodal-btn mmodal-btn--ghost" type="button" data-ticket-notice-cancel>' +
             escHtml(options.cancelLabel || 'Cerrar') +
           '</button>' +
@@ -3324,7 +3391,7 @@ function initMapa() {
                 escHtml(options.confirmLabel || 'Continuar') +
               '</button>'
             : '') +
-        '</div>' +
+        '</footer>' +
       '</div>';
     // El aviso reemplaza el contenido anterior del mismo root modal. Esto
     // evita que un resumen de reservación o un ticket quede activo debajo del
@@ -3334,6 +3401,8 @@ function initMapa() {
     sugPedidas = false;
     modalContent.innerHTML = '';
     modalContent.appendChild(overlay);
+    var noticeBody = overlay.querySelector('.mmodal-cancel-confirm__body');
+    if (noticeBody) noticeBody.scrollTop = 0;
     openModalShell();
 
     var cancel = overlay.querySelector('[data-ticket-notice-cancel]');
@@ -3439,10 +3508,9 @@ function initMapa() {
         var warning = warnings[0];
         var details = [];
         warnings.forEach(function(item) {
-          var ids = Array.isArray(item.mesa_ids) ? item.mesa_ids : [];
-          if (!ids.length && Array.isArray(item.reservation_mesa_ids)) {
-            ids = item.reservation_mesa_ids;
-          }
+          var ids = Array.isArray(item.reservation_mesa_ids) && item.reservation_mesa_ids.length
+            ? item.reservation_mesa_ids
+            : (Array.isArray(item.mesa_ids) ? item.mesa_ids : []);
           ids.forEach(function(mesaId) {
             var mesa = mesaPorId(mesaId);
             details.push(
@@ -3457,7 +3525,10 @@ function initMapa() {
         var warningMessage = 'Hay una reservación a las ' + String(warning.hora || '').substring(0, 5) +
           (warning.nombre ? ' para ' + warning.nombre : '') +
           (warningPeople ? ' (' + warningPeople + (warningPeople === 1 ? ' persona' : ' personas') + ')' : '') +
-          '. Faltan ' + warningMinutes + ' minutos. Si abres el ticket, el servicio deberá terminar o cambiar de mesa antes de esa hora.';
+          '. Faltan ' + warningMinutes + ' minutos. Puedes abrir el ticket, pero la mesa deberá estar disponible antes de la reservación.' +
+          (warning.duracion_estimada_supera
+            ? ' ' + (warning.consecuencia || 'La duración estimada del servicio supera el tiempo disponible antes de la reservación.')
+            : '');
         showOpenTicketNotice({
           title: 'Hay una reservación próxima',
           message: warningMessage,
@@ -3837,6 +3908,59 @@ function initMapa() {
   }
 
   // ── Fetch datos ───────────────────────────────────────────
+  function actualizarModalReservacionActiva() {
+    if (!activeReservationModal || !modal || !modalContent
+      || !modal.classList.contains('mesa-modal--open')) {
+      return;
+    }
+
+    var reservaActual = reservacionPorId(activeReservationModal.id);
+    if (!reservaActual) {
+      // El endpoint del POS omite en_curso del listado de reservaciones. Si
+      // existe el ticket vinculado, el modal sigue mostrando el estado actual
+      // sin ofrecer una segunda apertura.
+      for (var ti = 0; ti < tickets.length; ti++) {
+        if (parseInt(tickets[ti].reservacion_id, 10) === activeReservationModal.id) {
+          reservaActual = {};
+          Object.keys(activeReservationModal.reserva || {}).forEach(function (key) {
+            reservaActual[key] = activeReservationModal.reserva[key];
+          });
+          reservaActual.estado = 'en_curso';
+          reservaActual.ticket_abierto = true;
+          reservaActual.ticket_id = tickets[ti].id;
+          reservaActual.ticket = tickets[ti];
+          reservaActual.puede_iniciar = false;
+          reservaActual.puede_iniciar_servicio = false;
+          reservaActual.motivo_bloqueo = 'TICKET_ABIERTO';
+          reservaActual.mensaje_bloqueo = 'Esta reservación ya tiene un ticket abierto; continúa desde ese servicio.';
+          break;
+        }
+      }
+    }
+    if (!reservaActual) {
+      closeModal({ refresh: false });
+      return;
+    }
+
+    var mesaIds = mesaIdsReserva(reservaActual);
+    var mesa = mesaPorId(activeReservationModal.mesaId)
+      || (mesaIds.length ? mesaPorId(mesaIds[0]) : null);
+    if (!mesa) return;
+
+    var focused = document.activeElement;
+    var focusedId = focused && modalContent.contains(focused) ? focused.id : '';
+    activeReservationModal.reserva = reservaActual;
+    activeReservationModal.mesaId = mesa.id;
+    var estado = reservaActual.estado === 'en_curso' ? 'ocupada' : 'reservada';
+    modalContent.innerHTML = buildModalContent(mesa, estado, reservaActual, null);
+    bindModalActions(mesa, reservaActual, null);
+
+    if (focusedId) {
+      var nextFocus = document.getElementById(focusedId);
+      if (nextFocus && modal.contains(nextFocus) && !nextFocus.disabled) nextFocus.focus();
+    }
+  }
+
   function fetchData(fecha, silent) {
     var requestSequence = ++dataRequestSequence;
     if (dataAbortController && typeof dataAbortController.abort === 'function') {
@@ -3890,6 +4014,7 @@ function initMapa() {
         if (!silent) renderMesas();
         renderEstados();
         renderSidebar();
+        actualizarModalReservacionActiva();
         if (updateStatus) {
           var horaActualizada = partesRelojOperativo();
           updateStatus.textContent = 'Actualizado ' + String(horaActualizada.hora).padStart(2, '0') + ':' +

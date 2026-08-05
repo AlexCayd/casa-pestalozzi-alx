@@ -256,6 +256,9 @@ final class MesaEstadoService
         $reservacionesPorMesa = [];
         foreach ($reservaciones as $reservacionRaw) {
             $reservacion = self::aArray($reservacionRaw);
+            if ((string)($reservacion['estado'] ?? '') !== 'confirmada') {
+                continue;
+            }
             $ventana = (string)($reservacion['ventana_operativa'] ?? 'futura');
             $visible = !empty($reservacion['muestra_advertencia'])
                 || !empty($reservacion['bloquea_walk_ins']);
@@ -277,7 +280,9 @@ final class MesaEstadoService
         }
         unset($candidatas);
 
-        return array_map(static function ($mesa) use ($reservacionesPorMesa, $ticketsPorMesa): array {
+        $ocupacionPorMesa = (array)($evaluacionOcupacion['mesas'] ?? []);
+
+        return array_map(static function ($mesa) use ($reservacionesPorMesa, $ticketsPorMesa, $ocupacionPorMesa): array {
             $mesaId = (int)self::valor($mesa, 'id', 0);
             $activada = self::booleano(self::valor($mesa, 'activo', true));
             $reservable = self::booleano(self::valor($mesa, 'reservable', true));
@@ -289,6 +294,8 @@ final class MesaEstadoService
             $walkIn = false;
             $minutosRestantes = null;
             $motivoBloqueo = null;
+            $ocupacionMesa = (array)($ocupacionPorMesa[$mesaId] ?? []);
+            $holdVigente = ($ocupacionMesa['fuente'] ?? '') === 'hold';
 
             if (!$activada || !$reservable) {
                 $estadoBase = self::NO_RESERVABLE;
@@ -321,7 +328,16 @@ final class MesaEstadoService
                 }
             }
 
+            if ($holdVigente && $estadoBase !== self::OCUPADA && $estadoBase !== self::NO_RESERVABLE) {
+                $estadoBase = self::BLOQUEADA;
+                self::agregarUnaVez($modificadores, 'hold_vigente');
+                $motivoBloqueo = 'Mesa temporalmente comprometida';
+            }
+
             foreach (($reservacionesPorMesa[$mesaId] ?? []) as $reservacion) {
+                if ($holdVigente) {
+                    continue;
+                }
                 $resumen = self::resumenReservacion($reservacion);
                 $ventana = (string)($reservacion['ventana_operativa'] ?? 'futura');
                 $resumen['ventana_operativa'] = $ventana;

@@ -203,6 +203,7 @@ class ReservacionController
         }
         try {
             $excluirReservacionId = 0;
+            $horarioOriginalPreservable = null;
             $reservacionId = filter_var(
                 $_GET['reservacion_id'] ?? $_GET['reservation_id'] ?? 0,
                 FILTER_VALIDATE_INT,
@@ -218,13 +219,24 @@ class ReservacionController
                     )
                 ) {
                     $excluirReservacionId = (int)$reservacionId;
+                    $filaOriginal = Reservacion::findWithMesas((int)$reservacionId);
+                    if ($filaOriginal) {
+                        $filaOriginalArray = get_object_vars($filaOriginal);
+                        if (ReservacionPublicaService::puedeModificarPublicamente($filaOriginalArray)) {
+                            $horarioOriginalPreservable = [
+                                'fecha' => (string)$filaOriginal->fecha,
+                                'hora' => (string)$filaOriginal->hora,
+                            ];
+                        }
+                    }
                 }
             }
             $respuesta = DisponibilidadReservacionService::consultar(
                 (string)($_GET['fecha'] ?? ''),
                 $_GET['personas'] ?? null,
                 $excluirReservacionId,
-                isset($_GET['hora']) ? (string)$_GET['hora'] : null
+                isset($_GET['hora']) ? (string)$_GET['hora'] : null,
+                $horarioOriginalPreservable
             );
             self::json($respuesta, self::status($respuesta));
         } catch (\Throwable $error) {

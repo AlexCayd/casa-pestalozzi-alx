@@ -84,6 +84,11 @@ class ReservacionService
                 'hora_cierre' => $calendario['hora_cierre'] ?? null,
                 'horarios_candidatos' => $calendario['horarios_candidatos'] ?? [],
                 'horarios' => $calendario['horarios'] ?? [],
+                'horarios_reservables' => $calendario['horarios'] ?? [],
+                'horarios_mapa' => HorarioReservacionService::horariosConfiguradosParaMapa(
+                    trim($fecha),
+                    null
+                ),
                 'motivo_no_disponible' => $calendario['motivo_no_disponible'] ?? null,
                 'mensaje' => ($calendario['motivo_no_disponible'] ?? null) !== null
                     ? 'No hay horarios reservables para esta fecha.'

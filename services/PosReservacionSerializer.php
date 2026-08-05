@@ -50,20 +50,21 @@ final class PosReservacionSerializer
 
         $estado = (string)($datos['estado'] ?? '');
         $conflictoFisico = (bool)($opciones['conflicto_fisico'] ?? false);
+        $mesasBloqueantes = array_values(array_filter(
+            (array)($opciones['mesas_bloqueantes'] ?? []),
+            static fn($bloqueo): bool => is_array($bloqueo)
+        ));
         $sinMesas = $mesaIds === [];
         $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio']
             && !$sinMesas
             && !$conflictoFisico;
         $puedeAusencia = (bool)$vigencia['elegible_no_show']
             && !$conflictoFisico;
-        $bloqueaWalkIns = (
-                $estado === 'pendiente_verificacion'
-                || ($estado === 'confirmada'
-                    && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true))
-            )
+        $bloqueaWalkIns = $estado === 'confirmada'
+            && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true)
             && (bool)$vigencia['influye_disponibilidad'];
-        $muestraAdvertencia = $ventana === '30_60'
-            || (bool)($opciones['muestra_advertencia'] ?? false);
+        $muestraAdvertencia = $estado === 'confirmada'
+            && ($ventana === '30_60' || (bool)($opciones['muestra_advertencia'] ?? false));
 
         $motivo = self::motivoOperativo(
             $estado,
@@ -72,6 +73,19 @@ final class PosReservacionSerializer
             $conflictoFisico,
             $ticket !== null
         );
+        $motivoBloqueo = self::motivoBloqueo(
+            $estado,
+            $sinMesas,
+            $conflictoFisico,
+            $mesasBloqueantes,
+            $ticket !== null,
+            (bool)$vigencia['puede_iniciar_servicio']
+        );
+        $mensajeBloqueo = self::mensajeBloqueo(
+            $motivoBloqueo,
+            $mesasBloqueantes
+        );
+        $accionSugerida = self::accionSugerida($motivoBloqueo, $mesasBloqueantes);
         $minutosRestantes = $vigencia['ventana_operativa']['minutos_restantes'] ?? null;
         $minutosPara = $minutosRestantes === null
             ? null
@@ -124,7 +138,14 @@ final class PosReservacionSerializer
             'ventana_operativa' => $ventana,
             'minutos_para_reservacion' => $minutosPara,
             'minutos_retraso' => (int)($vigencia['ventana_operativa']['minutos_retraso'] ?? 0),
+            // Alias aditivos para el bloqueo de inicio multimesa. Se conserva
+            // puede_iniciar_servicio para los consumidores existentes.
+            'puede_iniciar' => $puedeIniciar,
             'puede_iniciar_servicio' => $puedeIniciar,
+            'motivo_bloqueo' => $motivoBloqueo,
+            'mensaje_bloqueo' => $mensajeBloqueo,
+            'accion_sugerida' => $accionSugerida,
+            'mesas_bloqueantes' => $mesasBloqueantes,
             'puede_registrar_ausencia' => $puedeAusencia,
             'bloquea_walk_ins' => $bloqueaWalkIns,
             'muestra_advertencia' => $muestraAdvertencia,
@@ -175,6 +196,118 @@ final class PosReservacionSerializer
             'muestra_advertencia' => false,
             'reservaciones_proximas' => [],
         ];
+    }
+
+    /**
+     * Devuelve el detalle seguro de cada mesa que impide iniciar una
+     * reservación. No expone ids de tickets ni identidad de otras reservas.
+     *
+     * @param array<int, array<string, mixed>> $ocupacion
+     * @param array<int, int> $mesaIds
+     * @param array<int, array<string, mixed>> $mesas
+     * @return array<int, array<string, mixed>>
+     */
+    public static function bloqueosOperativos(
+        array $ocupacion,
+        array $mesaIds,
+        array $mesas,
+        int $reservacionId = 0
+    ): array {
+        $mesaIds = self::ids($mesaIds);
+        $porId = [];
+        foreach ($mesas as $mesa) {
+            $porId[(int)($mesa['id'] ?? 0)] = $mesa;
+        }
+
+        $eventosPorMesa = [];
+        foreach ($ocupacion as $clave => $evento) {
+            $candidatos = is_array($evento) && array_key_exists('mesa_id', $evento)
+                ? [$evento]
+                : (is_array($evento) ? $evento : []);
+            foreach ($candidatos as $candidato) {
+                if (!is_array($candidato)) {
+                    continue;
+                }
+                $mesaId = (int)($candidato['mesa_id'] ?? $clave);
+                if ($mesaId > 0) {
+                    $eventosPorMesa[$mesaId][] = $candidato;
+                }
+            }
+        }
+
+        $bloqueos = [];
+        foreach ($mesaIds as $mesaId) {
+            $mesa = $porId[$mesaId] ?? null;
+            $numero = (string)($mesa['numero'] ?? $mesaId);
+            $nombre = trim((string)($mesa['nombre'] ?? ''));
+            $etiqueta = $nombre !== '' ? $nombre : 'Mesa ' . $numero;
+
+            if (!self::mesaUtilizable($mesa)) {
+                $bloqueos[] = [
+                    'mesa_id' => $mesaId,
+                    'numero' => $numero,
+                    'motivo' => 'MESA_NO_UTILIZABLE',
+                    'descripcion' => $etiqueta . ' ya no está disponible para iniciar el servicio.',
+                    'accion_sugerida' => 'Actualiza la asignación de la reservación antes de continuar.',
+                ];
+                continue;
+            }
+
+            foreach ($eventosPorMesa[$mesaId] ?? [] as $evento) {
+                if (array_key_exists('bloquea_disponibilidad', $evento)
+                    && !$evento['bloquea_disponibilidad']) {
+                    continue;
+                }
+                $eventoReservacionId = (int)($evento['reservacion_id'] ?? 0);
+                $ticketReservacionId = (int)($evento['ticket_reservacion_id'] ?? 0);
+                if (($reservacionId > 0 && $eventoReservacionId === $reservacionId)
+                    || ($reservacionId > 0 && $ticketReservacionId === $reservacionId)) {
+                    continue;
+                }
+
+                $tipo = (string)($evento['tipo'] ?? $evento['fuente'] ?? '');
+                if ($tipo === 'ticket_abierto' || (string)($evento['fuente'] ?? '') === 'ticket_abierto') {
+                    $bloqueos[] = [
+                        'mesa_id' => $mesaId,
+                        'numero' => $numero,
+                        'motivo' => 'TICKET_ABIERTO',
+                        'descripcion' => $etiqueta . ' tiene un ticket abierto.',
+                        'accion_sugerida' => 'Cierra o mueve ese servicio antes de iniciar la reservación.',
+                    ];
+                } elseif (in_array($tipo, ['reservacion', 'hold'], true)
+                    || $eventoReservacionId > 0) {
+                    $bloqueos[] = [
+                        'mesa_id' => $mesaId,
+                        'numero' => $numero,
+                        'motivo' => 'OTRA_OPERACION',
+                        'descripcion' => $etiqueta . ' está siendo utilizada por otra operación.',
+                        'accion_sugerida' => 'Libera la mesa o actualiza la asignación desde el mapa.',
+                    ];
+                } else {
+                    $bloqueos[] = [
+                        'mesa_id' => $mesaId,
+                        'numero' => $numero,
+                        'motivo' => 'CONFLICTO_ASIGNACION',
+                        'descripcion' => $etiqueta . ' presenta un conflicto de disponibilidad.',
+                        'accion_sugerida' => 'Actualiza la información antes de volver a intentar.',
+                    ];
+                }
+                break;
+            }
+        }
+
+        return $bloqueos;
+    }
+
+    /** @param array<int, array<string, mixed>> $bloqueos */
+    public static function mensajeBloqueoMesas(array $bloqueos): string
+    {
+        $total = count($bloqueos);
+        if ($total <= 1) {
+            return 'No se puede iniciar el servicio porque una de las mesas asignadas no está disponible.';
+        }
+        return 'No se puede iniciar el servicio porque ' . $total
+            . ' mesas asignadas no están disponibles.';
     }
 
     /**
@@ -306,5 +439,87 @@ final class PosReservacionSerializer
             'en_curso' => 'ticket_abierto',
             default => 'reservacion_futura',
         };
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $mesasBloqueantes
+     */
+    private static function motivoBloqueo(
+        string $estado,
+        bool $sinMesas,
+        bool $conflictoFisico,
+        array $mesasBloqueantes,
+        bool $ticketAbierto,
+        bool $ventanaPermitida
+    ): ?string {
+        if ($mesasBloqueantes !== [] || $conflictoFisico) {
+            return 'MESAS_ASIGNADAS_NO_DISPONIBLES';
+        }
+        if ($ticketAbierto) {
+            return 'TICKET_ABIERTO';
+        }
+        if ($sinMesas && $estado === 'confirmada') {
+            return 'MESAS_SIN_ASIGNAR';
+        }
+        if ($estado === 'confirmada' && !$ventanaPermitida) {
+            return 'VENTANA_NO_PERMITIDA';
+        }
+        if ($estado !== 'confirmada' && $estado !== 'en_curso') {
+            return 'ESTADO_NO_PERMITE_INICIO';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $mesasBloqueantes
+     */
+    private static function mensajeBloqueo(?string $motivo, array $mesasBloqueantes): ?string
+    {
+        if ($mesasBloqueantes !== []) {
+            return self::mensajeBloqueoMesas($mesasBloqueantes);
+        }
+
+        return match ($motivo) {
+            'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'No se puede iniciar el servicio porque una de las mesas asignadas no está disponible.',
+            'TICKET_ABIERTO' => 'Esta reservación ya tiene un ticket abierto; continúa desde ese servicio.',
+            'MESAS_SIN_ASIGNAR' => 'No se puede iniciar el servicio porque la reservación no tiene mesas asignadas.',
+            'VENTANA_NO_PERMITIDA' => 'El servicio aún no puede iniciar porque la reservación está fuera de la ventana permitida.',
+            'ESTADO_NO_PERMITE_INICIO' => 'El estado actual de la reservación no permite iniciar el servicio.',
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $mesasBloqueantes
+     */
+    private static function accionSugerida(?string $motivo, array $mesasBloqueantes): ?string
+    {
+        if ($mesasBloqueantes !== []) {
+            $acciones = array_values(array_unique(array_filter(array_map(
+                static fn(array $bloqueo): string => (string)($bloqueo['accion_sugerida'] ?? ''),
+                $mesasBloqueantes
+            ))));
+            return implode(' ', $acciones);
+        }
+
+        return match ($motivo) {
+            'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'Actualiza la información de disponibilidad antes de volver a intentar.',
+            'TICKET_ABIERTO' => 'Continúa desde el ticket abierto.',
+            'MESAS_SIN_ASIGNAR' => 'Actualiza la asignación antes de iniciar.',
+            'VENTANA_NO_PERMITIDA' => 'Espera a la ventana permitida para iniciar.',
+            'ESTADO_NO_PERMITE_INICIO' => 'Actualiza la reservación antes de iniciar.',
+            default => null,
+        };
+    }
+
+    /** @param array<string, mixed>|null $mesa */
+    private static function mesaUtilizable(?array $mesa): bool
+    {
+        return $mesa !== null
+            && filter_var($mesa['activo'] ?? false, FILTER_VALIDATE_BOOL)
+            && filter_var($mesa['reservable'] ?? false, FILTER_VALIDATE_BOOL)
+            && (string)($mesa['tipo'] ?? '') === 'mesa'
+            && (int)($mesa['capacidad'] ?? 0) > 0;
     }
 }

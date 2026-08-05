@@ -525,6 +525,8 @@ final class ReservacionPublicaService
         if (!self::mismoContacto($original, $tipo, $contacto)) {
             return self::noPertenece();
         }
+        $conservaHorarioOriginal = (string)$original['fecha'] === $fecha
+            && HorarioReservacionService::normalizarHoraSql((string)$original['hora']) === $hora;
         $fechas = [(string)$original['fecha'], $fecha];
 
         return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use (
@@ -535,7 +537,8 @@ final class ReservacionPublicaService
             $hora,
             $personas,
             $nota,
-            $token
+            $token,
+            $conservaHorarioOriginal
         ): array {
             $transaccion = false;
             try {
@@ -588,6 +591,8 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return self::modificacionNoPermitida('Puedes modificar esta reservación hasta 30 minutos antes.');
                 }
+                $conservaHorarioOriginal = (string)$fila['fecha'] === $fecha
+                    && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
 
                 $pendiente = self::buscarReemplazoPendienteParaActualizar($id);
                 if ($pendiente) {
@@ -601,7 +606,9 @@ final class ReservacionPublicaService
                     VerificacionContacto::invalidarPorReservaciones([(int)$pendiente['id']]);
                 }
 
-                $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
+                $horario = $conservaHorarioOriginal
+                    ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
+                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
@@ -614,7 +621,8 @@ final class ReservacionPublicaService
                     (int)$personas,
                     $id,
                     true,
-                    true
+                    true,
+                    $conservaHorarioOriginal
                 );
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();

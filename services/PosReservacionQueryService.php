@@ -51,6 +51,14 @@ final class PosReservacionQueryService
             static fn($mesa): array => PosReservacionSerializer::mesa($mesa),
             $mesasLeidas
         );
+        // El POS dibuja sólo mesas activas, pero la decisión de inicio debe
+        // poder explicar una asignación que quedó inactiva o no utilizable.
+        $mesasContrato = $incluirInactivas
+            ? $mesas
+            : array_map(
+                static fn($mesa): array => PosReservacionSerializer::mesa($mesa),
+                Mesa::buscarTodasParaMapa()
+            );
 
         $filasReservaciones = Reservacion::buscarPorDiaOperacionAdmin($fecha);
         $ticketsLeidos = TicketMesa::abiertosParaMapa();
@@ -75,30 +83,53 @@ final class PosReservacionQueryService
             );
         }
 
+        $horaEvaluacion = HorarioReservacionService::normalizarHoraSql($hora);
+        if ($horaEvaluacion === '') {
+            $horaEvaluacion = $ahora->format('H:i:s');
+        }
+
         $reservaciones = [];
         foreach ($filasReservaciones as $fila) {
             $reservacionId = (int)($fila->id ?? 0);
             $mesaIds = self::ids($fila->mesa_ids ?? '');
+            $mesasBloqueantes = PosReservacionSerializer::bloqueosOperativos(
+                $ocupacionPorReservacion[$reservacionId] ?? [],
+                $mesaIds,
+                $mesasContrato,
+                $reservacionId
+            );
             $reservaciones[] = PosReservacionSerializer::reservacion(
                 $fila,
                 $ticketsPorReservacion[$reservacionId] ?? null,
                 $mesas,
                 $ahora,
                 [
-                    'conflicto_fisico' => self::hayConflicto(
-                        $ocupacionPorReservacion[$reservacionId] ?? [],
-                        $reservacionId,
-                        $mesaIds
-                    ),
+                    'conflicto_fisico' => $mesasBloqueantes !== [],
+                    'mesas_bloqueantes' => $mesasBloqueantes,
                     'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
         }
-
-        $horaEvaluacion = HorarioReservacionService::normalizarHoraSql($hora);
-        if ($horaEvaluacion === '') {
-            $horaEvaluacion = $ahora->format('H:i:s');
-        }
+        $reservacionesMapa = array_values(array_filter(
+            $reservaciones,
+            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+        ));
+        $reservacionesMapa = array_values(array_filter(
+            array_map(
+                function (array $reservacion) use ($horaEvaluacion): array {
+                    $reservacion['aplica_hora_consultada'] = self::intervaloAplica(
+                        $reservacion,
+                        $horaEvaluacion
+                    );
+                    if ($reservacion['aplica_hora_consultada']) {
+                        $reservacion['muestra_advertencia'] = true;
+                    }
+                    return $reservacion;
+                },
+                $reservacionesMapa
+            ),
+            static fn(array $reservacion): bool => $reservacion['aplica_hora_consultada'] === true
+        ));
         $evaluacionOcupacion = [];
         try {
             $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
@@ -123,10 +154,15 @@ final class PosReservacionQueryService
             ];
         }
 
-        $tickets = self::adjuntarAdvertencias($tickets, $reservaciones);
+        $reservacionesParaAdvertencias = array_values(array_filter(
+            $reservaciones,
+            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+                && !empty($reservacion['muestra_advertencia'])
+        ));
+        $tickets = self::adjuntarAdvertencias($tickets, $reservacionesParaAdvertencias);
         $mesasEstado = MesaEstadoService::normalizarMesas(
             $mesas,
-            $reservaciones,
+            $reservacionesMapa,
             $tickets,
             $fecha,
             $ahora,
@@ -140,7 +176,10 @@ final class PosReservacionQueryService
 
         $reservacionesOperativas = array_values(array_filter(
             ReservacionVigenciaService::filtrarPendientesOperacion(
-                $reservaciones,
+                array_values(array_filter(
+                    $reservaciones,
+                    static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+                )),
                 $fecha,
                 []
             ),
@@ -206,30 +245,21 @@ final class PosReservacionQueryService
         return $tickets;
     }
 
-    /**
-     * @param array<int, array<string, mixed>> $ocupacion
-     * @param array<int, int> $mesaIds
-     */
-    private static function hayConflicto(array $ocupacion, int $reservacionId, array $mesaIds): bool
+    private static function intervaloAplica(array $reservacion, string $horaConsultada): bool
     {
-        foreach ($ocupacion as $mesaId => $evento) {
-            $mesaId = (int)($evento['mesa_id'] ?? $mesaId);
-            if (!in_array($mesaId, $mesaIds, true)) {
-                continue;
-            }
-            $eventoReservacionId = (int)($evento['reservacion_id'] ?? 0);
-            if ($eventoReservacionId > 0 && $eventoReservacionId === $reservacionId) {
-                continue;
-            }
-            $eventoTicketReservacionId = (int)($evento['ticket_reservacion_id'] ?? 0);
-            if ($eventoTicketReservacionId > 0 && $eventoTicketReservacionId === $reservacionId) {
-                continue;
-            }
-
-            return true;
+        $fecha = (string)($reservacion['fecha'] ?? '');
+        $horaReserva = HorarioReservacionService::normalizarHoraSql((string)($reservacion['hora'] ?? ''));
+        $horaMapa = HorarioReservacionService::normalizarHoraSql($horaConsultada);
+        if ($fecha === '' || $horaReserva === '' || $horaMapa === '') {
+            return false;
         }
 
-        return false;
+        $inicioReserva = new DateTimeImmutable($fecha . ' ' . $horaReserva, ReservacionConfig::timezone());
+        $inicioMapa = new DateTimeImmutable($fecha . ' ' . $horaMapa, ReservacionConfig::timezone());
+        $finReserva = $inicioReserva->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+        $finMapa = $inicioMapa->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+
+        return $inicioReserva < $finMapa && $finReserva > $inicioMapa;
     }
 
     /** @return array<int, int> */

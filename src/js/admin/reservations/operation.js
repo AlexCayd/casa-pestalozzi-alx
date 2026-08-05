@@ -460,21 +460,46 @@
             }
 
             return state.reservaciones.filter(function (reservacion) {
-                return horaCorta(reservacion.hora) === selectedHour;
+                return String(reservacion.estado || '') === 'confirmada'
+                    && intervalAppliesToHour(reservacion, selectedHour);
             });
+        }
+
+        function intervalAppliesToHour(reservacion, selectedHour) {
+            if (String(reservacion.fecha || state.fecha) !== String(state.fecha || '')) {
+                return false;
+            }
+            var reservationStart = minutesFromHour(reservacion.hora);
+            var selectedStart = minutesFromHour(selectedHour);
+            var duration = parseInt(state.config.temporal.duracion_reservacion_minutos || '90', 10) || 90;
+            return reservationStart !== null
+                && selectedStart !== null
+                && reservationStart < selectedStart + duration
+                && reservationStart + duration > selectedStart;
+        }
+
+        function minutesFromHour(hora) {
+            var parts = horaCorta(hora).split(':');
+            if (parts.length !== 2) {
+                return null;
+            }
+            var hours = parseInt(parts[0], 10);
+            var minutes = parseInt(parts[1], 10);
+            return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : null;
         }
 
         function activeReservationsForSelectedHour() {
             return reservationsForSelectedHour().filter(function (reservacion) {
                 return reservacion.influye_disponibilidad === true
                     && reservacion.en_proyeccion_mapa !== false
-                    && String(reservacion.estado || '') !== 'reemplazada';
+                    && String(reservacion.estado || '') === 'confirmada';
             });
         }
 
         function reservationsForOperationalList() {
             var reservations = state.reservaciones.filter(function (reservacion) {
-                return reservacion.en_lista_operativa === true || reservacion.en_lista_terminal === true;
+                return String(reservacion.estado || '') === 'confirmada'
+                    && (reservacion.en_lista_operativa === true || reservacion.en_lista_terminal === true);
             });
 
             if (state.assignmentFilter === 'pending') {
@@ -486,10 +511,6 @@
                 reservations = reservations.filter(function (reservacion) {
                     return String(reservacion.estado || '') === 'confirmada' &&
                         Array.isArray(reservacion.mesa_ids) && reservacion.mesa_ids.length > 0;
-                });
-            } else if (state.assignmentFilter === 'in_course') {
-                reservations = reservations.filter(function (reservacion) {
-                    return String(reservacion.estado || '') === 'en_curso' || reservacion.ticket_abierto === true;
                 });
             }
 
@@ -1671,7 +1692,7 @@
 
             state.reservacionSeleccionadaId = null;
             state.mesasSeleccionadas = new Set();
-            renderAll();
+            loadDay(state.fecha, { preserveHour: nextHour, requestedHour: nextHour });
         }
 
         function loadDay(fecha, options) {

@@ -151,7 +151,27 @@ final class PuntoVentaReservacionService
                 true
             );
             if (AsignacionMesasService::hayConflictoHorario($ocupacion, $mesaIds)) {
-                return self::rollbackResultado($db, $transaccion, self::MESA_OCUPADA);
+                $mesasContrato = array_map(
+                    static fn($mesa): array => PosReservacionSerializer::mesa($mesa),
+                    Mesa::buscarTodasParaMapa()
+                );
+                $mesasBloqueantes = PosReservacionSerializer::bloqueosOperativos(
+                    $ocupacion,
+                    $mesaIds,
+                    $mesasContrato,
+                    $reservacionId
+                );
+                return self::rollbackResultado(
+                    $db,
+                    $transaccion,
+                    self::MESA_OCUPADA,
+                    [
+                        'motivo_bloqueo' => 'MESAS_ASIGNADAS_NO_DISPONIBLES',
+                        'mensaje_bloqueo' => PosReservacionSerializer::mensajeBloqueoMesas($mesasBloqueantes),
+                        'accion_sugerida' => 'Libera las mesas bloqueantes y vuelve a validar la reservación.',
+                        'mesas_bloqueantes' => $mesasBloqueantes,
+                    ]
+                );
             }
 
             $ticketId = self::insertarTicket(
@@ -659,13 +679,17 @@ final class PuntoVentaReservacionService
         $ahora = ReservacionConfig::ahora();
         $hasta = $ahora->modify('+1 day')->format('Y-m-d H:i:s');
         $reservas = [];
-        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva('r');
         $resultado = $db->query(
             "SELECT r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE rm.mesa_id = {$mesaId}
-               AND {$condicionOcupacion}
+               AND r.estado = 'confirmada'
+               AND NOT EXISTS (
+                    SELECT 1 FROM tickets vigencia_ticket
+                    WHERE vigencia_ticket.reservacion_id = r.id
+                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
+               )
                AND TIMESTAMP(r.fecha, r.hora) <= '{$hasta}'
              ORDER BY r.fecha, r.hora"
         );
@@ -688,7 +712,9 @@ final class PuntoVentaReservacionService
         $liberacion = null;
         if ($ticket) {
             $apertura = new DateTimeImmutable((string)$ticket['hora_apertura'], ReservacionConfig::timezone());
-            $a = $apertura->modify('+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes');
+            $a = $apertura
+                ->modify('+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes')
+                ->modify('+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes');
             $b = $ahora->modify('+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes');
             $liberacion = ($a > $b ? $a : $b)->format('Y-m-d H:i:s');
         }
@@ -900,7 +926,6 @@ final class PuntoVentaReservacionService
         $limite = $reloj
             ->modify('+' . ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA . ' minutes')
             ->format('Y-m-d H:i:s');
-        $condicionOcupacion = ReservacionConfig::condicionSqlOcupacionActiva('r');
         $resultado = $db->query(
             "SELECT r.id AS reservacion_id,
                     r.nombre,
@@ -913,7 +938,12 @@ final class PuntoVentaReservacionService
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              INNER JOIN reservacion_mesas rm_todas ON rm_todas.reservacion_id = r.id
              WHERE rm.mesa_id IN ({$ids})
-               AND {$condicionOcupacion}
+               AND r.estado = 'confirmada'
+               AND NOT EXISTS (
+                    SELECT 1 FROM tickets vigencia_ticket
+                    WHERE vigencia_ticket.reservacion_id = r.id
+                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
+               )
                AND TIMESTAMP(r.fecha, r.hora) > '{$ahora}'
                AND TIMESTAMP(r.fecha, r.hora) <= '{$limite}'
              GROUP BY r.id, r.nombre, r.fecha, r.hora, r.comensales
@@ -931,6 +961,12 @@ final class PuntoVentaReservacionService
                 ReservacionConfig::timezone()
             );
             $segundosRestantes = max(0, $inicio->getTimestamp() - $reloj->getTimestamp());
+            $liberacionEstimadaTicket = $reloj->modify(
+                '+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes'
+            )->modify(
+                '+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes'
+            );
+            $duracionEstimadaSupera = $liberacionEstimadaTicket > $inicio;
             $reservaciones[] = [
                 'reservacion_id' => (int)$fila['reservacion_id'],
                 'folio' => '#' . (int)$fila['reservacion_id'],
@@ -943,6 +979,10 @@ final class PuntoVentaReservacionService
                 'minutos_restantes' => (int)ceil($segundosRestantes / 60),
                 'bloqueada' => $segundosRestantes
                     <= ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60,
+                'duracion_estimada_supera' => $duracionEstimadaSupera,
+                'consecuencia' => $duracionEstimadaSupera
+                    ? 'La duración estimada del ticket supera la hora de la reservación; la mesa podría seguir ocupada.'
+                    : null,
             ];
         }
         $resultado->free();

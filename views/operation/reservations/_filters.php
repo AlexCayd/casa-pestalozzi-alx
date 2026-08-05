@@ -88,7 +88,6 @@
             <option value="all">Todas</option>
             <option value="pending">Pendientes de asignar</option>
             <option value="assigned">Con mesas</option>
-            <option value="in_course">En curso</option>
         </select>
     </div>
 
