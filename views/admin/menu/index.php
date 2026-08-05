@@ -130,8 +130,15 @@
         data-reactive-error="#items-results-error"
         data-reactive-debounce="350"
     >
+        <?php /*
+          Una sola línea: un campo de búsqueda por nombre. El filtro de
+          visibilidad y el botón de limpiar se retiraron porque la columna
+          "Visible" de la tabla ya se lee de un vistazo y el buscador es
+          reactivo (vaciarlo equivale a limpiar). El "Buscar" sigue emitido
+          para quien navega sin JS; con JS se oculta por _forms.scss.
+        */ ?>
         <div class="admin-filters__search">
-            <label for="items-q">Buscar</label>
+            <label for="items-q">Buscar platillo</label>
             <input
                 id="items-q"
                 type="search"
@@ -139,28 +146,13 @@
                 data-reactive-default=""
                 name="q"
                 value="<?php echo htmlspecialchars((string) ($filtros['q'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
-                placeholder="Nombre o descripción"
+                placeholder="Escribe el nombre del platillo"
             >
-        </div>
-        <input type="hidden" name="categoria" data-reactive-control data-reactive-default=""
-               value="<?php echo htmlspecialchars((string) ($filtros['categoria'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-        <div class="admin-filters__group">
-            <label for="items-visible">Visibilidad</label>
-            <select id="items-visible" name="visible" data-reactive-control data-reactive-default="">
-                <option value="">Todos</option>
-                <option value="1" <?php echo ($filtros['visible'] ?? '') === '1' ? 'selected' : ''; ?>>Visibles</option>
-                <option value="0" <?php echo ($filtros['visible'] ?? '') === '0' ? 'selected' : ''; ?>>No visibles</option>
-            </select>
+            <input type="hidden" name="categoria" data-reactive-control data-reactive-default=""
+                   value="<?php echo htmlspecialchars((string) ($filtros['categoria'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         </div>
         <div class="admin-filters__actions">
             <button type="submit" class="admin-btn admin-btn--primary" data-reactive-submit>Buscar</button>
-            <a class="admin-btn admin-btn--secondary admin-filters__clear" href="/admin/menu" data-reactive-clear
-               title="Quitar todos los filtros" <?php echo !$filtrosActivos ? 'hidden' : ''; ?>>
-                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-                </svg>
-                Limpiar
-            </a>
         </div>
     </form>
 
@@ -189,14 +181,13 @@
                             <th>Precio</th>
                             <th>Categoría</th>
                             <th>Área</th>
-                            <th>Tag</th>
                             <th>Visibilidad</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($platillos as $platillo) : ?>
-                            <tr>
+                            <tr data-row-href="/admin/menu/edit?id=<?php echo (int) $platillo->id; ?>">
                                 <td>
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($platillo->nombre); ?></span>
                                 </td>
@@ -215,13 +206,6 @@
                                 </td>
                                 <td>
                                     <span class="admin-table__cell-sub"><?php echo htmlspecialchars($areasMap[(int) $platillo->area_id] ?? '—'); ?></span>
-                                </td>
-                                <td>
-                                    <?php if ($platillo->tag) : ?>
-                                        <span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($platillo->tag); ?></span>
-                                    <?php else : ?>
-                                        <span class="admin-table__cell-sub">Sin tag</span>
-                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php /* Endpoint dedicado: reenviar la fila entera por campos ocultos

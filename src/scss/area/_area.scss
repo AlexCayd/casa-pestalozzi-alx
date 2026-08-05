@@ -303,6 +303,33 @@
   flex-shrink: 0;
 }
 
+// ── Entregado por el mesero ───────────────────────────────────
+// Se queda en la columna de Listos para que producción vea que el plato ya
+// salió, atenuado y sin acciones. El azul es el mismo --estado-entregado que
+// usa el POS, para que las dos pantallas no discrepen.
+.area-card__item--entregado {
+  opacity: .58;
+}
+
+.area-card__badge--entregado {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: .8rem 1rem;
+  border: 1px solid var(--estado-entregado);
+  border-radius: 8px;
+  background: rgba(58, 134, 255, .12);
+  color: var(--estado-entregado);
+  font-family: var(--sans);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 // ── Botones de acción ─────────────────────────────────────────
 .area-card__btn {
   font-family: var(--sans);
@@ -395,4 +422,129 @@
   .area-back { font-size: .62rem; }
   // En móvil el header envuelve: el título vuelve al flujo para no encimarse.
   .area-title { position: static; transform: none; font-size: .9rem; flex: 1; text-align: center; }
+}
+
+/* ── Selección de estación ────────────────────────────────────
+   Pantalla de entrada del cocinero. Cada tarjeta se identifica por el color
+   del área (areas_produccion.color), que es dato del negocio y no token: se
+   inyecta por --area-accent desde la vista. */
+.area-select {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 4vh, 3rem);
+  padding: clamp(1.5rem, 5vw, 4rem);
+  background: var(--ink);
+  color: var(--txt);
+}
+
+.area-select__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.area-select__eyebrow {
+  display: block;
+  font-family: var(--sans);
+  font-size: .68rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.area-select__title {
+  margin: .4rem 0 0;
+  font-family: var(--serif);
+  font-size: clamp(1.9rem, 5vw, 3rem);
+  font-weight: 400;
+  color: var(--beige);
+}
+
+.area-select__user {
+  margin: .35rem 0 0;
+  font-family: var(--sans);
+  font-size: .85rem;
+  color: var(--txt-mute);
+}
+
+.area-select__logout button {
+  font-family: var(--sans);
+  font-size: .72rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .6rem 1.2rem;
+  cursor: pointer;
+  transition: color .2s var(--ease), border-color .2s var(--ease);
+
+  &:hover {
+    color: var(--txt);
+    border-color: var(--gold);
+  }
+}
+
+.area-select__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: clamp(.9rem, 2vw, 1.5rem);
+  align-content: center;
+}
+
+.area-select__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 1rem;
+  // Objetivo grande a propósito: se pulsa en tablet, muchas veces con guantes.
+  min-height: clamp(150px, 26vh, 240px);
+  padding: clamp(1.1rem, 2.5vw, 1.8rem);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--area-accent) 26%, transparent), transparent 65%),
+    var(--surface);
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color .2s var(--ease), transform .2s var(--ease);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 4px;
+    background: var(--area-accent);
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--area-accent);
+    transform: translateY(-3px);
+  }
+}
+
+.area-select__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--area-accent);
+}
+
+.area-select__name {
+  font-family: var(--serif);
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  color: var(--beige);
+  line-height: 1.2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area-select__card { transition: none; }
+  .area-select__card:hover { transform: none; }
 }

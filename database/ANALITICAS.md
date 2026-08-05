@@ -101,9 +101,6 @@ pero aislado no dice qué hacer. Un platillo con 70 % de margen que vende 3
 unidades al mes no merece el mismo trato que uno con 40 % que vende 300. La
 matriz es lo que convierte el dato en decisión.
 
-**Extra:** cruzar con `productos.tag` responde si las etiquetas ("Especialidad
-C.P.", "Estrella") realmente mueven unidades o son decorativas.
-
 ---
 
 ### 3.2 RevPASH — ingreso por asiento disponible por hora

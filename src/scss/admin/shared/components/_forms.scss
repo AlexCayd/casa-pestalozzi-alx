@@ -148,11 +148,18 @@
   }
 
   // Nota aclaratoria bajo un control (cuándo aplica, qué implica marcarlo).
-  &__help {
-    margin-top: 6px;
+  //
+  // __hint es el mismo elemento con otro nombre; venía sin estilo alguno, así
+  // que heredaba el tamaño del cuerpo y quedaba pegado al campo compitiendo
+  // con la etiqueta del siguiente. Va un punto más chico y con más aire para
+  // que se lea como apoyo y no como contenido.
+  &__help,
+  &__hint {
+    margin-top: 12px;
     color: var(--admin-muted);
-    font-size: 12px;
-    line-height: 1.45;
+    font-size: 11.5px;
+    line-height: 1.5;
+    max-width: 62ch;
   }
 
   &__error {
@@ -277,7 +284,9 @@
 .admin-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 18px;
+  // Más aire entre renglones que entre columnas: cada campo arrastra su nota
+  // de ayuda debajo y con 16px la nota casi tocaba la etiqueta siguiente.
+  gap: 26px 18px;
   align-items: start;
 
   &__full {
@@ -355,7 +364,7 @@
 
     input:checked + span {
       background: var(--admin-gold);
-      color: #1b1a17;
+      color: var(--admin-ink-on-gold);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
     }
 
@@ -399,7 +408,7 @@
 
     a.is-active span {
       background: var(--admin-gold);
-      color: #1b1a17;
+      color: var(--admin-ink-on-gold);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
     }
 
@@ -441,7 +450,7 @@
 
 #cat-nueva-toggle:checked ~ .admin-tabs .admin-tabs__tab--add label span {
   background: var(--admin-gold);
-  color: #1b1a17;
+  color: var(--admin-ink-on-gold);
 }
 
 /* Alta rápida de categoría; solo visible cuando el tab "+" está activo. */
@@ -454,7 +463,7 @@
   // filtros justo debajo al desplegarse.
   margin: 12px 0 16px;
   padding: 14px 16px;
-  border: 1px solid var(--admin-gold-deep, #a07e36);
+  border: 1px solid var(--admin-gold-deep);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
 
@@ -490,58 +499,65 @@
   display: flex;
 }
 
-/* Combobox con búsqueda (buscador inteligente de ingredientes/componentes). */
-.admin-combo {
-  position: relative;
+/*
+ * Disparador de un selector en modal. Se lee como un campo, pero no despliega
+ * nada dentro de la tarjeta: el listado vive en un diálogo aparte. Sustituye al
+ * combobox anterior, cuya lista en position:absolute la recortaba el
+ * overflow:hidden de .admin-card y no dejaba hacer scroll.
+ */
+.admin-picker {
+  min-width: 0;
 
-  &__list {
-    position: absolute;
-    z-index: 20;
-    top: calc(100% + 4px);
-    right: 0;
-    left: 0;
-    max-height: 240px;
-    margin: 0;
-    padding: 4px;
-    overflow-y: auto;
-    list-style: none;
-    border: 1px solid var(--admin-border);
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-soft);
     border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
-
-    &[hidden] {
-      display: none;
-    }
-  }
-
-  &__group {
-    padding: 8px 10px 4px;
-    color: var(--admin-muted);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  &__option {
-    padding: 9px 10px;
-    border-radius: calc(var(--admin-radius-sm) - 3px);
+    background: var(--admin-surface-soft);
     color: var(--admin-text);
+    font: inherit;
     font-size: 13px;
+    text-align: left;
     cursor: pointer;
+    transition: border-color var(--admin-t-fast) ease;
 
-    &:hover,
-    &.is-active {
-      background: var(--admin-surface-soft);
+    &:hover { border-color: var(--admin-gold); }
+
+    &:focus-visible {
+      border-color: var(--admin-gold);
+      outline: 0;
+      box-shadow: var(--admin-focus-ring);
     }
   }
 
-  &__empty {
-    padding: 10px;
+  &__label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    // Fila todavía sin elegir: el texto de invitación no debe pesar igual que
+    // un ingrediente ya seleccionado.
+    &:empty::before {
+      content: "Elegir ingrediente…";
+      color: var(--admin-faint);
+    }
+  }
+
+  &__icon {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     color: var(--admin-muted);
-    font-size: 13px;
-    text-align: center;
   }
 }
 

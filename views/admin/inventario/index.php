@@ -129,7 +129,7 @@
                                 $bajo = $stock <= $min;
                                 $neg = $stock < 0;
                             ?>
-                            <tr>
+                            <tr data-row-href="/admin/inventario/edit?id=<?php echo (int) $ing->id; ?>">
                                 <td>
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($ing->nombre); ?></span>
                                     <?php if (!$ing->activo) : ?>

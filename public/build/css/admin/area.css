@@ -40,7 +40,7 @@
 .admin-area__live.is-error {
   border-color: rgba(169, 75, 63, 0.28);
   background: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 
 .admin-area__live-dot {
@@ -208,31 +208,31 @@
   line-height: 1;
 }
 
+/* Un color por estado, tomado de los tokens --admin-estado-*, para que la
+   columna del KDS y el chip del POS digan lo mismo. */
 .admin-area-col--enviados .admin-area-col__head {
-  background: #fff3dd;
-}
-.admin-area-col--enviados .admin-area-col__head strong {
-  border: 1px solid #d28a31;
-  background: #ffe1b6;
-  color: #6f3b12;
+  --area-col-tono: var(--admin-estado-enviado);
 }
 
 .admin-area-col--prep .admin-area-col__head {
-  background: #ecf2e7;
-}
-.admin-area-col--prep .admin-area-col__head strong {
-  border: 1px solid #6c9b5d;
-  background: #dceccd;
-  color: #284f25;
+  --area-col-tono: var(--admin-estado-preparacion);
 }
 
 .admin-area-col--listo .admin-area-col__head {
-  background: #e4f4ea;
+  --area-col-tono: var(--admin-estado-listo);
 }
+
+.admin-area-col--enviados .admin-area-col__head,
+.admin-area-col--prep .admin-area-col__head,
+.admin-area-col--listo .admin-area-col__head {
+  background: color-mix(in srgb, var(--area-col-tono) 12%, var(--admin-surface));
+}
+.admin-area-col--enviados .admin-area-col__head strong,
+.admin-area-col--prep .admin-area-col__head strong,
 .admin-area-col--listo .admin-area-col__head strong {
-  border: 1px solid #4f8a62;
-  background: #d0ecd9;
-  color: #285a39;
+  border: 1px solid color-mix(in srgb, var(--area-col-tono) 46%, transparent);
+  background: color-mix(in srgb, var(--area-col-tono) 20%, var(--admin-surface));
+  color: var(--admin-text);
 }
 
 .admin-area-col__items {
@@ -275,10 +275,10 @@
   background: var(--admin-surface);
 }
 .admin-area-card-kds--alerta {
-  border-left-color: #d28a31;
+  border-left-color: var(--admin-c-ambar);
 }
 .admin-area-card-kds--urgente {
-  border-left-color: #b85b4f;
+  border-left-color: var(--admin-c-rojo);
 }
 
 .admin-area-card-kds__head {
@@ -315,11 +315,11 @@
 }
 
 .admin-area-card-kds--alerta .admin-area-card-kds__time {
-  color: #8a4f19;
+  color: var(--admin-warning-text);
 }
 
 .admin-area-card-kds--urgente .admin-area-card-kds__time {
-  color: #81382f;
+  color: var(--admin-danger-text);
 }
 
 .admin-area-card-kds__items {
@@ -380,6 +380,26 @@
   gap: 8px;
 }
 
+.admin-area-card-kds__item--entregado {
+  opacity: 0.58;
+}
+
+.admin-area-card-kds__badge--entregado {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-estado-entregado);
+  border-radius: 8px;
+  background: rgba(58, 134, 255, 0.12);
+  color: var(--admin-estado-entregado);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .admin-area-card-kds__btn {
   flex: 1;
   min-height: 40px;
@@ -412,15 +432,15 @@
 }
 
 .admin-area-card-kds__btn--prep {
-  border-color: #d28a31;
-  background: #ffe1b6;
-  color: #6f3b12;
+  border-color: color-mix(in srgb, var(--admin-estado-preparacion) 55%, transparent);
+  background: color-mix(in srgb, var(--admin-estado-preparacion) 20%, var(--admin-surface));
+  color: var(--admin-text);
 }
 
 .admin-area-card-kds__btn--listo {
-  border-color: #4f8a62;
-  background: #d0ecd9;
-  color: #285a39;
+  border-color: color-mix(in srgb, var(--admin-estado-listo) 55%, transparent);
+  background: color-mix(in srgb, var(--admin-estado-listo) 20%, var(--admin-surface));
+  color: var(--admin-text);
 }
 
 .admin-area-card-kds__btn.is-loading {

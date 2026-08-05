@@ -1525,47 +1525,69 @@
   scrollbar-width: thin;
 }
 
+// Vista Lista (y base de la Cuadrícula): un renglón por platillo. La tarjeta
+// entera es el botón de agregar, así que el objetivo táctil es toda la fila.
+// Contenido centrado y sin altura fija: el nombre del platillo se lee entero
+// aunque ocupe tres renglones. Truncarlo obligaba a adivinar entre "Baguette
+// de Jamón..." y "Baguette de Magret...", que son platillos distintos.
 .mmodal-dish-row {
   display: flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .5rem .75rem;
-  border-bottom: 1px solid var(--line-soft);
-  &:last-child { border-bottom: none; }
-}
-
-.mmodal-dish-name {
-  flex: 1;
-  font-size: .78rem;
-  color: var(--txt-mute);
-  line-height: 1.3;
-}
-
-.mmodal-dish-price {
-  font-size: .72rem;
-  color: var(--txt-faint);
-  min-width: 38px;
-  text-align: right;
-}
-
-.mmodal-dish-add {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(204, 163, 82, .4);
-  background: none;
-  color: var(--gold);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  padding: 0;
-  transition: background .15s;
+  gap: .25rem;
+  width: 100%;
+  min-height: 52px;
+  padding: .55rem .6rem;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s, color .15s;
   -webkit-tap-highlight-color: transparent;
-  &:hover { background: rgba(204, 163, 82, .12); }
+
+  &:last-child { border-bottom: none; }
+  &:hover  { background: rgba(204, 163, 82, .06); }
+  &:active { background: rgba(204, 163, 82, .14); }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: -2px;
+  }
+
+  // En la comanda: fondo dorado sólido. Es el estado que el mesero repasa de
+  // un vistazo antes de enviar, así que gana al hover.
+  &.is-active {
+    background: var(--gold);
+
+    .mmodal-dish-name,
+    .mmodal-dish-price { color: var(--ink); }
+
+    .mmodal-dish-price { opacity: .78; }
+
+    &:hover { background: var(--gold-soft); }
+  }
+}
+
+// Primario: es lo que el mesero busca al leer.
+.mmodal-dish-name {
+  min-width: 0;
+  font-size: .84rem;
+  font-weight: 600;
+  color: var(--txt);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+// Secundario: confirma, no compite. Cifras tabulares para que la columna de
+// precios quede alineada de un vistazo.
+.mmodal-dish-price {
+  font-size: .76rem;
+  color: var(--txt-mute);
+  font-variant-numeric: tabular-nums;
 }
 
 .mmodal-cart {
@@ -1761,14 +1783,6 @@
 }
 
 // ── Lista de platos con badge de área ─────────────────────────
-.mmodal-dish-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: .16rem;
-  min-width: 0;
-}
-
 .mmodal-area-badge {
   display: inline-block;
   font-size: .53rem;
@@ -2023,19 +2037,15 @@
    * .mmodal-panels, nunca vuelve a renderizar por un cambio de ajuste.
    */
 
-  // Ocultar columnas: el grid se recalcula con las que queden.
-  .mmodal-panels[data-ocultos~="resumen"] > #mmodal-panel-resumen,
+  // Ocultar columnas: el grid se recalcula con las que queden. Solo
+  // Sugerencias es ocultable; el panel del ticket es donde se confirma la
+  // entrega de cada platillo, así que siempre está a la vista.
   .mmodal-panels[data-ocultos~="sugerencias"] > #mmodal-panel-sugerencias {
     display: none !important;
   }
 
-  .mmodal-panels[data-ocultos~="resumen"]:not([data-ocultos~="sugerencias"]),
-  .mmodal-panels[data-ocultos~="sugerencias"]:not([data-ocultos~="resumen"]) {
+  .mmodal-panels[data-ocultos~="sugerencias"] {
     grid-template-columns: var(--pos-c1, 1.1fr) var(--pos-c2, 1fr) var(--pos-c3, .9fr);
-  }
-
-  .mmodal-panels[data-ocultos~="resumen"][data-ocultos~="sugerencias"] {
-    grid-template-columns: var(--pos-c1, 1.4fr) var(--pos-c2, 1fr);
   }
 
   // Densidad y escala tipográfica.
@@ -2060,11 +2070,7 @@
 
   // Tamaño del área táctil de los botones de acción.
   .mmodal-panels[data-toque="grande"] {
-    .mmodal-dish-add {
-      width: 42px;
-      height: 42px;
-      font-size: 1.25rem;
-    }
+    .mmodal-dish-row { min-height: 62px; }
 
     .mmodal-comensal-block,
     .mmodal-cat-block {
@@ -2074,8 +2080,11 @@
   }
 
   // Vista del menú: cuadrícula de N columnas o lista de una.
+  // grid-auto-rows: 1fr iguala la altura de la fila a la tarjeta más alta, que
+  // es lo que permite que los nombres largos crezcan sin recortarse.
   .mmodal-panels[data-vista-menu="grid"] .mmodal-dishes {
     display: grid;
+    grid-auto-rows: 1fr;
     gap: .4rem;
   }
 
@@ -2083,21 +2092,28 @@
   .mmodal-panels[data-vista-menu="grid"][data-columnas="3"] .mmodal-dishes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mmodal-panels[data-vista-menu="grid"][data-columnas="4"] .mmodal-dishes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-  // En cuadrícula la fila se apila para que quepa en poco ancho.
+  // En cuadrícula la tarjeta se apila para que quepa en poco ancho: nombre
+  // arriba y precio al pie, ambos centrados. Sin recorte de renglones: antes
+  // un -webkit-line-clamp: 2 dejaba "Baguette de Jamón…" y "Baguette de
+  // Magret…" indistinguibles, que es justo lo que el mesero necesita leer.
   .mmodal-panels[data-vista-menu="grid"] .mmodal-dish-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "nombre fav"
-      "precio add";
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: .25rem .4rem;
+    justify-content: center;
+    gap: .35rem;
+    height: 100%;
     margin-bottom: 0;
+    padding: .6rem .55rem;
+    border-bottom: none;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: rgba(28, 32, 35, .45);
 
-    .mmodal-dish-info  { grid-area: nombre; min-width: 0; }
-    .mmodal-dish-price { grid-area: precio; }
-    .mmodal-dish-fav   { grid-area: fav; }
-    .mmodal-dish-add   { grid-area: add; }
+    &.is-active {
+      border-color: var(--gold);
+      background: var(--gold);
+    }
   }
 
   .mmodal-panels[data-vista-menu="lista"] .mmodal-dishes {
@@ -2264,29 +2280,13 @@
   }
 }
 
-// Estrella de favorito en la fila de platillo.
-.mmodal-dish-fav {
-  display: inline-grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--txt-faint);
-  cursor: pointer;
-  transition: color 140ms ease;
+// Ajuste no aplicable con la presentación actual (p. ej. las columnas de
+// platillos en vista Lista): se muestra apagado en vez de desaparecer, para
+// que el mesero entienda que existe y de qué depende.
+.mmodal-prefs__row.is-disabled {
+  opacity: .4;
 
-  svg { fill: none; }
-
-  &:hover { color: var(--admin-gold, #cca352); }
-
-  &.is-on {
-    color: var(--admin-gold, #cca352);
-
-    svg { fill: currentColor; }
-  }
+  .mmodal-prefs__opts { pointer-events: none; }
 }
 
 // ── Notas en carrito staging ──────────────────────────────────
@@ -2615,18 +2615,21 @@
   --admin-faint: var(--txt-faint);
   --admin-gold: var(--gold);
   --admin-gold-soft: var(--gold-soft);
-  --admin-success: #8bbf7e;
-  --admin-success-text: #9fd3a6;
-  --admin-success-bg: rgba(139, 191, 126, 0.14);
-  --admin-success-border: rgba(139, 191, 126, 0.32);
-  --admin-warning: #e0c184;
-  --admin-warning-text: #e6c98a;
-  --admin-warning-bg: rgba(224, 193, 132, 0.12);
-  --admin-warning-border: rgba(224, 193, 132, 0.34);
-  --admin-danger: #e87060;
-  --admin-danger-text: #f0a79b;
-  --admin-danger-bg: rgba(232, 112, 96, 0.14);
-  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  // El mapa se lee solo por color (ya no hay leyenda), así que los estados
+  // usan la paleta de la casa y no tonos propios: disponible lima, asignada
+  // u ocupada por reserva naranja, ocupada rojo.
+  --admin-success: var(--c-lima);
+  --admin-success-text: color-mix(in srgb, var(--c-lima) 78%, #fff);
+  --admin-success-bg: color-mix(in srgb, var(--c-lima) 16%, transparent);
+  --admin-success-border: color-mix(in srgb, var(--c-lima) 46%, transparent);
+  --admin-warning: var(--c-naranja);
+  --admin-warning-text: color-mix(in srgb, var(--c-naranja) 74%, #fff);
+  --admin-warning-bg: color-mix(in srgb, var(--c-naranja) 16%, transparent);
+  --admin-warning-border: color-mix(in srgb, var(--c-naranja) 48%, transparent);
+  --admin-danger: var(--c-rojo);
+  --admin-danger-text: color-mix(in srgb, var(--c-rojo) 62%, #fff);
+  --admin-danger-bg: color-mix(in srgb, var(--c-rojo) 18%, transparent);
+  --admin-danger-border: color-mix(in srgb, var(--c-rojo) 50%, transparent);
   --admin-neutral-text: var(--admin-gold-soft);
   --admin-neutral-bg: rgba(204, 163, 82, 0.14);
   --admin-neutral-border: rgba(204, 163, 82, 0.3);
@@ -2675,20 +2678,19 @@
 
 
 // ── Ajustes del mesero: disparador en el header ────────────────
+// Solo el engranaje: la palabra "Ajustes" duplicaba lo que ya dice el icono
+// y competía por el ancho con el menú de usuario.
 .mapa-page .pos-header__prefs {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-  min-height: 42px;
-  padding: 0 16px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
   border: 1px solid var(--admin-border);
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--admin-surface-soft);
   color: var(--admin-muted);
-  font-family: var(--operational-font-ui);
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
 
@@ -2714,12 +2716,6 @@
     outline-offset: 2px;
   }
 
-  @media (max-width: 560px) {
-    span { display: none; }
-    padding: 0;
-    width: 42px;
-    justify-content: center;
-  }
 }
 
 // ── Ajustes del mesero: overlay ────────────────────────────────

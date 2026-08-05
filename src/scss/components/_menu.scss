@@ -114,17 +114,6 @@
 .dish:hover .dish__main h4,
 .dish.active .dish__main h4 { color: var(--accent-soft); }
 
-.dish__tags { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
-
-.dish__tag {
-  font-size: 0.56rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--accent);
-  border: 1px solid var(--line);
-  padding: 0.2rem 0.55rem;
-  border-radius: 40px;
-}
 
 .dish__price {
   font-family: var(--serif);

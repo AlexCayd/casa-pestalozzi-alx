@@ -1,0 +1,45 @@
+{
+    "generado_en": "2026-07-20T20:20:06-06:00",
+    "areas_de_mejora": [
+        {
+            "icono": "clock",
+            "categoria": "TIEMPO DE ESPERA",
+            "titulo": "Reducir tiempo para cierre de cuenta",
+            "descripcion": "Implementar cobro en mesa en horas pico para agilizar el cierre y disminuir frustración por esperas.",
+            "prioridad_tipo": "alta",
+            "prioridad_label": "Prioridad alta"
+        },
+        {
+            "icono": "utensils",
+            "categoria": "CONSISTENCIA EN COCINA",
+            "titulo": "Garantizar temperaturas de preparación correctas",
+            "descripcion": "Capacitar al equipo para verificar y asegurar que platos lleguen en la temperatura y estado esperado, mejorando satisfacción en alimentos fríos o aguados.",
+            "prioridad_tipo": "alta",
+            "prioridad_label": "Prioridad alta"
+        },
+        {
+            "icono": "user",
+            "categoria": "ATENCIÓN EN PISO",
+            "titulo": "Fortalecer seguimiento a las mesas",
+            "descripcion": "Capacitar meseros para que revisen y atiendan proactivamente a los clientes, previniendo faltantes y mejorando percepción de atención.",
+            "prioridad_tipo": "media",
+            "prioridad_label": "Prioridad media"
+        },
+        {
+            "icono": "star",
+            "categoria": "FIDELIZACIÓN",
+            "titulo": "Crear programa de reconocimiento a clientes frecuentes",
+            "descripcion": "Implementar beneficios y detalles especiales para clientela habitual, reforzando su fidelidad y satisfacción.",
+            "prioridad_tipo": "oportunidad",
+            "prioridad_label": "Oportunidad"
+        },
+        {
+            "icono": "message",
+            "categoria": "GESTIÓN DE RESEÑAS",
+            "titulo": "Monitorear y gestionar feedback negativo",
+            "descripcion": "Diseñar un proceso de respuestas rápidas y soluciones efectivas a reseñas negativas para mejorar percepción y reputación online.",
+            "prioridad_tipo": "continuo",
+            "prioridad_label": "Continuo"
+        }
+    ]
+}

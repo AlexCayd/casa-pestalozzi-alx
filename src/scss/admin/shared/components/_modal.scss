@@ -51,6 +51,18 @@
     overflow-y: auto;
   }
 
+  /* Para diálogos que son un catálogo: el ancho extra es lo que decide cuántas
+     fichas caben por fila. A diferencia de --wide, aquí el diálogo NO scrollea;
+     lo hace la lista interior, que es la que tiene que quedarse quieta bajo el
+     buscador y las pestañas. */
+  &__dialog--xwide {
+    display: flex;
+    flex-direction: column;
+    max-width: min(1080px, calc(100vw - 48px));
+    max-height: min(820px, calc(100vh - 40px));
+    overflow: hidden;
+  }
+
   &__head {
     display: flex;
     align-items: flex-start;
@@ -69,19 +81,42 @@
     text-transform: uppercase;
   }
 
+  /* Contra --admin-surface-soft el botón se perdía: mismo tono que el diálogo y
+     borde casi invisible. Ahora usa la superficie fuerte, borde pleno y vira a
+     rojo al pasar por encima, que es lo que lo identifica como "cerrar". */
   &__close {
     display: grid;
     width: 42px;
     height: 42px;
     flex: 0 0 42px;
     place-items: center;
-    border: 1px solid var(--admin-border-soft);
+    border: 1px solid var(--admin-border);
     border-radius: 50%;
-    background: var(--admin-surface-soft);
+    background: var(--admin-surface-strong);
     color: var(--admin-text);
     font-size: 24px;
     line-height: 1;
     cursor: pointer;
+    transition:
+      border-color var(--admin-t-fast) var(--admin-ease-out),
+      background var(--admin-t-fast) var(--admin-ease-out),
+      color var(--admin-t-fast) var(--admin-ease-out);
+
+    svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:hover {
+      border-color: var(--admin-c-rojo-border);
+      background: var(--admin-c-rojo-bg);
+      color: var(--admin-c-rojo);
+    }
 
     &:focus-visible {
       outline: 2px solid var(--admin-gold);
@@ -147,6 +182,17 @@
     strong {
       color: var(--admin-text);
       font-weight: 600;
+    }
+
+    // Consecuencia que el usuario no espera (p. ej. perder la sesión), no un
+    // error: destaca sin usar el rojo de peligro.
+    &--warn {
+      padding: 10px 12px;
+      border: 1px solid var(--admin-warning-border);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-warning-bg);
+      color: var(--admin-warning-text);
+      font-size: 13px;
     }
   }
 

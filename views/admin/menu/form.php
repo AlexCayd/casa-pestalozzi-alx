@@ -77,13 +77,6 @@
                            value="<?php echo htmlspecialchars((string) ($platillo->precio ?? '')); ?>">
                 </div>
 
-                <div class="admin-field">
-                    <label class="admin-field__label" for="tag">Etiqueta (opcional)</label>
-                    <input type="text" id="tag" name="tag" maxlength="60"
-                           placeholder="Especialidad C.P., Estrella, Dulce…"
-                           value="<?php echo htmlspecialchars($platillo->tag ?? ''); ?>">
-                </div>
-
                 <label class="admin-switch admin-form-grid__full">
                     <input type="checkbox" name="activo" value="1" <?php echo (int) ($platillo->activo ?? 1) === 1 ? 'checked' : ''; ?>>
                     <span class="admin-switch__track"><span class="admin-switch__thumb"></span></span>

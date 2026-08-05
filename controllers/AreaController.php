@@ -14,6 +14,15 @@ class AreaController {
         'horno'  => ['id' => 4, 'nombre' => 'Horno Napolitano', 'color' => '#1a5276'],
     ];
 
+    /**
+     * Destino de los cocineros al iniciar sesión: eligen estación y de ahí
+     * entran al tablero. Sin esta pantalla el rol 'cook' no tenía a dónde ir.
+     */
+    public static function index(Router $router) {
+        $areas = self::$AREAS;
+        include __DIR__ . '/../views/area/seleccion.php';
+    }
+
     public static function cafe(Router $router)   { self::renderArea('cafe'); }
     public static function jugos(Router $router)  { self::renderArea('jugos'); }
     public static function cocina(Router $router) { self::renderArea('cocina'); }
@@ -24,7 +33,15 @@ class AreaController {
         include __DIR__ . '/../views/area/index.php';
     }
 
-    // GET /admin/api/area-items?area_id=X
+    /**
+     * GET /api/area-items?area_id=X
+     *
+     * Incluye los 'entregado' a propósito: el mesero puede entregar un plato
+     * sin que producción lo haya marcado listo, y si el registro desapareciera
+     * del tablero la cocina no se enteraría de que ya salió. Se pintan en la
+     * columna de Listos con badge de entregado y sin acciones. Se van solos al
+     * cerrar la cuenta, porque la consulta ya se limita a tickets abiertos.
+     */
     public static function areaItems(Router $router) {
         header('Content-Type: application/json');
 
@@ -45,7 +62,7 @@ class AreaController {
                  JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.orden = 1
                  JOIN mesas m ON m.id = tm.mesa_id
                  WHERE ti.area_id = {$areaId}
-                   AND ti.estado IN ('enviado','en_preparacion','listo')
+                   AND ti.estado IN ('enviado','en_preparacion','listo','entregado')
                  ORDER BY ti.ticket_id ASC, ti.created_at ASC"
             );
 

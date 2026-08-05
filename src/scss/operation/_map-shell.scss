@@ -523,6 +523,25 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+// ── Matices sin nomenclatura ─────────────────────────────────
+// El POS ya no dibuja los círculos T/W/P/B: lo que decían pasa al propio pin.
+// Walk-in es el único caso sin color de estado propio (la mesa ya está roja),
+// así que se distingue por trama; varias mesas, por doble borde.
+.mesas-map .mesa-pin--mod-walk_in {
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--admin-danger) 16%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+}
+
+.mesas-map .mesa-pin--mod-varias_mesas {
+  border-width: 2px;
+  border-style: double;
+  border-color: color-mix(in srgb, var(--admin-text) 52%, var(--admin-danger-border));
+}
+
 .mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {

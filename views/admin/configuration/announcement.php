@@ -74,13 +74,31 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     <span class="admin-switch__label">Anuncio activo</span>
                 </label>
 
+                <?php /*
+                  Tipos como pestañas y no como <select>: son cuatro y cada uno
+                  cambia el color, el icono, el placeholder del mensaje y la
+                  plantilla sugerida. Con un desplegable había que abrirlo para
+                  saber qué opciones existían y elegir a ciegas; aquí se ven los
+                  cuatro con su color antes de decidir.
+                */ ?>
                 <div class="admin-field admin-announcement-form__wide">
-                    <label class="admin-field__label" for="announcement-type">Tipo</label>
-                    <select id="announcement-type" name="tipo" data-announcement-type aria-describedby="announcement-type-purpose">
+                    <span class="admin-field__label">Tipo de anuncio</span>
+                    <div class="admin-tabs admin-announcement-types" role="radiogroup" aria-label="Tipo de anuncio">
                         <?php foreach ($tiposAnuncio as $value => $configTipo) : ?>
-                            <option value="<?php echo $h($value); ?>" <?php echo $tipoPreview === $value ? 'selected' : ''; ?>><?php echo $h($configTipo['etiqueta'] ?? $value); ?></option>
+                            <label class="admin-tabs__tab admin-announcement-type"
+                                   style="--announcement-accent: <?php echo $h($configTipo['acento'] ?? '#cca352'); ?>">
+                                <input type="radio" name="tipo" value="<?php echo $h($value); ?>"
+                                       data-announcement-type
+                                       <?php echo $tipoPreview === $value ? 'checked' : ''; ?>>
+                                <span>
+                                    <svg class="admin-announcement-type__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <?php echo $configTipo['icono'] ?? ''; ?>
+                                    </svg>
+                                    <?php echo $h($configTipo['etiqueta'] ?? $value); ?>
+                                </span>
+                            </label>
                         <?php endforeach; ?>
-                    </select>
+                    </div>
                     <p class="admin-announcement-type-purpose" id="announcement-type-purpose" data-announcement-purpose><?php echo $h($configTipoPreview['descripcion'] ?? ''); ?></p>
                 </div>
 
@@ -210,12 +228,33 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
 
         <aside class="admin-panel admin-card admin-config-preview" aria-labelledby="announcement-preview-title">
             <div class="admin-config-panel__head">
-                <h2 id="announcement-preview-title">Vista previa</h2>
+                <div>
+                    <h2 id="announcement-preview-title">Vista previa</h2>
+                    <p>Así lo verá el comensal al entrar al sitio.</p>
+                </div>
+                <?php /* El landing tiene fondo oscuro; el panel puede estar en claro.
+                         Sin poder alternar, el acento se juzgaba sobre un fondo que
+                         el visitante nunca ve. */ ?>
+                <div class="admin-announcement-preview-theme" role="group" aria-label="Fondo de la vista previa">
+                    <button type="button" class="admin-announcement-preview-theme__btn is-active"
+                            data-preview-theme="oscuro" aria-pressed="true">Oscuro</button>
+                    <button type="button" class="admin-announcement-preview-theme__btn"
+                            data-preview-theme="claro" aria-pressed="false">Claro</button>
+                </div>
             </div>
-            <div class="admin-announcement-preview-stage">
-                <span class="admin-announcement-preview-state" data-preview-state>
+            <div class="admin-announcement-preview-stage" data-preview-stage data-tema="oscuro">
+                <span class="admin-announcement-preview-state<?php echo $isActive ? ' is-live' : ''; ?>" data-preview-state>
                     <?php echo $isActive ? 'Activo' : 'Inactivo · no será visible'; ?>
                 </span>
+
+                <?php /* Franja que insinúa el hero del landing: el anuncio suelto no
+                         daba idea de su peso real sobre la portada. */ ?>
+                <div class="admin-announcement-preview-hero" aria-hidden="true">
+                    <span class="admin-announcement-preview-hero__brand">Casa Pestalozzi</span>
+                    <span class="admin-announcement-preview-hero__line"></span>
+                    <span class="admin-announcement-preview-hero__line admin-announcement-preview-hero__line--short"></span>
+                </div>
+
                 <div
                     class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--<?php echo $mostrarEnlacePreview ? 'has-link' : 'without-link'; ?>"
                     data-announcement-preview

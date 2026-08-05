@@ -71,17 +71,25 @@ CREATE TABLE IF NOT EXISTS categorias (
   activo TINYINT(1) NOT NULL DEFAULT 1
 );
 
--- Accesos: los administradores entran en /admin/login con usuario + password
--- alfanumerica (password_hash). El personal de piso (meseros/cajeros) entra
--- en /login con un NIP numerico de 4-6 digitos, unico por usuario y guardado
--- hasheado con bcrypt (nip_hash), que lo lleva a /mapa.
+-- Accesos: los tres roles entran por /login, que muestra dos pestanas. Los
+-- administradores usan usuario + password alfanumerica (password_hash); el
+-- personal de piso (meseros y cocineros) usa un NIP numerico de 4 digitos,
+-- unico por usuario y guardado hasheado con bcrypt (nip_hash).
+--
+-- El rol decide a que vista se entra y que rutas se permiten: waiter al punto
+-- de venta, cook a los tableros de area, admin a todo.
+--
+-- fecha_nacimiento no es dato de RR.HH.: es el origen del NIP por defecto. Si
+-- el admin deja el campo vacio al dar de alta, el NIP se genera como DDMM del
+-- cumpleanos. Nullable porque los administradores no usan NIP.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
+  fecha_nacimiento DATE NULL,
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
-  rol           ENUM('admin','observer','waiter','cashier') NOT NULL DEFAULT 'observer',
+  rol           ENUM('admin','waiter','cook') NOT NULL DEFAULT 'waiter',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
@@ -240,15 +248,17 @@ CREATE TABLE IF NOT EXISTS productos (
   descripcion  TEXT NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
-  tag          VARCHAR(60) NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
+  -- El UNIQUE es dependencia funcional, no higiene: el descuento de
+  -- inventario, el COGS y el motor de sugerencias unen platillos por nombre.
+  -- Estaba declarado dos veces, y eso hacia fallar el CREATE TABLE entero
+  -- ("Duplicate key name") en cualquier base creada desde cero.
   UNIQUE KEY uq_productos_nombre (nombre),
   KEY idx_productos_cat_activo (categoria_id, activo),
+  INDEX idx_productos_carta (activo, categoria_id),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id),
-  UNIQUE KEY uq_productos_nombre (nombre),
-  INDEX idx_productos_carta (activo, categoria_id)
+  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
 );
 
 -- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
@@ -259,7 +269,6 @@ CREATE TABLE IF NOT EXISTS menu (
   nombre       VARCHAR(120) NOT NULL,
   descripcion  TEXT NOT NULL,
   precio       DECIMAL(10,2) NOT NULL,
-  tag          VARCHAR(60) NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
   categoria_id INT NOT NULL,
   UNIQUE KEY uq_menu_nombre (nombre),

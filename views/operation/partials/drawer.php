@@ -13,7 +13,10 @@ $operationalDrawerListClass = trim((string)($operationalDrawerListClass ?? ''));
 $operationalDrawerListAttributes = is_array($operationalDrawerListAttributes ?? null) ? $operationalDrawerListAttributes : [];
 $operationalActiveModule = (string)($operationalActiveModule ?? 'reservations');
 $operationalMapHref = (string)($operationalMapHref ?? '/punto-de-venta');
+// Un href vacío oculta el enlace: los destinos de /admin solo tienen sentido
+// para quien puede entrar en ellos.
 $operationalReservationsHref = (string)($operationalReservationsHref ?? '/admin/reservations/operation');
+$operationalAdminHref = (string)($operationalAdminHref ?? '');
 $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>
 <aside
@@ -59,15 +62,27 @@ $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$val
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="7" height="7" rx="1"></rect><rect x="14" y="4" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
             <span>Mesas</span>
         </a>
-        <a
-            class="operational-drawer__module-link<?php echo $operationalActiveModule === 'reservations' ? ' is-active' : ''; ?>"
-            href="<?php echo $operationalDrawerH($operationalReservationsHref); ?>"
-            data-operational-nav="reservations"
-            <?php echo $operationalActiveModule === 'reservations' ? 'aria-current="page"' : ''; ?>
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10M7 12h6M7 16h3"></path></svg>
-            <span>Reservaciones</span>
-        </a>
+        <?php if ($operationalReservationsHref !== ''): ?>
+            <a
+                class="operational-drawer__module-link<?php echo $operationalActiveModule === 'reservations' ? ' is-active' : ''; ?>"
+                href="<?php echo $operationalDrawerH($operationalReservationsHref); ?>"
+                data-operational-nav="reservations"
+                <?php echo $operationalActiveModule === 'reservations' ? 'aria-current="page"' : ''; ?>
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h10M7 12h6M7 16h3"></path></svg>
+                <span>Reservaciones</span>
+            </a>
+        <?php endif; ?>
+        <?php if ($operationalAdminHref !== ''): ?>
+            <a
+                class="operational-drawer__module-link"
+                href="<?php echo $operationalDrawerH($operationalAdminHref); ?>"
+                data-operational-nav="admin"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M21 19H3"></path></svg>
+                <span>Panel de administración</span>
+            </a>
+        <?php endif; ?>
     </nav>
     <div class="operational-drawer__content">
         <?php if (trim($operationalDrawerSlotHtml) !== ''): ?>
@@ -91,4 +106,4 @@ $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$val
     </div>
 </aside>
 <button type="button" class="operational-drawer-backdrop" aria-label="Cerrar reservaciones" data-operational-drawer-backdrop hidden></button>
-<?php unset($operationalDrawerId, $operationalDrawerTitleId, $operationalDrawerClass, $operationalDrawerAttributes, $operationalDrawerDateHtml, $operationalDrawerCountHtml, $operationalDrawerSlotHtml, $operationalDrawerListHtml, $operationalDrawerListId, $operationalDrawerListClass, $operationalDrawerListAttributes, $operationalActiveModule, $operationalMapHref, $operationalReservationsHref, $operationalDrawerH); ?>
+<?php unset($operationalDrawerId, $operationalDrawerTitleId, $operationalDrawerClass, $operationalDrawerAttributes, $operationalDrawerDateHtml, $operationalDrawerCountHtml, $operationalDrawerSlotHtml, $operationalDrawerListHtml, $operationalDrawerListId, $operationalDrawerListClass, $operationalDrawerListAttributes, $operationalActiveModule, $operationalMapHref, $operationalReservationsHref, $operationalAdminHref, $operationalDrawerH); ?>

@@ -30,9 +30,9 @@ use Controllers\AreaController;
 
 $router = new Router();
 
-// Protección de rutas: /admin/* exige rol admin (login con contraseña en
-// /admin/login); /punto-de-venta, /area/* y las APIs del personal exigen sesión
-// iniciada (login por NIP en /login, solo personal de piso).
+// Protección de rutas por rol: /admin/* exige admin, /punto-de-venta y las APIs
+// del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
+// admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
 // Home
@@ -69,6 +69,9 @@ $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationCo
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
+$router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
+// Envío del modal "Reportar un problema" del panel.
+$router->post('/admin/api/reportes', [AdminConfigurationController::class, 'crearReporte']);
 // Gestión de menú: los platillos viven en `productos` desde la fusión con
 // "Productos y recetas". La lista entra directo (ya no hay página de hub).
 $router->get('/admin/menu',                     [AdminMenuController::class, 'index']);
@@ -186,8 +189,11 @@ $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
 $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-$router->get('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
-$router->post('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
+// Contraseña (admins) o NIP (personal de piso), según el rol del destino.
+$router->get('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
+$router->post('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
+// La URL anterior solo cambiaba contraseñas; se conserva por marcadores.
+$router->get('/admin/usuarios/change-password', $redir301('/admin/usuarios/cambiar-credencial'));
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
@@ -207,6 +213,8 @@ $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
 $router->post('/api/liberar-reservacion', [PuntoVentaController::class, 'liberarReservacion']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
+// Mesa ocupada que no consumió: borra el ticket en vez de cerrarlo en $0.
+$router->post('/api/liberar-mesa',        [PuntoVentaController::class, 'liberarMesa']);
 $router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
 $router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCaja']);
@@ -216,6 +224,7 @@ $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancela
 $router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
+$router->get('/area',        [AreaController::class, 'index']);
 $router->get('/area/cafe',   [AreaController::class, 'cafe']);
 $router->get('/area/jugos',  [AreaController::class, 'jugos']);
 $router->get('/area/cocina', [AreaController::class, 'cocina']);

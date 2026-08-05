@@ -31,17 +31,26 @@ $datePickerHtml = $datePickerHtml ?? '';
 $usuarioNombre = $usuarioNombre ?? '';
 $usuarioRol = $usuarioRol ?? 'Usuario';
 
+$esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
+
 $operationalView = 'map';
 $operationalModule = 'tables';
-$operationalModuleTitle = 'Mapa de mesas';
+// Sin título ni reloj ni flecha: el POS ya es la pantalla en la que está el
+// mesero y cada rótulo de más le quita sitio al mapa.
+$operationalModuleTitle = '';
+$operationalShowLastUpdate = false;
+$operationalHeaderBack = false;
 $operationalDate = $mapFecha;
 $operationalHour = '';
 $operationalBrandHref = '/punto-de-venta';
-$operationalHeaderBackUrl = '/admin/punto-de-venta';
+$operationalHeaderBackUrl = '';
 $operationalDrawerId = 'map-reservations-drawer';
 $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
-$operationalReservationsHref = '/admin/reservations/operation';
+// Ambos destinos viven bajo /admin: a un mesero la guardia lo rebotaría, así
+// que solo se ofrecen si quien mira es administrador.
+$operationalReservationsHref = $esAdmin ? '/admin/reservations/operation' : '';
+$operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;
 $operationalShellClass = 'mapa-shell pos-shell';
@@ -53,12 +62,11 @@ ob_start();
 ?>
 <button type="button" class="pos-header__prefs" id="pos-prefs-toggle"
         aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay"
-        title="Ajustes de la vista">
+        aria-label="Ajustes de la vista" title="Ajustes de la vista">
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <circle cx="12" cy="12" r="3"/>
     <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"/>
   </svg>
-  <span>Ajustes</span>
 </button>
 <?php
 $operationalHeaderActionsHtml = (string)ob_get_clean();
@@ -80,7 +88,9 @@ ob_start();
     'canvasId' => 'mapa-canvas',
     'canvasMode' => 'map',
     'loadingMode' => 'overlay',
-    'legendPosition' => 'footer',
+    // Sin leyenda: el color de cada mesa ya dice su estado y la lista de
+    // abreviaturas ocupaba más que el propio mapa.
+    'legendPosition' => 'none',
     'toolbarActionsHtml' => $mapToolbarActionsHtml,
   ];
   include __DIR__ . '/../../operation/partials/map.php';

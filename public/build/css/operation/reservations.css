@@ -519,6 +519,20 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 
+.operational-header__pulse {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c-lima, #8ac926);
+  animation: operational-live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operational-header__pulse {
+    animation: none;
+  }
+}
 .operational-header__back {
   display: inline-grid;
   width: 44px;
@@ -2110,6 +2124,16 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: color-mix(in srgb, var(--admin-gold) 78%, var(--admin-warning-border));
   border-style: dashed;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 2px color-mix(in srgb, var(--admin-gold) 16%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.mesas-map .mesa-pin--mod-walk_in {
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--admin-danger) 16%, transparent) 0 6px, transparent 6px 12px);
+}
+
+.mesas-map .mesa-pin--mod-varias_mesas {
+  border-width: 2px;
+  border-style: double;
+  border-color: color-mix(in srgb, var(--admin-text) 52%, var(--admin-danger-border));
 }
 
 .mesas-map .mesa-pin--seleccionada,

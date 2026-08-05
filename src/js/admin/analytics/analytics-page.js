@@ -95,16 +95,27 @@
     // Nivel 1 — el número con el que abre el tablero.
     const hero = metrics.find((metric) => metric.featured);
 
+    // Tres bloques repartidos en la altura de la tarjeta: encabezado, cifra y
+    // pie comparativo. Antes todo se apilaba arriba y la mitad inferior quedaba
+    // vacía, porque la gráfica vecina impone la altura. El periodo anterior
+    // (hero.prev) ya llegaba del backend y no se pintaba.
     heroContainer.innerHTML = hero
       ? `
         <article class="admin-hero">
-          <div class="admin-hero__main">
+          <div class="admin-hero__head">
             <span class="admin-hero__label">${escapeHtml(hero.label)}</span>
+          </div>
+          <div class="admin-hero__main">
             <strong class="admin-hero__value">${escapeHtml(hero.value)}</strong>
             <span class="admin-hero__detail">${escapeHtml(hero.detail)}</span>
           </div>
-          <div class="admin-hero__aside">
+          <div class="admin-hero__foot">
             ${deltaBadge(hero)}
+            ${
+              hero.prev
+                ? `<span class="admin-hero__prev">${escapeHtml(hero.prev)} en el periodo anterior</span>`
+                : ""
+            }
           </div>
         </article>
       `

@@ -1,7 +1,7 @@
 <?php
     $usuario = $usuario ?? [];
     $alertas = $alertas ?? [];
-    $roles = $roles ?? ['admin', 'observer', 'waiter', 'cashier'];
+    $roles = $roles ?? ['admin', 'waiter', 'cook'];
     $accion = $accion ?? 'Guardar usuario';
     $modo = $modo ?? 'crear';
     $action = $action ?? '';
@@ -9,8 +9,7 @@
     $roleLabels = [
         'admin' => 'Administrador',
         'waiter' => 'Mesero',
-        'cashier' => 'Cajero',
-        'observer' => 'Observador',
+        'cook' => 'Cocinero',
     ];
 
     $valor = static function (string $campo, $default = '') use ($usuario) {
@@ -30,7 +29,7 @@
 
 <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-<form class="admin-menu__form admin-users-form" method="POST" action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>">
+<form class="admin-menu__form admin-users-form" data-users-form method="POST" action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>">
     <section class="admin-users-form__section">
         <div class="admin-users-form__section-head">
             <h4>Identidad y acceso</h4>
@@ -67,35 +66,64 @@
             </div>
 
             <div class="admin-users-form__field">
+                <label for="fecha_nacimiento_display">Fecha de nacimiento</label>
+                <?php /*
+                  Campo de texto con máscara en vez de <input type="date">: el
+                  nativo se pinta con el formato del locale del navegador, que
+                  aquí sale mm/dd/yyyy. El hidden conserva Y-m-d, que es lo que
+                  valida el backend.
+                */ ?>
+                <input
+                    type="text"
+                    id="fecha_nacimiento_display"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    maxlength="10"
+                    placeholder="dd/mm/aaaa"
+                    data-birthdate-display
+                >
+                <input
+                    type="hidden"
+                    name="fecha_nacimiento"
+                    value="<?php echo htmlspecialchars((string) $valor('fecha_nacimiento'), ENT_QUOTES, 'UTF-8'); ?>"
+                    data-birthdate-value
+                >
+                <p class="admin-users-form__hint">Con ella se sugiere el NIP: día y mes del cumpleaños.</p>
+            </div>
+
+            <div class="admin-users-form__field" data-user-nip-field>
                 <label for="nip">NIP de acceso</label>
                 <input
-                    type="password"
+                    type="text"
                     id="nip"
                     name="nip"
                     inputmode="numeric"
-                    pattern="\d{4,6}"
-                    maxlength="6"
+                    pattern="\d{4}"
+                    maxlength="4"
                     autocomplete="off"
                     placeholder="<?php echo $modo === 'editar' ? 'Sin cambio' : 'ej. 4821'; ?>"
-                    title="NIP numérico de 4 a 6 dígitos"
+                    title="NIP numérico de 4 dígitos"
+                    data-user-nip
                 >
-                <p class="admin-users-form__hint">
-                    <?php echo $modo === 'editar'
-                        ? 'De 4 a 6 dígitos, único por usuario. Déjalo vacío para conservar el actual.'
-                        : 'De 4 a 6 dígitos, único por usuario. El personal de piso inicia sesión con él en /login; los administradores no lo usan (entran con contraseña en /admin/login).'; ?>
+                <p class="admin-users-form__hint admin-users-form__hint--warn">
+                    Un NIP derivado del cumpleaños lo puede adivinar un compañero. Cámbialo cuando importe.
                 </p>
             </div>
 
             <div class="admin-users-form__field">
-                <label for="rol">Rol</label>
-                <select id="rol" name="rol" required>
+                <span class="admin-users-form__field-label">Rol</span>
+                <div class="admin-tabs" role="radiogroup" aria-label="Rol">
                     <?php foreach ($roles as $rol) : ?>
                         <?php $rol = (string) $rol; ?>
-                        <option value="<?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $rolActual === $rol ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?>
-                        </option>
+                        <label class="admin-tabs__tab">
+                            <input type="radio" name="rol" value="<?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?>"
+                                   data-user-role
+                                   <?php echo $rolActual === $rol ? 'checked' : ''; ?> required>
+                            <span><?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?></span>
+                        </label>
                     <?php endforeach; ?>
-                </select>
+                </div>
+                <p class="admin-users-form__hint">El administrador entra con contraseña; meseros y cocineros, con NIP.</p>
             </div>
 
             <div class="admin-users-form__field">
@@ -111,7 +139,7 @@
     </section>
 
     <?php if ($mostrarPassword) : ?>
-        <section class="admin-users-form__section">
+        <section class="admin-users-form__section" data-user-password-section>
             <div class="admin-users-form__section-head">
                 <h4>Seguridad</h4>
                 <p>Define la contraseña inicial. Podrá cambiarla más adelante.</p>

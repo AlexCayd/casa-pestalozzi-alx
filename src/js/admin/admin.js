@@ -174,6 +174,7 @@
         }
 
         const nameEl = modal.querySelector('[data-modal-username]');
+        const selfWarning = modal.querySelector('[data-modal-self]');
         const input = modal.querySelector('[data-modal-input]');
         const confirmBtn = modal.querySelector('[data-modal-confirm]');
         const closers = modal.querySelectorAll('[data-modal-close]');
@@ -197,6 +198,12 @@
 
             if (nameEl) {
                 nameEl.textContent = targetName;
+            }
+
+            // Un admin puede borrarse a sí mismo mientras quede otro admin
+            // activo; el efecto colateral (perder la sesión) no es obvio.
+            if (selfWarning) {
+                selfWarning.hidden = button.getAttribute('data-user-self') !== '1';
             }
 
             input.value = '';
@@ -437,6 +444,8 @@
 
         validateButton.addEventListener('click', function () {
             prepareContext();
+            status.classList.remove('is-error', 'is-pending');
+
             if (!form.checkValidity()) {
                 status.textContent = 'Revisa los campos obligatorios antes de continuar.';
                 status.classList.add('is-error');
@@ -444,8 +453,42 @@
                 return;
             }
 
-            status.textContent = 'El reporte está completo. El envío quedará disponible cuando se conecte el backend.';
+            const datos = {};
+            new FormData(form).forEach(function (valor, clave) {
+                datos[clave] = valor;
+            });
+
+            validateButton.disabled = true;
+            status.textContent = 'Enviando el reporte…';
             status.classList.add('is-pending');
+
+            fetch('/admin/api/reportes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(datos)
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (resultado) {
+                    validateButton.disabled = false;
+                    status.classList.remove('is-pending');
+
+                    if (!resultado || !resultado.ok) {
+                        status.textContent = (resultado && resultado.msg) || 'No se pudo enviar el reporte.';
+                        status.classList.add('is-error');
+                        return;
+                    }
+
+                    // El folio se consulta en Configuración › Reportes del
+                    // sistema, que es donde se le da seguimiento.
+                    status.textContent = 'Reporte enviado. Puedes seguirlo en Configuración › Reportes del sistema.';
+                    form.reset();
+                })
+                .catch(function () {
+                    validateButton.disabled = false;
+                    status.classList.remove('is-pending');
+                    status.textContent = 'Error de conexión. Intenta de nuevo.';
+                    status.classList.add('is-error');
+                });
         });
 
         form.addEventListener('submit', function (event) {

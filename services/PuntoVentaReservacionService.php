@@ -22,6 +22,7 @@ final class PuntoVentaReservacionService
     public const TOLERANCIA_VIGENTE = 'TOLERANCIA_VIGENTE';
     public const REQUIERE_CONFIRMACION = 'REQUIERE_CONFIRMACION';
     public const TICKET_ABIERTO = 'TICKET_ABIERTO';
+    public const TICKET_CON_CONSUMO = 'TICKET_CON_CONSUMO';
     public const REQUIERE_REASIGNACION = 'REQUIERE_REASIGNACION';
     public const SIN_CAPACIDAD = 'SIN_CAPACIDAD';
     public const CONFLICTO_CONCURRENTE = 'CONFLICTO_CONCURRENTE';
@@ -592,6 +593,106 @@ final class PuntoVentaReservacionService
                 $db->rollback();
             }
             error_log('PuntoVentaReservacionService::cerrarTicket - ' . $e->getMessage());
+            return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
+        }
+    }
+
+    /**
+     * Libera una mesa cuyo ticket no llegó a tener consumo: borra el ticket y
+     * suelta las mesas.
+     *
+     * Cerrar esa cuenta la registraría como una venta de $0 y emitiría token de
+     * feedback por una experiencia que no existió, así que el ticket se elimina
+     * en lugar de cerrarse. Un ticket con productos NO se puede liberar: para
+     * eso está el cobro.
+     *
+     * Nota: movimientos_inventario.ticket_item_id no tiene FK, así que quedan
+     * filas huérfanas. En un ticket sin consumo los únicos ítems posibles son
+     * cancelados, cuyos pares venta/cancelacion se anulan, de modo que el stock
+     * queda correcto; solo se pierde la traza de auditoría.
+     */
+    public static function liberarMesa(int $ticketId, int $usuarioId): array
+    {
+        if ($ticketId < 1) {
+            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
+        }
+
+        $db = ActiveRecord::getDB();
+        $transaccion = false;
+        try {
+            $db->begin_transaction();
+            $transaccion = true;
+
+            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId} FOR UPDATE");
+            if (!$ticket) {
+                return self::rollbackResultado($db, $transaccion, self::NO_EXISTE);
+            }
+            // A propósito no es idempotente sobre 'cerrado': borrar un ticket
+            // ya pagado destruiría el registro de ingresos.
+            if ($ticket['estado'] !== 'abierto') {
+                return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+            }
+
+            $consumo = self::fila(
+                "SELECT COUNT(*) AS n FROM ticket_items
+                 WHERE ticket_id = {$ticketId} AND estado <> 'cancelado'"
+            );
+            // Un ticket con solo cancelados sí es liberable: tampoco hay consumo.
+            if ((int)($consumo['n'] ?? 0) > 0) {
+                return self::rollbackResultado($db, $transaccion, self::TICKET_CON_CONSUMO);
+            }
+
+            // Las mesas se leen antes del DELETE: ticket_mesas cae en cascada y
+            // el cliente necesita saber cuáles refrescar.
+            $mesaIds = [];
+            $resMesas = $db->query("SELECT mesa_id FROM ticket_mesas WHERE ticket_id = {$ticketId}");
+            if ($resMesas) {
+                while ($fila = $resMesas->fetch_assoc()) {
+                    $mesaIds[] = (int)$fila['mesa_id'];
+                }
+                $resMesas->free();
+            }
+
+            // Si la reservación se queda en 'en_curso', comenzar() hace
+            // short-circuit y devuelve el ticket_id de un ticket ya borrado:
+            // la mesa quedaría inservible. Se regresa a 'llego', que es el
+            // estado desde el que el personal puede reiniciar el servicio.
+            $reservacionId = $ticket['reservacion_id'] !== null ? (int)$ticket['reservacion_id'] : null;
+            if ($reservacionId) {
+                $reservacion = self::fila(
+                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
+                );
+                if ($reservacion && $reservacion['estado'] === 'en_curso') {
+                    self::actualizarReservacion(
+                        $db,
+                        $reservacionId,
+                        "estado = 'llego',
+                         status_changed_at = NOW(),
+                         last_modified_by = {$usuarioId},
+                         last_modified_source = 'personal',
+                         last_change_reason = 'Mesa liberada sin consumo'"
+                    );
+                }
+            }
+
+            // ticket_mesas, ticket_items, ticket_pagos y feedback_tokens caen
+            // en cascada por sus FK.
+            if (!$db->query("DELETE FROM tickets WHERE id = {$ticketId} LIMIT 1")) {
+                throw new \RuntimeException($db->error);
+            }
+            if ($db->affected_rows !== 1) {
+                throw new \RuntimeException('La liberación no borró exactamente un ticket.');
+            }
+
+            $db->commit();
+            $transaccion = false;
+
+            return ['ok' => true, 'codigo' => self::OK, 'mesa_ids' => $mesaIds];
+        } catch (\Throwable $e) {
+            if ($transaccion) {
+                $db->rollback();
+            }
+            error_log('PuntoVentaReservacionService::liberarMesa - ' . $e->getMessage());
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         }
     }

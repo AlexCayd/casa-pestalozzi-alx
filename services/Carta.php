@@ -23,7 +23,7 @@ class Carta
      *
      * Forma idéntica a la que ya consumían src/js/modules/menu.js y
      * views/home/_menu.php, para que no tengan que cambiar:
-     *   [{ id, label, img, dishes: [{ n, d, p, tags }] }]
+     *   [{ id, label, img, dishes: [{ n, d, p }] }]
      */
     public static function publica(): array
     {
@@ -31,7 +31,7 @@ class Carta
         $db = Producto::getDB();
         $res = $db->query(
             "SELECT c.id AS cat_id, c.nombre AS cat_nombre, c.img AS cat_img,
-                    p.id, p.nombre, p.descripcion, p.precio, p.tag
+                    p.id, p.nombre, p.descripcion, p.precio
                FROM productos p
                JOIN categorias c ON c.id = p.categoria_id
               WHERE p.activo = 1 AND c.activo = 1
@@ -60,7 +60,6 @@ class Carta
                 // (float) para que json_encode emita 240 y no "240.00":
                 // menu.js concatena '$' + d.p directamente.
                 'p'    => (float) $row['precio'],
-                'tags' => $row['tag'] ? [$row['tag']] : [],
             ];
         }
 
@@ -74,7 +73,7 @@ class Carta
      *
      * Se omiten descripción e imagen (el POS no las pinta) y el área viaja como
      * slug, que es lo que addToComanda resuelve contra window.CP_AREAS:
-     *   [{ id, label, dishes: [{ n, p, area, tags }] }]
+     *   [{ id, label, dishes: [{ n, p, area }] }]
      */
     public static function paraPos(): array
     {
@@ -82,7 +81,7 @@ class Carta
         $db = Producto::getDB();
         $res = $db->query(
             "SELECT c.id AS cat_id, c.nombre AS cat_nombre,
-                    p.nombre, p.precio, p.tag, ap.slug AS area_slug
+                    p.nombre, p.precio, ap.slug AS area_slug
                FROM productos p
                JOIN categorias c        ON c.id  = p.categoria_id
                JOIN areas_produccion ap ON ap.id = p.area_id
@@ -105,7 +104,6 @@ class Carta
                 'n'    => $row['nombre'],
                 'p'    => (float) $row['precio'],
                 'area' => $row['area_slug'],
-                'tags' => $row['tag'] ? [$row['tag']] : [],
             ];
         }
 

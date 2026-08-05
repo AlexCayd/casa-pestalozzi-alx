@@ -90,6 +90,22 @@
   min-width: 0;
 }
 
+// Sustituto del "Actualizado HH:MM" en el POS: solo el latido. Si el punto
+// late, el mapa está vivo; es todo lo que el mesero necesita saber de un
+// vistazo, y libera el ancho para el mapa.
+.operational-header__pulse {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c-lima, #8ac926);
+  animation: operational-live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operational-header__pulse { animation: none; }
+}
+
 .operational-header__back {
   display: inline-grid;
   width: 44px;

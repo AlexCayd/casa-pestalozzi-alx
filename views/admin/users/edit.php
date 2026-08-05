@@ -28,7 +28,11 @@
                 </svg>
                 Volver
             </a>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/change-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
+            <?php
+                $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? '');
+                $etiquetaCredencial = $rolUsuario === 'admin' ? 'Cambiar contraseña' : 'Cambiar NIP';
+            ?>
+            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-credencial?id=<?php echo $usuarioId; ?>"><?php echo $etiquetaCredencial; ?></a>
         </div>
     </header>
 

@@ -6,6 +6,7 @@ use Model\ConfiguracionAnuncio;
 use MVC\Router;
 use Services\AnuncioConfig;
 use Services\HorarioOperacionService;
+use Services\ReporteSistemaService;
 
 class AdminConfigurationController
 {
@@ -19,24 +20,29 @@ class AdminConfigurationController
         self::render('configuration/index', [
             'title' => 'Configuración',
             'topbarSection' => 'Configuración',
+            // 'acento' es un token de la paleta, no un hex: cada opción se
+            // reconoce por color antes de leer su título.
             'configuraciones' => [
                 [
                     'titulo' => 'Horarios de operación',
                     'descripcion' => 'Administra los días abiertos, horarios habituales y cierres especiales.',
                     'ruta' => self::HOURS_PATH,
                     'icono' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+                    'acento' => '--admin-c-azul',
                 ],
                 [
                     'titulo' => 'Anuncio principal',
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                    'acento' => '--admin-c-ambar',
                 ],
                 [
                     'titulo' => 'Reportes del sistema',
                     'descripcion' => 'Consulta y administra los problemas reportados por los usuarios.',
                     'ruta' => '/admin/configuracion/reportes',
                     'icono' => '<path d="M9 4h6l1 2h3v15H5V6h3l1-2Z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+                    'acento' => '--admin-c-magenta',
                 ],
             ],
         ]);
@@ -278,11 +284,48 @@ class AdminConfigurationController
 
     public static function reports(Router $router): void
     {
+        $resultado = (string) ($_GET['resultado'] ?? '');
+        $alertas = match ($resultado) {
+            'estado' => ['exito' => ['Estado del reporte actualizado.']],
+            'estado_invalido' => ['error' => ['No se pudo actualizar el reporte.']],
+            default => [],
+        };
+
         self::render('configuration/reports', [
             'title' => 'Reportes del sistema',
             'topbarSection' => 'Configuración',
-            'reportes' => [],
+            'reportes' => ReporteSistemaService::listar(),
+            'alertas' => $alertas,
         ]);
+    }
+
+    /** POST /admin/configuracion/reportes/estado — desde el modal de detalle. */
+    public static function reportStatus(Router $router): void
+    {
+        $resultado = ReporteSistemaService::cambiarEstado(
+            (int) ($_POST['id'] ?? 0),
+            (string) ($_POST['estado'] ?? '')
+        );
+
+        $query = ($resultado['ok'] ?? false) ? 'estado' : 'estado_invalido';
+        header('Location: /admin/configuracion/reportes?resultado=' . $query, true, 302);
+        exit;
+    }
+
+    /** POST /admin/api/reportes — envío del modal "Reportar un problema". */
+    public static function crearReporte(Router $router): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $datos = json_decode((string) file_get_contents('php://input'), true);
+        $datos = is_array($datos) ? $datos : $_POST;
+
+        $resultado = ReporteSistemaService::crear($datos, (int) ($_SESSION['id'] ?? 0));
+        if (!($resultado['ok'] ?? false)) {
+            http_response_code(($resultado['codigo'] ?? '') === ReporteSistemaService::DATOS_INVALIDOS ? 422 : 500);
+        }
+
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
     }
 
     private static function renderHours(array $data): void

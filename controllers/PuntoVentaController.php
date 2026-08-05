@@ -270,6 +270,20 @@ class PuntoVentaController {
         ));
     }
 
+    /**
+     * POST /api/liberar-mesa  { ticket_id }
+     *
+     * Para la mesa que se ocupó y no consumió: borra el ticket y suelta las
+     * mesas. Cerrarlo lo registraría como una venta de $0.
+     */
+    public static function liberarMesa(Router $router) {
+        $datos = self::entradaJson();
+        self::responder(PuntoVentaReservacionService::liberarMesa(
+            (int)($datos['ticket_id'] ?? 0),
+            (int)($_SESSION['id'] ?? 0)
+        ));
+    }
+
     // POST /admin/api/close-ticket
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
@@ -303,6 +317,8 @@ class PuntoVentaController {
 
         // No se cierra una cuenta con productos sin entregar: el mesero debe
         // haber entregado todo (los cancelados no cuentan) antes de cobrar.
+        // Desde que el mesero puede entregar cualquier producto sin esperar al
+        // área, esta regla es un recordatorio y no un bloqueo sin salida.
         // Se usa ejecutarSQL+fetch_assoc: consultarSQL descarta los alias como
         // "AS n" que no son propiedades del modelo.
         $pendientes = 0;
@@ -342,6 +358,17 @@ class PuntoVentaController {
             return;
         }
         $totalCents = (int)round($total * 100);
+
+        // Una cuenta sin consumo no es una venta de $0: es una mesa que se
+        // ocupó y no consumió. Para eso está "Liberar mesa", que borra el
+        // ticket en lugar de dejarlo en el histórico como cerrado.
+        if ($totalCents <= 0) {
+            echo json_encode([
+                'ok'  => false,
+                'msg' => 'La cuenta no tiene consumo. Usa "Liberar mesa" para dejar la mesa libre.',
+            ]);
+            return;
+        }
 
         $allowedMetodos = ['efectivo', 'tarjeta'];
         $pagosLimpios   = [];
@@ -395,11 +422,20 @@ class PuntoVentaController {
                 echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
                 return;
             }
-            // Sin monto recibido se asume pago exacto (sin propina).
-            if ($recibido === null) {
-                $recibido = $total;
+            // El monto recibido es obligatorio: cerrar sin capturarlo permitía
+            // dar por cobrada una cuenta que nadie contó. El cliente ofrece un
+            // botón "Exacto" para capturarlo de un toque.
+            if ($recibido === null || $recibido < 0) {
+                echo json_encode([
+                    'ok'    => false,
+                    'msg'   => 'Captura el monto recibido para cerrar la cuenta',
+                    'total' => $total,
+                ]);
+                return;
             }
-            if ((int)round($recibido * 100) < $totalCents - 1) {
+            // Sin la holgura de 1 centavo de la cuenta dividida: un importe
+            // tecleado no arrastra el redondeo de repartir().
+            if ((int)round($recibido * 100) < $totalCents) {
                 echo json_encode([
                     'ok'    => false,
                     'msg'   => 'El monto recibido ($' . number_format($recibido, 2) .
@@ -612,7 +648,17 @@ class PuntoVentaController {
         }
     }
 
-    // POST /admin/api/deliver-item  { item_id: X }
+    /**
+     * POST /api/entregar-item  { item_id: X }
+     *
+     * El mesero puede entregar cualquier producto del pedido sin importar en
+     * qué punto lo tenga el área: es él quien está frente a la mesa y sabe si
+     * el plato ya salió. Antes se exigía estado 'listo' y en horas pico eso
+     * dejaba la cuenta bloqueada esperando a que alguien tocara el tablero.
+     *
+     * El tablero del área sigue mostrando el registro en la columna Listos,
+     * marcado como entregado, para que producción vea que se lo llevaron.
+     */
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
@@ -627,9 +673,28 @@ class PuntoVentaController {
         try {
             TicketItem::ejecutarSQL(
                 "UPDATE ticket_items SET estado = 'entregado'
-                 WHERE id = {$itemId} AND estado = 'listo'"
+                 WHERE id = {$itemId} AND estado IN ('enviado','en_preparacion','listo')"
             );
-            echo json_encode(['ok' => true]);
+
+            // 'entregado' está fuera del conjunto del WHERE, así que toda fila
+            // que empareje cambia de verdad: affected_rows sirve como señal.
+            if (TicketItem::getDB()->affected_rows > 0) {
+                echo json_encode(['ok' => true]);
+                return;
+            }
+
+            $fila = TicketItem::consultarSQL(
+                "SELECT estado FROM ticket_items WHERE id = {$itemId} LIMIT 1"
+            )[0] ?? null;
+
+            if (!$fila) {
+                echo json_encode(['ok' => false, 'msg' => 'El producto ya no existe.']);
+            } elseif ($fila->estado === 'entregado') {
+                // Doble toque en la tablet: no es un error que valga una alerta.
+                echo json_encode(['ok' => true, 'ya_entregado' => true]);
+            } else {
+                echo json_encode(['ok' => false, 'msg' => 'El producto está cancelado y no se puede entregar.']);
+            }
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::entregarItem - ' . $e->getMessage());
             echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
@@ -828,6 +893,7 @@ class PuntoVentaController {
                 PuntoVentaReservacionService::TICKET_ABIERTO,
                 PuntoVentaReservacionService::ESTADO_INVALIDO,
                 PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
+                PuntoVentaReservacionService::TICKET_CON_CONSUMO,
             ], true) ? 409 : 422);
             $resultado['msg'] = $resultado['msg'] ?? (
                 !empty($resultado['bloqueo'])
@@ -846,6 +912,7 @@ class PuntoVentaController {
             PuntoVentaReservacionService::MESA_OCUPADA => 'Una de las mesas ya tiene un ticket abierto.',
             PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
             PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
+            PuntoVentaReservacionService::TICKET_CON_CONSUMO => 'La cuenta tiene productos. Ciérrala cobrando en lugar de liberar la mesa.',
             PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'La mesa tiene una reservación próxima. Confirma para continuar.',
             PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Reasigna mesas para continuar.',
             PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',

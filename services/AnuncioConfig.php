@@ -8,6 +8,15 @@ final class AnuncioConfig
 
     public const TIPO_PREDETERMINADO = 'evento';
 
+    /*
+     * `acento` alimenta --announcement-accent, que usan tanto la vista previa
+     * del admin como el anuncio real del landing.
+     *
+     * Los cuatro acentos anteriores eran variaciones de beige (#9fc2c5,
+     * #e0c184, #c9ab78, #b8b39f): un aviso operativo y una promoción se veían
+     * iguales. Ahora cada tipo toma un color de la paleta de marca (ver
+     * CLAUDE.md), que es justo el caso para el que existe.
+     */
     public const TIPOS = [
         'evento' => [
             'etiqueta' => 'Evento',
@@ -15,7 +24,7 @@ final class AnuncioConfig
             'ejemplo' => 'Este sábado tendremos música en vivo a partir de las 19:00 h.',
             'placeholder' => 'Describe el evento, la fecha y el horario.',
             'texto_enlace' => 'Reservar mesa',
-            'acento' => '#9fc2c5',
+            'acento' => '#aa2296',
             'icono' => '<path d="M8 3v3M16 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1Z"/><path d="M8 13h3M8 16h6"/>',
         ],
         'promocion' => [
@@ -24,7 +33,7 @@ final class AnuncioConfig
             'ejemplo' => 'Disfruta nuestra promoción especial durante todo julio.',
             'placeholder' => 'Describe la promoción y el periodo en que estará disponible.',
             'texto_enlace' => 'Conocer promoción',
-            'acento' => '#e0c184',
+            'acento' => '#fc6722',
             'icono' => '<path d="M20 12 12 20 4 12V4h8l8 8Z"/><circle cx="8.5" cy="8.5" r="1.25"/>',
         ],
         'novedad_menu' => [
@@ -33,7 +42,7 @@ final class AnuncioConfig
             'ejemplo' => 'Descubre nuestros nuevos platillos de temporada, disponibles por tiempo limitado.',
             'placeholder' => 'Presenta el nuevo platillo, menú o actualización de la carta.',
             'texto_enlace' => 'Ver menú',
-            'acento' => '#c9ab78',
+            'acento' => '#34a853',
             'icono' => '<path d="M6 3v8M3 3v5a3 3 0 0 0 6 0V3M6 11v10M16 3c2 2 3 5 3 8v2h-5V8c0-2 1-4 2-5ZM16 13v8"/>',
         ],
         'aviso_operativo' => [
@@ -42,7 +51,7 @@ final class AnuncioConfig
             'ejemplo' => 'Por trabajos de mantenimiento, nuestra terraza permanecerá cerrada temporalmente. El servicio continuará con normalidad en las áreas interiores.',
             'placeholder' => 'Explica el cambio operativo y cómo continuará el servicio.',
             'texto_enlace' => '',
-            'acento' => '#b8b39f',
+            'acento' => '#f5b400',
             'icono' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
         ],
     ];

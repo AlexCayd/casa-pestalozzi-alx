@@ -21,11 +21,16 @@
     }
 
     /*
-     * Paletas verificadas con el validador de la skill `dataviz` contra la
-     * superficie de cada tema (banda de luminosidad, piso de croma, separación
-     * bajo daltonismo, contraste). La anterior fallaba: en oscuro el verde
-     * #6cc24a y el dorado #f2b134 quedaban a ΔE 1.7 bajo protanopia, es decir,
-     * indistinguibles para un daltónico rojo-verde.
+     * Paleta de acento de la marca (ver CLAUDE.md), en pasos ajustados a la
+     * superficie de cada tema y verificados con el validador de la skill
+     * `dataviz`: banda de luminosidad, piso de croma, separación bajo
+     * daltonismo, piso de visión normal y contraste.
+     *
+     * El orden NO es arbitrario: alterna cálidos y fríos para que ninguna
+     * pareja adyacente colapse bajo deuteranopia. Turquesa y magenta juntos
+     * caían a ΔE 4.8, y verde y naranja juntos a 5.7. Al reordenar, la peor
+     * pareja adyacente queda en 13.5. Si se cambia un tono o el orden, hay que
+     * volver a correr el validador.
      *
      * `serie` (categórica) solo se usa donde la identidad de la serie ES el
      * dato: las dos donas. Las gráficas de magnitud van a un solo tono.
@@ -37,26 +42,37 @@
 
         if (dark) {
             return {
-                // ΔE mín. adyacente: 10.1 (protan) · 19.4 (visión normal)
-                serie: ['#4a8fd0', '#d4552e', '#0f8f70', '#bf8a20', '#9b62c8'],
-                ventas: '#0f8f70',
-                reservas: '#d4552e',
+                // Pasos de la paleta de marca ajustados a la superficie oscura
+                // (#15181a). Validado: ΔE mín. adyacente 13.5 (deutan) · 25.5
+                // (visión normal); banda de luminosidad, croma y contraste OK.
+                serie: ['#17A2AD', '#E05A18', '#3A86FF', '#C93DB2', '#34A853'],
+                ventas: '#34A853',
+                reservas: '#E05A18',
+                // Polo bajo del divergente respecto al promedio. Validado
+                // contra el verde: ΔE 6.5 (deutan) · 35.1 (visión normal).
+                bajoPromedio: '#E51022',
+                fillBajoPromedio: 'rgba(229, 16, 34, 0.18)',
                 muted: muted, surface: surface,
                 grid: 'rgba(237, 233, 223, 0.12)', tooltipBg: '#0b0c0d',
-                fillVentas: 'rgba(15, 143, 112, 0.20)',
-                fillReservas: 'rgba(212, 85, 46, 0.18)'
+                fillVentas: 'rgba(52, 168, 83, 0.20)',
+                fillReservas: 'rgba(224, 90, 24, 0.18)'
             };
         }
 
         return {
-            // ΔE mín. adyacente: 8.9 (protan) · 18.4 (visión normal)
-            serie: ['#3480c9', '#c94a30', '#0f8266', '#b07d1c', '#8c57b8'],
-            ventas: '#0f8266',
-            reservas: '#c94a30',
+            // Mismos tonos un paso más oscuros para contrastar contra #fdfcfb.
+            // Validado: ΔE mín. adyacente 13.0 (deutan) · 24.4 (visión normal).
+            serie: ['#0895A2', '#CC4E12', '#2A73E8', '#B32F9E', '#2A9247'],
+            ventas: '#2A9247',
+            reservas: '#CC4E12',
+            // Un paso más oscuro que --c-rojo: el #e51022 puro contra el verde
+            // claro caía a ΔE 5.6 (deutan), por debajo del piso. Este da 6.1.
+            bajoPromedio: '#C40E1D',
+            fillBajoPromedio: 'rgba(196, 14, 29, 0.14)',
             muted: muted, surface: surface,
             grid: 'rgba(118, 111, 101, 0.18)', tooltipBg: '#211f1b',
-            fillVentas: 'rgba(15, 130, 102, 0.16)',
-            fillReservas: 'rgba(201, 74, 48, 0.14)'
+            fillVentas: 'rgba(42, 146, 71, 0.16)',
+            fillReservas: 'rgba(204, 78, 18, 0.14)'
         };
     }
 
@@ -111,28 +127,96 @@
         var data = applyFiltersToData(rawData);
         var palette = themePalette();
 
-        // Tendencia de una sola serie: línea fina de 2px, marcador visible al
-        // pasar el cursor y relleno tenue del mismo tono.
+        /*
+         * Ventas por día contra el promedio del periodo.
+         *
+         * Deja de ser una serie de magnitud y pasa a ser divergente: lo que se
+         * lee es si el día quedó por encima o por debajo de la media. Por eso
+         * hay dos polos (verde / rojo) y un punto neutro (la línea punteada).
+         *
+         * El par verde–rojo separa ΔE 6.5 bajo deuteranopia, dentro de la banda
+         * que solo es admisible con codificación secundaria. La aporta la
+         * propia línea de promedio: estar arriba o abajo de ella es una lectura
+         * de posición que no depende del color, y el tooltip dice la cifra.
+         */
+        var ventasDia = data.salesByDay.values || [];
+        var promedioVentas = ventasDia.length
+            ? ventasDia.reduce(function (total, valor) { return total + valor; }, 0) / ventasDia.length
+            : 0;
+
+        function tonoPorPromedio(valor) {
+            return valor >= promedioVentas ? palette.ventas : palette.bajoPromedio;
+        }
+
         createChart('salesByDayChart', {
             type: 'line',
             data: {
                 labels: data.salesByDay.labels,
-                datasets: [{
-                    label: 'Ventas',
-                    data: data.salesByDay.values,
-                    borderColor: palette.ventas,
-                    backgroundColor: palette.fillVentas,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBorderWidth: 2,
-                    pointHoverBorderColor: palette.surface,
-                    pointHoverBackgroundColor: palette.ventas,
-                    fill: true,
-                    tension: 0.35
-                }]
+                datasets: [
+                    {
+                        label: 'Promedio del periodo',
+                        data: ventasDia.map(function () { return promedioVentas; }),
+                        borderColor: palette.muted,
+                        borderWidth: 1.5,
+                        borderDash: [6, 4],
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false,
+                        tension: 0
+                    },
+                    {
+                        label: 'Ventas',
+                        data: ventasDia,
+                        borderColor: palette.ventas,
+                        borderWidth: 2,
+                        // Cada tramo toma el color del extremo más bajo: un
+                        // tramo que cruza la media se pinta en rojo, que es la
+                        // lectura prudente.
+                        segment: {
+                            borderColor: function (ctx) {
+                                var desde = ctx.p0.parsed.y;
+                                var hasta = ctx.p1.parsed.y;
+                                return tonoPorPromedio(Math.min(desde, hasta));
+                            }
+                        },
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBorderWidth: 2,
+                        pointHoverBorderColor: palette.surface,
+                        pointHoverBackgroundColor: function (ctx) {
+                            return tonoPorPromedio(ctx.parsed ? ctx.parsed.y : 0);
+                        },
+                        fill: {
+                            target: { value: promedioVentas },
+                            above: palette.fillVentas,
+                            below: palette.fillBajoPromedio
+                        },
+                        tension: 0.35
+                    }
+                ]
             },
-            options: baseOptions(palette)
+            // Dos series: la leyenda deja de ser opcional. Es lo que nombra la
+            // línea punteada, sin la cual el color no significa nada.
+            options: baseOptions(palette, {
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            color: palette.muted,
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            usePointStyle: false
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: palette.tooltipBg,
+                        padding: 12,
+                        titleColor: '#fff',
+                        bodyColor: '#fff'
+                    }
+                }
+            })
         });
 
         // Magnitud, no identidad: un solo tono. Pintar cada barra de un color

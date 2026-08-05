@@ -58,7 +58,7 @@ class Analiticas
             $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
 
             $res = $db->query(
-                "SELECT p.id, p.nombre, p.precio, p.tag, c.nombre AS categoria,
+                "SELECT p.id, p.nombre, p.precio, c.nombre AS categoria,
                         SUM(ti.cantidad) AS unidades
                    FROM ticket_items ti
                    JOIN tickets t    ON t.id = ti.ticket_id
@@ -84,7 +84,6 @@ class Analiticas
                 $prods[] = [
                     'nombre'    => $r['nombre'],
                     'categoria' => $r['categoria'],
-                    'tag'       => $r['tag'],
                     'unidades'  => $unidades,
                     'precio'    => $precio,
                     'costo'     => $costo,
@@ -140,7 +139,6 @@ class Analiticas
                 $fila = [
                     'nombre'     => $p['nombre'],
                     'categoria'  => $cat,
-                    'tag'        => $p['tag'],
                     'unidades'   => $p['unidades'],
                     'popularidad' => round($popPct, 1),
                     'precio'     => round($p['precio'], 2),

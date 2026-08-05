@@ -166,8 +166,6 @@ DROP TEMPORARY TABLE productos_semilla;
 -- Menú completo
 -- -------------------------------------------------------
 
-INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
-
 --
 -- Sustituye al par 'productos' + 'menu', que guardaban lo mismo por duplicado:
 -- borrar un platillo de la carta no lo quitaba del punto de venta.
@@ -176,251 +174,261 @@ INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
 -- categorías 9 y 10 van sin descripción: en la carta se imprimen solo con
 -- nombre y precio.
 --
+-- El INSERT de arriba ya dio de alta todos los platillos con su precio y área;
+-- este solo aporta la descripción, así que choca a propósito contra el UNIQUE
+-- de nombre y resuelve con ON DUPLICATE KEY. Sin eso el script moría aquí con
+-- "Duplicate entry" en cualquier base creada desde cero.
+--
 -- categoria_id: 1 Desayunos · 2 Entradas · 3 Sopas & Cremas · 4 Pastas · 5 Platos Fuertes
 --               6 Ensaladas · 7 Pizzas · 8 Para Picar · 9 Café & Bebidas · 10 Jugos & Smoothies
 -- area_id:      1 Barra de Café · 2 Barra de Jugos · 3 Cocina · 4 Horno Napolitano
-INSERT INTO productos (nombre, descripcion, categoria_id, precio, tag, area_id) VALUES
+INSERT INTO productos (nombre, descripcion, categoria_id, precio, area_id) VALUES
 -- Desayunos (categoria_id = 1)
 ('Enmoladas',
  'Rellenas de pollo (70 gr.) con láminas de plátano macho, crema, queso y aros de cebolla bañadas en mole negro de Oaxaca.',
- 1, 240.00, 'Especialidad C.P.', 3),
+ 1, 240.00, 3),
 ('Enchiladas Suizas',
  'Enchiladas verdes rellenas de pollo (70 gr.), gratinadas con queso gouda, crema y aros de cebolla.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Cecina y Huevo con Chorizo',
  'Cecina (130 gr.), huevos revueltos (2 pzas) con chorizo, acompañados de frijoles refritos con queso.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Cazuela Cascabel',
  '3 huevos estrellados o revueltos en salsa de chile cascabel, queso oaxaca gratinado, aguacate y una rebanada de pan hogaza.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Sopes con Cecina o Arrachera',
  '3 sopes hechos a mano con frijoles, lechuga, crema, queso y cecina (130 gr.). Cambio de proteína con arrachera (150 gr.) +$40.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Enfrijoladas',
  'Rellenas de huevo revuelto, bañadas con salsa de frijol, chorizo, crema y queso.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Huevos al Parmesano',
  '2 huevos estrellados acompañados con espárragos blanqueados, arúgula, tocino y parmesano rallado.',
- 1, 210.00, 'Brunch', 3),
+ 1, 210.00, 3),
 ('Omelette Fitness',
  'Claras de huevo (2 pzas), espinaca, queso de cabra y láminas de aguacate.',
- 1, 190.00, NULL, 3),
+ 1, 190.00, 3),
 ('Toast de Salmón Ahumado',
  'Pan brioche, crema ácida, salmón ahumado (70 gr.), ajonjolí, 1 huevo estrellado, espárragos y aguacate.',
- 1, 230.00, 'Estrella', 3),
+ 1, 230.00, 3),
 ('Pan Francés Estilo C.P.',
  'Base de pan brioche con crema dulce, frutos rojos y miel de maple.',
- 1, 210.00, 'Dulce', 3),
+ 1, 210.00, 3),
 ('Huevos Módena',
  '2 huevos revueltos o estrellados con tocino, queso parmesano y arúgula.',
- 1, 190.00, NULL, 3),
+ 1, 190.00, 3),
 ('Huevos Italianos',
  '2 huevos en omelette, jamón serrano, láminas de queso parmesano y arúgula.',
- 1, 190.00, NULL, 3),
+ 1, 190.00, 3),
 ('Huevos Pamplona',
  '2 huevos en omelette con chorizo español de pamplona, arúgula y queso mozarella fresco.',
- 1, 190.00, NULL, 3),
+ 1, 190.00, 3),
 ('Huevos al Sano',
  '2 huevos en omelette con jamón de pavo, arúgula, queso mozarella fresco y jitomate cherry.',
- 1, 190.00, NULL, 3),
+ 1, 190.00, 3),
 ('Huevos al Gusto',
  'Rancheros, a la mexicana, divorciados, al albañil, con tocino, con chorizo o con jamón.',
- 1, 180.00, NULL, 3),
+ 1, 180.00, 3),
 ('Molletes',
  '4 piezas de pan baguette con frijoles y queso manchego, acompañado de pico de gallo.',
- 1, 100.00, NULL, 3),
+ 1, 100.00, 3),
 ('Casa Pestalozzi',
  '½ orden de chilaquiles (40 gr.) con salsa al gusto, crema, queso y 2 huevos revueltos.',
- 1, 180.00, NULL, 3),
+ 1, 180.00, 3),
 ('Chilaquiles',
  'Verdes, rojos o salsa de la casa, con pollo (30 gr.) o huevo (1 pza), queso, crema y cebolla morada. Con arrachera +$90 · con cecina +$65.',
- 1, 180.00, NULL, 3),
+ 1, 180.00, 3),
 ('Baguette de Jamón Serrano',
  'Jamón serrano, láminas de parmesano, casse de jitomate y arúgula.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Baguette de Magret de Pollo',
  'Pollo a la plancha con queso gouda, rodajas de jitomate, mix de lechuga y aderezo cipriani.',
- 1, 220.00, NULL, 3),
+ 1, 220.00, 3),
 ('Baguette con Arrachera',
  'Arrachera (150 gr.), cremoso de aguacate con un toque de chipotle y mix de lechugas.',
- 1, 230.00, NULL, 3),
+ 1, 230.00, 3),
 ('Croissant con Jamón de Pavo',
  'Pechuga de pavo (120 gr.), queso gouda, aderezo cipriani, jitomate y mix de lechugas.',
- 1, 165.00, NULL, 3),
+ 1, 165.00, 3),
 ('Croissant con Huevo y Estragón',
  '2 pzas de huevo revuelto con estragón y mix de lechugas.',
- 1, 140.00, NULL, 3),
+ 1, 140.00, 3),
 ('Baguette de Cochinita',
  'Cochinita (150 gr.), cebolla encurtida y habanero.',
- 1, 210.00, NULL, 3),
+ 1, 210.00, 3),
 ('Plato de Fruta Mixta',
  'Fruta de temporada.',
- 1, 110.00, NULL, 2),
+ 1, 110.00, 2),
 ('Copa Antioxidante',
  'Fresa, frambuesa, mora y zarzamora con yogurt y granola hecha en casa.',
- 1, 130.00, NULL, 2),
+ 1, 130.00, 2),
 
 -- Entradas (categoria_id = 2)
 ('Aros de Calamar',
  'Empanizados, aderezo cipriani, chiles cuaresmeños y limón eureka.',
- 2, 210.00, 'Especialidad C.P.', 3),
+ 2, 210.00, 3),
 ('Tostadas de Atún',
  '3 tostaditas con cubos de atún marinado en salsa oriental, cremoso de aguacate y poro.',
- 2, 195.00, 'Especialidad C.P.', 3),
+ 2, 195.00, 3),
 ('Torreta de Salmón',
  'Salmón ahumado, queso cabra, aguacate, jitomate con aderezo de pesto de albahaca.',
- 2, 220.00, 'Especialidad C.P.', 3),
+ 2, 220.00, 3),
 ('Tiradito de Atún',
  'Láminas de atún, aceite de chile, mayonesa spicy, toronja y eneldo.',
- 2, 210.00, NULL, 3),
+ 2, 210.00, 3),
 ('Carpaccio de Salmón',
  'Finas láminas de salmón ahumado, arúgula, queso parmesano, alcaparras, limón eureka y jitomate cherry.',
- 2, 180.00, NULL, 3),
+ 2, 180.00, 3),
 ('Camarones al Ajillo',
  'Salteados al olivo, ajo, peperoncino con pan de baguette.',
- 2, 210.00, NULL, 3),
+ 2, 210.00, 3),
 ('Espárragos al Horno',
  'Queso gouda, tocino con reducción de balsámico.',
- 2, 180.00, NULL, 4),
+ 2, 180.00, 4),
 ('Queso Burrata con Jitomates Cherrys',
  'Queso burrata con jitomates cherrys al horno, aceite de oliva, poro y hojas de albahaca.',
- 2, 210.00, NULL, 4),
+ 2, 210.00, 4),
 
 -- Sopas & Cremas (categoria_id = 3)
 ('Crema del Día',
  'Nuestras cremas y sopas son elaboradas por temporada y en nuestros especiales de fin de semana. Pregunta al mesero por la opción del día.',
- 3, 180.00, 'Temporada', 3),
+ 3, 180.00, 3),
 ('Sopa Especial de Fin de Semana',
  'Receta de la casa, elaborada con ingredientes frescos de temporada. Disponible sábados y domingos.',
- 3, 180.00, 'Fin de semana', 3),
+ 3, 180.00, 3),
 
 -- Pastas (categoria_id = 4)
 ('Fetuccini a los Cuatro Quesos y Camarones',
  'Queso brie, parmesano, queso crema y queso gouda.',
- 4, 280.00, 'Especialidad C.P.', 3),
+ 4, 280.00, 3),
 ('Lasagna de Filete de Res',
  'Cocción a baja temperatura por 3 horas con ingredientes 100% italianos.',
- 4, 280.00, 'Especialidad C.P.', 3),
+ 4, 280.00, 3),
 ('Rigatoni al Limón con Camarones y Parmesano',
  'Camarones salteados con vino blanco, mantequilla, ralladura de limón eureka y toque de albahaca.',
- 4, 280.00, 'Estrella', 3),
+ 4, 280.00, 3),
 ('Spaguetti a l''Arrabbiata con Camarones y Parmesano',
  'Salsa de pomodoro con peperoncino.',
- 4, 280.00, NULL, 3),
+ 4, 280.00, 3),
 ('Spaguetti a la Boloñesa',
  'Cocción a baja temperatura por 3 horas con ingredientes 100% italianos.',
- 4, 280.00, NULL, 3),
+ 4, 280.00, 3),
 ('Spaguetti al Pomodoro y Parmesano',
  'Pasta, salsa de jitomate y parmesano.',
- 4, 190.00, NULL, 3),
+ 4, 190.00, 3),
 
 -- Platos Fuertes (categoria_id = 5)
 ('Filete de Res en su Jugo',
  'Filete de res importado en su jugo con puré de papa rústico y espárragos al horno.',
- 5, 320.00, 'Especialidad C.P.', 3),
+ 5, 320.00, 3),
 ('Salmón al Horno',
  'Salmón noruego sazonado con ajo y aceite de oliva. Acompaña con media orden de pasta o ensalada.',
- 5, 295.00, NULL, 3),
+ 5, 295.00, 3),
 ('Hamburguesa de la Casa',
  'Carne wagyu, pan brioche hecho en C.P., cebolla caramelizada, queso cheddar, mayonesa ahumada, pepinillo encurtido. Acompaña con papas gajo.',
- 5, 260.00, 'Especialidad C.P.', 3),
+ 5, 260.00, 3),
 ('Atún Sellado',
  'Atún importado, sellado en costra de pistache, aderezo cipriani. Acompaña con mix de lechugas.',
- 5, 285.00, NULL, 3),
+ 5, 285.00, 3),
 ('Tacos de Cochinita',
  'Tres tacos de tortilla de maíz hechas a mano, frijol, cebolla y habanero encurtido.',
- 5, 210.00, 'Especialidad C.P.', 3),
+ 5, 210.00, 3),
 ('Tacos de Vacío',
  'Vacío importado, tortillas hechas a mano, salsa de piña con habanero y aguacate.',
- 5, 210.00, NULL, 3),
+ 5, 210.00, 3),
 ('Tacos de Camarón Rebozados',
  'Tres tortillas de harina, camarones rebozados, col morada y aderezo de chipotle.',
- 5, 240.00, NULL, 3),
+ 5, 240.00, 3),
 ('Vacío en Escalopas',
  'Vacío importado en escalopas, arúgula, láminas de parmesano y reducción de bálsamico.',
- 5, 280.00, 'Especialidad C.P.', 3),
+ 5, 280.00, 3),
 ('New York (450 grs.)',
  'Carne calidad choice angus, cebollitas asadas, chiles toreados y papas a la francesa.',
- 5, 785.00, 'Premium', 3),
+ 5, 785.00, 3),
 ('Rib Eye (450 grs.)',
  'Carne calidad choice angus, cebollitas asadas, chiles toreados y papas a la francesa.',
- 5, 785.00, 'Premium', 3),
+ 5, 785.00, 3),
 
 -- Ensaladas (categoria_id = 6)
 ('Frutos Rojos',
  'Mix de lechugas, frambuesas, zarzamoras, fresas, queso cabra, nuez y reducción de balsámico.',
- 6, 210.00, NULL, 3),
+ 6, 210.00, 3),
 ('Ciruela Betabel',
  'Mix de lechugas, ciruela y betabel sazonado con estragón, queso burrata y almendras horneadas.',
- 6, 210.00, 'Especialidad C.P.', 3),
+ 6, 210.00, 3),
 ('Magret de Pollo',
  'Pechuga de pollo prensada, lechuga baby asada, almendras horneadas con aderezo de queso.',
- 6, 210.00, 'Especialidad C.P.', 3),
+ 6, 210.00, 3),
 ('Jamón Serrano con Perlas de Melón',
  'Mix de lechugas, perlas de melón, jamón serrano, nuez y reducción de balsámico.',
- 6, 210.00, NULL, 3),
+ 6, 210.00, 3),
 ('Pasta Corta con Pollo',
  'Mix de lechuga con cremoso de aguacate y almendras horneadas.',
- 6, 210.00, NULL, 3),
+ 6, 210.00, 3),
 
 -- Pizzas (categoria_id = 7)
 ('Margarita',
  'Pomodoro, mozzarella y albahaca.',
- 7, 190.00, NULL, 4),
+ 7, 190.00, 4),
 ('Burrata',
  'Pomodoro, burrata, prosciutto y arúgula.',
- 7, 260.00, 'Favorita', 4),
+ 7, 260.00, 4),
 ('Milano',
  'Pomodoro, mozzarella, jitomates cherrys, salami y láminas de parmesano.',
- 7, 260.00, NULL, 4),
+ 7, 260.00, 4),
 ('Camarones a los 4 Quesos',
  'Salsa de 4 quesos, queso mozzarella y camarones.',
- 7, 260.00, NULL, 4),
+ 7, 260.00, 4),
 
 -- Para Picar (categoria_id = 8)
 ('Mix de 3 Brusquetas',
  'Jamón serrano, queso brie, anchoas.',
- 8, 160.00, '3 piezas', 3),
+ 8, 160.00, 3),
 ('Aceitunas Temperadas con Aceite de Chile',
  'Aceitunas verdes en aceite de chiles.',
- 8, 160.00, NULL, 3),
+ 8, 160.00, 3),
 ('Tabla Mixta',
  'Queso parmesano, brie, manchego, chorizo salamanca, semillas, frutos rojos.',
- 8, 320.00, NULL, 3),
+ 8, 320.00, 3),
 ('Papas a la Francesa con Parmesano',
  'Papas a la francesa con queso parmesano rallado.',
- 160.00, NULL, 3);
+ 8, 160.00, 3)
+ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 
--- `productos` es la fuente funcional consumida por carta, PDF y POS. La tabla
--- de compatibilidad aporta las descripciones del catálogo anterior.
-UPDATE productos p
-LEFT JOIN menu m ON m.nombre = p.nombre
-SET p.descripcion = COALESCE(NULLIF(m.descripcion, ''), CONCAT(p.nombre, '.')),
-    p.tag = m.tag;
+-- Las bebidas se sembraron sin descripción a propósito, pero `descripcion` no
+-- puede quedar vacía para la carta ni el PDF: se rellena con el nombre.
+UPDATE productos SET descripcion = CONCAT(nombre, '.')
+WHERE descripcion IS NULL OR descripcion = '';
 
 -- -------------------------------------------------------
 -- Usuarios demo
--- admin_demo entra en /admin/login con password: Pestalozzi2026
+-- admin_demo entra en /login (pestaña Contraseña) con password: Pestalozzi2026
 -- (el resto conserva un bcrypt de prueba sin password conocida)
 -- -------------------------------------------------------
 
--- ids implícitos por orden: 1 admin, 2 observer, 3-4 y 6-7 meseros activos,
--- 5 cajero, 8 mesero inactivo. Tres meseros activos para comparar rendimiento.
-INSERT INTO usuarios (username, nombre, password_hash, rol, activo) VALUES
-('admin_demo',      'Administrador Demo',  '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',    1),
-('observador1',     'Observador General',  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'observer', 1),
-('mesero1',         'Carlos Hernández',    '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('mesero2',         'Valeria Ríos',        '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('cajero1',         'Mariana López',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cashier',  1),
-('mesero3',         'Emilio Cárdenas',     '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('mesero_inactivo', 'Daniel Torres',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   0);
+-- ids implícitos por orden: 1 admin, 2-3 y 5-6 meseros activos, 4 cocinero,
+-- 7 mesero inactivo. Tres meseros activos para comparar rendimiento.
+--
+-- Las fechas de nacimiento están elegidas para que su DDMM no choque entre sí
+-- ni con los NIP fijados abajo: así la semilla ejercita los dos caminos, el
+-- NIP explícito y el derivado del cumpleaños.
+INSERT INTO usuarios (username, nombre, fecha_nacimiento, password_hash, rol, activo) VALUES
+('admin_demo',      'Administrador Demo',  '1985-06-12', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',  1),
+('mesero1',         'Carlos Hernández',    '1993-11-23', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('mesero2',         'Valeria Ríos',        '1996-02-17', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('cocinero1',       'Mariana López',       '1991-09-05', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cook',   1),
+('mesero3',         'Emilio Cárdenas',     '1998-07-30', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('mesero_inactivo', 'Daniel Torres',       '1994-12-03', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 0);
 
--- NIP de acceso demo del personal de piso (hasheado con bcrypt), para /login:
---   observador1 → 5678 · mesero1 → 2345 · cajero1 → 3456
--- El admin NO usa NIP: entra en /admin/login con usuario + password.
-UPDATE usuarios SET nip_hash = '$2y$12$cn/3L8mkab6QsELxVwjUY.l9X32LeGBtHW0r0MKQEW/LH9doaPgoa' WHERE username = 'observador1';
+-- NIP de acceso demo del personal de piso (bcrypt de 4 dígitos), para /login:
+--   mesero1 → 2345 · cocinero1 → 3456
+--   mesero2 → 1702 · mesero3 → 3007  (ambos son el DDMM de su cumpleaños)
+-- El admin NO usa NIP: entra en /login, pestaña de administrador, con
+-- usuario + password.
 UPDATE usuarios SET nip_hash = '$2y$12$Jkhr3umCEYaNQY4OSGedgOu5eHImaGx1PtjXSMY9hXn3Zqu1OmReW' WHERE username = 'mesero1';
-UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cajero1';
+UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cocinero1';
+UPDATE usuarios SET nip_hash = '$2y$12$wbcjrmcyjQqdNQ3l24.zK.FUHBaX55O6866E40kAueBYyiSyiTgxO' WHERE username = 'mesero2';
+UPDATE usuarios SET nip_hash = '$2y$12$ACcHQkJyV/2dXYaxohNsVOz7V3XWaQXgVMAnJoaJOwnbY6coSjjEW' WHERE username = 'mesero3';
 
 -- -------------------------------------------------------
 -- Tickets de ejemplo (para /admin/tickets)
@@ -738,8 +746,8 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- -------------------------------------------------------
 -- RENDIMIENTO DE MESEROS (para /admin/feedback)
 --
--- Enlaza tickets cerrados a los tres meseros activos (3 Carlos, 4 Valeria,
--- 6 Emilio) y siembra propina para que el % por mesero difiera:
+-- Enlaza tickets cerrados a los tres meseros activos (Carlos, Valeria y
+-- Emilio) y siembra propina para que el % por mesero difiera:
 --   Carlos  ~17%   ·  Valeria ~12%   ·  Emilio ~8%
 -- La atencion sale del feedback ya sembrado (solo referencia tickets 1,2,3,5,8),
 -- por eso cada mesero recibe al menos uno de esos tickets historicos ademas de
@@ -748,20 +756,23 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- cancelados) via subconsulta correlacionada, para que sea autoconsistente.
 -- -------------------------------------------------------
 
--- Carlos Hernández (mesero 3) — propinero alto (~17%)
-UPDATE tickets t SET t.mesero_id = 3,
+-- El id se resuelve por username: quitar un usuario de la semilla recorría los
+-- ids implícitos y estos UPDATE quedaban apuntando al mesero equivocado.
+
+-- Carlos Hernández — propinero alto (~17%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero1'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.17, 2)
 WHERE t.id IN (1, 3, 101, 102, 103, 104, 105, 106);
 
--- Valeria Ríos (mesero 4) — propina media (~12%)
-UPDATE tickets t SET t.mesero_id = 4,
+-- Valeria Ríos — propina media (~12%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero2'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.12, 2)
 WHERE t.id IN (2, 5, 107, 108, 109, 110, 111, 112);
 
--- Emilio Cárdenas (mesero 6) — propina baja (~8%)
-UPDATE tickets t SET t.mesero_id = 6,
+-- Emilio Cárdenas — propina baja (~8%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero3'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);

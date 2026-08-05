@@ -37,7 +37,7 @@
         transform var(--admin-t-fast) var(--admin-ease-out);
 
     &:hover {
-        border-color: rgba(160, 126, 54, 0.42);
+        border-color: color-mix(in srgb, var(--admin-gold-deep) 42%, transparent);
         background: var(--admin-surface-strong);
         box-shadow: var(--admin-shadow-md);
         transform: translateY(-1px);
@@ -93,7 +93,7 @@
 
 .admin-btn--secondary,
 .admin-menu__button--light {
-    border-color: rgba(160, 126, 54, 0.36);
+    border-color: color-mix(in srgb, var(--admin-gold-deep) 36%, transparent);
     background: var(--admin-btn-secondary-bg);
     color: var(--admin-text);
 }
@@ -131,14 +131,14 @@
 
 // Variante dorada (acento de marca) para acciones destacadas como "Guardar".
 .admin-btn--gold {
-    border-color: var(--admin-gold-deep, #a07e36);
+    border-color: var(--admin-gold-deep);
     background: var(--admin-gold);
-    color: #1b1a17;
+    color: var(--admin-ink-on-gold);
 
     &:hover {
-        border-color: var(--admin-gold-deep, #a07e36);
-        background: var(--admin-gold-soft, #e0c184);
-        color: #1b1a17;
+        border-color: var(--admin-gold-deep);
+        background: var(--admin-gold-soft);
+        color: var(--admin-ink-on-gold);
         transform: translateY(-1px);
     }
 }
@@ -175,11 +175,11 @@
 // (0,1,0) y el dorado nunca llega a pintarse.
 .admin-body .admin-btn--gold {
     background-color: var(--admin-gold);
-    color: #1b1a17;
+    color: var(--admin-ink-on-gold);
 
     &:hover {
-        background-color: var(--admin-gold-soft, #e0c184);
-        color: #1b1a17;
+        background-color: var(--admin-gold-soft);
+        color: var(--admin-ink-on-gold);
     }
 }
 
@@ -249,8 +249,8 @@
 
     &:hover {
         box-shadow:
-            0 0 0 1px rgba(160, 126, 54, 0.4),
-            0 6px 18px rgba(11, 12, 13, 0.08);
+            0 0 0 1px color-mix(in srgb, var(--admin-gold-deep) 40%, transparent),
+            0 6px 18px color-mix(in srgb, var(--admin-text) 8%, transparent);
     }
 }
 

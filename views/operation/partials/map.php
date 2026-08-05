@@ -18,8 +18,10 @@ $mapToolbarActionsHtml = (string)($mapVisual['toolbarActionsHtml'] ?? ($mapVisua
 $mapCanvasId = trim((string)($mapVisual['canvasId'] ?? ''));
 $mapCanvasMode = (string)($mapVisual['canvasMode'] ?? 'map');
 $mapLoadingMode = (string)($mapVisual['loadingMode'] ?? 'empty');
+// 'none' deja el mapa sin leyenda: lo usa el POS, donde el color de la mesa es
+// la única nomenclatura.
 $mapLegendPosition = (string)($mapVisual['legendPosition'] ?? 'header');
-$mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer'], true) ? $mapLegendPosition : 'header';
+$mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer', 'none'], true) ? $mapLegendPosition : 'header';
 $mapShowHeading = $mapTitle !== '' || $mapSubtitle !== '';
 $mapHeadClass = $mapToolbarActionsHtml !== '' ? ' operational-map-head--with-trigger' : '';
 $mapHeadClass .= !$mapShowHeading ? ' operational-map-head--legend-only' : '';

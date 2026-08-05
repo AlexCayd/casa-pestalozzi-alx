@@ -182,13 +182,22 @@ function initMapa() {
   }
 
   // ── Select de meseros registrados (se asigna al abrir el ticket) ──
+  // Quien abre la mesa suele ser quien la atiende, así que viene preseleccionado
+  // si está en la lista. Sigue siendo editable: un admin puede abrir la mesa a
+  // nombre de otro, y en ese caso solo cambia el select.
   function buildMeseroSelectHtml() {
+    var actual = window.CP_USER || {};
+    var actualId = parseInt(actual.id, 10);
+    var preseleccionable = actual.rol === 'waiter' || actual.rol === 'admin';
+
     var h = '<div class="mmodal-name-wrap">';
     h += '<div class="mmodal-label">Mesero</div>';
     h += '<select class="mmodal-name-input" id="mmodal-mesero">';
     h += '<option value="">— Sin asignar —</option>';
     for (var i = 0; i < meseros.length; i++) {
-      h += '<option value="' + meseros[i].id + '">' + escHtml(meseros[i].nombre) + '</option>';
+      var seleccionado = preseleccionable && parseInt(meseros[i].id, 10) === actualId;
+      h += '<option value="' + meseros[i].id + '"' + (seleccionado ? ' selected' : '') + '>' +
+           escHtml(meseros[i].nombre) + '</option>';
     }
     h += '</select>';
     h += '</div>';
@@ -602,35 +611,24 @@ function initMapa() {
         ? 'ocupada'
         : (estado === 'bloqueada' ? 'bloqueada' : 'disponible'));
     var modifiers = [];
+    // Sin indicadores: los círculos T/W/P/B sobre la mesa obligaban a aprender
+    // una nomenclatura y tapaban el nombre. La misma información la lleva ahora
+    // el propio pin (color, borde y trama) por las clases mesa-pin--mod-*, y el
+    // detalle completo sigue en el title de la mesa.
     var indicators = [];
 
     if (ticket) {
       modifiers.push('ticket_abierto');
-      indicators.push({ tipo: 'ticket_abierto', label: 'Servicio activo', simbolo: 'T' });
       if (ticket.origen === 'walk_in') {
         modifiers.push('walk_in');
-        indicators.push({ tipo: 'walk_in', label: 'Walk-in', simbolo: 'W' });
       }
       if ((ticket.mesa_ids || []).length > 1) {
         // Expone la relación N:M sin sustituir el estado físico principal.
         modifiers.push('varias_mesas');
-        indicators.push({
-          tipo: 'varias_mesas',
-          label: ticket.mesa_ids.length + ' mesas vinculadas al servicio',
-          simbolo: String(ticket.mesa_ids.length)
-        });
       }
     }
     if (proxima) {
       modifiers.push('reservacion_proxima');
-      indicators.push({
-        tipo: 'reservacion_proxima',
-        label: 'Reservación próxima a las ' + proxima.hora,
-        simbolo: 'P'
-      });
-    }
-    if (estado === 'bloqueada') {
-      indicators.push({ tipo: 'bloqueada', label: 'Bloqueada por reservación', simbolo: 'B' });
     }
 
     var normalized = Object.assign({}, mesa, {
@@ -649,8 +647,16 @@ function initMapa() {
         stateBase === 'no_reservable' ? 'No reservable.' : 'Disponible.'
       ) + (proxima ? ' Reservación próxima a las ' + proxima.hora + '.' : '')
     });
+    // Al quitar los indicadores visuales el title queda como único portador de
+    // estos matices: hay que decirlos todos aquí.
+    if (modifiers.indexOf('ticket_abierto') !== -1) {
+      normalized.titulo += ' Ticket abierto.';
+    }
+    if (modifiers.indexOf('walk_in') !== -1) {
+      normalized.titulo += ' Walk-in.';
+    }
     if (modifiers.indexOf('varias_mesas') !== -1) {
-      normalized.titulo += ' Vinculada a varias mesas.';
+      normalized.titulo += ' Vinculada a ' + ticket.mesa_ids.length + ' mesas.';
     }
     return normalized;
   }
@@ -1130,11 +1136,9 @@ function initMapa() {
     vistaMenu: 'grid',
     columnas: '3',
     verSugerencias: true,
-    verTicket: true,
     // Orden de las 4 columnas del modal por su clave.
     orden: ['menu', 'cart', 'resumen', 'sugerencias'],
-    categoriaInicial: 0,
-    favoritos: []
+    categoriaInicial: 0
   };
 
   var POS_PANELES = {
@@ -1173,13 +1177,12 @@ function initMapa() {
       }
     }
     if (typeof guardado.verSugerencias === 'boolean') posPrefs.verSugerencias = guardado.verSugerencias;
-    if (typeof guardado.verTicket === 'boolean') posPrefs.verTicket = guardado.verTicket;
     if (typeof guardado.categoriaInicial === 'number' && guardado.categoriaInicial >= 0) {
       posPrefs.categoriaInicial = guardado.categoriaInicial;
     }
-    if (Object.prototype.toString.call(guardado.favoritos) === '[object Array]') {
-      posPrefs.favoritos = guardado.favoritos.filter(function (n) { return typeof n === 'string'; });
-    }
+    // verTicket y favoritos ya no se leen: quedaron inertes en el localStorage
+    // de quien los tuviera guardados y no hace falta migrarlos, porque solo se
+    // hidratan las claves que existen en POS_PREFS_DEFAULT.
     if (Object.prototype.toString.call(guardado.orden) === '[object Array]') {
       var limpio = guardado.orden.filter(function (p) { return POS_PANELES.hasOwnProperty(p); });
       // Se completa con los que falten para no perder ningún panel.
@@ -1222,8 +1225,9 @@ function initMapa() {
     panels.setAttribute('data-toque', p.toque);
     panels.setAttribute('data-vista-menu', p.vistaMenu);
     panels.setAttribute('data-columnas', p.columnas);
-    panels.setAttribute('data-ocultos',
-      (p.verTicket ? '' : 'resumen ') + (p.verSugerencias ? '' : 'sugerencias'));
+    // El panel del ticket ya no se puede ocultar: es donde se valida la
+    // entrega de cada platillo antes de cobrar.
+    panels.setAttribute('data-ocultos', p.verSugerencias ? '' : 'sugerencias');
 
     // El orden se aplica con `order`; el DOM no se toca.
     p.orden.forEach(function (clave, i) {
@@ -1243,33 +1247,16 @@ function initMapa() {
     setPosPref('orden', orden);
   }
 
-  function esFavorito(nombre) {
-    return getPosPrefs().favoritos.indexOf(nombre) !== -1;
-  }
-
-  function toggleFavorito(nombre) {
-    var favs = getPosPrefs().favoritos.slice();
-    var i = favs.indexOf(nombre);
-    if (i === -1) favs.push(nombre); else favs.splice(i, 1);
-    setPosPref('favoritos', favs);
-  }
-
-  /** Categoría virtual "Favoritos" al frente de las pestañas del menú. */
-  function categoriasConFavoritos() {
-    var base = window.CP_MENU || [];
-    var favs = getPosPrefs().favoritos;
-    if (!favs.length) return base;
-
-    var platillos = [];
-    for (var i = 0; i < base.length; i++) {
-      var dishes = base[i].dishes || [];
-      for (var j = 0; j < dishes.length; j++) {
-        if (favs.indexOf(dishes[j].n) !== -1) platillos.push(dishes[j]);
-      }
-    }
-    if (!platillos.length) return base;
-
-    return [{ id: -1, label: '★ Favoritos', dishes: platillos }].concat(base);
+  /**
+   * Categorías del menú, en el orden en que las publica la carta.
+   *
+   * Antes se anteponía una categoría virtual "★ Favoritos" alimentada por una
+   * estrella en cada platillo. Se retiró: la estrella competía por espacio y
+   * por la atención con el botón de agregar, que es la única acción real de
+   * la tarjeta, y mantener pulsada una categoría ya fija la de arranque.
+   */
+  function categoriasMenu() {
+    return window.CP_MENU || [];
   }
 
   /**
@@ -1280,12 +1267,14 @@ function initMapa() {
   function panelAjustesHtml() {
     var p = getPosPrefs();
 
-    function grupo(titulo, clave, opciones) {
-      var s = '<div class="mmodal-prefs__row"><span class="mmodal-prefs__label">' + titulo + '</span>' +
+    function grupo(titulo, clave, opciones, inactivo) {
+      var s = '<div class="mmodal-prefs__row' + (inactivo ? ' is-disabled' : '') + '">' +
+              '<span class="mmodal-prefs__label">' + titulo + '</span>' +
               '<div class="mmodal-prefs__opts">';
       for (var i = 0; i < opciones.length; i++) {
         var activo = p[clave] === opciones[i][0] ? ' is-active' : '';
         s += '<button type="button" class="mmodal-prefs__opt' + activo + '" ' +
+             (inactivo ? 'disabled aria-disabled="true" ' : '') +
              'data-pref="' + clave + '" data-val="' + opciones[i][0] + '">' + opciones[i][1] + '</button>';
       }
       return s + '</div></div>';
@@ -1304,14 +1293,17 @@ function initMapa() {
     var h = '';
 
     h += '<div class="mmodal-prefs__group"><h4>Layout y densidad</h4>';
-    h += grupo('Columnas', 'layout', [['menu', 'Menú amplio'], ['balanced', 'Equilibrado'], ['compact', 'Compacto']]);
+    // "Distribución de paneles" y no "Columnas": abajo hay otro ajuste llamado
+    // "Columnas de platillos" y los dos nombres chocaban.
+    h += grupo('Distribución de paneles', 'layout', [['menu', 'Menú amplio'], ['balanced', 'Equilibrado'], ['compact', 'Compacto']]);
     h += grupo('Densidad', 'densidad', [['comoda', 'Cómoda'], ['compacta', 'Compacta']]);
     h += grupo('Texto', 'texto', [['s', 'A-'], ['m', 'A'], ['l', 'A+']]);
     h += grupo('Botones', 'toque', [['normal', 'Normal'], ['grande', 'Grandes']]);
     h += '</div>';
 
     h += '<div class="mmodal-prefs__group"><h4>Paneles</h4>';
-    h += interruptor('Estado del ticket', 'verTicket');
+    // "Estado del ticket" ya no se puede ocultar: es donde se confirma la
+    // entrega de cada platillo antes de cobrar.
     h += interruptor('Sugerencias', 'verSugerencias');
     h += '<div class="mmodal-prefs__orden">';
     for (var i = 0; i < p.orden.length; i++) {
@@ -1330,8 +1322,14 @@ function initMapa() {
 
     h += '<div class="mmodal-prefs__group"><h4>Vista del menú</h4>';
     h += grupo('Presentación', 'vistaMenu', [['grid', 'Cuadrícula'], ['lista', 'Lista']]);
-    h += grupo('Columnas de platillos', 'columnas', [['2', '2'], ['3', '3'], ['4', '4']]);
-    h += '<p class="mmodal-prefs__hint">Marca la estrella de un platillo para tenerlo en Favoritos.</p>';
+    // En Lista los platillos van uno por renglón: el número de columnas no
+    // significa nada, así que el ajuste se apaga en lugar de mentir.
+    var enLista = p.vistaMenu === 'lista';
+    h += grupo('Columnas de platillos', 'columnas', [['2', '2'], ['3', '3'], ['4', '4']], enLista);
+    if (enLista) {
+      h += '<p class="mmodal-prefs__hint">Las columnas solo aplican en Cuadrícula.</p>';
+    }
+    h += '<p class="mmodal-prefs__hint">Mantén pulsada una categoría para que sea la primera al abrir una mesa.</p>';
     h += '</div>';
 
     h += '<div class="mmodal-prefs__foot">' +
@@ -1414,9 +1412,9 @@ function initMapa() {
       h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
     h += '</div>';
-    if (ticket) {
-      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
-    } else if (reserva) {
+    // Sin chip de "Ticket abierto": el propio contenido del modal (comanda,
+    // pedido, total) ya deja claro que hay servicio en curso.
+    if (!ticket && reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + estado + '">' + reservaChipLabel + '</span>';
     }
     h += '</div>';
@@ -1484,7 +1482,7 @@ function initMapa() {
       // Bloques de categoría (grid)
       h += '<div class="mmodal-section-label" id="mmodal-cats-label">Categoría</div>';
       h += '<div class="mmodal-cat-grid" id="mmodal-cats">';
-      var catsMenu = categoriasConFavoritos();
+      var catsMenu = categoriasMenu();
       var catInicial = prefs.categoriaInicial;
       if (catInicial < 0 || catInicial >= catsMenu.length) catInicial = 0;
       for (var mi = 0; mi < catsMenu.length; mi++) {
@@ -1529,6 +1527,9 @@ function initMapa() {
       h += '<div class="mmodal-panel-actions">';
       h += '<div class="mmodal-cerrar-hint" id="mmodal-cerrar-hint" hidden></div>';
       h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar">Cerrar ticket</button>';
+      // Sin consumo no hay nada que cobrar, pero la mesa sí hay que soltarla.
+      // Los dos botones se alternan en actualizarCierreEstado().
+      h += '<button class="mmodal-btn mmodal-btn--ghost" id="mmodal-liberar" hidden>Liberar mesa</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-resumen
 
@@ -1634,43 +1635,53 @@ function initMapa() {
       return;
     }
 
+    // Jerarquía de la tarjeta: nombre y precio centrados, sin icono "+". La
+    // tarjeta entera es el objetivo táctil, así que el "+" solo repetía la
+    // afordancia y robaba el ancho que necesita el nombre completo. Que el
+    // platillo esté en la comanda se dice pintando la tarjeta en dorado.
     for (var i = 0; i < lista.length; i++) {
       var dish = lista[i];
-      var row  = document.createElement('div');
+      var row  = document.createElement('button');
+      row.type      = 'button';
       row.className = 'mmodal-dish-row';
+      row.setAttribute('data-dish', dish.n);
+      row.setAttribute('aria-label', 'Agregar ' + dish.n);
       row.innerHTML =
-        '<div class="mmodal-dish-info">' +
-          '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
-        '</div>' +
+        '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
         '<span class="mmodal-dish-price">$' + dish.p + '</span>';
 
-      // Estrella de favorito: alimenta la categoría virtual "★ Favoritos".
-      var favBtn = document.createElement('button');
-      favBtn.className = 'mmodal-dish-fav' + (esFavorito(dish.n) ? ' is-on' : '');
-      favBtn.innerHTML = svgIcon('star', 14);
-      favBtn.setAttribute('aria-pressed', esFavorito(dish.n) ? 'true' : 'false');
-      favBtn.setAttribute('aria-label', 'Marcar ' + dish.n + ' como favorito');
-      (function(d, btn) {
-        btn.addEventListener('click', function(ev) {
-          ev.stopPropagation();
-          toggleFavorito(d.n);
-          btn.classList.toggle('is-on');
-          btn.setAttribute('aria-pressed', btn.classList.contains('is-on') ? 'true' : 'false');
-        });
-      })(dish, favBtn);
-      row.appendChild(favBtn);
-
-      var addBtn = document.createElement('button');
-      addBtn.className   = 'mmodal-dish-add';
-      addBtn.textContent = '+';
-      addBtn.setAttribute('aria-label', 'Agregar ' + dish.n);
       (function(d) {
-        addBtn.addEventListener('click', function() {
+        row.addEventListener('click', function() {
           addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '');
         });
       })(dish);
-      row.appendChild(addBtn);
       dishesEl.appendChild(row);
+    }
+
+    marcarDishesActivos();
+  }
+
+  /**
+   * Sincroniza el estado dorado de las tarjetas con la comanda.
+   *
+   * Se recalcula desde commandaItems en vez de alternar la clase en el click:
+   * la lista se repinta al buscar y al cambiar de categoría, y quitar un
+   * platillo desde el panel de Pedido también tiene que apagar su tarjeta.
+   */
+  function marcarDishesActivos() {
+    var dishesEl = modalContent.querySelector('#mmodal-dishes');
+    if (!dishesEl) return;
+
+    var enComanda = {};
+    for (var i = 0; i < commandaItems.length; i++) {
+      if (commandaItems[i].qty > 0) enComanda[commandaItems[i].n] = true;
+    }
+
+    var rows = dishesEl.querySelectorAll('.mmodal-dish-row');
+    for (var r = 0; r < rows.length; r++) {
+      var activo = enComanda[rows[r].getAttribute('data-dish')] === true;
+      rows[r].classList.toggle('is-active', activo);
+      rows[r].setAttribute('aria-pressed', activo ? 'true' : 'false');
     }
   }
 
@@ -1692,7 +1703,7 @@ function initMapa() {
       if (catsGrid)  catsGrid.style.display  = '';
       var activo = catsGrid ? catsGrid.querySelector('.mmodal-cat-block--active') : null;
       var idx = activo ? parseInt(activo.dataset.idx, 10) : 0;
-      var catsBusq = categoriasConFavoritos();
+      var catsBusq = categoriasMenu();
       if (catsBusq[idx]) renderCategoryDishes(catsBusq[idx]);
       return;
     }
@@ -1873,6 +1884,10 @@ function initMapa() {
     var cartEl = modalContent.querySelector('#mmodal-cart');
     if (!cartEl) return;
 
+    // Único punto por el que pasa cualquier alta o baja de la comanda: desde
+    // aquí se reflejan también en el dorado de las tarjetas del menú.
+    marcarDishesActivos();
+
     if (!commandaItems.length) {
       cartEl.innerHTML = '<div class="mmodal-cart-empty">Sin productos</div>';
       return;
@@ -1963,12 +1978,35 @@ function initMapa() {
     if (totalVal) totalVal.textContent = '$' + amount;
   }
 
-  // Habilita/deshabilita "Cerrar ticket" según cuántos productos falten por
-  // entregar. La regla también se valida en el backend al cerrar.
-  function actualizarCierreEstado(pendientes) {
-    var btn  = modalContent.querySelector('#mmodal-cerrar');
-    var hint = modalContent.querySelector('#mmodal-cerrar-hint');
+  /**
+   * Decide qué acción ofrece el pie del panel del ticket.
+   *
+   * Sin consumo no hay nada que cobrar: se ofrece "Liberar mesa", que borra el
+   * ticket en vez de cerrarlo como una venta de $0.
+   *
+   * Con consumo, "Cerrar ticket" espera a que todo esté entregado. Desde que
+   * el mesero puede entregar cualquier producto sin esperar al área, esa
+   * condición es un recordatorio y no un bloqueo. El backend valida lo mismo.
+   */
+  function actualizarCierreEstado(pendientes, sinConsumo) {
+    var btn     = modalContent.querySelector('#mmodal-cerrar');
+    var liberar = modalContent.querySelector('#mmodal-liberar');
+    var hint    = modalContent.querySelector('#mmodal-cerrar-hint');
     if (!btn) return;
+
+    if (sinConsumo) {
+      btn.hidden = true;
+      if (liberar) liberar.hidden = false;
+      if (hint) {
+        hint.textContent = 'Esta cuenta no tiene consumo';
+        hint.hidden = false;
+      }
+      return;
+    }
+
+    btn.hidden = false;
+    if (liberar) liberar.hidden = true;
+
     if (pendientes > 0) {
       btn.disabled = true;
       if (hint) {
@@ -2022,7 +2060,7 @@ function initMapa() {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span><span>Sin comandas enviadas aún</span></div>';
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
-          actualizarCierreEstado(0);
+          actualizarCierreEstado(0, true);
           return;
         }
 
@@ -2043,8 +2081,10 @@ function initMapa() {
           }
         }
 
-        // No se puede cerrar la cuenta con productos sin entregar.
-        actualizarCierreEstado(pendientes);
+        // Un ticket con solo cancelados tampoco tiene consumo: es la misma
+        // condición que valida el servidor al liberar la mesa.
+        var vivos = data.items.filter(function(x) { return x.estado !== 'cancelado'; }).length;
+        actualizarCierreEstado(pendientes, vivos === 0);
 
         var html = '';
         for (var slug in byArea) {
@@ -2054,16 +2094,21 @@ function initMapa() {
                   escHtml(ag.label) + '</div>';
           for (var j = 0; j < ag.items.length; j++) {
             var row = ag.items[j];
-            var statusColor = row.estado === 'cancelado'      ? '#555'
-                            : row.estado === 'entregado'      ? '#5ba4cf'
-                            : row.estado === 'listo'          ? '#8bbf7e'
-                            : row.estado === 'en_preparacion' ? '#e8a920' : '#9a9a9a';
+            // Mismos tokens que usan los tableros de área (--estado-*), para
+            // que las dos pantallas no discrepen de color.
+            var statusColor = row.estado === 'cancelado'      ? 'var(--estado-cancelado)'
+                            : row.estado === 'entregado'      ? 'var(--estado-entregado)'
+                            : row.estado === 'listo'          ? 'var(--estado-listo)'
+                            : row.estado === 'en_preparacion' ? 'var(--estado-preparacion)'
+                            : 'var(--estado-enviado)';
             var statusLabel = row.estado === 'cancelado'      ? 'Cancelado'
                             : row.estado === 'entregado'      ? 'Entregado ✓'
                             : row.estado === 'listo'          ? 'Listo'
                             : row.estado === 'en_preparacion' ? 'En preparación' : 'Enviado';
             var com = row.comensal !== null ? 'C.' + row.comensal : 'Gral';
-            var entBtn = row.estado === 'listo'
+            // Se puede entregar cualquier producto vivo del pedido, no solo el
+            // que producción marcó como listo: el mesero es quien ve el plato.
+            var entBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
               ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">✓ Entregar</button>'
               : '';
             var cancelBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
@@ -2151,6 +2196,9 @@ function initMapa() {
           setPosPref(clave, btn.getAttribute('data-val'));
           marcarActivo(btn, '[data-pref="' + clave + '"]');
           if (clave === 'vistaMenu' || clave === 'columnas') renderCategoriaActual();
+          // Cambiar de presentación habilita o apaga "Columnas de platillos",
+          // así que el panel se repinta para reflejarlo al instante.
+          if (clave === 'vistaMenu') renderPrefsPanel();
         });
       })(opts[i]);
     }
@@ -2199,7 +2247,7 @@ function initMapa() {
     // mesa en pantalla.
     if (!modalContent || !modalContent.querySelector('#mmodal-dishes')) return;
     var activa = modalContent.querySelector('.mmodal-cat-block--active');
-    var cats = categoriasConFavoritos();
+    var cats = categoriasMenu();
     var idx = activa ? parseInt(activa.dataset.idx, 10) : 0;
     if (cats[idx]) renderCategoryDishes(cats[idx]);
   }
@@ -2207,7 +2255,7 @@ function initMapa() {
   function bindTabsAndComanda(mesa, ticket) {
     // Bloques de categoría (grid)
     var catTabs = modalContent.querySelectorAll('.mmodal-cat-block');
-    var cats = categoriasConFavoritos();
+    var cats = categoriasMenu();
     if (catTabs.length && cats.length) {
       var inicial = getPosPrefs().categoriaInicial;
       if (inicial < 0 || inicial >= cats.length) inicial = 0;
@@ -2221,7 +2269,7 @@ function initMapa() {
           tab.addEventListener('click', function() {
             for (var k = 0; k < catTabs.length; k++) catTabs[k].classList.remove('mmodal-cat-block--active');
             tab.classList.add('mmodal-cat-block--active');
-            renderCategoryDishes(categoriasConFavoritos()[parseInt(tab.dataset.idx, 10)]);
+            renderCategoryDishes(categoriasMenu()[parseInt(tab.dataset.idx, 10)]);
           });
           // Mantener pulsado fija la categoría de arranque del mesero.
           tab.addEventListener('contextmenu', function(ev) {
@@ -2363,6 +2411,13 @@ function initMapa() {
       });
     }
 
+    var liberarBtn = modalContent.querySelector('#mmodal-liberar');
+    if (liberarBtn && ticket) {
+      liberarBtn.addEventListener('click', function() {
+        showLiberarConfirm(mesa, ticket);
+      });
+    }
+
     // Si hay bloques de categoría (modal de ticket con productos)
     if (modalContent.querySelector('#mmodal-cats')) {
       bindTabsAndComanda(mesa, ticket);
@@ -2499,7 +2554,10 @@ function initMapa() {
     h += '<div class="mmodal-split-status" style="margin-top:14px">';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
     h += '<div class="mmodal-total-row" style="align-items:center"><span class="mmodal-total-label">Monto recibido</span>';
-    h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></span></div>';
+    h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '">';
+    // Reemplaza al atajo anterior "vacío = pago exacto": el importe se sigue
+    // capturando de un toque, pero queda escrito y confirmado.
+    h += '<button type="button" class="mmodal-monto-exacto" id="pc-exacto">Exacto</button></span></div>';
     h += '<p class="mmodal-split-diff" id="pc-diff"></p>';
     h += '</div>';
 
@@ -2536,30 +2594,51 @@ function initMapa() {
       guardarCierrePaso(ticket.id, { step: 'completa', metodo: metodoActivo(), recibido: recibidoEl.value });
     }
 
-    // El botón se habilita cuando el monto recibido cubre el total; el excedente
-    // se muestra como propina.
+    /**
+     * No se cierra una cuenta sin un monto confirmado que cubra el total.
+     *
+     * Antes el campo vacío significaba "pago exacto" y eso permitía cerrar sin
+     * que nadie hubiera contado el dinero. Ahora el importe se captura siempre
+     * (el botón "Exacto" lo rellena de un toque) y el excedente es la propina.
+     *
+     * Sin la holgura de ±1 centavo de la cuenta dividida: ahí existe porque
+     * repartir() redondea, pero un importe tecleado no tiene ruido de coma
+     * flotante, y aceptarlo aquí dejaría enviar montos que el servidor —que
+     * valida lo mismo— rechaza.
+     */
     function validar() {
-      var val = parseFloat(recibidoEl.value);
-      var recCents = (isNaN(val) || val < 0) ? 0 : Math.round(val * 100);
-      // Vacío = pago exacto (sin propina).
-      var efectivoCents = recibidoEl.value.trim() === '' ? totalCents : recCents;
-      var diff = efectivoCents - totalCents;
-      var ok   = diff >= -1;
-      if (diffEl) {
-        if (recibidoEl.value.trim() === '') {
-          diffEl.textContent = 'Pago exacto, sin propina';
+      var crudo = recibidoEl.value.trim();
+      var val   = parseFloat(crudo);
+      var ok    = false;
+      var diff  = 0;
+
+      if (crudo === '') {
+        if (diffEl) {
+          diffEl.textContent = 'Captura el monto recibido';
           diffEl.className   = 'mmodal-split-diff';
-        } else if (diff < -1) {
-          diffEl.textContent = 'Faltan $' + fmt(-diff) + ' para cubrir el total';
+        }
+      } else if (isNaN(val) || val < 0) {
+        if (diffEl) {
+          diffEl.textContent = 'El monto no es válido';
           diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
-        } else if (diff <= 1) {
-          diffEl.textContent = 'Pago exacto, sin propina';
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
-        } else {
-          diffEl.textContent = '✓ Propina: $' + fmt(diff);
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+        }
+      } else {
+        diff = Math.round(val * 100) - totalCents;
+        ok   = diff >= 0;
+        if (diffEl) {
+          if (diff < 0) {
+            diffEl.textContent = 'Faltan $' + fmt(-diff) + ' para cubrir el total';
+            diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
+          } else if (diff === 0) {
+            diffEl.textContent = 'Pago exacto, sin propina';
+            diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+          } else {
+            diffEl.textContent = '✓ Propina: $' + fmt(diff);
+            diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+          }
         }
       }
+
       if (confirmBtn) confirmBtn.disabled = !ok;
       return ok;
     }
@@ -2575,15 +2654,19 @@ function initMapa() {
     }
     recibidoEl.addEventListener('input', function() { validar(); persistir(); });
 
+    modalContent.querySelector('#pc-exacto').addEventListener('click', function() {
+      recibidoEl.value = (totalCents / 100).toFixed(2);
+      validar();
+      persistir();
+    });
+
     modalContent.querySelector('#pc-volver').addEventListener('click', function() {
       showCierreTipo(mesa, ticket);
     });
     confirmBtn.addEventListener('click', function() {
       if (!validar()) return;
       confirmBtn.disabled = true;
-      var val = parseFloat(recibidoEl.value);
-      var recibido = (recibidoEl.value.trim() === '' || isNaN(val)) ? (totalCents / 100) : val;
-      apiCerrarTicket(ticket.id, metodoActivo(), mesa, recibido);
+      apiCerrarTicket(ticket.id, metodoActivo(), mesa, parseFloat(recibidoEl.value));
     });
 
     validar();
@@ -3224,6 +3307,48 @@ function initMapa() {
       overlay.remove();
       apiCancelarItem(itemId, ticketId);
     });
+  }
+
+  /** Confirmación de "Liberar mesa": borra el ticket, no lo cierra. */
+  function showLiberarConfirm(mesa, ticket) {
+    var overlay = document.createElement('div');
+    overlay.className = 'mmodal-cancel-confirm-overlay';
+    overlay.innerHTML =
+      '<div class="mmodal-cancel-confirm">' +
+        '<p class="mmodal-cancel-confirm__msg">¿Liberar <strong>' + escHtml(mesa ? mesa.nombre : 'la mesa') + '</strong>?</p>' +
+        '<p class="mmodal-cancel-confirm__sub">La cuenta no tiene consumo, así que se descarta y la mesa queda libre. No se registra ninguna venta.</p>' +
+        '<div class="mmodal-cancel-confirm__btns">' +
+          '<button class="mmodal-btn mmodal-btn--ghost" id="lm-volver">No, conservar</button>' +
+          '<button class="mmodal-btn mmodal-btn--danger" id="lm-confirm">Sí, liberar</button>' +
+        '</div>' +
+      '</div>';
+    var panel = modalContent.querySelector('#mmodal-panel-resumen');
+    if (panel) panel.appendChild(overlay);
+    overlay.querySelector('#lm-volver').addEventListener('click', function() { overlay.remove(); });
+    overlay.querySelector('#lm-confirm').addEventListener('click', function() {
+      overlay.remove();
+      apiLiberarMesa(ticket.id);
+    });
+  }
+
+  function apiLiberarMesa(ticketId) {
+    fetch('/api/liberar-mesa', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ticket_id: ticketId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.ok) {
+        invalidarTicketItems(ticketId);
+        limpiarCierrePaso(ticketId);
+        closeModal();
+        silentRefresh();
+      } else {
+        alert(result.msg || 'No se pudo liberar la mesa');
+      }
+    })
+    .catch(function() { alert('Error de conexión'); });
   }
 
   function apiCancelarItem(itemId, ticketId) {

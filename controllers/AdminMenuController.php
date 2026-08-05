@@ -28,7 +28,7 @@ class AdminMenuController
     /** Listado de platillos con pestañas de categoría. */
     public static function index(Router $router): void
     {
-        $categorias = CategoriasMenu::all();
+        $categorias = CategoriasMenu::ordenadas();
         $categoriasMap = [];
 
         foreach ($categorias as $cat) {
@@ -192,7 +192,7 @@ class AdminMenuController
         self::render('menu/categories', [
             'title' => 'Categorías del menú',
             'topbarSection' => 'Menú / Categorías',
-            'categorias' => CategoriasMenu::all(),
+            'categorias' => CategoriasMenu::ordenadas(),
             'alertas' => CategoriasMenu::getAlertas(),
         ]);
     }
@@ -346,7 +346,6 @@ class AdminMenuController
     {
         $platillo->sincronizar($_POST);
         $platillo->activo = isset($_POST['activo']) ? 1 : 0;
-        $platillo->tag = trim((string) ($_POST['tag'] ?? '')) !== '' ? $_POST['tag'] : null;
     }
 
     private static function renderForm(string $titulo, string $accion, Producto $platillo, array $alertas): void
@@ -355,7 +354,7 @@ class AdminMenuController
             'title' => $titulo,
             'topbarSection' => 'Menú / ' . $titulo,
             'platillo' => $platillo,
-            'categorias' => CategoriasMenu::all(),
+            'categorias' => CategoriasMenu::ordenadas(),
             'areas' => self::areas(),
             'alertas' => $alertas,
             'accion' => $accion,
@@ -400,20 +399,16 @@ class AdminMenuController
 
     private static function leerFiltrosItems(): array
     {
+        // Solo nombre y categoría: el filtro de visibilidad se retiró del
+        // formulario porque la columna "Visible" de la tabla ya lo resuelve.
         $q = substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
         $categoryId = filter_var($_GET['categoria'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1]
         ]);
-        $visible = (string) ($_GET['visible'] ?? '');
-
-        if ($visible !== '1' && $visible !== '0') {
-            $visible = '';
-        }
 
         return [
             'q' => $q,
             'categoria' => $categoryId ?: '',
-            'visible' => $visible,
         ];
     }
 

@@ -1,26 +1,77 @@
 /*
- * Badges de estado para la actividad operativa de analytics.
- * Diferencia registros abiertos, cerrados y cancelados dentro de la tabla.
- * Usa los trios de estado theme-aware definidos en base/globals.
+ * Badges de estado del panel.
+ *
+ * .admin-status resume el estado de un registro (ticket, corte, reservación);
+ * .admin-badge (en components/_tables) etiqueta celdas dentro de una tabla.
+ * Los dos beben de los mismos tríos theme-aware de base/globals, que a su vez
+ * salen de la paleta de marca: así un "cerrado" del panel es el mismo verde
+ * que el "listo" del POS y el de las gráficas.
  */
 .admin-status {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 28px;
   padding: 0 10px;
+  border: 1px solid var(--admin-success-border);
   border-radius: 999px;
   background: var(--admin-success-bg);
   color: var(--admin-success-text);
   font-size: 12px;
   font-weight: 700;
+
+  /* Punto de color: el estado se distingue sin depender solo del tinte de
+     fondo, que a este tamaño queda muy lavado. */
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+  }
 }
 
-.admin-status--open {
+.admin-status--open,
+.admin-status--warning {
+  border-color: var(--admin-warning-border);
   background: var(--admin-warning-bg);
   color: var(--admin-warning-text);
 }
 
-.admin-status--cancelled {
+.admin-status--cancelled,
+.admin-status--danger {
+  border-color: var(--admin-danger-border);
   background: var(--admin-danger-bg);
   color: var(--admin-danger-text);
+}
+
+.admin-status--info {
+  border-color: var(--admin-info-border);
+  background: var(--admin-info-bg);
+  color: var(--admin-info-text);
+}
+
+.admin-status--neutral {
+  border-color: var(--admin-neutral-border);
+  background: var(--admin-neutral-bg);
+  color: var(--admin-neutral-text);
+}
+
+/* Estados de un platillo. Comparten los tokens --admin-estado-* con el POS y
+   los tableros de área para que el mismo plato no cambie de color al pasar de
+   una pantalla a otra. */
+.admin-status--enviado    { color: var(--admin-estado-enviado); }
+.admin-status--preparacion { color: var(--admin-estado-preparacion); }
+.admin-status--listo       { color: var(--admin-estado-listo); }
+.admin-status--entregado   { color: var(--admin-estado-entregado); }
+.admin-status--cancelado   { color: var(--admin-estado-cancelado); }
+
+.admin-status--enviado,
+.admin-status--preparacion,
+.admin-status--listo,
+.admin-status--entregado,
+.admin-status--cancelado {
+  border-color: color-mix(in srgb, currentColor 42%, transparent);
+  background: color-mix(in srgb, currentColor 14%, var(--admin-surface));
 }

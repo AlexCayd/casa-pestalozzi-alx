@@ -14,7 +14,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
 $usuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
-$rolEtiquetas = ['admin' => 'Administrador', 'cashier' => 'Cajero', 'waiter' => 'Mesero', 'observer' => 'Observador'];
+$rolEtiquetas = ['admin' => 'Administrador', 'waiter' => 'Mesero', 'cook' => 'Cocinero'];
 $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
 
 // Identidad del mesero para el JS: las preferencias del modal se guardan con

@@ -141,11 +141,16 @@ $iniciales = static function (string $nombre, string $username): string {
                             $activo = (int) $valorUsuario($usuario, 'activo', 0) === 1;
                             $createdAt = (string) $valorUsuario($usuario, 'created_at', '');
                             $createdLabel = $createdAt !== '' ? date('d/m/Y', strtotime($createdAt)) : 'Sin fecha';
+                            // Único freno a la eliminación: que no quede el
+                            // panel sin nadie que pueda entrar. Un admin sí
+                            // puede borrar a otro admin, e incluso a sí mismo.
                             $esUnicoAdminActivo = $rol === 'admin' && $activo && $totalAdminsActivos <= 1;
                             $mensajeAdminActivo = 'Debe existir un usuario administrador activo siempre.';
-                            $rolClase = in_array($rol, ['admin', 'waiter', 'cashier', 'observer'], true) ? $rol : 'observer';
+                            $esYoMismo = $id === (int) ($_SESSION['id'] ?? 0);
+                            $etiquetaCredencial = $rol === 'admin' ? 'Cambiar contraseña' : 'Cambiar NIP';
+                            $rolClase = in_array($rol, ['admin', 'waiter', 'cook'], true) ? $rol : 'waiter';
                             ?>
-                            <tr>
+                            <tr data-row-href="/admin/usuarios/edit?id=<?php echo $id; ?>">
                                 <td>
                                     <div class="admin-user-cell">
                                         <span class="admin-user-avatar" aria-hidden="true"><?php echo htmlspecialchars($iniciales($nombre, $username), ENT_QUOTES, 'UTF-8'); ?></span>
@@ -194,6 +199,19 @@ $iniciales = static function (string $nombre, string $username): string {
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
+                                        <a
+                                            class="admin-icon-button admin-icon-button--edit"
+                                            href="/admin/usuarios/cambiar-credencial?id=<?php echo $id; ?>"
+                                            title="<?php echo htmlspecialchars($etiquetaCredencial, ENT_QUOTES, 'UTF-8'); ?>"
+                                            aria-label="<?php echo htmlspecialchars($etiquetaCredencial, ENT_QUOTES, 'UTF-8'); ?> de <?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"
+                                        >
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <circle cx="8" cy="15" r="4"/>
+                                                <path d="m10.85 12.15 7.4-7.4"/>
+                                                <path d="m18 5 2 2"/>
+                                                <path d="m15 8 2 2"/>
+                                            </svg>
+                                        </a>
                                         <form
                                             method="POST"
                                             action="/admin/usuarios/delete"
@@ -208,6 +226,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                                 aria-label="Eliminar usuario <?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"
                                                 data-user-delete
                                                 data-user-name="<?php echo htmlspecialchars($nombreCompleto, ENT_QUOTES, 'UTF-8'); ?>"
+                                                <?php echo $esYoMismo ? 'data-user-self="1"' : ''; ?>
                                                 <?php echo $esUnicoAdminActivo ? 'disabled' : ''; ?>
                                             >
                                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -251,6 +270,9 @@ $iniciales = static function (string $nombre, string $username): string {
         <p class="admin-modal__text" id="user-delete-desc">
             Esta acción es permanente y no se puede deshacer. Para confirmar, escribe el nombre completo del usuario:
             <strong data-modal-username></strong>
+        </p>
+        <p class="admin-modal__text admin-modal__text--warn" data-modal-self hidden>
+            Es tu propia cuenta: al confirmar se cerrará tu sesión y no podrás volver a entrar con ella.
         </p>
         <input
             type="text"

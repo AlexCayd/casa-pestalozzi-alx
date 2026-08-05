@@ -71,25 +71,26 @@
   border-radius: 50%;
   background: currentColor;
 }
+.admin-users {
+  /* Un color de la paleta por rol. Son solo tres y cada uno tiene un alcance
+     distinto (todo / punto de venta / tableros de área), así que distinguirlos
+     de un vistazo en el listado ahorra leer la columna. */
+}
 .admin-users .admin-role--admin {
-  border-color: rgba(204, 163, 82, 0.4);
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
+  --admin-role-tono: var(--admin-c-magenta);
 }
 .admin-users .admin-role--waiter {
-  border-color: var(--admin-success-border);
-  background: var(--admin-success-bg);
-  color: var(--admin-success-text);
+  --admin-role-tono: var(--admin-c-azul);
 }
-.admin-users .admin-role--cashier {
-  border-color: var(--admin-info-border);
-  background: var(--admin-info-bg);
-  color: var(--admin-info-text);
+.admin-users .admin-role--cook {
+  --admin-role-tono: var(--admin-c-naranja);
 }
-.admin-users .admin-role--observer {
-  border-color: var(--admin-neutral-border);
-  background: var(--admin-neutral-bg);
-  color: var(--admin-neutral-text);
+.admin-users .admin-role--admin,
+.admin-users .admin-role--waiter,
+.admin-users .admin-role--cook {
+  border-color: color-mix(in srgb, var(--admin-role-tono) 44%, transparent);
+  background: color-mix(in srgb, var(--admin-role-tono) 14%, var(--admin-surface));
+  color: var(--admin-role-tono);
 }
 .admin-users .admin-table th,
 .admin-users .admin-table td {
@@ -138,13 +139,39 @@
 .admin-users-form__field--full {
   grid-column: 1/-1;
 }
-.admin-users-form__field label,
+.admin-users-form__field > label,
 .admin-users-form__field .admin-users-form__field-label {
   color: var(--admin-muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.admin-users-form__field {
+  /*
+   * El formulario también lleva .admin-menu__form, cuyas reglas de `input`
+   * (ancho completo, 44px de alto, borde) tienen la misma especificidad que
+   * el ocultamiento de .admin-tabs__tab input y ganan por orden de carga:
+   * los radios de las pestañas se dibujaban como cajas. Se restituye aquí,
+   * ya dentro de menu.css/users.css.
+   */
+}
+.admin-users-form__field .admin-tabs__tab {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.admin-users-form__field .admin-tabs__tab input {
+  position: absolute;
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 .admin-users-form__hint {
   color: var(--admin-faint);
@@ -156,6 +183,31 @@
 }
 .admin-users-form__hint.is-invalid {
   color: var(--admin-danger-text);
+}
+.admin-users-form__hint--warn {
+  color: var(--admin-warning-text);
+}
+.admin-users-form .admin-credential-step {
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.admin-users-form .admin-credential-step__num {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: var(--admin-surface-soft);
+  color: var(--admin-gold);
+  font-size: 14px;
+  font-weight: 700;
+}
+.admin-users-form .admin-credential-step__body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 .admin-users-form__toggle {
   display: inline-flex;

@@ -224,6 +224,7 @@
 }
 
 .admin-config-option {
+  position: relative;
   display: flex;
   min-height: 246px;
   flex-direction: column;
@@ -233,19 +234,27 @@
   background: var(--admin-surface);
   color: inherit;
   text-decoration: none;
+  overflow: hidden;
+}
+.admin-config-option::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--config-accent, var(--admin-gold));
 }
 .admin-config-option:focus-visible {
   outline: none;
-  border-color: var(--admin-gold);
+  border-color: var(--config-accent, var(--admin-gold));
   box-shadow: var(--admin-focus-ring), var(--admin-shadow-md);
 }
 .admin-config-option:hover {
-  border-color: var(--admin-border);
+  border-color: var(--config-accent, var(--admin-border));
   background: var(--admin-surface-soft);
 }
 .admin-config-option:hover .admin-config-option__cta, .admin-config-option:focus-visible .admin-config-option__cta {
-  border-color: var(--admin-gold);
-  background: var(--admin-neutral-bg);
+  border-color: var(--config-accent, var(--admin-gold));
+  background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 12%, transparent);
 }
 .admin-config-option:hover .admin-config-option__cta svg, .admin-config-option:focus-visible .admin-config-option__cta svg {
   transform: translateX(3px);
@@ -256,10 +265,10 @@
   height: 54px;
   flex: 0 0 54px;
   place-items: center;
-  border: 1px solid var(--admin-neutral-border);
+  border: 1px solid color-mix(in srgb, var(--config-accent, var(--admin-gold)) 42%, transparent);
   border-radius: 16px;
-  background: var(--admin-neutral-bg);
-  color: var(--admin-gold-deep);
+  background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 15%, var(--admin-surface));
+  color: var(--config-accent, var(--admin-gold-deep));
 }
 .admin-config-option__icon svg {
   width: 27px;
@@ -283,7 +292,7 @@
   line-height: 1.08;
 }
 .admin-config-option__eyebrow {
-  color: var(--admin-gold-deep);
+  color: var(--config-accent, var(--admin-gold-deep));
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
@@ -306,7 +315,7 @@
   border: 1px solid var(--admin-neutral-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface-soft);
-  color: var(--admin-gold-deep);
+  color: var(--config-accent, var(--admin-gold-deep));
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -326,6 +335,10 @@
 .admin-config-panel,
 .admin-config-preview {
   padding: 22px;
+}
+
+.admin-config-panel {
+  overflow: visible;
 }
 
 .admin-config-panel__head {
@@ -349,85 +362,118 @@
   line-height: 1.45;
 }
 
-.admin-config-unsaved {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--admin-neutral-border);
-  border-radius: 999px;
-  background: var(--admin-neutral-bg);
-  color: var(--admin-neutral-text);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.admin-config-unsaved::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.55;
-}
-.admin-config-unsaved.is-dirty {
-  border-color: var(--admin-warning-border);
-  background: var(--admin-warning-bg);
-  color: var(--admin-warning-text);
-}
-.admin-config-unsaved.is-dirty::before {
-  opacity: 1;
-}
-
+/*
+ * Horario semanal: una tarjeta por día con una rejilla de las 24 horas.
+ *
+ * Sustituye a las pestañas de rangos preferidos más dos desplegables de hora.
+ * Toda la jornada está a la vista y el rango se marca con dos toques, así que
+ * elegir un horario nuevo cuesta lo mismo que repetir el de siempre.
+ */
 .admin-schedule {
+  display: grid;
+  gap: 10px;
   overflow: visible;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-md);
 }
 .admin-schedule__row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(110px, 0.8fr) minmax(130px, 0.8fr) repeat(2, minmax(150px, 1fr));
-  align-items: start;
-  gap: 16px;
+  gap: 12px;
   padding: 14px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
   background: var(--admin-surface-soft);
-}
-.admin-schedule__row:not(:last-child) {
-  border-bottom: 1px solid var(--admin-border-soft);
+  transition: border-color var(--admin-t-fast) ease;
 }
 .admin-schedule__row:focus-within {
   z-index: 2;
+  border-color: var(--admin-gold);
 }
-.admin-schedule__row.is-closed .admin-schedule__time {
-  opacity: 0.48;
+.admin-schedule__row.is-closed .admin-schedule__picker {
+  opacity: 0.45;
+}
+.admin-schedule__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .admin-schedule__day {
-  align-self: center;
   color: var(--admin-text);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
 }
-.admin-schedule .admin-switch {
-  align-self: center;
+.admin-schedule__picker {
+  display: grid;
+  gap: 8px;
 }
-.admin-schedule__time input {
-  min-height: 42px;
-  padding-block: 8px;
+.admin-schedule {
+  /* Rejilla de las 24 horas. auto-fit con un mínimo de 40px: en escritorio
+     entran las 24 en dos filas y en móvil se reparte sola sin media queries. */
+}
+.admin-schedule__hours {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 4px;
+}
+.admin-schedule__hour {
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
+  transition: background var(--admin-t-fast) ease, color var(--admin-t-fast) ease, border-color var(--admin-t-fast) ease;
 }
-.admin-schedule__time:last-child .hour-dropdown {
-  right: 0;
-  left: auto;
+.admin-schedule__hour:hover:not(:disabled) {
+  border-color: var(--admin-gold);
+  color: var(--admin-text);
+}
+.admin-schedule__hour {
+  /* Tramo intermedio: tinte suave. Los extremos van en dorado pleno para que
+     se lea de un vistazo dónde abre y dónde cierra. */
+}
+.admin-schedule__hour.is-in-range {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--admin-gold) 22%, transparent);
+  color: var(--admin-text);
+}
+.admin-schedule__hour.is-edge {
+  border-color: var(--admin-gold);
+  background: var(--admin-gold);
+  color: var(--admin-ink-on-gold);
+}
+.admin-schedule__hour:disabled {
+  cursor: default;
+}
+.admin-schedule__hour:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-schedule__summary {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Guardar y descartar juntos a la izquierda, en ese orden: son las dos caras
+   de la misma decisión y separarlos a los extremos obligaba a cruzar el panel
+   para elegir. El estado del guardado se empuja al final. */
 .admin-config-form-actions {
   display: flex;
   min-height: 44px;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 18px;
+}
+.admin-config-form-actions .admin-form-status {
+  margin-left: auto;
 }
 
 .admin-config-empty {
@@ -472,6 +518,44 @@
 }
 .admin-announcement-form .admin-config-form-actions {
   margin-top: 6px;
+}
+
+/*
+ * Tipos de anuncio como pestañas.
+ *
+ * Cada pestaña se pinta con el acento de su tipo (--announcement-accent, el
+ * mismo que después usa el banner real), así que la elección se ve antes de
+ * abrir la vista previa. Cuatro opciones caben de sobra en una fila; un
+ * desplegable las escondía todas menos una.
+ */
+.admin-announcement-types {
+  flex-wrap: wrap;
+}
+
+.admin-announcement-type span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.admin-announcement-type__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--announcement-accent);
+}
+.admin-announcement-type input:checked + span {
+  background: color-mix(in srgb, var(--announcement-accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px var(--announcement-accent);
+  color: var(--admin-text);
+}
+.admin-announcement-type input:focus-visible + span {
+  outline-color: var(--announcement-accent);
 }
 
 .admin-announcement-type-purpose {
@@ -548,9 +632,13 @@
 .admin-datetime-field__part {
   min-width: 0;
 }
-.admin-datetime-field__part:last-child .hour-dropdown {
+.admin-datetime-field__part:last-child .hour-dropdown, .admin-datetime-field__part:last-child .cp-calendar {
   right: 0;
   left: auto;
+}
+.admin-datetime-field .cp-calendar {
+  width: max-content;
+  max-width: min(320px, 100vw - 40px);
 }
 .admin-datetime-field__part-label {
   display: block;
@@ -594,18 +682,95 @@
   font-size: 18px;
 }
 
+/*
+ * Vista previa en contexto.
+ *
+ * El anuncio se pintaba suelto sobre el fondo del panel, que en tema claro no
+ * se parece en nada a la portada. Ahora vive dentro de una franja que insinúa
+ * el hero del landing, y se puede alternar el fondo para juzgar el acento
+ * sobre lo que el comensal va a ver de verdad.
+ */
+.admin-announcement-preview-theme {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+}
+.admin-announcement-preview-theme__btn {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) ease, color var(--admin-t-fast) ease;
+}
+.admin-announcement-preview-theme__btn.is-active {
+  background: var(--admin-gold);
+  color: var(--admin-bg);
+}
+
 .admin-announcement-preview-stage {
+  --preview-bg: #101213;
+  --preview-ink: #ede9df;
+  --preview-ink-soft: rgba(237, 233, 223, 0.28);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--preview-bg);
+  transition: background var(--admin-t-base) ease;
+}
+.admin-announcement-preview-stage[data-tema=claro] {
+  --preview-bg: #fff9e4;
+  --preview-ink: #0b0c0d;
+  --preview-ink-soft: rgba(11, 12, 13, 0.18);
+}
+
+.admin-announcement-preview-hero {
   display: grid;
   gap: 8px;
-  min-width: 0;
+  padding-bottom: 4px;
+}
+.admin-announcement-preview-hero__brand {
+  color: var(--preview-ink);
+  font-family: var(--admin-font-heading);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+.admin-announcement-preview-hero__line {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--preview-ink-soft);
+}
+.admin-announcement-preview-hero__line--short {
+  width: 55%;
 }
 
 .admin-announcement-preview-state {
-  color: var(--admin-faint);
+  justify-self: start;
+  padding: 3px 9px;
+  border: 1px solid var(--preview-ink-soft);
+  border-radius: 999px;
+  color: var(--preview-ink);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  opacity: 0.7;
+}
+.admin-announcement-preview-state.is-live {
+  border-color: var(--admin-c-verde);
+  color: var(--admin-c-verde);
+  opacity: 1;
 }
 
 .admin-announcement-preview-stage .hero-announcement {
@@ -663,6 +828,35 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+.admin-report-detail__open {
+  margin-top: 8px;
+}
+.admin-report-detail__open[hidden] {
+  display: none;
+}
+
+.admin-report-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-report-status__label {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-report-status__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 @media (max-width: 768px) {
   .admin-config-grid {
@@ -673,9 +867,6 @@
   }
   .admin-config-preview {
     position: static;
-  }
-  .admin-schedule__row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .admin-config-filters {
     grid-template-columns: minmax(0, 1fr) minmax(160px, 0.6fr);
@@ -754,18 +945,6 @@
   }
   .admin-schedule__row {
     gap: 10px;
-  }
-  .admin-schedule__time {
-    display: grid;
-    grid-template-columns: minmax(76px, 0.5fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-  }
-  .admin-schedule__time .admin-field__label {
-    margin: 0;
-  }
-  .admin-schedule__time .admin-field__error {
-    grid-column: 2;
   }
   .admin-announcement-form__wide,
   .admin-report-detail__wide {

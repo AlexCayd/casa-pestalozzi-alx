@@ -8,8 +8,8 @@ namespace Model;
  * distintas (enlazadas solo por el nombre) y el CRUD de la carta solo tocaba
  * 'menu', asi que un platillo borrado de la carta seguia vendiendose en el POS.
  * Ahora hay una sola fila por producto y una sola bandera: si esta activo se
- * vende en el POS y se publica en la carta. Ver la migracion
- * database/migrations/2026_07_26_002_fusion_menu_productos.sql
+ * vende en el POS y se publica en la carta. El esquema resultante esta en
+ * database/ddl.sql; 'menu' se conserva ahi solo como compatibilidad de lectura.
  *
  * El borrado del admin es suave (activo = 0) para no romper el JOIN por nombre
  * que hacen ticket_items, Services\Sugerencias y n8n sobre tickets historicos.
@@ -21,7 +21,7 @@ class Producto extends ActiveRecord {
     protected static $tabla = 'productos';
     protected static $columnasDB = [
         'id', 'nombre', 'descripcion', 'categoria_id', 'precio',
-        'tag', 'area_id', 'activo'
+        'area_id', 'activo'
     ];
 
     public $id;
@@ -29,7 +29,6 @@ class Producto extends ActiveRecord {
     public $descripcion;
     public $categoria_id;
     public $precio;
-    public $tag;
     public $area_id;
     public $activo = 1;
 
@@ -194,9 +193,12 @@ class Producto extends ActiveRecord {
         $visible = (string) ($filtros['visible'] ?? '');
         $areaId = (int) ($filtros['area'] ?? 0);
 
+        // Solo por nombre. Buscar también en la descripción devolvía platillos
+        // que no contienen el término buscado en ningún sitio visible de la
+        // tabla, y el resultado parecía un error.
         if ($q !== '') {
             $qEscapado = self::escaparLike($q);
-            $condiciones[] = "(nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\' OR descripcion LIKE '%{$qEscapado}%' ESCAPE '\\\\')";
+            $condiciones[] = "nombre LIKE '%{$qEscapado}%' ESCAPE '\\\\'";
         }
 
         if ($categoriaId > 0) {

@@ -42,7 +42,7 @@
                     <tbody>
                         <?php foreach ($subrecetas as $sub) : ?>
                             <?php $n = (int) ($conteosSub[(int) $sub->id] ?? 0); ?>
-                            <tr>
+                            <tr data-row-href="/admin/recetas/subrecetas/edit?id=<?php echo (int) $sub->id; ?>">
                                 <td><span class="admin-table__cell-main"><?php echo htmlspecialchars($sub->nombre); ?></span></td>
                                 <td><span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($sub->unidad); ?></span></td>
                                 <td><span class="admin-table__cell-sub"><?php echo rtrim(rtrim(number_format((float) $sub->rendimiento, 3, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($sub->unidad); ?></span></td>

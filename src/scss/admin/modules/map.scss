@@ -12,8 +12,14 @@
   --txt-faint: rgba(11, 12, 13, 0.42);
   --gold: var(--admin-gold);
   --gold-deep: var(--admin-gold-deep);
-  --gold-soft: #e0c184;
+  --gold-soft: var(--admin-gold-soft);
   --line: var(--admin-border);
+  /* Estados del mapa, derivados de la paleta de marca. */
+  --map-libre: var(--admin-c-lima);
+  --map-proxima: var(--admin-c-naranja);
+  --map-bloqueada: var(--admin-c-rojo);
+  --map-ocupada: var(--admin-c-rojo);
+  --map-con-ticket: var(--admin-c-turquesa);
   --line-soft: var(--admin-border-soft);
   --sans: inherit;
   --serif: Georgia, "Times New Roman", serif;
@@ -260,7 +266,7 @@
     border-color 0.3s;
 
   &--active {
-    color: #4cde80;
+    color: var(--admin-success-text);
     border-color: rgba(76, 222, 128, 0.3);
   }
 }
@@ -357,12 +363,12 @@
   }
   &--proxima {
     background: rgba(124, 61, 29, 0.25);
-    color: #e8a060;
+    color: var(--admin-warning-text);
     border: 1px solid rgba(124, 61, 29, 0.4);
   }
   &--bloqueada {
     background: rgba(180, 60, 40, 0.2);
-    color: #e87060;
+    color: var(--admin-danger-text);
     border: 1px solid rgba(180, 60, 40, 0.4);
   }
   &--ocupada {
@@ -403,7 +409,7 @@
   text-align: center;
 
   &--error {
-    color: #e87060;
+    color: var(--admin-danger-text);
   }
 }
 
@@ -452,7 +458,7 @@
   }
   &--proxima {
     &::before {
-      background: #e8a060;
+      background: var(--admin-warning);
     }
   }
   &--pasada {
@@ -516,15 +522,15 @@
 
   &--pendiente_verificacion {
     background: rgba(204, 163, 82, 0.12);
-    color: #d4b06a;
+    color: var(--admin-gold-soft);
   }
   &--confirmada {
     background: rgba(95, 125, 86, 0.2);
-    color: #8bbf7e;
+    color: var(--admin-success-text);
   }
   &--cancelada {
     background: rgba(180, 60, 40, 0.15);
-    color: #e87060;
+    color: var(--admin-danger-text);
   }
 }
 
@@ -667,7 +673,7 @@
 .mesa-pin--proxima {
   background: rgba(124, 61, 29, 0.18);
   border-color: rgba(232, 160, 96, 0.4);
-  color: #e8a060;
+  color: var(--admin-warning-text);
 
   &:hover {
     transform: translate(-50%, -50%) scale(1.06);
@@ -678,7 +684,7 @@
 .mesa-pin--bloqueada {
   background: rgba(180, 60, 40, 0.18);
   border-color: rgba(232, 112, 96, 0.5);
-  color: #e87060;
+  color: var(--admin-danger-text);
   animation: pulse-ring 1.8s ease-in-out infinite;
 
   &:hover {
@@ -712,7 +718,7 @@
 .mesa-pin--con-ticket {
   background: rgba(95, 125, 86, 0.22);
   border-color: rgba(139, 191, 126, 0.55);
-  color: #8bbf7e;
+  color: var(--admin-success-text);
   box-shadow: 0 0 16px rgba(95, 125, 86, 0.15);
 
   &:hover {
@@ -722,7 +728,7 @@
 }
 
 .mapa-leyenda-item--con-ticket::before {
-  background: #8bbf7e;
+  background: var(--admin-success);
 }
 
 .mesa-pin--highlight {
@@ -893,7 +899,7 @@
   }
 
   &--active {
-    color: #4cde80;
+    color: var(--admin-success-text);
     border-color: rgba(76, 222, 128, 0.3);
     background: rgba(76, 222, 128, 0.07);
   }
@@ -1238,7 +1244,7 @@
   &--bloqueada,
   &--ocupada {
     background: rgba(232, 112, 96, 0.15);
-    color: #e87060;
+    color: var(--admin-danger-text);
     border: 1px solid rgba(232, 112, 96, 0.3);
   }
   &--proxima {
@@ -1248,7 +1254,7 @@
   }
   &--ticket {
     background: rgba(95, 125, 86, 0.18);
-    color: #8bbf7e;
+    color: var(--admin-success-text);
     border: 1px solid rgba(95, 125, 86, 0.3);
   }
 }
@@ -1621,7 +1627,7 @@
   }
   &--danger {
     background: rgba(180, 60, 40, 0.14);
-    color: #e87060;
+    color: var(--admin-danger-text);
     border: 1px solid rgba(180, 60, 40, 0.28);
     &:hover {
       background: rgba(180, 60, 40, 0.22);
@@ -1733,28 +1739,6 @@
   color: var(--txt-faint);
   min-width: 38px;
   text-align: right;
-}
-
-.mmodal-dish-add {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(204, 163, 82, 0.4);
-  background: none;
-  color: var(--gold);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  padding: 0;
-  transition: background 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  &:hover {
-    background: rgba(204, 163, 82, 0.12);
-  }
 }
 
 .mmodal-cart {
@@ -1874,7 +1858,7 @@
   }
   &--proxima {
     background: rgba(232, 160, 96, 0.13);
-    color: #e8a060;
+    color: var(--admin-warning-text);
   }
   &--vencida {
     background: rgba(120, 120, 120, 0.1);
@@ -1882,7 +1866,7 @@
   }
   &--cancelada {
     background: rgba(180, 60, 40, 0.1);
-    color: #e87060;
+    color: var(--admin-danger-text);
   }
 }
 
@@ -1976,14 +1960,6 @@
 }
 
 // ── Lista de platos con badge de área ─────────────────────────
-.mmodal-dish-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.16rem;
-  min-width: 0;
-}
-
 .mmodal-area-badge {
   display: inline-block;
   font-size: 0.53rem;
@@ -2182,7 +2158,7 @@
   border-radius: 3px;
   border: 1px solid rgba(91, 164, 207, 0.5);
   background: rgba(91, 164, 207, 0.1);
-  color: #5ba4cf;
+  color: var(--admin-info-text);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.14s;
@@ -2353,7 +2329,7 @@
   flex-shrink: 0;
   border: 1px solid rgba(180, 60, 40, 0.35);
   background: rgba(180, 60, 40, 0.08);
-  color: #e07060;
+  color: var(--admin-danger-text);
   font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
@@ -2426,7 +2402,7 @@
 // ── Danger variant del botón modal ────────────────────────────
 .mmodal-btn--danger {
   border-color: rgba(180, 60, 40, 0.5);
-  color: #e07060;
+  color: var(--admin-danger-text);
 
   &:hover {
     background: rgba(180, 60, 40, 0.15);
@@ -2664,7 +2640,7 @@
   background:
     linear-gradient(rgba(160, 126, 54, 0.16) 1px, transparent 1px),
     linear-gradient(90deg, rgba(160, 126, 54, 0.16) 1px, transparent 1px),
-    #f2eadc;
+    var(--admin-surface-soft);
   background-size:
     60px 60px,
     60px 60px;
@@ -2692,34 +2668,34 @@
 }
 
 .admin-map .mesa-pin--libre {
-  background: #fffaf2;
-  border-color: #b7b0a2;
-  color: #2f312d;
+  background: color-mix(in srgb, var(--map-libre) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-libre) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mesa-pin--proxima {
-  background: #ffe1b6;
-  border-color: #d28a31;
-  color: #6f3b12;
+  background: color-mix(in srgb, var(--map-proxima) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-proxima) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mesa-pin--bloqueada {
-  background: #f7d5d0;
-  border-color: #b85b4f;
-  color: #772f28;
+  background: color-mix(in srgb, var(--map-bloqueada) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-bloqueada) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mesa-pin--ocupada {
-  background: #dceccd;
-  border-color: #6c9b5d;
-  color: #284f25;
+  background: color-mix(in srgb, var(--map-ocupada) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-ocupada) 58%, transparent);
+  color: var(--admin-text);
   box-shadow: 0 10px 22px rgba(95, 125, 86, 0.2);
 }
 
 .admin-map .mesa-pin--con-ticket {
-  background: #214b4b;
-  border-color: #0f3436;
-  color: #f7fff8;
+  background: color-mix(in srgb, var(--map-con-ticket) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-con-ticket) 58%, transparent);
+  color: var(--admin-text);
   box-shadow: 0 10px 24px rgba(15, 52, 54, 0.28);
 }
 
@@ -2734,33 +2710,33 @@
 }
 
 .admin-map .mapa-leyenda-item--libre {
-  background: #fffaf2;
-  border-color: #b7b0a2;
-  color: #2f312d;
+  background: color-mix(in srgb, var(--map-libre) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-libre) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mapa-leyenda-item--proxima {
-  background: #ffe1b6;
-  border-color: #d28a31;
-  color: #6f3b12;
+  background: color-mix(in srgb, var(--map-proxima) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-proxima) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mapa-leyenda-item--bloqueada {
-  background: #f7d5d0;
-  border-color: #b85b4f;
-  color: #772f28;
+  background: color-mix(in srgb, var(--map-bloqueada) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-bloqueada) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mapa-leyenda-item--ocupada {
-  background: #dceccd;
-  border-color: #6c9b5d;
-  color: #284f25;
+  background: color-mix(in srgb, var(--map-ocupada) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-ocupada) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mapa-leyenda-item--con-ticket {
-  background: #214b4b;
-  border-color: #0f3436;
-  color: #f7fff8;
+  background: color-mix(in srgb, var(--map-con-ticket) 20%, var(--admin-surface));
+  border-color: color-mix(in srgb, var(--map-con-ticket) 58%, transparent);
+  color: var(--admin-text);
 }
 
 .admin-map .mesa-pin--highlight {
@@ -2820,15 +2796,15 @@
 }
 
 .admin-map .mmodal-btn--ghost {
-  border-color: rgba(160, 126, 54, 0.36);
-  background: #fffaf0;
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 36%, transparent);
+  background: var(--admin-btn-secondary-bg);
   color: var(--admin-text);
 }
 
 .admin-map .mmodal-btn--danger {
-  border-color: rgba(169, 75, 63, 0.34);
-  background: rgba(169, 75, 63, 0.1);
-  color: #81382f;
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
+  color: var(--admin-danger-text);
 }
 
 .admin-map .mmodal-tab {

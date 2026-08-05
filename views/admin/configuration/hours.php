@@ -12,6 +12,20 @@ $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES,
 $valorExcepcion = static fn (string $campo, $predeterminado = '') => $excepcionFormulario[$campo] ?? $predeterminado;
 $excepcionActiva = (string) $valorExcepcion('activo', '1') === '1';
 $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'horario_especial';
+
+/*
+ * Rejilla de horas 00–23 por día.
+ *
+ * Sustituye a las pestañas de rangos "preferidos", que solo ofrecían las
+ * combinaciones ya guardadas: para cualquier otra había que abrir un
+ * "Personalizado" con dos selectores. Aquí las 24 horas están a la vista y el
+ * rango se marca con dos toques (apertura y cierre).
+ *
+ * La resolución baja a la hora en punto. Un horario heredado con minutos
+ * (08:30) se conserva tal cual mientras nadie toque ese día: la rejilla solo
+ * resalta las horas que abarca, y el valor guardado no se reescribe.
+ */
+$horasDelDia = range(0, 23);
 ?>
 <section
     class="admin-configuration admin-menu admin-page"
@@ -40,9 +54,8 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
         <div class="admin-config-panel__head">
             <div>
                 <h2 id="weekly-schedule-title">Horario semanal</h2>
-                <p>Activa cada día y define su apertura y cierre.</p>
+                <p>Activa cada día y marca su apertura y su cierre en la rejilla de horas.</p>
             </div>
-            <span class="admin-config-unsaved" data-unsaved-status aria-live="polite">Sin cambios pendientes</span>
         </div>
 
         <form
@@ -65,65 +78,59 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
                     $closeErrorId = "schedule-close-error-{$diaSemana}";
                     ?>
                     <div class="admin-schedule__row" data-schedule-row>
-                        <strong class="admin-schedule__day"><?php echo $h($horario['nombre'] ?? ''); ?></strong>
+                        <div class="admin-schedule__head">
+                            <strong class="admin-schedule__day"><?php echo $h($horario['nombre'] ?? ''); ?></strong>
 
-                        <input type="hidden" name="horarios[<?php echo $index; ?>][dia_semana]" value="<?php echo $diaSemana; ?>">
-                        <input type="hidden" name="horarios[<?php echo $index; ?>][abierto]" value="0">
-                        <label class="admin-switch">
-                            <input
-                                type="checkbox"
-                                name="horarios[<?php echo $index; ?>][abierto]"
-                                value="1"
-                                aria-label="Abrir <?php echo $h($horario['nombre'] ?? ''); ?>"
-                                data-schedule-toggle
-                                <?php echo $isOpen ? 'checked' : ''; ?>
-                            >
-                            <span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>
-                            <span class="admin-switch__label" data-switch-label><?php echo $isOpen ? 'Abierto' : 'Cerrado'; ?></span>
-                        </label>
-
-                        <div class="admin-field admin-schedule__time">
-                            <label class="admin-field__label" for="schedule-open-display-<?php echo $diaSemana; ?>">Apertura</label>
-                            <?php
-                            $rootId = "schedule-open-picker-{$diaSemana}";
-                            $inputId = "schedule-open-{$diaSemana}";
-                            $displayId = "schedule-open-display-{$diaSemana}";
-                            $dropdownId = "schedule-open-dropdown-{$diaSemana}";
-                            $name = "horarios[{$index}][hora_apertura]";
-                            $value = (string)($horario['hora_apertura'] ?? '');
-                            $endpoint = '';
-                            $disabled = !$isOpen;
-                            $placeholder = 'Elige una hora';
-                            $staticStep = 30;
-                            $required = $isOpen;
-                            $displayAriaDescribedby = $openErrorId;
-                            $displayAriaInvalid = false;
-                            $inputDataAttributes = ['data-schedule-open' => true];
-                            include __DIR__ . '/../../components/reservations/time-picker.php';
-                            ?>
-                            <span class="admin-field__error" id="<?php echo $openErrorId; ?>" data-field-error aria-live="polite"></span>
+                            <input type="hidden" name="horarios[<?php echo $index; ?>][dia_semana]" value="<?php echo $diaSemana; ?>">
+                            <input type="hidden" name="horarios[<?php echo $index; ?>][abierto]" value="0">
+                            <label class="admin-switch">
+                                <input
+                                    type="checkbox"
+                                    name="horarios[<?php echo $index; ?>][abierto]"
+                                    value="1"
+                                    aria-label="Abrir <?php echo $h($horario['nombre'] ?? ''); ?>"
+                                    data-schedule-toggle
+                                    <?php echo $isOpen ? 'checked' : ''; ?>
+                                >
+                                <span class="admin-switch__track" aria-hidden="true"><span class="admin-switch__thumb"></span></span>
+                                <span class="admin-switch__label" data-switch-label><?php echo $isOpen ? 'Abierto' : 'Cerrado'; ?></span>
+                            </label>
                         </div>
 
-                        <div class="admin-field admin-schedule__time">
-                            <label class="admin-field__label" for="schedule-close-display-<?php echo $diaSemana; ?>">Cierre</label>
-                            <?php
-                            $rootId = "schedule-close-picker-{$diaSemana}";
-                            $inputId = "schedule-close-{$diaSemana}";
-                            $displayId = "schedule-close-display-{$diaSemana}";
-                            $dropdownId = "schedule-close-dropdown-{$diaSemana}";
-                            $name = "horarios[{$index}][hora_cierre]";
-                            $value = (string)($horario['hora_cierre'] ?? '');
-                            $endpoint = '';
-                            $disabled = !$isOpen;
-                            $placeholder = 'Elige una hora';
-                            $staticStep = 30;
-                            $required = $isOpen;
-                            $displayAriaDescribedby = $closeErrorId;
-                            $displayAriaInvalid = false;
-                            $inputDataAttributes = ['data-schedule-close' => true];
-                            include __DIR__ . '/../../components/reservations/time-picker.php';
-                            ?>
-                            <span class="admin-field__error" id="<?php echo $closeErrorId; ?>" data-field-error aria-live="polite"></span>
+                        <?php /*
+                          Envuelto en .admin-field porque setFieldError() busca
+                          ese contenedor para colocar el mensaje: un solo error
+                          para las dos horas, que son una sola decisión.
+
+                          Los inputs siguen siendo la fuente de verdad del envío
+                          y del control de cambios sin guardar; la rejilla solo
+                          los escribe. Así el resto del flujo (dirty state,
+                          conflictos, guardado por API) no cambia.
+                        */ ?>
+                        <div class="admin-field admin-schedule__picker">
+                            <input type="hidden" name="horarios[<?php echo $index; ?>][hora_apertura]"
+                                   value="<?php echo $h(substr((string)($horario['hora_apertura'] ?? ''), 0, 5)); ?>"
+                                   data-schedule-open>
+                            <input type="hidden" name="horarios[<?php echo $index; ?>][hora_cierre]"
+                                   value="<?php echo $h(substr((string)($horario['hora_cierre'] ?? ''), 0, 5)); ?>"
+                                   data-schedule-close>
+
+                            <div class="admin-schedule__hours" role="group"
+                                 aria-label="Horario de <?php echo $h($horario['nombre'] ?? ''); ?>"
+                                 data-schedule-hours>
+                                <?php foreach ($horasDelDia as $hora) : ?>
+                                    <button type="button"
+                                            class="admin-schedule__hour"
+                                            data-schedule-hour="<?php echo $hora; ?>"
+                                            aria-pressed="false"
+                                            title="<?php echo sprintf('%02d:00', $hora); ?>">
+                                        <?php echo sprintf('%02d', $hora); ?>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <p class="admin-schedule__summary" data-schedule-summary aria-live="polite"></p>
+                            <span class="admin-field__error" id="<?php echo $openErrorId; ?>" data-field-error aria-live="polite"></span>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -144,8 +151,8 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
                         value="1"
                     >Guardar de todas formas</button>
                 <?php endif; ?>
-                <button type="button" class="admin-btn admin-btn--secondary" data-schedule-reset disabled>Descartar cambios</button>
                 <button type="submit" class="admin-btn admin-btn--primary" data-schedule-validate disabled>Guardar horarios</button>
+                <button type="button" class="admin-btn admin-btn--secondary" data-schedule-reset disabled>Descartar cambios</button>
             </div>
         </form>
     </section>

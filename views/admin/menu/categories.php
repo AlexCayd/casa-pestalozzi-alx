@@ -57,7 +57,7 @@
                     </thead>
                     <tbody>
                         <?php foreach ($categorias as $cat) : ?>
-                            <tr>
+                            <tr data-row-href="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>">
                                 <td>
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($cat->nombre); ?></span>
                                 </td>
