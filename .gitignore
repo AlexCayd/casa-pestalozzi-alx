@@ -1,11 +1,8 @@
-node_modules
-vendor
-contexto_tecnico.md
 .env
-AGENTS.md
 .vscode
 .claude
 .DS_Store
 **/.DS_Store
-/tests/.sessions/*
-!/tests/.sessions/.gitkeep
+vendor
+node_modules
+AGENTS.md
