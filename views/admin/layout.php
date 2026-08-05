@@ -54,7 +54,6 @@
     <?php endforeach; ?>
 </head>
 <body class="admin-body">
-    <a class="skip-link" href="#admin-main">Saltar al contenido principal</a>
     <div class="admin-shell">
         <?php include_once __DIR__ . '/partials/_sidebar.php'; ?>
         <button
@@ -67,7 +66,7 @@
         <div class="admin-main">
             <?php include_once __DIR__ . '/partials/_topbar.php'; ?>
 
-            <main id="admin-main" class="admin-content" tabindex="-1">
+            <main class="admin-content">
                 <?php echo $content; ?>
             </main>
         </div>

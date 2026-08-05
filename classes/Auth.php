@@ -3,7 +3,6 @@
 namespace Classes;
 
 use Model\Usuario;
-use Services\ReservacionConfig;
 
 /**
  * Sesión y protección de rutas del personal.
@@ -26,6 +25,7 @@ class Auth {
     private const APIS_POS = [
         '/api/punto-de-venta',
         '/api/abrir-ticket',
+        '/api/liberar-reservacion',
         '/api/cerrar-ticket',
         '/api/liberar-mesa',
         '/api/enviar-comanda',
@@ -34,6 +34,7 @@ class Auth {
         '/api/cancelar-item',
         '/api/punto-de-venta/reservaciones',
         '/api/punto-de-venta/mesa-contexto',
+        '/api/punto-de-venta/reservaciones/llegada',
         '/api/punto-de-venta/reservaciones/comenzar',
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',
@@ -64,13 +65,6 @@ class Auth {
 
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
-            $environment = ReservacionConfig::appEnvironment();
-            if (in_array($environment, ['development', 'testing'], true)) {
-                $sessionPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . '.sessions';
-                if (is_dir($sessionPath)) {
-                    ini_set('session.save_path', $sessionPath);
-                }
-            }
             session_start();
         }
     }

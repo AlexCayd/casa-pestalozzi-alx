@@ -497,37 +497,7 @@
         });
     }
 
-    function initAdminSkipLink() {
-        var skipLink = document.querySelector('.admin-body .skip-link');
-        if (!skipLink) {
-            return;
-        }
-
-        function focusTarget(event) {
-            var targetId = skipLink.getAttribute('href');
-            var target = targetId ? document.querySelector(targetId) : null;
-            if (!target) {
-                return;
-            }
-            if (event) {
-                event.preventDefault();
-            }
-            target.focus({ preventScroll: true });
-            target.scrollIntoView({
-                behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
-            });
-        }
-
-        skipLink.addEventListener('click', focusTarget);
-        skipLink.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter' || event.key === ' ') {
-                focusTarget(event);
-            }
-        });
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
-        initAdminSkipLink();
         initAdminSidebar();
         initPasswordToggles();
         initPasswordStrengthValidation();

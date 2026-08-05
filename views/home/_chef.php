@@ -12,11 +12,11 @@
       <p class="body" data-reveal>Nuestra cocina trabaja con productores locales y de temporada, masa madre fermentada con paciencia y un horno de piedra que es el corazón del lugar. Nada sale de aquí sin contar una historia.</p>
       <div class="chef__cols">
         <div class="chef__col" data-reveal>
-          <h3>Filosofía</h3>
+          <h5>Filosofía</h5>
           <p>Producto primero. Técnica al servicio del sabor, nunca al revés. Cada temporada reescribe la carta.</p>
         </div>
         <div class="chef__col" data-reveal>
-          <h3>El horno</h3>
+          <h5>El horno</h5>
           <p>Piedra y leña para nuestras pizzas napolitanas y panes. Calor vivo que sella aromas y texturas.</p>
         </div>
       </div>

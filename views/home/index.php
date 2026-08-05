@@ -86,15 +86,14 @@ if ($schemaHorarios !== []) {
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
-  <link rel="stylesheet" href="/build/css/app.css?v=reservations-public-redesign-v17" />
+  <link rel="stylesheet" href="/build/css/app.css?v=reservations-public-redesign-v16" />
 </head>
 <body class="reveal-ready" data-hero="cinema" data-page="home">
 
-  <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
   <?php include_once __DIR__ . '/_cursor.php'; ?>
   <?php include_once __DIR__ . '/_nav.php'; ?>
 
-  <main id="main-content" tabindex="-1">
+  <main>
     <?php include_once __DIR__ . '/_hero.php'; ?>
     <?php include_once __DIR__ . '/_nosotros.php'; ?>
     <?php include_once __DIR__ . '/_menu.php'; ?>
@@ -126,7 +125,7 @@ if ($schemaHorarios !== []) {
   <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
-  <script src="/build/js/bundle.min.js?v=reservations-public-redesign-v20"></script>
+  <script src="/build/js/bundle.min.js?v=reservations-public-redesign-v16"></script>
 
 </body>
 </html>
