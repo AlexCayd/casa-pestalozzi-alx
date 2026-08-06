@@ -415,10 +415,11 @@ final class PuntoVentaReservacionService
                 $transaccion = false;
                 return [
                     'ok' => false,
-                    'codigo' => self::REQUIERE_CONFIRMACION,
+                    'codigo' => 'RESERVACION_PROXIMA',
                     'requiere_confirmacion' => true,
                     'advertencia' => $warning,
                     'advertencias' => $warnings,
+                    'contexto' => (array)($warning['contexto'] ?? []),
                 ];
             }
 
