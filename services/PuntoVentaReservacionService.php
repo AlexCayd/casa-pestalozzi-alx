@@ -603,6 +603,7 @@ final class PuntoVentaReservacionService
         $db = ActiveRecord::getDB();
         $ticket = self::fila(
             "SELECT t.id, t.nombre, t.comensales, t.hora_apertura, t.reservacion_id,
+                    t.estado, t.closed_at,
                     tm.mesa_id
              FROM tickets t
              INNER JOIN ticket_mesas tm ON tm.ticket_id = t.id AND tm.mesa_id = {$mesaId}
@@ -612,32 +613,13 @@ final class PuntoVentaReservacionService
         $ahora = ReservacionConfig::ahora();
         $hasta = $ahora->modify('+1 day')->format('Y-m-d H:i:s');
         $reservas = [];
+        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
         $resultado = $db->query(
             "SELECT r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE rm.mesa_id = {$mesaId}
-               AND (
-                    (
-                        r.estado = 'confirmada'
-                        AND NOT EXISTS (
-                            SELECT 1 FROM tickets vigencia_ticket
-                            WHERE vigencia_ticket.reservacion_id = r.id
-                              AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
-                        )
-                    )
-                    OR (
-                        r.estado = 'pendiente_verificacion'
-                        AND r.reemplaza_reservacion_id IS NULL
-                        AND r.hold_expires_at IS NOT NULL
-                        AND r.hold_expires_at > '{$ahora}'
-                    )
-               )
-               AND NOT EXISTS (
-                    SELECT 1 FROM tickets vigencia_ticket
-                    WHERE vigencia_ticket.reservacion_id = r.id
-                      AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
-               )
+               AND {$condicionInfluye}
                AND TIMESTAMP(r.fecha, r.hora) <= '{$hasta}'
              ORDER BY r.fecha, r.hora"
         );
@@ -660,11 +642,9 @@ final class PuntoVentaReservacionService
         $liberacionEstimada = null;
         $horaObjetivoPreparacion = null;
         if ($ticket) {
-            $apertura = new DateTimeImmutable((string)$ticket['hora_apertura'], ReservacionConfig::timezone());
-            $liberacionEstimada = $apertura
-                ->modify('+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes')
-                ->modify('+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes')
-                ->format('Y-m-d H:i:s');
+            $liberacionEstimada = TicketTemporalService::calcularLiberacionEstimadaTicket(
+                $ticket['hora_apertura'] ?? null
+            )?->format('Y-m-d H:i:s');
         }
         $advertenciaCodigo = null;
         $advertenciaContexto = [];
@@ -914,11 +894,7 @@ final class PuntoVentaReservacionService
                 ReservacionConfig::timezone()
             );
             $segundosRestantes = max(0, $inicio->getTimestamp() - $reloj->getTimestamp());
-            $liberacionEstimadaTicket = $reloj->modify(
-                '+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes'
-            )->modify(
-                '+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes'
-            );
+            $liberacionEstimadaTicket = TicketTemporalService::calcularLiberacionEstimadaTicket($reloj);
             $duracionEstimadaSupera = $liberacionEstimadaTicket > $inicio;
             $hora = substr((string)$fila['hora'], 0, 5);
             $minutosRestantes = (int)ceil($segundosRestantes / 60);

@@ -61,11 +61,22 @@ final class PosReservacionSerializer
         $puedeAusencia = (bool)$vigencia['elegible_no_show']
             && $ticket === null;
         $accionPendiente = $puedeAusencia ? 'REGISTRAR_AUSENCIA' : null;
+        $acciones = [];
+        if ($puedeIniciar) {
+            $acciones[] = ['id' => 'INICIAR_SERVICIO', 'tipo' => 'primary'];
+        }
+        if ($puedeAusencia) {
+            $acciones[] = ['id' => 'REGISTRAR_AUSENCIA', 'tipo' => 'primary'];
+        }
         $bloqueaWalkIns = $estado === 'confirmada'
             && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true)
             && (bool)$vigencia['influye_disponibilidad'];
         $muestraAdvertencia = $estado === 'confirmada'
-            && ($ventana === '30_60' || (bool)($opciones['muestra_advertencia'] ?? false));
+            && (
+                $ventana === '30_60'
+                || $puedeAusencia
+                || (bool)($opciones['muestra_advertencia'] ?? false)
+            );
 
         $motivo = self::motivoOperativo(
             $estado,
@@ -146,6 +157,7 @@ final class PosReservacionSerializer
             'motivo_bloqueo' => $codigoBloqueo,
             'bloqueo' => $bloqueo,
             'accion_pendiente' => $accionPendiente,
+            'acciones' => $acciones,
             'puede_marcar_no_show' => $puedeAusencia,
             'mesas_bloqueantes' => $mesasBloqueantes,
             'puede_registrar_ausencia' => $puedeAusencia,
@@ -158,6 +170,9 @@ final class PosReservacionSerializer
                 ])
                 : null,
             'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
+            'dentro_tolerancia' => (bool)$vigencia['dentro_tolerancia'],
+            'tolerancia_vencida' => (bool)$vigencia['tolerancia_vencida'],
+            'ausencia_pendiente' => (bool)$vigencia['ausencia_pendiente'],
             'motivo' => $motivo,
             'motivo_operativo' => $motivo,
             'conflicto_fisico' => $conflictoFisico,
@@ -194,6 +209,8 @@ final class PosReservacionSerializer
             'nombre' => $ticket['nombre'] ?? null,
             'comensales' => (int)($ticket['comensales'] ?? 0),
             'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
+            'estado' => (string)($ticket['estado'] ?? 'abierto'),
+            'closed_at' => $ticket['closed_at'] ?? null,
             'reservacion_id' => !empty($ticket['reservacion_id'])
                 ? (int)$ticket['reservacion_id']
                 : null,

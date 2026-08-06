@@ -209,14 +209,19 @@ final class ReservacionVigenciaService
             && !$tieneEvidenciaFisica
             && $limiteTolerancia instanceof DateTimeImmutable
             && $ahora > $limiteTolerancia;
+        $dentroTolerancia = $estado === 'confirmada'
+            && $fechaHora instanceof DateTimeImmutable
+            && $ahora >= $fechaHora
+            && $limiteTolerancia instanceof DateTimeImmutable
+            && $ahora <= $limiteTolerancia;
+        $ausenciaPendiente = $estado === 'confirmada'
+            && $toleranciaVencida
+            && !$ticketAbierto;
         $confirmadaVigente = $estado === 'confirmada';
-        $operativaPersistida = $estado === 'en_curso';
-        // Una reservación confirmada conserva la mesa hasta que se marque
-        // no_show, incluso después de vencer la tolerancia. Eso permite que el
-        // POS la pinte como vencida y habilite la acción de ausencia sin
-        // convertirla en una mesa libre o en una ocupación roja.
+        // La ausencia pendiente conserva el registro confirmado, pero deja de
+        // influir en disponibilidad. El cambio a no_show sigue siendo manual.
         $influyeDisponibilidad = $holdVigente
-            || ($estado === 'confirmada' && !$ticketAbierto);
+            || ($estado === 'confirmada' && !$ticketAbierto && !$toleranciaVencida);
         // El portal sólo muestra reservaciones confirmadas que aún pueden
         // resolverse públicamente. `en_curso` pertenece al POS y no se
         // presenta como gestionable ni cuenta para el máximo por contacto.
@@ -226,18 +231,18 @@ final class ReservacionVigenciaService
         $cuentaLimite = $confirmadaVigente
             && $fechaReservacion !== ''
             && $fechaReservacion >= $fechaActualRestaurante;
-        $elegibleNoShow = $estado === 'confirmada'
-            && $toleranciaVencida
-            && !$ticketAbierto;
+        $elegibleNoShow = $ausenciaPendiente;
         $ventana = self::resolverVentanaOperativa($reservacion, $ahora);
         $puedeIniciarServicio = $estado === 'confirmada'
             && !$ticketAbierto
+            && !$toleranciaVencida
             && in_array($ventana['estado'], ['0_30', 'tolerancia'], true);
         $antesODuranteHora = !($fechaHora instanceof DateTimeImmutable) || $ahora <= $fechaHora;
 
         return [
             'cuenta_limite' => $cuentaLimite,
             'visible_cliente' => $visibleCliente,
+            'dentro_tolerancia' => $dentroTolerancia,
             'influye_disponibilidad' => $influyeDisponibilidad,
             'visible_operacion' => in_array($estado, ReservacionConfig::estadosPermitidos(), true),
             'editable' => !$ticketAbierto && (
@@ -245,8 +250,11 @@ final class ReservacionVigenciaService
                 || ($confirmadaVigente && $antesODuranteHora)
             ),
             'elegible_no_show' => $elegibleNoShow,
+            'puede_marcar_no_show' => $elegibleNoShow,
+            'puede_iniciar' => $puedeIniciarServicio,
             'puede_iniciar_servicio' => $puedeIniciarServicio,
             'tolerancia_vencida' => $toleranciaVencida,
+            'ausencia_pendiente' => $ausenciaPendiente,
             'ventana_operativa' => $ventana,
             'hold_vigente' => $holdVigente,
             'ticket_abierto' => $ticketAbierto,
@@ -274,6 +282,11 @@ final class ReservacionVigenciaService
             )
             OR (
                 {$alias}.estado = 'confirmada'
+                AND TIMESTAMPADD(
+                    MINUTE,
+                    " . ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS . ",
+                    TIMESTAMP({$alias}.fecha, {$alias}.hora)
+                ) >= {$instante}
                 AND NOT EXISTS (
                     SELECT 1
                     FROM tickets vigencia_ticket
