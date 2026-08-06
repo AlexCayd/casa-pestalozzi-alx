@@ -306,10 +306,13 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'CAPACIDAD_INSUFICIENTE' => [
-            'titulo' => 'Capacidad insuficiente',
-            'mensaje' => 'La capacidad disponible no cubre la cantidad solicitada.',
-            'consecuencia' => 'La operación no puede continuar automáticamente.',
-            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
+            'titulo' => 'La capacidad de las mesas es insuficiente',
+            'mensaje' => 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
+            'consecuencia' => 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
+            'acciones' => [
+                ['id' => 'GUARDAR_DE_TODAS_FORMAS', 'label' => 'Guardar de todas formas', 'tipo' => 'primary'],
+                ['id' => 'VOLVER_A_SELECCIONAR', 'label' => 'Volver a seleccionar', 'tipo' => 'secondary'],
+            ],
         ],
         'CAPACIDAD_OPERATIVA_EXCEDIDA' => [
             'titulo' => 'Capacidad operativa excedida',
@@ -321,7 +324,10 @@ final class ReservacionErrorCatalog
             'titulo' => 'Asignación manual pendiente',
             'mensaje' => 'No existe una combinación automática válida de mesas.',
             'consecuencia' => 'La reservación puede confirmarse y quedar pendiente de asignación.',
-            'acciones' => [['id' => 'CONFIRMAR_SIN_MESAS', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+            'acciones' => [
+                ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
+                ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+            ],
         ],
         'MESA_OCUPADA' => [
             'titulo' => 'Mesa ocupada',

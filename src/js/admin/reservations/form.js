@@ -203,7 +203,7 @@
                     var codes = Array.isArray(detail.codes) ? detail.codes : [];
                     var labels = {
                         SIN_CONTACTO: 'Sin contacto: el equipo no podra contactar al cliente desde el sistema.',
-                        SIN_ASIGNACION: 'Sin mesas: la reservacion quedara confirmada y requerira asignacion manual.',
+                        SIN_ASIGNACION: 'Sin mesas: la reservación quedará confirmada y requerirá asignación manual.',
                         CAPACIDAD_OPERATIVA_EXCEDIDA: 'La solicitud supera la capacidad disponible. Si continúas, quedará confirmada sin garantía de asignación física y deberá resolverse manualmente.',
                         CAPACIDAD_INSUFICIENTE: 'Capacidad insuficiente: la capacidad estimada no cubre a todos los comensales.'
                     };
@@ -220,7 +220,7 @@
                         eyebrow: exceedsCapacity ? 'Decisión administrativa' : 'Confirmación operativa',
                         title: exceedsCapacity
                             ? 'La reservación supera la capacidad disponible'
-                            : (requiresManualAssignment ? 'Confirmar sin mesas' : 'Revisa las condiciones de la reservacion'),
+                            : (requiresManualAssignment ? 'Confirmar sin mesas' : 'Revisa las condiciones de la reservación'),
                         description: exceedsCapacity
                             ? 'Hay capacidad operativa limitada para este horario y la solicitud excede la capacidad real disponible.'
                             : codes.map(function (code) { return labels[code] || code; }).join(' '),
@@ -233,11 +233,11 @@
                         consequence: exceedsCapacity
                             ? 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.'
                             : (requiresManualAssignment ? 'La reservación quedará confirmada y deberá asignarse manualmente después.' : ''),
-                        backLabel: 'Seguir editando',
+                        backLabel: requiresManualAssignment ? 'Volver' : 'Seguir editando',
                         confirmLabel: exceedsCapacity
                             ? 'Confirmar bajo responsabilidad'
                             : (requiresManualAssignment
-                            ? 'Confirmar sin mesas'
+                            ? 'Asignar más tarde'
                             : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias')),
                         focusTarget: saveButton,
                         onConfirm: function () {
@@ -264,7 +264,7 @@
                         ],
                         warning: 'La asignación física no está garantizada.',
                         consequence: 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.',
-                        backLabel: 'Seguir editando',
+                        backLabel: requiresManualAssignment ? 'Volver' : 'Seguir editando',
                         confirmLabel: 'Confirmar bajo responsabilidad',
                         focusTarget: form.elements.comensales,
                         onConfirm: function () {
@@ -657,7 +657,7 @@
                         automaticAssignment.disabled = overPublicLimit || autoAssignmentHardDisabled;
                         if (overPublicLimit) automaticAssignment.checked = false;
                         var help = form.querySelector('[data-assignment-help]');
-                        if (help && overPublicLimit) help.textContent = 'Para mas de 12 personas se requiere asignacion manual.';
+                        if (help && overPublicLimit) help.textContent = 'Para más de 12 personas se requiere asignación manual.';
                     }
                     setFieldError('comensales', '');
                     if (!isEditing || !dateInput || !dateInput.value) {
@@ -870,7 +870,9 @@
                 updateSaveState();
             });
 
-            if (jsonTransport) {
+            // El alta del mapa tiene un único listener de envío en operation.js;
+            // el formulario administrativo normal conserva este transporte JSON.
+            if (jsonTransport && !modal) {
                 form.addEventListener('reservation:jsonsubmit', function () {
                     var body = new FormData(form);
                     body.set('response_format', 'json');

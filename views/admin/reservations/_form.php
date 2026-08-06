@@ -320,8 +320,8 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 <input type="hidden" name="asignar_automaticamente" value="0">
                 <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
                 <span class="reservation-admin-form__check-copy">
-                    <span>Asignar automáticamente las mesas disponibles.</span>
-                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para mas de 12 personas se requiere asignacion manual.' : 'Puedes guardar sin mesas y asignarlas despues desde Operacion.'; ?></small>
+                    <span>Asignar mesas automáticamente.</span>
+                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Puedes guardar sin mesas y asignarlas más tarde desde Operación.'; ?></small>
                 </span>
             </label>
             </fieldset>
