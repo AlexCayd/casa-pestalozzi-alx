@@ -1,9 +1,8 @@
 /**
- * Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3). Renderiza las cuatro
+ * Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3). Renderiza las tres
  * secciones a partir de window.AdminAnalyticsMock.nivel1 (Services\Analiticas):
  *   §3.1 Ingeniería de menú  — matriz Kasavana-Smith (scatter + tabla).
- *   §3.2 RevPASH             — ingreso por asiento disponible por hora (barras).
- *   §3.3 Varianza inventario — ranking de merma en pesos (tabla).
+ *   §3.2 RevPASH             — mapa de calor hora × día (tabla, sin canvas).
  *   §3.4 Reglas de asociación — pares por lift (tabla).
  * Es independiente de charts.js/analytics-page.js: se autoinicia y vuelve a
  * dibujar sus gráficas al cambiar el tema (evento admin:themechange).
@@ -177,91 +176,97 @@
         });
     }
 
-    // ── §3.2 RevPASH ─────────────────────────────────────────────────────
-    function renderRevpash(pal) {
+    // ── §3.2 RevPASH (mapa de calor hora × día) ──────────────────────────
+    /**
+     * El mapa no usa Chart.js: es una <table> con una variable CSS --heat por
+     * celda (0-1, proporción contra la celda más fuerte). El color lo resuelve
+     * la hoja de estilos con los tokens del tema, así que al cambiar de claro a
+     * oscuro no hay que volver a pintar nada — a diferencia de un canvas.
+     */
+    function renderRevpash() {
         var rp = data.revpash || {};
-        var labels = rp.labels || [];
+        var horas = rp.horas || [];
+        var dias = rp.dias || [];
+        var celdas = rp.celdas || [];
+        var max = rp.max || 0;
 
         setText('[data-n1-revpash-seats]', (rp.asientos || 0) + ' asientos');
 
         var noteEl = document.querySelector('[data-n1-revpash-note]');
         if (noteEl) {
             if (rp.mejor && rp.peor) {
-                noteEl.innerHTML = 'Mejor franja: <strong>' + rp.mejor.hora + '</strong> (' + money2(rp.mejor.valor) +
-                    '/asiento) · Más floja: <strong>' + rp.peor.hora + '</strong> (' + money2(rp.peor.valor) + '/asiento)';
+                noteEl.innerHTML =
+                    'Franja más fuerte: <strong>' + rp.mejor.dia + ' ' + rp.mejor.hora + '</strong> (' +
+                    money2(rp.mejor.valor) + '/asiento) · Más floja: <strong>' +
+                    rp.peor.dia + ' ' + rp.peor.hora + '</strong> (' + money2(rp.peor.valor) + '/asiento)';
             } else {
                 noteEl.textContent = '';
             }
         }
 
-        if (!labels.length) {
-            makeChart('revpashChart', { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false } });
+        var host = document.querySelector('[data-n1-revpash-heat]');
+        var scale = document.querySelector('[data-n1-revpash-scale]');
+        if (!host) {
             return;
         }
 
-        var best = rp.mejor ? rp.mejor.valor : null;
-        var colors = (rp.values || []).map(function (v) {
-            return best !== null && v === best ? pal.estrella : pal.incognita;
-        });
-
-        makeChart('revpashChart', {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'RevPASH',
-                    data: rp.values || [],
-                    backgroundColor: colors,
-                    borderRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: pal.tooltipBg, padding: 12, titleColor: '#fff', bodyColor: '#fff',
-                        callbacks: {
-                            label: function (ctx) {
-                                var ing = (rp.ingresos && rp.ingresos[ctx.dataIndex]) || 0;
-                                return money2(ctx.parsed.y) + ' / asiento · ingreso ' + money(ing);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { grid: { display: false }, ticks: { color: pal.muted } },
-                    y: { beginAtZero: true, grid: { color: pal.grid }, ticks: { color: pal.muted } }
-                }
+        if (!horas.length || !dias.length) {
+            host.innerHTML = '<p class="admin-nivel1-empty">Sin ventas ni horario definido en el periodo.</p>';
+            if (scale) {
+                scale.hidden = true;
             }
-        });
-    }
-
-    // ── §3.3 Varianza de inventario ──────────────────────────────────────
-    function renderVarianza() {
-        var v = data.varianza || {};
-        var items = (v.items || []).filter(function (it) { return it.mermaValor > 0 || it.teoricoValor > 0; });
-
-        setText('[data-n1-varianza-total]', 'Merma total: ' + money2(v.totalMerma || 0));
-
-        if (!items.length) {
-            emptyRow('[data-n1-varianza-table]', 3, 'Sin consumo ni ajustes de inventario en el periodo.');
             return;
         }
 
-        var tbody = document.querySelector('[data-n1-varianza-table]');
-        if (tbody) {
-            tbody.innerHTML = items.map(function (it) {
-                var merma = it.mermaValor > 0
-                    ? '<span class="admin-nivel1-merma">' + money2(it.mermaValor) + '</span>'
-                    : '<span class="admin-nivel1-ok">—</span>';
-                return '<tr>' +
-                    '<td>' + it.ingrediente + '</td>' +
-                    '<td>' + it.teoricoQty + ' ' + it.unidad + ' <small>(' + money2(it.teoricoValor) + ')</small></td>' +
-                    '<td>' + merma + '</td>' +
-                    '</tr>';
+        var head = '<thead><tr><th scope="col"><span class="admin-n1-heat__corner">Hora</span></th>' +
+            dias.map(function (d) {
+                return '<th scope="col" abbr="' + d.corto + '"><span title="' + d.largo + '">' + d.corto + '</span></th>';
+            }).join('') + '</tr></thead>';
+
+        var body = horas.map(function (hora, i) {
+            var fila = celdas[i] || [];
+            var tds = dias.map(function (d, j) {
+                var c = fila[j] || { v: 0, ing: 0, dias: 0, abierto: false };
+                var valor = c.v || 0;
+
+                // Sin días abiertos y sin venta: el negocio no operó esa franja.
+                // Es un hueco de calendario, no de desempeño; se marca distinto
+                // para no confundirlo con "abierto y no vendió".
+                if (!c.abierto && !c.ing) {
+                    var cerrado = d.largo + ' ' + hora + ' · cerrado';
+                    return '<td class="admin-n1-heat__cell is-closed" ' +
+                        'title="' + cerrado + '" aria-label="' + cerrado + '">·</td>';
+                }
+
+                var ratio = max > 0 ? valor / max : 0;
+                var cls = 'admin-n1-heat__cell';
+                if (ratio >= 0.55) {
+                    cls += ' is-strong';       // fondo saturado: texto oscuro
+                }
+                if (valor <= 0) {
+                    cls += ' is-empty';        // abierto y sin vender: el hueco
+                }
+                if (!c.abierto) {
+                    cls += ' is-offhours';     // vendió fuera del horario declarado
+                }
+
+                var tip = d.largo + ' ' + hora + ' · ' + money2(valor) + ' por asiento' +
+                    ' · ingreso ' + money(c.ing) + ' · ' + c.dias +
+                    (c.dias === 1 ? ' día' : ' días') + (c.abierto ? ' abierto' : ' con venta');
+
+                return '<td class="' + cls + '" style="--heat: ' + ratio.toFixed(3) + '"' +
+                    ' title="' + tip + '" aria-label="' + tip + '">' +
+                    (valor > 0 ? '$' + Math.round(valor) : '0') + '</td>';
             }).join('');
+
+            return '<tr><th scope="row">' + hora + '</th>' + tds + '</tr>';
+        }).join('');
+
+        host.innerHTML = '<table class="admin-n1-heat__table">' + head + '<tbody>' + body + '</tbody></table>';
+
+        if (scale) {
+            scale.hidden = max <= 0;
+            setText('[data-n1-revpash-max]', money2(max) + ' / asiento');
         }
     }
 
@@ -294,8 +299,7 @@
     function renderAll() {
         var pal = palette();
         renderMenu(pal);
-        renderRevpash(pal);
-        renderVarianza();
+        renderRevpash();
         renderAsociacion();
     }
 

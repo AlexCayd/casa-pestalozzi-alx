@@ -21,7 +21,13 @@
 
   &__backdrop {
     position: absolute;
-    inset: 0;
+    // Se desborda 24px a propósito. 'backdrop-filter' desenfoca lo que hay
+    // detrás y, en los bordes del elemento, el kernel del blur muestrea fuera
+    // de su área: el navegador rellena esos píxeles y dibuja un halo claro que
+    // se veía como un marco blanco alrededor de toda la pantalla. Sacando los
+    // bordes fuera del viewport, el halo queda recortado y no se ve.
+    // El desbordamiento no genera scroll: el ancestro es position: fixed.
+    inset: -24px;
     background: rgba(6, 7, 8, 0.62);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);

@@ -9877,6 +9877,17 @@ footer.foot {
 .mmodal-name-input:focus {
   border-color: rgba(204, 163, 82, 0.45);
 }
+.mmodal-name-input:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.mmodal-field-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--txt-faint);
+}
 
 .mmodal-nombre-edit {
   display: flex;
