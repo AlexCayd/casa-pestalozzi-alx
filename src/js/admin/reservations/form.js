@@ -210,84 +210,80 @@
                 }
             }
 
-            function confirmationOptions(type, detail) {
-                detail = detail || {};
-                if (type === 'warnings') {
-                    var codes = Array.isArray(detail.codes) ? detail.codes : [];
-                    var labels = {
-                        SIN_CONTACTO: 'Sin contacto: el equipo no podra contactar al cliente desde el sistema.',
-                        SIN_ASIGNACION: 'Sin mesas: la reservación quedará confirmada y requerirá asignación manual.',
-                        CAPACIDAD_OPERATIVA_EXCEDIDA: 'La solicitud supera la capacidad disponible. Si continúas, quedará confirmada sin garantía de asignación física y deberá resolverse manualmente.',
-                        CAPACIDAD_INSUFICIENTE: 'Capacidad insuficiente: la capacidad estimada no cubre a todos los comensales.'
-                    };
-                    var requiresManualAssignment = codes.indexOf('SIN_ASIGNACION') !== -1;
-                    var exceedsCapacity = codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1;
-                    var requested = parseInt(formValue(form, 'comensales') || '0', 10) || 0;
-                    var availability = detail.availability || {};
-                    var available = parseInt(
-                        detail.available || availability.capacidad_real_disponible || availability.capacidad_estimada || '0',
-                        10
-                    ) || 0;
+            function decisionItems(detail) {
+                var raw = Array.isArray(detail && detail.decisions)
+                    ? detail.decisions
+                    : (Array.isArray(detail && detail.confirmaciones_requeridas)
+                        ? detail.confirmaciones_requeridas
+                        : (Array.isArray(detail && detail.codes) ? detail.codes : []));
+                return raw.filter(function (decision) {
+                    return decision && typeof decision === 'object' && decision.mensaje;
+                });
+            }
+
+            function decisionCodes(decisions) {
+                return decisions.map(function (decision) {
+                    return decision.codigo_canonico || decision.codigo;
+                }).filter(Boolean).filter(function (code, index, all) {
+                    return all.indexOf(code) === index;
+                });
+            }
+
+            function decisionAction(decisions, type, fallback) {
+                for (var i = 0; i < decisions.length; i++) {
+                    var actions = Array.isArray(decisions[i].acciones) ? decisions[i].acciones : [];
+                    for (var j = 0; j < actions.length; j++) {
+                        if (type === 'secondary' && actions[j].id === 'VOLVER') return actions[j];
+                        if (type === 'primary' && actions[j].tipo === 'primary') return actions[j];
+                    }
+                }
+                return fallback;
+            }
+
+            function decisionConfirmationOptions(type, detail) {
+                var decisions = decisionItems(detail);
+                var codes = decisionCodes(decisions);
+                if (!decisions.length || !codes.length) {
+                    console.error('Reservaciones admin: decision sin presentacion canonica', detail);
                     return {
                         type: type,
-                        eyebrow: exceedsCapacity ? 'Decisión administrativa' : 'Confirmación operativa',
-                        title: exceedsCapacity
-                            ? 'La reservación supera la capacidad disponible'
-                            : (requiresManualAssignment ? 'Confirmar sin mesas' : 'Revisa las condiciones de la reservación'),
-                        description: exceedsCapacity
-                            ? 'Hay capacidad operativa limitada para este horario y la solicitud excede la capacidad real disponible.'
-                            : codes.map(function (code) { return labels[code] || code; }).join(' '),
-                        summary: exceedsCapacity
-                            ? ['Comensales solicitados: ' + requested, 'Capacidad disponible: ' + available]
-                            : codes.map(function (code) { return labels[code] || code; }),
-                        warning: exceedsCapacity
-                            ? 'La asignación física no está garantizada.'
-                            : (requiresManualAssignment ? 'La asignación de mesas quedará pendiente.' : ''),
-                        consequence: exceedsCapacity
-                            ? 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.'
-                            : (requiresManualAssignment ? 'La reservación quedará confirmada y deberá asignarse manualmente después.' : ''),
-                        backLabel: requiresManualAssignment ? 'Volver' : 'Seguir editando',
-                        confirmLabel: exceedsCapacity
-                            ? 'Confirmar bajo responsabilidad'
-                            : (requiresManualAssignment
-                            ? 'Asignar más tarde'
-                            : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias')),
+                        eyebrow: 'Decision administrativa',
+                        title: 'No fue posible mostrar la decision',
+                        description: 'Actualiza la pantalla e intenta nuevamente.',
+                        backLabel: 'Cerrar',
+                        confirmLabel: 'Cerrar',
                         focusTarget: saveButton,
-                        onConfirm: function () {
-                            acceptConfirmations(codes);
-                            setFormValue(form, 'confirmar_sobrecapacidad', codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1 ? '1' : '0');
-                            submitAfterConfirmation();
-                        }
+                        onConfirm: function () {}
                     };
                 }
-                if (type === 'capacity') {
-                    var requested = parseInt(detail.requested || '0', 10) || 0;
-                    var available = parseInt(detail.available || '0', 10) || 0;
-                    return {
-                        type: type,
-                        eyebrow: 'Decisión administrativa',
-                        title: 'La reservación supera la capacidad disponible',
-                        description: 'La reservación solicita ' + requested +
-                            ' personas y sólo hay capacidad real disponible para ' + available +
-                            '. Revisa la excepción antes de confirmar.',
-                        summary: [
-                            'Comensales solicitados: ' + requested,
-                            'Capacidad disponible: ' + available,
-                            'Exceso: ' + Math.max(0, requested - available)
-                        ],
-                        warning: 'La asignación física no está garantizada.',
-                        consequence: 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.',
-                        backLabel: requiresManualAssignment ? 'Volver' : 'Seguir editando',
-                        confirmLabel: 'Confirmar bajo responsabilidad',
-                        focusTarget: form.elements.comensales,
-                        onConfirm: function () {
-                            acceptConfirmations(['CAPACIDAD_OPERATIVA_EXCEDIDA']);
-                            setFormValue(form, 'confirmar_sobrecapacidad', '1');
-                            var automatic = form.querySelector('[name="asignar_automaticamente"][value="1"]');
-                            if (automatic) automatic.checked = false;
-                            submitAfterConfirmation();
-                        }
-                    };
+                var first = decisions[0];
+                var primary = decisionAction(decisions, 'primary', { label: 'Confirmar', tipo: 'primary' });
+                var secondary = decisionAction(decisions, 'secondary', { label: 'Volver', tipo: 'secondary' });
+                var messages = decisions.map(function (decision) { return decision.mensaje; }).filter(Boolean);
+                var descriptions = decisions.map(function (decision) { return decision.descripcion; }).filter(Boolean);
+                var consequences = decisions.map(function (decision) { return decision.consecuencia; }).filter(Boolean);
+                return {
+                    type: type,
+                    eyebrow: first.tipo === 'decision_requerida' ? 'Decision administrativa' : 'Conflicto operativo',
+                    title: first.mensaje,
+                    description: descriptions.join(' '),
+                    summary: messages.slice(1),
+                    consequence: consequences.join(' '),
+                    backLabel: secondary.label,
+                    confirmLabel: primary.label,
+                    focusTarget: saveButton,
+                    onConfirm: function () {
+                        acceptConfirmations(codes);
+                        setFormValue(form, 'confirmar_sobrecapacidad', codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1 ? '1' : '0');
+                        submitAfterConfirmation();
+                    }
+                };
+            }
+
+            function confirmationOptions(type, detail) {
+                detail = detail || {};
+                if (type === 'warnings' || type === 'capacity') {
+                    return decisionConfirmationOptions(type, detail);
                 }
                 if (type === 'contact') {
                     return {
@@ -403,14 +399,6 @@
                     openConfirmation(detail.type || 'custom', detail);
                 });
 
-                if (confirmation.getAttribute('data-confirmation-autostart') === 'capacity') {
-                    window.setTimeout(function () {
-                        openConfirmation('capacity', {
-                            requested: confirmation.getAttribute('data-confirmation-requested'),
-                            available: confirmation.getAttribute('data-confirmation-available')
-                        });
-                    }, 0);
-                }
             }
 
             var requiredFocusQueued = false;
@@ -732,52 +720,6 @@
                 updateSaveState();
             });
 
-            function warningCodesForSubmit() {
-                var codes = [];
-                var contactType = formValue(form, 'contacto_tipo');
-                var contact = String(formValue(form, 'contacto') || '').trim();
-                if ((mode === 'crear' || contactType === 'ninguno') && !contact) {
-                    codes.push('SIN_CONTACTO');
-                }
-                var hour = normalizeHour(timeInput ? timeInput.value : '');
-                var detail = hour ? availabilityDetails[hour] : null;
-                if (detail && detail.capacidad_estimada_suficiente === false) {
-                    codes.push('CAPACIDAD_OPERATIVA_EXCEDIDA');
-                }
-                if (automaticAssignment) {
-                    var guests = parseInt(formValue(form, 'comensales') || '0', 10) || 0;
-                    var requested = automaticAssignment.checked && !automaticAssignment.disabled;
-                    var hasCanonicalProposal = !detail || detail.asignacion_automatica_posible !== false;
-                    if (!requested || guests > 12 || !hasCanonicalProposal) {
-                        if (!(mode === 'editar' && hasTables && !requested && !detail)) {
-                            codes.push('SIN_ASIGNACION');
-                        }
-                    }
-                } else if (mode === 'crear' || !hasTables) {
-                    codes.push('SIN_ASIGNACION');
-                }
-                return codes.filter(function (code, index) { return codes.indexOf(code) === index; });
-            }
-
-            function openWarningsIfNeeded() {
-                var codes = warningCodesForSubmit();
-                var accepted = acceptedConfirmationCodes.slice();
-                if (confirmationInput) {
-                    accepted = accepted.concat(String(confirmationInput.value || '').split(',').filter(Boolean));
-                }
-                accepted = accepted.filter(function (code, index) { return accepted.indexOf(code) === index; });
-                var missing = codes.filter(function (code) { return accepted.indexOf(code) === -1; });
-                if (missing.length) {
-                    var hour = normalizeHour(timeInput ? timeInput.value : '');
-                    openConfirmation('warnings', {
-                        codes: codes,
-                        availability: hour ? (availabilityDetails[hour] || {}) : {}
-                    });
-                    return true;
-                }
-                return false;
-            }
-
             form.addEventListener('submit', function (event) {
                 if (isSubmitting) {
                     event.preventDefault();
@@ -839,11 +781,6 @@
                     }
                     showFeedback('Revisa los campos marcados antes de guardar.', 'error');
                     updateSaveState();
-                    return;
-                }
-
-                if (openWarningsIfNeeded()) {
-                    event.preventDefault();
                     return;
                 }
 
@@ -919,7 +856,10 @@
                             if (Array.isArray(payload.requiredConfirmations) && payload.requiredConfirmations.length) {
                                 clearAcceptedConfirmations();
                                 form.dispatchEvent(new CustomEvent('reservation:confirmation', {
-                                    detail: { type: 'warnings', codes: payload.requiredConfirmations }
+                                    detail: {
+                                        type: 'warnings',
+                                        decisions: payload.confirmaciones_requeridas || payload.requiredConfirmations
+                                    }
                                 }));
                                 return;
                             }

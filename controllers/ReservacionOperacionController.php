@@ -613,6 +613,7 @@ class ReservacionOperacionController
         $codigo = (string)($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO);
         $ok = (bool)($resultado['ok'] ?? false);
         $httpStatus = $ok ? 200 : ReservacionErrorCatalog::httpStatus($codigo, 422);
+        $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
 
         self::jsonResponse([
             'ok' => $ok,
@@ -627,7 +628,8 @@ class ReservacionOperacionController
             'mesas_proyectadas' => $resultado['mesas_proyectadas'] ?? [],
             'advertencia' => $resultado['advertencia'] ?? null,
             'advertencias' => $resultado['advertencias'] ?? [],
-            'confirmaciones_requeridas' => $resultado['confirmaciones_requeridas'] ?? [],
+            'confirmaciones_requeridas' => $decisiones,
+            'requiredConfirmations' => $decisiones,
             'mesas_liberadas' => $resultado['mesas_liberadas'] ?? [],
         ], $httpStatus);
     }

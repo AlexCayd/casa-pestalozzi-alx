@@ -1116,13 +1116,18 @@
                 .catch(function (error) {
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
                     var message = error && error.mensaje || '';
+                    var decisions = error && (error.confirmaciones_requeridas || error.requiredConfirmations);
+                    if (Array.isArray(decisions) && decisions.length) {
+                        createForm.dispatchEvent(new CustomEvent('reservation:confirmation', {
+                            bubbles: true,
+                            detail: { type: 'warnings', decisions: decisions }
+                        }));
+                        return;
+                    }
                     if (error && error.requiresCapacityConfirmation) {
                         createForm.dispatchEvent(new CustomEvent('reservation:capacity-warning', {
                             bubbles: true,
-                            detail: {
-                                requested: parseInt(error.requestedCapacity || '0', 10),
-                                available: parseInt(error.availableCapacity || '0', 10)
-                            }
+                            detail: { decisions: decisions || [] }
                         }));
                         return;
                     }
@@ -2039,6 +2044,55 @@
                 });
         }
 
+        function decisionObjects(payload) {
+            var raw = Array.isArray(payload && payload.confirmaciones_requeridas)
+                ? payload.confirmaciones_requeridas
+                : (Array.isArray(payload && payload.requiredConfirmations)
+                    ? payload.requiredConfirmations
+                    : []);
+            var decisions = raw.filter(function (decision) {
+                return decision && typeof decision === 'object' && decision.mensaje;
+            });
+            if (!decisions.length && payload && payload.mensaje && payload.codigo) {
+                decisions.push({
+                    codigo: payload.codigo,
+                    codigo_canonico: payload.codigo_canonico || payload.codigo,
+                    tipo: payload.tipo || 'conflicto_recuperable',
+                    titulo: payload.titulo || payload.mensaje,
+                    mensaje: payload.mensaje,
+                    descripcion: payload.descripcion || '',
+                    consecuencia: payload.consecuencia || '',
+                    acciones: Array.isArray(payload.acciones) ? payload.acciones : []
+                });
+            }
+            return decisions;
+        }
+
+        function decisionCodes(decisions) {
+            return decisions.map(function (decision) {
+                return decision.codigo_canonico || decision.codigo;
+            }).filter(Boolean).filter(function (code, index, all) {
+                return all.indexOf(code) === index;
+            });
+        }
+
+        function decisionAction(decisions, type, fallback) {
+            for (var i = 0; i < decisions.length; i++) {
+                var actions = Array.isArray(decisions[i].acciones) ? decisions[i].acciones : [];
+                for (var j = 0; j < actions.length; j++) {
+                    if (type === 'secondary' && actions[j].id === 'VOLVER') return actions[j];
+                    if (type === 'primary' && actions[j].tipo === 'primary') return actions[j];
+                }
+            }
+            return fallback;
+        }
+
+        function decisionSummary(decision) {
+            return [decision.mensaje, decision.descripcion, decision.consecuencia]
+                .filter(Boolean)
+                .join(' ');
+        }
+
         function openTicketConflictModal(payload) {
             if (!confirmationController) {
                 showInlineError(payload && payload.mensaje || '', payload);
@@ -2048,12 +2102,12 @@
             var conflictos = Array.isArray(payload.conflictos_ticket)
                 ? payload.conflictos_ticket
                 : [];
-            var confirmaciones = Array.isArray(payload.confirmaciones_requeridas)
-                ? payload.confirmaciones_requeridas.slice()
-                : [];
-            if (conflictos.length && confirmaciones.indexOf('CONFLICTO_TICKET_ABIERTO') === -1) {
-                confirmaciones.push('CONFLICTO_TICKET_ABIERTO');
+            var decisiones = decisionObjects(payload);
+            if (!decisiones.length) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
             }
+            var confirmaciones = decisionCodes(decisiones);
             state.pendingAssignmentConflict = {
                 token: payload.conflicto_token || '',
                 ticketIds: conflictos.map(function (conflicto) {
@@ -2061,11 +2115,7 @@
                 }).filter(Boolean),
                 confirmaciones: confirmaciones
             };
-            var confirmationDetails = confirmaciones.map(function (codigo) {
-                var presentacion = (payload.confirmaciones_requeridas_presentaciones && payload.confirmaciones_requeridas_presentaciones[codigo])
-                    || (payload.advertencias_presentaciones && payload.advertencias_presentaciones[codigo]);
-                return 'Confirmación requerida: ' + (presentacion ? presentacion.mensaje : codigo);
-            });
+            var confirmationDetails = decisiones.map(decisionSummary);
             confirmationDetails = confirmationDetails.concat(conflictos.map(function (conflicto) {
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
                 var allTables = (conflicto.mesa_ids || []).map(mesaNombre).join(', ');
@@ -2078,15 +2128,18 @@
                     ' · Apertura: ' + (conflicto.hora_apertura || 'Sin dato') +
                     ' · Origen: ' + origin;
             }));
+            var first = decisiones[0];
+            var primary = decisionAction(decisiones, 'primary', { label: 'Confirmar', tipo: 'primary' });
+            var secondary = decisionAction(decisiones, 'secondary', { label: 'Volver', tipo: 'secondary' });
             confirmationController.open({
                 variant: 'warning',
-                eyebrow: 'Excepción manual',
-                title: 'Conflicto de asignación',
-                description: 'La selección coincide con tickets realmente abiertos.',
+                eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
+                title: first.mensaje,
+                description: first.descripcion || '',
                 summary: confirmationDetails,
-                consequence: 'El ticket continuará abierto y no se vinculará con esta reservación.',
-                secondaryLabel: 'Volver',
-                primaryLabel: 'Confirmar y guardar',
+                consequence: first.consecuencia || '',
+                secondaryLabel: secondary.label,
+                primaryLabel: primary.label,
                 onPrimary: function () {
                     var confirmation = state.pendingAssignmentConflict;
                     confirmationController.close(false);
@@ -2102,15 +2155,15 @@
                 return;
             }
 
-            var comensales = parseInt(reservacion.comensales || '0', 10) || 0;
-            var capacidadSeleccionada = selectedCapacity();
-            var diferencia = Math.max(0, comensales - capacidadSeleccionada);
-            var confirmaciones = Array.isArray(payload && payload.confirmaciones_requeridas)
-                ? payload.confirmaciones_requeridas.slice()
-                : [];
-            if (confirmaciones.indexOf('CAPACIDAD_INSUFICIENTE') === -1) {
-                confirmaciones.push('CAPACIDAD_INSUFICIENTE');
+            var decisiones = decisionObjects(payload);
+            if (!decisiones.length) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
             }
+            var confirmaciones = decisionCodes(decisiones);
+            var first = decisiones[0];
+            var primary = decisionAction(decisiones, 'primary', { label: 'Confirmar', tipo: 'primary' });
+            var secondary = decisionAction(decisiones, 'secondary', { label: 'Volver', tipo: 'secondary' });
 
             state.pendingAssignmentConflict = {
                 token: '',
@@ -2119,17 +2172,13 @@
             };
             confirmationController.open({
                 variant: 'warning',
-                eyebrow: 'Capacidad de mesas',
-                title: 'La capacidad de las mesas es insuficiente',
-                description: 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
-                summary: [
-                    'Comensales: ' + comensales,
-                    'Capacidad seleccionada: ' + capacidadSeleccionada,
-                    'Lugares faltantes: ' + diferencia
-                ],
-                consequence: 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
-                secondaryLabel: 'Volver a seleccionar',
-                primaryLabel: 'Guardar de todas formas',
+                eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
+                title: first.mensaje,
+                description: first.descripcion || '',
+                summary: decisiones.slice(1).map(decisionSummary),
+                consequence: first.consecuencia || '',
+                secondaryLabel: secondary.label,
+                primaryLabel: primary.label,
                 onSecondary: function () {
                     state.pendingAssignmentConflict = null;
                 },

@@ -1094,6 +1094,42 @@ final class ReservacionErrorCatalog
         return $decisiones;
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public static function decisionesResultado(array $resultado): array
+    {
+        $codigos = $resultado['confirmaciones_requeridas']
+            ?? ($resultado['warnings'] ?? []);
+        if ($codigos === [] && in_array((string)($resultado['codigo'] ?? ''), [
+            'SIN_ASIGNACION',
+            'CAPACIDAD_OPERATIVA_EXCEDIDA',
+            'CAPACIDAD_INSUFICIENTE',
+            'CONFLICTO_TICKETS_ABIERTOS',
+            'CONFLICTO_TICKET_ABIERTO',
+        ], true)) {
+            $codigos = [(string)$resultado['codigo']];
+        }
+        $contexto = self::contextoResultado($resultado);
+        return self::decisiones((array)$codigos, $contexto);
+    }
+
+    /** @return array<string, scalar> */
+    public static function contextoResultado(array $resultado): array
+    {
+        $contexto = array_merge($resultado, (array)($resultado['contexto'] ?? []));
+        if (!array_key_exists('comensales_solicitados', $contexto)
+            && array_key_exists('capacidad_solicitada', $contexto)) {
+            $contexto['comensales_solicitados'] = $contexto['capacidad_solicitada'];
+        }
+        if (!array_key_exists('lugares_faltantes', $contexto)) {
+            $solicitados = (int)($contexto['comensales_solicitados'] ?? 0);
+            $disponibles = (int)($contexto['capacidad_disponible'] ?? 0);
+            if ($solicitados > 0 || $disponibles > 0) {
+                $contexto['lugares_faltantes'] = max(0, $solicitados - $disponibles);
+            }
+        }
+        return self::contextoSeguro($contexto);
+    }
+
     /** @param array<string, mixed> $resultado @param array<string, mixed> $contexto */
     public static function enriquecer(array $resultado, array $contexto = []): array
     {

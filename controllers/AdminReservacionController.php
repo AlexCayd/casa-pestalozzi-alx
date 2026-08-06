@@ -146,6 +146,7 @@ class AdminReservacionController
         if ($resultado['ok'] ?? false) {
             $id = (int)($resultado['id'] ?? 0);
             if ($expectsJson) {
+                $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
                 self::jsonResponse([
                     'success' => true,
                     'ok' => true,
@@ -176,8 +177,9 @@ class AdminReservacionController
                         (array)($resultado['mesas_proyectadas'] ?? [])
                     )),
                     'idempotent' => (bool)($resultado['idempotente'] ?? false),
-                    'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                    'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                    'warnings' => $decisiones,
+                    'confirmaciones_requeridas' => $decisiones,
+                    'requiredConfirmations' => $decisiones,
                 ]);
                 return;
             }
@@ -194,6 +196,7 @@ class AdminReservacionController
         );
         http_response_code($status);
         if ($expectsJson) {
+            $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
             self::jsonResponse([
                 'success' => false,
                 'ok' => false,
@@ -203,8 +206,9 @@ class AdminReservacionController
                 'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
                 'requiresContactConfirmation' => (bool)($resultado['requiere_confirmacion_sin_contacto'] ?? false),
                 'requiresCapacityConfirmation' => (bool)($resultado['requiere_confirmacion_capacidad'] ?? false),
-                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                'warnings' => $decisiones,
+                'confirmaciones_requeridas' => $decisiones,
+                'requiredConfirmations' => $decisiones,
                 'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                 'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
                 'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
@@ -346,6 +350,7 @@ class AdminReservacionController
         if ($expectsJson) {
             $codigo = (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO);
             $status = ReservacionErrorCatalog::httpStatus($codigo, 422);
+            $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
             self::jsonResponse([
                 'ok' => false,
                 'success' => false,
@@ -356,8 +361,9 @@ class AdminReservacionController
                 'fieldCodes' => is_array($resultado['field_codes'] ?? null)
                     ? $resultado['field_codes']
                     : [],
-                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                'warnings' => $decisiones,
+                'confirmaciones_requeridas' => $decisiones,
+                'requiredConfirmations' => $decisiones,
             ], $status);
             return;
         }
