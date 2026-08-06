@@ -30,7 +30,7 @@ final class ReservacionPublicaService
     public const CONTACTO_NO_VERIFICADO = 'CONTACTO_NO_VERIFICADO';
     public const CONTACTO_NO_COINCIDE = 'CONTACTO_NO_COINCIDE';
     public const SESION_PUBLICA_EXPIRADA = 'SESION_PUBLICA_EXPIRADA';
-    public const RESERVACION_NO_ENCONTRADA = 'RESERVACION_NO_ENCONTRADA';
+    public const RESERVACION_NO_ENCONTRADA = ReservacionService::RESERVACION_NO_EXISTE;
     public const RESERVACION_NO_PERTENECE_AL_CONTACTO = 'RESERVACION_NO_PERTENECE_AL_CONTACTO';
     public const MODIFICACION_NO_PERMITIDA = 'MODIFICACION_NO_PERMITIDA';
     public const CANCELACION_NO_PERMITIDA = 'CANCELACION_NO_PERMITIDA';
@@ -40,8 +40,8 @@ final class ReservacionPublicaService
     public const REEMPLAZO_CREADO = 'REEMPLAZO_CREADO';
     public const REEMPLAZO_CONFIRMADO = 'REEMPLAZO_CONFIRMADO';
     public const RETENCIONES_EXPIRADAS = 'RETENCIONES_EXPIRADAS';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
     /** Expone la regla temporal a la presentación sin duplicarla. */
     public static function puedeGestionarse(array $fila): bool
@@ -212,7 +212,7 @@ final class ReservacionPublicaService
                 return array_merge([
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
-                    'mensaje' => 'Conservaremos tus mesas durante 15 minutos mientras verificas el contacto.',
+                    'contexto' => ['minutos' => ReservacionConfig::VIGENCIA_HOLD_MINUTOS],
                     'request_token' => $datos['request_token'],
                     'hold_expires_at' => self::fechaAtom($vence),
                     'idempotente' => false,
@@ -236,10 +236,10 @@ final class ReservacionPublicaService
             $tipo = trim((string)($entrada['tipo'] ?? $entrada['tipo_contacto'] ?? ''));
             $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
         } catch (InvalidArgumentException $e) {
-            return self::datosInvalidos($e->getMessage());
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         if (!self::tokenValido($requestToken) || preg_match('/^\d{6}$/', $codigo) !== 1) {
-            return self::datosInvalidos('Escribe el código de seis dígitos y conserva el identificador de solicitud.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
         return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken, $codigo): array {
@@ -345,10 +345,10 @@ final class ReservacionPublicaService
             $tipo = trim((string)($entrada['tipo'] ?? ''));
             $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
         } catch (InvalidArgumentException $e) {
-            return self::datosInvalidos($e->getMessage());
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         if (!self::tokenValido($requestToken)) {
-            return self::datosInvalidos('El identificador de solicitud no es válido.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
         return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
@@ -405,14 +405,12 @@ final class ReservacionPublicaService
             return [
                 'ok' => false,
                 'codigo' => self::SESION_PUBLICA_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
             ];
         }
         if (!self::contactoCoincideConSesion($entrada, $sesion)) {
             return [
                 'ok' => false,
                 'codigo' => self::CONTACTO_NO_COINCIDE,
-                'mensaje' => 'El contacto cambió. Verifícalo nuevamente para confirmar la reservación.',
             ];
         }
         $entrada['tipo_contacto'] = $tipo;
@@ -507,16 +505,16 @@ final class ReservacionPublicaService
         $token = trim((string)($entrada['request_token'] ?? ''));
 
         if ($id < 1 || $tipo === '' || $contacto === '' || !self::tokenValido($token)) {
-            return self::datosInvalidos('Selecciona una reservación y conserva el identificador de operación.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
-            return self::datosInvalidos('Selecciona una fecha y un horario válidos.');
+            return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
         }
         if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-            return self::datosInvalidos('Las reservaciones en línea son de 1 a 12 personas.');
+            return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
-            return self::datosInvalidos('Las notas no pueden exceder 500 caracteres.');
+            return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
         }
 
         $original = self::buscarPorId($id);
@@ -590,7 +588,7 @@ final class ReservacionPublicaService
                 if (!self::puedeModificarPublicamente($fila)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::modificacionNoPermitida('Puedes modificar esta reservación hasta 30 minutos antes.');
+                    return self::modificacionNoPermitida();
                 }
                 $conservaHorarioOriginal = (string)$fila['fecha'] === $fecha
                     && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
@@ -613,7 +611,7 @@ final class ReservacionPublicaService
                 if (!($horario['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::datosInvalidos('La fecha u hora seleccionada ya no está disponible.');
+                    return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
                 }
 
                 $disponibilidad = DisponibilidadReservacionService::evaluarHorario(
@@ -628,7 +626,7 @@ final class ReservacionPublicaService
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad('Ese nuevo horario ya no está disponible. Tu reservación original sigue confirmada.');
+                    return self::sinDisponibilidad();
                 }
 
                 $vence = ReservacionConfig::ahora()
@@ -671,7 +669,7 @@ final class ReservacionPublicaService
                     $db->rollback();
                 }
                 error_log('ReservacionPublicaService::crearReemplazo - ' . $e->getMessage());
-                return self::errorInterno('No fue posible crear el cambio; tu reservación original sigue confirmada.');
+                return self::errorInterno();
             }
         });
     }
@@ -689,10 +687,10 @@ final class ReservacionPublicaService
         $tipo = (string)($sesion['contacto_tipo'] ?? '');
         $contacto = (string)($sesion['contacto'] ?? '');
         if (!self::tokenValido($token)) {
-            return self::datosInvalidos('La operación de cambio no es válida.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
         if ($tipo === '' || $contacto === '') {
-            return ['ok' => false, 'codigo' => self::SESION_PUBLICA_EXPIRADA, 'mensaje' => 'Verifica nuevamente tu contacto.'];
+            return ['ok' => false, 'codigo' => self::SESION_PUBLICA_EXPIRADA];
         }
 
         $previsualizacion = self::buscarPorToken($token);
@@ -749,12 +747,12 @@ final class ReservacionPublicaService
                     VerificacionContacto::invalidarPorReservaciones([(int)$reemplazo['id']]);
                     $db->commit();
                     $transaccion = false;
-                    return self::modificacionNoPermitida('Los cambios ya no pueden aplicarse; tu reservación original no está vigente.');
+                    return self::modificacionNoPermitida();
                 }
                 if (!ReservacionMesa::tieneMesasAsignadas((int)$reemplazo['id'])) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad('El cambio ya no tiene una asignación válida. Tu reservación original sigue confirmada.');
+                    return self::sinDisponibilidad();
                 }
 
                 $reemplazoId = (int)$reemplazo['id'];
@@ -786,7 +784,7 @@ final class ReservacionPublicaService
                     )) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad('El cambio ya no está disponible. Tu reservación original sigue confirmada.');
+                    return self::sinDisponibilidad();
                 }
 
                 $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
@@ -818,7 +816,7 @@ final class ReservacionPublicaService
                     $db->rollback();
                 }
                 error_log('ReservacionPublicaService::confirmarReemplazo - ' . $e->getMessage());
-                return self::errorInterno('No fue posible aplicar los cambios; tu reservación original sigue confirmada.');
+                return self::errorInterno();
             }
         });
     }
@@ -829,7 +827,7 @@ final class ReservacionPublicaService
         $tipo = (string)($sesion['contacto_tipo'] ?? '');
         $contacto = (string)($sesion['contacto'] ?? '');
         if ($id < 1 || $tipo === '' || $contacto === '') {
-            return self::datosInvalidos('Selecciona una reservación válida.');
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         $actual = self::buscarPorId($id);
         if (!$actual) {
@@ -856,7 +854,6 @@ final class ReservacionPublicaService
                     return [
                         'ok' => true,
                         'codigo' => self::RESERVACION_CANCELADA,
-                        'mensaje' => 'La reservación ya estaba cancelada.',
                         'idempotente' => true,
                     ];
                 }
@@ -866,7 +863,6 @@ final class ReservacionPublicaService
                     return [
                         'ok' => false,
                         'codigo' => self::CANCELACION_NO_PERMITIDA,
-                        'mensaje' => 'Ya no es posible cancelar en línea. Contacta al restaurante.',
                     ];
                 }
                 $ticket = $db->query(
@@ -886,7 +882,6 @@ final class ReservacionPublicaService
                     return [
                         'ok' => false,
                         'codigo' => self::CANCELACION_NO_PERMITIDA,
-                        'mensaje' => 'El servicio ya comenzó y no puede cancelarse en línea.',
                     ];
                 }
 
@@ -911,7 +906,6 @@ final class ReservacionPublicaService
                 return [
                     'ok' => true,
                     'codigo' => self::RESERVACION_CANCELADA,
-                    'mensaje' => 'La reservación fue cancelada.',
                     'idempotente' => false,
                 ];
             } catch (\Throwable $e) {
@@ -1007,16 +1001,16 @@ final class ReservacionPublicaService
         $contactoValor = trim((string)($entrada['contacto'] ?? ''));
 
         if ($nombre === '' || self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
-            return self::datosInvalidos('Escribe un nombre válido.');
+            return self::datosInvalidos('NOMBRE_REQUERIDO');
         }
         if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-            return self::datosInvalidos('Las reservaciones en línea son de 1 a 12 personas.');
+            return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($notas) > ReservacionConfig::NOTA_MAX_CARACTERES) {
-            return self::datosInvalidos('Las notas no pueden exceder 500 caracteres.');
+            return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
         }
         if (!self::tokenValido($requestToken)) {
-            return self::datosInvalidos('El identificador de solicitud no es válido.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
         $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
         if (!($horario['ok'] ?? false)) {
@@ -1026,17 +1020,11 @@ final class ReservacionPublicaService
                 HorarioReservacionService::FECHA_PASADA,
                 HorarioReservacionService::DIA_INACTIVO,
             ], true) ? 'fecha' : 'hora';
-            $mensaje = $esPasado
-                ? 'Ese horario ya pasó. Elige un horario posterior.'
-                : 'La fecha u hora seleccionada no está disponible.';
             return [
                 'ok' => false,
                 'codigo' => self::DATOS_INVALIDOS,
-                'mensaje' => $mensaje,
-                'errores' => [$field => [$mensaje]],
-                'errors' => [$field => [$mensaje]],
                 'field_codes' => [
-                    $field => [(string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO)],
+                    $field => [self::codigoCampoHorario((string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO))],
                 ],
                 'siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null,
             ];
@@ -1048,7 +1036,7 @@ final class ReservacionPublicaService
                 : ContactoService::normalizar($tipo, $contactoValor);
         } catch (InvalidArgumentException $e) {
             if ($requiereContacto) {
-                return self::datosInvalidos($e->getMessage());
+                return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
             }
             $contacto = '';
         }
@@ -1163,17 +1151,17 @@ final class ReservacionPublicaService
         try {
             $horarioLock = HorarioConfigLock::adquirir($db);
             if (!$horarioLock) {
-                return self::errorInterno('La configuración de horarios está siendo actualizada.');
+                return self::errorInterno();
             }
             $contactoLock = ContactoOperacionLock::adquirir($db, $tipo, $contacto);
             if (!$contactoLock) {
-                return self::errorInterno('La reservación está siendo actualizada. Intenta de nuevo.');
+                return self::errorInterno();
             }
             $fechas = array_values(array_unique(array_filter(array_map('trim', $fechas))));
             sort($fechas, SORT_STRING);
             foreach ($fechas as $fecha) {
                 if (!FechaOperacionLock::adquirir($db, $fecha)) {
-                    return self::sinDisponibilidad('La disponibilidad cambió. Intenta nuevamente.');
+                    return self::sinDisponibilidad();
                 }
                 $adquiridas[] = $fecha;
             }
@@ -1199,7 +1187,6 @@ final class ReservacionPublicaService
                 return [
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
-                    'mensaje' => 'La retención ya existe.',
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
@@ -1428,9 +1415,6 @@ final class ReservacionPublicaService
         return [
             'ok' => true,
             'codigo' => self::RESERVACION_CONFIRMADA,
-            'mensaje' => $idempotente
-                ? 'La reservación ya estaba confirmada.'
-                : 'La reservación quedó confirmada.',
             'idempotente' => $idempotente,
             'reservation' => self::publicar($fila),
         ];
@@ -1449,9 +1433,6 @@ final class ReservacionPublicaService
         return [
             'ok' => true,
             'codigo' => self::REEMPLAZO_CREADO,
-            'mensaje' => $idempotente
-                ? 'El cambio sigue pendiente de confirmación.'
-                : 'Revisa el cambio y confírmalo para aplicarlo. Tu reservación original sigue confirmada.',
             'idempotente' => $idempotente,
             'request_token' => (string)($fila['request_token'] ?? ''),
             'hold_expires_at' => self::fechaAtom((string)($fila['hold_expires_at'] ?? '')),
@@ -1468,21 +1449,16 @@ final class ReservacionPublicaService
         return [
             'ok' => true,
             'codigo' => self::REEMPLAZO_CONFIRMADO,
-            'mensaje' => $idempotente
-                ? 'El cambio ya estaba aplicado.'
-                : 'Tu reservación fue actualizada.',
             'idempotente' => $idempotente,
             'reservation' => self::publicar($fila),
         ];
     }
 
-    private static function modificacionNoPermitida(
-        string $mensaje = 'La reservación ya no puede modificarse.'
-    ): array {
+    private static function modificacionNoPermitida(): array
+    {
         return [
             'ok' => false,
             'codigo' => self::MODIFICACION_NO_PERMITIDA,
-            'mensaje' => $mensaje,
         ];
     }
 
@@ -1491,7 +1467,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RETENCION_EXPIRADA,
-            'mensaje' => 'El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.',
         ];
     }
 
@@ -1566,9 +1541,26 @@ final class ReservacionPublicaService
         return function_exists('mb_strlen') ? mb_strlen($valor, 'UTF-8') : strlen($valor);
     }
 
-    private static function datosInvalidos(string $mensaje): array
+    private static function codigoCampoHorario(string $codigo): string
     {
-        return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mensaje' => $mensaje];
+        return match ($codigo) {
+            HorarioReservacionService::FECHA_INVALIDA => 'FECHA_INVALIDA',
+            HorarioReservacionService::FECHA_PASADA => 'FECHA_PASADA',
+            HorarioReservacionService::HORARIO_PASADO => 'HORARIO_PASADO',
+            HorarioReservacionService::DIA_INACTIVO => 'DIA_NO_DISPONIBLE',
+            'FECHA_FUERA_DE_HORIZONTE' => 'FECHA_FUERA_DE_HORIZONTE',
+            'HORARIO_SIN_CONFIGURACION' => 'HORARIO_SIN_CONFIGURACION',
+            default => 'HORARIO_NO_DISPONIBLE',
+        };
+    }
+
+    private static function datosInvalidos(string $fieldCode = 'DATOS_RESERVACION_INVALIDOS'): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::DATOS_INVALIDOS,
+            'field_codes' => ['datos' => [$fieldCode]],
+        ];
     }
 
     private static function tokenEnConflicto(): array
@@ -1576,7 +1568,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::REQUEST_TOKEN_CONFLICTO,
-            'mensaje' => 'La solicitud ya está asociada con otros datos. Inicia una nueva reservación.',
         ];
     }
 
@@ -1585,7 +1576,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::LIMITE_RESERVACIONES_ALCANZADO,
-            'mensaje' => 'Alcanzaste cinco reservaciones activas.',
         ];
     }
 
@@ -1594,18 +1584,17 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_DUPLICADA,
-            'mensaje' => 'Ya existe una reservación activa para este contacto en el horario seleccionado.',
         ];
     }
 
-    private static function sinDisponibilidad(string $mensaje = 'El horario ya no está disponible.'): array
+    private static function sinDisponibilidad(): array
     {
-        return ['ok' => false, 'codigo' => self::SIN_DISPONIBILIDAD, 'mensaje' => $mensaje];
+        return ['ok' => false, 'codigo' => self::SIN_DISPONIBILIDAD];
     }
 
     private static function retencionExpirada(): array
     {
-        return ['ok' => false, 'codigo' => self::RETENCION_EXPIRADA, 'mensaje' => 'La retención venció.'];
+        return ['ok' => false, 'codigo' => self::RETENCION_EXPIRADA];
     }
 
     private static function noEncontrada(): array
@@ -1613,7 +1602,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_NO_ENCONTRADA,
-            'mensaje' => 'No fue posible localizar la reservación.',
         ];
     }
 
@@ -1622,12 +1610,11 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_NO_PERTENECE_AL_CONTACTO,
-            'mensaje' => 'La reservación no pertenece al contacto verificado.',
         ];
     }
 
-    private static function errorInterno(string $mensaje = 'No fue posible completar la operación.'): array
+    private static function errorInterno(): array
     {
-        return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'mensaje' => $mensaje];
+        return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
     }
 }

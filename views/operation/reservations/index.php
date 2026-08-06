@@ -1,4 +1,6 @@
 <?php
+
+use Services\ReservacionErrorCatalog;
 /**
  * Herramienta diaria de reservaciones; el shell vive en views/operation/layout.php.
  */
@@ -65,17 +67,19 @@ if ($initialOperationNotice !== null) {
         default => 'No se pudo completar la operación',
     };
     $operationalGlobalNotice['summary'] = (string)($mensajesIniciales[0] ?? 'Consulta el estado de la operación.');
-    $operationalGlobalNotice['message'] = match ($tipoAvisoInicial) {
-        'success' => 'El servidor confirmó el cambio y la información visible quedó actualizada.',
-        'warning' => 'Revisa el contexto del aviso y continúa con una opción disponible.',
-        default => 'Los datos visibles no cambiaron. Revisa el estado actual antes de volver a intentar la acción desde su control original.',
-    };
+    $noticeCode = $tipoAvisoInicial === 'success'
+        ? 'ACTUALIZADA'
+        : ($tipoAvisoInicial === 'warning' ? 'DATOS_INVALIDOS' : 'ERROR_INTERNO');
+    $notice = ReservacionErrorCatalog::presentar($noticeCode);
+    $operationalGlobalNotice['mensaje'] = $notice['consecuencia'];
 } elseif ($modoSoloLectura) {
+    $notice = ReservacionErrorCatalog::presentar('FECHA_PASADA_SOLO_LECTURA');
     $operationalGlobalNotice = [
         'type' => 'info',
-        'title' => 'Modo histórico',
-        'summary' => 'Esta vista es solo de lectura.',
-        'message' => 'Estás consultando una fecha anterior. La asignación, los comentarios y los cambios de estado están deshabilitados; vuelve a una fecha vigente para operar.',
+        'codigo' => 'FECHA_PASADA_SOLO_LECTURA',
+        'title' => $notice['titulo'],
+        'summary' => $notice['mensaje'],
+        'mensaje' => $notice['consecuencia'],
         'hidden' => false,
     ];
 }
@@ -200,7 +204,7 @@ if ($initialOperationNotice !== null) {
                 <span><small>Diferencia</small><strong data-operation-assignment-difference>0</strong></span>
                 <span class="reservation-operation-assignment-bar__tables"><small>Mesas</small><strong data-operation-assignment-tables>Sin mesas seleccionadas</strong></span>
             </div>
-            <p class="reservation-operation-assignment-bar__refresh" data-operation-assignment-refresh role="status" aria-live="polite" hidden>Los datos se actualizaron. Tu selecciÃ³n local se conserva; vuelve a validar antes de guardar.</p>
+            <p class="reservation-operation-assignment-bar__refresh" data-operation-assignment-refresh role="status" aria-live="polite" hidden>Los datos se actualizaron. Tu selección local se conserva; vuelve a validar antes de guardar.</p>
             <div class="reservation-operation-assignment-bar__actions">
                 <button type="button" class="admin-btn admin-btn--secondary" data-operation-assignment-cancel>Cancelar</button>
                 <button type="button" class="admin-btn admin-btn--danger" data-operation-clear hidden>Asignar mesas después</button>

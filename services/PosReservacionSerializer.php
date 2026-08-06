@@ -5,10 +5,10 @@ namespace Services;
 use DateTimeImmutable;
 
 /**
- * Produce el contrato operativo compartido por POS y operaciÃ³n.
+ * Produce el contrato operativo compartido por POS y operación.
  *
  * Esta clase no consulta la base de datos ni decide asignaciones. Recibe filas
- * y ocupaciÃ³n ya leÃ­das, aplica la vigencia central y presenta una sola forma
+ * y ocupación ya leídas, aplica la vigencia central y presenta una sola forma
  * estable para los consumidores.
  */
 final class PosReservacionSerializer
@@ -83,11 +83,10 @@ final class PosReservacionSerializer
             (bool)$vigencia['puede_iniciar_servicio'],
             (bool)$vigencia['tolerancia_vencida']
         );
-        $mensajeBloqueo = self::mensajeBloqueo(
-            $motivoBloqueo,
-            $mesasBloqueantes
-        );
-        $accionSugerida = self::accionSugerida($motivoBloqueo, $mesasBloqueantes);
+        $codigoBloqueo = self::codigoBloqueo($motivoBloqueo);
+        $bloqueo = $codigoBloqueo !== null
+            ? ReservacionErrorCatalog::presentar($codigoBloqueo)
+            : null;
         $minutosRestantes = $vigencia['ventana_operativa']['minutos_restantes'] ?? null;
         $minutosPara = $minutosRestantes === null
             ? null
@@ -110,7 +109,7 @@ final class PosReservacionSerializer
             'schema_version' => self::SCHEMA_VERSION,
             'reservacion_id' => $reservacionId,
             // Alias de transporte conservado para consumidores existentes; la
-            // identidad canÃ³nica es reservacion_id.
+            // identidad canónica es reservacion_id.
             'id' => $reservacionId,
             'estado' => $estado,
             'fecha' => (string)($datos['fecha'] ?? ''),
@@ -144,15 +143,20 @@ final class PosReservacionSerializer
             // puede_iniciar_servicio para los consumidores existentes.
             'puede_iniciar' => $puedeIniciar,
             'puede_iniciar_servicio' => $puedeIniciar,
-            'motivo_bloqueo' => $motivoBloqueo,
-            'mensaje_bloqueo' => $mensajeBloqueo,
-            'accion_sugerida' => $accionSugerida,
+            'motivo_bloqueo' => $codigoBloqueo,
+            'bloqueo' => $bloqueo,
             'accion_pendiente' => $accionPendiente,
             'puede_marcar_no_show' => $puedeAusencia,
             'mesas_bloqueantes' => $mesasBloqueantes,
             'puede_registrar_ausencia' => $puedeAusencia,
             'bloquea_walk_ins' => $bloqueaWalkIns,
             'muestra_advertencia' => $muestraAdvertencia,
+            'advertencia' => $muestraAdvertencia
+                ? ReservacionErrorCatalog::presentar('RESERVACION_PROXIMA', [
+                    'hora' => substr((string)($datos['hora'] ?? ''), 0, 5),
+                    'minutos_restantes' => $minutosPara ?? 0,
+                ])
+                : null,
             'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
             'motivo' => $motivo,
             'motivo_operativo' => $motivo,
@@ -251,8 +255,6 @@ final class PosReservacionSerializer
                     'mesa_id' => $mesaId,
                     'numero' => $numero,
                     'motivo' => 'MESA_NO_UTILIZABLE',
-                    'descripcion' => $etiqueta . ' ya no está disponible para iniciar el servicio.',
-                    'accion_sugerida' => 'Actualiza la asignación de la reservación antes de continuar.',
                 ];
                 continue;
             }
@@ -275,8 +277,6 @@ final class PosReservacionSerializer
                         'mesa_id' => $mesaId,
                         'numero' => $numero,
                         'motivo' => 'TICKET_ABIERTO',
-                        'descripcion' => $etiqueta . ' tiene un ticket abierto.',
-                        'accion_sugerida' => 'Cierra o mueve ese servicio antes de iniciar la reservación.',
                     ];
                 } elseif (in_array($tipo, ['reservacion', 'hold'], true)
                     || $eventoReservacionId > 0) {
@@ -284,16 +284,12 @@ final class PosReservacionSerializer
                         'mesa_id' => $mesaId,
                         'numero' => $numero,
                         'motivo' => 'OTRA_OPERACION',
-                        'descripcion' => $etiqueta . ' está siendo utilizada por otra operación.',
-                        'accion_sugerida' => 'Libera la mesa o actualiza la asignación desde el mapa.',
                     ];
                 } else {
                     $bloqueos[] = [
                         'mesa_id' => $mesaId,
                         'numero' => $numero,
                         'motivo' => 'CONFLICTO_ASIGNACION',
-                        'descripcion' => $etiqueta . ' presenta un conflicto de disponibilidad.',
-                        'accion_sugerida' => 'Actualiza la información antes de volver a intentar.',
                     ];
                 }
                 break;
@@ -303,15 +299,17 @@ final class PosReservacionSerializer
         return $bloqueos;
     }
 
-    /** @param array<int, array<string, mixed>> $bloqueos */
-    public static function mensajeBloqueoMesas(array $bloqueos): string
+    private static function codigoBloqueo(?string $motivo): ?string
     {
-        $total = count($bloqueos);
-        if ($total <= 1) {
-            return 'No se puede iniciar el servicio porque una de las mesas asignadas no está disponible.';
-        }
-        return 'No se puede iniciar el servicio porque ' . $total
-            . ' mesas asignadas no están disponibles.';
+        return match ($motivo) {
+            'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'MESA_OCUPADA',
+            'TICKET_ABIERTO' => 'TICKET_ABIERTO',
+            'TOLERANCIA_LLEGADA_VENCIDA' => 'TOLERANCIA_LLEGADA_VENCIDA',
+            'MESAS_SIN_ASIGNAR' => 'SIN_ASIGNACION',
+            'VENTANA_NO_PERMITIDA' => 'RESERVACION_PROXIMA',
+            'ESTADO_NO_PERMITE_INICIO' => 'ESTADO_INVALIDO',
+            default => null,
+        };
     }
 
     /**
@@ -477,50 +475,6 @@ final class PosReservacionSerializer
         }
 
         return null;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $mesasBloqueantes
-     */
-    private static function mensajeBloqueo(?string $motivo, array $mesasBloqueantes): ?string
-    {
-        if ($mesasBloqueantes !== []) {
-            return self::mensajeBloqueoMesas($mesasBloqueantes);
-        }
-
-        return match ($motivo) {
-            'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'No se puede iniciar el servicio porque una de las mesas asignadas no está disponible.',
-            'TICKET_ABIERTO' => 'Esta reservación ya tiene un ticket abierto; continúa desde ese servicio.',
-            'TOLERANCIA_LLEGADA_VENCIDA' => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
-            'MESAS_SIN_ASIGNAR' => 'No se puede iniciar el servicio porque la reservación no tiene mesas asignadas.',
-            'VENTANA_NO_PERMITIDA' => 'El servicio aún no puede iniciar porque la reservación está fuera de la ventana permitida.',
-            'ESTADO_NO_PERMITE_INICIO' => 'El estado actual de la reservación no permite iniciar el servicio.',
-            default => null,
-        };
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $mesasBloqueantes
-     */
-    private static function accionSugerida(?string $motivo, array $mesasBloqueantes): ?string
-    {
-        if ($mesasBloqueantes !== []) {
-            $acciones = array_values(array_unique(array_filter(array_map(
-                static fn(array $bloqueo): string => (string)($bloqueo['accion_sugerida'] ?? ''),
-                $mesasBloqueantes
-            ))));
-            return implode(' ', $acciones);
-        }
-
-        return match ($motivo) {
-            'MESAS_ASIGNADAS_NO_DISPONIBLES' => 'Actualiza la información de disponibilidad antes de volver a intentar.',
-            'TICKET_ABIERTO' => 'Continúa desde el ticket abierto.',
-            'TOLERANCIA_LLEGADA_VENCIDA' => 'Registra la ausencia antes de utilizar la mesa.',
-            'MESAS_SIN_ASIGNAR' => 'Actualiza la asignación antes de iniciar.',
-            'VENTANA_NO_PERMITIDA' => 'Espera a la ventana permitida para iniciar.',
-            'ESTADO_NO_PERMITE_INICIO' => 'Actualiza la reservación antes de iniciar.',
-            default => null,
-        };
     }
 
     /** @param array<string, mixed>|null $mesa */

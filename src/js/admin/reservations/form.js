@@ -370,6 +370,7 @@
                 var message = field ? field.querySelector('.reservation-detail-field-msg') : null;
                 if (message) {
                     message.textContent = 'Completa este campo.';
+                    message.setAttribute('data-client-required-error', '1');
                     message.classList.add('show');
                 }
                 control.setAttribute('aria-invalid', 'true');
@@ -669,8 +670,9 @@
                     control.removeAttribute('aria-invalid');
                     var field = control.closest('.reservation-detail-form__field');
                     var message = field ? field.querySelector('.reservation-detail-field-msg') : null;
-                    if (message && message.textContent === 'Completa este campo.') {
+                    if (message && message.getAttribute('data-client-required-error') === '1') {
                         message.textContent = '';
+                        message.removeAttribute('data-client-required-error');
                         message.classList.remove('show');
                     }
                 }

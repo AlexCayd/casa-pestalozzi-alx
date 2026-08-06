@@ -17,28 +17,7 @@ function fechaLegible(value) {
 }
 
 function mensajeOperacionModificacion(data, phase) {
-  var code = String(data && data.codigo || "");
-  var known = {
-    SIN_DISPONIBILIDAD: "Ese nuevo horario ya no está disponible. Tu reservación original sigue vigente.",
-    SESION_PUBLICA_EXPIRADA: "Tu sesión pública expiró. Verifica nuevamente tu contacto para continuar.",
-    CSRF_INVALIDO: "La validación de seguridad venció. Recarga la página e inténtalo nuevamente.",
-    OTP_INCORRECTO: "El código no coincide. Revisa los seis dígitos e inténtalo nuevamente.",
-    OTP_EXPIRADO: "El código venció. Solicita uno nuevo para continuar.",
-    OTP_INTENTOS_AGOTADOS: "Agotaste los intentos. Solicita un código nuevo para continuar.",
-    VERIFICACION_NO_ENCONTRADA: "No hay una verificación activa. Solicita un código nuevo.",
-    CONTACTO_NO_COINCIDE: "El contacto enviado no coincide con el contacto verificado.",
-    RETENCION_EXPIRADA: "El tiempo para confirmar el cambio terminó. Tu reservación original continúa vigente.",
-    LIMITE_RESERVACIONES_ALCANZADO: "Ya no puedes mantener otra reservación pendiente en este momento.",
-    REQUEST_TOKEN_CONFLICTO: "Este cambio ya no coincide con la operación activa. Vuelve a revisarlo.",
-    RESERVACION_NO_PERTENECE_AL_CONTACTO: "La reservación no pertenece al contacto verificado.",
-    MODIFICACION_NO_PERMITIDA: "La reservación ya no puede modificarse.",
-    ERROR_INTERNO: "No fue posible completar el cambio. Tu reservación original sigue vigente."
-  };
-  if (known[code]) return known[code];
-  if (data && data.mensaje && code !== "ERROR_INTERNO") return data.mensaje;
-  return phase === "confirm"
-    ? "No fue posible confirmar el cambio. Tu reservación original sigue vigente."
-    : "No fue posible preparar el cambio. Tu reservación original sigue vigente.";
+  return data && data.mensaje ? data.mensaje : "";
 }
 
 function initReservationAccess() {
@@ -916,7 +895,7 @@ function initReservationAccess() {
                 setMessage(data.mensaje || "No fue posible cancelar la reservación.", true);
                 return;
               }
-              setMessage(data.mensaje || "La reservación fue cancelada.");
+      setMessage(data.mensaje || "");
               loadReservations();
             }).catch(function() {
               setMessage("No fue posible cancelar la reservación.", true);

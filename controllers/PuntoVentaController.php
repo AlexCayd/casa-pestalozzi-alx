@@ -13,6 +13,7 @@ use Services\HorarioReservacionService;
 use Services\Inventario;
 use Services\ReservacionService;
 use Services\ReservacionConfig;
+use Services\ReservacionErrorCatalog;
 use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
@@ -52,7 +53,8 @@ class PuntoVentaController {
                 'calcular_conflictos' => true,
             ]);
             if (!($lectura['ok'] ?? false)) {
-                throw new \RuntimeException((string)($lectura['mensaje'] ?? 'Lectura inválida.'));
+                self::errorJson((string)($lectura['codigo'] ?? 'MAPA_CARGA_FALLIDA'));
+                return;
             }
 
             $meseros = Usuario::consultarSQL(
@@ -62,10 +64,7 @@ class PuntoVentaController {
             );
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::api - ' . $e->getMessage());
-            echo json_encode([
-                'ok'    => false,
-                'error' => 'No se pudo cargar el mapa. Intenta de nuevo.',
-            ]);
+            self::errorJson('MAPA_CARGA_FALLIDA');
             return;
         }
 
@@ -143,7 +142,7 @@ class PuntoVentaController {
         $recibido   = isset($data['recibido']) ? round((float)$data['recibido'], 2) : null;
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
+            self::errorJson('TICKET_NO_VALIDO');
             return;
         }
 
@@ -178,10 +177,7 @@ class PuntoVentaController {
             $pendientes = 0;
         }
         if ($pendientes > 0) {
-            echo json_encode([
-                'ok'  => false,
-                'msg' => 'Hay ' . $pendientes . ' producto(s) sin entregar. Entrégalos antes de cerrar la cuenta.',
-            ]);
+            self::errorJson('TICKET_ITEMS_PENDIENTES', 422, ['pendientes' => $pendientes]);
             return;
         }
 
@@ -199,7 +195,7 @@ class PuntoVentaController {
             $total = round($total, 2);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cerrarTicket total - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo calcular el total. Intenta de nuevo.']);
+            self::errorJson('TOTAL_TICKET_NO_DISPONIBLE');
             return;
         }
         $totalCents = (int)round($total * 100);
@@ -218,7 +214,7 @@ class PuntoVentaController {
                 $monto    = isset($p['monto'])    ? round((float)$p['monto'], 2) : -1;
 
                 if ($comensal < 1 || !in_array($metodo, $allowedMetodos, true) || $monto < 0) {
-                    echo json_encode(['ok' => false, 'msg' => 'Pago no válido para el comensal ' . $comensal]);
+                    self::errorJson('PAGO_INVALIDO', 422, ['comensal' => $comensal]);
                     return;
                 }
                 if ($monto == 0.0) continue; // comensal sin cargo, no se registra
@@ -228,18 +224,16 @@ class PuntoVentaController {
             }
 
             if (empty($pagosLimpios)) {
-                echo json_encode(['ok' => false, 'msg' => 'Debes registrar al menos un pago']);
+                self::errorJson('PAGO_REQUERIDO');
                 return;
             }
 
             // La suma no puede quedar por debajo del total (±1 centavo de holgura).
             $sumaCents = (int)round($sumaPagos * 100);
             if ($sumaCents < $totalCents - 1) {
-                echo json_encode([
-                    'ok'    => false,
-                    'msg'   => 'La suma de los pagos ($' . number_format($sumaPagos, 2) .
-                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
+                self::errorJson('PAGO_INSUFICIENTE', 422, [
                     'total' => $total,
+                    'recibido' => $sumaPagos,
                 ]);
                 return;
             }
@@ -253,7 +247,7 @@ class PuntoVentaController {
             // Cuenta completa: un único método y el monto recibido. La propina
             // es lo recibido por encima del total.
             if (!in_array($metodoPago, $allowedMetodos, true)) {
-                echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
+                self::errorJson('METODO_PAGO_INVALIDO');
                 return;
             }
             // Sin monto recibido se asume pago exacto (sin propina).
@@ -261,11 +255,9 @@ class PuntoVentaController {
                 $recibido = $total;
             }
             if ((int)round($recibido * 100) < $totalCents - 1) {
-                echo json_encode([
-                    'ok'    => false,
-                    'msg'   => 'El monto recibido ($' . number_format($recibido, 2) .
-                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
+                self::errorJson('PAGO_INSUFICIENTE', 422, [
                     'total' => $total,
+                    'recibido' => $recibido,
                 ]);
                 return;
             }
@@ -329,7 +321,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'token' => $token, 'propina' => $propina]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cerrarTicket - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cerrar el ticket. Intenta de nuevo.']);
+            self::errorJson('TICKET_CIERRE_FALLIDO');
         }
     }
 
@@ -345,7 +337,7 @@ class PuntoVentaController {
         $items    = isset($data['items']) && is_array($data['items']) ? $data['items'] : [];
 
         if (!$ticketId || empty($items)) {
-            echo json_encode(['ok' => false, 'msg' => 'Datos incompletos']);
+            self::errorJson('DATOS_INCOMPLETOS');
             return;
         }
 
@@ -357,7 +349,7 @@ class PuntoVentaController {
                  LIMIT 1"
             );
             if (empty($open)) {
-                echo json_encode(['ok' => false, 'msg' => 'Ticket no válido o ya cerrado']);
+                self::errorJson('TICKET_NO_VALIDO');
                 return;
             }
 
@@ -442,7 +434,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::enviarComanda - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo enviar la comanda. Intenta de nuevo.']);
+            self::errorJson('COMANDA_ENVIO_FALLIDO');
         }
     }
 
@@ -457,7 +449,7 @@ class PuntoVentaController {
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
-            echo json_encode(['ok' => false, 'msg' => 'item_id requerido']);
+            self::errorJson('ITEM_ID_REQUERIDO');
             return;
         }
 
@@ -475,7 +467,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cancelarItem - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cancelar el item. Intenta de nuevo.']);
+            self::errorJson('ITEM_CANCELACION_FALLIDA');
         }
     }
 
@@ -490,7 +482,7 @@ class PuntoVentaController {
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
-            echo json_encode(['ok' => false, 'msg' => 'item_id requerido']);
+            self::errorJson('ITEM_ID_REQUERIDO');
             return;
         }
 
@@ -502,7 +494,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::entregarItem - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
+            self::errorJson('ITEM_ENTREGA_FALLIDA');
         }
     }
 
@@ -519,7 +511,7 @@ class PuntoVentaController {
                     ? trim($data['nombre']) : null;
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO');
             return;
         }
 
@@ -534,7 +526,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::actualizarTicket - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo actualizar el ticket. Intenta de nuevo.']);
+            self::errorJson('TICKET_ACTUALIZACION_FALLIDA');
         }
     }
 
@@ -545,7 +537,7 @@ class PuntoVentaController {
 
         $ticketId = isset($_GET['ticket_id']) ? (int)$_GET['ticket_id'] : 0;
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO');
             return;
         }
 
@@ -579,7 +571,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'items' => $items]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::ticketItems - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudieron cargar los items. Intenta de nuevo.']);
+            self::errorJson('TICKET_ITEMS_NO_DISPONIBLES');
         }
     }
 
@@ -604,7 +596,7 @@ class PuntoVentaController {
         $vistos   = isset($data['vistos']) && is_array($data['vistos']) ? $data['vistos'] : [];
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'estado' => 'error', 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO', 422, ['estado' => 'error']);
             return;
         }
 
@@ -613,13 +605,13 @@ class PuntoVentaController {
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::sugerencias - ' . $e->getMessage());
 
-            [$estado, $msg] = match ($e->getMessage()) {
-                'sin_config'      => ['sin_config', 'Las sugerencias automáticas aún no están configuradas.'],
-                'ticket_invalido' => ['error', 'El ticket ya no está abierto.'],
-                default           => ['error', 'No pudimos obtener sugerencias. Intenta de nuevo.'],
+            [$estado, $codigo] = match ($e->getMessage()) {
+                'sin_config'      => ['sin_config', 'SUGERENCIAS_NO_CONFIGURADAS'],
+                'ticket_invalido' => ['error', 'SUGERENCIAS_TICKET_INVALIDO'],
+                default           => ['error', 'SUGERENCIAS_ERROR'],
             };
 
-            echo json_encode(['ok' => false, 'estado' => $estado, 'msg' => $msg]);
+            self::errorJson($codigo, null, ['estado' => $estado]);
             return;
         }
 
@@ -700,53 +692,24 @@ class PuntoVentaController {
         }
 
         http_response_code(419);
-        echo json_encode([
+        echo json_encode(ReservacionErrorCatalog::enriquecer([
             'ok' => false,
             'codigo' => 'CSRF_INVALIDO',
-            'msg' => 'La sesión del punto de venta expiró. Recarga la página e intenta de nuevo.',
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        ], ['superficie' => 'pos']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return false;
     }
 
     private static function responder(array $resultado): void
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (array_key_exists('codigo', $resultado)) {
+            $resultado = ReservacionErrorCatalog::enriquecer($resultado, ['superficie' => 'pos']);
+        }
         if (!($resultado['ok'] ?? false)) {
             $codigo = (string)($resultado['codigo'] ?? '');
-            http_response_code(in_array($codigo, [
-                PuntoVentaReservacionService::MESA_OCUPADA,
-                PuntoVentaReservacionService::TICKET_ABIERTO,
-                PuntoVentaReservacionService::TOLERANCIA_LLEGADA_VENCIDA,
-                PuntoVentaReservacionService::ESTADO_INVALIDO,
-                PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
-            ], true) ? 409 : 422);
-            $resultado['msg'] = $resultado['msg'] ?? (
-                !empty($resultado['mensaje_bloqueo'])
-                    ? (string)$resultado['mensaje_bloqueo']
-                    : (!empty($resultado['bloqueo'])
-                    ? 'La reservación comienza dentro de 30 minutos o menos; no se puede abrir un ticket incompatible.'
-                    : self::mensajeOperacion($codigo))
-            );
+            http_response_code(ReservacionErrorCatalog::httpStatus($codigo, 422));
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    private static function mensajeOperacion(string $codigo): string
-    {
-        return match ($codigo) {
-            PuntoVentaReservacionService::NO_EXISTE => 'La reservación o ticket no existe.',
-            PuntoVentaReservacionService::ESTADO_INVALIDO => 'El estado actual no permite esta acción.',
-            PuntoVentaReservacionService::MESA_OCUPADA => 'Una de las mesas ya tiene un ticket abierto.',
-            PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
-            PuntoVentaReservacionService::TOLERANCIA_LLEGADA_VENCIDA => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
-            PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
-            PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'Hay una reservación próxima en la mesa seleccionada. Revisa el aviso antes de continuar.',
-            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Actualiza la información e intenta nuevamente.',
-            PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',
-            PuntoVentaReservacionService::CONFLICTO_CONCURRENTE => 'La información cambió durante la operación. Actualiza y vuelve a intentarlo.',
-            PuntoVentaReservacionService::DATOS_INVALIDOS => 'Los datos enviados no son válidos.',
-            default => 'No fue posible completar la operación.',
-        };
     }
 
     /**
@@ -880,16 +843,20 @@ class PuntoVentaController {
             ], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::corteCaja - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el corte de caja. Intenta de nuevo.']);
+            self::errorJson('CORTE_CAJA_ERROR');
         }
     }
 
-    private static function mensajeReservacion(string $codigo): string
+    /** @param array<string, mixed> $extra */
+    private static function errorJson(string $codigo, ?int $status = null, array $extra = []): void
     {
-        return match ($codigo) {
-            ReservacionService::RESERVACION_NO_EXISTE => 'La reservacion no existe.',
-            ReservacionService::ESTADO_INVALIDO => 'La reservacion ya no se puede liberar.',
-            default => 'No se pudo liberar la reservacion. Intenta de nuevo.',
-        };
+        $payload = ReservacionErrorCatalog::enriquecer(
+            array_merge(['ok' => false, 'codigo' => $codigo], $extra),
+            ['superficie' => 'pos']
+        );
+        http_response_code($status ?? ReservacionErrorCatalog::httpStatus($codigo, 422));
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
+
 }

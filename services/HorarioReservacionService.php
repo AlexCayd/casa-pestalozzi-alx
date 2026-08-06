@@ -16,7 +16,7 @@ class HorarioReservacionService
     public const HORARIO_PASADO = 'HORARIO_PASADO';
     public const DIA_INACTIVO = 'DIA_INACTIVO';
     public const HORARIO_DISPONIBLE = 'HORARIO_DISPONIBLE';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
     public const MOTIVO_FECHA_INVALIDA = 'fecha_invalida';
     public const MOTIVO_FECHA_PASADA = 'fecha_pasada';
     public const MOTIVO_FECHA_FUERA_DE_HORIZONTE = 'fecha_fuera_de_horizonte';

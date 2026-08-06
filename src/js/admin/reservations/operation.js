@@ -29,6 +29,8 @@
             alertasOperativas: [],
             estadoOperacion: 'disponible',
             mensajeOperacion: '',
+            tituloOperacion: '',
+            consecuenciaOperacion: '',
             scheduleAlertDismissed: false,
             hasLoadedData: false,
             loadFailure: null,
@@ -311,10 +313,9 @@
                 showGlobalNotice({
                     source: 'schedule',
                     type: 'warning',
-                    title: 'Sin horarios disponibles',
-                    summary: 'No quedan horarios operativos disponibles para esta fecha.',
-                    message: (state.mensajeOperacion || 'La jornada no tiene más bloques disponibles.') +
-                        ' Selecciona otra fecha para continuar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -323,10 +324,9 @@
                 showGlobalNotice({
                     source: 'context',
                     type: 'warning',
-                    title: 'Restaurante cerrado',
-                    summary: 'No hay operación programada para la fecha seleccionada.',
-                    message: (state.mensajeOperacion || 'El restaurante no recibe reservaciones en esta fecha.') +
-                        ' Selecciona una fecha abierta para continuar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -335,9 +335,9 @@
                 showGlobalNotice({
                     source: 'readonly',
                     type: 'info',
-                    title: 'Modo histórico',
-                    summary: 'Esta vista es solo de lectura.',
-                    message: 'Estás consultando una fecha anterior. La asignación, los comentarios y los cambios de estado están deshabilitados; vuelve a una fecha vigente para operar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -601,9 +601,9 @@
                 showGlobalNotice({
                     source: 'assignment',
                     type: 'error',
-                    title: 'Reservación no encontrada',
-                    summary: 'No fue posible iniciar la reasignación.',
-                    message: 'La reservación solicitada no existe o no pertenece a la fecha y horario consultados. Continúa usando el mapa o selecciona otra reservación.'
+                    title: '',
+                    summary: '',
+                    message: ''
                 });
                 return;
             }
@@ -611,9 +611,9 @@
                 showGlobalNotice({
                     source: 'assignment',
                     type: 'restricted',
-                    title: 'Reservación no editable',
-                    summary: 'La reservación seleccionada ya no permite cambiar mesas.',
-                    message: 'La reservación pertenece a un estado final o su horario ya pasó. Continúa usando el mapa normalmente o selecciona otra reservación editable.'
+                    title: '',
+                    summary: '',
+                    message: ''
                 });
                 return;
             }
@@ -638,9 +638,9 @@
             showGlobalNotice({
                 source: 'assignment',
                 type: 'info',
-                title: 'Modo de asignación activo',
-                summary: 'Selecciona las mesas para esta reservación.',
-                message: 'Las mesas ocupadas o bloqueadas no pueden seleccionarse. Revisa la capacidad y confirma la asignación en la barra inferior.'
+                title: '',
+                summary: '',
+                message: ''
             });
 
             if (options.focus !== false && els.assignmentTitle) {
@@ -860,15 +860,13 @@
             renderAssignmentBar();
         }
 
-        function showToast(message, type) {
+        function showToast(message, type, consequence) {
             showGlobalNotice({
                 source: 'feedback',
                 type: type || 'success',
-                title: type === 'error' ? 'No fue posible completar la acción' : 'Cambios guardados',
+                title: '',
                 summary: message,
-                message: type === 'error'
-                    ? 'Los datos visibles no cambiaron. Revisa el estado de la reservación antes de continuar.'
-                    : 'El servidor confirmó la actualización y el mapa conserva la información más reciente.',
+                message: consequence || '',
                 duration: 3200
             });
         }
@@ -878,35 +876,12 @@
                 return;
             }
 
-            var mesaNames = (payload.mesaIds || []).map(function (mesaId) {
-                var mesa = tableById(mesaId);
-                return mesa ? mesa.nombre : 'Mesa ' + mesaId;
-            });
-            var assigned = mesaNames.length > 0;
-            var withoutContact = payload.withoutContact === true;
-            var projectedRelease = payload.dependsOnProjectedRelease === true;
-            var title = !assigned && withoutContact
-                ? 'Reservación creada sin contacto y sin mesas'
-                : (!assigned
-                    ? 'Reservación creada; requiere asignación manual'
-                    : (withoutContact ? 'Reservación creada sin contacto' : 'Reservación creada'));
-            var detail = fechaLegible(payload.fecha) + ' · ' + (payload.hora || '--:--');
-            var customer = (payload.nombre || 'Sin nombre') + ' · ' + plural(payload.comensales || 0, 'persona', 'personas');
-            var assignment = assigned
-                ? mesaNames.join(', ') + (mesaNames.length === 1 ? ' asignada automáticamente' : ' asignadas automáticamente')
-                : 'La reservación se guardó correctamente, pero necesita asignación manual.';
-
             showGlobalNotice({
                 source: 'feedback',
-                type: assigned && !projectedRelease ? 'success' : 'warning',
-                title: title,
-                summary: assigned
-                    ? (projectedRelease
-                        ? 'Las mesas quedaron asignadas con una liberación proyectada.'
-                        : 'La reservación se creó y sus mesas quedaron asignadas.')
-                    : 'La reservación se creó y requiere asignación manual.',
-                message: detail + '. ' + customer + '. ' + assignment +
-                    (projectedRelease ? ' Confirma el cierre del ticket antes del bloqueo operativo.' : ''),
+                type: payload.tipo === 'decision_requerida' ? 'warning' : 'success',
+                title: payload.titulo || '',
+                summary: payload.mensaje || '',
+                message: payload.consecuencia || '',
                 duration: 5200
             });
         }
@@ -957,27 +932,18 @@
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
-            var minutos = parseInt((mesaEstado && mesaEstado.minutos_restantes) || '0', 10);
-
             if (!proxima || proxima.ventana_operativa !== '30_60') {
                 hideTableWarning();
                 return;
             }
 
             state.tableWarningMesaId = parseInt(mesaId, 10);
-            var relatedTables = Array.isArray(proxima.mesas) && proxima.mesas.length
-                ? proxima.mesas.join(', ')
-                : (proxima.mesa_ids || []).map(mesaNombre).join(', ');
             showGlobalNotice({
                 source: 'table',
                 type: 'warning',
-                title: 'Reservación próxima',
-                summary: 'Esta mesa tiene una reservación en ' + minutos + ' minutos.',
-                message: 'Esta mesa tiene una reservación a las ' + horaCorta(proxima.hora) +
-                    '. Folio ' + (proxima.folio || ('#' + proxima.id)) +
-                    (proxima.nombre ? ' · ' + proxima.nombre : '') +
-                    ' · ' + plural(parseInt(proxima.comensales || '0', 10), 'comensal', 'comensales') +
-                    (relatedTables ? ' · ' + relatedTables : '')
+                title: proxima.presentacion ? proxima.presentacion.titulo : '',
+                summary: proxima.presentacion ? proxima.presentacion.mensaje : '',
+                message: proxima.presentacion ? proxima.presentacion.consecuencia : ''
             });
         }
 
@@ -1145,7 +1111,7 @@
                     var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
                     var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
                     var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
-                    var message = payload.message || payload.msg || 'Reservación creada.';
+                    var message = payload.mensaje || '';
 
                     state.pendingCreationFeedback = {
                         reservationId: reservationId,
@@ -1169,7 +1135,7 @@
                 })
                 .catch(function (error) {
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
-                    var message = error && (error.message || error.msg) || 'No fue posible crear la reservación.';
+                    var message = error && error.mensaje || '';
                     if (error && error.requiresCapacityConfirmation) {
                         createForm.dispatchEvent(new CustomEvent('reservation:capacity-warning', {
                             bubbles: true,
@@ -1681,7 +1647,7 @@
                     type: 'restricted',
                     title: 'Horario no disponible',
                     summary: 'El horario ya no forma parte de la operación vigente.',
-                    message: 'El servidor excluyó ese bloque porque ya pasó o no pertenece al horario configurado. Selecciona uno de los horarios disponibles.'
+                    message: state.consecuenciaOperacion || ''
                 });
                 return;
             }
@@ -1806,6 +1772,8 @@
                     state.alertasOperativas = data.alertas_operativas || [];
                     state.estadoOperacion = data.estado_operacion || 'disponible';
                     state.mensajeOperacion = data.mensaje || '';
+                    state.tituloOperacion = data.titulo || '';
+                    state.consecuenciaOperacion = data.consecuencia || '';
                     state.scheduleAlertDismissed = false;
                     delete dismissedNoticeSources.schedule;
                     delete dismissedNoticeSources.context;
@@ -1853,17 +1821,12 @@
                     setLoading(false);
                     renderAll();
                     if (data.hora_solicitada_vencida === true) {
-                        var noFutureHours = data.sin_horarios_futuros === true;
                         showGlobalNotice({
                             source: 'expired-hour',
                             type: 'warning',
-                            title: noFutureHours ? 'No hay horarios disponibles' : 'Horario no disponible',
-                            summary: noFutureHours
-                                ? 'El horario solicitado ya pasó y hoy no quedan más bloques.'
-                                : 'El horario solicitado ya pasó para el día actual.',
-                            message: noFutureHours
-                                ? 'No puede abrirse como operación editable. Selecciona una fecha futura para continuar.'
-                                : 'No puede abrirse en modo operativo. Se cargó el siguiente horario disponible; usa la vista histórica de solo lectura cuando necesites consultar fechas anteriores.'
+                            title: data.titulo || '',
+                            summary: data.mensaje || '',
+                            message: data.consecuencia || ''
                         });
                     }
                     if (options.enterAssignmentMode || state.pendingInitialAssignment) {
@@ -1957,21 +1920,6 @@
         }
 
         function operationErrorMessage(error, fallback) {
-            if (error && error.codigo === 'CSRF_INVALIDO') {
-                return 'La validación de seguridad no coincide. Recarga la página e intenta nuevamente.';
-            }
-            if (error && error.codigo === 'SESION_PUBLICA_EXPIRADA') {
-                return 'Tu sesión expiró. Inicia sesión nuevamente para continuar.';
-            }
-            if (error && error.codigo === 'MESA_OCUPADA') {
-                return 'Las mesas seleccionadas ya no están disponibles. Actualiza el mapa y elige otras.';
-            }
-            if (error && error.codigo === 'TICKET_ABIERTO') {
-                return 'La reservación ya tiene un ticket abierto. Actualiza la consulta para continuar.';
-            }
-            if (error && error.codigo === 'CONFLICTO_CONCURRENTE') {
-                return 'Otra operación cambió esta reservación. Actualiza la consulta e intenta nuevamente.';
-            }
             if (error && error.mensaje) {
                 return error.mensaje;
             }
@@ -1987,7 +1935,7 @@
             if (error && error.kind === 'server') {
                 return 'El servidor no pudo completar la accion. Los datos visibles no cambiaron.';
             }
-            return fallback;
+            return fallback || '';
         }
 
         function saveTableAssignment(conflictConfirmation) {
@@ -2030,13 +1978,13 @@
                         showGlobalNotice({
                             source: 'projection',
                             type: 'warning',
-                            title: 'Asignación con liberación proyectada',
-                            summary: payload.advertencia || 'Una mesa sigue ocupada físicamente.',
-                            message: 'Confirma que el ticket cierre antes del bloqueo o reasigna la reservación.',
+                            title: payload.titulo || '',
+                            summary: payload.mensaje || '',
+                            message: payload.consecuencia || '',
                             dismissible: true
                         });
                     } else {
-                        showToast('Asignacion guardada.', 'success');
+                        showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     }
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
@@ -2047,22 +1995,22 @@
                     }
                     if (error && error.codigo === 'CONFLICTO_CONCURRENTE') {
                         closeTicketConflictModal();
-                        showInlineError('La ocupación cambió mientras confirmabas. Se actualizará el mapa para que revises nuevamente.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'VERSION_DESACTUALIZADA') {
                         closeTicketConflictModal();
-                        showInlineError('La reservación cambió desde que abriste el mapa. Se actualizarán fecha, hora, versión y mesas antes de continuar.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'MESA_OCUPADA') {
-                        showInlineError('La mesa acaba de ser asignada a otra reservacion. Los datos fueron actualizados.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2088,18 +2036,18 @@
 
             setSaving(true);
             postJson(API_BASE + '/clear-tables', data)
-                .then(function () {
-                    showToast('Asignacion liberada; la reservacion requiere mesas.', 'warning');
+                .then(function (payload) {
+                    showToast(payload.mensaje || '', 'warning');
                     exitAssignmentMode({ restoreFocus: false });
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
                     if (error && ['VERSION_DESACTUALIZADA', 'CONFLICTO_CONCURRENTE'].indexOf(error.codigo) !== -1) {
-                        showInlineError('La reservacion cambio mientras confirmabas. Se actualizaran los datos antes de continuar.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, 'No fue posible liberar la asignacion. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2108,7 +2056,7 @@
 
         function openTicketConflictModal(payload) {
             if (!ticketConflictModal || !ticketConflictList) {
-                showInlineError('La selección incluye tickets abiertos y requiere confirmación explícita.');
+                showInlineError(payload && payload.mensaje || '');
                 return;
             }
 
@@ -2128,15 +2076,11 @@
                 }).filter(Boolean),
                 confirmaciones: confirmaciones
             };
-            var warningLabels = {
-                CAPACIDAD_INSUFICIENTE: 'La capacidad seleccionada es insuficiente.',
-                DEPENDE_LIBERACION_PROYECTADA: 'La seleccion depende de la liberacion proyectada de un servicio activo.',
-                CONFLICTO_TICKET_ABIERTO: 'La seleccion coincide con un ticket abierto; el ticket no se modificara.',
-                SIN_CONTACTO: 'La reservacion no tiene contacto registrado.'
-            };
             var warningMarkup = confirmaciones.map(function (codigo) {
+                var presentacion = (payload.confirmaciones_requeridas_presentaciones && payload.confirmaciones_requeridas_presentaciones[codigo])
+                    || (payload.advertencias_presentaciones && payload.advertencias_presentaciones[codigo]);
                 return '<p class="reservation-operation-inline reservation-operation-inline--warning"><strong>Confirmacion requerida:</strong> ' +
-                    esc(warningLabels[codigo] || codigo) + '</p>';
+                    esc(presentacion ? presentacion.mensaje : '') + '</p>';
             }).join('');
             ticketConflictList.innerHTML = warningMarkup + conflictos.map(function (conflicto) {
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
@@ -2190,11 +2134,11 @@
             setSaving(true);
             postJson(API_BASE + '/update-comment', data)
                 .then(function () {
-                    showToast('Comentario guardado.', 'success');
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2213,12 +2157,12 @@
 
             setSaving(true);
             postJson(API_BASE + '/reassign', data)
-                .then(function () {
-                    showToast('Asignacion guardada.', 'success');
+                .then(function (payload) {
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2261,7 +2205,7 @@
         function executeReservationAction(action, motivo) {
             var reservacion = selectedReservation();
             if (!reservacion || !actionAllowed(reservacion, action)) {
-                showInlineError('La acción solicitada ya no está disponible. Actualiza los datos e intenta nuevamente.');
+                showInlineError('');
                 return;
             }
 
@@ -2270,12 +2214,6 @@
                 'start-service': 'en_curso',
                 cancel: 'cancelada',
                 'no-show': 'no_show'
-            };
-            var labels = {
-                verify: 'Verificación confirmada.',
-                'start-service': 'Servicio iniciado.',
-                cancel: 'Reservación cancelada.',
-                'no-show': 'Reservación marcada como no show.'
             };
             var estado = estados[action] || '';
             var data = new URLSearchParams();
@@ -2286,7 +2224,7 @@
             setSaving(true);
             postJson(API_BASE + '/status', data)
                 .then(function (payload) {
-                    showToast(labels[action] || 'Cambios guardados.', 'success');
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
@@ -2295,23 +2233,23 @@
                             source: 'service-start-conflict',
                             type: 'warning',
                             title: 'El inicio de servicio requiere nuevas mesas',
-                            summary: error.mensaje || 'Las mesas originales ya no están disponibles.',
-                            message: 'Selecciona una asignación válida en el mapa y vuelve a confirmar la llegada. No se recuperó ninguna mesa automáticamente.'
+                            summary: error.mensaje || '',
+                            message: error.consecuencia || ''
                         });
                         enterAssignmentMode(null, { focus: true });
                         return;
                     }
                     if (error && error.codigo === 'RESERVACION_NO_EDITABLE') {
-                        showInlineError('La reservación ya no permite modificar sus mesas.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'DATOS_INCOMPLETOS') {
-                        showInlineError('Falta contexto de la asignación. Actualiza el mapa antes de volver a guardar.');
+                        showInlineError(error.mensaje || '');
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);

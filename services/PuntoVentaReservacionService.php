@@ -15,19 +15,19 @@ use Model\VerificacionContacto;
 
 final class PuntoVentaReservacionService
 {
-    public const OK = 'OK';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const NO_EXISTE = 'NO_EXISTE';
-    public const ESTADO_INVALIDO = 'ESTADO_INVALIDO';
-    public const MESA_OCUPADA = 'MESA_OCUPADA';
+    public const OK = ReservacionMantenimientoService::OK;
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
+    public const NO_EXISTE = ReservacionService::RESERVACION_NO_EXISTE;
+    public const ESTADO_INVALIDO = ReservacionService::ESTADO_INVALIDO;
+    public const MESA_OCUPADA = AsignacionMesasService::MESA_OCUPADA;
     public const TOLERANCIA_VIGENTE = 'TOLERANCIA_VIGENTE';
     public const TOLERANCIA_LLEGADA_VENCIDA = 'TOLERANCIA_LLEGADA_VENCIDA';
     public const REQUIERE_CONFIRMACION = 'REQUIERE_CONFIRMACION';
     public const TICKET_ABIERTO = 'TICKET_ABIERTO';
     public const REQUIERE_REASIGNACION = 'REQUIERE_REASIGNACION';
-    public const SIN_CAPACIDAD = 'SIN_CAPACIDAD';
-    public const CONFLICTO_CONCURRENTE = 'CONFLICTO_CONCURRENTE';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const SIN_CAPACIDAD = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
+    public const CONFLICTO_CONCURRENTE = AsignacionMesasService::CONFLICTO_CONCURRENTE;
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
     /**
      * Lista sólo reservaciones operativas; los walk-ins viven exclusivamente
      * como tickets y nunca aparecen aquí.
@@ -135,7 +135,6 @@ final class PuntoVentaReservacionService
                     self::TOLERANCIA_LLEGADA_VENCIDA,
                     [
                         'motivo_bloqueo' => self::TOLERANCIA_LLEGADA_VENCIDA,
-                        'mensaje_bloqueo' => 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
                         'accion_pendiente' => 'REGISTRAR_AUSENCIA',
                     ]
                 );
@@ -179,8 +178,6 @@ final class PuntoVentaReservacionService
                     self::MESA_OCUPADA,
                     [
                         'motivo_bloqueo' => 'MESAS_ASIGNADAS_NO_DISPONIBLES',
-                        'mensaje_bloqueo' => PosReservacionSerializer::mensajeBloqueoMesas($mesasBloqueantes),
-                        'accion_sugerida' => 'Libera las mesas bloqueantes y vuelve a validar la reservación.',
                         'mesas_bloqueantes' => $mesasBloqueantes,
                     ]
                 );
@@ -669,18 +666,20 @@ final class PuntoVentaReservacionService
                 ->modify('+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes')
                 ->format('Y-m-d H:i:s');
         }
-        $advertencia = null;
+        $advertenciaCodigo = null;
+        $advertenciaContexto = [];
         if ($ticket && $proxima) {
             $horaObjetivoPreparacion = (new DateTimeImmutable(
                 $proxima['fecha'] . ' ' . $proxima['hora'],
                 ReservacionConfig::timezone()
             ))->modify('-' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes')
                 ->format('Y-m-d H:i:s');
-            $advertencia = sprintf(
-                'Esta mesa tiene una reservación a las %s. Se recomienda liberarla antes de las %s.',
-                $proxima['hora'],
-                substr($horaObjetivoPreparacion, 11, 5)
-            );
+            $advertenciaCodigo = 'RESERVACION_PROXIMA';
+            $advertenciaContexto = [
+                'hora' => $proxima['hora'],
+                'hora_objetivo' => substr($horaObjetivoPreparacion, 11, 5),
+                'minutos_restantes' => $proxima['minutos_restantes'],
+            ];
         }
 
         return [
@@ -696,7 +695,8 @@ final class PuntoVentaReservacionService
                 'puede_abrir_ticket' => $ticket === null,
                 'puede_cerrar_ticket' => $ticket !== null,
             ],
-            'advertencia' => $advertencia,
+            'advertencia_codigo' => $advertenciaCodigo,
+            'advertencia_contexto' => $advertenciaContexto,
             'liberacion_estimada' => $liberacionEstimada,
             'hora_objetivo_preparacion' => $horaObjetivoPreparacion,
         ];
@@ -920,22 +920,27 @@ final class PuntoVentaReservacionService
                 '+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes'
             );
             $duracionEstimadaSupera = $liberacionEstimadaTicket > $inicio;
+            $hora = substr((string)$fila['hora'], 0, 5);
+            $minutosRestantes = (int)ceil($segundosRestantes / 60);
             $reservaciones[] = [
+                'codigo' => 'RESERVACION_PROXIMA',
+                'contexto' => [
+                    'hora' => $hora,
+                    'minutos_restantes' => $minutosRestantes,
+                    'duracion_estimada_supera' => $duracionEstimadaSupera,
+                ],
                 'reservacion_id' => (int)$fila['reservacion_id'],
                 'folio' => '#' . (int)$fila['reservacion_id'],
                 'nombre' => (string)$fila['nombre'],
                 'fecha' => (string)$fila['fecha'],
-                'hora' => substr((string)$fila['hora'], 0, 5),
+                'hora' => $hora,
                 'comensales' => (int)$fila['comensales'],
                 'mesa_ids' => self::csvIds($fila['mesa_ids']),
                 'reservation_mesa_ids' => self::csvIds($fila['reservation_mesa_ids']),
-                'minutos_restantes' => (int)ceil($segundosRestantes / 60),
+                'minutos_restantes' => $minutosRestantes,
                 'bloqueada' => $segundosRestantes
                     <= ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60,
                 'duracion_estimada_supera' => $duracionEstimadaSupera,
-                'consecuencia' => $duracionEstimadaSupera
-                    ? 'La duración estimada del ticket supera la hora de la reservación; la mesa podría seguir ocupada.'
-                    : null,
             ];
         }
         $resultado->free();

@@ -15,6 +15,7 @@ use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
 use Services\ReservationClientSession;
 use Services\ReservacionConfig;
+use Services\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
 use Services\ReservacionService;
 
@@ -74,7 +75,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
-                'mensaje' => 'Verifica tu contacto para consultar reservaciones.',
             ], 401);
             return;
         }
@@ -145,7 +145,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::ERROR_INTERNO,
-                'mensaje' => 'No fue posible consultar las reservaciones.',
             ], 500);
         }
     }
@@ -160,7 +159,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => 'CSRF_INVALIDO',
-                'mensaje' => 'No fue posible validar la salida. Recarga la página e inténtalo nuevamente.',
             ], 403);
             return;
         }
@@ -168,7 +166,6 @@ class ReservacionController
         self::json([
             'ok' => true,
             'codigo' => 'GESTION_SALIDA',
-            'mensaje' => 'Saliste de la gestión de reservaciones.',
         ]);
     }
 
@@ -233,7 +230,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => 'ERROR_DISPONIBILIDAD',
-                'mensaje' => 'No fue posible consultar la disponibilidad en este momento.',
             ], 500);
         }
     }
@@ -265,7 +261,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
-                'mensaje' => 'Verifica tu contacto para reservar directamente.',
             ], 401);
             return;
         }
@@ -274,7 +269,6 @@ class ReservacionController
             : [
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::CONTACTO_NO_COINCIDE,
-                'mensaje' => 'El contacto enviado no coincide con el contacto verificado.',
             ];
         self::json($respuesta, self::status($respuesta, 201));
     }
@@ -293,7 +287,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
         }
@@ -315,7 +308,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
         }
@@ -337,7 +329,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
             ], 401);
             return;
         }
@@ -377,7 +368,6 @@ class ReservacionController
         self::json([
             'ok' => false,
             'codigo' => 'CSRF_INVALIDO',
-            'mensaje' => 'La validación de seguridad no coincide. Recarga la página e inténtalo nuevamente.',
         ], 403);
         return false;
     }
@@ -385,6 +375,9 @@ class ReservacionController
     /** @param array<string, mixed> $respuesta */
     private static function json(array $respuesta, int $status = 200): void
     {
+        if (array_key_exists('codigo', $respuesta)) {
+            $respuesta = ReservacionErrorCatalog::enriquecer($respuesta, ['superficie' => 'landing']);
+        }
         http_response_code($status);
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
@@ -397,27 +390,9 @@ class ReservacionController
         if ($respuesta['ok'] ?? false) {
             return $exito;
         }
-        return match ((string)($respuesta['codigo'] ?? '')) {
-            ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
-            ReservacionPublicaService::CONTACTO_NO_COINCIDE,
-            ReservacionPublicaService::SESION_PUBLICA_EXPIRADA => 401,
-            ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO,
-            ReservacionPublicaService::MODIFICACION_NO_PERMITIDA,
-            ReservacionPublicaService::CANCELACION_NO_PERMITIDA => 403,
-            ReservacionPublicaService::RESERVACION_NO_ENCONTRADA => 404,
-            ReservacionPublicaService::RETENCION_EXPIRADA => 410,
-            ReservacionPublicaService::SIN_DISPONIBILIDAD,
-            ReservacionPublicaService::LIMITE_RESERVACIONES_ALCANZADO,
-            ReservacionPublicaService::REQUEST_TOKEN_CONFLICTO => 409,
-            ContactoAccesoService::REENVIO_NO_DISPONIBLE,
-            ContactoAccesoService::OTP_INTENTOS_AGOTADOS => 429,
-            ContactoAccesoService::OTP_EXPIRADO => 410,
-            ContactoAccesoService::OTP_INCORRECTO,
-            ContactoAccesoService::VERIFICACION_NO_ENCONTRADA => 422,
-            'CSRF_INVALIDO' => 403,
-            ReservacionPublicaService::ERROR_INTERNO,
-            ContactoAccesoService::ERROR_INTERNO => 500,
-            default => 422,
-        };
+        return ReservacionErrorCatalog::httpStatus(
+            (string)($respuesta['codigo'] ?? 'ERROR_INTERNO'),
+            422
+        );
     }
 }

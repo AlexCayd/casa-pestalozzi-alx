@@ -12,9 +12,9 @@ final class ReservacionMantenimientoService
 {
     public const OK = 'OK';
     public const AMBIENTE_NO_PERMITIDO = 'AMBIENTE_NO_PERMITIDO';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
     public const CONFIRMACION_INVALIDA = 'CONFIRMACION_INVALIDA';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
     public const CONFIRMACION_LIMPIEZA = 'LIMPIAR RESERVACIONES';
     public const CONFIRMACION_PENDIENTES_VIGENTES = 'LIMPIAR PENDIENTES VIGENTES';
     private const ESTADOS_LIMPIABLES = ['no_show', 'expirada', 'pendiente_verificacion'];

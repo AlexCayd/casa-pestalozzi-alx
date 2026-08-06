@@ -332,6 +332,7 @@ final class MesaEstadoService
             'estado' => (string)($reservacion['estado'] ?? ''),
             'mesa_ids' => self::ids($reservacion['mesa_ids'] ?? []),
             'mesas' => is_array($mesas) ? array_values($mesas) : [],
+            'presentacion' => $reservacion['advertencia'] ?? null,
         ];
     }
 

@@ -340,7 +340,7 @@ function initMapa() {
         if (silencioso) return;
         var errEl = sugListEl();
         if (errEl) {
-          errEl.innerHTML = sugAccionHtml(result.msg || 'No pudimos obtener sugerencias', '⚠', 'Reintentar');
+          errEl.innerHTML = sugAccionHtml(result.mensaje || '', '⚠', 'Reintentar');
           bindSugMore();
         }
         return;
@@ -662,7 +662,7 @@ function initMapa() {
         : (reservation.bloquea_walk_ins === true ? 'bloqueo' : 'advertencia'),
       accion_pendiente: reservation.accion_pendiente || null,
       motivo_bloqueo: reservation.motivo_bloqueo || null,
-      mensaje_bloqueo: reservation.mensaje_bloqueo || null
+      bloqueo: reservation.bloqueo || null
     };
   }
 
@@ -801,7 +801,7 @@ function initMapa() {
       seleccion_actual: selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
       accion_pendiente: backend.accion_pendiente || (proxima && proxima.accion_pendiente) || null,
       motivo_bloqueo: backend.motivo_bloqueo || (estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null),
-      mensaje_bloqueo: backend.mensaje_bloqueo || (proxima && proxima.mensaje_bloqueo) || null,
+      bloqueo: backend.bloqueo || (proxima && proxima.bloqueo) || null,
       titulo: tituloMesaMapa(mesa, estado, ticket, proxima)
     });
     return normalized;
@@ -1975,28 +1975,19 @@ function initMapa() {
           ) !== -1
         );
         if (mostrarBloqueo) {
-          var bloqueoGeneral = reservaMesaIds.length > 1
-            ? 'Esta reservación utiliza varias mesas y todas deben estar disponibles para iniciar.'
-            : 'Todas las mesas asignadas deben estar disponibles para iniciar.';
           h += '<section class="mmodal-reservation__blocking" id="mmodal-reservation-blocking" role="alert" aria-live="polite" aria-labelledby="mmodal-reservation-blocking-title">';
           h += '<strong id="mmodal-reservation-blocking-title">No se puede iniciar el servicio</strong>';
-          h += '<p>' + escHtml(bloqueoGeneral) + '</p>';
-          if (reserva.mensaje_bloqueo && String(reserva.mensaje_bloqueo) !== bloqueoGeneral) {
-            h += '<p>' + escHtml(reserva.mensaje_bloqueo) + '</p>';
+          if (reserva.bloqueo && reserva.bloqueo.mensaje) {
+            h += '<p>' + escHtml(reserva.bloqueo.mensaje) + '</p>';
           }
           if (mesasBloqueantes.length) {
             h += '<ul class="mmodal-reservation__blocking-list">';
             mesasBloqueantes.forEach(function (bloqueo) {
               var numero = String(bloqueo.numero || bloqueo.mesa_id || '');
               h += '<li><strong>Mesa ' + escHtml(numero) + '</strong> — ' +
-                escHtml(bloqueo.descripcion || 'No está disponible.') +
-                (bloqueo.accion_sugerida
-                  ? '<small>Acción sugerida: ' + escHtml(bloqueo.accion_sugerida) + '</small>'
-                  : '') + '</li>';
+                escHtml(String(bloqueo.motivo || 'MESA_OCUPADA')) + '</li>';
             });
             h += '</ul>';
-          } else if (reserva.accion_sugerida) {
-            h += '<p><strong>Acción sugerida:</strong> ' + escHtml(reserva.accion_sugerida) + '</p>';
           }
           h += '</section>';
         }
@@ -2008,7 +1999,7 @@ function initMapa() {
         h += '<div class="mmodal-reservation__action-hint">' +
           escHtml(puedeIniciar
             ? 'El ticket y el servicio se crearán en un solo paso.'
-            : (reservaVentanaActual.mensaje || 'Disponible desde 30 minutos antes.')) +
+            : (reservaVentanaActual.mensaje || 'Disponible según el horario operativo.')) +
           '</div>';
         var puedeMarcarAusencia = reserva.puede_registrar_ausencia === true && !reserva.ticket_abierto;
         if (puedeMarcarAusencia) {
@@ -3367,6 +3358,7 @@ function initMapa() {
             result = text ? JSON.parse(text) : {};
           } catch (error) {
             var parseError = new Error('Respuesta inválida del servidor.');
+            parseError.kind = 'invalid_json';
             parseError.httpStatus = response.status;
             parseError.rawBody = text.substring(0, 500);
             throw parseError;
@@ -3411,7 +3403,7 @@ function initMapa() {
         closeModal();
         silentRefresh();
       } else {
-        alert(result.msg || 'Error al procesar la solicitud');
+        alert(result.mensaje || '');
       }
     })
     .catch(function() { alert('Error de conexión'); });
@@ -3536,22 +3528,15 @@ function initMapa() {
             var mesa = mesaPorId(mesaId);
             details.push(
               (mesa ? mesa.nombre : 'Mesa ' + mesaId) +
-              ' — reservación a las ' + String(item.hora || '').substring(0, 5) +
-              ' — faltan ' + parseInt(item.minutos_restantes || '0', 10) + ' minutos'
+              ' — ' + ((item.presentacion && item.presentacion.mensaje) || '')
             );
           });
         });
-        var warningMinutes = parseInt(warning.minutos_restantes || '0', 10);
-        var warningPeople = parseInt(warning.comensales || '0', 10);
-        var warningMessage = 'Hay una reservación a las ' + String(warning.hora || '').substring(0, 5) +
-          (warning.nombre ? ' para ' + warning.nombre : '') +
-          (warningPeople ? ' (' + warningPeople + (warningPeople === 1 ? ' persona' : ' personas') + ')' : '') +
-          '. Faltan ' + warningMinutes + ' minutos. Puedes abrir el ticket, pero la mesa deberá estar disponible antes de la reservación.' +
-          (warning.duracion_estimada_supera
-            ? ' ' + (warning.consecuencia || 'La duración estimada del servicio supera el tiempo disponible antes de la reservación.')
-            : '');
+        var warningMessage = warning.presentacion
+          ? warning.presentacion.mensaje
+          : '';
         showOpenTicketNotice({
-          title: 'Hay una reservación próxima',
+          title: warning.presentacion ? warning.presentacion.titulo : '',
           message: warningMessage,
           details: details,
           cancelLabel: 'Volver a la selección',
@@ -3569,19 +3554,13 @@ function initMapa() {
       ticketSelectionState.opening = false;
       ticketSelectionState.warningConfirmed = false;
       actualizarModoSeleccion();
-      var bloqueo = result.bloqueo || {};
-      var message = result.msg || 'No fue posible abrir el ticket.';
+      var message = result.mensaje || '';
       var conflictDetails = Array.isArray(result.mesas_conflicto)
         ? result.mesas_conflicto.map(function(mesaId) {
             var mesaConflict = mesaPorId(mesaId);
             return mesaConflict ? mesaConflict.nombre : 'Mesa ' + mesaId;
           })
         : [];
-      if (bloqueo.hora) {
-        message = 'La mesa tiene una reservación a las ' + String(bloqueo.hora).substring(0, 5) +
-          ' y faltan ' + parseInt(bloqueo.minutos_restantes || '0', 10) +
-          ' minutos. Dentro de los 30 minutos previos no se puede abrir un ticket incompatible.';
-      }
       showOpenTicketNotice({
         title: 'No se puede abrir el ticket',
         message: message,
@@ -3602,7 +3581,7 @@ function initMapa() {
       } else if (error && error.httpStatus) {
         errorMessage = 'El servidor respondió con HTTP ' + error.httpStatus +
           '. Las mesas se conservaron para intentarlo nuevamente.';
-      } else if (error && error.message === 'Respuesta inválida del servidor.') {
+      } else if (error && error.kind === 'invalid_json') {
         errorMessage = 'El servidor devolvió una respuesta inválida. Las mesas se conservaron para intentarlo nuevamente.';
       }
       showOpenTicketNotice({
@@ -3664,10 +3643,10 @@ function initMapa() {
         return;
       }
 
-      if (result.requiere_reasignacion || result.codigo === 'REQUIERE_REASIGNACION' || result.codigo === 'SIN_CAPACIDAD') {
+      if (result.requiere_reasignacion || result.codigo === 'REQUIERE_REASIGNACION' || result.codigo === 'CAPACIDAD_INSUFICIENTE') {
         showOpenTicketNotice({
           title: 'No fue posible iniciar el servicio',
-          message: result.msg || 'Las mesas asignadas ya no están disponibles. Actualiza la información e intenta nuevamente.',
+          message: result.mensaje || '',
           cancelLabel: 'Cerrar',
         });
         return;
@@ -3675,7 +3654,7 @@ function initMapa() {
 
       showOpenTicketNotice({
         title: options.errorTitle || 'No fue posible completar la acción',
-        message: result.msg || 'El estado operativo cambió. Actualiza la información e intenta nuevamente.',
+          message: result.mensaje || '',
         cancelLabel: 'Entendido'
       });
     })
@@ -3749,7 +3728,7 @@ function initMapa() {
         modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, newTicket);
         bindModalActions(mesa, null, newTicket);
       } else {
-        alert(result.msg || 'Error al crear el pedido');
+        alert(result.mensaje || '');
       }
     })
     .catch(function() { alert('Error de conexión'); })
@@ -3776,7 +3755,7 @@ function initMapa() {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
-        alert(result.msg || 'Error al cerrar el ticket');
+        alert(result.mensaje || '');
       }
     })
     .catch(function() { alert('Error de conexión'); });
@@ -3798,7 +3777,7 @@ function initMapa() {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
-        alert(result.msg || 'Error al cerrar el ticket');
+        alert(result.mensaje || '');
         var btn = modalContent.querySelector('#split-confirm');
         if (btn) btn.disabled = false;
       }
@@ -3846,7 +3825,7 @@ function initMapa() {
         // En desktop: refrescar columna 3 directamente
         if (window.innerWidth >= 768) renderResumen(ticketId);
       } else {
-        alert(result.msg || 'Error al enviar la comanda');
+        alert(result.mensaje || '');
       }
     })
     .catch(function() { alert('Error de conexión'); });
@@ -3895,7 +3874,7 @@ function initMapa() {
         invalidarTicketItems(ticketId);
         renderResumen(ticketId);
       } else {
-        alert(result.msg || 'No se pudo cancelar el platillo');
+        alert(result.mensaje || '');
       }
     })
     .catch(function() { alert('Error de conexión'); });
@@ -3948,7 +3927,6 @@ function initMapa() {
           reservaActual.puede_iniciar = false;
           reservaActual.puede_iniciar_servicio = false;
           reservaActual.motivo_bloqueo = 'TICKET_ABIERTO';
-          reservaActual.mensaje_bloqueo = 'Esta reservación ya tiene un ticket abierto; continúa desde ese servicio.';
           break;
         }
       }

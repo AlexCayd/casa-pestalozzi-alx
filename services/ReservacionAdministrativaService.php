@@ -244,7 +244,7 @@ final class ReservacionAdministrativaService
             $requestToken = ReservacionService::generarRequestToken();
         }
         if (preg_match('/\A[A-Za-z0-9_-]{16,64}\z/', $requestToken) !== 1) {
-            return self::errorDatos('El identificador de la solicitud no es valido.', 'request_token');
+            return self::errorDatos('REQUEST_TOKEN_INVALIDO', 'request_token');
         }
 
         $solicitaAsignacion = !array_key_exists('asignar_automaticamente', $post)
@@ -257,7 +257,7 @@ final class ReservacionAdministrativaService
         try {
             $lockHorario = HorarioConfigLock::adquirir($db, 10);
             if (!$lockHorario || !FechaOperacionLock::adquirir($db, $datos['fecha'], 10)) {
-                return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO, 'msg' => 'No fue posible bloquear la fecha operativa.'];
+                return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
             }
             $lockFecha = true;
             $db->begin_transaction();
@@ -315,7 +315,7 @@ final class ReservacionAdministrativaService
                 $db->rollback();
             }
             error_log('ReservacionAdministrativaService::crear - ' . $e->getMessage());
-            return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO, 'msg' => 'No se pudo guardar la reservacion.', 'errors' => []];
+            return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
         } finally {
             if ($lockFecha) {
                 FechaOperacionLock::liberar($db, $datos['fecha']);
@@ -350,7 +350,7 @@ final class ReservacionAdministrativaService
             foreach ($fechas as $fecha) {
                 if ($fecha !== '') {
                     if (!FechaOperacionLock::adquirir($db, $fecha, 10)) {
-                        return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO, 'msg' => 'No fue posible bloquear una fecha operativa.'];
+                        return ['ok' => false, 'codigo' => ReservacionService::ERROR_INTERNO];
                     }
                     $locks[] = $fecha;
                 }
@@ -542,52 +542,56 @@ final class ReservacionAdministrativaService
         $comentario = trim((string)($post['comentario_admin'] ?? ($existente['comentario_admin'] ?? '')));
 
         if ($nombre === '' || self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
-            $errors['nombre'][] = 'Escribe un nombre valido.';
+            $errors['nombre'][] = 'NOMBRE_REQUERIDO';
         }
         if (!in_array($tipo, ['email', 'telefono', 'ninguno'], true)) {
-            $errors['contacto_tipo'][] = 'Selecciona un tipo de contacto valido.';
+            $errors['contacto_tipo'][] = 'CONTACTO_TIPO_INVALIDO';
         }
         if ($existente && in_array((string)$existente['contacto_tipo'], ['email', 'telefono'], true)
             && $tipo !== (string)$existente['contacto_tipo']) {
             return [
                 'ok' => false,
                 'codigo' => self::CONTACTO_TIPO_NO_EDITABLE,
-                'msg' => 'El tipo de contacto existente no puede cambiarse; corrige su valor o agrega contacto si estaba vacio.',
-                'errors' => ['contacto_tipo' => ['El tipo de contacto existente no puede cambiarse.']],
+                'field_codes' => ['contacto_tipo' => ['CONTACTO_TIPO_NO_EDITABLE_CAMPO']],
             ];
         }
         if ($tipo === 'ninguno' && $contactoEntrada !== '') {
-            $errors['contacto'][] = 'Selecciona correo o telefono para guardar un contacto.';
+            $errors['contacto'][] = 'CONTACTO_TIPO_INVALIDO';
         }
         $contacto = null;
         if ($tipo !== 'ninguno') {
             if ($contactoEntrada === '') {
-                $errors['contacto'][] = 'Escribe el dato de contacto o selecciona Sin contacto.';
+                $errors['contacto'][] = 'CONTACTO_REQUERIDO';
             } else {
                 try {
                     $contacto = ContactoService::normalizar($tipo, $contactoEntrada);
                 } catch (InvalidArgumentException $e) {
-                    $errors['contacto'][] = $e->getMessage();
+                    $errors['contacto'][] = 'CONTACTO_INVALIDO';
                 }
             }
         }
         if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_ADMIN) {
-            $errors['comensales'][] = 'Indica entre 1 y ' . ReservacionConfig::MAX_COMENSALES_ADMIN . ' comensales.';
+            $errors['comensales'][] = 'COMENSALES_FUERA_DE_RANGO';
         }
         if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
-            $errors['nota'][] = 'La nota excede el limite permitido.';
+            $errors['nota'][] = 'NOTA_DEMASIADO_LARGA';
         }
         if (self::longitud($comentario) > ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES) {
-            $errors['comentario_admin'][] = 'El comentario interno excede el limite permitido.';
+            $errors['comentario_admin'][] = 'COMENTARIO_DEMASIADO_LARGO';
         }
         if ($fecha === '' || !HorarioReservacionService::fechaValida($fecha)) {
-            $errors['fecha'][] = 'La fecha seleccionada no es valida.';
+            $errors['fecha'][] = 'FECHA_INVALIDA';
         }
         if ($hora === '') {
-            $errors['hora'][] = 'Selecciona un horario valido.';
+            $errors['hora'][] = 'HORA_NO_VALIDA';
         }
         if ($errors !== []) {
-            return ['ok' => false, 'codigo' => ReservacionService::DATOS_INVALIDOS, 'msg' => self::primerError($errors), 'errors' => $errors];
+            return [
+                'ok' => false,
+                'codigo' => ReservacionService::DATOS_INVALIDOS,
+                'field_codes' => $errors,
+                'contexto' => ['max_comensales' => ReservacionConfig::MAX_COMENSALES_ADMIN],
+            ];
         }
 
         return [
@@ -646,7 +650,6 @@ final class ReservacionAdministrativaService
         return [
             'ok' => false,
             'codigo' => $codes[0] ?? self::SIN_ASIGNACION,
-            'msg' => 'Revisa y confirma las advertencias antes de guardar.',
             'warnings' => array_values($codes),
             'confirmaciones_requeridas' => array_values($codes),
             'requiere_confirmacion_sin_contacto' => in_array(self::SIN_CONTACTO, $codes, true),
@@ -692,13 +695,11 @@ final class ReservacionAdministrativaService
             'requiere_asignacion_manual' => $sinMesas,
             'sin_contacto' => $datos['contacto_tipo'] === 'ninguno',
             'warnings' => array_values(array_unique($warnings)),
-            'warning' => $sinMesas ? 'Reservacion guardada sin mesas; requiere asignacion manual.' : null,
             'capacidad_solicitada' => (int)$datos['comensales'],
             'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
             'capacidad_total' => (int)($evaluacion['capacidad_total'] ?? 0),
             'depende_liberacion_proyectada' => (bool)($evaluacion['depende_liberacion_proyectada'] ?? false),
             'mesas_proyectadas' => array_values(array_map('intval', (array)($evaluacion['ocupacion']['mesa_ids_proyectadas'] ?? []))),
-            'msg' => $sinMesas ? 'Reservacion guardada. Queda pendiente asignar mesas.' : 'Reservacion guardada y mesas asignadas.',
         ];
     }
 
@@ -739,9 +740,13 @@ final class ReservacionAdministrativaService
         self::ejecutar("UPDATE reservaciones SET " . implode(', ', $sets) . " WHERE id = {$id} LIMIT 1");
     }
 
-    private static function errorDatos(string $message, string $field): array
+    private static function errorDatos(string $fieldCode, string $field): array
     {
-        return ['ok' => false, 'codigo' => ReservacionService::DATOS_INVALIDOS, 'msg' => $message, 'errors' => [$field => [$message]]];
+        return [
+            'ok' => false,
+            'codigo' => ReservacionService::DATOS_INVALIDOS,
+            'field_codes' => [$field => [$fieldCode]],
+        ];
     }
 
     private static function errorHorario(array $evaluacion): array
@@ -749,8 +754,7 @@ final class ReservacionAdministrativaService
         return [
             'ok' => false,
             'codigo' => ReservacionService::HORARIO_INVALIDO,
-            'msg' => 'La fecha u hora seleccionada no esta disponible.',
-            'errors' => ['hora' => ['La fecha u hora seleccionada no esta disponible.']],
+            'field_codes' => ['hora' => ['HORARIO_NO_DISPONIBLE']],
             'codigo_horario' => $evaluacion['codigo'] ?? null,
         ];
     }
@@ -777,16 +781,6 @@ final class ReservacionAdministrativaService
         if (ActiveRecord::getDB()->query($query) === false) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
         }
-    }
-
-    private static function primerError(array $errors): string
-    {
-        foreach ($errors as $messages) {
-            if (is_array($messages) && !empty($messages[0])) {
-                return (string)$messages[0];
-            }
-        }
-        return 'Revisa los datos enviados.';
     }
 
     private static function longitud(string $value): int

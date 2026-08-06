@@ -16,13 +16,13 @@ class ContactoAccesoService
     public const OTP_GENERADO = 'OTP_GENERADO';
     public const OTP_SOLICITADO = 'OTP_SOLICITADO';
     public const CONTACTO_VERIFICADO = 'CONTACTO_VERIFICADO';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
     public const REENVIO_NO_DISPONIBLE = 'REENVIO_NO_DISPONIBLE';
     public const OTP_INCORRECTO = 'OTP_INCORRECTO';
     public const OTP_EXPIRADO = 'OTP_EXPIRADO';
     public const VERIFICACION_NO_ENCONTRADA = 'VERIFICACION_NO_ENCONTRADA';
     public const OTP_INTENTOS_AGOTADOS = 'OTP_INTENTOS_AGOTADOS';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
     /** @return array<string, mixed> */
     public static function solicitarCodigo(
@@ -34,7 +34,7 @@ class ContactoAccesoService
             $tipo = trim($tipo);
             $normalizado = ContactoService::normalizar($tipo, $contacto);
         } catch (InvalidArgumentException $e) {
-            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mensaje' => $e->getMessage()];
+            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
         }
 
         $db = ActiveRecord::getDB();
@@ -64,7 +64,6 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
-                'mensaje' => 'No fue posible solicitar el código.',
             ];
         }
     }
@@ -76,7 +75,7 @@ class ContactoAccesoService
             $tipo = trim($tipo);
             $normalizado = ContactoService::normalizar($tipo, $contacto);
         } catch (InvalidArgumentException $e) {
-            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mensaje' => $e->getMessage()];
+            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
         }
 
         $codigo = trim($codigo);
@@ -84,7 +83,7 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::DATOS_INVALIDOS,
-                'mensaje' => 'Escribe el código de seis dígitos.',
+                'field_codes' => ['codigo' => ['OTP_INVALIDO']],
             ];
         }
 
@@ -118,7 +117,6 @@ class ContactoAccesoService
             return [
                 'ok' => true,
                 'codigo' => self::CONTACTO_VERIFICADO,
-                'mensaje' => 'Contacto verificado.',
                 'contacto' => ContactoService::enmascarar($tipo, $normalizado),
             ];
         } catch (\Throwable $e) {
@@ -129,7 +127,6 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
-                'mensaje' => 'No fue posible verificar el código.',
             ];
         }
     }
@@ -161,7 +158,6 @@ class ContactoAccesoService
                 return [
                     'ok' => false,
                     'codigo' => self::REENVIO_NO_DISPONIBLE,
-                    'mensaje' => 'Espera un momento antes de solicitar otro código.',
                 ];
             }
         }
@@ -193,9 +189,6 @@ class ContactoAccesoService
         $respuesta = [
             'ok' => true,
             'codigo' => $preview ? self::OTP_GENERADO : self::OTP_SOLICITADO,
-            'mensaje' => $preview
-                ? 'Código generado para pruebas.'
-                : 'Si el contacto es válido, recibirás un código.',
             'expires_at' => $expiresAt->format(DATE_ATOM),
         ];
         if ($preview) {
@@ -227,7 +220,6 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::VERIFICACION_NO_ENCONTRADA,
-                'mensaje' => 'El código no está disponible. Solicita uno nuevo.',
             ];
         }
 
@@ -237,7 +229,6 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::OTP_INTENTOS_AGOTADOS,
-                'mensaje' => 'Solicita un código nuevo para continuar.',
             ];
         }
 
@@ -246,7 +237,6 @@ class ContactoAccesoService
             return [
                 'ok' => false,
                 'codigo' => self::OTP_EXPIRADO,
-                'mensaje' => 'El código venció. Solicita uno nuevo.',
             ];
         }
 
@@ -261,9 +251,6 @@ class ContactoAccesoService
                 'codigo' => $siguienteIntento >= $maxAttempts
                     ? self::OTP_INTENTOS_AGOTADOS
                     : self::OTP_INCORRECTO,
-                'mensaje' => $siguienteIntento >= $maxAttempts
-                    ? 'Solicita un código nuevo para continuar.'
-                    : 'El código no es válido.',
                 'registrar_intento' => true,
             ];
         }

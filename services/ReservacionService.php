@@ -26,14 +26,14 @@ class ReservacionService
     public const COMPLETADA = 'COMPLETADA';
     public const CANCELADA = 'CANCELADA';
     public const NO_SHOW = 'NO_SHOW';
-    public const RESERVACION_NO_EXISTE = 'RESERVACION_NO_EXISTE';
+    public const RESERVACION_NO_EXISTE = 'RESERVACION_NO_ENCONTRADA';
     public const RESERVACION_PASADA = 'RESERVACION_PASADA';
     public const RESERVACION_HORARIO_PASADO = 'RESERVACION_HORARIO_PASADO';
     public const ESTADO_INVALIDO = 'ESTADO_INVALIDO';
     public const ESTADO_NO_EDITABLE = 'ESTADO_NO_EDITABLE';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const HORARIO_INVALIDO = 'HORARIO_INVALIDO';
-    public const SIN_DISPONIBILIDAD = 'SIN_DISPONIBILIDAD';
+    public const HORARIO_INVALIDO = HorarioReservacionService::HORARIO_INVALIDO;
+    public const SIN_DISPONIBILIDAD = ReservacionPublicaService::SIN_DISPONIBILIDAD;
     public const CONFIRMAR_SIN_MESA = 'CONFIRMAR_SIN_MESA';
     public const REQUIERE_CONFIRMACION_SIN_CONTACTO = 'REQUIERE_CONFIRMACION_SIN_CONTACTO';
     public const REQUIERE_CONFIRMACION_CAPACIDAD = 'REQUIERE_CONFIRMACION_CAPACIDAD';
@@ -90,17 +90,13 @@ class ReservacionService
                     null
                 ),
                 'motivo_no_disponible' => $calendario['motivo_no_disponible'] ?? null,
-                'mensaje' => ($calendario['motivo_no_disponible'] ?? null) !== null
-                    ? 'No hay horarios reservables para esta fecha.'
-                    : null,
             ];
         } catch (\Throwable $e) {
             error_log('ReservacionService::obtenerHorariosDisponiblesParaFecha - ' . $e->getMessage());
 
             return self::respuestaDisponibilidadError(
                 $fecha,
-                HorarioReservacionService::ERROR_INTERNO,
-                'No fue posible consultar los horarios. Inténtalo nuevamente.'
+                HorarioReservacionService::ERROR_INTERNO
             );
         }
     }
@@ -433,8 +429,6 @@ class ReservacionService
             return [
                 'ok' => false,
                 'codigo' => self::DATOS_INVALIDOS,
-                'msg' => 'El identificador de la solicitud no es valido.',
-                'errors' => ['request_token' => ['El identificador de la solicitud no es valido.']],
                 'field_codes' => ['request_token' => ['REQUEST_TOKEN_INVALIDO']],
             ];
         }
@@ -461,7 +455,6 @@ class ReservacionService
             return [
                 'ok' => false,
                 'codigo' => self::REQUIERE_CONFIRMACION_SIN_CONTACTO,
-                'msg' => 'Confirma que deseas crear la reservación sin contacto.',
                 'errors' => [],
                 'requiere_confirmacion_sin_contacto' => true,
             ];
@@ -533,12 +526,11 @@ class ReservacionService
                 return [
                     'ok' => false,
                     'codigo' => self::REQUIERE_CONFIRMACION_CAPACIDAD,
-                    'msg' => sprintf(
-                        'La reservación es para %d personas, pero sólo hay capacidad disponible para %d.',
-                        (int)$reservacion->comensales,
-                        $capacidadDisponible
-                    ),
                     'errors' => [],
+                    'contexto' => [
+                        'capacidad_solicitada' => (int)$reservacion->comensales,
+                        'capacidad_disponible' => $capacidadDisponible,
+                    ],
                     'requiere_confirmacion_capacidad' => true,
                     'capacidad_solicitada' => (int)$reservacion->comensales,
                     'capacidad_disponible' => $capacidadDisponible,
@@ -611,14 +603,14 @@ class ReservacionService
             }
 
             error_log('ReservacionService::crearReservacion - ' . $e->getMessage());
-            return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'msg' => 'No se pudo guardar la reservacion.', 'errors' => []];
+            return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'errors' => []];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
                 $transaccionIniciada = false;
             }
             error_log('ReservacionService::crearReservacion - ' . $e->getMessage());
-            return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'msg' => 'No se pudo guardar la reservacion.', 'errors' => []];
+            return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'errors' => []];
         } finally {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -667,12 +659,9 @@ class ReservacionService
             'mesas' => $mesasNombres,
             'mesa_ids' => $mesaIds,
             'requiere_confirmacion' => $sinMesas,
-            'msg' => $sinMesas
-                ? 'Reservacion creada. No fue posible asignar mesas automaticamente.'
-                : 'Reservacion creada y mesas asignadas correctamente.',
-            'warning' => $sinMesas
-                ? 'Solicitud recibida. Confirmaremos la disponibilidad de mesa para este horario.'
-                : ($asignacion['advertencia'] ?? null),
+            'warning_code' => $sinMesas
+                ? 'SIN_ASIGNACION'
+                : ($asignacion['advertencia_codigo'] ?? null),
             'depende_liberacion_proyectada' => (bool)($asignacion['depende_liberacion_proyectada'] ?? false),
             'mesas_proyectadas' => array_values(array_map(
                 'intval',
@@ -722,11 +711,11 @@ class ReservacionService
         }
 
         if ($nombre === '') {
-            self::agregarError($errors, $fieldCodes, 'nombre', 'Escribe un nombre para la reservacion.', 'NOMBRE_REQUERIDO');
+            self::agregarError($errors, $fieldCodes, 'nombre', 'NOMBRE_REQUERIDO');
         } elseif (preg_match('/[\p{L}\p{N}]/u', $nombre) !== 1) {
-            self::agregarError($errors, $fieldCodes, 'nombre', 'El nombre debe incluir letras o numeros.', 'NOMBRE_INVALIDO');
+            self::agregarError($errors, $fieldCodes, 'nombre', 'NOMBRE_INVALIDO');
         } elseif (self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
-            self::agregarError($errors, $fieldCodes, 'nombre', 'El nombre es demasiado largo.', 'NOMBRE_DEMASIADO_LARGO');
+            self::agregarError($errors, $fieldCodes, 'nombre', 'NOMBRE_DEMASIADO_LARGO');
         }
 
         if ($contactoTipo === 'ninguno') {
@@ -735,7 +724,6 @@ class ReservacionService
                     $errors,
                     $fieldCodes,
                     'contacto_tipo',
-                    'Selecciona correo electrónico o teléfono.',
                     'CONTACTO_TIPO_INVALIDO'
                 );
             }
@@ -745,7 +733,6 @@ class ReservacionService
                 $errors,
                 $fieldCodes,
                 'contacto_tipo',
-                'Selecciona correo electrónico o teléfono.',
                 'CONTACTO_TIPO_INVALIDO'
             );
         } elseif ($contactoValor !== '' || $contactoRequerido) {
@@ -756,7 +743,6 @@ class ReservacionService
                     $errors,
                     $fieldCodes,
                     'contacto',
-                    $e->getMessage(),
                     'CONTACTO_INVALIDO'
                 );
             }
@@ -767,37 +753,36 @@ class ReservacionService
         }
 
         if ($fecha === '') {
-            self::agregarError($errors, $fieldCodes, 'fecha', 'Elige una fecha.', 'FECHA_REQUERIDA');
+            self::agregarError($errors, $fieldCodes, 'fecha', 'FECHA_REQUERIDA');
         } elseif (!HorarioReservacionService::fechaValida($fecha)) {
-            self::agregarError($errors, $fieldCodes, 'fecha', 'La fecha seleccionada no es valida.', 'FECHA_INVALIDA');
+            self::agregarError($errors, $fieldCodes, 'fecha', 'FECHA_INVALIDA');
         }
 
         if ($horaOriginal === '') {
-            self::agregarError($errors, $fieldCodes, 'hora', 'Elige una hora.', 'HORA_REQUERIDA');
+            self::agregarError($errors, $fieldCodes, 'hora', 'HORA_REQUERIDA');
         } elseif ($hora === '') {
-            self::agregarError($errors, $fieldCodes, 'hora', 'La hora seleccionada no es valida.', 'HORA_INVALIDA');
+            self::agregarError($errors, $fieldCodes, 'hora', 'HORA_INVALIDA');
         }
 
         if ($comensalesValor === null || $comensalesValor === '') {
-            self::agregarError($errors, $fieldCodes, 'comensales', 'Indica el numero de comensales.', 'COMENSALES_REQUERIDOS');
+            self::agregarError($errors, $fieldCodes, 'comensales', 'COMENSALES_REQUERIDOS');
         } elseif ($comensales === false) {
-            self::agregarError($errors, $fieldCodes, 'comensales', 'El numero de comensales debe ser entero.', 'COMENSALES_INVALIDOS');
+            self::agregarError($errors, $fieldCodes, 'comensales', 'COMENSALES_INVALIDOS');
         } elseif ($comensales < 1 || $comensales > $maxComensales) {
             self::agregarError(
                 $errors,
                 $fieldCodes,
                 'comensales',
-                'El numero de comensales debe estar entre 1 y ' . $maxComensales . '.',
                 'COMENSALES_FUERA_DE_RANGO'
             );
         }
 
         if ($validarNota && self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
-            self::agregarError($errors, $fieldCodes, 'nota', 'La nota es demasiado larga. Usa maximo 500 caracteres.', 'NOTA_DEMASIADO_LARGA');
+            self::agregarError($errors, $fieldCodes, 'nota', 'NOTA_DEMASIADO_LARGA');
         }
 
         if ($permitirComentarioAdmin && self::longitud($comentario) > ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES) {
-            self::agregarError($errors, $fieldCodes, 'comentario_admin', 'El comentario interno es demasiado largo.', 'COMENTARIO_DEMASIADO_LARGO');
+            self::agregarError($errors, $fieldCodes, 'comentario_admin', 'COMENTARIO_DEMASIADO_LARGO');
         }
 
         if ($validarHorario && empty($errors['fecha']) && empty($errors['hora'])) {
@@ -814,7 +799,6 @@ class ReservacionService
                     $errors,
                     $fieldCodes,
                     $field,
-                    self::mensajeHorario($codigoHorario),
                     self::codigoCampoHorario($codigoHorario)
                 );
             }
@@ -827,9 +811,8 @@ class ReservacionService
                     ? self::ERROR_INTERNO
                     : self::DATOS_INVALIDOS,
                 'codigo_horario' => $codigoHorario,
-                'msg' => self::primerError($errors),
-                'errors' => $errors,
                 'field_codes' => $fieldCodes,
+                'contexto' => ['max_comensales' => $maxComensales],
                 'siguiente_horario_valido' => is_array($horario)
                     ? ($horario['siguiente_horario_valido'] ?? null)
                     : null,
@@ -857,7 +840,7 @@ class ReservacionService
         ];
     }
 
-    private static function respuestaDisponibilidadError(string $fecha, string $codigo, string $mensaje): array
+    private static function respuestaDisponibilidadError(string $fecha, string $codigo): array
     {
         return [
             'ok' => false,
@@ -867,7 +850,6 @@ class ReservacionService
             'origen' => $codigo === HorarioReservacionService::FECHA_INVALIDA ? 'invalido' : null,
             'tipo' => null,
             'horarios' => [],
-            'mensaje' => $mensaje,
         ];
     }
 
@@ -941,27 +923,11 @@ class ReservacionService
                 ? self::ERROR_INTERNO
                 : self::HORARIO_INVALIDO,
             'codigo_horario' => $codigoHorario,
-            'msg' => self::mensajeHorario($codigoHorario),
-            'errors' => [
-                $field => [self::mensajeHorario($codigoHorario)],
-            ],
             'field_codes' => [
                 $field => [self::codigoCampoHorario($codigoHorario)],
             ],
             'siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null,
         ];
-    }
-
-    private static function mensajeHorario(string $codigo): string
-    {
-        return match ($codigo) {
-            HorarioReservacionService::FECHA_INVALIDA => 'La fecha seleccionada no es válida.',
-            HorarioReservacionService::FECHA_PASADA => 'No se pueden elegir fechas anteriores.',
-            HorarioReservacionService::HORARIO_PASADO => 'Ese horario ya no está disponible.',
-            HorarioReservacionService::DIA_INACTIVO => 'El restaurante no opera en la fecha seleccionada.',
-            HorarioReservacionService::HORARIO_INVALIDO => 'El horario seleccionado no está disponible para esta fecha.',
-            default => 'No pudimos validar el horario. Intenta de nuevo.',
-        };
     }
 
     private static function codigoCampoHorario(string $codigo): string
@@ -976,21 +942,10 @@ class ReservacionService
         };
     }
 
-    private static function agregarError(array &$errors, array &$fieldCodes, string $field, string $message, string $code): void
+    private static function agregarError(array &$errors, array &$fieldCodes, string $field, string $code): void
     {
-        $errors[$field][] = $message;
+        $errors[$field][] = $code;
         $fieldCodes[$field][] = $code;
-    }
-
-    private static function primerError(array $errors): string
-    {
-        foreach ($errors as $mensajes) {
-            if (!empty($mensajes[0])) {
-                return $mensajes[0];
-            }
-        }
-
-        return 'Revisa los datos de tu reservacion.';
     }
 
     private static function codigoEstado(string $estado): string

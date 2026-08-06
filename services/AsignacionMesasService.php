@@ -15,13 +15,13 @@ use Model\TicketMesa;
 class AsignacionMesasService
 {
     public const ASIGNACION_GUARDADA = 'ASIGNACION_GUARDADA';
-    public const SIN_CAPACIDAD = 'SIN_CAPACIDAD';
+    public const SIN_CAPACIDAD = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
     public const MESA_OCUPADA = 'MESA_OCUPADA';
-    public const ESTADO_INVALIDO = 'ESTADO_INVALIDO';
-    public const RESERVACION_NO_EXISTE = 'RESERVACION_NO_EXISTE';
+    public const ESTADO_INVALIDO = ReservacionService::ESTADO_INVALIDO;
+    public const RESERVACION_NO_EXISTE = ReservacionService::RESERVACION_NO_EXISTE;
     public const ASIGNACION_VACIA = 'ASIGNACION_VACIA';
     public const MESAS_INVALIDAS = 'MESAS_INVALIDAS';
-    public const CAPACIDAD_INSUFICIENTE = 'CAPACIDAD_INSUFICIENTE';
+    public const CAPACIDAD_INSUFICIENTE = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
     public const CONFLICTO_TICKETS_ABIERTOS = 'CONFLICTO_TICKETS_ABIERTOS';
     public const CONFLICTO_CONCURRENTE = 'CONFLICTO_CONCURRENTE';
     public const VERSION_DESACTUALIZADA = 'VERSION_DESACTUALIZADA';
@@ -31,10 +31,10 @@ class AsignacionMesasService
     public const AGRUPACION_NO_AUTORIZADA = 'AGRUPACION_NO_AUTORIZADA';
     public const CONFLICTO_TICKET_ABIERTO = 'CONFLICTO_TICKET_ABIERTO';
     public const DEPENDE_LIBERACION_PROYECTADA = 'DEPENDE_LIBERACION_PROYECTADA';
-    public const SIN_CONTACTO = 'SIN_CONTACTO';
+    public const SIN_CONTACTO = ReservacionAdministrativaService::SIN_CONTACTO;
     public const LIBERAR_ASIGNACION_ACTUAL = 'LIBERAR_ASIGNACION_ACTUAL';
     public const LIBERACION_NO_AUTORIZADA = 'LIBERACION_NO_AUTORIZADA';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
     private const TIPO_AUTOMATICA_GENERAL = 'general';
     private const TIPO_AUTOMATICA_PUBLICA = 'publica';
@@ -622,8 +622,8 @@ class AsignacionMesasService
                 'mesas_proyectadas' => $seleccionProyectada,
                 'advertencias' => $advertencias,
                 'confirmaciones_requeridas' => [],
-                'advertencia' => $dependeLiberacionProyectada
-                    ? 'La asignación depende de mesas con servicio activo y liberación proyectada. Verifica su estado durante la operación.'
+                'advertencia_codigo' => $dependeLiberacionProyectada
+                    ? self::DEPENDE_LIBERACION_PROYECTADA
                     : null,
             ];
         } catch (\Throwable $e) {

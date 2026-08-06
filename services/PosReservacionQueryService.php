@@ -29,7 +29,6 @@ final class PosReservacionQueryService
             return [
                 'ok' => false,
                 'codigo' => 'FECHA_INVALIDA',
-                'mensaje' => 'La fecha solicitada no es válida.',
             ];
         }
 

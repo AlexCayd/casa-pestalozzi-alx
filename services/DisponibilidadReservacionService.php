@@ -12,9 +12,9 @@ use Model\Mesa;
 final class DisponibilidadReservacionService
 {
     public const DISPONIBILIDAD_CONSULTADA = 'DISPONIBILIDAD_CONSULTADA';
-    public const SIN_DISPONIBILIDAD = 'SIN_DISPONIBILIDAD';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const SIN_DISPONIBILIDAD = ReservacionPublicaService::SIN_DISPONIBILIDAD;
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
     /** Fachada puntual: binaria y sin capacidad, IDs ni motivos internos. */
     public static function respuestaPublica(array $resultado): array
@@ -36,6 +36,9 @@ final class DisponibilidadReservacionService
         $motivo = self::motivoPublico((string)($resultado['motivo'] ?? ''));
         $respuesta = [
             'ok' => (bool)($resultado['ok'] ?? true),
+            'codigo' => ($resultado['disponible'] ?? false)
+                ? self::DISPONIBILIDAD_CONSULTADA
+                : self::SIN_DISPONIBILIDAD,
             'fecha' => (string)($resultado['fecha'] ?? ''),
             'abierto' => (bool)($resultado['abierto'] ?? false),
             'horarios' => array_values(array_map(
@@ -65,10 +68,6 @@ final class DisponibilidadReservacionService
                 'tipo' => $detalle['tipo'] ?? null,
                 'motivo' => $detalle['motivo'] ?? null,
             ];
-        }
-
-        if (!($respuesta['disponible'] ?? false) && $motivo === 'sin_disponibilidad') {
-            $respuesta['mensaje'] = 'No encontramos disponibilidad para esa selección.';
         }
 
         return $respuesta;
