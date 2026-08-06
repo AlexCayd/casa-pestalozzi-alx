@@ -3990,7 +3990,6 @@ function initMapa() {
           reservaActual.ticket = tickets[ti];
           reservaActual.puede_iniciar = false;
           reservaActual.puede_iniciar_servicio = false;
-          reservaActual.motivo_bloqueo = 'TICKET_ABIERTO';
           break;
         }
       }
