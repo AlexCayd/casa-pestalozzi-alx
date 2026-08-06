@@ -23,8 +23,8 @@ use Services\ReservacionService;
 
 class AdminReservacionController
 {
-    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v9';
-    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v9';
+    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v10';
+    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v10';
 
     public static function index(Router $router): void
     {

@@ -123,8 +123,14 @@
                 '<button type="button" class="confirmation-modal__button confirmation-modal__button--primary" data-confirmation-primary></button>' +
               '</footer>' +
             '</div>';
-        // Portal global: el shell no debe heredar restricciones de paneles, mapas o modales.
-        (document.body || host).appendChild(root);
+        // Portal global: el shell no debe heredar restricciones de paneles o
+        // mapas. Un dialog nativo abierto vive en el top layer del navegador;
+        // en ese caso el portal debe permanecer dentro de él para que el
+        // overlay sea visible y reciba interacción sobre el formulario.
+        var activeDialog = host && typeof host.closest === 'function'
+            ? host.closest('dialog')
+            : null;
+        (activeDialog || document.body || host).appendChild(root);
 
         var dialog = root.querySelector('.confirmation-modal__dialog');
         var title = root.querySelector('[data-confirmation-title]');
@@ -144,6 +150,7 @@
         var current = null;
         var previousBodyOverflow = '';
         var bodyScrollLocked = false;
+        var resolveOpen = null;
 
         title.id = 'confirmation-modal-title-' + id;
         description.id = 'confirmation-modal-description-' + id;
@@ -174,13 +181,27 @@
             else if (status.textContent === 'Procesando…') setStatus('', false);
         }
 
-        function close(restoreFocus) {
+        function settle(result) {
+            if (typeof resolveOpen === 'function') {
+                var resolver = resolveOpen;
+                resolveOpen = null;
+                resolver(result || { action: 'close' });
+            }
+        }
+
+        function close(restoreFocus, result) {
             if (root.hidden) return;
             root.classList.remove('is-open', 'is-loading');
             root.hidden = true;
             root.setAttribute('aria-hidden', 'true');
             root.inert = true;
             dialog.removeAttribute('aria-busy');
+            primary.disabled = false;
+            secondary.disabled = false;
+            closeButton.disabled = false;
+            primary.removeAttribute('data-disabled');
+            secondary.removeAttribute('data-disabled');
+            setStatus('', false);
             if (bodyScrollLocked) {
                 document.body.style.overflow = previousBodyOverflow;
                 bodyScrollLocked = false;
@@ -191,12 +212,13 @@
                 : (focusTarget && document.contains(focusTarget) ? focusTarget : lastFocused);
             current = null;
             if (target && typeof target.focus === 'function') target.focus();
+            settle(result || { action: 'close' });
         }
 
-        function requestClose(restoreFocus) {
+        function requestClose(restoreFocus, result) {
             if (root.hidden || root.classList.contains('is-loading')) return false;
             if (current && (current.closeBehavior === 'non_cancelable' || current.close_behavior === 'non_cancelable')) return false;
-            close(restoreFocus);
+            close(restoreFocus, result || { action: 'cancel' });
             return true;
         }
 
@@ -211,6 +233,9 @@
 
         function open(options) {
             options = options || {};
+            if (!root.hidden) {
+                close(false, { action: 'reopened' });
+            }
             current = Object.assign({}, options);
             current.closeBehavior = options.closeBehavior || options.close_behavior || 'cancelable';
             lastFocused = document.activeElement;
@@ -252,32 +277,63 @@
                     preferred.focus();
                 }
             });
+            return new Promise(function (resolve) {
+                resolveOpen = resolve;
+            });
         }
 
         closeButton.addEventListener('click', function () {
-            requestClose(true);
+            requestClose(true, { action: 'close' });
         });
         backdrop.addEventListener('click', function () {
-            requestClose(true);
+            requestClose(true, { action: 'backdrop' });
         });
         secondary.addEventListener('click', function () {
             if (secondary.disabled) return;
             var callback = current && current.onSecondary;
-            if (!requestClose(true)) return;
-            if (typeof callback === 'function') callback();
+            if (!requestClose(true, { action: 'secondary' })) return;
+            try {
+                if (typeof callback === 'function') callback();
+            } catch (error) {
+                // El cierre ya dejó el shell limpio; el error no debe bloquear
+                // la siguiente apertura del mismo controlador.
+                if (window.console && typeof window.console.error === 'function') {
+                    window.console.error(error);
+                }
+            }
         });
         primary.addEventListener('click', function () {
             if (primary.disabled) return;
             var callback = current && current.onPrimary;
             if (current && current.loadingOnPrimary !== false) setLoading(true);
-            var result = typeof callback === 'function' ? callback() : undefined;
-            if (result === false) setLoading(false);
+            try {
+                var result = typeof callback === 'function' ? callback() : undefined;
+                if (result === false) {
+                    setLoading(false);
+                    return;
+                }
+                if (result && typeof result.then === 'function') {
+                    result.then(function (value) {
+                        settle({ action: 'primary', value: value });
+                    }).catch(function (error) {
+                        setLoading(false);
+                        setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
+                        settle({ action: 'error', error: error });
+                    });
+                    return;
+                }
+                settle({ action: 'primary', value: result });
+            } catch (error) {
+                setLoading(false);
+                setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
+                settle({ action: 'error', error: error });
+            }
         });
         root.addEventListener('keydown', function (event) {
             if (root.hidden) return;
             if (event.key === 'Escape') {
                 event.preventDefault();
-                requestClose(true);
+                requestClose(true, { action: 'escape' });
                 return;
             }
             if (event.key !== 'Tab') return;

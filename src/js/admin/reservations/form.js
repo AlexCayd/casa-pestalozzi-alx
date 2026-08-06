@@ -49,6 +49,7 @@
             var contactInput = form.querySelector('input[name="contacto"]');
             var automaticAssignment = form.querySelector('[data-automatic-assignment]');
             var confirmationInput = form.querySelector('[data-admin-confirmations]');
+            var acceptedConfirmationCodes = [];
             var contactLabel = form.querySelector('[data-contact-field-label]');
             var contactHelp = form.querySelector('[data-contact-help]');
             var feedback = form.querySelector('[data-form-feedback]');
@@ -141,6 +142,18 @@
                     control.setAttribute('aria-invalid', 'false');
                 });
                 showFeedback('', 'error');
+            }
+
+            function clearAcceptedConfirmations() {
+                acceptedConfirmationCodes = [];
+                form.removeAttribute('data-confirmations-accepted');
+                if (confirmationInput) confirmationInput.value = '';
+            }
+
+            function acceptConfirmations(codes) {
+                acceptedConfirmationCodes = Array.isArray(codes) ? codes.slice() : [];
+                form.setAttribute('data-confirmations-accepted', acceptedConfirmationCodes.join(','));
+                if (confirmationInput) confirmationInput.value = acceptedConfirmationCodes.join(',');
             }
 
             function syncContactField(preservePrevious) {
@@ -241,7 +254,7 @@
                             : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias')),
                         focusTarget: saveButton,
                         onConfirm: function () {
-                            if (confirmationInput) confirmationInput.value = codes.join(',');
+                            acceptConfirmations(codes);
                             setFormValue(form, 'confirmar_sobrecapacidad', codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1 ? '1' : '0');
                             submitAfterConfirmation();
                         }
@@ -268,7 +281,7 @@
                         confirmLabel: 'Confirmar bajo responsabilidad',
                         focusTarget: form.elements.comensales,
                         onConfirm: function () {
-                            if (confirmationInput) confirmationInput.value = 'CAPACIDAD_OPERATIVA_EXCEDIDA';
+                            acceptConfirmations(['CAPACIDAD_OPERATIVA_EXCEDIDA']);
                             setFormValue(form, 'confirmar_sobrecapacidad', '1');
                             var automatic = form.querySelector('[name="asignar_automaticamente"][value="1"]');
                             if (automatic) automatic.checked = false;
@@ -287,7 +300,7 @@
                         focusTarget: contactInput,
                         onConfirm: function () {
                             form.setAttribute('data-contact-warning-accepted', '1');
-                            if (confirmationInput) confirmationInput.value = 'SIN_CONTACTO';
+                            acceptConfirmations(['SIN_CONTACTO']);
                             submitAfterConfirmation();
                         }
                     };
@@ -597,7 +610,7 @@
             if (dateInput && timePicker) {
                 dateInput.addEventListener('reservation:datechange', function (event) {
                     if (!isEditing) return;
-                    if (confirmationInput) confirmationInput.value = '';
+                    clearAcceptedConfirmations();
                     var fecha = (event.detail && event.detail.fecha) || dateInput.value;
                     if (timePicker && typeof timePicker.clear === 'function') timePicker.clear(true);
                     if (timeInput) timeInput.value = '';
@@ -607,7 +620,7 @@
 
             if (timeInput) {
                 timeInput.addEventListener('reservation:timechange', function () {
-                    if (confirmationInput) confirmationInput.value = '';
+                    clearAcceptedConfirmations();
                     renderCapacitySummary();
                     updateSaveState();
                     if (!isLoadingSchedules && isEditing && dateInput && timeInput.value) {
@@ -693,7 +706,7 @@
             form.addEventListener('input', function (event) {
                 var control = event.target;
                 if (confirmationInput && control !== confirmationInput) {
-                    confirmationInput.value = '';
+                    clearAcceptedConfirmations();
                     setFormValue(form, 'confirmar_sobrecapacidad', '0');
                 }
                 if (mode === 'crear' && control === contactInput && String(contactInput.value || '').trim()) {
@@ -748,7 +761,11 @@
 
             function openWarningsIfNeeded() {
                 var codes = warningCodesForSubmit();
-                var accepted = confirmationInput ? String(confirmationInput.value || '').split(',').filter(Boolean) : [];
+                var accepted = acceptedConfirmationCodes.slice();
+                if (confirmationInput) {
+                    accepted = accepted.concat(String(confirmationInput.value || '').split(',').filter(Boolean));
+                }
+                accepted = accepted.filter(function (code, index) { return accepted.indexOf(code) === index; });
                 var missing = codes.filter(function (code) { return accepted.indexOf(code) === -1; });
                 if (missing.length) {
                     var hour = normalizeHour(timeInput ? timeInput.value : '');
@@ -864,6 +881,11 @@
                 isSubmitting = false;
                 form.removeAttribute('data-contact-warning-accepted');
                 form.removeAttribute('data-contact-confirmation-accepted');
+                clearAcceptedConfirmations();
+                // El modal de operación restablece contacto_tipo mediante
+                // FormData; vuelve a sincronizar la presentación para que el
+                // campo no conserve el estado inicial "Sin contacto".
+                syncContactField(false);
                 if (saveButton) {
                     saveButton.textContent = saveLabel;
                 }
@@ -895,7 +917,7 @@
                     }).then(function (payload) {
                         if (!payload.ok) {
                             if (Array.isArray(payload.requiredConfirmations) && payload.requiredConfirmations.length) {
-                                if (confirmationInput) confirmationInput.value = '';
+                                clearAcceptedConfirmations();
                                 form.dispatchEvent(new CustomEvent('reservation:confirmation', {
                                     detail: { type: 'warnings', codes: payload.requiredConfirmations }
                                 }));
