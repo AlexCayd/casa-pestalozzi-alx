@@ -53,7 +53,8 @@ final class OcupacionMesasService
             ];
         }
 
-        $contexto = self::contexto($objetivo, $ahora);
+        $contextoTemporal = TicketTemporalService::contextoTemporal($fecha, $horaSql, $ahora);
+        $contexto = (string)$contextoTemporal['contexto'];
         $intervalo = [
             'inicio' => $objetivo,
             'fin' => $objetivo->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'),
@@ -168,6 +169,7 @@ final class OcupacionMesasService
             'fecha' => $fecha,
             'hora' => $horaSql,
             'contexto' => $contexto,
+            'contexto_temporal' => $contextoTemporal,
             'objetivo' => $objetivo->format('Y-m-d H:i:s'),
             'intervalo' => [
                 'inicio' => $intervalo['inicio']->format('Y-m-d H:i:s'),
@@ -202,12 +204,12 @@ final class OcupacionMesasService
         ?DateTimeImmutable $ahora = null
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
-        $objetivo = self::fechaHora($fecha, $hora);
         $porMesa = [];
         $fisica = [];
         $bloqueantes = [];
         $ignorados = [];
-        $contexto = $objetivo ? self::contexto($objetivo, $ahora) : self::CONTEXTO_HISTORICO;
+        $contextoTemporal = TicketTemporalService::contextoTemporal($fecha, $hora, $ahora);
+        $contexto = (string)$contextoTemporal['contexto'];
 
         foreach ($tickets as $raw) {
             $ticket = is_array($raw) ? $raw : get_object_vars($raw);
@@ -217,45 +219,20 @@ final class OcupacionMesasService
                 continue;
             }
 
-            $apertura = self::fechaHoraTicket((string)($ticket['hora_apertura'] ?? ''));
-            $liberacion = $apertura?->modify(
-                '+' . ReservacionConfig::DURACION_ESTIMADA_TICKET_MINUTOS . ' minutes'
-            )->modify(
-                '+' . ReservacionConfig::RETRASO_ESTIMADO_TICKET_MINUTOS . ' minutes'
-            );
-            $aplicaFecha = $fecha === $ahora->format('Y-m-d');
-            $objetivoFuturo = $objetivo instanceof DateTimeImmutable && $objetivo > $ahora;
-            $proyectado = $aplicaFecha
-                && $objetivoFuturo
-                && $liberacion instanceof DateTimeImmutable
-                && $liberacion <= $objetivo;
-            $bloquea = $aplicaFecha && !$proyectado;
-            $tipo = $proyectado ? 'ticket_proyectado' : 'ticket_abierto';
-            $resumen = [
-                'ticket_id' => $ticketId,
-                'reservacion_id' => !empty($ticket['reservacion_id']) ? (int)$ticket['reservacion_id'] : null,
-                'origen' => (string)($ticket['origen'] ?? (!empty($ticket['reservacion_id']) ? 'reservacion' : 'walk_in')),
-                'walk_in' => empty($ticket['reservacion_id']),
-                'hora_apertura' => (string)($ticket['hora_apertura'] ?? ''),
-                'mesa_ids' => $mesaIds,
-                'ocupada_fisicamente' => true,
-                'aplica_fecha' => $aplicaFecha,
-                'bloquea_disponibilidad' => $bloquea,
-                'disponible_proyectada' => $proyectado,
-                'tipo' => $tipo,
-                'estado_proyeccion' => !$aplicaFecha ? 'ignorado_fecha' : ($proyectado ? 'liberado_proyectado' : 'ocupada'),
-                'liberacion_estimada' => $liberacion?->format('Y-m-d H:i:s'),
-            ];
+            $resumen = TicketTemporalService::proyectar($ticket, $fecha, $hora, $ahora);
+            if (!$resumen['ticket_abierto']) {
+                continue;
+            }
             $fisica[] = $resumen;
-            if (!$aplicaFecha) {
+            if (!$resumen['aplica_fecha']) {
                 $ignorados[] = $resumen;
                 continue;
             }
-            if ($bloquea) {
+            if ($resumen['bloquea_en_consulta']) {
                 $bloqueantes[] = $resumen;
             }
             foreach ($mesaIds as $mesaId) {
-                if (!isset($porMesa[$mesaId]) || $bloquea) {
+                if (!isset($porMesa[$mesaId]) || $resumen['bloquea_en_consulta']) {
                     $porMesa[$mesaId] = ['mesa_id' => $mesaId] + $resumen;
                 }
             }
@@ -264,6 +241,7 @@ final class OcupacionMesasService
         ksort($porMesa, SORT_NUMERIC);
         return [
             'contexto' => $contexto,
+            'contexto_temporal' => $contextoTemporal,
             'por_mesa' => $porMesa,
             'fisica' => $fisica,
             'bloqueantes' => $bloqueantes,
@@ -273,6 +251,11 @@ final class OcupacionMesasService
                 array_keys(array_filter($porMesa, static fn(array $ticket): bool => $ticket['tipo'] === 'ticket_proyectado'))
             )),
         ];
+    }
+
+    public static function calcularLiberacionEstimadaTicket($horaApertura): ?DateTimeImmutable
+    {
+        return TicketTemporalService::calcularLiberacionEstimadaTicket($horaApertura);
     }
 
     /**
@@ -387,12 +370,12 @@ final class OcupacionMesasService
             throw new \RuntimeException('No hay conexión para consultar ocupación.');
         }
         $fechaSql = $db->real_escape_string($fecha);
-        $ahoraSql = $db->real_escape_string($ahora->format('Y-m-d H:i:s'));
         $exclusiones = self::normalizarExclusiones($excluirReservacionId);
         $excluir = $exclusiones !== []
             ? 'AND r.id NOT IN (' . implode(',', $exclusiones) . ')'
             : '';
         $lock = $bloquear ? ' FOR UPDATE' : '';
+        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
         $sql = "SELECT rm.mesa_id, r.id AS reservacion_id, r.nombre, r.contacto,
                        r.fecha, r.hora, r.comensales, r.estado, r.hold_expires_at,
                        CASE WHEN r.estado = 'pendiente_verificacion' THEN 'hold'
@@ -401,17 +384,7 @@ final class OcupacionMesasService
                 INNER JOIN reservaciones r ON r.id = rm.reservacion_id
                 WHERE r.fecha = '{$fechaSql}'
                   {$excluir}
-                  AND (
-                    (r.estado = 'pendiente_verificacion'
-                     AND r.hold_expires_at IS NOT NULL
-                     AND r.hold_expires_at > '{$ahoraSql}')
-                    OR
-                    (r.estado = 'confirmada'
-                     AND NOT EXISTS (
-                       SELECT 1 FROM tickets t
-                       WHERE t.reservacion_id = r.id
-                         AND " . \Model\TicketMesa::condicionSqlAbierto('t') . "))
-                  )
+                  AND {$condicionInfluye}
                 ORDER BY r.hora ASC, rm.mesa_id ASC{$lock}";
         $resultado = $db->query($sql);
         if (!$resultado) {
@@ -484,17 +457,6 @@ final class OcupacionMesasService
             && (int)($mesa->capacidad ?? 0) > 0;
     }
 
-    private static function contexto(DateTimeImmutable $objetivo, DateTimeImmutable $ahora): string
-    {
-        if ($objetivo->format('Y-m-d') < $ahora->format('Y-m-d')) {
-            return self::CONTEXTO_HISTORICO;
-        }
-        if ($objetivo->format('Y-m-d') > $ahora->format('Y-m-d')) {
-            return self::CONTEXTO_FUTURO;
-        }
-        return $objetivo <= $ahora ? self::CONTEXTO_ACTUAL : self::CONTEXTO_PROYECTADO;
-    }
-
     private static function fechaHora(string $fecha, string $hora): ?DateTimeImmutable
     {
         $hora = HorarioReservacionService::normalizarHoraSql($hora);
@@ -511,19 +473,6 @@ final class OcupacionMesasService
             && ($errores === false || (($errores['warning_count'] ?? 0) === 0 && ($errores['error_count'] ?? 0) === 0))
             ? $resultado
             : null;
-    }
-
-    private static function fechaHoraTicket(string $valor): ?DateTimeImmutable
-    {
-        $valor = trim($valor);
-        if ($valor === '') {
-            return null;
-        }
-        try {
-            return new DateTimeImmutable($valor, ReservacionConfig::timezone());
-        } catch (\Throwable $e) {
-            return null;
-        }
     }
 
     private static function horaMinutos(string $hora): ?int
