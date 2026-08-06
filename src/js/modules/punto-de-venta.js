@@ -3589,7 +3589,7 @@ function initMapa() {
           consequence: (warning.presentacion && warning.presentacion.consecuencia)
             || 'Si abres el ticket, la mesa deberá quedar disponible antes de la reservación.' +
               (warning.duracion_estimada_supera ? ' La duración estimada del servicio supera el tiempo disponible.' : ''),
-          cancelLabel: 'Volver a la selección',
+          cancelLabel: 'Volver',
           confirmLabel: 'Abrir ticket de todas formas',
           refreshOnCancel: false,
           onConfirm: function() {
