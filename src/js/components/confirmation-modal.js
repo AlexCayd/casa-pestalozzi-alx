@@ -1,8 +1,9 @@
 /*
- * Shell común de confirmaciones operativas.
+ * Shell único para confirmaciones operativas.
  *
- * Este componente sólo pinta estados y devuelve eventos. Cada consumidor
- * conserva sus reglas, endpoints y textos de negocio.
+ * El componente sólo resuelve presentación, foco y estados de interacción.
+ * Los consumidores conservan la causa, el resumen, la consecuencia y sus
+ * endpoints, pero siempre los entregan mediante las mismas regiones.
  */
 (function (window, document) {
     'use strict';
@@ -16,12 +17,14 @@
 
     function renderBlock(target, value, className) {
         target.replaceChildren();
-        if (value == null || value === '') {
+        if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) {
             target.hidden = true;
+            target.setAttribute('aria-hidden', 'true');
             return;
         }
 
         target.hidden = false;
+        target.removeAttribute('aria-hidden');
         if (Array.isArray(value)) {
             var list = document.createElement('ul');
             list.className = className + '-list';
@@ -37,41 +40,101 @@
         target.textContent = textValue(value);
     }
 
+    function renderSummary(target, options) {
+        target.replaceChildren();
+        var rows = Array.isArray(options.summaryRows) ? options.summaryRows : [];
+        if (rows.length) {
+            target.hidden = false;
+            target.removeAttribute('aria-hidden');
+            var comparison = document.createElement('div');
+            comparison.className = 'confirmation-modal__comparison';
+            comparison.setAttribute('role', 'table');
+            rows.forEach(function (row) {
+                var item = document.createElement('div');
+                item.className = 'confirmation-modal__comparison-row';
+                item.setAttribute('role', 'row');
+                if (row.changed) item.classList.add('is-changed');
+
+                var label = document.createElement('strong');
+                label.className = 'confirmation-modal__comparison-label';
+                label.textContent = textValue(row.label);
+                item.appendChild(label);
+
+                ['current', 'proposed'].forEach(function (key) {
+                    var cell = document.createElement('span');
+                    cell.className = 'confirmation-modal__comparison-cell';
+                    cell.setAttribute('role', 'cell');
+                    var heading = document.createElement('small');
+                    heading.textContent = key === 'current' ? 'Actual' : 'Nueva';
+                    var value = document.createElement('span');
+                    value.textContent = textValue(row[key]);
+                    cell.append(heading, value);
+                    item.appendChild(cell);
+                });
+                comparison.appendChild(item);
+            });
+            target.appendChild(comparison);
+            return;
+        }
+
+        renderBlock(target, options.summary, 'confirmation-modal__summary');
+    }
+
+    function appendCustomContent(target, content) {
+        target.replaceChildren();
+        if (!(content instanceof Node)) {
+            target.hidden = true;
+            target.setAttribute('aria-hidden', 'true');
+            return;
+        }
+        target.hidden = false;
+        target.removeAttribute('aria-hidden');
+        target.appendChild(content);
+    }
+
     function create(host) {
         host = host || document.body;
         var id = ++sequence;
         var root = document.createElement('div');
-        root.className = 'cp-confirmation-modal';
+        root.className = 'confirmation-modal';
         root.hidden = true;
+        root.setAttribute('aria-hidden', 'true');
+        root.inert = true;
         root.innerHTML =
-            '<div class="cp-confirmation-modal__backdrop" data-confirmation-backdrop></div>' +
-            '<div class="cp-confirmation-modal__dialog" role="dialog" aria-modal="true" tabindex="-1">' +
-              '<div class="cp-confirmation-modal__head">' +
-                '<div>' +
-                  '<span class="cp-confirmation-modal__eyebrow" data-confirmation-eyebrow></span>' +
-                  '<h2 class="cp-confirmation-modal__title" data-confirmation-title></h2>' +
+            '<div class="confirmation-modal__backdrop" data-confirmation-backdrop></div>' +
+            '<div class="confirmation-modal__dialog" role="dialog" aria-modal="true" tabindex="-1">' +
+              '<header class="confirmation-modal__header">' +
+                '<span class="confirmation-modal__icon" aria-hidden="true" data-confirmation-icon>!</span>' +
+                '<div class="confirmation-modal__heading">' +
+                  '<span class="confirmation-modal__eyebrow" data-confirmation-eyebrow></span>' +
+                  '<h2 class="confirmation-modal__title" data-confirmation-title></h2>' +
+                  '<p class="confirmation-modal__description" data-confirmation-description></p>' +
                 '</div>' +
-                '<button type="button" class="cp-confirmation-modal__close" aria-label="Cerrar confirmación" data-confirmation-close>×</button>' +
+                '<button type="button" class="confirmation-modal__close" aria-label="Cerrar confirmación" data-confirmation-close>×</button>' +
+              '</header>' +
+              '<div class="confirmation-modal__body">' +
+                '<div class="confirmation-modal__summary" data-confirmation-summary></div>' +
+                '<div class="confirmation-modal__warning" role="note" data-confirmation-warning></div>' +
+                '<div class="confirmation-modal__consequence" data-confirmation-consequence></div>' +
+                '<div class="confirmation-modal__custom" data-confirmation-custom></div>' +
+                '<p class="confirmation-modal__status" role="status" aria-live="polite" data-confirmation-status hidden></p>' +
               '</div>' +
-              '<p class="cp-confirmation-modal__description" data-confirmation-description></p>' +
-              '<div class="cp-confirmation-modal__summary" data-confirmation-summary></div>' +
-              '<p class="cp-confirmation-modal__warning" role="note" data-confirmation-warning></p>' +
-              '<p class="cp-confirmation-modal__consequence" data-confirmation-consequence></p>' +
-              '<p class="cp-confirmation-modal__status" role="status" aria-live="polite" data-confirmation-status hidden></p>' +
-              '<div class="cp-confirmation-modal__actions">' +
-                '<button type="button" class="cp-confirmation-modal__button cp-confirmation-modal__button--secondary" data-confirmation-secondary></button>' +
-                '<button type="button" class="cp-confirmation-modal__button cp-confirmation-modal__button--primary" data-confirmation-primary></button>' +
-              '</div>' +
+              '<footer class="confirmation-modal__actions">' +
+                '<button type="button" class="confirmation-modal__button confirmation-modal__button--secondary" data-confirmation-secondary></button>' +
+                '<button type="button" class="confirmation-modal__button confirmation-modal__button--primary" data-confirmation-primary></button>' +
+              '</footer>' +
             '</div>';
         host.appendChild(root);
 
-        var dialog = root.querySelector('.cp-confirmation-modal__dialog');
+        var dialog = root.querySelector('.confirmation-modal__dialog');
         var title = root.querySelector('[data-confirmation-title]');
         var description = root.querySelector('[data-confirmation-description]');
         var eyebrow = root.querySelector('[data-confirmation-eyebrow]');
+        var icon = root.querySelector('[data-confirmation-icon]');
         var summary = root.querySelector('[data-confirmation-summary]');
         var warning = root.querySelector('[data-confirmation-warning]');
         var consequence = root.querySelector('[data-confirmation-consequence]');
+        var custom = root.querySelector('[data-confirmation-custom]');
         var status = root.querySelector('[data-confirmation-status]');
         var secondary = root.querySelector('[data-confirmation-secondary]');
         var primary = root.querySelector('[data-confirmation-primary]');
@@ -79,17 +142,25 @@
         var backdrop = root.querySelector('[data-confirmation-backdrop]');
         var lastFocused = null;
         var current = null;
-        var previousBodyClass = false;
+        var previousBodyOverflow = '';
+        var bodyScrollLocked = false;
 
-        title.id = 'cp-confirmation-title-' + id;
-        description.id = 'cp-confirmation-description-' + id;
+        title.id = 'confirmation-modal-title-' + id;
+        description.id = 'confirmation-modal-description-' + id;
         dialog.setAttribute('aria-labelledby', title.id);
         dialog.setAttribute('aria-describedby', description.id);
 
         function focusables() {
             return Array.prototype.slice.call(dialog.querySelectorAll(
-                'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+                'button:not([disabled]):not([hidden]), input:not([disabled]):not([hidden]), select:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), a[href], [tabindex]:not([tabindex="-1"])'
             ));
+        }
+
+        function setStatus(message, isError) {
+            status.textContent = textValue(message);
+            status.hidden = !status.textContent;
+            status.classList.toggle('is-error', Boolean(isError));
+            status.setAttribute('role', isError ? 'alert' : 'status');
         }
 
         function setLoading(loading) {
@@ -98,20 +169,23 @@
             primary.disabled = isLoading || primary.getAttribute('data-disabled') === '1';
             secondary.disabled = isLoading || secondary.getAttribute('data-disabled') === '1';
             closeButton.disabled = isLoading;
-            primary.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-            status.hidden = !isLoading;
-            status.textContent = isLoading ? 'Procesando…' : '';
+            dialog.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+            if (isLoading) setStatus('Procesando…', false);
+            else if (status.textContent === 'Procesando…') setStatus('', false);
         }
 
         function close(restoreFocus) {
             if (root.hidden) return;
-            var focusTarget = current && current.focusTarget;
             root.classList.remove('is-open', 'is-loading');
             root.hidden = true;
-            if (previousBodyClass) {
-                document.body.classList.remove('has-cp-confirmation');
-                previousBodyClass = false;
+            root.setAttribute('aria-hidden', 'true');
+            root.inert = true;
+            dialog.removeAttribute('aria-busy');
+            if (bodyScrollLocked) {
+                document.body.style.overflow = previousBodyOverflow;
+                bodyScrollLocked = false;
             }
+            var focusTarget = current && current.returnFocus;
             var target = restoreFocus === false
                 ? null
                 : (focusTarget && document.contains(focusTarget) ? focusTarget : lastFocused);
@@ -119,62 +193,91 @@
             if (target && typeof target.focus === 'function') target.focus();
         }
 
+        function requestClose(restoreFocus) {
+            if (root.hidden || root.classList.contains('is-loading')) return false;
+            if (current && (current.closeBehavior === 'non_cancelable' || current.close_behavior === 'non_cancelable')) return false;
+            close(restoreFocus);
+            return true;
+        }
+
+        function resolveInitialFocus(options) {
+            if (options.initialFocus instanceof HTMLElement) return options.initialFocus;
+            if (options.initialFocus === 'dialog') return dialog;
+            if (options.initialFocus === 'primary') return primary;
+            if (options.initialFocus === 'secondary') return secondary;
+            var items = focusables();
+            return options.primaryFocus === true ? primary : (items[0] || dialog);
+        }
+
         function open(options) {
             options = options || {};
-            current = options;
+            current = Object.assign({}, options);
+            current.closeBehavior = options.closeBehavior || options.close_behavior || 'cancelable';
             lastFocused = document.activeElement;
-            root.className = 'cp-confirmation-modal cp-confirmation-modal--' + textValue(options.variant || 'default');
+            current.returnFocus = options.returnFocus || options.return_focus || options.focusTarget || options.focus_target || lastFocused;
+            root.className = 'confirmation-modal confirmation-modal--' + textValue(options.variant || 'default');
             root.hidden = false;
+            root.removeAttribute('aria-hidden');
+            root.inert = false;
+            icon.textContent = textValue(options.icon || (options.variant === 'danger' ? '!' : 'i'));
             eyebrow.textContent = textValue(options.eyebrow || 'Confirmación');
             title.textContent = textValue(options.title || 'Confirma esta acción');
-            description.textContent = textValue(options.description || '');
+            description.textContent = textValue(options.description || 'Revisa el resumen y las consecuencias antes de continuar.');
             description.hidden = !description.textContent;
-            renderBlock(summary, options.summary, 'cp-confirmation-modal__summary');
-            renderBlock(warning, options.warning, 'cp-confirmation-modal__warning');
-            renderBlock(consequence, options.consequence, 'cp-confirmation-modal__consequence');
-            secondary.textContent = textValue(options.secondaryLabel || 'Cancelar');
+            renderSummary(summary, options);
+            renderBlock(warning, options.warning, 'confirmation-modal__warning');
+            renderBlock(consequence, options.consequence, 'confirmation-modal__consequence');
+            appendCustomContent(custom, options.customContent);
+            setStatus(options.status || '', false);
+            secondary.textContent = textValue(options.secondaryLabel || 'Cerrar');
             primary.textContent = textValue(options.primaryLabel || 'Continuar');
             secondary.hidden = options.secondaryHidden === true;
             primary.hidden = options.primaryHidden === true;
             secondary.setAttribute('data-disabled', options.secondaryDisabled ? '1' : '0');
             primary.setAttribute('data-disabled', options.primaryDisabled ? '1' : '0');
-            if (options.primaryDisabled) primary.disabled = true;
-            if (options.secondaryDisabled) secondary.disabled = true;
-            if (options.loading) setLoading(true);
-            if (!previousBodyClass) {
-                document.body.classList.add('has-cp-confirmation');
-                previousBodyClass = true;
-            }
+            secondary.disabled = Boolean(options.secondaryDisabled);
+            primary.disabled = Boolean(options.primaryDisabled);
+            closeButton.hidden = options.closeHidden === true;
+            previousBodyOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            bodyScrollLocked = true;
+            if (options.loading || options.initial_loading) setLoading(true);
             window.requestAnimationFrame(function () {
                 root.classList.add('is-open');
-                var preferred = options.focus === 'primary' ? primary : (secondary.hidden ? primary : secondary);
-                if (preferred && !preferred.disabled) preferred.focus();
+                var preferred = resolveInitialFocus({
+                    initialFocus: options.initialFocus || options.initial_focus,
+                    primaryFocus: options.primaryFocus || options.primary_focus
+                });
+                if (preferred && !preferred.disabled && !preferred.hidden && typeof preferred.focus === 'function') {
+                    preferred.focus();
+                }
             });
         }
 
         closeButton.addEventListener('click', function () {
-            close(true);
+            requestClose(true);
         });
         backdrop.addEventListener('click', function () {
-            if (!root.classList.contains('is-loading')) close(true);
+            requestClose(true);
         });
         secondary.addEventListener('click', function () {
             if (secondary.disabled) return;
             var callback = current && current.onSecondary;
-            close(true);
+            if (!requestClose(true)) return;
             if (typeof callback === 'function') callback();
         });
         primary.addEventListener('click', function () {
             if (primary.disabled) return;
             var callback = current && current.onPrimary;
             if (current && current.loadingOnPrimary !== false) setLoading(true);
-            if (typeof callback === 'function') callback();
+            var result = typeof callback === 'function' ? callback() : undefined;
+            if (result === false) setLoading(false);
         });
         root.addEventListener('keydown', function (event) {
             if (root.hidden) return;
             if (event.key === 'Escape') {
                 event.preventDefault();
-                close(true);
+                requestClose(true);
                 return;
             }
             if (event.key !== 'Tab') return;
@@ -199,11 +302,13 @@
             element: root,
             open: open,
             close: close,
-            setLoading: setLoading
+            requestClose: requestClose,
+            setLoading: setLoading,
+            setStatus: setStatus
         };
     }
 
-    window.CPConfirmationModal = {
+    window.ConfirmationModal = {
         create: create,
         get: function () {
             if (!defaultController || !document.contains(defaultController.element)) {
