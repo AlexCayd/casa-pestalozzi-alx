@@ -311,6 +311,12 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'La operación no puede continuar automáticamente.',
             'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
+        'CAPACIDAD_OPERATIVA_EXCEDIDA' => [
+            'titulo' => 'Capacidad operativa excedida',
+            'mensaje' => 'La solicitud supera la capacidad disponible para este horario.',
+            'consecuencia' => 'La reservacion quedara confirmada sin garantia de asignacion fisica y debera resolverse manualmente.',
+            'acciones' => [['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+        ],
         'SIN_ASIGNACION' => [
             'titulo' => 'Asignación manual pendiente',
             'mensaje' => 'No existe una combinación automática válida de mesas.',
@@ -994,6 +1000,9 @@ final class ReservacionErrorCatalog
             'fecha', 'hora', 'minutos', 'minutos_restantes', 'comensales',
             'max_comensales', 'mesa_ids', 'mesa_numeros', 'capacidad',
             'capacidad_solicitada', 'capacidad_disponible', 'estado',
+            'capacidad_fisica_total', 'capacidad_fisica_comprometida',
+            'capacidad_fisica_libre', 'demanda_no_asignada',
+            'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
         ]));
         $contexto = self::contextoSeguro(array_merge(
@@ -1116,6 +1125,9 @@ final class ReservacionErrorCatalog
             'fecha', 'hora', 'minutos', 'minutos_restantes', 'comensales',
             'max_comensales', 'mesa_ids', 'mesa_numeros', 'capacidad',
             'capacidad_solicitada', 'capacidad_disponible', 'estado',
+            'capacidad_fisica_total', 'capacidad_fisica_comprometida',
+            'capacidad_fisica_libre', 'demanda_no_asignada',
+            'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
         ];
         $seguro = [];
