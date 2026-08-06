@@ -168,6 +168,8 @@ final class OcupacionMesasService
             'ok' => true,
             'fecha' => $fecha,
             'hora' => $horaSql,
+            'bloquear' => $bloquear,
+            'excluir_reservacion_ids' => self::normalizarExclusiones($excluirReservacionId),
             'contexto' => $contexto,
             'contexto_temporal' => $contextoTemporal,
             'objetivo' => $objetivo->format('Y-m-d H:i:s'),
@@ -300,34 +302,14 @@ final class OcupacionMesasService
     /** @return array<string, mixed> */
     public static function resumenCapacidad(array $mesas, array $evaluacion): array
     {
-        $disponibles = array_fill_keys(array_map('intval', (array)($evaluacion['mesa_ids_disponibles'] ?? [])), true);
-        $proyectadas = array_fill_keys(array_map('intval', (array)($evaluacion['mesa_ids_proyectadas'] ?? [])), true);
-        $total = 0;
-        $libre = 0;
-        $libreProyectada = 0;
-        $ids = [];
-        $idsProyectados = [];
-        foreach ($mesas as $mesa) {
-            $id = (int)($mesa->id ?? 0);
-            $capacidad = (int)($mesa->capacidad ?? 0);
-            $total += $capacidad;
-            if (isset($disponibles[$id])) {
-                $libre += $capacidad;
-                $ids[] = $id;
-            }
-            if (isset($proyectadas[$id])) {
-                $libreProyectada += $capacidad;
-                $idsProyectados[] = $id;
-            }
-        }
-        return [
-            'capacidad_total' => $total,
-            'capacidad_realmente_libre' => $libre - $libreProyectada,
-            'capacidad_proyectada' => $libreProyectada,
-            'capacidad_estimada_horario' => $libre,
-            'mesa_ids_estimadas' => $ids,
-            'mesa_ids_proyectadas' => $idsProyectados,
-            'depende_liberacion_proyectada' => $idsProyectados !== [],
+        return CapacidadReservacionesService::desdeEvaluacion(
+            $mesas,
+            $evaluacion,
+            (array)($evaluacion['excluir_reservacion_ids'] ?? []),
+            (bool)($evaluacion['bloquear'] ?? false),
+            null
+        ) + [
+            'mesa_ids_estimadas' => array_values(array_map('intval', (array)($evaluacion['mesa_ids_libres'] ?? []))),
         ];
     }
 
