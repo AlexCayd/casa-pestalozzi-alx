@@ -151,25 +151,6 @@ class Inventario
     }
 
     /**
-     * Versión pública de la explosión de receta para la analítica de varianza
-     * de inventario (Services\Analiticas). Devuelve
-     * [ingrediente_id => cantidad_por_unidad_de_producto] o [] si no hay receta.
-     */
-    public static function recetaDeProducto(int $productoId): array
-    {
-        try {
-            $db = Ingrediente::getDB();
-            if (!$db) {
-                return [];
-            }
-            return self::explotarReceta($productoId, $db);
-        } catch (\Throwable $e) {
-            error_log('Inventario::recetaDeProducto - ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
      * Explota la receta de un producto hasta ingredientes: devuelve
      * [ingrediente_id => cantidad_por_unidad_de_producto]. Las subrecetas se
      * escalan por (cantidad_usada / rendimiento).
