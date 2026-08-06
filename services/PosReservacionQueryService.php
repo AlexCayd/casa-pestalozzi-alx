@@ -97,7 +97,7 @@ final class PosReservacionQueryService
                 $mesasContrato,
                 $reservacionId
             );
-            $reservaciones[] = PosReservacionSerializer::reservacion(
+            $reservacionSerializada = PosReservacionSerializer::reservacion(
                 $fila,
                 $ticketsPorReservacion[$reservacionId] ?? null,
                 $mesas,
@@ -108,35 +108,24 @@ final class PosReservacionQueryService
                     'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
+            $aplicaHoraConsultada = self::intervaloAplica(
+                $reservacionSerializada,
+                $horaEvaluacion
+            );
+            if (($reservacionSerializada['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA'
+                && empty($reservacionSerializada['ticket_abierto'])) {
+                $aplicaHoraConsultada = true;
+            }
+            $reservacionSerializada['aplica_hora_consultada'] = $aplicaHoraConsultada;
+            if ($aplicaHoraConsultada) {
+                $reservacionSerializada['muestra_advertencia'] = true;
+            }
+            $reservaciones[] = $reservacionSerializada;
         }
         $reservacionesMapa = array_values(array_filter(
             $reservaciones,
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
-        ));
-        $reservacionesMapa = array_values(array_filter(
-            array_map(
-                function (array $reservacion) use ($horaEvaluacion): array {
-                    $reservacion['aplica_hora_consultada'] = self::intervaloAplica(
-                        $reservacion,
-                        $horaEvaluacion
-                    );
-                    // Una confirmada con tolerancia vencida sigue siendo una
-                    // acción pendiente aunque ya haya terminado su intervalo
-                    // estimado de servicio. No se oculta hasta registrar el
-                    // no-show o vincular un ticket.
-                    if (($reservacion['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA'
-                        && empty($reservacion['ticket_abierto'])) {
-                        $reservacion['aplica_hora_consultada'] = true;
-                        $reservacion['muestra_advertencia'] = true;
-                    }
-                    if ($reservacion['aplica_hora_consultada']) {
-                        $reservacion['muestra_advertencia'] = true;
-                    }
-                    return $reservacion;
-                },
-                $reservacionesMapa
-            ),
-            static fn(array $reservacion): bool => $reservacion['aplica_hora_consultada'] === true
+                && !empty($reservacion['aplica_hora_consultada'])
         ));
         $evaluacionOcupacion = [];
         try {

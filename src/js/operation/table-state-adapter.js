@@ -67,6 +67,23 @@
         return modifiers.indexOf(name) !== -1;
     }
 
+    function ticketBloqueaConsulta(raw, options, modifiers) {
+        var ticket = raw.ticket_abierto;
+        if (ticket && typeof ticket === 'object'
+            && Object.prototype.hasOwnProperty.call(ticket, 'bloquea_en_consulta')) {
+            return booleanValue(ticket.bloquea_en_consulta);
+        }
+        if (raw.bloquea_en_consulta != null) {
+            return booleanValue(raw.bloquea_en_consulta);
+        }
+        if (options.ticketAbierto && typeof options.ticketAbierto === 'object'
+            && Object.prototype.hasOwnProperty.call(options.ticketAbierto, 'bloquea_en_consulta')) {
+            return booleanValue(options.ticketAbierto.bloquea_en_consulta);
+        }
+        return Boolean(raw.ticket_abierto || options.ticketAbierto)
+            || hasModifier(modifiers, 'ticket_abierto');
+    }
+
     function isUnusable(raw, options, state) {
         if (options.noUtilizable != null) {
             return booleanValue(options.noUtilizable);
@@ -93,7 +110,7 @@
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
         var selectionValid = options.seleccionValida !== false;
-        var hasTicket = Boolean(raw.ticket_abierto || options.ticketAbierto) || hasModifier(modifiers, 'ticket_abierto');
+        var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
         var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
             String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||

@@ -461,31 +461,8 @@
 
             return state.reservaciones.filter(function (reservacion) {
                 return String(reservacion.estado || '') === 'confirmada'
-                    && intervalAppliesToHour(reservacion, selectedHour);
+                    && reservacion.aplica_hora_consultada === true;
             });
-        }
-
-        function intervalAppliesToHour(reservacion, selectedHour) {
-            if (String(reservacion.fecha || state.fecha) !== String(state.fecha || '')) {
-                return false;
-            }
-            var reservationStart = minutesFromHour(reservacion.hora);
-            var selectedStart = minutesFromHour(selectedHour);
-            var duration = parseInt(state.config.temporal.duracion_reservacion_minutos || '90', 10) || 90;
-            return reservationStart !== null
-                && selectedStart !== null
-                && reservationStart < selectedStart + duration
-                && reservationStart + duration > selectedStart;
-        }
-
-        function minutesFromHour(hora) {
-            var parts = horaCorta(hora).split(':');
-            if (parts.length !== 2) {
-                return null;
-            }
-            var hours = parseInt(parts[0], 10);
-            var minutes = parseInt(parts[1], 10);
-            return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : null;
         }
 
         function activeReservationsForSelectedHour() {

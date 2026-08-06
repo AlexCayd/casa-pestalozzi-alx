@@ -61,20 +61,25 @@ final class MesaEstadoService
         string $hora,
         array $evaluacionOcupacion
     ): array {
+        $ahora = $ahora ?? ReservacionConfig::ahora();
         $ticketsPorMesa = self::ticketsPorMesa(
             $tickets,
             $fecha,
             $hora !== '' ? $hora : ReservacionConfig::horaActual(),
-            $ahora ?? ReservacionConfig::ahora(),
+            $ahora,
             $evaluacionOcupacion
         );
         // Un ticket abierto ocupa físicamente sus ticket_mesa_ids aunque el
         // horario consultado sea una proyección o su duración estimada haya
         // terminado. La proyección sólo modifica los modificadores.
         foreach ($tickets as $ticket) {
-            foreach (self::ids($ticket['mesa_ids'] ?? []) as $mesaId) {
+            $proyeccion = TicketTemporalService::proyectar($ticket, $fecha, $hora, $ahora);
+            if (!$proyeccion['ticket_abierto'] || !$proyeccion['aplica_fecha']) {
+                continue;
+            }
+            foreach (self::ids($proyeccion['mesa_ids'] ?? []) as $mesaId) {
                 if (!isset($ticketsPorMesa[$mesaId])) {
-                    $ticketsPorMesa[$mesaId] = self::aArray($ticket);
+                    $ticketsPorMesa[$mesaId] = $proyeccion;
                 }
             }
         }
@@ -115,7 +120,10 @@ final class MesaEstadoService
             $modificadores = [];
             $reservacionProxima = null;
             $reservacionAsociada = null;
+            $reservacionContrato = null;
             $ticketAbierto = null;
+            $ticketBloqueaEnConsulta = false;
+            $ocupacionActual = false;
             $walkIn = false;
             $minutosRestantes = null;
             $motivoBloqueo = null;
@@ -128,18 +136,33 @@ final class MesaEstadoService
                 $motivoBloqueo = !$activada ? 'Mesa fuera de servicio.' : 'Elemento no reservable.';
             } elseif (isset($ticketsPorMesa[$mesaId])) {
                 $ticket = $ticketsPorMesa[$mesaId];
+                $ticketBloqueaEnConsulta = array_key_exists('bloquea_en_consulta', $ticket)
+                    ? self::booleano($ticket['bloquea_en_consulta'])
+                    : (array_key_exists('bloquea_disponibilidad', $ticket)
+                        ? self::booleano($ticket['bloquea_disponibilidad'])
+                        : true);
+                $ocupacionActual = !array_key_exists('ocupada_fisicamente', $ticket)
+                    || self::booleano($ticket['ocupada_fisicamente']);
                 $ticketAbierto = [
                     'id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
                     'reservacion_id' => $ticket['reservacion_id'] ?? null,
                     'mesa_ids' => $ticket['mesa_ids'] ?? [],
                     'estado_proyeccion' => $ticket['estado_proyeccion'] ?? null,
-                    'liberacion_proyectada' => $ticket['liberacion_proyectada'] ?? null,
+                    'hora_apertura' => $ticket['hora_apertura'] ?? null,
+                    'liberacion_estimada' => $ticket['liberacion_estimada'] ?? null,
+                    'bloquea_en_consulta' => $ticketBloqueaEnConsulta,
+                    'ocupada_fisicamente' => $ocupacionActual,
                 ];
                 $walkIn = empty($ticket['reservacion_id']);
-                $estadoBase = self::OCUPADA;
+                if ($ticketBloqueaEnConsulta) {
+                    $estadoBase = self::OCUPADA;
+                } else {
+                    self::agregarUnaVez($modificadores, 'ticket_proyectado_liberado');
+                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
+                }
                 $modificadores[] = 'ticket_abierto';
                 $motivoBloqueo = 'Ocupada por servicio activo.';
-                if (!empty($ticket['conflicto_proximo'])) {
+                if ($ticketBloqueaEnConsulta && !empty($ticket['conflicto_proximo'])) {
                     $modificadores[] = 'conflicto_proximo';
                     $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
                 }
@@ -151,6 +174,9 @@ final class MesaEstadoService
                 }
                 if (count((array)($ticket['mesa_ids'] ?? [])) > 1) {
                     $modificadores[] = 'varias_mesas';
+                }
+                if (!$ticketBloqueaEnConsulta) {
+                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
                 }
             }
 
@@ -173,6 +199,10 @@ final class MesaEstadoService
                 if ($accionPendiente) {
                     $ausenciaPendiente = true;
                     self::agregarUnaVez($modificadores, 'accion_pendiente');
+                    self::agregarUnaVez($modificadores, 'AUSENCIA_PENDIENTE');
+                    $reservacionAsociada = $resumen;
+                    $reservacionContrato = $reservacion;
+                    $motivoBloqueo = 'Acción pendiente: registrar ausencia.';
                 }
                 if ($reservacionProxima === null) {
                     $reservacionProxima = $resumen;
@@ -191,6 +221,7 @@ final class MesaEstadoService
                 self::agregarUnaVez($modificadores, $modificadorVentana);
                 if ($accionPendiente) {
                     $reservacionAsociada = $resumen;
+                    $reservacionContrato = $reservacion;
                     $motivoBloqueo = 'Acción pendiente: registrar ausencia.';
                 } elseif (!empty($reservacion['bloquea_walk_ins'])) {
                     self::agregarUnaVez($modificadores, 'reservacion_bloqueante');
@@ -245,11 +276,28 @@ final class MesaEstadoService
                 'activo' => $activada,
                 'reservable' => $activada && $reservable,
                 'estado_base' => $estadoBase,
+                'estado' => $estadoBase,
+                'bloquea' => $estadoBase !== self::DISPONIBLE,
+                'es_proyeccion' => in_array(
+                    (string)($evaluacionOcupacion['contexto'] ?? ''),
+                    [OcupacionMesasService::CONTEXTO_PROYECTADO, OcupacionMesasService::CONTEXTO_FUTURO],
+                    true
+                ),
+                'ocupacion_actual' => $ocupacionActual,
+                'disponible_proyectada' => $estadoBase === self::DISPONIBLE,
                 'estado_visual' => $estadoVisual,
                 'modificadores' => $modificadores,
                 'reservacion_proxima' => $reservacionProxima,
                 'minutos_restantes' => $minutosRestantes,
                 'reservacion_asociada' => $reservacionAsociada,
+                'reservacion' => $reservacionContrato,
+                'hold' => $holdVigente ? [
+                    'reservacion_id' => $reservacionAsociada['id'] ?? null,
+                    'vigente' => true,
+                ] : null,
+                'acciones' => $ausenciaPendiente
+                    ? [['id' => 'REGISTRAR_AUSENCIA', 'tipo' => 'primary']]
+                    : [],
                 'accion_pendiente' => $ausenciaPendiente ? 'REGISTRAR_AUSENCIA' : null,
                 'ticket_abierto' => $ticketAbierto,
                 'walk_in' => $walkIn,
