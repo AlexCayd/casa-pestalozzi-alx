@@ -208,7 +208,6 @@ if ($initialOperationNotice !== null) {
             <p class="reservation-operation-assignment-bar__refresh" data-operation-assignment-refresh role="status" aria-live="polite" hidden>Los datos se actualizaron. Tu selección local se conserva; vuelve a validar antes de guardar.</p>
             <div class="reservation-operation-assignment-bar__actions">
                 <button type="button" class="admin-btn admin-btn--secondary" data-operation-assignment-cancel>Cancelar</button>
-                <button type="button" class="admin-btn admin-btn--danger" data-operation-clear hidden>Liberar asignación</button>
                 <button type="button" class="admin-btn admin-btn--primary" data-operation-save data-operation-assignment-save data-disabled="1" disabled>Guardar asignación</button>
             </div>
         </section>

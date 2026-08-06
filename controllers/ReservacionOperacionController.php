@@ -22,8 +22,8 @@ use Services\ReservacionService;
 
 class ReservacionOperacionController
 {
-    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v22';
-    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v22';
+    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v23';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v23';
 
     public static function operation(Router $router): void
     {

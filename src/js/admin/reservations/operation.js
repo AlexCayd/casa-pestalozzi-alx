@@ -47,6 +47,7 @@
             assignmentInitialVersion: '',
             assignmentDataUpdated: false,
             assignmentTrigger: null,
+            assignmentCancelLabel: 'Cancelar',
             cargando: false,
             guardando: false,
             abortController: null,
@@ -102,13 +103,13 @@
             panelShell: root.querySelector('[data-operation-panel-shell]'),
             assignmentBar: root.querySelector('[data-operation-assignment-bar]'),
             assignmentTitle: root.querySelector('[data-operation-assignment-title]'),
+            assignmentCancel: root.querySelector('[data-operation-assignment-cancel]'),
             assignmentReservation: root.querySelector('[data-operation-assignment-reservation]'),
             assignmentPeople: root.querySelector('[data-operation-assignment-people]'),
             assignmentCapacity: root.querySelector('[data-operation-assignment-capacity]'),
             assignmentDifference: root.querySelector('[data-operation-assignment-difference]'),
             assignmentTables: root.querySelector('[data-operation-assignment-tables]'),
             assignmentRefresh: root.querySelector('[data-operation-assignment-refresh]'),
-            assignmentClear: root.querySelector('[data-operation-clear]'),
             capacity: root.querySelector('[data-operation-capacity]'),
             capacityTotal: root.querySelector('[data-operation-capacity-total]'),
             capacityCommitted: root.querySelector('[data-operation-capacity-committed]'),
@@ -548,21 +549,16 @@
             if (els.assignmentRefresh) {
                 els.assignmentRefresh.hidden = !state.assignmentDataUpdated;
             }
+            if (els.assignmentCancel) {
+                els.assignmentCancel.textContent = state.assignmentCancelLabel;
+            }
 
             var saveButton = els.assignmentBar.querySelector('[data-operation-assignment-save]');
             if (saveButton) {
                 var disabled = !canAssignTables(reservacion) || state.mesasSeleccionadas.size === 0;
                 saveButton.setAttribute('data-disabled', disabled ? '1' : '0');
                 saveButton.disabled = disabled || state.guardando;
-                saveButton.textContent = state.mesasSeleccionadas.size > 0 && capacidad < comensales
-                    ? 'Guardar de todos modos'
-                    : 'Guardar';
-            }
-            if (els.assignmentClear) {
-                var clearable = canClearAssignment(reservacion);
-                els.assignmentClear.hidden = !clearable;
-                els.assignmentClear.disabled = !clearable || state.guardando;
-                els.assignmentClear.setAttribute('data-disabled', clearable ? '0' : '1');
+                saveButton.textContent = 'Guardar asignación';
             }
         }
 
@@ -597,6 +593,7 @@
             state.assignmentInitialVersion = String(reservacion.version || '');
             state.assignmentDataUpdated = false;
             state.assignmentTrigger = trigger || document.activeElement;
+            state.assignmentCancelLabel = options.allowAssignLater ? 'Asignar más tarde' : 'Cancelar';
             state.assignmentMode = true;
             root.classList.add('assignment-mode');
             document.body.classList.add('is-assignment-mode');
@@ -637,6 +634,7 @@
             state.assignmentInitialVersion = '';
             state.assignmentDataUpdated = false;
             state.assignmentTrigger = null;
+            state.assignmentCancelLabel = 'Cancelar';
             hideTableWarning();
             if (activeNoticeSource === 'assignment') {
                 hideGlobalNotice('assignment');
@@ -979,7 +977,9 @@
             createForm.removeAttribute('data-operational-warning-accepted');
             createForm.removeAttribute('data-contact-warning-accepted');
             setCreateFormValue('nombre', '');
-            setCreateFormValue('contacto_tipo', 'email');
+            // El contacto es opcional en el alta: el estado inicial debe
+            // coincidir con la advertencia SIN_CONTACTO que valida el backend.
+            setCreateFormValue('contacto_tipo', 'ninguno');
             setCreateFormValue('contacto', '');
             setCreateFormValue('comensales', '2');
             setCreateFormValue('nota', '');
@@ -1081,6 +1081,10 @@
             var formData = new FormData(createForm);
             var automaticAssignment = createForm.querySelector('[name="asignar_automaticamente"][value="1"]');
             formData.set('asignar_automaticamente', automaticAssignment && automaticAssignment.checked ? '1' : '0');
+            var acceptedConfirmations = createForm.getAttribute('data-confirmations-accepted') || '';
+            if (acceptedConfirmations) {
+                formData.set('confirmaciones', acceptedConfirmations);
+            }
             postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
                     var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
@@ -1105,7 +1109,8 @@
                     loadDay(fecha, {
                         preserveReservationId: reservationId,
                         preserveHour: hora,
-                        enterAssignmentMode: payload.requiresManualAssignment === true
+                        enterAssignmentMode: payload.requiresManualAssignment === true,
+                        assignmentLater: payload.requiresManualAssignment === true
                     });
                 })
                 .catch(function (error) {
@@ -1807,7 +1812,7 @@
                     }
                     if (options.enterAssignmentMode || state.pendingInitialAssignment) {
                         state.pendingInitialAssignment = false;
-                        enterAssignmentMode(null, { focus: true });
+                        enterAssignmentMode(null, { focus: true, allowAssignLater: options.assignmentLater === true });
                     }
                     startTemporalRefresh();
                     setUpdateStatus('Actualizado ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }), 'ready');
