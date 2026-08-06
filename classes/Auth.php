@@ -63,6 +63,26 @@ class Auth {
 
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            $environment = (string)(getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? ''));
+            if (in_array($environment, ['development', 'testing'], true)) {
+                $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
+                if ($sessionPath === '') {
+                    $sessionPath = sys_get_temp_dir();
+                }
+                if (is_dir($sessionPath) && is_writable($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                }
+            }
+            $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $params = session_get_cookie_params();
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => $params['path'] ?: '/',
+                'domain' => $params['domain'] ?? '',
+                'secure' => $https,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
     }
@@ -83,8 +103,14 @@ class Auth {
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params['path'] ?: '/',
+                'domain' => $params['domain'] ?? '',
+                'secure' => (bool)($params['secure'] ?? false),
+                'httponly' => (bool)($params['httponly'] ?? true),
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]);
         }
         session_destroy();
     }

@@ -26,9 +26,17 @@ class ReservationClientSession
             $configuredPath = trim((string)ini_get('session.save_path'));
             $usingDedicatedPath = false;
             if (in_array($environment, ['development', 'testing'], true)) {
-                $sessionPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . '.sessions';
-                if (is_dir($sessionPath)) {
+                $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
+                if ($sessionPath === '') {
+                    $sessionPath = str_contains($configuredPath, ';')
+                        ? substr($configuredPath, strrpos($configuredPath, ';') + 1)
+                        : $configuredPath;
+                }
+                if ($sessionPath !== '' && is_dir($sessionPath) && is_writable($sessionPath)) {
                     ini_set('session.save_path', $sessionPath);
+                    $usingDedicatedPath = true;
+                } elseif (is_dir(sys_get_temp_dir()) && is_writable(sys_get_temp_dir())) {
+                    ini_set('session.save_path', sys_get_temp_dir());
                     $usingDedicatedPath = true;
                 }
             }

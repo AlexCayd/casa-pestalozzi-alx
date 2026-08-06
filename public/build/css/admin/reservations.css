@@ -320,7 +320,7 @@
   line-height: 1;
 }
 .admin-reservations__filters {
-  grid-template-columns: minmax(210px, 1.2fr) repeat(2, minmax(132px, 150px)) repeat(2, minmax(145px, 168px)) auto;
+  grid-template-columns: minmax(160px, 1fr) repeat(2, minmax(110px, 130px)) repeat(2, minmax(110px, 130px)) auto;
   align-items: end;
   gap: 12px;
   margin-bottom: 14px;
