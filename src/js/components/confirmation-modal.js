@@ -93,7 +93,6 @@
     }
 
     function create(host) {
-        host = host || document.body;
         var id = ++sequence;
         var root = document.createElement('div');
         root.className = 'confirmation-modal';
@@ -124,7 +123,8 @@
                 '<button type="button" class="confirmation-modal__button confirmation-modal__button--primary" data-confirmation-primary></button>' +
               '</footer>' +
             '</div>';
-        host.appendChild(root);
+        // Portal global: el shell no debe heredar restricciones de paneles, mapas o modales.
+        (document.body || host).appendChild(root);
 
         var dialog = root.querySelector('.confirmation-modal__dialog');
         var title = root.querySelector('[data-confirmation-title]');
