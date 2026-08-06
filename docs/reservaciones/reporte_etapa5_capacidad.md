@@ -121,7 +121,7 @@ La evidencia equivalente de backend está cubierta por los runners dinámicos; n
 
 ## Riesgos y deuda restante
 
-- Falta ejecutar evidencia HTTP real cuando Apache o un servidor compatible con `PATH_INFO` esté disponible.
+- No se ejerció un flujo administrativo autenticado en navegador; sin sesión, las rutas administrativas respondieron 401 como corresponde.
 - El frontend conserva algunos alias históricos para compatibilidad de consumidores; los campos canónicos son la fuente de verdad.
 
 ## Resultado
@@ -129,4 +129,4 @@ La evidencia equivalente de backend está cubierta por los runners dinámicos; n
 - La capacidad física real y la demanda de reservaciones sin mesas quedaron centralizadas.
 - Administración puede confirmar sin mesas o bajo sobrecapacidad sólo mediante decisiones explícitas.
 - Landing, administración, mapa y POS comparten los mismos hechos base.
-- La Etapa 6 debería abordar la evidencia HTTP completa y cualquier retiro futuro de alias de compatibilidad.
+- La Etapa 6 debería abordar evidencia autenticada en navegador y cualquier retiro futuro de alias de compatibilidad.
