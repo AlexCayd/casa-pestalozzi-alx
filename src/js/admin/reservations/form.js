@@ -38,9 +38,11 @@
             var timeStatus = form.querySelector('[data-time-status]');
             var capacitySummary = form.querySelector('[data-reservation-capacity-summary]');
             var capacityTotal = form.querySelector('[data-capacity-total]');
+            var capacityCommitted = form.querySelector('[data-capacity-committed]');
+            var capacityDemand = form.querySelector('[data-capacity-demand]');
             var capacityReal = form.querySelector('[data-capacity-real]');
             var capacityProjected = form.querySelector('[data-capacity-projected]');
-            var capacityEstimated = form.querySelector('[data-capacity-estimated]');
+            var capacityRequested = form.querySelector('[data-capacity-requested]');
             var capacityWarning = form.querySelector('[data-capacity-warning]');
             var contactSelect = form.querySelector('select[data-contact-type]:not([data-contact-type-locked])');
             var contactTypeEmpty = form.querySelector('[data-contact-type-empty]');
@@ -92,10 +94,12 @@
                     if (capacityWarning) capacityWarning.hidden = true;
                     return;
                 }
-                if (capacityTotal) capacityTotal.textContent = String(detail.capacidad_total || 0);
-                if (capacityReal) capacityReal.textContent = String(detail.capacidad_realmente_libre || 0);
+                if (capacityTotal) capacityTotal.textContent = String(detail.capacidad_fisica_total || detail.capacidad_total || 0);
+                if (capacityCommitted) capacityCommitted.textContent = String(detail.capacidad_fisica_comprometida || 0);
+                if (capacityDemand) capacityDemand.textContent = String(detail.demanda_no_asignada || 0);
+                if (capacityReal) capacityReal.textContent = String(detail.capacidad_real_disponible || detail.capacidad_estimada_horario || 0);
                 if (capacityProjected) capacityProjected.textContent = String(detail.capacidad_proyectada || 0);
-                if (capacityEstimated) capacityEstimated.textContent = String(detail.capacidad_estimada_horario || 0);
+                if (capacityRequested) capacityRequested.textContent = String(formValue(form, 'comensales') || 0);
                 if (capacityWarning) {
                     capacityWarning.textContent = detail.advertencia ||
                         'Esta disponibilidad depende de la liberación proyectada de una mesa con ticket abierto.';
@@ -200,6 +204,7 @@
                     var labels = {
                         SIN_CONTACTO: 'Sin contacto: el equipo no podra contactar al cliente desde el sistema.',
                         SIN_ASIGNACION: 'Sin mesas: la reservacion quedara confirmada y requerira asignacion manual.',
+                        CAPACIDAD_OPERATIVA_EXCEDIDA: 'La solicitud supera la capacidad disponible. Si continúas, quedará confirmada sin garantía de asignación física y deberá resolverse manualmente.',
                         CAPACIDAD_INSUFICIENTE: 'Capacidad insuficiente: la capacidad estimada no cubre a todos los comensales.'
                     };
                     var requiresManualAssignment = codes.indexOf('SIN_ASIGNACION') !== -1;
@@ -215,6 +220,7 @@
                         focusTarget: saveButton,
                         onConfirm: function () {
                             if (confirmationInput) confirmationInput.value = codes.join(',');
+                            setFormValue(form, 'confirmar_sobrecapacidad', codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1 ? '1' : '0');
                             submitAfterConfirmation();
                         }
                     };
@@ -233,7 +239,8 @@
                         confirmLabel: 'Confirmar sin mesas',
                         focusTarget: form.elements.comensales,
                         onConfirm: function () {
-                            if (confirmationInput) confirmationInput.value = 'CAPACIDAD_INSUFICIENTE';
+                            if (confirmationInput) confirmationInput.value = 'CAPACIDAD_OPERATIVA_EXCEDIDA';
+                            setFormValue(form, 'confirmar_sobrecapacidad', '1');
                             var automatic = form.querySelector('[name="asignar_automaticamente"][value="1"]');
                             if (automatic) automatic.checked = false;
                             submitAfterConfirmation();
@@ -655,6 +662,7 @@
                 var control = event.target;
                 if (confirmationInput && control !== confirmationInput) {
                     confirmationInput.value = '';
+                    setFormValue(form, 'confirmar_sobrecapacidad', '0');
                 }
                 if (mode === 'crear' && control === contactInput && String(contactInput.value || '').trim()) {
                     form.removeAttribute('data-contact-warning-accepted');
@@ -664,7 +672,7 @@
                     form.removeAttribute('data-contact-confirmation-accepted');
                 }
                 if (mode === 'crear' && control && ['fecha', 'hora', 'comensales', 'asignar_automaticamente'].indexOf(control.name) !== -1) {
-                    setFormValue(form, 'permitir_capacidad_insuficiente', '0');
+                    setFormValue(form, 'confirmar_sobrecapacidad', '0');
                 }
                 if (control && control.required) {
                     control.removeAttribute('aria-invalid');
@@ -689,7 +697,7 @@
                 var hour = normalizeHour(timeInput ? timeInput.value : '');
                 var detail = hour ? availabilityDetails[hour] : null;
                 if (detail && detail.capacidad_estimada_suficiente === false) {
-                    codes.push('CAPACIDAD_INSUFICIENTE');
+                    codes.push('CAPACIDAD_OPERATIVA_EXCEDIDA');
                 }
                 if (automaticAssignment) {
                     var guests = parseInt(formValue(form, 'comensales') || '0', 10) || 0;

@@ -127,10 +127,11 @@ if ($initialOperationNotice !== null) {
     $operationalContextSelectionHtml =
         '<div class="operational-selection-context" role="status" aria-live="polite"><span data-operation-selection-copy>Ninguna reservación seleccionada</span></div>' .
         '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
-            '<span>Total <strong data-operation-capacity-total>0</strong></span>' .
-            '<span>Libre ahora <strong data-operation-capacity-real>0</strong></span>' .
+            '<span>Total físico <strong data-operation-capacity-total>0</strong></span>' .
+            '<span>Comprometida <strong data-operation-capacity-committed>0</strong></span>' .
+            '<span>Demanda sin mesas <strong data-operation-capacity-demand>0</strong></span>' .
+            '<span>Disponible <strong data-operation-capacity-real>0</strong></span>' .
             '<span>Proyectada <strong data-operation-capacity-projected>0</strong></span>' .
-            '<span>Estimada <strong data-operation-capacity-estimated>0</strong></span>' .
             '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
         '</div>';
     $operationalContextIncludeDrawerToggle = false;

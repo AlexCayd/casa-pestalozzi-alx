@@ -142,6 +142,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <?php endif; ?>
         <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
         <input type="hidden" name="confirmaciones" value="" data-admin-confirmations>
+        <input type="hidden" name="confirmar_sobrecapacidad" value="0" data-admin-overcapacity-confirmation>
         <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
         <?php if ($formTransport === 'json') : ?>
             <input type="hidden" name="response_format" value="json">
@@ -204,20 +205,28 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 </div>
                 <div class="reservation-capacity-summary" data-reservation-capacity-summary hidden>
                     <div>
-                        <span>Capacidad total</span>
+                        <span>Capacidad física total</span>
                         <strong data-capacity-total>0</strong>
                     </div>
                     <div>
-                        <span>Libre actualmente</span>
+                        <span>Capacidad comprometida</span>
+                        <strong data-capacity-committed>0</strong>
+                    </div>
+                    <div>
+                        <span>Demanda sin asignar</span>
+                        <strong data-capacity-demand>0</strong>
+                    </div>
+                    <div>
+                        <span>Capacidad disponible</span>
                         <strong data-capacity-real>0</strong>
+                    </div>
+                    <div>
+                        <span>Comensales solicitados</span>
+                        <strong data-capacity-requested>0</strong>
                     </div>
                     <div>
                         <span>Liberación proyectada</span>
                         <strong data-capacity-projected>0</strong>
-                    </div>
-                    <div>
-                        <span>Estimada para el horario</span>
-                        <strong data-capacity-estimated>0</strong>
                     </div>
                     <p class="reservation-capacity-summary__warning" data-capacity-warning hidden></p>
                 </div>

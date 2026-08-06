@@ -111,9 +111,10 @@
             assignmentClear: root.querySelector('[data-operation-clear]'),
             capacity: root.querySelector('[data-operation-capacity]'),
             capacityTotal: root.querySelector('[data-operation-capacity-total]'),
+            capacityCommitted: root.querySelector('[data-operation-capacity-committed]'),
+            capacityDemand: root.querySelector('[data-operation-capacity-demand]'),
             capacityReal: root.querySelector('[data-operation-capacity-real]'),
             capacityProjected: root.querySelector('[data-operation-capacity-projected]'),
-            capacityEstimated: root.querySelector('[data-operation-capacity-estimated]'),
             capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
             tableWarning: null
         };
@@ -991,7 +992,7 @@
             setCreateFormValue('comentario_admin', '');
             setCreateFormValue('request_token', createRequestToken());
             setCreateFormValue('confirmar_sin_contacto', '0');
-            setCreateFormValue('permitir_capacidad_insuficiente', '0');
+            setCreateFormValue('confirmar_sobrecapacidad', '0');
 
             var automatic = createForm.querySelector('[name="asignar_automaticamente"][value="1"]');
             if (automatic) {
@@ -1176,10 +1177,11 @@
             els.capacity.hidden = !hasSummary;
             if (!hasSummary) return;
 
-            if (els.capacityTotal) els.capacityTotal.textContent = String(summary.capacidad_total || 0);
-            if (els.capacityReal) els.capacityReal.textContent = String(summary.capacidad_realmente_libre || 0);
+            if (els.capacityTotal) els.capacityTotal.textContent = String(summary.capacidad_fisica_total || summary.capacidad_total || 0);
+            if (els.capacityCommitted) els.capacityCommitted.textContent = String(summary.capacidad_fisica_comprometida || 0);
+            if (els.capacityDemand) els.capacityDemand.textContent = String(summary.demanda_no_asignada || 0);
+            if (els.capacityReal) els.capacityReal.textContent = String(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || 0);
             if (els.capacityProjected) els.capacityProjected.textContent = String(summary.capacidad_proyectada || 0);
-            if (els.capacityEstimated) els.capacityEstimated.textContent = String(summary.capacidad_estimada_horario || 0);
             if (els.capacityWarning) {
                 els.capacityWarning.hidden = !(parseInt(summary.capacidad_proyectada || '0', 10) > 0);
             }
@@ -2392,11 +2394,11 @@
             createForm.addEventListener('reservation:jsonsubmit', submitCreateModal);
             createForm.addEventListener('input', function () {
                 createModalDirty = true;
-                setCreateFormValue('permitir_capacidad_insuficiente', '0');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
             });
             createForm.addEventListener('change', function () {
                 createModalDirty = true;
-                setCreateFormValue('permitir_capacidad_insuficiente', '0');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
             });
 
             var closeCreateButtons = createModal.querySelectorAll('[data-operation-create-close], [data-operation-create-cancel]');

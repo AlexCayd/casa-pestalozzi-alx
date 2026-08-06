@@ -162,6 +162,13 @@ class AdminReservacionController
                     'withoutContact' => (bool)($resultado['sin_contacto'] ?? false),
                     'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                     'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
+                    'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
+                    'physicalCapacityCommitted' => (int)($resultado['capacidad_fisica_comprometida'] ?? 0),
+                    'physicalCapacityFree' => (int)($resultado['capacidad_fisica_libre'] ?? 0),
+                    'unassignedDemand' => (int)($resultado['demanda_no_asignada'] ?? 0),
+                    'realAvailableCapacity' => (int)($resultado['capacidad_real_disponible'] ?? 0),
+                    'resultingCapacity' => (int)($resultado['capacidad_resultante'] ?? 0),
+                    'excessCapacity' => (int)($resultado['exceso_capacidad'] ?? 0),
                     'warning' => $resultado['warning'] ?? null,
                     'dependsOnProjectedRelease' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
                     'projectedTableIds' => array_values(array_map(
@@ -200,6 +207,13 @@ class AdminReservacionController
                 'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
                 'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                 'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
+                'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
+                'physicalCapacityCommitted' => (int)($resultado['capacidad_fisica_comprometida'] ?? 0),
+                'physicalCapacityFree' => (int)($resultado['capacidad_fisica_libre'] ?? 0),
+                'unassignedDemand' => (int)($resultado['demanda_no_asignada'] ?? 0),
+                'realAvailableCapacity' => (int)($resultado['capacidad_real_disponible'] ?? 0),
+                'resultingCapacity' => (int)($resultado['capacidad_resultante'] ?? 0),
+                'excessCapacity' => (int)($resultado['exceso_capacidad'] ?? 0),
                 'nextValidTime' => $resultado['siguiente_horario_valido'] ?? null,
             ], $status);
             return;

@@ -229,11 +229,31 @@ class ReservacionOperacionController
             $mesasSerializadas,
             $evaluacionOcupacion
         );
+        \Services\CapacidadReservacionesService::registrarEvaluacion(
+            $resumenCapacidad + [
+                'fecha' => $fecha,
+                'hora' => (string)($evaluacionOcupacion['hora'] ?? ''),
+            ],
+            'mapa',
+            0,
+            null,
+            'consulta_mapa'
+        );
         $capacidadHorario = [
             'capacidad_total' => (int)($resumenCapacidad['capacidad_total'] ?? 0),
             'capacidad_realmente_libre' => (int)($resumenCapacidad['capacidad_realmente_libre'] ?? 0),
             'capacidad_proyectada' => (int)($resumenCapacidad['capacidad_proyectada'] ?? 0),
             'capacidad_estimada_horario' => (int)($resumenCapacidad['capacidad_estimada_horario'] ?? 0),
+            'capacidad_fisica_total' => (int)($resumenCapacidad['capacidad_fisica_total'] ?? 0),
+            'capacidad_fisica_comprometida' => (int)($resumenCapacidad['capacidad_fisica_comprometida'] ?? 0),
+            'capacidad_fisica_libre' => (int)($resumenCapacidad['capacidad_fisica_libre'] ?? 0),
+            'demanda_no_asignada' => (int)($resumenCapacidad['demanda_no_asignada'] ?? 0),
+            'capacidad_real_disponible' => (int)($resumenCapacidad['capacidad_real_disponible'] ?? 0),
+            'exceso_capacidad' => (int)($resumenCapacidad['exceso_capacidad'] ?? 0),
+            'mesas_total' => (int)($resumenCapacidad['mesas_total'] ?? 0),
+            'mesas_bloqueadas' => (int)($resumenCapacidad['mesas_bloqueadas'] ?? 0),
+            'mesas_libres' => (int)($resumenCapacidad['mesas_libres'] ?? 0),
+            'depende_liberacion_proyectada' => (bool)($resumenCapacidad['depende_liberacion_proyectada'] ?? false),
         ];
         $mostrarOcupacionFisica = in_array(
             (string)($evaluacionOcupacion['contexto'] ?? ''),

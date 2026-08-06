@@ -162,6 +162,12 @@ final class DisponibilidadReservacionService
             'capacidad_realmente_libre' => $capacidad['capacidad_realmente_libre'],
             'capacidad_proyectada' => $capacidad['capacidad_proyectada'],
             'capacidad_estimada_horario' => $capacidad['capacidad_estimada_horario'],
+            'capacidad_fisica_total' => $capacidad['capacidad_fisica_total'],
+            'capacidad_fisica_comprometida' => $capacidad['capacidad_fisica_comprometida'],
+            'capacidad_fisica_libre' => $capacidad['capacidad_fisica_libre'],
+            'demanda_no_asignada' => $capacidad['demanda_no_asignada'],
+            'capacidad_real_disponible' => $capacidad['capacidad_real_disponible'],
+            'exceso_capacidad' => $capacidad['exceso_capacidad'],
             'mesas_proyectadas' => $ocupacion['mesa_ids_proyectadas'] ?? [],
             'depende_liberacion_proyectada' => $resultado['depende_liberacion_proyectada'] ?? false,
         ];
@@ -378,10 +384,8 @@ final class DisponibilidadReservacionService
             $base['motivo'] = 'comensales_invalidos';
             return $base;
         }
-        if ($personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-            $base['motivo'] = $asignacionPublica
-                ? 'requiere_contactar_restaurante'
-                : 'requiere_asignacion_manual';
+        if ($personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO && $asignacionPublica) {
+            $base['motivo'] = 'requiere_contactar_restaurante';
             $base['requiere_asignacion_manual'] = true;
             return $base;
         }
@@ -400,6 +404,29 @@ final class DisponibilidadReservacionService
             $ahora
         );
         $mesas = Mesa::reservables();
+        $capacidadResumen = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
+        $base = array_merge($base, [
+            'capacidad_fisica_total' => (int)($capacidadResumen['capacidad_fisica_total'] ?? 0),
+            'capacidad_fisica_comprometida' => (int)($capacidadResumen['capacidad_fisica_comprometida'] ?? 0),
+            'capacidad_fisica_libre' => (int)($capacidadResumen['capacidad_fisica_libre'] ?? 0),
+            'demanda_no_asignada' => (int)($capacidadResumen['demanda_no_asignada'] ?? 0),
+            'capacidad_real_disponible' => (int)($capacidadResumen['capacidad_real_disponible'] ?? 0),
+            'exceso_capacidad' => (int)($capacidadResumen['exceso_capacidad'] ?? 0),
+            'depende_liberacion_proyectada' => (bool)($capacidadResumen['depende_liberacion_proyectada'] ?? false),
+            'capacidad' => $capacidadResumen,
+        ]);
+        if ((int)($capacidadResumen['capacidad_real_disponible'] ?? 0) < (int)$personasValidas) {
+            $base['motivo'] = 'capacidad_insuficiente';
+            $base['ocupacion'] = $ocupacion;
+            CapacidadReservacionesService::registrarEvaluacion(
+                $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+                $asignacionPublica ? 'landing' : 'admin',
+                (int)$personasValidas,
+                false,
+                'capacidad_insuficiente'
+            );
+            return $base;
+        }
         $disponibles = array_values(array_filter(
             $mesas,
             static fn($mesa): bool => !empty($ocupacion['mesas'][(int)$mesa->id]['disponible'])
@@ -412,6 +439,13 @@ final class DisponibilidadReservacionService
         if ($seleccion === []) {
             $base['motivo'] = 'sin_combinacion_fisica';
             $base['ocupacion'] = $ocupacion;
+            CapacidadReservacionesService::registrarEvaluacion(
+                $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+                $asignacionPublica ? 'landing' : 'admin',
+                (int)$personasValidas,
+                false,
+                'sin_asignacion_automatica'
+            );
             return $base;
         }
 
@@ -427,6 +461,13 @@ final class DisponibilidadReservacionService
         $base['asignacion_automatica'] = true;
         $base['ocupacion'] = $ocupacion;
         $base['depende_liberacion_proyectada'] = array_intersect($mesaIds, (array)($ocupacion['mesa_ids_proyectadas'] ?? [])) !== [];
+        CapacidadReservacionesService::registrarEvaluacion(
+            $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+            $asignacionPublica ? 'landing' : 'admin',
+            (int)$personasValidas,
+            true,
+            'asignacion_automatica_disponible'
+        );
         return $base;
     }
 
@@ -450,6 +491,13 @@ final class DisponibilidadReservacionService
                 'capacidad_realmente_libre' => $capacidad['capacidad_realmente_libre'],
                 'capacidad_proyectada' => $capacidad['capacidad_proyectada'],
                 'capacidad_estimada_horario' => $capacidad['capacidad_estimada_horario'],
+                'capacidad_fisica_total' => $capacidad['capacidad_fisica_total'],
+                'capacidad_fisica_comprometida' => $capacidad['capacidad_fisica_comprometida'],
+                'capacidad_fisica_libre' => $capacidad['capacidad_fisica_libre'],
+                'demanda_no_asignada' => $capacidad['demanda_no_asignada'],
+                'capacidad_real_disponible' => $capacidad['capacidad_real_disponible'],
+                'exceso_capacidad' => $capacidad['exceso_capacidad'],
+                'asignacion_automatica_disponible' => (bool)($evaluacion['asignacion_automatica'] ?? false),
                 'depende_liberacion_proyectada' => $capacidad['depende_liberacion_proyectada'],
                 'tipo_combinacion' => $evaluacion['tipo_combinacion'] ?? null,
             ];

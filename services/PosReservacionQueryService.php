@@ -166,6 +166,20 @@ final class PosReservacionQueryService
             $horaEvaluacion,
             $evaluacionOcupacion
         );
+        $capacidadHorario = OcupacionMesasService::resumenCapacidad(
+            Mesa::reservables(),
+            $evaluacionOcupacion
+        );
+        CapacidadReservacionesService::registrarEvaluacion(
+            $capacidadHorario + [
+                'fecha' => $fecha,
+                'hora' => $horaEvaluacion,
+            ],
+            'pos',
+            0,
+            null,
+            'consulta_pos'
+        );
 
         $config = ReservacionConfig::configuracionOperacion();
         $config['server_time'] = $ahora->format(DATE_ATOM);
@@ -196,6 +210,7 @@ final class PosReservacionQueryService
             'tickets' => $tickets,
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'evaluacion_ocupacion' => $evaluacionOcupacion,
+            'capacidad_horario' => $capacidadHorario,
             'server_time' => $ahora->format(DATE_ATOM),
             'timezone' => $ahora->getTimezone()->getName(),
             'config' => [

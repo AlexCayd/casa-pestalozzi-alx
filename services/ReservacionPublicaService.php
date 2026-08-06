@@ -174,7 +174,7 @@ final class ReservacionPublicaService
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $vence = ReservacionConfig::ahora()
@@ -461,7 +461,7 @@ final class ReservacionPublicaService
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $reservacionId = self::insertarReservacion(
@@ -626,7 +626,7 @@ final class ReservacionPublicaService
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $vence = ReservacionConfig::ahora()
@@ -784,7 +784,7 @@ final class ReservacionPublicaService
                     )) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
@@ -1587,9 +1587,14 @@ final class ReservacionPublicaService
         ];
     }
 
-    private static function sinDisponibilidad(): array
+    private static function sinDisponibilidad(array $disponibilidad = []): array
     {
-        return ['ok' => false, 'codigo' => self::SIN_DISPONIBILIDAD];
+        return [
+            'ok' => false,
+            'codigo' => ($disponibilidad['motivo'] ?? '') === 'capacidad_insuficiente'
+                ? 'CAPACIDAD_INSUFICIENTE'
+                : self::SIN_DISPONIBILIDAD,
+        ];
     }
 
     private static function retencionExpirada(): array
