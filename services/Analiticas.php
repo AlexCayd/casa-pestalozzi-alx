@@ -6,9 +6,11 @@
  * ("qué pasó"), estas explican POR QUÉ y sugieren QUÉ HACER:
  *
  *   §3.1 Ingeniería de menú  — matriz Kasavana-Smith (popularidad × margen).
- *   §3.2 RevPASH             — ingreso por asiento disponible por hora.
- *   §3.3 Varianza inventario — consumo teórico (recetas × ventas) vs. real.
+ *   §3.2 RevPASH             — mapa de calor hora × día del ingreso por asiento.
  *   §3.4 Reglas de asociación — qué se pide junto con qué, corregido por lift.
+ *
+ * La §3.3 (varianza de inventario) se retiró del panel: queda documentada en
+ * ANALITICAS.md como propuesta, sin implementación.
  *
  * Todo se calcula al vuelo desde la BD, filtrado por el mismo rango de fechas
  * del dashboard. Cada método degrada a vacío si faltan datos; nunca lanza.
@@ -20,7 +22,35 @@ use Model\Ticket;
 
 class Analiticas
 {
-    /** Ensambla las cuatro analíticas de Nivel 1 para la vista de análisis. */
+    /**
+     * Asientos del comedor usados como denominador del RevPASH (§3.2).
+     *
+     * Se fija aquí en lugar de derivarlo de SUM(mesas.capacidad), que da 64:
+     * esa suma incluye las barras (Barra Blanca 8 + Barra Roja 6 + Barra Roja 2
+     * = 20) además de las 11 mesas de sala (11 × 4 = 44). La capacidad real
+     * contra la que se mide el rendimiento por asiento es 44.
+     *
+     * Si cambia el acomodo del comedor, este es el único número que hay que
+     * tocar: el RevPASH de todas las franjas se recalcula solo.
+     */
+    private const ASIENTOS_COMEDOR = 44;
+
+    /**
+     * Columnas del mapa de calor del RevPASH (§3.2), en orden de semana
+     * laboral. La clave es el día tal como lo numera PHP date('w') y MySQL
+     * DAYOFWEEK()-1 (0 = domingo), por eso el domingo va al final.
+     */
+    private const DIAS_SEMANA = [
+        1 => ['Lun', 'lunes'],
+        2 => ['Mar', 'martes'],
+        3 => ['Mié', 'miércoles'],
+        4 => ['Jue', 'jueves'],
+        5 => ['Vie', 'viernes'],
+        6 => ['Sáb', 'sábado'],
+        0 => ['Dom', 'domingo'],
+    ];
+
+    /** Ensambla las analíticas de Nivel 1 para la vista de análisis. */
     public static function nivel1(string $start, string $end): array
     {
         // Blindaje: solo se aceptan fechas YYYY-MM-DD (el llamador ya valida,
@@ -34,7 +64,6 @@ class Analiticas
         return [
             'ingenieria'  => self::ingenieriaMenu($start, $end),
             'revpash'     => self::revpash($start, $end),
-            'varianza'    => self::varianzaInventario($start, $end),
             'asociacion'  => self::reglasAsociacion($start, $end),
         ];
     }
@@ -181,16 +210,28 @@ class Analiticas
     }
 
     /**
-     * §3.2 — RevPASH (ingreso por asiento disponible por hora).
-     *   RevPASH_hora = ingreso_de_la_hora / (asientos × días_operados_esa_hora)
-     * Numerador: ticket_items de tickets cerrados agrupados por HORA de apertura.
-     * Denominador: SUM(capacidad de mesas activas) × nº de días del rango en que
-     * el restaurante estuvo abierto en esa hora (horarios_operacion menos
-     * excepciones). Si no hay horarios definidos, se cae a los días observados.
+     * §3.2 — RevPASH como mapa de calor hora × día de la semana.
+     *   RevPASH(día, hora) = ingreso(día, hora) / (asientos × días_operados(día, hora))
+     *
+     * Se reporta por celda (no por hora agregada) porque las dos preguntas de
+     * operación —¿qué franjas rinden? ¿dónde hay huecos?— dependen del día:
+     * un viernes a las 21:00 y un martes a las 21:00 son la misma hora y
+     * negocios distintos. Agregar las siete columnas escondía justo eso.
+     *
+     * Numerador: ticket_items de tickets cerrados, agrupados por día de la
+     * semana y HORA de apertura del ticket.
+     * Denominador: ASIENTOS_COMEDOR × nº de fechas del rango que cayeron en ese
+     * día de la semana y en las que el restaurante estuvo abierto en esa franja
+     * (horarios_operacion menos excepciones). Ese conteo normaliza que en 30
+     * días haya cuatro viernes y cinco sábados.
+     *
+     * Filas: solo las horas con actividad o con horario abierto en algún día.
+     * Columnas: los siete días, para que un día cerrado se lea como columna
+     * vacía y no desaparezca del mapa.
      */
     private static function revpash(string $start, string $end): array
     {
-        $vacio = ['labels' => [], 'values' => [], 'ingresos' => [], 'asientos' => 0, 'mejor' => null, 'peor' => null];
+        $vacio = ['horas' => [], 'dias' => [], 'celdas' => [], 'max' => 0.0, 'asientos' => 0, 'mejor' => null, 'peor' => null];
 
         try {
             $db = Ticket::getDB();
@@ -199,88 +240,141 @@ class Analiticas
             }
             $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
 
-            // Asientos disponibles (capacidad instalada).
-            $asientos = 0;
-            $res = $db->query("SELECT COALESCE(SUM(capacidad), 0) AS s FROM mesas WHERE activo = 1");
-            if ($res && ($r = $res->fetch_assoc())) {
-                $asientos = (int) $r['s'];
-            }
-            if ($asientos === 0) {
+            // Asientos disponibles: capacidad declarada del comedor, no la suma
+            // de mesas.capacidad (ver ASIENTOS_COMEDOR).
+            $asientos = self::ASIENTOS_COMEDOR;
+            if ($asientos <= 0) {
                 return $vacio;
             }
 
-            // Ingreso por hora del día (0-23).
-            $ingresoHora = array_fill(0, 24, 0.0);
+            // Ingreso por (día de la semana, hora). DAYOFWEEK() da 1=domingo,
+            // así que se resta 1 para alinearlo con date('w') y DIAS_SEMANA.
+            $ingreso = [];   // [dow][hora] => float
             $res = $db->query(
-                "SELECT HOUR(t.hora_apertura) AS h, SUM(ti.precio * ti.cantidad) AS total
+                "SELECT (DAYOFWEEK(t.hora_apertura) - 1) AS dow,
+                        HOUR(t.hora_apertura) AS h,
+                        SUM(ti.precio * ti.cantidad) AS total
                    FROM ticket_items ti
                    JOIN tickets t ON t.id = ti.ticket_id
                   WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
-                  GROUP BY h"
+                  GROUP BY dow, h"
             );
             if ($res) {
                 while ($r = $res->fetch_assoc()) {
-                    $ingresoHora[(int) $r['h']] = (float) $r['total'];
+                    $ingreso[(int) $r['dow']][(int) $r['h']] = (float) $r['total'];
                 }
             }
 
-            // Días operados por hora, según horarios_operacion / excepciones.
-            $availPorHora = self::diasOperadosPorHora($db, $start, $end);
+            // Días operados por (día de la semana, hora), según horarios y excepciones.
+            $avail = self::diasOperadosPorDiaHora($db, $start, $end);
 
-            // Fallback: si no hay horarios definidos, usar los días con ventas.
-            $diasObservados = 0;
+            // Fallback por si no hay horarios definidos o si hubo ventas fuera
+            // del horario declarado: fechas distintas con venta en ese día.
+            $observados = [];   // [dow] => int
             $res = $db->query(
-                "SELECT COUNT(DISTINCT DATE(t.hora_apertura)) AS d
-                   FROM tickets t WHERE t.estado = 'cerrado' {$fTk}"
+                "SELECT (DAYOFWEEK(t.hora_apertura) - 1) AS dow,
+                        COUNT(DISTINCT DATE(t.hora_apertura)) AS d
+                   FROM tickets t
+                  WHERE t.estado = 'cerrado' {$fTk}
+                  GROUP BY dow"
             );
-            if ($res && ($r = $res->fetch_assoc())) {
-                $diasObservados = (int) $r['d'];
-            }
-            if ($diasObservados === 0) {
-                $diasObservados = 1;
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $observados[(int) $r['dow']] = (int) $r['d'];
+                }
             }
 
-            // Horas a mostrar: unión de las que tuvieron venta y las abiertas.
+            // Filas visibles: horas con venta en algún día o con horario abierto.
             $horas = [];
             for ($h = 0; $h < 24; $h++) {
-                if ($ingresoHora[$h] > 0 || ($availPorHora[$h] ?? 0) > 0) {
+                $usada = false;
+                foreach (array_keys(self::DIAS_SEMANA) as $dow) {
+                    if (($ingreso[$dow][$h] ?? 0) > 0 || ($avail[$dow][$h] ?? 0) > 0) {
+                        $usada = true;
+                        break;
+                    }
+                }
+                if ($usada) {
                     $horas[] = $h;
                 }
             }
-            sort($horas);
 
-            $labels = [];
-            $values = [];
-            $ingresos = [];
-            $mejor = null;
-            $peor = null;
-            foreach ($horas as $h) {
-                $dias = $availPorHora[$h] ?? 0;
-                if ($dias <= 0) {
-                    $dias = $diasObservados;   // vendió fuera del horario declarado
-                }
-                $revpash = $ingresoHora[$h] / ($asientos * $dias);
-                $labels[] = sprintf('%02d:00', $h);
-                $values[] = round($revpash, 2);
-                $ingresos[] = round($ingresoHora[$h], 2);
-
-                if ($ingresoHora[$h] > 0) {
-                    if ($mejor === null || $revpash > $mejor['valor']) {
-                        $mejor = ['hora' => sprintf('%02d:00', $h), 'valor' => round($revpash, 2)];
-                    }
-                    if ($peor === null || $revpash < $peor['valor']) {
-                        $peor = ['hora' => sprintf('%02d:00', $h), 'valor' => round($revpash, 2)];
-                    }
-                }
+            $dias = [];
+            foreach (self::DIAS_SEMANA as $dow => [$corto, $largo]) {
+                $dias[] = ['dow' => $dow, 'corto' => $corto, 'largo' => $largo];
             }
 
+            $celdas = [];
+            $etiquetas = [];
+            $max = 0.0;
+            $extremos = ['abierto' => [], 'fuera' => []];
+
+            foreach ($horas as $h) {
+                $etiquetas[] = sprintf('%02d:00', $h);
+                $fila = [];
+                foreach (self::DIAS_SEMANA as $dow => [$corto, $largo]) {
+                    $ing = $ingreso[$dow][$h] ?? 0.0;
+                    $d = $avail[$dow][$h] ?? 0;
+                    $abierto = $d > 0;
+
+                    if ($d <= 0) {
+                        // Vendió fuera del horario declarado: se normaliza con
+                        // los días observados para no dividir entre cero. La
+                        // celda queda marcada como cerrada (base distinta).
+                        $d = $observados[$dow] ?? 0;
+                    }
+
+                    $valor = ($d > 0 && $ing > 0) ? $ing / ($asientos * $d) : 0.0;
+
+                    $fila[] = [
+                        'v'       => round($valor, 2),
+                        'ing'     => round($ing, 2),
+                        'dias'    => $d,
+                        'abierto' => $abierto,
+                    ];
+
+                    if ($ing > 0 && $valor > 0) {
+                        // El máximo sí incluye las celdas fuera de horario: es
+                        // la referencia del color y ninguna celda debe salirse
+                        // de la escala.
+                        $max = max($max, $valor);
+
+                        $ref = [
+                            'hora'  => sprintf('%02d:00', $h),
+                            'dia'   => $corto,
+                            'largo' => $largo,
+                            'valor' => round($valor, 2),
+                        ];
+                        // Mejor y peor franja son consejo operativo, así que
+                        // solo compiten las celdas que el negocio realmente
+                        // opera: las de fuera de horario dividen entre días con
+                        // venta y no entre días abiertos, y recomendar una
+                        // franja cerrada no accionaría nada. Se guardan aparte
+                        // por si no hubiera ninguna celda abierta con venta.
+                        $destino = $abierto ? 'abierto' : 'fuera';
+                        if (!isset($extremos[$destino]['mejor']) || $valor > $extremos[$destino]['mejor']['valor']) {
+                            $extremos[$destino]['mejor'] = $ref;
+                        }
+                        if (!isset($extremos[$destino]['peor']) || $valor < $extremos[$destino]['peor']['valor']) {
+                            $extremos[$destino]['peor'] = $ref;
+                        }
+                    }
+                }
+                $celdas[] = $fila;
+            }
+
+            // Si no hubo ni una celda dentro de horario con venta, se reportan
+            // las de fuera antes que dejar el pie de la gráfica en blanco.
+            $ref = !empty($extremos['abierto']) ? $extremos['abierto'] : $extremos['fuera'];
+
             return [
-                'labels'   => $labels,
-                'values'   => $values,
-                'ingresos' => $ingresos,
+                'horas'    => $etiquetas,
+                'dias'     => $dias,
+                'celdas'   => $celdas,
+                'max'      => round($max, 2),
                 'asientos' => $asientos,
-                'mejor'    => $mejor,
-                'peor'     => $peor,
+                'mejor'    => $ref['mejor'] ?? null,
+                'peor'     => $ref['peor'] ?? null,
             ];
         } catch (\Throwable $e) {
             error_log('Analiticas::revpash - ' . $e->getMessage());
@@ -289,21 +383,31 @@ class Analiticas
     }
 
     /**
-     * Para cada hora del día (0-23), cuenta cuántos días del rango el
-     * restaurante estuvo abierto en esa franja. Combina el horario semanal
-     * (horarios_operacion) con las excepciones por fecha (excepciones_operacion).
-     * Devuelve [] si no hay horarios definidos (el llamador cae a otro método).
+     * Para cada par (día de la semana, hora), cuenta cuántas fechas del rango
+     * cayeron en ese día con el restaurante abierto en esa franja. Combina el
+     * horario semanal (horarios_operacion) con las excepciones por fecha
+     * (excepciones_operacion).
+     *
+     * No asume nada sobre el horario configurado: acepta medias horas, turnos
+     * que cruzan la medianoche y días marcados como abiertos sin horas
+     * capturadas. Lo único que da por sentado es que la tabla es la verdad;
+     * cuando un registro no alcanza para decidir, esa fecha no suma horas y el
+     * llamador cae a los días con venta observados.
+     *
+     * Devuelve [] si no hay ningún horario definido.
      */
-    private static function diasOperadosPorHora($db, string $start, string $end): array
+    private static function diasOperadosPorDiaHora($db, string $start, string $end): array
     {
-        $semanal = [];   // dia_semana => [abierto, apHora, ciHora]
+        // Se conservan las horas tal cual las guarda MySQL ('HH:MM:SS'): el
+        // recorte a la hora entera se hacía aquí y perdía los medios turnos.
+        $semanal = [];   // dia_semana => [abierto, apertura, cierre]
         $res = $db->query("SELECT dia_semana, abierto, hora_apertura, hora_cierre FROM horarios_operacion");
         if ($res) {
             while ($r = $res->fetch_assoc()) {
                 $semanal[(int) $r['dia_semana']] = [
-                    (int) $r['abierto'],
-                    $r['hora_apertura'] !== null ? (int) substr($r['hora_apertura'], 0, 2) : null,
-                    $r['hora_cierre'] !== null ? (int) substr($r['hora_cierre'], 0, 2) : null,
+                    (int) $r['abierto'] === 1,
+                    $r['hora_apertura'],
+                    $r['hora_cierre'],
                 ];
             }
         }
@@ -311,7 +415,7 @@ class Analiticas
             return [];   // sin horarios: el llamador usa días observados
         }
 
-        $excep = [];   // 'Y-m-d' => ['cerrado'|'especial', apHora, ciHora]
+        $excep = [];   // 'Y-m-d' => [tipo, apertura, cierre]
         $res = $db->query(
             "SELECT fecha, tipo, hora_apertura, hora_cierre
                FROM excepciones_operacion
@@ -319,38 +423,46 @@ class Analiticas
         );
         if ($res) {
             while ($r = $res->fetch_assoc()) {
-                $excep[$r['fecha']] = [
-                    $r['tipo'],
-                    $r['hora_apertura'] !== null ? (int) substr($r['hora_apertura'], 0, 2) : null,
-                    $r['hora_cierre'] !== null ? (int) substr($r['hora_cierre'], 0, 2) : null,
-                ];
+                $excep[$r['fecha']] = [$r['tipo'], $r['hora_apertura'], $r['hora_cierre']];
             }
         }
 
-        $avail = array_fill(0, 24, 0);
+        $avail = [];
+        for ($d = 0; $d < 7; $d++) {
+            $avail[$d] = array_fill(0, 24, 0);
+        }
+
         $cursor = strtotime($start);
         $limite = strtotime($end);
         while ($cursor <= $limite) {
             $fecha = date('Y-m-d', $cursor);
             $dow = (int) date('w', $cursor);   // 0=Dom … 6=Sáb
-            $ap = null; $ci = null; $abierto = false;
+            $ap = null;
+            $ci = null;
 
-            if (isset($excep[$fecha])) {
-                [$tipo, $exAp, $exCi] = $excep[$fecha];
-                if ($tipo === 'cerrado') {
-                    $cursor = strtotime('+1 day', $cursor);
-                    continue;
-                }
-                $abierto = true; $ap = $exAp; $ci = $exCi;
-            } elseif (isset($semanal[$dow]) && $semanal[$dow][0] === 1) {
-                $abierto = true; $ap = $semanal[$dow][1]; $ci = $semanal[$dow][2];
+            $exc = $excep[$fecha] ?? null;
+            if ($exc !== null && $exc[0] === 'cerrado') {
+                $cursor = strtotime('+1 day', $cursor);
+                continue;                       // ese día no abrió: cero horas
             }
 
-            if ($abierto && $ap !== null && $ci !== null && $ci > $ap) {
-                for ($h = $ap; $h < $ci; $h++) {
-                    $avail[$h]++;
-                }
+            if ($exc !== null && $exc[1] !== null && $exc[2] !== null) {
+                // Horario especial completo: manda sobre el semanal.
+                $ap = $exc[1];
+                $ci = $exc[2];
+            } elseif (isset($semanal[$dow]) && $semanal[$dow][0]) {
+                // Incluye el caso de una excepción 'horario_especial' sin horas
+                // capturadas: el registro dice que hubo cambio pero no cuál, y
+                // el horario normal del día es la mejor aproximación disponible
+                // (antes esa fecha se descartaba entera).
+                $ap = $semanal[$dow][1];
+                $ci = $semanal[$dow][2];
             }
+
+            foreach (self::horasAbiertas($ap, $ci) as $h) {
+                $avail[$dow][$h]++;
+            }
+
             $cursor = strtotime('+1 day', $cursor);
         }
 
@@ -358,117 +470,57 @@ class Analiticas
     }
 
     /**
-     * §3.3 — Varianza de inventario: consumo teórico vs. real.
-     *   Teórico: recetas explotadas × unidades vendidas en el rango.
-     *   Real:    teórico + merma registrada (ajustes negativos de
-     *            movimientos_inventario, que es donde se cuantifica la fuga que
-     *            el descuento automático por receta no ve).
-     * La varianza, valorizada con ingredientes.costo, es la merma en pesos.
+     * Horas de reloj (0-23) que toca un turno de apertura a cierre.
+     *
+     * Cuenta una hora si el local estuvo abierto en ella aunque sea un minuto,
+     * porque el RevPASH agrupa los tickets por HOUR(hora_apertura): con cierre
+     * a las 22:30 hay ventas en la hora 22 y esa franja tiene que aparecer como
+     * abierta. Al revés, abrir 08:30 sí cuenta la hora 8 completa; es la misma
+     * aproximación que ya hace el numerador al redondear el ticket a su hora.
+     *
+     * Soporta turnos que cruzan la medianoche (18:00 → 02:00): antes la
+     * condición `cierre > apertura` los descartaba en silencio y el día entero
+     * quedaba como cerrado.
+     *
+     * Devuelve [] si el horario no es utilizable (nulo, ilegible o de duración
+     * cero); esas fechas caen al conteo por días observados del llamador.
      */
-    private static function varianzaInventario(string $start, string $end): array
+    private static function horasAbiertas(?string $apertura, ?string $cierre): array
     {
-        $vacio = ['items' => [], 'totalMerma' => 0.0, 'totalTeorico' => 0.0];
-
-        try {
-            $db = Ticket::getDB();
-            if (!$db) {
-                return $vacio;
-            }
-            $fTk = "AND t.hora_apertura >= '{$start} 00:00:00' AND t.hora_apertura <= '{$end} 23:59:59'";
-
-            // Consumo teórico: por cada producto vendido, explotar su receta.
-            $res = $db->query(
-                "SELECT p.id, SUM(ti.cantidad) AS unidades
-                   FROM ticket_items ti
-                   JOIN tickets t   ON t.id = ti.ticket_id
-                   JOIN productos p ON p.nombre = ti.nombre
-                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$fTk}
-                  GROUP BY p.id"
-            );
-            $teorico = [];   // ingrediente_id => cantidad teórica consumida
-            if ($res) {
-                while ($r = $res->fetch_assoc()) {
-                    $unidades = (float) $r['unidades'];
-                    $receta = Inventario::recetaDeProducto((int) $r['id']);
-                    foreach ($receta as $ingId => $qtyUnit) {
-                        $teorico[$ingId] = ($teorico[$ingId] ?? 0.0) + $qtyUnit * $unidades;
-                    }
-                }
-            }
-
-            // Merma registrada: ajustes negativos del inventario en el rango.
-            $merma = [];   // ingrediente_id => cantidad de merma (positiva)
-            $res = $db->query(
-                "SELECT ingrediente_id, SUM(cantidad) AS s
-                   FROM movimientos_inventario
-                  WHERE tipo = 'ajuste'
-                    AND created_at >= '{$start} 00:00:00' AND created_at <= '{$end} 23:59:59'
-                  GROUP BY ingrediente_id"
-            );
-            if ($res) {
-                while ($r = $res->fetch_assoc()) {
-                    $s = (float) $r['s'];
-                    if ($s < 0) {
-                        $merma[(int) $r['ingrediente_id']] = -$s;
-                    }
-                }
-            }
-
-            $ids = array_unique(array_merge(array_keys($teorico), array_keys($merma)));
-            if (empty($ids)) {
-                return $vacio;
-            }
-
-            // Datos del ingrediente (nombre, unidad, costo).
-            $meta = [];
-            $inClause = implode(',', array_map('intval', $ids));
-            $res = $db->query("SELECT id, nombre, unidad, costo FROM ingredientes WHERE id IN ({$inClause})");
-            if ($res) {
-                while ($r = $res->fetch_assoc()) {
-                    $meta[(int) $r['id']] = [
-                        'nombre' => $r['nombre'],
-                        'unidad' => $r['unidad'],
-                        'costo'  => (float) $r['costo'],
-                    ];
-                }
-            }
-
-            $items = [];
-            $totalMerma = 0.0;
-            $totalTeorico = 0.0;
-            foreach ($ids as $ingId) {
-                $ingId = (int) $ingId;
-                $info = $meta[$ingId] ?? ['nombre' => 'Ingrediente ' . $ingId, 'unidad' => '', 'costo' => 0.0];
-                $teoQty = $teorico[$ingId] ?? 0.0;
-                $merQty = $merma[$ingId] ?? 0.0;
-                $teoValor = $teoQty * $info['costo'];
-                $merValor = $merQty * $info['costo'];
-                $totalTeorico += $teoValor;
-                $totalMerma += $merValor;
-
-                $items[] = [
-                    'ingrediente' => $info['nombre'],
-                    'unidad'      => $info['unidad'],
-                    'teoricoQty'  => round($teoQty, 2),
-                    'teoricoValor' => round($teoValor, 2),
-                    'mermaQty'    => round($merQty, 2),
-                    'mermaValor'  => round($merValor, 2),
-                    'realValor'   => round($teoValor + $merValor, 2),
-                ];
-            }
-
-            // Ranking descendente por $ de merma (lo accionable).
-            usort($items, fn($a, $b) => $b['mermaValor'] <=> $a['mermaValor']);
-
-            return [
-                'items'        => $items,
-                'totalMerma'   => round($totalMerma, 2),
-                'totalTeorico' => round($totalTeorico, 2),
-            ];
-        } catch (\Throwable $e) {
-            error_log('Analiticas::varianzaInventario - ' . $e->getMessage());
-            return $vacio;
+        $ap = self::aMinutos($apertura);
+        $ci = self::aMinutos($cierre);
+        if ($ap === null || $ci === null || $ap === $ci) {
+            return [];
         }
+
+        // Si el cierre no es posterior a la apertura, el turno pasa de medianoche.
+        $duracion = $ci > $ap ? $ci - $ap : (1440 - $ap) + $ci;
+
+        $primera = intdiv($ap, 60);
+        $horas = [];
+        // Arranca en negativo por los minutos de la primera hora que ya habían
+        // transcurrido al abrir (08:30 → -30), para no contar una hora de más.
+        $cubierto = -($ap - $primera * 60);
+        for ($i = 0; $cubierto < $duracion; $i++) {
+            $horas[] = ($primera + $i) % 24;
+            $cubierto += 60;
+        }
+
+        return $horas;
+    }
+
+    /** Convierte 'HH:MM[:SS]' a minutos desde medianoche; null si no es válida. */
+    private static function aMinutos(?string $hora): ?int
+    {
+        if ($hora === null || !preg_match('/^(\d{1,2}):(\d{2})/', $hora, $m)) {
+            return null;
+        }
+        $h = (int) $m[1];
+        $min = (int) $m[2];
+        if ($h > 23 || $min > 59) {
+            return null;
+        }
+        return $h * 60 + $min;
     }
 
     /**
