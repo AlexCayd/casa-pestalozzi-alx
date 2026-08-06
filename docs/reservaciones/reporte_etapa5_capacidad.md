@@ -13,8 +13,8 @@
   - `70cdca2` — `fix(reservaciones): centralizar capacidad fisica disponible`
   - `c62a160` — `fix(reservaciones): separar capacidad y asignacion administrativa`
   - `376e69a` — `fix(reservaciones): sincronizar capacidad entre superficies`
-  - `pendiente` — `test(reservaciones): validar capacidad y libertad administrativa`
-- Commit final: pendiente de creación de este reporte
+  - `8430143` — `test(reservaciones): validar capacidad y libertad administrativa`
+- Commit final de código: `8430143`; este reporte se cierra en un commit documental posterior sin cambios funcionales.
 - Working tree inicial: sólo `reservaciones_fuente_de_verdad.md` modificado y `plan_estabilizacion_reservaciones.md` sin seguimiento.
 - Working tree final: conserva únicamente esos dos cambios preexistentes; los cambios de Etapa 5 quedan en los commits anteriores y el commit de cierre.
 
