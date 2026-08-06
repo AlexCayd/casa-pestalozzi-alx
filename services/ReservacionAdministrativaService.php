@@ -290,6 +290,7 @@ final class ReservacionAdministrativaService
             $post['asignar_automaticamente'] ?? false,
             FILTER_VALIDATE_BOOLEAN
         );
+        $datos['asignacion_automatica_solicitada'] = $solicitaAsignacion;
         $confirmaciones = self::confirmaciones($post);
         $db = ActiveRecord::getDB();
         $lockHorario = false;
@@ -734,6 +735,12 @@ final class ReservacionAdministrativaService
             'exceso_capacidad' => (int)($evaluacion['exceso_capacidad'] ?? 0),
             'capacidad_resultante' => (int)($evaluacion['capacidad_real_disponible'] ?? 0) - (int)$datos['comensales'],
             'depende_liberacion_proyectada' => (bool)($evaluacion['depende_liberacion_proyectada'] ?? false),
+            'contexto' => [
+                'comensales_solicitados' => (int)$datos['comensales'],
+                'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
+                'lugares_faltantes' => max(0, (int)$datos['comensales'] - (int)($evaluacion['capacidad_estimada'] ?? 0)),
+                'asignacion_automatica_solicitada' => (bool)($datos['asignacion_automatica_solicitada'] ?? false),
+            ],
         ];
     }
 
@@ -780,6 +787,12 @@ final class ReservacionAdministrativaService
             'capacidad_resultante' => (int)($evaluacion['capacidad_real_disponible'] ?? 0) - (int)$datos['comensales'],
             'depende_liberacion_proyectada' => (bool)($evaluacion['depende_liberacion_proyectada'] ?? false),
             'mesas_proyectadas' => array_values(array_map('intval', (array)($evaluacion['ocupacion']['mesa_ids_proyectadas'] ?? []))),
+            'contexto' => [
+                'comensales_solicitados' => (int)$datos['comensales'],
+                'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
+                'lugares_faltantes' => max(0, (int)$datos['comensales'] - (int)($evaluacion['capacidad_estimada'] ?? 0)),
+                'asignacion_automatica_solicitada' => (bool)($datos['asignacion_automatica_solicitada'] ?? $preservar),
+            ],
         ];
     }
 
