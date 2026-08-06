@@ -85,7 +85,7 @@ class AdminController
         $analytics = self::construirAnalytics($rango);
 
         // Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3): ingeniería de
-        // menú, RevPASH, varianza de inventario y reglas de asociación.
+        // menú, RevPASH y reglas de asociación.
         $analytics['nivel1'] = Analiticas::nivel1($rango['start'], $rango['end']);
 
         self::render('analytics', [
