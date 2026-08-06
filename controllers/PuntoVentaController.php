@@ -1,6 +1,7 @@
 <?php
 namespace Controllers;
 
+use Model\ConfiguracionPos;
 use Model\Mesa;
 use Model\Producto;
 use Model\Reservacion;
@@ -234,20 +235,61 @@ class PuntoVentaController {
             'meseros'       => $meserosArr,
             'config'        => [
                 'temporal' => ReservacionConfig::configuracionOperacion(),
+                // Ajuste de /admin/configuracion/pos. Viaja en cada refresco del
+                // mapa para que cambiarlo se note en las tablets del turno sin
+                // pedirles que recarguen la página.
+                'pos' => ['mesero_editable' => ConfiguracionPos::meseroEditable()],
             ],
             'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
         ]);
     }
 
+    /**
+     * Mesero con el que se abre el ticket.
+     *
+     * Con la selección manual desactivada (/admin/configuracion/pos) el valor
+     * que mande el cliente se ignora y manda la sesión: bloquear el <select> en
+     * el navegador no es una garantía, cualquiera puede llamar al endpoint.
+     * Si el de la sesión no es un mesero asignable —un admin o un cajero— se
+     * respeta lo enviado, porque no hay con qué sustituirlo y el POS deja el
+     * campo editable en ese mismo caso.
+     */
+    private static function meseroDelTicket(array $data): ?int {
+        $enviado = !empty($data['mesero_id']) ? (int)$data['mesero_id'] : null;
+        if (ConfiguracionPos::meseroEditable()) {
+            return $enviado;
+        }
+
+        $sesionId = (int)($_SESSION['id'] ?? 0);
+        return $sesionId > 0 && self::esMeseroAsignable($sesionId) ? $sesionId : $enviado;
+    }
+
+    /** Mismo criterio que la lista `meseros` de la API: rol waiter y activo. */
+    private static function esMeseroAsignable(int $usuarioId): bool {
+        try {
+            $filas = Usuario::consultarSQL(
+                "SELECT id FROM usuarios
+                  WHERE id = {$usuarioId} AND rol = 'waiter' AND activo = 1
+                  LIMIT 1"
+            );
+        } catch (\Throwable $e) {
+            error_log('PuntoVentaController::esMeseroAsignable - ' . $e->getMessage());
+            return false;
+        }
+
+        return $filas !== [];
+    }
+
     // POST /admin/api/open-ticket
     public static function abrirTicket(Router $router) {
         $data = self::entradaJson();
+        $data['mesero_id'] = self::meseroDelTicket($data);
         $reservacionId = (int)($data['reservacion_id'] ?? 0);
         $resultado = $reservacionId > 0
             ? PuntoVentaReservacionService::comenzar(
                 $reservacionId,
                 (int)($_SESSION['id'] ?? 0),
-                !empty($data['mesero_id']) ? (int)$data['mesero_id'] : null
+                $data['mesero_id']
             )
             : PuntoVentaReservacionService::abrirWalkIn(
                 $data,
