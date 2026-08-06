@@ -86,7 +86,11 @@ $afirmar(str_contains($controladorOperacion, 'AdminCsrfService::validar'), 'B7: 
 $afirmar(str_contains($controladorOperacion, 'version_esperada'), 'B7: el controlador no exige versión esperada.');
 
 // B10: portal y legibilidad del shell común.
-$afirmar(str_contains($modal, '(document.body || host).appendChild(root)'), 'B10: ConfirmationModal no se monta en portal global.');
+$afirmar(
+    str_contains($modal, '(activeDialog || document.body || host).appendChild(root)')
+        || str_contains($modal, '(document.body || host).appendChild(root)'),
+    'B10: ConfirmationModal no se monta en un portal visible.'
+);
 $afirmar(str_contains($estilos, 'width: clamp(620px, 72vw, 840px)'), 'B10: falta el ancho de escritorio.');
 $afirmar(str_contains($estilos, 'max-width: calc(100vw - 48px)'), 'B10: falta el límite horizontal.');
 $afirmar(str_contains($estilos, 'font-size: clamp(24px, 2.5vw, 30px)'), 'B10: el título no cumple el mínimo tipográfico.');
