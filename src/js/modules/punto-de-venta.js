@@ -2004,22 +2004,40 @@ function initMapa() {
           : [];
         var mostrarBloqueo = !puedeIniciar && (
           mesasBloqueantes.length > 0 ||
-          ['MESAS_ASIGNADAS_NO_DISPONIBLES', 'MESAS_SIN_ASIGNAR', 'TICKET_ABIERTO'].indexOf(
-            String(reserva.motivo_bloqueo || '')
-          ) !== -1
+          Boolean(reserva.bloqueo)
         );
         if (mostrarBloqueo) {
           h += '<section class="mmodal-reservation__blocking" id="mmodal-reservation-blocking" role="alert" aria-live="polite" aria-labelledby="mmodal-reservation-blocking-title">';
           h += '<strong id="mmodal-reservation-blocking-title">No se puede iniciar el servicio</strong>';
-          if (reserva.bloqueo && reserva.bloqueo.mensaje) {
-            h += '<p>' + escHtml(reserva.bloqueo.mensaje) + '</p>';
+          var bloqueoGeneral = reserva.bloqueo && reserva.bloqueo.mensaje
+            ? reserva.bloqueo
+            : null;
+          if (bloqueoGeneral) {
+            h += '<p>' + escHtml(String(bloqueoGeneral.mensaje)) + '</p>';
+            if (bloqueoGeneral.consecuencia) {
+              h += '<p>' + escHtml(String(bloqueoGeneral.consecuencia)) + '</p>';
+            }
           }
           if (mesasBloqueantes.length) {
             h += '<ul class="mmodal-reservation__blocking-list">';
             mesasBloqueantes.forEach(function (bloqueo) {
               var numero = String(bloqueo.numero || bloqueo.mesa_id || '');
+              var presentacion = bloqueo.presentacion && bloqueo.presentacion.mensaje
+                ? bloqueo.presentacion
+                : null;
+              if (!presentacion) {
+                console.error('Reservacion POS: bloqueo sin presentacion canonica', bloqueo);
+                presentacion = bloqueoGeneral;
+              }
+              if (!presentacion) {
+                return;
+              }
               h += '<li><strong>Mesa ' + escHtml(numero) + '</strong> — ' +
-                escHtml(String(bloqueo.motivo || 'MESA_OCUPADA')) + '</li>';
+                escHtml(String(presentacion.mensaje));
+              if (presentacion.consecuencia) {
+                h += ' ' + escHtml(String(presentacion.consecuencia));
+              }
+              h += '</li>';
             });
             h += '</ul>';
           }

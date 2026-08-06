@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\ReservacionErrorCatalog;
+use Services\PosReservacionSerializer;
 
 /** @param mixed $condition */
 function assertContract($condition, string $message): void
@@ -73,5 +74,14 @@ $enriched = ReservacionErrorCatalog::enriquecer([
 ]);
 assertContract($enriched['codigo'] === 'RESERVACION_PROXIMA', 'enriquecer conserva codigo canonico');
 assertContract($enriched['descripcion'] !== '', 'enriquecer incluye descripcion');
+
+$blockers = PosReservacionSerializer::bloqueosOperativos(
+    [],
+    [1],
+    [['id' => 1, 'numero' => 7, 'activo' => 1, 'reservable' => 0, 'tipo' => 'mesa', 'capacidad' => 4]]
+);
+assertContract($blockers[0]['codigo'] === 'MESA_NO_RESERVABLE', 'mesa no utilizable usa codigo canonico');
+assertContract(isset($blockers[0]['presentacion']['mensaje']), 'bloqueo de mesa incluye presentacion');
+assertContract(!array_key_exists('motivo', $blockers[0]), 'bloqueo de mesa no expone motivo interno');
 
 fwrite(STDOUT, "Reservaciones: catalogo contractual OK\n");

@@ -94,7 +94,7 @@ final class PosReservacionSerializer
             (bool)$vigencia['puede_iniciar_servicio'],
             (bool)$vigencia['tolerancia_vencida']
         );
-        $codigoBloqueo = self::codigoBloqueo($motivoBloqueo);
+        $codigoBloqueo = $mesasBloqueantes[0]['codigo'] ?? self::codigoBloqueo($motivoBloqueo);
         $bloqueo = $codigoBloqueo !== null
             ? ReservacionErrorCatalog::presentar($codigoBloqueo)
             : null;
@@ -173,8 +173,6 @@ final class PosReservacionSerializer
             'dentro_tolerancia' => (bool)$vigencia['dentro_tolerancia'],
             'tolerancia_vencida' => (bool)$vigencia['tolerancia_vencida'],
             'ausencia_pendiente' => (bool)$vigencia['ausencia_pendiente'],
-            'motivo' => $motivo,
-            'motivo_operativo' => $motivo,
             'conflicto_fisico' => $conflictoFisico,
             'hold_expires_at' => $datos['hold_expires_at'] ?? null,
             'estado_changed_at' => $datos['estado_changed_at'] ?? null,
@@ -313,7 +311,10 @@ final class PosReservacionSerializer
             }
         }
 
-        return $bloqueos;
+        return array_map(
+            static fn(array $bloqueo): array => self::presentarBloqueo($bloqueo),
+            $bloqueos
+        );
     }
 
     private static function codigoBloqueo(?string $motivo): ?string
@@ -327,6 +328,31 @@ final class PosReservacionSerializer
             'ESTADO_NO_PERMITE_INICIO' => 'ESTADO_INVALIDO',
             default => null,
         };
+    }
+
+    /** @param array<string, mixed> $bloqueo @return array<string, mixed> */
+    private static function presentarBloqueo(array $bloqueo): array
+    {
+        $motivo = (string)($bloqueo['motivo'] ?? '');
+        $codigo = match ($motivo) {
+            'MESA_NO_UTILIZABLE' => 'MESA_NO_RESERVABLE',
+            'TICKET_ABIERTO' => 'TICKET_ABIERTO',
+            'OTRA_OPERACION' => 'RESERVACION_BLOQUEANTE',
+            'CONFLICTO_ASIGNACION' => 'CONFLICTO_DE_ASIGNACION',
+            default => 'ERROR_INTERNO',
+        };
+        $contexto = [
+            'mesa_id' => (int)($bloqueo['mesa_id'] ?? 0),
+            'mesa_numero' => (string)($bloqueo['numero'] ?? ''),
+        ];
+        $presentacion = ReservacionErrorCatalog::presentar($codigo, $contexto);
+
+        return [
+            'mesa_id' => (int)($bloqueo['mesa_id'] ?? 0),
+            'numero' => (string)($bloqueo['numero'] ?? ''),
+            'codigo' => $presentacion['codigo'],
+            'presentacion' => $presentacion,
+        ];
     }
 
     /**
