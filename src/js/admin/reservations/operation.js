@@ -1078,7 +1078,10 @@
 
             createModalSubmitting = true;
             clearCreateModalErrors();
-            postJson(createForm.action, new URLSearchParams(new FormData(createForm)))
+            var formData = new FormData(createForm);
+            var automaticAssignment = createForm.querySelector('[name="asignar_automaticamente"][value="1"]');
+            formData.set('asignar_automaticamente', automaticAssignment && automaticAssignment.checked ? '1' : '0');
+            postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
                     var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
                     var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
@@ -1442,7 +1445,7 @@
                         '<h4>Mesas asignadas</h4>' +
                         (!assignable ? '<p class="reservation-operation-inline reservation-operation-inline--muted">Este estado no permite cambiar mesas.</p>' : '') +
                         (assignable ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
-                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Asignar mesas después</button>' : '') +
+                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Liberar asignación</button>' : '') +
                         '<div class="reservation-operation-summary">' +
                             '<div><span>Reservación</span><strong>' + comensales + ' personas</strong></div>' +
                             '<div><span>Capacidad total</span><strong class="' + (insufficient ? 'is-insufficient' : '') + '">' + capacidad + '</strong></div>' +
@@ -1962,28 +1965,32 @@
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO', 'CAPACIDAD_INSUFICIENTE', 'DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
+                    if (error && error.codigo === 'CAPACIDAD_INSUFICIENTE') {
+                        openCapacityConflictModal(error);
+                        return;
+                    }
+                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO', 'DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
                         openTicketConflictModal(error);
                         return;
                     }
                     if (error && error.codigo === 'CONFLICTO_CONCURRENTE') {
                         closeTicketConflictModal();
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'VERSION_DESACTUALIZADA') {
                         closeTicketConflictModal();
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'MESA_OCUPADA') {
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, ''));
+                    showInlineError(operationErrorMessage(error, ''), error);
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2016,11 +2023,11 @@
                 })
                 .catch(function (error) {
                     if (error && ['VERSION_DESACTUALIZADA', 'CONFLICTO_CONCURRENTE'].indexOf(error.codigo) !== -1) {
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, ''));
+                    showInlineError(operationErrorMessage(error, ''), error);
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2029,7 +2036,7 @@
 
         function openTicketConflictModal(payload) {
             if (!confirmationController) {
-                showInlineError(payload && payload.mensaje || '');
+                showInlineError(payload && payload.mensaje || '', payload);
                 return;
             }
 
@@ -2078,6 +2085,52 @@
                 onPrimary: function () {
                     var confirmation = state.pendingAssignmentConflict;
                     confirmationController.close(false);
+                    if (confirmation) saveTableAssignment(confirmation);
+                }
+            });
+        }
+
+        function openCapacityConflictModal(payload) {
+            var reservacion = selectedReservation();
+            if (!confirmationController || !reservacion) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
+            }
+
+            var comensales = parseInt(reservacion.comensales || '0', 10) || 0;
+            var capacidadSeleccionada = selectedCapacity();
+            var diferencia = Math.max(0, comensales - capacidadSeleccionada);
+            var confirmaciones = Array.isArray(payload && payload.confirmaciones_requeridas)
+                ? payload.confirmaciones_requeridas.slice()
+                : [];
+            if (confirmaciones.indexOf('CAPACIDAD_INSUFICIENTE') === -1) {
+                confirmaciones.push('CAPACIDAD_INSUFICIENTE');
+            }
+
+            state.pendingAssignmentConflict = {
+                token: '',
+                ticketIds: [],
+                confirmaciones: confirmaciones
+            };
+            confirmationController.open({
+                variant: 'warning',
+                eyebrow: 'Capacidad de mesas',
+                title: 'La capacidad de las mesas es insuficiente',
+                description: 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
+                summary: [
+                    'Comensales: ' + comensales,
+                    'Capacidad seleccionada: ' + capacidadSeleccionada,
+                    'Lugares faltantes: ' + diferencia
+                ],
+                consequence: 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
+                secondaryLabel: 'Volver a seleccionar',
+                primaryLabel: 'Guardar de todas formas',
+                onSecondary: function () {
+                    state.pendingAssignmentConflict = null;
+                },
+                onPrimary: function () {
+                    var confirmation = state.pendingAssignmentConflict;
+                    closeTicketConflictModal();
                     if (confirmation) saveTableAssignment(confirmation);
                 }
             });
@@ -2211,16 +2264,16 @@
                         return;
                     }
                     if (error && error.codigo === 'RESERVACION_NO_EDITABLE') {
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'DATOS_INCOMPLETOS') {
-                        showInlineError(error.mensaje || '');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, ''));
+                    showInlineError(operationErrorMessage(error, ''), error);
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2238,7 +2291,7 @@
             var isClearAssignment = action === 'clear-assignment';
             var title = isCancel
                 ? 'Cancelar reservación'
-                : (isClearAssignment ? 'Asignar mesas después' : 'Registrar que el cliente no se presentó');
+                : (isClearAssignment ? 'Liberar asignación' : 'Registrar que el cliente no se presentó');
             var description = isCancel
                 ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
                 : (isClearAssignment
@@ -2277,7 +2330,7 @@
                 consequence: consequence,
                 customContent: customContent,
                 secondaryLabel: 'Volver',
-                primaryLabel: isCancel ? 'Cancelar reservación' : (isClearAssignment ? 'Asignar después' : 'Registrar ausencia'),
+                primaryLabel: isCancel ? 'Cancelar reservación' : (isClearAssignment ? 'Liberar asignación' : 'Registrar ausencia'),
                 initialFocus: isCancel ? actionReason : 'primary',
                 onPrimary: function () {
                     return confirmPendingAction();
@@ -2314,13 +2367,15 @@
             return true;
         }
 
-        function showInlineError(message) {
+        function showInlineError(message, error) {
+            error = error || {};
+            var catalogMessage = error.mensaje || message || '';
             showGlobalNotice({
                 source: 'action',
                 type: 'error',
-                title: 'Acción no permitida',
-                summary: 'No fue posible completar la acción solicitada.',
-                message: message + ' Los datos visibles no cambiaron; revisa el estado actual antes de continuar.'
+                title: error.titulo || 'No se pudo completar la acción',
+                summary: catalogMessage || 'La operación no se completó.',
+                message: error.consecuencia || 'No se aplicaron cambios; revisa el estado actual antes de continuar.'
             });
         }
 

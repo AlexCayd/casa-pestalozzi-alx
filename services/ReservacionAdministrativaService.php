@@ -286,8 +286,10 @@ final class ReservacionAdministrativaService
             return self::errorDatos('REQUEST_TOKEN_INVALIDO', 'request_token');
         }
 
-        $solicitaAsignacion = !array_key_exists('asignar_automaticamente', $post)
-            || (string)$post['asignar_automaticamente'] === '1';
+        $solicitaAsignacion = filter_var(
+            $post['asignar_automaticamente'] ?? false,
+            FILTER_VALIDATE_BOOLEAN
+        );
         $confirmaciones = self::confirmaciones($post);
         $db = ActiveRecord::getDB();
         $lockHorario = false;
@@ -424,7 +426,10 @@ final class ReservacionAdministrativaService
                 return self::rollback($db, $validacion);
             }
             $datos = $validacion['datos'];
-            $solicitaAsignacion = (string)($post['asignar_automaticamente'] ?? '0') === '1';
+            $solicitaAsignacion = filter_var(
+                $post['asignar_automaticamente'] ?? false,
+                FILTER_VALIDATE_BOOLEAN
+            );
             $revalidacion = self::evaluarDisponibilidad($datos['fecha'], $datos['hora'], $datos['comensales'], $id, true);
             if (!($revalidacion['horario_valido'] ?? false)) {
                 return self::rollback($db, self::errorHorario($revalidacion));
