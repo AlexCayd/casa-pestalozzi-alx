@@ -8,6 +8,7 @@ use Model\ActiveRecord;
 use Services\AsignacionMesasService;
 use Services\CapacidadReservacionesService;
 use Services\OcupacionMesasService;
+use Services\PosReservacionQueryService;
 use Services\ReservacionAdministrativaService;
 use Services\ReservacionConfig;
 
@@ -219,6 +220,17 @@ function ejecutarFixturesDinamicos(): array
         sort($idsDemanda, SORT_NUMERIC);
         if ($idsDemanda !== [202]) {
             $fallos[] = 'Dinámica C6–C10: NOT EXISTS/estado/traslape no filtraron la demanda esperada.';
+        }
+        $pos = PosReservacionQueryService::paraFecha(
+            $fecha,
+            '15:30:00',
+            ['ahora' => new DateTimeImmutable($fecha . ' 14:30:00', ReservacionConfig::timezone())]
+        );
+        $posCapacidad = (array)($pos['capacidad_horario'] ?? []);
+        if (($posCapacidad['capacidad_real_disponible'] ?? -1) !== ($resumen['capacidad_real_disponible'] ?? -2)
+            || ($posCapacidad['demanda_no_asignada'] ?? -1) !== ($resumen['demanda_no_asignada'] ?? -2)
+        ) {
+            $fallos[] = 'Dinámica C16: POS/mapa no recibieron el mismo resumen canónico.';
         }
 
         $token = 'etapa5_idempotencia_20260820_001';
