@@ -25,6 +25,7 @@ $leer = static function (string $ruta) use ($root): string {
 };
 
 $vistaMapa = $leer('views/operation/reservations/index.php');
+$vistaPos = $leer('views/punto-de-venta/index.php');
 $operacion = $leer('src/js/admin/reservations/operation.js');
 $formulario = $leer('src/js/admin/reservations/form.js');
 $pos = $leer('src/js/modules/punto-de-venta.js');
@@ -64,10 +65,17 @@ $afirmar(str_contains($pos, "result.codigo === 'REQUIERE_CONFIRMACION' && result
 $afirmar(str_contains($pos, "title: 'Hay una reservación próxima'"), 'B2: falta el título de la advertencia POS.');
 $afirmar(str_contains($pos, "cancelLabel: 'Volver'"), 'B2: la salida POS no usa Volver.');
 $afirmar(str_contains($pos, "confirmLabel: 'Abrir ticket de todas formas'"), 'B2: falta la acción primaria explícita del POS.');
-$afirmar(str_contains($pos, 'payload.confirmar_reservacion_proxima = 1'), 'B3: el POS no envía confirmar_reservacion_proxima=1.');
+$afirmar(
+    str_contains($pos, 'payload.confirmar_reservacion_proxima = 1')
+        || str_contains($pos, 'confirmar_reservacion_proxima: 1'),
+    'B3: el POS no envía confirmar_reservacion_proxima=1.'
+);
 $afirmar(str_contains($servicioPos, 'confirmar_reservacion_proxima'), 'B4: el backend POS no clasifica la confirmación próxima.');
 $afirmar(str_contains($catalogo, "'REQUIERE_CONFIRMACION'"), 'B4: el catálogo no declara REQUIERE_CONFIRMACION.');
 $afirmar(str_contains($bundlePos, 'confirmar_reservacion_proxima'), 'B5: el bundle POS no contiene la confirmación explícita.');
+$afirmar(str_contains($pos, 'function warningsLocalesParaTicket'), 'B6: el POS no protege localmente la ventana 30-60 antes del POST.');
+$afirmar(str_contains($pos, 'if (!options.warningConfirmed && !(payload && payload.reservacion_id))'), 'B6: la confirmación local no cubre aperturas sin reservacion_id.');
+$afirmar(str_contains($vistaPos, 'map.js?v=pos-reservations-v8'), 'B7: el POS conserva el bundle cacheado anterior a la corrección.');
 
 // C: ConfirmationModal limpio, reabrible y resoluble en todas las salidas.
 $afirmar(substr_count($modal, 'window.ConfirmationModal =') === 1, 'C1: hay más de una definición global de ConfirmationModal.');

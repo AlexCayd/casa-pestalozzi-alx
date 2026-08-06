@@ -3475,9 +3475,97 @@ function initMapa() {
     });
   }
 
+  function warningsLocalesParaTicket(mesaIds) {
+    var ids = Array.isArray(mesaIds)
+      ? mesaIds.map(function (mesaId) { return parseInt(mesaId, 10); }).filter(Boolean)
+      : [];
+    if (!ids.length) return [];
+
+    return reservaciones.filter(function (reserva) {
+      if (String(reserva && reserva.estado || '') !== 'confirmada') return false;
+      if (String(reserva && reserva.ventana_operativa || '') !== '30_60') return false;
+      return mesaIdsReserva(reserva).some(function (mesaId) {
+        return ids.indexOf(parseInt(mesaId, 10)) !== -1;
+      });
+    }).map(function (reserva) {
+      var reservaMesaIds = mesaIdsReserva(reserva);
+      var minutos = reserva.minutos_para_reservacion != null
+        ? parseInt(reserva.minutos_para_reservacion, 10)
+        : null;
+      return {
+        codigo: 'RESERVACION_PROXIMA',
+        reservacion_id: parseInt(reserva.id || reserva.reservacion_id, 10),
+        nombre: reserva.nombre || '',
+        fecha: reserva.fecha || '',
+        hora: String(reserva.hora || '').substring(0, 5),
+        comensales: parseInt(reserva.comensales || reserva.personas || '0', 10),
+        mesa_ids: reservaMesaIds,
+        reservation_mesa_ids: reservaMesaIds,
+        minutos_restantes: minutos,
+        duracion_estimada_supera: false,
+        presentacion: {
+          mensaje: 'El backend mantiene la advertencia; el servicio aún no puede iniciar.',
+          consecuencia: 'Si abres el ticket, la mesa deberá quedar disponible antes de la reservación.'
+        }
+      };
+    });
+  }
+
+  function mostrarAdvertenciaReservacionProxima(payload, warnings) {
+    warnings = Array.isArray(warnings) ? warnings.filter(Boolean) : [];
+    if (!warnings.length) return false;
+
+    var warning = warnings[0];
+    var warningTables = (Array.isArray(warning.reservation_mesa_ids) && warning.reservation_mesa_ids.length
+      ? warning.reservation_mesa_ids
+      : (Array.isArray(warning.mesa_ids) ? warning.mesa_ids : [])).map(function(mesaId) {
+        var mesaWarning = mesaPorId(mesaId);
+        return mesaWarning ? mesaWarning.nombre : 'Mesa ' + mesaId;
+      });
+    var minutosRestantes = warning.minutos_restantes != null
+      ? warning.minutos_restantes
+      : warning.minutos_para_reservacion;
+    var warningMessage = warning.presentacion
+      ? warning.presentacion.mensaje
+      : '';
+
+    showOpenTicketNotice({
+      title: 'Hay una reservación próxima',
+      message: 'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas') +
+        '. Hora: ' + (warning.hora || '--:--') +
+        '. Comensales: ' + (warning.comensales || 0) +
+        '. Faltan ' + (minutosRestantes != null ? minutosRestantes : 0) + ' minutos.',
+      summary: [
+        'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas'),
+        'Hora: ' + (warning.hora || '--:--'),
+        'Comensales: ' + (warning.comensales || 0),
+        'Minutos restantes: ' + (minutosRestantes != null ? minutosRestantes : 0)
+      ],
+      warning: warningMessage,
+      consequence: (warning.presentacion && warning.presentacion.consecuencia)
+        || 'Si abres el ticket, la mesa deberá quedar disponible antes de la reservación.' +
+          (warning.duracion_estimada_supera ? ' La duración estimada del servicio supera el tiempo disponible.' : ''),
+      cancelLabel: 'Volver',
+      confirmLabel: 'Abrir ticket de todas formas',
+      refreshOnCancel: false,
+      onConfirm: function() {
+        var confirmedPayload = Object.assign({}, payload, {
+          confirmar_reservacion_proxima: 1
+        });
+        requestOpenTicket(confirmedPayload, { warningConfirmed: true });
+        closeModal({ refresh: false });
+      }
+    });
+    return true;
+  }
+
   function requestOpenTicket(payload, options) {
     options = options || {};
     if (ticketRequestInFlight) return null;
+    if (!options.warningConfirmed && !(payload && payload.reservacion_id)) {
+      var localWarnings = warningsLocalesParaTicket(payload && payload.mesa_ids);
+      if (mostrarAdvertenciaReservacionProxima(payload, localWarnings)) return null;
+    }
     ticketRequestInFlight = true;
     var actionButton = options.button || null;
     setActionBusy(actionButton, true, 'Abriendo ticket…');
@@ -3552,52 +3640,7 @@ function initMapa() {
         var warnings = Array.isArray(result.advertencias) && result.advertencias.length
           ? result.advertencias
           : [result.advertencia];
-        var warning = warnings[0];
-        var details = [];
-        warnings.forEach(function(item) {
-          var ids = Array.isArray(item.reservation_mesa_ids) && item.reservation_mesa_ids.length
-            ? item.reservation_mesa_ids
-            : (Array.isArray(item.mesa_ids) ? item.mesa_ids : []);
-          ids.forEach(function(mesaId) {
-            var mesa = mesaPorId(mesaId);
-            details.push(
-              (mesa ? mesa.nombre : 'Mesa ' + mesaId) +
-              ' — ' + ((item.presentacion && item.presentacion.mensaje) || '')
-            );
-          });
-        });
-        var warningMessage = warning.presentacion
-          ? warning.presentacion.mensaje
-          : '';
-        var warningTables = (warning.reservation_mesa_ids || warning.mesa_ids || []).map(function(mesaId) {
-          var mesaWarning = mesaPorId(mesaId);
-          return mesaWarning ? mesaWarning.nombre : 'Mesa ' + mesaId;
-        });
-        showOpenTicketNotice({
-          title: 'Hay una reservación próxima',
-          message: 'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas') +
-            '. Hora: ' + (warning.hora || '--:--') +
-            '. Comensales: ' + (warning.comensales || 0) +
-            '. Faltan ' + (warning.minutos_restantes || 0) + ' minutos.',
-          summary: [
-            'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas'),
-            'Hora: ' + (warning.hora || '--:--'),
-            'Comensales: ' + (warning.comensales || 0),
-            'Minutos restantes: ' + (warning.minutos_restantes || 0)
-          ],
-          warning: warningMessage,
-          consequence: (warning.presentacion && warning.presentacion.consecuencia)
-            || 'Si abres el ticket, la mesa deberá quedar disponible antes de la reservación.' +
-              (warning.duracion_estimada_supera ? ' La duración estimada del servicio supera el tiempo disponible.' : ''),
-          cancelLabel: 'Volver',
-          confirmLabel: 'Abrir ticket de todas formas',
-          refreshOnCancel: false,
-          onConfirm: function() {
-            payload.confirmar_reservacion_proxima = 1;
-            requestOpenTicket(payload, { warningConfirmed: true });
-            closeModal({ refresh: false });
-          }
-        });
+        mostrarAdvertenciaReservacionProxima(payload, warnings);
         return;
       }
 
