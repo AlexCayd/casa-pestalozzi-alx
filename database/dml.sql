@@ -166,11 +166,6 @@ DROP TEMPORARY TABLE productos_semilla;
 -- Menú completo
 -- -------------------------------------------------------
 
-INSERT INTO menu (nombre, descripcion, precio, tag, categoria_id) VALUES
-
---
--- Sustituye al par 'productos' + 'menu', que guardaban lo mismo por duplicado:
--- borrar un platillo de la carta no lo quitaba del punto de venta.
 --
 -- Todo lo que está activo se vende Y se publica en la carta. Las bebidas de las
 -- categorías 9 y 10 van sin descripción: en la carta se imprimen solo con
@@ -389,14 +384,19 @@ INSERT INTO productos (nombre, descripcion, categoria_id, precio, tag, area_id) 
  8, 320.00, NULL, 3),
 ('Papas a la Francesa con Parmesano',
  'Papas a la francesa con queso parmesano rallado.',
- 160.00, NULL, 3);
+ 8, 160.00, NULL, 3)
+-- 'productos_semilla' (arriba) ya dio de alta el catálogo completo, incluidas
+-- las bebidas. Este bloque es el que aporta descripción y tag, así que
+-- enriquece la fila existente en vez de chocar contra uq_productos_nombre.
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  categoria_id = VALUES(categoria_id),
+  precio       = VALUES(precio),
+  tag          = VALUES(tag),
+  area_id      = VALUES(area_id);
 
--- `productos` es la fuente funcional consumida por carta, PDF y POS. La tabla
--- de compatibilidad aporta las descripciones del catálogo anterior.
-UPDATE productos p
-LEFT JOIN menu m ON m.nombre = p.nombre
-SET p.descripcion = COALESCE(NULLIF(m.descripcion, ''), CONCAT(p.nombre, '.')),
-    p.tag = m.tag;
+-- `productos` es la fuente funcional consumida por carta, PDF y POS: la
+-- descripción y el tag ya quedaron puestos por el bloque de arriba.
 
 -- -------------------------------------------------------
 -- Usuarios demo
@@ -587,8 +587,8 @@ INSERT INTO ticket_items (ticket_id, nombre, precio, categoria, area_id, cantida
 -- Tres visitas por cliente: el favorito aparece en las tres y el secundario
 -- en dos.
 --
--- Los nombres deben coincidir EXACTO con productos.nombre y menu.nombre:
--- el motor de recomendacion parte de 'menu' y une por nombre.
+-- Los nombres deben coincidir EXACTO con productos.nombre: el motor de
+-- recomendacion parte de 'productos' y une por nombre.
 -- -------------------------------------------------------
 
 -- Tickets cerrados para datos históricos de consumo.
@@ -768,6 +768,11 @@ WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
 -- Anuncio inicial que se modificará
 INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+
+-- Ajustes del POS. Arranca con el mesero editable: es el comportamiento que
+-- tenía el sistema antes de que existiera este ajuste, así que una instalación
+-- nueva se comporta igual que las que ya estaban en operación.
+INSERT INTO configuracion_pos (id, mesero_editable) VALUES (1, 1);
 
 -- -------------------------------------------------------
 -- ESCENARIOS DE RESERVACIONES: 27 NOVIEMBRE–3 DICIEMBRE 2026
@@ -1109,3 +1114,4 @@ SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresc
 UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 5, 20  FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';
+-- Fin de dml.sql
