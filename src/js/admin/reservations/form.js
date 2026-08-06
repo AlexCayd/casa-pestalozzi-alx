@@ -72,8 +72,8 @@
             var datePicker = null;
             var timePicker = null;
             var confirmation = card.querySelector('[data-reservation-confirmation]');
-            var confirmationController = confirmation && window.CPConfirmationModal
-                ? window.CPConfirmationModal.create(confirmation)
+            var confirmationController = confirmation && window.ConfirmationModal
+                ? window.ConfirmationModal.create(confirmation)
                 : null;
             var activeConfirmation = null;
             var saveLabel = saveButton ? saveButton.textContent : 'Guardar cambios';
@@ -208,15 +208,37 @@
                         CAPACIDAD_INSUFICIENTE: 'Capacidad insuficiente: la capacidad estimada no cubre a todos los comensales.'
                     };
                     var requiresManualAssignment = codes.indexOf('SIN_ASIGNACION') !== -1;
+                    var exceedsCapacity = codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1;
+                    var requested = parseInt(formValue(form, 'comensales') || '0', 10) || 0;
+                    var availability = detail.availability || {};
+                    var available = parseInt(
+                        detail.available || availability.capacidad_real_disponible || availability.capacidad_estimada || '0',
+                        10
+                    ) || 0;
                     return {
                         type: type,
-                        eyebrow: 'Advertencias de guardado',
-                        title: 'Revisa las condiciones de la reservacion',
-                        description: codes.map(function (code) { return labels[code] || code; }).join(' '),
+                        eyebrow: exceedsCapacity ? 'Decisión administrativa' : 'Confirmación operativa',
+                        title: exceedsCapacity
+                            ? 'La reservación supera la capacidad disponible'
+                            : (requiresManualAssignment ? 'Confirmar sin mesas' : 'Revisa las condiciones de la reservacion'),
+                        description: exceedsCapacity
+                            ? 'Hay capacidad operativa limitada para este horario y la solicitud excede la capacidad real disponible.'
+                            : codes.map(function (code) { return labels[code] || code; }).join(' '),
+                        summary: exceedsCapacity
+                            ? ['Comensales solicitados: ' + requested, 'Capacidad disponible: ' + available]
+                            : codes.map(function (code) { return labels[code] || code; }),
+                        warning: exceedsCapacity
+                            ? 'La asignación física no está garantizada.'
+                            : (requiresManualAssignment ? 'La asignación de mesas quedará pendiente.' : ''),
+                        consequence: exceedsCapacity
+                            ? 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.'
+                            : (requiresManualAssignment ? 'La reservación quedará confirmada y deberá asignarse manualmente después.' : ''),
                         backLabel: 'Seguir editando',
-                        confirmLabel: requiresManualAssignment
+                        confirmLabel: exceedsCapacity
+                            ? 'Confirmar bajo responsabilidad'
+                            : (requiresManualAssignment
                             ? 'Confirmar sin mesas'
-                            : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias'),
+                            : (mode === 'crear' ? 'Crear con advertencias' : 'Guardar con advertencias')),
                         focusTarget: saveButton,
                         onConfirm: function () {
                             if (confirmationInput) confirmationInput.value = codes.join(',');
@@ -230,13 +252,20 @@
                     var available = parseInt(detail.available || '0', 10) || 0;
                     return {
                         type: type,
-                        eyebrow: 'Requiere asignación manual',
-                        title: 'Capacidad insuficiente',
+                        eyebrow: 'Decisión administrativa',
+                        title: 'La reservación supera la capacidad disponible',
                         description: 'La reservación solicita ' + requested +
-                            ' personas y sólo hay capacidad disponible para ' + available +
-                            '. Puedes crearla sin mesas y completar la asignación manualmente.',
-                        backLabel: 'Cancelar',
-                        confirmLabel: 'Confirmar sin mesas',
+                            ' personas y sólo hay capacidad real disponible para ' + available +
+                            '. Revisa la excepción antes de confirmar.',
+                        summary: [
+                            'Comensales solicitados: ' + requested,
+                            'Capacidad disponible: ' + available,
+                            'Exceso: ' + Math.max(0, requested - available)
+                        ],
+                        warning: 'La asignación física no está garantizada.',
+                        consequence: 'La reservación quedará confirmada sin garantía de una asignación física y deberá resolverse manualmente.',
+                        backLabel: 'Seguir editando',
+                        confirmLabel: 'Confirmar bajo responsabilidad',
                         focusTarget: form.elements.comensales,
                         onConfirm: function () {
                             if (confirmationInput) confirmationInput.value = 'CAPACIDAD_OPERATIVA_EXCEDIDA';
@@ -334,6 +363,9 @@
                     eyebrow: configured.eyebrow,
                     title: configured.title,
                     description: configured.description,
+                    summary: configured.summary,
+                    warning: configured.warning,
+                    consequence: configured.consequence,
                     secondaryLabel: configured.backLabel,
                     primaryLabel: configured.confirmLabel,
                     focusTarget: configured.focusTarget,
@@ -719,7 +751,11 @@
                 var accepted = confirmationInput ? String(confirmationInput.value || '').split(',').filter(Boolean) : [];
                 var missing = codes.filter(function (code) { return accepted.indexOf(code) === -1; });
                 if (missing.length) {
-                    openConfirmation('warnings', { codes: codes });
+                    var hour = normalizeHour(timeInput ? timeInput.value : '');
+                    openConfirmation('warnings', {
+                        codes: codes,
+                        availability: hour ? (availabilityDetails[hour] || {}) : {}
+                    });
                     return true;
                 }
                 return false;
@@ -936,81 +972,69 @@
 
     function initReservationActionModal() {
         var root = document.querySelector('[data-reservation-detail-root]');
-        var modal = root ? root.querySelector('[data-reservation-action-modal]') : null;
-        if (!root || !modal) return;
+        var host = root ? root.querySelector('[data-reservation-action-confirmation]') : null;
+        if (!root || !host || !window.ConfirmationModal) return;
 
-        var form = modal.querySelector('[data-reservation-action-form]');
-        var stateInput = modal.querySelector('[data-reservation-action-state]');
-        var title = modal.querySelector('[data-reservation-action-title]');
-        var description = modal.querySelector('[data-reservation-action-description]');
-        var reasonField = modal.querySelector('[data-reservation-action-reason-field]');
-        var reason = modal.querySelector('[data-reservation-action-reason]');
-        var error = modal.querySelector('[data-reservation-action-error]');
-        var lastFocus = null;
-
-        function close() {
-            modal.classList.remove('is-open');
-            modal.hidden = true;
-            document.body.style.overflow = '';
-            if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
-            lastFocus = null;
-        }
+        var form = root.querySelector('[data-reservation-action-form]');
+        var stateInput = form && form.querySelector('[data-reservation-action-state]');
+        var reasonValue = form && form.querySelector('[data-reservation-action-reason-value]');
+        var controller = window.ConfirmationModal.create(host);
 
         root.querySelectorAll('[data-reservation-action-open]').forEach(function (trigger) {
             trigger.addEventListener('click', function () {
                 var targetState = trigger.getAttribute('data-action-state') || '';
                 var requiresReason = trigger.getAttribute('data-action-reason') === '1';
-                lastFocus = trigger;
-                stateInput.value = targetState;
-                reasonField.hidden = !requiresReason;
-                reason.value = '';
-                error.textContent = '';
-                title.textContent = trigger.getAttribute('data-action-label') || 'Confirmar acción';
-                description.textContent = targetState === 'no_show'
-                    ? 'Confirma que la tolerancia venció, no existe llegada y no hay ticket abierto.'
-                    : (targetState === 'cancelada'
-                        ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
-                        : 'El servidor volverá a validar el estado, las mesas y los tickets antes de guardar.');
-                modal.hidden = false;
-                document.body.style.overflow = 'hidden';
-                window.requestAnimationFrame(function () {
-                    modal.classList.add('is-open');
-                    (requiresReason ? reason : modal.querySelector('[data-admin-modal-dialog]')).focus();
+                var reason = null;
+                var customContent = null;
+                if (requiresReason) {
+                    var reasonField = document.createElement('label');
+                    reasonField.className = 'confirmation-modal__reason';
+                    var reasonLabel = document.createElement('span');
+                    reasonLabel.textContent = 'Motivo';
+                    reason = document.createElement('textarea');
+                    reason.rows = 3;
+                    reason.maxLength = 500;
+                    reason.placeholder = 'Explica brevemente el motivo';
+                    reason.setAttribute('aria-label', 'Motivo de la cancelación');
+                    reasonField.append(reasonLabel, reason);
+                    customContent = reasonField;
+                }
+                if (stateInput) stateInput.value = targetState;
+                if (reasonValue) reasonValue.value = '';
+                var isNoShow = targetState === 'no_show';
+                var isCancel = targetState === 'cancelada';
+                controller.open({
+                    variant: isCancel ? 'danger' : 'warning',
+                    eyebrow: isCancel ? 'Acción irreversible' : 'Acción operativa',
+                    title: trigger.getAttribute('data-action-label') || (isNoShow ? 'Registrar que el cliente no se presentó' : 'Confirmar acción'),
+                    description: isNoShow
+                        ? 'La tolerancia de llegada terminó y no existe llegada ni ticket abierto.'
+                        : (isCancel
+                            ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
+                            : 'El servidor volverá a validar el estado, las mesas y los tickets antes de guardar.'),
+                    consequence: isNoShow
+                        ? 'La reservación cambiará a no show y sus mesas dejarán de estar comprometidas.'
+                        : (isCancel
+                            ? 'La reservación dejará de estar vigente y sus mesas quedarán disponibles.'
+                            : 'La operación aplicará la decisión administrativa después de una nueva validación.'),
+                    customContent: customContent,
+                    secondaryLabel: 'Volver',
+                    primaryLabel: isNoShow ? 'Registrar ausencia' : (isCancel ? 'Cancelar reservación' : 'Confirmar'),
+                    focusTarget: trigger,
+                    initialFocus: requiresReason ? reason : 'primary',
+                    onPrimary: function () {
+                        if (requiresReason && (!reason || !reason.value.trim())) {
+                            controller.setStatus('Escribe el motivo antes de continuar.', true);
+                            if (reason) reason.focus();
+                            return false;
+                        }
+                        if (reasonValue) reasonValue.value = reason ? reason.value.trim() : '';
+                        if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+                        else if (form) HTMLFormElement.prototype.submit.call(form);
+                        return true;
+                    }
                 });
             });
-        });
-
-        modal.querySelectorAll('[data-reservation-action-close]').forEach(function (button) {
-            button.addEventListener('click', close);
-        });
-
-        form.addEventListener('submit', function (event) {
-            if (!reasonField.hidden && !reason.value.trim()) {
-                event.preventDefault();
-                error.textContent = 'Escribe el motivo antes de continuar.';
-                reason.focus();
-            }
-        });
-
-        document.addEventListener('keydown', function (event) {
-            if (modal.hidden) return;
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                close();
-                return;
-            }
-            if (event.key !== 'Tab') return;
-            var focusable = Array.prototype.slice.call(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
-            if (!focusable.length) return;
-            var first = focusable[0];
-            var last = focusable[focusable.length - 1];
-            if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first.focus();
-            }
         });
     }
 

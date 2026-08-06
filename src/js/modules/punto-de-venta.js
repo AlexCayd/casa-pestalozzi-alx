@@ -2824,9 +2824,9 @@ function initMapa() {
             'Comensales: ' + noShowPeople,
             'Mesa(s): ' + (noShowTables.length ? noShowTables.join(', ') : 'Sin mesas asignadas'),
             'Tolerancia configurada: ' + toleranceLabel + (toleranceText ? ' · terminó a las ' + toleranceText : ''),
-            'Minutos de retraso: ' + delayMinutes,
-            'Al registrar la ausencia, la reservación quedará como no show y las mesas dejarán de estar comprometidas.'
+            'Minutos de retraso: ' + delayMinutes
           ],
+          consequence: 'La reservación cambiará a no show y sus mesas dejarán de estar comprometidas.',
           cancelLabel: 'Volver',
           confirmLabel: 'Registrar ausencia',
           onConfirm: function() {
@@ -3447,21 +3447,21 @@ function initMapa() {
     options = options || {};
     if (!modal || !modalContent) return;
     activeReservationModal = null;
-    if (!window.CPConfirmationModal) return;
+    if (!window.ConfirmationModal) return;
     sugTimerStop();
     sugTicket = null;
     sugPedidas = false;
     modalContent.innerHTML = '';
     openModalShell();
-    window.CPConfirmationModal.create(modalContent).open({
+    window.ConfirmationModal.create(modalContent).open({
       variant: options.variant === 'absence' || options.confirmButtonVariant === 'warning'
         ? 'warning'
         : 'default',
       eyebrow: options.variant === 'absence' ? 'Registro operativo' : 'Confirmación operativa',
       title: options.title || 'Aviso',
-      description: options.message || '',
-      summary: options.details || [],
-      consequence: options.consequence || '',
+      description: options.message || 'Revisa la causa y la consecuencia antes de continuar.',
+      summary: options.summary || options.details || [],
+      consequence: options.consequence || 'No se realizó ningún cambio.',
       secondaryLabel: options.cancelLabel || 'Cerrar',
       primaryLabel: options.confirmLabel || 'Continuar',
       primaryHidden: !options.onConfirm,
@@ -3569,10 +3569,26 @@ function initMapa() {
         var warningMessage = warning.presentacion
           ? warning.presentacion.mensaje
           : '';
+        var warningTables = (warning.reservation_mesa_ids || warning.mesa_ids || []).map(function(mesaId) {
+          var mesaWarning = mesaPorId(mesaId);
+          return mesaWarning ? mesaWarning.nombre : 'Mesa ' + mesaId;
+        });
         showOpenTicketNotice({
-          title: warning.presentacion ? warning.presentacion.titulo : '',
-          message: warningMessage,
-          details: details,
+          title: 'Hay una reservación próxima',
+          message: 'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas') +
+            '. Hora: ' + (warning.hora || '--:--') +
+            '. Comensales: ' + (warning.comensales || 0) +
+            '. Faltan ' + (warning.minutos_restantes || 0) + ' minutos.',
+          summary: [
+            'Mesa(s): ' + (warningTables.length ? warningTables.join(', ') : 'Sin mesas identificadas'),
+            'Hora: ' + (warning.hora || '--:--'),
+            'Comensales: ' + (warning.comensales || 0),
+            'Minutos restantes: ' + (warning.minutos_restantes || 0)
+          ],
+          warning: warningMessage,
+          consequence: (warning.presentacion && warning.presentacion.consecuencia)
+            || 'Si abres el ticket, la mesa deberá quedar disponible antes de la reservación.' +
+              (warning.duracion_estimada_supera ? ' La duración estimada del servicio supera el tiempo disponible.' : ''),
           cancelLabel: 'Volver a la selección',
           confirmLabel: 'Abrir ticket de todas formas',
           refreshOnCancel: false,
@@ -3881,8 +3897,8 @@ function initMapa() {
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {
-    if (!window.CPConfirmationModal) return;
-    window.CPConfirmationModal.get().open({
+    if (!window.ConfirmationModal) return;
+    window.ConfirmationModal.get().open({
       variant: 'danger',
       eyebrow: 'Acción irreversible',
       title: 'Cancelar preparación',

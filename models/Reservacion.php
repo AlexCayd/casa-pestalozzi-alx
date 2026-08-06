@@ -486,6 +486,7 @@ class Reservacion extends ActiveRecord {
                     r.hora,
                     r.comensales,
                     r.nota,
+                    r.comentario_admin,
                     r.estado,
                     r.hold_expires_at,
                     r.reemplaza_reservacion_id,

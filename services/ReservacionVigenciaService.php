@@ -106,6 +106,13 @@ final class ReservacionVigenciaService
         return array_values(array_filter(
             $pendientes,
             static function ($reservacion) use ($horaInicio, $horaFin): bool {
+                // Una ausencia pendiente es una decisión operativa, no una
+                // nueva reservación. Debe permanecer visible para registrar el
+                // no-show aunque el selector de horas ya haya pasado el bloque
+                // en que fue programada.
+                if (self::valor($reservacion, 'accion_pendiente', '') === 'REGISTRAR_AUSENCIA') {
+                    return true;
+                }
                 $hora = HorarioReservacionService::normalizarHoraCorta(
                     (string)self::valor($reservacion, 'hora', '')
                 );

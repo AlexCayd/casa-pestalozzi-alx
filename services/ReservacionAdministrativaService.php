@@ -317,6 +317,12 @@ final class ReservacionAdministrativaService
                 return self::rollback($db, self::errorHorario($revalidacion));
             }
             $warningCodes = self::warningCodes($datos, $revalidacion, $solicitaAsignacion, false);
+            // La decisión explícita de sobrecapacidad también autoriza dejar
+            // la reservación sin mesas: la asignación manual se resuelve
+            // después, sin exigir un segundo clic de "sin mesas".
+            if (in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $confirmaciones, true)) {
+                $warningCodes = array_values(array_diff($warningCodes, [self::SIN_ASIGNACION]));
+            }
             $faltantes = array_values(array_diff($warningCodes, $confirmaciones));
             if ($faltantes !== []) {
                 return self::rollback($db, self::respuestaAdvertencias($faltantes, $revalidacion, $datos));

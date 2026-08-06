@@ -359,8 +359,11 @@ final class PuntoVentaReservacionService
                     return self::rollbackResultado(
                         $db,
                         $transaccion,
-                        self::MESA_OCUPADA,
-                        ['mesas_conflicto' => self::csvIds($conflicto['mesa_ids'] ?? '')]
+                        self::TICKET_ABIERTO,
+                        [
+                            'ticket_id' => (int)($conflicto['id'] ?? 0),
+                            'mesas_conflicto' => self::csvIds($conflicto['mesa_ids'] ?? '')
+                        ]
                     );
                 }
             }
@@ -675,6 +678,8 @@ final class PuntoVentaReservacionService
                 'puede_abrir_ticket' => $ticket === null,
                 'puede_cerrar_ticket' => $ticket !== null,
             ],
+            'puede_abrir_ticket' => $ticket === null,
+            'accion_primaria' => $ticket ? 'CONSULTAR_TICKET' : 'ABRIR_TICKET',
             'advertencia_codigo' => $advertenciaCodigo,
             'advertencia_contexto' => $advertenciaContexto,
             'liberacion_estimada' => $liberacionEstimada,

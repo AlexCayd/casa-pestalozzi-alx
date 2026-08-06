@@ -569,23 +569,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
         <button type="button" class="reservation-access__link" data-editor-cancel>Cancelar</button>
       </div>
       <p class="reservation-access__message" data-editor-message role="status" aria-live="polite"></p>
-      <section class="reservation-card__editor-comparison" data-editor-comparison hidden role="dialog" aria-modal="true" aria-live="polite">
-        <span class="eyebrow no-rule">Revisa tu cambio</span>
-        <h4 data-editor-comparison-title>Confirma la nueva reservación</h4>
-        <p>Tu reservación actual seguirá vigente hasta que confirmes este cambio.</p>
-        <p class="reservation-card__editor-comparison-hold" data-editor-comparison-hold>Esta disponibilidad se conservará durante 15 minutos.</p>
-        <dl class="reservation-card__editor-comparison-details">
-          <div data-editor-comparison-row="fecha"><dt>Fecha</dt><dd><span><small>Actual</small><strong data-editor-comparison-current-date></strong></span><span><small>Nueva</small><strong data-editor-comparison-date></strong></span></dd></div>
-          <div data-editor-comparison-row="hora"><dt>Hora</dt><dd><span><small>Actual</small><strong data-editor-comparison-current-time></strong></span><span><small>Nueva</small><strong data-editor-comparison-time></strong></span></dd></div>
-          <div data-editor-comparison-row="personas"><dt>Personas</dt><dd><span><small>Actual</small><strong data-editor-comparison-current-people></strong></span><span><small>Nueva</small><strong data-editor-comparison-people></strong></span></dd></div>
-          <div data-editor-comparison-row="notas"><dt>Indicaciones</dt><dd><span><small>Actual</small><strong data-editor-comparison-current-notes></strong></span><span><small>Nueva</small><strong data-editor-comparison-notes></strong></span></dd></div>
-        </dl>
-        <span class="field__msg reservation-field__error" data-editor-comparison-error role="status" aria-live="polite"></span>
-        <div class="reservation-card__editor-actions">
-          <button type="button" class="reservation-access__link" data-editor-comparison-back>Volver a editar</button>
-          <button type="button" class="btn-line" data-editor-comparison-confirm><span>Confirmar modificación</span></button>
-        </div>
-      </section>
+      <div class="reservation-card__editor-comparison-host" data-editor-comparison-host></div>
     </form>
   </template>
 </section>

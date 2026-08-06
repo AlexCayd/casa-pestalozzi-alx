@@ -137,17 +137,11 @@
         var createModalLastFocus = null;
         var createModalDirty = false;
         var createModalSubmitting = false;
-        var ticketConflictModal = root.querySelector('[data-operation-ticket-conflict-modal]');
-        var ticketConflictList = root.querySelector('[data-operation-ticket-conflict-list]');
-        var ticketConflictError = root.querySelector('[data-operation-ticket-conflict-error]');
-        var actionModal = root.querySelector('[data-operation-action-modal]');
-        var actionTitle = root.querySelector('[data-operation-action-title]');
-        var actionDescription = root.querySelector('[data-operation-action-description]');
-        var actionReasonField = root.querySelector('[data-operation-action-reason-field]');
-        var actionReason = root.querySelector('[data-operation-action-reason]');
-        var actionError = root.querySelector('[data-operation-action-error]');
-        var ticketConflictLastFocus = null;
-        var actionModalLastFocus = null;
+        var confirmationHost = root.querySelector('[data-operation-confirmation-host]');
+        var confirmationController = confirmationHost && window.ConfirmationModal
+            ? window.ConfirmationModal.create(confirmationHost)
+            : null;
+        var actionReason = null;
 
         var noticeTimer = null;
         var activeNoticeSource = '';
@@ -2034,7 +2028,7 @@
         }
 
         function openTicketConflictModal(payload) {
-            if (!ticketConflictModal || !ticketConflictList) {
+            if (!confirmationController) {
                 showInlineError(payload && payload.mensaje || '');
                 return;
             }
@@ -2055,47 +2049,45 @@
                 }).filter(Boolean),
                 confirmaciones: confirmaciones
             };
-            var warningMarkup = confirmaciones.map(function (codigo) {
+            var confirmationDetails = confirmaciones.map(function (codigo) {
                 var presentacion = (payload.confirmaciones_requeridas_presentaciones && payload.confirmaciones_requeridas_presentaciones[codigo])
                     || (payload.advertencias_presentaciones && payload.advertencias_presentaciones[codigo]);
-                return '<p class="reservation-operation-inline reservation-operation-inline--warning"><strong>Confirmacion requerida:</strong> ' +
-                    esc(presentacion ? presentacion.mensaje : '') + '</p>';
-            }).join('');
-            ticketConflictList.innerHTML = warningMarkup + conflictos.map(function (conflicto) {
+                return 'Confirmación requerida: ' + (presentacion ? presentacion.mensaje : codigo);
+            });
+            confirmationDetails = confirmationDetails.concat(conflictos.map(function (conflicto) {
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
                 var allTables = (conflicto.mesa_ids || []).map(mesaNombre).join(', ');
                 var origin = conflicto.origen === 'reservacion'
-                    ? 'Reservación #' + esc(conflicto.reservacion_id || '')
+                    ? 'Reservación #' + (conflicto.reservacion_id || '')
                     : 'Walk-in';
-                return '<article class="admin-card reservation-operation-conflict">' +
-                    '<h3>Ticket #' + esc(conflicto.ticket_id) + '</h3>' +
-                    '<p><strong>Mesas seleccionadas:</strong> ' + esc(conflictTables || 'Sin identificar') + '</p>' +
-                    '<p><strong>Todas sus mesas:</strong> ' + esc(allTables || 'Sin identificar') + '</p>' +
-                    '<p><strong>Apertura:</strong> ' + esc(conflicto.hora_apertura || 'Sin dato') + '</p>' +
-                    '<p><strong>Origen:</strong> ' + origin + '</p>' +
-                '</article>';
-            }).join('');
-            if (ticketConflictError) {
-                ticketConflictError.hidden = true;
-                ticketConflictError.textContent = '';
-            }
-            ticketConflictLastFocus = document.activeElement;
-            ticketConflictModal.showModal();
-            window.requestAnimationFrame(function () {
-                var first = ticketConflictModal.querySelector('[data-operation-ticket-conflict-confirm], [data-operation-ticket-conflict-close], button:not([disabled])');
-                if (first) first.focus();
+                return 'Ticket #' + conflicto.ticket_id +
+                    ' · Mesas seleccionadas: ' + (conflictTables || 'Sin identificar') +
+                    ' · Todas sus mesas: ' + (allTables || 'Sin identificar') +
+                    ' · Apertura: ' + (conflicto.hora_apertura || 'Sin dato') +
+                    ' · Origen: ' + origin;
+            }));
+            confirmationController.open({
+                variant: 'warning',
+                eyebrow: 'Excepción manual',
+                title: 'Conflicto de asignación',
+                description: 'La selección coincide con tickets realmente abiertos.',
+                summary: confirmationDetails,
+                consequence: 'El ticket continuará abierto y no se vinculará con esta reservación.',
+                secondaryLabel: 'Volver',
+                primaryLabel: 'Confirmar y guardar',
+                onPrimary: function () {
+                    var confirmation = state.pendingAssignmentConflict;
+                    confirmationController.close(false);
+                    if (confirmation) saveTableAssignment(confirmation);
+                }
             });
         }
 
         function closeTicketConflictModal() {
             state.pendingAssignmentConflict = null;
-            if (ticketConflictModal && ticketConflictModal.open) {
-                ticketConflictModal.close();
+            if (confirmationController && !confirmationController.element.hidden) {
+                confirmationController.close(true);
             }
-            if (ticketConflictLastFocus && document.contains(ticketConflictLastFocus)) {
-                ticketConflictLastFocus.focus();
-            }
-            ticketConflictLastFocus = null;
         }
 
         function saveComment() {
@@ -2236,7 +2228,7 @@
         }
 
         function openActionModal(action, reservacion) {
-            if (!actionModal) {
+            if (!confirmationController) {
                 showInlineError('No fue posible abrir la confirmación operativa.');
                 return;
             }
@@ -2244,44 +2236,61 @@
             state.pendingAction = action;
             var isCancel = action === 'cancel';
             var isClearAssignment = action === 'clear-assignment';
-            if (isClearAssignment) {
-                actionTitle.textContent = 'Asignar mesas después';
-                actionDescription.textContent = 'La reservacion administrativa conservara el estado confirmado y quedara sin mesas asignadas para completar la asignacion manual.';
+            var title = isCancel
+                ? 'Cancelar reservación'
+                : (isClearAssignment ? 'Asignar mesas después' : 'Registrar que el cliente no se presentó');
+            var description = isCancel
+                ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
+                : (isClearAssignment
+                    ? 'La reservación conservará el estado confirmado y quedará sin mesas asignadas para completar la asignación manual.'
+                    : 'La tolerancia venció y no existe llegada ni ticket abierto.');
+            var consequence = isCancel
+                ? 'La reservación dejará de comprometer sus mesas y no podrá recuperarse desde el mapa.'
+                : (isClearAssignment
+                    ? 'La reservación seguirá confirmada y el equipo deberá resolver su asignación manualmente.'
+                    : 'La reservación cambiará a no show y sus mesas dejarán de estar comprometidas.');
+            var customContent = null;
+            actionReason = null;
+            if (isCancel) {
+                var reasonField = document.createElement('label');
+                reasonField.className = 'confirmation-modal__reason';
+                var reasonLabel = document.createElement('span');
+                reasonLabel.textContent = 'Motivo';
+                actionReason = document.createElement('textarea');
+                actionReason.rows = 3;
+                actionReason.maxLength = 500;
+                actionReason.placeholder = 'Explica brevemente el motivo';
+                actionReason.setAttribute('aria-label', 'Motivo de la cancelación');
+                reasonField.append(reasonLabel, actionReason);
+                customContent = reasonField;
             }
-            actionTitle.textContent = isCancel ? 'Cancelar reservación' : 'Marcar como no show';
-            actionDescription.textContent = isCancel
-                ? 'La reservación conservará sus relaciones históricas. No puede cancelarse si el servicio ya comenzó.'
-                : 'Confirma que la tolerancia venció y que el cliente no llegó. Esta acción no puede revertirse desde el mapa.';
-            if (isClearAssignment) {
-                actionTitle.textContent = 'Asignar mesas después';
-                actionDescription.textContent = 'La reservacion administrativa conservara el estado confirmado y quedara sin mesas asignadas para completar la asignacion manual.';
-            }
-            actionReasonField.hidden = !isCancel;
-            if (!isCancel) {
-                actionTitle.textContent = 'Registrar que el cliente no se presentó';
-            }
-            actionReason.value = '';
-            actionError.hidden = true;
-            actionError.textContent = '';
-            actionModalLastFocus = document.activeElement;
-            actionModal.showModal();
-            window.requestAnimationFrame(function () {
-                var first = isCancel && actionReason
-                    ? actionReason
-                    : actionModal.querySelector('[data-operation-action-confirm], button:not([disabled])');
-                if (first) first.focus();
+            confirmationController.open({
+                variant: isCancel ? 'danger' : 'warning',
+                eyebrow: isCancel ? 'Acción administrativa' : 'Registro operativo',
+                title: title,
+                description: description,
+                summary: reservacion ? [
+                    'Reservación #' + (reservacion.id || ''),
+                    'Cliente: ' + (reservacion.nombre || 'Sin nombre'),
+                    'Fecha y hora: ' + (reservacion.fecha || '') + ' ' + String(reservacion.hora || '').slice(0, 5)
+                ] : [],
+                consequence: consequence,
+                customContent: customContent,
+                secondaryLabel: 'Volver',
+                primaryLabel: isCancel ? 'Cancelar reservación' : (isClearAssignment ? 'Asignar después' : 'Registrar ausencia'),
+                initialFocus: isCancel ? actionReason : 'primary',
+                onPrimary: function () {
+                    return confirmPendingAction();
+                }
             });
         }
 
-        function closeActionModal() {
+        function closeActionModal(restoreFocus) {
             state.pendingAction = null;
-            if (actionModal && actionModal.open) {
-                actionModal.close();
+            if (confirmationController && !confirmationController.element.hidden) {
+                confirmationController.close(restoreFocus !== false);
             }
-            if (actionModalLastFocus && document.contains(actionModalLastFocus)) {
-                actionModalLastFocus.focus();
-            }
-            actionModalLastFocus = null;
+            actionReason = null;
         }
 
         function confirmPendingAction() {
@@ -2291,18 +2300,18 @@
             }
             var motivo = actionReason ? actionReason.value.trim() : '';
             if (action === 'cancel' && !motivo) {
-                actionError.textContent = 'Escribe el motivo de la cancelación.';
-                actionError.hidden = false;
-                actionReason.focus();
-                return;
+                confirmationController.setStatus('Escribe el motivo de la cancelación.', true);
+                if (actionReason) actionReason.focus();
+                return false;
             }
             if (action === 'clear-assignment') {
-                closeActionModal();
+                closeActionModal(false);
                 clearTableAssignment();
-                return;
+                return true;
             }
-            closeActionModal();
+            closeActionModal(false);
             executeReservationAction(action, motivo);
+            return true;
         }
 
         function showInlineError(message) {
@@ -2486,39 +2495,6 @@
         }
 
         root.addEventListener('keydown', function (event) {
-            var activeDialog = ticketConflictModal && ticketConflictModal.open
-                ? ticketConflictModal
-                : (actionModal && actionModal.open ? actionModal : null);
-            if (activeDialog && event.key === 'Tab') {
-                var focusable = Array.prototype.slice.call(activeDialog.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
-                if (focusable.length) {
-                    var first = focusable[0];
-                    var last = focusable[focusable.length - 1];
-                    if (event.shiftKey && document.activeElement === first) {
-                        event.preventDefault();
-                        last.focus();
-                        return;
-                    }
-                    if (!event.shiftKey && document.activeElement === last) {
-                        event.preventDefault();
-                        first.focus();
-                        return;
-                    }
-                }
-            }
-
-            if (event.key === 'Escape' && ticketConflictModal && ticketConflictModal.open) {
-                event.preventDefault();
-                closeTicketConflictModal();
-                return;
-            }
-
-            if (event.key === 'Escape' && actionModal && actionModal.open) {
-                event.preventDefault();
-                closeActionModal();
-                return;
-            }
-
             if (event.key === 'Escape' && createModal && createModal.open) {
                 event.preventDefault();
                 closeCreateModal(false);
@@ -2573,10 +2549,6 @@
         });
 
         root.addEventListener('click', function (event) {
-            var ticketConflictClose = event.target.closest('[data-operation-ticket-conflict-close]');
-            var ticketConflictConfirm = event.target.closest('[data-operation-ticket-conflict-confirm]');
-            var actionClose = event.target.closest('[data-operation-action-close]');
-            var actionConfirm = event.target.closest('[data-operation-action-confirm]');
             var reservationButton = event.target.closest('[data-operation-reservation]');
             var assignmentStart = event.target.closest('[data-operation-assignment-start]');
             var assignmentCancel = event.target.closest('[data-operation-assignment-cancel]');
@@ -2585,29 +2557,6 @@
             var commentButton = event.target.closest('[data-operation-comment-save]');
             var actionButton = event.target.closest('[data-operation-action]');
             var mobileTab = event.target.closest('[data-operation-mobile-tab]');
-
-            if (ticketConflictClose) {
-                closeTicketConflictModal();
-                return;
-            }
-
-            if (ticketConflictConfirm) {
-                if (state.pendingAssignmentConflict) {
-                    var confirmation = state.pendingAssignmentConflict;
-                    saveTableAssignment(confirmation);
-                }
-                return;
-            }
-
-            if (actionClose) {
-                closeActionModal();
-                return;
-            }
-
-            if (actionConfirm) {
-                confirmPendingAction();
-                return;
-            }
 
             if (mobileTab) {
                 setMobileView(mobileTab.getAttribute('data-operation-mobile-tab'));

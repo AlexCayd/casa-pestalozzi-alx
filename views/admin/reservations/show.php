@@ -357,32 +357,12 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
         </aside>
     </div>
 
-    <div class="admin-modal" data-reservation-action-modal hidden>
-        <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-reservation-action-close></button>
-        <div class="admin-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="reservation-action-title" data-admin-modal-dialog>
-            <div class="admin-modal__head">
-                <div>
-                    <span class="admin-modal__eyebrow">Acción operativa</span>
-                    <h2 class="admin-modal__title" id="reservation-action-title" data-reservation-action-title>Confirmar acción</h2>
-                </div>
-                <button class="admin-modal__close" type="button" aria-label="Cerrar" data-reservation-action-close>&times;</button>
-            </div>
-            <p class="admin-modal__text" data-reservation-action-description>Revisa la acción antes de continuar.</p>
-            <form method="POST" action="/admin/reservations/status" data-reservation-action-form>
-                <input type="hidden" name="id" value="<?php echo $id; ?>">
-                <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
-                <input type="hidden" name="estado" value="" data-reservation-action-state>
-                <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
-                <label class="admin-field admin-modal__field--wide" data-reservation-action-reason-field hidden>
-                    <span>Motivo</span>
-                    <textarea name="motivo" rows="3" maxlength="500" data-reservation-action-reason></textarea>
-                </label>
-                <p class="admin-form-status admin-modal__field--wide" data-reservation-action-error role="alert" aria-live="assertive"></p>
-                <div class="admin-modal__actions admin-modal__field--wide">
-                    <button type="button" class="admin-btn admin-btn--secondary" data-reservation-action-close>Volver</button>
-                    <button type="submit" class="admin-btn admin-btn--danger" data-reservation-action-submit>Confirmar</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="reservation-action-confirmation-host" data-reservation-action-confirmation></div>
+    <form method="POST" action="/admin/reservations/status" data-reservation-action-form hidden>
+        <input type="hidden" name="id" value="<?php echo $id; ?>">
+        <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
+        <input type="hidden" name="estado" value="" data-reservation-action-state>
+        <input type="hidden" name="motivo" value="" data-reservation-action-reason-value>
+        <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
+    </form>
 </section>

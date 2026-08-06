@@ -256,49 +256,6 @@ if ($initialOperationNotice !== null) {
         </div>
     </dialog>
 
-    <dialog class="operation-create-modal operation-confirm-modal" aria-labelledby="operation-ticket-conflict-title" data-operation-ticket-conflict-modal>
-        <div class="operation-create-modal__head">
-            <div>
-                <span class="operation-create-modal__eyebrow">Excepción manual</span>
-                <h2 id="operation-ticket-conflict-title">Confirmar advertencias de asignacion</h2>
-            </div>
-            <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar confirmación" data-operation-ticket-conflict-close>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
-            </button>
-        </div>
-        <div class="operation-create-modal__body">
-            <p>La selección coincide con tickets realmente abiertos. El ticket continuará abierto y no se vinculará con esta reservación.</p>
-            <div class="reservation-operation-conflicts" data-operation-ticket-conflict-list></div>
-            <p class="operation-create-modal__error" role="alert" data-operation-ticket-conflict-error hidden></p>
-        </div>
-        <div class="operation-create-modal__footer">
-            <button type="button" class="admin-btn admin-btn--secondary" data-operation-ticket-conflict-close>Volver</button>
-            <button type="button" class="admin-btn admin-btn--danger" data-operation-ticket-conflict-confirm>Confirmar y guardar</button>
-        </div>
-    </dialog>
-
-    <dialog class="operation-create-modal operation-confirm-modal" aria-labelledby="operation-action-confirm-title" data-operation-action-modal>
-        <div class="operation-create-modal__head">
-            <div>
-                <span class="operation-create-modal__eyebrow">Confirmación operativa</span>
-                <h2 id="operation-action-confirm-title" data-operation-action-title>Confirmar acción</h2>
-            </div>
-            <button type="button" class="operational-icon-button operation-create-modal__close" aria-label="Cerrar confirmación" data-operation-action-close>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
-            </button>
-        </div>
-        <div class="operation-create-modal__body">
-            <p data-operation-action-description>Revisa la acción antes de continuar.</p>
-            <label class="admin-field" data-operation-action-reason-field hidden>
-                <span>Motivo</span>
-                <textarea rows="3" maxlength="500" data-operation-action-reason placeholder="Explica brevemente el motivo"></textarea>
-            </label>
-            <p class="operation-create-modal__error" role="alert" data-operation-action-error hidden></p>
-        </div>
-        <div class="operation-create-modal__footer">
-            <button type="button" class="admin-btn admin-btn--secondary" data-operation-action-close>Volver</button>
-            <button type="button" class="admin-btn admin-btn--danger" data-operation-action-confirm>Confirmar</button>
-        </div>
-    </dialog>
+    <div data-operation-confirmation-host></div>
 
 </section>

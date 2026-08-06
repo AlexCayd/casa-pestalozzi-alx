@@ -72,11 +72,11 @@ function initReservationAccess() {
       reservation.fecha || "",
       String(reservation.hora || "").slice(0, 5)
     ].filter(Boolean).join(" a las ");
-    if (!window.CPConfirmationModal) {
+    if (!window.ConfirmationModal) {
       onConfirm();
       return;
     }
-    window.CPConfirmationModal.get().open({
+    window.ConfirmationModal.get().open({
       variant: "danger",
       eyebrow: "Acción irreversible",
       title: "Cancelar reservación",
@@ -84,6 +84,10 @@ function initReservationAccess() {
       consequence: "Esta acción liberará sus mesas y no se puede deshacer.",
       secondaryLabel: "Volver",
       primaryLabel: "Cancelar reservación",
+      summary: [
+        "Reservación de " + (reservation.nombre || "cliente sin nombre"),
+        "Fecha y hora: " + when
+      ],
       onPrimary: onConfirm
     });
   }
@@ -643,21 +647,10 @@ function initReservationAccess() {
         var editorGuestPicker = initializeEditorGuestPicker(editor, reservation);
         var editorPickers = initializeEditorPickers(editor, reservation);
         var editorCancel = editor.querySelector("[data-editor-cancel]");
-        var editorMainActions = editor.querySelector(".reservation-card__editor-actions");
-        var editorComparison = editor.querySelector("[data-editor-comparison]");
-        var editorComparisonBack = editor.querySelector("[data-editor-comparison-back]");
-        var editorComparisonConfirm = editor.querySelector("[data-editor-comparison-confirm]");
-        var editorComparisonError = editor.querySelector("[data-editor-comparison-error]");
-        var editorComparisonTitle = editor.querySelector("[data-editor-comparison-title]");
-        var editorComparisonHold = editor.querySelector("[data-editor-comparison-hold]");
-        var editorComparisonCurrentDate = editor.querySelector("[data-editor-comparison-current-date]");
-        var editorComparisonCurrentTime = editor.querySelector("[data-editor-comparison-current-time]");
-        var editorComparisonCurrentPeople = editor.querySelector("[data-editor-comparison-current-people]");
-        var editorComparisonCurrentNotes = editor.querySelector("[data-editor-comparison-current-notes]");
-        var editorComparisonDate = editor.querySelector("[data-editor-comparison-date]");
-        var editorComparisonTime = editor.querySelector("[data-editor-comparison-time]");
-        var editorComparisonPeople = editor.querySelector("[data-editor-comparison-people]");
-        var editorComparisonNotes = editor.querySelector("[data-editor-comparison-notes]");
+        var editorComparisonHost = editor.querySelector("[data-editor-comparison-host]");
+        var editorComparisonController = editorComparisonHost && window.ConfirmationModal
+          ? window.ConfirmationModal.create(editorComparisonHost)
+          : null;
         var editorSubmit = editor.querySelector('button[type="submit"]');
         var originalReservation = {
           id: reservation.id,
@@ -694,15 +687,15 @@ function initReservationAccess() {
         function resetEditorComparison() {
           editorOperation = null;
           setEditorState("editing");
-          if (editorComparison) editorComparison.hidden = true;
-          if (editorMainActions) editorMainActions.hidden = false;
-          if (editorComparisonError) editorComparisonError.textContent = "";
+          if (editorComparisonController && !editorComparisonController.element.hidden) {
+            editorComparisonController.close(false);
+          }
         }
 
         function showEditorComparison(data, requestToken) {
           var proposed = data && (data.propuesta || data.replacement);
           var current = data && data.original;
-          if (!requestToken || !current || !proposed) return false;
+          if (!requestToken || !current || !proposed || !editorComparisonController) return false;
 
           editorOperation = {
             request_token: requestToken,
@@ -712,27 +705,65 @@ function initReservationAccess() {
             hold_minutes: Number(data.hold_minutes) || 15
           };
           setEditorState("reviewing");
-          if (editorComparisonTitle) editorComparisonTitle.id = "reservationEditorComparisonTitle-" + reservation.id;
-          if (editorComparison) editorComparison.setAttribute("aria-labelledby", "reservationEditorComparisonTitle-" + reservation.id);
-          if (editorMainActions) editorMainActions.hidden = true;
-          if (editorComparison) editorComparison.hidden = false;
-          if (editorComparisonHold) editorComparisonHold.textContent = "Esta disponibilidad se conservará durante " + editorOperation.hold_minutes + " minutos.";
           var fields = [
-            { name: "fecha", current: editorComparisonCurrentDate, proposed: editorComparisonDate },
-            { name: "hora", current: editorComparisonCurrentTime, proposed: editorComparisonTime },
-            { name: "personas", current: editorComparisonCurrentPeople, proposed: editorComparisonPeople },
-            { name: "notas", current: editorComparisonCurrentNotes, proposed: editorComparisonNotes }
+            { name: "fecha", label: "Fecha" },
+            { name: "hora", label: "Hora" },
+            { name: "personas", label: "Personas" },
+            { name: "notas", label: "Nota" }
           ];
-          fields.forEach(function(field) {
-            var row = editor.querySelector("[data-editor-comparison-row='" + field.name + "']");
+          var summaryRows = fields.map(function(field) {
             var currentValue = current[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
             var proposedValue = proposed[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
-            if (field.current) field.current.textContent = publicValue(current, field.name);
-            if (field.proposed) field.proposed.textContent = publicValue(proposed, field.name);
-            if (row) row.classList.toggle("is-changed", !sameValue(currentValue, proposedValue, field.name));
+            return {
+              label: field.label,
+              current: publicValue(current, field.name),
+              proposed: publicValue(proposed, field.name),
+              changed: !sameValue(currentValue, proposedValue, field.name)
+            };
           });
-          if (editorComparisonError) editorComparisonError.textContent = "";
-          if (editorComparisonConfirm) editorComparisonConfirm.focus();
+          editorComparisonController.open({
+            eyebrow: "Revisa tu cambio",
+            title: "Confirma la nueva reservación",
+            description: "Tu reservación actual seguirá vigente hasta que confirmes este cambio.",
+            summaryRows: summaryRows,
+            consequence: "Esta disponibilidad se conservará durante " + editorOperation.hold_minutes + " minutos.",
+            secondaryLabel: "Volver a editar",
+            primaryLabel: "Confirmar modificación",
+            focusTarget: editorSubmit,
+            initialFocus: "primary",
+            onSecondary: function () {
+              resetEditorComparison();
+              if (editorSubmit) editorSubmit.focus();
+            },
+            onPrimary: function () {
+              if (!editorOperation) return false;
+              setEditorState("confirming");
+              jsonRequest("/api/reservaciones/confirmar-modificacion", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  request_token: editorOperation.request_token,
+                  csrf_token: editorOperation.csrf_token
+                })
+              }).then(function(data) {
+                if (!data.ok) {
+                  setEditorState("error");
+                  editorComparisonController.setStatus(mensajeOperacionModificacion(data, "confirm"), true);
+                  return;
+                }
+                setEditorState("success");
+                editorOperation = null;
+                editorComparisonController.close(false);
+                setMessage(data.mensaje || "Tu reservación fue modificada.");
+                loadReservations();
+              }).catch(function() {
+                setEditorState("error");
+                editorComparisonController.setStatus(mensajeOperacionModificacion(null, "confirm"), true);
+              }).finally(function() {
+                if (editorOperation) editorComparisonController.setLoading(false);
+              });
+            }
+          });
           return true;
         }
 
@@ -834,44 +865,6 @@ function initReservationAccess() {
             }
           });
         });
-        if (editorComparisonBack) {
-          editorComparisonBack.addEventListener("click", function() {
-            resetEditorComparison();
-            var comparisonMessage = editor.querySelector("[data-editor-message]");
-            if (comparisonMessage) comparisonMessage.textContent = "Puedes ajustar los datos antes de confirmar.";
-            if (editorSubmit) editorSubmit.focus();
-          });
-        }
-        if (editorComparisonConfirm) {
-          editorComparisonConfirm.addEventListener("click", function() {
-            if (!editorOperation) return;
-            editorComparisonConfirm.disabled = true;
-            setEditorState("confirming");
-            jsonRequest("/api/reservaciones/confirmar-modificacion", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                request_token: editorOperation.request_token,
-                csrf_token: editorOperation.csrf_token
-              })
-            }).then(function(data) {
-              if (!data.ok) {
-                setEditorState("error");
-                if (editorComparisonError) editorComparisonError.textContent = mensajeOperacionModificacion(data, "confirm");
-                return;
-              }
-              setEditorState("success");
-              editorOperation = null;
-              setMessage(data.mensaje || "Tu reservación fue modificada.");
-              loadReservations();
-            }).catch(function() {
-              setEditorState("error");
-              if (editorComparisonError) editorComparisonError.textContent = mensajeOperacionModificacion(null, "confirm");
-            }).finally(function() {
-              if (editorComparisonConfirm && editorOperation) editorComparisonConfirm.disabled = false;
-            });
-          });
-        }
         actions.append(modify);
         card.append(editor);
       }
