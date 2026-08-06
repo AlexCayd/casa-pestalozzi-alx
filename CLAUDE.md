@@ -58,12 +58,15 @@ Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
 
 ## Base de datos
 
-`database/ddl.sql` (estructura, DROP+CREATE completo) y `database/dml.sql` (semilla).
+`database/ddl.sql` (estructura, DROP+CREATE completo),
+`database/dml_operativo.sql` (datos mínimos de operación) y
+`database/dml_pruebas.sql` (datos ficticios para desarrollo y QA).
 Credenciales de demo en `database/CREDENCIALES.md`.
 
 **No hay migraciones incrementales y no se deben crear.** Un cambio de esquema se
-escribe en `ddl.sql` (y su siembra en `dml.sql`); para aplicarlo se vuelve a correr
-`ddl.sql` y luego `dml.sql`, que reinician la base entera. El DDL empieza con los
+escribe en `ddl.sql` (y su siembra en el DML correspondiente); para aplicarlo se
+vuelve a correr `ddl.sql` y luego `dml_operativo.sql`. `dml_pruebas.sql` es opcional
+y sólo se carga en entornos de desarrollo o QA. El DDL empieza con los
 `DROP TABLE` en orden inverso de dependencias justo para eso: si agregas una tabla,
 agrega también su `DROP` en el lugar que le toca.
 

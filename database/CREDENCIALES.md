@@ -1,6 +1,6 @@
 # Credenciales de prueba (usuarios registrados en la DB)
 
-Usuarios demo que crea `dml.sql`. Todos entran por **`/login`**, que muestra dos
+Usuarios demo que crea `dml_pruebas.sql`. Todos entran por **`/login`**, que muestra dos
 pestañas:
 
 - **NIP** → personal de piso (meseros y cocineros): 4 dígitos.

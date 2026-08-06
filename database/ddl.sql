@@ -1,6 +1,7 @@
 -- Casa Pestalozzi — Esquema (DDL)
 -- Estructura de la base de datos: DROP + CREATE TABLE.
--- Los datos de siembra viven en dml.sql (ejecutar este archivo primero).
+-- Los datos de siembra viven en dml_operativo.sql y dml_pruebas.sql;
+-- ambos se ejecutan después de este archivo.
 -- Ejecutar contra la BD configurada en includes/.env (DB_NAME).
 
 -- -------------------------------------------------------

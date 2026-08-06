@@ -6,7 +6,7 @@
 > **Estado de implementación:** el **Nivel 1 (§3) está implementado** en la vista
 > `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
 > `views/admin/analytics.php`), con datos de demostración en
-> `database/analiticas.sql` (se carga después de `dml.sql`). El resto —Niveles 2
+> `database/dml_pruebas.sql` (se carga después de `dml_operativo.sql`). El resto —Niveles 2
 > y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
 > implementada**.
 
