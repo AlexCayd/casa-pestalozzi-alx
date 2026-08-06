@@ -30,7 +30,7 @@ $estilos = file_get_contents(__DIR__ . '/../../src/scss/components/_confirmation
 $GLOBALS['__etapa6_pos_js'] = file_get_contents(__DIR__ . '/../../src/js/modules/punto-de-venta.js') ?: '';
 $afirmar(str_contains($componente, 'window.ConfirmationModal'), 'S1: no se encontró el componente global canónico.');
 $afirmar(!str_contains($componente, 'CPConfirmationModal'), 'S2: permanece el alias ejecutable CPConfirmationModal.');
-$afirmar(str_contains($estilos, 'width: clamp(560px, 64vw, 760px)'), 'S3: falta el ancho de escritorio del shell.');
+$afirmar(str_contains($estilos, 'width: clamp(620px, 72vw, 840px)'), 'S3: falta el ancho de escritorio del shell.');
 $afirmar(str_contains($estilos, 'width: calc(100vw - 24px)'), 'S4: falta el ancho móvil del shell.');
 $afirmar(str_contains($estilos, 'max-height: calc(100dvh - 32px)'), 'S5: falta el límite vertical de escritorio.');
 $afirmar(str_contains($estilos, 'max-height: calc(100dvh - 24px)'), 'S6: falta el límite vertical móvil.');

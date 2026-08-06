@@ -288,7 +288,10 @@ Si una mesa de un grupo es inactiva, no reservable o presenta conflicto, el grup
 
 La asignación manual:
 
-- Se realiza exclusivamente en modo explícito de edición.
+- Se realiza exclusivamente en modo explícito de edición (`assignment_edit`).
+- El flujo canónico es `viewing → assignment_edit → saving → viewing` o `viewing → assignment_edit → conflict`.
+- Antes de editar se conserva un snapshot exacto de las mesas y la versión de la reservación.
+- Fuera de `assignment_edit`, tocar mesas sólo cambia una selección visual y no muta la asignación persistida.
 - Revalida estado, versión, tickets y ocupación.
 - Se guarda en una transacción.
 - No permite una mutación parcial de una reservación multimesa.
@@ -504,6 +507,9 @@ Desde 13 personas:
 
 - La asignación automática queda deshabilitada.
 - La reservación puede confirmarse sin mesas.
+- La única acción para posponer la asignación es **Asignar más tarde**.
+- La acción secundaria para abandonar el modal es **Volver**; no confirma ni crea la reservación.
+- No se muestra una acción duplicada **Asignar después** ni se usa **Cancelar** para confirmar sin mesas.
 
 ### 9.3 Resultados posibles
 
@@ -524,7 +530,7 @@ las mesas después.
 Acciones:
 
 - Volver.
-- Confirmar sin mesas.
+- Asignar más tarde.
 
 #### C. Capacidad insuficiente
 
@@ -907,7 +913,8 @@ Cada consumidor aporta la causa y la consecuencia. No se acepta un cuerpo genér
 Escritorio:
 
 ```css
-width: clamp(560px, 64vw, 760px);
+width: clamp(620px, 72vw, 840px);
+max-width: calc(100vw - 48px);
 max-height: calc(100dvh - 32px);
 ```
 
@@ -922,11 +929,11 @@ Mínimos:
 
 - Texto principal: `16px`.
 - Interlineado: `1.45`.
-- Título: `22px`.
-- Botones: `44px` de alto.
+- Título: mínimo `24px`.
+- Botones: mínimo `46px` de alto.
 - Padding: `24px` móvil y `32px` escritorio.
 
-El cuerpo puede desplazarse verticalmente. Encabezado y acciones deben permanecer accesibles.
+El shell se monta como portal directamente bajo `document.body`, fuera de paneles, mapas o contenedores con restricciones de ancho, `transform` u `overflow`. El diálogo mantiene `overflow: hidden` y sólo el cuerpo puede desplazarse verticalmente cuando el contenido excede el viewport; encabezado y acciones deben permanecer accesibles.
 
 Por debajo de 640 px:
 
@@ -1010,6 +1017,8 @@ error
 ```
 
 Una falta de asignación automática en administración es `decision_required`, no un error.
+
+Para `SIN_ASIGNACION`, el catálogo expone `CONFIRMAR_SIN_MESAS` con la etiqueta **Asignar más tarde** y `VOLVER` con la etiqueta **Volver**. Para una selección manual con capacidad insuficiente se conserva el código `CAPACIDAD_INSUFICIENTE`, separado de los códigos de tickets abiertos.
 
 Contrato sugerido:
 
