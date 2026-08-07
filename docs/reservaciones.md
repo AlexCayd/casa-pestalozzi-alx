@@ -507,6 +507,7 @@ Desde 13 personas:
 
 - La asignación automática queda deshabilitada.
 - La reservación puede confirmarse sin mesas.
+- Se presenta la decisión `ASIGNACION_MANUAL_REQUERIDA`; la asignación automática no se intenta.
 - La única acción para posponer la asignación es **Asignar más tarde**.
 - La acción secundaria para abandonar el modal es **Volver**; no confirma ni crea la reservación.
 - No se muestra una acción duplicada **Asignar después** ni se usa **Cancelar** para confirmar sin mesas.
@@ -522,9 +523,13 @@ Se puede confirmar con las mesas propuestas.
 Se presenta una decisión:
 
 ```text
-Hay capacidad estimada para el horario, pero no existe una combinación
-automática válida de mesas. Puedes confirmar la reservación y asignar
-las mesas después.
+No se encontró una combinación automática de mesas para esta reservación.
+```
+
+Consecuencia:
+
+```text
+Puedes crearla sin mesas y realizar la asignación manualmente después.
 ```
 
 Acciones:
@@ -559,6 +564,12 @@ Sin contacto:
 contacto_tipo = ninguno
 contacto = NULL
 ```
+
+La primera confirmación usa el código `REQUIERE_CONFIRMACION_SIN_CONTACTO` y
+presenta **Crear reservación sin contacto**. Sus acciones canónicas son
+**Volver** y **Crear sin contacto**. El backend devuelve una sola decisión
+pendiente por respuesta; si después falta confirmar la asignación manual, la
+siguiente petición devuelve esa decisión por separado.
 
 Si una reservación fue creada sin contacto, puede agregarse posteriormente. El flujo normal no cambia el tipo de contacto de una reservación que ya lo tiene.
 
@@ -843,21 +854,21 @@ Para la misma fecha y hora, ambos mapas reciben la misma ocupación canónica. S
 
 La disponibilidad y la asignación no se deducen de colores. El backend entrega
 hechos comunes por mesa (`ticket_bloquea_consulta`, reservación, minutos,
-tolerancia, ausencia y disponibilidad para ticket/asignación). POS y el mapa
-administrativo usan presentadores separados sobre esos mismos hechos.
+intervalo bloqueado, tolerancia, ausencia y disponibilidad para
+ticket/asignación), además de `estado_visual_mapa`,
+`modificadores_visual_mapa` y `aria_label_mapa`. POS y el mapa administrativo
+usan presentadores separados sobre esos mismos hechos.
 
-En el mapa de reservaciones la prioridad es:
+En el mapa de reservaciones la prioridad visual es:
 
 ```text
-1. Selección actual → amarillo
+1. Selección válida → amarillo
 2. Ticket que bloquea la fecha y hora consultadas → rojo
-3. Reservación que comienza exactamente en la hora consultada → rojo
-4. Reservación dentro de tolerancia → azul con borde gris
-5. Reservación próxima en 0–30 minutos → azul
-6. Reservación próxima en 30–60 minutos → verde con borde azul punteado
-7. Tolerancia vencida con ausencia pendiente → verde con borde gris
-8. No utilizable → neutro
-9. Disponible → verde
+3. Reservación confirmada que bloquea el intervalo consultado → rojo
+4. Reservación próxima en 0–30 minutos → azul
+5. Reservación próxima en 30–60 minutos → verde con borde azul punteado
+6. No utilizable → neutro
+7. Disponible → verde
 ```
 
 La leyenda del mapa debe conservar estos significados:
@@ -866,14 +877,20 @@ La leyenda del mapa debe conservar estos significados:
 - Rojo — Ocupada.
 - Verde + borde azul punteado — Disponible con reservación en 30–60 minutos.
 - Azul — Reservación próxima.
-- Azul + borde gris — Reservación dentro de tolerancia.
-- Verde + borde gris — Disponible con ausencia pendiente.
 - Amarillo — Selección actual.
 - Neutro — No utilizable.
 
-Una mesa roja con riesgo de reservación próxima continúa roja; el riesgo se explica mediante texto.
+El mapa no proyecta tolerancia, ausencia pendiente ni sus modificadores; esas
+señales permanecen disponibles para POS y para las acciones operativas.
+
+La tolerancia y la ausencia pendiente continúan siendo hechos del dominio y
+estados operativos del POS, pero no crean colores ni bordes propios en este
+mapa. Una reservación confirmada se muestra roja durante su intervalo
+planificado, incluido el inicio exacto y el tiempo posterior al inicio que aún
+pertenece al intervalo.
 La hora y las ventanas se calculan sólo en backend; JavaScript consume la
-proyección recibida.
+proyección recibida mediante `estado_visual_mapa`, `modificadores_mapa` y
+`aria_label_mapa`.
 
 ### 14.4 Modo de asignación
 

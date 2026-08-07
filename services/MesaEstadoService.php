@@ -319,6 +319,7 @@ final class MesaEstadoService
                 'estado_visual' => $estadoVisual,
                 'estado_visual_mapa' => $mapaVisual['estado_visual'],
                 'modificadores_mapa' => $mapaVisual['modificadores'],
+                'modificadores_visual_mapa' => $mapaVisual['modificadores'],
                 'estado_visual_pos' => $hechosMesa['estado_visual_pos'],
                 'modificadores_visual_pos' => $hechosMesa['modificadores_visual_pos'],
                 'aria_label_mapa' => self::ariaLabelMapa(
@@ -361,6 +362,27 @@ final class MesaEstadoService
         string $estadoBase,
         array $modificadores
     ): array {
+        // Las señales de tolerancia, ausencia y acción pendiente pertenecen a
+        // POS/dominio. El mapa tampoco debe heredarlas desde el agregado de
+        // hechos cuando hay un ticket abierto junto a una reservación.
+        $modificadoresMapa = array_values(array_filter(
+            $modificadores,
+            static fn($modificador): bool => !in_array((string)$modificador, [
+                'accion_pendiente',
+                'AUSENCIA_PENDIENTE',
+                'reservacion_tolerancia',
+                'reservacion_vencida',
+                'reservacion_proxima',
+                'reservacion_bloqueante',
+                'reservacion_inminente',
+                'reservacion_advertencia',
+            ], true)
+        ));
+        // Cuando existe una reservación, sólo conserva modificadores ideales
+        // del presentador; con ticket abierto se preservan sus señales propias.
+        $modificadoresBase = $reservacionesVisuales === [] || $ticketAbierto
+            ? $modificadoresMapa
+            : [];
         $resultado = ReservacionMapaMesaPresenter::presentar([
             'utilizable' => $utilizable,
             'ticket_abierto' => $ticketAbierto,
@@ -369,7 +391,7 @@ final class MesaEstadoService
         if ($ticketAbierto) {
             return [
                 'estado_visual' => $resultado['estado_visual'],
-                'modificadores' => array_values(array_unique(array_merge($modificadores, $resultado['modificadores']))),
+                'modificadores' => array_values(array_unique(array_merge($modificadoresBase, $resultado['modificadores']))),
                 'label' => $resultado['label'],
                 'precedencia' => $resultado['precedencia'],
             ];
@@ -393,7 +415,7 @@ final class MesaEstadoService
         }
         return [
             'estado_visual' => $resultado['estado_visual'],
-            'modificadores' => array_values(array_unique(array_merge($modificadores, $resultado['modificadores']))),
+            'modificadores' => array_values(array_unique(array_merge($modificadoresBase, $resultado['modificadores']))),
             'label' => $resultado['label'],
             'precedencia' => $resultado['precedencia'],
         ];
@@ -420,7 +442,9 @@ final class MesaEstadoService
         string $hora
     ): array {
         $inicio = self::fechaHoraReservacion($reservacion);
-        $horaConsulta = HorarioReservacionService::normalizarHoraSql($hora);
+        $horaConsulta = HorarioReservacionService::normalizarHoraSql(
+            $hora !== '' ? $hora : ReservacionConfig::horaActual()
+        );
         $consulta = null;
         if ($horaConsulta !== '') {
             try {
@@ -461,6 +485,9 @@ final class MesaEstadoService
         $toleranciaFin = $inicio->modify(
             '+' . ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS . ' minutes'
         );
+        $finReservacion = $inicio->modify(
+            '+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes'
+        );
         $confirmada = (string)($reservacion['estado'] ?? '') === 'confirmada';
         $ticketAbierto = self::booleano($reservacion['ticket_abierto'] ?? false);
         $enInicioExacto = $confirmada && $segundosParaInicio === 0;
@@ -469,7 +496,10 @@ final class MesaEstadoService
             && $consulta < $toleranciaFin;
         $toleranciaVencida = $confirmada && $consulta >= $toleranciaFin && !$ticketAbierto;
         $ausenciaPendiente = $toleranciaVencida && !$ticketAbierto;
-        $bloqueaIntervalo = $confirmada && !$ausenciaPendiente && !$ticketAbierto;
+        $bloqueaIntervalo = $confirmada
+            && !$ticketAbierto
+            && $consulta >= $inicio
+            && $consulta < $finReservacion;
         $requiereAdvertencia = $confirmada
             && $segundosParaInicio > ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60
             && $segundosParaInicio <= ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60;
@@ -513,13 +543,9 @@ final class MesaEstadoService
         foreach ($reservaciones as $reservacion) {
             $minutos = self::enteroNulo($reservacion['minutos_para_inicio'] ?? null);
             $rango = match (true) {
-                self::booleano($reservacion['en_inicio_exacto'] ?? false)
-                    || self::booleano($reservacion['bloquea_horario_exactamente'] ?? false) => 600,
-                self::booleano($reservacion['en_tolerancia'] ?? false) => 500,
+                self::booleano($reservacion['bloquea_intervalo_reservacion'] ?? false) => 600,
                 $minutos !== null && $minutos > 0 && $minutos <= 30 => 400,
                 $minutos !== null && $minutos > 30 && $minutos <= 60 => 300,
-                self::booleano($reservacion['tolerancia_vencida'] ?? false)
-                    && self::booleano($reservacion['ausencia_pendiente'] ?? false) => 200,
                 default => 100,
             };
             if ($principal === null || $rango > $rangoPrincipal) {
@@ -591,11 +617,8 @@ final class MesaEstadoService
             return $nombre . ', ocupada por ticket abierto.';
         }
         $hora = substr((string)($hechos['inicio_reservacion'] ?? ''), 0, 5);
-        if (self::booleano($hechos['en_inicio_exacto'] ?? false)) {
+        if (self::booleano($hechos['bloquea_intervalo_reservacion'] ?? false)) {
             return $nombre . ', ocupada por reservación a las ' . $hora . '.';
-        }
-        if (self::booleano($hechos['en_tolerancia'] ?? false)) {
-            return $nombre . ', reservación dentro de tolerancia.';
         }
         $minutos = self::enteroNulo($hechos['minutos_para_inicio'] ?? null);
         if ($minutos !== null && $minutos > 0 && $minutos <= 30) {
@@ -604,11 +627,6 @@ final class MesaEstadoService
         if ($minutos !== null && $minutos > 30 && $minutos <= 60) {
             return $nombre . ', disponible con reservación en ' . $minutos . ' minutos.';
         }
-        if (self::booleano($hechos['tolerancia_vencida'] ?? false)
-            && self::booleano($hechos['ausencia_pendiente'] ?? false)) {
-            return $nombre . ', disponible con ausencia pendiente.';
-        }
-
         return $nombre . ', disponible.';
     }
 

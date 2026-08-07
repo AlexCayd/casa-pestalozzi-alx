@@ -52,31 +52,18 @@ final class ReservacionMapaMesaPresenter
         $minutos = array_key_exists('minutos_para_inicio', $reservacion)
             ? self::enteroNulo($reservacion['minutos_para_inicio'])
             : self::enteroNulo($reservacion['minutos_restantes'] ?? null);
-        // El servicio entrega `inicio_exacto` como hecho canónico. No se
-        // infiere desde minutos negativos porque éstos también representan
-        // una tolerancia vencida pendiente de ausencia.
-        $inicioExacto = self::booleano($reservacion['inicio_exacto'] ?? false);
-        $enTolerancia = self::booleano($reservacion['en_tolerancia'] ?? false);
-        $toleranciaVencida = self::booleano($reservacion['tolerancia_vencida'] ?? false);
-        $ausenciaPendiente = self::booleano($reservacion['ausencia_pendiente'] ?? false);
-        $bloqueaExactamente = self::booleano($reservacion['bloquea_horario_exactamente'] ?? false);
+        // El servicio entrega el intervalo bloqueado como hecho canónico. No
+        // se infiere desde minutos negativos porque éstos también pueden
+        // representar una tolerancia vencida pendiente de ausencia.
+        $bloqueaIntervalo = self::booleano($reservacion['bloquea_intervalo_reservacion'] ?? false);
 
-        if ($inicioExacto || $bloqueaExactamente) {
+        if ($bloqueaIntervalo) {
             return [
                 'rank' => 600,
                 'estado_visual' => 'ocupada',
                 'modificadores' => ['reservacion_bloqueante'],
                 'label' => 'ocupada',
                 'precedencia' => 'reservacion_exacta',
-            ];
-        }
-        if ($enTolerancia) {
-            return [
-                'rank' => 500,
-                'estado_visual' => 'reservacion-proxima',
-                'modificadores' => ['reservacion_tolerancia'],
-                'label' => 'reservación dentro de tolerancia',
-                'precedencia' => 'tolerancia',
             ];
         }
         if ($minutos !== null && $minutos > 0 && $minutos <= 30) {
@@ -98,16 +85,6 @@ final class ReservacionMapaMesaPresenter
                 'precedencia' => 'reservacion_30_60',
             ];
         }
-        if ($toleranciaVencida && $ausenciaPendiente) {
-            return [
-                'rank' => 200,
-                'estado_visual' => 'libre',
-                'modificadores' => ['accion_pendiente', 'AUSENCIA_PENDIENTE'],
-                'label' => 'disponible con ausencia pendiente',
-                'precedencia' => 'tolerancia_vencida',
-            ];
-        }
-
         return [
             'rank' => 100,
             'estado_visual' => 'libre',
