@@ -841,21 +841,39 @@ Para la misma fecha y hora, ambos mapas reciben la misma ocupación canónica. S
 
 ### 14.3 Estados visuales
 
-Prioridad:
+La disponibilidad y la asignación no se deducen de colores. El backend entrega
+hechos comunes por mesa (`ticket_bloquea_consulta`, reservación, minutos,
+tolerancia, ausencia y disponibilidad para ticket/asignación). POS y el mapa
+administrativo usan presentadores separados sobre esos mismos hechos.
+
+En el mapa de reservaciones la prioridad es:
 
 ```text
 1. Selección actual → amarillo
-2. Ticket abierto → rojo
-3. Reservación confirmada o hold aplicable → azul
-4. No utilizable → neutro
-5. Disponible → verde
+2. Ticket que bloquea la fecha y hora consultadas → rojo
+3. Reservación que comienza exactamente en la hora consultada → rojo
+4. Reservación dentro de tolerancia → azul con borde gris
+5. Reservación próxima en 0–30 minutos → azul
+6. Reservación próxima en 30–60 minutos → verde con borde azul punteado
+7. Tolerancia vencida con ausencia pendiente → verde con borde gris
+8. No utilizable → neutro
+9. Disponible → verde
 ```
 
-Excepción:
+La leyenda del mapa debe conservar estos significados:
 
-- Una reservación con tolerancia vencida, sin ticket, deja la mesa verde y añade indicador gris.
+- Verde — Disponible.
+- Rojo — Ocupada.
+- Verde + borde azul punteado — Disponible con reservación en 30–60 minutos.
+- Azul — Reservación próxima.
+- Azul + borde gris — Reservación dentro de tolerancia.
+- Verde + borde gris — Disponible con ausencia pendiente.
+- Amarillo — Selección actual.
+- Neutro — No utilizable.
 
 Una mesa roja con riesgo de reservación próxima continúa roja; el riesgo se explica mediante texto.
+La hora y las ventanas se calculan sólo en backend; JavaScript consume la
+proyección recibida.
 
 ### 14.4 Modo de asignación
 
