@@ -265,8 +265,8 @@
                 return {
                     type: type,
                     eyebrow: first.tipo === 'decision_requerida' ? 'Decision administrativa' : 'Conflicto operativo',
-                    title: first.mensaje,
-                    description: descriptions.join(' '),
+                    title: first.titulo || first.mensaje,
+                    description: first.descripcion || descriptions.join(' '),
                     summary: messages.slice(1),
                     consequence: consequences.join(' '),
                     backLabel: secondary.label,
@@ -852,17 +852,27 @@
                             return payload;
                         });
                     }).then(function (payload) {
-                        if (!payload.ok) {
-                            if (Array.isArray(payload.requiredConfirmations) && payload.requiredConfirmations.length) {
+                        var decisions = payload.confirmaciones_requeridas || payload.requiredConfirmations;
+                        if (payload.tipo === 'decision_requerida') {
+                            if (!Array.isArray(decisions) || !decisions.length) {
+                                decisions = payload.mensaje && payload.codigo ? [payload] : [];
+                            }
+                            if (decisions.length) {
                                 clearAcceptedConfirmations();
                                 form.dispatchEvent(new CustomEvent('reservation:confirmation', {
                                     detail: {
                                         type: 'warnings',
-                                        decisions: payload.confirmaciones_requeridas || payload.requiredConfirmations
+                                        decisions: decisions
                                     }
                                 }));
                                 return;
                             }
+                            console.error('Reservaciones admin: decision sin presentacion canonica', payload);
+                        }
+                        if (payload.commit === true && (payload.ok === false || payload.tipo === 'error')) {
+                            console.error('Reservaciones admin: respuesta contradictoria, commit confirmado', payload);
+                        }
+                        if (payload.commit !== true && payload.ok !== true) {
                             Object.keys(payload.fieldErrors || {}).forEach(function (field) {
                                 setFieldError(field, payload.fieldErrors[field]);
                             });
@@ -872,9 +882,16 @@
                             );
                             return;
                         }
+                        if (payload.commit === true && payload.ok === false) {
+                            showFeedback(
+                                payload.mensaje || 'Reservación guardada.',
+                                'success'
+                            );
+                            return;
+                        }
                         showFeedback(
                             payload.advertencia || payload.mensaje || 'Cambios guardados correctamente.',
-                            payload.requiere_asignacion || payload.depende_liberacion_proyectada
+                            payload.tipo === 'decision_requerida' || payload.requiere_asignacion || payload.depende_liberacion_proyectada
                                 ? 'warning'
                                 : 'success'
                         );

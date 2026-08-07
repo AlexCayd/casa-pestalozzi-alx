@@ -147,17 +147,36 @@ class AdminReservacionController
             $id = (int)($resultado['id'] ?? 0);
             if ($expectsJson) {
                 $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
+                $mesaIds = array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? [])));
+                $contexto = array_merge(
+                    (array)($resultado['contexto'] ?? []),
+                    [
+                        'comensales' => (int)($resultado['capacidad_solicitada'] ?? 0),
+                        'capacidad_disponible' => (int)($resultado['capacidad_disponible'] ?? 0),
+                        'asignacion_automatica_solicitada' => array_key_exists('asignacion_automatica_solicitada', (array)($resultado['contexto'] ?? []))
+                            ? (bool)$resultado['contexto']['asignacion_automatica_solicitada']
+                            : filter_var($_POST['asignar_automaticamente'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    ]
+                );
                 self::jsonResponse([
                     'success' => true,
                     'ok' => true,
                     'reservationId' => $id > 0 ? $id : null,
+                    'reservacion_id' => $id > 0 ? $id : null,
                     'mensaje' => (string)($resultado['mensaje'] ?? ''),
+                    'descripcion' => (string)($resultado['descripcion'] ?? ''),
+                    'consecuencia' => (string)($resultado['consecuencia'] ?? ''),
+                    'titulo' => (string)($resultado['titulo'] ?? ''),
+                    'tipo' => (string)($resultado['tipo'] ?? ''),
+                    'commit' => (bool)($resultado['commit'] ?? false),
                     'fieldErrors' => [],
                     'codigo' => (string)($resultado['codigo'] ?? ReservacionService::CREADA),
                     'fecha' => (string)($_POST['fecha'] ?? ''),
                     'hora' => HorarioReservacionService::normalizarHoraCorta((string)($_POST['hora'] ?? '')),
                     'asignacion' => (string)($resultado['asignacion'] ?? 'PENDIENTE'),
-                    'mesaIds' => array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? []))),
+                    'mesaIds' => $mesaIds,
+                    'mesa_ids' => $mesaIds,
+                    'contexto' => $contexto,
                     'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false),
                     'requiresManualAssignment' => (bool)($resultado['requiere_asignacion_manual'] ?? false),
                     'withoutContact' => (bool)($resultado['sin_contacto'] ?? false),
@@ -197,13 +216,29 @@ class AdminReservacionController
         http_response_code($status);
         if ($expectsJson) {
             $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
+            $contexto = array_merge(
+                (array)($resultado['contexto'] ?? []),
+                [
+                    'comensales' => (int)($resultado['capacidad_solicitada'] ?? 0),
+                    'capacidad_disponible' => (int)($resultado['capacidad_disponible'] ?? 0),
+                    'asignacion_automatica_solicitada' => array_key_exists('asignacion_automatica_solicitada', (array)($resultado['contexto'] ?? []))
+                        ? (bool)$resultado['contexto']['asignacion_automatica_solicitada']
+                        : filter_var($_POST['asignar_automaticamente'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                ]
+            );
             self::jsonResponse([
                 'success' => false,
                 'ok' => false,
                 'reservationId' => null,
                 'mensaje' => (string)($resultado['mensaje'] ?? ''),
+                'descripcion' => (string)($resultado['descripcion'] ?? ''),
+                'consecuencia' => (string)($resultado['consecuencia'] ?? ''),
+                'titulo' => (string)($resultado['titulo'] ?? ''),
+                'tipo' => (string)($resultado['tipo'] ?? ''),
+                'commit' => (bool)($resultado['commit'] ?? false),
                 'fieldErrors' => is_array($resultado['errors'] ?? null) ? $resultado['errors'] : [],
                 'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
+                'contexto' => $contexto,
                 'requiresContactConfirmation' => (bool)($resultado['requiere_confirmacion_sin_contacto'] ?? false),
                 'requiresCapacityConfirmation' => (bool)($resultado['requiere_confirmacion_capacidad'] ?? false),
                 'warnings' => $decisiones,

@@ -15,6 +15,7 @@ final class ReservacionErrorCatalog
     public const TIPO_ADVERTENCIA = 'advertencia';
     public const TIPO_DECISION = 'decision_requerida';
     public const TIPO_INFORMACION = 'informacion';
+    public const TIPO_EXITO = 'exito';
 
     /**
      * Código emitido actualmente o requerido por el contrato vigente.
@@ -26,8 +27,8 @@ final class ReservacionErrorCatalog
     private const CODE_TYPES = [
         // Resultados y estados de reservación.
         'OK' => self::TIPO_INFORMACION,
-        'RESERVACION_CREADA' => self::TIPO_INFORMACION,
-        'RESERVACION_CREADA_SIN_MESA' => self::TIPO_DECISION,
+        'RESERVACION_CREADA' => self::TIPO_EXITO,
+        'RESERVACION_CREADA_SIN_MESA' => self::TIPO_EXITO,
         'ACTUALIZADA' => self::TIPO_INFORMACION,
         'ACTUALIZADA_REQUIERE_ASIGNACION' => self::TIPO_DECISION,
         'COMENTARIO_ACTUALIZADO' => self::TIPO_INFORMACION,
@@ -345,10 +346,10 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary']],
         ],
         'SIN_ASIGNACION' => [
-            'descripcion' => 'La asignacion automatica no encontro una combinacion valida.',
-            'titulo' => 'Asignación manual pendiente',
-            'mensaje' => 'No existe una combinación automática válida de mesas.',
-            'consecuencia' => 'La reservación puede confirmarse y quedar pendiente de asignación.',
+            'titulo' => 'La reservación puede crearse sin mesas',
+            'descripcion' => 'No se asignaron mesas automáticamente.',
+            'mensaje' => 'No se asignaron mesas automáticamente.',
+            'consecuencia' => 'La reservación quedará confirmada y las mesas podrán asignarse posteriormente.',
             'acciones' => [
                 ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
                 ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
@@ -516,15 +517,15 @@ final class ReservacionErrorCatalog
         ],
         'RESERVACION_CREADA' => [
             'titulo' => 'Reservación creada',
-            'mensaje' => 'Reservación creada y mesas asignadas correctamente.',
-            'consecuencia' => 'La reservación quedó registrada.',
+            'mensaje' => 'Reservación creada',
+            'consecuencia' => 'La reservación quedó confirmada con sus mesas asignadas.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'RESERVACION_CREADA_SIN_MESA' => [
             'titulo' => 'Reservación creada',
-            'mensaje' => 'Reservación creada. No fue posible asignar mesas automáticamente.',
-            'consecuencia' => 'La asignación de mesas queda pendiente.',
-            'acciones' => [['id' => 'ASIGNAR_MESAS', 'tipo' => 'primary']],
+            'mensaje' => 'Reservación creada',
+            'consecuencia' => 'La reservación quedó confirmada y las mesas podrán asignarse posteriormente.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'ACTUALIZADA' => [
             'titulo' => 'Reservación actualizada',
@@ -987,19 +988,20 @@ final class ReservacionErrorCatalog
         }
 
         $mensajeKey = 'reservaciones.codigo.' . strtolower($canonical);
+        $esExito = in_array($tipo, [self::TIPO_INFORMACION, self::TIPO_EXITO], true);
         $base = [
             'codigo' => $canonical,
             'tipo' => $tipo,
             'http_status' => $http,
             'mensaje_key' => $mensajeKey,
-            'titulo' => $tipo === self::TIPO_INFORMACION ? 'Operación completada' : 'No fue posible completar la operación',
-            'mensaje' => $tipo === self::TIPO_INFORMACION
+            'titulo' => $esExito ? 'Operación completada' : 'No fue posible completar la operación',
+            'mensaje' => $esExito
                 ? 'La operación se completó.'
                 : 'Revisa la información e inténtalo nuevamente.',
-            'consecuencia' => $tipo === self::TIPO_INFORMACION
+            'consecuencia' => $esExito
                 ? 'El resultado quedó disponible para continuar.'
                 : 'No se aplicaron cambios.',
-            'acciones' => $tipo === self::TIPO_INFORMACION
+            'acciones' => $esExito
                 ? [['id' => 'CERRAR', 'tipo' => 'secondary']]
                 : [['id' => 'REINTENTAR', 'tipo' => 'primary']],
             'commit' => false,
@@ -1120,6 +1122,10 @@ final class ReservacionErrorCatalog
             && array_key_exists('capacidad_solicitada', $contexto)) {
             $contexto['comensales_solicitados'] = $contexto['capacidad_solicitada'];
         }
+        if (!array_key_exists('comensales', $contexto)
+            && array_key_exists('comensales_solicitados', $contexto)) {
+            $contexto['comensales'] = $contexto['comensales_solicitados'];
+        }
         if (!array_key_exists('lugares_faltantes', $contexto)) {
             $solicitados = (int)($contexto['comensales_solicitados'] ?? 0);
             $disponibles = (int)($contexto['capacidad_disponible'] ?? 0);
@@ -1170,9 +1176,16 @@ final class ReservacionErrorCatalog
         $resultado['descripcion'] = $presentacion['descripcion'];
         $resultado['consecuencia'] = $presentacion['consecuencia'];
         $resultado['acciones'] = $presentacion['acciones'];
-        $resultado['commit'] = array_key_exists('commit', $resultado)
-            ? (bool)$resultado['commit']
-            : $presentacion['commit'];
+        $commitCanonico = (bool)$presentacion['commit'];
+        if (array_key_exists('commit', $resultado) && (bool)$resultado['commit'] !== $commitCanonico) {
+            error_log(sprintf(
+                'ReservacionErrorCatalog: violacion de commit para %s (recibido=%s, canonico=%s)',
+                $canonical,
+                (bool)$resultado['commit'] ? 'true' : 'false',
+                $commitCanonico ? 'true' : 'false'
+            ));
+        }
+        $resultado['commit'] = $commitCanonico;
 
         if ($contexto !== []) {
             $resultado['contexto'] = $contexto;

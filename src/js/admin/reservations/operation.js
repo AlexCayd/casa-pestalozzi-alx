@@ -1083,6 +1083,48 @@
             }, 0);
         }
 
+        function commitCreationResult(payload) {
+            payload = payload || {};
+            var committed = payload.commit === true || payload.ok === true;
+            if (!committed) {
+                return false;
+            }
+            if (payload.commit === true && (payload.ok === false || payload.tipo === 'error')) {
+                console.error('Reservaciones admin: respuesta contradictoria, commit confirmado', payload);
+            }
+
+            var reservationId = parseInt(payload.reservacion_id || payload.reservationId || payload.id || '0', 10) || null;
+            var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
+            var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
+            state.pendingCreationFeedback = {
+                reservationId: reservationId,
+                fecha: fecha,
+                hora: hora,
+                nombre: createForm.elements.nombre ? createForm.elements.nombre.value : '',
+                comensales: createForm.elements.comensales ? createForm.elements.comensales.value : '0',
+                mesaIds: Array.isArray(payload.mesa_ids) ? payload.mesa_ids : (Array.isArray(payload.mesaIds) ? payload.mesaIds : []),
+                withoutContact: payload.withoutContact === true,
+                requiresManualAssignment: payload.requiresManualAssignment === true,
+                dependsOnProjectedRelease: payload.dependsOnProjectedRelease === true,
+                codigo: payload.codigo || '',
+                tipo: payload.tipo || 'exito',
+                titulo: payload.titulo || '',
+                descripcion: payload.descripcion || '',
+                consecuencia: payload.consecuencia || '',
+                commit: true,
+                mensaje: payload.mensaje || ''
+            };
+
+            closeCreateModal(true);
+            loadDay(fecha, {
+                preserveReservationId: reservationId,
+                preserveHour: hora,
+                enterAssignmentMode: payload.requiresManualAssignment === true,
+                assignmentLater: payload.requiresManualAssignment === true
+            });
+            return true;
+        }
+
         function submitCreateModal() {
             if (!createForm || createModalSubmitting) {
                 return;
@@ -1099,33 +1141,16 @@
             }
             postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
-                    var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
-                    var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
-                    var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
-                    var message = payload.mensaje || '';
-
-                    state.pendingCreationFeedback = {
-                        reservationId: reservationId,
-                        fecha: fecha,
-                        hora: hora,
-                        nombre: createForm.elements.nombre ? createForm.elements.nombre.value : '',
-                        comensales: createForm.elements.comensales ? createForm.elements.comensales.value : '0',
-                        mesaIds: Array.isArray(payload.mesaIds) ? payload.mesaIds : [],
-                        withoutContact: payload.withoutContact === true,
-                        requiresManualAssignment: payload.requiresManualAssignment === true,
-                        dependsOnProjectedRelease: payload.dependsOnProjectedRelease === true,
-                        message: message
-                    };
-
-                    closeCreateModal(true);
-                    loadDay(fecha, {
-                        preserveReservationId: reservationId,
-                        preserveHour: hora,
-                        enterAssignmentMode: payload.requiresManualAssignment === true,
-                        assignmentLater: payload.requiresManualAssignment === true
-                    });
+                    if (!commitCreationResult(payload)) {
+                        console.error('Reservaciones admin: respuesta de creación sin commit', payload);
+                        renderCreateModalErrors({}, payload.mensaje || 'No fue posible guardar la reservación.');
+                    }
                 })
                 .catch(function (error) {
+                    if (error && error.commit === true) {
+                        commitCreationResult(Object.assign({}, error, { ok: true }));
+                        return;
+                    }
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
                     var message = error && error.mensaje || '';
                     var decisions = error && (error.confirmaciones_requeridas || error.requiredConfirmations);
