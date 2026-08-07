@@ -19,6 +19,7 @@ function assertContract($condition, string $message): void
 
 $required = [
     'SIN_ASIGNACION',
+    'ASIGNACION_MANUAL_REQUERIDA',
     'CAPACIDAD_OPERATIVA_EXCEDIDA',
     'CAPACIDAD_INSUFICIENTE',
     'RESERVACION_PROXIMA',
@@ -55,14 +56,31 @@ $sinAsignacion = ReservacionErrorCatalog::presentar('SIN_ASIGNACION', [
 assertContract($sinAsignacion['http_status'] === 409, 'SIN_ASIGNACION usa HTTP 409');
 assertContract($sinAsignacion['tipo'] === ReservacionErrorCatalog::TIPO_DECISION, 'SIN_ASIGNACION conserva decision requerida');
 assertContract($sinAsignacion['titulo'] === 'Asignación de mesas pendiente', 'SIN_ASIGNACION usa titulo contractual');
-assertContract($sinAsignacion['descripcion'] === 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.', 'SIN_ASIGNACION usa descripcion contractual');
-assertContract($sinAsignacion['consecuencia'] === 'La reservación quedará confirmada y podrás asignar las mesas posteriormente desde el mapa de reservaciones.', 'SIN_ASIGNACION usa consecuencia contractual');
+assertContract($sinAsignacion['descripcion'] === 'No se encontró una combinación automática de mesas para esta reservación.', 'SIN_ASIGNACION usa descripcion contractual');
+assertContract($sinAsignacion['consecuencia'] === 'Puedes crearla sin mesas y realizar la asignación manualmente después.', 'SIN_ASIGNACION usa consecuencia contractual');
 assertContract($sinAsignacion['commit'] === false, 'SIN_ASIGNACION no confirma el commit');
 assertContract($sinAsignacion['acciones'][0]['id'] === 'VOLVER', 'SIN_ASIGNACION ofrece volver primero');
 assertContract($sinAsignacion['acciones'][1]['id'] === 'CONFIRMAR_SIN_MESAS', 'SIN_ASIGNACION ofrece confirmar despues');
 assertContract($sinAsignacion['acciones'][0]['label'] === 'Volver', 'SIN_ASIGNACION etiqueta volver');
 assertContract($sinAsignacion['acciones'][1]['label'] === 'Asignar más tarde', 'SIN_ASIGNACION etiqueta asignar mas tarde');
 assertContract(stripos($sinAsignacion['mensaje'], 'cupo') === false, 'SIN_ASIGNACION no usa lenguaje de cupo');
+
+$manual = ReservacionErrorCatalog::presentar('ASIGNACION_MANUAL_REQUERIDA', [
+    'comensales' => 14,
+]);
+assertContract($manual['tipo'] === ReservacionErrorCatalog::TIPO_DECISION, 'ASIGNACION_MANUAL_REQUERIDA es decision');
+assertContract($manual['commit'] === false, 'ASIGNACION_MANUAL_REQUERIDA no confirma el commit');
+assertContract($manual['titulo'] === 'Asignación manual de mesas', 'ASIGNACION_MANUAL_REQUERIDA usa titulo especifico');
+assertContract($manual['descripcion'] === 'Las reservaciones de más de 12 personas requieren asignar las mesas manualmente.', 'ASIGNACION_MANUAL_REQUERIDA usa descripcion especifica');
+assertContract($manual['consecuencia'] === 'Puedes crear la reservación ahora y asignar las mesas posteriormente desde el mapa de reservaciones.', 'ASIGNACION_MANUAL_REQUERIDA usa consecuencia especifica');
+assertContract($manual['acciones'][1]['label'] === 'Asignar más tarde', 'ASIGNACION_MANUAL_REQUERIDA etiqueta asignar mas tarde');
+
+$withoutContact = ReservacionErrorCatalog::presentar('REQUIERE_CONFIRMACION_SIN_CONTACTO');
+assertContract($withoutContact['titulo'] === 'Crear reservación sin contacto', 'sin contacto usa titulo especifico');
+assertContract($withoutContact['descripcion'] === 'No se agregó un correo electrónico ni teléfono para esta reservación.', 'sin contacto usa descripcion especifica');
+assertContract($withoutContact['consecuencia'] === 'La reservación podrá crearse, pero no habrá un medio de contacto asociado al cliente.', 'sin contacto usa consecuencia especifica');
+assertContract($withoutContact['acciones'][1]['id'] === 'CONFIRMAR_SIN_CONTACTO', 'sin contacto usa accion canonica');
+assertContract($withoutContact['acciones'][1]['label'] === 'Crear sin contacto', 'sin contacto etiqueta accion canonica');
 
 $creada = ReservacionErrorCatalog::presentar('RESERVACION_CREADA', [
     'reservacion_id' => 77,

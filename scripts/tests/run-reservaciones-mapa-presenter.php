@@ -35,10 +35,18 @@ assertMapContract($ticket['precedencia'] === 'ticket', 'ticket domina cualquier 
 
 $exact = presentMap([
     'minutos_para_inicio' => 0,
-    'inicio_exacto' => true,
+    'bloquea_intervalo_reservacion' => true,
 ]);
 assertMapContract($exact['estado_visual'] === 'ocupada', 'inicio exacto usa rojo');
 assertMapContract(in_array('reservacion_bloqueante', $exact['modificadores'], true), 'inicio exacto conserva modificador bloqueante');
+
+$started = presentMap([
+    'minutos_para_inicio' => -30,
+    'en_tolerancia' => true,
+    'bloquea_intervalo_reservacion' => true,
+]);
+assertMapContract($started['estado_visual'] === 'ocupada', 'reservacion iniciada dentro del intervalo usa rojo');
+assertMapContract($started['modificadores'] === ['reservacion_bloqueante'], 'mapa no agrega modificador de tolerancia');
 
 $warning = presentMap(['minutos_para_inicio' => 60]);
 assertMapContract($warning['estado_visual'] === 'libre', 'sesenta minutos conserva fondo verde');
@@ -48,19 +56,14 @@ $imminent = presentMap(['minutos_para_inicio' => 30]);
 assertMapContract($imminent['estado_visual'] === 'reservacion-proxima', 'treinta minutos usa azul');
 assertMapContract($imminent['precedencia'] === 'reservacion_0_30', 'treinta minutos cae en ventana 0-30');
 
-$tolerance = presentMap(['minutos_para_inicio' => 0, 'en_tolerancia' => true]);
-assertMapContract($tolerance['estado_visual'] === 'reservacion-proxima', 'tolerancia usa azul');
-assertMapContract($tolerance['modificadores'] === ['reservacion_tolerancia'], 'tolerancia usa borde gris');
-
-$absence = presentMap([
-    'minutos_para_inicio' => -15,
-    'inicio_exacto' => false,
+$afterInterval = presentMap([
+    'minutos_para_inicio' => -100,
     'tolerancia_vencida' => true,
     'ausencia_pendiente' => true,
+    'bloquea_intervalo_reservacion' => false,
 ]);
-assertMapContract($absence['estado_visual'] === 'libre', 'tolerancia vencida con ausencia conserva verde');
-assertMapContract(in_array('accion_pendiente', $absence['modificadores'], true), 'ausencia pendiente usa modificador visual');
-assertMapContract(in_array('AUSENCIA_PENDIENTE', $absence['modificadores'], true), 'ausencia pendiente conserva codigo de accion');
+assertMapContract($afterInterval['estado_visual'] === 'libre', 'despues del intervalo usa verde');
+assertMapContract($afterInterval['modificadores'] === [], 'mapa no agrega estado de ausencia');
 
 $unusable = presentMap(['minutos_para_inicio' => 0, 'inicio_exacto' => true], ['utilizable' => false]);
 assertMapContract($unusable['estado_visual'] === 'no-utilizable', 'mesa no utilizable domina reservacion');

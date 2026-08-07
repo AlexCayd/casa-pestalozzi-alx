@@ -42,8 +42,11 @@ $consultas = [
     '15:00:00' => ['ocupada', 'reservacion-proxima', 'Mesa 4, ocupada por reservación a las 15:00.'],
     '14:30:00' => ['reservacion-proxima', 'reservacion-proxima', 'Mesa 4, reservación próxima en 30 minutos.'],
     '14:15:00' => ['libre', 'libre', 'Mesa 4, disponible con reservación en 45 minutos.'],
-    '15:05:00' => ['reservacion-proxima', 'reservacion-proxima', 'Mesa 4, reservación dentro de tolerancia.'],
-    '15:15:00' => ['libre', 'libre', 'Mesa 4, disponible con ausencia pendiente.'],
+    '15:05:00' => ['ocupada', 'reservacion-proxima', 'Mesa 4, ocupada por reservación a las 15:00.'],
+    '15:15:00' => ['ocupada', 'libre', 'Mesa 4, ocupada por reservación a las 15:00.'],
+    '16:29:00' => ['ocupada', 'libre', 'Mesa 4, ocupada por reservación a las 15:00.'],
+    '16:30:00' => ['libre', 'libre', 'Mesa 4, disponible.'],
+    '13:59:00' => ['libre', 'libre', 'Mesa 4, disponible.'],
 ];
 
 foreach ($consultas as $hora => [$mapa, $pos, $aria]) {
@@ -62,6 +65,18 @@ foreach ($consultas as $hora => [$mapa, $pos, $aria]) {
     assertMesaFacts($mesaEstado['reservacion_id'] === 25, "reservacion_id {$hora}");
     assertMesaFacts($mesaEstado['reservacion_estado'] === 'confirmada', "reservacion_estado {$hora}");
 }
+
+$sinToleranciaVisual = MesaEstadoService::normalizarMesas(
+    [$mesa],
+    [$reservacion],
+    [],
+    '2026-08-06',
+    $ahora,
+    '15:05:00',
+    ['mesas' => [], 'tickets_por_mesa' => []]
+)[0];
+assertMesaFacts($sinToleranciaVisual['modificadores_visual_mapa'] === ['reservacion_bloqueante'], 'mapa no proyecta tolerancia como modificador');
+assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_tolerancia'], 'POS conserva tolerancia');
 
 $ticket = [
     'id' => 77,
