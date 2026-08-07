@@ -144,6 +144,9 @@
         // Una mesa no reservable nunca puede quedar seleccionada, aunque el
         // consumidor haya enviado una intención stale o una opción incompleta.
         if (unusable) return 'no-utilizable';
+        if (selected && selectionValid && options.seleccionPrioritaria === true) {
+            return 'seleccionada';
+        }
 
         // Un ticket abierto conserva la base física roja. La selección se
         // expresa como modificador/ring, no sustituyendo ese estado.

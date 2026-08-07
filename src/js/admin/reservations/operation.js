@@ -54,6 +54,8 @@
             timeoutId: null,
             timedOutSequence: 0,
             requestSequence: 0,
+            projectionContext: { fecha: '', hora: '' },
+            pendingProjectionContext: null,
             tableWarningMesaId: null,
             pendingAssignmentConflict: null,
             pendingAction: null,
@@ -925,9 +927,7 @@
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
             var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa
-                : (mesaEstado && Array.isArray(mesaEstado.modificadores_mapa)
-                    ? mesaEstado.modificadores_mapa
-                    : (mesaEstado && mesaEstado.modificadores || []));
+                : [];
             if (!proxima || mapModifiers.indexOf('reservacion_advertencia') === -1) {
                 hideTableWarning();
                 return;
@@ -1605,10 +1605,48 @@
             return '<button type="button" class="' + esc(className) + '" data-operation-action="' + esc(action) + '" data-disabled="' + (disabled ? '1' : '0') + '"' + (disabled || state.guardando ? ' disabled' : '') + '>' + esc(label) + '</button>';
         }
 
+        function projectionContextMatchesSelection() {
+            if (!state.hasLoadedData || state.cargando || state.pendingProjectionContext !== null) {
+                return false;
+            }
+            return state.projectionContext.fecha === String(state.fecha || '')
+                && state.projectionContext.hora === horaCorta(state.horaSeleccionada);
+        }
+
+        function mapProjectionFor(mesaEstado) {
+            var estado = String(mesaEstado.estado_visual_mapa || '').trim();
+            var modificadores = Array.isArray(mesaEstado.modificadores_visual_mapa)
+                ? mesaEstado.modificadores_visual_mapa.slice()
+                : null;
+            var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
+            if (['libre', 'ocupada', 'no-utilizable'].indexOf(estado) === -1
+                || modificadores === null
+                || !ariaLabel) {
+                console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
+                return {
+                    estado: 'no-utilizable',
+                    modificadores: [],
+                    ariaLabel: 'Mesa no disponible: proyeccion del mapa incompleta.'
+                };
+            }
+            return {
+                estado: estado,
+                modificadores: modificadores,
+                ariaLabel: ariaLabel
+            };
+        }
+
         function renderTableMap() {
             var reservacion = selectedReservation();
 
             if (!els.map || !window.MesaEstadoAdapter) {
+                return;
+            }
+
+            if (!projectionContextMatchesSelection()) {
+                mapVisual.clear(state.cargando
+                    ? 'Cargando la proyeccion del intervalo seleccionado.'
+                    : 'La proyeccion del mapa no corresponde al intervalo seleccionado.');
                 return;
             }
 
@@ -1639,12 +1677,8 @@
                 var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
-                normalized.modificadores = Array.isArray(normalized.modificadores_visual_mapa)
-                    ? normalized.modificadores_visual_mapa.slice()
-                    : (Array.isArray(normalized.modificadores_mapa)
-                        ? normalized.modificadores_mapa.slice()
-                        : (normalized.modificadores || []));
-                var modifiers = normalized.modificadores.slice();
+                var mapProjection = mapProjectionFor(mesaEstado);
+                var modifiers = mapProjection.modificadores.slice();
 
                 if (assignedReservation) {
                     modifiers.push('asignada');
@@ -1667,37 +1701,20 @@
                     modifiers.push('bloqueo_propio');
                 }
 
-                if (conflict && normalized.estado_base !== 'no_reservable') {
-                    if (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo') {
-                        normalized.estado_base = 'ocupada';
-                        modifiers.push('ticket_abierto');
-                        if (conflict.tipo === 'conflicto_proximo') {
-                            modifiers.push('conflicto_proximo');
-                        }
-                        if (conflict.walk_in) {
-                            modifiers.push('walk_in');
-                        }
-                    } else if (normalized.estado_base !== 'ocupada') {
-                        normalized.estado_base = 'bloqueada';
-                    }
-                }
-
                 var ticketConflict = Boolean(
                     conflict &&
                     (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
                 );
-                var estadoVisualMapa = normalized.estado_visual_mapa || normalized.estado_visual || '';
-                if (ticketConflict) {
-                    estadoVisualMapa = 'ocupada';
-                } else if (conflict && estadoVisualMapa === 'libre') {
-                    estadoVisualMapa = 'reservacion-proxima';
-                }
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
                     (!conflict || ticketConflict) &&
                     (normalized.estado_base !== 'ocupada' || ticketConflict) &&
                     (normalized.estado_base !== 'bloqueada' || blockedBySelf);
+                var selectionVisualValid = assigned && selectable;
+                var mapAriaLabel = selectionVisualValid
+                    ? 'SelecciÃ³n actual. ' + mapProjection.ariaLabel
+                    : mapProjection.ariaLabel;
                 var title = normalized.titulo;
                 if (assignedReservation) {
                     title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
@@ -1713,17 +1730,23 @@
                         : normalized.nombre + '. Bloqueada por otra reservación a las ' + horaCorta(conflict.hora) + '.';
                 }
 
-                return window.MesaEstadoAdapter.paraMapaVisual(normalized, {
+                var mapRaw = Object.assign({}, normalized, { modificadores: [] });
+                return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
                     seleccionActual: assigned,
-                    seleccionValida: true,
+                    seleccionValida: !assigned || selectable,
+                    seleccionPrioritaria: selectionVisualValid,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
-                    ariaLabel: normalized.aria_label_mapa || normalized.titulo_mapa || title,
-                    estadoVisual: estadoVisualMapa,
+                    ariaLabel: mapAriaLabel,
+                    estadoVisual: selectionVisualValid ? 'seleccionada' : mapProjection.estado,
                     modificadores: modifiers,
                     clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
                     atributos: {
                         'data-operation-table': mesaId,
+                        'data-bloqueada-en-intervalo': mesaEstado.bloqueada_en_intervalo ? '1' : '0',
+                        'data-causas-bloqueo': Array.isArray(mesaEstado.causas_bloqueo)
+                            ? mesaEstado.causas_bloqueo.join(' ')
+                            : '',
                         'data-disabled': !selectable || state.guardando ? '1' : '0'
                     }
                 });
@@ -1748,8 +1771,25 @@
                 return;
             }
 
-            state.reservacionSeleccionadaId = parseInt(reservacion.id, 10);
-            state.horaSeleccionada = horaCorta(reservacion.hora);
+            var reservacionId = parseInt(reservacion.id, 10);
+            var nextDate = String(reservacion.fecha || state.fecha || '');
+            var nextHour = horaCorta(reservacion.hora);
+            var projectionMatchesReservation = state.projectionContext.fecha === nextDate
+                && state.projectionContext.hora === nextHour
+                && state.pendingProjectionContext === null;
+            state.reservacionSeleccionadaId = reservacionId;
+            if (!projectionMatchesReservation) {
+                state.mesasSeleccionadas = new Set();
+                loadDay(nextDate, {
+                    preserveHour: nextHour,
+                    requestedHour: nextHour,
+                    preserveReservationId: reservacionId,
+                    discardAssignment: true
+                });
+                return;
+            }
+
+            state.horaSeleccionada = nextHour;
             state.mesasSeleccionadas = new Set((reservacion.mesa_ids || []).map(function (mesaId) {
                 return parseInt(mesaId, 10);
             }));
@@ -1771,7 +1811,6 @@
             exitAssignmentMode({ render: false, restoreFocus: false });
             hideTableWarning();
             dismissScheduleAlert();
-            state.horaSeleccionada = nextHour;
 
             state.reservacionSeleccionadaId = null;
             state.mesasSeleccionadas = new Set();
@@ -1798,6 +1837,8 @@
             if (dateChanged) {
                 state.fecha = fecha;
                 state.horaSeleccionada = null;
+                state.projectionContext = { fecha: '', hora: '' };
+                state.pendingProjectionContext = null;
                 state.reservacionSeleccionadaId = null;
                 state.mesasSeleccionadas = new Set();
                 state.horarios = [];
@@ -1850,6 +1891,10 @@
             state.abortController = new AbortController();
             var requestedHour = horaCorta(options.preserveHour || state.horaSeleccionada);
             var queryRequestedHour = horaCorta(options.requestedHour || requestedHour);
+            state.pendingProjectionContext = {
+                fecha: fecha,
+                hora: queryRequestedHour
+            };
             if (!options.preserveDateWarning) {
                 clearDateWarning();
             }
@@ -1899,11 +1944,25 @@
                     if (String(data.fecha || '') !== fecha) {
                         throw { kind: 'consistency', requestedDate: fecha, responseDate: data.fecha };
                     }
+                    var responseHour = horaCorta(data.hora || data.hora_sugerida || '');
+                    if (queryRequestedHour && responseHour !== queryRequestedHour) {
+                        throw {
+                            kind: 'consistency',
+                            requestedDate: fecha,
+                            requestedHour: queryRequestedHour,
+                            responseHour: responseHour
+                        };
+                    }
                     if (state.timeoutId) {
                         window.clearTimeout(state.timeoutId);
                         state.timeoutId = null;
                     }
                     state.fecha = data.fecha || fecha;
+                    state.projectionContext = {
+                        fecha: state.fecha,
+                        hora: responseHour
+                    };
+                    state.pendingProjectionContext = null;
                     state.fechaFallida = '';
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
