@@ -6,4 +6,5 @@
 vendor
 node_modules
 AGENTS.md
+/docs/reservaciones/
 CLAUDE.MD

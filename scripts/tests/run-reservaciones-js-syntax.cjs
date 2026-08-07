@@ -56,6 +56,13 @@ assertContract(!operation.includes('confirmaciones_requeridas_presentaciones'), 
 assertContract(operation.includes('decisionObjects'), 'operacion consume decisiones estructuradas');
 assertContract(!operation.includes("label: 'Confirmar', tipo: 'primary'"), 'operacion no inventa accion primaria de decision');
 assertContract(operation.includes('modificadores_visual_mapa'), 'operacion consume modificadores visuales del mapa');
+assertContract(operation.includes('projectionContext'), 'operacion conserva contexto atomico de proyeccion');
+assertContract(operation.includes('pendingProjectionContext'), 'operacion bloquea render mientras carga una proyeccion');
+assertContract(operation.includes('mapProjectionFor'), 'operacion valida el contrato cerrado del mapa');
+assertContract(operation.includes('loadDay(nextDate'), 'operacion recarga al seleccionar una reserva de otra hora');
+assertContract(operation.includes('responseHour'), 'operacion valida la hora de la respuesta');
+assertContract(!operation.includes('normalized.modificadores_mapa'), 'operacion no usa alias de modificadores del mapa');
+assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 'operacion no reconstruye proximidad visual');
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
 assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operacion rechaza respuestas de fecha stale');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
@@ -90,6 +97,13 @@ assertContract(
 assertContract(
   adapter.paraMapaVisual({ id: 2, reservable: 1, estado_base: 'disponible', ticket_abierto: true }, { estadoBase: 'disponible' }).estadoVisual === 'ocupada',
   'ticket abierto conserva precedencia roja'
+);
+assertContract(
+  adapter.paraMapaVisual(
+    { id: 3, reservable: 1, estado_base: 'ocupada', ticket_abierto: true },
+    { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, seleccionPrioritaria: true, estadoVisual: 'seleccionada' }
+  ).estadoVisual === 'seleccionada',
+  'seleccion valida puede ser amarilla sin borrar el hecho de bloqueo'
 );
 
 console.log('Reservaciones: JS contractual OK');
