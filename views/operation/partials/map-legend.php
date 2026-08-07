@@ -1,12 +1,8 @@
 <div class="operational-map__legend mesas-map__legend mapa-leyenda" aria-label="Estados de mesas" data-map-legend>
     <ul class="mapa-leyenda__row" aria-label="Estados de mesas">
-        <li class="mapa-leyenda-item mapa-leyenda-item--libre">Verde &mdash; Disponible</li>
-        <li class="mapa-leyenda-item mapa-leyenda-item--ocupada">Rojo &mdash; Ocupada</li>
+        <li class="mapa-leyenda-item mapa-leyenda-item--libre">Verde &mdash; Disponible para el intervalo seleccionado</li>
+        <li class="mapa-leyenda-item mapa-leyenda-item--ocupada">Rojo &mdash; No disponible para el intervalo seleccionado</li>
         <li class="mapa-leyenda-item mapa-leyenda-item--seleccionada">Amarillo &mdash; Selecci&oacute;n actual</li>
-        <li class="mapa-leyenda-item mapa-leyenda-item--reservacion-proxima">Azul &mdash; Reservaci&oacute;n pr&oacute;xima</li>
-        <?php if (($mapVisual['context'] ?? '') === 'operacion-reservaciones'): ?>
-            <li class="mapa-leyenda-item mapa-leyenda-item--mod-reservacion_advertencia">Verde + borde azul punteado &mdash; Disponible con reservaci&oacute;n en 30&ndash;60 minutos</li>
-        <?php endif; ?>
         <li class="mapa-leyenda-item mapa-leyenda-item--no-utilizable">Neutro &mdash; No utilizable</li>
     </ul>
 </div>
