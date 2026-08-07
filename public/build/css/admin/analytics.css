@@ -14,17 +14,6 @@
 .admin-analytics {
   min-width: 0;
 }
-.admin-analytics .admin-page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--admin-border-soft);
-  position: relative;
-  z-index: 5;
-}
 .admin-analytics .admin-page-header__intro {
   min-width: 0;
 }
