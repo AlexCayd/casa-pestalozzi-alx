@@ -313,6 +313,22 @@
   background: var(--map-table-reservation-bg);
 }
 
+.mesas-map__legend .mapa-leyenda-item--mod-reservacion_advertencia::before {
+  color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  background: var(--map-table-available-bg);
+}
+
+.mesas-map__legend .mapa-leyenda-item--mod-reservacion_tolerancia::before {
+  color: var(--map-table-reservation-overdue-border);
+  background: var(--map-table-reservation-bg);
+}
+
+.mesas-map__legend .mapa-leyenda-item--mod-accion_pendiente::before {
+  color: var(--map-table-reservation-overdue-border);
+  background: var(--map-table-available-bg);
+}
+
 .mesas-map__legend .mapa-leyenda-item--no-utilizable::before {
   color: var(--map-table-unavailable-border);
   background: var(--map-table-unavailable-bg);

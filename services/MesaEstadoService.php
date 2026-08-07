@@ -128,6 +128,7 @@ final class MesaEstadoService
             $minutosRestantes = null;
             $motivoBloqueo = null;
             $ausenciaPendiente = false;
+            $reservacionesVisualesMapa = [];
             $ocupacionMesa = (array)($ocupacionPorMesa[$mesaId] ?? []);
             $holdVigente = ($ocupacionMesa['fuente'] ?? '') === 'hold';
 
@@ -196,6 +197,21 @@ final class MesaEstadoService
                 $resumen['minutos_restantes'] = $reservacion['minutos_para_reservacion'] ?? null;
                 $resumen['minutos_retraso'] = (int)($reservacion['minutos_retraso'] ?? 0);
                 $accionPendiente = ($reservacion['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA';
+                $minutosParaInicio = $resumen['minutos_restantes'] !== null
+                    ? (int)$resumen['minutos_restantes']
+                    : null;
+                $reservacionesVisualesMapa[] = [
+                    'minutos_para_inicio' => $minutosParaInicio,
+                    'inicio_exacto' => $minutosParaInicio !== null && $minutosParaInicio <= 0
+                        && $ventana === '0_30',
+                    'en_tolerancia' => $ventana === 'tolerancia',
+                    'tolerancia_vencida' => in_array($ventana, ['tolerancia_vencida', 'overdue'], true),
+                    'ausencia_pendiente' => $accionPendiente,
+                    'bloquea_horario_exactamente' => !empty($reservacion['bloquea_walk_ins'])
+                        && $ventana !== '0_30'
+                        && $ventana !== 'tolerancia'
+                        && !in_array($ventana, ['30_60', 'tolerancia_vencida', 'overdue'], true),
+                ];
                 if ($accionPendiente) {
                     $ausenciaPendiente = true;
                     self::agregarUnaVez($modificadores, 'accion_pendiente');
@@ -242,6 +258,13 @@ final class MesaEstadoService
             }
 
             $modificadores = array_values(array_unique($modificadores));
+            $mapaVisual = self::proyeccionVisualMapa(
+                $activada && $reservable,
+                $ticketAbierto !== null,
+                $reservacionesVisualesMapa,
+                $estadoBase,
+                $modificadores
+            );
             $titulo = self::tituloAccesible(
                 (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
                 $estadoBase,
@@ -286,6 +309,11 @@ final class MesaEstadoService
                 'ocupacion_actual' => $ocupacionActual,
                 'disponible_proyectada' => $estadoBase === self::DISPONIBLE,
                 'estado_visual' => $estadoVisual,
+                'estado_visual_mapa' => $mapaVisual['estado_visual'],
+                'modificadores_mapa' => $mapaVisual['modificadores'],
+                'titulo_mapa' => (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId)
+                    . ', ' . ucfirst($mapaVisual['label']) . '.',
+                'precedencia_visual_mapa' => $mapaVisual['precedencia'],
                 'modificadores' => $modificadores,
                 'reservacion_proxima' => $reservacionProxima,
                 'minutos_restantes' => $minutosRestantes,
@@ -306,6 +334,52 @@ final class MesaEstadoService
                 'titulo' => $titulo,
             ];
         }, $mesas);
+    }
+
+    /** @param array<int, array<string, mixed>> $reservacionesVisuales */
+    private static function proyeccionVisualMapa(
+        bool $utilizable,
+        bool $ticketAbierto,
+        array $reservacionesVisuales,
+        string $estadoBase,
+        array $modificadores
+    ): array {
+        $resultado = ReservacionMapaMesaPresenter::presentar([
+            'utilizable' => $utilizable,
+            'ticket_abierto' => $ticketAbierto,
+            'reservaciones' => $reservacionesVisuales,
+        ]);
+        if ($ticketAbierto) {
+            return [
+                'estado_visual' => $resultado['estado_visual'],
+                'modificadores' => array_values(array_unique(array_merge($modificadores, $resultado['modificadores']))),
+                'label' => $resultado['label'],
+                'precedencia' => $resultado['precedencia'],
+            ];
+        }
+        if ($reservacionesVisuales === []) {
+            $resultado = match ($estadoBase) {
+                self::OCUPADA => [
+                    'estado_visual' => 'ocupada',
+                    'modificadores' => [],
+                    'label' => 'ocupada',
+                    'precedencia' => 'ocupacion',
+                ],
+                self::BLOQUEADA => [
+                    'estado_visual' => 'reservacion-proxima',
+                    'modificadores' => [],
+                    'label' => 'comprometida',
+                    'precedencia' => 'bloqueo',
+                ],
+                default => $resultado,
+            };
+        }
+        return [
+            'estado_visual' => $resultado['estado_visual'],
+            'modificadores' => array_values(array_unique(array_merge($modificadores, $resultado['modificadores']))),
+            'label' => $resultado['label'],
+            'precedencia' => $resultado['precedencia'],
+        ];
     }
 
     /**

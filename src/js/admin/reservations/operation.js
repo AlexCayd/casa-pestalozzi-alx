@@ -914,7 +914,10 @@
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
-            if (!proxima || proxima.ventana_operativa !== '30_60') {
+            var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_mapa)
+                ? mesaEstado.modificadores_mapa
+                : (mesaEstado && mesaEstado.modificadores || []);
+            if (!proxima || mapModifiers.indexOf('reservacion_advertencia') === -1) {
                 hideTableWarning();
                 return;
             }
@@ -1566,6 +1569,9 @@
                 var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
+                normalized.modificadores = Array.isArray(normalized.modificadores_mapa)
+                    ? normalized.modificadores_mapa.slice()
+                    : (normalized.modificadores || []);
                 var modifiers = [];
 
                 if (assignedReservation) {
@@ -1608,6 +1614,12 @@
                     conflict &&
                     (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
                 );
+                var estadoVisualMapa = normalized.estado_visual_mapa || normalized.estado_visual || '';
+                if (ticketConflict) {
+                    estadoVisualMapa = 'ocupada';
+                } else if (conflict && estadoVisualMapa === 'libre') {
+                    estadoVisualMapa = 'reservacion-proxima';
+                }
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
@@ -1634,6 +1646,8 @@
                     seleccionValida: true,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
+                    ariaLabel: normalized.titulo_mapa || title,
+                    estadoVisual: estadoVisualMapa,
                     modificadores: modifiers,
                     clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
                     atributos: {

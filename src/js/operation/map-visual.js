@@ -89,7 +89,7 @@
         var selected = (toBoolean(raw.seleccionada) || state === 'seleccionada') && seleccionValida;
         var reservable = toBoolean(raw.reservable);
 
-        return {
+            return {
             id: id,
             nombre: String(raw.nombre || ('Mesa ' + id)),
             tipo: String(raw.tipo || 'mesa').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'mesa',
@@ -102,7 +102,8 @@
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
             seleccionada: selected,
             interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
-            titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
+                titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
+                ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
             estadoBase: String(raw.estadoBase || raw.estado_base || ''),
             modificadores: normalizeClasses(raw.modificadores),
@@ -134,6 +135,9 @@
         var structuredList = card ? card.querySelector('[data-map-structured-list]') : null;
 
         function accessibleTableLabel(table) {
+            if (table.ariaLabel) {
+                return table.ariaLabel + (table.seleccionada ? ', seleccionada' : '');
+            }
             var parts = [table.titulo];
             if (table.capacidad > 0) {
                 parts.push('capacidad ' + table.capacidad);
