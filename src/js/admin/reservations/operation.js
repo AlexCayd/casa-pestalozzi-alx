@@ -766,6 +766,7 @@
             if (isLoading) {
                 setUpdateStatus('Actualizando', 'loading');
             }
+            renderOperationAvailability();
         }
 
         function setUpdateStatus(message, tone) {
@@ -803,10 +804,21 @@
                         ? 'Selecciona una fecha futura para continuar con acciones operativas.'
                         : 'Gestiona el servicio diario, los estados y la asignacion de mesas.');
             }
-            if (els.create) {
-                els.create.hidden = readonly;
-            }
             renderOperationContext();
+        }
+
+        function renderOperationAvailability() {
+            if (!els.create) {
+                return;
+            }
+
+            var hasValidDate = fechaValida(state.fecha);
+            var hasSchedules = sortedHours().length > 0;
+            var readonly = state.modo === 'solo_lectura' || state.editable === false;
+            var unavailable = !hasValidDate || !hasSchedules || state.cargando || Boolean(state.loadFailure) || readonly;
+            els.create.hidden = unavailable;
+            els.create.disabled = unavailable || state.guardando;
+            els.create.setAttribute('aria-disabled', unavailable || state.guardando ? 'true' : 'false');
         }
 
         function setMobileView(view) {
@@ -1168,6 +1180,7 @@
             if (els.create) {
                 els.create.setAttribute('data-create-date', state.fecha || '');
             }
+            renderOperationAvailability();
             updateHeaderContext();
             updateUrl();
             if (state.pendingCreationFeedback) {
@@ -1501,6 +1514,13 @@
                 return;
             }
 
+            if (!state.mesasEstado.length) {
+                mapVisual.clear(state.cargando
+                    ? 'Cargando el mapa de mesas.'
+                    : (state.loadFailure ? 'No fue posible cargar el mapa de mesas.' : 'No hay mesas para esta consulta.'));
+                return;
+            }
+
             var editable = reservacion ? canAssignTables(reservacion) : false;
             var ocupacion = reservacion
                 ? (state.ocupacionPorReservacion[String(reservacion.id)] || state.ocupacionPorReservacion[reservacion.id] || {})
@@ -1651,6 +1671,41 @@
             options = options || {};
             fecha = String(fecha || '').trim();
 
+            var previousDate = state.fecha;
+            var dateChanged = fecha !== previousDate;
+            var requestSequence = ++state.requestSequence;
+            state.timedOutSequence = 0;
+
+            if (state.timeoutId) {
+                window.clearTimeout(state.timeoutId);
+                state.timeoutId = null;
+            }
+            if (state.abortController) {
+                state.abortController.abort();
+            }
+
+            if (dateChanged) {
+                state.fecha = fecha;
+                state.horaSeleccionada = null;
+                state.reservacionSeleccionadaId = null;
+                state.mesasSeleccionadas = new Set();
+                state.horarios = [];
+                state.reservaciones = [];
+                state.mesas = [];
+                state.mesasEstado = [];
+                state.ocupacionFisica = [];
+                state.ocupacionPorReservacion = {};
+                state.capacidadHorario = {};
+                state.alertasOperativas = [];
+                state.estadoOperacion = 'disponible';
+                state.mensajeOperacion = '';
+                state.tituloOperacion = '';
+                state.consecuenciaOperacion = '';
+                state.loadFailure = null;
+                state.fechaFallida = '';
+                state.hasLoadedData = false;
+            }
+
             var preserveReservationId = parseInt(options.preserveReservationId || state.reservacionSeleccionadaId || '0', 10) || null;
             var preserveAssignment = state.assignmentMode
                 && options.discardAssignment !== true
@@ -1667,34 +1722,28 @@
             dismissScheduleAlert();
 
             if (!fecha) {
+                state.fecha = '';
+                setLoading(false);
+                renderAll();
                 return;
             }
 
             if (!fechaValida(fecha)) {
+                state.fechaFallida = fecha;
+                setLoading(false);
                 showDateWarning(state.fecha || state.fechaMinima);
+                renderAll();
                 return;
             }
 
-            if (state.timeoutId) {
-                window.clearTimeout(state.timeoutId);
-                state.timeoutId = null;
-            }
-            if (state.abortController) {
-                state.abortController.abort();
-            }
-
             state.abortController = new AbortController();
-            var requestSequence = ++state.requestSequence;
-            state.timedOutSequence = 0;
             var requestedHour = horaCorta(options.preserveHour || state.horaSeleccionada);
             var queryRequestedHour = horaCorta(options.requestedHour || requestedHour);
             if (!options.preserveDateWarning) {
                 clearDateWarning();
             }
             setLoading(true);
-            if (!state.reservaciones.length && !state.mesas.length) {
-                renderLoadingShell();
-            }
+            renderAll();
             if (activeNoticeSource === 'technical') {
                 hideGlobalNotice('technical');
             }
@@ -1733,10 +1782,10 @@
                     });
                 })
                 .then(function (data) {
-                    if (requestSequence !== state.requestSequence) {
+                    if (requestSequence !== state.requestSequence || state.fecha !== fecha) {
                         return;
                     }
-                    if (data.fecha !== fecha) {
+                    if (String(data.fecha || '') !== fecha) {
                         throw { kind: 'consistency', requestedDate: fecha, responseDate: data.fecha };
                     }
                     if (state.timeoutId) {
@@ -1833,13 +1882,11 @@
                             state.loadFailure = { title: 'No fue posible cargar las reservaciones.', message: 'Intenta actualizar la consulta.' };
                             setUpdateStatus('Tiempo agotado', 'error');
                             showTechnicalError('timeout', fecha);
-                            if (!state.hasLoadedData && els.panel) {
-                                renderPanelState('error');
-                            }
+                            renderAll();
                         }
                         return;
                     }
-                    if (requestSequence !== state.requestSequence) {
+                    if (requestSequence !== state.requestSequence || state.fecha !== fecha) {
                         return;
                     }
                     setLoading(false);
@@ -1847,9 +1894,7 @@
                     var kind = error instanceof TypeError ? 'connection' : ((error && error.kind) || 'unexpected');
                     setUpdateStatus(kind === 'connection' ? 'Sin conexion' : 'Error al actualizar', 'error');
                     showTechnicalError(kind, fecha);
-                    if (!state.hasLoadedData && els.panel) {
-                        renderPanelState('error');
-                    }
+                    renderAll();
                 });
         }
 

@@ -87,6 +87,8 @@ function initMapa() {
   var modalClose    = $('#mesa-modal-close');
   var modalLastFocus = null;
   var activeReservationModal = null;
+  var activeNoticeController = null;
+  var reservationRequestInFlight = false;
 
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
@@ -1439,6 +1441,16 @@ function initMapa() {
   function closeModal(options) {
     if (!modal) return;
     options = options || {};
+    if (activeNoticeController) {
+      var noticeController = activeNoticeController;
+      activeNoticeController = null;
+      if (noticeController.element && !noticeController.element.hidden) {
+        noticeController.close(false, { action: 'outer-close' });
+      }
+      if (noticeController.element && noticeController.element.parentNode) {
+        noticeController.element.parentNode.removeChild(noticeController.element);
+      }
+    }
     activeReservationModal = null;
     modal.classList.remove('mesa-modal--open');
     modal.setAttribute('aria-hidden', 'true');
@@ -2848,7 +2860,7 @@ function initMapa() {
           cancelLabel: 'Volver',
           confirmLabel: 'Registrar ausencia',
           onConfirm: function() {
-            apiMarcarNoShow(reserva, noShowBtn);
+            return apiMarcarNoShow(reserva, noShowBtn);
           }
         });
       });
@@ -3471,7 +3483,9 @@ function initMapa() {
     sugPedidas = false;
     modalContent.innerHTML = '';
     openModalShell();
-    window.ConfirmationModal.create(modalContent).open({
+    var controller = window.ConfirmationModal.create(modalContent);
+    activeNoticeController = controller;
+    controller.open({
       variant: options.variant === 'absence' || options.confirmButtonVariant === 'warning'
         ? 'warning'
         : 'default',
@@ -3663,11 +3677,17 @@ function initMapa() {
 
   function requestReservationOperation(endpoint, payload, options) {
     options = options || {};
+    if (reservationRequestInFlight) return Promise.resolve(null);
+    reservationRequestInFlight = true;
     var actionButton = options.button || null;
     setActionBusy(actionButton, true, 'Procesando…');
     return postJson(endpoint, payload)
     .then(function(result) {
-      if (result.ok) {
+      var committed = result && (result.commit === true || result.ok === true);
+      if (committed) {
+        if (typeof options.onCommit === 'function') {
+          return options.onCommit(result);
+        }
         if (result.ticket_id) {
           var mesaIdsServicio = Array.isArray(result.mesa_ids) && result.mesa_ids.length
             ? result.mesa_ids
@@ -3730,8 +3750,61 @@ function initMapa() {
       });
     })
     .finally(function() {
+      reservationRequestInFlight = false;
       setActionBusy(actionButton, false);
     });
+  }
+
+  function showNonBlockingReservationNotice(message) {
+    if (!updateStatus) return;
+    var previous = updateStatus.textContent;
+    updateStatus.textContent = message;
+    updateStatus.setAttribute('data-status', 'warning');
+    window.setTimeout(function() {
+      if (updateStatus.textContent === message) {
+        updateStatus.textContent = previous || '';
+        updateStatus.setAttribute('data-status', 'ready');
+      }
+    }, 5000);
+  }
+
+  function applyNoShowLocal(reserva) {
+    var reservaId = parseInt(reserva && reserva.id || '0', 10);
+    if (!reservaId) return;
+    reservaciones = reservaciones.map(function(item) {
+      if (parseInt(item.id || '0', 10) !== reservaId) return item;
+      var updated = Object.assign({}, item, {
+        estado: 'no_show',
+        accion_pendiente: null,
+        puede_marcar_no_show: false,
+        puede_iniciar: false,
+        mesa_ids: []
+      });
+      return updated;
+    });
+    mesasEstado = mesasEstado.map(function(item) {
+      var associated = item.reservacion_asociada || item.reservacion || null;
+      var associatedId = parseInt(associated && (associated.id || associated.reservacion_id) || '0', 10);
+      if (associatedId !== reservaId) return item;
+      return Object.assign({}, item, {
+        estado_visual: 'libre',
+        estado_base: 'disponible',
+        estado: 'disponible',
+        bloquea: false,
+        reservacion_asociada: null,
+        reservacion: null,
+        reservacion_proxima: null,
+        modificadores: (item.modificadores || []).filter(function(modifier) {
+          return ['reservacion_proxima', 'reservacion_bloqueante', 'reservacion_inminente', 'reservacion_tolerancia', 'reservacion_vencida', 'accion_pendiente', 'AUSENCIA_PENDIENTE'].indexOf(modifier) === -1;
+        }),
+        accion_pendiente: null,
+        acciones: []
+      });
+    });
+    renderMesas();
+    renderEstados();
+    renderSidebar();
+    actualizarModalReservacionActiva();
   }
 
   function apiIniciarServicio(reserva, meseroId, button) {
@@ -3746,10 +3819,35 @@ function initMapa() {
   }
 
   function apiMarcarNoShow(reserva, button) {
-    requestReservationOperation(
+    return requestReservationOperation(
       '/api/punto-de-venta/reservaciones/no-show',
       { reservacion_id: reserva.id },
-      { reserva: reserva, errorTitle: 'No se pudo registrar la ausencia', button: button }
+      {
+        reserva: reserva,
+        errorTitle: 'No se pudo registrar la ausencia',
+        button: button,
+        onCommit: function(result) {
+          // La mutación ya está confirmada: el overlay debe desaparecer antes
+          // de cualquier consulta secundaria y no depende de que ésta termine.
+          closeModal({ refresh: false });
+          applyNoShowLocal(reserva);
+          var refresh = silentRefresh();
+          if (!refresh || typeof refresh.then !== 'function') return result;
+          return refresh.then(function(refreshResult) {
+            if (refreshResult && refreshResult.refreshFailed) {
+              showNonBlockingReservationNotice(
+                'La ausencia fue registrada, pero no fue posible actualizar el mapa automáticamente.'
+              );
+            }
+            return result;
+          }).catch(function() {
+            showNonBlockingReservationNotice(
+              'La ausencia fue registrada, pero no fue posible actualizar el mapa automáticamente.'
+            );
+            return result;
+          });
+        }
+      }
     );
   }
 
@@ -4041,7 +4139,7 @@ function initMapa() {
       .then(function(data) {
         var fechaSeleccionada = fechaInput ? fechaInput.value : fecha;
         if (requestSequence !== dataRequestSequence || fechaSeleccionada !== fecha) {
-          return;
+          return { stale: true };
         }
         if (data.ok === false) {
           if (!silent) {
@@ -4053,7 +4151,7 @@ function initMapa() {
               '</div>';
             if (loadingEl) loadingEl.classList.add('hidden');
           }
-          return;
+          return { refreshFailed: true };
         }
         mesas         = data.mesas         || [];
         mesasEstado   = data.mesas_estado  || [];
@@ -4079,10 +4177,11 @@ function initMapa() {
             String(horaActualizada.minuto).padStart(2, '0');
         }
         if (loadingEl) loadingEl.classList.add('hidden');
+        return { ok: true };
       })
       .catch(function(error) {
         if (error && error.name === 'AbortError') return;
-        if (requestSequence !== dataRequestSequence) return;
+        if (requestSequence !== dataRequestSequence) return { stale: true };
         if (!silent) {
           reservasList.innerHTML =
             '<div class="mapa-empty-state mapa-empty-state--error">' +
@@ -4092,6 +4191,7 @@ function initMapa() {
             '</div>';
           if (loadingEl) loadingEl.classList.add('hidden');
         }
+        return { refreshFailed: true, error: error || null };
       });
   }
 
