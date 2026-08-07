@@ -366,7 +366,7 @@ final class ReservacionAdministrativaService
 
             $db->commit();
             $transaccion = false;
-            return self::resultadoGuardado($id, $datos, $revalidacion, $asignacion, false);
+            return self::resultadoGuardado($id, $datos, $revalidacion, $asignacion, false, false, true, $confirmaciones);
         } catch (\Throwable $e) {
             if ($transaccion) {
                 $db->rollback();
@@ -471,7 +471,7 @@ final class ReservacionAdministrativaService
             }
             $db->commit();
             $transaccion = false;
-            return self::resultadoGuardado($id, $datos, $revalidacion, $asignacion, false, $preservar, false);
+            return self::resultadoGuardado($id, $datos, $revalidacion, $asignacion, false, $preservar, false, $confirmaciones);
         } catch (\Throwable $e) {
             if ($transaccion) {
                 $db->rollback();
@@ -713,9 +713,15 @@ final class ReservacionAdministrativaService
     /** @return array<string, mixed> */
     private static function respuestaAdvertencias(array $codes, array $evaluacion, array $datos): array
     {
+        $sinAsignacion = in_array(self::SIN_ASIGNACION, $codes, true);
+        $motivo = $sinAsignacion && (int)$datos['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            ? 'asignacion_automatica_no_disponible_por_tamano'
+            : 'asignacion_automatica_no_confirmada';
         return [
-            'ok' => false,
+            'ok' => true,
             'codigo' => $codes[0] ?? self::SIN_ASIGNACION,
+            'tipo' => ReservacionErrorCatalog::TIPO_DECISION,
+            'commit' => false,
             'warnings' => array_values($codes),
             'confirmaciones_requeridas' => array_values($codes),
             'requiere_confirmacion_sin_contacto' => in_array(self::SIN_CONTACTO, $codes, true),
@@ -740,41 +746,45 @@ final class ReservacionAdministrativaService
                 'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
                 'lugares_faltantes' => max(0, (int)$datos['comensales'] - (int)($evaluacion['capacidad_estimada'] ?? 0)),
                 'asignacion_automatica_solicitada' => (bool)($datos['asignacion_automatica_solicitada'] ?? false),
+                'motivo' => $motivo,
             ],
         ];
     }
 
     /** @return array<string, mixed> */
-    private static function resultadoGuardado(int $id, array $datos, array $evaluacion, array $asignacion, bool $idempotente, bool $preservar = false, bool $esCreacion = true): array
+    private static function resultadoGuardado(
+        int $id,
+        array $datos,
+        array $evaluacion,
+        array $asignacion,
+        bool $idempotente,
+        bool $preservar = false,
+        bool $esCreacion = true,
+        array $confirmaciones = []
+    ): array
     {
         $mesaIds = array_values(array_map('intval', (array)($asignacion['mesa_ids'] ?? [])));
         if ($mesaIds === [] && $preservar) {
             $mesaIds = ReservacionMesa::obtenerIdsPorReservacion($id);
         }
         $sinMesas = $mesaIds === [];
-        $warnings = [];
-        if ($sinMesas) {
-            $warnings[] = self::SIN_ASIGNACION;
-        }
-        if (!($evaluacion['capacidad_estimada_suficiente'] ?? false)) {
-            $warnings[] = self::CAPACIDAD_OPERATIVA_EXCEDIDA;
-        }
-        if ($datos['contacto_tipo'] === 'ninguno') {
-            $warnings[] = self::SIN_CONTACTO;
-        }
-
         return [
             'ok' => true,
             'codigo' => $esCreacion
-                ? ($sinMesas ? ReservacionService::RESERVACION_CREADA_SIN_MESA : ReservacionService::RESERVACION_CREADA)
+                ? ($sinMesas && !in_array(self::SIN_ASIGNACION, $confirmaciones, true)
+                    ? ReservacionService::RESERVACION_CREADA_SIN_MESA
+                    : ReservacionService::RESERVACION_CREADA)
                 : ($sinMesas ? ReservacionService::ACTUALIZADA_REQUIERE_ASIGNACION : ReservacionService::ACTUALIZADA),
+            'tipo' => ReservacionErrorCatalog::TIPO_EXITO,
+            'commit' => true,
             'id' => $id,
             'idempotente' => $idempotente,
             'asignacion' => $sinMesas ? 'PENDIENTE' : 'ASIGNADA',
             'mesa_ids' => $mesaIds,
             'requiere_asignacion_manual' => $sinMesas,
             'sin_contacto' => $datos['contacto_tipo'] === 'ninguno',
-            'warnings' => array_values(array_unique($warnings)),
+            'warnings' => [],
+            'confirmaciones_requeridas' => [],
             'capacidad_solicitada' => (int)$datos['comensales'],
             'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
             'capacidad_total' => (int)($evaluacion['capacidad_total'] ?? 0),
@@ -805,7 +815,7 @@ final class ReservacionAdministrativaService
         $mesaIds = ReservacionMesa::obtenerIdsPorReservacion((int)$reservacion->id);
         return [
             'ok' => true,
-            'codigo' => $mesaIds === [] ? ReservacionService::RESERVACION_CREADA_SIN_MESA : ReservacionService::RESERVACION_CREADA,
+            'codigo' => ReservacionService::RESERVACION_CREADA,
             'id' => (int)$reservacion->id,
             'idempotente' => true,
             'asignacion' => $mesaIds === [] ? 'PENDIENTE' : 'ASIGNADA',
@@ -813,6 +823,10 @@ final class ReservacionAdministrativaService
             'requiere_asignacion_manual' => $mesaIds === [],
             'sin_contacto' => $datos['contacto_tipo'] === 'ninguno',
             'capacidad_solicitada' => $datos['comensales'],
+            'tipo' => ReservacionErrorCatalog::TIPO_EXITO,
+            'commit' => true,
+            'warnings' => [],
+            'confirmaciones_requeridas' => [],
         ];
     }
 

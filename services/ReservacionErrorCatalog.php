@@ -247,7 +247,7 @@ final class ReservacionErrorCatalog
         'CERRAR' => 'Cerrar',
         'CONFIRMAR' => 'Confirmar',
         'CONFIRMAR_APERTURA' => 'Abrir ticket',
-        'CONFIRMAR_SIN_MESAS' => 'Asignar mas tarde',
+        'CONFIRMAR_SIN_MESAS' => 'Asignar más tarde',
         'CONFIRMAR_SOBRECAPACIDAD' => 'Confirmar bajo responsabilidad',
         'CONSULTAR_TICKET' => 'Consultar ticket',
         'CORREGIR_DATOS' => 'Corregir datos',
@@ -346,10 +346,10 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary']],
         ],
         'SIN_ASIGNACION' => [
-            'titulo' => 'La reservación puede crearse sin mesas',
-            'descripcion' => 'No se asignaron mesas automáticamente.',
-            'mensaje' => 'No se asignaron mesas automáticamente.',
-            'consecuencia' => 'La reservación quedará confirmada y las mesas podrán asignarse posteriormente.',
+            'titulo' => 'Asignación de mesas pendiente',
+            'descripcion' => 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.',
+            'mensaje' => 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.',
+            'consecuencia' => 'La reservación quedará confirmada y podrás asignar las mesas posteriormente desde el mapa de reservaciones.',
             'acciones' => [
                 ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
                 ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
@@ -1057,10 +1057,11 @@ final class ReservacionErrorCatalog
             $accion['tipo'] = (string)($accion['tipo'] ?? 'secondary');
             return $accion;
         }, (array)($definition['acciones'] ?? []));
+        $commit = (bool)$definition['commit'];
         return [
             'codigo' => $canonical,
             'codigo_canonico' => $canonical,
-            'tipo' => $definition['tipo'],
+            'tipo' => $commit ? self::TIPO_EXITO : $definition['tipo'],
             'http_status' => $definition['http_status'],
             'mensaje_key' => $definition['mensaje_key'],
             'titulo' => $definition['titulo'],
@@ -1069,7 +1070,7 @@ final class ReservacionErrorCatalog
             'consecuencia' => $definition['consecuencia'],
             'contexto' => $contexto,
             'acciones' => $acciones,
-            'commit' => (bool)$definition['commit'],
+            'commit' => $commit,
         ];
     }
 
@@ -1099,6 +1100,9 @@ final class ReservacionErrorCatalog
     /** @return array<int, array<string, mixed>> */
     public static function decisionesResultado(array $resultado): array
     {
+        if (($resultado['commit'] ?? false) === true) {
+            return [];
+        }
         $codigos = $resultado['confirmaciones_requeridas']
             ?? ($resultado['warnings'] ?? []);
         if ($codigos === [] && in_array((string)($resultado['codigo'] ?? ''), [
@@ -1150,7 +1154,7 @@ final class ReservacionErrorCatalog
             'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
             'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
-            'asignacion_automatica_solicitada', 'reservacion_id', 'mesa_id', 'mesa_numero',
+            'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
         ]));
         $contexto = self::contextoSeguro(array_merge(
             $contextoResultado,
@@ -1186,6 +1190,16 @@ final class ReservacionErrorCatalog
             ));
         }
         $resultado['commit'] = $commitCanonico;
+
+        if ($commitCanonico) {
+            if (array_key_exists('ok', $resultado) && $resultado['ok'] !== true) {
+                error_log('ReservacionErrorCatalog: respuesta contradictoria reconciliada como exitosa para ' . $canonical);
+            }
+            $resultado['ok'] = true;
+        } elseif ($presentacion['tipo'] === self::TIPO_DECISION) {
+            // Una decisión pendiente fue comprendida; aún no hubo escritura.
+            $resultado['ok'] = true;
+        }
 
         if ($contexto !== []) {
             $resultado['contexto'] = $contexto;
@@ -1287,7 +1301,7 @@ final class ReservacionErrorCatalog
             'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
             'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
-            'asignacion_automatica_solicitada', 'reservacion_id', 'mesa_id', 'mesa_numero',
+            'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
         ];
         $seguro = [];
         foreach ($permitidos as $clave) {

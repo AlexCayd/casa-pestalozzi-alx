@@ -159,7 +159,7 @@ class AdminReservacionController
                     ]
                 );
                 self::jsonResponse([
-                    'success' => true,
+                    'success' => (bool)($resultado['commit'] ?? false),
                     'ok' => true,
                     'reservationId' => $id > 0 ? $id : null,
                     'reservacion_id' => $id > 0 ? $id : null,
@@ -177,7 +177,8 @@ class AdminReservacionController
                     'mesaIds' => $mesaIds,
                     'mesa_ids' => $mesaIds,
                     'contexto' => $contexto,
-                    'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false),
+                    'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false)
+                        || (string)($resultado['tipo'] ?? '') === ReservacionErrorCatalog::TIPO_DECISION,
                     'requiresManualAssignment' => (bool)($resultado['requiere_asignacion_manual'] ?? false),
                     'withoutContact' => (bool)($resultado['sin_contacto'] ?? false),
                     'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
