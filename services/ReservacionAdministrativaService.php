@@ -19,7 +19,9 @@ use Model\VerificacionContacto;
 final class ReservacionAdministrativaService
 {
     public const SIN_CONTACTO = 'SIN_CONTACTO';
+    public const REQUIERE_CONFIRMACION_SIN_CONTACTO = 'REQUIERE_CONFIRMACION_SIN_CONTACTO';
     public const SIN_ASIGNACION = 'SIN_ASIGNACION';
+    public const ASIGNACION_MANUAL_REQUERIDA = 'ASIGNACION_MANUAL_REQUERIDA';
     public const CAPACIDAD_INSUFICIENTE = 'CAPACIDAD_INSUFICIENTE';
     public const CAPACIDAD_OPERATIVA_EXCEDIDA = 'CAPACIDAD_OPERATIVA_EXCEDIDA';
     public const CONTACTO_TIPO_NO_EDITABLE = 'CONTACTO_TIPO_NO_EDITABLE';
@@ -328,7 +330,7 @@ final class ReservacionAdministrativaService
             }
             $faltantes = array_values(array_diff($warningCodes, $confirmaciones));
             if ($faltantes !== []) {
-                return self::rollback($db, self::respuestaAdvertencias($faltantes, $revalidacion, $datos));
+                return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
             }
 
             $reservacion = new Reservacion();
@@ -359,7 +361,7 @@ final class ReservacionAdministrativaService
                     }
                     $faltantes = array_values(array_diff($faltantes, $confirmaciones));
                     if ($faltantes !== []) {
-                        return self::rollback($db, self::respuestaAdvertencias($faltantes, $revalidacion, $datos));
+                        return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
                     }
                 }
             }
@@ -449,7 +451,7 @@ final class ReservacionAdministrativaService
             $confirmaciones = self::confirmaciones($post);
             $faltantes = array_values(array_diff($warningCodes, $confirmaciones));
             if ($faltantes !== []) {
-                return self::rollback($db, self::respuestaAdvertencias($faltantes, $revalidacion, $datos));
+                return self::rollback($db, self::respuestaAdvertencias(array_slice($faltantes, 0, 1), $revalidacion, $datos));
             }
 
             if ($actuales !== [] && (!$preservar || $solicitaAsignacion)) {
@@ -676,13 +678,17 @@ final class ReservacionAdministrativaService
     {
         $warnings = [];
         if ($datos['contacto_tipo'] === 'ninguno' || empty($datos['contacto'])) {
-            $warnings[] = self::SIN_CONTACTO;
+            $warnings[] = self::REQUIERE_CONFIRMACION_SIN_CONTACTO;
         }
-        if (!($evaluacion['capacidad_estimada_suficiente'] ?? false)) {
-            $warnings[] = self::CAPACIDAD_OPERATIVA_EXCEDIDA;
-        }
+        $capacidadSuficiente = (bool)($evaluacion['capacidad_estimada_suficiente'] ?? false);
         $asignada = $preservar || ($solicitaAsignacion && ($evaluacion['asignacion_automatica_posible'] ?? false));
-        if (!$asignada) {
+        if ((int)$datos['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO && !$asignada) {
+            // Para más de 12 personas la asignación automática no aplica y no
+            // debe presentarse como un fallo del algoritmo.
+            $warnings[] = self::ASIGNACION_MANUAL_REQUERIDA;
+        } elseif (!$capacidadSuficiente) {
+            $warnings[] = self::CAPACIDAD_OPERATIVA_EXCEDIDA;
+        } elseif ($capacidadSuficiente && !$asignada) {
             $warnings[] = self::SIN_ASIGNACION;
         }
 
@@ -701,9 +707,14 @@ final class ReservacionAdministrativaService
         }
         $confirmaciones = array_values(array_unique(array_filter(array_map('strval', $raw), static fn(string $code): bool => in_array($code, [
             self::SIN_CONTACTO,
+            self::REQUIERE_CONFIRMACION_SIN_CONTACTO,
             self::SIN_ASIGNACION,
+            self::ASIGNACION_MANUAL_REQUERIDA,
             self::CAPACIDAD_INSUFICIENTE,
         ], true))));
+        if (in_array(self::SIN_CONTACTO, $confirmaciones, true)) {
+            $confirmaciones[] = self::REQUIERE_CONFIRMACION_SIN_CONTACTO;
+        }
         if (filter_var($post['confirmar_sobrecapacidad'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             $confirmaciones[] = self::CAPACIDAD_OPERATIVA_EXCEDIDA;
         }
@@ -713,21 +724,23 @@ final class ReservacionAdministrativaService
     /** @return array<string, mixed> */
     private static function respuestaAdvertencias(array $codes, array $evaluacion, array $datos): array
     {
-        $sinAsignacion = in_array(self::SIN_ASIGNACION, $codes, true);
-        $motivo = $sinAsignacion && (int)$datos['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO
-            ? 'asignacion_automatica_no_disponible_por_tamano'
-            : 'asignacion_automatica_no_confirmada';
+        $sinAsignacion = in_array(self::SIN_ASIGNACION, $codes, true)
+            || in_array(self::ASIGNACION_MANUAL_REQUERIDA, $codes, true);
+        $codigo = $codes[0] ?? self::SIN_ASIGNACION;
+        $motivo = $codigo === self::ASIGNACION_MANUAL_REQUERIDA
+            ? 'asignacion_automatica_no_aplica_por_tamano'
+            : ($sinAsignacion ? 'asignacion_automatica_no_confirmada' : null);
         return [
             'ok' => true,
-            'codigo' => $codes[0] ?? self::SIN_ASIGNACION,
+            'codigo' => $codigo,
             'tipo' => ReservacionErrorCatalog::TIPO_DECISION,
             'commit' => false,
-            'warnings' => array_values($codes),
-            'confirmaciones_requeridas' => array_values($codes),
-            'requiere_confirmacion_sin_contacto' => in_array(self::SIN_CONTACTO, $codes, true),
+            'warnings' => [$codigo],
+            'confirmaciones_requeridas' => [$codigo],
+            'requiere_confirmacion_sin_contacto' => $codigo === self::REQUIERE_CONFIRMACION_SIN_CONTACTO,
             'requiere_confirmacion_capacidad' => in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $codes, true),
             'requiere_confirmacion_sobrecapacidad' => in_array(self::CAPACIDAD_OPERATIVA_EXCEDIDA, $codes, true),
-            'requiere_asignacion_manual' => in_array(self::SIN_ASIGNACION, $codes, true),
+            'requiere_asignacion_manual' => $sinAsignacion,
             'capacidad_solicitada' => (int)$datos['comensales'],
             'capacidad_disponible' => (int)($evaluacion['capacidad_estimada'] ?? 0),
             'capacidad_total' => (int)($evaluacion['capacidad_total'] ?? 0),
@@ -771,7 +784,9 @@ final class ReservacionAdministrativaService
         return [
             'ok' => true,
             'codigo' => $esCreacion
-                ? ($sinMesas && !in_array(self::SIN_ASIGNACION, $confirmaciones, true)
+                ? ($sinMesas
+                    && !in_array(self::SIN_ASIGNACION, $confirmaciones, true)
+                    && !in_array(self::ASIGNACION_MANUAL_REQUERIDA, $confirmaciones, true)
                     ? ReservacionService::RESERVACION_CREADA_SIN_MESA
                     : ReservacionService::RESERVACION_CREADA)
                 : ($sinMesas ? ReservacionService::ACTUALIZADA_REQUIERE_ASIGNACION : ReservacionService::ACTUALIZADA),

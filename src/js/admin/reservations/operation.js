@@ -923,9 +923,11 @@
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
-            var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_mapa)
-                ? mesaEstado.modificadores_mapa
-                : (mesaEstado && mesaEstado.modificadores || []);
+            var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_visual_mapa)
+                ? mesaEstado.modificadores_visual_mapa
+                : (mesaEstado && Array.isArray(mesaEstado.modificadores_mapa)
+                    ? mesaEstado.modificadores_mapa
+                    : (mesaEstado && mesaEstado.modificadores || []));
             if (!proxima || mapModifiers.indexOf('reservacion_advertencia') === -1) {
                 hideTableWarning();
                 return;
@@ -1111,7 +1113,9 @@
         }
 
         function createDecisionItems(payload) {
-            var decisions = payload && (payload.confirmaciones_requeridas || payload.requiredConfirmations);
+            var decisions = payload && payload.decision && typeof payload.decision === 'object'
+                ? [payload.decision]
+                : (payload && (payload.confirmaciones_requeridas || payload.requiredConfirmations));
             if (!Array.isArray(decisions)) {
                 return [];
             }
@@ -1128,17 +1132,16 @@
                     : 'El servidor no devolvió una decisión válida.');
                 return false;
             }
-            createDecisionState.activeDecision = decisions[0].codigo_canonico || decisions[0].codigo || null;
-            createDecisionState.requiredConfirmations = decisions.map(function (decision) {
-                return decision.codigo_canonico || decision.codigo;
-            }).filter(Boolean);
-            createDecisionState.confirmacionesRequeridas = decisions.slice();
+            var decision = decisions[0];
+            createDecisionState.activeDecision = decision.codigo_canonico || decision.codigo || null;
+            createDecisionState.requiredConfirmations = [decision.codigo_canonico || decision.codigo].filter(Boolean);
+            createDecisionState.confirmacionesRequeridas = [decision];
             createDecisionState.pendingConfirmation = payload;
             createDecisionState.lastResponse = payload;
             createDecisionState.isAwaitingDecision = true;
             createForm.dispatchEvent(new CustomEvent('reservation:confirmation', {
                 bubbles: true,
-                detail: { type: 'warnings', decisions: decisions }
+                detail: { type: 'warnings', decision: decision, decisions: [decision] }
             }));
             return true;
         }
@@ -1636,10 +1639,12 @@
                 var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
-                normalized.modificadores = Array.isArray(normalized.modificadores_mapa)
-                    ? normalized.modificadores_mapa.slice()
-                    : (normalized.modificadores || []);
-                var modifiers = [];
+                normalized.modificadores = Array.isArray(normalized.modificadores_visual_mapa)
+                    ? normalized.modificadores_visual_mapa.slice()
+                    : (Array.isArray(normalized.modificadores_mapa)
+                        ? normalized.modificadores_mapa.slice()
+                        : (normalized.modificadores || []));
+                var modifiers = normalized.modificadores.slice();
 
                 if (assignedReservation) {
                     modifiers.push('asignada');
@@ -1713,7 +1718,7 @@
                     seleccionValida: true,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
-                    ariaLabel: normalized.titulo_mapa || title,
+                    ariaLabel: normalized.aria_label_mapa || normalized.titulo_mapa || title,
                     estadoVisual: estadoVisualMapa,
                     modificadores: modifiers,
                     clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
@@ -2227,15 +2232,17 @@
             });
         }
 
-        function decisionAction(decisions, type, fallback) {
-            for (var i = 0; i < decisions.length; i++) {
-                var actions = Array.isArray(decisions[i].acciones) ? decisions[i].acciones : [];
-                for (var j = 0; j < actions.length; j++) {
-                    if (type === 'secondary' && actions[j].id === 'VOLVER') return actions[j];
-                    if (type === 'primary' && actions[j].tipo === 'primary') return actions[j];
-                }
+        function decisionActions(decision) {
+            var actions = decision && Array.isArray(decision.acciones)
+                ? decision.acciones.filter(function (action) {
+                    return action && action.id && action.label && action.tipo;
+                })
+                : [];
+            if (!actions.length) {
+                console.error('Decisión de reservación sin acciones canónicas', decision);
+                return [{ id: 'CERRAR', label: 'Cerrar', tipo: 'secondary' }];
             }
-            return fallback;
+            return actions;
         }
 
         function decisionSummary(decision) {
@@ -2280,17 +2287,17 @@
                     ' · Origen: ' + origin;
             }));
             var first = decisiones[0];
-            var primary = decisionAction(decisiones, 'primary', { label: 'Confirmar', tipo: 'primary' });
-            var secondary = decisionAction(decisiones, 'secondary', { label: 'Volver', tipo: 'secondary' });
             confirmationController.open({
                 variant: 'warning',
+                decision: true,
+                decisionData: first,
+                mensaje: first.mensaje,
+                actions: decisionActions(first),
                 eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
-                title: first.mensaje,
+                title: first.titulo || first.mensaje,
                 description: first.descripcion || '',
                 summary: confirmationDetails,
                 consequence: first.consecuencia || '',
-                secondaryLabel: secondary.label,
-                primaryLabel: primary.label,
                 onPrimary: function () {
                     var confirmation = state.pendingAssignmentConflict;
                     confirmationController.close(false);
@@ -2313,9 +2320,6 @@
             }
             var confirmaciones = decisionCodes(decisiones);
             var first = decisiones[0];
-            var primary = decisionAction(decisiones, 'primary', { label: 'Confirmar', tipo: 'primary' });
-            var secondary = decisionAction(decisiones, 'secondary', { label: 'Volver', tipo: 'secondary' });
-
             state.pendingAssignmentConflict = {
                 token: '',
                 ticketIds: [],
@@ -2323,13 +2327,15 @@
             };
             confirmationController.open({
                 variant: 'warning',
+                decision: true,
+                decisionData: first,
+                mensaje: first.mensaje,
+                actions: decisionActions(first),
                 eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
-                title: first.mensaje,
+                title: first.titulo || first.mensaje,
                 description: first.descripcion || '',
                 summary: decisiones.slice(1).map(decisionSummary),
                 consequence: first.consecuencia || '',
-                secondaryLabel: secondary.label,
-                primaryLabel: primary.label,
                 onSecondary: function () {
                     state.pendingAssignmentConflict = null;
                 },

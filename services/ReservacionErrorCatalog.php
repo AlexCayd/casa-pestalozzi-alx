@@ -137,6 +137,7 @@ final class ReservacionErrorCatalog
         'SIN_DISPONIBILIDAD' => self::TIPO_CONFLICTO,
         'CAPACIDAD_INSUFICIENTE' => self::TIPO_CONFLICTO,
         'CAPACIDAD_OPERATIVA_EXCEDIDA' => self::TIPO_DECISION,
+        'ASIGNACION_MANUAL_REQUERIDA' => self::TIPO_DECISION,
         'SIN_ASIGNACION' => self::TIPO_DECISION,
         'REQUIERE_CONFIRMACION' => self::TIPO_DECISION,
         'REQUIERE_CONFIRMACION_CAPACIDAD' => self::TIPO_DECISION,
@@ -247,6 +248,7 @@ final class ReservacionErrorCatalog
         'CERRAR' => 'Cerrar',
         'CONFIRMAR' => 'Confirmar',
         'CONFIRMAR_APERTURA' => 'Abrir ticket',
+        'CONFIRMAR_SIN_CONTACTO' => 'Crear sin contacto',
         'CONFIRMAR_SIN_MESAS' => 'Asignar más tarde',
         'CONFIRMAR_SOBRECAPACIDAD' => 'Confirmar bajo responsabilidad',
         'CONSULTAR_TICKET' => 'Consultar ticket',
@@ -345,11 +347,21 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'La reservacion quedara confirmada sin garantia de asignacion fisica y debera resolverse manualmente.',
             'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary']],
         ],
+        'ASIGNACION_MANUAL_REQUERIDA' => [
+            'titulo' => 'Asignación manual de mesas',
+            'mensaje' => 'Asignación manual de mesas',
+            'descripcion' => 'Las reservaciones de más de 12 personas requieren asignar las mesas manualmente.',
+            'consecuencia' => 'Puedes crear la reservación ahora y asignar las mesas posteriormente desde el mapa de reservaciones.',
+            'acciones' => [
+                ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+                ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
+            ],
+        ],
         'SIN_ASIGNACION' => [
             'titulo' => 'Asignación de mesas pendiente',
-            'descripcion' => 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.',
-            'mensaje' => 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.',
-            'consecuencia' => 'La reservación quedará confirmada y podrás asignar las mesas posteriormente desde el mapa de reservaciones.',
+            'descripcion' => 'No se encontró una combinación automática de mesas para esta reservación.',
+            'mensaje' => 'No se encontró una combinación automática de mesas para esta reservación.',
+            'consecuencia' => 'Puedes crearla sin mesas y realizar la asignación manualmente después.',
             'acciones' => [
                 ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
                 ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
@@ -504,10 +516,14 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
         ],
         'REQUIERE_CONFIRMACION_SIN_CONTACTO' => [
-            'titulo' => 'Falta confirmar el contacto',
-            'mensaje' => 'Confirma que deseas crear la reservación sin contacto.',
-            'consecuencia' => 'La reservación todavía no se creó.',
-            'acciones' => [['id' => 'CONFIRMAR', 'tipo' => 'primary']],
+            'titulo' => 'Crear reservación sin contacto',
+            'mensaje' => 'No se agregó un correo electrónico ni teléfono para esta reservación.',
+            'descripcion' => 'No se agregó un correo electrónico ni teléfono para esta reservación.',
+            'consecuencia' => 'La reservación podrá crearse, pero no habrá un medio de contacto asociado al cliente.',
+            'acciones' => [
+                ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+                ['id' => 'CONFIRMAR_SIN_CONTACTO', 'label' => 'Crear sin contacto', 'tipo' => 'primary'],
+            ],
         ],
         'REQUIERE_CONFIRMACION_CAPACIDAD' => [
             'titulo' => 'Capacidad insuficiente',
@@ -1106,9 +1122,11 @@ final class ReservacionErrorCatalog
         $codigos = $resultado['confirmaciones_requeridas']
             ?? ($resultado['warnings'] ?? []);
         if ($codigos === [] && in_array((string)($resultado['codigo'] ?? ''), [
+            'ASIGNACION_MANUAL_REQUERIDA',
             'SIN_ASIGNACION',
             'CAPACIDAD_OPERATIVA_EXCEDIDA',
             'CAPACIDAD_INSUFICIENTE',
+            'REQUIERE_CONFIRMACION_SIN_CONTACTO',
             'CONFLICTO_TICKETS_ABIERTOS',
             'CONFLICTO_TICKET_ABIERTO',
         ], true)) {

@@ -151,7 +151,13 @@
             }
 
             function acceptConfirmations(codes) {
-                acceptedConfirmationCodes = Array.isArray(codes) ? codes.slice() : [];
+                var nuevos = Array.isArray(codes) ? codes : [];
+                acceptedConfirmationCodes = acceptedConfirmationCodes
+                    .concat(nuevos)
+                    .filter(Boolean)
+                    .filter(function (code, index, all) {
+                        return all.indexOf(code) === index;
+                    });
                 form.setAttribute('data-confirmations-accepted', acceptedConfirmationCodes.join(','));
                 if (confirmationInput) confirmationInput.value = acceptedConfirmationCodes.join(',');
             }
@@ -211,11 +217,13 @@
             }
 
             function decisionItems(detail) {
-                var raw = Array.isArray(detail && detail.decisions)
-                    ? detail.decisions
-                    : (Array.isArray(detail && detail.confirmaciones_requeridas)
-                        ? detail.confirmaciones_requeridas
-                        : (Array.isArray(detail && detail.codes) ? detail.codes : []));
+                var raw = detail && detail.decision && typeof detail.decision === 'object'
+                    ? [detail.decision]
+                    : (Array.isArray(detail && detail.decisions)
+                        ? detail.decisions
+                        : (Array.isArray(detail && detail.confirmaciones_requeridas)
+                            ? detail.confirmaciones_requeridas
+                            : (Array.isArray(detail && detail.codes) ? detail.codes : [])));
                 return raw.filter(function (decision) {
                     return decision && typeof decision === 'object' && decision.mensaje;
                 });
@@ -229,15 +237,17 @@
                 });
             }
 
-            function decisionAction(decisions, type, fallback) {
-                for (var i = 0; i < decisions.length; i++) {
-                    var actions = Array.isArray(decisions[i].acciones) ? decisions[i].acciones : [];
-                    for (var j = 0; j < actions.length; j++) {
-                        if (type === 'secondary' && actions[j].id === 'VOLVER') return actions[j];
-                        if (type === 'primary' && actions[j].tipo === 'primary') return actions[j];
-                    }
+            function decisionActions(decision) {
+                var actions = decision && Array.isArray(decision.acciones)
+                    ? decision.acciones.filter(function (action) {
+                        return action && action.id && action.label && action.tipo;
+                    })
+                    : [];
+                if (!actions.length) {
+                    console.error('Decisión de reservación sin acciones canónicas', decision);
+                    return [{ id: 'CERRAR', label: 'Cerrar', tipo: 'secondary' }];
                 }
-                return fallback;
+                return actions;
             }
 
             function decisionConfirmationOptions(type, detail) {
@@ -257,23 +267,21 @@
                     };
                 }
                 var first = decisions[0];
-                var primary = decisionAction(decisions, 'primary', { label: 'Confirmar', tipo: 'primary' });
-                var secondary = decisionAction(decisions, 'secondary', { label: 'Volver', tipo: 'secondary' });
-                var messages = decisions.map(function (decision) { return decision.mensaje; }).filter(Boolean);
-                var descriptions = decisions.map(function (decision) { return decision.descripcion; }).filter(Boolean);
-                var consequences = decisions.map(function (decision) { return decision.consecuencia; }).filter(Boolean);
+                var actions = decisionActions(first);
                 return {
                     type: type,
+                    decision: true,
+                    decisionData: first,
+                    mensaje: first.mensaje,
+                    actions: actions,
                     eyebrow: first.tipo === 'decision_requerida' ? 'Decision administrativa' : 'Conflicto operativo',
                     title: first.titulo || first.mensaje,
-                    description: first.descripcion || descriptions.join(' '),
-                    summary: messages.slice(1),
-                    consequence: consequences.join(' '),
-                    backLabel: secondary.label,
-                    confirmLabel: primary.label,
+                    description: first.descripcion || first.mensaje,
+                    summary: [],
+                    consequence: first.consecuencia || '',
                     focusTarget: saveButton,
                     onConfirm: function () {
-                        acceptConfirmations(codes);
+                        acceptConfirmations([codes[0]]);
                         setFormValue(form, 'confirmar_sobrecapacidad', codes.indexOf('CAPACIDAD_OPERATIVA_EXCEDIDA') !== -1 ? '1' : '0');
                         submitAfterConfirmation();
                     }
@@ -296,7 +304,7 @@
                         focusTarget: contactInput,
                         onConfirm: function () {
                             form.setAttribute('data-contact-warning-accepted', '1');
-                            acceptConfirmations(['SIN_CONTACTO']);
+                            acceptConfirmations(['REQUIERE_CONFIRMACION_SIN_CONTACTO']);
                             submitAfterConfirmation();
                         }
                     };
@@ -369,14 +377,18 @@
                 var configured = activeConfirmation;
                 confirmationController.open({
                     variant: type === 'capacity' || type === 'warnings' ? 'warning' : 'default',
+                    decision: configured.decision === true,
+                    decisionData: configured.decisionData || null,
+                    mensaje: configured.mensaje || '',
+                    actions: configured.actions || [],
                     eyebrow: configured.eyebrow,
                     title: configured.title,
                     description: configured.description,
                     summary: configured.summary,
                     warning: configured.warning,
                     consequence: configured.consequence,
-                    secondaryLabel: configured.backLabel,
-                    primaryLabel: configured.confirmLabel,
+                    secondaryLabel: configured.decision ? undefined : configured.backLabel,
+                    primaryLabel: configured.decision ? undefined : configured.confirmLabel,
                     focusTarget: configured.focusTarget,
                     onSecondary: function () {
                         if (configured.onBack) configured.onBack();
@@ -837,6 +849,7 @@
             if (jsonTransport && !modal) {
                 form.addEventListener('reservation:jsonsubmit', function () {
                     var body = new FormData(form);
+                    var preserveConfirmationsForReset = false;
                     body.set('response_format', 'json');
                     fetch(form.action, {
                         method: 'POST',
@@ -876,7 +889,7 @@
                                 decisions = payload.mensaje && payload.codigo ? [payload] : [];
                             }
                             if (decisions.length) {
-                                clearAcceptedConfirmations();
+                                preserveConfirmationsForReset = true;
                                 form.dispatchEvent(new CustomEvent('reservation:confirmation', {
                                     detail: {
                                         type: 'warnings',
@@ -914,7 +927,9 @@
                             'error'
                         );
                     }).finally(function () {
-                        form.dispatchEvent(new CustomEvent('reservation:reset-submit'));
+                        form.dispatchEvent(new CustomEvent('reservation:reset-submit', {
+                            detail: { preserveConfirmations: preserveConfirmationsForReset }
+                        }));
                     });
                 });
             }
