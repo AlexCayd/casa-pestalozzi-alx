@@ -5,93 +5,29 @@ namespace Services;
 /**
  * Proyección visual exclusiva del mapa administrativo.
  *
- * Recibe hechos temporales y de ocupación ya calculados por los servicios de
- * dominio. No decide capacidad ni modifica la interpretación que consume POS.
+ * Recibe el bloqueo físico ya evaluado por OcupacionMesasService. No calcula
+ * traslapes, ventanas de proximidad ni estados de POS: sólo traduce el hecho
+ * canónico a los cuatro estados visuales del mapa.
  */
 final class ReservacionMapaMesaPresenter
 {
     /** @return array{estado_visual:string,modificadores:array<int,string>,label:string,precedencia:string} */
     public static function presentar(array $hechos): array
     {
-        $utilizable = self::booleano($hechos['utilizable'] ?? false);
-        $ticketAbierto = self::booleano($hechos['ticket_abierto'] ?? false);
-        $reservaciones = (array)($hechos['reservaciones'] ?? []);
-
-        if ($ticketAbierto) {
-            return self::resultado('ocupada', [], 'ocupada', 'ticket');
-        }
-
-        $mejor = null;
-        foreach ($reservaciones as $reservacion) {
-            $reservacion = is_array($reservacion) ? $reservacion : [];
-            $candidato = self::candidato($reservacion);
-            if ($mejor === null || $candidato['rank'] > $mejor['rank']) {
-                $mejor = $candidato;
-            }
-        }
-
-        if ($mejor !== null && $utilizable) {
-            return [
-                'estado_visual' => $mejor['estado_visual'],
-                'modificadores' => $mejor['modificadores'],
-                'label' => $mejor['label'],
-                'precedencia' => $mejor['precedencia'],
-            ];
-        }
-
-        if (!$utilizable) {
+        if (!self::booleano($hechos['utilizable'] ?? false)) {
             return self::resultado('no-utilizable', [], 'no utilizable', 'no-utilizable');
         }
 
+        if (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
+            return self::resultado(
+                'ocupada',
+                [],
+                self::etiquetaBloqueo((array)($hechos['causas_bloqueo'] ?? [])),
+                'ocupacion'
+            );
+        }
+
         return self::resultado('libre', [], 'disponible', 'disponible');
-    }
-
-    /** @return array{rank:int,estado_visual:string,modificadores:array<int,string>,label:string,precedencia:string} */
-    private static function candidato(array $reservacion): array
-    {
-        $minutos = array_key_exists('minutos_para_inicio', $reservacion)
-            ? self::enteroNulo($reservacion['minutos_para_inicio'])
-            : self::enteroNulo($reservacion['minutos_restantes'] ?? null);
-        // El servicio entrega el intervalo bloqueado como hecho canónico. No
-        // se infiere desde minutos negativos porque éstos también pueden
-        // representar una tolerancia vencida pendiente de ausencia.
-        $bloqueaIntervalo = self::booleano($reservacion['bloquea_intervalo_reservacion'] ?? false);
-
-        if ($bloqueaIntervalo) {
-            return [
-                'rank' => 600,
-                'estado_visual' => 'ocupada',
-                'modificadores' => ['reservacion_bloqueante'],
-                'label' => 'ocupada',
-                'precedencia' => 'reservacion_exacta',
-            ];
-        }
-        if ($minutos !== null && $minutos > 0 && $minutos <= 30) {
-            return [
-                'rank' => 400,
-                'estado_visual' => 'reservacion-proxima',
-                'modificadores' => ['reservacion_inminente'],
-                'label' => 'reservación próxima; no asignar a un nuevo servicio',
-                'precedencia' => 'reservacion_0_30',
-            ];
-        }
-        if ($minutos !== null && $minutos > 30 && $minutos <= 60) {
-            $detalle = 'disponible con reservación en ' . $minutos . ' minutos';
-            return [
-                'rank' => 300,
-                'estado_visual' => 'libre',
-                'modificadores' => ['reservacion_advertencia'],
-                'label' => $detalle,
-                'precedencia' => 'reservacion_30_60',
-            ];
-        }
-        return [
-            'rank' => 100,
-            'estado_visual' => 'libre',
-            'modificadores' => [],
-            'label' => 'disponible',
-            'precedencia' => 'disponible',
-        ];
     }
 
     /** @return array{estado_visual:string,modificadores:array<int,string>,label:string,precedencia:string} */
@@ -105,19 +41,27 @@ final class ReservacionMapaMesaPresenter
         ];
     }
 
+    /** @param array<int, mixed> $causas */
+    private static function etiquetaBloqueo(array $causas): string
+    {
+        $causas = array_values(array_unique(array_map('strval', $causas)));
+        if (in_array('ticket', $causas, true)) {
+            return 'no disponible por ticket';
+        }
+        if (in_array('reservacion', $causas, true)) {
+            return 'no disponible por reservación';
+        }
+        if (in_array('hold', $causas, true)) {
+            return 'no disponible por retención';
+        }
+        return 'no disponible';
+    }
+
     private static function booleano($valor): bool
     {
         if (is_bool($valor)) {
             return $valor;
         }
         return filter_var($valor, FILTER_VALIDATE_BOOL);
-    }
-
-    private static function enteroNulo($valor): ?int
-    {
-        if ($valor === null || $valor === '') {
-            return null;
-        }
-        return (int)$valor;
     }
 }
