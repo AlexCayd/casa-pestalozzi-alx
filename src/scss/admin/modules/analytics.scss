@@ -1100,29 +1100,11 @@
     padding-bottom: 4px;
   }
 
-  // Fila inferior: RevPASH (gráfica) y reglas de asociación (tabla). La tabla
-  // lleva nombres de platillo largos, así que se le da algo más de ancho.
-  // 'stretch' iguala el alto de ambas tarjetas para que la fila no quede coja.
-  .admin-nivel1-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
-    gap: 20px;
-    margin-top: 20px;
-    align-items: stretch;
-  }
-
-  // RevPASH crece para acompañar el alto de la tabla vecina: el lienzo ocupa
-  // el espacio sobrante en lugar de dejar hueco bajo la tarjeta.
-  [data-n1-revpash] {
-    display: flex;
-    flex-direction: column;
-
-    // El mapa se lleva el alto sobrante para quedar a la altura de la tabla
-    // de §3.4, que es su vecina en la retícula.
-    .admin-n1-heat {
-      flex: 1 1 auto;
-    }
-  }
+  // RevPASH y reglas de asociación compartían una fila de dos columnas. Al
+  // sumarle la vista diaria, el panel de RevPASH creció y arrastraba a la tabla
+  // vecina: con 'stretch' la fila iguala alturas y la tabla quedaba estirada por
+  // un vecino que nada tiene que ver con ella. Ahora cada analítica ocupa su
+  // propia fila a todo lo ancho y su alto es solo suyo.
 
   // Subtítulo del encabezado (aclara que la gráfica es un mapa, no barras).
   .admin-nivel1-sub {
@@ -1245,14 +1227,61 @@
     }
   }
 
+  /* ── RevPASH por día completo ──────────────────────────────────────
+     Segunda gráfica del panel de §3.2, no una fusión con el mapa: mide lo
+     mismo con otro denominador. Ocupa todo el ancho del panel y se separa
+     del mapa con un filete para que se lean como dos lecturas, no como una
+     continuación. */
+  .admin-n1-daily {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--admin-border-soft);
+
+    &__head {
+      margin-bottom: 10px;
+
+      h4 {
+        color: var(--admin-text);
+        font-family: var(--admin-font-heading);
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      p {
+        margin-top: 3px;
+        color: var(--admin-muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+    }
+
+    // Alto fijo: es la gráfica secundaria del panel y no debe competir con el
+    // mapa. Con el panel a todo lo ancho, siete barras sobre un lienzo bajo se
+    // ven aplastadas, de ahí el alto algo mayor.
+    &__canvas {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      height: 260px;
+
+      canvas {
+        display: block;
+        width: 100% !important;
+        max-width: 100%;
+        height: 100% !important;
+      }
+    }
+  }
+
   // Con muchos pares la tabla se desplaza en lugar de estirar la fila.
   [data-n1-asociacion] .admin-table-wrap {
     max-height: 460px;
     overflow-y: auto;
   }
 
-  .admin-nivel1-panel + .admin-nivel1-panel,
-  .admin-nivel1-grid + .admin-nivel1-panel {
+  // Los paneles se apilan: §3.1 no lleva .admin-nivel1-panel, así que la
+  // separación se define sobre el panel base para cubrir los tres.
+  > .admin-panel + .admin-panel {
     margin-top: 20px;
   }
 
@@ -1474,6 +1503,13 @@
     }
   }
 
+  // El reset deja los <p> sin margen, así que un párrafo y una lista contiguos
+  // se pegan. Después de un título no hace falta: el h3 ya trae su separación.
+  &__text + &__notes,
+  &__notes + &__text {
+    margin-top: 14px;
+  }
+
   strong {
     color: var(--admin-text);
     font-weight: 600;
@@ -1494,9 +1530,6 @@
 
 @media (max-width: 1024px) {
   .admin-nivel1 .admin-nivel1-menu__body {
-    grid-template-columns: 1fr;
-  }
-  .admin-nivel1 .admin-nivel1-grid {
     grid-template-columns: 1fr;
   }
 }

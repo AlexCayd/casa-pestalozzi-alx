@@ -31,8 +31,9 @@
         }).format(n || 0);
     }
 
-    function readToken(name, fallback) {
-        var host = document.querySelector('.admin-body') || document.body;
+    function readToken(name, fallback, selector) {
+        var host = (selector && document.querySelector(selector)) ||
+            document.querySelector('.admin-body') || document.body;
         var value = getComputedStyle(host).getPropertyValue(name).trim();
         return value || fallback;
     }
@@ -40,7 +41,15 @@
     function palette() {
         var dark = document.documentElement.getAttribute('data-admin-theme') === 'dark';
         var muted = readToken('--admin-muted', dark ? 'rgba(237,233,223,0.58)' : '#766f65');
+        // El verde del mapa de calor se declara en .admin-nivel1, no en
+        // .admin-body, así que hay que leerlo desde ese contenedor. Las barras
+        // del RevPASH diario lo reutilizan: mismo indicador, mismo color.
+        var heat = readToken(
+            '--n1-heat-rgb', dark ? '108, 194, 74' : '63, 143, 79', '[data-admin-nivel1]'
+        );
         return {
+            heat: 'rgba(' + heat + ', 0.85)',
+            heatBorde: 'rgb(' + heat + ')',
             dark: dark,
             muted: muted,
             grid: dark ? 'rgba(237,233,223,0.12)' : 'rgba(118,111,101,0.18)',
@@ -270,6 +279,122 @@
         }
     }
 
+    // ── §3.2 bis · RevPASH por día completo ──────────────────────────────
+    /**
+     * Misma métrica que el mapa, otra unidad: el día entero. El denominador son
+     * todas las horas que el restaurante abrió ese día (acumuladas sobre las
+     * fechas del rango), no las veces que abrió una franja suelta, así que las
+     * horas muertas también pesan.
+     *
+     * Se dibuja aparte del mapa a propósito: son dos denominadores distintos y
+     * meterlos en un mismo eje invitaría a comparar números que no comparan.
+     */
+    function renderRevpashDiario(pal) {
+        var rp = data.revpash || {};
+        var dias = rp.porDia || [];
+        var prom = rp.promedioDia || 0;
+        var noteEl = document.querySelector('[data-n1-revpash-daily-note]');
+
+        var conDato = dias.filter(function (d) { return d.valor > 0; });
+        if (!conDato.length) {
+            if (noteEl) {
+                noteEl.textContent = '';
+            }
+            makeChart('revpashDailyChart', {
+                type: 'bar', data: { labels: [], datasets: [] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            return;
+        }
+
+        var mejor = conDato.reduce(function (a, b) { return b.valor > a.valor ? b : a; });
+        var peor = conDato.reduce(function (a, b) { return b.valor < a.valor ? b : a; });
+
+        if (noteEl) {
+            noteEl.innerHTML =
+                'Día más fuerte: <strong>' + mejor.largo + '</strong> (' + money2(mejor.valor) +
+                '/asiento) · Más flojo: <strong>' + peor.largo + '</strong> (' +
+                money2(peor.valor) + '/asiento) · Promedio del periodo: <strong>' +
+                money2(prom) + '/asiento</strong>';
+        }
+
+        var datasets = [{
+            label: 'RevPASH del día',
+            data: dias.map(function (d) { return d.valor; }),
+            backgroundColor: pal.heat,
+            borderColor: pal.heatBorde,
+            borderWidth: 1,
+            borderRadius: 5,
+            // El panel ocupa el ancho completo: sin tope las barras se vuelven
+            // bloques, y con el tope de media anchura quedaban siete palillos.
+            maxBarThickness: 90
+        }];
+
+        // Referencia del periodo, con el mismo trazo punteado que el corte de
+        // margen de §3.1: en el panel una línea así siempre significa "promedio".
+        if (prom > 0) {
+            datasets.push({
+                label: 'Promedio del periodo',
+                type: 'line',
+                data: dias.map(function () { return prom; }),
+                borderColor: pal.muted,
+                borderDash: [6, 6],
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: false
+            });
+        }
+
+        makeChart('revpashDailyChart', {
+            type: 'bar',
+            data: {
+                labels: dias.map(function (d) { return d.corto; }),
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: pal.tooltipBg, padding: 12,
+                        titleColor: '#fff', bodyColor: '#fff',
+                        callbacks: {
+                            title: function (ctx) {
+                                return dias[ctx[0].dataIndex].largo;
+                            },
+                            label: function (ctx) {
+                                var d = dias[ctx.dataIndex];
+                                if (ctx.dataset.type === 'line') {
+                                    return 'Promedio del periodo: ' + money2(prom);
+                                }
+                                return money2(d.valor) + ' por asiento';
+                            },
+                            afterLabel: function (ctx) {
+                                var d = dias[ctx.dataIndex];
+                                if (ctx.dataset.type === 'line') {
+                                    return null;
+                                }
+                                return 'Ingreso ' + money(d.ingreso) + ' · ' + d.horas +
+                                    (d.horas === 1 ? ' hora' : ' horas') +
+                                    (d.abierto ? ' de operación' : ' con venta, sin horario declarado');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: pal.muted } },
+                    y: {
+                        title: { display: true, text: 'Ingreso por asiento ($)', color: pal.muted },
+                        grid: { color: pal.grid },
+                        ticks: { color: pal.muted },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
     // ── §3.4 Reglas de asociación ────────────────────────────────────────
     function renderAsociacion() {
         var a = data.asociacion || {};
@@ -300,6 +425,7 @@
         var pal = palette();
         renderMenu(pal);
         renderRevpash();
+        renderRevpashDiario(pal);
         renderAsociacion();
     }
 
