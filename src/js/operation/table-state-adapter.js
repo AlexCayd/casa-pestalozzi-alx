@@ -92,6 +92,9 @@
         if (raw.bloquea_en_consulta != null) {
             return booleanValue(raw.bloquea_en_consulta);
         }
+        if (raw.ticket_bloquea_consulta != null) {
+            return booleanValue(raw.ticket_bloquea_consulta);
+        }
         if (options.ticketAbierto && typeof options.ticketAbierto === 'object'
             && Object.prototype.hasOwnProperty.call(options.ticketAbierto, 'bloquea_en_consulta')) {
             return booleanValue(options.ticketAbierto.bloquea_en_consulta);
