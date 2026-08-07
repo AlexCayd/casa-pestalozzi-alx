@@ -9,13 +9,16 @@
 $operationalShellClass = trim((string)($operationalShellClass ?? 'operation-shell'));
 $operationalMainClass = trim((string)($operationalMainClass ?? 'operation-main operational-layout'));
 $operationalMainId = trim((string)($operationalMainId ?? ''));
+$operationalMainId = $operationalMainId !== '' ? $operationalMainId : 'operational-main';
 $operationalMainAttributes = is_array($operationalMainAttributes ?? null) ? $operationalMainAttributes : [];
 $operationalContentHtml = (string)($operationalContentHtml ?? '');
 $operationalShellH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>
+<a class="skip-link" href="#<?php echo $operationalShellH($operationalMainId); ?>">Saltar al contenido principal</a>
 <div class="operational-shell <?php echo $operationalShellH($operationalShellClass); ?>">
     <main
         class="operational-main <?php echo $operationalShellH($operationalMainClass); ?>"
+        tabindex="-1"
         <?php echo $operationalMainId !== '' ? 'id="' . $operationalShellH($operationalMainId) . '"' : ''; ?>
         <?php foreach ($operationalMainAttributes as $attribute => $attributeValue) : ?>
             <?php

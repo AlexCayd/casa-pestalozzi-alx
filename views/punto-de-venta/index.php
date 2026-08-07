@@ -1,7 +1,7 @@
 <?php
-$mapFecha = trim((string)($_GET['fecha'] ?? date('Y-m-d')));
+$mapFecha = trim((string)($_GET['fecha'] ?? \Services\ReservacionConfig::fechaActual()));
 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $mapFecha) !== 1) {
-  $mapFecha = date('Y-m-d');
+  $mapFecha = \Services\ReservacionConfig::fechaActual();
 }
 $mapHora = trim((string)($_GET['hora'] ?? ''));
 if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $mapHora) !== 1) {
@@ -14,7 +14,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
 $usuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
-$rolEtiquetas = ['admin' => 'Administrador', 'cashier' => 'Cajero', 'waiter' => 'Mesero', 'observer' => 'Observador'];
+$rolEtiquetas = ['admin' => 'Administrador', 'waiter' => 'Mesero', 'cook' => 'Cocinero'];
 $usuarioRol = $rolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
 
 // Identidad del mesero para el JS: las preferencias del modal se guardan con
@@ -39,10 +39,10 @@ $usuarioJson = json_encode([
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css?v=pos-mesero-auto-v1">
+  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v3">
 </head>
 
-<body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos">
+<body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
   // Selector de fecha; se muestra dentro del cajón de reservaciones.
@@ -54,7 +54,7 @@ $usuarioJson = json_encode([
   $name = '';
   $value = $mapFecha;
   $min = '';
-  $today = date('Y-m-d');
+  $today = \Services\ReservacionConfig::fechaActual();
   $disabled = false;
   $enabledWeekdays = [];
   $allowPast = true;
@@ -85,6 +85,10 @@ $usuarioJson = json_encode([
     window.CP_MENU  = <?php echo $menuJson ?: '[]'; ?>;
     window.CP_AREAS = <?php echo $areasJson ?: '{}'; ?>;
     window.CP_USER  = <?php echo $usuarioJson ?: '{"id":0}'; ?>;
+    window.CP_STAFF_CSRF_TOKEN = <?php echo json_encode(
+      \Services\StaffCsrfService::token(),
+      JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    ); ?>;
   </script>
   <script>
     window.CP_TWEAKS = {
@@ -117,7 +121,7 @@ $usuarioJson = json_encode([
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js?v=pos-mesero-auto-v1"></script>
+  <script src="/build/js/admin/map.js?v=pos-reservations-v8"></script>
 </body>
 
 </html>

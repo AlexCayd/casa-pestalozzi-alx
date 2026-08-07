@@ -30,7 +30,6 @@ class MenuPdf
                     'nombre'      => $dish['n'],
                     'descripcion' => $dish['d'],
                     'precio'      => $dish['p'],
-                    'tag'         => $dish['tags'][0] ?? null,
                 ];
                 $delGrupo[] = $obj;
             }

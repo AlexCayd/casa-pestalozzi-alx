@@ -25,6 +25,25 @@
   margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--admin-border-soft);
+
+  /*
+   * El encabezado tiene que ganarle en pintado a las tarjetas que vienen
+   * debajo, o los desplegables anclados en él (el selector de periodo de
+   * /admin) quedan tapados.
+   *
+   * No basta con el z-index del propio desplegable: motion.js marca como
+   * [data-reveal] tanto este encabezado como cada .admin-card/.admin-panel, y
+   * el will-change de _transitions.scss convierte a todos en contextos de
+   * apilamiento. Dentro de uno, el z-index del hijo ya no compite hacia fuera:
+   * mandan los contextos hermanos en orden de documento, y las tarjetas van
+   * después. De ahí que haya que subir el encabezado completo.
+   *
+   * 5 y no más: por encima de las tarjetas (contextos en z-index auto) y por
+   * debajo de la topbar fija (10), para que el encabezado siga pasando por
+   * debajo de ella al desplazar. Los modales (120) no se ven afectados.
+   */
+  position: relative;
+  z-index: 5;
 }
 
 .admin-page__intro,

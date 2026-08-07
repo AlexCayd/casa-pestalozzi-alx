@@ -15,12 +15,13 @@ use MVC\Router;
 use Services\Carta;
 use Services\HorarioReservacionService;
 use Services\Inventario;
-use Services\MesaEstadoService;
 use Services\ReservacionService;
 use Services\ReservacionConfig;
-use Services\ReservacionVigenciaService;
+use Services\ReservacionErrorCatalog;
+use Services\PosReservacionQueryService;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
+use Services\StaffCsrfService;
 
 class PuntoVentaController {
 
@@ -41,102 +42,24 @@ class PuntoVentaController {
         include_once __DIR__ . '/../views/punto-de-venta/index.php';
     }
 
-    /**
-     * GET /api/productos — catalogo que el mesero ve en el modal de comanda.
-     *
-     * Antes vivia hardcodeado en src/js/data/menu-data.js (window.CP_MENU), que
-     * viajaba en el bundle: retirar un platillo del admin no lo quitaba del POS.
-     * Ahora sale de la BD, asi que el catalogo del mesero y la carta publica no
-     * pueden volver a desincronizarse.
-     *
-     * Devuelve el mismo shape que consumia CP_MENU para no tocar el render:
-     *   categorias: [{ id, label, dishes: [{ n, p, area, area_id }] }]
-     *   areas:      { slug: { id, label, color } }   (equivalente a CP_AREAS)
-     */
-    public static function productos(Router $router) {
-        header('Content-Type: application/json');
-
-        try {
-            $categorias = [];
-            foreach (Producto::catalogoPos() as $p) {
-                $catId = (int) $p->categoria_id;
-
-                if (!isset($categorias[$catId])) {
-                    $categorias[$catId] = [
-                        'id'     => $catId,
-                        'label'  => $p->categoria_nombre,
-                        'dishes' => [],
-                    ];
-                }
-
-                $categorias[$catId]['dishes'][] = [
-                    'n'       => $p->nombre,
-                    'p'       => (float) $p->precio,
-                    'area'    => $p->area_slug,
-                    'area_id' => (int) $p->area_id,
-                ];
-            }
-
-            $areas = [];
-            $res = Producto::ejecutarSQL('SELECT id, nombre, slug, color FROM areas_produccion ORDER BY id ASC');
-            if ($res) {
-                while ($row = $res->fetch_assoc()) {
-                    $areas[$row['slug']] = [
-                        'id'    => (int) $row['id'],
-                        'label' => $row['nombre'],
-                        'color' => $row['color'],
-                    ];
-                }
-            }
-
-            echo json_encode([
-                'ok'         => true,
-                'categorias' => array_values($categorias),
-                'areas'      => $areas,
-            ]);
-        } catch (\Throwable $e) {
-            error_log('PuntoVentaController::productos - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el catálogo']);
-        }
-    }
-
     // GET /admin/api/map?fecha=YYYY-MM-DD
     public static function api(Router $router) {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
         header('Content-Type: application/json');
         \Classes\Auth::liberarSesion();
 
         $fecha = HorarioReservacionService::fechaSeguraGet((string)($_GET['fecha'] ?? ''));
 
         try {
-            $mesas = Mesa::consultarSQL(
-                "SELECT * FROM mesas WHERE activo = 1 ORDER BY numero ASC"
-            );
-
-            $reservaciones = Reservacion::consultarSQL(
-                "SELECT
-                    r.id,
-                    r.nombre,
-                    r.contacto,
-                    r.fecha,
-                    r.hora,
-                    r.comensales,
-                    r.nota,
-                    r.estado,
-                    r.hold_expires_at,
-                    r.arrived_at,
-                    COALESCE(GROUP_CONCAT(m.id ORDER BY rm.orden SEPARATOR ','), '') AS mesa_ids,
-                    COALESCE(GROUP_CONCAT(m.nombre ORDER BY rm.orden SEPARATOR ', '), '') AS mesas_asignadas
-                 FROM reservaciones r
-                 LEFT JOIN reservacion_mesas rm ON rm.reservacion_id = r.id
-                 LEFT JOIN mesas m ON m.id = rm.mesa_id
-                 WHERE r.fecha = '{$fecha}'
-                 GROUP BY r.id, r.nombre, r.contacto, r.fecha, r.hora,
-                          r.comensales, r.nota, r.estado, r.hold_expires_at, r.arrived_at
-                 ORDER BY r.hora ASC"
-            );
-
-            // POS y reservaciones consumen la misma consulta N:M de tickets.
-            $tickets = TicketMesa::abiertosParaMapa();
+            $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
+                'incluir_inactivas' => false,
+                'calcular_conflictos' => true,
+            ]);
+            if (!($lectura['ok'] ?? false)) {
+                self::errorJson((string)($lectura['codigo'] ?? 'MAPA_CARGA_FALLIDA'));
+                return;
+            }
 
             $meseros = Usuario::consultarSQL(
                 "SELECT id, nombre FROM usuarios
@@ -145,73 +68,9 @@ class PuntoVentaController {
             );
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::api - ' . $e->getMessage());
-            echo json_encode([
-                'ok'    => false,
-                'error' => 'No se pudo cargar el mapa. Intenta de nuevo.',
-            ]);
+            self::errorJson('MAPA_CARGA_FALLIDA');
             return;
         }
-
-        $mesasArr = array_map(function($m) {
-            return [
-                'id'         => (int)$m->id,
-                'numero'     => (int)$m->numero,
-                'nombre'     => $m->nombre,
-                'tipo'       => $m->tipo,
-                'capacidad'  => (int)$m->capacidad,
-                'pos_x'      => (float)$m->pos_x,
-                'pos_y'      => (float)$m->pos_y,
-                'reservable' => (int)$m->reservable,
-            ];
-        }, $mesas);
-
-        $ticketsPorReservacion = [];
-        foreach ($tickets as $ticket) {
-            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
-            if ($reservacionId > 0) {
-                $ticketsPorReservacion[$reservacionId] = $ticket;
-            }
-        }
-
-        $reservasArr = array_map(function($r) use ($ticketsPorReservacion) {
-            $mesaIds = array_values(array_filter(array_map('intval', explode(',', (string)($r->mesa_ids ?? '')))));
-            $mesas = array_values(array_filter(array_map('trim', explode(',', (string)($r->mesas_asignadas ?? '')))));
-            $reservacionId = (int)$r->id;
-            $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
-            $vigencia = ReservacionVigenciaService::clasificar($r, null, $ticket);
-
-            return array_merge([
-                'id' => $reservacionId,
-                'nombre' => $r->nombre,
-                'contacto' => $r->contacto ?? '',
-                'fecha' => (string)($r->fecha ?? ''),
-                'hora' => $r->hora,
-                'comensales' => (int)$r->comensales,
-                'nota' => $r->nota ?? '',
-                'estado' => $r->estado,
-                'hold_expires_at' => $r->hold_expires_at !== null
-                    ? (string)$r->hold_expires_at
-                    : null,
-                'arrived_at' => $r->arrived_at !== null ? (string)$r->arrived_at : null,
-                'ticket_id' => $ticket['id'] ?? null,
-                'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
-                'mesa_ids' => $mesaIds,
-                'mesas' => $mesas,
-            ], $vigencia);
-        }, $reservaciones);
-
-        $ticketsArr = array_map(function(array $t) {
-            return [
-                'id'                 => (int)$t['id'],
-                'nombre'             => $t['nombre'] ?? null,
-                'comensales'         => (int)$t['comensales'],
-                'hora_apertura'      => (string)$t['hora_apertura'],
-                'reservacion_id'     => $t['reservacion_id'] ?? null,
-                'mesero_id'          => $t['mesero_id'] ?? null,
-                'mesa_ids'           => array_values(array_map('intval', $t['mesa_ids'] ?? [])),
-                'origen'             => (string)($t['origen'] ?? 'walk_in'),
-            ];
-        }, $tickets);
 
         $meserosArr = array_map(function($u) {
             return [
@@ -222,25 +81,37 @@ class PuntoVentaController {
 
         echo json_encode([
             'ok'            => true,
+            'schema_version'=> $lectura['schema_version'],
             'fecha'         => $fecha,
-            'mesas'         => $mesasArr,
-            'mesas_estado'  => MesaEstadoService::normalizarMesas(
-                $mesasArr,
-                $reservasArr,
-                $ticketsArr,
-                $fecha
-            ),
-            'reservaciones' => $reservasArr,
-            'tickets'       => $ticketsArr,
+            'mesas'         => $lectura['mesas'],
+            'mesas_estado'  => $lectura['mesas_estado'],
+            'reservaciones' => array_values(array_filter(
+                (array)$lectura['reservaciones'],
+                static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+            )),
+            'reservaciones_operativas' => $lectura['reservaciones_operativas'],
+            // PosReservacionQueryService already reads the canonical open
+            // projection. Keep the response contract defensive at the HTTP
+            // boundary so a stale/legacy adapter cannot resurrect a closed
+            // ticket in the client.
+            'tickets'       => array_values(array_filter(
+                (array)$lectura['tickets'],
+                static fn(array $ticket): bool => (string)($ticket['estado'] ?? '') === 'abierto'
+                    && ($ticket['closed_at'] ?? null) === null
+            )),
             'meseros'       => $meserosArr,
-            'config'        => [
-                'temporal' => ReservacionConfig::configuracionOperacion(),
-                // Ajuste de /admin/configuracion/pos. Viaja en cada refresco del
-                // mapa para que cambiarlo se note en las tablets del turno sin
-                // pedirles que recarguen la página.
+            'server_time'   => $lectura['server_time'],
+            'timezone'      => $lectura['timezone'],
+            // 'temporal' lo calcula PosReservacionQueryService; 'pos' es el
+            // ajuste de /admin/configuracion/pos y viaja en cada refresco del
+            // mapa para que cambiarlo se note en las tablets del turno sin
+            // pedirles que recarguen. Van en la MISMA entrada a propósito: al
+            // declarar 'config' dos veces en este array, PHP se queda con la
+            // última y el bloque de 'pos' desaparecía sin ningún error.
+            'config'        => ($lectura['config'] ?? []) + [
                 'pos' => ['mesero_editable' => ConfiguracionPos::meseroEditable()],
             ],
-            'actualizado_en' => ReservacionConfig::ahora()->format(DATE_ATOM),
+            'actualizado_en' => $lectura['actualizado_en'],
         ]);
     }
 
@@ -284,6 +155,9 @@ class PuntoVentaController {
     public static function abrirTicket(Router $router) {
         $data = self::entradaJson();
         $data['mesero_id'] = self::meseroDelTicket($data);
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $reservacionId = (int)($data['reservacion_id'] ?? 0);
         $resultado = $reservacionId > 0
             ? PuntoVentaReservacionService::comenzar(
@@ -301,22 +175,14 @@ class PuntoVentaController {
         self::responder($resultado);
     }
 
-    // POST /admin/api/release-reservation
-    public static function liberarReservacion(Router $router) {
-        $data      = self::entradaJson();
-        $reservaId = isset($data['reservacion_id']) ? (int)$data['reservacion_id'] : 0;
-        self::responder(PuntoVentaReservacionService::cancelar(
-            $reservaId,
-            (int)($_SESSION['id'] ?? 0),
-            trim((string)($data['motivo'] ?? ''))
-        ));
-    }
-
     // POST /admin/api/close-ticket
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
 
-        $data       = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data       = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId   = isset($data['ticket_id'])   ? (int)$data['ticket_id']              : 0;
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
         $separar    = !empty($data['separar_comensales']);
@@ -325,7 +191,7 @@ class PuntoVentaController {
         $recibido   = isset($data['recibido']) ? round((float)$data['recibido'], 2) : null;
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'Ticket no válido']);
+            self::errorJson('TICKET_NO_VALIDO');
             return;
         }
 
@@ -360,10 +226,7 @@ class PuntoVentaController {
             $pendientes = 0;
         }
         if ($pendientes > 0) {
-            echo json_encode([
-                'ok'  => false,
-                'msg' => 'Hay ' . $pendientes . ' producto(s) sin entregar. Entrégalos antes de cerrar la cuenta.',
-            ]);
+            self::errorJson('TICKET_ITEMS_PENDIENTES', 422, ['pendientes' => $pendientes]);
             return;
         }
 
@@ -380,7 +243,8 @@ class PuntoVentaController {
             }
             $total = round($total, 2);
         } catch (\Throwable $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Error: ' . $e->getMessage()]);
+            error_log('PuntoVentaController::cerrarTicket total - ' . $e->getMessage());
+            self::errorJson('TOTAL_TICKET_NO_DISPONIBLE');
             return;
         }
         $totalCents = (int)round($total * 100);
@@ -399,7 +263,7 @@ class PuntoVentaController {
                 $monto    = isset($p['monto'])    ? round((float)$p['monto'], 2) : -1;
 
                 if ($comensal < 1 || !in_array($metodo, $allowedMetodos, true) || $monto < 0) {
-                    echo json_encode(['ok' => false, 'msg' => 'Pago no válido para el comensal ' . $comensal]);
+                    self::errorJson('PAGO_INVALIDO', 422, ['comensal' => $comensal]);
                     return;
                 }
                 if ($monto == 0.0) continue; // comensal sin cargo, no se registra
@@ -409,18 +273,16 @@ class PuntoVentaController {
             }
 
             if (empty($pagosLimpios)) {
-                echo json_encode(['ok' => false, 'msg' => 'Debes registrar al menos un pago']);
+                self::errorJson('PAGO_REQUERIDO');
                 return;
             }
 
             // La suma no puede quedar por debajo del total (±1 centavo de holgura).
             $sumaCents = (int)round($sumaPagos * 100);
             if ($sumaCents < $totalCents - 1) {
-                echo json_encode([
-                    'ok'    => false,
-                    'msg'   => 'La suma de los pagos ($' . number_format($sumaPagos, 2) .
-                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
+                self::errorJson('PAGO_INSUFICIENTE', 422, [
                     'total' => $total,
+                    'recibido' => $sumaPagos,
                 ]);
                 return;
             }
@@ -434,7 +296,7 @@ class PuntoVentaController {
             // Cuenta completa: un único método y el monto recibido. La propina
             // es lo recibido por encima del total.
             if (!in_array($metodoPago, $allowedMetodos, true)) {
-                echo json_encode(['ok' => false, 'msg' => 'Método de pago no válido']);
+                self::errorJson('METODO_PAGO_INVALIDO');
                 return;
             }
             // Sin monto recibido se asume pago exacto (sin propina).
@@ -442,11 +304,9 @@ class PuntoVentaController {
                 $recibido = $total;
             }
             if ((int)round($recibido * 100) < $totalCents - 1) {
-                echo json_encode([
-                    'ok'    => false,
-                    'msg'   => 'El monto recibido ($' . number_format($recibido, 2) .
-                               ') no cubre el total de la cuenta ($' . number_format($total, 2) . ')',
+                self::errorJson('PAGO_INSUFICIENTE', 422, [
                     'total' => $total,
+                    'recibido' => $recibido,
                 ]);
                 return;
             }
@@ -510,7 +370,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'token' => $token, 'propina' => $propina]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cerrarTicket - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cerrar el ticket. Intenta de nuevo.']);
+            self::errorJson('TICKET_CIERRE_FALLIDO');
         }
     }
 
@@ -518,12 +378,15 @@ class PuntoVentaController {
     public static function enviarComanda(Router $router) {
         header('Content-Type: application/json');
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         $items    = isset($data['items']) && is_array($data['items']) ? $data['items'] : [];
 
         if (!$ticketId || empty($items)) {
-            echo json_encode(['ok' => false, 'msg' => 'Datos incompletos']);
+            self::errorJson('DATOS_INCOMPLETOS');
             return;
         }
 
@@ -535,7 +398,7 @@ class PuntoVentaController {
                  LIMIT 1"
             );
             if (empty($open)) {
-                echo json_encode(['ok' => false, 'msg' => 'Ticket no válido o ya cerrado']);
+                self::errorJson('TICKET_NO_VALIDO');
                 return;
             }
 
@@ -620,7 +483,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::enviarComanda - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo enviar la comanda. Intenta de nuevo.']);
+            self::errorJson('COMANDA_ENVIO_FALLIDO');
         }
     }
 
@@ -628,11 +491,14 @@ class PuntoVentaController {
     public static function cancelarItem(Router $router) {
         header('Content-Type: application/json');
 
-        $data   = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data   = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
-            echo json_encode(['ok' => false, 'msg' => 'item_id requerido']);
+            self::errorJson('ITEM_ID_REQUERIDO');
             return;
         }
 
@@ -650,7 +516,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cancelarItem - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cancelar el item. Intenta de nuevo.']);
+            self::errorJson('ITEM_CANCELACION_FALLIDA');
         }
     }
 
@@ -658,11 +524,14 @@ class PuntoVentaController {
     public static function entregarItem(Router $router) {
         header('Content-Type: application/json');
 
-        $data   = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data   = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $itemId = isset($data['item_id']) ? (int)$data['item_id'] : 0;
 
         if (!$itemId) {
-            echo json_encode(['ok' => false, 'msg' => 'item_id requerido']);
+            self::errorJson('ITEM_ID_REQUERIDO');
             return;
         }
 
@@ -674,7 +543,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::entregarItem - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo entregar el item. Intenta de nuevo.']);
+            self::errorJson('ITEM_ENTREGA_FALLIDA');
         }
     }
 
@@ -682,13 +551,16 @@ class PuntoVentaController {
     public static function actualizarTicket(Router $router) {
         header('Content-Type: application/json');
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         $nombre   = isset($data['nombre']) && trim($data['nombre'] ?? '') !== ''
                     ? trim($data['nombre']) : null;
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO');
             return;
         }
 
@@ -703,7 +575,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::actualizarTicket - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo actualizar el ticket. Intenta de nuevo.']);
+            self::errorJson('TICKET_ACTUALIZACION_FALLIDA');
         }
     }
 
@@ -714,7 +586,7 @@ class PuntoVentaController {
 
         $ticketId = isset($_GET['ticket_id']) ? (int)$_GET['ticket_id'] : 0;
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO');
             return;
         }
 
@@ -748,7 +620,7 @@ class PuntoVentaController {
             echo json_encode(['ok' => true, 'items' => $items]);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::ticketItems - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudieron cargar los items. Intenta de nuevo.']);
+            self::errorJson('TICKET_ITEMS_NO_DISPONIBLES');
         }
     }
 
@@ -763,14 +635,17 @@ class PuntoVentaController {
         // soltar el candado, bloquea al resto de peticiones del mismo mesero.
         \Classes\Auth::liberarSesion();
 
-        $data     = json_decode(file_get_contents('php://input'), true) ?: [];
+        $data     = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
         $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
         // vistos = producto_id que el modal ya mostró en esta sesión, para no
         // repetirlos. Es la única memoria: no se persiste nada.
         $vistos   = isset($data['vistos']) && is_array($data['vistos']) ? $data['vistos'] : [];
 
         if (!$ticketId) {
-            echo json_encode(['ok' => false, 'estado' => 'error', 'msg' => 'ticket_id requerido']);
+            self::errorJson('TICKET_ID_REQUERIDO', 422, ['estado' => 'error']);
             return;
         }
 
@@ -779,13 +654,13 @@ class PuntoVentaController {
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::sugerencias - ' . $e->getMessage());
 
-            [$estado, $msg] = match ($e->getMessage()) {
-                'sin_config'      => ['sin_config', 'Las sugerencias automáticas aún no están configuradas.'],
-                'ticket_invalido' => ['error', 'El ticket ya no está abierto.'],
-                default           => ['error', 'No pudimos obtener sugerencias. Intenta de nuevo.'],
+            [$estado, $codigo] = match ($e->getMessage()) {
+                'sin_config'      => ['sin_config', 'SUGERENCIAS_NO_CONFIGURADAS'],
+                'ticket_invalido' => ['error', 'SUGERENCIAS_TICKET_INVALIDO'],
+                default           => ['error', 'SUGERENCIAS_ERROR'],
             };
 
-            echo json_encode(['ok' => false, 'estado' => $estado, 'msg' => $msg]);
+            self::errorJson($codigo, null, ['estado' => $estado]);
             return;
         }
 
@@ -809,20 +684,13 @@ class PuntoVentaController {
         self::responder(PuntoVentaReservacionService::contextoMesa((int)($_GET['mesa_id'] ?? 0)));
     }
 
-    /** POST /api/punto-de-venta/reservaciones/llegada */
-    public static function llegada(Router $router): void
-    {
-        $datos = self::entradaJson();
-        self::responder(PuntoVentaReservacionService::registrarLlegada(
-            (int)($datos['reservacion_id'] ?? 0),
-            (int)($_SESSION['id'] ?? 0)
-        ));
-    }
-
     /** POST /api/punto-de-venta/reservaciones/comenzar */
     public static function comenzarReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::comenzar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -834,6 +702,9 @@ class PuntoVentaController {
     public static function cancelarReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::cancelar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -845,6 +716,9 @@ class PuntoVentaController {
     public static function noShowReservacion(Router $router): void
     {
         $datos = self::entradaJson();
+        if (!self::validarCsrfMutacion($datos)) {
+            return;
+        }
         self::responder(PuntoVentaReservacionService::noShow(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
@@ -860,41 +734,31 @@ class PuntoVentaController {
         return is_array($datos) ? $datos : $_POST;
     }
 
+    private static function validarCsrfMutacion(array $datos): bool
+    {
+        if (StaffCsrfService::validarRequest($datos)) {
+            return true;
+        }
+
+        http_response_code(419);
+        echo json_encode(ReservacionErrorCatalog::enriquecer([
+            'ok' => false,
+            'codigo' => 'CSRF_INVALIDO',
+        ], ['superficie' => 'pos']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return false;
+    }
+
     private static function responder(array $resultado): void
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (array_key_exists('codigo', $resultado)) {
+            $resultado = ReservacionErrorCatalog::enriquecer($resultado, ['superficie' => 'pos']);
+        }
         if (!($resultado['ok'] ?? false)) {
             $codigo = (string)($resultado['codigo'] ?? '');
-            http_response_code(in_array($codigo, [
-                PuntoVentaReservacionService::MESA_OCUPADA,
-                PuntoVentaReservacionService::TICKET_ABIERTO,
-                PuntoVentaReservacionService::ESTADO_INVALIDO,
-                PuntoVentaReservacionService::CONFLICTO_CONCURRENTE,
-            ], true) ? 409 : 422);
-            $resultado['msg'] = $resultado['msg'] ?? (
-                !empty($resultado['bloqueo'])
-                    ? 'La reservación comienza dentro de 30 minutos o menos; no se puede abrir un ticket incompatible.'
-                    : self::mensajeOperacion($codigo)
-            );
+            http_response_code(ReservacionErrorCatalog::httpStatus($codigo, 422));
         }
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    private static function mensajeOperacion(string $codigo): string
-    {
-        return match ($codigo) {
-            PuntoVentaReservacionService::NO_EXISTE => 'La reservación o ticket no existe.',
-            PuntoVentaReservacionService::ESTADO_INVALIDO => 'El estado actual no permite esta acción.',
-            PuntoVentaReservacionService::MESA_OCUPADA => 'Una de las mesas ya tiene un ticket abierto.',
-            PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'La tolerancia de 15 minutos sigue vigente.',
-            PuntoVentaReservacionService::TICKET_ABIERTO => 'La reservación tiene un ticket abierto y debe resolverse desde la cuenta.',
-            PuntoVentaReservacionService::REQUIERE_CONFIRMACION => 'La mesa tiene una reservación próxima. Confirma para continuar.',
-            PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'Las mesas originales ya no están disponibles. Reasigna mesas para continuar.',
-            PuntoVentaReservacionService::SIN_CAPACIDAD => 'La asignación actual no tiene capacidad suficiente.',
-            PuntoVentaReservacionService::CONFLICTO_CONCURRENTE => 'La información cambió durante la operación. Actualiza y vuelve a intentarlo.',
-            PuntoVentaReservacionService::DATOS_INVALIDOS => 'Los datos enviados no son válidos.',
-            default => 'No fue posible completar la operación.',
-        };
     }
 
     /**
@@ -1028,16 +892,20 @@ class PuntoVentaController {
             ], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::corteCaja - ' . $e->getMessage());
-            echo json_encode(['ok' => false, 'msg' => 'No se pudo cargar el corte de caja. Intenta de nuevo.']);
+            self::errorJson('CORTE_CAJA_ERROR');
         }
     }
 
-    private static function mensajeReservacion(string $codigo): string
+    /** @param array<string, mixed> $extra */
+    private static function errorJson(string $codigo, ?int $status = null, array $extra = []): void
     {
-        return match ($codigo) {
-            ReservacionService::RESERVACION_NO_EXISTE => 'La reservacion no existe.',
-            ReservacionService::ESTADO_INVALIDO => 'La reservacion ya no se puede liberar.',
-            default => 'No se pudo liberar la reservacion. Intenta de nuevo.',
-        };
+        $payload = ReservacionErrorCatalog::enriquecer(
+            array_merge(['ok' => false, 'codigo' => $codigo], $extra),
+            ['superficie' => 'pos']
+        );
+        http_response_code($status ?? ReservacionErrorCatalog::httpStatus($codigo, 422));
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
+
 }

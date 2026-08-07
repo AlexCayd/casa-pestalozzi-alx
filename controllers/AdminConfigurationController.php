@@ -7,6 +7,8 @@ use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
 use Services\HorarioOperacionService;
+use Services\ReservacionErrorCatalog;
+use Services\ReporteSistemaService;
 
 class AdminConfigurationController
 {
@@ -21,18 +23,22 @@ class AdminConfigurationController
         self::render('configuration/index', [
             'title' => 'Configuración',
             'topbarSection' => 'Configuración',
+            // 'acento' es un token de la paleta, no un hex: cada opción se
+            // reconoce por color antes de leer su título.
             'configuraciones' => [
                 [
                     'titulo' => 'Horarios de operación',
                     'descripcion' => 'Administra los días abiertos, horarios habituales y cierres especiales.',
                     'ruta' => self::HOURS_PATH,
                     'icono' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+                    'acento' => '--admin-c-azul',
                 ],
                 [
                     'titulo' => 'Anuncio principal',
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                    'acento' => '--admin-c-ambar',
                 ],
                 [
                     'titulo' => 'POS',
@@ -45,6 +51,7 @@ class AdminConfigurationController
                     'descripcion' => 'Consulta y administra los problemas reportados por los usuarios.',
                     'ruta' => '/admin/configuracion/reportes',
                     'icono' => '<path d="M9 4h6l1 2h3v15H5V6h3l1-2Z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
+                    'acento' => '--admin-c-magenta',
                 ],
             ],
         ]);
@@ -68,10 +75,13 @@ class AdminConfigurationController
         $horarios = isset($_POST['horarios']) && is_array($_POST['horarios'])
             ? $_POST['horarios']
             : [];
-        $resultado = HorarioOperacionService::guardarHorarioSemanal(
-            $horarios,
-            self::usuarioAutenticadoId(),
-            (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            HorarioOperacionService::guardarHorarioSemanal(
+                $horarios,
+                self::usuarioAutenticadoId(),
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+            ),
+            ['superficie' => 'administracion']
         );
 
         if ($resultado['ok']) {
@@ -81,7 +91,7 @@ class AdminConfigurationController
         self::renderHours([
             'horarios' => $resultado['horarios'] ?? HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
-            'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible actualizar los horarios.']],
+            'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
             'horarioSemanalConErrores' => true,
             'conflictosHorarios' => $resultado['conflictos'] ?? [],
         ]);
@@ -93,10 +103,13 @@ class AdminConfigurationController
             self::redirect(self::HOURS_PATH);
         }
 
-        $resultado = HorarioOperacionService::guardarExcepcion(
-            $_POST,
-            self::usuarioAutenticadoId(),
-            (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            HorarioOperacionService::guardarExcepcion(
+                $_POST,
+                self::usuarioAutenticadoId(),
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
+            ),
+            ['superficie' => 'administracion']
         );
         if ($resultado['ok']) {
             self::redirect(self::HOURS_PATH . '?resultado=' . (!empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada'));
@@ -105,7 +118,7 @@ class AdminConfigurationController
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
-            'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible guardar la excepción.']],
+            'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
             'excepcionFormulario' => $resultado['datos'] ?? $_POST,
             'abrirModalExcepcion' => true,
             'conflictosExcepcion' => $resultado['conflictos'] ?? [],
@@ -120,10 +133,13 @@ class AdminConfigurationController
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $activo = (string) ($_POST['activo'] ?? '0') === '1';
-        $resultado = HorarioOperacionService::cambiarEstadoExcepcion(
-            $id ? (int) $id : 0,
-            $activo,
-            self::usuarioAutenticadoId()
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            HorarioOperacionService::cambiarEstadoExcepcion(
+                $id ? (int) $id : 0,
+                $activo,
+                self::usuarioAutenticadoId()
+            ),
+            ['superficie' => 'administracion']
         );
 
         if ($resultado['ok']) {
@@ -133,7 +149,7 @@ class AdminConfigurationController
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
-            'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible cambiar el estado de la excepción.']],
+            'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
         ]);
     }
 
@@ -144,7 +160,10 @@ class AdminConfigurationController
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        $resultado = HorarioOperacionService::eliminarExcepcion($id ? (int) $id : 0);
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            HorarioOperacionService::eliminarExcepcion($id ? (int) $id : 0),
+            ['superficie' => 'administracion']
+        );
         if ($resultado['ok']) {
             self::redirect(self::HOURS_PATH . '?resultado=excepcion_eliminada');
         }
@@ -152,7 +171,7 @@ class AdminConfigurationController
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
-            'alertas' => ['error' => $resultado['errors'] ?? ['No fue posible eliminar la excepción.']],
+            'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
         ]);
     }
 
@@ -172,7 +191,6 @@ class AdminConfigurationController
             self::json([
                 'ok' => false,
                 'codigo' => 'ERROR_ACTUALIZACION_HORARIOS',
-                'mensaje' => 'No fue posible actualizar los horarios.',
             ]);
         }
     }
@@ -191,7 +209,6 @@ class AdminConfigurationController
             self::json([
                 'ok' => false,
                 'codigo' => 'ERROR_CONSULTA_HORARIOS',
-                'mensaje' => 'No fue posible consultar los horarios.',
             ]);
         }
     }
@@ -331,10 +348,18 @@ class AdminConfigurationController
 
     public static function reports(Router $router): void
     {
+        $resultado = (string) ($_GET['resultado'] ?? '');
+        $alertas = match ($resultado) {
+            'estado' => ['exito' => ['Estado del reporte actualizado.']],
+            'estado_invalido' => ['error' => ['No se pudo actualizar el reporte.']],
+            default => [],
+        };
+
         self::render('configuration/reports', [
             'title' => 'Reportes del sistema',
             'topbarSection' => 'Configuración',
-            'reportes' => [],
+            'reportes' => ReporteSistemaService::listar(),
+            'alertas' => $alertas,
         ]);
     }
 
@@ -353,6 +378,34 @@ class AdminConfigurationController
         // Ante un fallo de lectura se muestra el comportamiento histórico, que
         // es el que sigue aplicando el POS mientras no pueda leer el ajuste.
         return ['mesero_editable' => true, 'updated_at' => ''];
+    }
+    /** POST /admin/configuracion/reportes/estado — desde el modal de detalle. */
+    public static function reportStatus(Router $router): void
+    {
+        $resultado = ReporteSistemaService::cambiarEstado(
+            (int) ($_POST['id'] ?? 0),
+            (string) ($_POST['estado'] ?? '')
+        );
+
+        $query = ($resultado['ok'] ?? false) ? 'estado' : 'estado_invalido';
+        header('Location: /admin/configuracion/reportes?resultado=' . $query, true, 302);
+        exit;
+    }
+
+    /** POST /admin/api/reportes — envío del modal "Reportar un problema". */
+    public static function crearReporte(Router $router): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $datos = json_decode((string) file_get_contents('php://input'), true);
+        $datos = is_array($datos) ? $datos : $_POST;
+
+        $resultado = ReporteSistemaService::crear($datos, (int) ($_SESSION['id'] ?? 0));
+        if (!($resultado['ok'] ?? false)) {
+            http_response_code(($resultado['codigo'] ?? '') === ReporteSistemaService::DATOS_INVALIDOS ? 422 : 500);
+        }
+
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
     }
 
     private static function renderHours(array $data): void
@@ -382,6 +435,19 @@ class AdminConfigurationController
             'pos_actualizado' => ['exito' => ['La configuración del POS se actualizó correctamente.']],
             default => [],
         };
+        $codigos = [
+            'horarios_actualizados' => 'HORARIOS_ACTUALIZADOS',
+            'excepcion_creada' => 'EXCEPCION_CREADA',
+            'excepcion_actualizada' => 'EXCEPCION_ACTUALIZADA',
+            'excepcion_eliminada' => 'EXCEPCION_ELIMINADA',
+            'estado_actualizado' => 'EXCEPCION_ESTADO_ACTUALIZADO',
+            'anuncio_actualizado' => 'ANUNCIO_ACTUALIZADO',
+        ];
+        $codigo = $codigos[$resultado] ?? null;
+        if ($codigo === null || !ReservacionErrorCatalog::has($codigo)) {
+            return [];
+        }
+        return ['exito' => [ReservacionErrorCatalog::presentar($codigo)['mensaje']]];
     }
 
     private static function usuarioAutenticadoId(): ?int
@@ -408,14 +474,12 @@ class AdminConfigurationController
     private static function json(array $resultado): void
     {
         $codigo = (string)($resultado['codigo'] ?? '');
+        if ($codigo !== '' && ReservacionErrorCatalog::has($codigo)) {
+            $resultado = ReservacionErrorCatalog::enriquecer($resultado, ['superficie' => 'administracion']);
+        }
         $status = ($resultado['ok'] ?? false)
             ? 200
-            : match ($codigo) {
-                'RESERVACIONES_AFECTADAS' => 409,
-                'HORARIO_INVALIDO' => 422,
-                'ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS' => 500,
-                default => 422,
-            };
+            : ReservacionErrorCatalog::httpStatus($codigo, 422);
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -1,8 +1,11 @@
--- Casa Pestalozzi — Datos de siembra (DML)
--- Poblado inicial de catálogos, menú, reservaciones de ejemplo y usuarios demo.
--- Ejecutar DESPUÉS de ddl.sql. El orden respeta las llaves foráneas.
-
--- Fecha relativa para mantener vigentes los datos de analítica.
+-- Casa Pestalozzi — DML de pruebas y demostración
+--
+-- Datos ficticios para desarrollo y QA: usuarios demo, ventas, feedback,
+-- reservaciones, tickets, inventario y escenarios operativos.
+-- Ejecutar después de database/ddl.sql y database/dml_operativo.sql.
+-- No usar este archivo como semilla de producción.
+--
+SET NAMES utf8mb4;
 SET @HOY := CURDATE();
 
 -- -------------------------------------------------------
@@ -400,27 +403,33 @@ ON DUPLICATE KEY UPDATE
 
 -- -------------------------------------------------------
 -- Usuarios demo
--- admin_demo entra en /admin/login con password: Pestalozzi2026
+-- admin_demo entra en /login (pestaña Contraseña) con password: Pestalozzi2026
 -- (el resto conserva un bcrypt de prueba sin password conocida)
 -- -------------------------------------------------------
 
--- ids implícitos por orden: 1 admin, 2 observer, 3-4 y 6-7 meseros activos,
--- 5 cajero, 8 mesero inactivo. Tres meseros activos para comparar rendimiento.
-INSERT INTO usuarios (username, nombre, password_hash, rol, activo) VALUES
-('admin_demo',      'Administrador Demo',  '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',    1),
-('observador1',     'Observador General',  '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'observer', 1),
-('mesero1',         'Carlos Hernández',    '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('mesero2',         'Valeria Ríos',        '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('cajero1',         'Mariana López',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cashier',  1),
-('mesero3',         'Emilio Cárdenas',     '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   1),
-('mesero_inactivo', 'Daniel Torres',       '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter',   0);
+-- ids implícitos por orden: 1 admin, 2-3 y 5-6 meseros activos, 4 cocinero,
+-- 7 mesero inactivo. Tres meseros activos para comparar rendimiento.
+--
+-- Las fechas de nacimiento están elegidas para que su DDMM no choque entre sí
+-- ni con los NIP fijados abajo: así la semilla ejercita los dos caminos, el
+-- NIP explícito y el derivado del cumpleaños.
+INSERT INTO usuarios (username, nombre, fecha_nacimiento, password_hash, rol, activo) VALUES
+('admin_demo',      'Administrador Demo',  '1985-06-12', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',  1),
+('mesero1',         'Carlos Hernández',    '1993-11-23', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('mesero2',         'Valeria Ríos',        '1996-02-17', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('cocinero1',       'Mariana López',       '1991-09-05', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cook',   1),
+('mesero3',         'Emilio Cárdenas',     '1998-07-30', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
+('mesero_inactivo', 'Daniel Torres',       '1994-12-03', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 0);
 
--- NIP de acceso demo del personal de piso (hasheado con bcrypt), para /login:
---   observador1 → 5678 · mesero1 → 2345 · cajero1 → 3456
--- El admin NO usa NIP: entra en /admin/login con usuario + password.
-UPDATE usuarios SET nip_hash = '$2y$12$cn/3L8mkab6QsELxVwjUY.l9X32LeGBtHW0r0MKQEW/LH9doaPgoa' WHERE username = 'observador1';
+-- NIP de acceso demo del personal de piso (bcrypt de 4 dígitos), para /login:
+--   mesero1 → 2345 · cocinero1 → 3456
+--   mesero2 → 1702 · mesero3 → 3007  (ambos son el DDMM de su cumpleaños)
+-- El admin NO usa NIP: entra en /login, pestaña de administrador, con
+-- usuario + password.
 UPDATE usuarios SET nip_hash = '$2y$12$Jkhr3umCEYaNQY4OSGedgOu5eHImaGx1PtjXSMY9hXn3Zqu1OmReW' WHERE username = 'mesero1';
-UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cajero1';
+UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cocinero1';
+UPDATE usuarios SET nip_hash = '$2y$12$wbcjrmcyjQqdNQ3l24.zK.FUHBaX55O6866E40kAueBYyiSyiTgxO' WHERE username = 'mesero2';
+UPDATE usuarios SET nip_hash = '$2y$12$ACcHQkJyV/2dXYaxohNsVOz7V3XWaQXgVMAnJoaJOwnbY6coSjjEW' WHERE username = 'mesero3';
 
 -- -------------------------------------------------------
 -- Tickets de ejemplo (para /admin/tickets)
@@ -738,8 +747,8 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- -------------------------------------------------------
 -- RENDIMIENTO DE MESEROS (para /admin/feedback)
 --
--- Enlaza tickets cerrados a los tres meseros activos (3 Carlos, 4 Valeria,
--- 6 Emilio) y siembra propina para que el % por mesero difiera:
+-- Enlaza tickets cerrados a los tres meseros activos (Carlos, Valeria y
+-- Emilio) y siembra propina para que el % por mesero difiera:
 --   Carlos  ~17%   ·  Valeria ~12%   ·  Emilio ~8%
 -- La atencion sale del feedback ya sembrado (solo referencia tickets 1,2,3,5,8),
 -- por eso cada mesero recibe al menos uno de esos tickets historicos ademas de
@@ -748,20 +757,23 @@ INSERT INTO feedback (token_id, ticket_id, calidad_sabor, atencion_mesero, tiemp
 -- cancelados) via subconsulta correlacionada, para que sea autoconsistente.
 -- -------------------------------------------------------
 
--- Carlos Hernández (mesero 3) — propinero alto (~17%)
-UPDATE tickets t SET t.mesero_id = 3,
+-- El id se resuelve por username: quitar un usuario de la semilla recorría los
+-- ids implícitos y estos UPDATE quedaban apuntando al mesero equivocado.
+
+-- Carlos Hernández — propinero alto (~17%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero1'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.17, 2)
 WHERE t.id IN (1, 3, 101, 102, 103, 104, 105, 106);
 
--- Valeria Ríos (mesero 4) — propina media (~12%)
-UPDATE tickets t SET t.mesero_id = 4,
+-- Valeria Ríos — propina media (~12%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero2'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.12, 2)
 WHERE t.id IN (2, 5, 107, 108, 109, 110, 111, 112);
 
--- Emilio Cárdenas (mesero 6) — propina baja (~8%)
-UPDATE tickets t SET t.mesero_id = 6,
+-- Emilio Cárdenas — propina baja (~8%)
+UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'mesero3'),
     t.propina = ROUND(COALESCE((SELECT SUM(precio * cantidad) FROM ticket_items
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
@@ -804,81 +816,74 @@ WHERE estado = 'abierto';
 -- Límites por contacto: cero, una, cuatro y cinco activas.
 -- limite.cero@example.test no requiere una fila.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Límite Una', 'email', 'limite.una@example.test',
-   @fecha_principal, '13:00:00', 2, 'Una activa', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-una-0001'),
+   @fecha_principal, '13:00:00', 2, 'Una activa', 'admin', 'confirmada',
+   'fx-limite-una-0001', @reloj_prueba),
 
   ('Límite Cuatro 1', 'email', 'limite.cuatro@example.test',
-   @fecha_principal, '14:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-01'),
+   @fecha_principal, '14:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-01', @reloj_prueba),
   ('Límite Cuatro 2', 'email', 'limite.cuatro@example.test',
-   @fecha_posterior, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-02'),
+   @fecha_posterior, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-02', @reloj_prueba),
   ('Límite Cuatro 3', 'email', 'limite.cuatro@example.test',
-   @fecha_especial, '16:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-03'),
+   @fecha_especial, '16:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-03', @reloj_prueba),
   ('Límite Cuatro 4', 'email', 'limite.cuatro@example.test',
-   @fecha_futura, '17:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cuatro-04'),
+   @fecha_futura, '17:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cuatro-04', @reloj_prueba),
 
   ('Límite Cinco 1', 'email', 'limite.cinco@example.test',
-   @fecha_principal, '13:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-01'),
+   @fecha_principal, '13:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-01', @reloj_prueba),
   ('Límite Cinco 2', 'email', 'limite.cinco@example.test',
-   @fecha_principal, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-02'),
+   @fecha_principal, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-02', @reloj_prueba),
   ('Límite Cinco 3', 'email', 'limite.cinco@example.test',
-   @fecha_posterior, '16:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-03'),
+   @fecha_posterior, '16:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-03', @reloj_prueba),
   ('Límite Cinco 4', 'email', 'limite.cinco@example.test',
-   @fecha_especial, '18:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-04'),
+   @fecha_especial, '18:00:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-04', @reloj_prueba),
   ('Límite Cinco 5', 'email', 'limite.cinco@example.test',
-   @fecha_futura, '19:30:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-limite-cinco-05'),
+   @fecha_futura, '19:30:00', 2, '', 'admin', 'confirmada',
+   'fx-limite-cinco-05', @reloj_prueba),
 
   ('Identidad Teléfono', 'telefono', '+525544442026',
-   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-contacto-tel-001'),
+   @fecha_futura, '18:30:00', 3, 'Contacto canónico', 'landing', 'confirmada',
+   'fx-contacto-tel-001', @reloj_prueba),
   ('Histórica', 'email', 'historial@example.test',
-   @fecha_historica, '18:00:00', 2, '', 'completada',
-   '2026-11-27 17:50:00', '2026-11-27 19:30:00', 'sistema',
-   'Ticket cerrado', 'fx-historica-000001');
+   @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
+   'fx-historica-000001', '2026-11-27 19:30:00');
 
 -- Retenciones, modificación, cancelación y falta de capacidad.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   hold_expires_at, confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   hold_expires_at, request_token, estado_changed_at)
 VALUES
   ('Retención Vigente', 'email', 'hold.vigente@example.test',
-   @fecha_principal, '17:30:00', 2, '', 'pendiente_verificacion',
-   '2026-11-30 12:05:00', NULL, @reloj_prueba, 'cliente',
-   'Retención creada para verificación', 'fx-hold-vigente-001'),
+   @fecha_principal, '17:30:00', 2, '', 'landing', 'pendiente_verificacion',
+   '2026-11-30 12:05:00',
+   'fx-hold-vigente-001', @reloj_prueba),
   ('Retención Vencida', 'email', 'hold.vencida@example.test',
-   @fecha_principal, '18:00:00', 2, '', 'pendiente_verificacion',
-   '2026-11-30 11:59:59', NULL, @reloj_prueba, 'cliente',
-   'Retención creada para verificación', 'fx-hold-vencida-001'),
+   @fecha_principal, '18:00:00', 2, '', 'landing', 'pendiente_verificacion',
+   '2026-11-30 11:59:59',
+   'fx-hold-vencida-001', @reloj_prueba),
   ('Modificable', 'email', 'modificar@example.test',
-   @fecha_principal, '18:30:00', 2, 'Mover a otra hora', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-modificable-0001'),
+   @fecha_principal, '18:30:00', 2, 'Mover a otra hora',
+   'admin', 'confirmada', NULL, 'fx-modificable-0001', @reloj_prueba),
   ('Cancelable', 'email', 'cancelar@example.test',
-   @fecha_principal, '19:00:00', 2, '', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-cancelable-0001'),
+   @fecha_principal, '19:00:00', 2, '',
+   'admin', 'confirmada', NULL, 'fx-cancelable-0001', @reloj_prueba),
   ('Sin Capacidad', 'email', 'sin.capacidad@example.test',
-   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-sin-capacidad-01'),
+   @fecha_posterior, '13:00:00', 2, 'Conservar al fallar modificación',
+   'admin', 'confirmada', NULL, 'fx-sin-capacidad-01', @reloj_prueba),
   ('Bloqueo Total', 'email', 'bloqueo@example.test',
-   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas', 'confirmada',
-   NULL, @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-bloqueo-total-01');
+   @fecha_posterior, '20:00:00', 44, 'Ocupa todas las mesas',
+   'admin', 'confirmada', NULL, 'fx-bloqueo-total-01', @reloj_prueba);
 
 SET @hold_vigente = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vigente-001');
 SET @hold_vencida = (SELECT id FROM reservaciones WHERE request_token = 'fx-hold-vencida-001');
@@ -902,28 +907,27 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Asignaciones de una, dos y tres mesas, más reservas consecutivas.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Una Mesa', 'email', 'una.mesa@example.test',
-   @fecha_principal, '13:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-una-mesa-000001'),
+   @fecha_principal, '13:00:00', 2, '', 'admin', 'confirmada',
+   'fx-una-mesa-000001', @reloj_prueba),
   ('Dos Mesas', 'email', 'dos.mesas@example.test',
-   @fecha_principal, '14:30:00', 6, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-dos-mesas-00001'),
+   @fecha_principal, '14:30:00', 6, '', 'admin', 'confirmada',
+   'fx-dos-mesas-00001', @reloj_prueba),
   ('Tres Mesas', 'email', 'tres.mesas@example.test',
-   @fecha_principal, '16:00:00', 10, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-tres-mesas-0001'),
+   @fecha_principal, '16:00:00', 10, '', 'admin', 'confirmada',
+   'fx-tres-mesas-0001', @reloj_prueba),
   ('Cuatro Mesas Administrativa', 'email', 'cuatro.mesas@example.test',
-   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture administrativo', 'fx-cuatro-mesas-001'),
+   @fecha_futura, '20:00:00', 13, 'Supera el límite público', 'admin', 'confirmada',
+   'fx-cuatro-mesas-001', @reloj_prueba),
   ('Consecutiva A', 'email', 'consecutiva@example.test',
-   @fecha_futura, '13:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-a-01'),
+   @fecha_futura, '13:00:00', 2, '', 'admin', 'confirmada',
+   'fx-consecutiva-a-01', @reloj_prueba),
   ('Consecutiva B', 'email', 'consecutiva@example.test',
-   @fecha_futura, '15:00:00', 2, '', 'confirmada',
-   @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial', 'fx-consecutiva-b-01');
+   @fecha_futura, '15:00:00', 2, '', 'admin', 'confirmada',
+   'fx-consecutiva-b-01', @reloj_prueba);
 
 SET @una_mesa = (SELECT id FROM reservaciones WHERE request_token = 'fx-una-mesa-000001');
 SET @dos_mesas = (SELECT id FROM reservaciones WHERE request_token = 'fx-dos-mesas-00001');
@@ -942,37 +946,30 @@ INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
 
 -- Estados operativos: llegada, tolerancia, no-show, servicio y cierre.
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, arrived_at, completed_at, status_changed_at,
-   last_modified_source, last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('POS Confirmada', 'email', 'pos.confirmada@example.test',
-   @fecha_principal, '19:30:00', 2, '', 'confirmada',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-confirmada-01'),
-  ('POS Llegó', 'email', 'pos.llego@example.test',
-   @fecha_principal, '20:00:00', 2, '', 'llego',
-   @reloj_prueba, '2026-11-30 19:50:00', NULL, '2026-11-30 19:50:00',
-   'personal', 'Llegada registrada', 'fx-pos-llego-000001'),
+   @fecha_principal, '19:30:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-confirmada-01', @reloj_prueba),
+  ('POS Convertida', 'email', 'pos.convertida@example.test',
+   @fecha_principal, '20:00:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-convertida-000001', '2026-11-30 19:50:00'),
   ('POS En Curso', 'email', 'pos.encurso@example.test',
-   @fecha_principal, '20:00:00', 6, '', 'en_curso',
-   @reloj_prueba, '2026-11-30 19:55:00', NULL, '2026-11-30 20:00:00',
-   'personal', 'Servicio iniciado', 'fx-pos-encurso-001'),
+   @fecha_principal, '20:00:00', 6, '', 'admin', 'en_curso',
+   'fx-pos-encurso-001', '2026-11-30 20:00:00'),
   ('POS Completada', 'email', 'pos.completa@example.test',
-   @fecha_historica, '18:00:00', 2, '', 'completada',
-   '2026-11-27 17:00:00', '2026-11-27 17:55:00', '2026-11-27 19:30:00',
-   '2026-11-27 19:30:00', 'personal', 'Ticket cerrado', 'fx-pos-completa-001'),
+   @fecha_historica, '18:00:00', 2, '', 'admin', 'completada',
+   'fx-pos-completa-001', '2026-11-27 19:30:00'),
   ('POS Tolerancia', 'email', 'pos.tolerancia@example.test',
-   @fecha_principal, '20:30:00', 2, '', 'confirmada',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-tolerancia-1'),
+   @fecha_principal, '20:30:00', 2, '', 'admin', 'confirmada',
+   'fx-pos-tolerancia-1', @reloj_prueba),
   ('POS No Show', 'email', 'pos.noshow@example.test',
-   @fecha_principal, '19:00:00', 2, '', 'no_show',
-   @reloj_prueba, NULL, NULL, @reloj_prueba, 'personal', 'Tolerancia vencida',
-   'fx-pos-noshow-0001');
+   @fecha_principal, '19:00:00', 2, '', 'admin', 'no_show',
+   'fx-pos-noshow-0001', @reloj_prueba);
 
 SET @pos_confirmada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-confirmada-01');
-SET @pos_llego = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-llego-000001');
+SET @pos_convertida = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-convertida-000001');
 SET @pos_en_curso = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-encurso-001');
 SET @pos_completada = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-completa-001');
 SET @pos_tolerancia = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-tolerancia-1');
@@ -980,7 +977,7 @@ SET @pos_noshow = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-no
 
 INSERT INTO reservacion_mesas (reservacion_id, mesa_id, orden) VALUES
   (@pos_confirmada, 3, 1),
-  (@pos_llego, 4, 1),
+  (@pos_convertida, 4, 1),
   (@pos_en_curso, 5, 1), (@pos_en_curso, 6, 2),
   (@pos_completada, 6, 1),
   (@pos_tolerancia, 7, 1),
@@ -1018,18 +1015,15 @@ INSERT INTO ticket_mesas (ticket_id, mesa_id, orden) VALUES
   (@walkin_varias, 1, 1), (@walkin_varias, 11, 2);
 
 INSERT INTO reservaciones
-  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, estado,
-   confirmed_at, status_changed_at, last_modified_source,
-   last_change_reason, request_token)
+  (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota, origen, estado,
+   request_token, estado_changed_at)
 VALUES
   ('Reserva Futura', 'email', 'pos.futura@example.test',
    @fecha_posterior, '13:00:00', 2, 'Advertencia de reserva próxima',
-   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-pos-futura-00001'),
+   'admin', 'confirmada', 'fx-pos-futura-00001', @reloj_prueba),
   ('Horario Afectado', 'email', 'horario@example.test',
    @fecha_principal, '21:00:00', 2, 'Conflicto al adelantar el cierre',
-   'confirmada', @reloj_prueba, @reloj_prueba, 'sistema', 'Fixture inicial',
-   'fx-horario-afectado');
+   'admin', 'confirmada', 'fx-horario-afectado', @reloj_prueba);
 
 SET @reserva_futura = (SELECT id FROM reservaciones WHERE request_token = 'fx-pos-futura-00001');
 SET @horario_afectado = (SELECT id FROM reservaciones WHERE request_token = 'fx-horario-afectado');

@@ -197,6 +197,14 @@ html:has(.operation-body.is-assignment-mode) {
   }
 }
 
+@media (max-width: 640px) {
+  // El mapa debe conservar una superficie táctil propia antes del detalle;
+  // si el panel ocupa toda la fila, el plano termina con altura cero.
+  .reservation-operation__content {
+    grid-template-rows: minmax(320px, 1fr) auto;
+  }
+}
+
 @media (max-width: 700px) {
   .reservation-operation.assignment-mode .reservation-operation__workspace {
     height: max(420px, calc(100dvh - var(--operational-header-height) - 180px));

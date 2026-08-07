@@ -14,7 +14,7 @@ $fechaActual = (string)($fechaActual ?? \Services\ReservacionConfig::fechaActual
 $diasActivos = is_array($diasActivos ?? null) ? $diasActivos : [];
 $maxComensalesAdmin = (int)($maxComensalesAdmin ?? \Services\ReservacionConfig::MAX_COMENSALES_ADMIN);
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? true);
-$asignarAutomaticamente = (bool)($asignarAutomaticamente ?? true);
+$asignarAutomaticamente = (bool)($asignarAutomaticamente ?? ($modo === 'crear'));
 $mesasAsignadas = isset($mesasAsignadas) && is_iterable($mesasAsignadas) ? $mesasAsignadas : [];
 $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_array($mesasAsignadas);
 $motivoNoEditable = (string)($motivoNoEditable ?? '');
@@ -23,7 +23,7 @@ $formActionsExternal = (bool)($formActionsExternal ?? false);
 $capacidadWarning = is_array($capacidadWarning ?? null) ? $capacidadWarning : [];
 $mostrarCapacidadWarning = $modo === 'crear'
     && $formTransport === 'html'
-    && !empty($capacidadWarning['requiere_confirmacion_capacidad']);
+    && !empty($capacidadWarning['confirmaciones_requeridas']);
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -59,9 +59,10 @@ $tiposContacto = [
     'email' => 'Correo',
     'telefono' => 'Teléfono',
 ];
+$tiposContacto['ninguno'] = 'Sin contacto';
 $contactoTipo = in_array($contactoTipoRegistrado, array_keys($tiposContacto), true)
     ? $contactoTipoRegistrado
-    : 'email';
+    : 'ninguno';
 $fecha = (string)$valor($reservacion, 'fecha', $fechaActual);
 $hora = \Services\HorarioReservacionService::normalizarHoraCorta((string)$valor($reservacion, 'hora'));
 $comensales = max(1, (int)$valor($reservacion, 'comensales', 2));
@@ -74,6 +75,9 @@ $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $disabled = !$iniciarEdicion;
 $action = $modo === 'crear' ? '/admin/reservations/create' : '/admin/reservations/update';
 $formId = $modo . '-reservation-admin-form';
+$adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
+$autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
+$contactInputDisabled = $disabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
     \Services\ReservacionService::RESERVACION_PASADA => 'No se pueden modificar reservaciones de fechas anteriores.',
@@ -135,9 +139,10 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             <input type="hidden" name="id" value="<?php echo $id; ?>">
         <?php else : ?>
             <input type="hidden" name="request_token" value="<?php echo $h($requestToken); ?>">
-            <input type="hidden" name="confirmar_sin_contacto" value="<?php echo $h((string)$valor($reservacion, 'confirmar_sin_contacto', '0')); ?>">
-            <input type="hidden" name="permitir_capacidad_insuficiente" value="<?php echo $h((string)$valor($reservacion, 'permitir_capacidad_insuficiente', '0')); ?>">
         <?php endif; ?>
+        <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
+        <input type="hidden" name="confirmaciones" value="" data-admin-confirmations>
+        <input type="hidden" name="confirmar_sobrecapacidad" value="0" data-admin-overcapacity-confirmation>
         <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
         <?php if ($formTransport === 'json') : ?>
             <input type="hidden" name="response_format" value="json">
@@ -200,20 +205,28 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 </div>
                 <div class="reservation-capacity-summary" data-reservation-capacity-summary hidden>
                     <div>
-                        <span>Capacidad total</span>
+                        <span>Capacidad física total</span>
                         <strong data-capacity-total>0</strong>
                     </div>
                     <div>
-                        <span>Libre actualmente</span>
+                        <span>Capacidad comprometida</span>
+                        <strong data-capacity-committed>0</strong>
+                    </div>
+                    <div>
+                        <span>Demanda sin asignar</span>
+                        <strong data-capacity-demand>0</strong>
+                    </div>
+                    <div>
+                        <span>Capacidad disponible</span>
                         <strong data-capacity-real>0</strong>
+                    </div>
+                    <div>
+                        <span>Comensales solicitados</span>
+                        <strong data-capacity-requested>0</strong>
                     </div>
                     <div>
                         <span>Liberación proyectada</span>
                         <strong data-capacity-projected>0</strong>
-                    </div>
-                    <div>
-                        <span>Estimada para el horario</span>
-                        <strong data-capacity-estimated>0</strong>
                     </div>
                     <p class="reservation-capacity-summary__warning" data-capacity-warning hidden></p>
                 </div>
@@ -236,6 +249,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <span>Tipo de contacto</span>
                         <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $disabled ? 'disabled' : ''; ?>>
                                 <option value="email" <?php echo $contactoTipo === 'email' ? 'selected' : ''; ?>>Correo</option>
+                                <option value="ninguno" <?php echo $contactoTipo === 'ninguno' ? 'selected' : ''; ?>>Sin contacto</option>
                                 <option value="telefono" <?php echo $contactoTipo === 'telefono' ? 'selected' : ''; ?>>Teléfono</option>
                         </select>
                         <?php $error = $errorCampo('contacto_tipo'); ?>
@@ -256,7 +270,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                             inputmode="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
                             data-reservation-control
                             data-contact-value
-                            <?php echo $disabled ? 'disabled' : ''; ?>
+                            <?php echo $contactInputDisabled ? 'disabled' : ''; ?>
                         >
                         <?php $error = $errorCampo('contacto'); ?>
                         <small class="reservation-detail-form__helper" data-contact-help><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Incluye lada y diez dígitos; el sistema normalizará el prefijo de México.' : 'Escribe un correo electrónico válido.') : ''; ?></small>
@@ -298,15 +312,16 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             </fieldset>
         <?php endif; ?>
 
-        <?php if ($modo === 'crear') : ?>
+        <?php if ($modo === 'crear' || $modo === 'editar') : ?>
             <fieldset class="reservation-detail-form__assignment-section">
                 <legend>Asignación de mesas</legend>
                 <p class="reservation-detail-form__section-description">El sistema buscara una combinacion de mesas que cubra el numero de comensales.</p>
             <label class="reservation-admin-form__check">
                 <input type="hidden" name="asignar_automaticamente" value="0">
-                <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente ? 'checked' : ''; ?> data-reservation-control>
+                <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
                 <span class="reservation-admin-form__check-copy">
-                    <span>Asignar automáticamente las mesas disponibles.</span>
+                    <span>Asignar mesas automáticamente.</span>
+                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Puedes guardar sin mesas y asignarlas más tarde desde Operación.'; ?></small>
                 </span>
             </label>
             </fieldset>
@@ -324,70 +339,16 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
     <?php if ($modo === 'crear') : ?>
         <div
-            class="admin-modal reservation-business-confirmation"
-            hidden
+            class="reservation-business-confirmation-host"
             data-reservation-confirmation
             data-confirmation-autostart="<?php echo $mostrarCapacidadWarning ? 'capacity' : ''; ?>"
             data-confirmation-requested="<?php echo (int)($capacidadWarning['capacidad_solicitada'] ?? 0); ?>"
             data-confirmation-available="<?php echo (int)($capacidadWarning['capacidad_disponible'] ?? 0); ?>"
-        >
-            <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-confirmation-close></button>
-            <div
-                class="admin-modal__dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="<?php echo $h($formId . '-confirmation-title'); ?>"
-                aria-describedby="<?php echo $h($formId . '-confirmation-description'); ?>"
-                tabindex="-1"
-                data-confirmation-dialog
-            >
-                <div class="admin-modal__head">
-                    <div>
-                        <span class="admin-modal__eyebrow" data-confirmation-eyebrow>Contacto opcional</span>
-                        <h2 class="admin-modal__title" id="<?php echo $h($formId . '-confirmation-title'); ?>" data-confirmation-title>Crear reservación sin contacto</h2>
-                    </div>
-                    <button class="admin-modal__close" type="button" aria-label="Cerrar" data-confirmation-close>&times;</button>
-                </div>
-                <p class="admin-modal__text" id="<?php echo $h($formId . '-confirmation-description'); ?>" data-confirmation-description>
-                    Esta reservación no tendrá un correo o teléfono asociado. No será posible contactar al cliente desde el sistema.
-                </p>
-                <div class="admin-modal__actions">
-                    <button type="button" class="admin-btn admin-btn--secondary" data-confirmation-back>Volver y agregar contacto</button>
-                    <button type="button" class="admin-btn admin-btn--primary" data-confirmation-confirm>Crear sin contacto</button>
-                </div>
-            </div>
-        </div>
+        ></div>
     <?php elseif ($modo === 'editar') : ?>
         <div
-            class="admin-modal reservation-business-confirmation"
-            hidden
+            class="reservation-business-confirmation-host"
             data-reservation-confirmation
-        >
-            <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-confirmation-close></button>
-            <div
-                class="admin-modal__dialog"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="<?php echo $h($formId . '-contact-confirmation-title'); ?>"
-                aria-describedby="<?php echo $h($formId . '-contact-confirmation-description'); ?>"
-                tabindex="-1"
-                data-confirmation-dialog
-            >
-                <div class="admin-modal__head">
-                    <div>
-                        <span class="admin-modal__eyebrow" data-confirmation-eyebrow>Cambio de contacto</span>
-                        <h2 class="admin-modal__title" id="<?php echo $h($formId . '-contact-confirmation-title'); ?>" data-confirmation-title>Guardar contacto</h2>
-                    </div>
-                    <button class="admin-modal__close" type="button" aria-label="Cerrar" data-confirmation-close>&times;</button>
-                </div>
-                <p class="admin-modal__text" id="<?php echo $h($formId . '-contact-confirmation-description'); ?>" data-confirmation-description>
-                    Confirma que deseas guardar el cambio de contacto.
-                </p>
-                <div class="admin-modal__actions">
-                    <button type="button" class="admin-btn admin-btn--secondary" data-confirmation-back>Seguir editando</button>
-                    <button type="button" class="admin-btn admin-btn--primary" data-confirmation-confirm>Guardar contacto</button>
-                </div>
-            </div>
-        </div>
+        ></div>
     <?php endif; ?>
 </article>

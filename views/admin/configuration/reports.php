@@ -25,6 +25,8 @@ $statusLabels = [
         </div>
     </header>
 
+    <?php include __DIR__ . '/../partials/alertas.php'; ?>
+
     <form class="admin-filters admin-config-filters" data-report-filters>
         <div class="admin-filters__search">
             <label for="reports-search">Buscar</label>
@@ -69,7 +71,21 @@ $statusLabels = [
                             <td data-label="Navegador"><?php echo $h($reporte['navegador'] ?? ''); ?></td>
                             <td data-label="Estado"><span class="admin-badge <?php echo $meta['class']; ?>"><?php echo $meta['label']; ?></span></td>
                             <td data-label="Fecha"><?php echo $h($reporte['fecha'] ?? ''); ?></td>
-                            <td data-label="Acción"><button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-report-detail='<?php echo $h($json ?: '{}'); ?>'>Ver detalles</button></td>
+                            <td data-label="Acción">
+                                <div class="admin-table-actions">
+                                    <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-report-detail='<?php echo $h($json ?: '{}'); ?>'>Ver detalles</button>
+                                    <?php /* Ir a la pantalla exacta donde se reportó el fallo: es
+                                             la diferencia entre leer el reporte y reproducirlo. */ ?>
+                                    <?php if (($reporte['ruta_origen'] ?? '') !== '') : ?>
+                                        <a class="admin-btn admin-btn--ghost admin-btn--small"
+                                           href="<?php echo $h($reporte['ruta_origen']); ?>"
+                                           target="_blank" rel="noopener"
+                                           title="Abrir <?php echo $h($reporte['ruta_origen']); ?> en una pestaña nueva">
+                                            Abrir pantalla ↗
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -78,7 +94,7 @@ $statusLabels = [
 
         <div class="admin-empty admin-config-empty" data-report-empty <?php echo empty($reportes) ? '' : 'hidden'; ?>>
             <strong>No hay reportes para mostrar</strong>
-            <span>Los problemas enviados desde el panel aparecerán aquí cuando se conecte el backend.</span>
+            <span>Cuando alguien use “Reportar un problema” desde el panel, el reporte aparecerá aquí.</span>
         </div>
     </section>
 </section>
@@ -97,10 +113,30 @@ $statusLabels = [
             <div class="admin-report-detail__wide"><dt>Descripción</dt><dd data-detail-description></dd></div>
             <div><dt>Módulo</dt><dd data-detail-module></dd></div>
             <div><dt>Navegador</dt><dd data-detail-browser></dd></div>
-            <div class="admin-report-detail__wide"><dt>Ruta de origen</dt><dd data-detail-route></dd></div>
+            <div class="admin-report-detail__wide">
+                <dt>Ruta de origen</dt>
+                <dd>
+                    <span data-detail-route></span>
+                    <a class="admin-btn admin-btn--ghost admin-btn--small admin-report-detail__open"
+                       data-detail-route-link target="_blank" rel="noopener" hidden>Abrir pantalla ↗</a>
+                </dd>
+            </div>
             <div><dt>Fecha</dt><dd data-detail-date></dd></div>
             <div><dt>Estado</dt><dd data-detail-status></dd></div>
         </dl>
+
+        <?php /* El estado existía en la base pero no había forma de moverlo desde la
+                 UI: un reporte se quedaba en "nuevo" para siempre. */ ?>
+        <form class="admin-report-status" method="POST" action="/admin/configuracion/reportes/estado">
+            <input type="hidden" name="id" data-detail-id value="">
+            <span class="admin-report-status__label">Marcar como</span>
+            <div class="admin-report-status__btns">
+                <button type="submit" name="estado" value="en_revision" class="admin-btn admin-btn--secondary admin-btn--small">En revisión</button>
+                <button type="submit" name="estado" value="resuelto" class="admin-btn admin-btn--primary admin-btn--small">Resuelto</button>
+                <button type="submit" name="estado" value="descartado" class="admin-btn admin-btn--ghost admin-btn--small">Descartar</button>
+            </div>
+        </form>
+
         <div class="admin-modal__actions"><button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cerrar</button></div>
     </div>
 </div>

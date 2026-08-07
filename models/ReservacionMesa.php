@@ -119,7 +119,6 @@ class ReservacionMesa extends ActiveRecord
                     r.comensales,
                     r.estado,
                     r.hold_expires_at,
-                    r.arrived_at,
                     " . ReservacionVigenciaService::condicionSqlTieneTicketAbierto('r') . " AS ticket_abierto
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
@@ -145,9 +144,6 @@ class ReservacionMesa extends ActiveRecord
                 'estado' => (string)$fila['estado'],
                 'hold_expires_at' => $fila['hold_expires_at'] !== null
                     ? (string)$fila['hold_expires_at']
-                    : null,
-                'arrived_at' => $fila['arrived_at'] !== null
-                    ? (string)$fila['arrived_at']
                     : null,
                 'ticket_abierto' => (bool)$fila['ticket_abierto'],
             ];

@@ -33,145 +33,211 @@ final class MesaEstadoService
         string $hora = '',
         array $evaluacionOcupacion = []
     ): array {
-        $ahora = $ahora ?? ReservacionConfig::ahora();
-        $reservacionesPorMesa = self::reservacionesPorMesa($reservaciones, $ahora);
-        $ticketsPorMesa = self::ticketsPorMesa(
+        return self::normalizarMesasCanonicas(
+            $mesas,
+            $reservaciones,
             $tickets,
             $fecha,
-            $hora !== '' ? $hora : $ahora->format('H:i:s'),
             $ahora,
+            $hora,
             $evaluacionOcupacion
         );
 
-        return array_map(static function ($mesa) use (
-            $reservacionesPorMesa,
-            $ticketsPorMesa,
-            $ahora
-        ): array {
+    }
+
+    /**
+     * Consume exclusivamente reservaciones ya serializadas por el contrato
+     * POS–reservaciones. Aquí sólo se resuelve precedencia visual; no se
+     * vuelve a calcular fecha, hora ni ventana operativa.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function normalizarMesasCanonicas(
+        array $mesas,
+        array $reservaciones,
+        array $tickets,
+        string $fecha,
+        ?DateTimeImmutable $ahora,
+        string $hora,
+        array $evaluacionOcupacion
+    ): array {
+        $ahora = $ahora ?? ReservacionConfig::ahora();
+        $ticketsPorMesa = self::ticketsPorMesa(
+            $tickets,
+            $fecha,
+            $hora !== '' ? $hora : ReservacionConfig::horaActual(),
+            $ahora,
+            $evaluacionOcupacion
+        );
+        // Un ticket abierto ocupa físicamente sus ticket_mesa_ids aunque el
+        // horario consultado sea una proyección o su duración estimada haya
+        // terminado. La proyección sólo modifica los modificadores.
+        foreach ($tickets as $ticket) {
+            $proyeccion = TicketTemporalService::proyectar($ticket, $fecha, $hora, $ahora);
+            if (!$proyeccion['ticket_abierto'] || !$proyeccion['aplica_fecha']) {
+                continue;
+            }
+            foreach (self::ids($proyeccion['mesa_ids'] ?? []) as $mesaId) {
+                if (!isset($ticketsPorMesa[$mesaId])) {
+                    $ticketsPorMesa[$mesaId] = $proyeccion;
+                }
+            }
+        }
+        $reservacionesPorMesa = [];
+        foreach ($reservaciones as $reservacionRaw) {
+            $reservacion = self::aArray($reservacionRaw);
+            if ((string)($reservacion['estado'] ?? '') !== 'confirmada') {
+                continue;
+            }
+            $ventana = (string)($reservacion['ventana_operativa'] ?? 'futura');
+            $visible = !empty($reservacion['muestra_advertencia'])
+                || !empty($reservacion['bloquea_walk_ins']);
+            if (!$visible) {
+                continue;
+            }
+            foreach (self::ids($reservacion['mesa_ids'] ?? []) as $mesaId) {
+                $reservacionesPorMesa[$mesaId][] = $reservacion;
+            }
+        }
+
+        foreach ($reservacionesPorMesa as &$candidatas) {
+            usort($candidatas, static function (array $a, array $b): int {
+                return strcmp(
+                    (string)($a['fecha'] ?? '') . ' ' . (string)($a['hora'] ?? ''),
+                    (string)($b['fecha'] ?? '') . ' ' . (string)($b['hora'] ?? '')
+                );
+            });
+        }
+        unset($candidatas);
+
+        $ocupacionPorMesa = (array)($evaluacionOcupacion['mesas'] ?? []);
+
+        return array_map(static function ($mesa) use ($reservacionesPorMesa, $ticketsPorMesa, $ocupacionPorMesa): array {
             $mesaId = (int)self::valor($mesa, 'id', 0);
-            $activada = (int)self::valor($mesa, 'activo', 1) === 1;
-            $reservable = (int)self::valor($mesa, 'reservable', 0) === 1;
+            $activada = self::booleano(self::valor($mesa, 'activo', true));
+            $reservable = self::booleano(self::valor($mesa, 'reservable', true));
             $estadoBase = self::DISPONIBLE;
             $modificadores = [];
-            $indicadores = [];
             $reservacionProxima = null;
             $reservacionAsociada = null;
+            $reservacionContrato = null;
             $ticketAbierto = null;
+            $ticketBloqueaEnConsulta = false;
+            $ocupacionActual = false;
             $walkIn = false;
             $minutosRestantes = null;
             $motivoBloqueo = null;
+            $ausenciaPendiente = false;
+            $ocupacionMesa = (array)($ocupacionPorMesa[$mesaId] ?? []);
+            $holdVigente = ($ocupacionMesa['fuente'] ?? '') === 'hold';
 
-            // La precedencia comienza por elementos no operables del plano.
             if (!$activada || !$reservable) {
                 $estadoBase = self::NO_RESERVABLE;
                 $motivoBloqueo = !$activada ? 'Mesa fuera de servicio.' : 'Elemento no reservable.';
             } elseif (isset($ticketsPorMesa[$mesaId])) {
                 $ticket = $ticketsPorMesa[$mesaId];
+                $ticketBloqueaEnConsulta = array_key_exists('bloquea_en_consulta', $ticket)
+                    ? self::booleano($ticket['bloquea_en_consulta'])
+                    : (array_key_exists('bloquea_disponibilidad', $ticket)
+                        ? self::booleano($ticket['bloquea_disponibilidad'])
+                        : true);
+                $ocupacionActual = !array_key_exists('ocupada_fisicamente', $ticket)
+                    || self::booleano($ticket['ocupada_fisicamente']);
                 $ticketAbierto = [
                     'id' => (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0),
-                    'reservacion_id' => $ticket['reservacion_id'],
-                    'mesa_ids' => $ticket['mesa_ids'],
+                    'reservacion_id' => $ticket['reservacion_id'] ?? null,
+                    'mesa_ids' => $ticket['mesa_ids'] ?? [],
                     'estado_proyeccion' => $ticket['estado_proyeccion'] ?? null,
-                    'liberacion_proyectada' => $ticket['liberacion_proyectada'] ?? null,
+                    'hora_apertura' => $ticket['hora_apertura'] ?? null,
+                    'liberacion_estimada' => $ticket['liberacion_estimada'] ?? null,
+                    'bloquea_en_consulta' => $ticketBloqueaEnConsulta,
+                    'ocupada_fisicamente' => $ocupacionActual,
                 ];
-                $walkIn = $ticket['reservacion_id'] === null;
-                $modificadores[] = 'ticket_abierto';
-                $horaLiberacion = substr(
-                    (string)($ticket['liberacion_proyectada'] ?? ''),
-                    11,
-                    5
-                );
-                if (!empty($ticket['conflicto_proximo'])) {
+                $walkIn = empty($ticket['reservacion_id']);
+                if ($ticketBloqueaEnConsulta) {
                     $estadoBase = self::OCUPADA;
-                    $modificadores[] = 'conflicto_proximo';
-                    $indicadores[] = self::indicador(
-                        'conflicto_proximo',
-                        'Ticket abierto dentro del bloqueo de una reservación',
-                        '!'
-                    );
-                    $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
-                } elseif (!empty($ticket['disponible_proyectada'])) {
-                    $estadoBase = self::DISPONIBLE;
-                    $modificadores[] = 'disponible_proyectada';
-                    $indicadores[] = self::indicador(
-                        'disponible_proyectada',
-                        'Ticket abierto · Liberación estimada ' . $horaLiberacion,
-                        '~'
-                    );
                 } else {
-                    $estadoBase = self::OCUPADA;
-                    $indicadores[] = self::indicador('ticket_abierto', 'Servicio activo', 'T');
-                    $motivoBloqueo = 'Ocupada por servicio activo.';
+                    self::agregarUnaVez($modificadores, 'ticket_proyectado_liberado');
+                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
+                }
+                $modificadores[] = 'ticket_abierto';
+                $motivoBloqueo = 'Ocupada por servicio activo.';
+                if ($ticketBloqueaEnConsulta && !empty($ticket['conflicto_proximo'])) {
+                    $modificadores[] = 'conflicto_proximo';
+                    $motivoBloqueo = 'Conflicto próximo: el ticket sigue abierto dentro del bloqueo operativo.';
+                }
+                if (!empty($ticket['disponible_proyectada'])) {
+                    $modificadores[] = 'disponible_proyectada';
                 }
                 if ($walkIn) {
                     $modificadores[] = 'walk_in';
-                    $indicadores[] = self::indicador('walk_in', 'Walk-in', 'W');
                 }
-                if (count($ticket['mesa_ids']) > 1) {
+                if (count((array)($ticket['mesa_ids'] ?? [])) > 1) {
                     $modificadores[] = 'varias_mesas';
-                    $indicadores[] = self::indicador(
-                        'varias_mesas',
-                        count($ticket['mesa_ids']) . ' mesas vinculadas al servicio',
-                        (string)count($ticket['mesa_ids'])
-                    );
+                }
+                if (!$ticketBloqueaEnConsulta) {
+                    $motivoBloqueo = 'Disponible después de la liberación estimada del ticket.';
                 }
             }
 
-            $candidatas = $estadoBase === self::NO_RESERVABLE
-                ? []
-                : ($reservacionesPorMesa[$mesaId] ?? []);
-            foreach ($candidatas as $candidata) {
-                $clasificacion = self::clasificarReservacion($candidata, $ahora);
-                if ($clasificacion === null) {
+            if ($holdVigente && $estadoBase !== self::OCUPADA && $estadoBase !== self::NO_RESERVABLE) {
+                $estadoBase = self::BLOQUEADA;
+                self::agregarUnaVez($modificadores, 'hold_vigente');
+                $motivoBloqueo = 'Mesa temporalmente comprometida';
+            }
+
+            foreach (($reservacionesPorMesa[$mesaId] ?? []) as $reservacion) {
+                if ($holdVigente) {
                     continue;
                 }
-
-                $resumen = self::resumenReservacion($candidata);
-                if (count($resumen['mesa_ids']) > 1 && !in_array('varias_mesas', $modificadores, true)) {
-                    $modificadores[] = 'varias_mesas';
-                    $indicadores[] = self::indicador(
-                        'varias_mesas',
-                        count($resumen['mesa_ids']) . ' mesas vinculadas a la reservación',
-                        (string)count($resumen['mesa_ids'])
-                    );
+                $resumen = self::resumenReservacion($reservacion);
+                $ventana = (string)($reservacion['ventana_operativa'] ?? 'futura');
+                $resumen['ventana_operativa'] = $ventana;
+                $resumen['minutos_restantes'] = $reservacion['minutos_para_reservacion'] ?? null;
+                $resumen['minutos_retraso'] = (int)($reservacion['minutos_retraso'] ?? 0);
+                $accionPendiente = ($reservacion['accion_pendiente'] ?? null) === 'REGISTRAR_AUSENCIA';
+                if ($accionPendiente) {
+                    $ausenciaPendiente = true;
+                    self::agregarUnaVez($modificadores, 'accion_pendiente');
+                    self::agregarUnaVez($modificadores, 'AUSENCIA_PENDIENTE');
+                    $reservacionAsociada = $resumen;
+                    $reservacionContrato = $reservacion;
+                    $motivoBloqueo = 'Acción pendiente: registrar ausencia.';
                 }
-
-                if ($clasificacion['tipo'] === 'ocupada') {
-                    // Sólo un ticket o un elemento no reservable tienen mayor
-                    // precedencia que una reservación actualmente en ventana.
-                    if ($estadoBase === self::DISPONIBLE || $estadoBase === self::BLOQUEADA) {
-                        $estadoBase = self::OCUPADA;
-                        $reservacionAsociada = $resumen;
-                        $motivoBloqueo = 'Ocupada por reservación en curso.';
-                    }
-                    continue;
+                if ($reservacionProxima === null) {
+                    $reservacionProxima = $resumen;
+                    $minutosRestantes = $resumen['minutos_restantes'] !== null
+                        ? (int)$resumen['minutos_restantes']
+                        : null;
                 }
-
-                if ($clasificacion['tipo'] === 'bloqueada') {
+                self::agregarUnaVez($modificadores, 'reservacion_proxima');
+                $modificadorVentana = match ($ventana) {
+                    '30_60' => 'reservacion_advertencia',
+                    '0_30' => 'reservacion_inminente',
+                    'tolerancia' => 'reservacion_tolerancia',
+                    'tolerancia_vencida' => 'reservacion_vencida',
+                    default => 'reservacion_advertencia',
+                };
+                self::agregarUnaVez($modificadores, $modificadorVentana);
+                if ($accionPendiente) {
+                    $reservacionAsociada = $resumen;
+                    $reservacionContrato = $reservacion;
+                    $motivoBloqueo = 'Acción pendiente: registrar ausencia.';
+                } elseif (!empty($reservacion['bloquea_walk_ins'])) {
+                    self::agregarUnaVez($modificadores, 'reservacion_bloqueante');
                     if ($estadoBase === self::DISPONIBLE) {
                         $estadoBase = self::BLOQUEADA;
                         $reservacionAsociada = $resumen;
-                        $minutosRestantes = $clasificacion['minutos_restantes'];
-                        $motivoBloqueo = sprintf(
-                            'Bloqueada por reservación #%d a las %s.',
-                            (int)$resumen['id'],
-                            (string)$resumen['hora']
-                        );
-                        $indicadores[] = self::indicador('bloqueada', 'Bloqueo de reservación', 'B');
+                        $motivoBloqueo = match ($ventana) {
+                            '0_30' => 'Reservación inminente a las ' . (string)$resumen['hora'] . '.',
+                            'tolerancia' => 'Reservación dentro de la tolerancia.',
+                            'tolerancia_vencida' => 'Tolerancia vencida; se requiere registrar ausencia.',
+                            default => 'Mesa bloqueada por reservación.',
+                        };
                     }
-                    continue;
                 }
-
-                if ($clasificacion['tipo'] === 'proxima' && $reservacionProxima === null) {
-                    // Próxima es un modificador: puede coexistir con un ticket.
-                    $reservacionProxima = $resumen;
-                    $minutosRestantes = $clasificacion['minutos_restantes'];
-                    $modificadores[] = 'reservacion_proxima';
-                    $indicadores[] = self::indicador(
-                        'reservacion_proxima',
-                        'Reservación próxima a las ' . $resumen['hora'],
-                        'P'
-                    );
+                if (count($resumen['mesa_ids']) > 1) {
+                    self::agregarUnaVez($modificadores, 'varias_mesas');
                 }
             }
 
@@ -182,12 +248,19 @@ final class MesaEstadoService
                 $reservacionProxima,
                 $reservacionAsociada,
                 $minutosRestantes,
-                $motivoBloqueo
+                $motivoBloqueo,
+                $ausenciaPendiente
             );
             if (in_array('varias_mesas', $modificadores, true)) {
-                // El vínculo N:M también queda disponible para lectores de pantalla.
                 $titulo .= ' Vinculada a varias mesas.';
             }
+
+            $estadoVisual = match ($estadoBase) {
+                self::OCUPADA => 'ocupada',
+                self::NO_RESERVABLE => 'no-utilizable',
+                self::BLOQUEADA => 'reservacion-proxima',
+                default => 'libre',
+            };
 
             return [
                 'id' => $mesaId,
@@ -203,11 +276,29 @@ final class MesaEstadoService
                 'activo' => $activada,
                 'reservable' => $activada && $reservable,
                 'estado_base' => $estadoBase,
+                'estado' => $estadoBase,
+                'bloquea' => $estadoBase !== self::DISPONIBLE,
+                'es_proyeccion' => in_array(
+                    (string)($evaluacionOcupacion['contexto'] ?? ''),
+                    [OcupacionMesasService::CONTEXTO_PROYECTADO, OcupacionMesasService::CONTEXTO_FUTURO],
+                    true
+                ),
+                'ocupacion_actual' => $ocupacionActual,
+                'disponible_proyectada' => $estadoBase === self::DISPONIBLE,
+                'estado_visual' => $estadoVisual,
                 'modificadores' => $modificadores,
-                'indicadores' => $indicadores,
                 'reservacion_proxima' => $reservacionProxima,
                 'minutos_restantes' => $minutosRestantes,
                 'reservacion_asociada' => $reservacionAsociada,
+                'reservacion' => $reservacionContrato,
+                'hold' => $holdVigente ? [
+                    'reservacion_id' => $reservacionAsociada['id'] ?? null,
+                    'vigente' => true,
+                ] : null,
+                'acciones' => $ausenciaPendiente
+                    ? [['id' => 'REGISTRAR_AUSENCIA', 'tipo' => 'primary']]
+                    : [],
+                'accion_pendiente' => $ausenciaPendiente ? 'REGISTRAR_AUSENCIA' : null,
                 'ticket_abierto' => $ticketAbierto,
                 'walk_in' => $walkIn,
                 'seleccion_actual' => false,
@@ -218,74 +309,29 @@ final class MesaEstadoService
     }
 
     /**
-     * Clasifica una reservación usando la vigencia central:
-     * 60..31 próxima, 30..1 bloqueada y desde el inicio ocupada mientras la
-     * reservación conserve influencia lógica.
+     * Clasifica una reservación usando la ventana temporal central:
+     * 60..31 como advertencia, 30..0 como bloqueada azul, tolerancia como
+     * bloqueada azul y vencida como bloqueada azul oscura.
      *
-     * @return array{tipo:string,minutos_restantes:int}|null
+     * @return array{tipo:string,ventana?:string,minutos_restantes:int|null,minutos_retraso:int}|null
      */
     public static function clasificarReservacion(array $reservacion, DateTimeImmutable $ahora): ?array
     {
-        $vigencia = ReservacionVigenciaService::clasificar($reservacion, $ahora);
-        if (!$vigencia['influye_disponibilidad']) {
+        if (
+            empty($reservacion['muestra_advertencia'])
+            && empty($reservacion['bloquea_walk_ins'])
+        ) {
             return null;
         }
 
-        $inicio = self::fechaHoraReservacion($reservacion);
-        if (!$inicio) {
-            return null;
-        }
+        $ventana = (string)($reservacion['ventana_operativa'] ?? 'futura');
 
-        if ($ahora >= $inicio) {
-            return ['tipo' => 'ocupada', 'minutos_restantes' => 0];
-        }
-
-        $segundos = $inicio->getTimestamp() - $ahora->getTimestamp();
-        if ($segundos <= 0) {
-            return null;
-        }
-
-        $minutos = (int)ceil($segundos / 60);
-        if ($segundos <= ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60) {
-            return ['tipo' => 'bloqueada', 'minutos_restantes' => $minutos];
-        }
-        if ($segundos <= ReservacionConfig::MINUTOS_ADVERTENCIA_RESERVACION_PROXIMA * 60) {
-            return ['tipo' => 'proxima', 'minutos_restantes' => $minutos];
-        }
-
-        return null;
-    }
-
-    /** @return array<int, array<int, array<string, mixed>>> */
-    private static function reservacionesPorMesa(array $reservaciones, DateTimeImmutable $ahora): array
-    {
-        $porMesa = [];
-        foreach ($reservaciones as $reservacionRaw) {
-            $reservacion = self::aArray($reservacionRaw);
-            if (!ReservacionVigenciaService::clasificar(
-                $reservacion,
-                $ahora
-            )['influye_disponibilidad']) {
-                continue;
-            }
-
-            $reservacion['mesa_ids'] = self::ids($reservacion['mesa_ids'] ?? []);
-            foreach ($reservacion['mesa_ids'] as $mesaId) {
-                $porMesa[$mesaId][] = $reservacion;
-            }
-        }
-
-        foreach ($porMesa as &$candidatas) {
-            usort($candidatas, static function (array $a, array $b): int {
-                return strcmp(
-                    (string)($a['fecha'] ?? '') . ' ' . (string)($a['hora'] ?? ''),
-                    (string)($b['fecha'] ?? '') . ' ' . (string)($b['hora'] ?? '')
-                );
-            });
-        }
-        unset($candidatas);
-
-        return $porMesa;
+        return [
+            'tipo' => !empty($reservacion['bloquea_walk_ins']) ? 'bloqueada' : 'proxima',
+            'ventana' => $ventana,
+            'minutos_restantes' => $reservacion['minutos_para_reservacion'] ?? null,
+            'minutos_retraso' => (int)($reservacion['minutos_retraso'] ?? 0),
+        ];
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -334,6 +380,7 @@ final class MesaEstadoService
             'estado' => (string)($reservacion['estado'] ?? ''),
             'mesa_ids' => self::ids($reservacion['mesa_ids'] ?? []),
             'mesas' => is_array($mesas) ? array_values($mesas) : [],
+            'presentacion' => $reservacion['advertencia'] ?? null,
         ];
     }
 
@@ -349,34 +396,56 @@ final class MesaEstadoService
         }
     }
 
-    /** @return array{tipo:string,label:string,simbolo:string} */
-    private static function indicador(string $tipo, string $label, string $simbolo): array
-    {
-        return ['tipo' => $tipo, 'label' => $label, 'simbolo' => $simbolo];
-    }
-
     private static function tituloAccesible(
         string $nombre,
         string $estado,
         ?array $proxima,
         ?array $asociada,
         ?int $minutos,
-        ?string $motivo
+        ?string $motivo,
+        bool $accionPendiente = false
     ): string {
         $partes = [$nombre . '.'];
-        $partes[] = match ($estado) {
-            self::OCUPADA => 'Ocupada por servicio activo.',
-            self::BLOQUEADA => $motivo ?: 'Mesa bloqueada.',
-            self::NO_RESERVABLE => $motivo ?: 'No reservable.',
-            default => 'Disponible.',
-        };
-        if ($proxima) {
-            $partes[] = sprintf(
-                'Reservación próxima a las %s; faltan %d minutos.',
-                (string)$proxima['hora'],
+        $ventanaProxima = $proxima
+            ? (string)($proxima['ventana_operativa'] ?? 'warning')
+            : null;
+        if ($proxima && $ventanaProxima === '30_60' && $estado === self::DISPONIBLE) {
+            return sprintf(
+                '%s, disponible, reservación dentro de %d minutos.',
+                $nombre,
                 (int)$minutos
             );
-        } elseif ($asociada && $estado === self::OCUPADA) {
+        }
+        if ($accionPendiente && $estado === self::DISPONIBLE) {
+            $partes[] = 'Disponible, acción pendiente: registrar ausencia.';
+        } else {
+            $partes[] = match ($estado) {
+                self::OCUPADA => 'Ocupada por servicio activo.',
+                self::BLOQUEADA => $motivo ?: 'Mesa bloqueada.',
+                self::NO_RESERVABLE => $motivo ?: 'No reservable.',
+                default => 'Disponible.',
+            };
+        }
+        if ($proxima) {
+            $partes[] = match ($ventanaProxima) {
+                '30_60' => sprintf(
+                    'Disponible; reservación dentro de %d minutos.',
+                    (int)$minutos
+                ),
+                '0_30' => sprintf(
+                    'Reservación a las %s. Puede iniciar servicio.',
+                    (string)$proxima['hora']
+                ),
+                'tolerancia' => sprintf(
+                    'Cliente con %d minutos de retraso. Se encuentra dentro del tiempo de tolerancia.',
+                    (int)($proxima['minutos_retraso'] ?? 0)
+                ),
+                'tolerancia_vencida' => 'La tolerancia de llegada venció. Acción pendiente: registrar ausencia.',
+                'overdue' => 'La tolerancia de llegada venció. Acción pendiente: registrar ausencia.',
+                default => 'Reservación próxima.',
+            };
+        }
+        if ($asociada && $estado === self::OCUPADA) {
             $partes[] = 'Reservación asociada ' . (string)$asociada['folio'] . '.';
         }
 
@@ -396,6 +465,22 @@ final class MesaEstadoService
         }
 
         return $registro->{$campo} ?? $default;
+    }
+
+    private static function booleano($valor): bool
+    {
+        if (is_bool($valor)) {
+            return $valor;
+        }
+
+        return filter_var($valor, FILTER_VALIDATE_BOOL);
+    }
+
+    private static function agregarUnaVez(array &$valores, string $valor): void
+    {
+        if (!in_array($valor, $valores, true)) {
+            $valores[] = $valor;
+        }
     }
 
     /** @return array<int, int> */

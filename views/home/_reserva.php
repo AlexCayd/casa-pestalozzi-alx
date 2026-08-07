@@ -22,7 +22,11 @@ $mesesCortos = [
   11 => 'NOV',
   12 => 'DIC',
 ];
-$hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
+$hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
+  '!Y-m-d',
+  \Services\ReservacionConfig::fechaActual(),
+  \Services\ReservacionConfig::timezone()
+)->format('w');
 ?>
 <section class="section reserva" id="reserva" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
   data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
@@ -33,7 +37,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
     </div>
     <div class="reserva__hours" data-reveal>
-        <h5>Horario habitual</h5>
+      <h3>Horario habitual</h3>
         <?php if ($horariosOperacionDisponibles) : ?>
           <?php foreach ($horariosOperacion as $horario) : ?>
             <?php $esHoy = (int)($horario['dia_semana'] ?? -1) === $hoyDiaSemana; ?>
@@ -175,7 +179,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
           </div>
           <p class="reservation-step__intro">Fecha, número de personas y horario.</p>
           <div class="reservation-visit-grid">
-          <div class="field reservation-field">
+          <div class="field reservation-field reservation-field--date">
             <label class="reservation-field__label" for="dateDisplay">Fecha</label>
             <?php
               $rootId = 'datePicker';
@@ -185,10 +189,15 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               $name = 'fecha';
               $value = '';
               $min = \Services\ReservacionConfig::fechaActual();
+              $maxDate = \Services\ReservacionConfig::ahora()
+                ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+                ->format('Y-m-d');
               $disabled = false;
               $showIcon = true;
               // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
               $enabledWeekdays = range(0, 6);
+              $displayAriaDescribedby = 'dateError';
+              $displayAriaInvalid = false;
               include __DIR__ . '/../components/reservations/date-picker.php';
             ?>
             <span class="field__msg reservation-field__error" id="dateError" data-field-error="fecha"></span>
@@ -216,7 +225,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
             <span class="field__msg reservation-field__error" data-field-error="comensales"></span>
           </div>
           <div class="field reservation-field reservation-field--time">
-            <label class="reservation-field__label" for="hourDisplay">Hora</label>
+            <label class="reservation-field__label" for="hourDisplay">Horario</label>
             <?php
               $rootId = 'hourPicker';
               $inputId = 'horaHidden';
@@ -226,6 +235,8 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               $value = '';
               $endpoint = '/api/reservaciones/disponibilidad';
               $disabled = false;
+              $displayAriaDescribedby = 'hourStatus';
+              $displayAriaInvalid = false;
               include __DIR__ . '/../components/reservations/time-picker.php';
             ?>
             <span class="field__msg reservation-field__error" id="hourStatus" data-field-error="hora" role="status" aria-live="polite"></span>
@@ -402,7 +413,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
           <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
         </div>
-        <p class="reservation-access__message" data-new-reservation-otp-message></p>
+        <p class="reservation-access__message" data-new-reservation-otp-message role="status" aria-live="polite"></p>
       </section>
       <div class="reserva__confirm" id="reservaConfirm" aria-live="polite">
         <div class="reserva__confirm-header">
@@ -489,7 +500,7 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
               title="Finaliza el acceso a las reservaciones asociadas a este contacto">Salir de gestión</button>
           </div>
           <p class="reservation-portal__lead">
-            Puedes consultar tus reservaciones o crear una nueva sin volver a verificar este contacto durante esta sesión.
+            Puedes consultar tus reservaciones y gestionar los cambios disponibles durante esta sesión.
           </p>
           <p class="reservation-portal__summary" data-reservation-summary></p>
           <div class="reservation-portal__list" data-reservation-list></div>
@@ -503,10 +514,10 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
     <form class="reservation-card__editor" novalidate>
       <div class="field reservation-field">
         <label class="reservation-field__label" data-editor-name-label>Nombre</label>
-        <input class="reservation-control reservation-control--text" name="nombre" type="text" required>
+        <input class="reservation-control reservation-control--text" name="nombre" type="text" required readonly aria-readonly="true">
       </div>
       <div class="field reservation-field">
-        <label class="reservation-field__label" data-editor-date-label>Fecha</label>
+        <label class="reservation-field__label" data-editor-date-label for="reservationEditorDateDisplay">Fecha</label>
         <?php
           $rootId = 'reservationEditorDatePicker';
           $inputId = 'reservationEditorDate';
@@ -515,13 +526,16 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
           $name = 'fecha';
           $value = '';
           $min = \Services\ReservacionConfig::fechaActual();
+          $maxDate = \Services\ReservacionConfig::ahora()
+            ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+            ->format('Y-m-d');
           $disabled = false;
           $enabledWeekdays = range(0, 6);
           include __DIR__ . '/../components/reservations/date-picker.php';
         ?>
       </div>
       <div class="field reservation-field">
-        <label class="reservation-field__label" data-editor-time-label>Hora</label>
+        <label class="reservation-field__label" data-editor-time-label for="reservationEditorTimeDisplay">Hora</label>
         <?php
           $rootId = 'reservationEditorTimePicker';
           $inputId = 'reservationEditorTime';
@@ -551,10 +565,11 @@ $hoyDiaSemana = (int)(new \DateTimeImmutable('today'))->format('w');
         <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…"></textarea>
       </div>
       <div class="reservation-card__editor-actions">
-        <button type="submit" class="btn-line"><span>Guardar cambios</span></button>
-        <button type="button" class="reservation-access__link" data-editor-cancel>Cancelar modificación</button>
+        <button type="submit" class="btn-line"><span>Aceptar</span></button>
+        <button type="button" class="reservation-access__link" data-editor-cancel>Cancelar</button>
       </div>
       <p class="reservation-access__message" data-editor-message role="status" aria-live="polite"></p>
+      <div class="reservation-card__editor-comparison-host" data-editor-comparison-host></div>
     </form>
   </template>
 </section>

@@ -11,17 +11,20 @@ use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Model\Ticket;
 use MVC\Router;
 use Services\AsignacionMesasService;
+use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
 use Services\HorarioReservacionService;
 use Services\ReservacionConfig;
+use Services\ReservacionErrorCatalog;
 use Services\ReservacionService;
 
 class AdminReservacionController
 {
-    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v6';
-    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v6';
+    private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v10';
+    private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v10';
 
     public static function index(Router $router): void
     {
@@ -43,6 +46,7 @@ class AdminReservacionController
             foreach ($vigencia as $campo => $valor) {
                 $reservacion->{$campo} = $valor;
             }
+            $reservacion->ticket_id_abierto = (int)($ticketsPorReservacion[(int)($reservacion->id ?? 0)]['id'] ?? 0);
         }
 
         $data = [
@@ -85,7 +89,6 @@ class AdminReservacionController
             self::jsonResponse([
                 'ok' => false,
                 'codigo' => 'METODO_NO_PERMITIDO',
-                'mensaje' => 'Método no permitido.',
                 'horarios' => [],
             ], 405);
             return;
@@ -99,11 +102,14 @@ class AdminReservacionController
         $respuesta = DisponibilidadReservacionService::consultarAdministrativa(
             (string)($_GET['fecha'] ?? ''),
             $_GET['personas'] ?? $_GET['comensales'] ?? null,
-            $reservacionId ? (int)$reservacionId : 0
+            $reservacionId ? (int)$reservacionId : 0,
+            isset($_GET['hora']) ? (string)$_GET['hora'] : null
         );
         self::jsonResponse(
             $respuesta,
-            ($respuesta['ok'] ?? false) ? 200 : 422
+            ($respuesta['ok'] ?? false)
+                ? 200
+                : ReservacionErrorCatalog::httpStatus((string)($respuesta['codigo'] ?? 'ERROR_INTERNO'), 422)
         );
     }
 
@@ -117,7 +123,6 @@ class AdminReservacionController
                     'success' => false,
                     'ok' => false,
                     'reservationId' => null,
-                    'message' => 'Metodo no permitido.',
                     'fieldErrors' => [],
                     'codigo' => 'METODO_INVALIDO',
                 ], 405);
@@ -126,9 +131,16 @@ class AdminReservacionController
             self::redirectToIndex('metodo_invalido');
         }
 
-        $resultado = ReservacionService::crearAdministrativa(
-            $_POST,
-            (int)($_SESSION['id'] ?? 0) ?: null
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::csrfFailure($expectsJson);
+        }
+
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            ReservacionService::crearAdministrativa(
+                $_POST,
+                (int)($_SESSION['id'] ?? 0) ?: null
+            ),
+            ['superficie' => 'administracion']
         );
 
         if ($resultado['ok'] ?? false) {
@@ -138,7 +150,7 @@ class AdminReservacionController
                     'success' => true,
                     'ok' => true,
                     'reservationId' => $id > 0 ? $id : null,
-                    'message' => (string)($resultado['msg'] ?? 'Reservacion creada.'),
+                    'mensaje' => (string)($resultado['mensaje'] ?? ''),
                     'fieldErrors' => [],
                     'codigo' => (string)($resultado['codigo'] ?? ReservacionService::CREADA),
                     'fecha' => (string)($_POST['fecha'] ?? ''),
@@ -150,6 +162,13 @@ class AdminReservacionController
                     'withoutContact' => (bool)($resultado['sin_contacto'] ?? false),
                     'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                     'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
+                    'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
+                    'physicalCapacityCommitted' => (int)($resultado['capacidad_fisica_comprometida'] ?? 0),
+                    'physicalCapacityFree' => (int)($resultado['capacidad_fisica_libre'] ?? 0),
+                    'unassignedDemand' => (int)($resultado['demanda_no_asignada'] ?? 0),
+                    'realAvailableCapacity' => (int)($resultado['capacidad_real_disponible'] ?? 0),
+                    'resultingCapacity' => (int)($resultado['capacidad_resultante'] ?? 0),
+                    'excessCapacity' => (int)($resultado['exceso_capacidad'] ?? 0),
                     'warning' => $resultado['warning'] ?? null,
                     'dependsOnProjectedRelease' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
                     'projectedTableIds' => array_values(array_map(
@@ -157,6 +176,8 @@ class AdminReservacionController
                         (array)($resultado['mesas_proyectadas'] ?? [])
                     )),
                     'idempotent' => (bool)($resultado['idempotente'] ?? false),
+                    'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                    'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
                 ]);
                 return;
             }
@@ -167,20 +188,32 @@ class AdminReservacionController
             exit;
         }
 
-        $status = ($resultado['codigo'] ?? '') === ReservacionService::ERROR_INTERNO ? 500 : 422;
+        $status = ReservacionErrorCatalog::httpStatus(
+            (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
+            422
+        );
         http_response_code($status);
         if ($expectsJson) {
             self::jsonResponse([
                 'success' => false,
                 'ok' => false,
                 'reservationId' => null,
-                'message' => (string)($resultado['msg'] ?? 'Revisa los datos enviados.'),
+                'mensaje' => (string)($resultado['mensaje'] ?? ''),
                 'fieldErrors' => is_array($resultado['errors'] ?? null) ? $resultado['errors'] : [],
                 'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
                 'requiresContactConfirmation' => (bool)($resultado['requiere_confirmacion_sin_contacto'] ?? false),
                 'requiresCapacityConfirmation' => (bool)($resultado['requiere_confirmacion_capacidad'] ?? false),
+                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
                 'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                 'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
+                'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
+                'physicalCapacityCommitted' => (int)($resultado['capacidad_fisica_comprometida'] ?? 0),
+                'physicalCapacityFree' => (int)($resultado['capacidad_fisica_libre'] ?? 0),
+                'unassignedDemand' => (int)($resultado['demanda_no_asignada'] ?? 0),
+                'realAvailableCapacity' => (int)($resultado['capacidad_real_disponible'] ?? 0),
+                'resultingCapacity' => (int)($resultado['capacidad_resultante'] ?? 0),
+                'excessCapacity' => (int)($resultado['exceso_capacidad'] ?? 0),
                 'nextValidTime' => $resultado['siguiente_horario_valido'] ?? null,
             ], $status);
             return;
@@ -189,7 +222,7 @@ class AdminReservacionController
             self::reservacionDesdePost($_POST),
             $resultado['errors'] ?? [],
             self::alertasResultado(self::resultadoCreacion((string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO))),
-            (string)($_POST['asignar_automaticamente'] ?? '0') === '1',
+            filter_var($_POST['asignar_automaticamente'] ?? false, FILTER_VALIDATE_BOOLEAN),
             ($resultado['requiere_confirmacion_capacidad'] ?? false) ? $resultado : []
         );
     }
@@ -220,6 +253,7 @@ class AdminReservacionController
                 break;
             }
         }
+        $ticketFisico = Ticket::buscarPorReservacion((int)$reservacion->id);
         $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticketAbierto);
 
         self::render('reservations/show', [
@@ -235,11 +269,13 @@ class AdminReservacionController
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => $vigencia,
             'ticketAbierto' => $ticketAbierto,
+            'ticketFisico' => $ticketFisico,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
             'diasActivos' => range(0, 6),
             'maxComensalesAdmin' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'comentarioAdminDisponible' => Reservacion::tieneComentarioAdmin(),
+            'comentarioAdminDisponible' => true,
             'formTransport' => 'json',
             'returnUrl' => self::returnUrlActual(),
             'backUrl' => self::backUrlDesdeQuery(),
@@ -250,10 +286,19 @@ class AdminReservacionController
     public static function update(Router $router): void
     {
         $expectsJson = self::expectsJsonRequest();
-        $resultado = ReservacionService::actualizarDatos(
-            self::reservacionIdDesdePost(),
-            $_POST,
-            (int)($_SESSION['id'] ?? 0) ?: null
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::csrfFailure($expectsJson, 405);
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::csrfFailure($expectsJson);
+        }
+        $resultado = ReservacionErrorCatalog::enriquecer(
+            ReservacionService::actualizarDatos(
+                self::reservacionIdDesdePost(),
+                $_POST,
+                (int)($_SESSION['id'] ?? 0) ?: null
+            ),
+            ['superficie' => 'administracion']
         );
 
         if ($resultado['ok'] ?? false) {
@@ -272,9 +317,6 @@ class AdminReservacionController
                     'ok' => true,
                     'success' => true,
                     'codigo' => (string)$resultado['codigo'],
-                    'mensaje' => ($resultado['codigo'] ?? '') === ReservacionService::ACTUALIZADA_REQUIERE_ASIGNACION
-                        ? 'Cambios guardados. La reservación requiere una nueva asignación de mesas.'
-                        : 'Cambios guardados correctamente.',
                     'requiere_asignacion' => (bool)($resultado['requiere_asignacion'] ?? false),
                     'depende_liberacion_proyectada' => (bool)($resultado['depende_liberacion_proyectada'] ?? false),
                     'advertencia' => $resultado['advertencia'] ?? null,
@@ -294,7 +336,6 @@ class AdminReservacionController
                     'ok' => false,
                     'success' => false,
                     'codigo' => ReservacionService::RESERVACION_NO_EXISTE,
-                    'mensaje' => 'La reservación no existe.',
                     'fieldErrors' => [],
                 ], 404);
                 return;
@@ -304,27 +345,19 @@ class AdminReservacionController
 
         if ($expectsJson) {
             $codigo = (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO);
-            $status = match ($codigo) {
-                ReservacionService::ERROR_INTERNO => 500,
-                ReservacionService::ESTADO_NO_EDITABLE,
-                ReservacionService::RESERVACION_PASADA,
-                ReservacionService::RESERVACION_HORARIO_PASADO,
-                ReservacionService::SIN_DISPONIBILIDAD => 409,
-                default => 422,
-            };
+            $status = ReservacionErrorCatalog::httpStatus($codigo, 422);
             self::jsonResponse([
                 'ok' => false,
                 'success' => false,
                 'codigo' => $codigo,
-                'mensaje' => (string)($resultado['msg']
-                    ?? self::alertasResultado(self::resultadoActualizacion($codigo))['error'][0]
-                    ?? 'No fue posible guardar los cambios.'),
                 'fieldErrors' => is_array($resultado['errors'] ?? null)
                     ? $resultado['errors']
                     : [],
                 'fieldCodes' => is_array($resultado['field_codes'] ?? null)
                     ? $resultado['field_codes']
                     : [],
+                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
+                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
             ], $status);
             return;
         }
@@ -352,11 +385,13 @@ class AdminReservacionController
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => ReservacionService::clasificarVigencia($reservacion),
             'ticketAbierto' => null,
+            'ticketFisico' => null,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'motivoNoEditable' => ReservacionService::codigoNoEditable($reservacion),
             'fechaActual' => ReservacionConfig::fechaActual(),
             'diasActivos' => range(0, 6),
             'maxComensalesAdmin' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'comentarioAdminDisponible' => Reservacion::tieneComentarioAdmin(),
+            'comentarioAdminDisponible' => true,
             'formTransport' => 'json',
             'returnUrl' => (string)($_POST['return_to'] ?? self::returnUrlActual()),
             'backUrl' => self::backUrlDesdePost(),
@@ -366,6 +401,12 @@ class AdminReservacionController
 
     public static function status(): void
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectBack('metodo_invalido');
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirectBack('csrf_invalido');
+        }
         $estado = (string)($_POST['estado'] ?? '');
         $resultado = ReservacionService::ejecutarAccionOperativa(
             self::reservacionIdDesdePost(),
@@ -376,7 +417,6 @@ class AdminReservacionController
         if ($resultado['ok'] ?? false) {
             self::redirectBack(match ($estado) {
                 'confirmada' => 'confirmada',
-                'llego' => 'llegada',
                 'cancelada' => 'cancelada',
                 'no_show' => 'no_show',
                 default => 'actualizada',
@@ -387,6 +427,12 @@ class AdminReservacionController
 
     public static function reasignarAutomaticamente(): void
     {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirectBack('metodo_invalido');
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirectBack('csrf_invalido');
+        }
         $resultado = AsignacionMesasService::asignarAutomaticamente(self::reservacionIdDesdePost());
         self::redirectBack(self::resultadoAsignacion($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO, true));
     }
@@ -413,9 +459,11 @@ class AdminReservacionController
             'fechaActual' => ReservacionConfig::fechaActual(),
             'diasActivos' => range(0, 6),
             'maxComensalesAdmin' => ReservacionConfig::MAX_COMENSALES_ADMIN,
-            'comentarioAdminDisponible' => Reservacion::tieneComentarioAdmin(),
+            'comentarioAdminDisponible' => true,
             'asignarAutomaticamente' => $asignarAutomaticamente,
             'capacidadWarning' => $capacidadWarning,
+            'formTransport' => 'json',
+            'adminCsrfToken' => AdminCsrfService::token(),
             'returnUrl' => '/admin/reservations',
             'backUrl' => '/admin/reservations',
             'scripts' => [self::RESERVATION_FORM_JS],
@@ -427,7 +475,7 @@ class AdminReservacionController
         $reservacion = $base ?: new Reservacion();
         $reservacion->id = (int)($post['id'] ?? ($reservacion->id ?? 0));
         $reservacion->nombre = (string)($post['nombre'] ?? '');
-        $reservacion->contacto_tipo = (string)($post['contacto_tipo'] ?? 'email');
+        $reservacion->contacto_tipo = (string)($post['contacto_tipo'] ?? 'ninguno');
         $reservacion->contacto = (string)($post['contacto'] ?? '');
         $reservacion->fecha = (string)($post['fecha'] ?? '');
         $reservacion->hora = HorarioReservacionService::normalizarHoraSql((string)($post['hora'] ?? ''));
@@ -462,11 +510,29 @@ class AdminReservacionController
 
     private static function jsonResponse(array $payload, int $status = 200): void
     {
+        if (array_key_exists('codigo', $payload) && $payload['codigo'] !== null) {
+            $payload = ReservacionErrorCatalog::enriquecer($payload, ['superficie' => 'administracion']);
+        }
         http_response_code($status);
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private static function csrfFailure(bool $json, int $status = 419): void
+    {
+        if ($json) {
+            self::jsonResponse([
+                'ok' => false,
+                'success' => false,
+                'codigo' => 'CSRF_INVALIDO',
+                'fieldErrors' => [],
+            ], $status);
+            return;
+        }
+
+        self::redirectToIndex('csrf_invalido');
     }
 
     private static function leerFiltros(): array
@@ -477,6 +543,7 @@ class AdminReservacionController
         $fechaFin = (string)($_GET['fecha_fin'] ?? '');
         $estado = (string)($_GET['estado'] ?? '');
         $asignacion = (string)($_GET['asignacion'] ?? '');
+        $origen = (string)($_GET['origen'] ?? '');
 
         if ($fechaInicio === '' && $fechaFin === '') {
             $fechaInicio = $hoy;
@@ -507,12 +574,17 @@ class AdminReservacionController
             $asignacion = '';
         }
 
+        if (!in_array($origen, ['', 'landing', 'admin'], true)) {
+            $origen = '';
+        }
+
         return [
             'q' => $q,
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin,
             'estado' => $estado,
             'asignacion' => $asignacion,
+            'origen' => $origen,
         ];
     }
 
@@ -523,6 +595,7 @@ class AdminReservacionController
         return (string)($filtros['q'] ?? '') !== ''
             || (string)($filtros['estado'] ?? '') !== ''
             || (string)($filtros['asignacion'] ?? '') !== ''
+            || (string)($filtros['origen'] ?? '') !== ''
             || (string)($filtros['fecha_inicio'] ?? '') !== $hoy
             || (string)($filtros['fecha_fin'] ?? '') !== $hoy;
     }
@@ -618,49 +691,61 @@ class AdminReservacionController
 
     private static function alertasResultado(string $resultado): array
     {
-        return match ($resultado) {
-            'creada' => ['exito' => ['Reservacion creada correctamente.']],
-            'creada_sin_mesas' => ['warning' => ['Reservacion creada correctamente, pero no fue posible asignar mesas automaticamente.']],
-            'confirmar_sin_contacto' => ['warning' => ['Confirma que deseas crear la reservación sin contacto.']],
-            'confirmar_capacidad' => ['warning' => ['No hay mesas suficientes para esta cantidad de personas en el horario seleccionado.']],
-            'actualizada' => ['exito' => ['Reservacion actualizada correctamente.']],
-            'actualizada_requiere_asignacion' => ['warning' => ['La reservacion fue actualizada, pero sus mesas anteriores ya no son validas. Debe realizarse una nueva asignacion.']],
-            'confirmada' => ['exito' => ['Reservación confirmada correctamente.']],
-            'llegada' => ['exito' => ['Llegada registrada correctamente.']],
-            'cancelada' => ['exito' => ['Reservación cancelada correctamente.']],
-            'completada' => ['exito' => ['Reservación marcada como completada.']],
-            'no_show' => ['exito' => ['Reservación marcada como no show.']],
-            'reasignada' => ['exito' => ['Mesas reasignadas correctamente.']],
-            'asignacion_guardada' => ['exito' => ['Asignacion de mesas guardada correctamente.']],
-            'comentario_guardado' => ['exito' => ['Comentario interno guardado correctamente.']],
-            'reasignar_sin_capacidad' => ['error' => ['No hay mesas suficientes disponibles para reasignar automáticamente.']],
-            'asignacion_vacia' => ['error' => ['Selecciona al menos una mesa para guardar la asignacion.']],
-            'mesas_invalidas' => ['error' => ['Una o mas mesas no existen, no estan activas o no son reservables.']],
-            'mesa_ocupada' => ['error' => ['Una de las mesas seleccionadas ya esta ocupada por otra reservacion activa en esa ventana horaria.']],
-            'capacidad_insuficiente' => ['error' => ['La capacidad seleccionada no cubre los comensales de la reservacion.']],
-            'ticket_mesa_abierto' => ['error' => ['Una mesa seleccionada tiene un ticket abierto. La superposición sólo puede confirmarse explícitamente desde el modo de asignación del mapa.']],
-            'conflicto_concurrente' => ['error' => ['La asignación cambió mientras la editabas. Recarga los datos antes de volver a guardar.']],
-            'version_desactualizada' => ['error' => ['Esta versión de la reservación está desactualizada. Recarga el detalle antes de reasignar mesas.']],
-            'asignacion_datos_incompletos' => ['error' => ['Faltan datos de contexto para validar la asignación de mesas.']],
-            'superposicion_no_autorizada' => ['error' => ['La superposición con un ticket abierto no está autorizada en este flujo.']],
-            'estado_no_permite' => ['error' => ['El estado de la reservacion no permite modificar mesas.']],
-            'estado_invalido' => ['error' => ['La accion no es valida para el estado actual de la reservacion.']],
-            'tolerancia_vigente' => ['error' => ['La tolerancia de 15 minutos sigue vigente.']],
-            'ticket_abierto' => ['error' => ['La reservación tiene un ticket abierto; resuelve primero el servicio.']],
-            'requiere_reasignacion' => ['warning' => ['Las mesas originales ya no están disponibles. Reasigna mesas desde el mapa antes de registrar la llegada.']],
-            'datos_invalidos' => ['error' => ['Revisa los datos de la reservacion.']],
-            'horario_invalido' => ['error' => ['La fecha u hora seleccionada no esta disponible.']],
-            'sin_disponibilidad' => ['error' => ['No hay capacidad disponible para los comensales en el horario seleccionado.']],
-            'estado_no_editable' => ['error' => ['La reservacion no puede modificarse en su estado actual.']],
-            'reservacion_pasada' => ['error' => ['No se pueden modificar reservaciones de fechas anteriores.']],
-            'reservacion_horario_pasado' => ['error' => ['No se pueden modificar reservaciones cuyo horario ya paso.']],
-            'comentario_migracion_pendiente' => ['warning' => ['Los comentarios internos no estan disponibles en esta instalacion.']],
-            'confirmar_sin_mesa' => ['error' => ['Asigna una mesa antes de confirmar la reservación.']],
-            'no_existe' => ['error' => ['La reservación no existe.']],
-            'metodo_invalido' => ['error' => ['La acción solicitada no es válida.']],
-            'error_interno' => ['error' => ['No se pudo completar la accion. Intenta de nuevo.']],
-            default => [],
-        };
+        $codigos = [
+            'creada' => 'RESERVACION_CREADA',
+            'creada_sin_mesas' => 'RESERVACION_CREADA_SIN_MESA',
+            'confirmar_sin_contacto' => 'REQUIERE_CONFIRMACION_SIN_CONTACTO',
+            'confirmar_capacidad' => 'REQUIERE_CONFIRMACION_CAPACIDAD',
+            'actualizada' => 'ACTUALIZADA',
+            'actualizada_requiere_asignacion' => 'ACTUALIZADA_REQUIERE_ASIGNACION',
+            'confirmada' => 'CONFIRMADA',
+            'llegada' => 'CONFIRMADA',
+            'cancelada' => 'CANCELADA',
+            'completada' => 'COMPLETADA',
+            'no_show' => 'NO_SHOW',
+            'reasignada' => 'ASIGNACION_GUARDADA',
+            'asignacion_guardada' => 'ASIGNACION_GUARDADA',
+            'comentario_guardado' => 'COMENTARIO_ACTUALIZADO',
+            'reasignar_sin_capacidad' => 'CAPACIDAD_INSUFICIENTE',
+            'asignacion_vacia' => 'ASIGNACION_VACIA',
+            'mesas_invalidas' => 'MESAS_INVALIDAS',
+            'mesa_ocupada' => 'MESA_OCUPADA',
+            'capacidad_insuficiente' => 'CAPACIDAD_INSUFICIENTE',
+            'ticket_mesa_abierto' => 'CONFLICTO_TICKET_ABIERTO',
+            'conflicto_concurrente' => 'CONFLICTO_CONCURRENTE',
+            'version_desactualizada' => 'VERSION_DESACTUALIZADA',
+            'asignacion_datos_incompletos' => 'DATOS_INCOMPLETOS',
+            'superposicion_no_autorizada' => 'SUPERPOSICION_NO_AUTORIZADA',
+            'estado_no_permite' => 'ESTADO_NO_EDITABLE',
+            'estado_invalido' => 'ESTADO_INVALIDO',
+            'tolerancia_vigente' => 'TOLERANCIA_VIGENTE',
+            'ticket_abierto' => 'TICKET_ABIERTO',
+            'requiere_reasignacion' => 'REQUIERE_REASIGNACION',
+            'datos_invalidos' => 'DATOS_INVALIDOS',
+            'horario_invalido' => 'HORARIO_INVALIDO',
+            'sin_disponibilidad' => 'SIN_DISPONIBILIDAD',
+            'estado_no_editable' => 'ESTADO_NO_EDITABLE',
+            'reservacion_pasada' => 'RESERVACION_PASADA',
+            'reservacion_horario_pasado' => 'RESERVACION_HORARIO_PASADO',
+            'comentario_migracion_pendiente' => 'COMENTARIO_NO_DISPONIBLE',
+            'confirmar_sin_mesa' => 'CONFIRMAR_SIN_MESA',
+            'no_existe' => 'RESERVACION_NO_ENCONTRADA',
+            'metodo_invalido' => 'METODO_INVALIDO',
+            'error_interno' => 'ERROR_INTERNO',
+        ];
+        $codigo = $codigos[$resultado] ?? null;
+        if ($codigo === null || !ReservacionErrorCatalog::has($codigo)) {
+            return [];
+        }
+        $definicion = ReservacionErrorCatalog::definition($codigo);
+        $presentacion = ReservacionErrorCatalog::presentar($codigo);
+        $campo = $definicion['tipo'] === ReservacionErrorCatalog::TIPO_INFORMACION
+            ? 'exito'
+            : (in_array($definicion['tipo'], [
+                ReservacionErrorCatalog::TIPO_ADVERTENCIA,
+                ReservacionErrorCatalog::TIPO_DECISION,
+            ], true) ? 'warning' : 'error');
+        return [$campo => [$presentacion['mensaje']]];
     }
 
     private static function redirectBack(string $resultado): void

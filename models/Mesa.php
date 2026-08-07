@@ -78,6 +78,22 @@ class Mesa extends ActiveRecord {
         );
     }
 
+    /** Bloquea relaciones actuales aunque una mesa ya no sea reservable. */
+    public static function bloquearPorIds(array $mesaIds): array
+    {
+        $mesaIds = self::normalizarIds($mesaIds);
+        if ($mesaIds === []) {
+            return [];
+        }
+
+        return self::consultarSQL(
+            "SELECT id FROM mesas
+             WHERE id IN (" . implode(',', $mesaIds) . ")
+             ORDER BY id ASC
+             FOR UPDATE"
+        );
+    }
+
     public static function buscarTodasParaMapa(): array
     {
         return self::consultarSQL(

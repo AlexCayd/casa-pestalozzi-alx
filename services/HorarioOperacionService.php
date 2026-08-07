@@ -85,7 +85,6 @@ class HorarioOperacionService
         if (!$validacion['ok']) {
             return array_merge($validacion, [
                 'codigo' => 'HORARIO_INVALIDO',
-                'mensaje' => $validacion['errors'][0] ?? 'Revisa el horario semanal.',
             ]);
         }
 
@@ -112,10 +111,8 @@ class HorarioOperacionService
                 return [
                     'ok' => false,
                     'codigo' => 'RESERVACIONES_AFECTADAS',
-                    'mensaje' => 'El cambio afecta reservaciones existentes.',
                     'reservaciones_afectadas' => count($conflictos),
                     'requiere_confirmacion' => true,
-                    'errors' => self::mensajesConflictos($conflictos),
                     'datos' => $validacion['datos'],
                     'horarios' => $validacion['horarios'],
                     'conflictos' => $conflictos,
@@ -134,16 +131,6 @@ class HorarioOperacionService
 
             self::verificarHorarioCanonico($validacion['datos']);
 
-            if ($conflictos !== []) {
-                foreach ($conflictos as $conflicto) {
-                    self::registrarUltimoCambio(
-                        (int)$conflicto['id'],
-                        $usuarioId,
-                        'Horario semanal confirmado conservando la reservación'
-                    );
-                }
-            }
-
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
@@ -152,7 +139,6 @@ class HorarioOperacionService
             return [
                 'ok' => true,
                 'codigo' => 'HORARIOS_ACTUALIZADOS',
-                'mensaje' => 'Los horarios fueron actualizados.',
                 'datos' => $validacion['datos'],
                 'horarios' => self::obtenerHorarioSemanal(),
             ];
@@ -165,8 +151,6 @@ class HorarioOperacionService
             return [
                 'ok' => false,
                 'codigo' => 'ERROR_ACTUALIZACION_HORARIOS',
-                'mensaje' => 'No fue posible actualizar los horarios.',
-                'errors' => ['No fue posible actualizar los horarios.'],
                 'datos' => $validacion['datos'],
                 'horarios' => $validacion['horarios'],
             ];
@@ -211,7 +195,7 @@ class HorarioOperacionService
     {
         $validacion = self::validarExcepcion($datos);
         if (!$validacion['ok']) {
-            return $validacion;
+            return array_merge($validacion, ['codigo' => 'HORARIO_INVALIDO']);
         }
 
         $limpios = $validacion['datos'];
@@ -239,15 +223,12 @@ class HorarioOperacionService
             if ($id !== null) {
                 $excepcion = ExcepcionOperacion::buscarPorIdParaActualizar($id);
                 if (!$excepcion) {
-                    return self::errorExcepcion('La excepción que intentas editar no existe.', $limpios);
+                    return self::errorExcepcion('EXCEPCION_NO_ENCONTRADA', $limpios);
                 }
             }
 
             if (ExcepcionOperacion::existeFecha($limpios['fecha'], $id)) {
-                return self::errorExcepcion(
-                    'No se puede registrar otra excepción porque la fecha ya está configurada. Edita el registro existente.',
-                    $limpios
-                );
+                return self::errorExcepcion('EXCEPCION_DUPLICADA', $limpios);
             }
 
             if ($limpios['activo'] === 1) {
@@ -259,7 +240,6 @@ class HorarioOperacionService
                 );
                 if ($conflictos !== [] && !$confirmarConflictos) {
                     return self::resultadoConflictosExcepcion(
-                        'No se puede aplicar esta excepción porque afectaría reservaciones existentes.',
                         $conflictos,
                         $limpios
                     );
@@ -279,14 +259,6 @@ class HorarioOperacionService
                 throw new \RuntimeException('El guardado de la excepción no fue confirmado.');
             }
 
-            foreach ($conflictos as $conflicto) {
-                self::registrarUltimoCambio(
-                    (int)$conflicto['id'],
-                    $usuarioId,
-                    'Excepción confirmada conservando la reservación'
-                );
-            }
-
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transaccion de la excepcion.');
             }
@@ -296,23 +268,18 @@ class HorarioOperacionService
                 'ok' => true,
                 'id' => (int) $excepcion->id,
                 'editada' => $id !== null,
-                'msg' => $id !== null
-                    ? 'La excepción se actualizó correctamente.'
-                    : 'El cierre u horario especial se guardó correctamente.',
+                'codigo' => $id !== null ? 'EXCEPCION_ACTUALIZADA' : 'EXCEPCION_CREADA',
             ];
         } catch (\mysqli_sql_exception $e) {
             error_log('HorarioOperacionService::guardarExcepcion - ' . $e->getMessage());
             if ((int) $e->getCode() === 1062) {
-                return self::errorExcepcion(
-                    'No se puede registrar otra excepción porque la fecha ya está configurada. Edita el registro existente.',
-                    $limpios
-                );
+                return self::errorExcepcion('EXCEPCION_DUPLICADA', $limpios);
             }
 
-            return self::errorExcepcion('No fue posible guardar la excepción. Inténtalo nuevamente.', $limpios);
+            return self::errorExcepcion('ERROR_ACTUALIZACION_HORARIOS', $limpios);
         } catch (\Throwable $e) {
             error_log('HorarioOperacionService::guardarExcepcion - ' . $e->getMessage());
-            return self::errorExcepcion('No fue posible guardar la excepción. Inténtalo nuevamente.', $limpios);
+            return self::errorExcepcion('ERROR_ACTUALIZACION_HORARIOS', $limpios);
         } finally {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -328,13 +295,13 @@ class HorarioOperacionService
         $locksFecha = [];
 
         if ($id < 1) {
-            return ['ok' => false, 'errors' => ['El identificador de la excepción no es válido.']];
+            return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
         }
 
         try {
             $excepcion = ExcepcionOperacion::buscarPorId($id);
             if (!$excepcion) {
-                return ['ok' => false, 'errors' => ['La excepción seleccionada no existe.']];
+                return ['ok' => false, 'codigo' => 'EXCEPCION_NO_ENCONTRADA'];
             }
 
             $locksFecha = self::adquirirLocksFecha($db, [(string)$excepcion->fecha]);
@@ -344,13 +311,13 @@ class HorarioOperacionService
             $transaccionIniciada = true;
             $excepcion = ExcepcionOperacion::buscarPorIdParaActualizar($id);
             if (!$excepcion) {
-                return ['ok' => false, 'errors' => ['La excepcion seleccionada no existe.']];
+                return ['ok' => false, 'codigo' => 'EXCEPCION_NO_ENCONTRADA'];
             }
 
             if ($activo) {
                 $errorTemporal = self::validarAplicacionHoy($excepcion);
                 if ($errorTemporal !== null) {
-                    return ['ok' => false, 'errors' => [$errorTemporal]];
+                    return ['ok' => false, 'codigo' => $errorTemporal];
                 }
 
                 $conflictos = self::detectarConflictosExcepcion(
@@ -361,7 +328,6 @@ class HorarioOperacionService
                 );
                 if ($conflictos !== []) {
                     return self::resultadoConflictosExcepcion(
-                        'No se puede aplicar esta excepción porque afectaría reservaciones existentes.',
                         $conflictos
                     );
                 }
@@ -382,11 +348,11 @@ class HorarioOperacionService
 
             return [
                 'ok' => true,
-                'msg' => $activo ? 'La excepción se activó correctamente.' : 'La excepción se desactivó correctamente.',
+                'codigo' => 'EXCEPCION_ESTADO_ACTUALIZADO',
             ];
         } catch (\Throwable $e) {
             error_log('HorarioOperacionService::cambiarEstadoExcepcion - ' . $e->getMessage());
-            return ['ok' => false, 'errors' => ['No fue posible cambiar el estado de la excepción.']];
+            return ['ok' => false, 'codigo' => 'ERROR_ACTUALIZACION_HORARIOS'];
         } finally {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -400,7 +366,7 @@ class HorarioOperacionService
         $locksFecha = [];
 
         if ($id < 1) {
-            return ['ok' => false, 'errors' => ['El identificador de la excepción no es válido.']];
+            return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
         }
 
         $db = ActiveRecord::getDB();
@@ -409,7 +375,7 @@ class HorarioOperacionService
         try {
             $excepcionPrevia = ExcepcionOperacion::buscarPorId($id);
             if (!$excepcionPrevia) {
-                return ['ok' => false, 'errors' => ['La excepción seleccionada no existe.']];
+                return ['ok' => false, 'codigo' => 'EXCEPCION_NO_ENCONTRADA'];
             }
             $locksFecha = self::adquirirLocksFecha($db, [(string)$excepcionPrevia->fecha]);
             if (!$db->begin_transaction()) {
@@ -431,7 +397,6 @@ class HorarioOperacionService
                 $transaccionIniciada = false;
 
                 return self::resultadoConflictosExcepcion(
-                    'No se puede eliminar esta excepción porque existen reservaciones que quedarían fuera del horario semanal.',
                     $conflictos
                 );
             }
@@ -444,7 +409,7 @@ class HorarioOperacionService
             }
             $transaccionIniciada = false;
 
-            return ['ok' => true, 'msg' => 'La excepción se eliminó correctamente.'];
+            return ['ok' => true, 'codigo' => 'EXCEPCION_ELIMINADA'];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -453,9 +418,7 @@ class HorarioOperacionService
 
             return [
                 'ok' => false,
-                'errors' => [$e instanceof \DomainException
-                    ? $e->getMessage()
-                    : 'No fue posible eliminar la excepción. Inténtalo nuevamente.'],
+                'codigo' => 'ERROR_ACTUALIZACION_HORARIOS',
             ];
         } finally {
             self::liberarLocksFecha($db, $locksFecha);
@@ -489,6 +452,7 @@ class HorarioOperacionService
                 'origen' => 'excepcion',
                 'tipo' => (string) $excepcion->tipo,
                 'motivo' => $excepcion->motivo !== null ? (string) $excepcion->motivo : null,
+                'configurado' => true,
                 'valido' => true,
             ];
         }
@@ -508,6 +472,7 @@ class HorarioOperacionService
             'origen' => 'semanal',
             'tipo' => null,
             'motivo' => null,
+            'configurado' => $horario !== null,
             'valido' => true,
         ];
     }
@@ -618,27 +583,27 @@ class HorarioOperacionService
 
     private static function validarHorarioSemanal(array $horarios): array
     {
-        $errors = [];
+        $fieldCodes = [];
         $limpios = [];
         $diasRecibidos = [];
 
         if (count($horarios) !== 7) {
-            $errors[] = 'El formulario debe contener los siete días de la semana.';
+            $fieldCodes['horarios'][] = 'HORARIO_INVALIDO';
         }
 
         foreach ($horarios as $posicion => $datos) {
             if (!is_array($datos)) {
-                $errors[] = 'Uno de los horarios enviados no es válido.';
+                $fieldCodes['horarios'][] = 'HORARIO_INVALIDO';
                 continue;
             }
 
             $dia = filter_var($datos['dia_semana'] ?? null, FILTER_VALIDATE_INT);
             if ($dia === false || $dia < 0 || $dia > 6) {
-                $errors[] = 'Uno de los días de la semana no es válido.';
+                $fieldCodes['horarios'][] = 'HORARIO_INVALIDO';
                 continue;
             }
             if (isset($diasRecibidos[$dia])) {
-                $errors[] = 'No se permite enviar el mismo día más de una vez.';
+                $fieldCodes['horarios'][] = 'HORARIO_INVALIDO';
                 continue;
             }
             $diasRecibidos[$dia] = true;
@@ -646,16 +611,14 @@ class HorarioOperacionService
             $abierto = self::normalizarBooleano($datos['abierto'] ?? 0);
             $apertura = $abierto ? self::normalizarHora((string) ($datos['hora_apertura'] ?? '')) : null;
             $cierre = $abierto ? self::normalizarHora((string) ($datos['hora_cierre'] ?? '')) : null;
-            $nombre = self::DIAS[$dia];
-
             if ($abierto && $apertura === null) {
-                $errors[] = "Indica una hora de apertura válida para {$nombre}.";
+                $fieldCodes["dia_{$dia}"][] = 'HORA_NO_VALIDA';
             }
             if ($abierto && $cierre === null) {
-                $errors[] = "Indica una hora de cierre válida para {$nombre}.";
+                $fieldCodes["dia_{$dia}"][] = 'HORA_NO_VALIDA';
             }
             if ($abierto && $apertura !== null && $cierre !== null && $apertura >= $cierre) {
-                $errors[] = "El horario de apertura de {$nombre} debe ser anterior al horario de cierre.";
+                $fieldCodes["dia_{$dia}"][] = 'HORARIO_INVALIDO';
             }
 
             $limpios[$dia] = [
@@ -667,14 +630,14 @@ class HorarioOperacionService
         }
 
         if (count($diasRecibidos) !== 7) {
-            $errors[] = 'Deben enviarse una sola vez los siete días de la semana.';
+            $fieldCodes['horarios'][] = 'HORARIO_INVALIDO';
         }
 
         ksort($limpios);
 
         return [
-            'ok' => $errors === [],
-            'errors' => array_values(array_unique($errors)),
+            'ok' => $fieldCodes === [],
+            'field_codes' => $fieldCodes,
             'datos' => array_values($limpios),
             'horarios' => self::construirSemanaFormulario($horarios),
         ];
@@ -773,33 +736,6 @@ class HorarioOperacionService
         return $conflictos;
     }
 
-    private static function mensajesConflictos(array $conflictos): array
-    {
-        $cantidad = count($conflictos);
-        $descripcionCantidad = $cantidad === 1
-            ? '1 reservación futura'
-            : "{$cantidad} reservaciones futuras";
-        $errors = [sprintf(
-            'No se puede aplicar este horario porque dejaría fuera de disponibilidad %s. Revisa las reservaciones afectadas antes de continuar.',
-            $descripcionCantidad
-        )];
-
-        foreach (array_slice($conflictos, 0, 10) as $conflicto) {
-            $errors[] = sprintf(
-                '%s a las %s — %s (%s).',
-                $conflicto['fecha'],
-                $conflicto['hora'],
-                $conflicto['nombre'],
-                $conflicto['estado']
-            );
-        }
-        if ($cantidad > 10) {
-            $errors[] = sprintf('Y %d reservaciones adicionales.', $cantidad - 10);
-        }
-
-        return $errors;
-    }
-
     private static function detectarConflictosExcepcion(
         string $fecha,
         string $tipo,
@@ -867,28 +803,12 @@ class HorarioOperacionService
     }
 
     private static function resultadoConflictosExcepcion(
-        string $mensaje,
         array $conflictos,
         ?array $datos = null
     ): array {
-        $errors = [$mensaje];
-        foreach (array_slice($conflictos, 0, 10) as $conflicto) {
-            $errors[] = sprintf(
-                '%s — %s a las %s (%s).',
-                $conflicto['nombre'],
-                $conflicto['fecha'],
-                $conflicto['hora'],
-                $conflicto['estado']
-            );
-        }
-        if (count($conflictos) > 10) {
-            $errors[] = sprintf('Y %d reservaciones adicionales.', count($conflictos) - 10);
-        }
-
         $resultado = [
             'ok' => false,
             'codigo' => 'RESERVACIONES_AFECTADAS',
-            'errors' => $errors,
             'conflictos' => $conflictos,
             'reservaciones_afectadas' => count($conflictos),
             'requiere_confirmacion' => true,
@@ -908,7 +828,7 @@ class HorarioOperacionService
         ) {
             $cierre = self::horaComparable($excepcion->hora_cierre);
             if ($cierre === null || $cierre <= ReservacionConfig::horaActual()) {
-                return 'El horario especial debe finalizar después de la hora actual.';
+                return 'EXCEPCION_HORARIO_PASADO';
             }
         }
 
@@ -948,13 +868,13 @@ class HorarioOperacionService
 
     private static function validarExcepcion(array $datos): array
     {
-        $errors = [];
+        $fieldCodes = [];
         $id = null;
 
         if (isset($datos['id']) && $datos['id'] !== '') {
             $idValidado = filter_var($datos['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if (!$idValidado) {
-                $errors[] = 'El identificador de la excepción no es válido.';
+                $fieldCodes['id'][] = 'EXCEPCION_ID_INVALIDO';
             } else {
                 $id = (int) $idValidado;
             }
@@ -967,21 +887,21 @@ class HorarioOperacionService
 
         $fechaObjeto = null;
         if ($fecha === '') {
-            $errors[] = 'Selecciona una fecha.';
+            $fieldCodes['fecha'][] = 'EXCEPCION_FECHA_REQUERIDA';
         } elseif (!self::fechaValida($fecha)) {
-            $errors[] = 'Selecciona una fecha válida.';
+            $fieldCodes['fecha'][] = 'EXCEPCION_FECHA_INVALIDA';
         } else {
             $fechaObjeto = self::crearFecha($fecha);
             $hoy = ReservacionConfig::ahora()->setTime(0, 0);
             if ($fechaObjeto < $hoy) {
-                $errors[] = 'No puedes registrar una excepción para una fecha anterior al día actual.';
+                $fieldCodes['fecha'][] = 'EXCEPCION_FECHA_PASADA';
             }
         }
         if (!in_array($tipo, self::TIPOS_EXCEPCION, true)) {
-            $errors[] = 'Selecciona un tipo de excepción válido.';
+            $fieldCodes['tipo'][] = 'EXCEPCION_TIPO_INVALIDO';
         }
         if (self::longitud($motivo) > 160) {
-            $errors[] = 'El motivo no puede superar 160 caracteres.';
+            $fieldCodes['motivo'][] = 'EXCEPCION_MOTIVO_DEMASIADO_LARGO';
         }
 
         $apertura = null;
@@ -993,17 +913,17 @@ class HorarioOperacionService
             $cierre = self::normalizarHora($cierreRecibido);
 
             if ($aperturaRecibida === '') {
-                $errors[] = 'Selecciona una hora de apertura.';
+                $fieldCodes['hora_apertura'][] = 'EXCEPCION_HORA_APERTURA_REQUERIDA';
             } elseif ($apertura === null) {
-                $errors[] = 'Selecciona una hora de apertura válida.';
+                $fieldCodes['hora_apertura'][] = 'EXCEPCION_HORA_APERTURA_INVALIDA';
             }
             if ($cierreRecibido === '') {
-                $errors[] = 'Selecciona una hora de cierre.';
+                $fieldCodes['hora_cierre'][] = 'EXCEPCION_HORA_CIERRE_REQUERIDA';
             } elseif ($cierre === null) {
-                $errors[] = 'Selecciona una hora de cierre válida.';
+                $fieldCodes['hora_cierre'][] = 'EXCEPCION_HORA_CIERRE_INVALIDA';
             }
             if ($apertura !== null && $cierre !== null && $apertura >= $cierre) {
-                $errors[] = 'La hora de apertura debe ser anterior a la hora de cierre.';
+                $fieldCodes['hora_cierre'][] = 'EXCEPCION_HORAS_INVALIDAS';
             }
             if (
                 $fechaObjeto instanceof DateTimeImmutable
@@ -1011,7 +931,7 @@ class HorarioOperacionService
                 && $cierre !== null
                 && $cierre <= ReservacionConfig::horaActual()
             ) {
-                $errors[] = 'El horario especial debe finalizar después de la hora actual.';
+                $fieldCodes['hora_cierre'][] = 'EXCEPCION_HORARIO_PASADO';
             }
         }
 
@@ -1025,12 +945,12 @@ class HorarioOperacionService
             'activo' => $activo,
         ];
 
-        return ['ok' => $errors === [], 'errors' => $errors, 'datos' => $limpios];
+        return ['ok' => $fieldCodes === [], 'field_codes' => $fieldCodes, 'datos' => $limpios];
     }
 
-    private static function errorExcepcion(string $mensaje, array $datos): array
+    private static function errorExcepcion(string $codigo, array $datos): array
     {
-        return ['ok' => false, 'errors' => [$mensaje], 'datos' => $datos];
+        return ['ok' => false, 'codigo' => $codigo, 'datos' => $datos];
     }
 
     private static function fechaValida(string $fecha): bool
@@ -1071,26 +991,6 @@ class HorarioOperacionService
     private static function normalizarBooleano($valor): bool
     {
         return in_array($valor, [1, '1', true, 'true', 'on'], true);
-    }
-
-    private static function registrarUltimoCambio(
-        int $reservacionId,
-        ?int $usuarioId,
-        string $motivo
-    ): void {
-        $db = ActiveRecord::getDB();
-        $usuarioSql = $usuarioId !== null ? (string)$usuarioId : 'NULL';
-        $fuente = $usuarioId !== null ? 'personal' : 'sistema';
-        $motivoSql = $db->real_escape_string($motivo);
-        if (!$db->query(
-            "UPDATE reservaciones
-             SET last_modified_by = {$usuarioSql},
-                 last_modified_source = '{$fuente}',
-                 last_change_reason = '{$motivoSql}'
-             WHERE id = {$reservacionId}"
-        )) {
-            throw new \RuntimeException($db->error);
-        }
     }
 
     private static function horaCorta(string $hora): string

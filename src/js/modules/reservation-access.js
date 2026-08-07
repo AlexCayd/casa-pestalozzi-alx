@@ -1,8 +1,24 @@
 /* ============================================================
    Acceso público a reservaciones por contacto verificado.
-   La UI nunca decide si un OTP puede mostrarse: solo renderiza
-   preview_code cuando el servidor lo incluyó de forma explícita.
+   La sesión verificada autoriza la modificación sin un segundo OTP.
    ============================================================ */
+
+function fechaLegible(value) {
+  var match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value || "");
+  var date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return date.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function mensajeOperacionModificacion(data, phase) {
+  return data && data.mensaje ? data.mensaje : "";
+}
 
 function initReservationAccess() {
   var root = document.querySelector("[data-reservation-panel='manage']");
@@ -33,51 +49,47 @@ function initReservationAccess() {
   var contactValues = { email: "", telefono: "" };
   var activeContactType = "email";
 
-  function confirmCancellation(reservation, onConfirm) {
-    var previous = document.querySelector("[data-reservation-cancel-dialog]");
-    if (previous) previous.remove();
+  function csrfTokenValue() {
+    return csrfToken ? csrfToken.getAttribute("data-reservation-csrf") || "" : "";
+  }
 
-    var dialog = document.createElement("dialog");
-    dialog.className = "reservation-cancel-dialog";
-    dialog.dataset.reservationCancelDialog = "";
-    dialog.setAttribute("aria-labelledby", "reservation-cancel-title");
-    dialog.innerHTML = [
-      '<div class="reservation-cancel-dialog__body">',
-      '<span class="reservation-cancel-dialog__eyebrow">Acción irreversible</span>',
-      '<h3 id="reservation-cancel-title">Cancelar reservación</h3>',
-      '<p>Se cancelará la reservación de <strong></strong>. Esta acción liberará sus mesas.</p>',
-      '<div class="reservation-cancel-dialog__actions">',
-      '<button type="button" class="reservation-access__link" data-reservation-cancel-close>Volver</button>',
-      '<button type="button" class="form__submit reservation-cancel-dialog__confirm" data-reservation-cancel-confirm>Cancelar reservación</button>',
-      "</div>",
-      "</div>"
-    ].join("");
-    dialog.querySelector("strong").textContent = [
+  function operationToken() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID().replace(/-/g, "") + Date.now().toString(36);
+    }
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      var bytes = new Uint8Array(32);
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function(byte) {
+        return byte.toString(16).padStart(2, "0");
+      }).join("");
+    }
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  function confirmCancellation(reservation, onConfirm) {
+    var when = [
       reservation.fecha || "",
       String(reservation.hora || "").slice(0, 5)
     ].filter(Boolean).join(" a las ");
-
-    function closeDialog() {
-      dialog.close();
-      dialog.remove();
-    }
-
-    dialog.querySelector("[data-reservation-cancel-close]").addEventListener("click", closeDialog);
-    dialog.addEventListener("cancel", function(event) {
-      event.preventDefault();
-      closeDialog();
-    });
-    dialog.addEventListener("click", function(event) {
-      if (event.target === dialog) closeDialog();
-    });
-    dialog.querySelector("[data-reservation-cancel-confirm]").addEventListener("click", function() {
-      closeDialog();
+    if (!window.ConfirmationModal) {
       onConfirm();
+      return;
+    }
+    window.ConfirmationModal.get().open({
+      variant: "danger",
+      eyebrow: "Acción irreversible",
+      title: "Cancelar reservación",
+      description: "Se cancelará la reservación de " + when + ".",
+      consequence: "Esta acción liberará sus mesas y no se puede deshacer.",
+      secondaryLabel: "Volver",
+      primaryLabel: "Cancelar reservación",
+      summary: [
+        "Reservación de " + (reservation.nombre || "cliente sin nombre"),
+        "Fecha y hora: " + when
+      ],
+      onPrimary: onConfirm
     });
-
-    document.body.append(dialog);
-    dialog.showModal();
-    dialog.querySelector("[data-reservation-cancel-close]").focus();
   }
 
   function setAccessCopy(verified) {
@@ -85,7 +97,7 @@ function initReservationAccess() {
       ? "Contacto verificado"
       : "Verifica tu contacto";
     if (accessDescription) accessDescription.textContent = verified
-      ? "Puedes consultar tus reservaciones o crear una nueva sin volver a verificar este contacto durante esta sesión."
+      ? "Puedes consultar tus reservaciones y gestionar los cambios disponibles durante esta sesión."
       : "Te enviaremos un código temporal para consultar y gestionar tus reservaciones";
   }
 
@@ -126,14 +138,12 @@ function initReservationAccess() {
   }
 
   function publishVerifiedSession(data) {
-    var type = String(data.verified_contact_type || "");
-    var contact = String(data.verified_contact || "");
     window.CP_RESERVATION_SESSION = true;
-    window.CP_RESERVATION_CONTACT = type && contact
-      ? { tipo: type, contacto: contact }
-      : null;
+    // La sesión PHP conserva el contacto; el portal no lo vuelve a publicar
+    // en HTML o JavaScript después de verificarlo.
+    window.CP_RESERVATION_CONTACT = null;
     window.dispatchEvent(new CustomEvent("reservation:sessionchange", {
-      detail: { verified: true, tipo: type, contacto: contact, source: "manage" }
+      detail: { verified: true, source: "manage" }
     }));
   }
 
@@ -295,7 +305,7 @@ function initReservationAccess() {
     jsonRequest("/api/reservaciones/contacto/codigo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(currentIdentity)
+      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
     }).then(function(data) {
       if (!data.ok) {
         setMessage(data.mensaje || "No fue posible solicitar el código.", true);
@@ -341,7 +351,8 @@ function initReservationAccess() {
       body: JSON.stringify({
         tipo: currentIdentity.tipo,
         contacto: currentIdentity.contacto,
-        codigo: code
+        codigo: code,
+        csrf_token: csrfTokenValue()
       })
     }).then(function(data) {
       if (!data.ok) {
@@ -381,7 +392,7 @@ function initReservationAccess() {
     jsonRequest("/api/reservaciones/contacto/codigo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(currentIdentity)
+      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
     }).then(function(data) {
       if (!data.ok) {
         setMessage(data.mensaje || "No fue posible reenviar el código.", true);
@@ -427,6 +438,7 @@ function initReservationAccess() {
     dropdown.id += suffix;
     timeDisplay.setAttribute("aria-controls", dropdown.id);
     editor.querySelector("[data-editor-time-label]").setAttribute("for", timeDisplay.id);
+
   }
 
   function initializeEditorGuestPicker(editor, reservation) {
@@ -604,6 +616,13 @@ function initReservationAccess() {
 
     card.append(kicker, date, details, status);
 
+    if (reservation.pending_modification) {
+      var pending = document.createElement("p");
+      pending.className = "reservation-card__pending";
+      pending.textContent = "Cambio pendiente de confirmación. La reservación original sigue vigente.";
+      card.append(pending);
+    }
+
     if (reservation.can_modify || reservation.can_cancel) {
       var actions = document.createElement("div");
       actions.className = "reservation-card__actions";
@@ -628,19 +647,141 @@ function initReservationAccess() {
         var editorGuestPicker = initializeEditorGuestPicker(editor, reservation);
         var editorPickers = initializeEditorPickers(editor, reservation);
         var editorCancel = editor.querySelector("[data-editor-cancel]");
+        var editorComparisonHost = editor.querySelector("[data-editor-comparison-host]");
+        var editorComparisonController = editorComparisonHost && window.ConfirmationModal
+          ? window.ConfirmationModal.create(editorComparisonHost)
+          : null;
+        var editorSubmit = editor.querySelector('button[type="submit"]');
+        var originalReservation = {
+          id: reservation.id,
+          nombre: reservation.nombre || "",
+          fecha: reservation.fecha || "",
+          hora: String(reservation.hora || "").slice(0, 5),
+          comensales: parseInt(reservation.comensales, 10) || 2,
+          nota: reservation.nota || ""
+        };
+        var editorOperation = null;
+        var editorState = "editing";
+
+        function setEditorState(state) {
+          editorState = state;
+          editor.setAttribute("data-editor-state", state);
+        }
+
+        function publicValue(reservationData, field) {
+          if (!reservationData) return "";
+          if (field === "fecha") return fechaLegible(reservationData.fecha);
+          if (field === "hora") return String(reservationData.hora || "").slice(0, 5);
+          if (field === "personas") return String(reservationData.comensales || "");
+          return String(reservationData.nota || "").trim() || "Sin indicaciones";
+        }
+
+        function sameValue(current, proposed, field) {
+          if (field === "hora") {
+            return String(current || "").slice(0, 5) === String(proposed || "").slice(0, 5);
+          }
+          if (field === "personas") return Number(current || 0) === Number(proposed || 0);
+          return String(current || "").trim() === String(proposed || "").trim();
+        }
+
+        function resetEditorComparison() {
+          editorOperation = null;
+          setEditorState("editing");
+          if (editorComparisonController && !editorComparisonController.element.hidden) {
+            editorComparisonController.close(false);
+          }
+        }
+
+        function showEditorComparison(data, requestToken) {
+          var proposed = data && (data.propuesta || data.replacement);
+          var current = data && data.original;
+          if (!requestToken || !current || !proposed || !editorComparisonController) return false;
+
+          editorOperation = {
+            request_token: requestToken,
+            csrf_token: csrfTokenValue(),
+            original: current,
+            propuesta: proposed,
+            hold_minutes: Number(data.hold_minutes) || 15
+          };
+          setEditorState("reviewing");
+          var fields = [
+            { name: "fecha", label: "Fecha" },
+            { name: "hora", label: "Hora" },
+            { name: "personas", label: "Personas" },
+            { name: "notas", label: "Nota" }
+          ];
+          var summaryRows = fields.map(function(field) {
+            var currentValue = current[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
+            var proposedValue = proposed[field.name === "personas" ? "comensales" : (field.name === "notas" ? "nota" : field.name)];
+            return {
+              label: field.label,
+              current: publicValue(current, field.name),
+              proposed: publicValue(proposed, field.name),
+              changed: !sameValue(currentValue, proposedValue, field.name)
+            };
+          });
+          editorComparisonController.open({
+            eyebrow: "Revisa tu cambio",
+            title: "Confirma la nueva reservación",
+            description: "Tu reservación actual seguirá vigente hasta que confirmes este cambio.",
+            summaryRows: summaryRows,
+            consequence: "Esta disponibilidad se conservará durante " + editorOperation.hold_minutes + " minutos.",
+            secondaryLabel: "Volver a editar",
+            primaryLabel: "Confirmar modificación",
+            focusTarget: editorSubmit,
+            initialFocus: "primary",
+            onSecondary: function () {
+              resetEditorComparison();
+              if (editorSubmit) editorSubmit.focus();
+            },
+            onPrimary: function () {
+              if (!editorOperation) return false;
+              setEditorState("confirming");
+              jsonRequest("/api/reservaciones/confirmar-modificacion", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  request_token: editorOperation.request_token,
+                  csrf_token: editorOperation.csrf_token
+                })
+              }).then(function(data) {
+                if (!data.ok) {
+                  setEditorState("error");
+                  editorComparisonController.setStatus(mensajeOperacionModificacion(data, "confirm"), true);
+                  return;
+                }
+                setEditorState("success");
+                editorOperation = null;
+                editorComparisonController.close(false);
+                setMessage(data.mensaje || "Tu reservación fue modificada.");
+                loadReservations();
+              }).catch(function() {
+                setEditorState("error");
+                editorComparisonController.setStatus(mensajeOperacionModificacion(null, "confirm"), true);
+              }).finally(function() {
+                if (editorOperation) editorComparisonController.setLoading(false);
+              });
+            }
+          });
+          return true;
+        }
+
+        setEditorState("editing");
 
         function restoreEditor() {
-          editor.elements.nombre.value = reservation.nombre || "";
-          editor.elements.personas.value = reservation.comensales || 2;
-          editor.elements.notas.value = reservation.nota || "";
-          editorGuestPicker(reservation.comensales || 2);
+          resetEditorComparison();
+          editor.elements.nombre.value = originalReservation.nombre;
+          editor.elements.personas.value = originalReservation.comensales;
+          editor.elements.notas.value = originalReservation.nota;
+          editorGuestPicker(originalReservation.comensales);
           if (editorPickers.date) {
-            editorPickers.date.setValue(reservation.fecha || "", true);
+            editorPickers.date.setValue(originalReservation.fecha, true);
           }
           if (editorPickers.time) {
             editorPickers.loadAvailability(
-              reservation.fecha || "",
-              String(reservation.hora || "").slice(0, 5)
+              originalReservation.fecha,
+              originalReservation.hora
             );
           }
           var editorMessage = editor.querySelector("[data-editor-message]");
@@ -681,34 +822,42 @@ function initReservationAccess() {
             || !editorPickers.isAvailable()
           ) {
             editorMessage.textContent = "Selecciona fecha, horario y comensales con disponibilidad confirmada.";
+            setEditorState("error");
             return;
           }
-          var editorSubmit = editor.querySelector('button[type="submit"]');
           if (editorSubmit) {
             editorSubmit.disabled = true;
             editorSubmit.setAttribute("aria-busy", "true");
           }
+          setEditorState("creating_replacement");
+          var requestToken = operationToken();
           jsonRequest("/api/reservaciones/modificar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               reservacion_id: reservation.id,
-              nombre: editor.elements.nombre.value.trim(),
               fecha: editor.elements.fecha.value,
               hora: editor.elements.hora.value,
               personas: parseInt(editor.elements.personas.value, 10),
-              notas: editor.elements.notas.value.trim()
+              notas: editor.elements.notas.value.trim(),
+              request_token: requestToken,
+              csrf_token: csrfTokenValue()
             })
           }).then(function(data) {
             if (!data.ok) {
-              editorMessage.textContent = data.mensaje
-                || "No fue posible modificar; tu reservación original se conserva.";
+              setEditorState("error");
+              editorMessage.textContent = mensajeOperacionModificacion(data, "create");
               return;
             }
-            setMessage(data.mensaje || "Reservación modificada.");
-            loadReservations();
+            if (!showEditorComparison(data, data.request_token)) {
+              setEditorState("error");
+              editorMessage.textContent = "El servidor no devolvió el resumen completo del cambio. Tu reservación original sigue vigente.";
+              return;
+            }
+            editorMessage.textContent = data.mensaje || "Revisa el cambio y confírmalo para aplicarlo.";
           }).catch(function() {
-            editorMessage.textContent = "No fue posible modificar; tu reservación original se conserva.";
+            setEditorState("error");
+            editorMessage.textContent = mensajeOperacionModificacion(null, "create");
           }).finally(function() {
             if (editorSubmit) {
               editorSubmit.disabled = !editorPickers.isAvailable();
@@ -730,13 +879,16 @@ function initReservationAccess() {
             jsonRequest("/api/reservaciones/cancelar", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reservacion_id: reservation.id })
+              body: JSON.stringify({
+                reservacion_id: reservation.id,
+                csrf_token: csrfTokenValue()
+              })
             }).then(function(data) {
               if (!data.ok) {
                 setMessage(data.mensaje || "No fue posible cancelar la reservación.", true);
                 return;
               }
-              setMessage(data.mensaje || "La reservación fue cancelada.");
+      setMessage(data.mensaje || "");
               loadReservations();
             }).catch(function() {
               setMessage("No fue posible cancelar la reservación.", true);

@@ -31,17 +31,26 @@ $datePickerHtml = $datePickerHtml ?? '';
 $usuarioNombre = $usuarioNombre ?? '';
 $usuarioRol = $usuarioRol ?? 'Usuario';
 
+$esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
+
 $operationalView = 'map';
 $operationalModule = 'tables';
-$operationalModuleTitle = 'Mapa de mesas';
+// Sin título ni reloj ni flecha: el POS ya es la pantalla en la que está el
+// mesero y cada rótulo de más le quita sitio al mapa.
+$operationalModuleTitle = '';
+$operationalShowLastUpdate = false;
+$operationalHeaderBack = false;
 $operationalDate = $mapFecha;
 $operationalHour = '';
 $operationalBrandHref = '/punto-de-venta';
-$operationalHeaderBackUrl = '/admin/punto-de-venta';
+$operationalHeaderBackUrl = '';
 $operationalDrawerId = 'map-reservations-drawer';
 $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
-$operationalReservationsHref = '/admin/reservations/operation';
+// Ambos destinos viven bajo /admin: a un mesero la guardia lo rebotaría, así
+// que solo se ofrecen si quien mira es administrador.
+$operationalReservationsHref = $esAdmin ? '/admin/reservations/operation' : '';
+$operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;
 $operationalShellClass = 'mapa-shell pos-shell';
@@ -53,12 +62,11 @@ ob_start();
 ?>
 <button type="button" class="pos-header__prefs" id="pos-prefs-toggle"
         aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay"
-        title="Ajustes de la vista">
+        aria-label="Ajustes de la vista" title="Ajustes de la vista">
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <circle cx="12" cy="12" r="3"/>
     <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"/>
   </svg>
-  <span>Ajustes</span>
 </button>
 <?php
 $operationalHeaderActionsHtml = (string)ob_get_clean();
@@ -66,10 +74,28 @@ $operationalHeaderActionsHtml = (string)ob_get_clean();
 ob_start();
 ?>
   <div class="pos-map" data-operational-workspace>
+  <div class="pos-ticket-selection-message" id="pos-ticket-selection-message" role="status" tabindex="-1" hidden>
+    Selecciona una o m&aacute;s mesas para abrir el ticket.
+  </div>
   <?php
   ob_start();
-  $operationalMapToggleLabel = 'mapa';
-  include __DIR__ . '/../../operation/partials/map-toggle.php';
+  ?>
+  <div class="pos-map-actions" aria-label="Controles del mapa">
+    <div class="pos-ticket-selection-actions" aria-label="Apertura de ticket">
+      <button type="button" class="operational-map-action operational-map-action--primary" id="pos-ticket-selection-toggle">
+        Abrir ticket
+      </button>
+      <button type="button" class="operational-map-action operational-map-action--cancel" id="pos-ticket-selection-cancel" hidden>
+        Cancelar
+      </button>
+    </div>
+    <div class="pos-map-actions__separator" aria-hidden="true"></div>
+    <?php
+    $operationalMapToggleLabel = 'mapa';
+    include __DIR__ . '/../../operation/partials/map-toggle.php';
+    ?>
+  </div>
+  <?php
   $mapToolbarActionsHtml = (string)ob_get_clean();
   $mapVisual = [
     'context' => 'mapa-mesas',
@@ -80,7 +106,9 @@ ob_start();
     'canvasId' => 'mapa-canvas',
     'canvasMode' => 'map',
     'loadingMode' => 'overlay',
-    'legendPosition' => 'footer',
+    // Sin leyenda: el color de cada mesa ya dice su estado y la lista de
+    // abreviaturas ocupaba más que el propio mapa.
+    'legendPosition' => 'none',
     'toolbarActionsHtml' => $mapToolbarActionsHtml,
   ];
   include __DIR__ . '/../../operation/partials/map.php';
@@ -102,11 +130,11 @@ include __DIR__ . '/../../operation/partials/drawer.php';
 
 ?>
 
-<div class="mesa-modal" id="mesa-modal">
+<div class="mesa-modal" id="mesa-modal" role="dialog" aria-modal="true" aria-hidden="true" inert aria-labelledby="mesa-modal-title" tabindex="-1">
   <div class="mesa-modal__bd" id="mesa-modal-bd"></div>
   <div class="mesa-modal__panel">
     <div class="mesa-modal__handle"></div>
-    <button class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar">×</button>
+    <button type="button" class="mesa-modal__close" id="mesa-modal-close" aria-label="Cerrar detalle de mesa">×</button>
     <div id="mesa-modal-content"></div>
   </div>
 </div>
@@ -115,7 +143,7 @@ include __DIR__ . '/../../operation/partials/drawer.php';
   Preferencias del mesero. Va fuera de #mesa-modal: el modal se abre y cierra
   de forma independiente y #mesa-modal-content se reescribe en cada apertura.
 */ ?>
-<div class="pos-prefs" id="pos-prefs-overlay" hidden>
+<div class="pos-prefs" id="pos-prefs-overlay" hidden aria-hidden="true">
   <div class="pos-prefs__bd" id="pos-prefs-bd"></div>
   <div class="pos-prefs__dialog" role="dialog" aria-modal="true" aria-labelledby="pos-prefs-title">
     <header class="pos-prefs__head">

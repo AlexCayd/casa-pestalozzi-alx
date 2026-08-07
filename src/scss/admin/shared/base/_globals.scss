@@ -11,10 +11,59 @@
   --admin-gold: #cca352;
   --admin-gold-soft: #e0c184;
   --admin-gold-deep: #a07e36;
+  /* Tinta para texto sobre dorado. Fija en ambos temas: el dorado no cambia,
+     así que su contraparte legible tampoco. */
+  --admin-ink-on-gold: #1b1a17;
   --admin-sage: #5f7d56;
   --admin-sage-deep: #4e6148;
   --admin-terra: #7c3d1d;
   --admin-terra-deep: #632f16;
+
+  /* Paleta de acento de marca. La base del panel sigue siendo negro +
+     dorado; estos tokens cubren todo lo que no lo es (estados, series de
+     gráficas, tipos de anuncio). Consumirlos por variable. Ver CLAUDE.md. */
+  --admin-c-ambar: #f5b400;
+  --admin-c-naranja: #fc6722;
+  --admin-c-rojo: #e51022;
+  --admin-c-azul: #3a86ff;
+  --admin-c-lima: #8ac926;
+  --admin-c-indigo: #4267ac;
+  --admin-c-rosa: #ea075a;
+  --admin-c-magenta: #aa2296;
+  --admin-c-turquesa: #46bdc6;
+  --admin-c-verde: #34a853;
+
+  /* Derivados de la paleta. Se generan con color-mix sobre la superficie
+     activa, así que un único bloque sirve para claro y oscuro: el fondo suave
+     de un badge ámbar es legible en ambos temas sin duplicar valores. */
+  --admin-c-ambar-bg: color-mix(in srgb, var(--admin-c-ambar) 14%, var(--admin-surface));
+  --admin-c-ambar-border: color-mix(in srgb, var(--admin-c-ambar) 42%, transparent);
+  --admin-c-naranja-bg: color-mix(in srgb, var(--admin-c-naranja) 14%, var(--admin-surface));
+  --admin-c-naranja-border: color-mix(in srgb, var(--admin-c-naranja) 42%, transparent);
+  --admin-c-rojo-bg: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+  --admin-c-rojo-border: color-mix(in srgb, var(--admin-c-rojo) 42%, transparent);
+  --admin-c-azul-bg: color-mix(in srgb, var(--admin-c-azul) 14%, var(--admin-surface));
+  --admin-c-azul-border: color-mix(in srgb, var(--admin-c-azul) 42%, transparent);
+  --admin-c-lima-bg: color-mix(in srgb, var(--admin-c-lima) 14%, var(--admin-surface));
+  --admin-c-lima-border: color-mix(in srgb, var(--admin-c-lima) 42%, transparent);
+  --admin-c-indigo-bg: color-mix(in srgb, var(--admin-c-indigo) 16%, var(--admin-surface));
+  --admin-c-indigo-border: color-mix(in srgb, var(--admin-c-indigo) 44%, transparent);
+  --admin-c-rosa-bg: color-mix(in srgb, var(--admin-c-rosa) 14%, var(--admin-surface));
+  --admin-c-rosa-border: color-mix(in srgb, var(--admin-c-rosa) 42%, transparent);
+  --admin-c-magenta-bg: color-mix(in srgb, var(--admin-c-magenta) 15%, var(--admin-surface));
+  --admin-c-magenta-border: color-mix(in srgb, var(--admin-c-magenta) 44%, transparent);
+  --admin-c-turquesa-bg: color-mix(in srgb, var(--admin-c-turquesa) 14%, var(--admin-surface));
+  --admin-c-turquesa-border: color-mix(in srgb, var(--admin-c-turquesa) 42%, transparent);
+  --admin-c-verde-bg: color-mix(in srgb, var(--admin-c-verde) 14%, var(--admin-surface));
+  --admin-c-verde-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
+
+  /* Estados de un platillo: mismos valores que --estado-* del sitio público
+     (src/scss/layout/_reset.scss) para que POS y área no discrepen. */
+  --admin-estado-enviado: var(--admin-muted);
+  --admin-estado-preparacion: var(--admin-c-ambar);
+  --admin-estado-listo: var(--admin-c-verde);
+  --admin-estado-entregado: var(--admin-c-azul);
+  --admin-estado-cancelado: var(--admin-faint);
 
   /* Radios */
   --admin-radius: 1.4rem;
@@ -103,10 +152,11 @@
   --admin-border-soft: rgba(11, 12, 13, 0.08);
   --admin-line: var(--admin-border-soft);
 
-  /* Estados base */
-  --admin-success: #5f7d56;
-  --admin-warning: #cca352;
-  --admin-danger: #a94b3f;
+  /* Estados base: directo a la paleta, sin tonos paralelos. */
+  --admin-success: var(--admin-c-verde);
+  --admin-warning: var(--admin-c-ambar);
+  --admin-danger: var(--admin-c-rojo);
+  --admin-info: var(--admin-c-azul);
 
   /* Superficies elevadas / cristal */
   --admin-topbar-bg: rgba(253, 252, 251, 0.72);
@@ -124,26 +174,29 @@
   /* Grano/viñeta cinematográfica (apagado en claro) */
   --admin-grain: 0;
 
-  /* Trios de estado (badges/status/alertas) */
+  /* Trios de estado (badges/status/alertas). Se derivan de la paleta de marca
+     en lugar de tener tonos propios: así un "listo" del panel es el mismo
+     verde que el del POS y el de las gráficas. Sobre fondo claro los textos
+     se oscurecen mezclando con la tinta para conservar el contraste. */
   --admin-neutral-text: var(--admin-gold-deep);
   --admin-neutral-bg: rgba(187, 143, 62, 0.12);
   --admin-neutral-border: rgba(160, 126, 54, 0.24);
 
-  --admin-success-text: #315d3e;
-  --admin-success-bg: rgba(71, 124, 88, 0.12);
-  --admin-success-border: rgba(71, 124, 88, 0.28);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, #0b0c0d);
+  --admin-success-bg: var(--admin-c-verde-bg);
+  --admin-success-border: var(--admin-c-verde-border);
 
-  --admin-warning-text: #75511f;
-  --admin-warning-bg: rgba(204, 163, 82, 0.12);
-  --admin-warning-border: rgba(204, 163, 82, 0.32);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 52%, #0b0c0d);
+  --admin-warning-bg: var(--admin-c-ambar-bg);
+  --admin-warning-border: var(--admin-c-ambar-border);
 
-  --admin-danger-text: #81382f;
-  --admin-danger-bg: rgba(169, 75, 63, 0.1);
-  --admin-danger-border: rgba(169, 75, 63, 0.28);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 68%, #0b0c0d);
+  --admin-danger-bg: var(--admin-c-rojo-bg);
+  --admin-danger-border: var(--admin-c-rojo-border);
 
-  --admin-info-text: #31506d;
-  --admin-info-bg: rgba(67, 111, 148, 0.1);
-  --admin-info-border: rgba(67, 111, 148, 0.24);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 62%, #0b0c0d);
+  --admin-info-bg: var(--admin-c-azul-bg);
+  --admin-info-border: var(--admin-c-azul-border);
 }
 
 /* ── Tema oscuro cinematográfico (por defecto; paridad con mapa/áreas/landing) ─ */
@@ -184,10 +237,11 @@
   --admin-border-soft: rgba(245, 245, 245, 0.08);
   --admin-line: var(--admin-border-soft);
 
-  /* Estados base ajustados a fondo oscuro */
-  --admin-success: #8bbf7e;
-  --admin-warning: #e0c184;
-  --admin-danger: #e87060;
+  /* Estados base: misma paleta que en claro. */
+  --admin-success: var(--admin-c-verde);
+  --admin-warning: var(--admin-c-ambar);
+  --admin-danger: var(--admin-c-rojo);
+  --admin-info: var(--admin-c-azul);
 
   /* Cristal / topbar translúcido */
   --admin-topbar-bg: rgba(16, 18, 19, 0.66);
@@ -204,26 +258,27 @@
   /* Grano/viñeta encendido */
   --admin-grain: 1;
 
-  /* Trios de estado (texto claro sobre tintes) */
+  /* Trios de estado (texto claro sobre tintes). Mismos colores de paleta que
+     en claro, aclarados con blanco para levantar el contraste sobre #15181a. */
   --admin-neutral-text: var(--admin-gold-soft);
   --admin-neutral-bg: rgba(204, 163, 82, 0.14);
   --admin-neutral-border: rgba(204, 163, 82, 0.3);
 
-  --admin-success-text: #9fd3a6;
-  --admin-success-bg: rgba(139, 191, 126, 0.14);
-  --admin-success-border: rgba(139, 191, 126, 0.32);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, #ffffff);
+  --admin-success-bg: var(--admin-c-verde-bg);
+  --admin-success-border: var(--admin-c-verde-border);
 
-  --admin-warning-text: #e6c98a;
-  --admin-warning-bg: rgba(224, 193, 132, 0.12);
-  --admin-warning-border: rgba(224, 193, 132, 0.34);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 82%, #ffffff);
+  --admin-warning-bg: var(--admin-c-ambar-bg);
+  --admin-warning-border: var(--admin-c-ambar-border);
 
-  --admin-danger-text: #f0a79b;
-  --admin-danger-bg: rgba(232, 112, 96, 0.14);
-  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 56%, #ffffff);
+  --admin-danger-bg: var(--admin-c-rojo-bg);
+  --admin-danger-border: var(--admin-c-rojo-border);
 
-  --admin-info-text: #9dc0e0;
-  --admin-info-bg: rgba(103, 150, 192, 0.14);
-  --admin-info-border: rgba(103, 150, 192, 0.32);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 66%, #ffffff);
+  --admin-info-bg: var(--admin-c-azul-bg);
+  --admin-info-border: var(--admin-c-azul-border);
 }
 
 /* ── Viñeta + grano (solo tema oscuro, vía --admin-grain) ──────── */

@@ -197,7 +197,7 @@
   min-height: 44px;
   flex: 0 1 auto;
   min-width: 0;
-  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
+  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px) minmax(150px, 190px) minmax(180px, 230px);
   align-items: center;
   justify-content: start;
   gap: 10px;
@@ -213,6 +213,20 @@
   min-width: 0;
   margin-block: 0;
   align-self: center;
+}
+
+.reservation-operation__assignment-filter select,
+.reservation-operation__search-filter input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm, 8px);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
 }
 
 .reservation-operation__filter-actions {

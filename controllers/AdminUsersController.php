@@ -7,6 +7,7 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
 use Services\UsuarioService;
@@ -15,12 +16,12 @@ class AdminUsersController
 {
     private const MENU_CSS = '/build/css/admin/menu.css';
     private const USERS_CSS = '/build/css/admin/users.css';
+    private const USERS_JS = '/build/js/admin/users.js';
     private const ADMIN_ACTIVO_REQUERIDO = 'Debe existir un usuario administrador activo siempre.';
     private const ROLE_LABELS = [
         'admin' => 'Administrador',
         'waiter' => 'Mesero',
-        'cashier' => 'Cajero',
-        'observer' => 'Observador',
+        'cook' => 'Cocinero',
     ];
 
     public static function index(Router $router): void
@@ -140,7 +141,11 @@ class AdminUsersController
         ]);
     }
 
-    public static function changePassword(Router $router): void
+    /**
+     * Cambio de credencial: contraseña para administradores, NIP de 4 dígitos
+     * para el personal de piso. El tipo lo decide el rol del usuario destino.
+     */
+    public static function cambiarCredencial(Router $router): void
     {
         $id = self::idFromQuery();
 
@@ -156,33 +161,51 @@ class AdminUsersController
             exit;
         }
 
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $tipoCredencial = $user->rol === 'admin' ? 'password' : 'nip';
+        $esPropio = (int) ($_SESSION['id'] ?? 0) === $id;
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $resultado = UsuarioService::cambiarPassword(
+            $resultado = UsuarioService::cambiarCredencial(
                 $id,
-                (string)($_POST['password'] ?? ''),
-                (string)($_POST['password_confirm'] ?? '')
+                (int) ($_SESSION['id'] ?? 0),
+                (string) ($_POST['secreto_actual'] ?? ''),
+                (string) ($_POST['nuevo'] ?? ''),
+                (string) ($_POST['confirmacion'] ?? '')
             );
-            $user = $resultado['usuario'] ?? $user;
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
-                header('Location: /admin/usuarios?resultado=password');
+                $destino = ($resultado['codigo'] ?? '') === UsuarioService::NIP_ACTUALIZADO
+                    ? 'nip'
+                    : 'password';
+                header('Location: /admin/usuarios?resultado=' . $destino);
                 exit;
             }
 
-            if (empty($alertas['error'])) {
-                $alertas['error'][] = 'No se pudo actualizar la clave. Intenta de nuevo.';
+            if (($resultado['codigo'] ?? '') === UsuarioService::CREDENCIAL_ACTUAL_INCORRECTA) {
+                // Mensaje deliberadamente genérico: no revela si falló por la
+                // contraseña o por el usuario.
+                $alertas['error'][] = 'No se pudo verificar tu contraseña de administrador.';
+            } elseif (empty($alertas['error'])) {
+                $alertas['error'][] = 'No se pudo actualizar la credencial. Intenta de nuevo.';
             }
         }
 
+        $titulo = $tipoCredencial === 'nip' ? 'Cambiar NIP' : 'Cambiar contraseña';
+
         self::render('users/change-password', [
-            'title' => 'Cambiar contraseña',
-            'topbarSection' => 'Usuarios / Cambiar contraseña',
+            'title' => $titulo,
+            'topbarSection' => 'Usuarios / ' . $titulo,
             'usuario' => $user,
             'alertas' => $alertas,
-            'action' => '/admin/usuarios/change-password?id=' . $id,
+            'tipoCredencial' => $tipoCredencial,
+            'esPropio' => $esPropio,
+            'action' => '/admin/usuarios/cambiar-credencial?id=' . $id,
         ]);
     }
 
@@ -244,6 +267,15 @@ class AdminUsersController
 
         $usuarioActualId = (int) ($_SESSION['id'] ?? 0);
         $resultado = UsuarioService::eliminar((int)$id, $usuarioActualId);
+
+        // Un admin puede borrarse a sí mismo mientras quede otro admin activo.
+        // Si lo hace, la sesión apunta a una fila inexistente: hay que cerrarla
+        // antes de redirigir o el panel queda en un estado imposible.
+        if (($resultado['ok'] ?? false) && ($resultado['autoeliminacion'] ?? false)) {
+            Auth::logout();
+            self::redirect('/login?resultado=cuenta_eliminada');
+        }
+
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
 
@@ -252,7 +284,7 @@ class AdminUsersController
         AdminController::render($view, array_merge([
             'activeModule' => 'users',
             'styles' => [self::MENU_CSS, self::USERS_CSS],
-            'scripts' => [],
+            'scripts' => [self::USERS_JS],
             'roles' => Usuario::rolesPermitidos(),
         ], $data));
     }
@@ -304,12 +336,12 @@ class AdminUsersController
             'creado' => ['exito' => ['Usuario creado correctamente']],
             'actualizado' => ['exito' => ['Usuario actualizado correctamente']],
             'password' => ['exito' => ['Contraseña actualizada correctamente']],
+            'nip' => ['exito' => ['NIP actualizado correctamente']],
             'activado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'desactivado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'eliminado' => ['exito' => ['Usuario eliminado correctamente.']],
             'id_invalido' => ['error' => ['Identificador de usuario no válido.']],
             'no_existe' => ['error' => ['El usuario no existe.']],
-            'autoeliminacion' => ['error' => ['No puedes eliminar tu propio usuario.']],
             'admin_activo_requerido' => ['error' => [self::ADMIN_ACTIVO_REQUERIDO]],
             'error_eliminar' => ['error' => ['No se pudo eliminar el usuario.']],
             'usuario_activado' => ['exito' => ['Usuario activado correctamente.']],
@@ -328,7 +360,6 @@ class AdminUsersController
             UsuarioService::USUARIO_SIN_CAMBIOS => 'usuario_sin_cambios',
             UsuarioService::USUARIO_ELIMINADO => 'eliminado',
             UsuarioService::ADMIN_ACTIVO_REQUERIDO => 'admin_activo_requerido',
-            UsuarioService::AUTOELIMINACION => 'autoeliminacion',
             UsuarioService::USUARIO_NO_EXISTE => 'no_existe',
             default => 'error_guardado',
         };

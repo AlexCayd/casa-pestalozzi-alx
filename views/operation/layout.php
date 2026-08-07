@@ -17,9 +17,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 $operationalUsuarioNombre = trim((string)($_SESSION['nombre'] ?? ''));
 $operationalRolEtiquetas = [
     'admin' => 'Administrador',
-    'cashier' => 'Cajero',
+    'cook' => 'Cocinero',
     'waiter' => 'Mesero',
-    'observer' => 'Observador',
 ];
 $operationalUsuarioRol = $operationalRolEtiquetas[(string)($_SESSION['rol'] ?? '')] ?? 'Usuario';
 

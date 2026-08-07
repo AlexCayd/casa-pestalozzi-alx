@@ -7,35 +7,51 @@ use Model\Usuario;
 /**
  * Sesión y protección de rutas del personal.
  *
- * Dos accesos separados; el rol guardado en la BD decide qué rutas puede
- * visitar cada quien:
- *   - /login (NIP)                    → personal de piso → /punto-de-venta y pantallas de área
- *   - /admin/login (usuario+password) → admin → /admin (panel completo)
- * Venga de donde venga la sesión, /admin/* exige rol admin.
+ * Un solo formulario en /login con dos pestañas; el rol guardado en la BD
+ * decide qué rutas puede visitar cada quien:
+ *   - waiter → /punto-de-venta y las APIs del POS
+ *   - cook   → /area/* y las APIs de los tableros de producción
+ *   - admin  → todo, incluido /admin
+ * Cada pestaña envía a su propio endpoint (/login y /admin/login), que siguen
+ * existiendo. Venga de donde venga la sesión, el rol es lo único que manda.
+ *
+ * Las listas de API se separan por rol a propósito: una ruta nueva que no esté
+ * en ninguna lista queda pública, así que al añadir un endpoint hay que
+ * anotarlo aquí.
  */
 class Auth {
 
-    /** Rutas exactas de API del personal (devuelven 401 JSON en vez de redirigir). */
-    private const APIS_STAFF = [
+    /** APIs del punto de venta: meseros y admin. */
+    private const APIS_POS = [
         '/api/punto-de-venta',
-        '/api/productos',
         '/api/abrir-ticket',
-        '/api/liberar-reservacion',
         '/api/cerrar-ticket',
         '/api/enviar-comanda',
-        '/api/ticket-items',
         '/api/entregar-item',
         '/api/actualizar-ticket',
         '/api/cancelar-item',
-        '/api/area-items',
-        '/api/avanzar-item',
-        '/api/retroceder-item',
         '/api/punto-de-venta/reservaciones',
         '/api/punto-de-venta/mesa-contexto',
-        '/api/punto-de-venta/reservaciones/llegada',
         '/api/punto-de-venta/reservaciones/comenzar',
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',
+        '/api/corte-caja',
+    ];
+
+    /** APIs de los tableros de producción: cocineros y admin. */
+    private const APIS_AREA = [
+        '/api/area-items',
+        '/api/avanzar-item',
+        '/api/retroceder-item',
+    ];
+
+    /**
+     * Lecturas que necesitan los dos roles de piso: el catálogo para pintar la
+     * carta y el detalle del ticket, que la comanda del área también consulta.
+     */
+    private const APIS_PISO = [
+        '/api/productos',
+        '/api/ticket-items',
     ];
 
     /** Escrituras de configuración que siempre exigen rol administrador. */
@@ -47,6 +63,26 @@ class Auth {
 
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
+            $environment = (string)(getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? ''));
+            if (in_array($environment, ['development', 'testing'], true)) {
+                $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
+                if ($sessionPath === '') {
+                    $sessionPath = sys_get_temp_dir();
+                }
+                if (is_dir($sessionPath) && is_writable($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                }
+            }
+            $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $params = session_get_cookie_params();
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => $params['path'] ?: '/',
+                'domain' => $params['domain'] ?? '',
+                'secure' => $https,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
             session_start();
         }
     }
@@ -67,8 +103,14 @@ class Auth {
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000,
-                $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params['path'] ?: '/',
+                'domain' => $params['domain'] ?? '',
+                'secure' => (bool)($params['secure'] ?? false),
+                'httponly' => (bool)($params['httponly'] ?? true),
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]);
         }
         session_destroy();
     }
@@ -87,21 +129,38 @@ class Auth {
         return self::check() && self::rol() === 'admin';
     }
 
+    public static function esMesero(): bool {
+        return self::check() && self::rol() === 'waiter';
+    }
+
+    public static function esCocinero(): bool {
+        return self::check() && self::rol() === 'cook';
+    }
+
     /** Vista inicial que corresponde a un rol tras iniciar sesión. */
     public static function destinoPorRol(?string $rol = null): string {
         $rol = $rol ?? self::rol();
-        return $rol === 'admin' ? '/admin' : '/punto-de-venta';
+
+        if ($rol === 'admin') {
+            return '/admin';
+        }
+
+        return $rol === 'cook' ? '/area' : '/punto-de-venta';
     }
 
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
-     * /admin/*            → solo rol admin (sin sesión: a /admin/login)
-     * /punto-de-venta, /area/* → cualquier usuario autenticado (sin sesión: a /login)
-     * APIs del personal   → cualquier usuario autenticado (401 JSON)
+     * /admin/*                 → solo admin
+     * /punto-de-venta, APIs POS → waiter y admin
+     * /area, /area/*, APIs área → cook y admin
      * El resto (sitio público, /feedback, /api/feedback…) queda libre.
+     *
+     * Sin sesión se redirige a /login (o 401 JSON). Con sesión pero sin el rol
+     * que toca, se manda a la vista de trabajo del rol (o 403 JSON): no hay
+     * página de error, la persona simplemente aterriza donde sí puede operar.
      */
     public static function proteger(string $url): void {
-        // El propio formulario de acceso del admin es público
+        // El endpoint del formulario de contraseña es público
         if ($url === '/admin/login') {
             return;
         }
@@ -109,11 +168,14 @@ class Auth {
         $esAdminUrl = $url === '/admin'
             || str_starts_with($url, '/admin/')
             || in_array($url, self::APIS_ADMIN, true);
-        $esStaffUrl = $url === '/punto-de-venta'
+        $esPosUrl = $url === '/punto-de-venta'
+            || in_array($url, self::APIS_POS, true);
+        $esAreaUrl = $url === '/area'
             || str_starts_with($url, '/area/')
-            || in_array($url, self::APIS_STAFF, true);
+            || in_array($url, self::APIS_AREA, true);
+        $esPisoUrl = in_array($url, self::APIS_PISO, true);
 
-        if (!$esAdminUrl && !$esStaffUrl) {
+        if (!$esAdminUrl && !$esPosUrl && !$esAreaUrl && !$esPisoUrl) {
             return;
         }
 
@@ -123,15 +185,20 @@ class Auth {
             if ($esApi) {
                 self::negarJson(401, 'Sesión expirada. Vuelve a iniciar sesión.');
             }
-            header('Location: ' . ($esAdminUrl ? '/admin/login' : '/login'));
+            header('Location: /login');
             exit;
         }
 
-        if ($esAdminUrl && !self::esAdmin()) {
+        // El admin entra a todo; para el resto, cada zona exige su rol.
+        $permitido = self::esAdmin()
+            || ($esPosUrl && self::esMesero())
+            || ($esAreaUrl && self::esCocinero())
+            || ($esPisoUrl && (self::esMesero() || self::esCocinero()));
+
+        if (!$permitido) {
             if ($esApi) {
                 self::negarJson(403, 'No tienes permisos para esta acción.');
             }
-            // Usuario autenticado sin permisos de admin: a su vista de trabajo
             header('Location: ' . self::destinoPorRol());
             exit;
         }

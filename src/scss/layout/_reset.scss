@@ -23,6 +23,28 @@
   --accent: var(--gold);
   --accent-soft: var(--gold-soft);
 
+  /* Paleta de acento de marca. La base sigue siendo negro + dorado; estos
+     tokens son para todo lo demás (estados, series de datos, categorías).
+     Consumirlos por variable, nunca repitiendo el hex. Ver CLAUDE.md. */
+  --c-ambar: #f5b400;
+  --c-naranja: #fc6722;
+  --c-rojo: #e51022;
+  --c-azul: #3a86ff;
+  --c-lima: #8ac926;
+  --c-indigo: #4267ac;
+  --c-rosa: #ea075a;
+  --c-magenta: #aa2296;
+  --c-turquesa: #46bdc6;
+  --c-verde: #34a853;
+
+  /* Estados operativos de un platillo, compartidos por POS y tableros de
+     área para que ambas pantallas hablen del mismo color. */
+  --estado-enviado: var(--txt-mute);
+  --estado-preparacion: var(--c-ambar);
+  --estado-listo: var(--c-verde);
+  --estado-entregado: var(--c-azul);
+  --estado-cancelado: #555;
+
   --serif: "Playfair Display", Georgia, serif;
   --crimson: "Crimson Text", Georgia, serif;
   --sans: "Montserrat", "Helvetica Neue", Arial, sans-serif;

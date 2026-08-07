@@ -2,7 +2,9 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use MVC\Router;
+use Services\AdminCsrfService;
 use Services\ReservacionConfig;
 use Services\ReservacionMantenimientoService;
 
@@ -20,36 +22,32 @@ final class ReservacionMantenimientoController
     {
         self::protegerAmbiente();
         self::protegerPost();
+        if (!Auth::esAdmin()) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No autorizado.';
+            exit;
+        }
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            http_response_code(419);
+            self::render([
+                'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
+                'resultadoPendientes' => [
+                    'ok' => false,
+                    'codigo' => 'CSRF_INVALIDO',
+                    'procesadas' => 0,
+                    'omitidas' => 0,
+                    'fallidas' => 0,
+                ],
+            ]);
+            return;
+        }
         $resultado = ReservacionMantenimientoService::procesarPendientesVencidas(
             (string)($_POST['confirmar'] ?? '') === '1'
         );
         self::render([
             'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
             'resultadoPendientes' => $resultado,
-        ]);
-    }
-
-    public static function vistaPreviaLimpieza(Router $router): void
-    {
-        self::protegerAmbiente();
-        self::protegerPost();
-        self::render([
-            'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
-            'filtrosLimpieza' => $_POST,
-            'vistaPreviaLimpieza' => ReservacionMantenimientoService::vistaPreviaLimpieza($_POST),
-        ]);
-    }
-
-    public static function limpiar(Router $router): void
-    {
-        self::protegerAmbiente();
-        self::protegerPost();
-        $resultado = ReservacionMantenimientoService::limpiar($_POST);
-        self::render([
-            'pendientes' => ReservacionMantenimientoService::vistaPreviaPendientesVencidas(),
-            'filtrosLimpieza' => $_POST,
-            'resultadoLimpieza' => $resultado,
-            'vistaPreviaLimpieza' => ReservacionMantenimientoService::vistaPreviaLimpieza($_POST),
         ]);
     }
 
@@ -85,6 +83,7 @@ final class ReservacionMantenimientoController
             'styles' => ['/build/css/admin/reservations.css?v=reservation-tools-v1'],
             'scripts' => [],
             'fechaActual' => ReservacionConfig::fechaActual(),
+            'adminCsrfToken' => AdminCsrfService::token(),
         ], $data));
     }
 }

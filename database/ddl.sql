@@ -1,6 +1,7 @@
 -- Casa Pestalozzi — Esquema (DDL)
 -- Estructura de la base de datos: DROP + CREATE TABLE.
--- Los datos de siembra viven en dml.sql (ejecutar este archivo primero).
+-- Los datos de siembra viven en dml_operativo.sql y dml_pruebas.sql;
+-- ambos se ejecutan después de este archivo.
 -- Ejecutar contra la BD configurada en includes/.env (DB_NAME).
 
 -- -------------------------------------------------------
@@ -75,17 +76,25 @@ CREATE TABLE IF NOT EXISTS categorias (
   activo TINYINT(1) NOT NULL DEFAULT 1
 );
 
--- Accesos: los administradores entran en /admin/login con usuario + password
--- alfanumerica (password_hash). El personal de piso (meseros/cajeros) entra
--- en /login con un NIP numerico de 4-6 digitos, unico por usuario y guardado
--- hasheado con bcrypt (nip_hash), que lo lleva a /mapa.
+-- Accesos: los tres roles entran por /login, que muestra dos pestanas. Los
+-- administradores usan usuario + password alfanumerica (password_hash); el
+-- personal de piso (meseros y cocineros) usa un NIP numerico de 4 digitos,
+-- unico por usuario y guardado hasheado con bcrypt (nip_hash).
+--
+-- El rol decide a que vista se entra y que rutas se permiten: waiter al punto
+-- de venta, cook a los tableros de area, admin a todo.
+--
+-- fecha_nacimiento no es dato de RR.HH.: es el origen del NIP por defecto. Si
+-- el admin deja el campo vacio al dar de alta, el NIP se genera como DDMM del
+-- cumpleanos. Nullable porque los administradores no usan NIP.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
+  fecha_nacimiento DATE NULL,
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
-  rol           ENUM('admin','observer','waiter','cashier') NOT NULL DEFAULT 'observer',
+  rol           ENUM('admin','waiter','cook') NOT NULL DEFAULT 'waiter',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
@@ -98,50 +107,76 @@ CREATE TABLE IF NOT EXISTS usuarios (
 CREATE TABLE IF NOT EXISTS reservaciones (
   id                   INT AUTO_INCREMENT PRIMARY KEY,
   nombre               VARCHAR(100) NOT NULL,
-  contacto_tipo        ENUM('email','telefono') NOT NULL,
+  contacto_tipo        ENUM('email','telefono','ninguno') NOT NULL DEFAULT 'ninguno',
   -- El contacto se persiste en su formato canónico, normalizado en PHP.
-  contacto             VARCHAR(150) NOT NULL,
+  contacto             VARCHAR(150) NULL,
   fecha                DATE NOT NULL,
   hora                 TIME NOT NULL,
-  comensales           INT NOT NULL DEFAULT 2,
+  comensales           INT UNSIGNED NOT NULL DEFAULT 2,
   nota                 TEXT,
   comentario_admin     TEXT NULL,
+  origen               ENUM('landing','admin') NOT NULL,
   request_token        VARCHAR(64) NULL,
-  request_fingerprint  CHAR(64) NULL,
   -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
   hold_expires_at      DATETIME NULL,
-  confirmed_at         DATETIME NULL,
-  arrived_at           DATETIME NULL,
-  completed_at         DATETIME NULL,
-  status_changed_at    DATETIME NULL,
-  last_modified_by     INT NULL,
-  last_modified_source ENUM('cliente','personal','sistema') NOT NULL DEFAULT 'sistema',
-  last_change_reason   VARCHAR(500) NULL,
   estado               ENUM(
                          'pendiente_verificacion',
                          'confirmada',
-                         'llego',
                          'en_curso',
                          'completada',
                          'cancelada',
                          'no_show',
-                         'expirada'
+                         'expirada',
+                         'reemplazada'
                        ) NOT NULL DEFAULT 'pendiente_verificacion',
+  reemplaza_reservacion_id INT NULL,
+  estado_changed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at           TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_reservaciones_fecha_estado_hora (fecha, estado, hora),
-  INDEX idx_reservaciones_fecha_hora        (fecha, hora),
-  INDEX idx_reservaciones_estado            (estado),
-  INDEX idx_reservaciones_contacto (contacto_tipo, contacto, estado, fecha, hora),
+  INDEX idx_reservaciones_contacto_horario (contacto_tipo, contacto, fecha, hora, estado),
   INDEX idx_reservaciones_retenciones_vencidas (estado, hold_expires_at),
-  CONSTRAINT chk_reservaciones_fingerprint
-    CHECK (request_fingerprint IS NULL OR CHAR_LENGTH(request_fingerprint) = 64),
+  INDEX idx_reservaciones_reemplazo (reemplaza_reservacion_id),
+  CONSTRAINT chk_reservaciones_comensales
+    CHECK (comensales > 0),
+  CONSTRAINT chk_reservaciones_contacto
+    CHECK (
+      (contacto_tipo = 'ninguno' AND contacto IS NULL)
+      OR
+      (contacto_tipo IN ('email','telefono') AND contacto IS NOT NULL AND TRIM(contacto) <> '')
+    ),
   CONSTRAINT chk_reservaciones_retencion_vencimiento
     CHECK (estado <> 'pendiente_verificacion' OR hold_expires_at IS NOT NULL),
-  CONSTRAINT fk_reservaciones_last_modified_by
-    FOREIGN KEY (last_modified_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_reservacion_reemplazada
+    FOREIGN KEY (reemplaza_reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
   UNIQUE KEY uq_reservaciones_request_token (request_token)
 );
+
+-- MySQL no permite referenciar una columna AUTO_INCREMENT desde un CHECK.
+-- La regla de no auto-reemplazo se mantiene en la frontera de persistencia.
+DELIMITER //
+DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_insert//
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_insert
+BEFORE INSERT ON reservaciones
+FOR EACH ROW
+BEGIN
+  IF NEW.reemplaza_reservacion_id IS NOT NULL
+     AND NEW.id IS NOT NULL
+     AND NEW.reemplaza_reservacion_id = NEW.id THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
+  END IF;
+END//
+DROP TRIGGER IF EXISTS trg_reservaciones_no_auto_reemplazo_update//
+CREATE TRIGGER trg_reservaciones_no_auto_reemplazo_update
+BEFORE UPDATE ON reservaciones
+FOR EACH ROW
+BEGIN
+  IF NEW.reemplaza_reservacion_id IS NOT NULL
+     AND NEW.reemplaza_reservacion_id = NEW.id THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Una reservacion no puede reemplazarse a si misma';
+  END IF;
+END//
+DELIMITER ;
 
 -- Desafíos OTP de un solo uso. Nunca se guarda el código original: codigo_hash
 -- contiene únicamente el resultado de password_hash() y se valida en PHP con
@@ -242,14 +277,31 @@ CREATE TABLE IF NOT EXISTS productos (
   descripcion  TEXT NULL,
   categoria_id INT NOT NULL,
   precio       DECIMAL(8,2) NOT NULL,
-  tag          VARCHAR(60) NULL,
   area_id      TINYINT UNSIGNED NOT NULL,
   activo       TINYINT(1) NOT NULL DEFAULT 1,
+  -- El UNIQUE es dependencia funcional, no higiene: el descuento de
+  -- inventario, el COGS y el motor de sugerencias unen platillos por nombre.
+  -- Estaba declarado dos veces, y eso hacia fallar el CREATE TABLE entero
+  -- ("Duplicate key name") en cualquier base creada desde cero.
   UNIQUE KEY uq_productos_nombre (nombre),
   KEY idx_productos_cat_activo (categoria_id, activo),
+  INDEX idx_productos_carta (activo, categoria_id),
   FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-  FOREIGN KEY (area_id) REFERENCES areas_produccion(id),
-  INDEX idx_productos_carta (activo, categoria_id)
+  FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+);
+
+-- Compatibilidad de lectura para instalaciones y datos de siembra anteriores.
+-- La aplicación usa `productos` como fuente funcional; esta tabla permite
+-- conservar datos descriptivos históricos durante la transición.
+CREATE TABLE IF NOT EXISTS menu (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  nombre       VARCHAR(120) NOT NULL,
+  descripcion  TEXT NOT NULL,
+  precio       DECIMAL(10,2) NOT NULL,
+  activo       TINYINT(1) NOT NULL DEFAULT 1,
+  categoria_id INT NOT NULL,
+  UNIQUE KEY uq_menu_nombre (nombre),
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS ticket_items (

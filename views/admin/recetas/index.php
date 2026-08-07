@@ -62,7 +62,7 @@
                         <?php foreach ($productos as $prod) : ?>
                             <?php $n = (int) ($conteosReceta[(int) $prod->id] ?? 0); ?>
                             <?php $catNombre = $categoriasMap[(int) $prod->categoria_id] ?? '—'; ?>
-                            <tr>
+                            <tr data-row-href="/admin/recetas/editar?id=<?php echo (int) $prod->id; ?>">
                                 <td><span class="admin-table__cell-main"><?php echo htmlspecialchars($prod->nombre); ?></span></td>
                                 <td><span class="admin-table__cell-sub"><?php echo htmlspecialchars($catNombre); ?></span></td>
                                 <td><span class="admin-table__cell-main">$<?php echo number_format((float) $prod->precio, 2); ?></span></td>

@@ -639,6 +639,27 @@ $face-5: #29B6F6;
   color: rgba(232,224,212,.6);
 }
 
+// Rellena el importe exacto de un toque. Sustituye al atajo anterior de dejar
+// el campo vacío: el monto se sigue capturando rápido, pero queda escrito y
+// confirmado antes de cerrar la cuenta.
+.mmodal-monto-exacto {
+  flex-shrink: 0;
+  padding: .42rem .6rem;
+  border: 1px solid rgba(204, 163, 82, .4);
+  border-radius: 8px;
+  background: none;
+  color: var(--accent, #cca352);
+  font-family: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s;
+
+  &:hover { background: rgba(204, 163, 82, .14); }
+}
+
 .mmodal-split-input {
   width: 100%;
   min-width: 0;

@@ -11,6 +11,7 @@
         if (!root) {
             return;
         }
+        var csrfToken = root.getAttribute('data-admin-csrf') || '';
 
         var state = {
             fecha: root.getAttribute('data-initial-fecha') || '',
@@ -28,6 +29,8 @@
             alertasOperativas: [],
             estadoOperacion: 'disponible',
             mensajeOperacion: '',
+            tituloOperacion: '',
+            consecuenciaOperacion: '',
             scheduleAlertDismissed: false,
             hasLoadedData: false,
             loadFailure: null,
@@ -35,11 +38,16 @@
             pendingInitialAssignment: root.getAttribute('data-initial-operation-intent') === 'assign',
             reservacionSeleccionadaId: parseInt(root.getAttribute('data-initial-reservation-id') || '0', 10) || null,
             horaSeleccionada: horaCorta(root.getAttribute('data-initial-hora') || ''),
+            assignmentFilter: 'all',
+            reservationSearch: '',
             horaSolicitadaInicial: horaCorta(root.getAttribute('data-initial-requested-hour') || ''),
             mesasSeleccionadas: new Set(),
             assignmentMode: false,
             assignmentInitialMesaIds: [],
+            assignmentInitialVersion: '',
+            assignmentDataUpdated: false,
             assignmentTrigger: null,
+            assignmentCancelLabel: 'Cancelar',
             cargando: false,
             guardando: false,
             abortController: null,
@@ -68,6 +76,8 @@
             dateWarningMessage: root.querySelector('[data-operation-date-warning-message]'),
             hourRoot: root.querySelector('[data-operation-time-group] [data-reservation-time-picker]'),
             hour: root.querySelector('[data-operation-hour]'),
+            assignmentFilter: root.querySelector('[data-operation-assignment-filter]'),
+            reservationSearch: root.querySelector('[data-operation-reservation-search]'),
             load: root.querySelector('[data-operation-load]'),
             create: root.querySelector('[data-operation-create]'),
             title: root.querySelector('[data-operation-title]'),
@@ -93,16 +103,19 @@
             panelShell: root.querySelector('[data-operation-panel-shell]'),
             assignmentBar: root.querySelector('[data-operation-assignment-bar]'),
             assignmentTitle: root.querySelector('[data-operation-assignment-title]'),
+            assignmentCancel: root.querySelector('[data-operation-assignment-cancel]'),
             assignmentReservation: root.querySelector('[data-operation-assignment-reservation]'),
             assignmentPeople: root.querySelector('[data-operation-assignment-people]'),
             assignmentCapacity: root.querySelector('[data-operation-assignment-capacity]'),
             assignmentDifference: root.querySelector('[data-operation-assignment-difference]'),
             assignmentTables: root.querySelector('[data-operation-assignment-tables]'),
+            assignmentRefresh: root.querySelector('[data-operation-assignment-refresh]'),
             capacity: root.querySelector('[data-operation-capacity]'),
             capacityTotal: root.querySelector('[data-operation-capacity-total]'),
+            capacityCommitted: root.querySelector('[data-operation-capacity-committed]'),
+            capacityDemand: root.querySelector('[data-operation-capacity-demand]'),
             capacityReal: root.querySelector('[data-operation-capacity-real]'),
             capacityProjected: root.querySelector('[data-operation-capacity-projected]'),
-            capacityEstimated: root.querySelector('[data-operation-capacity-estimated]'),
             capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
             tableWarning: null
         };
@@ -125,15 +138,11 @@
         var createModalLastFocus = null;
         var createModalDirty = false;
         var createModalSubmitting = false;
-        var ticketConflictModal = root.querySelector('[data-operation-ticket-conflict-modal]');
-        var ticketConflictList = root.querySelector('[data-operation-ticket-conflict-list]');
-        var ticketConflictError = root.querySelector('[data-operation-ticket-conflict-error]');
-        var actionModal = root.querySelector('[data-operation-action-modal]');
-        var actionTitle = root.querySelector('[data-operation-action-title]');
-        var actionDescription = root.querySelector('[data-operation-action-description]');
-        var actionReasonField = root.querySelector('[data-operation-action-reason-field]');
-        var actionReason = root.querySelector('[data-operation-action-reason]');
-        var actionError = root.querySelector('[data-operation-action-error]');
+        var confirmationHost = root.querySelector('[data-operation-confirmation-host]');
+        var confirmationController = confirmationHost && window.ConfirmationModal
+            ? window.ConfirmationModal.create(confirmationHost)
+            : null;
+        var actionReason = null;
 
         var noticeTimer = null;
         var activeNoticeSource = '';
@@ -300,10 +309,9 @@
                 showGlobalNotice({
                     source: 'schedule',
                     type: 'warning',
-                    title: 'Sin horarios disponibles',
-                    summary: 'No quedan horarios operativos disponibles para esta fecha.',
-                    message: (state.mensajeOperacion || 'La jornada no tiene más bloques disponibles.') +
-                        ' Selecciona otra fecha para continuar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -312,10 +320,9 @@
                 showGlobalNotice({
                     source: 'context',
                     type: 'warning',
-                    title: 'Restaurante cerrado',
-                    summary: 'No hay operación programada para la fecha seleccionada.',
-                    message: (state.mensajeOperacion || 'El restaurante no recibe reservaciones en esta fecha.') +
-                        ' Selecciona una fecha abierta para continuar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -324,9 +331,9 @@
                 showGlobalNotice({
                     source: 'readonly',
                     type: 'info',
-                    title: 'Modo histórico',
-                    summary: 'Esta vista es solo de lectura.',
-                    message: 'Estás consultando una fecha anterior. La asignación, los comentarios y los cambios de estado están deshabilitados; vuelve a una fecha vigente para operar.',
+                    title: state.tituloOperacion || '',
+                    summary: state.mensajeOperacion || '',
+                    message: state.consecuenciaOperacion || '',
                     respectDismissal: true
                 });
                 return;
@@ -390,10 +397,15 @@
         }
 
         function canAssignTables(reservacion) {
-            return state.editable && reservacion && (
-                isEditable(reservacion)
-                || reservacion.puede_confirmar_llegada === true
-            );
+            return state.editable && reservacion && String(reservacion.estado || '') === 'confirmada' &&
+                isEditable(reservacion) && reservacion.ticket_abierto !== true;
+        }
+
+        function canClearAssignment(reservacion) {
+            return canAssignTables(reservacion)
+                && reservacion.origen === 'admin'
+                && Array.isArray(reservacion.mesa_ids)
+                && reservacion.mesa_ids.length > 0;
         }
 
         function canTransition(reservacion, targetState) {
@@ -444,20 +456,48 @@
             }
 
             return state.reservaciones.filter(function (reservacion) {
-                return horaCorta(reservacion.hora) === selectedHour;
+                return String(reservacion.estado || '') === 'confirmada'
+                    && reservacion.aplica_hora_consultada === true;
             });
         }
 
         function activeReservationsForSelectedHour() {
             return reservationsForSelectedHour().filter(function (reservacion) {
-                return reservacion.influye_disponibilidad === true;
+                return reservacion.influye_disponibilidad === true
+                    && reservacion.en_proyeccion_mapa !== false
+                    && String(reservacion.estado || '') === 'confirmada';
             });
         }
 
         function reservationsForOperationalList() {
-            return state.reservaciones.filter(function (reservacion) {
-                return reservacion.en_lista_operativa === true;
+            var reservations = state.reservaciones.filter(function (reservacion) {
+                return String(reservacion.estado || '') === 'confirmada'
+                    && (reservacion.en_lista_operativa === true || reservacion.en_lista_terminal === true);
             });
+
+            if (state.assignmentFilter === 'pending') {
+                reservations = reservations.filter(function (reservacion) {
+                    return String(reservacion.estado || '') === 'confirmada' &&
+                        (!Array.isArray(reservacion.mesa_ids) || reservacion.mesa_ids.length === 0);
+                });
+            } else if (state.assignmentFilter === 'assigned') {
+                reservations = reservations.filter(function (reservacion) {
+                    return String(reservacion.estado || '') === 'confirmada' &&
+                        Array.isArray(reservacion.mesa_ids) && reservacion.mesa_ids.length > 0;
+                });
+            }
+
+            var search = String(state.reservationSearch || '').trim().toLowerCase();
+            if (search) {
+                reservations = reservations.filter(function (reservacion) {
+                    return [reservacion.nombre, reservacion.contacto_visible, reservacion.contacto]
+                        .join(' ')
+                        .toLowerCase()
+                        .indexOf(search) !== -1;
+                });
+            }
+
+            return reservations;
         }
 
         function mesaNombre(id) {
@@ -506,15 +546,19 @@
             els.assignmentDifference.textContent = (diferencia > 0 ? '+' : '') + diferencia;
             els.assignmentDifference.classList.toggle('is-insufficient', diferencia < 0);
             els.assignmentTables.textContent = selectedNames.length ? selectedNames.join(', ') : 'Sin mesas seleccionadas';
+            if (els.assignmentRefresh) {
+                els.assignmentRefresh.hidden = !state.assignmentDataUpdated;
+            }
+            if (els.assignmentCancel) {
+                els.assignmentCancel.textContent = state.assignmentCancelLabel;
+            }
 
             var saveButton = els.assignmentBar.querySelector('[data-operation-assignment-save]');
             if (saveButton) {
                 var disabled = !canAssignTables(reservacion) || state.mesasSeleccionadas.size === 0;
                 saveButton.setAttribute('data-disabled', disabled ? '1' : '0');
                 saveButton.disabled = disabled || state.guardando;
-                saveButton.textContent = state.mesasSeleccionadas.size > 0 && capacidad < comensales
-                    ? 'Guardar de todos modos'
-                    : 'Guardar';
+                saveButton.textContent = 'Guardar asignación';
             }
         }
 
@@ -525,9 +569,9 @@
                 showGlobalNotice({
                     source: 'assignment',
                     type: 'error',
-                    title: 'Reservación no encontrada',
-                    summary: 'No fue posible iniciar la reasignación.',
-                    message: 'La reservación solicitada no existe o no pertenece a la fecha y horario consultados. Continúa usando el mapa o selecciona otra reservación.'
+                    title: '',
+                    summary: '',
+                    message: ''
                 });
                 return;
             }
@@ -535,9 +579,9 @@
                 showGlobalNotice({
                     source: 'assignment',
                     type: 'restricted',
-                    title: 'Reservación no editable',
-                    summary: 'La reservación seleccionada ya no permite cambiar mesas.',
-                    message: 'La reservación pertenece a un estado final o su horario ya pasó. Continúa usando el mapa normalmente o selecciona otra reservación editable.'
+                    title: '',
+                    summary: '',
+                    message: ''
                 });
                 return;
             }
@@ -546,7 +590,10 @@
             }
 
             state.assignmentInitialMesaIds = Array.from(state.mesasSeleccionadas);
+            state.assignmentInitialVersion = String(reservacion.version || '');
+            state.assignmentDataUpdated = false;
             state.assignmentTrigger = trigger || document.activeElement;
+            state.assignmentCancelLabel = options.allowAssignLater ? 'Asignar más tarde' : 'Cancelar';
             state.assignmentMode = true;
             root.classList.add('assignment-mode');
             document.body.classList.add('is-assignment-mode');
@@ -560,9 +607,9 @@
             showGlobalNotice({
                 source: 'assignment',
                 type: 'info',
-                title: 'Modo de asignación activo',
-                summary: 'Selecciona las mesas para esta reservación.',
-                message: 'Las mesas ocupadas o bloqueadas no pueden seleccionarse. Revisa la capacidad y confirma la asignación en la barra inferior.'
+                title: '',
+                summary: '',
+                message: ''
             });
 
             if (options.focus !== false && els.assignmentTitle) {
@@ -584,7 +631,10 @@
             }
             state.assignmentMode = false;
             state.assignmentInitialMesaIds = [];
+            state.assignmentInitialVersion = '';
+            state.assignmentDataUpdated = false;
             state.assignmentTrigger = null;
+            state.assignmentCancelLabel = 'Cancelar';
             hideTableWarning();
             if (activeNoticeSource === 'assignment') {
                 hideGlobalNotice('assignment');
@@ -774,21 +824,19 @@
         function setSaving(isSaving) {
             state.guardando = isSaving;
             root.classList.toggle('is-saving', isSaving);
-            Array.prototype.forEach.call(root.querySelectorAll('[data-operation-save], [data-operation-action], [data-operation-comment-save]'), function (button) {
+            Array.prototype.forEach.call(root.querySelectorAll('[data-operation-save], [data-operation-action], [data-operation-comment-save], [data-operation-clear]'), function (button) {
                 button.disabled = isSaving || button.getAttribute('data-disabled') === '1';
             });
             renderAssignmentBar();
         }
 
-        function showToast(message, type) {
+        function showToast(message, type, consequence) {
             showGlobalNotice({
                 source: 'feedback',
                 type: type || 'success',
-                title: type === 'error' ? 'No fue posible completar la acción' : 'Cambios guardados',
+                title: '',
                 summary: message,
-                message: type === 'error'
-                    ? 'Los datos visibles no cambiaron. Revisa el estado de la reservación antes de continuar.'
-                    : 'El servidor confirmó la actualización y el mapa conserva la información más reciente.',
+                message: consequence || '',
                 duration: 3200
             });
         }
@@ -798,35 +846,12 @@
                 return;
             }
 
-            var mesaNames = (payload.mesaIds || []).map(function (mesaId) {
-                var mesa = tableById(mesaId);
-                return mesa ? mesa.nombre : 'Mesa ' + mesaId;
-            });
-            var assigned = mesaNames.length > 0;
-            var withoutContact = payload.withoutContact === true;
-            var projectedRelease = payload.dependsOnProjectedRelease === true;
-            var title = !assigned && withoutContact
-                ? 'Reservación creada sin contacto y sin mesas'
-                : (!assigned
-                    ? 'Reservación creada; requiere asignación manual'
-                    : (withoutContact ? 'Reservación creada sin contacto' : 'Reservación creada'));
-            var detail = fechaLegible(payload.fecha) + ' · ' + (payload.hora || '--:--');
-            var customer = (payload.nombre || 'Sin nombre') + ' · ' + plural(payload.comensales || 0, 'persona', 'personas');
-            var assignment = assigned
-                ? mesaNames.join(', ') + (mesaNames.length === 1 ? ' asignada automáticamente' : ' asignadas automáticamente')
-                : 'La reservación se guardó correctamente, pero necesita asignación manual.';
-
             showGlobalNotice({
                 source: 'feedback',
-                type: assigned && !projectedRelease ? 'success' : 'warning',
-                title: title,
-                summary: assigned
-                    ? (projectedRelease
-                        ? 'Las mesas quedaron asignadas con una liberación proyectada.'
-                        : 'La reservación se creó y sus mesas quedaron asignadas.')
-                    : 'La reservación se creó y requiere asignación manual.',
-                message: detail + '. ' + customer + '. ' + assignment +
-                    (projectedRelease ? ' Confirma el cierre del ticket antes del bloqueo operativo.' : ''),
+                type: payload.tipo === 'decision_requerida' ? 'warning' : 'success',
+                title: payload.titulo || '',
+                summary: payload.mensaje || '',
+                message: payload.consecuencia || '',
                 duration: 5200
             });
         }
@@ -877,29 +902,18 @@
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
-            var minutos = parseInt((mesaEstado && mesaEstado.minutos_restantes) || '0', 10);
-            var bloqueo = parseInt(state.config.temporal.bloqueo_previo_minutos || '0', 10);
-            var aviso = parseInt(state.config.temporal.advertencia_reservacion_minutos || '0', 10);
-
-            if (!proxima || minutos <= bloqueo || minutos > aviso) {
+            if (!proxima || proxima.ventana_operativa !== '30_60') {
                 hideTableWarning();
                 return;
             }
 
             state.tableWarningMesaId = parseInt(mesaId, 10);
-            var relatedTables = Array.isArray(proxima.mesas) && proxima.mesas.length
-                ? proxima.mesas.join(', ')
-                : (proxima.mesa_ids || []).map(mesaNombre).join(', ');
             showGlobalNotice({
                 source: 'table',
                 type: 'warning',
-                title: 'Reservación próxima',
-                summary: 'Esta mesa tiene una reservación en ' + minutos + ' minutos.',
-                message: 'Esta mesa tiene una reservación a las ' + horaCorta(proxima.hora) +
-                    '. Folio ' + (proxima.folio || ('#' + proxima.id)) +
-                    (proxima.nombre ? ' · ' + proxima.nombre : '') +
-                    ' · ' + plural(parseInt(proxima.comensales || '0', 10), 'comensal', 'comensales') +
-                    (relatedTables ? ' · ' + relatedTables : '')
+                title: proxima.presentacion ? proxima.presentacion.titulo : '',
+                summary: proxima.presentacion ? proxima.presentacion.mensaje : '',
+                message: proxima.presentacion ? proxima.presentacion.consecuencia : ''
             });
         }
 
@@ -963,14 +977,16 @@
             createForm.removeAttribute('data-operational-warning-accepted');
             createForm.removeAttribute('data-contact-warning-accepted');
             setCreateFormValue('nombre', '');
-            setCreateFormValue('contacto_tipo', 'email');
+            // El contacto es opcional en el alta: el estado inicial debe
+            // coincidir con la advertencia SIN_CONTACTO que valida el backend.
+            setCreateFormValue('contacto_tipo', 'ninguno');
             setCreateFormValue('contacto', '');
             setCreateFormValue('comensales', '2');
             setCreateFormValue('nota', '');
             setCreateFormValue('comentario_admin', '');
             setCreateFormValue('request_token', createRequestToken());
             setCreateFormValue('confirmar_sin_contacto', '0');
-            setCreateFormValue('permitir_capacidad_insuficiente', '0');
+            setCreateFormValue('confirmar_sobrecapacidad', '0');
 
             var automatic = createForm.querySelector('[name="asignar_automaticamente"][value="1"]');
             if (automatic) {
@@ -1062,12 +1078,19 @@
 
             createModalSubmitting = true;
             clearCreateModalErrors();
-            postJson(createForm.action, new URLSearchParams(new FormData(createForm)))
+            var formData = new FormData(createForm);
+            var automaticAssignment = createForm.querySelector('[name="asignar_automaticamente"][value="1"]');
+            formData.set('asignar_automaticamente', automaticAssignment && automaticAssignment.checked ? '1' : '0');
+            var acceptedConfirmations = createForm.getAttribute('data-confirmations-accepted') || '';
+            if (acceptedConfirmations) {
+                formData.set('confirmaciones', acceptedConfirmations);
+            }
+            postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
                     var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
                     var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
                     var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
-                    var message = payload.message || payload.msg || 'Reservación creada.';
+                    var message = payload.mensaje || '';
 
                     state.pendingCreationFeedback = {
                         reservationId: reservationId,
@@ -1086,12 +1109,13 @@
                     loadDay(fecha, {
                         preserveReservationId: reservationId,
                         preserveHour: hora,
-                        enterAssignmentMode: payload.requiresManualAssignment === true
+                        enterAssignmentMode: payload.requiresManualAssignment === true,
+                        assignmentLater: payload.requiresManualAssignment === true
                     });
                 })
                 .catch(function (error) {
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
-                    var message = error && (error.message || error.msg) || 'No fue posible crear la reservación.';
+                    var message = error && error.mensaje || '';
                     if (error && error.requiresCapacityConfirmation) {
                         createForm.dispatchEvent(new CustomEvent('reservation:capacity-warning', {
                             bubbles: true,
@@ -1155,10 +1179,11 @@
             els.capacity.hidden = !hasSummary;
             if (!hasSummary) return;
 
-            if (els.capacityTotal) els.capacityTotal.textContent = String(summary.capacidad_total || 0);
-            if (els.capacityReal) els.capacityReal.textContent = String(summary.capacidad_realmente_libre || 0);
+            if (els.capacityTotal) els.capacityTotal.textContent = String(summary.capacidad_fisica_total || summary.capacidad_total || 0);
+            if (els.capacityCommitted) els.capacityCommitted.textContent = String(summary.capacidad_fisica_comprometida || 0);
+            if (els.capacityDemand) els.capacityDemand.textContent = String(summary.demanda_no_asignada || 0);
+            if (els.capacityReal) els.capacityReal.textContent = String(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || 0);
             if (els.capacityProjected) els.capacityProjected.textContent = String(summary.capacidad_proyectada || 0);
-            if (els.capacityEstimated) els.capacityEstimated.textContent = String(summary.capacidad_estimada_horario || 0);
             if (els.capacityWarning) {
                 els.capacityWarning.hidden = !(parseInt(summary.capacidad_proyectada || '0', 10) > 0);
             }
@@ -1267,6 +1292,10 @@
                 estadoLabel: estadoLabel(estado),
                 seleccionada: selected,
                 mostrarSinMesas: true,
+                mostrarContextoAdmin: true,
+                contacto: reservacion.contacto_visible || 'Sin contacto',
+                origen: reservacion.origen_visible || '',
+                nota: reservacion.nota_breve || '',
                 clases: [
                     selected ? 'is-selected' : '',
                     editable ? '' : 'is-readonly',
@@ -1333,21 +1362,7 @@
             if (String(reservacion.estado) === 'pendiente_verificacion' && editable) {
                 return { key: 'verify', html: renderActionButton('verify', 'Confirmar verificación', 'admin-btn admin-btn--primary', false) };
             }
-            if (reservacion.puede_confirmar_llegada === true) {
-                return {
-                    key: 'arrival',
-                    html: renderActionButton(
-                        'arrival',
-                        reservacion.llegada_tardia === true ? 'Registrar llegada tardía' : 'Confirmar llegada',
-                        'admin-btn admin-btn--primary',
-                        false
-                    )
-                };
-            }
-            if (
-                ['confirmada', 'llego'].indexOf(String(reservacion.estado)) !== -1
-                && !reservacion.ticket_abierto
-            ) {
+            if (reservacion.puede_iniciar_servicio === true) {
                 return { key: 'start-service', html: renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--primary', false) };
             }
             return { key: '', html: '' };
@@ -1417,27 +1432,25 @@
                             var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
                             var other = '';
                             if (recommended.key !== 'reassign') other += renderActionButton('reassign', 'Cambiar mesas', 'admin-btn admin-btn--secondary', !assignable);
-                            if (recommended.key !== 'arrival' && reservacion.puede_confirmar_llegada === true) {
-                                other += renderActionButton('arrival', reservacion.llegada_tardia === true ? 'Llegada tardía' : 'Confirmar llegada', 'admin-btn admin-btn--secondary', false);
-                            }
-                            if (recommended.key !== 'start-service' && ['confirmada', 'llego'].indexOf(estado) !== -1 && !reservacion.ticket_abierto) {
+                            if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true) {
                                 other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', !mesaIds.length);
                             }
-                            if (reservacion.elegible_no_show === true) {
-                                other += renderActionButton('no-show', 'Marcar no show', 'admin-btn admin-btn--ghost', false);
+                            if (reservacion.puede_registrar_ausencia === true) {
+                                other += renderActionButton('no-show', 'Registrar que el cliente no se presentó', 'admin-btn admin-btn--ghost', false);
                             }
                             if (reservacion.ticket_abierto && reservacion.ticket_id) {
                                 other += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Consultar ticket #' + esc(reservacion.ticket_id) + '</a>';
                             }
                             return '<div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + (recommended.html || '<p class="reservation-operation-panel__muted">No hay una acción recomendada para este estado.</p>') + '</div>' +
                                 '<div class="reservation-operation-action-group"><h4>Otras acciones</h4><div class="reservation-operation-actions">' + (other || '<p class="reservation-operation-panel__muted">No hay otras acciones disponibles.</p>') + '</div></div>' +
-                                '<div class="reservation-operation-action-group reservation-operation-action-group--danger"><h4>Cancelar reservación</h4>' + renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', !(['confirmada', 'llego'].indexOf(estado) !== -1 && !reservacion.ticket_abierto)) + '</div>';
+                                '<div class="reservation-operation-action-group reservation-operation-action-group--danger"><h4>Cancelar reservación</h4>' + renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', !(estado === 'confirmada' && !reservacion.ticket_abierto)) + '</div>';
                         })() +
                     '</section>' +
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                         '<h4>Mesas asignadas</h4>' +
                         (!assignable ? '<p class="reservation-operation-inline reservation-operation-inline--muted">Este estado no permite cambiar mesas.</p>' : '') +
                         (assignable ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
+                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Liberar asignación</button>' : '') +
                         '<div class="reservation-operation-summary">' +
                             '<div><span>Reservación</span><strong>' + comensales + ' personas</strong></div>' +
                             '<div><span>Capacidad total</span><strong class="' + (insufficient ? 'is-insufficient' : '') + '">' + capacidad + '</strong></div>' +
@@ -1504,23 +1517,12 @@
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
                 var modifiers = [];
-                var indicators = [];
 
                 if (assignedReservation) {
                     modifiers.push('asignada');
-                    indicators.push({
-                        tipo: 'asignada',
-                        label: 'Asignada a reservación #' + assignedReservation.id,
-                        simbolo: 'A'
-                    });
                 }
                 if (assigned) {
                     modifiers.push('seleccion_actual');
-                    indicators.push({
-                        tipo: 'seleccion_actual',
-                        label: 'Selección actual',
-                        simbolo: 'S'
-                    });
                 }
 
                 var associatedId = normalized.reservacion_asociada
@@ -1556,13 +1558,17 @@
                     conflict &&
                     (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
                 );
-                var selectable = Boolean(reservacion) &&
+                var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
                     (!conflict || ticketConflict) &&
                     (normalized.estado_base !== 'ocupada' || ticketConflict) &&
                     (normalized.estado_base !== 'bloqueada' || blockedBySelf);
                 var title = normalized.titulo;
+                if (assignedReservation) {
+                    title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
+                        ' a las ' + horaCorta(assignedReservation.hora) + '.';
+                }
                 if (conflict) {
                     title = ticketConflict
                         ? normalized.nombre + (
@@ -1575,11 +1581,11 @@
 
                 return window.MesaEstadoAdapter.paraMapaVisual(normalized, {
                     seleccionActual: assigned,
+                    seleccionValida: true,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     modificadores: modifiers,
-                    indicadores: indicators,
-                    clasesEstado: assigned ? ['reservation-operation-pin--selected'] : [],
+                    clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
                     atributos: {
                         'data-operation-table': mesaId,
                         'data-disabled': !selectable || state.guardando ? '1' : '0'
@@ -1622,7 +1628,7 @@
                     type: 'restricted',
                     title: 'Horario no disponible',
                     summary: 'El horario ya no forma parte de la operación vigente.',
-                    message: 'El servidor excluyó ese bloque porque ya pasó o no pertenece al horario configurado. Selecciona uno de los horarios disponibles.'
+                    message: state.consecuenciaOperacion || ''
                 });
                 return;
             }
@@ -1633,14 +1639,25 @@
 
             state.reservacionSeleccionadaId = null;
             state.mesasSeleccionadas = new Set();
-            renderAll();
+            loadDay(state.fecha, { preserveHour: nextHour, requestedHour: nextHour });
         }
 
         function loadDay(fecha, options) {
             options = options || {};
             fecha = String(fecha || '').trim();
 
-            exitAssignmentMode({ render: false, restoreFocus: false });
+            var preserveReservationId = parseInt(options.preserveReservationId || state.reservacionSeleccionadaId || '0', 10) || null;
+            var preserveAssignment = state.assignmentMode
+                && options.discardAssignment !== true
+                && preserveReservationId !== null
+                && preserveReservationId === state.reservacionSeleccionadaId;
+            var localSelectionBeforeRefresh = preserveAssignment
+                ? Array.from(state.mesasSeleccionadas)
+                : [];
+
+            if (!preserveAssignment) {
+                exitAssignmentMode({ render: false, restoreFocus: false });
+            }
             hideTableWarning();
             dismissScheduleAlert();
 
@@ -1726,26 +1743,18 @@
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
                     state.editable = data.editable !== false;
-                    state.horarios = data.horarios || [];
+                    state.horarios = data.horarios_mapa || data.horarios || [];
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
-                    state.mesasEstado = data.mesas_estado || state.mesas.map(function (mesa) {
-                        var active = parseInt(mesa.activo || '0', 10) === 1;
-                        var reservable = parseInt(mesa.reservable || '0', 10) === 1;
-                        return Object.assign({}, mesa, {
-                            estado_base: active && reservable ? 'disponible' : 'no_reservable',
-                            modificadores: [],
-                            indicadores: [],
-                            seleccion_actual: false,
-                            titulo: mesa.nombre + (active && reservable ? '. Disponible.' : '. No reservable.')
-                        });
-                    });
+                    state.mesasEstado = data.mesas_estado || [];
                     state.ocupacionFisica = data.ocupacion_fisica || [];
                     state.ocupacionPorReservacion = data.ocupacion_por_reservacion || {};
                     state.capacidadHorario = data.capacidad_horario || {};
                     state.alertasOperativas = data.alertas_operativas || [];
                     state.estadoOperacion = data.estado_operacion || 'disponible';
                     state.mensajeOperacion = data.mensaje || '';
+                    state.tituloOperacion = data.titulo || '';
+                    state.consecuenciaOperacion = data.consecuencia || '';
                     state.scheduleAlertDismissed = false;
                     delete dismissedNoticeSources.schedule;
                     delete dismissedNoticeSources.context;
@@ -1756,8 +1765,8 @@
                     state.config.comentarioAdminDisponible = Boolean(data.config && data.config.comentario_admin_disponible);
                     state.config.temporal = (data.config && data.config.temporal) || {};
 
-                    var selected = options.preserveReservationId
-                        ? findReservationById(options.preserveReservationId)
+                    var selected = preserveReservationId
+                        ? findReservationById(preserveReservationId)
                         : null;
                     if (
                         selected
@@ -1769,10 +1778,18 @@
                     if (selected) {
                         state.reservacionSeleccionadaId = parseInt(selected.id, 10);
                         state.horaSeleccionada = horaCorta(selected.hora);
-                        state.mesasSeleccionadas = new Set((selected.mesa_ids || []).map(function (mesaId) {
-                            return parseInt(mesaId, 10);
-                        }));
+                        state.mesasSeleccionadas = preserveAssignment
+                            ? new Set(localSelectionBeforeRefresh)
+                            : new Set((selected.mesa_ids || []).map(function (mesaId) {
+                                return parseInt(mesaId, 10);
+                            }));
+                        if (preserveAssignment) {
+                            state.assignmentDataUpdated = true;
+                        }
                     } else {
+                        if (preserveAssignment) {
+                            exitAssignmentMode({ render: false, restoreFocus: false, restoreSelection: false });
+                        }
                         var availableHours = sortedHours();
                         state.reservacionSeleccionadaId = null;
                         state.horaSeleccionada = requestedHour && availableHours.indexOf(requestedHour) !== -1
@@ -1785,22 +1802,17 @@
                     setLoading(false);
                     renderAll();
                     if (data.hora_solicitada_vencida === true) {
-                        var noFutureHours = data.sin_horarios_futuros === true;
                         showGlobalNotice({
                             source: 'expired-hour',
                             type: 'warning',
-                            title: noFutureHours ? 'No hay horarios disponibles' : 'Horario no disponible',
-                            summary: noFutureHours
-                                ? 'El horario solicitado ya pasó y hoy no quedan más bloques.'
-                                : 'El horario solicitado ya pasó para el día actual.',
-                            message: noFutureHours
-                                ? 'No puede abrirse como operación editable. Selecciona una fecha futura para continuar.'
-                                : 'No puede abrirse en modo operativo. Se cargó el siguiente horario disponible; usa la vista histórica de solo lectura cuando necesites consultar fechas anteriores.'
+                            title: data.titulo || '',
+                            summary: data.mensaje || '',
+                            message: data.consecuencia || ''
                         });
                     }
                     if (options.enterAssignmentMode || state.pendingInitialAssignment) {
                         state.pendingInitialAssignment = false;
-                        enterAssignmentMode(null, { focus: true });
+                        enterAssignmentMode(null, { focus: true, allowAssignLater: options.assignmentLater === true });
                     }
                     startTemporalRefresh();
                     setUpdateStatus('Actualizado ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }), 'ready');
@@ -1840,11 +1852,15 @@
             options = options || {};
             loadDay(state.fecha, {
                 preserveReservationId: options.preserveReservationId || state.reservacionSeleccionadaId,
-                preserveHour: state.horaSeleccionada
+                preserveHour: state.horaSeleccionada,
+                discardAssignment: options.discardAssignment === true
             });
         }
 
         function postJson(url, data) {
+            if (csrfToken && data && typeof data.set === 'function') {
+                data.set('admin_csrf', csrfToken);
+            }
             var controller = new AbortController();
             var timeoutId = window.setTimeout(function () {
                 controller.abort();
@@ -1900,7 +1916,7 @@
             if (error && error.kind === 'server') {
                 return 'El servidor no pudo completar la accion. Los datos visibles no cambiaron.';
             }
-            return fallback;
+            return fallback || '';
         }
 
         function saveTableAssignment(conflictConfirmation) {
@@ -1929,6 +1945,9 @@
                     data.append('ticket_ids_aceptados[]', String(ticketId));
                 });
                 data.set('conflicto_token', String(conflictConfirmation.token || ''));
+                (conflictConfirmation.confirmaciones || []).forEach(function (codigo) {
+                    data.append('confirmaciones[]', String(codigo));
+                });
             }
 
             setSaving(true);
@@ -1936,43 +1955,84 @@
                 .then(function (payload) {
                     closeTicketConflictModal();
                     exitAssignmentMode({ restoreFocus: false });
-                    if (payload.depende_liberacion_proyectada) {
+                    if (payload.depende_liberacion_proyectada || (payload.advertencias || []).length) {
                         showGlobalNotice({
                             source: 'projection',
                             type: 'warning',
-                            title: 'Asignación con liberación proyectada',
-                            summary: payload.advertencia || 'Una mesa sigue ocupada físicamente.',
-                            message: 'Confirma que el ticket cierre antes del bloqueo o reasigna la reservación.',
+                            title: payload.titulo || '',
+                            summary: payload.mensaje || '',
+                            message: payload.consecuencia || '',
                             dismissible: true
                         });
                     } else {
-                        showToast('Asignacion guardada.', 'success');
+                        showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     }
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    if (error && error.codigo === 'CONFLICTO_TICKETS_ABIERTOS') {
+                    if (error && error.codigo === 'CAPACIDAD_INSUFICIENTE') {
+                        openCapacityConflictModal(error);
+                        return;
+                    }
+                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO', 'DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
                         openTicketConflictModal(error);
                         return;
                     }
                     if (error && error.codigo === 'CONFLICTO_CONCURRENTE') {
                         closeTicketConflictModal();
-                        showInlineError('La ocupación cambió mientras confirmabas. Se actualizará el mapa para que revises nuevamente.');
-                        refreshDay({ preserveReservationId: reservacion.id });
+                        showInlineError(error.mensaje || '', error);
+                        refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'VERSION_DESACTUALIZADA') {
                         closeTicketConflictModal();
-                        showInlineError('La reservación cambió desde que abriste el mapa. Se actualizarán fecha, hora, versión y mesas antes de continuar.');
-                        refreshDay({ preserveReservationId: reservacion.id });
+                        showInlineError(error.mensaje || '', error);
+                        refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'MESA_OCUPADA') {
-                        showInlineError('La mesa acaba de ser asignada a otra reservacion. Los datos fueron actualizados.');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''), error);
+                })
+                .finally(function () {
+                    setSaving(false);
+                });
+        }
+
+        function clearTableAssignment() {
+            var reservacion = selectedReservation();
+            if (!reservacion || !canClearAssignment(reservacion) || state.guardando) {
+                return;
+            }
+
+            var data = new URLSearchParams();
+            data.set('reservation_id', String(reservacion.id));
+            data.set('fecha', String(reservacion.fecha || state.fecha || ''));
+            data.set('hora', horaCorta(reservacion.hora || state.horaSeleccionada || ''));
+            data.set('version_esperada', String(reservacion.version || ''));
+            data.set('mesa_ids_actuales_presentes', '1');
+            (reservacion.mesa_ids || []).forEach(function (mesaId) {
+                data.append('mesa_ids_actuales[]', String(mesaId));
+            });
+            data.append('confirmaciones[]', 'LIBERAR_ASIGNACION_ACTUAL');
+
+            setSaving(true);
+            postJson(API_BASE + '/clear-tables', data)
+                .then(function (payload) {
+                    showToast(payload.mensaje || '', 'warning');
+                    exitAssignmentMode({ restoreFocus: false });
+                    refreshDay({ preserveReservationId: reservacion.id });
+                })
+                .catch(function (error) {
+                    if (error && ['VERSION_DESACTUALIZADA', 'CONFLICTO_CONCURRENTE'].indexOf(error.codigo) !== -1) {
+                        showInlineError(error.mensaje || '', error);
+                        refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
+                        return;
+                    }
+                    showInlineError(operationErrorMessage(error, ''), error);
                 })
                 .finally(function () {
                     setSaving(false);
@@ -1980,45 +2040,111 @@
         }
 
         function openTicketConflictModal(payload) {
-            if (!ticketConflictModal || !ticketConflictList) {
-                showInlineError('La selección incluye tickets abiertos y requiere confirmación explícita.');
+            if (!confirmationController) {
+                showInlineError(payload && payload.mensaje || '', payload);
                 return;
             }
 
             var conflictos = Array.isArray(payload.conflictos_ticket)
                 ? payload.conflictos_ticket
                 : [];
+            var confirmaciones = Array.isArray(payload.confirmaciones_requeridas)
+                ? payload.confirmaciones_requeridas.slice()
+                : [];
+            if (conflictos.length && confirmaciones.indexOf('CONFLICTO_TICKET_ABIERTO') === -1) {
+                confirmaciones.push('CONFLICTO_TICKET_ABIERTO');
+            }
             state.pendingAssignmentConflict = {
                 token: payload.conflicto_token || '',
                 ticketIds: conflictos.map(function (conflicto) {
                     return parseInt(conflicto.ticket_id, 10);
-                }).filter(Boolean)
+                }).filter(Boolean),
+                confirmaciones: confirmaciones
             };
-            ticketConflictList.innerHTML = conflictos.map(function (conflicto) {
+            var confirmationDetails = confirmaciones.map(function (codigo) {
+                var presentacion = (payload.confirmaciones_requeridas_presentaciones && payload.confirmaciones_requeridas_presentaciones[codigo])
+                    || (payload.advertencias_presentaciones && payload.advertencias_presentaciones[codigo]);
+                return 'Confirmación requerida: ' + (presentacion ? presentacion.mensaje : codigo);
+            });
+            confirmationDetails = confirmationDetails.concat(conflictos.map(function (conflicto) {
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
                 var allTables = (conflicto.mesa_ids || []).map(mesaNombre).join(', ');
                 var origin = conflicto.origen === 'reservacion'
-                    ? 'Reservación #' + esc(conflicto.reservacion_id || '')
+                    ? 'Reservación #' + (conflicto.reservacion_id || '')
                     : 'Walk-in';
-                return '<article class="admin-card reservation-operation-conflict">' +
-                    '<h3>Ticket #' + esc(conflicto.ticket_id) + '</h3>' +
-                    '<p><strong>Mesas seleccionadas:</strong> ' + esc(conflictTables || 'Sin identificar') + '</p>' +
-                    '<p><strong>Todas sus mesas:</strong> ' + esc(allTables || 'Sin identificar') + '</p>' +
-                    '<p><strong>Apertura:</strong> ' + esc(conflicto.hora_apertura || 'Sin dato') + '</p>' +
-                    '<p><strong>Origen:</strong> ' + origin + '</p>' +
-                '</article>';
-            }).join('');
-            if (ticketConflictError) {
-                ticketConflictError.hidden = true;
-                ticketConflictError.textContent = '';
+                return 'Ticket #' + conflicto.ticket_id +
+                    ' · Mesas seleccionadas: ' + (conflictTables || 'Sin identificar') +
+                    ' · Todas sus mesas: ' + (allTables || 'Sin identificar') +
+                    ' · Apertura: ' + (conflicto.hora_apertura || 'Sin dato') +
+                    ' · Origen: ' + origin;
+            }));
+            confirmationController.open({
+                variant: 'warning',
+                eyebrow: 'Excepción manual',
+                title: 'Conflicto de asignación',
+                description: 'La selección coincide con tickets realmente abiertos.',
+                summary: confirmationDetails,
+                consequence: 'El ticket continuará abierto y no se vinculará con esta reservación.',
+                secondaryLabel: 'Volver',
+                primaryLabel: 'Confirmar y guardar',
+                onPrimary: function () {
+                    var confirmation = state.pendingAssignmentConflict;
+                    confirmationController.close(false);
+                    if (confirmation) saveTableAssignment(confirmation);
+                }
+            });
+        }
+
+        function openCapacityConflictModal(payload) {
+            var reservacion = selectedReservation();
+            if (!confirmationController || !reservacion) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
             }
-            ticketConflictModal.showModal();
+
+            var comensales = parseInt(reservacion.comensales || '0', 10) || 0;
+            var capacidadSeleccionada = selectedCapacity();
+            var diferencia = Math.max(0, comensales - capacidadSeleccionada);
+            var confirmaciones = Array.isArray(payload && payload.confirmaciones_requeridas)
+                ? payload.confirmaciones_requeridas.slice()
+                : [];
+            if (confirmaciones.indexOf('CAPACIDAD_INSUFICIENTE') === -1) {
+                confirmaciones.push('CAPACIDAD_INSUFICIENTE');
+            }
+
+            state.pendingAssignmentConflict = {
+                token: '',
+                ticketIds: [],
+                confirmaciones: confirmaciones
+            };
+            confirmationController.open({
+                variant: 'warning',
+                eyebrow: 'Capacidad de mesas',
+                title: 'La capacidad de las mesas es insuficiente',
+                description: 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
+                summary: [
+                    'Comensales: ' + comensales,
+                    'Capacidad seleccionada: ' + capacidadSeleccionada,
+                    'Lugares faltantes: ' + diferencia
+                ],
+                consequence: 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
+                secondaryLabel: 'Volver a seleccionar',
+                primaryLabel: 'Guardar de todas formas',
+                onSecondary: function () {
+                    state.pendingAssignmentConflict = null;
+                },
+                onPrimary: function () {
+                    var confirmation = state.pendingAssignmentConflict;
+                    closeTicketConflictModal();
+                    if (confirmation) saveTableAssignment(confirmation);
+                }
+            });
         }
 
         function closeTicketConflictModal() {
             state.pendingAssignmentConflict = null;
-            if (ticketConflictModal && ticketConflictModal.open) {
-                ticketConflictModal.close();
+            if (confirmationController && !confirmationController.element.hidden) {
+                confirmationController.close(true);
             }
         }
 
@@ -2037,11 +2163,11 @@
             setSaving(true);
             postJson(API_BASE + '/update-comment', data)
                 .then(function () {
-                    showToast('Comentario guardado.', 'success');
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2060,12 +2186,12 @@
 
             setSaving(true);
             postJson(API_BASE + '/reassign', data)
-                .then(function () {
-                    showToast('Asignacion guardada.', 'success');
+                .then(function (payload) {
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''));
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2090,22 +2216,16 @@
         function actionAllowed(reservacion, action) {
             var estado = String(reservacion.estado || '');
             if (action === 'verify') {
-                return estado === 'pendiente_verificacion' && isEditable(reservacion);
-            }
-            if (action === 'arrival') {
-                return reservacion.puede_confirmar_llegada === true;
+                return false;
             }
             if (action === 'start-service') {
-                return ['confirmada', 'llego'].indexOf(estado) !== -1
-                    && !reservacion.ticket_abierto
-                    && Array.isArray(reservacion.mesa_ids)
-                    && reservacion.mesa_ids.length > 0;
+                return reservacion.puede_iniciar_servicio === true;
             }
             if (action === 'no-show') {
-                return reservacion.elegible_no_show === true;
+                return reservacion.puede_registrar_ausencia === true;
             }
             if (action === 'cancel') {
-                return ['confirmada', 'llego'].indexOf(estado) !== -1
+                return (estado === 'confirmada' || estado === 'pendiente_verificacion')
                     && !reservacion.ticket_abierto;
             }
             return false;
@@ -2114,23 +2234,15 @@
         function executeReservationAction(action, motivo) {
             var reservacion = selectedReservation();
             if (!reservacion || !actionAllowed(reservacion, action)) {
-                showInlineError('La acción solicitada ya no está disponible. Actualiza los datos e intenta nuevamente.');
+                showInlineError('');
                 return;
             }
 
             var estados = {
                 verify: 'confirmada',
-                arrival: 'llego',
                 'start-service': 'en_curso',
                 cancel: 'cancelada',
                 'no-show': 'no_show'
-            };
-            var labels = {
-                verify: 'Verificación confirmada.',
-                arrival: reservacion.llegada_tardia === true ? 'Llegada tardía registrada.' : 'Llegada registrada.',
-                'start-service': 'Servicio iniciado.',
-                cancel: 'Reservación cancelada.',
-                'no-show': 'Reservación marcada como no show.'
             };
             var estado = estados[action] || '';
             var data = new URLSearchParams();
@@ -2141,32 +2253,32 @@
             setSaving(true);
             postJson(API_BASE + '/status', data)
                 .then(function (payload) {
-                    showToast(labels[action] || 'Cambios guardados.', 'success');
+                    showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
                     if (error && error.requiere_reasignacion) {
                         showGlobalNotice({
-                            source: 'late-arrival',
+                            source: 'service-start-conflict',
                             type: 'warning',
-                            title: 'La llegada requiere nuevas mesas',
-                            summary: error.mensaje || 'Las mesas originales ya no están disponibles.',
-                            message: 'Selecciona una asignación válida en el mapa y vuelve a confirmar la llegada. No se recuperó ninguna mesa automáticamente.'
+                            title: 'El inicio de servicio requiere nuevas mesas',
+                            summary: error.mensaje || '',
+                            message: error.consecuencia || ''
                         });
                         enterAssignmentMode(null, { focus: true });
                         return;
                     }
                     if (error && error.codigo === 'RESERVACION_NO_EDITABLE') {
-                        showInlineError('La reservación ya no permite modificar sus mesas.');
-                        refreshDay({ preserveReservationId: reservacion.id });
+                        showInlineError(error.mensaje || '', error);
+                        refreshDay({ preserveReservationId: reservacion.id, discardAssignment: true });
                         return;
                     }
                     if (error && error.codigo === 'DATOS_INCOMPLETOS') {
-                        showInlineError('Falta contexto de la asignación. Actualiza el mapa antes de volver a guardar.');
+                        showInlineError(error.mensaje || '', error);
                         refreshDay({ preserveReservationId: reservacion.id });
                         return;
                     }
-                    showInlineError(operationErrorMessage(error, 'No fue posible guardar los cambios. Intentalo nuevamente.'));
+                    showInlineError(operationErrorMessage(error, ''), error);
                 })
                 .finally(function () {
                     setSaving(false);
@@ -2174,34 +2286,69 @@
         }
 
         function openActionModal(action, reservacion) {
-            if (!actionModal) {
+            if (!confirmationController) {
                 showInlineError('No fue posible abrir la confirmación operativa.');
                 return;
             }
 
             state.pendingAction = action;
             var isCancel = action === 'cancel';
-            actionTitle.textContent = isCancel ? 'Cancelar reservación' : 'Marcar como no show';
-            actionDescription.textContent = isCancel
-                ? 'La reservación conservará sus relaciones históricas. No puede cancelarse si el servicio ya comenzó.'
-                : 'Confirma que la tolerancia venció y que el cliente no llegó. Esta acción no puede revertirse desde el mapa.';
-            actionReasonField.hidden = !isCancel;
-            actionReason.value = '';
-            actionError.hidden = true;
-            actionError.textContent = '';
-            actionModal.showModal();
+            var isClearAssignment = action === 'clear-assignment';
+            var title = isCancel
+                ? 'Cancelar reservación'
+                : (isClearAssignment ? 'Liberar asignación' : 'Registrar que el cliente no se presentó');
+            var description = isCancel
+                ? 'La cancelación conservará las relaciones históricas y requiere un motivo.'
+                : (isClearAssignment
+                    ? 'La reservación conservará el estado confirmado y quedará sin mesas asignadas para completar la asignación manual.'
+                    : 'La tolerancia venció y no existe llegada ni ticket abierto.');
+            var consequence = isCancel
+                ? 'La reservación dejará de comprometer sus mesas y no podrá recuperarse desde el mapa.'
+                : (isClearAssignment
+                    ? 'La reservación seguirá confirmada y el equipo deberá resolver su asignación manualmente.'
+                    : 'La reservación cambiará a no show y sus mesas dejarán de estar comprometidas.');
+            var customContent = null;
+            actionReason = null;
             if (isCancel) {
-                window.requestAnimationFrame(function () {
-                    actionReason.focus();
-                });
+                var reasonField = document.createElement('label');
+                reasonField.className = 'confirmation-modal__reason';
+                var reasonLabel = document.createElement('span');
+                reasonLabel.textContent = 'Motivo';
+                actionReason = document.createElement('textarea');
+                actionReason.rows = 3;
+                actionReason.maxLength = 500;
+                actionReason.placeholder = 'Explica brevemente el motivo';
+                actionReason.setAttribute('aria-label', 'Motivo de la cancelación');
+                reasonField.append(reasonLabel, actionReason);
+                customContent = reasonField;
             }
+            confirmationController.open({
+                variant: isCancel ? 'danger' : 'warning',
+                eyebrow: isCancel ? 'Acción administrativa' : 'Registro operativo',
+                title: title,
+                description: description,
+                summary: reservacion ? [
+                    'Reservación #' + (reservacion.id || ''),
+                    'Cliente: ' + (reservacion.nombre || 'Sin nombre'),
+                    'Fecha y hora: ' + (reservacion.fecha || '') + ' ' + String(reservacion.hora || '').slice(0, 5)
+                ] : [],
+                consequence: consequence,
+                customContent: customContent,
+                secondaryLabel: 'Volver',
+                primaryLabel: isCancel ? 'Cancelar reservación' : (isClearAssignment ? 'Liberar asignación' : 'Registrar ausencia'),
+                initialFocus: isCancel ? actionReason : 'primary',
+                onPrimary: function () {
+                    return confirmPendingAction();
+                }
+            });
         }
 
-        function closeActionModal() {
+        function closeActionModal(restoreFocus) {
             state.pendingAction = null;
-            if (actionModal && actionModal.open) {
-                actionModal.close();
+            if (confirmationController && !confirmationController.element.hidden) {
+                confirmationController.close(restoreFocus !== false);
             }
+            actionReason = null;
         }
 
         function confirmPendingAction() {
@@ -2211,22 +2358,29 @@
             }
             var motivo = actionReason ? actionReason.value.trim() : '';
             if (action === 'cancel' && !motivo) {
-                actionError.textContent = 'Escribe el motivo de la cancelación.';
-                actionError.hidden = false;
-                actionReason.focus();
-                return;
+                confirmationController.setStatus('Escribe el motivo de la cancelación.', true);
+                if (actionReason) actionReason.focus();
+                return false;
             }
-            closeActionModal();
+            if (action === 'clear-assignment') {
+                closeActionModal(false);
+                clearTableAssignment();
+                return true;
+            }
+            closeActionModal(false);
             executeReservationAction(action, motivo);
+            return true;
         }
 
-        function showInlineError(message) {
+        function showInlineError(message, error) {
+            error = error || {};
+            var catalogMessage = error.mensaje || message || '';
             showGlobalNotice({
                 source: 'action',
                 type: 'error',
-                title: 'Acción no permitida',
-                summary: 'No fue posible completar la acción solicitada.',
-                message: message + ' Los datos visibles no cambiaron; revisa el estado actual antes de continuar.'
+                title: error.titulo || 'No se pudo completar la acción',
+                summary: catalogMessage || 'La operación no se completó.',
+                message: error.consecuencia || 'No se aplicaron cambios; revisa el estado actual antes de continuar.'
             });
         }
 
@@ -2284,6 +2438,20 @@
             }
         }
 
+        if (els.assignmentFilter) {
+            els.assignmentFilter.addEventListener('change', function () {
+                state.assignmentFilter = els.assignmentFilter.value || 'all';
+                renderReservationList();
+            });
+        }
+
+        if (els.reservationSearch) {
+            els.reservationSearch.addEventListener('input', function () {
+                state.reservationSearch = els.reservationSearch.value || '';
+                renderReservationList();
+            });
+        }
+
         if (createModal && createForm) {
             if (els.create) {
                 els.create.addEventListener('click', function (event) {
@@ -2295,11 +2463,11 @@
             createForm.addEventListener('reservation:jsonsubmit', submitCreateModal);
             createForm.addEventListener('input', function () {
                 createModalDirty = true;
-                setCreateFormValue('permitir_capacidad_insuficiente', '0');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
             });
             createForm.addEventListener('change', function () {
                 createModalDirty = true;
-                setCreateFormValue('permitir_capacidad_insuficiente', '0');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
             });
 
             var closeCreateButtons = createModal.querySelectorAll('[data-operation-create-close], [data-operation-create-cancel]');
@@ -2387,18 +2555,6 @@
         }
 
         root.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape' && ticketConflictModal && ticketConflictModal.open) {
-                event.preventDefault();
-                closeTicketConflictModal();
-                return;
-            }
-
-            if (event.key === 'Escape' && actionModal && actionModal.open) {
-                event.preventDefault();
-                closeActionModal();
-                return;
-            }
-
             if (event.key === 'Escape' && createModal && createModal.open) {
                 event.preventDefault();
                 closeCreateModal(false);
@@ -2425,8 +2581,15 @@
                 return;
             }
 
-            if (!state.assignmentMode && window.matchMedia('(max-width: 1199px)').matches) {
-                enterAssignmentMode(null, { focus: false });
+            if (!state.assignmentMode) {
+                showGlobalNotice({
+                    source: 'assignment',
+                    type: 'info',
+                    title: 'Modo de asignación inactivo',
+                    summary: 'Selecciona una reservación y pulsa “Cambiar mesas”.',
+                    message: 'El mapa solo cambia mesas dentro del modo de asignación explícito. La vista actual no se modificó.'
+                });
+                return;
             }
 
             var mesaId = parseInt(event.detail.mesaId, 10);
@@ -2446,40 +2609,14 @@
         });
 
         root.addEventListener('click', function (event) {
-            var ticketConflictClose = event.target.closest('[data-operation-ticket-conflict-close]');
-            var ticketConflictConfirm = event.target.closest('[data-operation-ticket-conflict-confirm]');
-            var actionClose = event.target.closest('[data-operation-action-close]');
-            var actionConfirm = event.target.closest('[data-operation-action-confirm]');
             var reservationButton = event.target.closest('[data-operation-reservation]');
             var assignmentStart = event.target.closest('[data-operation-assignment-start]');
             var assignmentCancel = event.target.closest('[data-operation-assignment-cancel]');
+            var assignmentClear = event.target.closest('[data-operation-clear]');
             var saveButton = event.target.closest('[data-operation-save]');
             var commentButton = event.target.closest('[data-operation-comment-save]');
             var actionButton = event.target.closest('[data-operation-action]');
             var mobileTab = event.target.closest('[data-operation-mobile-tab]');
-
-            if (ticketConflictClose) {
-                closeTicketConflictModal();
-                return;
-            }
-
-            if (ticketConflictConfirm) {
-                if (state.pendingAssignmentConflict) {
-                    var confirmation = state.pendingAssignmentConflict;
-                    saveTableAssignment(confirmation);
-                }
-                return;
-            }
-
-            if (actionClose) {
-                closeActionModal();
-                return;
-            }
-
-            if (actionConfirm) {
-                confirmPendingAction();
-                return;
-            }
 
             if (mobileTab) {
                 setMobileView(mobileTab.getAttribute('data-operation-mobile-tab'));
@@ -2498,6 +2635,14 @@
 
             if (assignmentCancel) {
                 cancelAssignmentMode();
+                return;
+            }
+
+            if (assignmentClear) {
+                var clearReservation = selectedReservation();
+                if (clearReservation && canClearAssignment(clearReservation)) {
+                    openActionModal('clear-assignment', clearReservation);
+                }
                 return;
             }
 

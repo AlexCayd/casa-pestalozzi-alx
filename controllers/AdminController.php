@@ -308,8 +308,12 @@ class AdminController
             if ($res) {
                 $mapMet = ['efectivo' => 0, 'tarjeta' => 1, 'dividido' => 2];
                 while ($r = $res->fetch_assoc()) {
-                    if (isset($mapMet[$r['metodo_pago']])) {
-                        $charts['paymentMethods']['values'][$mapMet[$r['metodo_pago']]] = (int) $r['n'];
+                    // metodo_pago es NULL en tickets cerrados sin cobro (los que
+                    // se liberaron o quedaron de arrastre): usarlo como índice
+                    // de array dispara un deprecated en PHP 8.4.
+                    $metodo = (string) ($r['metodo_pago'] ?? '');
+                    if (isset($mapMet[$metodo])) {
+                        $charts['paymentMethods']['values'][$mapMet[$metodo]] = (int) $r['n'];
                     }
                 }
             }
@@ -405,7 +409,11 @@ class AdminController
                     ];
                     $pagosTabla[] = [
                         'folio' => $folio,
-                        'metodo' => $r['estado'] === 'cerrado' ? ($metodoMap[$r['metodo_pago']] ?? '—') : 'Pendiente',
+                        // Mismo caso: metodo_pago puede venir NULL aunque el
+                        // ticket esté cerrado.
+                        'metodo' => $r['estado'] === 'cerrado'
+                            ? ($metodoMap[(string) ($r['metodo_pago'] ?? '')] ?? '—')
+                            : 'Pendiente',
                     ];
                 }
             }

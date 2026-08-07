@@ -90,13 +90,12 @@
                 <div class="admin-recipe__rows" data-recipe-rows>
                     <?php foreach ($ingredientesReceta as $ir) : ?>
                         <div class="admin-recipe__row" data-recipe-row>
-                            <div class="admin-combo" data-combo>
-                                <input type="text" class="admin-combo__search" data-combo-search autocomplete="off"
-                                       placeholder="Buscar ingrediente…"
-                                       value="<?php echo htmlspecialchars($ingLabel($ir['ref_id']), ENT_QUOTES); ?>"
-                                       aria-label="Ingrediente">
-                                <input type="hidden" name="ing_ref[]" data-combo-value value="<?php echo (int) $ir['ref_id']; ?>">
-                                <ul class="admin-combo__list" data-combo-list hidden></ul>
+                            <div class="admin-picker" data-picker>
+                                <button type="button" class="admin-picker__trigger" data-picker-open>
+                                    <span class="admin-picker__label" data-picker-label><?php echo htmlspecialchars($ingLabel($ir['ref_id']), ENT_QUOTES); ?></span>
+                                    <svg class="admin-picker__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+                                </button>
+                                <input type="hidden" name="ing_ref[]" data-picker-value value="<?php echo (int) $ir['ref_id']; ?>">
                             </div>
                             <input type="number" name="ing_cant[]" step="0.001" min="0" placeholder="Cantidad"
                                    value="<?php echo htmlspecialchars(rtrim(rtrim(number_format((float) $ir['cantidad'], 3, '.', ''), '0'), '.')); ?>"
@@ -110,11 +109,12 @@
 
                 <template data-recipe-template>
                     <div class="admin-recipe__row" data-recipe-row>
-                        <div class="admin-combo" data-combo>
-                            <input type="text" class="admin-combo__search" data-combo-search autocomplete="off"
-                                   placeholder="Buscar ingrediente…" aria-label="Ingrediente">
-                            <input type="hidden" name="ing_ref[]" data-combo-value value="">
-                            <ul class="admin-combo__list" data-combo-list hidden></ul>
+                        <div class="admin-picker" data-picker>
+                            <button type="button" class="admin-picker__trigger" data-picker-open>
+                                <span class="admin-picker__label" data-picker-label></span>
+                                <svg class="admin-picker__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <input type="hidden" name="ing_ref[]" data-picker-value value="">
                         </div>
                         <input type="number" name="ing_cant[]" step="0.001" min="0" placeholder="Cantidad" aria-label="Cantidad">
                         <button type="button" class="admin-icon-button admin-icon-button--danger" data-recipe-remove aria-label="Quitar ingrediente">
@@ -136,3 +136,5 @@
         </div>
     </form>
 </section>
+
+<?php include __DIR__ . '/_ingredient-picker-modal.php'; ?>

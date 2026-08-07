@@ -1,4 +1,5 @@
 const { src, dest, watch, parallel, series } = require("gulp");
+const fs = require("fs");
 
 // CSS
 const sass = require("gulp-sass")(require("sass"));
@@ -33,6 +34,7 @@ const paths = {
     "src/js/admin/core/reactive-filters.js",
     "src/js/admin/core/select.js",
     "src/js/admin/core/table-sort.js",
+    "src/js/admin/core/table-rows.js",
   ],
   adminAnalyticsJs: [
     // mock-data.js se retiró: los datos reales llegan desde PHP como
@@ -44,6 +46,7 @@ const paths = {
     "src/js/admin/analytics/analytics.js",
   ],
   adminMapJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/operation/shell.js",
     "src/js/operation/table-state-adapter.js",
@@ -53,13 +56,16 @@ const paths = {
   ],
   adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
+  adminUsersJs: "src/js/admin/users/users-form.js",
   adminReservationFormJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/reservations/form.js",
   ],
   adminReservationOperationJs: [
+    "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
@@ -78,6 +84,24 @@ const paths = {
   imagenes: "src/img/**/*",
   chartJs: "node_modules/chart.js/dist/chart.umd.min.js",
 };
+
+// En Windows, antivirus/indexadores pueden conservar brevemente los mapas
+// generados. El build es finito e idempotente: elimina sólo sus dos salidas
+// temporales antes de reemplazarlas, evitando que un handle viejo rompa toda
+// la compilación.
+function limpiarSalidaMapa() {
+  [
+    "public/build/js/admin/map.js",
+    "public/build/js/admin/map.js.map",
+  ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
+}
+
+function limpiarSalidaFormularioReservacion() {
+  [
+    "public/build/js/admin/reservation-form.js",
+    "public/build/js/admin/reservation-form.js.map",
+  ].forEach((archivo) => fs.rmSync(archivo, { force: true }));
+}
 
 function css() {
   return src(paths.scss)
@@ -106,8 +130,8 @@ function javascript() {
     .pipe(sourcemaps.init())
     .pipe(concat("bundle.js"))
     .pipe(terser())
-    .pipe(sourcemaps.write("."))
     .pipe(rename({ suffix: ".min" }))
+    .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js")) // auth views
     .pipe(dest("./assets/js")); // home view + index.html estatico
 }
@@ -131,6 +155,7 @@ function adminAnalyticsJavascript() {
 }
 
 function adminMapJavascript() {
+  limpiarSalidaMapa();
   return src(paths.adminMapJs)
     .pipe(sourcemaps.init())
     .pipe(concat("map.js"))
@@ -157,6 +182,15 @@ function adminRecetasJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminUsersJavascript() {
+  return src(paths.adminUsersJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("users.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminReservationOperationJavascript() {
   return src(paths.adminReservationOperationJs)
     .pipe(sourcemaps.init())
@@ -173,6 +207,7 @@ function operationCss() {
 }
 
 function adminReservationFormJavascript() {
+  limpiarSalidaFormularioReservacion();
   return src(paths.adminReservationFormJs)
     .pipe(sourcemaps.init())
     .pipe(concat("reservation-form.js"))
@@ -247,6 +282,7 @@ function devWatch(done) {
   );
   watch("src/js/admin/area/**/*.js", adminAreaJavascript);
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
+  watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
     ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
@@ -286,6 +322,7 @@ exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
+exports.adminUsersJs = adminUsersJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
@@ -308,6 +345,7 @@ exports.dev = parallel(
   adminAnalyticsJavascript,
   adminAreaJavascript,
   adminRecetasJavascript,
+  adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
@@ -333,6 +371,7 @@ exports.build = series(
   adminAreaJavascript,
   adminAnalyticsJavascript,
   adminRecetasJavascript,
+  adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,

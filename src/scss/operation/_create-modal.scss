@@ -371,53 +371,6 @@
   min-width: 0;
 }
 
-.operation-confirm-modal {
-  width: min(620px, calc(100vw - 32px));
-
-  .operation-create-modal__body {
-    display: grid;
-    gap: 16px;
-  }
-
-  .admin-field {
-    display: grid;
-    gap: 7px;
-
-    textarea {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 11px 12px;
-      border: 1px solid var(--admin-border-soft);
-      border-radius: 12px;
-      background: var(--admin-surface-soft);
-      color: var(--admin-text);
-      font: inherit;
-      resize: vertical;
-    }
-  }
-}
-
-.reservation-operation-conflicts {
-  display: grid;
-  gap: 10px;
-}
-
-.reservation-operation-conflict {
-  display: grid;
-  gap: 5px;
-  padding: 14px 16px;
-
-  strong {
-    color: var(--admin-text);
-  }
-
-  span {
-    color: var(--admin-muted);
-    font-size: var(--operational-text-sm);
-    line-height: 1.45;
-  }
-}
-
 @media (max-width: 640px) {
   .operation-create-modal {
     width: calc(100vw - 16px);

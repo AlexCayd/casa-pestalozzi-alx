@@ -6,7 +6,7 @@
 
 namespace Model;
 
-use Services\ReservacionConfig;
+use Services\TicketTemporalService;
 
 class TicketMesa extends ActiveRecord
 {
@@ -154,36 +154,19 @@ class TicketMesa extends ActiveRecord
      */
     public static function ocupacionAbiertaDesdeTickets(array $tickets): array
     {
-        $ahora = ReservacionConfig::ahora();
         $ocupacion = [];
         $vistos = [];
         foreach ($tickets as $ticket) {
+            if (!TicketTemporalService::ticketEstaAbierto($ticket)) {
+                continue;
+            }
             $ticketId = (int)($ticket['id'] ?? $ticket['ticket_id'] ?? 0);
             $reservacionId = !empty($ticket['reservacion_id'])
                 ? (int)$ticket['reservacion_id']
                 : null;
-            $liberacionBase = null;
-            $liberacion = null;
-            try {
-                $apertura = new \DateTimeImmutable(
-                    (string)($ticket['hora_apertura'] ?? ''),
-                    ReservacionConfig::timezone()
-                );
-                $liberacionBase = $apertura->modify(
-                    '+' . ReservacionConfig::DURACION_SERVICIO_ESTIMADA_MINUTOS . ' minutes'
-                )->modify(
-                    '+' . ReservacionConfig::MARGEN_PREPARACION_MESA_MINUTOS . ' minutes'
-                );
-                $seguridad = $ahora->modify(
-                    '+' . ReservacionConfig::MARGEN_MINIMO_SEGURIDAD_MINUTOS . ' minutes'
-                );
-                $liberacion = $liberacionBase > $seguridad
-                    ? $liberacionBase
-                    : $seguridad;
-            } catch (\Throwable $e) {
-                // hora_apertura es informativa. Un valor histórico inválido no
-                // debe convertir en disponible una mesa físicamente ocupada.
-            }
+            $liberacion = TicketTemporalService::calcularLiberacionEstimadaTicket(
+                $ticket['hora_apertura'] ?? null
+            );
 
             foreach (self::normalizarIds((array)($ticket['mesa_ids'] ?? [])) as $mesaId) {
                 $clave = $ticketId . ':' . $mesaId;
@@ -198,9 +181,7 @@ class TicketMesa extends ActiveRecord
                     'mesa_id' => $mesaId,
                     'walk_in' => $reservacionId === null,
                     'mesa_ids' => self::normalizarIds((array)($ticket['mesa_ids'] ?? [])),
-                    'liberacion_base' => $liberacionBase instanceof \DateTimeImmutable
-                        ? $liberacionBase->format('Y-m-d H:i:s')
-                        : null,
+                    'liberacion_base' => $liberacion?->format('Y-m-d H:i:s'),
                     'liberacion_estimada' => $liberacion instanceof \DateTimeImmutable
                         ? $liberacion->format('Y-m-d H:i:s')
                         : null,

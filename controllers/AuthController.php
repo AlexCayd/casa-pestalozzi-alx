@@ -8,7 +8,19 @@ use Model\Usuario;
 use MVC\Router;
 
 class AuthController {
-    /** Acceso del personal de piso (meseros/cajeros) por NIP → /punto-de-venta. */
+    /**
+     * /login: una sola pantalla con dos pestañas.
+     *
+     * Los dos accesos siguen siendo endpoints distintos (/login y /admin/login)
+     * porque su semántica lo es: por NIP la identidad se resuelve sola y el
+     * destino depende del rol; por contraseña hay que exigir rol admin y
+     * devolver un error deliberadamente genérico. Además, un único formulario
+     * con un campo one-time-code y otro current-password confunde a los
+     * gestores de contraseñas.
+     *
+     * Ambos incluyen esta misma vista y fijan $tabActiva, así que un POST
+     * fallido vuelve a su pestaña sin depender de JavaScript.
+     */
     public static function login(Router $router) {
         // Alguien con sesión activa no ve el login: va directo a su vista.
         if (Auth::check()) {
@@ -17,12 +29,22 @@ class AuthController {
         }
 
         $alertas = [];
+        $alertasAdmin = [];
+        $tabActiva = ($_GET['tab'] ?? '') === 'admin' ? 'admin' : 'nip';
+
+        // El aviso vive en la pestaña de contraseña, así que se abre ahí: sin
+        // esto el mensaje se renderiza en un panel oculto y nadie lo lee.
+        if (($_GET['resultado'] ?? '') === 'cuenta_eliminada') {
+            $alertasAdmin['aviso'][] = 'Tu cuenta fue eliminada. Entra con otro usuario administrador.';
+            $tabActiva = 'admin';
+        }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $tabActiva = 'nip';
             $nip = trim((string) ($_POST['nip'] ?? ''));
 
-            if (!preg_match('/^\d{4,6}$/', $nip)) {
-                $alertas['error'][] = 'Ingresa un NIP de 4 a 6 dígitos';
+            if (!preg_match('/^\d{4}$/', $nip)) {
+                $alertas['error'][] = 'Ingresa un NIP de 4 dígitos';
             } else {
                 $usuario = Usuario::porNip($nip);
 
@@ -41,7 +63,10 @@ class AuthController {
 
     /**
      * Acceso del administrador por usuario + contraseña alfanumérica → /admin.
-     * Un mesero/cajero con credenciales válidas no entra por aquí: solo admin.
+     * Un mesero o cocinero con credenciales válidas no entra por aquí: solo admin.
+     *
+     * En GET redirige a /login: la pantalla es una sola. Se conserva la ruta
+     * para no romper marcadores ni POST antiguos.
      */
     public static function loginAdmin(Router $router) {
         if (Auth::check()) {
@@ -49,38 +74,41 @@ class AuthController {
             exit;
         }
 
-        $alertas = [];
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = trim((string) ($_POST['username'] ?? ''));
-            $password = (string) ($_POST['password'] ?? '');
-
-            if ($username === '' || $password === '') {
-                $alertas['error'][] = 'Ingresa tu usuario y contraseña';
-            } else {
-                $usuario = Usuario::porCredenciales($username, $password);
-
-                if ($usuario && $usuario->rol === 'admin') {
-                    Auth::login($usuario);
-                    header('Location: /admin');
-                    exit;
-                }
-
-                // Mensaje genérico: no revelar si el usuario existe o si el
-                // rol no es admin.
-                $alertas['error'][] = 'Credenciales incorrectas';
-            }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /login', true, 302);
+            exit;
         }
 
-        include_once __DIR__ . '/../views/auth/login-admin.php';
+        $alertas = [];
+        $alertasAdmin = [];
+        $tabActiva = 'admin';
+
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+
+        if ($username === '' || $password === '') {
+            $alertasAdmin['error'][] = 'Ingresa tu usuario y contraseña';
+        } else {
+            $usuario = Usuario::porCredenciales($username, $password);
+
+            if ($usuario && $usuario->rol === 'admin') {
+                Auth::login($usuario);
+                header('Location: /admin');
+                exit;
+            }
+
+            // Mensaje genérico: no revelar si el usuario existe o si el
+            // rol no es admin.
+            $alertasAdmin['error'][] = 'Credenciales incorrectas';
+        }
+
+        include_once __DIR__ . '/../views/auth/login.php';
     }
 
     public static function logout() {
         if($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Cada quien regresa a su propio formulario de acceso
-            $destino = Auth::esAdmin() ? '/admin/login' : '/login';
             Auth::logout();
-            header('Location: ' . $destino);
+            header('Location: /login');
             exit;
         }
         header('Location: /');

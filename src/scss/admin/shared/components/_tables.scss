@@ -97,6 +97,21 @@
     box-shadow: inset 3px 0 0 var(--admin-gold);
   }
 
+  /* Fila que lleva a editar su registro (table-rows.js). El cursor solo cambia
+     donde hay destino: en las tablas de solo lectura el hover sigue siendo
+     únicamente resalte de lectura. */
+  tbody tr[data-row-href] {
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 0;
+      background: var(--admin-surface-soft);
+      box-shadow:
+        inset 3px 0 0 var(--admin-gold),
+        inset 0 0 0 2px var(--admin-gold);
+    }
+  }
+
   td:last-child,
   th:last-child {
     text-align: right;
@@ -273,38 +288,40 @@
   }
 }
 
-/* Editar y eliminar van en color solido: se leen como acciones, no como bordes. */
+/* Editar y eliminar van en color solido: se leen como acciones, no como bordes.
+   El verde y el rojo salen de la paleta, oscurecidos lo justo para que el
+   blanco del icono conserve contraste. */
 .admin-icon-button--edit {
-  border-color: #4f6b47;
-  background: #5f7d56;
+  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, #000);
+  background: var(--admin-c-verde);
   color: #fff;
   box-shadow: var(--admin-shadow-sm);
 
   &:hover {
-    border-color: #4f6b47;
-    background: #6d8e63;
+    border-color: color-mix(in srgb, var(--admin-c-verde) 76%, #000);
+    background: color-mix(in srgb, var(--admin-c-verde) 86%, #fff);
     color: #fff;
-    box-shadow: 0 6px 16px rgba(95, 125, 86, 0.35);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-verde) 35%, transparent);
   }
 }
 
 .admin-icon-button--danger {
-  border-color: #a8482f;
-  background: #c85a3c;
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, #000);
+  background: var(--admin-c-rojo);
   color: #fff;
   box-shadow: var(--admin-shadow-sm);
 
   &:hover {
-    border-color: #a8482f;
-    background: #d66a4b;
+    border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, #000);
+    background: color-mix(in srgb, var(--admin-c-rojo) 88%, #fff);
     color: #fff;
-    box-shadow: 0 6px 16px rgba(200, 90, 60, 0.35);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
   }
 }
 
 /* Propina en celda de tabla: monto + porcentaje sobre el consumo. */
 .admin-tk__tip {
-  color: var(--admin-success-text, #7ba86a);
+  color: var(--admin-success-text);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }

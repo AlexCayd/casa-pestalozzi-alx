@@ -477,84 +477,6 @@
 
 // ── Pines de mesa ─────────────────────────────────────────────
 // ── Estados de mesa ───────────────────────────────────────────
-.pdv-page .mesa-pin--zona {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-faint);
-
-  &.mesa-pin--tipo-especial {
-    background: rgba(204, 163, 82, .15);
-    border-color: rgba(204, 163, 82, .25);
-    color: var(--gold-soft);
-  }
-}
-
-.pdv-page .mesa-pin--libre {
-  background: var(--surface-2);
-  border-color: var(--line-soft);
-  color: var(--txt-mute);
-
-  &:hover {
-    background: var(--surface);
-    border-color: rgba(204, 163, 82, .3);
-    color: var(--txt);
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(0,0,0,.4);
-  }
-}
-
-.pdv-page .mesa-pin--mod-reservacion_proxima {
-  background: rgba(124, 61, 29, .18);
-  border-color: rgba(232, 160, 96, .4);
-  border-style: dashed;
-  color: #e8a060;
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(124,61,29,.35);
-  }
-}
-
-.pdv-page .mesa-pin--bloqueada {
-  background: rgba(204, 163, 82, .18);
-  border-color: rgba(224, 193, 132, .58);
-  color: var(--gold-soft);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 20px rgba(204, 163, 82, .3);
-  }
-}
-
-.pdv-page .mesa-pin--ocupada {
-  background: var(--admin-danger-bg);
-  border-color: var(--admin-danger-border);
-  color: var(--admin-danger-text);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--admin-danger) 16%, transparent);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px color-mix(in srgb, var(--admin-danger) 30%, transparent);
-  }
-}
-
-.pdv-page .mesa-pin--mod-ticket_abierto {
-  background: rgba(95, 125, 86, .22);
-  border-color: rgba(139, 191, 126, .55);
-  color: #8bbf7e;
-  box-shadow: 0 0 16px rgba(95, 125, 86, .15);
-
-  &:hover {
-    transform: translate(-50%, -50%) scale(1.06);
-    box-shadow: 0 4px 24px rgba(95, 125, 86, .3);
-  }
-}
-
-.pdv-page .mesa-pin--highlight {
-  box-shadow: 0 0 0 2px var(--gold-soft), 0 0 24px rgba(224, 193, 132, .35) !important;
-  z-index: 5;
-}
-
 // ── Controlador de tiempo ─────────────────────────────────────
 .pdv-time-ctrl {
   display: flex;
@@ -865,6 +787,52 @@
   }
 }
 
+// El aviso operativo usa el mismo panel, pero necesita un shell más amplio
+// y una fila de acciones independiente para que la consecuencia no quede
+// debajo del desplazamiento del contenido.
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
+  left: .75rem;
+  right: .75rem;
+  bottom: .75rem;
+  width: auto;
+  max-height: calc(100dvh - 1.5rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: .75rem .75rem calc(.75rem + env(safe-area-inset-bottom));
+  border-radius: 16px;
+}
+
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) #mesa-modal-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mesa-modal__panel:has(.mmodal-cancel-confirm--operation) .mmodal-cancel-confirm-overlay {
+  position: static;
+  inset: auto;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+@media (min-width: 640px) {
+  .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    width: min(46rem, calc(100vw - 3rem));
+    max-height: min(85dvh, 48rem);
+    padding: 1.5rem;
+  }
+}
+
 .mesa-modal__handle {
   width: 36px;
   height: 4px;
@@ -998,6 +966,21 @@
     background: rgba(204, 163, 82, .15);
     color: var(--gold);
     border: 1px solid rgba(204, 163, 82, .3);
+  }
+  &--warning {
+    background: color-mix(in srgb, var(--map-table-available-bg) 72%, var(--gold) 8%);
+    color: var(--gold-soft);
+    border: 1px dashed var(--map-table-reservation-border);
+  }
+  &--service_window, &--tolerance {
+    background: var(--map-table-reservation-bg);
+    color: var(--map-table-reservation-text);
+    border: 1px solid var(--map-table-reservation-border);
+  }
+  &--overdue {
+    background: var(--map-table-reservation-overdue-bg);
+    color: var(--map-table-reservation-overdue-text);
+    border: 1px solid var(--map-table-reservation-overdue-border);
   }
   &--ticket {
     background: rgba(95, 125, 86, .18);
@@ -1137,21 +1120,149 @@
   }
 }
 
+.mmodal-reservation__blocking {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding: .65rem .75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-soft);
+  border-radius: 6px;
+  color: var(--txt-mute);
+  font-size: .76rem;
+  line-height: 1.4;
+
+  > strong {
+    color: var(--txt);
+    font-size: .82rem;
+  }
+
+  p { margin: 0; }
+
+  &-list {
+    display: grid;
+    gap: .42rem;
+    margin: .1rem 0 0;
+    padding-left: 1.1rem;
+
+    li { padding-left: .1rem; }
+
+    strong { color: var(--txt); }
+
+    small {
+      display: block;
+      margin-top: .12rem;
+      color: var(--txt-faint);
+      font-size: .68rem;
+    }
+  }
+}
+
 .mmodal-reservation__actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: .5rem;
 
+  .mmodal-reservation__action-hint {
+    grid-column: 1 / -1;
+    color: var(--txt-mute);
+    font-size: .7rem;
+    line-height: 1.35;
+  }
+
   @media (min-width: 520px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 
-    .mmodal-btn--release {
-      grid-column: 1 / -1;
-    }
+    .mmodal-reservation__action-hint { grid-column: 1 / -1; }
   }
 }
 
+.mmodal-reservation__pending {
+  display: grid;
+  gap: .55rem;
+  margin: .15rem 0 .8rem;
+  padding: .75rem .8rem;
+  border: 1px solid var(--map-table-reservation-overdue-border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--txt);
+  font-size: .75rem;
+  line-height: 1.4;
+
+  strong { color: var(--txt); }
+  p { margin: 0; }
+}
+
+.mmodal-reservation__pending-facts {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+
+  dt { color: var(--txt-mute); }
+  dd { margin: 0; text-align: right; }
+}
+
 // ── Input nombre de cliente al abrir ticket ───────────────────
+.mmodal-ticket-tables {
+  width: 100%;
+  margin: -.35rem 0 .8rem;
+  padding: .55rem .7rem;
+  border-left: 2px solid var(--map-table-occupied-border);
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+
+.mmodal-ticket-reservation-alert {
+  display: grid;
+  gap: .25rem;
+  margin: -.25rem 0 .85rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--map-table-reservation-border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--map-table-reservation-bg);
+  color: var(--txt);
+  font-size: .73rem;
+  line-height: 1.35;
+
+  strong {
+    color: var(--map-table-reservation-text);
+    font-size: .68rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  span {
+    color: var(--txt-mute);
+  }
+}
+
+.mmodal-reserva-nota--admin {
+  border-color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
+}
+
+.mmodal-operation-details {
+  width: 100%;
+  margin: -.25rem 0 .25rem;
+  padding: .55rem .75rem .55rem 1.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: var(--txt-mute);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
 .mmodal-name-wrap {
   margin-bottom: .85rem;
 }
@@ -1540,47 +1651,69 @@
   scrollbar-width: thin;
 }
 
+// Vista Lista (y base de la Cuadrícula): un renglón por platillo. La tarjeta
+// entera es el botón de agregar, así que el objetivo táctil es toda la fila.
+// Contenido centrado y sin altura fija: el nombre del platillo se lee entero
+// aunque ocupe tres renglones. Truncarlo obligaba a adivinar entre "Baguette
+// de Jamón..." y "Baguette de Magret...", que son platillos distintos.
 .mmodal-dish-row {
   display: flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .5rem .75rem;
-  border-bottom: 1px solid var(--line-soft);
-  &:last-child { border-bottom: none; }
-}
-
-.mmodal-dish-name {
-  flex: 1;
-  font-size: .78rem;
-  color: var(--txt-mute);
-  line-height: 1.3;
-}
-
-.mmodal-dish-price {
-  font-size: .72rem;
-  color: var(--txt-faint);
-  min-width: 38px;
-  text-align: right;
-}
-
-.mmodal-dish-add {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(204, 163, 82, .4);
-  background: none;
-  color: var(--gold);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  padding: 0;
-  transition: background .15s;
+  gap: .25rem;
+  width: 100%;
+  min-height: 52px;
+  padding: .55rem .6rem;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s, color .15s;
   -webkit-tap-highlight-color: transparent;
-  &:hover { background: rgba(204, 163, 82, .12); }
+
+  &:last-child { border-bottom: none; }
+  &:hover  { background: rgba(204, 163, 82, .06); }
+  &:active { background: rgba(204, 163, 82, .14); }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: -2px;
+  }
+
+  // En la comanda: fondo dorado sólido. Es el estado que el mesero repasa de
+  // un vistazo antes de enviar, así que gana al hover.
+  &.is-active {
+    background: var(--gold);
+
+    .mmodal-dish-name,
+    .mmodal-dish-price { color: var(--ink); }
+
+    .mmodal-dish-price { opacity: .78; }
+
+    &:hover { background: var(--gold-soft); }
+  }
+}
+
+// Primario: es lo que el mesero busca al leer.
+.mmodal-dish-name {
+  min-width: 0;
+  font-size: .84rem;
+  font-weight: 600;
+  color: var(--txt);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+// Secundario: confirma, no compite. Cifras tabulares para que la columna de
+// precios quede alineada de un vistazo.
+.mmodal-dish-price {
+  font-size: .76rem;
+  color: var(--txt-mute);
+  font-variant-numeric: tabular-nums;
 }
 
 .mmodal-cart {
@@ -1776,14 +1909,6 @@
 }
 
 // ── Lista de platos con badge de área ─────────────────────────
-.mmodal-dish-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: .16rem;
-  min-width: 0;
-}
-
 .mmodal-area-badge {
   display: inline-block;
   font-size: .53rem;
@@ -2038,19 +2163,15 @@
    * .mmodal-panels, nunca vuelve a renderizar por un cambio de ajuste.
    */
 
-  // Ocultar columnas: el grid se recalcula con las que queden.
-  .mmodal-panels[data-ocultos~="resumen"] > #mmodal-panel-resumen,
+  // Ocultar columnas: el grid se recalcula con las que queden. Solo
+  // Sugerencias es ocultable; el panel del ticket es donde se confirma la
+  // entrega de cada platillo, así que siempre está a la vista.
   .mmodal-panels[data-ocultos~="sugerencias"] > #mmodal-panel-sugerencias {
     display: none !important;
   }
 
-  .mmodal-panels[data-ocultos~="resumen"]:not([data-ocultos~="sugerencias"]),
-  .mmodal-panels[data-ocultos~="sugerencias"]:not([data-ocultos~="resumen"]) {
+  .mmodal-panels[data-ocultos~="sugerencias"] {
     grid-template-columns: var(--pos-c1, 1.1fr) var(--pos-c2, 1fr) var(--pos-c3, .9fr);
-  }
-
-  .mmodal-panels[data-ocultos~="resumen"][data-ocultos~="sugerencias"] {
-    grid-template-columns: var(--pos-c1, 1.4fr) var(--pos-c2, 1fr);
   }
 
   // Densidad y escala tipográfica.
@@ -2075,11 +2196,7 @@
 
   // Tamaño del área táctil de los botones de acción.
   .mmodal-panels[data-toque="grande"] {
-    .mmodal-dish-add {
-      width: 42px;
-      height: 42px;
-      font-size: 1.25rem;
-    }
+    .mmodal-dish-row { min-height: 62px; }
 
     .mmodal-comensal-block,
     .mmodal-cat-block {
@@ -2089,8 +2206,11 @@
   }
 
   // Vista del menú: cuadrícula de N columnas o lista de una.
+  // grid-auto-rows: 1fr iguala la altura de la fila a la tarjeta más alta, que
+  // es lo que permite que los nombres largos crezcan sin recortarse.
   .mmodal-panels[data-vista-menu="grid"] .mmodal-dishes {
     display: grid;
+    grid-auto-rows: 1fr;
     gap: .4rem;
   }
 
@@ -2098,21 +2218,28 @@
   .mmodal-panels[data-vista-menu="grid"][data-columnas="3"] .mmodal-dishes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mmodal-panels[data-vista-menu="grid"][data-columnas="4"] .mmodal-dishes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
-  // En cuadrícula la fila se apila para que quepa en poco ancho.
+  // En cuadrícula la tarjeta se apila para que quepa en poco ancho: nombre
+  // arriba y precio al pie, ambos centrados. Sin recorte de renglones: antes
+  // un -webkit-line-clamp: 2 dejaba "Baguette de Jamón…" y "Baguette de
+  // Magret…" indistinguibles, que es justo lo que el mesero necesita leer.
   .mmodal-panels[data-vista-menu="grid"] .mmodal-dish-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "nombre fav"
-      "precio add";
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: .25rem .4rem;
+    justify-content: center;
+    gap: .35rem;
+    height: 100%;
     margin-bottom: 0;
+    padding: .6rem .55rem;
+    border-bottom: none;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: rgba(28, 32, 35, .45);
 
-    .mmodal-dish-info  { grid-area: nombre; min-width: 0; }
-    .mmodal-dish-price { grid-area: precio; }
-    .mmodal-dish-fav   { grid-area: fav; }
-    .mmodal-dish-add   { grid-area: add; }
+    &.is-active {
+      border-color: var(--gold);
+      background: var(--gold);
+    }
   }
 
   .mmodal-panels[data-vista-menu="lista"] .mmodal-dishes {
@@ -2279,29 +2406,13 @@
   }
 }
 
-// Estrella de favorito en la fila de platillo.
-.mmodal-dish-fav {
-  display: inline-grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--txt-faint);
-  cursor: pointer;
-  transition: color 140ms ease;
+// Ajuste no aplicable con la presentación actual (p. ej. las columnas de
+// platillos en vista Lista): se muestra apagado en vez de desaparecer, para
+// que el mesero entienda que existe y de qué depende.
+.mmodal-prefs__row.is-disabled {
+  opacity: .4;
 
-  svg { fill: none; }
-
-  &:hover { color: var(--admin-gold, #cca352); }
-
-  &.is-on {
-    color: var(--admin-gold, #cca352);
-
-    svg { fill: currentColor; }
-  }
+  .mmodal-prefs__opts { pointer-events: none; }
 }
 
 // ── Notas en carrito staging ──────────────────────────────────
@@ -2434,6 +2545,118 @@
     gap: .5rem;
     margin-top: .2rem;
     .mmodal-btn { flex: 1; padding: .7rem .4rem; font-size: .66rem; }
+  }
+
+  &--absence {
+    max-width: 360px;
+    border-color: rgba(180, 60, 40, .48);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, .34), 0 0 0 3px rgba(180, 60, 40, .08);
+    padding: 1.35rem 1.25rem 1.15rem;
+    gap: .7rem;
+
+    .mmodal-cancel-confirm__icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto .1rem;
+      border: 1px solid rgba(180, 60, 40, .46);
+      border-radius: 50%;
+      background: rgba(180, 60, 40, .12);
+      color: #e07060;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .mmodal-cancel-confirm__msg strong { color: #e07060; }
+
+    .mmodal-cancel-confirm__sub {
+      padding: .8rem .85rem;
+      border: 1px solid var(--line-soft);
+      border-left: 3px solid rgba(180, 60, 40, .58);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--txt);
+      text-align: left;
+    }
+
+    .mmodal-cancel-confirm__btns { margin-top: .3rem; }
+  }
+}
+
+@media (max-width: 520px) {
+  .mmodal-cancel-confirm--absence .mmodal-cancel-confirm__btns {
+    flex-direction: column-reverse;
+
+    .mmodal-btn { width: 100%; }
+  }
+}
+
+// ── Shell compartido de confirmaciones operativas ────────────
+.mmodal-cancel-confirm--operation {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  text-align: left;
+  overflow: hidden;
+}
+
+.mmodal-cancel-confirm--operation.mmodal-cancel-confirm--absence {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  gap: 0;
+}
+
+.mmodal-cancel-confirm__header {
+  flex-shrink: 0;
+  padding-bottom: .85rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.mmodal-cancel-confirm__header .mmodal-cancel-confirm__icon {
+  margin: 0 0 .55rem;
+}
+
+.mmodal-cancel-confirm__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: .9rem 0 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204,163,82,.4) transparent;
+
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.4); border-radius: 2px; }
+}
+
+.mmodal-cancel-confirm--operation .mmodal-cancel-confirm__sub {
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.mmodal-cancel-confirm--operation .mmodal-cancel-confirm__actions {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding-top: .9rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+@media (max-width: 520px) {
+  .mmodal-cancel-confirm--operation .mmodal-cancel-confirm__actions {
+    flex-direction: column-reverse;
+
+    .mmodal-btn { width: 100%; }
   }
 }
 
@@ -2630,18 +2853,21 @@
   --admin-faint: var(--txt-faint);
   --admin-gold: var(--gold);
   --admin-gold-soft: var(--gold-soft);
-  --admin-success: #8bbf7e;
-  --admin-success-text: #9fd3a6;
-  --admin-success-bg: rgba(139, 191, 126, 0.14);
-  --admin-success-border: rgba(139, 191, 126, 0.32);
-  --admin-warning: #e0c184;
-  --admin-warning-text: #e6c98a;
-  --admin-warning-bg: rgba(224, 193, 132, 0.12);
-  --admin-warning-border: rgba(224, 193, 132, 0.34);
-  --admin-danger: #e87060;
-  --admin-danger-text: #f0a79b;
-  --admin-danger-bg: rgba(232, 112, 96, 0.14);
-  --admin-danger-border: rgba(232, 112, 96, 0.34);
+  // El mapa se lee solo por color (ya no hay leyenda), así que los estados
+  // usan la paleta de la casa y no tonos propios: disponible lima, asignada
+  // u ocupada por reserva naranja, ocupada rojo.
+  --admin-success: var(--c-lima);
+  --admin-success-text: color-mix(in srgb, var(--c-lima) 78%, #fff);
+  --admin-success-bg: color-mix(in srgb, var(--c-lima) 16%, transparent);
+  --admin-success-border: color-mix(in srgb, var(--c-lima) 46%, transparent);
+  --admin-warning: var(--c-naranja);
+  --admin-warning-text: color-mix(in srgb, var(--c-naranja) 74%, #fff);
+  --admin-warning-bg: color-mix(in srgb, var(--c-naranja) 16%, transparent);
+  --admin-warning-border: color-mix(in srgb, var(--c-naranja) 48%, transparent);
+  --admin-danger: var(--c-rojo);
+  --admin-danger-text: color-mix(in srgb, var(--c-rojo) 62%, #fff);
+  --admin-danger-bg: color-mix(in srgb, var(--c-rojo) 18%, transparent);
+  --admin-danger-border: color-mix(in srgb, var(--c-rojo) 50%, transparent);
   --admin-neutral-text: var(--admin-gold-soft);
   --admin-neutral-bg: rgba(204, 163, 82, 0.14);
   --admin-neutral-border: rgba(204, 163, 82, 0.3);
@@ -2690,20 +2916,19 @@
 
 
 // ── Ajustes del mesero: disparador en el header ────────────────
+// Solo el engranaje: la palabra "Ajustes" duplicaba lo que ya dice el icono
+// y competía por el ancho con el menú de usuario.
 .mapa-page .pos-header__prefs {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-  min-height: 42px;
-  padding: 0 16px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
   border: 1px solid var(--admin-border);
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--admin-surface-soft);
   color: var(--admin-muted);
-  font-family: var(--operational-font-ui);
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
 
@@ -2729,12 +2954,6 @@
     outline-offset: 2px;
   }
 
-  @media (max-width: 560px) {
-    span { display: none; }
-    padding: 0;
-    width: 42px;
-    justify-content: center;
-  }
 }
 
 // ── Ajustes del mesero: overlay ────────────────────────────────
@@ -2815,12 +3034,14 @@
 
 // ── El mapa: único contenedor, llena el alto disponible ────────
 .mapa-page .pos-map {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
 }
 
 .mapa-page .pos-map .mesas-map {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -2834,7 +3055,23 @@
 // Se oculta el encabezado interno del mapa (título + leyenda): el título es
 // redundante y la leyenda se muestra debajo del mapa.
 .mapa-page .mesas-map__header {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  min-height: 0;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.mapa-page .mesas-map__header .mesas-map__heading,
+.mapa-page .mesas-map__header .mesas-map__legend {
   display: none;
+}
+
+.mapa-page .mesas-map__toolbar-actions {
+  margin-left: auto;
+  pointer-events: auto;
 }
 
 .mapa-page .mesas-map__viewport {
@@ -2859,57 +3096,6 @@
   padding: 16px;
   border: 1px solid var(--admin-border);
   background: var(--admin-surface);
-}
-
-.mapa-page .mesa-pin--mod-walk_in {
-  outline: 3px double rgba(126, 191, 160, .82);
-  outline-offset: 3px;
-}
-
-.mapa-page .mesa-pin--mod-ticket_abierto:not(.mesa-pin--mod-walk_in) {
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, .45), 0 10px 24px rgba(0, 0, 0, .32);
-}
-
-.mapa-page .mesa-pin__indicators {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  display: flex;
-  gap: 3px;
-  pointer-events: none;
-}
-
-.mapa-page .mesa-pin__indicator {
-  display: grid;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--txt-mute);
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .34);
-}
-
-.mapa-page .mesa-pin__indicator--reservacion_proxima,
-.mapa-page .mesa-pin__indicator--bloqueada {
-  border-color: rgba(232, 160, 96, .55);
-  color: #e8a060;
-}
-
-.mapa-page .mesa-pin__indicator--ticket_abierto,
-.mapa-page .mesa-pin__indicator--walk_in {
-  border-color: rgba(139, 191, 126, .55);
-  color: #8bbf7e;
-}
-
-.mapa-page .mesa-pin__indicator--varias_mesas {
-  border-color: rgba(232, 224, 212, .4);
-  color: rgba(232, 224, 212, .86);
 }
 
 .mapa-page .operational-drawer__content .mapa-reservas-list {

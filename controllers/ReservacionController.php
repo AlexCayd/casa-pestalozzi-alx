@@ -13,10 +13,9 @@ use Model\Reservacion;
 use MVC\Router;
 use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
-use Services\HorarioOperacionService;
-use Services\HorarioReservacionService;
 use Services\ReservationClientSession;
 use Services\ReservacionConfig;
+use Services\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
 use Services\ReservacionService;
 
@@ -28,12 +27,17 @@ class ReservacionController
             return;
         }
         $entrada = self::entrada();
-        $respuesta = !empty($entrada['request_token'])
-            ? ReservacionPublicaService::reenviarOtpRetencion($entrada)
-            : ContactoAccesoService::solicitarCodigo(
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
+        if (!empty($entrada['request_token'])) {
+            $respuesta = ReservacionPublicaService::reenviarOtpRetencion($entrada);
+        } else {
+            $respuesta = ContactoAccesoService::solicitarCodigo(
                 (string)($entrada['tipo'] ?? ''),
                 (string)($entrada['contacto'] ?? '')
             );
+        }
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -47,6 +51,9 @@ class ReservacionController
             return;
         }
         $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
         $respuesta = !empty($entrada['request_token'])
             ? ReservacionPublicaService::confirmarRetencion($entrada)
             : ContactoAccesoService::verificarCodigo(
@@ -67,8 +74,7 @@ class ReservacionController
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
-                'mensaje' => 'Verifica tu contacto para consultar reservaciones.',
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
             ], 401);
             return;
         }
@@ -84,11 +90,29 @@ class ReservacionController
                 $contacto,
                 $fecha,
                 $hora,
-                ReservacionConfig::MAX_ACTIVE_RESERVATIONS
+                ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO
             );
+            $pendientes = Reservacion::buscarReemplazosPendientesPorContacto(
+                $tipo,
+                $contacto,
+                $fecha,
+                $hora
+            );
+            $pendientesPorOriginal = [];
+            foreach ($pendientes as $pendiente) {
+                $pendientesPorOriginal[(int)$pendiente['reemplaza_reservacion_id']] = [
+                    'fecha' => (string)$pendiente['fecha'],
+                    'hora' => substr((string)$pendiente['hora'], 0, 5),
+                    'comensales' => (int)$pendiente['comensales'],
+                    'nota' => (string)($pendiente['nota'] ?? ''),
+                    'hold_expires_at' => (string)$pendiente['hold_expires_at'],
+                    'label' => 'Cambio pendiente de confirmación',
+                ];
+            }
             $reservaciones = array_map(static function (array $fila): array {
                 $estado = (string)($fila['estado'] ?? '');
-                $puedeGestionarse = ReservacionPublicaService::puedeGestionarse($fila);
+                $puedeModificar = ReservacionPublicaService::puedeModificarPublicamente($fila);
+                $puedeCancelar = ReservacionPublicaService::puedeCancelarPublicamente($fila);
                 return [
                     'id' => (int)($fila['id'] ?? 0),
                     'nombre' => (string)($fila['nombre'] ?? ''),
@@ -96,22 +120,24 @@ class ReservacionController
                     'hora' => substr((string)($fila['hora'] ?? ''), 0, 5),
                     'comensales' => (int)($fila['comensales'] ?? 0),
                     'nota' => (string)($fila['nota'] ?? ''),
-                    'estado' => $estado,
                     'estado_label' => ReservacionConfig::ESTADO_LABELS[$estado] ?? ucfirst($estado),
-                    'can_modify' => $puedeGestionarse,
-                    'can_cancel' => $puedeGestionarse,
-                    'contact_channel' => (string)($fila['contacto_tipo'] ?? ''),
+                    'can_modify' => $puedeModificar,
+                    'can_cancel' => $puedeCancelar,
                 ];
             }, $filas);
+            foreach ($reservaciones as &$reservacion) {
+                if (isset($pendientesPorOriginal[$reservacion['id']])) {
+                    $reservacion['pending_modification'] = $pendientesPorOriginal[$reservacion['id']];
+                }
+            }
+            unset($reservacion);
 
             self::json([
                 'ok' => true,
                 'session_verified' => true,
-                'verified_contact_type' => $tipo,
-                'verified_contact' => $contacto,
                 'active_reservations_count' => $total,
-                'max_active_reservations' => ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
-                'can_create_reservation' => $total < ReservacionConfig::MAX_ACTIVE_RESERVATIONS,
+                'max_active_reservations' => ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO,
+                'can_create_reservation' => $total < ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO,
                 'reservations' => $reservaciones,
             ]);
         } catch (\Throwable $e) {
@@ -119,7 +145,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::ERROR_INTERNO,
-                'mensaje' => 'No fue posible consultar las reservaciones.',
             ], 500);
         }
     }
@@ -134,7 +159,6 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => 'CSRF_INVALIDO',
-                'mensaje' => 'No fue posible validar la salida. Recarga la página e inténtalo nuevamente.',
             ], 403);
             return;
         }
@@ -142,7 +166,6 @@ class ReservacionController
         self::json([
             'ok' => true,
             'codigo' => 'GESTION_SALIDA',
-            'mensaje' => 'Saliste de la gestión de reservaciones.',
         ]);
     }
 
@@ -166,6 +189,7 @@ class ReservacionController
         }
         try {
             $excluirReservacionId = 0;
+            $horarioOriginalPreservable = null;
             $reservacionId = filter_var(
                 $_GET['reservacion_id'] ?? $_GET['reservation_id'] ?? 0,
                 FILTER_VALIDATE_INT,
@@ -181,12 +205,24 @@ class ReservacionController
                     )
                 ) {
                     $excluirReservacionId = (int)$reservacionId;
+                    $filaOriginal = Reservacion::findWithMesas((int)$reservacionId);
+                    if ($filaOriginal) {
+                        $filaOriginalArray = get_object_vars($filaOriginal);
+                        if (ReservacionPublicaService::puedeModificarPublicamente($filaOriginalArray)) {
+                            $horarioOriginalPreservable = [
+                                'fecha' => (string)$filaOriginal->fecha,
+                                'hora' => (string)$filaOriginal->hora,
+                            ];
+                        }
+                    }
                 }
             }
             $respuesta = DisponibilidadReservacionService::consultar(
                 (string)($_GET['fecha'] ?? ''),
                 $_GET['personas'] ?? null,
-                $excluirReservacionId
+                $excluirReservacionId,
+                isset($_GET['hora']) ? (string)$_GET['hora'] : null,
+                $horarioOriginalPreservable
             );
             self::json($respuesta, self::status($respuesta));
         } catch (\Throwable $error) {
@@ -194,54 +230,8 @@ class ReservacionController
             self::json([
                 'ok' => false,
                 'codigo' => 'ERROR_DISPONIBILIDAD',
-                'mensaje' => 'No fue posible consultar la disponibilidad en este momento.',
             ], 500);
         }
-    }
-
-    /** Resolución pública uniforme del horario operativo y sus slots. */
-    public static function horarioEfectivo(Router $router): void
-    {
-        $fecha = trim((string)($_GET['fecha'] ?? ''));
-        if (!HorarioReservacionService::fechaValida($fecha)) {
-            self::json([
-                'ok' => false,
-                'codigo' => HorarioReservacionService::FECHA_INVALIDA,
-                'fecha' => $fecha,
-            ], 422);
-            return;
-        }
-
-        $efectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
-        $slots = ($efectivo['abierto'] ?? false)
-            ? HorarioReservacionService::generarIntervalos(
-                (string)$efectivo['hora_apertura'],
-                (string)$efectivo['hora_cierre']
-            )
-            : [];
-        self::json([
-            'ok' => true,
-            'fecha' => $fecha,
-            'abierto' => (bool)($efectivo['abierto'] ?? false),
-            'origen' => $efectivo['origen'] ?? 'semanal',
-            'hora_apertura' => !empty($efectivo['hora_apertura'])
-                ? substr((string)$efectivo['hora_apertura'], 0, 5)
-                : null,
-            'hora_cierre' => !empty($efectivo['hora_cierre'])
-                ? substr((string)$efectivo['hora_cierre'], 0, 5)
-                : null,
-            'slots_reservables' => array_map(
-                static fn(string $hora): string => substr($hora, 0, 5),
-                $slots
-            ),
-            'excepcion_aplicada' => ($efectivo['origen'] ?? '') === 'excepcion'
-                ? [
-                    'tipo' => $efectivo['tipo'] ?? null,
-                    'motivo' => $efectivo['motivo'] ?? null,
-                ]
-                : null,
-            'zona_horaria' => ReservacionConfig::TIMEZONE,
-        ]);
     }
 
     public static function retencion(Router $router): void
@@ -249,7 +239,11 @@ class ReservacionController
         if (!self::esPost()) {
             return;
         }
-        $respuesta = ReservacionPublicaService::crearRetencion(self::entrada());
+        $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
+        $respuesta = ReservacionPublicaService::crearRetencion($entrada);
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -259,18 +253,23 @@ class ReservacionController
             return;
         }
         $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
         $sesion = ReservationClientSession::obtener();
         if (!$sesion) {
             self::json([
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
-                'mensaje' => 'Verifica tu contacto para reservar directamente.',
             ], 401);
             return;
         }
         $respuesta = ReservacionPublicaService::contactoCoincideConSesion($entrada, $sesion)
             ? ReservacionPublicaService::crearConfirmada($entrada, $sesion)
-            : ReservacionPublicaService::crearRetencion($entrada);
+            : [
+                'ok' => false,
+                'codigo' => ReservacionPublicaService::CONTACTO_NO_COINCIDE,
+            ];
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -279,16 +278,40 @@ class ReservacionController
         if (!self::esPost()) {
             return;
         }
+        $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
         $sesion = ReservationClientSession::obtener();
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
             ], 401);
             return;
         }
-        $respuesta = ReservacionPublicaService::modificar(self::entrada(), $sesion);
+        $respuesta = ReservacionPublicaService::crearReemplazo($entrada, $sesion);
+        self::json($respuesta, self::status($respuesta));
+    }
+
+    public static function confirmarModificacion(Router $router): void
+    {
+        if (!self::esPost()) {
+            return;
+        }
+        $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
+        $sesion = ReservationClientSession::obtener();
+        if (!$sesion) {
+            self::json([
+                'ok' => false,
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
+            ], 401);
+            return;
+        }
+        $respuesta = ReservacionPublicaService::confirmarReemplazo($entrada, $sesion);
         self::json($respuesta, self::status($respuesta));
     }
 
@@ -297,16 +320,18 @@ class ReservacionController
         if (!self::esPost()) {
             return;
         }
+        $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) {
+            return;
+        }
         $sesion = ReservationClientSession::obtener();
         if (!$sesion) {
             self::json([
                 'ok' => false,
-                'codigo' => ReservacionPublicaService::SESION_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
+                'codigo' => ReservacionPublicaService::SESION_PUBLICA_EXPIRADA,
             ], 401);
             return;
         }
-        $entrada = self::entrada();
         $respuesta = ReservacionPublicaService::cancelar(
             (int)($entrada['reservacion_id'] ?? $entrada['id'] ?? 0),
             $sesion
@@ -334,9 +359,25 @@ class ReservacionController
         return false;
     }
 
+    /** La creación pública usa el token de sesión; la gestión antigua conserva su flujo propio. */
+    private static function validarCsrfPublico(array $entrada): bool
+    {
+        if (ReservationClientSession::validarCsrf((string)($entrada['csrf_token'] ?? ''))) {
+            return true;
+        }
+        self::json([
+            'ok' => false,
+            'codigo' => 'CSRF_INVALIDO',
+        ], 403);
+        return false;
+    }
+
     /** @param array<string, mixed> $respuesta */
     private static function json(array $respuesta, int $status = 200): void
     {
+        if (array_key_exists('codigo', $respuesta)) {
+            $respuesta = ReservacionErrorCatalog::enriquecer($respuesta, ['superficie' => 'landing']);
+        }
         http_response_code($status);
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
@@ -349,23 +390,9 @@ class ReservacionController
         if ($respuesta['ok'] ?? false) {
             return $exito;
         }
-        return match ((string)($respuesta['codigo'] ?? '')) {
-            ReservacionPublicaService::CONTACTO_NO_VERIFICADO,
-            ReservacionPublicaService::CONTACTO_NO_COINCIDE,
-            ReservacionPublicaService::SESION_EXPIRADA => 401,
-            ReservacionPublicaService::RESERVACION_NO_PERTENECE_AL_CONTACTO,
-            ReservacionPublicaService::MODIFICACION_NO_PERMITIDA,
-            ReservacionPublicaService::CANCELACION_NO_PERMITIDA => 403,
-            ReservacionPublicaService::RESERVACION_NO_ENCONTRADA => 404,
-            ReservacionPublicaService::RETENCION_EXPIRADA => 410,
-            ReservacionPublicaService::SIN_DISPONIBILIDAD,
-            ReservacionPublicaService::LIMITE_RESERVACIONES_ALCANZADO,
-            ReservacionPublicaService::REQUEST_TOKEN_CONFLICTO => 409,
-            ContactoAccesoService::REENVIO_NO_DISPONIBLE,
-            ContactoAccesoService::DEMASIADOS_INTENTOS => 429,
-            ReservacionPublicaService::ERROR_INTERNO,
-            ContactoAccesoService::ERROR_INTERNO => 500,
-            default => 422,
-        };
+        return ReservacionErrorCatalog::httpStatus(
+            (string)($respuesta['codigo'] ?? 'ERROR_INTERNO'),
+            422
+        );
     }
 }

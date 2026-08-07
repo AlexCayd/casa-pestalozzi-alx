@@ -65,28 +65,43 @@
   max-width: 18ch;
 }
 
+// El word-spacing negativo compensa el espacio enorme que KudosKaps mete
+// entre palabras: sin él "CASA PESTALOZZI" se lee como dos logos sueltos.
 .login-aside__sign {
   font-family: var(--logo);
   color: var(--gold);
   font-size: 1.25rem;
   letter-spacing: 0.02em;
-  word-spacing: -0.4rem;
+  word-spacing: -0.62em;
 }
 
 // ── Panel del formulario ──────────────────────────────────────
+// El acceso por NIP no debe scrollear nunca: es una pantalla táctil de piso y
+// un desplazamiento de dos dedos entre teclas es un error de marcado. Por eso
+// el panel recorta y todo lo que crece dentro del NIP se dimensiona en vh.
+// La pestaña de contraseña sí puede desplazarse: ahí sí hay campos que el
+// autocompletado del navegador puede empujar.
 .login-panel {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: clamp(1.2rem, 4vw, 3rem);
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .login-card {
   width: 100%;
   max-width: 420px;
-  padding-block: clamp(1rem, 3vh, 2rem);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#login-tab-admin {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .login-brand {
@@ -95,13 +110,56 @@
   color: var(--gold);
   font-size: 1.45rem;
   letter-spacing: 0.02em;
-  word-spacing: -0.45rem;
-  margin-bottom: clamp(1rem, 3vh, 1.8rem);
+  word-spacing: -0.62em;
+  margin-bottom: clamp(0.8rem, 2.4vh, 1.6rem);
   text-decoration: none;
 }
 
-.login-eyebrow {
-  margin-bottom: 0.7rem;
+// Un solo acceso con dos pestañas: NIP para piso, contraseña para el panel.
+// El panel inactivo llega ya con [hidden] desde PHP, así que la pestaña
+// correcta se pinta antes de que corra una línea de JS.
+.login-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  padding: 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(11, 12, 13, 0.55);
+}
+
+.login-tab {
+  flex: 1;
+  padding: 0.6rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--txt-mute);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+
+  &:hover {
+    color: var(--txt);
+  }
+
+  &.is-active {
+    background: var(--gold);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gold-soft);
+    outline-offset: 2px;
+  }
+}
+
+.login-tabpanel[hidden] {
+  display: none;
 }
 
 .login-title {
@@ -222,16 +280,48 @@
 }
 .login-link:hover { color: var(--gold-soft); }
 
-// ── Login por NIP ─────────────────────────────────────────────
+// ── Avisos del formulario ─────────────────────────────────────
+// Banda con barra de color a la izquierda en lugar de caja centrada: se lee
+// como parte del formulario y el color dice de qué tipo es sin leer el texto.
 .login-alert {
-  padding: 0.65rem 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid rgba(232, 112, 96, 0.4);
-  border-radius: 12px;
-  background: rgba(232, 112, 96, 0.1);
-  color: #e88a78;
-  font-size: 0.88rem;
-  text-align: center;
+  --login-alert-color: var(--c-rojo);
+
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--login-alert-color) 45%, transparent);
+  border-left: 3px solid var(--login-alert-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--login-alert-color) 13%, transparent);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: left;
+  animation: login-alert-in 260ms var(--ease-out) both;
+
+  svg {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--login-alert-color);
+  }
+
+  // Informativo, no fallo: "tu cuenta fue eliminada", por ejemplo.
+  &--aviso {
+    --login-alert-color: var(--c-ambar);
+  }
+}
+
+@keyframes login-alert-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-alert { animation: none; }
 }
 
 // Campo real del formulario: invisible pero enfocable, para que el
@@ -246,7 +336,7 @@
 
 .login-form--nip {
   position: relative;
-  justify-items: center;
+  justify-items: stretch;
 }
 
 .login-nip-dots {
@@ -274,13 +364,15 @@
 
 .login-pad {
   display: grid;
-  grid-template-columns: repeat(3, minmax(64px, 78px));
-  gap: 0.6rem;
-  justify-content: center;
+  // Las teclas reparten todo el ancho de la tarjeta: en tablet el objetivo
+  // táctil útil es la columna entera, no un cuadro de 78px centrado.
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.4rem, 1.2vh, 0.7rem);
+  width: 100%;
 }
 
 .login-pad__key {
-  height: clamp(52px, 7.5vh, 64px);
+  height: clamp(46px, 7.2vh, 66px);
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(28, 32, 35, 0.6);
@@ -331,4 +423,36 @@
 @media (max-width: 860px) {
   .login-shell { grid-template-columns: 1fr; }
   .login-aside { display: none; }
+}
+
+// Pantallas bajas (portátiles de 768–900 px de alto): el teclado numérico es
+// lo que empuja la tarjeta fuera de la vista. Como el panel ya no scrollea,
+// esta compactación es el único mecanismo que hace caber el NIP: se recorta lo
+// accesorio y se preservan los objetivos táctiles de las teclas.
+@media (max-height: 900px) {
+  .login-brand { margin-bottom: 0.7rem; }
+
+  .login-tabs { margin-bottom: 0.8rem; }
+
+  .login-title {
+    font-size: clamp(1.4rem, 2.6vw, 1.85rem);
+    margin-bottom: 0.3rem;
+  }
+
+  .login-sub {
+    font-size: 0.84rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .login-nip-dots { padding: 0.15rem 0 0.4rem; }
+
+  .login-foot { margin-top: 0.6rem; }
+}
+
+// Muy bajas (720px o menos, o el navegador con la barra de pestañas abierta):
+// el pie explicativo es lo primero que sobra, y el subtítulo lo segundo.
+@media (max-height: 720px) {
+  .login-form--nip ~ .login-foot { display: none; }
+
+  #login-tab-nip .login-sub { display: none; }
 }

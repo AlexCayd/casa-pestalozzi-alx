@@ -46,7 +46,7 @@
                     </thead>
                     <tbody>
                         <?php foreach ($impresoras as $impresora) : ?>
-                            <tr>
+                            <tr data-row-href="/admin/printers/edit?id=<?php echo (int) $impresora->id; ?>">
                                 <td><?php echo (int) $impresora->id; ?></td>
                                 <td><?php echo htmlspecialchars($impresora->nombre); ?></td>
                                 <td>

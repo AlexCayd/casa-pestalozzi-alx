@@ -30,9 +30,9 @@ use Controllers\AreaController;
 
 $router = new Router();
 
-// Protección de rutas: /admin/* exige rol admin (login con contraseña en
-// /admin/login); /punto-de-venta, /area/* y las APIs del personal exigen sesión
-// iniciada (login por NIP en /login, solo personal de piso).
+// Protección de rutas por rol: /admin/* exige admin, /punto-de-venta y las APIs
+// del POS exigen mesero, /area* y las APIs de producción exigen cocinero. El
+// admin pasa por todas. Todo lo demás queda público.
 \Classes\Auth::proteger($_SERVER['PATH_INFO'] ?? '/');
 
 // Home
@@ -42,10 +42,10 @@ $router->get('/reservaciones', [HomeController::class, 'index']);
 // Reservaciones
 $router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);
 $router->get('/api/reservaciones/disponibilidad', [ReservacionController::class, 'disponibilidad']);
-$router->get('/api/operacion/horario-efectivo', [ReservacionController::class, 'horarioEfectivo']);
 $router->post('/api/reservaciones/retencion', [ReservacionController::class, 'retencion']);
 $router->post('/api/reservaciones/crear', [ReservacionController::class, 'crearVerificada']);
 $router->post('/api/reservaciones/modificar', [ReservacionController::class, 'modificarPublica']);
+$router->post('/api/reservaciones/confirmar-modificacion', [ReservacionController::class, 'confirmarModificacion']);
 $router->post('/api/reservaciones/cancelar', [ReservacionController::class, 'cancelarPublica']);
 $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::class, 'solicitarCodigo']);
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
@@ -71,6 +71,9 @@ $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::cla
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
+$router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
+// Envío del modal "Reportar un problema" del panel.
+$router->post('/admin/api/reportes', [AdminConfigurationController::class, 'crearReporte']);
 // Gestión de menú: los platillos viven en `productos` desde la fusión con
 // "Productos y recetas". La lista entra directo (ya no hay página de hub).
 $router->get('/admin/menu',                     [AdminMenuController::class, 'index']);
@@ -106,15 +109,12 @@ $router->post('/admin/reservations/status', [AdminReservacionController::class, 
 $router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
 $router->get('/admin/reservations/development-tools', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservations/development-tools/process-expired', [ReservacionMantenimientoController::class, 'procesarPendientes']);
-$router->post('/admin/reservations/development-tools/cleanup-preview', [ReservacionMantenimientoController::class, 'vistaPreviaLimpieza']);
-$router->post('/admin/reservations/development-tools/cleanup', [ReservacionMantenimientoController::class, 'limpiar']);
 $router->get('/admin/api/reservations/operation', [ReservacionOperacionController::class, 'operationData']);
 $router->post('/admin/api/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'apiAssignTables']);
+$router->post('/admin/api/reservations/operation/clear-tables', [ReservacionOperacionController::class, 'apiClearTables']);
 $router->post('/admin/api/reservations/operation/reassign', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
 $router->post('/admin/api/reservations/operation/update-comment', [ReservacionOperacionController::class, 'apiUpdateComment']);
 $router->post('/admin/api/reservations/operation/status', [ReservacionOperacionController::class, 'apiStatus']);
-$router->post('/admin/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'assignTables']);
-$router->post('/admin/reservations/operation/update-comment', [ReservacionOperacionController::class, 'updateComment']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
@@ -188,8 +188,11 @@ $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
 $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-$router->get('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
-$router->post('/admin/usuarios/change-password', [AdminUsersController::class, 'changePassword']);
+// Contraseña (admins) o NIP (personal de piso), según el rol del destino.
+$router->get('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
+$router->post('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
+// La URL anterior solo cambiaba contraseñas; se conserva por marcadores.
+$router->get('/admin/usuarios/change-password', $redir301('/admin/usuarios/cambiar-credencial'));
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
@@ -202,12 +205,10 @@ $router->get('/api/punto-de-venta',    [PuntoVentaController::class, 'api']);
 $router->get('/api/productos',         [PuntoVentaController::class, 'productos']);
 $router->get('/api/punto-de-venta/reservaciones', [PuntoVentaController::class, 'reservaciones']);
 $router->get('/api/punto-de-venta/mesa-contexto', [PuntoVentaController::class, 'mesaContexto']);
-$router->post('/api/punto-de-venta/reservaciones/llegada', [PuntoVentaController::class, 'llegada']);
 $router->post('/api/punto-de-venta/reservaciones/comenzar', [PuntoVentaController::class, 'comenzarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaController::class, 'cancelarReservacion']);
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
-$router->post('/api/liberar-reservacion', [PuntoVentaController::class, 'liberarReservacion']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
 $router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
@@ -218,6 +219,7 @@ $router->post('/api/cancelar-item',       [PuntoVentaController::class, 'cancela
 $router->post('/api/actualizar-ticket',   [PuntoVentaController::class, 'actualizarTicket']);
 $router->post('/api/sugerencias',         [PuntoVentaController::class, 'sugerencias']);
 
+$router->get('/area',        [AreaController::class, 'index']);
 $router->get('/area/cafe',   [AreaController::class, 'cafe']);
 $router->get('/area/jugos',  [AreaController::class, 'jugos']);
 $router->get('/area/cocina', [AreaController::class, 'cocina']);

@@ -18,8 +18,10 @@ $mapToolbarActionsHtml = (string)($mapVisual['toolbarActionsHtml'] ?? ($mapVisua
 $mapCanvasId = trim((string)($mapVisual['canvasId'] ?? ''));
 $mapCanvasMode = (string)($mapVisual['canvasMode'] ?? 'map');
 $mapLoadingMode = (string)($mapVisual['loadingMode'] ?? 'empty');
+// 'none' deja el mapa sin leyenda: lo usa el POS, donde el color de la mesa es
+// la única nomenclatura.
 $mapLegendPosition = (string)($mapVisual['legendPosition'] ?? 'header');
-$mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer'], true) ? $mapLegendPosition : 'header';
+$mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer', 'none'], true) ? $mapLegendPosition : 'header';
 $mapShowHeading = $mapTitle !== '' || $mapSubtitle !== '';
 $mapHeadClass = $mapToolbarActionsHtml !== '' ? ' operational-map-head--with-trigger' : '';
 $mapHeadClass .= !$mapShowHeading ? ' operational-map-head--legend-only' : '';
@@ -36,7 +38,7 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
         <div class="operational-map__toolbar operational-map__header mesas-map__toolbar mesas-map__header operational-map-head<?php echo $mapHeadClass; ?>">
             <?php if ($mapShowHeading): ?>
                 <div class="operational-map__heading mesas-map__heading operational-map-heading">
-                    <span class="operational-map__title mesas-map__title operational-map-title"<?php echo $mapTitleId !== '' ? ' id="' . $mapEscape($mapTitleId) . '"' : ''; ?>><?php echo $mapEscape($mapTitle); ?></span>
+                    <h2 class="operational-map__title mesas-map__title operational-map-title"<?php echo $mapTitleId !== '' ? ' id="' . $mapEscape($mapTitleId) . '"' : ''; ?>><?php echo $mapEscape($mapTitle); ?></h2>
                     <?php if ($mapSubtitle !== ''): ?>
                         <p><?php echo $mapEscape($mapSubtitle); ?></p>
                     <?php endif; ?>
@@ -63,16 +65,22 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
             data-map-context="<?php echo $mapEscape($mapContext); ?>"
         >
             <?php if ($mapLoadingMode === 'empty'): ?>
-                <div class="mapa-empty-state"><span class="mapa-empty-icon" aria-hidden="true">o</span><span>Cargando mapa</span></div>
+                <div class="mapa-empty-state" role="status" aria-live="polite"><span class="mapa-empty-icon" aria-hidden="true">o</span><span>Cargando mapa</span></div>
             <?php endif; ?>
         </div>
 
         <?php if ($mapLoadingMode === 'overlay'): ?>
-            <div class="mapa-canvas-overlay" id="mapa-loading">
-                <div class="mapa-spinner"></div>
+            <div class="mapa-canvas-overlay" id="mapa-loading" role="status" aria-live="polite">
+                <div class="mapa-spinner" aria-hidden="true"></div>
+                <span class="operational-visually-hidden">Cargando mapa</span>
             </div>
         <?php endif; ?>
     </div>
+
+    <details class="operational-map__structured" data-map-structured-details>
+        <summary>Lista estructurada de mesas</summary>
+        <div class="operational-map__structured-list" data-map-structured-list role="list"></div>
+    </details>
 
     <?php if ($mapLegendPosition === 'footer'): ?>
         <div class="operational-map__footer mesas-map__footer">
@@ -81,4 +89,4 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>

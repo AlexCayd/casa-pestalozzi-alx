@@ -55,9 +55,6 @@
 }
 
 .admin-recipe {
-  // Permitir que el dropdown del buscador de componentes se muestre completo
-  // (el .admin-card base recorta el overflow).
-  overflow: visible;
   border-color: rgba(204, 163, 82, 0.32);
   box-shadow:
     inset 3px 0 0 var(--admin-gold),
@@ -152,5 +149,157 @@
 
   &__actions {
     margin-top: 18px;
+  }
+}
+
+/*
+ * Selector de ingredientes en modal.
+ *
+ * Reemplaza al desplegable que vivía dentro de la fila: iba en
+ * position:absolute y lo recortaba el overflow:hidden de .admin-card, así que
+ * con el catálogo completo no se podía hacer scroll y se salía de la pantalla.
+ * Aquí el listado tiene su propio diálogo, pestañas por inicial y varias
+ * columnas, con el scroll acotado al contenedor.
+ */
+.admin-ingredient-picker {
+  // Buscador y pestañas no scrollean con la lista: se quedan fijos arriba
+  // mientras el catálogo corre debajo.
+  &__search {
+    flex: none;
+    margin-bottom: 14px;
+
+    input {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface-soft);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 14px;
+
+      &:focus {
+        border-color: var(--admin-gold);
+        outline: 0;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+  }
+
+  // Tira de iniciales. Solo se pintan las que tienen algo detrás, así que
+  // desplazarla horizontalmente es la excepción y no la regla.
+  &__tabs {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+
+  // Píldoras más discretas: son un filtro auxiliar y a 12px/34px la tira de
+  // iniciales pesaba más que el propio catálogo.
+  &__tab {
+    min-width: 30px;
+    padding: 5px 8px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--admin-muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+      background var(--admin-t-fast) ease,
+      color var(--admin-t-fast) ease,
+      border-color var(--admin-t-fast) ease;
+
+    &:hover {
+      border-color: var(--admin-gold);
+      color: var(--admin-text);
+    }
+
+    &.is-active {
+      border-color: var(--admin-gold);
+      background: var(--admin-gold);
+      color: var(--admin-bg);
+    }
+  }
+
+  // El único elemento con scroll del diálogo. Con el diálogo también
+  // desplazable el gesto se lo llevaba él y la lista no se movía.
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: min(58vh, 520px);
+    padding-right: 4px;
+    overflow-y: auto;
+    // Llegar al final de la lista no debe arrastrar la página de atrás.
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: var(--admin-border);
+    }
+    &::-webkit-scrollbar-thumb:hover { background: var(--admin-gold-deep); }
+  }
+
+  &__option {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--admin-t-fast) ease,
+      background var(--admin-t-fast) ease;
+
+    &:hover {
+      border-color: var(--admin-gold);
+      background: var(--admin-surface-strong, var(--admin-surface));
+    }
+
+    &:focus-visible {
+      outline: 0;
+      box-shadow: var(--admin-focus-ring);
+    }
+  }
+
+  &__option-name {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  &__option-group {
+    color: var(--admin-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  &__empty {
+    grid-column: 1 / -1;
+    padding: 24px 10px;
+    color: var(--admin-muted);
+    font-size: 13px;
+    text-align: center;
   }
 }

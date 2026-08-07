@@ -191,6 +191,11 @@ html:has(.operation-body.is-assignment-mode) {
     box-shadow: -22px 0 54px rgba(0, 0, 0, 0.42);
   }
 }
+@media (max-width: 640px) {
+  .reservation-operation__content {
+    grid-template-rows: minmax(320px, 1fr) auto;
+  }
+}
 @media (max-width: 700px) {
   .reservation-operation.assignment-mode .reservation-operation__workspace {
     height: max(420px, 100dvh - var(--operational-header-height) - 180px);
@@ -519,6 +524,20 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 
+.operational-header__pulse {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c-lima, #8ac926);
+  animation: operational-live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operational-header__pulse {
+    animation: none;
+  }
+}
 .operational-header__back {
   display: inline-grid;
   width: 44px;
@@ -1631,6 +1650,80 @@ html:has(.operation-body.is-assignment-mode) {
   --mesas-map-aspect-ratio: 1.75 / 1;
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
+  /* Estados semanticos del mapa: una sola paleta reutilizable. */
+  --map-table-available-bg: rgba(139, 191, 126, 0.14);
+  --map-table-available-text: #9fd3a6;
+  --map-table-available-border: rgba(139, 191, 126, 0.32);
+  --map-table-occupied-bg: rgba(232, 112, 96, 0.14);
+  --map-table-occupied-text: #f0a79b;
+  --map-table-occupied-border: rgba(232, 112, 96, 0.34);
+  --map-table-selected-bg: rgba(224, 193, 132, 0.34);
+  --map-table-selected-text: #f2d89a;
+  --map-table-selected-border: var(--admin-border-soft);
+  --map-table-reservation-bg: rgba(103, 150, 192, 0.18);
+  --map-table-reservation-text: #b5d6f2;
+  --map-table-reservation-border: rgba(103, 150, 192, 0.38);
+  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
+  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
+  --map-table-reservation-overdue-border: rgba(161, 168, 176, 0.62);
+  --map-table-unavailable-bg: rgba(128, 136, 143, 0.12);
+  --map-table-unavailable-text: var(--admin-faint);
+  --map-table-unavailable-border: var(--admin-border);
+  --map-action-primary-bg: var(--admin-gold);
+  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-border: var(--admin-gold);
+  --map-action-cancel-bg: var(--admin-danger-bg);
+  --map-action-cancel-text: var(--admin-danger-text);
+  --map-action-cancel-border: var(--admin-danger-border);
+  --map-action-utility-bg: var(--admin-surface-soft);
+  --map-action-utility-text: var(--admin-text);
+  --map-action-utility-border: var(--admin-border);
+  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 70%, var(--admin-border-soft));
+  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 5%, transparent);
+  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 88%, var(--admin-gold) 12%);
+  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 62%, var(--admin-border-soft));
+  --map-selection-message-text: var(--admin-text);
+  --map-reservation-warning-border: var(--map-table-reservation-border);
+  --map-reservation-block-bg: var(--map-table-reservation-bg);
+  --map-reservation-block-border: var(--map-table-reservation-border);
+}
+
+[data-admin-theme=light] .operational-page {
+  --map-table-available-bg: #e3f1e1;
+  --map-table-available-text: #315d3e;
+  --map-table-available-border: #8fbd8b;
+  --map-table-occupied-bg: #f7dfdc;
+  --map-table-occupied-text: #81382f;
+  --map-table-occupied-border: #d69b92;
+  --map-table-selected-bg: #f5e4b5;
+  --map-table-selected-text: #664b16;
+  --map-table-selected-border: var(--admin-border-soft);
+  --map-table-reservation-bg: #e1eef8;
+  --map-table-reservation-text: #31506d;
+  --map-table-reservation-border: #94b9d6;
+  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
+  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
+  --map-table-reservation-overdue-border: #9299a1;
+  --map-table-unavailable-bg: #ecebe7;
+  --map-table-unavailable-text: rgba(11, 12, 13, 0.48);
+  --map-table-unavailable-border: rgba(11, 12, 13, 0.16);
+  --map-action-primary-bg: var(--admin-gold);
+  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-border: var(--admin-gold);
+  --map-action-cancel-bg: var(--admin-danger-bg);
+  --map-action-cancel-text: var(--admin-danger-text);
+  --map-action-cancel-border: var(--admin-danger-border);
+  --map-action-utility-bg: var(--admin-surface-soft);
+  --map-action-utility-text: var(--admin-text);
+  --map-action-utility-border: var(--admin-border);
+  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 64%, var(--admin-border-soft));
+  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 6%, transparent);
+  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 92%, var(--admin-gold) 8%);
+  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 58%, var(--admin-border-soft));
+  --map-selection-message-text: var(--admin-text);
+  --map-reservation-warning-border: var(--map-table-reservation-border);
+  --map-reservation-block-bg: var(--map-table-reservation-bg);
+  --map-reservation-block-border: var(--map-table-reservation-border);
 }
 
 .mesas-map {
@@ -1720,10 +1813,10 @@ html:has(.operation-body.is-assignment-mode) {
 
 .mesas-map__legend {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px 14px;
   flex-wrap: wrap;
 }
 
@@ -1733,6 +1826,83 @@ html:has(.operation-body.is-assignment-mode) {
   justify-content: center;
   gap: 8px 14px;
   flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mapa-leyenda__note {
+  margin: 0.35rem 0 0;
+  color: var(--admin-faint);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+}
+
+.operational-map__structured {
+  margin-top: 0.75rem;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--admin-surface-soft) 72%, transparent);
+}
+
+.operational-map__structured summary {
+  cursor: pointer;
+  padding: 0.7rem 0.85rem;
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+}
+
+.operational-map__structured-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.operational-map__structured-list > li {
+  min-width: 0;
+  list-style: none;
+}
+
+.operational-map__structured-list button {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  min-height: 3.25rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 0.55rem;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  text-align: start;
+}
+
+.operational-map__structured-list button:not(:disabled) {
+  cursor: pointer;
+}
+
+.operational-map__structured-list button:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operational-map__structured-list button[aria-pressed=true] {
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-selected-bg);
+}
+
+.operational-map__structured-list button:disabled {
+  opacity: 0.7;
+}
+
+.operational-map__structured-name {
+  font-weight: var(--operational-weight-semibold);
+}
+
+.operational-map__structured-state {
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
 }
 
 .mesas-map__legend .mapa-leyenda-item {
@@ -1763,92 +1933,28 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .mesas-map__legend .mapa-leyenda-item--libre::before {
-  color: var(--admin-success);
-  background: var(--admin-success-bg);
+  color: var(--map-table-available-border);
+  background: var(--map-table-available-bg);
 }
 
 .mesas-map__legend .mapa-leyenda-item--ocupada::before {
-  color: var(--admin-danger);
-  background: var(--admin-danger-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--asignada::before {
-  color: var(--admin-warning);
-  background: var(--admin-warning-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--bloqueada::before {
-  color: var(--admin-warning);
-  background: var(--admin-warning-bg);
-}
-
-.mesas-map__legend .mapa-leyenda-item--proxima::before {
-  color: var(--admin-gold-soft);
-  border-style: dashed;
-  background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
+  color: var(--map-table-occupied-border);
+  background: var(--map-table-occupied-bg);
 }
 
 .mesas-map__legend .mapa-leyenda-item--seleccionada::before {
-  color: var(--admin-gold-soft);
-  background: var(--admin-gold);
+  color: var(--map-table-selected-text);
+  background: var(--map-table-selected-bg);
 }
 
-.mesas-map__legend .mapa-leyenda-item--zona::before {
-  color: var(--admin-faint);
-  background: var(--admin-surface-soft);
+.mesas-map__legend .mapa-leyenda-item--reservacion-proxima::before {
+  color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
 }
 
-.mesas-map__legend .mapa-leyenda-item--signal {
-  gap: 4px;
-  color: var(--admin-muted);
-  font-size: var(--operational-text-sm);
-}
-.mesas-map__legend .mapa-leyenda-item--signal::before {
-  display: none;
-}
-.mesas-map__legend .mapa-leyenda-item--signal b {
-  display: inline-flex;
-  width: 17px;
-  height: 17px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  color: var(--admin-muted);
-  font-size: var(--operational-text-xs);
-  font-weight: var(--operational-weight-bold);
-  line-height: 1;
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--proxima,
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--bloqueada {
-  color: var(--admin-muted);
-}
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--proxima b,
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--bloqueada b {
-  border-style: dashed;
-  color: var(--admin-warning-text);
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--ticket {
-  color: var(--admin-muted);
-}
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--ticket b {
-  color: var(--admin-success-text);
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--walk-in {
-  color: var(--admin-muted);
-}
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--walk-in b {
-  color: var(--admin-info-text);
-}
-
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--varias-mesas {
-  color: var(--admin-muted);
-}
-.mesas-map__legend .mapa-leyenda-item--signal.mapa-leyenda-item--varias-mesas b {
-  color: var(--admin-text);
+.mesas-map__legend .mapa-leyenda-item--no-utilizable::before {
+  color: var(--map-table-unavailable-border);
+  background: var(--map-table-unavailable-bg);
 }
 
 .mesas-map__viewport {
@@ -1953,6 +2059,11 @@ html:has(.operation-body.is-assignment-mode) {
   cursor: not-allowed;
 }
 
+.mesas-map button.mesa-pin--seleccionada:hover:not(:disabled),
+.mesas-map button.reservation-operation-pin--selected:hover:not(:disabled) {
+  border-color: var(--map-table-selected-border);
+}
+
 .mesas-map .mesa-pin--no-reservable:disabled {
   cursor: default;
 }
@@ -1999,149 +2110,306 @@ html:has(.operation-body.is-assignment-mode) {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.mesas-map .mesa-pin__indicators {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  display: flex;
-  max-width: calc(100% + 18px);
-  gap: 3px;
-  pointer-events: none;
-}
-
-.mesas-map .mesa-pin__indicator {
-  display: grid;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  place-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
-  font-size: 9px;
-  font-weight: var(--operational-weight-bold);
-  line-height: 1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
-}
-
-.mesas-map .mesa-pin__indicator--reservacion_proxima,
-.mesas-map .mesa-pin__indicator--bloqueada {
-  border-color: var(--admin-warning-border);
-  color: var(--admin-warning-text);
-}
-
-.mesas-map .mesa-pin__indicator--ticket_abierto {
-  border-color: var(--admin-danger-border);
-  color: var(--admin-danger-text);
-}
-
-.mesas-map .mesa-pin__indicator--walk_in {
-  border-color: var(--admin-info-border);
-  color: var(--admin-info-text);
-}
-
-.mesas-map .mesa-pin--mod-disponible_proyectada {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--admin-info, #55a9d7) 70%, var(--admin-border));
-}
-
-.mesas-map .mesa-pin__indicator--disponible_proyectada {
-  border-color: color-mix(in srgb, var(--admin-info, #55a9d7) 60%, transparent);
-  color: #bde9ff;
-  background: color-mix(in srgb, var(--admin-info, #55a9d7) 24%, var(--admin-surface-strong));
-}
-
-.mesas-map .mesa-pin--mod-conflicto_proximo {
-  border-color: var(--admin-danger, #d95f5f);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-danger, #d95f5f) 23%, transparent);
-}
-
-.mesas-map .mesa-pin__indicator--conflicto_proximo {
-  color: #fff;
-  background: var(--admin-danger, #d95f5f);
-}
-
-.mesas-map .mesa-pin__indicator--varias_mesas {
-  border-color: color-mix(in srgb, var(--admin-text) 42%, var(--admin-border));
-  color: var(--admin-text);
-}
-
 .mesas-map .mesa-pin--libre {
-  border-color: color-mix(in srgb, var(--admin-success-border) 88%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-success-bg) 88%, transparent), color-mix(in srgb, var(--admin-success-bg) 52%, var(--admin-surface)));
-  color: var(--admin-success-text);
+  border-color: var(--map-table-available-border);
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .mesas-map .mesa-pin--ocupada {
-  border-color: var(--admin-danger-border);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-danger-bg) 92%, transparent), color-mix(in srgb, var(--admin-danger-bg) 58%, var(--admin-surface)));
-  color: var(--admin-danger-text);
+  border-color: var(--map-table-occupied-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
   opacity: 0.96;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--admin-danger) 22%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.mesas-map .mesa-pin--asignada,
-.mesas-map .mesa-pin--bloqueada {
-  border-color: var(--admin-warning-border);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-warning-bg) 92%, transparent), color-mix(in srgb, var(--admin-warning-bg) 56%, var(--admin-surface)));
-  color: var(--admin-warning-text);
+.mesas-map .mesa-pin--reservacion-proxima {
+  border-color: var(--map-table-reservation-border);
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.mesas-map .mesa-pin--no-utilizable,
 .mesas-map .mesa-pin--no-reservable,
 .mesas-map .mesa-pin--zona,
 .mesas-map .mesa-pin--tipo-barra,
 .mesas-map .mesa-pin--tipo-especial {
-  border-color: var(--admin-border);
+  border-color: var(--map-table-unavailable-border);
   border-style: solid;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 84%, var(--admin-surface-soft)), color-mix(in srgb, var(--admin-surface-soft) 88%, #000 6%));
-  color: var(--admin-muted);
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
   opacity: 0.94;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .mesas-map .mesa-pin--tipo-barra {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 94%, #fff 2%), color-mix(in srgb, var(--admin-surface-soft) 90%, #000 6%));
+  background: var(--map-table-unavailable-bg);
 }
 
-.mesas-map .mesa-pin--mod-reservacion_proxima {
-  border-color: color-mix(in srgb, var(--admin-gold) 78%, var(--admin-warning-border));
+.mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+  border-color: var(--map-reservation-warning-border);
   border-style: dashed;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 2px color-mix(in srgb, var(--admin-gold) 16%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-width: 2px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+}
+
+/* La mesa sigue físicamente disponible; la ausencia pendiente sólo añade
+ * una señal secundaria de resolución operativa. */
+.mesas-map .mesa-pin--libre.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 48%, transparent);
+}
+
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-accion_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+}
+
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+}
+
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_bloqueante:not(.mesa-pin--mod-reservacion_vencida) {
+  border-color: var(--map-reservation-block-border);
+  border-style: solid;
+  border-width: 2px;
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
+}
+
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_tolerancia {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2px;
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_tolerancia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante:not(.mesa-pin--mod-reservacion_vencida) {
+  border-color: var(--map-reservation-block-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
+}
+
+.mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_vencida {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-reservation-bg);
+  color: var(--map-table-reservation-text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 48%, transparent);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_vencida {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2.5px;
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-overdue-border) 58%, transparent);
 }
 
 .mesas-map .mesa-pin--seleccionada,
 .mesas-map .mesa-pin--highlight,
 .mesas-map .reservation-operation-pin--selected {
-  border-color: var(--admin-gold);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-gold) 30%, var(--admin-surface)), color-mix(in srgb, var(--admin-gold) 16%, var(--admin-surface)));
-  color: var(--admin-gold-soft);
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-selected-bg);
+  color: var(--map-table-selected-text);
   opacity: 1;
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.22), 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 20px rgba(204, 163, 82, 0.18);
-  outline: 1px solid var(--admin-gold-soft);
-  outline-offset: 2px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+  outline: 0;
 }
 
-.mesas-map .reservation-operation-pin--assigned::after,
-.mesas-map .mesa-pin--mod-asignada::after {
-  content: "Asignada";
+/* La seleccion manual no oculta una ocupacion fisica real. */
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada {
+  border-color: var(--map-table-selected-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/*
+ * Estado superpuesto: la ocupación física conserva el fondo rojo, la
+ * reservación conserva su borde azul y la selección queda como indicador
+ * amarillo secundario. Ningún estado informativo se pierde por la selección.
+ */
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_inminente,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_tolerancia,
+.mesas-map .mesa-pin--ocupada.mesa-pin--seleccionada.mesa-pin--mod-reservacion_bloqueante {
+  border-color: var(--map-reservation-warning-border);
+  background: var(--map-table-occupied-bg);
+  color: var(--map-table-occupied-text);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pos-map.is-ticket-selection-mode {
+  border: 2px solid var(--map-selection-mode-border);
+  border-radius: 16px;
+  background: var(--map-selection-mode-overlay);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 18%, transparent);
+}
+
+.pos-map.is-ticket-selection-mode .mesas-map__viewport {
+  background: var(--map-selection-mode-overlay);
+}
+
+.pos-ticket-selection-message {
   position: absolute;
-  right: 6px;
-  bottom: 4px;
-  padding: 2px 5px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold-soft) 52%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-surface) 70%, transparent);
-  color: var(--admin-gold-soft);
-  font-size: 9px;
+  z-index: 5;
+  top: 12px;
+  left: clamp(12px, 18%, 240px);
+  right: clamp(214px, 22%, 300px);
+  max-width: none;
+  padding: 9px 16px;
+  border: 1px solid var(--map-selection-message-border);
+  border-radius: 10px;
+  background: var(--map-selection-message-bg);
+  color: var(--map-selection-message-text);
+  font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0.03em;
-  line-height: 1;
-  text-transform: uppercase;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
 }
 
+.pos-map-actions {
+  display: flex;
+  width: clamp(170px, 16vw, 200px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.pos-ticket-selection-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.pos-map-actions__separator {
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+  background: var(--admin-border-soft);
+}
+
+.operational-map-action {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--map-action-utility-border);
+  border-radius: 10px;
+  background: var(--map-action-utility-bg);
+  color: var(--map-action-utility-text);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.operational-map-action--primary {
+  border-color: var(--map-action-primary-border);
+  background: var(--map-action-primary-bg);
+  color: var(--map-action-primary-text);
+}
+
+.operational-map-action--cancel {
+  border-color: var(--map-action-cancel-border);
+  background: var(--map-action-cancel-bg);
+  color: var(--map-action-cancel-text);
+}
+
+.operational-map-action:hover,
+.operational-map-action.is-active {
+  border-color: var(--map-action-primary-border);
+  background: color-mix(in srgb, var(--map-action-primary-bg) 88%, var(--admin-gold-soft) 12%);
+  color: var(--map-action-primary-text);
+}
+
+.operational-map-action--cancel:hover {
+  border-color: var(--map-action-cancel-border);
+  background: color-mix(in srgb, var(--map-action-cancel-bg) 78%, var(--admin-danger) 22%);
+  color: var(--map-action-cancel-text);
+}
+
+.operational-map-action:focus-visible,
+.pos-map-actions .operational-map-toggle:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operational-map-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.pos-map-actions .operational-map-toggle {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+  border-color: var(--map-action-utility-border);
+  border-radius: 10px;
+  background: var(--map-action-utility-bg);
+  color: var(--map-action-utility-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante,
+  .operational-map-action {
+    transition: none;
+  }
+}
+@media (max-width: 640px) {
+  .pos-ticket-selection-message {
+    left: 12px;
+    right: 12px;
+    padding-right: 212px;
+    text-align: left;
+  }
+  .pos-map-actions {
+    width: min(190px, 100vw - 24px);
+  }
+}
 @container mesas-map (max-width: 760px) {
   .mesas-map__header,
   .mesas-map__header.operational-map-head--with-trigger {
@@ -2408,7 +2676,7 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 44px;
   flex: 0 1 auto;
   min-width: 0;
-  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
+  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px) minmax(150px, 190px) minmax(180px, 230px);
   align-items: center;
   justify-content: start;
   gap: 10px;
@@ -2424,6 +2692,20 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
   margin-block: 0;
   align-self: center;
+}
+
+.reservation-operation__assignment-filter select,
+.reservation-operation__search-filter input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm, 8px);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
 }
 
 .reservation-operation__filter-actions {
@@ -2839,6 +3121,22 @@ html:has(.operation-body.is-assignment-mode) {
 
 .reservation-operation-card__secondary--warning {
   color: var(--admin-warning-text);
+}
+
+.reservation-operation-card__admin-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation-card__note {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .reservation-operation-card__tables {
@@ -3419,8 +3717,18 @@ html:has(.operation-body.is-assignment-mode) {
   flex: 1 1 180px;
 }
 
+.reservation-operation-assignment-bar__refresh {
+  grid-column: 1/-1;
+  grid-row: 2;
+  margin: 0;
+  color: var(--admin-info-text, var(--admin-muted));
+  font-size: var(--operational-text-xs);
+}
+
 .reservation-operation-assignment-bar__actions {
   display: flex;
+  grid-column: 3;
+  grid-row: 1;
   gap: 8px;
 }
 
@@ -3443,6 +3751,7 @@ html:has(.operation-body.is-assignment-mode) {
   }
   .reservation-operation-assignment-bar__actions {
     grid-column: 1/-1;
+    grid-row: auto;
     justify-content: flex-end;
   }
 }
@@ -3466,6 +3775,7 @@ html:has(.operation-body.is-assignment-mode) {
   }
   .reservation-operation-assignment-bar__actions {
     grid-column: auto;
+    grid-row: auto;
   }
   .reservation-operation-assignment-bar__actions .admin-btn {
     flex: 1 1 0;
@@ -4340,48 +4650,6 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 
-.operation-confirm-modal {
-  width: min(620px, 100vw - 32px);
-}
-.operation-confirm-modal .operation-create-modal__body {
-  display: grid;
-  gap: 16px;
-}
-.operation-confirm-modal .admin-field {
-  display: grid;
-  gap: 7px;
-}
-.operation-confirm-modal .admin-field textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 11px 12px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 12px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  font: inherit;
-  resize: vertical;
-}
-
-.reservation-operation-conflicts {
-  display: grid;
-  gap: 10px;
-}
-
-.reservation-operation-conflict {
-  display: grid;
-  gap: 5px;
-  padding: 14px 16px;
-}
-.reservation-operation-conflict strong {
-  color: var(--admin-text);
-}
-.reservation-operation-conflict span {
-  color: var(--admin-muted);
-  font-size: var(--operational-text-sm);
-  line-height: 1.45;
-}
-
 @media (max-width: 640px) {
   .operation-create-modal {
     width: calc(100vw - 16px);
@@ -4410,6 +4678,314 @@ html:has(.operation-body.is-assignment-mode) {
     flex-direction: column-reverse;
   }
   .operation-create-modal .reservation-detail-form__actions .admin-btn {
+    width: 100%;
+  }
+}
+.confirmation-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(7, 9, 8, 0.76);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.confirmation-modal[hidden] {
+  display: none;
+}
+.confirmation-modal.is-open {
+  opacity: 1;
+}
+.confirmation-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+.confirmation-modal__dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: clamp(620px, 72vw, 840px);
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  padding: 32px;
+  border: 1px solid rgba(210, 174, 91, 0.42);
+  border-radius: 18px;
+  background: var(--confirmation-surface, #171b17);
+  color: var(--confirmation-text, #f4efe6);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  transform: translateY(0.5rem) scale(0.985);
+  transition: transform 0.18s ease;
+}
+.confirmation-modal.is-open .confirmation-modal__dialog {
+  transform: translateY(0) scale(1);
+}
+.confirmation-modal__header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+.confirmation-modal__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  flex: 0 0 44px;
+  border: 1px solid rgba(210, 174, 91, 0.5);
+  border-radius: 50%;
+  color: var(--accent, #d2ae5b);
+  font-size: 22px;
+  font-weight: 700;
+}
+.confirmation-modal__heading {
+  min-width: 0;
+}
+.confirmation-modal__eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent, #d2ae5b);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+.confirmation-modal__title {
+  margin: 0;
+  color: inherit;
+  font-family: var(--serif, Georgia, serif);
+  font-size: clamp(24px, 2.5vw, 30px);
+  font-weight: 500;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.confirmation-modal__description, .confirmation-modal__warning, .confirmation-modal__consequence, .confirmation-modal__summary, .confirmation-modal__custom, .confirmation-modal__status {
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.confirmation-modal__description {
+  margin: 8px 0 0;
+  color: rgba(244, 239, 230, 0.84);
+}
+.confirmation-modal__close {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(244, 239, 230, 0.24);
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+.confirmation-modal__close:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.confirmation-modal__body {
+  min-height: 0;
+  margin-top: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+.confirmation-modal__summary, .confirmation-modal__custom {
+  margin: 0;
+}
+.confirmation-modal__summary {
+  padding: 16px;
+  border: 1px solid rgba(244, 239, 230, 0.14);
+  border-radius: 12px;
+  background: rgba(244, 239, 230, 0.05);
+}
+.confirmation-modal__summary[hidden] {
+  display: none;
+}
+.confirmation-modal__summary-list, .confirmation-modal__warning-list, .confirmation-modal__consequence-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+.confirmation-modal__warning, .confirmation-modal__consequence, .confirmation-modal__custom, .confirmation-modal__status {
+  margin-top: 16px;
+}
+.confirmation-modal__warning {
+  padding: 14px 16px;
+  border-left: 4px solid #e2a44d;
+  background: rgba(226, 164, 77, 0.12);
+  color: #f0c47d;
+}
+.confirmation-modal__warning[hidden] {
+  display: none;
+}
+.confirmation-modal__consequence {
+  color: rgba(244, 239, 230, 0.82);
+}
+.confirmation-modal__consequence[hidden] {
+  display: none;
+}
+.confirmation-modal__custom[hidden] {
+  display: none;
+}
+.confirmation-modal__reason {
+  display: grid;
+  gap: 8px;
+}
+.confirmation-modal__reason span {
+  color: rgba(244, 239, 230, 0.82);
+  font-size: 14px;
+  font-weight: 700;
+}
+.confirmation-modal__reason textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid rgba(244, 239, 230, 0.24);
+  border-radius: 9px;
+  background: rgba(244, 239, 230, 0.05);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.confirmation-modal__reason textarea:focus {
+  outline: 2px solid var(--accent, #d2ae5b);
+  outline-offset: 2px;
+}
+.confirmation-modal__status {
+  color: var(--accent, #d2ae5b);
+}
+.confirmation-modal__status[hidden] {
+  display: none;
+}
+.confirmation-modal__status.is-error {
+  color: #f0a69a;
+}
+.confirmation-modal__comparison {
+  display: grid;
+  gap: 0;
+}
+.confirmation-modal__comparison-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(244, 239, 230, 0.12);
+}
+.confirmation-modal__comparison-row:last-child {
+  border-bottom: 0;
+}
+.confirmation-modal__comparison-row.is-changed {
+  background: rgba(210, 174, 91, 0.1);
+}
+.confirmation-modal__comparison-label {
+  color: var(--accent, #d2ae5b);
+}
+.confirmation-modal__comparison-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.confirmation-modal__comparison-cell small {
+  color: rgba(244, 239, 230, 0.64);
+  font-size: 14px;
+}
+.confirmation-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(244, 239, 230, 0.12);
+}
+.confirmation-modal__button {
+  min-height: 46px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.confirmation-modal__button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.confirmation-modal__button--secondary {
+  border-color: rgba(244, 239, 230, 0.25);
+  background: transparent;
+  color: inherit;
+}
+.confirmation-modal__button--primary {
+  background: var(--accent, #d2ae5b);
+  color: #11140f;
+}
+.confirmation-modal--danger .confirmation-modal__icon {
+  border-color: rgba(217, 135, 120, 0.7);
+  color: #f0a69a;
+}
+.confirmation-modal--danger .confirmation-modal__button--primary {
+  background: #a94c3e;
+  color: #fff9f3;
+}
+.confirmation-modal--warning .confirmation-modal__icon {
+  border-color: rgba(226, 164, 77, 0.7);
+  color: #f0c47d;
+}
+@media (max-width: 639px) {
+  .confirmation-modal {
+    padding: 12px;
+  }
+  .confirmation-modal__dialog {
+    width: calc(100vw - 24px);
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    padding: 24px;
+  }
+  .confirmation-modal__header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .confirmation-modal__close {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .confirmation-modal__icon {
+    grid-row: 1;
+  }
+  .confirmation-modal__heading {
+    grid-column: 1/-1;
+    grid-row: 2;
+  }
+  .confirmation-modal__comparison-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 14px 0;
+  }
+  .confirmation-modal__comparison-cell {
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+  }
+  .confirmation-modal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .confirmation-modal__button {
     width: 100%;
   }
 }

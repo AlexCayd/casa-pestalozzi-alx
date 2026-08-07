@@ -102,7 +102,9 @@
                     byTicket[item.ticket_id].enviados.push(item);
                 } else if (item.estado === 'en_preparacion') {
                     byTicket[item.ticket_id].prep.push(item);
-                } else if (item.estado === 'listo') {
+                } else if (item.estado === 'listo' || item.estado === 'entregado') {
+                    // Lo entregado por el mesero se queda en Listos: el
+                    // registro no debe desaparecer del tablero.
                     byTicket[item.ticket_id].listos.push(item);
                 }
             });
@@ -129,7 +131,13 @@
 
                 if (group.listos.length) {
                     listoCards.push(buildCard(group, group.listos, 'listo'));
-                    listoCount += group.listos.length;
+                    // Mide trabajo por recoger, no filas visibles: lo ya
+                    // entregado no cuenta.
+                    group.listos.forEach(function (item) {
+                        if (item.estado === 'listo') {
+                            listoCount += 1;
+                        }
+                    });
                 }
             });
 
@@ -151,10 +159,22 @@
         }
 
         function buildCard(group, itemList, colType) {
-            var minutes = minutesSince(itemList[0].created_at);
-            var urgencyClass = minutes >= 10
-                ? ' admin-area-card-kds--urgente'
-                : (minutes >= 5 ? ' admin-area-card-kds--alerta' : '');
+            // La antigüedad se mide sobre lo pendiente. Con ORDER BY created_at
+            // ASC el más viejo suele ser el ya entregado, y tomarlo pintaría la
+            // tarjeta en rojo por trabajo que ya está hecho.
+            var pendiente = null;
+            itemList.forEach(function (item) {
+                if (!pendiente && item.estado !== 'entregado') {
+                    pendiente = item;
+                }
+            });
+
+            var minutes = minutesSince((pendiente || itemList[0]).created_at);
+            var urgencyClass = !pendiente
+                ? ''
+                : (minutes >= 10
+                    ? ' admin-area-card-kds--urgente'
+                    : (minutes >= 5 ? ' admin-area-card-kds--alerta' : ''));
             var mesaText = escHtml(group.mesa_nombre);
             var clientText = group.ticket_nombre
                 ? '<span class="admin-area-card-kds__client"> - ' + escHtml(group.ticket_nombre) + '</span>'
@@ -171,17 +191,25 @@
 
             itemList.forEach(function (item) {
                 var comensalLabel = item.comensal !== null ? 'C.' + item.comensal : 'GL';
-                var hasBack = colType === 'prep' || colType === 'listo';
-                var hasForward = colType === 'enviado' || colType === 'prep';
+                // La columna de Listos es mixta: el estado se decide por ítem,
+                // no por columna. Lo entregado ya no admite ninguna acción.
+                var entregado = item.estado === 'entregado';
+                var hasBack = !entregado && (colType === 'prep' || colType === 'listo');
+                var hasForward = !entregado && (colType === 'enviado' || colType === 'prep');
 
-                html += '<div class="admin-area-card-kds__item">';
+                html += '<div class="admin-area-card-kds__item' +
+                    (entregado ? ' admin-area-card-kds__item--entregado' : '') + '">';
                 html += '<div class="admin-area-card-kds__item-info">';
                 html += '<span class="admin-area-card-kds__qty">x' + escHtml(item.cantidad) + '</span>';
                 html += '<span class="admin-area-card-kds__name">' + escHtml(item.nombre) + '</span>';
                 html += '<span class="admin-area-card-kds__com">' + escHtml(comensalLabel) + '</span>';
                 html += '</div>';
 
-                if (hasBack || hasForward) {
+                if (entregado) {
+                    html += '<div class="admin-area-card-kds__actions">';
+                    html += '<span class="admin-area-card-kds__badge admin-area-card-kds__badge--entregado">Entregado</span>';
+                    html += '</div>';
+                } else if (hasBack || hasForward) {
                     html += '<div class="admin-area-card-kds__actions">';
 
                     if (hasBack) {

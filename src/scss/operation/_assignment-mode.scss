@@ -98,8 +98,18 @@
   flex: 1 1 180px;
 }
 
+.reservation-operation-assignment-bar__refresh {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  color: var(--admin-info-text, var(--admin-muted));
+  font-size: var(--operational-text-xs);
+}
+
 .reservation-operation-assignment-bar__actions {
   display: flex;
+  grid-column: 3;
+  grid-row: 1;
   gap: 8px;
 }
 
@@ -123,6 +133,7 @@
 
   .reservation-operation-assignment-bar__actions {
     grid-column: 1 / -1;
+    grid-row: auto;
     justify-content: flex-end;
   }
 }
@@ -151,6 +162,7 @@
 
   .reservation-operation-assignment-bar__actions {
     grid-column: auto;
+    grid-row: auto;
   }
 
   .reservation-operation-assignment-bar__actions .admin-btn {

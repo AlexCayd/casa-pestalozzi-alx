@@ -15,12 +15,13 @@ class UsuarioService
     public const USUARIO_CREADO = 'USUARIO_CREADO';
     public const USUARIO_ACTUALIZADO = 'USUARIO_ACTUALIZADO';
     public const PASSWORD_ACTUALIZADO = 'PASSWORD_ACTUALIZADO';
+    public const NIP_ACTUALIZADO = 'NIP_ACTUALIZADO';
+    public const CREDENCIAL_ACTUAL_INCORRECTA = 'CREDENCIAL_ACTUAL_INCORRECTA';
     public const USUARIO_ACTIVADO = 'USUARIO_ACTIVADO';
     public const USUARIO_DESACTIVADO = 'USUARIO_DESACTIVADO';
     public const USUARIO_SIN_CAMBIOS = 'USUARIO_SIN_CAMBIOS';
     public const USUARIO_ELIMINADO = 'USUARIO_ELIMINADO';
     public const ADMIN_ACTIVO_REQUERIDO = 'ADMIN_ACTIVO_REQUERIDO';
-    public const AUTOELIMINACION = 'AUTOELIMINACION';
     public const USUARIO_NO_EXISTE = 'USUARIO_NO_EXISTE';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
     public const ERROR_GUARDADO = 'ERROR_GUARDADO';
@@ -33,24 +34,32 @@ class UsuarioService
         }
 
         $usuario->hashPassword();
+        $usuario->hashNip();
         $db = ActiveRecord::getDB();
 
         try {
             $db->begin_transaction();
             $stmt = $db->prepare(
-                'INSERT INTO usuarios (username, nombre, password_hash, rol, activo)
-                 VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO usuarios (username, nombre, fecha_nacimiento, password_hash, nip_hash, rol, activo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }
 
             $activo = (int)$usuario->activo;
+            // Columnas nullables: bind_param con 's' sobre una variable null
+            // manda NULL, que es justo lo que quiere un admin (sin NIP) o un
+            // alta sin fecha de nacimiento.
+            $nacimiento = $usuario->fecha_nacimiento ?: null;
+            $nipHash = $usuario->nip_hash ?: null;
             $stmt->bind_param(
-                'ssssi',
+                'ssssssi',
                 $usuario->username,
                 $usuario->nombre,
+                $nacimiento,
                 $usuario->password_hash,
+                $nipHash,
                 $usuario->rol,
                 $activo
             );
@@ -61,6 +70,11 @@ class UsuarioService
             $guardado = self::seleccionarUsuario($id);
             if (!$guardado || !password_verify((string)$usuario->password, (string)$guardado['password_hash'])) {
                 throw new \RuntimeException('No fue posible verificar el usuario creado.');
+            }
+            // El NIP es la única credencial del personal de piso: si se pidió
+            // uno y no quedó verificable, el alta no sirve para entrar.
+            if ($nipHash !== null && !password_verify((string)$usuario->nip, (string)$guardado['nip_hash'])) {
+                throw new \RuntimeException('No fue posible verificar el NIP del usuario creado.');
             }
 
             $db->commit();
@@ -115,13 +129,50 @@ class UsuarioService
                 return self::resultadoInvalido($usuario, $alertas);
             }
 
-            $stmt = $db->prepare(
-                'UPDATE usuarios SET username = ?, nombre = ?, rol = ?, activo = ? WHERE id = ? LIMIT 1'
-            );
-            if (!$stmt) {
-                throw new \RuntimeException($db->error);
+            // El NIP solo se toca cuando llegó uno nuevo (tecleado o derivado
+            // del cumpleaños). Dejar el campo vacío significa "conservar el
+            // actual", así que la sentencia se arma en dos formas en lugar de
+            // escribir NULL encima de un hash válido.
+            $usuario->hashNip();
+            $escribeNip = $usuario->nip !== null && $usuario->nip !== '';
+            $nacimiento = $usuario->fecha_nacimiento ?: null;
+
+            if ($escribeNip) {
+                $stmt = $db->prepare(
+                    'UPDATE usuarios SET username = ?, nombre = ?, fecha_nacimiento = ?, nip_hash = ?, rol = ?, activo = ?
+                     WHERE id = ? LIMIT 1'
+                );
+                if (!$stmt) {
+                    throw new \RuntimeException($db->error);
+                }
+                $stmt->bind_param(
+                    'sssssii',
+                    $usuario->username,
+                    $usuario->nombre,
+                    $nacimiento,
+                    $usuario->nip_hash,
+                    $usuario->rol,
+                    $usuario->activo,
+                    $usuarioId
+                );
+            } else {
+                $stmt = $db->prepare(
+                    'UPDATE usuarios SET username = ?, nombre = ?, fecha_nacimiento = ?, rol = ?, activo = ?
+                     WHERE id = ? LIMIT 1'
+                );
+                if (!$stmt) {
+                    throw new \RuntimeException($db->error);
+                }
+                $stmt->bind_param(
+                    'ssssii',
+                    $usuario->username,
+                    $usuario->nombre,
+                    $nacimiento,
+                    $usuario->rol,
+                    $usuario->activo,
+                    $usuarioId
+                );
             }
-            $stmt->bind_param('sssii', $usuario->username, $usuario->nombre, $usuario->rol, $usuario->activo, $usuarioId);
             self::ejecutarStatement($stmt);
             $filasAfectadas = $stmt->affected_rows;
             $stmt->close();
@@ -152,8 +203,30 @@ class UsuarioService
         return ['ok' => false, 'codigo' => self::ERROR_GUARDADO, 'usuario' => $usuario ?? null];
     }
 
-    public static function cambiarPassword(int $usuarioId, string $password, string $confirmacion): array
-    {
+    /**
+     * Cambia la credencial de un usuario: contrasena si es administrador, NIP
+     * de 4 digitos si es personal de piso. El tipo lo decide el rol del
+     * destino, no quien opera.
+     *
+     * $secretoActor es SIEMPRE la contrasena del administrador que ejecuta la
+     * accion, nunca el secreto anterior del destino. La pagina vive bajo
+     * /admin/, asi que quien la abre es admin por definicion, y un admin no
+     * puede conocer el NIP de un mesero (van hasheados): pedirselo seria
+     * inimplementable. Pedir el propio sigue defendiendo contra alguien que
+     * pase por una terminal desbloqueada.
+     *
+     * Pendiente: el personal de piso no tiene forma de cambiar su propio NIP,
+     * porque Auth::proteger() cierra todo /admin/ a rol admin. Un autoservicio
+     * real necesitaria una ruta fuera de /admin/ mas su alta en la allowlist
+     * de APIs de staff.
+     */
+    public static function cambiarCredencial(
+        int $usuarioId,
+        int $actorId,
+        string $secretoActor,
+        string $nuevo,
+        string $confirmacion
+    ): array {
         if ($usuarioId < 1) {
             return ['ok' => false, 'codigo' => self::USUARIO_NO_EXISTE];
         }
@@ -168,38 +241,66 @@ class UsuarioService
                 return ['ok' => false, 'codigo' => self::USUARIO_NO_EXISTE];
             }
 
+            $actor = $actorId === $usuarioId ? $fila : self::seleccionarUsuario($actorId);
+            if (!$actor || !password_verify($secretoActor, (string)$actor['password_hash'])) {
+                $db->rollback();
+                return ['ok' => false, 'codigo' => self::CREDENCIAL_ACTUAL_INCORRECTA];
+            }
+
             $usuario = self::usuarioDesdeFila($fila);
-            $usuario->password = $password;
-            $usuario->password_confirm = $confirmacion;
-            $alertas = $usuario->validarCambioPassword();
+            $tipo = (string)$fila['rol'] === 'admin' ? 'password' : 'nip';
+
+            if ($tipo === 'nip') {
+                $usuario->nip = $nuevo;
+                $usuario->nip_confirm = $confirmacion;
+            } else {
+                $usuario->password = $nuevo;
+                $usuario->password_confirm = $confirmacion;
+            }
+
+            $alertas = $usuario->validarCambioCredencial($tipo);
             if (!empty($alertas['error'])) {
                 $db->rollback();
                 return self::resultadoInvalido($usuario, $alertas);
             }
 
-            $usuario->hashPassword();
-            $stmt = $db->prepare('UPDATE usuarios SET password_hash = ? WHERE id = ? LIMIT 1');
+            if ($tipo === 'nip') {
+                $usuario->hashNip();
+                $columna = 'nip_hash';
+                $hash = $usuario->nip_hash;
+            } else {
+                $usuario->hashPassword();
+                $columna = 'password_hash';
+                $hash = $usuario->password_hash;
+            }
+
+            // $columna sale de un if cerrado, nunca de la entrada del usuario.
+            $stmt = $db->prepare("UPDATE usuarios SET {$columna} = ? WHERE id = ? LIMIT 1");
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }
-            $stmt->bind_param('si', $usuario->password_hash, $usuarioId);
+            $stmt->bind_param('si', $hash, $usuarioId);
             self::ejecutarStatement($stmt);
             if ($stmt->affected_rows !== 1) {
                 $stmt->close();
-                throw new \RuntimeException('La contrasena no produjo una escritura verificable.');
+                throw new \RuntimeException('La credencial no produjo una escritura verificable.');
             }
             $stmt->close();
 
             $guardado = self::seleccionarUsuario($usuarioId);
-            if (!$guardado || !password_verify($password, (string)$guardado['password_hash'])) {
-                throw new \RuntimeException('No fue posible verificar la nueva contrasena.');
+            if (!$guardado || !password_verify($nuevo, (string)$guardado[$columna])) {
+                throw new \RuntimeException('No fue posible verificar la nueva credencial.');
             }
 
             $db->commit();
-            return ['ok' => true, 'codigo' => self::PASSWORD_ACTUALIZADO, 'usuario' => $usuario];
+            return [
+                'ok' => true,
+                'codigo' => $tipo === 'nip' ? self::NIP_ACTUALIZADO : self::PASSWORD_ACTUALIZADO,
+                'usuario' => $usuario,
+            ];
         } catch (\Throwable $e) {
             self::rollbackSeguro($db);
-            error_log('UsuarioService::cambiarPassword - ' . $e->getMessage());
+            error_log('UsuarioService::cambiarCredencial - ' . $e->getMessage());
             return ['ok' => false, 'codigo' => self::ERROR_GUARDADO, 'usuario' => $usuario ?? null];
         }
     }
@@ -261,13 +362,20 @@ class UsuarioService
         }
     }
 
+    /**
+     * Un usuario se puede eliminar salvo que sea el ultimo administrador
+     * activo. Un admin si puede eliminar a otro admin, e incluso a si mismo,
+     * mientras quede otro admin activo: el invariante es "siempre hay alguien
+     * que pueda entrar al panel", no "nadie toca a los admins".
+     *
+     * Se mide sobre admins ACTIVOS y no sobre cualquier fila con rol admin,
+     * coherente con cambiarActivo() y editar(): un admin inactivo no puede
+     * iniciar sesion y por tanto no sostiene el invariante.
+     */
     public static function eliminar(int $usuarioId, int $usuarioActualId = 0): array
     {
         if ($usuarioId < 1) {
             return ['ok' => false, 'codigo' => self::USUARIO_NO_EXISTE];
-        }
-        if ($usuarioActualId > 0 && $usuarioActualId === $usuarioId) {
-            return ['ok' => false, 'codigo' => self::AUTOELIMINACION];
         }
 
         $db = ActiveRecord::getDB();
@@ -303,7 +411,13 @@ class UsuarioService
             }
 
             $db->commit();
-            return ['ok' => true, 'codigo' => self::USUARIO_ELIMINADO];
+            // El controlador necesita saberlo para cerrar la sesion: si no,
+            // $_SESSION['id'] queda apuntando a una fila que ya no existe.
+            return [
+                'ok' => true,
+                'codigo' => self::USUARIO_ELIMINADO,
+                'autoeliminacion' => $usuarioActualId > 0 && $usuarioActualId === $usuarioId,
+            ];
         } catch (\Throwable $e) {
             self::rollbackSeguro($db);
             error_log('UsuarioService::eliminar - ' . $e->getMessage());
@@ -330,7 +444,10 @@ class UsuarioService
 
     private static function seleccionarUsuario(int $usuarioId, bool $forUpdate = false): ?array
     {
-        $sql = 'SELECT id, username, nombre, password_hash, rol, activo, created_at, updated_at
+        // nip_hash y fecha_nacimiento son obligatorios en el SELECT: sin ellos
+        // usuarioDesdeFila() devolvía siempre nip_hash = null y la edición
+        // regeneraba el NIP creyendo que el usuario no tenía.
+        $sql = 'SELECT id, username, nombre, fecha_nacimiento, password_hash, nip_hash, rol, activo, created_at, updated_at
                 FROM usuarios WHERE id = ? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
         $stmt = ActiveRecord::getDB()->prepare($sql);
         if (!$stmt) {
@@ -359,6 +476,8 @@ class UsuarioService
         return $fila !== null
             && (string)$fila['username'] === (string)$usuario->username
             && (string)$fila['nombre'] === (string)$usuario->nombre
+            // NULL en BD y '' en el modelo son el mismo "sin fecha".
+            && (string)($fila['fecha_nacimiento'] ?? '') === (string)($usuario->fecha_nacimiento ?? '')
             && (string)$fila['rol'] === (string)$usuario->rol
             && (int)$fila['activo'] === (int)$usuario->activo;
     }

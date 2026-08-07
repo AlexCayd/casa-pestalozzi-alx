@@ -79,7 +79,6 @@
             return;
         }
 
-        const unsaved = document.querySelector('[data-unsaved-status]');
         const status = form.querySelector('[data-schedule-status]');
         const submitButton = form.querySelector('[data-schedule-validate]');
         const resetButton = form.querySelector('[data-schedule-reset]');
@@ -140,17 +139,12 @@
                 toggle.checked = Boolean(persisted.abierto);
                 const openValue = toggle.checked ? normalizeTime(persisted.hora_apertura) : '';
                 const closeValue = toggle.checked ? normalizeTime(persisted.hora_cierre) : '';
-                if (open._reservationTimePicker) {
-                    open._reservationTimePicker.setValue(openValue, true);
-                } else {
-                    open.value = openValue;
-                }
-                if (close._reservationTimePicker) {
-                    close._reservationTimePicker.setValue(closeValue, true);
-                } else {
-                    close.value = closeValue;
-                }
+                open.value = openValue;
+                close.value = closeValue;
                 updateRow(row);
+                // Tras recargar del servidor, la rejilla tiene que volver a
+                // corresponder con las horas que quedaron puestas.
+                syncHourGrid(row);
             });
         }
 
@@ -162,9 +156,10 @@
             return response.json();
         }
 
+        // Sin badge de estado: que "Guardar horarios" pase de apagado a
+        // encendido ya dice que hay algo pendiente, y el rotulo repetia eso
+        // ocupando la cabecera del panel.
         function renderDirtyState() {
-            unsaved.textContent = hasUnsavedChanges ? 'Cambios sin guardar' : 'Horarios actualizados';
-            unsaved.classList.toggle('is-dirty', hasUnsavedChanges);
             submitButton.disabled = !hasUnsavedChanges || saving;
             if (resetButton) {
                 resetButton.disabled = !hasUnsavedChanges || saving;
@@ -186,12 +181,10 @@
 
             row.classList.toggle('is-closed', !toggle.checked);
             label.textContent = toggle.checked ? 'Abierto' : 'Cerrado';
+            // Los campos son hidden: no se deshabilitan (un hidden deshabilitado
+            // no viaja en el envio y el backend recibiria el dia sin horas),
+            // solo se limpia su error cuando el dia esta cerrado.
             fields.forEach(function (field) {
-                field.disabled = !toggle.checked;
-                field.required = toggle.checked;
-                if (field._reservationTimePicker) {
-                    field._reservationTimePicker.setDisabled(!toggle.checked);
-                }
                 if (!toggle.checked) {
                     setFieldError(field, '');
                 }
@@ -209,36 +202,115 @@
                 return true;
             }
 
-            let valid = true;
+            // Un solo mensaje: apertura y cierre se eligen en la misma rejilla,
+            // así que dos errores simultáneos describirían un único descuido.
             if (!open.value) {
-                setFieldError(open, 'Indica la hora de apertura.');
-                valid = false;
+                setFieldError(open, 'Marca la hora de apertura en la rejilla.');
+                return false;
             }
             if (!close.value) {
-                setFieldError(close, 'Indica la hora de cierre.');
-                valid = false;
-            } else if (open.value && open.value >= close.value) {
-                setFieldError(close, 'El cierre debe ser posterior a la apertura.');
-                valid = false;
+                setFieldError(open, 'Marca también la hora de cierre.');
+                return false;
             }
-            return valid;
+            if (open.value >= close.value) {
+                setFieldError(open, 'El cierre debe ser posterior a la apertura.');
+                return false;
+            }
+            return true;
+        }
+
+        /*
+         * Rejilla de horas 00-23.
+         *
+         * Sustituye a las pestañas de rangos preferidos, que solo ofrecían las
+         * combinaciones ya guardadas. Primer toque = apertura, segundo =
+         * cierre; tocar de nuevo con el rango completo lo reinicia. Un cierre
+         * anterior o igual a la apertura no es un error que mostrar sino la
+         * señal de que se está empezando otro rango, así que se toma como la
+         * nueva apertura.
+         *
+         * Los inputs ocultos siguen siendo la fuente de verdad: la rejilla los
+         * escribe y el resto del formulario (dirty state, validación, guardado
+         * por API) no se entera de que cambió la forma de elegir.
+         */
+        function horaDeValor(valor) {
+            const normal = normalizeTime(valor);
+            return normal ? Number(normal.slice(0, 2)) : null;
+        }
+
+        function syncHourGrid(row) {
+            const grid = row.querySelector('[data-schedule-hours]');
+            if (!grid) {
+                return;
+            }
+
+            const toggle = row.querySelector('[data-schedule-toggle]');
+            const abierto = Boolean(toggle && toggle.checked);
+            const open = row.querySelector('[data-schedule-open]');
+            const close = row.querySelector('[data-schedule-close]');
+            const desde = abierto ? horaDeValor(open ? open.value : '') : null;
+            const hasta = abierto ? horaDeValor(close ? close.value : '') : null;
+
+            grid.querySelectorAll('[data-schedule-hour]').forEach(function (btn) {
+                const hora = Number(btn.dataset.scheduleHour);
+                const esExtremo = hora === desde || hora === hasta;
+                const dentro = desde !== null && hasta !== null && hora > desde && hora < hasta;
+
+                btn.classList.toggle('is-edge', esExtremo);
+                btn.classList.toggle('is-in-range', dentro);
+                btn.setAttribute('aria-pressed', esExtremo || dentro ? 'true' : 'false');
+                btn.disabled = !abierto;
+            });
+
+            const resumen = row.querySelector('[data-schedule-summary]');
+            if (!resumen) {
+                return;
+            }
+
+            if (!abierto) {
+                resumen.textContent = 'Cerrado todo el día.';
+            } else if (open.value && close.value) {
+                resumen.textContent = 'Abre ' + normalizeTime(open.value) + ' y cierra ' + normalizeTime(close.value) + '.';
+            } else if (open.value) {
+                resumen.textContent = 'Apertura ' + normalizeTime(open.value) + '. Elige la hora de cierre.';
+            } else {
+                resumen.textContent = 'Elige la hora de apertura.';
+            }
+        }
+
+        function aplicarHora(row, hora) {
+            const open = row.querySelector('[data-schedule-open]');
+            const close = row.querySelector('[data-schedule-close]');
+            const valor = String(hora).padStart(2, '0') + ':00';
+            const desde = horaDeValor(open.value);
+            const rangoCompleto = Boolean(open.value && close.value);
+
+            if (rangoCompleto || desde === null || hora <= desde) {
+                open.value = valor;
+                close.value = '';
+            } else {
+                close.value = valor;
+            }
+
+            syncHourGrid(row);
+            validateRow(row);
+            updateDirtyState();
         }
 
         form.querySelectorAll('[data-schedule-row]').forEach(function (row) {
             const toggle = row.querySelector('[data-schedule-toggle]');
-            const timeFields = Array.from(row.querySelectorAll('[data-schedule-open], [data-schedule-close]'));
-            timeFields.forEach(initStaticTimePicker);
             toggle.addEventListener('change', function () {
                 updateRow(row);
+                syncHourGrid(row);
                 updateDirtyState();
             });
-            timeFields.forEach(function (input) {
-                input.addEventListener('reservation:timechange', function () {
-                    validateRow(row);
-                    updateDirtyState();
+            row.querySelectorAll('[data-schedule-hour]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    aplicarHora(row, Number(btn.dataset.scheduleHour));
                 });
             });
             updateRow(row);
+            syncHourGrid(row);
         });
 
         initialState = getScheduleState();
@@ -695,7 +767,13 @@
 
         const active = form.querySelector('[data-announcement-active]');
         const message = form.querySelector('[data-announcement-message]');
-        const type = form.querySelector('[data-announcement-type]');
+        // El tipo pasó de <select> a un grupo de radios: hay N controles y el
+        // que manda es el marcado, no el primero del DOM.
+        const typeInputs = Array.from(form.querySelectorAll('[data-announcement-type]'));
+        function tipoActual() {
+            const marcado = typeInputs.find(function (input) { return input.checked; });
+            return marcado ? marcado.value : '';
+        }
         const start = form.querySelector('[data-announcement-start]');
         const end = form.querySelector('[data-announcement-end]');
         const linkText = form.querySelector('[data-announcement-link-text]');
@@ -715,6 +793,24 @@
         const exampleTypeLabel = document.querySelector('[data-announcement-example-type]');
         const exampleIcon = document.querySelector('[data-announcement-example-icon]');
         const useExample = document.querySelector('[data-announcement-use-example]');
+
+        // Fondo de la vista previa. El landing es oscuro, pero el panel puede
+        // estar en tema claro: sin alternar, el acento se juzga sobre un fondo
+        // que el comensal nunca ve.
+        const previewStage = document.querySelector('[data-preview-stage]');
+        document.querySelectorAll('[data-preview-theme]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (previewStage) {
+                    previewStage.dataset.tema = btn.dataset.previewTheme;
+                }
+                document.querySelectorAll('[data-preview-theme]').forEach(function (otro) {
+                    const activo = otro === btn;
+                    otro.classList.toggle('is-active', activo);
+                    otro.setAttribute('aria-pressed', activo ? 'true' : 'false');
+                });
+            });
+        });
+
         let announcementTypes = {};
 
         try {
@@ -844,8 +940,9 @@
         }
 
         function updatePreview() {
-            const selectedType = Object.prototype.hasOwnProperty.call(announcementTypes, type.value)
-                ? type.value
+            const tipo = tipoActual();
+            const selectedType = Object.prototype.hasOwnProperty.call(announcementTypes, tipo)
+                ? tipo
                 : defaultType;
             const selectedConfig = announcementTypes[selectedType] || {};
             const trimmedLinkText = linkText.value.trim();
@@ -885,6 +982,7 @@
             message.placeholder = selectedConfig.placeholder || 'Escribe el mensaje del anuncio.';
             linkText.placeholder = selectedConfig.texto_enlace || '';
             previewState.textContent = active.checked ? 'Activo' : 'Inactivo · no será visible';
+            previewState.classList.toggle('is-live', active.checked);
             previewMessage.textContent = message.value.trim() || 'Escribe un mensaje para ver la vista previa.';
 
             const showLink = trimmedLinkText !== ''
@@ -907,7 +1005,7 @@
 
         if (useExample) {
             useExample.addEventListener('click', function () {
-                const selectedConfig = announcementTypes[type.value] || announcementTypes[defaultType] || {};
+                const selectedConfig = announcementTypes[tipoActual()] || announcementTypes[defaultType] || {};
                 if (!selectedConfig.ejemplo) {
                     return;
                 }
@@ -1090,6 +1188,25 @@
                         element.textContent = value;
                     }
                 });
+
+                // Abrir la pantalla donde se reportó el fallo. Solo rutas
+                // internas: el servidor ya descarta cualquier otra cosa al
+                // guardar, y aquí se vuelve a comprobar antes de ofrecerla.
+                const routeLink = modal.querySelector('[data-detail-route-link]');
+                if (routeLink) {
+                    const ruta = String(report.ruta_origen || '');
+                    const interna = /^\/[^\s]*$/.test(ruta);
+                    routeLink.hidden = !interna;
+                    if (interna) {
+                        routeLink.href = ruta;
+                    }
+                }
+
+                const idInput = modal.querySelector('[data-detail-id]');
+                if (idInput) {
+                    idInput.value = report.id || '';
+                }
+
                 document.dispatchEvent(new CustomEvent('admin:open-modal', { detail: { id: 'report-detail-modal', trigger: button } }));
             });
         });

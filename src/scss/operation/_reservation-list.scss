@@ -212,6 +212,22 @@
   color: var(--admin-warning-text);
 }
 
+.reservation-operation-card__admin-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation-card__note {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .reservation-operation-card__tables {
   justify-content: flex-start;
 

@@ -10,6 +10,7 @@ class Usuario extends ActiveRecord
         'id',
         'username',
         'nombre',
+        'fecha_nacimiento',
         'password_hash',
         'nip_hash',
         'rol',
@@ -21,9 +22,10 @@ class Usuario extends ActiveRecord
     public $id;
     public $username;
     public $nombre;
+    public $fecha_nacimiento;
     public $password_hash;
     public $nip_hash;
-    public $rol = 'observer';
+    public $rol = 'waiter';
     public $activo = 1;
     public $created_at;
     public $updated_at;
@@ -32,12 +34,26 @@ class Usuario extends ActiveRecord
     public $password;
     public $password_confirm;
     public $nip;
+    public $nip_confirm;
 
+    /**
+     * Queda en true cuando el NIP se derivó del cumpleaños en lugar de
+     * escribirse a mano, para que el controlador pueda mostrárselo al admin:
+     * es la única vez que ese valor es visible (después solo existe hasheado).
+     */
+    public $nipGenerado = false;
+
+    /** Longitud fija del NIP del personal de piso. */
+    public const NIP_LONGITUD = 4;
+
+    /**
+     * Los tres roles de la operación. 'admin' entra con contraseña; 'waiter' y
+     * 'cook' con NIP, y cada uno solo alcanza su zona (ver Classes\Auth).
+     */
     protected const ROLES_PERMITIDOS = [
         'admin',
-        'observer',
         'waiter',
-        'cashier'
+        'cook'
     ];
 
     public static function rolesPermitidos(): array
@@ -91,8 +107,13 @@ class Usuario extends ActiveRecord
 
         $this->normalizarDatos();
         $this->validarDatosBase();
-        $this->validarPassword();
-        // El NIP solo lo usa el personal de piso; el admin entra con contraseña
+        // Credencial por rol, no las dos: el admin entra con contraseña y el
+        // personal de piso con NIP. Pedirle contraseña a un mesero bloqueaba el
+        // alta por un campo que esa persona no va a usar nunca.
+        if ($this->rol === 'admin') {
+            $this->validarPassword();
+        }
+        $this->generarNipDesdeNacimiento();
         $this->validarNip($this->rol !== 'admin');
         $this->validarUsernameUnico();
 
@@ -105,17 +126,27 @@ class Usuario extends ActiveRecord
 
         $this->normalizarDatos();
         $this->validarDatosBase();
+        $this->generarNipDesdeNacimiento();
         $this->validarNip(false);
         $this->validarUsernameUnico($this->id);
 
         return static::$alertas;
     }
 
-    public function validarCambioPassword()
+    /**
+     * Cambio de credencial desde /admin/usuarios/cambiar-credencial. El tipo lo
+     * decide el rol del usuario destino, no quien opera: 'password' para
+     * administradores, 'nip' para el personal de piso.
+     */
+    public function validarCambioCredencial(string $tipo)
     {
         static::$alertas = [];
 
-        $this->validarPassword();
+        if ($tipo === 'nip') {
+            $this->validarNipNuevo();
+        } else {
+            $this->validarPassword();
+        }
 
         return static::$alertas;
     }
@@ -133,8 +164,82 @@ class Usuario extends ActiveRecord
     {
         $this->nombre = trim($this->nombre ?? '');
         $this->username = trim($this->username ?? '');
-        $this->rol = $this->rol ?? 'observer';
+        $this->rol = $this->rol ?? 'waiter';
         $this->activo = (int) $this->activo;
+
+        // El <input type="date"> manda '' cuando se deja vacío; la columna es
+        // nullable, así que se normaliza a NULL antes de tocar la BD.
+        $this->fecha_nacimiento = trim((string) ($this->fecha_nacimiento ?? ''));
+        if ($this->fecha_nacimiento === '') {
+            $this->fecha_nacimiento = null;
+        }
+        $this->validarFechaNacimiento();
+    }
+
+    private function validarFechaNacimiento()
+    {
+        if ($this->fecha_nacimiento === null) {
+            return;
+        }
+
+        $fecha = \DateTime::createFromFormat('Y-m-d', $this->fecha_nacimiento);
+        // El round-trip descarta fechas que PHP "corrige" sola (31 de febrero).
+        if (!$fecha || $fecha->format('Y-m-d') !== $this->fecha_nacimiento) {
+            static::setAlerta('error', 'La fecha de nacimiento no es válida');
+            $this->fecha_nacimiento = null;
+            return;
+        }
+
+        $anio = (int) $fecha->format('Y');
+        if ($fecha > new \DateTime('today') || $anio < 1900) {
+            static::setAlerta('error', 'La fecha de nacimiento no es válida');
+            $this->fecha_nacimiento = null;
+        }
+    }
+
+    /**
+     * NIP por defecto a partir del cumpleaños, en formato DDMM (14 de marzo →
+     * "1403"). Devuelve string, nunca int: el 3 de marzo tiene que quedar
+     * "0303" y un cast se comería el cero inicial.
+     */
+    public function nipDesdeNacimiento(): ?string
+    {
+        if (!$this->fecha_nacimiento) {
+            return null;
+        }
+
+        $fecha = \DateTime::createFromFormat('Y-m-d', $this->fecha_nacimiento);
+
+        return $fecha ? $fecha->format('dm') : null;
+    }
+
+    /**
+     * Si el admin dejó el NIP vacío, lo deriva del cumpleaños. Se asigna a
+     * $this->nip para que el hasheo, la comprobación de unicidad y el guardado
+     * sigan un único camino.
+     *
+     * Al editar solo aplica cuando el usuario todavía no tiene NIP: de lo
+     * contrario, cambiarle el nombre a un mesero le regeneraría el NIP en
+     * silencio y lo dejaría fuera del sistema.
+     */
+    private function generarNipDesdeNacimiento()
+    {
+        $this->nip = trim((string) ($this->nip ?? ''));
+
+        if ($this->nip !== '' || $this->rol === 'admin') {
+            return;
+        }
+        if ($this->id && $this->nip_hash) {
+            return;
+        }
+
+        $generado = $this->nipDesdeNacimiento();
+        if ($generado === null) {
+            return;
+        }
+
+        $this->nip = $generado;
+        $this->nipGenerado = true;
     }
 
     private function validarDatosBase()
@@ -212,10 +317,10 @@ class Usuario extends ActiveRecord
     }
 
     /**
-     * NIP de acceso rápido (4 a 6 dígitos) del personal de piso. Obligatorio al
-     * crear meseros/cajeros; al editar, dejarlo vacío conserva el actual. Debe
-     * ser único entre usuarios porque el login identifica a la persona solo
-     * con su NIP. Los administradores no lo usan: entran con contraseña.
+     * NIP de acceso rápido (4 dígitos exactos) del personal de piso.
+     * Obligatorio al crear meseros y cocineros; al editar, dejarlo vacío conserva
+     * el actual. Debe ser único entre usuarios porque el login identifica a la
+     * persona solo con su NIP. Los administradores no lo usan.
      */
     private function validarNip(bool $obligatorio)
     {
@@ -223,13 +328,47 @@ class Usuario extends ActiveRecord
 
         if ($this->nip === '') {
             if ($obligatorio) {
-                static::setAlerta('error', 'El NIP es obligatorio');
+                static::setAlerta(
+                    'error',
+                    'El NIP es obligatorio: escribe 4 dígitos o captura la fecha de nacimiento para generarlo'
+                );
             }
             return;
         }
 
-        if (!preg_match('/^\d{4,6}$/', $this->nip)) {
-            static::setAlerta('error', 'El NIP debe tener de 4 a 6 dígitos');
+        if (!preg_match('/^\d{4}$/', $this->nip)) {
+            static::setAlerta('error', 'El NIP debe tener exactamente 4 dígitos');
+            return;
+        }
+
+        if (!self::nipDisponible($this->nip, $this->id ? (int) $this->id : null)) {
+            // Un NIP generado y uno tecleado fallan por motivos distintos, así
+            // que el admin necesita mensajes distintos: en el generado no
+            // escribió nada y sin esta pista no sabría de dónde salió el 1403.
+            static::setAlerta('error', $this->nipGenerado
+                ? "El NIP {$this->nip}, generado desde la fecha de nacimiento, ya está asignado a otra persona. Escribe un NIP de 4 dígitos manualmente."
+                : 'Ese NIP ya está asignado a otro usuario');
+        }
+    }
+
+    /** NIP nuevo capturado en el cambio de credencial (nuevo + confirmación). */
+    private function validarNipNuevo()
+    {
+        $this->nip = trim((string) ($this->nip ?? ''));
+        $this->nip_confirm = trim((string) ($this->nip_confirm ?? ''));
+
+        if ($this->nip === '') {
+            static::setAlerta('error', 'El NIP nuevo es obligatorio');
+            return;
+        }
+
+        if (!preg_match('/^\d{4}$/', $this->nip)) {
+            static::setAlerta('error', 'El NIP debe tener exactamente 4 dígitos');
+            return;
+        }
+
+        if ($this->nip !== $this->nip_confirm) {
+            static::setAlerta('error', 'Los NIP no coinciden');
             return;
         }
 
@@ -295,9 +434,21 @@ class Usuario extends ActiveRecord
         return null;
     }
 
+    /**
+     * password_hash de usuarios.password es NOT NULL, pero el personal de piso
+     * no tiene contraseña: entra por NIP. Para esos casos se guarda el hash de
+     * un secreto aleatorio que nadie conoce, así la columna queda satisfecha y
+     * la vía de usuario+contraseña permanece cerrada para ellos.
+     */
     public function hashPassword()
     {
-        $this->password_hash = password_hash($this->password, PASSWORD_DEFAULT);
+        $secreto = (string) $this->password;
+
+        if ($secreto === '') {
+            $secreto = bin2hex(random_bytes(32));
+        }
+
+        $this->password_hash = password_hash($secreto, PASSWORD_DEFAULT);
     }
 
     public function hashNip()

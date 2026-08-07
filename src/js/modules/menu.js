@@ -55,8 +55,6 @@ function initMenu() {
         cat.dishes.forEach(function(d, j) {
           var row = document.createElement("div");
           row.className = "dish";
-          var tags = (d.tags || []).map(function(t) { return '<span class="dish__tag">' + t + '</span>'; }).join("");
-
           /* Descomentar para miniatura individual por platillo:
           var thumb = d.img
             ? '<div class="dish__thumb" data-zoom data-zoom-cat="' + cat.label + '"><img src="' + d.img + '" alt="' + d.n + '" loading="lazy" /></div>'
@@ -69,7 +67,6 @@ function initMenu() {
             '<span class="dish__idx">' + String(j + 1).padStart(2, "0") + '</span>' +
             '<div class="dish__main"><h4>' + d.n + '</h4>' +
             (d.d ? '<p>' + d.d + '</p>' : '') +
-            (tags ? '<div class="dish__tags">' + tags + '</div>' : '') +
             '</div>' +
             '<span class="dish__price">$' + d.p + '<small> mxn</small></span>';
           row.addEventListener("mouseenter", function() {

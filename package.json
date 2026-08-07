@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "gulp dev",
     "build": "gulp build",
-    "test:php": "php scripts/run-tests.php",
-    "test:js": "node tests/js/reservation-form-state.test.js",
+    "test:php": "php scripts/tests/run-reservaciones-catalogo.php",
+    "test:js": "node scripts/tests/run-reservaciones-js-syntax.cjs",
+    "audit:reservaciones": "php scripts/auditar-errores-reservaciones.php",
     "test": "npm run test:php && npm run test:js"
   },
   "author": "",

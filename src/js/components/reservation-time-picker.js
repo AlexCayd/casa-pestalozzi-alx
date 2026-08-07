@@ -38,8 +38,11 @@
     var controlDisabled = initiallyDisabled;
     var enabled = false;
     var availableHours = [];
+    var lastAlternatives = [];
     var requestId = 0;
     var abortController = null;
+    var requestTimeoutId = null;
+    var requestTimeoutMs = parseInt(options.requestTimeoutMs, 10) || 10000;
 
     if (!display || !input || !dropdown || !optionsList) {
       return null;
@@ -83,11 +86,42 @@
       status.classList.toggle("show", Boolean(show && text));
     }
 
-    function closeDropdown() {
+    function clearRequestTimeout() {
+      if (requestTimeoutId === null) return;
+      clearTimeout(requestTimeoutId);
+      requestTimeoutId = null;
+    }
+
+    var popoverCoordinator = window.ReservationPopoverCoordinator || null;
+    var popover = {
+      root: root,
+      close: function (restoreFocus) {
+        dropdown.classList.remove("open");
+        root.classList.remove("is-open");
+        dropdown.setAttribute("aria-hidden", "true");
+        display.setAttribute("aria-expanded", "false");
+        if (restoreFocus) display.focus();
+      }
+    };
+
+    function closeDropdown(restoreFocus) {
+      if (popoverCoordinator) {
+        popoverCoordinator.close(popover, restoreFocus === true);
+        return;
+      }
       dropdown.classList.remove("open");
       root.classList.remove("is-open");
       dropdown.setAttribute("aria-hidden", "true");
       display.setAttribute("aria-expanded", "false");
+      if (restoreFocus) display.focus();
+    }
+
+    function openDropdown() {
+      if (popoverCoordinator) popoverCoordinator.open(popover);
+      dropdown.classList.add("open");
+      root.classList.add("is-open");
+      dropdown.setAttribute("aria-hidden", "false");
+      display.setAttribute("aria-expanded", "true");
     }
 
     function focusHour(preferSelected) {
@@ -103,7 +137,6 @@
       display.value = "";
       optionsList.querySelectorAll(".hour-option").forEach(function (button) {
         button.classList.remove("sel");
-        button.setAttribute("aria-pressed", "false");
         button.setAttribute("aria-selected", "false");
       });
       syncValueState();
@@ -177,7 +210,9 @@
         ? options.unavailableMessage(preferredHour, queryParams)
         : "La hora de las " + preferredHour + " ya no está disponible"
           + (people ? " para " + people + (people === 1 ? " persona" : " personas") : "")
-          + ".";
+          + (lastAlternatives.length
+            ? ". Prueba: " + lastAlternatives.join(", ") + "."
+            : ".");
     }
 
     function invalidatePreferredHour(preferredHour, silent, keepAlternatives) {
@@ -188,7 +223,7 @@
         display.disabled = controlDisabled;
         display.setAttribute("aria-disabled", controlDisabled ? "true" : "false");
         root.classList.toggle("is-disabled", controlDisabled);
-        closeDropdown();
+        closeDropdown(true);
       } else {
         setUnavailable("Sin horarios disponibles", true, true);
       }
@@ -204,7 +239,6 @@
       optionsList.querySelectorAll(".hour-option").forEach(function (button) {
         var selected = button.getAttribute("data-hour") === hour;
         button.classList.toggle("sel", selected);
-        button.setAttribute("aria-pressed", selected ? "true" : "false");
         button.setAttribute("aria-selected", selected ? "true" : "false");
       });
       setStatus("", false);
@@ -259,7 +293,6 @@
         button.textContent = hour;
         button.setAttribute("data-hour", hour);
         button.setAttribute("role", "option");
-        button.setAttribute("aria-pressed", "false");
         button.setAttribute("aria-selected", "false");
         button.addEventListener("click", function (event) {
           event.stopPropagation();
@@ -294,6 +327,7 @@
         abortController.abort();
         abortController = null;
       }
+      clearRequestTimeout();
 
       if (!fecha) {
         setUnavailable("Selecciona fecha y comensales");
@@ -306,6 +340,8 @@
 
       setLoading(preferredHour);
       abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timedOut = false;
+      var timeoutNotified = false;
 
       var params = new URLSearchParams({ fecha: fecha });
       if (typeof options.getQueryParams === "function") {
@@ -317,15 +353,71 @@
         });
       }
 
+      requestTimeoutId = setTimeout(function () {
+        if (currentRequest !== requestId) return;
+        timedOut = true;
+        requestTimeoutId = null;
+        requestId++;
+        if (abortController) {
+          abortController.abort();
+          abortController = null;
+        }
+        timeoutNotified = true;
+        keepCurrentAfterLookupError(
+          preferredHour,
+          "No fue posible consultar los horarios. Intenta nuevamente."
+        );
+        emitScheduleLoaded({
+          ok: false,
+          mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+        });
+      }, requestTimeoutMs);
+
       return fetch(endpoint + "?" + params.toString(), {
         headers: { "Accept": "application/json" },
         credentials: "same-origin",
         signal: abortController ? abortController.signal : undefined
       })
-        .then(function (response) { return response.json(); })
+        .then(function (response) {
+          return response.text().then(function (raw) {
+            var data;
+            try {
+              data = JSON.parse(raw);
+            } catch (error) {
+              throw new Error("INVALID_AVAILABILITY_JSON");
+            }
+            if (!response.ok) {
+              return {
+                ok: false,
+                mensaje: data && data.mensaje
+                  ? data.mensaje
+                  : "No fue posible consultar los horarios."
+              };
+            }
+            return data;
+          });
+        })
         .then(function (data) {
+          if (currentRequest === requestId) clearRequestTimeout();
           if (currentRequest !== requestId) return [];
+          if (data && data.fecha !== undefined && String(data.fecha) !== String(fecha)) {
+            keepCurrentAfterLookupError(
+              preferredHour,
+              "La respuesta no corresponde a la fecha seleccionada."
+            );
+            emitScheduleLoaded({
+              ok: false,
+              codigo: "FECHA_RESPUESTA_MISMATCH",
+              fecha: data.fecha,
+              requested_fecha: fecha,
+              mensaje: "La respuesta no corresponde a la fecha seleccionada."
+            });
+            return [];
+          }
           emitScheduleLoaded(data);
+          lastAlternatives = Array.isArray(data.alternativas)
+            ? data.alternativas.map(normalizeHour).filter(Boolean).slice(0, 5)
+            : [];
 
           if (!data.ok) {
             var errorMessage = data.mensaje || "No fue posible consultar los horarios.";
@@ -359,9 +451,19 @@
           return data.horarios || [];
         })
         .catch(function (error) {
-          if (error && error.name === "AbortError") return [];
+          if (currentRequest === requestId) clearRequestTimeout();
+          if (error && error.name === "AbortError" && !timedOut) return [];
           if (currentRequest !== requestId) return [];
-          keepCurrentAfterLookupError(preferredHour, "No fue posible consultar los horarios. Intenta nuevamente.");
+          if (!timeoutNotified) {
+            keepCurrentAfterLookupError(
+              preferredHour,
+              "No fue posible consultar los horarios. Intenta nuevamente."
+            );
+            emitScheduleLoaded({
+              ok: false,
+              mensaje: "No fue posible consultar los horarios. Intenta nuevamente."
+            });
+          }
           return [];
         });
     }
@@ -379,24 +481,22 @@
     display.addEventListener("click", function (event) {
       event.stopPropagation();
       if (!enabled || display.disabled) return;
-      dropdown.classList.toggle("open");
-      root.classList.toggle("is-open", dropdown.classList.contains("open"));
-      dropdown.setAttribute("aria-hidden", dropdown.classList.contains("open") ? "false" : "true");
-      display.setAttribute("aria-expanded", dropdown.classList.contains("open") ? "true" : "false");
-      if (dropdown.classList.contains("open")) focusHour(true);
+      if (dropdown.classList.contains("open")) {
+        closeDropdown();
+      } else {
+        openDropdown();
+        focusHour(true);
+      }
     });
 
     display.addEventListener("keydown", function (event) {
       if ((event.key === "Enter" || event.key === " ") && enabled && !display.disabled) {
         event.preventDefault();
-        dropdown.classList.add("open");
-        root.classList.add("is-open");
-        dropdown.setAttribute("aria-hidden", "false");
-        display.setAttribute("aria-expanded", "true");
+        openDropdown();
         focusHour(true);
       }
       if (event.key === "Escape") {
-        closeDropdown();
+        closeDropdown(true);
       }
     });
 
@@ -406,8 +506,7 @@
       var index = buttons.indexOf(document.activeElement);
       if (event.key === "Escape") {
         event.preventDefault();
-        closeDropdown();
-        display.focus();
+        closeDropdown(true);
         return;
       }
       if (index === -1 || !buttons.length) return;
@@ -419,11 +518,7 @@
       buttons[index].focus();
     });
 
-    document.addEventListener("click", function (event) {
-      if (!root.contains(event.target)) {
-        closeDropdown();
-      }
-    });
+    if (popoverCoordinator) popoverCoordinator.register(popover);
 
     var initialTime = normalizeHour(options.initialTime || input.value);
     var suppliedHours = Array.isArray(options.hours) ? options.hours.slice() : buildStaticHours(staticStep);

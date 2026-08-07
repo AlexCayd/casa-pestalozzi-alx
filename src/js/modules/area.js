@@ -67,7 +67,9 @@ function initArea() {
       }
       if (it.estado === 'enviado')          byTicket[it.ticket_id].enviados.push(it);
       else if (it.estado === 'en_preparacion') byTicket[it.ticket_id].prep.push(it);
-      else if (it.estado === 'listo')       byTicket[it.ticket_id].listos.push(it);
+      // Lo entregado por el mesero también vive en Listos: el registro no debe
+      // desaparecer del tablero solo porque se lo llevaron de la barra.
+      else if (it.estado === 'listo' || it.estado === 'entregado') byTicket[it.ticket_id].listos.push(it);
     }
 
     var envCards   = [];
@@ -87,7 +89,11 @@ function initArea() {
       }
       if (group.listos.length) {
         listoCards.push(buildCard(group, group.listos, 'listo'));
-        listoCount += group.listos.length;
+        // El contador mide trabajo por recoger, no filas visibles: lo ya
+        // entregado no cuenta, así que a propósito no coincide con lo pintado.
+        for (var li = 0; li < group.listos.length; li++) {
+          if (group.listos[li].estado === 'listo') listoCount++;
+        }
       }
     }
 
@@ -106,8 +112,17 @@ function initArea() {
   }
 
   function buildCard(group, itemList, colType) {
-    var min     = minutosDesde(itemList[0].created_at);
-    var urgClass = min >= 10 ? ' area-card--urgente'
+    // La antigüedad se mide sobre lo que sigue pendiente. Con ORDER BY
+    // created_at ASC el más viejo suele ser justo el ya entregado, y tomarlo
+    // pintaría la tarjeta en rojo por trabajo que ya está hecho.
+    var pendiente = null;
+    for (var p = 0; p < itemList.length; p++) {
+      if (itemList[p].estado !== 'entregado') { pendiente = itemList[p]; break; }
+    }
+
+    var min      = minutosDesde((pendiente || itemList[0]).created_at);
+    var urgClass = !pendiente ? ''
+                 : min >= 10 ? ' area-card--urgente'
                  : min >= 5  ? ' area-card--alerta' : '';
 
     var mesaTxt = escHtml(group.mesa_nombre);
@@ -127,10 +142,13 @@ function initArea() {
     for (var i = 0; i < itemList.length; i++) {
       var it       = itemList[i];
       var comLabel = it.comensal !== null ? 'C.' + it.comensal : 'GL';
-      var hasBack    = colType === 'prep' || colType === 'listo';
-      var hasForward = colType === 'enviado' || colType === 'prep';
+      // La columna de Listos es mixta, así que el estado se decide por ítem y
+      // no por columna: lo entregado ya no admite ninguna acción.
+      var entregado  = it.estado === 'entregado';
+      var hasBack    = !entregado && (colType === 'prep' || colType === 'listo');
+      var hasForward = !entregado && (colType === 'enviado' || colType === 'prep');
 
-      h += '<div class="area-card__item">';
+      h += '<div class="area-card__item' + (entregado ? ' area-card__item--entregado' : '') + '">';
       var notaHtml = it.nota
         ? '<span class="area-card__nota">' + escHtml(it.nota) + '</span>'
         : '';
@@ -143,7 +161,11 @@ function initArea() {
       h += '<span class="area-card__com">' + comLabel + '</span>';
       h += '</div>';
 
-      if (hasBack || hasForward) {
+      if (entregado) {
+        h += '<div class="area-card__item-btns">';
+        h += '<span class="area-card__badge area-card__badge--entregado">Entregado ✓</span>';
+        h += '</div>';
+      } else if (hasBack || hasForward) {
         h += '<div class="area-card__item-btns">';
         if (hasBack) {
           h += '<button class="area-card__btn area-card__btn--back" data-id="' +

@@ -8,14 +8,18 @@
     var STATE_CLASSES = [
         'mesa-pin--libre',
         'mesa-pin--ocupada',
-        'mesa-pin--asignada',
+        'mesa-pin--reservacion-proxima',
         'mesa-pin--seleccionada',
-        'mesa-pin--no-reservable',
-        'mesa-pin--bloqueada',
-        'mesa-pin--proxima',
-        'mesa-pin--con-ticket',
-        'mesa-pin--zona'
+        'mesa-pin--no-utilizable'
     ];
+
+    var STATE_LABELS = {
+        libre: 'disponible',
+        ocupada: 'ocupada',
+        'reservacion-proxima': 'con reservación próxima',
+        seleccionada: 'seleccionada',
+        'no-utilizable': 'no utilizable'
+    };
 
     function toBoolean(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
@@ -35,14 +39,17 @@
         var state = String(value || 'libre').toLowerCase();
         var aliases = {
             disponible: 'libre',
-            no_reservable: 'no-reservable',
-            proxima: 'libre',
+            no_reservable: 'no-utilizable',
+            'no-reservable': 'no-utilizable',
+            'no-utilizable': 'no-utilizable',
+            proxima: 'reservacion-proxima',
+            bloqueada: 'reservacion-proxima',
             'con-ticket': 'ocupada',
-            zona: 'no-reservable'
+            zona: 'no-utilizable'
         };
 
         state = aliases[state] || state;
-        return ['libre', 'ocupada', 'bloqueada', 'asignada', 'seleccionada', 'no-reservable'].indexOf(state) !== -1
+        return ['libre', 'ocupada', 'reservacion-proxima', 'seleccionada', 'no-utilizable'].indexOf(state) !== -1
             ? state
             : 'libre';
     }
@@ -73,35 +80,13 @@
         return attributes;
     }
 
-    function normalizeIndicators(value) {
-        if (!Array.isArray(value)) {
-            return [];
-        }
-
-        return value.map(function (indicator) {
-            indicator = indicator || {};
-            var type = String(indicator.tipo || 'estado')
-                .toLowerCase()
-                .replace(/[^a-z0-9_-]/g, '-');
-            var label = String(indicator.label || '').trim();
-            if (!label) {
-                return null;
-            }
-
-            return {
-                tipo: type || 'estado',
-                label: label,
-                simbolo: String(indicator.simbolo || 'i').substring(0, 2)
-            };
-        }).filter(Boolean);
-    }
-
     function normalizeTable(raw) {
         raw = raw || {};
 
         var id = parseInt(raw.id || '0', 10);
         var state = normalizeState(raw.estadoVisual || raw.estado_visual || raw.estado);
-        var selected = toBoolean(raw.seleccionada) || state === 'seleccionada';
+        var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
+        var selected = (toBoolean(raw.seleccionada) || state === 'seleccionada') && seleccionValida;
         var reservable = toBoolean(raw.reservable);
 
         return {
@@ -121,7 +106,7 @@
             numero: raw.numero == null ? '' : String(raw.numero),
             estadoBase: String(raw.estadoBase || raw.estado_base || ''),
             modificadores: normalizeClasses(raw.modificadores),
-            indicadores: normalizeIndicators(raw.indicadores),
+            seleccionValida: seleccionValida,
             clasesEstado: normalizeClasses(raw.clasesEstado || raw.clases_estado),
             atributos: normalizeAttributes(raw.atributos)
         };
@@ -145,6 +130,20 @@
         var tablesById = {};
         var resizeObserver = null;
         var lastSelectionKey = '';
+        var card = canvas.closest('[data-map-component]');
+        var structuredList = card ? card.querySelector('[data-map-structured-list]') : null;
+
+        function accessibleTableLabel(table) {
+            var parts = [table.titulo];
+            if (table.capacidad > 0) {
+                parts.push('capacidad ' + table.capacidad);
+            }
+            parts.push(STATE_LABELS[table.estadoVisual] || table.estadoVisual);
+            if (table.seleccionada) {
+                parts.push('seleccionada');
+            }
+            return parts.join(', ');
+        }
 
         function dispatch(name, detail) {
             canvas.dispatchEvent(new CustomEvent(name, {
@@ -212,32 +211,63 @@
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+            pin.setAttribute('aria-label', accessibleTableLabel(table));
         }
 
-        /**
-         * Los indicadores ya llegan descritos por el adaptador de contexto.
-         * El componente únicamente genera insignias accesibles.
-         */
-        function renderIndicators(pin, table) {
-            var previous = pin.querySelector('.mesa-pin__indicators');
-            if (previous) {
-                previous.remove();
-            }
-            if (!table.indicadores.length) {
+        function syncStructuredTable(table) {
+            if (!structuredList) {
                 return;
             }
 
-            var container = document.createElement('span');
-            container.className = 'mesa-pin__indicators';
-            container.setAttribute('aria-hidden', 'true');
-            table.indicadores.forEach(function (indicator) {
-                var badge = document.createElement('span');
-                badge.className = 'mesa-pin__indicator mesa-pin__indicator--' + indicator.tipo;
-                badge.title = indicator.label;
-                badge.textContent = indicator.simbolo;
-                container.appendChild(badge);
+            var button = structuredList.querySelector('[data-structured-mesa="' + table.id + '"]');
+            if (!button) {
+                return;
+            }
+
+            var state = button.querySelector('.operational-map__structured-state');
+            button.disabled = !(interactive && table.interactivo);
+            button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+            button.setAttribute('aria-label', accessibleTableLabel(table));
+            if (state) {
+                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+            }
+        }
+
+        function renderStructuredList() {
+            if (!structuredList) {
+                return;
+            }
+
+            structuredList.innerHTML = '';
+            tables.forEach(function (table) {
+                var item = document.createElement('li');
+                item.setAttribute('role', 'listitem');
+
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('data-structured-mesa', String(table.id));
+                button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
+                button.disabled = !(interactive && table.interactivo);
+                button.setAttribute('aria-label', accessibleTableLabel(table));
+
+                var name = document.createElement('span');
+                name.className = 'operational-map__structured-name';
+                name.textContent = table.titulo;
+                button.appendChild(name);
+
+                var state = document.createElement('span');
+                state.className = 'operational-map__structured-state';
+                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                button.appendChild(state);
+
+                button.addEventListener('click', function () {
+                    dispatchTableClick(table);
+                });
+                item.appendChild(button);
+                structuredList.appendChild(item);
             });
-            pin.appendChild(container);
         }
 
         function createPin(table) {
@@ -253,7 +283,7 @@
             pin.setAttribute('data-mapa-mesa', String(table.id));
             pin.setAttribute('data-reservable', table.reservable ? '1' : '0');
             pin.setAttribute('data-disabled', isInteractive ? '0' : '1');
-            pin.setAttribute('aria-label', table.titulo);
+            pin.setAttribute('aria-label', accessibleTableLabel(table));
 
             if (table.numero !== '') {
                 pin.setAttribute('data-numero', table.numero);
@@ -282,7 +312,6 @@
                 pin.appendChild(typeLabel);
             }
 
-            renderIndicators(pin, table);
             applyState(pin, table);
             return pin;
         }
@@ -310,6 +339,7 @@
             canvas.innerHTML = '';
             canvas.appendChild(fragment);
             canvas.setAttribute('data-map-ready', '1');
+            renderStructuredList();
             emitSelectionIfChanged();
         }
 
@@ -318,6 +348,9 @@
             tablesById = {};
             canvas.removeAttribute('data-map-ready');
             canvas.innerHTML = '';
+            if (structuredList) {
+                structuredList.innerHTML = '';
+            }
 
             if (message) {
                 var empty = document.createElement('div');
@@ -353,17 +386,13 @@
                 table.estadoVisual = normalizeState(changes.estadoVisual);
             }
             if (changes.seleccionada != null) {
-                table.seleccionada = toBoolean(changes.seleccionada);
+                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida !== false;
             }
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
             }
             if (changes.modificadores != null) {
                 table.modificadores = normalizeClasses(changes.modificadores);
-            }
-            if (changes.indicadores != null) {
-                table.indicadores = normalizeIndicators(changes.indicadores);
-                renderIndicators(pin, table);
             }
             if (changes.titulo != null) {
                 table.titulo = String(changes.titulo);
@@ -372,6 +401,7 @@
             }
 
             applyState(pin, table);
+            syncStructuredTable(table);
 
             if (changes.atributos) {
                 var attributes = normalizeAttributes(changes.atributos);
@@ -390,17 +420,31 @@
             });
 
             tables.forEach(function (table) {
-                var nextSelected = Boolean(selected[table.id]);
+                var nextSelected = Boolean(selected[table.id]) && table.seleccionValida !== false;
                 if (table.seleccionada !== nextSelected) {
                     table.seleccionada = nextSelected;
                     var pin = canvas.querySelector('[data-mapa-mesa="' + table.id + '"]');
                     if (pin) {
                         applyState(pin, table);
                     }
+                    syncStructuredTable(table);
                 }
             });
 
             emitSelectionIfChanged();
+        }
+
+        function dispatchTableClick(table) {
+            dispatch('mapa:mesa-click', {
+                contexto: context,
+                mesaId: table.id,
+                estado: table.estadoVisual,
+                reservable: table.reservable,
+                seleccionada: table.seleccionada,
+                capacidad: table.capacidad,
+                modificadores: table.modificadores.slice(),
+                seleccionMultiple: multiple
+            });
         }
 
         function onClick(event) {
@@ -414,16 +458,7 @@
                 return;
             }
 
-            dispatch('mapa:mesa-click', {
-                contexto: context,
-                mesaId: table.id,
-                estado: table.estadoVisual,
-                reservable: table.reservable,
-                seleccionada: table.seleccionada,
-                capacidad: table.capacidad,
-                modificadores: table.modificadores.slice(),
-                seleccionMultiple: multiple
-            });
+            dispatchTableClick(table);
         }
 
         function onResize(entries) {
@@ -449,7 +484,6 @@
         canvas.setAttribute('data-map-context', context);
         canvas.addEventListener('click', onClick);
 
-        var card = canvas.closest('[data-map-component]');
         var legend = card ? card.querySelector('[data-map-legend]') : null;
         if (legend && options.mostrarLeyenda === false) {
             legend.hidden = true;

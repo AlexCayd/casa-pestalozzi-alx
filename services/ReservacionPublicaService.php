@@ -13,8 +13,10 @@ namespace Services;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Model\ActiveRecord;
+use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
+use Model\TicketMesa;
 use Model\VerificacionContacto;
 
 final class ReservacionPublicaService
@@ -27,23 +29,46 @@ final class ReservacionPublicaService
     public const REQUEST_TOKEN_CONFLICTO = 'REQUEST_TOKEN_CONFLICTO';
     public const CONTACTO_NO_VERIFICADO = 'CONTACTO_NO_VERIFICADO';
     public const CONTACTO_NO_COINCIDE = 'CONTACTO_NO_COINCIDE';
-    public const SESION_EXPIRADA = 'SESION_EXPIRADA';
-    public const RESERVACION_NO_ENCONTRADA = 'RESERVACION_NO_ENCONTRADA';
+    public const SESION_PUBLICA_EXPIRADA = 'SESION_PUBLICA_EXPIRADA';
+    public const RESERVACION_NO_ENCONTRADA = ReservacionService::RESERVACION_NO_EXISTE;
     public const RESERVACION_NO_PERTENECE_AL_CONTACTO = 'RESERVACION_NO_PERTENECE_AL_CONTACTO';
     public const MODIFICACION_NO_PERMITIDA = 'MODIFICACION_NO_PERMITIDA';
     public const CANCELACION_NO_PERMITIDA = 'CANCELACION_NO_PERMITIDA';
     public const RESERVACION_MODIFICADA = 'RESERVACION_MODIFICADA';
     public const RESERVACION_CANCELADA = 'RESERVACION_CANCELADA';
     public const RESERVACION_DUPLICADA = 'RESERVACION_DUPLICADA';
+    public const REEMPLAZO_CREADO = 'REEMPLAZO_CREADO';
+    public const REEMPLAZO_CONFIRMADO = 'REEMPLAZO_CONFIRMADO';
     public const RETENCIONES_EXPIRADAS = 'RETENCIONES_EXPIRADAS';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
     /** Expone la regla temporal a la presentación sin duplicarla. */
     public static function puedeGestionarse(array $fila): bool
     {
-        return (string)($fila['estado'] ?? '') === 'confirmada'
-            && (bool)ReservacionVigenciaService::clasificar($fila)['editable'];
+        return self::puedeModificarPublicamente($fila);
+    }
+
+    public static function puedeModificarPublicamente(array $fila): bool
+    {
+        if ((string)($fila['estado'] ?? '') !== 'confirmada') {
+            return false;
+        }
+
+        $inicio = self::fechaHoraProgramada($fila);
+        return $inicio instanceof DateTimeImmutable
+            && ReservacionConfig::ahora() <= $inicio->modify('-' . ReservacionConfig::LIMITE_MODIFICACION_MINUTOS . ' minutes');
+    }
+
+    public static function puedeCancelarPublicamente(array $fila): bool
+    {
+        if ((string)($fila['estado'] ?? '') !== 'confirmada') {
+            return false;
+        }
+
+        $inicio = self::fechaHoraProgramada($fila);
+        return $inicio instanceof DateTimeImmutable
+            && ReservacionConfig::ahora() <= $inicio->modify('+' . ReservacionConfig::TOLERANCIA_CANCELACION_PUBLICA_MINUTOS . ' minutes');
     }
 
     public static function contactoCoincideConSesion(array $entrada, array $sesion): bool
@@ -99,7 +124,7 @@ final class ReservacionPublicaService
 
         // La comprobación preliminar mejora la respuesta, pero sólo la segunda,
         // dentro del lock por contacto, protege contra solicitudes simultáneas.
-        if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+        if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
             return self::limiteAlcanzado();
         }
 
@@ -113,7 +138,9 @@ final class ReservacionPublicaService
 
                 $existente = self::buscarPorTokenParaActualizar($datos['request_token']);
                 if ($existente) {
-                    $resultado = self::resolverIdempotencia($existente, $datos['fingerprint'], true);
+                    $resultado = self::coincidePayloadPublico($existente, $datos)
+                        ? self::resolverIdempotencia($existente, true)
+                        : self::tokenEnConflicto();
                     $db->commit();
                     $transaccion = false;
                     return $resultado;
@@ -130,7 +157,7 @@ final class ReservacionPublicaService
                     return self::duplicada();
                 }
 
-                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -141,22 +168,23 @@ final class ReservacionPublicaService
                     $datos['hora'],
                     $datos['personas'],
                     0,
+                    true,
                     true
                 );
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $vence = ReservacionConfig::ahora()
-                    ->modify('+' . ReservacionConfig::RESERVATION_HOLD_MINUTES . ' minutes')
+                    ->modify('+' . ReservacionConfig::VIGENCIA_HOLD_MINUTOS . ' minutes')
                     ->format('Y-m-d H:i:s');
                 $reservacionId = self::insertarReservacion(
                     $datos,
                     'pendiente_verificacion',
                     $vence,
-                    null
+                    ReservacionConfig::ahora()->format('Y-m-d H:i:s')
                 );
                 ReservacionMesa::reemplazarAsignacion($reservacionId, $disponibilidad['mesa_ids']);
                 if (!ReservacionMesa::tieneMesasAsignadas($reservacionId)) {
@@ -184,7 +212,7 @@ final class ReservacionPublicaService
                 return array_merge([
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
-                    'mensaje' => 'Conservaremos tus mesas durante cinco minutos mientras verificas el contacto.',
+                    'contexto' => ['minutos' => ReservacionConfig::VIGENCIA_HOLD_MINUTOS],
                     'request_token' => $datos['request_token'],
                     'hold_expires_at' => self::fechaAtom($vence),
                     'idempotente' => false,
@@ -208,10 +236,10 @@ final class ReservacionPublicaService
             $tipo = trim((string)($entrada['tipo'] ?? $entrada['tipo_contacto'] ?? ''));
             $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
         } catch (InvalidArgumentException $e) {
-            return self::datosInvalidos($e->getMessage());
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         if (!self::tokenValido($requestToken) || preg_match('/^\d{6}$/', $codigo) !== 1) {
-            return self::datosInvalidos('Escribe el código de seis dígitos y conserva el identificador de solicitud.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
         return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken, $codigo): array {
@@ -248,7 +276,7 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return self::retencionExpirada();
                 }
-                if (self::contarActivas($tipo, $contacto) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($tipo, $contacto, (int)$retencion['id']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -282,24 +310,21 @@ final class ReservacionPublicaService
                     return $otp;
                 }
 
+                $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
                      SET estado = 'confirmada',
-                         confirmed_at = NOW(),
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'cliente',
-                         last_change_reason = 'Contacto verificado mediante OTP'
+                         estado_changed_at = ?
                      WHERE id = ? AND estado = 'pendiente_verificacion'"
                 );
-                self::ejecutarStmt($stmt, 'i', [(int)$retencion['id']]);
+                self::ejecutarStmt($stmt, 'si', [$estadoChangedAt, (int)$retencion['id']]);
                 if (!$db->commit()) {
                     throw new \RuntimeException('No fue posible confirmar la reservación.');
                 }
                 $transaccion = false;
                 ReservationClientSession::crear($tipo, $contacto);
                 $retencion['estado'] = 'confirmada';
-                $retencion['confirmed_at'] = ReservacionConfig::fechaActual() . ' ' . ReservacionConfig::horaActual();
+                $retencion['estado_changed_at'] = $estadoChangedAt;
 
                 return self::resultadoReservacion($retencion, false);
             } catch (\Throwable $e) {
@@ -320,10 +345,10 @@ final class ReservacionPublicaService
             $tipo = trim((string)($entrada['tipo'] ?? ''));
             $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
         } catch (InvalidArgumentException $e) {
-            return self::datosInvalidos($e->getMessage());
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         if (!self::tokenValido($requestToken)) {
-            return self::datosInvalidos('El identificador de solicitud no es válido.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
         return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
@@ -379,15 +404,13 @@ final class ReservacionPublicaService
         if ($tipo === '' || $contacto === '') {
             return [
                 'ok' => false,
-                'codigo' => self::SESION_EXPIRADA,
-                'mensaje' => 'Verifica nuevamente tu contacto.',
+                'codigo' => self::SESION_PUBLICA_EXPIRADA,
             ];
         }
         if (!self::contactoCoincideConSesion($entrada, $sesion)) {
             return [
                 'ok' => false,
                 'codigo' => self::CONTACTO_NO_COINCIDE,
-                'mensaje' => 'El contacto cambió. Verifícalo nuevamente para confirmar la reservación.',
             ];
         }
         $entrada['tipo_contacto'] = $tipo;
@@ -405,7 +428,9 @@ final class ReservacionPublicaService
                 $transaccion = true;
                 $existente = self::buscarPorTokenParaActualizar($datos['request_token']);
                 if ($existente) {
-                    $resultado = self::resolverIdempotencia($existente, $datos['fingerprint'], false);
+                    $resultado = self::coincidePayloadPublico($existente, $datos)
+                        ? self::resolverIdempotencia($existente, false)
+                        : self::tokenEnConflicto();
                     $db->commit();
                     $transaccion = false;
                     return $resultado;
@@ -420,7 +445,7 @@ final class ReservacionPublicaService
                     $transaccion = false;
                     return self::duplicada();
                 }
-                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_ACTIVE_RESERVATIONS) {
+                if (self::contarActivas($datos['tipo'], $datos['contacto']) >= ReservacionConfig::MAX_RESERVACIONES_ACTIVAS_POR_CONTACTO) {
                     $db->rollback();
                     $transaccion = false;
                     return self::limiteAlcanzado();
@@ -430,12 +455,13 @@ final class ReservacionPublicaService
                     $datos['hora'],
                     $datos['personas'],
                     0,
+                    true,
                     true
                 );
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::sinDisponibilidad();
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
                 $reservacionId = self::insertarReservacion(
@@ -463,110 +489,334 @@ final class ReservacionPublicaService
         });
     }
 
-    /** Modifica sin liberar la asignación original fuera de la transacción. */
-    public static function modificar(array $entrada, array $sesion): array
+    /**
+     * Crea una nueva versión pendiente. La reservación original y sus mesas
+     * permanecen intactas hasta que la sesión verificada confirme el cambio.
+     */
+    public static function crearReemplazo(array $entrada, array $sesion): array
     {
         $id = (int)($entrada['reservacion_id'] ?? $entrada['id'] ?? 0);
         $tipo = (string)($sesion['contacto_tipo'] ?? '');
         $contacto = (string)($sesion['contacto'] ?? '');
-        if ($id < 1 || $tipo === '' || $contacto === '') {
-            return self::datosInvalidos('Selecciona una reservación válida.');
+        $fecha = trim((string)($entrada['fecha'] ?? ''));
+        $hora = HorarioReservacionService::normalizarHoraSql((string)($entrada['hora'] ?? ''));
+        $personas = filter_var($entrada['personas'] ?? $entrada['comensales'] ?? null, FILTER_VALIDATE_INT);
+        $nota = trim((string)($entrada['notas'] ?? $entrada['nota'] ?? ''));
+        $token = trim((string)($entrada['request_token'] ?? ''));
+
+        if ($id < 1 || $tipo === '' || $contacto === '' || !self::tokenValido($token)) {
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
-        $actual = self::buscarPorId($id);
-        if (!$actual) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
+            return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
+        }
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
+        }
+        if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
+            return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
+        }
+
+        $original = self::buscarPorId($id);
+        if (!$original) {
             return self::noEncontrada();
         }
-        if (!self::mismoContacto($actual, $tipo, $contacto)) {
+        if (!self::mismoContacto($original, $tipo, $contacto)) {
             return self::noPertenece();
         }
+        $conservaHorarioOriginal = (string)$original['fecha'] === $fecha
+            && HorarioReservacionService::normalizarHoraSql((string)$original['hora']) === $hora;
+        $fechas = [(string)$original['fecha'], $fecha];
 
-        $entrada['tipo_contacto'] = $tipo;
-        $entrada['contacto'] = $contacto;
-        $entrada['request_token'] = (string)$actual['request_token'];
-        $validacion = self::validarSolicitud($entrada, true, true);
-        if (!($validacion['ok'] ?? false)) {
-            return $validacion;
-        }
-        $datos = $validacion['datos'];
-        $fechas = [(string)$actual['fecha'], $datos['fecha']];
-
-        return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use ($id, $tipo, $contacto, $datos): array {
+        return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use (
+            $id,
+            $tipo,
+            $contacto,
+            $fecha,
+            $hora,
+            $personas,
+            $nota,
+            $token,
+            $conservaHorarioOriginal
+        ): array {
             $transaccion = false;
             try {
-                $db->begin_transaction();
+                if (!$db->begin_transaction()) {
+                    throw new \RuntimeException('No fue posible iniciar el reemplazo.');
+                }
                 $transaccion = true;
+
+                $existente = self::buscarPorTokenParaActualizar($token);
+                if ($existente) {
+                    if ((int)($existente['reemplaza_reservacion_id'] ?? 0) !== $id) {
+                        $db->rollback();
+                        $transaccion = false;
+                        return self::tokenEnConflicto();
+                    }
+                    if (!self::coincidePayloadReemplazo($existente, $fecha, $hora, $personas, $nota)) {
+                        $db->rollback();
+                        $transaccion = false;
+                        return self::tokenEnConflicto();
+                    }
+                    if ((string)$existente['estado'] === 'pendiente_verificacion'
+                        && !self::timestampVencido((string)$existente['hold_expires_at'])) {
+                        $db->commit();
+                        $transaccion = false;
+                        return self::resultadoReemplazoPendiente($existente, true);
+                    }
+                    if ((string)$existente['estado'] === 'confirmada') {
+                        $db->commit();
+                        $transaccion = false;
+                        return self::resultadoReemplazoConfirmado($existente, true);
+                    }
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::reemplazoExpirado();
+                }
+
                 $fila = self::buscarPorIdParaActualizar($id);
                 if (!$fila || !self::mismoContacto($fila, $tipo, $contacto)) {
                     $db->rollback();
                     $transaccion = false;
                     return self::noPertenece();
                 }
-                if ((string)$fila['estado'] !== 'confirmada' || !self::antesODuranteHora($fila)) {
+                if ((string)$fila['estado'] !== 'confirmada') {
                     $db->rollback();
                     $transaccion = false;
-                    return [
-                        'ok' => false,
-                        'codigo' => self::MODIFICACION_NO_PERMITIDA,
-                        'mensaje' => 'La reservación ya no puede modificarse.',
-                    ];
+                    return self::modificacionNoPermitida();
+                }
+                if (!self::puedeModificarPublicamente($fila)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::modificacionNoPermitida();
+                }
+                $conservaHorarioOriginal = (string)$fila['fecha'] === $fecha
+                    && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
+
+                $pendiente = self::buscarReemplazoPendienteParaActualizar($id);
+                if ($pendiente) {
+                    if (self::timestampVencido((string)$pendiente['hold_expires_at'])) {
+                        self::marcarReemplazoExpirado((int)$pendiente['id']);
+                    } else {
+                        // Un intento distinto invalida explícitamente el hold
+                        // anterior antes de crear el nuevo, evitando cadenas.
+                        self::marcarReemplazoExpirado((int)$pendiente['id']);
+                    }
+                    VerificacionContacto::invalidarPorReservaciones([(int)$pendiente['id']]);
+                }
+
+                $horario = $conservaHorarioOriginal
+                    ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
+                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                if (!($horario['ok'] ?? false)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
                 }
 
                 $disponibilidad = DisponibilidadReservacionService::evaluarHorario(
-                    $datos['fecha'],
-                    $datos['hora'],
-                    $datos['personas'],
+                    $fecha,
+                    $hora,
+                    (int)$personas,
                     $id,
-                    true
+                    true,
+                    true,
+                    $conservaHorarioOriginal
                 );
                 if (!($disponibilidad['ok'] ?? false)) {
                     $db->rollback();
                     $transaccion = false;
-                    return [
-                        'ok' => false,
-                        'codigo' => self::SIN_DISPONIBILIDAD,
-                        'mensaje' => 'No hay capacidad suficiente para esta selección; tu reservación original se conserva.',
-                        'errors' => [
-                            'hora' => ['El horario no tiene capacidad para los comensales seleccionados.'],
-                            'personas' => ['No hay una combinación de mesas disponible para este grupo.'],
-                        ],
-                    ];
+                    return self::sinDisponibilidad($disponibilidad);
                 }
 
-                $stmt = $db->prepare(
-                    'UPDATE reservaciones
-                     SET nombre = ?, fecha = ?, hora = ?, comensales = ?, nota = ?,
-                         last_modified_by = NULL,
-                         last_modified_source = "cliente",
-                         last_change_reason = "Reservación modificada por el cliente"
-                     WHERE id = ? AND estado = ?'
+                $vence = ReservacionConfig::ahora()
+                    ->modify('+' . ReservacionConfig::VIGENCIA_HOLD_MINUTOS . ' minutes')
+                    ->format('Y-m-d H:i:s');
+                $reemplazoId = self::insertarReemplazo(
+                    $fila,
+                    $fecha,
+                    $hora,
+                    (int)$personas,
+                    $nota,
+                    $vence,
+                    $token
                 );
-                self::ejecutarStmt($stmt, 'sssisis', [
-                    $datos['nombre'],
-                    $datos['fecha'],
-                    $datos['hora'],
-                    $datos['personas'],
-                    $datos['notas'],
-                    $id,
-                    'confirmada',
-                ]);
-                // El reemplazo sucede al final y dentro de la misma transacción:
-                // un fallo restaura fecha, personas y mesas originales.
-                ReservacionMesa::reemplazarAsignacion($id, $disponibilidad['mesa_ids']);
-                $db->commit();
+                ReservacionMesa::reemplazarAsignacion($reemplazoId, $disponibilidad['mesa_ids']);
+                if (!ReservacionMesa::tieneMesasAsignadas($reemplazoId)) {
+                    throw new \RuntimeException('El reemplazo quedó sin mesas.');
+                }
+
+                if (!$db->commit()) {
+                    throw new \RuntimeException('No fue posible confirmar el reemplazo.');
+                }
                 $transaccion = false;
 
-                return [
-                    'ok' => true,
-                    'codigo' => self::RESERVACION_MODIFICADA,
-                    'mensaje' => 'La reservación fue modificada.',
-                    'reservation' => self::publicar(self::buscarPorId($id) ?: $fila),
+                $reemplazo = self::buscarPorId($reemplazoId) ?: [
+                    'id' => $reemplazoId,
+                    'nombre' => $fila['nombre'],
+                    'contacto_tipo' => $tipo,
+                    'contacto' => $contacto,
+                    'fecha' => $fecha,
+                    'hora' => $hora,
+                    'comensales' => $personas,
+                    'nota' => $nota,
+                    'estado' => 'pendiente_verificacion',
+                    'hold_expires_at' => $vence,
                 ];
+                return self::resultadoReemplazoPendiente($reemplazo, false, $fila);
             } catch (\Throwable $e) {
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::modificar - ' . $e->getMessage());
-                return self::errorInterno('No fue posible modificar; tu reservación original se conserva.');
+                error_log('ReservacionPublicaService::crearReemplazo - ' . $e->getMessage());
+                return self::errorInterno();
+            }
+        });
+    }
+
+    /** Alias conservado para consumidores heredados; ya no actualiza la original. */
+    public static function modificar(array $entrada, array $sesion): array
+    {
+        return self::crearReemplazo($entrada, $sesion);
+    }
+
+    /** Confirma el reemplazo y mueve ambas filas de estado atómicamente. */
+    public static function confirmarReemplazo(array $entrada, array $sesion): array
+    {
+        $token = trim((string)($entrada['request_token'] ?? ''));
+        $tipo = (string)($sesion['contacto_tipo'] ?? '');
+        $contacto = (string)($sesion['contacto'] ?? '');
+        if (!self::tokenValido($token)) {
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
+        }
+        if ($tipo === '' || $contacto === '') {
+            return ['ok' => false, 'codigo' => self::SESION_PUBLICA_EXPIRADA];
+        }
+
+        $previsualizacion = self::buscarPorToken($token);
+        $fechas = [];
+        if ($previsualizacion) {
+            $fechas[] = (string)($previsualizacion['fecha'] ?? '');
+            $originalPrevio = self::buscarPorId((int)($previsualizacion['reemplaza_reservacion_id'] ?? 0));
+            if ($originalPrevio) {
+                $fechas[] = (string)($originalPrevio['fecha'] ?? '');
+            }
+        }
+
+        return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use ($token, $tipo, $contacto): array {
+            $transaccion = false;
+            try {
+                if (!$db->begin_transaction()) {
+                    throw new \RuntimeException('No fue posible iniciar la confirmación del cambio.');
+                }
+                $transaccion = true;
+                $reemplazo = self::buscarPorTokenParaActualizar($token);
+                if (!$reemplazo || !self::mismoContacto($reemplazo, $tipo, $contacto)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::noEncontrada();
+                }
+                $originalId = (int)($reemplazo['reemplaza_reservacion_id'] ?? 0);
+                $original = $originalId > 0 ? self::buscarPorIdParaActualizar($originalId) : null;
+                if (!$original || !self::mismoContacto($original, $tipo, $contacto)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::noPertenece();
+                }
+
+                if ((string)$reemplazo['estado'] === 'confirmada'
+                    && (string)$original['estado'] === 'reemplazada') {
+                    $db->commit();
+                    $transaccion = false;
+                    return self::resultadoReemplazoConfirmado($reemplazo, true);
+                }
+                if ((string)$reemplazo['estado'] !== 'pendiente_verificacion') {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::reemplazoExpirado();
+                }
+                if (self::timestampVencido((string)$reemplazo['hold_expires_at'])) {
+                    self::marcarReemplazoExpirado((int)$reemplazo['id']);
+                    VerificacionContacto::invalidarPorReservaciones([(int)$reemplazo['id']]);
+                    $db->commit();
+                    $transaccion = false;
+                    return self::reemplazoExpirado();
+                }
+                if ((string)$original['estado'] !== 'confirmada') {
+                    self::marcarReemplazoExpirado((int)$reemplazo['id']);
+                    VerificacionContacto::invalidarPorReservaciones([(int)$reemplazo['id']]);
+                    $db->commit();
+                    $transaccion = false;
+                    return self::modificacionNoPermitida();
+                }
+                if (!ReservacionMesa::tieneMesasAsignadas((int)$reemplazo['id'])) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::sinDisponibilidad();
+                }
+
+                $reemplazoId = (int)$reemplazo['id'];
+                $mesasProvisionales = ReservacionMesa::obtenerIdsPorReservacion($reemplazoId);
+                sort($mesasProvisionales, SORT_NUMERIC);
+                $mesas = Mesa::reservablesParaActualizar($mesasProvisionales);
+                $conservaHorarioOriginal = (string)$original['fecha'] === (string)$reemplazo['fecha']
+                    && HorarioReservacionService::normalizarHoraSql((string)$original['hora'])
+                        === HorarioReservacionService::normalizarHoraSql((string)$reemplazo['hora']);
+                $disponibilidad = DisponibilidadReservacionService::evaluarHorario(
+                    (string)$reemplazo['fecha'],
+                    (string)$reemplazo['hora'],
+                    (int)$reemplazo['comensales'],
+                    [$originalId, $reemplazoId],
+                    true,
+                    true,
+                    $conservaHorarioOriginal
+                );
+                $ocupacion = (array)($disponibilidad['ocupacion'] ?? []);
+                if (!($disponibilidad['ok'] ?? false)
+                    || count($mesas) !== count($mesasProvisionales)
+                    || AsignacionMesasService::hayConflictoHorario(
+                        (array)($ocupacion['ocupacion_bloqueante'] ?? []),
+                        $mesasProvisionales
+                    )
+                    || !AsignacionMesasService::agrupacionPublicaValida(
+                        $mesas,
+                        (int)$reemplazo['comensales']
+                    )) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::sinDisponibilidad($disponibilidad);
+                }
+
+                $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+                $stmt = $db->prepare(
+                    "UPDATE reservaciones
+                     SET estado = CASE
+                         WHEN id = ? THEN 'confirmada'
+                         ELSE 'reemplazada'
+                     END,
+                     estado_changed_at = ?
+                     WHERE (id = ? AND estado = 'pendiente_verificacion')
+                        OR (id = ? AND estado = 'confirmada')"
+                );
+                self::ejecutarStmt($stmt, 'isii', [
+                    (int)$reemplazo['id'],
+                    $estadoChangedAt,
+                    (int)$reemplazo['id'],
+                    $originalId,
+                ]);
+                if (!$db->commit()) {
+                    throw new \RuntimeException('No fue posible confirmar el cambio.');
+                }
+                $transaccion = false;
+                $reemplazo['estado'] = 'confirmada';
+                $reemplazo['estado_changed_at'] = $estadoChangedAt;
+                return self::resultadoReemplazoConfirmado($reemplazo, false);
+            } catch (\Throwable $e) {
+                if ($transaccion) {
+                    $db->rollback();
+                }
+                error_log('ReservacionPublicaService::confirmarReemplazo - ' . $e->getMessage());
+                return self::errorInterno();
             }
         });
     }
@@ -577,7 +827,7 @@ final class ReservacionPublicaService
         $tipo = (string)($sesion['contacto_tipo'] ?? '');
         $contacto = (string)($sesion['contacto'] ?? '');
         if ($id < 1 || $tipo === '' || $contacto === '') {
-            return self::datosInvalidos('Selecciona una reservación válida.');
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
         }
         $actual = self::buscarPorId($id);
         if (!$actual) {
@@ -604,36 +854,58 @@ final class ReservacionPublicaService
                     return [
                         'ok' => true,
                         'codigo' => self::RESERVACION_CANCELADA,
-                        'mensaje' => 'La reservación ya estaba cancelada.',
                         'idempotente' => true,
                     ];
                 }
-                if ((string)$fila['estado'] !== 'confirmada' || !self::antesODuranteHora($fila)) {
+                if ((string)$fila['estado'] !== 'confirmada' || !self::puedeCancelarPublicamente($fila)) {
                     $db->rollback();
                     $transaccion = false;
                     return [
                         'ok' => false,
                         'codigo' => self::CANCELACION_NO_PERMITIDA,
-                        'mensaje' => 'La reservación ya no puede cancelarse desde el portal.',
                     ];
+                }
+                $ticket = $db->query(
+                    "SELECT t.id FROM tickets t
+                     WHERE t.reservacion_id = {$id}
+                       AND " . TicketMesa::condicionSqlAbierto('t') . "
+                     LIMIT 1 FOR UPDATE"
+                );
+                if ($ticket === false) {
+                    throw new \RuntimeException($db->error);
+                }
+                $ticketAbierto = $ticket->num_rows > 0;
+                $ticket->free();
+                if ($ticketAbierto) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return [
+                        'ok' => false,
+                        'codigo' => self::CANCELACION_NO_PERMITIDA,
+                    ];
+                }
+
+                $pendiente = self::buscarReemplazoPendienteParaActualizar($id);
+                if ($pendiente) {
+                    self::marcarReemplazoExpirado((int)$pendiente['id']);
+                    VerificacionContacto::invalidarPorReservaciones([(int)$pendiente['id']]);
                 }
 
                 $stmt = $db->prepare(
                     "UPDATE reservaciones
                      SET estado = 'cancelada',
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'cliente',
-                         last_change_reason = 'Cancelación solicitada por el cliente'
+                         estado_changed_at = ?
                      WHERE id = ? AND estado = 'confirmada'"
                 );
-                self::ejecutarStmt($stmt, 'i', [$id]);
+                self::ejecutarStmt($stmt, 'si', [
+                    ReservacionConfig::ahora()->format('Y-m-d H:i:s'),
+                    $id,
+                ]);
                 $db->commit();
                 $transaccion = false;
                 return [
                     'ok' => true,
                     'codigo' => self::RESERVACION_CANCELADA,
-                    'mensaje' => 'La reservación fue cancelada.',
                     'idempotente' => false,
                 ];
             } catch (\Throwable $e) {
@@ -658,11 +930,13 @@ final class ReservacionPublicaService
         try {
             $db->begin_transaction();
             $transaccion = true;
+            $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+            $estadoChangedAtSql = $db->real_escape_string($estadoChangedAt);
             $resultado = $db->query(
                 "SELECT id
                  FROM reservaciones
                  WHERE estado = 'pendiente_verificacion'
-                   AND hold_expires_at <= NOW()
+                   AND hold_expires_at <= '{$estadoChangedAtSql}'
                  ORDER BY hold_expires_at ASC, id ASC
                  LIMIT {$limite}
                  FOR UPDATE SKIP LOCKED"
@@ -681,10 +955,7 @@ final class ReservacionPublicaService
                 if ($db->query(
                     "UPDATE reservaciones
                      SET estado = 'expirada',
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'sistema',
-                         last_change_reason = 'Retención vencida'
+                         estado_changed_at = '{$estadoChangedAtSql}'
                      WHERE id IN ({$lista})
                        AND estado = 'pendiente_verificacion'"
                 ) === false) {
@@ -730,16 +1001,16 @@ final class ReservacionPublicaService
         $contactoValor = trim((string)($entrada['contacto'] ?? ''));
 
         if ($nombre === '' || self::longitud($nombre) > ReservacionConfig::NOMBRE_MAX_CARACTERES) {
-            return self::datosInvalidos('Escribe un nombre válido.');
+            return self::datosInvalidos('NOMBRE_REQUERIDO');
         }
-        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_PUBLIC_GUESTS) {
-            return self::datosInvalidos('Las reservaciones en línea son de 1 a 12 personas.');
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
         }
         if (self::longitud($notas) > ReservacionConfig::NOTA_MAX_CARACTERES) {
-            return self::datosInvalidos('Las notas no pueden exceder 500 caracteres.');
+            return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
         }
         if (!self::tokenValido($requestToken)) {
-            return self::datosInvalidos('El identificador de solicitud no es válido.');
+            return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
         $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
         if (!($horario['ok'] ?? false)) {
@@ -749,17 +1020,11 @@ final class ReservacionPublicaService
                 HorarioReservacionService::FECHA_PASADA,
                 HorarioReservacionService::DIA_INACTIVO,
             ], true) ? 'fecha' : 'hora';
-            $mensaje = $esPasado
-                ? 'Ese horario ya pasó. Elige un horario posterior.'
-                : 'La fecha u hora seleccionada no está disponible.';
             return [
                 'ok' => false,
                 'codigo' => self::DATOS_INVALIDOS,
-                'mensaje' => $mensaje,
-                'errores' => [$field => [$mensaje]],
-                'errors' => [$field => [$mensaje]],
                 'field_codes' => [
-                    $field => [(string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO)],
+                    $field => [self::codigoCampoHorario((string)($horario['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO))],
                 ],
                 'siguiente_horario_valido' => $horario['siguiente_horario_valido'] ?? null,
             ];
@@ -771,7 +1036,7 @@ final class ReservacionPublicaService
                 : ContactoService::normalizar($tipo, $contactoValor);
         } catch (InvalidArgumentException $e) {
             if ($requiereContacto) {
-                return self::datosInvalidos($e->getMessage());
+                return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
             }
             $contacto = '';
         }
@@ -785,10 +1050,6 @@ final class ReservacionPublicaService
             'personas' => (int)$personas,
             'notas' => $notas,
         ];
-        $payload['fingerprint'] = hash(
-            'sha256',
-            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        );
         $payload['request_token'] = $requestToken;
         return ['ok' => true, 'datos' => $payload];
     }
@@ -797,21 +1058,18 @@ final class ReservacionPublicaService
         array $datos,
         string $estado,
         ?string $holdExpiresAt,
-        ?string $confirmedAt
+        ?string $estadoChangedAt = null
     ): int {
         $db = ActiveRecord::getDB();
-        $motivo = $estado === 'confirmada'
-            ? 'Reservación creada con sesión verificada'
-            : 'Retención creada para verificación';
+        $estadoChangedAt = $estadoChangedAt
+            ?? ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $stmt = $db->prepare(
             'INSERT INTO reservaciones
                 (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
-                 request_token, request_fingerprint, hold_expires_at,
-                 confirmed_at, status_changed_at, last_modified_source,
-                 last_change_reason, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), "cliente", ?, ?)'
+                 origen, estado, hold_expires_at, request_token, estado_changed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, "landing", ?, ?, ?, ?)'
         );
-        self::ejecutarStmt($stmt, 'sssssisssssss', [
+        self::ejecutarStmt($stmt, 'sssssisssss', [
             $datos['nombre'],
             $datos['tipo'],
             $datos['contacto'],
@@ -819,24 +1077,23 @@ final class ReservacionPublicaService
             $datos['hora'],
             $datos['personas'],
             $datos['notas'],
-            $datos['request_token'],
-            $datos['fingerprint'],
-            $holdExpiresAt,
-            $confirmedAt,
-            $motivo,
             $estado,
+            $holdExpiresAt,
+            $datos['request_token'],
+            $estadoChangedAt,
         ]);
 
         return (int)$db->insert_id;
     }
 
-    private static function contarActivas(string $tipo, string $contacto): int
+    private static function contarActivas(string $tipo, string $contacto, int $excluirReservacionId = 0): int
     {
         return Reservacion::contarActivasPorContacto(
             $tipo,
             $contacto,
             ReservacionConfig::fechaActual(),
-            ReservacionConfig::horaActual()
+            ReservacionConfig::horaActual(),
+            $excluirReservacionId
         );
     }
 
@@ -894,17 +1151,17 @@ final class ReservacionPublicaService
         try {
             $horarioLock = HorarioConfigLock::adquirir($db);
             if (!$horarioLock) {
-                return self::errorInterno('La configuración de horarios está siendo actualizada.');
+                return self::errorInterno();
             }
             $contactoLock = ContactoOperacionLock::adquirir($db, $tipo, $contacto);
             if (!$contactoLock) {
-                return self::errorInterno('La reservación está siendo actualizada. Intenta de nuevo.');
+                return self::errorInterno();
             }
             $fechas = array_values(array_unique(array_filter(array_map('trim', $fechas))));
             sort($fechas, SORT_STRING);
             foreach ($fechas as $fecha) {
                 if (!FechaOperacionLock::adquirir($db, $fecha)) {
-                    return self::sinDisponibilidad('La disponibilidad cambió. Intenta nuevamente.');
+                    return self::sinDisponibilidad();
                 }
                 $adquiridas[] = $fecha;
             }
@@ -923,21 +1180,13 @@ final class ReservacionPublicaService
         }
     }
 
-    private static function resolverIdempotencia(array $fila, string $fingerprint, bool $retencion): array
+    private static function resolverIdempotencia(array $fila, bool $retencion): array
     {
-        if (!hash_equals((string)($fila['request_fingerprint'] ?? ''), $fingerprint)) {
-            return [
-                'ok' => false,
-                'codigo' => self::REQUEST_TOKEN_CONFLICTO,
-                'mensaje' => 'Ese identificador ya se utilizó con datos diferentes.',
-            ];
-        }
         if ($retencion) {
             if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['hold_expires_at'])) {
                 return [
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
-                    'mensaje' => 'La retención ya existe.',
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
@@ -950,6 +1199,19 @@ final class ReservacionPublicaService
         }
 
         return self::resultadoReservacion($fila, true);
+    }
+
+    private static function buscarPorToken(string $token): ?array
+    {
+        $stmt = ActiveRecord::getDB()->prepare('SELECT * FROM reservaciones WHERE request_token = ? LIMIT 1');
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar la idempotencia.');
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        return $fila;
     }
 
     private static function buscarPorTokenParaActualizar(string $token): ?array
@@ -990,34 +1252,162 @@ final class ReservacionPublicaService
         return $fila;
     }
 
+    private static function buscarReemplazoPendienteParaActualizar(int $originalId): ?array
+    {
+        if ($originalId < 1) {
+            return null;
+        }
+        $stmt = ActiveRecord::getDB()->prepare(
+            "SELECT *
+             FROM reservaciones
+             WHERE reemplaza_reservacion_id = ?
+               AND estado = 'pendiente_verificacion'
+             ORDER BY id DESC
+             LIMIT 1 FOR UPDATE"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible consultar el cambio pendiente.');
+        }
+        $stmt->bind_param('i', $originalId);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        return $fila;
+    }
+
+    private static function insertarReemplazo(
+        array $original,
+        string $fecha,
+        string $hora,
+        int $personas,
+        string $nota,
+        string $holdExpiresAt,
+        string $requestToken
+    ): int {
+        $stmt = ActiveRecord::getDB()->prepare(
+            "INSERT INTO reservaciones
+                (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
+                 origen, estado, hold_expires_at, reemplaza_reservacion_id,
+                 request_token, estado_changed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'landing', 'pendiente_verificacion', ?, ?, ?, ?)"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el reemplazo.');
+        }
+        $nombre = (string)$original['nombre'];
+        $tipo = (string)$original['contacto_tipo'];
+        $contacto = (string)$original['contacto'];
+        $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $originalId = (int)$original['id'];
+        $stmt->bind_param(
+            'sssssississ',
+            $nombre,
+            $tipo,
+            $contacto,
+            $fecha,
+            $hora,
+            $personas,
+            $nota,
+            $holdExpiresAt,
+            $originalId,
+            $requestToken,
+            $estadoChangedAt
+        );
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+        $id = (int)$stmt->insert_id;
+        $stmt->close();
+        return $id;
+    }
+
+    private static function coincidePayloadReemplazo(
+        array $fila,
+        string $fecha,
+        string $hora,
+        int $personas,
+        string $nota
+    ): bool {
+        return (string)($fila['fecha'] ?? '') === $fecha
+            && substr((string)($fila['hora'] ?? ''), 0, 5) === substr($hora, 0, 5)
+            && (int)($fila['comensales'] ?? 0) === $personas
+            && (string)($fila['nota'] ?? '') === $nota;
+    }
+
+    private static function marcarReemplazoExpirado(int $id): void
+    {
+        if ($id < 1) {
+            return;
+        }
+        $stmt = ActiveRecord::getDB()->prepare(
+            "UPDATE reservaciones
+             SET estado = 'expirada', estado_changed_at = ?
+             WHERE id = ? AND estado = 'pendiente_verificacion'"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible expirar el cambio pendiente.');
+        }
+        $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $stmt->bind_param('si', $estadoChangedAt, $id);
+        if (!$stmt->execute()) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje);
+        }
+        $stmt->close();
+    }
+
+    private static function fechaHoraProgramada(array $fila): ?DateTimeImmutable
+    {
+        $fecha = trim((string)($fila['fecha'] ?? ''));
+        $hora = trim((string)($fila['hora'] ?? ''));
+        if ($fecha === '' || $hora === '') {
+            return null;
+        }
+        try {
+            return new DateTimeImmutable($fecha . ' ' . $hora, ReservacionConfig::timezone());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private static function mismoContacto(array $fila, string $tipo, string $contacto): bool
     {
         return hash_equals((string)($fila['contacto_tipo'] ?? ''), $tipo)
             && hash_equals((string)($fila['contacto'] ?? ''), $contacto);
     }
 
-    /**
-     * Precisión al segundo: a la hora exacta todavía se permite; un segundo
-     * después se rechaza. La tolerancia operativa de 15 minutos no interviene.
-     */
-    private static function antesODuranteHora(array $fila): bool
-    {
-        return (bool)ReservacionVigenciaService::clasificar($fila)['editable'];
-    }
-
     private static function marcarExpirada(int $id): void
     {
+        $estadoChangedAt = ActiveRecord::getDB()->real_escape_string(
+            ReservacionConfig::ahora()->format('Y-m-d H:i:s')
+        );
         if (ActiveRecord::getDB()->query(
             "UPDATE reservaciones
              SET estado = 'expirada',
-                 status_changed_at = NOW(),
-                 last_modified_by = NULL,
-                 last_modified_source = 'sistema',
-                 last_change_reason = 'Retención vencida'
+                 estado_changed_at = '{$estadoChangedAt}'
              WHERE id = {$id} AND estado = 'pendiente_verificacion'"
         ) === false) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
         }
+    }
+
+    private static function coincidePayloadPublico(array $fila, array $datos): bool
+    {
+        return (string)($fila['origen'] ?? 'landing') === 'landing'
+            && (string)($fila['nombre'] ?? '') === (string)($datos['nombre'] ?? '')
+            && (string)($fila['contacto_tipo'] ?? '') === (string)($datos['tipo'] ?? '')
+            && (string)($fila['contacto'] ?? '') === (string)($datos['contacto'] ?? '')
+            && (string)($fila['fecha'] ?? '') === (string)($datos['fecha'] ?? '')
+            && substr((string)($fila['hora'] ?? ''), 0, 5) === substr((string)($datos['hora'] ?? ''), 0, 5)
+            && (int)($fila['comensales'] ?? 0) === (int)($datos['personas'] ?? 0)
+            && (string)($fila['nota'] ?? '') === (string)($datos['notas'] ?? '');
     }
 
     private static function resultadoReservacion(array $fila, bool $idempotente): array
@@ -1025,16 +1415,64 @@ final class ReservacionPublicaService
         return [
             'ok' => true,
             'codigo' => self::RESERVACION_CONFIRMADA,
-            'mensaje' => $idempotente
-                ? 'La reservación ya estaba confirmada.'
-                : 'La reservación quedó confirmada.',
             'idempotente' => $idempotente,
             'reservation' => self::publicar($fila),
         ];
     }
 
+    private static function resultadoReemplazoPendiente(
+        array $fila,
+        bool $idempotente,
+        ?array $original = null
+    ): array
+    {
+        if (!$original && (int)($fila['reemplaza_reservacion_id'] ?? 0) > 0) {
+            $original = self::buscarPorId((int)$fila['reemplaza_reservacion_id']);
+        }
+
+        return [
+            'ok' => true,
+            'codigo' => self::REEMPLAZO_CREADO,
+            'idempotente' => $idempotente,
+            'request_token' => (string)($fila['request_token'] ?? ''),
+            'hold_expires_at' => self::fechaAtom((string)($fila['hold_expires_at'] ?? '')),
+            'hold_minutes' => ReservacionConfig::VIGENCIA_HOLD_MINUTOS,
+            'original' => $original ? self::publicar($original) : null,
+            'propuesta' => self::publicar($fila),
+            'replacement' => self::publicar($fila),
+            'original_still_confirmed' => true,
+        ];
+    }
+
+    private static function resultadoReemplazoConfirmado(array $fila, bool $idempotente): array
+    {
+        return [
+            'ok' => true,
+            'codigo' => self::REEMPLAZO_CONFIRMADO,
+            'idempotente' => $idempotente,
+            'reservation' => self::publicar($fila),
+        ];
+    }
+
+    private static function modificacionNoPermitida(): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::MODIFICACION_NO_PERMITIDA,
+        ];
+    }
+
+    private static function reemplazoExpirado(): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::RETENCION_EXPIRADA,
+        ];
+    }
+
     private static function publicar(array $fila): array
     {
+        $estado = (string)($fila['estado'] ?? 'confirmada');
         return [
             'id' => (int)($fila['id'] ?? 0),
             'nombre' => (string)($fila['nombre'] ?? ''),
@@ -1042,9 +1480,9 @@ final class ReservacionPublicaService
             'hora' => substr((string)($fila['hora'] ?? ''), 0, 5),
             'comensales' => (int)($fila['comensales'] ?? $fila['personas'] ?? 0),
             'nota' => (string)($fila['nota'] ?? $fila['notas'] ?? ''),
-            'estado' => (string)($fila['estado'] ?? 'confirmada'),
-            'can_modify' => self::antesODuranteHora($fila),
-            'can_cancel' => self::antesODuranteHora($fila),
+            'estado_label' => ReservacionConfig::ESTADO_LABELS[$estado] ?? 'Confirmada',
+            'can_modify' => self::puedeModificarPublicamente($fila),
+            'can_cancel' => self::puedeCancelarPublicamente($fila),
         ];
     }
 
@@ -1103,9 +1541,34 @@ final class ReservacionPublicaService
         return function_exists('mb_strlen') ? mb_strlen($valor, 'UTF-8') : strlen($valor);
     }
 
-    private static function datosInvalidos(string $mensaje): array
+    private static function codigoCampoHorario(string $codigo): string
     {
-        return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mensaje' => $mensaje];
+        return match ($codigo) {
+            HorarioReservacionService::FECHA_INVALIDA => 'FECHA_INVALIDA',
+            HorarioReservacionService::FECHA_PASADA => 'FECHA_PASADA',
+            HorarioReservacionService::HORARIO_PASADO => 'HORARIO_PASADO',
+            HorarioReservacionService::DIA_INACTIVO => 'DIA_NO_DISPONIBLE',
+            'FECHA_FUERA_DE_HORIZONTE' => 'FECHA_FUERA_DE_HORIZONTE',
+            'HORARIO_SIN_CONFIGURACION' => 'HORARIO_SIN_CONFIGURACION',
+            default => 'HORARIO_NO_DISPONIBLE',
+        };
+    }
+
+    private static function datosInvalidos(string $fieldCode = 'DATOS_RESERVACION_INVALIDOS'): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::DATOS_INVALIDOS,
+            'field_codes' => ['datos' => [$fieldCode]],
+        ];
+    }
+
+    private static function tokenEnConflicto(): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::REQUEST_TOKEN_CONFLICTO,
+        ];
     }
 
     private static function limiteAlcanzado(): array
@@ -1113,7 +1576,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::LIMITE_RESERVACIONES_ALCANZADO,
-            'mensaje' => 'Alcanzaste cinco reservaciones activas.',
         ];
     }
 
@@ -1122,18 +1584,22 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_DUPLICADA,
-            'mensaje' => 'Ya existe una reservación activa para este contacto en el horario seleccionado.',
         ];
     }
 
-    private static function sinDisponibilidad(string $mensaje = 'El horario ya no está disponible.'): array
+    private static function sinDisponibilidad(array $disponibilidad = []): array
     {
-        return ['ok' => false, 'codigo' => self::SIN_DISPONIBILIDAD, 'mensaje' => $mensaje];
+        return [
+            'ok' => false,
+            'codigo' => ($disponibilidad['motivo'] ?? '') === 'capacidad_insuficiente'
+                ? 'CAPACIDAD_INSUFICIENTE'
+                : self::SIN_DISPONIBILIDAD,
+        ];
     }
 
     private static function retencionExpirada(): array
     {
-        return ['ok' => false, 'codigo' => self::RETENCION_EXPIRADA, 'mensaje' => 'La retención venció.'];
+        return ['ok' => false, 'codigo' => self::RETENCION_EXPIRADA];
     }
 
     private static function noEncontrada(): array
@@ -1141,7 +1607,6 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_NO_ENCONTRADA,
-            'mensaje' => 'No fue posible localizar la reservación.',
         ];
     }
 
@@ -1150,12 +1615,11 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::RESERVACION_NO_PERTENECE_AL_CONTACTO,
-            'mensaje' => 'La reservación no pertenece al contacto verificado.',
         ];
     }
 
-    private static function errorInterno(string $mensaje = 'No fue posible completar la operación.'): array
+    private static function errorInterno(): array
     {
-        return ['ok' => false, 'codigo' => self::ERROR_INTERNO, 'mensaje' => $mensaje];
+        return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
     }
 }

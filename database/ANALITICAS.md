@@ -2,23 +2,10 @@
 
 > Documentación de las analíticas **implementadas** en la vista
 > `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
-> `views/admin/analytics.php`).
-> Base: esquema de `database/ddl.sql`
->
-> | Sección | Analítica |
-> | --- | --- |
-> | §3.1 | Ingeniería de menú (Kasavana-Smith) |
-> | §3.2 | RevPASH — mapa de calor hora × día |
-> | §3.4 | Reglas de asociación con lift |
->
-> Todos los datos de demostración del panel están en
-> `database/analiticas-datos-ex.sql`, que se carga **después** de `dml.sql`.
-> Orden completo: `ddl.sql` → `dml.sql` → `analiticas-datos-ex.sql`.
->
-> **La numeración salta el §3.3 a propósito.** Las etiquetas `3.1`, `3.2` y `3.4`
-> aparecen literalmente en el encabezado de cada panel de la interfaz y en los
-> comentarios de `Services\Analiticas`; renumerar aquí desincronizaría el
-> documento del código y de lo que el usuario ve en pantalla.
+> `views/admin/analytics.php`), con datos de demostración en
+> `database/dml_pruebas.sql` (se carga después de `dml_operativo.sql`). El resto —Niveles 2
+> y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
+> implementada**.
 
 Este documento describe las analíticas **diagnósticas y prescriptivas** del panel
 —las que explican por qué pasó algo y sugieren qué hacer—, con su cálculo exacto,
@@ -121,9 +108,6 @@ separado: unidades vendidas y margen de contribución real por receta.
 pero aislado no dice qué hacer. Un platillo con 70 % de margen que vende 3
 unidades al mes no merece el mismo trato que uno con 40 % que vende 300. La
 matriz es lo que convierte el dato en decisión.
-
-**Extra:** cruzar con `productos.tag` responde si las etiquetas ("Especialidad
-C.P.", "Estrella") realmente mueven unidades o son decorativas.
 
 ---
 

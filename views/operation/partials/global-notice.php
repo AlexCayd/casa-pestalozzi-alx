@@ -10,7 +10,7 @@ $noticeType = in_array(($notice['type'] ?? ''), ['info', 'warning', 'success', '
     : 'info';
 $noticeTitle = (string)($notice['title'] ?? '');
 $noticeSummary = trim((string)($notice['summary'] ?? ''));
-$noticeMessage = trim((string)($notice['message'] ?? ''));
+$noticeMessage = trim((string)($notice['mensaje'] ?? ''));
 $noticeSummary = $noticeSummary !== '' ? $noticeSummary : 'Consulta este aviso operativo.';
 $noticeMessage = $noticeMessage !== ''
     ? $noticeMessage

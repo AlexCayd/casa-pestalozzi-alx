@@ -1,211 +1,151 @@
 <?php
 
 /**
- * Fuente única de verdad para disponibilidad y capacidad de reservaciones.
- *
- * Las consultas GET son orientativas. Toda mutación vuelve a ejecutar esta
- * lógica bajo lock de fecha, transacción y bloqueo ordenado de mesas.
+ * Orquestador canónico: horario -> intervalo -> ocupación -> asignación.
  */
 
 namespace Services;
 
+use DateTimeImmutable;
 use Model\Mesa;
 
 final class DisponibilidadReservacionService
 {
     public const DISPONIBILIDAD_CONSULTADA = 'DISPONIBILIDAD_CONSULTADA';
-    public const SIN_DISPONIBILIDAD = 'SIN_DISPONIBILIDAD';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const SIN_DISPONIBILIDAD = ReservacionPublicaService::SIN_DISPONIBILIDAD;
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
 
-    /**
-     * Devuelve slots públicos sin exponer IDs, combinaciones o capacidad.
-     *
-     * @return array<string, mixed>
-     */
-    public static function consultar(
-        string $fecha,
-        $personas,
-        int $excluirReservacionId = 0
-    ): array
+    /** Fachada puntual: binaria y sin capacidad, IDs ni motivos internos. */
+    public static function respuestaPublica(array $resultado): array
     {
-        return self::consultarSlots(
-            $fecha,
-            $personas,
-            ReservacionConfig::MAX_PUBLIC_GUESTS,
-            max(0, $excluirReservacionId),
-            true
-        );
-    }
-
-    /**
-     * La administración comparte la misma ocupación, pero puede evaluar grupos
-     * mayores y combinaciones generales sin el límite público de tres mesas.
-     *
-     * @return array<string, mixed>
-     */
-    public static function consultarAdministrativa(
-        string $fecha,
-        $personas,
-        int $excluirReservacionId = 0
-    ): array
-    {
-        return self::consultarSlots(
-            $fecha,
-            $personas,
-            ReservacionConfig::MAX_COMENSALES_ADMIN,
-            max(0, $excluirReservacionId),
-            false
-        );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function consultarSlots(
-        string $fecha,
-        $personas,
-        int $maximoPersonas,
-        int $excluirReservacionId,
-        bool $asignacionPublica
-    ): array
-    {
-        $personas = filter_var($personas, FILTER_VALIDATE_INT);
-        if (
-            $personas === false
-            || $personas < 1
-            || $personas > $maximoPersonas
-        ) {
-            return [
-                'ok' => false,
-                'codigo' => self::DATOS_INVALIDOS,
-                'mensaje' => 'El número de comensales debe estar entre 1 y ' . $maximoPersonas . '.',
-                'fecha' => trim($fecha),
-                'personas' => is_int($personas) ? $personas : null,
-                'horarios' => [],
-            ];
+        if (($resultado['disponible'] ?? false) === true) {
+            return ['disponible' => true];
         }
 
-        $horarios = ReservacionService::obtenerHorariosDisponiblesParaFecha($fecha);
-        if (!($horarios['ok'] ?? false)) {
-            $horarios['personas'] = $personas;
-            return $horarios;
-        }
-
-        $slots = [];
-        $detallesHorarios = [];
-        $hayDisponibilidad = false;
-        foreach ($horarios['horarios'] ?? [] as $hora) {
-            $evaluacion = $asignacionPublica
-                ? self::evaluarHorario(
-                    (string)$fecha,
-                    (string)$hora,
-                    (int)$personas,
-                    $excluirReservacionId
-                )
-                : self::resumenHorario(
-                    (string)$fecha,
-                    (string)$hora,
-                    (int)$personas,
-                    $excluirReservacionId,
-                    false,
-                    false
-                );
-            $disponible = (bool)($evaluacion['ok'] ?? false);
-            $hayDisponibilidad = $hayDisponibilidad || $disponible;
-            $horaCorta = substr((string)$hora, 0, 5);
-            $detalle = [
-                'capacidad_total' => (int)($evaluacion['capacidad_total'] ?? 0),
-                'capacidad_realmente_libre' => (int)($evaluacion['capacidad_realmente_libre'] ?? 0),
-                'capacidad_proyectada' => (int)($evaluacion['capacidad_proyectada'] ?? 0),
-                'capacidad_estimada_horario' => (int)($evaluacion['capacidad_estimada_horario'] ?? 0),
-                'depende_liberacion_proyectada' => (bool)($evaluacion['depende_liberacion_proyectada'] ?? false),
-                'advertencia' => $evaluacion['advertencia'] ?? null,
-            ];
-            $slots[] = [
-                'hora' => $horaCorta,
-                'disponible' => $disponible,
-            ] + $detalle;
-            $detallesHorarios[$horaCorta] = $detalle;
-        }
-
-        $mensaje = null;
-        if ($slots === []) {
-            $mensaje = $horarios['mensaje'] ?? 'No hay horarios disponibles.';
-        } elseif (!$hayDisponibilidad) {
-            $mensaje = 'No hay capacidad suficiente para '
-                . (int)$personas
-                . ((int)$personas === 1 ? ' persona' : ' personas')
-                . ' en esta fecha.';
-        }
-
+        $motivo = self::motivoPublico((string)($resultado['motivo'] ?? self::SIN_DISPONIBILIDAD));
         return [
-            'ok' => true,
-            'codigo' => $hayDisponibilidad
-                ? self::DISPONIBILIDAD_CONSULTADA
-                : self::SIN_DISPONIBILIDAD,
-            'fecha' => (string)$fecha,
-            'personas' => (int)$personas,
-            'abierto' => (bool)($horarios['abierto'] ?? false),
-            'origen' => $horarios['origen'] ?? null,
-            'tipo' => $horarios['tipo'] ?? null,
-            'detalle_horario' => $horarios['detalle_horario'] ?? null,
-            'detalle_horarios' => $detallesHorarios,
-            'horarios' => $slots,
-            'disponible' => $hayDisponibilidad,
-            'mensaje' => $mensaje,
+            'disponible' => false,
+            'motivo' => $motivo,
         ];
     }
 
+    /** Respuesta pública de consulta por fecha/hora, también sin detalle interno. */
+    private static function respuestaConsultaPublica(array $resultado): array
+    {
+        $motivo = self::motivoPublico((string)($resultado['motivo'] ?? ''));
+        $respuesta = [
+            'ok' => (bool)($resultado['ok'] ?? true),
+            'codigo' => ($resultado['disponible'] ?? false)
+                ? self::DISPONIBILIDAD_CONSULTADA
+                : self::SIN_DISPONIBILIDAD,
+            'fecha' => (string)($resultado['fecha'] ?? ''),
+            'abierto' => (bool)($resultado['abierto'] ?? false),
+            'horarios' => array_values(array_map(
+                static fn(array $slot): array => [
+                    'hora' => substr((string)($slot['hora'] ?? ''), 0, 5),
+                    'disponible' => (bool)($slot['disponible'] ?? false),
+                ],
+                array_filter((array)($resultado['horarios'] ?? []), 'is_array')
+            )),
+            'disponible' => (bool)($resultado['disponible'] ?? false),
+            'motivo' => $motivo,
+            'alternativas' => array_values(array_slice(
+                array_map(static fn($hora): string => substr((string)$hora, 0, 5), (array)($resultado['alternativas'] ?? [])),
+                0,
+                ReservacionConfig::MAX_HORARIOS_ALTERNATIVOS
+            )),
+        ];
+
+        if (!empty($resultado['hora'])) {
+            $respuesta['hora'] = substr((string)$resultado['hora'], 0, 5);
+        }
+
+        if (array_key_exists('detalle_horario', $resultado)) {
+            $detalle = (array)($resultado['detalle_horario'] ?? []);
+            $respuesta['detalle_horario'] = [
+                'es_excepcion' => (bool)($detalle['es_excepcion'] ?? false),
+                'tipo' => $detalle['tipo'] ?? null,
+                'motivo' => $detalle['motivo'] ?? null,
+            ];
+        }
+
+        return $respuesta;
+    }
+
     /**
-     * Usa la misma selección pública que la asignación definitiva.
+     * Evalúa un horario puntual con el mismo núcleo para consumidores internos.
      *
-     * @return array{ok: bool, codigo: string, mesa_ids: array<int, int>}
+     * @return array<string, mixed>
      */
+    public static function consultarUna(
+        string $fecha,
+        string $hora,
+        $comensales,
+        int $excluirReservacionId = 0,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        return self::evaluarSolicitud(
+            $fecha,
+            $hora,
+            $comensales,
+            ReservacionConfig::MAX_COMENSALES_ADMIN,
+            $excluirReservacionId,
+            false,
+            $ahora
+        );
+    }
+
+    /** Alias nominal para consumidores del núcleo. */
+    public static function evaluarDisponibilidad(
+        string $fecha,
+        string $hora,
+        $comensales,
+        int $excluirReservacionId = 0,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
+    }
+
+    /** Fachada interna explícita para evitar que la API pública reciba detalle. */
+    public static function consultarInterna(
+        string $fecha,
+        string $hora,
+        $comensales,
+        int $excluirReservacionId = 0,
+        ?DateTimeImmutable $ahora = null
+    ): array {
+        return self::consultarUna($fecha, $hora, $comensales, $excluirReservacionId, $ahora);
+    }
+
+    /** Compatibilidad de dominio para mutaciones ya existentes. */
     public static function evaluarHorario(
         string $fecha,
         string $hora,
         int $personas,
-        int $excluirReservacionId = 0,
-        bool $bloquear = false
+        int|array $excluirReservacionId = 0,
+        bool $bloquear = false,
+        bool $asignacionPublica = false,
+        bool $permitirHorarioOriginal = false
     ): array {
-        if ($personas < 1 || $personas > ReservacionConfig::MAX_PUBLIC_GUESTS) {
-            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mesa_ids' => []];
-        }
-
-        $resumen = self::resumenHorario(
+        $resultado = self::evaluarSolicitud(
             $fecha,
             $hora,
             $personas,
+            $asignacionPublica ? ReservacionConfig::MAX_COMENSALES_PUBLICO : ReservacionConfig::MAX_COMENSALES_ADMIN,
             $excluirReservacionId,
+            $asignacionPublica,
+            null,
             $bloquear,
-            true
+            $permitirHorarioOriginal
         );
-        if (!($resumen['ok'] ?? false)) {
-            return $resumen + [
-                'ok' => false,
-                'codigo' => (string)($resumen['codigo'] ?? self::SIN_DISPONIBILIDAD),
-                'mesa_ids' => [],
-            ];
-        }
-        if (count($resumen['mesa_ids']) > ReservacionConfig::MAX_PUBLIC_TABLES) {
-            return ['ok' => false, 'codigo' => self::SIN_DISPONIBILIDAD, 'mesa_ids' => []];
-        }
-
-        return $resumen + [
-            'ok' => true,
-            'codigo' => self::DISPONIBILIDAD_CONSULTADA,
-            'mesa_ids' => $resumen['mesa_ids'],
+        return $resultado + [
+            'ok' => (bool)($resultado['disponible'] ?? false),
+            'codigo' => ($resultado['disponible'] ?? false) ? self::DISPONIBILIDAD_CONSULTADA : self::SIN_DISPONIBILIDAD,
         ];
     }
 
-    /**
-     * Fuente compartida de capacidad para landing, administración y mapa.
-     * La unidad es la mesa reservable única después de combinar reservaciones,
-     * bloqueos y tickets abiertos.
-     *
-     * @return array<string, mixed>
-     */
+    /** Resumen interno utilizado por creación y reasignación. */
     public static function resumenHorario(
         string $fecha,
         string $hora,
@@ -214,77 +154,366 @@ final class DisponibilidadReservacionService
         bool $bloquear = false,
         bool $asignacionPublica = false
     ): array {
-        if ($personas < 1) {
-            return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'mesa_ids' => []];
-        }
+        $resultado = self::evaluarHorario($fecha, $hora, $personas, $excluirReservacionId, $bloquear, $asignacionPublica);
+        $ocupacion = (array)($resultado['ocupacion'] ?? []);
+        $capacidad = OcupacionMesasService::resumenCapacidad(Mesa::reservables(), $ocupacion);
+        return $resultado + [
+            'capacidad_disponible' => $capacidad['capacidad_estimada_horario'],
+            'capacidad_realmente_libre' => $capacidad['capacidad_realmente_libre'],
+            'capacidad_proyectada' => $capacidad['capacidad_proyectada'],
+            'capacidad_estimada_horario' => $capacidad['capacidad_estimada_horario'],
+            'capacidad_fisica_total' => $capacidad['capacidad_fisica_total'],
+            'capacidad_fisica_comprometida' => $capacidad['capacidad_fisica_comprometida'],
+            'capacidad_fisica_libre' => $capacidad['capacidad_fisica_libre'],
+            'demanda_no_asignada' => $capacidad['demanda_no_asignada'],
+            'capacidad_real_disponible' => $capacidad['capacidad_real_disponible'],
+            'exceso_capacidad' => $capacidad['exceso_capacidad'],
+            'mesas_proyectadas' => $ocupacion['mesa_ids_proyectadas'] ?? [],
+            'depende_liberacion_proyectada' => $resultado['depende_liberacion_proyectada'] ?? false,
+        ];
+    }
 
-        $horario = ReservacionService::validarHorarioDisponible($fecha, $hora);
-        if (!($horario['ok'] ?? false)) {
-            return [
+    /**
+     * Consulta pública por todos los horarios candidatos. No devuelve detalles
+     * de capacidad, mesas, tickets ni reservaciones.
+     */
+    public static function consultar(
+        string $fecha,
+        $personas,
+        int $excluirReservacionId = 0,
+        ?string $hora = null,
+        ?array $horarioOriginalPreservable = null
+    ): array {
+        return self::consultarSlots(
+            $fecha,
+            $personas,
+            ReservacionConfig::MAX_COMENSALES_PUBLICO,
+            max(0, $excluirReservacionId),
+            true,
+            null,
+            $hora,
+            $horarioOriginalPreservable
+        );
+    }
+
+    /** Consulta interna administrativa con el mismo motor de ocupación. */
+    public static function consultarAdministrativa(
+        string $fecha,
+        $personas,
+        int $excluirReservacionId = 0,
+        ?string $hora = null
+    ): array {
+        return ReservacionAdministrativaService::consultarDisponibilidad(
+            $fecha,
+            $personas,
+            max(0, $excluirReservacionId),
+            $hora
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private static function consultarSlots(
+        string $fecha,
+        $personas,
+        int $maximoPersonas,
+        int $excluirReservacionId,
+        bool $publico,
+        ?DateTimeImmutable $ahora,
+        ?string $horaSolicitada = null,
+        ?array $horarioOriginalPreservable = null
+    ): array {
+        $fecha = trim($fecha);
+        $personasValidas = filter_var($personas, FILTER_VALIDATE_INT);
+        if ($personasValidas === false || $personasValidas < 1 || $personasValidas > $maximoPersonas) {
+            $invalida = [
                 'ok' => false,
                 'codigo' => self::DATOS_INVALIDOS,
-                'codigo_horario' => $horario['codigo'] ?? null,
-                'mesa_ids' => [],
+                'disponible' => false,
+                'motivo' => $publico
+                    && $personasValidas !== false
+                    && $personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                    ? 'requiere_contactar_restaurante'
+                    : 'comensales_invalidos',
+                'fecha' => trim($fecha),
+                'personas' => $personasValidas === false ? null : (int)$personasValidas,
+                'horarios' => [],
+                'alternativas' => [],
             ];
+            return $publico ? self::respuestaConsultaPublica($invalida) : $invalida;
         }
 
-        // Este filtro de dominio excluye barras, Caja, Llevar, elementos
-        // inactivos, no reservables y capacidades no positivas.
-        $mesas = $bloquear ? Mesa::reservablesParaActualizar() : Mesa::reservables();
-        $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
+        $calendario = HorarioReservacionService::resolverFecha($fecha, $ahora);
+        $base = [
+            'ok' => !in_array($calendario['codigo'] ?? '', [
+                HorarioReservacionService::FECHA_INVALIDA,
+                HorarioReservacionService::FECHA_PASADA,
+                'FECHA_FUERA_DE_HORIZONTE',
+                HorarioReservacionService::ERROR_INTERNO,
+            ], true),
+            'codigo' => $calendario['codigo'] ?? self::ERROR_INTERNO,
+            'fecha' => $calendario['fecha'] ?? trim($fecha),
+            'personas' => (int)$personasValidas,
+            'hora' => null,
+            'abierto' => (bool)($calendario['abierto'] ?? false),
+            'reservable' => (bool)($calendario['reservable'] ?? false),
+            'motivo' => $calendario['motivo_no_disponible'] ?? null,
+            'horarios' => [],
+            'disponible' => false,
+            'alternativas' => [],
+            'detalle_horario' => $calendario['detalle_horario'] ?? null,
+        ];
+        if (!$base['ok'] || !$base['reservable']) {
+            return $publico ? self::respuestaConsultaPublica($base) : $base;
+        }
+
+        $slots = [];
+        $alternativas = [];
+        $horariosCandidatos = array_values(array_unique(array_map(
+            static fn($hora): string => HorarioReservacionService::normalizarHoraSql((string)$hora),
+            (array)$calendario['horarios']
+        )));
+        $horaOriginal = $horarioOriginalPreservable !== null
+            && (string)($horarioOriginalPreservable['fecha'] ?? '') === $fecha
+            ? HorarioReservacionService::normalizarHoraSql((string)($horarioOriginalPreservable['hora'] ?? ''))
+            : '';
+        if ($horaOriginal !== '' && !in_array($horaOriginal, $horariosCandidatos, true)) {
+            $validacionOriginal = HorarioReservacionService::validarHoraParaModificacion(
+                $fecha,
+                $horaOriginal,
+                $ahora
+            );
+            if ($validacionOriginal['ok'] ?? false) {
+                $horariosCandidatos[] = $horaOriginal;
+                sort($horariosCandidatos, SORT_STRING);
+            }
+        }
+
+        foreach ($horariosCandidatos as $hora) {
+            $evaluacion = self::evaluarSolicitud(
+                (string)$fecha,
+                (string)$hora,
+                (int)$personasValidas,
+                $maximoPersonas,
+                $excluirReservacionId,
+                $publico,
+                $ahora,
+                false,
+                $horaOriginal !== '' && $hora === $horaOriginal
+            );
+            $disponible = (bool)($evaluacion['disponible'] ?? false);
+            $horaCorta = substr((string)$hora, 0, 5);
+            $slots[] = [
+                'hora' => $horaCorta,
+                'disponible' => $disponible,
+            ];
+            if ($disponible && count($alternativas) < ReservacionConfig::MAX_HORARIOS_ALTERNATIVOS) {
+                $alternativas[] = $horaCorta;
+            }
+        }
+
+        $base['horarios'] = $slots;
+        $disponibles = array_values(array_filter($slots, static fn(array $slot): bool => $slot['disponible']));
+        $horaSolicitada = $horaSolicitada !== null
+            ? HorarioReservacionService::normalizarHoraCorta($horaSolicitada)
+            : '';
+        $base['hora'] = $horaSolicitada !== '' ? $horaSolicitada : null;
+        $slotSolicitado = null;
+        if ($horaSolicitada !== '') {
+            foreach ($slots as $slot) {
+                if ($slot['hora'] === $horaSolicitada) {
+                    $slotSolicitado = $slot;
+                    break;
+                }
+            }
+        }
+        $base['disponible'] = $horaSolicitada !== ''
+            ? ($slotSolicitado !== null && (bool)$slotSolicitado['disponible'])
+            : $disponibles !== [];
+        $base['motivo'] = $base['disponible'] ? 'disponible' : 'sin_combinacion_fisica';
+        $base['alternativas'] = $horaSolicitada !== '' && !($slotSolicitado['disponible'] ?? false)
+            ? $alternativas
+            : [];
+
+        if ($publico) {
+            return self::respuestaConsultaPublica($base);
+        }
+
+        $base['horarios_alternativos'] = $alternativas;
+        return self::agregarDetallesAdministrativos($base, $fecha, $personasValidas, $excluirReservacionId, $ahora);
+    }
+
+    private static function motivoPublico(string $motivo): string
+    {
+        return match ($motivo) {
+            'disponible' => 'disponible',
+            'requiere_asignacion_manual', 'requiere_contactar_restaurante' => 'requiere_contactar_restaurante',
+            default => 'sin_disponibilidad',
+        };
+    }
+
+    /** @return array<string, mixed> */
+    private static function evaluarSolicitud(
+        string $fecha,
+        string $hora,
+        $personas,
+        int $maximoPersonas,
+        int|array $excluirReservacionId,
+        bool $asignacionPublica,
+        ?DateTimeImmutable $ahora,
+        bool $bloquear = false,
+        bool $permitirHorarioOriginal = false
+    ): array {
+        $personasValidas = filter_var($personas, FILTER_VALIDATE_INT);
+        $horaValidada = $permitirHorarioOriginal
+            ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora, $ahora)
+            : HorarioReservacionService::validarHora($fecha, $hora, $ahora);
+        $base = [
+            'disponible' => false,
+            'motivo' => null,
+            'fecha' => $fecha,
+            'hora' => HorarioReservacionService::normalizarHoraCorta($hora),
+            'comensales' => $personasValidas === false ? null : (int)$personasValidas,
+            'mesa_ids' => [],
+            'tipo_combinacion' => null,
+            'capacidad_total' => 0,
+            'requiere_asignacion_manual' => false,
+            'asignacion_automatica' => false,
+        ];
+
+        if ($personasValidas === false || $personasValidas < 1 || $personasValidas > $maximoPersonas) {
+            $base['motivo'] = 'comensales_invalidos';
+            return $base;
+        }
+        if ($personasValidas > ReservacionConfig::MAX_COMENSALES_PUBLICO && $asignacionPublica) {
+            $base['motivo'] = 'requiere_contactar_restaurante';
+            $base['requiere_asignacion_manual'] = true;
+            return $base;
+        }
+        if (!($horaValidada['ok'] ?? false)) {
+            $base['motivo'] = $horaValidada['motivo_no_disponible']
+                ?? self::motivoHorario($horaValidada['codigo'] ?? '');
+            return $base + ['codigo_horario' => $horaValidada['codigo'] ?? null];
+        }
+
+        $ocupacion = OcupacionMesasService::evaluarHorario(
             $fecha,
-            (string)$horario['hora'],
+            (string)$horaValidada['hora'],
             $excluirReservacionId,
-            $bloquear
+            $bloquear,
+            null,
+            $ahora
         );
-        $capacidad = OcupacionMesasService::resumenCapacidad($mesas, $evaluacionOcupacion);
-        $estimadas = array_fill_keys(
-            array_map('intval', (array)($capacidad['mesa_ids_estimadas'] ?? [])),
-            true
-        );
+        $mesas = Mesa::reservables();
+        $capacidadResumen = OcupacionMesasService::resumenCapacidad($mesas, $ocupacion);
+        $base = array_merge($base, [
+            'capacidad_fisica_total' => (int)($capacidadResumen['capacidad_fisica_total'] ?? 0),
+            'capacidad_fisica_comprometida' => (int)($capacidadResumen['capacidad_fisica_comprometida'] ?? 0),
+            'capacidad_fisica_libre' => (int)($capacidadResumen['capacidad_fisica_libre'] ?? 0),
+            'demanda_no_asignada' => (int)($capacidadResumen['demanda_no_asignada'] ?? 0),
+            'capacidad_real_disponible' => (int)($capacidadResumen['capacidad_real_disponible'] ?? 0),
+            'exceso_capacidad' => (int)($capacidadResumen['exceso_capacidad'] ?? 0),
+            'depende_liberacion_proyectada' => (bool)($capacidadResumen['depende_liberacion_proyectada'] ?? false),
+            'capacidad' => $capacidadResumen,
+        ]);
+        if ((int)($capacidadResumen['capacidad_real_disponible'] ?? 0) < (int)$personasValidas) {
+            $base['motivo'] = 'capacidad_insuficiente';
+            $base['ocupacion'] = $ocupacion;
+            CapacidadReservacionesService::registrarEvaluacion(
+                $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+                $asignacionPublica ? 'landing' : 'admin',
+                (int)$personasValidas,
+                false,
+                'capacidad_insuficiente'
+            );
+            return $base;
+        }
         $disponibles = array_values(array_filter(
             $mesas,
-            static fn($mesa): bool => isset($estimadas[(int)$mesa->id])
+            static fn($mesa): bool => !empty($ocupacion['mesas'][(int)$mesa->id]['disponible'])
         ));
-        usort($disponibles, static function ($a, $b): int {
-            return ((int)$a->numero <=> (int)$b->numero)
-                ?: ((int)$a->id <=> (int)$b->id);
-        });
+        usort($disponibles, static fn($a, $b): int => ((int)$a->numero <=> (int)$b->numero) ?: ((int)$a->id <=> (int)$b->id));
 
-        $mesasProyectadas = array_map(
-            'intval',
-            (array)($capacidad['mesa_ids_proyectadas'] ?? [])
-        );
         $seleccion = $asignacionPublica
-            ? AsignacionMesasService::seleccionarMesasPublicas(
-                $disponibles,
-                $personas,
-                $mesasProyectadas
-            )
-            : AsignacionMesasService::seleccionarMesasGeneral(
-                $disponibles,
-                $personas,
-                $mesasProyectadas
+            ? AsignacionMesasService::seleccionarMesasPublicas($disponibles, (int)$personasValidas, (array)($ocupacion['mesa_ids_proyectadas'] ?? []))
+            : AsignacionMesasService::seleccionarMesasGeneral($disponibles, (int)$personasValidas, (array)($ocupacion['mesa_ids_proyectadas'] ?? []));
+        if ($seleccion === []) {
+            $base['motivo'] = 'sin_combinacion_fisica';
+            $base['ocupacion'] = $ocupacion;
+            CapacidadReservacionesService::registrarEvaluacion(
+                $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+                $asignacionPublica ? 'landing' : 'admin',
+                (int)$personasValidas,
+                false,
+                'sin_asignacion_automatica'
             );
-        $mesaIds = array_map(static fn($mesa): int => (int)$mesa->id, $seleccion);
-        $dependeProyeccion = array_intersect($mesaIds, $mesasProyectadas) !== [];
-        $advertencia = $dependeProyeccion
-            ? 'La disponibilidad depende de que una mesa con ticket abierto se libere antes del bloqueo operativo.'
-            : null;
+            return $base;
+        }
 
-        return $capacidad + [
-            'ok' => $seleccion !== [],
-            'codigo' => $seleccion !== [] ? self::DISPONIBILIDAD_CONSULTADA : self::SIN_DISPONIBILIDAD,
-            'fecha' => (string)$horario['fecha'],
-            'hora' => (string)$horario['hora'],
-            'personas' => $personas,
-            'contexto_ocupacion' => (string)($evaluacionOcupacion['contexto'] ?? ''),
-            'mesa_ids' => $mesaIds,
-            'mesas_proyectadas' => $mesasProyectadas,
-            'depende_liberacion_proyectada' => $dependeProyeccion,
-            'advertencia' => $advertencia,
-            'alertas_operativas' => (array)($evaluacionOcupacion['alertas_operativas'] ?? []),
-            'requiere_asignacion_manual' => $seleccion === [],
-        ];
+        $mesaIds = array_map(static fn($mesa): int => (int)$mesa->id, $seleccion);
+        $capacidad = array_sum(array_map(static fn($mesa): int => (int)$mesa->capacidad, $seleccion));
+        $base['disponible'] = true;
+        $base['motivo'] = 'disponible';
+        $base['mesa_ids'] = $mesaIds;
+        $base['capacidad_total'] = $capacidad;
+        $base['tipo_combinacion'] = count($mesaIds) === 1
+            ? 'mesa_individual'
+            : (count($mesaIds) === 2 ? 'par_predefinido' : 'trio_predefinido');
+        $base['asignacion_automatica'] = true;
+        $base['ocupacion'] = $ocupacion;
+        $base['depende_liberacion_proyectada'] = array_intersect($mesaIds, (array)($ocupacion['mesa_ids_proyectadas'] ?? [])) !== [];
+        CapacidadReservacionesService::registrarEvaluacion(
+            $capacidadResumen + ['fecha' => $fecha, 'hora' => (string)$horaValidada['hora']],
+            $asignacionPublica ? 'landing' : 'admin',
+            (int)$personasValidas,
+            true,
+            'asignacion_automatica_disponible'
+        );
+        return $base;
+    }
+
+    /** @return array<string, mixed> */
+    private static function agregarDetallesAdministrativos(
+        array $base,
+        string $fecha,
+        int $personas,
+        int $excluirReservacionId,
+        ?DateTimeImmutable $ahora
+    ): array {
+        $detalles = [];
+        foreach ($base['horarios'] as $slot) {
+            $evaluacion = self::evaluarSolicitud($fecha, $slot['hora'], $personas, ReservacionConfig::MAX_COMENSALES_ADMIN, $excluirReservacionId, false, $ahora);
+            $ocupacion = (array)($evaluacion['ocupacion'] ?? []);
+            $capacidad = OcupacionMesasService::resumenCapacidad(Mesa::reservables(), $ocupacion);
+            $detalles[$slot['hora']] = [
+                'disponible' => (bool)($evaluacion['disponible'] ?? false),
+                'mesa_ids' => $evaluacion['mesa_ids'] ?? [],
+                'capacidad_total' => $capacidad['capacidad_total'],
+                'capacidad_realmente_libre' => $capacidad['capacidad_realmente_libre'],
+                'capacidad_proyectada' => $capacidad['capacidad_proyectada'],
+                'capacidad_estimada_horario' => $capacidad['capacidad_estimada_horario'],
+                'capacidad_fisica_total' => $capacidad['capacidad_fisica_total'],
+                'capacidad_fisica_comprometida' => $capacidad['capacidad_fisica_comprometida'],
+                'capacidad_fisica_libre' => $capacidad['capacidad_fisica_libre'],
+                'demanda_no_asignada' => $capacidad['demanda_no_asignada'],
+                'capacidad_real_disponible' => $capacidad['capacidad_real_disponible'],
+                'exceso_capacidad' => $capacidad['exceso_capacidad'],
+                'asignacion_automatica_disponible' => (bool)($evaluacion['asignacion_automatica'] ?? false),
+                'depende_liberacion_proyectada' => $capacidad['depende_liberacion_proyectada'],
+                'tipo_combinacion' => $evaluacion['tipo_combinacion'] ?? null,
+            ];
+        }
+        $base['detalle_horarios'] = $detalles;
+        return $base;
+    }
+
+    private static function motivoHorario(string $codigo): string
+    {
+        return match ($codigo) {
+            HorarioReservacionService::FECHA_PASADA => 'fecha_pasada',
+            'FECHA_FUERA_DE_HORIZONTE' => 'fecha_fuera_de_horizonte',
+            HorarioReservacionService::DIA_INACTIVO => 'dia_no_operativo',
+            HorarioReservacionService::HORARIO_PASADO => 'anticipacion_insuficiente',
+            default => 'horario_fuera_de_operacion',
+        };
     }
 }

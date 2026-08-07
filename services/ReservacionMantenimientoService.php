@@ -12,9 +12,9 @@ final class ReservacionMantenimientoService
 {
     public const OK = 'OK';
     public const AMBIENTE_NO_PERMITIDO = 'AMBIENTE_NO_PERMITIDO';
-    public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
+    public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
     public const CONFIRMACION_INVALIDA = 'CONFIRMACION_INVALIDA';
-    public const ERROR_INTERNO = 'ERROR_INTERNO';
+    public const ERROR_INTERNO = ReservacionService::ERROR_INTERNO;
     public const CONFIRMACION_LIMPIEZA = 'LIMPIAR RESERVACIONES';
     public const CONFIRMACION_PENDIENTES_VIGENTES = 'LIMPIAR PENDIENTES VIGENTES';
     private const ESTADOS_LIMPIABLES = ['no_show', 'expirada', 'pendiente_verificacion'];
@@ -95,10 +95,7 @@ final class ReservacionMantenimientoService
                 if (!$db->query(
                     "UPDATE reservaciones
                      SET estado = 'expirada',
-                         status_changed_at = NOW(),
-                         last_modified_by = NULL,
-                         last_modified_source = 'sistema',
-                         last_change_reason = 'Retención vencida procesada manualmente'
+                         estado_changed_at = NOW()
                      WHERE id IN ({$idsSql})
                        AND estado = 'pendiente_verificacion'
                        AND hold_expires_at IS NOT NULL
@@ -313,13 +310,11 @@ final class ReservacionMantenimientoService
         if (!empty($fila['ticket_abierto'])) {
             return 'TICKET_ABIERTO';
         }
-        if (in_array((string)$fila['estado'], ['llego', 'en_curso'], true)) {
+        if ((string)$fila['estado'] === 'en_curso') {
             return 'ESTADO_OPERATIVO';
         }
         if (
             !empty($fila['tiene_ticket'])
-            || !empty($fila['arrived_at'])
-            || !empty($fila['completed_at'])
         ) {
             return 'EVIDENCIA_OPERATIVA';
         }

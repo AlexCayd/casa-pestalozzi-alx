@@ -8,26 +8,9 @@
 .admin-analytics {
   min-width: 0;
 
-  .admin-page-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 24px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--admin-border-soft);
-
-    // motion.js marca la cabecera como [data-reveal] y, al terminar el reveal,
-    // GSAP le deja un transform inline y _transitions.scss mantiene el
-    // will-change: cualquiera de los dos crea un contexto de apilamiento. Eso
-    // encerraba el z-index del popover del selector de periodo, que dejaba de
-    // competir con el resto de la página y quedaba por debajo de la gráfica de
-    // ventas diarias (su hermana siguiente en el DOM). Con un z-index propio,
-    // la cabecera completa se dibuja sobre el contenido; por debajo de 10 para
-    // seguir pasando bajo el topbar sticky al hacer scroll.
-    position: relative;
-    z-index: 5;
-  }
+  // .admin-page-header lo define _cards.scss (incluido position/z-index, de
+  // los que depende que se vea el selector de periodo). Aquí se repetía tal
+  // cual y solo servía para tener dos fuentes de verdad.
 
   .admin-page-header__intro {
     min-width: 0;
@@ -116,6 +99,13 @@
     gap: 14px;
     align-items: stretch;
 
+    // Banda de cabecera y relleno compartidos por la tarjeta de la cifra y la
+    // de la gráfica. Antes cada una tenía los suyos y el número quedaba ~38px
+    // por encima del área de trazado: iban emparejadas solo por align-items,
+    // sin ninguna línea base en común.
+    --admin-lead-pad: 20px;
+    --admin-lead-head: 58px;
+
     @media (max-width: 1080px) {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -139,11 +129,14 @@
   .admin-hero {
     display: flex;
     flex-direction: column;
+    // Tres bloques repartidos: encabezado arriba, cifra al centro óptico y
+    // comparativa al pie. La altura la impone la gráfica vecina, así que con
+    // flex-start sobraba media tarjeta vacía debajo del badge de delta.
     justify-content: space-between;
-    gap: 20px;
+    gap: 14px;
     flex: 1 1 auto;
     min-width: 0;
-    padding: clamp(22px, 3vw, 30px);
+    padding: var(--admin-lead-pad, 20px);
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius-md);
     background:
@@ -153,8 +146,16 @@
     &__main {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
       min-width: 0;
+    }
+
+    // Ocupa la misma banda que el <header> de la tarjeta de la gráfica, de
+    // modo que la cifra arranca justo donde arranca el área de trazado.
+    &__head {
+      display: flex;
+      align-items: flex-start;
+      min-height: var(--admin-lead-head, 58px);
     }
 
     &__label {
@@ -166,13 +167,15 @@
     }
 
     // Cifra grande: figuras proporcionales (tabular-nums abre demasiado los
-    // dígitos a este tamaño) y la tipografía editorial de la marca.
+    // dígitos a este tamaño) y la tipografía editorial de la marca. El techo
+    // bajó de 76px porque a ese tamaño la cifra desbordaba su caja y volvía a
+    // desalinear la línea base.
     &__value {
       color: var(--admin-text);
       font-family: var(--admin-font-display, "Fraunces", serif);
-      font-size: clamp(44px, 6vw, 76px);
+      font-size: clamp(40px, 4.4vw, 62px);
       font-weight: 600;
-      line-height: 0.95;
+      line-height: 1;
       overflow-wrap: anywhere;
     }
 
@@ -182,12 +185,22 @@
       font-weight: 600;
     }
 
-    &__aside {
+    // Pie de la tarjeta: el delta y, debajo, la cifra del periodo anterior
+    // contra la que se compara. Sin ese segundo dato el porcentaje flotaba sin
+    // referencia (un +2991% no dice nada si no se ve desde dónde).
+    &__foot {
       display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
       min-width: 0;
+    }
+
+    &__prev {
+      color: var(--admin-faint);
+      font-size: 12px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
 
     &__delta {
@@ -237,6 +250,7 @@
   .admin-metrics-strip {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 10px 28px;
     padding: 14px 20px;
     border: 1px solid var(--admin-border-soft);
@@ -244,10 +258,15 @@
     background: var(--admin-surface-soft);
   }
 
+  // Cada chip se apila y centra: alineados a la izquierda en una fila que no
+  // llena el ancho, "Platillos vendidos" y "Reservaciones" quedaban colgando
+  // del borde izquierdo de una banda vacía.
   .admin-metric-chip {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
     min-width: 0;
 
     &__label {
@@ -713,10 +732,18 @@
   }
 
   // La gráfica del titular estira su lienzo para igualar el alto de la tarjeta
-  // de ventas que tiene al lado.
+  // de ventas que tiene al lado, y comparte con ella relleno y banda de
+  // cabecera para que ambas arranquen a la misma altura.
   .admin-chart-card--lead {
     display: flex;
     flex-direction: column;
+    padding: var(--admin-lead-pad, 20px);
+
+    header {
+      align-items: flex-start;
+      min-height: var(--admin-lead-head, 58px);
+      margin-bottom: 0;
+    }
 
     .admin-chart-card__canvas {
       flex: 1 1 auto;
@@ -884,10 +911,10 @@
       align-items: flex-start;
       flex-direction: column;
 
-      &__aside {
-        align-items: flex-start;
-        width: 100%;
-        flex-basis: auto;
+      // En móvil la tarjeta ya no compite en altura con la gráfica: el
+      // encabezado deja de reservar la banda de alineación.
+      &__head {
+        min-height: 0;
       }
     }
 

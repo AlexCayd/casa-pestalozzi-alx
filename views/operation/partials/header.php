@@ -58,7 +58,7 @@ if ($operationalHeaderBackUrl === '') {
     </div>
 
     <div class="operational-header__region operational-header__region--center">
-        <span class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></span>
+        <h1 class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></h1>
     </div>
 
     <div class="operational-header__region operational-header__region--right">

@@ -22,6 +22,48 @@ class ReservationClientSession
     {
         if (session_status() === PHP_SESSION_NONE) {
             $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $environment = ReservacionConfig::appEnvironment();
+            $configuredPath = trim((string)ini_get('session.save_path'));
+            $usingDedicatedPath = false;
+            if (in_array($environment, ['development', 'testing'], true)) {
+                $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
+                if ($sessionPath === '') {
+                    $sessionPath = str_contains($configuredPath, ';')
+                        ? substr($configuredPath, strrpos($configuredPath, ';') + 1)
+                        : $configuredPath;
+                }
+                if ($sessionPath !== '' && is_dir($sessionPath) && is_writable($sessionPath)) {
+                    ini_set('session.save_path', $sessionPath);
+                    $usingDedicatedPath = true;
+                } elseif (is_dir(sys_get_temp_dir()) && is_writable(sys_get_temp_dir())) {
+                    ini_set('session.save_path', sys_get_temp_dir());
+                    $usingDedicatedPath = true;
+                }
+            }
+            if (!$usingDedicatedPath) {
+                // XAMPP puede apuntar a C:\xampp\tmp, una carpeta que existe
+                // pero no siempre es escribible por el usuario que ejecuta
+                // Apache/PHP. Sin persistencia aquí, el CSRF y el OTP quedan
+                // aislados entre peticiones aunque el navegador conserve la
+                // cookie.
+                $pathToCheck = str_contains($configuredPath, ';')
+                    ? substr($configuredPath, strrpos($configuredPath, ';') + 1)
+                    : $configuredPath;
+                $localPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions';
+                $localRequest = in_array((string)($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1'], true)
+                    || in_array(strtolower((string)($_SERVER['SERVER_NAME'] ?? '')), ['localhost', '127.0.0.1'], true);
+                if ($localRequest || $configuredPath === '' || !is_dir($pathToCheck) || !is_writable($pathToCheck)) {
+                    if (!is_dir($localPath)) {
+                        @mkdir($localPath, 0770, true);
+                    }
+                    if (!is_dir($localPath) || !is_writable($localPath)) {
+                        $localPath = sys_get_temp_dir();
+                    }
+                }
+                if (is_dir($localPath) && is_writable($localPath)) {
+                    ini_set('session.save_path', $localPath);
+                }
+            }
             session_set_cookie_params([
                 'lifetime' => 0,
                 'path' => '/',
@@ -76,11 +118,12 @@ class ReservationClientSession
     }
 
     /**
-     * Devuelve la identidad verificada y renueva su vencimiento por actividad.
+     * Devuelve la identidad verificada sin extender su vencimiento.
+     * Una nueva verificación es la única forma de crear otra sesión.
      *
      * @return array{contacto_tipo: string, contacto: string, verified_at: int, expires_at: int}|null
      */
-    public static function obtener(bool $renovar = true): ?array
+    public static function obtener(bool $renovar = false): ?array
     {
         self::start();
         $sesion = $_SESSION[self::SESSION_KEY] ?? null;
@@ -96,12 +139,6 @@ class ReservationClientSession
         ) {
             unset($_SESSION[self::SESSION_KEY]);
             return null;
-        }
-
-        if ($renovar) {
-            $_SESSION[self::SESSION_KEY]['expires_at'] =
-                time() + (ReservacionConfig::CLIENT_SESSION_IDLE_MINUTES * 60);
-            $sesion = $_SESSION[self::SESSION_KEY];
         }
 
         return $sesion;
