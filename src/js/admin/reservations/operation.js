@@ -138,6 +138,15 @@
         var createModalLastFocus = null;
         var createModalDirty = false;
         var createModalSubmitting = false;
+        var createDecisionState = {
+            activeDecision: null,
+            requiredConfirmations: [],
+            confirmacionesRequeridas: [],
+            pendingConfirmation: null,
+            lastResponse: null,
+            modalOptions: null,
+            isAwaitingDecision: false
+        };
         var confirmationHost = root.querySelector('[data-operation-confirmation-host]');
         var confirmationController = confirmationHost && window.ConfirmationModal
             ? window.ConfirmationModal.create(confirmationHost)
@@ -1086,12 +1095,61 @@
             }, 0);
         }
 
+        function clearCreateDecisionState(clearFormConfirmations) {
+            createDecisionState.activeDecision = null;
+            createDecisionState.requiredConfirmations = [];
+            createDecisionState.confirmacionesRequeridas = [];
+            createDecisionState.pendingConfirmation = null;
+            createDecisionState.lastResponse = null;
+            createDecisionState.modalOptions = null;
+            createDecisionState.isAwaitingDecision = false;
+            if (clearFormConfirmations && createForm) {
+                createForm.removeAttribute('data-confirmations-accepted');
+                setCreateFormValue('confirmaciones', '');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
+            }
+        }
+
+        function createDecisionItems(payload) {
+            var decisions = payload && (payload.confirmaciones_requeridas || payload.requiredConfirmations);
+            if (!Array.isArray(decisions)) {
+                return [];
+            }
+            return decisions.filter(function (decision) {
+                return decision && typeof decision === 'object';
+            });
+        }
+
+        function showCreateDecision(payload) {
+            var decisions = createDecisionItems(payload);
+            if (!decisions.length) {
+                renderCreateModalErrors({}, payload && payload.mensaje
+                    ? payload.mensaje
+                    : 'El servidor no devolvió una decisión válida.');
+                return false;
+            }
+            createDecisionState.activeDecision = decisions[0].codigo_canonico || decisions[0].codigo || null;
+            createDecisionState.requiredConfirmations = decisions.map(function (decision) {
+                return decision.codigo_canonico || decision.codigo;
+            }).filter(Boolean);
+            createDecisionState.confirmacionesRequeridas = decisions.slice();
+            createDecisionState.pendingConfirmation = payload;
+            createDecisionState.lastResponse = payload;
+            createDecisionState.isAwaitingDecision = true;
+            createForm.dispatchEvent(new CustomEvent('reservation:confirmation', {
+                bubbles: true,
+                detail: { type: 'warnings', decisions: decisions }
+            }));
+            return true;
+        }
+
         function commitCreationResult(payload) {
             payload = payload || {};
-            var committed = payload.commit === true || payload.ok === true;
+            var committed = payload.commit === true;
             if (!committed) {
                 return false;
             }
+            clearCreateDecisionState(true);
             if (payload.commit === true && (payload.ok === false || payload.tipo === 'error')) {
                 console.error('Reservaciones admin: respuesta contradictoria, commit confirmado', payload);
             }
@@ -1133,6 +1191,7 @@
                 return;
             }
 
+            clearCreateDecisionState(false);
             createModalSubmitting = true;
             clearCreateModalErrors();
             var formData = new FormData(createForm);
@@ -1142,12 +1201,19 @@
             if (acceptedConfirmations) {
                 formData.set('confirmaciones', acceptedConfirmations);
             }
+            var preserveConfirmationsForReset = false;
             postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
-                    if (!commitCreationResult(payload)) {
-                        console.error('Reservaciones admin: respuesta de creación sin commit', payload);
-                        renderCreateModalErrors({}, payload.mensaje || 'No fue posible guardar la reservación.');
+                    createDecisionState.lastResponse = payload;
+                    if (payload.commit === true) {
+                        commitCreationResult(payload);
+                        return;
                     }
+                    if (payload.tipo === 'decision_requerida') {
+                        preserveConfirmationsForReset = showCreateDecision(payload);
+                        return;
+                    }
+                    renderCreateModalErrors({}, payload.mensaje || 'La reservación no se guardó.');
                 })
                 .catch(function (error) {
                     if (error && error.commit === true) {
@@ -1157,11 +1223,9 @@
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
                     var message = error && error.mensaje || '';
                     var decisions = error && (error.confirmaciones_requeridas || error.requiredConfirmations);
-                    if (Array.isArray(decisions) && decisions.length) {
-                        createForm.dispatchEvent(new CustomEvent('reservation:confirmation', {
-                            bubbles: true,
-                            detail: { type: 'warnings', decisions: decisions }
-                        }));
+                    if (error && error.tipo === 'decision_requerida'
+                        && Array.isArray(decisions) && decisions.length) {
+                        preserveConfirmationsForReset = showCreateDecision(error);
                         return;
                     }
                     if (error && error.requiresCapacityConfirmation) {
@@ -1175,7 +1239,10 @@
                 })
                 .finally(function () {
                     createModalSubmitting = false;
-                    createForm.dispatchEvent(new CustomEvent('reservation:reset-submit', { bubbles: true }));
+                    createForm.dispatchEvent(new CustomEvent('reservation:reset-submit', {
+                        bubbles: true,
+                        detail: { preserveConfirmations: preserveConfirmationsForReset }
+                    }));
                 });
         }
 

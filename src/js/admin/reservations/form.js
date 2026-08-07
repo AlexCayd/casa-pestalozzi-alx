@@ -248,8 +248,8 @@
                     return {
                         type: type,
                         eyebrow: 'Decision administrativa',
-                        title: 'No fue posible mostrar la decision',
-                        description: 'Actualiza la pantalla e intenta nuevamente.',
+                        title: 'Respuesta de decisión incompleta',
+                        description: 'El servidor no devolvió la presentación necesaria para decidir. Actualiza la pantalla antes de continuar.',
                         backLabel: 'Cerrar',
                         confirmLabel: 'Cerrar',
                         focusTarget: saveButton,
@@ -814,11 +814,14 @@
             });
 
             form.addEventListener('reservation:clear-errors', clearTemporaryErrors);
-            form.addEventListener('reservation:reset-submit', function () {
+            form.addEventListener('reservation:reset-submit', function (event) {
+                var preserveConfirmations = event && event.detail && event.detail.preserveConfirmations === true;
                 isSubmitting = false;
                 form.removeAttribute('data-contact-warning-accepted');
                 form.removeAttribute('data-contact-confirmation-accepted');
-                clearAcceptedConfirmations();
+                if (!preserveConfirmations) {
+                    clearAcceptedConfirmations();
+                }
                 // El modal de operación restablece contacto_tipo mediante
                 // FormData; vuelve a sincronizar la presentación para que el
                 // campo no conserve el estado inicial "Sin contacto".
@@ -852,8 +855,23 @@
                             return payload;
                         });
                     }).then(function (payload) {
+                        // El commit confirmado tiene prioridad sobre cualquier
+                        // dato heredado de una petición anterior.
+                        if (payload.commit === true) {
+                            clearAcceptedConfirmations();
+                            showFeedback(
+                                payload.mensaje || 'Reservación creada.',
+                                'success'
+                            );
+                            if (payload.redirect) {
+                                window.setTimeout(function () {
+                                    window.location.assign(payload.redirect);
+                                }, 250);
+                            }
+                            return;
+                        }
                         var decisions = payload.confirmaciones_requeridas || payload.requiredConfirmations;
-                        if (payload.tipo === 'decision_requerida') {
+                        if (payload.tipo === 'decision_requerida' && payload.commit !== true) {
                             if (!Array.isArray(decisions) || !decisions.length) {
                                 decisions = payload.mensaje && payload.codigo ? [payload] : [];
                             }
@@ -869,9 +887,6 @@
                             }
                             console.error('Reservaciones admin: decision sin presentacion canonica', payload);
                         }
-                        if (payload.commit === true && (payload.ok === false || payload.tipo === 'error')) {
-                            console.error('Reservaciones admin: respuesta contradictoria, commit confirmado', payload);
-                        }
                         if (payload.commit !== true && payload.ok !== true) {
                             Object.keys(payload.fieldErrors || {}).forEach(function (field) {
                                 setFieldError(field, payload.fieldErrors[field]);
@@ -879,13 +894,6 @@
                             showFeedback(
                                 payload.mensaje || 'No fue posible guardar los cambios.',
                                 'error'
-                            );
-                            return;
-                        }
-                        if (payload.commit === true && payload.ok === false) {
-                            showFeedback(
-                                payload.mensaje || 'Reservación guardada.',
-                                'success'
                             );
                             return;
                         }
