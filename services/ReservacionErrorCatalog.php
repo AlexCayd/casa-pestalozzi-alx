@@ -15,6 +15,7 @@ final class ReservacionErrorCatalog
     public const TIPO_ADVERTENCIA = 'advertencia';
     public const TIPO_DECISION = 'decision_requerida';
     public const TIPO_INFORMACION = 'informacion';
+    public const TIPO_EXITO = 'exito';
 
     /**
      * Código emitido actualmente o requerido por el contrato vigente.
@@ -26,8 +27,8 @@ final class ReservacionErrorCatalog
     private const CODE_TYPES = [
         // Resultados y estados de reservación.
         'OK' => self::TIPO_INFORMACION,
-        'RESERVACION_CREADA' => self::TIPO_INFORMACION,
-        'RESERVACION_CREADA_SIN_MESA' => self::TIPO_DECISION,
+        'RESERVACION_CREADA' => self::TIPO_EXITO,
+        'RESERVACION_CREADA_SIN_MESA' => self::TIPO_EXITO,
         'ACTUALIZADA' => self::TIPO_INFORMACION,
         'ACTUALIZADA_REQUIERE_ASIGNACION' => self::TIPO_DECISION,
         'COMENTARIO_ACTUALIZADO' => self::TIPO_INFORMACION,
@@ -136,6 +137,7 @@ final class ReservacionErrorCatalog
         'SIN_DISPONIBILIDAD' => self::TIPO_CONFLICTO,
         'CAPACIDAD_INSUFICIENTE' => self::TIPO_CONFLICTO,
         'CAPACIDAD_OPERATIVA_EXCEDIDA' => self::TIPO_DECISION,
+        'ASIGNACION_MANUAL_REQUERIDA' => self::TIPO_DECISION,
         'SIN_ASIGNACION' => self::TIPO_DECISION,
         'REQUIERE_CONFIRMACION' => self::TIPO_DECISION,
         'REQUIERE_CONFIRMACION_CAPACIDAD' => self::TIPO_DECISION,
@@ -152,6 +154,7 @@ final class ReservacionErrorCatalog
         'AGRUPACION_NO_AUTORIZADA' => self::TIPO_ERROR,
         'SUPERPOSICION_NO_AUTORIZADA' => self::TIPO_CONFLICTO,
         'CONFLICTO_DE_ASIGNACION' => self::TIPO_CONFLICTO,
+        'RESERVACION_BLOQUEANTE' => self::TIPO_CONFLICTO,
         'CONFLICTO_TICKETS_ABIERTOS' => self::TIPO_CONFLICTO,
         'CONFLICTO_TICKET_ABIERTO' => self::TIPO_CONFLICTO,
         'DEPENDE_LIBERACION_PROYECTADA' => self::TIPO_ADVERTENCIA,
@@ -197,7 +200,7 @@ final class ReservacionErrorCatalog
         'MESAS_TICKET_EN_CONFLICTO' => self::TIPO_CONFLICTO,
         'RESERVACION_YA_EN_CURSO' => self::TIPO_CONFLICTO,
         'RESERVACION_SIN_TICKET' => self::TIPO_ADVERTENCIA,
-        'RESERVACION_PROXIMA' => self::TIPO_ADVERTENCIA,
+        'RESERVACION_PROXIMA' => self::TIPO_DECISION,
         'TOLERANCIA_VIGENTE' => self::TIPO_ADVERTENCIA,
         'TOLERANCIA_LLEGADA_VENCIDA' => self::TIPO_DECISION,
         'REGISTRO_AUSENCIA_NO_DISPONIBLE' => self::TIPO_ERROR,
@@ -236,6 +239,28 @@ final class ReservacionErrorCatalog
 
     /** No quedan aliases de códigos emitidos; los nombres de constantes públicas son compatibilidad PHP. */
     private const ALIASES = [];
+
+    /** Labels for actions exposed by the canonical presentations. */
+    private const ACTION_LABELS = [
+        'ACTUALIZAR' => 'Actualizar',
+        'ACTUALIZAR_MAPA' => 'Actualizar mapa',
+        'ASIGNAR_MESAS' => 'Asignar mesas',
+        'CERRAR' => 'Cerrar',
+        'CONFIRMAR' => 'Confirmar',
+        'CONFIRMAR_APERTURA' => 'Abrir ticket',
+        'CONFIRMAR_SIN_CONTACTO' => 'Crear sin contacto',
+        'CONFIRMAR_SIN_MESAS' => 'Asignar más tarde',
+        'CONFIRMAR_SOBRECAPACIDAD' => 'Confirmar bajo responsabilidad',
+        'CONSULTAR_TICKET' => 'Consultar ticket',
+        'CORREGIR_DATOS' => 'Corregir datos',
+        'GUARDAR_DE_TODAS_FORMAS' => 'Guardar de todas formas',
+        'REINTENTAR' => 'Intentar nuevamente',
+        'REGISTRAR_AUSENCIA' => 'Registrar ausencia',
+        'REASIGNAR_MESAS' => 'Reasignar mesas',
+        'VERIFICAR_CONTACTO' => 'Verificar contacto',
+        'VOLVER' => 'Volver',
+        'VOLVER_A_SELECCIONAR' => 'Volver a seleccionar',
+    ];
 
     /** Mensajes específicos; los restantes usan una traducción segura común. */
     private const TEXTS = [
@@ -306,6 +331,7 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'CAPACIDAD_INSUFICIENTE' => [
+            'descripcion' => 'La seleccion manual de mesas no cubre a todos los comensales.',
             'titulo' => 'La capacidad de las mesas es insuficiente',
             'mensaje' => 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
             'consecuencia' => 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
@@ -315,19 +341,52 @@ final class ReservacionErrorCatalog
             ],
         ],
         'CAPACIDAD_OPERATIVA_EXCEDIDA' => [
+            'descripcion' => 'La asignacion fisica requerira una resolucion manual.',
             'titulo' => 'Capacidad operativa excedida',
             'mensaje' => 'La solicitud supera la capacidad disponible para este horario.',
             'consecuencia' => 'La reservacion quedara confirmada sin garantia de asignacion fisica y debera resolverse manualmente.',
-            'acciones' => [['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+            'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_SOBRECAPACIDAD', 'tipo' => 'primary']],
+        ],
+        'ASIGNACION_MANUAL_REQUERIDA' => [
+            'titulo' => 'Asignación manual de mesas',
+            'mensaje' => 'Asignación manual de mesas',
+            'descripcion' => 'Las reservaciones de más de 12 personas requieren asignar las mesas manualmente.',
+            'consecuencia' => 'Puedes crear la reservación ahora y asignar las mesas posteriormente desde el mapa de reservaciones.',
+            'acciones' => [
+                ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+                ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
+            ],
         ],
         'SIN_ASIGNACION' => [
-            'titulo' => 'Asignación manual pendiente',
-            'mensaje' => 'No existe una combinación automática válida de mesas.',
-            'consecuencia' => 'La reservación puede confirmarse y quedar pendiente de asignación.',
+            'titulo' => 'Asignación de mesas pendiente',
+            'descripcion' => 'No se encontró una combinación automática de mesas para esta reservación.',
+            'mensaje' => 'No se encontró una combinación automática de mesas para esta reservación.',
+            'consecuencia' => 'Puedes crearla sin mesas y realizar la asignación manualmente después.',
             'acciones' => [
-                ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
                 ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+                ['id' => 'CONFIRMAR_SIN_MESAS', 'label' => 'Asignar más tarde', 'tipo' => 'primary'],
             ],
+        ],
+        'MESA_NO_RESERVABLE' => [
+            'descripcion' => 'La mesa seleccionada no puede utilizarse para una reservacion.',
+            'titulo' => 'Mesa no disponible para reservaciones',
+            'mensaje' => 'La mesa seleccionada no esta disponible para esta operacion.',
+            'consecuencia' => 'Selecciona otra mesa disponible.',
+            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+        ],
+        'CONFLICTO_DE_ASIGNACION' => [
+            'descripcion' => 'La seleccion de mesas cambio mientras se procesaba la operacion.',
+            'titulo' => 'Conflicto de asignacion',
+            'mensaje' => 'No fue posible conservar la asignacion seleccionada.',
+            'consecuencia' => 'Actualiza el mapa y vuelve a seleccionar las mesas.',
+            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+        ],
+        'RESERVACION_BLOQUEANTE' => [
+            'descripcion' => 'La mesa forma parte de otra reservacion activa.',
+            'titulo' => 'Mesa comprometida por otra reservacion',
+            'mensaje' => 'La mesa seleccionada esta comprometida por otra reservacion.',
+            'consecuencia' => 'Selecciona otra mesa o espera a que se libere.',
+            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
         ],
         'MESA_OCUPADA' => [
             'titulo' => 'Mesa ocupada',
@@ -426,10 +485,11 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'RESERVACION_PROXIMA' => [
+            'descripcion' => 'Una reservacion confirmada necesita las mesas seleccionadas dentro de poco.',
             'titulo' => 'Reservación próxima',
             'mensaje' => 'Hay una reservación próxima para las {hora}; faltan {minutos_restantes} minutos.',
             'consecuencia' => 'Confirma la operación sólo si la mesa quedará disponible a tiempo.',
-            'acciones' => [['id' => 'CONFIRMAR', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
+            'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_APERTURA', 'tipo' => 'primary']],
         ],
         'RESERVACIONES_AFECTADAS' => [
             'titulo' => 'Reservaciones afectadas',
@@ -456,10 +516,14 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CORREGIR_DATOS', 'tipo' => 'primary']],
         ],
         'REQUIERE_CONFIRMACION_SIN_CONTACTO' => [
-            'titulo' => 'Falta confirmar el contacto',
-            'mensaje' => 'Confirma que deseas crear la reservación sin contacto.',
-            'consecuencia' => 'La reservación todavía no se creó.',
-            'acciones' => [['id' => 'CONFIRMAR', 'tipo' => 'primary']],
+            'titulo' => 'Crear reservación sin contacto',
+            'mensaje' => 'No se agregó un correo electrónico ni teléfono para esta reservación.',
+            'descripcion' => 'No se agregó un correo electrónico ni teléfono para esta reservación.',
+            'consecuencia' => 'La reservación podrá crearse, pero no habrá un medio de contacto asociado al cliente.',
+            'acciones' => [
+                ['id' => 'VOLVER', 'label' => 'Volver', 'tipo' => 'secondary'],
+                ['id' => 'CONFIRMAR_SIN_CONTACTO', 'label' => 'Crear sin contacto', 'tipo' => 'primary'],
+            ],
         ],
         'REQUIERE_CONFIRMACION_CAPACIDAD' => [
             'titulo' => 'Capacidad insuficiente',
@@ -469,15 +533,15 @@ final class ReservacionErrorCatalog
         ],
         'RESERVACION_CREADA' => [
             'titulo' => 'Reservación creada',
-            'mensaje' => 'Reservación creada y mesas asignadas correctamente.',
-            'consecuencia' => 'La reservación quedó registrada.',
+            'mensaje' => 'Reservación creada',
+            'consecuencia' => 'La reservación quedó confirmada con sus mesas asignadas.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'RESERVACION_CREADA_SIN_MESA' => [
             'titulo' => 'Reservación creada',
-            'mensaje' => 'Reservación creada. No fue posible asignar mesas automáticamente.',
-            'consecuencia' => 'La asignación de mesas queda pendiente.',
-            'acciones' => [['id' => 'ASIGNAR_MESAS', 'tipo' => 'primary']],
+            'mensaje' => 'Reservación creada',
+            'consecuencia' => 'La reservación quedó confirmada y las mesas podrán asignarse posteriormente.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'ACTUALIZADA' => [
             'titulo' => 'Reservación actualizada',
@@ -920,6 +984,9 @@ final class ReservacionErrorCatalog
             'SIN_DISPONIBILIDAD',
             'LIMITE_RESERVACIONES_ALCANZADO',
             'REQUEST_TOKEN_CONFLICTO',
+            'SIN_ASIGNACION',
+            'CAPACIDAD_OPERATIVA_EXCEDIDA',
+            'RESERVACION_PROXIMA',
         ], true)) {
             $http = 409;
         } elseif (in_array($canonical, ['RETENCION_EXPIRADA'], true)) {
@@ -937,19 +1004,20 @@ final class ReservacionErrorCatalog
         }
 
         $mensajeKey = 'reservaciones.codigo.' . strtolower($canonical);
+        $esExito = in_array($tipo, [self::TIPO_INFORMACION, self::TIPO_EXITO], true);
         $base = [
             'codigo' => $canonical,
             'tipo' => $tipo,
             'http_status' => $http,
             'mensaje_key' => $mensajeKey,
-            'titulo' => $tipo === self::TIPO_INFORMACION ? 'Operación completada' : 'No fue posible completar la operación',
-            'mensaje' => $tipo === self::TIPO_INFORMACION
+            'titulo' => $esExito ? 'Operación completada' : 'No fue posible completar la operación',
+            'mensaje' => $esExito
                 ? 'La operación se completó.'
                 : 'Revisa la información e inténtalo nuevamente.',
-            'consecuencia' => $tipo === self::TIPO_INFORMACION
+            'consecuencia' => $esExito
                 ? 'El resultado quedó disponible para continuar.'
                 : 'No se aplicaron cambios.',
-            'acciones' => $tipo === self::TIPO_INFORMACION
+            'acciones' => $esExito
                 ? [['id' => 'CERRAR', 'tipo' => 'secondary']]
                 : [['id' => 'REINTENTAR', 'tipo' => 'primary']],
             'commit' => false,
@@ -981,20 +1049,113 @@ final class ReservacionErrorCatalog
     /** @return array<string, mixed> */
     public static function presentar(string $codigo, array $contexto = []): array
     {
-        $definition = self::definition($codigo);
-        foreach (['titulo', 'mensaje', 'consecuencia'] as $campo) {
+        $recibido = trim($codigo);
+        try {
+            $definition = self::definition($recibido);
+            $canonical = self::canonical($recibido);
+        } catch (\InvalidArgumentException $e) {
+            error_log('ReservacionErrorCatalog: codigo no catalogado: ' . ($recibido !== '' ? $recibido : '[vacio]'));
+            $canonical = 'ERROR_INTERNO';
+            $definition = self::definition($canonical);
+        }
+        $contexto = self::contextoSeguro($contexto);
+        if (!array_key_exists('descripcion', $definition)) {
+            $definition['descripcion'] = $definition['titulo'];
+        }
+        foreach (['titulo', 'descripcion', 'mensaje', 'consecuencia'] as $campo) {
             $definition[$campo] = self::interpolar((string)$definition[$campo], $contexto);
         }
+        $acciones = array_map(static function ($accion): array {
+            $accion = is_array($accion) ? $accion : [];
+            $id = trim((string)($accion['id'] ?? 'CERRAR'));
+            $accion['id'] = $id;
+            $accion['label'] = (string)($accion['label'] ?? (self::ACTION_LABELS[$id] ?? 'Continuar'));
+            $accion['tipo'] = (string)($accion['tipo'] ?? 'secondary');
+            return $accion;
+        }, (array)($definition['acciones'] ?? []));
+        $commit = (bool)$definition['commit'];
         return [
-            'tipo' => $definition['tipo'],
+            'codigo' => $canonical,
+            'codigo_canonico' => $canonical,
+            'tipo' => $commit ? self::TIPO_EXITO : $definition['tipo'],
             'http_status' => $definition['http_status'],
             'mensaje_key' => $definition['mensaje_key'],
             'titulo' => $definition['titulo'],
             'mensaje' => $definition['mensaje'],
+            'descripcion' => $definition['descripcion'],
             'consecuencia' => $definition['consecuencia'],
-            'acciones' => $definition['acciones'],
-            'commit' => (bool)$definition['commit'],
+            'contexto' => $contexto,
+            'acciones' => $acciones,
+            'commit' => $commit,
         ];
+    }
+
+    /** @param array<int, mixed> $codigos @return array<int, array<string, mixed>> */
+    public static function decisiones(array $codigos, array $contexto = []): array
+    {
+        $decisiones = [];
+        $vistos = [];
+        foreach ($codigos as $item) {
+            $codigo = is_array($item)
+                ? (string)($item['codigo_canonico'] ?? $item['codigo'] ?? '')
+                : (string)$item;
+            if ($codigo === '') {
+                continue;
+            }
+            $itemContexto = is_array($item) ? (array)($item['contexto'] ?? []) : [];
+            $presentacion = self::presentar($codigo, array_merge($contexto, $itemContexto));
+            if (isset($vistos[$presentacion['codigo']])) {
+                continue;
+            }
+            $vistos[$presentacion['codigo']] = true;
+            $decisiones[] = $presentacion;
+        }
+        return $decisiones;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public static function decisionesResultado(array $resultado): array
+    {
+        if (($resultado['commit'] ?? false) === true) {
+            return [];
+        }
+        $codigos = $resultado['confirmaciones_requeridas']
+            ?? ($resultado['warnings'] ?? []);
+        if ($codigos === [] && in_array((string)($resultado['codigo'] ?? ''), [
+            'ASIGNACION_MANUAL_REQUERIDA',
+            'SIN_ASIGNACION',
+            'CAPACIDAD_OPERATIVA_EXCEDIDA',
+            'CAPACIDAD_INSUFICIENTE',
+            'REQUIERE_CONFIRMACION_SIN_CONTACTO',
+            'CONFLICTO_TICKETS_ABIERTOS',
+            'CONFLICTO_TICKET_ABIERTO',
+        ], true)) {
+            $codigos = [(string)$resultado['codigo']];
+        }
+        $contexto = self::contextoResultado($resultado);
+        return self::decisiones((array)$codigos, $contexto);
+    }
+
+    /** @return array<string, scalar> */
+    public static function contextoResultado(array $resultado): array
+    {
+        $contexto = array_merge($resultado, (array)($resultado['contexto'] ?? []));
+        if (!array_key_exists('comensales_solicitados', $contexto)
+            && array_key_exists('capacidad_solicitada', $contexto)) {
+            $contexto['comensales_solicitados'] = $contexto['capacidad_solicitada'];
+        }
+        if (!array_key_exists('comensales', $contexto)
+            && array_key_exists('comensales_solicitados', $contexto)) {
+            $contexto['comensales'] = $contexto['comensales_solicitados'];
+        }
+        if (!array_key_exists('lugares_faltantes', $contexto)) {
+            $solicitados = (int)($contexto['comensales_solicitados'] ?? 0);
+            $disponibles = (int)($contexto['capacidad_disponible'] ?? 0);
+            if ($solicitados > 0 || $disponibles > 0) {
+                $contexto['lugares_faltantes'] = max(0, $solicitados - $disponibles);
+            }
+        }
+        return self::contextoSeguro($contexto);
     }
 
     /** @param array<string, mixed> $resultado @param array<string, mixed> $contexto */
@@ -1010,6 +1171,8 @@ final class ReservacionErrorCatalog
             'capacidad_fisica_libre', 'demanda_no_asignada',
             'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
+            'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
+            'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
         ]));
         $contexto = self::contextoSeguro(array_merge(
             $contextoResultado,
@@ -1023,19 +1186,38 @@ final class ReservacionErrorCatalog
             $codigoRecibido = $codigoRecibido !== '' ? $codigoRecibido : 'ERROR_INTERNO';
             $canonical = 'ERROR_INTERNO';
             $presentacion = self::presentar($canonical, $contexto);
-            $resultado['codigo_no_catalogado'] = $codigoRecibido;
+            error_log('ReservacionErrorCatalog::enriquecer: codigo no catalogado: ' . $codigoRecibido);
         }
 
+        $resultado['codigo'] = $canonical;
         $resultado['codigo_canonico'] = $canonical;
         $resultado['tipo'] = $presentacion['tipo'];
         $resultado['http_status'] = $resultado['http_status'] ?? $presentacion['http_status'];
         $resultado['mensaje_key'] = $presentacion['mensaje_key'];
         $resultado['mensaje'] = $presentacion['mensaje'];
+        $resultado['descripcion'] = $presentacion['descripcion'];
         $resultado['consecuencia'] = $presentacion['consecuencia'];
         $resultado['acciones'] = $presentacion['acciones'];
-        $resultado['commit'] = array_key_exists('commit', $resultado)
-            ? (bool)$resultado['commit']
-            : $presentacion['commit'];
+        $commitCanonico = (bool)$presentacion['commit'];
+        if (array_key_exists('commit', $resultado) && (bool)$resultado['commit'] !== $commitCanonico) {
+            error_log(sprintf(
+                'ReservacionErrorCatalog: violacion de commit para %s (recibido=%s, canonico=%s)',
+                $canonical,
+                (bool)$resultado['commit'] ? 'true' : 'false',
+                $commitCanonico ? 'true' : 'false'
+            ));
+        }
+        $resultado['commit'] = $commitCanonico;
+
+        if ($commitCanonico) {
+            if (array_key_exists('ok', $resultado) && $resultado['ok'] !== true) {
+                error_log('ReservacionErrorCatalog: respuesta contradictoria reconciliada como exitosa para ' . $canonical);
+            }
+            $resultado['ok'] = true;
+        } elseif ($presentacion['tipo'] === self::TIPO_DECISION) {
+            // Una decisión pendiente fue comprendida; aún no hubo escritura.
+            $resultado['ok'] = true;
+        }
 
         if ($contexto !== []) {
             $resultado['contexto'] = $contexto;
@@ -1116,8 +1298,9 @@ final class ReservacionErrorCatalog
     {
         $codigo = (string)$item['codigo'];
         $contexto = self::contextoSeguro((array)($item['contexto'] ?? []));
-        $item['codigo_canonico'] = self::canonical($codigo);
         $item['presentacion'] = self::presentar($codigo, $contexto);
+        $item['codigo'] = $item['presentacion']['codigo'];
+        $item['codigo_canonico'] = $item['presentacion']['codigo'];
         if ($contexto !== []) {
             $item['contexto'] = $contexto;
         }
@@ -1135,6 +1318,8 @@ final class ReservacionErrorCatalog
             'capacidad_fisica_libre', 'demanda_no_asignada',
             'capacidad_real_disponible', 'capacidad_resultante', 'exceso_capacidad',
             'nombre', 'hora_objetivo', 'duracion_estimada_supera',
+            'comensales_solicitados', 'capacidad_seleccionada', 'lugares_faltantes',
+            'asignacion_automatica_solicitada', 'motivo', 'reservacion_id', 'mesa_id', 'mesa_numero',
         ];
         $seguro = [];
         foreach ($permitidos as $clave) {

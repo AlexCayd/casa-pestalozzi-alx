@@ -146,18 +146,39 @@ class AdminReservacionController
         if ($resultado['ok'] ?? false) {
             $id = (int)($resultado['id'] ?? 0);
             if ($expectsJson) {
+                $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
+                $mesaIds = array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? [])));
+                $contexto = array_merge(
+                    (array)($resultado['contexto'] ?? []),
+                    [
+                        'comensales' => (int)($resultado['capacidad_solicitada'] ?? 0),
+                        'capacidad_disponible' => (int)($resultado['capacidad_disponible'] ?? 0),
+                        'asignacion_automatica_solicitada' => array_key_exists('asignacion_automatica_solicitada', (array)($resultado['contexto'] ?? []))
+                            ? (bool)$resultado['contexto']['asignacion_automatica_solicitada']
+                            : filter_var($_POST['asignar_automaticamente'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    ]
+                );
                 self::jsonResponse([
-                    'success' => true,
+                    'success' => (bool)($resultado['commit'] ?? false),
                     'ok' => true,
                     'reservationId' => $id > 0 ? $id : null,
+                    'reservacion_id' => $id > 0 ? $id : null,
                     'mensaje' => (string)($resultado['mensaje'] ?? ''),
+                    'descripcion' => (string)($resultado['descripcion'] ?? ''),
+                    'consecuencia' => (string)($resultado['consecuencia'] ?? ''),
+                    'titulo' => (string)($resultado['titulo'] ?? ''),
+                    'tipo' => (string)($resultado['tipo'] ?? ''),
+                    'commit' => (bool)($resultado['commit'] ?? false),
                     'fieldErrors' => [],
                     'codigo' => (string)($resultado['codigo'] ?? ReservacionService::CREADA),
                     'fecha' => (string)($_POST['fecha'] ?? ''),
                     'hora' => HorarioReservacionService::normalizarHoraCorta((string)($_POST['hora'] ?? '')),
                     'asignacion' => (string)($resultado['asignacion'] ?? 'PENDIENTE'),
-                    'mesaIds' => array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? []))),
-                    'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false),
+                    'mesaIds' => $mesaIds,
+                    'mesa_ids' => $mesaIds,
+                    'contexto' => $contexto,
+                    'requiresConfirmation' => (bool)($resultado['requiere_confirmacion'] ?? false)
+                        || (string)($resultado['tipo'] ?? '') === ReservacionErrorCatalog::TIPO_DECISION,
                     'requiresManualAssignment' => (bool)($resultado['requiere_asignacion_manual'] ?? false),
                     'withoutContact' => (bool)($resultado['sin_contacto'] ?? false),
                     'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
@@ -176,8 +197,9 @@ class AdminReservacionController
                         (array)($resultado['mesas_proyectadas'] ?? [])
                     )),
                     'idempotent' => (bool)($resultado['idempotente'] ?? false),
-                    'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                    'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                    'warnings' => $decisiones,
+                    'confirmaciones_requeridas' => $decisiones,
+                    'requiredConfirmations' => $decisiones,
                 ]);
                 return;
             }
@@ -194,17 +216,35 @@ class AdminReservacionController
         );
         http_response_code($status);
         if ($expectsJson) {
+            $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
+            $contexto = array_merge(
+                (array)($resultado['contexto'] ?? []),
+                [
+                    'comensales' => (int)($resultado['capacidad_solicitada'] ?? 0),
+                    'capacidad_disponible' => (int)($resultado['capacidad_disponible'] ?? 0),
+                    'asignacion_automatica_solicitada' => array_key_exists('asignacion_automatica_solicitada', (array)($resultado['contexto'] ?? []))
+                        ? (bool)$resultado['contexto']['asignacion_automatica_solicitada']
+                        : filter_var($_POST['asignar_automaticamente'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                ]
+            );
             self::jsonResponse([
                 'success' => false,
                 'ok' => false,
                 'reservationId' => null,
                 'mensaje' => (string)($resultado['mensaje'] ?? ''),
+                'descripcion' => (string)($resultado['descripcion'] ?? ''),
+                'consecuencia' => (string)($resultado['consecuencia'] ?? ''),
+                'titulo' => (string)($resultado['titulo'] ?? ''),
+                'tipo' => (string)($resultado['tipo'] ?? ''),
+                'commit' => (bool)($resultado['commit'] ?? false),
                 'fieldErrors' => is_array($resultado['errors'] ?? null) ? $resultado['errors'] : [],
                 'codigo' => (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO),
+                'contexto' => $contexto,
                 'requiresContactConfirmation' => (bool)($resultado['requiere_confirmacion_sin_contacto'] ?? false),
                 'requiresCapacityConfirmation' => (bool)($resultado['requiere_confirmacion_capacidad'] ?? false),
-                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                'warnings' => $decisiones,
+                'confirmaciones_requeridas' => $decisiones,
+                'requiredConfirmations' => $decisiones,
                 'requestedCapacity' => (int)($resultado['capacidad_solicitada'] ?? 0),
                 'availableCapacity' => (int)($resultado['capacidad_disponible'] ?? 0),
                 'physicalCapacityTotal' => (int)($resultado['capacidad_fisica_total'] ?? 0),
@@ -346,6 +386,7 @@ class AdminReservacionController
         if ($expectsJson) {
             $codigo = (string)($resultado['codigo'] ?? ReservacionService::ERROR_INTERNO);
             $status = ReservacionErrorCatalog::httpStatus($codigo, 422);
+            $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
             self::jsonResponse([
                 'ok' => false,
                 'success' => false,
@@ -356,8 +397,9 @@ class AdminReservacionController
                 'fieldCodes' => is_array($resultado['field_codes'] ?? null)
                     ? $resultado['field_codes']
                     : [],
-                'warnings' => array_values((array)($resultado['warnings'] ?? [])),
-                'requiredConfirmations' => array_values((array)($resultado['confirmaciones_requeridas'] ?? [])),
+                'warnings' => $decisiones,
+                'confirmaciones_requeridas' => $decisiones,
+                'requiredConfirmations' => $decisiones,
             ], $status);
             return;
         }

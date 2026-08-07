@@ -253,6 +253,14 @@ class ReservacionOperacionController
             'mesas_total' => (int)($resumenCapacidad['mesas_total'] ?? 0),
             'mesas_bloqueadas' => (int)($resumenCapacidad['mesas_bloqueadas'] ?? 0),
             'mesas_libres' => (int)($resumenCapacidad['mesas_libres'] ?? 0),
+            'mesa_ids_bloqueadas' => array_values(array_map(
+                'intval',
+                (array)($resumenCapacidad['mesa_ids_bloqueadas'] ?? [])
+            )),
+            'mesa_ids_libres' => array_values(array_map(
+                'intval',
+                (array)($resumenCapacidad['mesa_ids_libres'] ?? [])
+            )),
             'depende_liberacion_proyectada' => (bool)($resumenCapacidad['depende_liberacion_proyectada'] ?? false),
         ];
         $mostrarOcupacionFisica = in_array(
@@ -283,6 +291,7 @@ class ReservacionOperacionController
             'modo' => $soloLectura ? 'solo_lectura' : 'operacion',
             'editable' => $editable,
             'fecha' => $fecha,
+            'hora' => (string)($evaluacionOcupacion['hora'] ?? $resolucionHorario['hora_resuelta'] ?? ''),
             'abierto' => $abierto,
             'estado_operacion' => $estadoOperacion,
             'origen' => $disponibilidad['origen'] ?? null,
@@ -613,6 +622,7 @@ class ReservacionOperacionController
         $codigo = (string)($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO);
         $ok = (bool)($resultado['ok'] ?? false);
         $httpStatus = $ok ? 200 : ReservacionErrorCatalog::httpStatus($codigo, 422);
+        $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
 
         self::jsonResponse([
             'ok' => $ok,
@@ -627,7 +637,8 @@ class ReservacionOperacionController
             'mesas_proyectadas' => $resultado['mesas_proyectadas'] ?? [],
             'advertencia' => $resultado['advertencia'] ?? null,
             'advertencias' => $resultado['advertencias'] ?? [],
-            'confirmaciones_requeridas' => $resultado['confirmaciones_requeridas'] ?? [],
+            'confirmaciones_requeridas' => $decisiones,
+            'requiredConfirmations' => $decisiones,
             'mesas_liberadas' => $resultado['mesas_liberadas'] ?? [],
         ], $httpStatus);
     }
