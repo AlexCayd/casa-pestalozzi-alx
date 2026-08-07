@@ -54,9 +54,9 @@ $sinAsignacion = ReservacionErrorCatalog::presentar('SIN_ASIGNACION', [
 ]);
 assertContract($sinAsignacion['http_status'] === 409, 'SIN_ASIGNACION usa HTTP 409');
 assertContract($sinAsignacion['tipo'] === ReservacionErrorCatalog::TIPO_DECISION, 'SIN_ASIGNACION conserva decision requerida');
-assertContract($sinAsignacion['titulo'] === 'La reservación puede crearse sin mesas', 'SIN_ASIGNACION usa titulo contractual');
-assertContract($sinAsignacion['descripcion'] === 'No se asignaron mesas automáticamente.', 'SIN_ASIGNACION usa descripcion contractual');
-assertContract($sinAsignacion['consecuencia'] === 'La reservación quedará confirmada y las mesas podrán asignarse posteriormente.', 'SIN_ASIGNACION usa consecuencia contractual');
+assertContract($sinAsignacion['titulo'] === 'Asignación de mesas pendiente', 'SIN_ASIGNACION usa titulo contractual');
+assertContract($sinAsignacion['descripcion'] === 'Las reservaciones de más de 12 personas requieren una asignación manual de mesas.', 'SIN_ASIGNACION usa descripcion contractual');
+assertContract($sinAsignacion['consecuencia'] === 'La reservación quedará confirmada y podrás asignar las mesas posteriormente desde el mapa de reservaciones.', 'SIN_ASIGNACION usa consecuencia contractual');
 assertContract($sinAsignacion['commit'] === false, 'SIN_ASIGNACION no confirma el commit');
 assertContract($sinAsignacion['acciones'][0]['id'] === 'VOLVER', 'SIN_ASIGNACION ofrece volver primero');
 assertContract($sinAsignacion['acciones'][1]['id'] === 'CONFIRMAR_SIN_MESAS', 'SIN_ASIGNACION ofrece confirmar despues');
