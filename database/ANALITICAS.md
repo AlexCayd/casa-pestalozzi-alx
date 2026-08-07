@@ -1,19 +1,16 @@
-# Casa Pestalozzi — Catálogo de analíticas propuestas
+# Casa Pestalozzi — Analíticas diagnósticas
 
-> Documento de análisis y propuesta.
-> Fecha: 2026-07-27 · Base: esquema de `database/ddl.sql`
->
-> **Estado de implementación:** el **Nivel 1 (§3) está implementado** en la vista
+> Documentación de las analíticas **implementadas** en la vista
 > `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
 > `views/admin/analytics.php`), con datos de demostración en
 > `database/dml_pruebas.sql` (se carga después de `dml_operativo.sql`). El resto —Niveles 2
 > y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
 > implementada**.
 
-Este documento propone analíticas orientadas a la **toma de decisiones operativas**
-del restaurante, más allá de los agregados descriptivos que el panel ya muestra.
-Incluye, al final, la deuda técnica de la base de datos que limita o bloquea
-algunas de estas mediciones, con su solución concreta.
+Este documento describe las analíticas **diagnósticas y prescriptivas** del panel
+—las que explican por qué pasó algo y sugieren qué hacer—, con su cálculo exacto,
+las tablas de las que salen y las salvedades para interpretarlas. Al final está
+la deuda técnica de la base de datos que las limita, con su solución concreta.
 
 ---
 
@@ -21,19 +18,15 @@ algunas de estas mediciones, con su solución concreta.
 
 1. [Analíticas que ya existen](#1-analíticas-que-ya-existen)
 2. [Datos disponibles](#2-datos-disponibles)
-3. [Nivel 1 — Alto impacto, datos listos](#3-nivel-1--alto-impacto-datos-listos)
-4. [Nivel 2 — Alto valor, con matices](#4-nivel-2--alto-valor-con-matices)
-5. [Nivel 3 — Bloqueadas por el esquema](#5-nivel-3--bloqueadas-por-el-esquema)
-6. [Complementarias](#6-complementarias)
-7. [Deuda técnica de la base de datos](#7-deuda-técnica-de-la-base-de-datos)
-8. [Orden de implementación sugerido](#8-orden-de-implementación-sugerido)
+3. [Analíticas diagnósticas implementadas](#3-analíticas-diagnósticas-implementadas)
+4. [Deuda técnica de la base de datos](#4-deuda-técnica-de-la-base-de-datos)
 
 ---
 
 ## 1. Analíticas que ya existen
 
-Inventario de lo que el panel calcula hoy, para que las propuestas se lean como
-adicionales y no como duplicados.
+Inventario de lo que el panel calcula hoy, para separar los agregados
+descriptivos de las analíticas diagnósticas del §3.
 
 | Módulo | Qué calcula |
 |---|---|
@@ -44,9 +37,8 @@ adicionales y no como duplicados.
 | `/admin/feedback` | Promedios de las 4 dimensiones, comentarios, ranking de meseros (atención + ventas), áreas de mejora vía n8n |
 | `/admin/inventario` | Stock actual, mínimos, movimientos, ajustes y entradas |
 
-**Carácter común:** son *descriptivas* — informan qué pasó. Las propuestas de
-este documento son *diagnósticas y prescriptivas* — explican por qué y sugieren
-qué hacer.
+**Carácter común:** son *descriptivas* — informan qué pasó. Las tres analíticas
+del §3 son *diagnósticas y prescriptivas* — explican por qué y sugieren qué hacer.
 
 ---
 
@@ -75,7 +67,23 @@ Tablas con valor analítico y la señal que aporta cada una.
 
 ---
 
-## 3. Nivel 1 — Alto impacto, datos listos
+## 3. Analíticas diagnósticas implementadas
+
+> **De dónde salen los datos de cada gráfica.** Todo el seed que existe para que
+> el panel tenga algo que graficar vive en un solo archivo,
+> `database/analiticas-datos-ex.sql`:
+>
+> | Gráfica | Datos |
+> |---|---|
+> | Ventas diarias, ingreso por familia, métodos de pago, productos más vendidos, ticket promedio, propinas, tabla de tickets | `tickets` 200-299 + sus `ticket_items` |
+> | Reservaciones por día y por estado | `reservaciones` con token `fx-analytics-res-%` |
+> | §3.1 Ingeniería de menú | `ingredientes` 10-99 + recetas de comida (dan el margen real) |
+> | §3.2 RevPASH | `tickets` 200-299 repartidos por franja y día |
+> | §3.4 Reglas de asociación | pares recurrentes dentro de esos mismos tickets |
+>
+> `dml.sql` aporta lo que el sistema necesita para arrancar y la analítica solo
+> lee de pasada: catálogo de productos, categorías, mesas, usuarios, horarios,
+> ingredientes 1-9 con sus recetas de bebida y los tickets del POS.
 
 ### 3.1 Ingeniería de menú (matriz popularidad × margen)
 
@@ -103,52 +111,90 @@ matriz es lo que convierte el dato en decisión.
 
 ---
 
-### 3.2 RevPASH — ingreso por asiento disponible por hora
+### 3.2 RevPASH — mapa de calor hora × día de la semana
 
-**Pregunta:** ¿qué franjas horarias justifican el personal que les asigno?
+**Pregunta:** ¿qué franjas horarias justifican el personal que les asigno, y en
+qué días?
 
 ```
-RevPASH = ingresos_de_la_franja / (asientos_disponibles × horas_de_la_franja)
+RevPASH(día, hora) = ingreso(día, hora) / (asientos × días_abiertos(día, hora))
 ```
 
-**Cálculo:** numerador de `ticket_items` agrupado por hora de `tickets.hora_apertura`;
-denominador de `SUM(mesas.capacidad)` donde `activo = 1`, acotado por
-`horarios_operacion` y descontando `excepciones_operacion`.
+**Presentación:** matriz con las **horas como filas** y los **siete días de la
+semana como columnas**. Se reporta por celda y no por hora agregada porque las
+dos preguntas de operación —qué franjas rinden y dónde hay huecos— dependen del
+día: un viernes a las 21:00 y un martes a las 21:00 son la misma hora y negocios
+distintos. Agregar las columnas escondía exactamente eso.
 
-**Tablas:** `ticket_items`, `tickets`, `mesas`, `horarios_operacion`, `excepciones_operacion`
+**Cálculo:** numerador de `ticket_items` agrupado por `DAYOFWEEK` y `HOUR` de
+`tickets.hora_apertura`; denominador de los asientos del comedor por el número
+de fechas del rango que cayeron en ese día de la semana **y** tuvieron el local
+abierto en esa franja, según `horarios_operacion` descontando
+`excepciones_operacion`.
+
+Ese conteo por día es lo que hace comparables las columnas: en 30 días puede
+haber cuatro viernes y cinco sábados, y sin dividir entre los días efectivos el
+sábado se vería más fuerte solo por ocurrir más veces.
+
+Los asientos son la constante `Analiticas::ASIENTOS_COMEDOR` (**44**), no
+`SUM(mesas.capacidad)`: esa suma da 64 porque incluye las barras (Barra Blanca 8
++ Barra Roja 6 + Barra Roja 2 = 20) además de las 11 mesas de sala (11 × 4 = 44).
+
+**Codificación visual:** la intensidad del color es relativa a la celda más
+fuerte del periodo. Se distinguen tres estados que no hay que confundir:
+
+| Estado | Significado |
+|---|---|
+| Celda con color | Abierto y vendiendo; la saturación es el rendimiento |
+| Celda en cero | **Abierto y sin vender** — el hueco de desempeño |
+| Celda con `·` | **Cerrado** — calendario, no desempeño; no entra en ningún promedio |
+
+Las celdas con venta fuera del horario declarado llevan borde punteado: su
+denominador son los días con venta y no los días abiertos, así que usan otra
+base y no son estrictamente comparables. Por eso la **franja más fuerte y la más
+floja del pie solo compiten entre celdas dentro de horario** — son consejo
+operativo y recomendar una franja cerrada no accionaría nada. La escala de color
+sí incluye a todas, para que ninguna celda se salga de la rampa.
+
+**Resiliencia ante el horario configurado:** el denominador se deriva de lo que
+haya en `horarios_operacion` y `excepciones_operacion`, sin franjas fijas en el
+código. `Analiticas::horasAbiertas()` resuelve los casos que antes se perdían:
+
+| Caso | Comportamiento |
+|---|---|
+| Apertura o cierre a media hora (`08:30`, `22:30`) | Cuenta la hora si estuvo abierta aunque sea un minuto |
+| Cierre en punto (`19:00`) | La hora 19 **no** cuenta: nadie se sienta ya |
+| Turno que cruza medianoche (`18:00`→`02:00`) | Da la vuelta al reloj en vez de descartar el día |
+| Excepción `horario_especial` sin horas capturadas | Cae al horario semanal del día en vez de descartar la fecha |
+| Día abierto con horas nulas o ilegibles | No suma horas; esa fecha cae al conteo por días observados |
+| Tabla `horarios_operacion` vacía | Todo el cálculo cae a días observados |
+
+> El horario del negocio lo siembra **`dml.sql`**, que es el mismo que usa el
+> flujo público de reservaciones. El archivo de datos de ejemplo no toca esa
+> tabla: cuando lo hacía, el orden de carga decidía el horario del restaurante y
+> las ventas de lunes salían marcadas como fuera de horario.
+
+**Tablas:** `ticket_items`, `tickets`, `horarios_operacion`, `excepciones_operacion`
 
 **Por qué agrega valor:** "ventas por día" premia los días largos. RevPASH mide
 qué tan bien se monetiza la capacidad instalada, y suele revelar que un martes
 de 13:00-15:00 rinde más por asiento que un sábado completo. Es la métrica con
 la que los restaurantes deciden horarios y plantilla.
 
-**Decide:** cuántos meseros programar por franja, si abrir o cerrar un horario,
-cuándo lanzar menú ejecutivo. Con `excepciones_operacion` mide además el costo
-de oportunidad real de cada cierre extraordinario.
+En forma de mapa se lee además por franjas completas: una **fila** pálida es una
+hora floja toda la semana (problema de horario), y una **columna** pálida es un
+día flojo a cualquier hora (problema de demanda). El diagnóstico y la solución
+son distintos.
 
----
+**Decide:** cuántos meseros programar por franja y día, si abrir o cerrar un
+horario, cuándo lanzar menú ejecutivo. Con `excepciones_operacion` mide además
+el costo de oportunidad real de cada cierre extraordinario.
 
-### 3.3 Varianza de inventario — consumo teórico vs. real
-
-**Pregunta:** ¿dónde se está fugando el dinero en la cocina?
-
-| Mitad | Origen |
-|---|---|
-| **Teórico** | Ventas (`ticket_items`) × recetas explotadas |
-| **Real** | `movimientos_inventario` tipo `ajuste` y `entrada` |
-
-La diferencia, valorizada con `ingredientes.costo`, es **merma en pesos**:
-desperdicio, porcionado inconsistente, error de captura o robo.
-
-**Tablas:** `movimientos_inventario`, `ingredientes`, `producto_componentes`, `subreceta_ingredientes`, `ticket_items`
-
-**Por qué agrega valor:** el sistema ya registra ambas mitades y nadie las
-compara. Es probablemente la analítica de mayor retorno inmediato del catálogo,
-porque convierte datos que ya existen en una cifra accionable. Presentada como
-ranking descendente por `$ de varianza`, señala el ingrediente exacto donde
-apretar el porcionado.
-
-**Refinamiento:** segmentar por turno y por día para localizar *cuándo* ocurre.
+**Nota de implementación:** el mapa no usa Chart.js. Es una `<table>` real —
+horas como `<th scope="row">`, días como `<th scope="col">`— donde cada celda
+lleva una variable CSS `--heat` (0-1) y el color lo resuelve la hoja de estilos
+con los tokens del tema. Así el mapa acompaña el cambio de tema claro/oscuro sin
+repintar nada, y la matriz queda recorrible por lector de pantalla.
 
 ---
 
@@ -178,173 +224,31 @@ la mejora de mayor apalancamiento sobre el módulo de sugerencias ya construido.
 
 ---
 
-## 4. Nivel 2 — Alto valor, con matices
-
-### 4.1 No-show y anticipación de reserva
-
-**Pregunta:** ¿cuánto *overbooking* puedo permitirme sin arriesgar?
-
-**Cálculo:** `DATEDIFF(reservaciones.fecha, DATE(reservaciones.created_at))` da la
-anticipación; `estado = 'no_show'` da el desenlace. Segmentar la tasa por
-anticipación, día de la semana, franja horaria y tamaño de grupo.
-
-**Tablas:** `reservaciones`, `reservacion_mesas`
-
-**Decide:** nivel de sobreventa por franja, a qué reservas conviene mandar
-recordatorio, y cuándo liberar la mesa. Saber que las reservas de 6+ personas
-hechas con 10 días de anticipación tienen 18 % de no-show cambia la operación
-del viernes.
-
----
-
-### 4.2 Calidad de servicio contra carga operativa
-
-**Pregunta:** ¿la baja calificación es del mesero o del sistema saturado?
-
-**Cálculo:** cruzar cada `feedback` con las condiciones del momento — mesas
-simultáneas del mesero (`tickets` abiertos con ese `mesero_id` en esa ventana),
-ocupación del salón, tamaño de la comanda, densidad de comandas por área.
-
-**Tablas:** `feedback`, `feedback_tokens`, `tickets`, `ticket_items`, `mesas`, `usuarios`
-
-**Por qué agrega valor:** el ranking actual compara personas. Esto separa
-**desempeño individual de saturación del sistema**, que es exactamente la
-diferencia entre despedir a alguien y contratar a alguien.
-
-**Decide:** número máximo de mesas por mesero antes de que la satisfacción caiga;
-umbral de ocupación en que hay que meter refuerzo.
-
----
-
-### 4.3 Elasticidad-precio desde el histórico de tickets
-
-**Pregunta:** ¿cuánto puedo subir un platillo antes de perder demanda?
-
-`ticket_items.precio` es un *snapshot* al momento de la venta. Esa aparente
-redundancia es en realidad **una serie histórica de precios cobrados**,
-disponible sin haber diseñado versionado de precios.
-
-**Cálculo:** detectar cambios de precio por producto en la serie de
-`ticket_items.precio` y comparar la media de unidades diarias antes y después.
-
-**Tablas:** `ticket_items`, `tickets`, `productos`
-
-**Salvedad:** necesita histórico suficiente y cambios de precio reales. Con pocos
-datos es ruido. Conviene dejarla instrumentada aunque tarde meses en dar señal.
-
-**Combinación:** junto con la matriz de §3.1, indica cuáles de las "Vacas"
-aguantan un aumento.
-
----
-
-### 4.4 Mapa de calor de rentabilidad del salón
-
-**Pregunta:** ¿qué mesas rinden y cuáles se subutilizan?
-
-**Cálculo:** ingreso acumulado, número de tickets y ticket promedio por
-`tickets.mesa_id`, proyectado sobre las coordenadas `mesas.pos_x` / `pos_y`.
-
-**Tablas:** `tickets`, `ticket_items`, `mesas`
-
-**Por qué agrega valor:** la capa visual del mapa **ya existe** en el POS, así
-que es de las más baratas de construir y de las más persuasivas de mostrar.
-
-**Decide:** detectar mesas penalizadas por ubicación (junto al baño, paso de
-meseros, corriente de aire), orden de asignación en horas pico, y dónde sentar
-grupos grandes.
-
----
-
-## 5. Nivel 3 — Bloqueadas por el esquema
-
-> Las dos de mayor valor operativo puro. Requieren los cambios descritos en
-> [§7 Deuda técnica](#7-deuda-técnica-de-la-base-de-datos).
-
-### 5.1 Tiempos de cocina por área ⚠️
-
-**Bloqueo:** `ticket_items` modela el flujo `enviado → en_preparacion → listo →
-entregado` pero **solo guarda `created_at`**. Sin marca de tiempo por transición
-no se puede medir cuánto tarda cada área ni dónde está el cuello de botella.
-
-**Desbloquea** (ver [D-2](#d-2--ticket_items-sin-marcas-de-tiempo-por-transición)):
-- Tiempo medio de preparación por área y por platillo.
-- Minutos que un plato pasa en barra esperando a que lo recojan — que es un
-  problema **distinto** de que la cocina sea lenta, y hoy son indistinguibles.
-- Saturación por franja y por estación.
-- Correlación entre demora y calificación de `tiempo_espera` en `feedback`.
-
-**Impacto:** es la analítica que más directamente mejora la experiencia del
-comensal, porque ataca la queja más común de cualquier restaurante.
-
----
-
-### 5.2 Rotación real de mesa ⚠️
-
-**Bloqueo:** `tickets` tiene `hora_apertura` pero **no `hora_cierre`**. La
-duración solo se aproxima con el `created_at` del último `ticket_items`, lo que
-subestima sistemáticamente: no cuenta sobremesa ni tiempo de cobro.
-
-**Desbloquea** (ver [D-1](#d-1--tickets-sin-hora_cierre)):
-- Duración real por tipo de mesa y tamaño de grupo.
-- Turnos por mesa por servicio → insumo directo del RevPASH de §3.2.
-- Política de reservas basada en duración medida, no supuesta.
-
----
-
-## 6. Complementarias
-
-| Analítica | Qué decide | Salvedad |
-|---|---|---|
-| **Punto de equilibrio diario** — `gastos_fijos` mensuales ÷ margen de contribución promedio | Convierte la contabilidad en una meta de cubiertos/día que el equipo entiende | — |
-| **RFM de clientes** — vía `reservaciones.email` → `tickets` → consumo | A quién invitar, qué clientes se están perdiendo | Solo cubre a quien reservó; los *walk-ins* son anónimos (ver [D-4](#d-4--sin-identidad-de-cliente-para-walk-ins)) |
-| **Cancelación de ítems** — `ticket_items.estado = 'cancelado'` por mesero, área y platillo | Distingue error de captura de platillo que la cocina no logra sacar | — |
-| **Tasa de respuesta de feedback** — `feedback_tokens.usado` | Meta-analítica honesta: si responde el 8 %, los promedios tienen sesgo de autoselección y conviene declararlo en pantalla | — |
-| **Propina normalizada por mesero** — propina ÷ total, controlando método de pago | Señal de calidad de servicio comparable | Efectivo y tarjeta tienen comportamientos de propina muy distintos; sin controlar se comparan manzanas con naranjas |
-| **Carga por área de producción** — comandas entrantes por `area_id` en ventanas de 15 min | Balanceo de estaciones y dotación de cocina | Mide carga entrante, no tiempo de servicio, hasta resolver [D-2](#d-2--ticket_items-sin-marcas-de-tiempo-por-transición) |
-| **Salud del software** — `reportes_sistema` por módulo y tiempo a resolución | Prioriza el backlog técnico con datos de uso real | — |
-
----
-
-## 7. Deuda técnica de la base de datos
+## 4. Deuda técnica de la base de datos
 
 Cada punto indica el problema, su costo real y la solución propuesta.
 
-> ⚠️ **Ninguno de estos `ALTER` está aplicado.** Son propuestas. Sobre una base
-> con datos, aplicar primero en una copia y respaldar antes.
+> ⚠️ **Salvo D-1, ninguno de estos `ALTER` está aplicado.** Son propuestas. Sobre
+> una base con datos, aplicar primero en una copia y respaldar antes.
 
 ---
 
-### D-1 · `tickets` sin `hora_cierre`
+### D-1 · `tickets` sin `hora_cierre` — ✅ resuelta
 
-**Problema:** no se registra cuándo se cerró la cuenta. La duración de la visita
-solo se puede aproximar con el último `ticket_items.created_at`.
+**Problema (histórico):** no se registraba cuándo se cerró la cuenta, así que la
+duración de la visita solo se podía aproximar con el último
+`ticket_items.created_at`.
 
-**Costo:** bloquea la rotación real de mesa (§5.2) y degrada el RevPASH (§3.2),
-que depende de saber cuántos turnos cabe por mesa.
-
-**Solución:**
+**Estado:** `ddl.sql` ya declara la columna y la analítica la consume:
 
 ```sql
-ALTER TABLE tickets
-  ADD COLUMN hora_cierre DATETIME NULL
-    COMMENT 'Momento del cobro; NULL mientras el ticket sigue abierto'
-    AFTER hora_apertura;
-
-CREATE INDEX idx_tickets_cierre ON tickets (hora_cierre);
+hora_cierre        DATETIME NULL,   -- Momento del cobro usado por analítica y finanzas
 ```
 
-Fijarla en `PuntoVentaController::cerrarTicket()` en el mismo `UPDATE` que ya
-cambia `estado` a `'cerrado'`. Coste: una línea.
-
-**Retroactividad:** los tickets ya cerrados pueden rellenarse de forma
-aproximada con el último ítem, dejando constancia de que es una estimación:
-
-```sql
-UPDATE tickets t
-   SET t.hora_cierre = (SELECT MAX(ti.created_at) FROM ticket_items ti
-                         WHERE ti.ticket_id = t.id)
- WHERE t.estado = 'cerrado' AND t.hora_cierre IS NULL;
-```
+Se conserva el punto para dejar constancia de que la deuda existió y de dónde
+salió la columna. Pendiente menor: no tiene índice propio, y las consultas que
+filtren por cobro se beneficiarían de `CREATE INDEX idx_tickets_cierre ON
+tickets (hora_cierre);`.
 
 ---
 
@@ -354,9 +258,12 @@ UPDATE tickets t
 (`enviado → en_preparacion → listo → entregado`) **sobrescribiendo el valor
 anterior**. No queda rastro de cuándo ocurrió cada paso.
 
-**Costo:** bloquea por completo la analítica de tiempos de cocina (§5.1) — la de
-mayor impacto operativo del catálogo. Hoy es imposible responder si la cocina es
-lenta o si los platos se enfrían esperando a que un mesero los recoja.
+**Costo:** no se puede medir cuánto tarda cada área ni dónde está el cuello de
+botella. Hoy es imposible responder si la cocina es lenta o si los platos se
+enfrían en barra esperando a que un mesero los recoja, que son dos problemas
+distintos con soluciones opuestas. Además, cada día que pasa sin las columnas es
+histórico que se pierde para siempre: la transición se sobrescribe y no hay forma
+de reconstruirla después.
 
 **Solución:**
 
@@ -411,8 +318,8 @@ CREATE INDEX idx_ti_producto ON ticket_items (producto_id);
 
 Después, el POS debe mandar `producto_id` al insertar la comanda, y las
 consultas deben unir por id. El snapshot de `nombre`/`precio` **se mantiene** —
-es lo que permite la elasticidad-precio de §4.3 y que un ticket viejo se
-reimprima con el precio que se cobró.
+es lo que permite que un ticket viejo se reimprima con el precio que se cobró y
+que exista una serie histórica de precios realmente cobrados.
 
 > **Nota:** mientras esto no exista, `productos.nombre` **debe** seguir siendo
 > `UNIQUE` y hay que evitar renombrar productos con histórico.
@@ -424,8 +331,9 @@ reimprima con el precio que se cobró.
 **Problema:** la única identidad de cliente es `reservaciones.email`. Un comensal
 que llega sin reserva no deja rastro identificable entre visitas.
 
-**Costo:** el RFM de §6 cubre solo a quien reservó, sesgando la muestra hacia un
-perfil concreto. No se puede medir recurrencia real ni valor de vida del cliente.
+**Costo:** cualquier medición por cliente cubre solo a quien reservó, sesgando la
+muestra hacia un perfil concreto. No se puede medir recurrencia real ni valor de
+vida del cliente.
 
 **Solución** — tabla ligera de clientes, poblada desde ambos flujos:
 
@@ -485,7 +393,8 @@ que es la columna por la que realmente se cruza con la operación (mesero, mesa,
 consumo).
 
 **Costo:** permite feedback huérfano apuntando a tickets inexistentes, lo que
-introduce ruido silencioso en toda la analítica de calidad de §4.2.
+introduce ruido silencioso en el ranking de meseros y en cualquier cruce entre
+calidad percibida y operación.
 
 **Solución:**
 
@@ -508,8 +417,9 @@ ALTER TABLE feedback
 **Problema:** tiene índice (`idx_mi_ti`) pero no restricción. Al borrarse un
 ticket en cascada, sus movimientos quedan apuntando al vacío.
 
-**Costo:** la trazabilidad del descuento de inventario —justamente el insumo de
-la varianza de §3.3— se degrada sin aviso.
+**Costo:** la trazabilidad entre una venta y el descuento de stock que provocó se
+degrada sin aviso, y con ella la posibilidad de auditar el consumo real de
+ingredientes contra el teórico.
 
 **Solución:**
 
@@ -529,7 +439,8 @@ documenta como decisión consciente.
 
 **Costo:** borrar un ingrediente deja componentes de receta apuntando a un id
 inexistente. El costo teórico del platillo se calcula de menos, **sin error
-visible**, y eso contamina la ingeniería de menú de §3.1 y la varianza de §3.3.
+visible**, y eso contamina el margen de contribución sobre el que se apoya la
+ingeniería de menú de §3.1.
 
 **Solución** — dos opciones según cuánto se quiera reescribir:
 
@@ -568,6 +479,12 @@ ALTER TABLE dias_reservacion
 Requiere migrar antes `Services\HorarioReservacionService` y
 `ReservacionConfig` a leer el horario de `horarios_operacion`.
 
+> **Variante ya corregida:** además de las dos tablas, hubo un tiempo **dos
+> semillas** escribiendo sobre `horarios_operacion` — `dml.sql` y el archivo de
+> datos de analítica, con `ON DUPLICATE KEY UPDATE` —, así que el orden de carga
+> decidía el horario del restaurante. `analiticas-datos-ex.sql` ya no toca esa
+> tabla: la fuente es `dml.sql`.
+
 ---
 
 ### D-10 · `DROP TABLE IF EXISTS ticket_pagos` duplicado
@@ -602,47 +519,16 @@ escriba la siguiente consulta.
 
 ### Resumen de deuda
 
-| # | Deuda | Severidad | Esfuerzo | Bloquea |
+| # | Deuda | Severidad | Esfuerzo | A qué afecta |
 |---|---|---|---|---|
-| D-1 | `tickets` sin `hora_cierre` | Alta | Muy bajo | §5.2, §3.2 |
-| D-2 | Sin timestamps de transición en `ticket_items` | **Crítica** | Bajo | §5.1 |
+| D-1 | `tickets` sin `hora_cierre` | ✅ Resuelta | — | — |
+| D-2 | Sin timestamps de transición en `ticket_items` | **Crítica** | Bajo | Tiempos de cocina; histórico que se pierde a diario |
 | D-3 | `JOIN` por nombre en vez de `producto_id` | **Crítica** | Medio | Integridad general |
-| D-4 | Sin identidad de *walk-in* | Media | Medio | RFM completo |
-| D-5 | Faltan índices de analítica | Alta | Muy bajo | Rendimiento |
-| D-6 | `feedback.ticket_id` sin FK | Media | Muy bajo | §4.2 |
-| D-7 | `movimientos_inventario` sin FK | Media | Muy bajo | §3.3 |
-| D-8 | Polimorfismo sin integridad | Media | Bajo / Alto | §3.1, §3.3 |
-| D-9 | Horarios duplicados | Media | Medio | §3.2 |
+| D-4 | Sin identidad de *walk-in* | Media | Medio | Recurrencia y valor de cliente |
+| D-5 | Faltan índices de analítica | Alta | Muy bajo | Rendimiento de todo el panel |
+| D-6 | `feedback.ticket_id` sin FK | Media | Muy bajo | Calidad de servicio |
+| D-7 | `movimientos_inventario` sin FK | Media | Muy bajo | Trazabilidad de inventario |
+| D-8 | Polimorfismo sin integridad | Media | Bajo / Alto | §3.1 (margen de contribución) |
+| D-9 | Horarios duplicados | Media | Medio | §3.2 (denominador del RevPASH) |
 | D-10 | `DROP` duplicado | Cosmética | Trivial | — |
 | D-11 | Categoría congelada | Baja | Documental | Series largas |
-
----
-
-## 8. Orden de implementación sugerido
-
-### Fase 0 — Higiene (horas)
-`D-5` (índices), `D-6` y `D-7` (llaves foráneas), `D-10` (limpieza). Bajo riesgo,
-mejora inmediata de rendimiento e integridad.
-
-### Fase 1 — Habilitadores (días)
-`D-1` y `D-2`. Son dos `ALTER` y unas pocas líneas en dos controladores, pero
-**empiezan a acumular datos que hoy se pierden para siempre**. Cuanto antes se
-apliquen, antes habrá histórico que analizar — es el argumento más fuerte para
-priorizarlos aunque las gráficas lleguen después.
-
-### Fase 2 — Analíticas de retorno inmediato
-`§3.3` varianza de inventario y `§3.1` ingeniería de menú. Solo requieren datos
-ya existentes y producen decisiones económicas directas.
-
-### Fase 3 — Analíticas de operación
-`§3.2` RevPASH y `§4.4` mapa de calor del salón (la capa visual ya está hecha),
-más `§5.1` y `§5.2` una vez que la Fase 1 haya acumulado histórico.
-
-### Fase 4 — Inteligencia
-`§3.4` reglas de asociación realimentando n8n, `§4.1` no-show, `§4.2` calidad vs.
-carga, `§4.3` elasticidad-precio.
-
-### Fase 5 — Estructural
-`D-3` (migración a `producto_id`), `D-9` (consolidación de horarios), `D-4`
-(identidad de cliente). Mayor alcance; conviene abordarlos cuando las analíticas
-ya justifiquen la inversión.

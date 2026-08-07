@@ -22,6 +22,7 @@ DROP TABLE IF EXISTS subreceta_ingredientes;
 DROP TABLE IF EXISTS subrecetas;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
+DROP TABLE IF EXISTS configuracion_pos;
 DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS excepciones_operacion;
 DROP TABLE IF EXISTS horarios_operacion;
@@ -34,6 +35,9 @@ DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
 DROP TABLE IF EXISTS ticket_items;
 DROP TABLE IF EXISTS productos;
+-- `menu` ya no se crea: su contenido vive en `productos`. El DROP se conserva
+-- para que este script purgue la tabla en instalaciones anteriores que aún la
+-- tengan; sin él quedaría huérfana para siempre.
 DROP TABLE IF EXISTS menu;
 DROP TABLE IF EXISTS categorias;
 DROP TABLE IF EXISTS tickets;
@@ -257,12 +261,10 @@ CREATE TABLE IF NOT EXISTS ticket_mesas (
 );
 
 
--- MENÚ / PRODUCTOS — fuente única de los platillos.
+-- PRODUCTOS — fuente única de los platillos.
 --
--- Antes existían dos tablas con los mismos platillos: `menu` (carta pública y
--- PDF) y `productos` (inventario, COGS, ruteo por área). El único enlace entre
--- ellas era el nombre en texto plano, y un tercer menú vivía escrito a mano en
--- src/js/data/menu-data.js para el punto de venta. Ahora todo sale de aquí.
+-- De aquí salen la carta pública, el PDF, el punto de venta, el inventario, el
+-- COGS y el ruteo por área: un platillo se da de alta una sola vez.
 --
 -- El UNIQUE sobre `nombre` es lo que sostiene el enlace por nombre que usan
 -- Inventario::aplicarVenta, el COGS de Finanzas y las sugerencias: un nombre
@@ -422,16 +424,10 @@ CREATE TABLE IF NOT EXISTS gastos_fijos (
 -- MENÚ
 -- -------------------------------------------------------
 --
--- La carta se sirve desde 'productos' (definida arriba, ver TICKETS / COMANDA).
---
--- La tabla 'menu' se fusionó con 'productos': tenían el mismo contenido con
--- llaves distintas, y el CRUD del admin solo tocaba 'menu', así que un platillo
--- borrado de la carta seguía vivo para el POS y para las sugerencias de n8n.
--- Ahora la carta y el POS son la misma consulta: 'productos WHERE activo = 1'.
---
--- 'productos' es la fuente funcional única. La tabla 'menu' se sigue creando
--- arriba solo como compatibilidad de lectura para instalaciones y datos de
--- siembra anteriores; ninguna consulta de la aplicación la toca.
+-- No hay tabla propia: la carta se sirve desde 'productos' (definida arriba,
+-- ver TICKETS / COMANDA). La carta pública y el POS son la misma consulta,
+-- 'productos WHERE activo = 1', así que un platillo dado de baja desaparece de
+-- ambos a la vez.
 
 -- -------------------------------------------------------
 -- FEEDBACK
@@ -556,6 +552,28 @@ CREATE TABLE IF NOT EXISTS configuracion_anuncio (
   PRIMARY KEY (id),
 
   CONSTRAINT fk_configuracion_anuncio_usuario
+    FOREIGN KEY (updated_by)
+    REFERENCES usuarios(id)
+    ON DELETE SET NULL
+);
+
+-- Ajustes del punto de venta. Fila única (id = 1), como configuracion_anuncio:
+-- son preferencias del sistema, no un catálogo.
+CREATE TABLE IF NOT EXISTS configuracion_pos (
+  id               TINYINT UNSIGNED NOT NULL,
+  -- 1 = el mesero se elige a mano al abrir la mesa (comportamiento histórico).
+  -- 0 = el campo queda bloqueado con el usuario de la sesión, para turnos en
+  --     los que cada quien usa su propia tablet y la selección manual solo
+  --     abre la puerta a asignar tickets a otro por error.
+  mesero_editable  TINYINT(1) NOT NULL DEFAULT 1,
+  updated_by       INT NULL,
+  updated_at       TIMESTAMP NOT NULL
+                     DEFAULT CURRENT_TIMESTAMP
+                     ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (id),
+
+  CONSTRAINT fk_configuracion_pos_usuario
     FOREIGN KEY (updated_by)
     REFERENCES usuarios(id)
     ON DELETE SET NULL

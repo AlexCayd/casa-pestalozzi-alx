@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
+use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
 use Services\HorarioOperacionService;
@@ -11,10 +12,11 @@ use Services\ReporteSistemaService;
 
 class AdminConfigurationController
 {
-    private const MODULE_CSS = '/build/css/admin/configuration.css?v=schedule-persistence-v1';
-    private const MODULE_JS = '/build/js/admin/configuration.js?v=schedule-persistence-v1';
+    private const MODULE_CSS = '/build/css/admin/configuration.css?v=pos-settings-v1';
+    private const MODULE_JS = '/build/js/admin/configuration.js?v=pos-settings-v1';
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
+    private const POS_PATH = '/admin/configuracion/pos';
 
     public static function index(Router $router): void
     {
@@ -37,6 +39,12 @@ class AdminConfigurationController
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
                     'acento' => '--admin-c-ambar',
+                ],
+                [
+                    'titulo' => 'POS',
+                    'descripcion' => 'Define cómo se comporta el punto de venta al abrir una mesa.',
+                    'ruta' => self::POS_PATH,
+                    'icono' => '<rect x="4" y="3" width="16" height="13" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="M8 8h8"/>',
                 ],
                 [
                     'titulo' => 'Reportes del sistema',
@@ -293,6 +301,51 @@ class AdminConfigurationController
         ]);
     }
 
+    public static function pos(Router $router): void
+    {
+        $alertas = self::alertasResultado((string) ($_GET['resultado'] ?? ''));
+
+        try {
+            $configuracion = ConfiguracionPos::obtenerOCrear()->valoresFormulario();
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::pos - ' . $e->getMessage());
+            $configuracion = self::defaultPos();
+            $alertas['error'][] = 'No fue posible cargar la configuración actual del POS.';
+        }
+
+        self::renderPos($configuracion, $alertas);
+    }
+
+    public static function guardarPos(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::POS_PATH);
+        }
+
+        // Checkbox: el navegador no envía el campo cuando está apagado, así que
+        // la ausencia es el "no" y no hay estado intermedio que validar.
+        $editable = isset($_POST['mesero_editable'])
+            && is_scalar($_POST['mesero_editable'])
+            && (string) $_POST['mesero_editable'] === '1';
+
+        $configuracion = new ConfiguracionPos([
+            'mesero_editable' => $editable ? 1 : 0,
+            'updated_by' => self::usuarioAutenticadoId(),
+        ]);
+
+        try {
+            if ($configuracion->guardarConfiguracion()) {
+                self::redirect(self::POS_PATH . '?resultado=pos_actualizado');
+            }
+            $alertas = ['error' => ['No fue posible actualizar la configuración del POS.']];
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarPos - ' . $e->getMessage());
+            $alertas = ['error' => ['No fue posible actualizar la configuración del POS. Intenta de nuevo.']];
+        }
+
+        self::renderPos($configuracion->valoresFormulario(), $alertas);
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -310,6 +363,22 @@ class AdminConfigurationController
         ]);
     }
 
+    private static function renderPos(array $configuracion, array $alertas): void
+    {
+        self::render('configuration/pos', [
+            'title' => 'POS',
+            'topbarSection' => 'Configuración',
+            'configuracionPos' => $configuracion,
+            'alertas' => $alertas,
+        ]);
+    }
+
+    private static function defaultPos(): array
+    {
+        // Ante un fallo de lectura se muestra el comportamiento histórico, que
+        // es el que sigue aplicando el POS mientras no pueda leer el ajuste.
+        return ['mesero_editable' => true, 'updated_at' => ''];
+    }
     /** POST /admin/configuracion/reportes/estado — desde el modal de detalle. */
     public static function reportStatus(Router $router): void
     {
@@ -356,6 +425,16 @@ class AdminConfigurationController
 
     private static function alertasResultado(string $resultado): array
     {
+        return match ($resultado) {
+            'horarios_actualizados' => ['exito' => ['Los horarios de operación se actualizaron correctamente.']],
+            'excepcion_creada' => ['exito' => ['El cierre u horario especial se guardó correctamente.']],
+            'excepcion_actualizada' => ['exito' => ['La excepción se actualizó correctamente.']],
+            'excepcion_eliminada' => ['exito' => ['La excepción se eliminó correctamente. La fecha volverá a utilizar el horario semanal habitual.']],
+            'estado_actualizado' => ['exito' => ['El estado de la excepción se actualizó correctamente.']],
+            'anuncio_actualizado' => ['exito' => ['El anuncio principal se actualizó correctamente.']],
+            'pos_actualizado' => ['exito' => ['La configuración del POS se actualizó correctamente.']],
+            default => [],
+        };
         $codigos = [
             'horarios_actualizados' => 'HORARIOS_ACTUALIZADOS',
             'excepcion_creada' => 'EXCEPCION_CREADA',

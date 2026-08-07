@@ -68,6 +68,8 @@ $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationCont
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
+$router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
+$router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.

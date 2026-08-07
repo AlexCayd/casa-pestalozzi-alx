@@ -37,6 +37,10 @@ function initMapa() {
   };
   var ticketRequestInFlight = false;
   var meseros       = []; // usuarios con rol 'waiter' activos (para asignar al abrir mesa)
+  // Ajustes de /admin/configuracion/pos. Llegan en cada refresco del mapa, así
+  // que cambiarlos en el admin se aplica en el turno sin recargar la tablet.
+  // Arranca en el comportamiento histórico por si la primera respuesta falla.
+  var posConfig     = { mesero_editable: true };
   var commandaItems    = []; // { n, p, area, area_id, categoria, comensal, qty }
   var selectedComensal = 0;  // 0 = General
   var SUGERENCIAS         = []; // tarjeta(s) visibles; las trae n8n al abrir la mesa
@@ -222,16 +226,44 @@ function initMapa() {
            'aria-hidden="true">' + (SVG_PATHS[name] || '') + '</svg>';
   }
 
+  // El mesero de la sesión, si es de los asignables (la API solo lista los de
+  // rol waiter activos). Para un admin o un cajero devuelve null.
+  function meseroDeSesion() {
+    var sesionId = (window.CP_USER && window.CP_USER.id) ? parseInt(window.CP_USER.id, 10) : 0;
+    if (!(sesionId > 0)) return null;
+    for (var i = 0; i < meseros.length; i++) {
+      if (parseInt(meseros[i].id, 10) === sesionId) return meseros[i];
+    }
+    return null;
+  }
+
   // ── Select de meseros registrados (se asigna al abrir el ticket) ──
+  //
+  // Llega preseleccionado quien tiene la sesión abierta: en el piso el que
+  // abre la mesa es casi siempre el propio mesero, y dejarlo en «Sin asignar»
+  // hacía que se perdiera la autoría del ticket cuando se les olvidaba
+  // elegirse.
+  //
+  // Con la selección manual desactivada en Configuración › POS el campo además
+  // se bloquea en ese mesero. Si quien entró no es asignable no hay con qué
+  // bloquearlo, así que se deja editable; el servidor aplica la misma regla al
+  // abrir el ticket, porque un <select> deshabilitado no protege el endpoint.
   function buildMeseroSelectHtml() {
+    var propio = meseroDeSesion();
+    var bloqueado = !posConfig.mesero_editable && propio !== null;
     var h = '<div class="mmodal-name-wrap">';
     h += '<div class="mmodal-label">Mesero</div>';
-    h += '<select class="mmodal-name-input" id="mmodal-mesero">';
+    h += '<select class="mmodal-name-input" id="mmodal-mesero"' + (bloqueado ? ' disabled' : '') + '>';
     h += '<option value="">— Sin asignar —</option>';
     for (var i = 0; i < meseros.length; i++) {
-      h += '<option value="' + meseros[i].id + '">' + escHtml(meseros[i].nombre) + '</option>';
+      var esPropio = propio !== null && parseInt(meseros[i].id, 10) === parseInt(propio.id, 10);
+      h += '<option value="' + meseros[i].id + '"' + (esPropio ? ' selected' : '') + '>' +
+           escHtml(meseros[i].nombre) + '</option>';
     }
     h += '</select>';
+    if (bloqueado) {
+      h += '<p class="mmodal-field-hint">Asignación automática: el ticket queda a tu nombre.</p>';
+    }
     h += '</div>';
     return h;
   }
@@ -4091,6 +4123,7 @@ function initMapa() {
         tickets       = data.tickets        || [];
         meseros       = data.meseros        || [];
         temporalConfig = (data.config && data.config.temporal) || temporalConfig;
+        posConfig      = (data.config && data.config.pos)      || posConfig;
         sincronizarRelojOperativo(data.server_time || data.actualizado_en);
         if (ticketSelectionMode) {
           selectedMesaIds = selectedMesaIds.filter(function(mesaId) {

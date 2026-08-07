@@ -428,6 +428,74 @@
   line-height: 1.5;
 }
 
+/*
+ * Ajustes del POS. Un interruptor cuyo efecto no cabe en su etiqueta: las dos
+ * tarjetas describen qué pasa en cada estado y la vigente se resalta, para que
+ * el administrador vea la consecuencia sin tener que ir al POS a comprobarla.
+ */
+.admin-pos-form {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-pos-setting__states {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+
+  @include mixins.down(vars.$breakpoint-tablet) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-pos-state {
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  transition:
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    background var(--admin-t-base) var(--admin-ease-out);
+
+  p {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  strong {
+    color: var(--admin-text);
+  }
+
+  &__tag {
+    display: inline-block;
+    color: var(--admin-faint);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &.is-current {
+    border-color: var(--admin-gold);
+    background: var(--admin-surface);
+    color: var(--admin-text);
+  }
+
+  &.is-current .admin-pos-state__tag {
+    color: var(--admin-gold-deep);
+  }
+}
+
+.admin-pos-form__note {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .admin-announcement-template {
   display: grid;
   gap: 11px;

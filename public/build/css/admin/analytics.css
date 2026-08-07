@@ -14,6 +14,17 @@
 .admin-analytics {
   min-width: 0;
 }
+.admin-analytics .admin-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  position: relative;
+  z-index: 5;
+}
 .admin-analytics .admin-page-header__intro {
   min-width: 0;
 }
@@ -788,6 +799,7 @@
   margin-top: 36px;
   padding-top: 28px;
   border-top: 1px solid var(--admin-border-soft);
+  --n1-heat-rgb: 108, 194, 74;
 }
 .admin-nivel1 .admin-nivel1__intro {
   border-bottom: none;
@@ -822,9 +834,50 @@
   font-size: 12px;
   line-height: 1.4;
 }
+.admin-nivel1 .admin-nivel1-info {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  padding: 7px 13px 7px 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-nivel1 .admin-nivel1-info svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+.admin-nivel1 .admin-nivel1-info:hover {
+  border-color: var(--admin-gold);
+  background: var(--admin-gold-soft);
+  color: var(--admin-gold-deep);
+}
+.admin-nivel1 .admin-nivel1-info:focus-visible {
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+}
+.admin-nivel1 .admin-nivel1-info--icon {
+  padding: 7px;
+  border-radius: 50%;
+}
+.admin-nivel1 .admin-nivel1-headside {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
 .admin-nivel1 .admin-nivel1-menu__body {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 32px;
   align-items: start;
   margin-top: 8px;
@@ -855,21 +908,119 @@
 }
 .admin-nivel1 .admin-nivel1-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
   gap: 20px;
   margin-top: 20px;
-  align-items: start;
+  align-items: stretch;
 }
-.admin-nivel1 [data-n1-varianza] .admin-table-wrap {
-  max-height: 430px;
+.admin-nivel1 [data-n1-revpash] {
+  display: flex;
+  flex-direction: column;
+}
+.admin-nivel1 [data-n1-revpash] .admin-n1-heat {
+  flex: 1 1 auto;
+}
+.admin-nivel1 .admin-nivel1-sub {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.admin-nivel1 {
+  /* ── Mapa de calor del RevPASH (hora × día) ────────────────────────
+     Cada celda lleva --heat (0-1) desde JS y el color se resuelve aquí:
+     así el mapa cambia solo al alternar el tema. --n1-heat-rgb se define
+     por tema más abajo, fuera de este bloque. */
+}
+.admin-nivel1 .admin-n1-heat {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+.admin-nivel1 .admin-n1-heat__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  table-layout: fixed;
+}
+.admin-nivel1 .admin-n1-heat thead th {
+  padding-bottom: 2px;
+  color: var(--admin-table-head);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-nivel1 .admin-n1-heat tbody th {
+  width: 46px;
+  padding-right: 6px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.admin-nivel1 .admin-n1-heat__corner {
+  color: var(--admin-faint);
+  font-size: 10px;
+}
+.admin-nivel1 .admin-n1-heat__cell {
+  height: 30px;
+  border-radius: 6px;
+  background: linear-gradient(rgba(var(--n1-heat-rgb), var(--heat, 0)), rgba(var(--n1-heat-rgb), var(--heat, 0))), var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: default;
+}
+.admin-nivel1 .admin-n1-heat__cell.is-strong {
+  color: #0b0c0d;
+}
+.admin-nivel1 .admin-n1-heat__cell.is-empty {
+  color: var(--admin-faint);
+  font-weight: 500;
+}
+.admin-nivel1 .admin-n1-heat__cell.is-closed {
+  background: transparent;
+  border: 1px dashed var(--admin-border-soft);
+  color: var(--admin-faint);
+}
+.admin-nivel1 .admin-n1-heat__cell.is-offhours {
+  outline: 1px dashed var(--admin-warning);
+  outline-offset: -2px;
+}
+.admin-nivel1 .admin-n1-heat__scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+.admin-nivel1 .admin-n1-heat__scale[hidden] {
+  display: none;
+}
+.admin-nivel1 .admin-n1-heat__ramp {
+  flex: 1 1 auto;
+  height: 7px;
+  max-width: 140px;
+  border-radius: 999px;
+  background: linear-gradient(to right, rgba(var(--n1-heat-rgb), 0.05), rgba(var(--n1-heat-rgb), 1));
+}
+.admin-nivel1 [data-n1-asociacion] .admin-table-wrap {
+  max-height: 460px;
   overflow-y: auto;
 }
 .admin-nivel1 .admin-nivel1-panel + .admin-nivel1-panel,
 .admin-nivel1 .admin-nivel1-grid + .admin-nivel1-panel {
   margin-top: 20px;
 }
-.admin-nivel1 .admin-nivel1-panel .admin-chart-card__canvas {
-  height: 260px;
+.admin-nivel1 .admin-nivel1-panel .admin-table th,
+.admin-nivel1 .admin-nivel1-panel .admin-table td {
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 .admin-nivel1 .admin-nivel1-note {
   margin-top: 12px;
@@ -962,15 +1113,134 @@
   color: var(--admin-sage-deep);
 }
 
-.admin-nivel1-merma {
+/*
+ * Contenido de la guía de lectura (modal de §3.1). Vive a nivel raíz porque el
+ * modal se renderiza fuera de .admin-analytics; reutiliza .admin-nivel1-badge
+ * para que los colores de clase sean los mismos que en la gráfica y la tabla.
+ */
+.admin-n1-guide {
+  border-top: 1px solid var(--admin-border-soft);
+  padding-top: 20px;
+}
+.admin-n1-guide__title {
+  margin-bottom: 12px;
+  color: var(--admin-text);
+  font-family: var(--admin-font-heading);
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+.admin-n1-guide__title:not(:first-child) {
+  margin-top: 26px;
+}
+.admin-n1-guide__formula {
+  margin-bottom: 22px;
+  padding: 13px 16px;
+  border: 1px dashed var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+.admin-n1-guide__formula span {
+  color: var(--admin-gold-deep);
+  font-size: 10px;
+  vertical-align: sub;
+}
+.admin-n1-guide__list {
+  display: grid;
+  gap: 14px;
+}
+.admin-n1-guide__item {
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-n1-guide__item dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--admin-text);
+  font-size: 14px;
   font-weight: 700;
-  color: var(--admin-danger-text);
+}
+.admin-n1-guide__item dt span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.admin-n1-guide__item dd {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.admin-n1-guide__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.admin-n1-guide__card {
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-n1-guide__meaning {
+  margin-top: 10px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.admin-n1-guide__meaning em {
+  color: var(--admin-gold-deep);
+  font-style: normal;
+}
+.admin-n1-guide__action {
+  margin-top: 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.admin-n1-guide__text {
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.admin-n1-guide__notes {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.admin-n1-guide__notes li::marker {
+  color: var(--admin-gold);
+}
+.admin-n1-guide strong {
+  color: var(--admin-text);
+  font-weight: 600;
 }
 
-.admin-nivel1-ok {
-  color: var(--admin-faint);
+[data-admin-theme=light] .admin-nivel1 {
+  --n1-heat-rgb: 63, 143, 79;
 }
 
+@media (max-width: 620px) {
+  .admin-n1-guide__grid {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 1024px) {
   .admin-nivel1 .admin-nivel1-menu__body {
     grid-template-columns: 1fr;

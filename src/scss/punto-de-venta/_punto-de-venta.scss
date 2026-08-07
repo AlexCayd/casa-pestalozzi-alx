@@ -1283,6 +1283,21 @@
 
   &::placeholder { color: var(--txt-faint); }
   &:focus { border-color: rgba(204,163,82,.45); }
+
+  // Campo bloqueado (p. ej. el mesero con la asignación automática activada):
+  // se lee, pero queda claro que no se toca.
+  &:disabled {
+    opacity: .72;
+    cursor: not-allowed;
+  }
+}
+
+// Nota bajo un campo del modal: explica por qué está como está.
+.mmodal-field-hint {
+  margin: .4rem 0 0;
+  font-size: .68rem;
+  line-height: 1.45;
+  color: var(--txt-faint);
 }
 
 // ── Input nombre editable en ticket abierto ───────────────────
