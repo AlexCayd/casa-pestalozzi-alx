@@ -54,6 +54,8 @@
             timeoutId: null,
             timedOutSequence: 0,
             requestSequence: 0,
+            projectionContext: { fecha: '', hora: '' },
+            pendingProjectionContext: null,
             tableWarningMesaId: null,
             pendingAssignmentConflict: null,
             pendingAction: null,
@@ -138,6 +140,15 @@
         var createModalLastFocus = null;
         var createModalDirty = false;
         var createModalSubmitting = false;
+        var createDecisionState = {
+            activeDecision: null,
+            requiredConfirmations: [],
+            confirmacionesRequeridas: [],
+            pendingConfirmation: null,
+            lastResponse: null,
+            modalOptions: null,
+            isAwaitingDecision: false
+        };
         var confirmationHost = root.querySelector('[data-operation-confirmation-host]');
         var confirmationController = confirmationHost && window.ConfirmationModal
             ? window.ConfirmationModal.create(confirmationHost)
@@ -766,6 +777,7 @@
             if (isLoading) {
                 setUpdateStatus('Actualizando', 'loading');
             }
+            renderOperationAvailability();
         }
 
         function setUpdateStatus(message, tone) {
@@ -803,10 +815,21 @@
                         ? 'Selecciona una fecha futura para continuar con acciones operativas.'
                         : 'Gestiona el servicio diario, los estados y la asignacion de mesas.');
             }
-            if (els.create) {
-                els.create.hidden = readonly;
-            }
             renderOperationContext();
+        }
+
+        function renderOperationAvailability() {
+            if (!els.create) {
+                return;
+            }
+
+            var hasValidDate = fechaValida(state.fecha);
+            var hasSchedules = sortedHours().length > 0;
+            var readonly = state.modo === 'solo_lectura' || state.editable === false;
+            var unavailable = !hasValidDate || !hasSchedules || state.cargando || Boolean(state.loadFailure) || readonly;
+            els.create.hidden = unavailable;
+            els.create.disabled = unavailable || state.guardando;
+            els.create.setAttribute('aria-disabled', unavailable || state.guardando ? 'true' : 'false');
         }
 
         function setMobileView(view) {
@@ -902,7 +925,10 @@
         function showTableWarning(mesaId) {
             var mesaEstado = tableStateById(mesaId);
             var proxima = mesaEstado && mesaEstado.reservacion_proxima;
-            if (!proxima || proxima.ventana_operativa !== '30_60') {
+            var mapModifiers = mesaEstado && Array.isArray(mesaEstado.modificadores_visual_mapa)
+                ? mesaEstado.modificadores_visual_mapa
+                : [];
+            if (!proxima || mapModifiers.indexOf('reservacion_advertencia') === -1) {
                 hideTableWarning();
                 return;
             }
@@ -1071,11 +1097,104 @@
             }, 0);
         }
 
+        function clearCreateDecisionState(clearFormConfirmations) {
+            createDecisionState.activeDecision = null;
+            createDecisionState.requiredConfirmations = [];
+            createDecisionState.confirmacionesRequeridas = [];
+            createDecisionState.pendingConfirmation = null;
+            createDecisionState.lastResponse = null;
+            createDecisionState.modalOptions = null;
+            createDecisionState.isAwaitingDecision = false;
+            if (clearFormConfirmations && createForm) {
+                createForm.removeAttribute('data-confirmations-accepted');
+                setCreateFormValue('confirmaciones', '');
+                setCreateFormValue('confirmar_sobrecapacidad', '0');
+            }
+        }
+
+        function createDecisionItems(payload) {
+            var decisions = payload && payload.decision && typeof payload.decision === 'object'
+                ? [payload.decision]
+                : (payload && (payload.confirmaciones_requeridas || payload.requiredConfirmations));
+            if (!Array.isArray(decisions)) {
+                return [];
+            }
+            return decisions.filter(function (decision) {
+                return decision && typeof decision === 'object';
+            });
+        }
+
+        function showCreateDecision(payload) {
+            var decisions = createDecisionItems(payload);
+            if (!decisions.length) {
+                renderCreateModalErrors({}, payload && payload.mensaje
+                    ? payload.mensaje
+                    : 'El servidor no devolvió una decisión válida.');
+                return false;
+            }
+            var decision = decisions[0];
+            createDecisionState.activeDecision = decision.codigo_canonico || decision.codigo || null;
+            createDecisionState.requiredConfirmations = [decision.codigo_canonico || decision.codigo].filter(Boolean);
+            createDecisionState.confirmacionesRequeridas = [decision];
+            createDecisionState.pendingConfirmation = payload;
+            createDecisionState.lastResponse = payload;
+            createDecisionState.isAwaitingDecision = true;
+            createForm.dispatchEvent(new CustomEvent('reservation:confirmation', {
+                bubbles: true,
+                detail: { type: 'warnings', decision: decision, decisions: [decision] }
+            }));
+            return true;
+        }
+
+        function commitCreationResult(payload) {
+            payload = payload || {};
+            var committed = payload.commit === true;
+            if (!committed) {
+                return false;
+            }
+            clearCreateDecisionState(true);
+            if (payload.commit === true && (payload.ok === false || payload.tipo === 'error')) {
+                console.error('Reservaciones admin: respuesta contradictoria, commit confirmado', payload);
+            }
+
+            var reservationId = parseInt(payload.reservacion_id || payload.reservationId || payload.id || '0', 10) || null;
+            var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
+            var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
+            state.pendingCreationFeedback = {
+                reservationId: reservationId,
+                fecha: fecha,
+                hora: hora,
+                nombre: createForm.elements.nombre ? createForm.elements.nombre.value : '',
+                comensales: createForm.elements.comensales ? createForm.elements.comensales.value : '0',
+                mesaIds: Array.isArray(payload.mesa_ids) ? payload.mesa_ids : (Array.isArray(payload.mesaIds) ? payload.mesaIds : []),
+                withoutContact: payload.withoutContact === true,
+                requiresManualAssignment: payload.requiresManualAssignment === true,
+                dependsOnProjectedRelease: payload.dependsOnProjectedRelease === true,
+                codigo: payload.codigo || '',
+                tipo: payload.tipo || 'exito',
+                titulo: payload.titulo || '',
+                descripcion: payload.descripcion || '',
+                consecuencia: payload.consecuencia || '',
+                commit: true,
+                mensaje: payload.mensaje || ''
+            };
+
+            closeCreateModal(true);
+            loadDay(fecha, {
+                preserveReservationId: reservationId,
+                preserveHour: hora,
+                enterAssignmentMode: payload.requiresManualAssignment === true,
+                assignmentLater: payload.requiresManualAssignment === true
+            });
+            return true;
+        }
+
         function submitCreateModal() {
             if (!createForm || createModalSubmitting) {
                 return;
             }
 
+            clearCreateDecisionState(false);
             createModalSubmitting = true;
             clearCreateModalErrors();
             var formData = new FormData(createForm);
@@ -1085,44 +1204,37 @@
             if (acceptedConfirmations) {
                 formData.set('confirmaciones', acceptedConfirmations);
             }
+            var preserveConfirmationsForReset = false;
             postJson(createForm.action, new URLSearchParams(formData))
                 .then(function (payload) {
-                    var reservationId = parseInt(payload.reservationId || payload.id || '0', 10) || null;
-                    var fecha = payload.fecha || createForm.elements.fecha && createForm.elements.fecha.value || state.fecha;
-                    var hora = horaCorta(payload.hora || createForm.elements.hora && createForm.elements.hora.value || state.horaSeleccionada);
-                    var message = payload.mensaje || '';
-
-                    state.pendingCreationFeedback = {
-                        reservationId: reservationId,
-                        fecha: fecha,
-                        hora: hora,
-                        nombre: createForm.elements.nombre ? createForm.elements.nombre.value : '',
-                        comensales: createForm.elements.comensales ? createForm.elements.comensales.value : '0',
-                        mesaIds: Array.isArray(payload.mesaIds) ? payload.mesaIds : [],
-                        withoutContact: payload.withoutContact === true,
-                        requiresManualAssignment: payload.requiresManualAssignment === true,
-                        dependsOnProjectedRelease: payload.dependsOnProjectedRelease === true,
-                        message: message
-                    };
-
-                    closeCreateModal(true);
-                    loadDay(fecha, {
-                        preserveReservationId: reservationId,
-                        preserveHour: hora,
-                        enterAssignmentMode: payload.requiresManualAssignment === true,
-                        assignmentLater: payload.requiresManualAssignment === true
-                    });
+                    createDecisionState.lastResponse = payload;
+                    if (payload.commit === true) {
+                        commitCreationResult(payload);
+                        return;
+                    }
+                    if (payload.tipo === 'decision_requerida') {
+                        preserveConfirmationsForReset = showCreateDecision(payload);
+                        return;
+                    }
+                    renderCreateModalErrors({}, payload.mensaje || 'La reservación no se guardó.');
                 })
                 .catch(function (error) {
+                    if (error && error.commit === true) {
+                        commitCreationResult(Object.assign({}, error, { ok: true }));
+                        return;
+                    }
                     var fieldErrors = error && (error.fieldErrors || error.errors) || {};
                     var message = error && error.mensaje || '';
+                    var decisions = error && (error.confirmaciones_requeridas || error.requiredConfirmations);
+                    if (error && error.tipo === 'decision_requerida'
+                        && Array.isArray(decisions) && decisions.length) {
+                        preserveConfirmationsForReset = showCreateDecision(error);
+                        return;
+                    }
                     if (error && error.requiresCapacityConfirmation) {
                         createForm.dispatchEvent(new CustomEvent('reservation:capacity-warning', {
                             bubbles: true,
-                            detail: {
-                                requested: parseInt(error.requestedCapacity || '0', 10),
-                                available: parseInt(error.availableCapacity || '0', 10)
-                            }
+                            detail: { decisions: decisions || [] }
                         }));
                         return;
                     }
@@ -1130,7 +1242,10 @@
                 })
                 .finally(function () {
                     createModalSubmitting = false;
-                    createForm.dispatchEvent(new CustomEvent('reservation:reset-submit', { bubbles: true }));
+                    createForm.dispatchEvent(new CustomEvent('reservation:reset-submit', {
+                        bubbles: true,
+                        detail: { preserveConfirmations: preserveConfirmationsForReset }
+                    }));
                 });
         }
 
@@ -1163,6 +1278,7 @@
             if (els.create) {
                 els.create.setAttribute('data-create-date', state.fecha || '');
             }
+            renderOperationAvailability();
             updateHeaderContext();
             updateUrl();
             if (state.pendingCreationFeedback) {
@@ -1489,10 +1605,55 @@
             return '<button type="button" class="' + esc(className) + '" data-operation-action="' + esc(action) + '" data-disabled="' + (disabled ? '1' : '0') + '"' + (disabled || state.guardando ? ' disabled' : '') + '>' + esc(label) + '</button>';
         }
 
+        function projectionContextMatchesSelection() {
+            if (!state.hasLoadedData || state.cargando || state.pendingProjectionContext !== null) {
+                return false;
+            }
+            return state.projectionContext.fecha === String(state.fecha || '')
+                && state.projectionContext.hora === horaCorta(state.horaSeleccionada);
+        }
+
+        function mapProjectionFor(mesaEstado) {
+            var estado = String(mesaEstado.estado_visual_mapa || '').trim();
+            var modificadores = Array.isArray(mesaEstado.modificadores_visual_mapa)
+                ? mesaEstado.modificadores_visual_mapa.slice()
+                : null;
+            var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
+            if (['libre', 'ocupada', 'no-utilizable'].indexOf(estado) === -1
+                || modificadores === null
+                || !ariaLabel) {
+                console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
+                return {
+                    estado: 'no-utilizable',
+                    modificadores: [],
+                    ariaLabel: 'Mesa no disponible: proyeccion del mapa incompleta.'
+                };
+            }
+            return {
+                estado: estado,
+                modificadores: modificadores,
+                ariaLabel: ariaLabel
+            };
+        }
+
         function renderTableMap() {
             var reservacion = selectedReservation();
 
             if (!els.map || !window.MesaEstadoAdapter) {
+                return;
+            }
+
+            if (!projectionContextMatchesSelection()) {
+                mapVisual.clear(state.cargando
+                    ? 'Cargando la proyeccion del intervalo seleccionado.'
+                    : 'La proyeccion del mapa no corresponde al intervalo seleccionado.');
+                return;
+            }
+
+            if (!state.mesasEstado.length) {
+                mapVisual.clear(state.cargando
+                    ? 'Cargando el mapa de mesas.'
+                    : (state.loadFailure ? 'No fue posible cargar el mapa de mesas.' : 'No hay mesas para esta consulta.'));
                 return;
             }
 
@@ -1516,7 +1677,8 @@
                 var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
-                var modifiers = [];
+                var mapProjection = mapProjectionFor(mesaEstado);
+                var modifiers = mapProjection.modificadores.slice();
 
                 if (assignedReservation) {
                     modifiers.push('asignada');
@@ -1539,21 +1701,6 @@
                     modifiers.push('bloqueo_propio');
                 }
 
-                if (conflict && normalized.estado_base !== 'no_reservable') {
-                    if (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo') {
-                        normalized.estado_base = 'ocupada';
-                        modifiers.push('ticket_abierto');
-                        if (conflict.tipo === 'conflicto_proximo') {
-                            modifiers.push('conflicto_proximo');
-                        }
-                        if (conflict.walk_in) {
-                            modifiers.push('walk_in');
-                        }
-                    } else if (normalized.estado_base !== 'ocupada') {
-                        normalized.estado_base = 'bloqueada';
-                    }
-                }
-
                 var ticketConflict = Boolean(
                     conflict &&
                     (conflict.tipo === 'ticket_abierto' || conflict.tipo === 'conflicto_proximo')
@@ -1564,6 +1711,10 @@
                     (!conflict || ticketConflict) &&
                     (normalized.estado_base !== 'ocupada' || ticketConflict) &&
                     (normalized.estado_base !== 'bloqueada' || blockedBySelf);
+                var selectionVisualValid = assigned && selectable;
+                var mapAriaLabel = selectionVisualValid
+                    ? 'SelecciÃ³n actual. ' + mapProjection.ariaLabel
+                    : mapProjection.ariaLabel;
                 var title = normalized.titulo;
                 if (assignedReservation) {
                     title += ' Asignada a reservaci\u00f3n #' + assignedReservation.id +
@@ -1579,15 +1730,23 @@
                         : normalized.nombre + '. Bloqueada por otra reservación a las ' + horaCorta(conflict.hora) + '.';
                 }
 
-                return window.MesaEstadoAdapter.paraMapaVisual(normalized, {
+                var mapRaw = Object.assign({}, normalized, { modificadores: [] });
+                return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
                     seleccionActual: assigned,
-                    seleccionValida: true,
+                    seleccionValida: !assigned || selectable,
+                    seleccionPrioritaria: selectionVisualValid,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
+                    ariaLabel: mapAriaLabel,
+                    estadoVisual: selectionVisualValid ? 'seleccionada' : mapProjection.estado,
                     modificadores: modifiers,
                     clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
                     atributos: {
                         'data-operation-table': mesaId,
+                        'data-bloqueada-en-intervalo': mesaEstado.bloqueada_en_intervalo ? '1' : '0',
+                        'data-causas-bloqueo': Array.isArray(mesaEstado.causas_bloqueo)
+                            ? mesaEstado.causas_bloqueo.join(' ')
+                            : '',
                         'data-disabled': !selectable || state.guardando ? '1' : '0'
                     }
                 });
@@ -1612,8 +1771,25 @@
                 return;
             }
 
-            state.reservacionSeleccionadaId = parseInt(reservacion.id, 10);
-            state.horaSeleccionada = horaCorta(reservacion.hora);
+            var reservacionId = parseInt(reservacion.id, 10);
+            var nextDate = String(reservacion.fecha || state.fecha || '');
+            var nextHour = horaCorta(reservacion.hora);
+            var projectionMatchesReservation = state.projectionContext.fecha === nextDate
+                && state.projectionContext.hora === nextHour
+                && state.pendingProjectionContext === null;
+            state.reservacionSeleccionadaId = reservacionId;
+            if (!projectionMatchesReservation) {
+                state.mesasSeleccionadas = new Set();
+                loadDay(nextDate, {
+                    preserveHour: nextHour,
+                    requestedHour: nextHour,
+                    preserveReservationId: reservacionId,
+                    discardAssignment: true
+                });
+                return;
+            }
+
+            state.horaSeleccionada = nextHour;
             state.mesasSeleccionadas = new Set((reservacion.mesa_ids || []).map(function (mesaId) {
                 return parseInt(mesaId, 10);
             }));
@@ -1635,7 +1811,6 @@
             exitAssignmentMode({ render: false, restoreFocus: false });
             hideTableWarning();
             dismissScheduleAlert();
-            state.horaSeleccionada = nextHour;
 
             state.reservacionSeleccionadaId = null;
             state.mesasSeleccionadas = new Set();
@@ -1645,6 +1820,43 @@
         function loadDay(fecha, options) {
             options = options || {};
             fecha = String(fecha || '').trim();
+
+            var previousDate = state.fecha;
+            var dateChanged = fecha !== previousDate;
+            var requestSequence = ++state.requestSequence;
+            state.timedOutSequence = 0;
+
+            if (state.timeoutId) {
+                window.clearTimeout(state.timeoutId);
+                state.timeoutId = null;
+            }
+            if (state.abortController) {
+                state.abortController.abort();
+            }
+
+            if (dateChanged) {
+                state.fecha = fecha;
+                state.horaSeleccionada = null;
+                state.projectionContext = { fecha: '', hora: '' };
+                state.pendingProjectionContext = null;
+                state.reservacionSeleccionadaId = null;
+                state.mesasSeleccionadas = new Set();
+                state.horarios = [];
+                state.reservaciones = [];
+                state.mesas = [];
+                state.mesasEstado = [];
+                state.ocupacionFisica = [];
+                state.ocupacionPorReservacion = {};
+                state.capacidadHorario = {};
+                state.alertasOperativas = [];
+                state.estadoOperacion = 'disponible';
+                state.mensajeOperacion = '';
+                state.tituloOperacion = '';
+                state.consecuenciaOperacion = '';
+                state.loadFailure = null;
+                state.fechaFallida = '';
+                state.hasLoadedData = false;
+            }
 
             var preserveReservationId = parseInt(options.preserveReservationId || state.reservacionSeleccionadaId || '0', 10) || null;
             var preserveAssignment = state.assignmentMode
@@ -1662,34 +1874,32 @@
             dismissScheduleAlert();
 
             if (!fecha) {
+                state.fecha = '';
+                setLoading(false);
+                renderAll();
                 return;
             }
 
             if (!fechaValida(fecha)) {
+                state.fechaFallida = fecha;
+                setLoading(false);
                 showDateWarning(state.fecha || state.fechaMinima);
+                renderAll();
                 return;
             }
 
-            if (state.timeoutId) {
-                window.clearTimeout(state.timeoutId);
-                state.timeoutId = null;
-            }
-            if (state.abortController) {
-                state.abortController.abort();
-            }
-
             state.abortController = new AbortController();
-            var requestSequence = ++state.requestSequence;
-            state.timedOutSequence = 0;
             var requestedHour = horaCorta(options.preserveHour || state.horaSeleccionada);
             var queryRequestedHour = horaCorta(options.requestedHour || requestedHour);
+            state.pendingProjectionContext = {
+                fecha: fecha,
+                hora: queryRequestedHour
+            };
             if (!options.preserveDateWarning) {
                 clearDateWarning();
             }
             setLoading(true);
-            if (!state.reservaciones.length && !state.mesas.length) {
-                renderLoadingShell();
-            }
+            renderAll();
             if (activeNoticeSource === 'technical') {
                 hideGlobalNotice('technical');
             }
@@ -1728,17 +1938,31 @@
                     });
                 })
                 .then(function (data) {
-                    if (requestSequence !== state.requestSequence) {
+                    if (requestSequence !== state.requestSequence || state.fecha !== fecha) {
                         return;
                     }
-                    if (data.fecha !== fecha) {
+                    if (String(data.fecha || '') !== fecha) {
                         throw { kind: 'consistency', requestedDate: fecha, responseDate: data.fecha };
+                    }
+                    var responseHour = horaCorta(data.hora || data.hora_sugerida || '');
+                    if (queryRequestedHour && responseHour !== queryRequestedHour) {
+                        throw {
+                            kind: 'consistency',
+                            requestedDate: fecha,
+                            requestedHour: queryRequestedHour,
+                            responseHour: responseHour
+                        };
                     }
                     if (state.timeoutId) {
                         window.clearTimeout(state.timeoutId);
                         state.timeoutId = null;
                     }
                     state.fecha = data.fecha || fecha;
+                    state.projectionContext = {
+                        fecha: state.fecha,
+                        hora: responseHour
+                    };
+                    state.pendingProjectionContext = null;
                     state.fechaFallida = '';
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
@@ -1828,13 +2052,11 @@
                             state.loadFailure = { title: 'No fue posible cargar las reservaciones.', message: 'Intenta actualizar la consulta.' };
                             setUpdateStatus('Tiempo agotado', 'error');
                             showTechnicalError('timeout', fecha);
-                            if (!state.hasLoadedData && els.panel) {
-                                renderPanelState('error');
-                            }
+                            renderAll();
                         }
                         return;
                     }
-                    if (requestSequence !== state.requestSequence) {
+                    if (requestSequence !== state.requestSequence || state.fecha !== fecha) {
                         return;
                     }
                     setLoading(false);
@@ -1842,9 +2064,7 @@
                     var kind = error instanceof TypeError ? 'connection' : ((error && error.kind) || 'unexpected');
                     setUpdateStatus(kind === 'connection' ? 'Sin conexion' : 'Error al actualizar', 'error');
                     showTechnicalError(kind, fecha);
-                    if (!state.hasLoadedData && els.panel) {
-                        renderPanelState('error');
-                    }
+                    renderAll();
                 });
         }
 
@@ -2039,6 +2259,57 @@
                 });
         }
 
+        function decisionObjects(payload) {
+            var raw = Array.isArray(payload && payload.confirmaciones_requeridas)
+                ? payload.confirmaciones_requeridas
+                : (Array.isArray(payload && payload.requiredConfirmations)
+                    ? payload.requiredConfirmations
+                    : []);
+            var decisions = raw.filter(function (decision) {
+                return decision && typeof decision === 'object' && decision.mensaje;
+            });
+            if (!decisions.length && payload && payload.mensaje && payload.codigo) {
+                decisions.push({
+                    codigo: payload.codigo,
+                    codigo_canonico: payload.codigo_canonico || payload.codigo,
+                    tipo: payload.tipo || 'conflicto_recuperable',
+                    titulo: payload.titulo || payload.mensaje,
+                    mensaje: payload.mensaje,
+                    descripcion: payload.descripcion || '',
+                    consecuencia: payload.consecuencia || '',
+                    acciones: Array.isArray(payload.acciones) ? payload.acciones : []
+                });
+            }
+            return decisions;
+        }
+
+        function decisionCodes(decisions) {
+            return decisions.map(function (decision) {
+                return decision.codigo_canonico || decision.codigo;
+            }).filter(Boolean).filter(function (code, index, all) {
+                return all.indexOf(code) === index;
+            });
+        }
+
+        function decisionActions(decision) {
+            var actions = decision && Array.isArray(decision.acciones)
+                ? decision.acciones.filter(function (action) {
+                    return action && action.id && action.label && action.tipo;
+                })
+                : [];
+            if (!actions.length) {
+                console.error('Decisión de reservación sin acciones canónicas', decision);
+                return [{ id: 'CERRAR', label: 'Cerrar', tipo: 'secondary' }];
+            }
+            return actions;
+        }
+
+        function decisionSummary(decision) {
+            return [decision.mensaje, decision.descripcion, decision.consecuencia]
+                .filter(Boolean)
+                .join(' ');
+        }
+
         function openTicketConflictModal(payload) {
             if (!confirmationController) {
                 showInlineError(payload && payload.mensaje || '', payload);
@@ -2048,12 +2319,12 @@
             var conflictos = Array.isArray(payload.conflictos_ticket)
                 ? payload.conflictos_ticket
                 : [];
-            var confirmaciones = Array.isArray(payload.confirmaciones_requeridas)
-                ? payload.confirmaciones_requeridas.slice()
-                : [];
-            if (conflictos.length && confirmaciones.indexOf('CONFLICTO_TICKET_ABIERTO') === -1) {
-                confirmaciones.push('CONFLICTO_TICKET_ABIERTO');
+            var decisiones = decisionObjects(payload);
+            if (!decisiones.length) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
             }
+            var confirmaciones = decisionCodes(decisiones);
             state.pendingAssignmentConflict = {
                 token: payload.conflicto_token || '',
                 ticketIds: conflictos.map(function (conflicto) {
@@ -2061,11 +2332,7 @@
                 }).filter(Boolean),
                 confirmaciones: confirmaciones
             };
-            var confirmationDetails = confirmaciones.map(function (codigo) {
-                var presentacion = (payload.confirmaciones_requeridas_presentaciones && payload.confirmaciones_requeridas_presentaciones[codigo])
-                    || (payload.advertencias_presentaciones && payload.advertencias_presentaciones[codigo]);
-                return 'Confirmación requerida: ' + (presentacion ? presentacion.mensaje : codigo);
-            });
+            var confirmationDetails = decisiones.map(decisionSummary);
             confirmationDetails = confirmationDetails.concat(conflictos.map(function (conflicto) {
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
                 var allTables = (conflicto.mesa_ids || []).map(mesaNombre).join(', ');
@@ -2078,15 +2345,18 @@
                     ' · Apertura: ' + (conflicto.hora_apertura || 'Sin dato') +
                     ' · Origen: ' + origin;
             }));
+            var first = decisiones[0];
             confirmationController.open({
                 variant: 'warning',
-                eyebrow: 'Excepción manual',
-                title: 'Conflicto de asignación',
-                description: 'La selección coincide con tickets realmente abiertos.',
+                decision: true,
+                decisionData: first,
+                mensaje: first.mensaje,
+                actions: decisionActions(first),
+                eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
+                title: first.titulo || first.mensaje,
+                description: first.descripcion || '',
                 summary: confirmationDetails,
-                consequence: 'El ticket continuará abierto y no se vinculará con esta reservación.',
-                secondaryLabel: 'Volver',
-                primaryLabel: 'Confirmar y guardar',
+                consequence: first.consecuencia || '',
                 onPrimary: function () {
                     var confirmation = state.pendingAssignmentConflict;
                     confirmationController.close(false);
@@ -2102,16 +2372,13 @@
                 return;
             }
 
-            var comensales = parseInt(reservacion.comensales || '0', 10) || 0;
-            var capacidadSeleccionada = selectedCapacity();
-            var diferencia = Math.max(0, comensales - capacidadSeleccionada);
-            var confirmaciones = Array.isArray(payload && payload.confirmaciones_requeridas)
-                ? payload.confirmaciones_requeridas.slice()
-                : [];
-            if (confirmaciones.indexOf('CAPACIDAD_INSUFICIENTE') === -1) {
-                confirmaciones.push('CAPACIDAD_INSUFICIENTE');
+            var decisiones = decisionObjects(payload);
+            if (!decisiones.length) {
+                showInlineError(payload && payload.mensaje || '', payload);
+                return;
             }
-
+            var confirmaciones = decisionCodes(decisiones);
+            var first = decisiones[0];
             state.pendingAssignmentConflict = {
                 token: '',
                 ticketIds: [],
@@ -2119,17 +2386,15 @@
             };
             confirmationController.open({
                 variant: 'warning',
-                eyebrow: 'Capacidad de mesas',
-                title: 'La capacidad de las mesas es insuficiente',
-                description: 'Las mesas seleccionadas no tienen suficientes lugares para esta reservación.',
-                summary: [
-                    'Comensales: ' + comensales,
-                    'Capacidad seleccionada: ' + capacidadSeleccionada,
-                    'Lugares faltantes: ' + diferencia
-                ],
-                consequence: 'Selecciona mesas con mayor capacidad antes de guardar la asignación.',
-                secondaryLabel: 'Volver a seleccionar',
-                primaryLabel: 'Guardar de todas formas',
+                decision: true,
+                decisionData: first,
+                mensaje: first.mensaje,
+                actions: decisionActions(first),
+                eyebrow: first.tipo === 'decision_requerida' ? 'Decisión administrativa' : 'Conflicto operativo',
+                title: first.titulo || first.mensaje,
+                description: first.descripcion || '',
+                summary: decisiones.slice(1).map(decisionSummary),
+                consequence: first.consecuencia || '',
                 onSecondary: function () {
                     state.pendingAssignmentConflict = null;
                 },
