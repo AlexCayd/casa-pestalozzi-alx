@@ -148,12 +148,12 @@ final class ReservacionVigenciaService
         $estado = match (true) {
             $segundosRestantes > ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60
                 => 'futura',
-            $segundosRestantes > ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60
-                => '30_60',
-            $segundosRestantes >= 0 => '0_30',
+            $segundosRestantes > ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60
+                => 'advertencia',
+            $segundosRestantes >= 0 => 'bloqueo',
             $segundosRestantes >= -ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS * 60
                 => 'tolerancia',
-            default => 'tolerancia_vencida',
+            default => 'ausencia_pendiente',
         };
 
         return [
@@ -243,7 +243,7 @@ final class ReservacionVigenciaService
         $puedeIniciarServicio = $estado === 'confirmada'
             && !$ticketAbierto
             && !$toleranciaVencida
-            && in_array($ventana['estado'], ['0_30', 'tolerancia'], true);
+            && in_array($ventana['estado'], ['bloqueo', 'tolerancia'], true);
         $antesODuranteHora = !($fechaHora instanceof DateTimeImmutable) || $ahora <= $fechaHora;
 
         return [

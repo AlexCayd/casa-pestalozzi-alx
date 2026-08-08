@@ -27,14 +27,12 @@ class ReservacionConfig
     public const NOTA_MAX_CARACTERES = 500;
     public const COMENTARIO_ADMIN_MAX_CARACTERES = 5000;
     public const AVISO_RESERVACION_PROXIMA_MINUTOS = 60;
-    /**
-     * Ventana operativa del POS. No es un bloqueo previo de reservación.
-     * La fuente de verdad define la ocupación como [inicio, inicio + 90).
-     */
-    public const MINUTOS_PREVIOS_BLOQUEO = 30;
+    /** Ventana POS: el walk-in se bloquea dentro de este límite. */
+    public const BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS = 30;
+    /** Inicio de servicio de una reservación confirmada. */
+    public const INICIO_SERVICIO_ANTICIPADO_MINUTOS = 30;
     public const BLOQUEO_PREVIO_MESA_MINUTOS = 0;
     public const ANTICIPACION_MINIMA_MINUTOS = 40;
-    public const LLEGADA_ANTICIPADA_MINUTOS = 30;
     public const INTERVALO_RESERVACION_MINUTOS = 30;
     public const TIMEZONE = 'America/Mexico_City';
     public const TOLERANCIA_LLEGADA_MINUTOS = 15;
@@ -86,10 +84,10 @@ class ReservacionConfig
 
     public const VENTANAS_OPERATIVAS = [
         'futura',
-        '30_60',
-        '0_30',
+        'advertencia',
+        'bloqueo',
         'tolerancia',
-        'tolerancia_vencida',
+        'ausencia_pendiente',
         'en_curso',
     ];
 
@@ -206,7 +204,8 @@ class ReservacionConfig
             'ventanas_operativas' => self::VENTANAS_OPERATIVAS,
             'server_time' => self::ahora()->format(DATE_ATOM),
             'advertencia_reservacion_minutos' => self::AVISO_RESERVACION_PROXIMA_MINUTOS,
-            'bloqueo_previo_minutos' => self::MINUTOS_PREVIOS_BLOQUEO,
+            'bloqueo_walkin_antes_reservacion_minutos' => self::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS,
+            'inicio_servicio_anticipado_minutos' => self::INICIO_SERVICIO_ANTICIPADO_MINUTOS,
             'duracion_reservacion_minutos' => self::DURACION_RESERVACION_MINUTOS,
             'duracion_estimada_ticket_minutos' => self::DURACION_ESTIMADA_TICKET_MINUTOS,
             'retraso_estimado_ticket_minutos' => self::RETRASO_ESTIMADO_TICKET_MINUTOS,
