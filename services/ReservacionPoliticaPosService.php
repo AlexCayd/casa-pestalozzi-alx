@@ -151,6 +151,7 @@ final class ReservacionPoliticaPosService
                 'ventana_mapa' => 'futura',
                 'minutos_para_inicio_mapa' => null,
                 'reservacion_influye_mapa' => false,
+                'reservacion_influye_en_consulta' => false,
                 'ausencia_pendiente_mapa' => false,
                 'en_inicio_exacto_mapa' => false,
             ];
@@ -160,6 +161,11 @@ final class ReservacionPoliticaPosService
         $minutos = (int)ceil($segundos / 60);
         $hechosActuales = $hechosActuales ?? self::evaluar($reservacion, $ahora);
         $ausenciaPendiente = (bool)($hechosActuales['ausencia_pendiente'] ?? false);
+        $influyeDisponibilidad = (bool)($hechosActuales['influye_disponibilidad'] ?? false);
+        $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+        $reservacionInfluyeEnConsulta = $influyeDisponibilidad
+            && $horaConsulta >= $inicio
+            && $horaConsulta < $fin;
         $ventana = self::ventanaVisual(
             $segundos,
             $ausenciaPendiente,
@@ -171,7 +177,8 @@ final class ReservacionPoliticaPosService
             'ventana_mapa' => $ventana,
             'minutos_para_inicio_mapa' => $minutos,
             'minutos_desde_inicio_mapa' => $segundos < 0 ? (int)ceil(abs($segundos) / 60) : null,
-            'reservacion_influye_mapa' => (bool)($hechosActuales['influye_disponibilidad'] ?? false),
+            'reservacion_influye_mapa' => $reservacionInfluyeEnConsulta,
+            'reservacion_influye_en_consulta' => $reservacionInfluyeEnConsulta,
             'ausencia_pendiente_mapa' => $ausenciaPendiente,
             'en_inicio_exacto_mapa' => $segundos === 0,
             'en_tolerancia_mapa' => $segundos < 0

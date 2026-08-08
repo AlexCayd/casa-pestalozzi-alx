@@ -32,14 +32,34 @@ final class ReservacionMapaMesaPresenter
             : [];
         if ($reservacion !== []) {
             $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
-            if ($ventana === 'ausencia_pendiente'
-                || self::booleano($reservacion['ausencia_pendiente_mapa'] ?? false)
+            $influyeEnConsulta = self::booleano(
+                $reservacion['reservacion_influye_en_consulta']
+                    ?? $reservacion['reservacion_influye_mapa']
+                    ?? false
+            );
+            if (self::booleano($reservacion['ausencia_pendiente_mapa'] ?? false)
                 || self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
                 return self::resultado(
                     'libre',
                     ['accion_pendiente', 'AUSENCIA_PENDIENTE'],
                     'reservación con ausencia pendiente',
                     'ausencia_pendiente'
+                );
+            }
+            if ($influyeEnConsulta) {
+                return self::resultado(
+                    'ocupada',
+                    ['reservacion_bloqueante'],
+                    'reservacion dentro del intervalo planificado',
+                    'reservacion_influye'
+                );
+            }
+            if ($ventana === 'ausencia_pendiente') {
+                return self::resultado(
+                    'libre',
+                    [],
+                    'reservacion fuera del intervalo vigente',
+                    'disponible'
                 );
             }
             if ($ventana === 'inicio' || $ventana === 'tolerancia') {

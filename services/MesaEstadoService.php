@@ -230,6 +230,7 @@ final class MesaEstadoService
                     'minutos_desde_inicio_mapa' => $mapa['minutos_desde_inicio_mapa'] ?? null,
                     'ventana_mapa' => $mapa['ventana_mapa'] ?? 'futura',
                     'reservacion_influye_mapa' => $mapa['reservacion_influye_mapa'] ?? false,
+                    'reservacion_influye_en_consulta' => $mapa['reservacion_influye_en_consulta'] ?? false,
                     'ausencia_pendiente_mapa' => $mapa['ausencia_pendiente_mapa'] ?? false,
                     'en_inicio_exacto_mapa' => $mapa['en_inicio_exacto_mapa'] ?? false,
                 ]);
@@ -478,6 +479,7 @@ final class MesaEstadoService
             'estado_temporal' => $reservacion['estado_temporal'] ?? null,
             'ventana_pos' => $reservacion['ventana_pos'] ?? $reservacion['ventana_operativa'] ?? null,
             'ventana_mapa' => $reservacion['ventana_mapa'] ?? null,
+            'reservacion_influye_en_consulta' => self::booleano($reservacion['reservacion_influye_en_consulta'] ?? false),
             'minutos_para_inicio' => $reservacion['minutos_para_inicio'] ?? null,
             'minutos_desde_inicio' => $reservacion['minutos_desde_inicio'] ?? null,
             'minutos_para_inicio_mapa' => $reservacion['minutos_para_inicio_mapa'] ?? null,
