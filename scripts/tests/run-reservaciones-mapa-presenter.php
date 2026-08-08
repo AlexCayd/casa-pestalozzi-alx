@@ -26,16 +26,35 @@ $reservation = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
     'bloqueada_en_intervalo' => true,
     'causas_bloqueo' => ['reservacion'],
+    'reservacion' => ['ventana_mapa' => 'advertencia'],
 ]);
-assertMapContract($reservation['estado_visual'] === 'ocupada', 'reservacion traslapada usa rojo');
-assertMapContract($reservation['modificadores'] === [], 'reservacion bloqueante no agrega borde azul');
-assertMapContract($reservation['precedencia'] === 'ocupacion', 'bloqueo usa ocupacion canonica');
-assertMapContract(str_contains($reservation['label'], 'reservaci'), 'bloqueo explica la causa de reservacion');
+assertMapContract($reservation['estado_visual'] === 'libre', 'reservacion cercana conserva verde');
+assertMapContract($reservation['modificadores'] === ['reservacion_advertencia'], 'reservacion cercana agrega borde azul');
+assertMapContract($reservation['precedencia'] === 'reservacion_advertencia', 'advertencia usa proyeccion temporal');
+assertMapContract(str_contains($reservation['label'], 'reservaci'), 'advertencia explica la causa de reservacion');
+
+$blockingReservation = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['reservacion'],
+    'reservacion' => ['ventana_mapa' => 'bloqueo'],
+]);
+assertMapContract($blockingReservation['estado_visual'] === 'reservacion-proxima', '30 minutos usa azul de reservacion');
+assertMapContract($blockingReservation['modificadores'] === ['reservacion_inminente'], '30 minutos usa modificador inminente');
+
+$start = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['reservacion'],
+    'reservacion' => ['ventana_mapa' => 'inicio'],
+]);
+assertMapContract($start['estado_visual'] === 'ocupada', 'inicio exacto usa rojo');
 
 $ticket = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
     'bloqueada_en_intervalo' => true,
     'causas_bloqueo' => ['ticket'],
+    'ticket_bloquea_consulta' => true,
 ]);
 assertMapContract($ticket['estado_visual'] === 'ocupada', 'ticket bloqueante usa rojo');
 assertMapContract($ticket['modificadores'] === [], 'ticket bloqueante no agrega proximidad');

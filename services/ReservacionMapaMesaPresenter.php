@@ -66,6 +66,10 @@ final class ReservacionMapaMesaPresenter
                     'reservacion_advertencia'
                 );
             }
+            // La proyeccion de la reservacion gobierna el estado visual. Un
+            // bloqueo de capacidad futuro no debe pintar la mesa como ocupada
+            // si la ventana operativa aun no requiere una senal visual.
+            return self::resultado('libre', [], 'disponible', 'disponible');
         }
 
         if (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {

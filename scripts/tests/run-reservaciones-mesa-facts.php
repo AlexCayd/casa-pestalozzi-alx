@@ -32,24 +32,23 @@ $reservacion = [
     'id' => 25,
     'estado' => 'confirmada',
     'fecha' => '2026-08-06',
-    'hora' => '15:00:00',
+    'hora' => '13:00:00',
     'mesa_ids' => [4],
     'comensales' => 2,
     'ticket_abierto' => false,
 ];
 $ahora = new DateTimeImmutable('2026-08-06 12:00:00', ReservacionConfig::timezone());
-$inicioReservacion = new DateTimeImmutable('2026-08-06 15:00:00', ReservacionConfig::timezone());
+$inicioReservacion = new DateTimeImmutable('2026-08-06 13:00:00', ReservacionConfig::timezone());
 
 $consultas = [
-    '15:00:00' => ['ocupada', 'reservacion-proxima'],
-    '14:30:00' => ['ocupada', 'reservacion-proxima'],
-    '14:15:00' => ['ocupada', 'libre'],
-    '15:05:00' => ['ocupada', 'reservacion-proxima'],
-    '15:15:00' => ['ocupada', 'libre'],
-    '16:29:00' => ['ocupada', 'libre'],
-    '16:30:00' => ['libre', 'libre'],
-    '13:59:00' => ['ocupada', 'libre'],
-    '13:30:00' => ['libre', 'libre'],
+    '11:30:00' => ['libre', 'libre', false, true, false],
+    '12:00:00' => ['libre', 'libre', true, true, true],
+    '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
+    '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
+    '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
+    '13:30:00' => ['libre', 'libre', false, false, false],
+    '14:00:00' => ['libre', 'libre', false, false, false],
+    '14:30:00' => ['libre', 'libre', false, false, false],
 ];
 
 $mapaEvaluacion = static function (string $hora) use ($inicioReservacion): array {
@@ -57,7 +56,10 @@ $mapaEvaluacion = static function (string $hora) use ($inicioReservacion): array
         '2026-08-06 ' . $hora,
         ReservacionConfig::timezone()
     );
-    $bloqueada = OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
+    $bloqueada = $inicioConsulta < new DateTimeImmutable(
+        '2026-08-06 13:15:00',
+        ReservacionConfig::timezone()
+    ) && OcupacionMesasService::intervalosSeTraslapan($inicioReservacion, $inicioConsulta);
     return [
         'mesas' => [],
         'tickets_por_mesa' => [],
@@ -66,28 +68,24 @@ $mapaEvaluacion = static function (string $hora) use ($inicioReservacion): array
     ];
 };
 
-foreach ($consultas as $hora => [$mapa, $pos]) {
+foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperado, $warningEsperado]) {
+    $ahoraConsulta = new DateTimeImmutable('2026-08-06 ' . $hora, ReservacionConfig::timezone());
     $mesaEstado = MesaEstadoService::normalizarMesas(
         [$mesa],
         [$reservacion],
         [],
         '2026-08-06',
-        $ahora,
+        $ahoraConsulta,
         $hora,
         $mapaEvaluacion($hora)
     )[0];
     assertMesaFacts($mesaEstado['estado_visual_mapa'] === $mapa, "mapa {$hora}");
     assertMesaFacts($mesaEstado['estado_visual_pos'] === $pos, "POS {$hora}");
-    assertMesaFacts(
-        $mapa === 'ocupada'
-            ? str_contains($mesaEstado['aria_label_mapa'], 'no disponible')
-            : str_contains($mesaEstado['aria_label_mapa'], 'disponible para el intervalo'),
-        "aria-label {$hora}"
-    );
+    assertMesaFacts($mesaEstado['bloqueada_en_intervalo'] === $bloqueadaEsperada, "paridad bloqueo {$hora}");
+    assertMesaFacts($mesaEstado['disponible_para_ticket'] === $ticketEsperado, "permiso ticket {$hora}");
+    assertMesaFacts($mesaEstado['requiere_advertencia_ticket'] === $warningEsperado, "warning {$hora}");
     assertMesaFacts($mesaEstado['reservacion_id'] === 25, "reservacion_id {$hora}");
     assertMesaFacts($mesaEstado['reservacion_estado'] === 'confirmada', "reservacion_estado {$hora}");
-    assertMesaFacts($mesaEstado['bloqueada_en_intervalo'] === ($mapa === 'ocupada'), "paridad bloqueo {$hora}");
-    assertMesaFacts($mesaEstado['modificadores_visual_mapa'] === [], "mapa sin proximidad {$hora}");
 }
 
 $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
@@ -95,11 +93,10 @@ $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
     [$reservacion],
     [],
     '2026-08-06',
-    $ahora,
-    '15:05:00',
-    $mapaEvaluacion('15:05:00')
+    new DateTimeImmutable('2026-08-06 13:05:00', ReservacionConfig::timezone()),
+    '13:05:00',
+    $mapaEvaluacion('13:05:00')
 )[0];
-assertMesaFacts($sinToleranciaVisual['modificadores_visual_mapa'] === [], 'mapa no proyecta tolerancia como modificador');
 assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_tolerancia'], 'POS conserva tolerancia');
 
 $ticket = [
