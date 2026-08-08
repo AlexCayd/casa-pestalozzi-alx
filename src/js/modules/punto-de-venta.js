@@ -3819,7 +3819,7 @@ function initMapa() {
         reservacion: null,
         reservacion_proxima: null,
         modificadores: (item.modificadores || []).filter(function(modifier) {
-          return ['reservacion_proxima', 'reservacion_bloqueante', 'reservacion_inminente', 'reservacion_tolerancia', 'reservacion_vencida', 'accion_pendiente', 'AUSENCIA_PENDIENTE'].indexOf(modifier) === -1;
+          return ['reservacion_proxima', 'reservacion_bloqueante', 'reservacion_inminente', 'reservacion_tolerancia', 'reservacion_vencida', 'accion_pendiente', 'AUSENCIA_PENDIENTE', 'ausencia_pendiente'].indexOf(modifier) === -1;
         }),
         accion_pendiente: null,
         acciones: []

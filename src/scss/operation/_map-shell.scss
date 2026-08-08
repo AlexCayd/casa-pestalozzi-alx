@@ -565,6 +565,14 @@
   color: var(--map-table-occupied-text);
 }
 
+.mesas-map .mesa-pin--libre.mesa-pin--mod-ausencia_pendiente {
+  border-color: var(--map-table-reservation-overdue-border);
+  border-style: solid;
+  border-width: 2px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+}
+
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_bloqueante {
   border-color: var(--map-reservation-block-border);

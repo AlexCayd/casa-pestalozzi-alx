@@ -131,6 +131,7 @@
         var selectionValid = options.seleccionValida !== false;
         var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
         var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
+            hasModifier(modifiers, 'ausencia_pendiente') ||
             String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima');

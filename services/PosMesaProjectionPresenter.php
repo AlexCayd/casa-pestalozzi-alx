@@ -26,9 +26,13 @@ final class PosMesaProjectionPresenter
             : [];
         if ($reservacion !== []) {
             $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
-            if ($ventana === 'ausencia_pendiente'
-                || self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
-                return self::resultado('libre', ['accion_pendiente', 'AUSENCIA_PENDIENTE'], 'tolerancia_vencida', 'Mesa disponible con ausencia pendiente.');
+            if (self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
+                return self::resultado(
+                    'libre',
+                    ['ausencia_pendiente'],
+                    'ausencia_pendiente',
+                    'Mesa disponible visualmente. Acción pendiente: registrar ausencia.'
+                );
             }
             if ($ventana === 'inicio') {
                 return self::resultado('reservacion-proxima', ['reservacion_bloqueante'], 'reservacion_inicio', 'Mesa con reservación operable; iniciar servicio.');
