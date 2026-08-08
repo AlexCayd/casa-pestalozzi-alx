@@ -25,22 +25,22 @@ final class PosMesaProjectionPresenter
             ? $hechos['reservacion']
             : [];
         if ($reservacion !== []) {
-            if (self::booleano($reservacion['en_inicio_exacto'] ?? false)) {
-                return self::resultado('reservacion-proxima', ['reservacion_bloqueante'], 'reservacion_exacta', 'Mesa con reservación a la hora de inicio.');
+            $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
+            if ($ventana === 'ausencia_pendiente'
+                || self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
+                return self::resultado('libre', ['accion_pendiente', 'AUSENCIA_PENDIENTE'], 'tolerancia_vencida', 'Mesa disponible con ausencia pendiente.');
             }
-            if (self::booleano($reservacion['en_tolerancia'] ?? false)) {
+            if ($ventana === 'inicio') {
+                return self::resultado('reservacion-proxima', ['reservacion_bloqueante'], 'reservacion_inicio', 'Mesa con reservación operable; iniciar servicio.');
+            }
+            if ($ventana === 'tolerancia') {
                 return self::resultado('reservacion-proxima', ['reservacion_tolerancia'], 'tolerancia', 'Mesa con reservación dentro de tolerancia.');
             }
-            $minutos = self::enteroNulo($reservacion['minutos_para_inicio'] ?? null);
-            if ($minutos !== null && $minutos > 0 && $minutos <= 30) {
-                return self::resultado('reservacion-proxima', ['reservacion_inminente'], 'reservacion_0_30', 'Mesa con reservación próxima.');
+            if ($ventana === 'bloqueo') {
+                return self::resultado('reservacion-proxima', ['reservacion_inminente'], 'reservacion_bloqueo', 'Mesa con reservación próxima.');
             }
-            if ($minutos !== null && $minutos > 30 && $minutos <= 60) {
-                return self::resultado('libre', ['reservacion_advertencia'], 'reservacion_30_60', 'Mesa disponible con reservación próxima.');
-            }
-            if (self::booleano($reservacion['tolerancia_vencida'] ?? false)
-                && self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
-                return self::resultado('libre', ['accion_pendiente', 'AUSENCIA_PENDIENTE'], 'tolerancia_vencida', 'Mesa disponible con ausencia pendiente.');
+            if ($ventana === 'advertencia') {
+                return self::resultado('libre', ['reservacion_advertencia'], 'reservacion_advertencia', 'Mesa disponible con reservación próxima.');
             }
         }
 

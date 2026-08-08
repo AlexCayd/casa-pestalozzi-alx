@@ -1619,7 +1619,7 @@
                 ? mesaEstado.modificadores_visual_mapa.slice()
                 : null;
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
-            if (['libre', 'ocupada', 'no-utilizable'].indexOf(estado) === -1
+            if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(estado) === -1
                 || modificadores === null
                 || !ariaLabel) {
                 console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
@@ -1708,9 +1708,7 @@
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
-                    (!conflict || ticketConflict) &&
-                    (normalized.estado_base !== 'ocupada' || ticketConflict) &&
-                    (normalized.estado_base !== 'bloqueada' || blockedBySelf);
+                    normalized.disponible_para_asignacion === true;
                 var selectionVisualValid = assigned && selectable;
                 var mapAriaLabel = selectionVisualValid
                     ? 'SelecciÃ³n actual. ' + mapProjection.ariaLabel
@@ -1774,26 +1772,14 @@
             var reservacionId = parseInt(reservacion.id, 10);
             var nextDate = String(reservacion.fecha || state.fecha || '');
             var nextHour = horaCorta(reservacion.hora);
-            var projectionMatchesReservation = state.projectionContext.fecha === nextDate
-                && state.projectionContext.hora === nextHour
-                && state.pendingProjectionContext === null;
             state.reservacionSeleccionadaId = reservacionId;
-            if (!projectionMatchesReservation) {
-                state.mesasSeleccionadas = new Set();
-                loadDay(nextDate, {
-                    preserveHour: nextHour,
-                    requestedHour: nextHour,
-                    preserveReservationId: reservacionId,
-                    discardAssignment: true
-                });
-                return;
-            }
-
-            state.horaSeleccionada = nextHour;
-            state.mesasSeleccionadas = new Set((reservacion.mesa_ids || []).map(function (mesaId) {
-                return parseInt(mesaId, 10);
-            }));
-            renderAll();
+            state.mesasSeleccionadas = new Set();
+            loadDay(nextDate, {
+                preserveHour: nextHour,
+                requestedHour: nextHour,
+                preserveReservationId: reservacionId,
+                discardAssignment: true
+            });
         }
 
         function selectTime(hora) {
@@ -1914,6 +1900,9 @@
             var operationQuery = new URLSearchParams({ fecha: fecha });
             if (queryRequestedHour) {
                 operationQuery.set('hora', queryRequestedHour);
+            }
+            if (preserveReservationId) {
+                operationQuery.set('reservation_id', String(preserveReservationId));
             }
 
             fetch(API_BASE + '?' + operationQuery.toString(), {

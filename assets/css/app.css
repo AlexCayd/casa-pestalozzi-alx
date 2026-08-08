@@ -8313,7 +8313,7 @@ footer.foot {
   background: var(--map-table-unavailable-bg);
 }
 
-.pos-map .mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+.mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
@@ -8321,7 +8321,7 @@ footer.foot {
   color: var(--map-table-available-text);
 }
 
-.pos-map .mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
@@ -8329,7 +8329,7 @@ footer.foot {
   color: var(--map-table-selected-text);
 }
 
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;

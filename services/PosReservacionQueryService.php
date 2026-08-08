@@ -86,6 +86,7 @@ final class PosReservacionQueryService
         if ($horaEvaluacion === '') {
             $horaEvaluacion = $ahora->format('H:i:s');
         }
+        $excluirReservacionId = (int)($opciones['excluir_reservacion_id'] ?? 0);
 
         $reservaciones = [];
         foreach ($filasReservaciones as $fila) {
@@ -133,7 +134,7 @@ final class PosReservacionQueryService
             $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
                 $fecha,
                 $horaEvaluacion,
-                0,
+                $excluirReservacionId,
                 false,
                 $ticketsLeidos,
                 $ahora

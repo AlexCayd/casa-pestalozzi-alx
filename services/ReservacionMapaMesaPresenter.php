@@ -5,9 +5,9 @@ namespace Services;
 /**
  * Proyección visual exclusiva del mapa administrativo.
  *
- * Recibe el bloqueo físico ya evaluado por OcupacionMesasService. No calcula
- * traslapes, ventanas de proximidad ni estados de POS: sólo traduce el hecho
- * canónico a los cuatro estados visuales del mapa.
+ * Recibe hechos de intervalo y de proyección temporal ya evaluados. No calcula
+ * traslapes, ventanas, capacidad ni permisos: sólo traduce hechos a estados
+ * visuales del mapa.
  */
 final class ReservacionMapaMesaPresenter
 {
@@ -16,6 +16,56 @@ final class ReservacionMapaMesaPresenter
     {
         if (!self::booleano($hechos['utilizable'] ?? false)) {
             return self::resultado('no-utilizable', [], 'no utilizable', 'no-utilizable');
+        }
+
+        if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
+            return self::resultado(
+                'ocupada',
+                [],
+                'no disponible por ticket',
+                'ticket'
+            );
+        }
+
+        $reservacion = is_array($hechos['reservacion'] ?? null)
+            ? $hechos['reservacion']
+            : [];
+        if ($reservacion !== []) {
+            $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
+            if ($ventana === 'ausencia_pendiente'
+                || self::booleano($reservacion['ausencia_pendiente_mapa'] ?? false)
+                || self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
+                return self::resultado(
+                    'libre',
+                    ['accion_pendiente', 'AUSENCIA_PENDIENTE'],
+                    'reservación con ausencia pendiente',
+                    'ausencia_pendiente'
+                );
+            }
+            if ($ventana === 'inicio' || $ventana === 'tolerancia') {
+                return self::resultado(
+                    'ocupada',
+                    ['reservacion_bloqueante'],
+                    $ventana === 'inicio' ? 'reservación iniciada' : 'reservación dentro de tolerancia',
+                    'reservacion_influye'
+                );
+            }
+            if ($ventana === 'bloqueo') {
+                return self::resultado(
+                    'reservacion-proxima',
+                    ['reservacion_inminente'],
+                    'reservación próxima',
+                    'reservacion_bloqueo'
+                );
+            }
+            if ($ventana === 'advertencia') {
+                return self::resultado(
+                    'libre',
+                    ['reservacion_advertencia'],
+                    'reservación cercana',
+                    'reservacion_advertencia'
+                );
+            }
         }
 
         if (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {

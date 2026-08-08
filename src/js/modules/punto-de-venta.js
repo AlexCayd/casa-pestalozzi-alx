@@ -97,10 +97,11 @@ function initMapa() {
   // Labels de estado temporal para el sidebar
   var TEMPORAL_LABELS = {
     'futura': 'Futura',
-    '30_60': 'Reservaci\u00f3n pr\u00f3xima',
-    '0_30': 'Puede iniciar servicio',
+    'advertencia': 'Reservaci\u00f3n pr\u00f3xima',
+    'bloqueo': 'Puede iniciar servicio',
+    'inicio': 'Puede iniciar servicio',
     'tolerancia': 'Dentro de la tolerancia',
-    'tolerancia_vencida': 'Tolerancia vencida',
+    'ausencia_pendiente': 'Tolerancia vencida',
     'en_curso': 'En curso',
     'cancelada': 'Cancelada'
   };
@@ -488,10 +489,9 @@ function initMapa() {
     var estadoMesaBackend = mesaId != null ? mesaEstadoPorId(mesaId) : null;
     var mismaReserva = estadoMesaBackend
       && parseInt(estadoMesaBackend.reservacion_id || '0', 10) === parseInt(reserva && (reserva.id || reserva.reservacion_id) || '0', 10);
-    var estado = mismaReserva && estadoMesaBackend.estado_temporal
-      ? String(estadoMesaBackend.estado_temporal)
-      : String(reserva && reserva.ventana_operativa || 'futura');
-    if (estado === 'inicio_exacto') estado = '0_30';
+    var estado = mismaReserva && (estadoMesaBackend.ventana_pos || estadoMesaBackend.estado_temporal)
+      ? String(estadoMesaBackend.ventana_pos || estadoMesaBackend.estado_temporal)
+      : String(reserva && (reserva.ventana_pos || reserva.ventana_operativa) || 'futura');
     var minutosRestantes = mismaReserva && estadoMesaBackend.minutos_para_inicio != null
       ? parseInt(estadoMesaBackend.minutos_para_inicio, 10)
       : (reserva && reserva.minutos_para_reservacion != null
@@ -502,20 +502,22 @@ function initMapa() {
       : parseInt(reserva && reserva.minutos_retraso || '0', 10) || 0;
     var etiquetas = {
       futura: 'Reservaci\u00f3n futura',
-      '30_60': minutosRestantes == null
+      advertencia: minutosRestantes == null
         ? 'Reservaci\u00f3n pr\u00f3xima'
         : 'Reservaci\u00f3n en ' + minutosRestantes + ' min',
-      '0_30': 'Puede iniciar servicio',
+      bloqueo: 'Puede iniciar servicio',
+      inicio: 'Puede iniciar servicio',
       tolerancia: 'Dentro de la tolerancia',
-      tolerancia_vencida: 'Tolerancia vencida',
+      ausencia_pendiente: 'Tolerancia vencida',
       en_curso: 'En curso'
     };
     var mensajes = {
       futura: '',
-      '30_60': 'El backend mantiene la advertencia; el servicio aún no puede iniciar.',
-      '0_30': 'Puede iniciar servicio.',
+      advertencia: 'El backend mantiene la advertencia; el servicio aún no puede iniciar.',
+      bloqueo: 'Puede iniciar servicio.',
+      inicio: 'Puede iniciar servicio.',
       tolerancia: 'Cliente con ' + minutosRetraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.',
-      tolerancia_vencida: 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
+      ausencia_pendiente: 'La tolerancia de llegada ya venció. Registra la ausencia antes de utilizar la mesa.',
       en_curso: 'Servicio en curso.'
     };
 
@@ -533,7 +535,7 @@ function initMapa() {
   function temporalEstadoReserva(r) {
     if (r.estado === 'cancelada') return 'cancelada';
     if (r.estado === 'en_curso') return 'en_curso';
-    return String(r.ventana_operativa || 'futura');
+    return String(r.ventana_pos || r.ventana_operativa || 'futura');
   }
 
   /**
@@ -685,11 +687,8 @@ function initMapa() {
     var accionPendiente = estado.ausencia_pendiente === true
       ? 'REGISTRAR_AUSENCIA'
       : (reservation.accion_pendiente || null);
-    var bloqueante = estado.en_inicio_exacto === true
-      || estado.en_tolerancia === true
-      || (estado.minutos_para_inicio != null
-        && Number(estado.minutos_para_inicio) > 0
-        && Number(estado.minutos_para_inicio) <= 30);
+    var bloqueante = estado.disponible_para_ticket !== true
+      && estado.ausencia_pendiente !== true;
     return {
       id: parseInt(reservation.reservacion_id || reservation.id, 10),
       reservacion_id: parseInt(reservation.reservacion_id || reservation.id, 10),
@@ -701,9 +700,7 @@ function initMapa() {
       mesas: Array.isArray(reservation.mesas_asignadas)
         ? reservation.mesas_asignadas
         : [],
-      ventana_operativa: estado.estado_temporal === 'inicio_exacto'
-        ? '0_30'
-        : (estado.estado_temporal || ventana.estado),
+      ventana_operativa: estado.ventana_pos || estado.estado_temporal || ventana.estado,
       minutos_restantes: estado.minutos_para_inicio != null
         ? Number(estado.minutos_para_inicio)
         : ventana.minutos_restantes,
@@ -772,19 +769,19 @@ function initMapa() {
     }
 
     if (proxima) {
-      var ventana = proxima.ventana_operativa || '30_60';
-      if (ventana === '30_60') {
+      var ventana = proxima.ventana_operativa || 'advertencia';
+      if (ventana === 'advertencia') {
         if (!ticket) {
           return String(mesa.nombre || 'Mesa') + ', disponible, reservaci\u00f3n dentro de ' +
             proxima.minutos_restantes + ' minutos.';
         }
         partes.push('Reservaci\u00f3n dentro de ' + proxima.minutos_restantes + ' minutos.');
-      } else if (ventana === '0_30') {
+      } else if (ventana === 'bloqueo' || ventana === 'inicio') {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Puede iniciar servicio.');
       } else if (ventana === 'tolerancia') {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Cliente con ' +
           proxima.minutos_retraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.');
-      } else if (ventana === 'tolerancia_vencida') {
+      } else if (ventana === 'ausencia_pendiente') {
         if (proxima.accion_pendiente === 'REGISTRAR_AUSENCIA') {
           partes.push('Acci\u00f3n pendiente: registrar ausencia. La tolerancia de llegada ya venci\u00f3; el cliente lleva ' +
             proxima.minutos_retraso + ' minutos de retraso.');
@@ -795,7 +792,8 @@ function initMapa() {
       }
     } else {
       var reservaContextual = reservaParaModal(parseInt(mesa.id, 10));
-      if (reservaContextual && reservaContextual.ventana_operativa !== 'futura') {
+      if (reservaContextual
+        && (reservaContextual.ventana_pos || reservaContextual.ventana_operativa) !== 'futura') {
         partes.push(ventanaReservaDesdeBackend(reservaContextual, mesa.id).mensaje);
       }
     }
@@ -990,10 +988,10 @@ function initMapa() {
         return mesa ? mesa.nombre : '';
       }).filter(Boolean);
 
-      if (r.estado === 'cancelada' || tempEstado === 'tolerancia_vencida') cardClasses.push('reserva-card--pasada');
-      else if (['en_curso', '0_30', 'tolerancia'].indexOf(tempEstado) !== -1) {
+      if (r.estado === 'cancelada' || tempEstado === 'ausencia_pendiente') cardClasses.push('reserva-card--pasada');
+      else if (['en_curso', 'bloqueo', 'inicio', 'tolerancia'].indexOf(tempEstado) !== -1) {
         cardClasses.push('reserva-card--activa');
-      } else if (tempEstado === '30_60') cardClasses.push('reserva-card--proxima');
+      } else if (tempEstado === 'advertencia') cardClasses.push('reserva-card--proxima');
 
       var temporalLabel = r.accion_pendiente === 'REGISTRAR_AUSENCIA'
         ? 'Acción pendiente: registrar ausencia'
@@ -1048,7 +1046,8 @@ function initMapa() {
       return;
     }
     var reserva = reservaParaModal(mesaId);
-    var reservaCercana = reserva && reserva.ventana_operativa !== 'futura';
+    var reservaCercana = reserva
+      && (reserva.ventana_pos || reserva.ventana_operativa) !== 'futura';
     if (reservaCercana) {
       showReservationModal(reserva);
       return;

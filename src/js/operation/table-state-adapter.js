@@ -133,7 +133,7 @@
         var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
             String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
-            hasModifier(modifiers, 'reservacion_proxima') || state === 'bloqueada' || state === 'proxima';
+            hasModifier(modifiers, 'reservacion_proxima');
         // `estado_visual_mapa` pertenece a la proyección administrativa. El
         // adaptador también se comparte con POS, por lo que sólo se consume
         // cuando la pantalla objetivo lo entrega explícitamente.
