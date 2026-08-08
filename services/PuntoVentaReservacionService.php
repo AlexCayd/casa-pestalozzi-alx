@@ -127,8 +127,8 @@ final class PuntoVentaReservacionService
             if ((string)$r['fecha'] !== ReservacionConfig::fechaActual()) {
                 return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
             }
-            $vigencia = ReservacionVigenciaService::clasificar($r);
-            if (!empty($vigencia['tolerancia_vencida'])) {
+            $politica = ReservacionPoliticaPosService::evaluar($r);
+            if (!empty($politica['ausencia_pendiente'])) {
                 return self::rollbackResultado(
                     $db,
                     $transaccion,
@@ -139,7 +139,7 @@ final class PuntoVentaReservacionService
                     ]
                 );
             }
-            if (!$vigencia['puede_iniciar_servicio']) {
+            if (!$politica['puede_iniciar_reservacion']) {
                 return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
             }
             if (self::ticketAbiertoReservacion($db, $reservacionId)) {
@@ -391,23 +391,34 @@ final class PuntoVentaReservacionService
                 );
             }
 
-            $warnings = self::proximasReservaciones($db, $mesaIds);
-            $warning = $warnings[0] ?? null;
-            $bloqueo = null;
-            foreach ($warnings as $candidate) {
-                if (!empty($candidate['bloqueada'])) {
-                    $bloqueo = $candidate;
-                    break;
+            $politicasReservaciones = self::politicasReservacionesMesa($db, $mesaIds);
+            $warnings = [];
+            foreach ($politicasReservaciones as $candidate) {
+                if (!empty($candidate['ausencia_pendiente'])) {
+                    return self::rollbackResultado(
+                        $db,
+                        $transaccion,
+                        self::TOLERANCIA_LLEGADA_VENCIDA,
+                        [
+                            'motivo_bloqueo' => self::TOLERANCIA_LLEGADA_VENCIDA,
+                            'accion_pendiente' => ReservacionPoliticaPosService::ACCION_REGISTRAR_AUSENCIA,
+                            'reservacion' => $candidate,
+                        ]
+                    );
+                }
+                if (!empty($candidate['bloqueo_walk_in'])) {
+                    return self::rollbackResultado(
+                        $db,
+                        $transaccion,
+                        self::MESA_OCUPADA,
+                        ['bloqueo' => $candidate, 'bloqueos' => $politicasReservaciones]
+                    );
+                }
+                if (!empty($candidate['requiere_advertencia_ticket'])) {
+                    $warnings[] = $candidate;
                 }
             }
-            if ($bloqueo) {
-                return self::rollbackResultado(
-                    $db,
-                    $transaccion,
-                    self::MESA_OCUPADA,
-                    ['bloqueo' => $bloqueo, 'bloqueos' => $warnings]
-                );
-            }
+            $warning = $warnings[0] ?? null;
             $confirmoReservacionProxima =
                 (string)($datos['confirmar_reservacion_proxima'] ?? '') === '1';
             if ($warning && !$confirmoReservacionProxima) {
@@ -614,15 +625,18 @@ final class PuntoVentaReservacionService
              ORDER BY t.id LIMIT 1"
         );
         $ahora = ReservacionConfig::ahora();
-        $hasta = $ahora->modify('+1 day')->format('Y-m-d H:i:s');
+        $hasta = $ahora
+            ->modify('+' . ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS . ' minutes')
+            ->format('Y-m-d H:i:s');
+        $fechaActual = $ahora->format('Y-m-d');
         $reservas = [];
-        $condicionInfluye = ReservacionVigenciaService::condicionSqlInfluyeDisponibilidad('r', $ahora);
         $resultado = $db->query(
             "SELECT r.id, r.nombre, r.fecha, r.hora, r.comensales, r.estado
              FROM reservacion_mesas rm
              INNER JOIN reservaciones r ON r.id = rm.reservacion_id
              WHERE rm.mesa_id = {$mesaId}
-               AND {$condicionInfluye}
+               AND r.estado = 'confirmada'
+               AND r.fecha = '{$fechaActual}'
                AND TIMESTAMP(r.fecha, r.hora) <= '{$hasta}'
              ORDER BY r.fecha, r.hora"
         );
@@ -635,10 +649,16 @@ final class PuntoVentaReservacionService
         $proxima = null;
         foreach ($reservas as $reserva) {
             $inicio = new DateTimeImmutable($reserva['fecha'] . ' ' . $reserva['hora'], ReservacionConfig::timezone());
+            $ticketDeReserva = $ticket
+                && (int)($ticket['reservacion_id'] ?? 0) === (int)$reserva['id']
+                ? $ticket
+                : null;
+            $politica = ReservacionPoliticaPosService::evaluar($reserva, $ahora, $ticketDeReserva);
+            $contexto = array_merge(self::reservaContexto($reserva), $politica);
             if ($inicio <= $ahora) {
-                $actual = self::reservaContexto($reserva);
+                $actual = $contexto;
             } elseif ($inicio > $ahora && $proxima === null) {
-                $proxima = self::reservaContexto($reserva);
+                $proxima = $contexto;
             }
         }
 
@@ -665,6 +685,13 @@ final class PuntoVentaReservacionService
             ];
         }
 
+        $politicaMesa = $actual ?? $proxima;
+        $puedeAbrirTicket = !$ticket
+            && ($politicaMesa === null || (bool)($politicaMesa['disponible_para_ticket'] ?? false));
+        $accionPrimaria = $ticket
+            ? ReservacionPoliticaPosService::ACCION_CONSULTAR_TICKET
+            : (string)($politicaMesa['accion_primaria'] ?? ReservacionPoliticaPosService::ACCION_ABRIR_TICKET);
+
         return [
             'ok' => true,
             'codigo' => self::OK,
@@ -675,11 +702,13 @@ final class PuntoVentaReservacionService
             'reservacion_actual' => $actual,
             'reservacion_proxima' => $proxima,
             'acciones' => [
-                'puede_abrir_ticket' => $ticket === null,
+                'puede_abrir_ticket' => $puedeAbrirTicket,
                 'puede_cerrar_ticket' => $ticket !== null,
             ],
-            'puede_abrir_ticket' => $ticket === null,
-            'accion_primaria' => $ticket ? 'CONSULTAR_TICKET' : 'ABRIR_TICKET',
+            'puede_abrir_ticket' => $puedeAbrirTicket,
+            'puede_iniciar_reservacion' => (bool)($politicaMesa['puede_iniciar_reservacion'] ?? false),
+            'puede_marcar_no_show' => (bool)($politicaMesa['puede_marcar_no_show'] ?? false),
+            'accion_primaria' => $accionPrimaria,
             'advertencia_codigo' => $advertenciaCodigo,
             'advertencia_contexto' => $advertenciaContexto,
             'liberacion_estimada' => $liberacionEstimada,
@@ -850,17 +879,19 @@ final class PuntoVentaReservacionService
     }
 
     /**
-     * Devuelve todas las reservaciones futuras que afectan las mesas elegidas.
-     * La consulta se ejecuta dentro de la transacción y con las filas
-     * bloqueadas para que la confirmación no dependa del estado que vio el JS.
+     * Devuelve las reservaciones de hoy que pueden afectar un walk-in,
+     * incluyendo el inicio exacto y las ausencias pendientes. La consulta y la
+     * decisión se ejecutan bajo la misma transacción para revalidar antes del
+     * commit y evitar que el cliente salte la política por API directa.
      *
      * @return array<int, array<string, mixed>>
      */
-    private static function proximasReservaciones(\mysqli $db, array $mesaIds): array
+    private static function politicasReservacionesMesa(\mysqli $db, array $mesaIds): array
     {
         $ids = implode(',', array_map('intval', $mesaIds));
         $reloj = ReservacionConfig::ahora();
         $ahora = $reloj->format('Y-m-d H:i:s');
+        $fecha = $reloj->format('Y-m-d');
         $limite = $reloj
             ->modify('+' . ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS . ' minutes')
             ->format('Y-m-d H:i:s');
@@ -877,12 +908,12 @@ final class PuntoVentaReservacionService
              INNER JOIN reservacion_mesas rm_todas ON rm_todas.reservacion_id = r.id
              WHERE rm.mesa_id IN ({$ids})
                AND r.estado = 'confirmada'
+               AND r.fecha = '{$fecha}'
                AND NOT EXISTS (
                     SELECT 1 FROM tickets vigencia_ticket
                     WHERE vigencia_ticket.reservacion_id = r.id
                       AND " . TicketMesa::condicionSqlAbierto('vigencia_ticket') . "
                )
-               AND TIMESTAMP(r.fecha, r.hora) > '{$ahora}'
                AND TIMESTAMP(r.fecha, r.hora) <= '{$limite}'
              GROUP BY r.id, r.nombre, r.fecha, r.hora, r.comensales
              ORDER BY r.fecha, r.hora
@@ -894,35 +925,30 @@ final class PuntoVentaReservacionService
 
         $reservaciones = [];
         while ($fila = $resultado->fetch_assoc()) {
-            $inicio = new DateTimeImmutable(
-                (string)$fila['fecha'] . ' ' . (string)$fila['hora'],
-                ReservacionConfig::timezone()
-            );
-            $segundosRestantes = max(0, $inicio->getTimestamp() - $reloj->getTimestamp());
-            $liberacionEstimadaTicket = TicketTemporalService::calcularLiberacionEstimadaTicket($reloj);
-            $duracionEstimadaSupera = $liberacionEstimadaTicket > $inicio;
             $hora = substr((string)$fila['hora'], 0, 5);
-            $minutosRestantes = (int)ceil($segundosRestantes / 60);
-            $reservaciones[] = [
+            $datos = [
+                'id' => (int)$fila['reservacion_id'],
+                'estado' => 'confirmada',
+                'fecha' => (string)$fila['fecha'],
+                'hora' => (string)$fila['hora'],
+                'nombre' => (string)$fila['nombre'],
+                'comensales' => (int)$fila['comensales'],
+                'ticket_abierto' => false,
+            ];
+            $politica = ReservacionPoliticaPosService::evaluar($datos, $reloj);
+            $reservaciones[] = array_merge($datos, $politica, [
                 'codigo' => 'RESERVACION_PROXIMA',
                 'contexto' => [
                     'hora' => $hora,
-                    'minutos_restantes' => $minutosRestantes,
-                    'duracion_estimada_supera' => $duracionEstimadaSupera,
+                    'minutos_restantes' => $politica['minutos_para_inicio'],
                 ],
-                'reservacion_id' => (int)$fila['reservacion_id'],
                 'folio' => '#' . (int)$fila['reservacion_id'],
-                'nombre' => (string)$fila['nombre'],
-                'fecha' => (string)$fila['fecha'],
                 'hora' => $hora,
-                'comensales' => (int)$fila['comensales'],
                 'mesa_ids' => self::csvIds($fila['mesa_ids']),
                 'reservation_mesa_ids' => self::csvIds($fila['reservation_mesa_ids']),
-                'minutos_restantes' => $minutosRestantes,
-                'bloqueada' => $segundosRestantes
-                    <= ReservacionConfig::MINUTOS_PREVIOS_BLOQUEO * 60,
-                'duracion_estimada_supera' => $duracionEstimadaSupera,
-            ];
+                'reservacion_id' => (int)$fila['reservacion_id'],
+                'minutos_restantes' => $politica['minutos_para_inicio'],
+            ]);
         }
         $resultado->free();
 

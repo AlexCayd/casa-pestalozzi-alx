@@ -105,6 +105,7 @@ final class PosReservacionQueryService
                 [
                     'conflicto_fisico' => $mesasBloqueantes !== [],
                     'mesas_bloqueantes' => $mesasBloqueantes,
+                    'hora_consulta' => $horaEvaluacion,
                     'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
@@ -117,9 +118,9 @@ final class PosReservacionQueryService
                 $aplicaHoraConsultada = true;
             }
             $reservacionSerializada['aplica_hora_consultada'] = $aplicaHoraConsultada;
-            if ($aplicaHoraConsultada) {
-                $reservacionSerializada['muestra_advertencia'] = true;
-            }
+            $reservacionSerializada['bloqueada_en_intervalo'] = $mesasBloqueantes !== [];
+            $reservacionSerializada['disponible_para_asignacion'] = $mesaIds !== []
+                && $mesasBloqueantes === [];
             $reservaciones[] = $reservacionSerializada;
         }
         $reservacionesMapa = array_values(array_filter(

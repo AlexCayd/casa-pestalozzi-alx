@@ -26,7 +26,8 @@ final class ReservacionPoliticaPosService
         $reservacion,
         ?DateTimeImmutable $ahora = null,
         ?array $ticket = null,
-        ?DateTimeImmutable $horaConsulta = null
+        ?DateTimeImmutable $horaConsulta = null,
+        array $contexto = []
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $datos = self::aArray($reservacion);
@@ -60,7 +61,10 @@ final class ReservacionPoliticaPosService
                     && $segundosParaInicio >= 0
                     && $segundosParaInicio <= ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60)
             );
-        $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio'] && !$ticketAbierto;
+        $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio']
+            && !$ticketAbierto
+            && empty($contexto['sin_mesas'])
+            && empty($contexto['conflicto_fisico']);
         $disponibleParaTicket = !$ticketAbierto && !$bloqueoWalkIn;
         $accionPrimaria = self::accionPrimaria(
             $ticketAbierto,
@@ -75,6 +79,14 @@ final class ReservacionPoliticaPosService
             (bool)$vigencia['dentro_tolerancia'],
             $ticketAbierto
         );
+        $puedeNoShow = (bool)$vigencia['puede_marcar_no_show'] && !$ticketAbierto;
+        $acciones = [];
+        if ($puedeIniciar) {
+            $acciones[] = ['id' => self::ACCION_INICIAR_RESERVACION, 'tipo' => 'primary'];
+        }
+        if ($puedeNoShow) {
+            $acciones[] = ['id' => self::ACCION_REGISTRAR_AUSENCIA, 'tipo' => 'primary'];
+        }
 
         $resultado = [
             'ocupada_fisicamente' => $ticketAbierto,
@@ -97,7 +109,7 @@ final class ReservacionPoliticaPosService
             'requiere_advertencia_ticket' => $requiereAdvertencia,
             'puede_iniciar_reservacion' => $puedeIniciar,
             'puede_iniciar_servicio' => $puedeIniciar,
-            'puede_marcar_no_show' => (bool)$vigencia['puede_marcar_no_show'] && !$ticketAbierto,
+            'puede_marcar_no_show' => $puedeNoShow,
             'accion_primaria' => $accionPrimaria,
             'accion_pendiente' => $vigencia['ausencia_pendiente']
                 ? self::ACCION_REGISTRAR_AUSENCIA
@@ -108,6 +120,7 @@ final class ReservacionPoliticaPosService
             'prioridad_pos' => self::prioridad($ticketAbierto, $vigencia, $requiereAdvertencia, $bloqueoWalkIn),
             'tolerancia_hasta' => $vigencia['limite_tolerancia'],
             'puede_registrar_ausencia' => (bool)$vigencia['puede_marcar_no_show'] && !$ticketAbierto,
+            'acciones' => $acciones,
         ];
 
         if ($horaConsulta instanceof DateTimeImmutable) {

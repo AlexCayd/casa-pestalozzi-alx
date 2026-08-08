@@ -35,19 +35,6 @@ final class PosReservacionSerializer
         $mesaIds = self::ids($datos['mesa_ids'] ?? []);
         $mesasAsignadas = self::mesasPorIds($mesaIds, $mesas, $datos);
         $ticket = $ticket !== null ? self::ticket($ticket) : null;
-        $vigencia = ReservacionVigenciaService::clasificar(
-            array_merge($datos, [
-                'ticket_id' => $ticket['id'] ?? null,
-                'ticket_abierto' => $ticket !== null,
-            ]),
-            $ahora,
-            $ticket
-        );
-        $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? 'futura');
-        if (($datos['estado'] ?? '') === 'en_curso') {
-            $ventana = 'en_curso';
-        }
-
         $estado = (string)($datos['estado'] ?? '');
         $conflictoFisico = (bool)($opciones['conflicto_fisico'] ?? false);
         $mesasBloqueantes = array_values(array_filter(
@@ -55,28 +42,29 @@ final class PosReservacionSerializer
             static fn($bloqueo): bool => is_array($bloqueo)
         ));
         $sinMesas = $mesaIds === [];
-        $puedeIniciar = (bool)$vigencia['puede_iniciar_servicio']
-            && !$sinMesas
-            && !$conflictoFisico;
-        $puedeAusencia = (bool)$vigencia['elegible_no_show']
-            && $ticket === null;
-        $accionPendiente = $puedeAusencia ? 'REGISTRAR_AUSENCIA' : null;
-        $acciones = [];
-        if ($puedeIniciar) {
-            $acciones[] = ['id' => 'INICIAR_SERVICIO', 'tipo' => 'primary'];
-        }
-        if ($puedeAusencia) {
-            $acciones[] = ['id' => 'REGISTRAR_AUSENCIA', 'tipo' => 'primary'];
-        }
-        $bloqueaWalkIns = $estado === 'confirmada'
-            && in_array($ventana, ['0_30', 'tolerancia', 'tolerancia_vencida'], true)
-            && (bool)$vigencia['influye_disponibilidad'];
-        $muestraAdvertencia = $estado === 'confirmada'
-            && (
-                $ventana === '30_60'
-                || $puedeAusencia
-                || (bool)($opciones['muestra_advertencia'] ?? false)
-            );
+        $horaConsulta = self::fechaHoraConsulta(
+            (string)($opciones['hora_consulta'] ?? ''),
+            (string)($datos['fecha'] ?? '')
+        );
+        $politica = ReservacionPoliticaPosService::evaluar(
+            array_merge($datos, [
+                'ticket_id' => $ticket['id'] ?? null,
+                'ticket_abierto' => $ticket !== null,
+            ]),
+            $ahora,
+            $ticket,
+            $horaConsulta,
+            [
+                'sin_mesas' => $sinMesas,
+                'conflicto_fisico' => $conflictoFisico,
+            ]
+        );
+        $ventana = (string)($politica['ventana_pos'] ?? 'futura');
+        $puedeIniciar = (bool)$politica['puede_iniciar_reservacion'];
+        $puedeAusencia = (bool)$politica['puede_marcar_no_show'];
+        $accionPendiente = $politica['accion_pendiente'];
+        $acciones = (array)($politica['acciones'] ?? []);
+        $muestraAdvertencia = (bool)$politica['muestra_advertencia'];
 
         $motivo = self::motivoOperativo(
             $estado,
@@ -91,14 +79,14 @@ final class PosReservacionSerializer
             $conflictoFisico,
             $mesasBloqueantes,
             $ticket !== null,
-            (bool)$vigencia['puede_iniciar_servicio'],
-            (bool)$vigencia['tolerancia_vencida']
+            (bool)$politica['puede_iniciar_reservacion'],
+            (bool)$politica['tolerancia_vencida']
         );
         $codigoBloqueo = $mesasBloqueantes[0]['codigo'] ?? self::codigoBloqueo($motivoBloqueo);
         $bloqueo = $codigoBloqueo !== null
             ? ReservacionErrorCatalog::presentar($codigoBloqueo)
             : null;
-        $minutosRestantes = $vigencia['ventana_operativa']['minutos_restantes'] ?? null;
+        $minutosRestantes = $politica['minutos_para_inicio'];
         $minutosPara = $minutosRestantes === null
             ? null
             : max(0, (int)$minutosRestantes);
@@ -149,7 +137,7 @@ final class PosReservacionSerializer
             'ticket' => $ticket,
             'ventana_operativa' => $ventana,
             'minutos_para_reservacion' => $minutosPara,
-            'minutos_retraso' => (int)($vigencia['ventana_operativa']['minutos_retraso'] ?? 0),
+            'minutos_retraso' => (int)($politica['minutos_desde_inicio'] ?? 0),
             // Alias aditivos para el bloqueo de inicio multimesa. Se conserva
             // puede_iniciar_servicio para los consumidores existentes.
             'puede_iniciar' => $puedeIniciar,
@@ -161,7 +149,7 @@ final class PosReservacionSerializer
             'puede_marcar_no_show' => $puedeAusencia,
             'mesas_bloqueantes' => $mesasBloqueantes,
             'puede_registrar_ausencia' => $puedeAusencia,
-            'bloquea_walk_ins' => $bloqueaWalkIns,
+            'bloquea_walk_ins' => (bool)$politica['bloquea_walk_ins'],
             'muestra_advertencia' => $muestraAdvertencia,
             'advertencia' => $muestraAdvertencia
                 ? ReservacionErrorCatalog::presentar('RESERVACION_PROXIMA', [
@@ -169,19 +157,30 @@ final class PosReservacionSerializer
                     'minutos_restantes' => $minutosPara ?? 0,
                 ])
                 : null,
-            'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
-            'dentro_tolerancia' => (bool)$vigencia['dentro_tolerancia'],
-            'tolerancia_vencida' => (bool)$vigencia['tolerancia_vencida'],
-            'ausencia_pendiente' => (bool)$vigencia['ausencia_pendiente'],
+            'influye_disponibilidad' => (bool)$politica['influye_disponibilidad'],
+            'dentro_tolerancia' => (bool)$politica['en_tolerancia'],
+            'tolerancia_vencida' => (bool)$politica['tolerancia_vencida'],
+            'ausencia_pendiente' => (bool)$politica['ausencia_pendiente'],
+            'ocupada_fisicamente' => (bool)$politica['ocupada_fisicamente'],
+            'bloqueada_en_intervalo' => false,
+            'disponible_para_asignacion' => false,
+            'disponible_para_ticket' => (bool)$politica['disponible_para_ticket'],
+            'requiere_advertencia_ticket' => (bool)$politica['requiere_advertencia_ticket'],
+            'puede_iniciar_reservacion' => (bool)$politica['puede_iniciar_reservacion'],
+            'accion_primaria' => (string)$politica['accion_primaria'],
+            'ventana_pos' => $politica['ventana_pos'],
+            'ventana_visual_pos' => $politica['ventana_visual_pos'],
+            'minutos_para_inicio' => $politica['minutos_para_inicio'],
+            'proyeccion_mapa' => $politica['proyeccion_mapa'] ?? null,
             'conflicto_fisico' => $conflictoFisico,
             'hold_expires_at' => $datos['hold_expires_at'] ?? null,
             'estado_changed_at' => $datos['estado_changed_at'] ?? null,
-            'tolerancia_hasta' => $vigencia['limite_tolerancia'],
+            'tolerancia_hasta' => $politica['tolerancia_hasta'],
             'no_show_disponible' => $puedeAusencia,
             'elegible_no_show' => $puedeAusencia,
-            'retrasada' => $ventana === 'tolerancia_vencida',
+            'retrasada' => $ventana === 'ausencia_pendiente',
             'minutos_restantes' => $minutosRestantes,
-            'editable' => (bool)$vigencia['editable'],
+            'editable' => (bool)ReservacionVigenciaService::clasificar($datos, $ahora)['editable'],
             'motivo_no_editable' => $opciones['motivo_no_editable'] ?? null,
             'version' => $version,
         ];
@@ -390,6 +389,19 @@ final class PosReservacionSerializer
         return is_array($registro) ? $registro : get_object_vars($registro);
     }
 
+    private static function fechaHoraConsulta(string $hora, string $fecha): ?DateTimeImmutable
+    {
+        $hora = HorarioReservacionService::normalizarHoraSql($hora);
+        if ($fecha === '' || $hora === '') {
+            return null;
+        }
+        try {
+            return new DateTimeImmutable($fecha . ' ' . $hora, ReservacionConfig::timezone());
+        } catch (\Throwable $error) {
+            return null;
+        }
+    }
+
     /**
      * @param mixed $valor
      * @return array<int, int>
@@ -477,10 +489,10 @@ final class PosReservacionSerializer
         }
 
         return match ($ventana) {
-            '30_60' => 'reservacion_proxima',
-            '0_30' => 'reservacion_inminente',
+            'advertencia' => 'reservacion_proxima',
+            'bloqueo' => 'reservacion_inminente',
             'tolerancia' => 'tolerancia_vigente',
-            'tolerancia_vencida' => 'tolerancia_vencida',
+            'ausencia_pendiente' => 'tolerancia_vencida',
             'en_curso' => 'ticket_abierto',
             default => 'reservacion_futura',
         };
