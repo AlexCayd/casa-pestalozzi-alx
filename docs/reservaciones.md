@@ -1,42 +1,46 @@
 # Módulo de reservaciones — Fuente de verdad vigente
 
 **Proyecto:** Casa Pestalozzi
-**Versión:** 2026-08-05
+**Versión:** 2026-08-08
 **Estado:** Contrato funcional y técnico vigente
 **Zona horaria canónica:** `America/Mexico_City`
 **Propósito:** Definir exclusivamente las reglas vigentes del módulo de reservaciones.
 
-> Este documento reemplaza como referencia normativa al archivo histórico anterior.
-> Los planes por etapas, reportes de implementación y decisiones sustituidas deben conservarse fuera de esta fuente de verdad.
+> Este documento reemplaza cualquier versión normativa anterior.
+> Los planes, auditorías, reportes de implementación y decisiones sustituidas son documentación histórica y no modifican este contrato.
 
 ---
 
-## 1. Precedencia y control de cambios
+# 1. Precedencia y control de cambios
 
 1. Este documento es la referencia funcional principal del módulo.
-2. El comportamiento implementado que contradiga este documento se considera incorrecto.
-3. Los reportes de etapas y documentos históricos no pueden modificar estas reglas.
-4. Una decisión nueva debe integrarse en la sección correspondiente; no debe agregarse como un anexo que contradiga texto anterior.
+2. Todo comportamiento implementado que contradiga este documento se considera incorrecto.
+3. Los reportes históricos no pueden modificar estas reglas.
+4. Toda nueva decisión funcional debe integrarse directamente en la sección correspondiente.
 5. Antes de implementar un cambio:
    1. actualizar esta fuente de verdad;
    2. identificar servicios y consumidores afectados;
-   3. actualizar pruebas;
+   3. actualizar o crear pruebas;
    4. implementar;
-   5. validar landing, administración, mapa y punto de venta.
+   5. validar landing, administración, mapa y POS.
+
+6. Ninguna superficie puede reconstruir en frontend reglas de ocupación, capacidad, traslape, tolerancia o ventanas POS.
 
 ---
 
-## 2. Objetivo y superficies
+# 2. Objetivo y superficies
 
 El módulo permite:
 
 - Consultar y crear reservaciones desde la landing.
-- Verificar el contacto mediante OTP.
+- Verificar contacto mediante OTP.
 - Consultar, modificar o cancelar reservaciones públicas autorizadas.
 - Crear, consultar, modificar y cancelar reservaciones administrativas.
-- Asignar y reasignar mesas desde el mapa.
-- Integrar reservaciones con tickets sin duplicar ocupación.
-- Mostrar ocupación actual y proyección futura con una única lógica canónica.
+- Asignar y reasignar mesas.
+- Integrar reservaciones con tickets sin doble conteo.
+- Proyectar disponibilidad futura.
+- Mostrar capacidad y estados operativos de mesas.
+- Gestionar ausencias manualmente.
 
 Las superficies son:
 
@@ -45,112 +49,300 @@ Las superficies son:
 3. **Mapa de gestión de reservaciones.**
 4. **Mapa del punto de venta.**
 
-Las cuatro superficies consumen los mismos hechos de horario, ocupación, capacidad y conflictos. Cada una aplica una política de aceptación distinta cuando así se define expresamente.
+Todas consumen los mismos hechos canónicos.
+
+Las superficies pueden derivar decisiones diferentes de esos hechos cuando este documento lo establece explícitamente.
 
 ---
 
-## 3. Conceptos canónicos
+# 3. Conceptos canónicos
 
-### 3.1 Ocupación canónica
+## 3.1 Ocupación canónica
 
-Es el conjunto de bloqueos que afectan mesas o capacidad en una fecha e intervalo:
+La ocupación canónica es el conjunto de hechos que pueden afectar mesas o capacidad:
 
 - Tickets abiertos.
 - Reservaciones `confirmada`.
 - Holds vigentes de `pendiente_verificacion`.
-- Reservaciones administrativas confirmadas sin mesas, como demanda no asignada.
+- Reservaciones administrativas confirmadas sin mesas.
 - Estado activo y reservable de las mesas.
+- Vigencia de reservaciones y holds.
+- Proyección temporal de tickets.
 
-La ocupación canónica se calcula en backend. Ningún JavaScript, controlador o vista debe reconstruirla de forma independiente.
+Se calcula exclusivamente en backend.
 
-### 3.2 Disponibilidad real
+No existe un segundo motor para POS, mapa, landing o administración.
 
-La disponibilidad real es común para landing, administración, mapas y POS.
+---
 
-Incluye:
+## 3.2 Disponibilidad común
 
-- Mesas físicamente elegibles.
-- Capacidad de sus asientos.
-- Intervalos ocupados.
-- Proyección de liberación de tickets.
-- Reservaciones y holds que se traslapan.
-- Demanda confirmada sin mesas asignadas.
+Todas las superficies consultan los mismos hechos de:
 
-La disponibilidad real no cambia por superficie. Lo que cambia es si la superficie permite continuar pese a no existir asignación automática o pese a una advertencia de capacidad.
+- mesas elegibles;
+- reservaciones;
+- holds;
+- tickets;
+- intervalos;
+- capacidades;
+- vigencia;
+- demanda no asignada.
 
-### 3.3 Asignabilidad automática
+Sin embargo, **un mismo hecho no implica necesariamente el mismo permiso operativo en todas las superficies**.
 
-Indica si existe una mesa individual o grupo autorizado que pueda asignarse automáticamente para toda la reservación.
+Debe distinguirse expresamente entre:
 
-La asignabilidad automática es estricta para:
+```text
+ocupada_fisicamente
+disponible_para_asignacion
+disponible_para_ticket
+```
 
-- Landing.
-- Modificación pública.
+Estos hechos no son aliases entre sí.
 
-En administración es opcional.
+---
 
-### 3.4 Capacidad física libre
+## 3.3 Hechos derivados por mesa
 
-Es la suma de la capacidad de las mesas elegibles que permanecen disponibles durante todo el intervalo solicitado.
+### 3.3.1 `ocupada_fisicamente`
+
+Responde:
+
+```text
+¿La mesa está siendo utilizada físicamente?
+```
+
+Para la operación actual, la fuente física principal es:
+
+```text
+ticket abierto
++
+ticket_mesas
+```
+
+Una reservación futura sin ticket:
+
+```text
+NO implica ocupada_fisicamente = true
+```
+
+Una reservación confirmada que todavía no inicia puede impedir una asignación futura o un walk-in próximo, pero no convierte por sí sola a la mesa en físicamente ocupada.
+
+---
+
+### 3.3.2 `bloqueada_en_intervalo`
+
+Responde:
+
+```text
+¿La mesa presenta algún conflicto durante todo el intervalo consultado?
+```
+
+El intervalo se construye usando:
+
+```text
+DURACION_RESERVACION_MINUTOS
+```
+
+Para una consulta:
+
+```text
+intervalo_consulta =
+[hora_consulta,
+ hora_consulta + DURACION_RESERVACION_MINUTOS)
+```
+
+`mesa_ids_bloqueadas` y `bloqueada_en_intervalo` significan exclusivamente:
+
+```text
+mesa no disponible para el intervalo consultado
+```
+
+Nunca significan automáticamente:
+
+```text
+ocupada_fisicamente
+```
+
+ni:
+
+```text
+no puede abrirse un ticket POS ahora
+```
+
+---
+
+### 3.3.3 `disponible_para_asignacion`
+
+Responde:
+
+```text
+¿Puede esta mesa asignarse a una nueva reservación
+durante TODO el intervalo solicitado?
+```
+
+Se deriva exclusivamente de la evaluación canónica de ocupación del intervalo.
+
+Debe cumplir:
+
+```text
+bloqueada_en_intervalo = true
+→ disponible_para_asignacion = false
+```
+
+y:
+
+```text
+bloqueada_en_intervalo = false
+AND mesa elegible
+→ disponible_para_asignacion = true
+```
+
+No debe volver a calcularse comparando únicamente la hora puntual con el inicio de una reservación.
+
+---
+
+### 3.3.4 `disponible_para_ticket`
+
+Responde:
+
+```text
+¿Puede iniciarse ahora un ticket walk-in en esta mesa?
+```
+
+No se calcula simulando un ticket de 90 minutos ni reutilizando directamente `mesa_ids_bloqueadas`.
+
+Se determina mediante:
+
+- ocupación física;
+- ticket abierto;
+- reservación próxima;
+- ventana de advertencia;
+- ventana de bloqueo;
+- tolerancia;
+- ausencia pendiente;
+- estado operativo de la reservación.
+
+El backend es la única autoridad.
+
+---
+
+### 3.3.5 `requiere_advertencia_ticket`
+
+Indica que un walk-in todavía es posible, pero existe una reservación suficientemente próxima para requerir confirmación explícita.
+
+```text
+requiere_advertencia_ticket = true
+```
+
+implica:
+
+```text
+disponible_para_ticket = true
+```
+
+pero obliga a una decisión antes del commit.
+
+---
+
+## 3.4 Capacidad física libre
+
+Es la suma de los asientos de mesas elegibles que permanecen disponibles durante todo el intervalo solicitado.
 
 ```text
 capacidad_fisica_libre =
-SUM(mesas.capacidad de mesas disponibles durante todo el intervalo)
+SUM(mesas.capacidad
+    de mesas con disponible_para_asignacion = true)
 ```
 
-Una mesa se considera disponible sólo si no presenta conflicto durante el intervalo completo.
+La capacidad se descuenta por los asientos completos de las mesas comprometidas.
 
 Ejemplo:
 
 ```text
-Capacidad total reservable: 44
-Una reservación ocupa dos mesas con capacidad conjunta de 8
-Capacidad física libre: 36
+Capacidad física total: 44
+
+Reservación asignada:
+Mesa A = 4
+Mesa B = 4
+
+Capacidad física libre = 36
 ```
 
-La capacidad física se descuenta por los asientos de las mesas comprometidas, no por los comensales de la reservación asignada.
+No se descuentan únicamente los comensales de una reservación físicamente asignada.
 
-### 3.5 Demanda no asignada
+---
 
-Una reservación administrativa confirmada sin filas en `reservacion_mesas` debe seguir afectando la disponibilidad.
+## 3.5 Demanda no asignada
+
+Una reservación administrativa `confirmada` sin filas en `reservacion_mesas` no bloquea una mesa específica, pero sí afecta capacidad.
 
 ```text
 demanda_no_asignada =
 SUM(comensales de reservaciones confirmadas sin mesas
-    que se traslapan con el intervalo)
+    que influyen en el intervalo consultado)
 ```
 
-### 3.6 Capacidad real disponible
-
-```text
-capacidad_real_disponible =
-MAX(0, capacidad_fisica_libre - demanda_no_asignada)
-```
-
-Esta cifra representa una estimación operativa. No sustituye la validación de combinaciones físicas para landing.
-
-### 3.7 Política de aceptación
-
-| Superficie | Disponibilidad consultada | Regla para continuar |
-|---|---|---|
-| Landing | Disponibilidad real | Requiere capacidad y asignación automática válida |
-| Modificación pública | Disponibilidad real | Requiere capacidad y asignación automática válida |
-| Administración | Misma disponibilidad real | Puede confirmar sin mesas mediante advertencia |
-| Mapa de reservaciones | Misma ocupación y capacidad | Puede asignar manualmente y confirmar advertencias |
-| POS | Misma ocupación actual/proyectada | Opera tickets y reservaciones según capacidades permitidas |
-
-Administración tiene libertad operativa; no utiliza una disponibilidad diferente.
+No debe pintarse una mesa ficticia para representar esta demanda.
 
 ---
 
-## 4. Constantes
+## 3.6 Capacidad real disponible
 
-Las constantes se definen una sola vez.
+```text
+capacidad_real_disponible =
+MAX(
+    0,
+    capacidad_fisica_libre - demanda_no_asignada
+)
+```
+
+Esta capacidad es común para landing, administración y mapa.
+
+No sustituye la validación física de combinaciones.
+
+---
+
+## 3.7 Asignabilidad automática
+
+Indica si existe una mesa individual o grupo permitido capaz de soportar toda la reservación sin conflictos.
+
+Es estricta para:
+
+- landing;
+- modificación pública.
+
+Es opcional para administración.
+
+---
+
+## 3.8 Política por superficie
+
+| Superficie           | Hecho principal                                  | Política                                 |
+| -------------------- | ------------------------------------------------ | ---------------------------------------- |
+| Landing              | `disponible_para_asignacion` + capacidad         | Exige capacidad y combinación automática |
+| Modificación pública | Igual que landing                                | Estricta                                 |
+| Administración       | Misma capacidad y asignabilidad                  | Puede confirmar sin mesas                |
+| Mapa reservaciones   | Capacidad + asignabilidad + proyección visual    | Permite gestión manual                   |
+| POS                  | `ocupada_fisicamente` + `disponible_para_ticket` | Opera tickets y servicio                 |
+
+La libertad administrativa nunca altera el cálculo real.
+
+---
+
+# 4. Configuración canónica
+
+Todos los parámetros temporales se definen en una única fuente de configuración.
+
+No deben existir literales funcionales equivalentes en servicios, JavaScript, vistas o SQL.
+
+Configuración vigente:
 
 ```php
 final class ReservacionConfig
 {
     public const DURACION_RESERVACION_MINUTOS = 90;
+
     public const DURACION_ESTIMADA_TICKET_MINUTOS = 90;
     public const RETRASO_ESTIMADO_TICKET_MINUTOS = 0;
 
@@ -159,8 +351,10 @@ final class ReservacionConfig
 
     public const VIGENCIA_HOLD_MINUTOS = 15;
     public const TOLERANCIA_LLEGADA_MINUTOS = 15;
-    public const LLEGADA_ANTICIPADA_MINUTOS = 30;
+
     public const AVISO_RESERVACION_PROXIMA_MINUTOS = 60;
+    public const BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS = 30;
+    public const INICIO_SERVICIO_ANTICIPADO_MINUTOS = 30;
 
     public const LIMITE_MODIFICACION_MINUTOS = 30;
     public const TOLERANCIA_CANCELACION_PUBLICA_MINUTOS = 15;
@@ -182,481 +376,694 @@ final class ReservacionConfig
 }
 ```
 
-No se repiten números literales equivalentes en controladores, vistas, JavaScript o SQL.
+Si la implementación utiliza otro mecanismo de configuración, los nombres pueden adaptarse, pero debe existir una única fuente.
 
-### 4.1 Relación entre duración y tolerancia
-
-La duración estimada de una reservación es de 90 minutos.
-
-Los primeros 15 minutos corresponden a la tolerancia de llegada y ya están incluidos dentro de esos 90 minutos. No se suman 15 minutos adicionales.
+Queda eliminado conceptualmente cualquier parámetro paralelo como:
 
 ```text
-inicio_estimado = hora_reservacion
-fin_estimado = hora_reservacion + 90 minutos
-tolerancia = [hora_reservacion, hora_reservacion + 15 minutos]
+MINUTOS_PREVIOS_BLOQUEO
 ```
 
-Si el cliente no llega y no existe ticket al terminar la tolerancia, aplica la regla de ausencia pendiente de la sección 10.
+cuando represente la misma regla que:
+
+```text
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS
+```
 
 ---
 
-## 5. Horarios reservables
+## 4.1 Duración configurable
 
-### 5.1 Prioridad
+No se asume que una reservación siempre durará 90 minutos.
 
-1. Excepción activa para la fecha.
-2. Si la excepción es `cerrado`, no hay horarios.
-3. Si es `horario_especial`, se usa su apertura y cierre.
-4. Sin excepción, se usa el horario semanal.
-5. Si el día está cerrado, no hay horarios.
-
-### 5.2 Anticipación mínima
-
-Una nueva reservación pública o administrativa no puede iniciar antes de:
+La regla es:
 
 ```text
-hora_actual + 40 minutos
-```
-
-Se elige el primer bloque configurado igual o posterior al límite exacto. No se redondea la hora actual antes de sumar 40 minutos.
-
-### 5.3 Última reservación
-
-```text
-ultima_hora_reservable = cierre - 90 minutos
-```
-
-### 5.4 Horizonte
-
-Se permiten fechas desde el día actual hasta 90 días posteriores.
-
-### 5.5 Navegación del mapa
-
-La anticipación mínima limita altas y cambios de horario; no limita la navegación del mapa.
-
-Para el día actual:
-
-- Se muestra el bloque configurado actual o inmediatamente anterior.
-- No se muestran bloques anteriores.
-- URL, caché o estado persistido no pueden reactivar horarios históricos.
-
-Para fechas futuras se muestran todos los bloques operativos válidos.
-
----
-
-## 6. Mesas y grupos
-
-### 6.1 Elegibilidad
-
-Una mesa participa en capacidad y reservaciones cuando:
-
-```text
-mesas.activo = 1
-mesas.reservable = 1
-mesas.tipo = 'mesa'
-```
-
-Barras, caja, para llevar y elementos no reservables quedan excluidos.
-
-### 6.2 Identificación
-
-Los grupos se definen por `mesas.numero`, no por `mesas.id`.
-
-### 6.3 Capacidad
-
-La capacidad de una combinación es la suma actual de `mesas.capacidad`.
-
-### 6.4 Asignación automática
-
-Orden de evaluación:
-
-1. Mesas individuales.
-2. Grupos autorizados de dos mesas.
-3. Grupos autorizados de tres mesas.
-
-Orden de preferencia:
-
-1. Capacidad suficiente.
-2. Menor número de mesas.
-3. Menor desperdicio de asientos.
-4. Sin conflictos.
-5. Grupo autorizado.
-
-Si una mesa de un grupo es inactiva, no reservable o presenta conflicto, el grupo completo deja de ser candidato.
-
-### 6.5 Asignación manual
-
-La asignación manual:
-
-- Se realiza exclusivamente en modo explícito de edición (`assignment_edit`).
-- El flujo canónico es `viewing → assignment_edit → saving → viewing` o `viewing → assignment_edit → conflict`.
-- Antes de editar se conserva un snapshot exacto de las mesas y la versión de la reservación.
-- Fuera de `assignment_edit`, tocar mesas sólo cambia una selección visual y no muta la asignación persistida.
-- Revalida estado, versión, tickets y ocupación.
-- Se guarda en una transacción.
-- No permite una mutación parcial de una reservación multimesa.
-- Puede mostrar advertencias de diferencia entre comensales y capacidad seleccionada.
-
----
-
-## 7. Intervalos y proyección temporal
-
-### 7.1 Conflicto por intervalo
-
-Existe traslape cuando:
-
-```text
-ocupacion_inicio < nueva_fin
-AND ocupacion_fin > nueva_inicio
-```
-
-No se compara únicamente la igualdad de horas.
-
-### 7.2 Tickets abiertos
-
-`ticket_mesas` es la fuente canónica de ocupación física.
-
-Un ticket está abierto cuando cumple simultáneamente:
-
-```text
-tickets.estado = 'abierto'
-AND tickets.closed_at IS NULL
-```
-
-Para el día actual:
-
-```text
-liberacion_estimada_ticket =
-hora_apertura
-+ 90 minutos
-+ RETRASO_ESTIMADO_TICKET_MINUTOS
+duracion =
+DURACION_RESERVACION_MINUTOS
 ```
 
 Con la configuración vigente:
 
 ```text
-liberacion_estimada_ticket = hora_apertura + 90 minutos
+duracion = 90
 ```
 
-#### Bloque actual
-
-Un ticket realmente abierto mantiene la mesa ocupada aunque ya haya superado su liberación estimada.
-
-#### Bloque futuro del mismo día
-
-El ticket bloquea una mesa cuando:
+El intervalo planificado es:
 
 ```text
-hora_apertura < fin_del_bloque
-AND liberacion_estimada_ticket > inicio_del_bloque
+[inicio,
+ inicio + DURACION_RESERVACION_MINUTOS)
 ```
 
-Cuando el bloque comienza en o después de la liberación estimada, ese ticket deja de bloquear la proyección.
+Modificar el parámetro debe actualizar automáticamente:
 
-Ejemplo:
+- capacidad;
+- conflictos;
+- asignación;
+- horarios;
+- mapa;
+- landing;
+- administración;
+- pruebas.
+
+---
+
+## 4.2 Ticket y reservación son configuraciones distintas
+
+Nunca asumir:
 
 ```text
-Ticket abierto: 09:00
-Liberación estimada: 10:30
-
-Bloque 10:00 → ocupado
-Bloque 10:30 → disponible por ese ticket
-Bloque 11:00 → disponible por ese ticket
+DURACION_RESERVACION_MINUTOS
+=
+DURACION_ESTIMADA_TICKET_MINUTOS
 ```
 
-La disponibilidad final todavía debe considerar otras reservaciones, holds o tickets.
+aunque actualmente ambas sean 90.
 
-### 7.3 Reservaciones confirmadas
+---
 
-Sin ticket vinculado, una reservación confirmada tiene una ocupación estimada de:
+## 4.3 Tolerancia
 
 ```text
-[hora_reservacion, hora_reservacion + 90 minutos)
+tolerancia =
+[hora_reservacion,
+ hora_reservacion + TOLERANCIA_LLEGADA_MINUTOS]
 ```
 
-La tolerancia de 15 minutos está incluida en los 90 minutos.
+La tolerancia está incluida dentro de la duración planificada.
 
-Si durante la operación real se abre un ticket vinculado:
+No se suma a `DURACION_RESERVACION_MINUTOS`.
 
-- La reservación pasa a `en_curso`.
-- La ocupación se toma exclusivamente de `ticket_mesas`.
-- No se cuenta simultáneamente `reservacion_mesas`.
+---
 
-### 7.4 Holds
+# 5. Horarios reservables
 
-Un hold bloquea sólo cuando:
+## 5.1 Prioridad
+
+1. Excepción activa.
+2. Excepción cerrada → sin horarios.
+3. Horario especial → usarlo.
+4. Sin excepción → horario semanal.
+5. Día cerrado → sin horarios.
+
+---
+
+## 5.2 Anticipación mínima
+
+```text
+primera_hora_permitida =
+ahora + ANTICIPACION_MINIMA_MINUTOS
+```
+
+Se selecciona el primer bloque configurado igual o posterior.
+
+---
+
+## 5.3 Última reservación
+
+Debe utilizar una configuración apropiada y no un literal disperso.
+
+Con el contrato vigente:
+
+```text
+ultima_hora =
+cierre - MINUTOS_ANTES_CIERRE_ULTIMA_RESERVACION
+```
+
+---
+
+## 5.4 Horizonte
+
+```text
+hoy
+...
+hoy + HORIZONTE_MAXIMO_DIAS
+```
+
+---
+
+## 5.5 Navegación del mapa
+
+La anticipación mínima restringe altas y cambios, no navegación histórica permitida por el mapa.
+
+---
+
+# 6. Mesas y grupos
+
+## 6.1 Elegibilidad
+
+Una mesa participa cuando:
+
+```text
+activo = 1
+reservable = 1
+tipo = mesa
+```
+
+Quedan excluidos:
+
+- barra;
+- caja;
+- para llevar;
+- elementos no reservables.
+
+---
+
+## 6.2 Grupos
+
+Se identifican por `mesas.numero`.
+
+---
+
+## 6.3 Capacidad
+
+La capacidad de una combinación es la suma actual de `mesas.capacidad`.
+
+---
+
+## 6.4 Asignación automática
+
+Orden:
+
+1. Mesa individual.
+2. Grupo autorizado de dos.
+3. Grupo autorizado de tres.
+
+Preferencia:
+
+1. Capacidad suficiente.
+2. Menor cantidad de mesas.
+3. Menor desperdicio.
+4. Sin conflictos.
+5. Grupo autorizado.
+
+Todos los miembros deben tener:
+
+```text
+disponible_para_asignacion = true
+```
+
+---
+
+## 6.5 Asignación manual
+
+Sólo se modifica persistencia en:
+
+```text
+assignment_edit
+```
+
+Flujo:
+
+```text
+viewing
+→ assignment_edit
+→ saving
+→ viewing
+```
+
+o:
+
+```text
+viewing
+→ assignment_edit
+→ conflict
+```
+
+La asignación manual utiliza `disponible_para_asignacion`, no los colores.
+
+Una mesa puede mostrarse:
+
+```text
+verde con borde azul
+```
+
+o:
+
+```text
+azul
+```
+
+por proximidad de una reservación y, simultáneamente:
+
+```text
+disponible_para_asignacion = false
+```
+
+si el intervalo de la nueva reservación se traslapa.
+
+En `assignment_edit`:
+
+- el color se conserva para comunicar proximidad;
+- el backend sigue siendo autoridad sobre asignabilidad;
+- una mesa no asignable no puede persistirse;
+- el frontend puede mostrar tooltip/estado de conflicto;
+- no se debe inferir el permiso por color.
+
+---
+
+# 7. Intervalos y proyección temporal
+
+## 7.1 Traslape
+
+Existe conflicto cuando:
+
+```text
+ocupacion_inicio < nueva_fin
+AND
+ocupacion_fin > nueva_inicio
+```
+
+Los intervalos son semiabiertos:
+
+```text
+[inicio, fin)
+```
+
+Por tanto:
+
+```text
+fin_existente = inicio_nuevo
+```
+
+no representa traslape.
+
+---
+
+## 7.2 Intervalo para capacidad y asignación
+
+Para una nueva reservación:
+
+```text
+nueva_inicio = hora_consulta
+
+nueva_fin =
+hora_consulta
++ DURACION_RESERVACION_MINUTOS
+```
+
+Toda capacidad y asignación se evalúan contra ese intervalo completo.
+
+---
+
+## 7.3 Tickets abiertos
+
+`ticket_mesas` es la fuente física canónica.
+
+Un ticket está abierto cuando:
+
+```text
+estado = abierto
+AND
+closed_at IS NULL
+```
+
+Liberación proyectada:
+
+```text
+liberacion_estimada =
+hora_apertura
++ DURACION_ESTIMADA_TICKET_MINUTOS
++ RETRASO_ESTIMADO_TICKET_MINUTOS
+```
+
+### Bloque actual
+
+Si el ticket sigue realmente abierto:
+
+```text
+ocupada_fisicamente = true
+```
+
+aunque haya superado la liberación estimada.
+
+### Proyección futura del mismo día
+
+El ticket bloquea el intervalo cuando:
+
+```text
+hora_apertura < fin_consulta
+AND
+liberacion_estimada > inicio_consulta
+```
+
+Para otros días, los tickets actuales no bloquean.
+
+---
+
+## 7.4 Reservaciones confirmadas
+
+Una reservación confirmada sin ticket tiene intervalo planificado:
+
+```text
+[
+  hora_reservacion,
+  hora_reservacion + DURACION_RESERVACION_MINUTOS
+)
+```
+
+Mientras la reservación siga influyendo en disponibilidad, cualquier nueva reservación cuyo intervalo se traslape genera:
+
+```text
+disponible_para_asignacion = false
+```
+
+Esto puede ocurrir antes de que la mesa esté físicamente ocupada.
+
+Ejemplo con configuración vigente:
+
+```text
+Reserva existente:
+13:00–14:30
+
+Nueva consulta:
+12:00–13:30
+```
+
+Resultado:
+
+```text
+ocupada_fisicamente = false
+
+bloqueada_en_intervalo = true
+
+disponible_para_asignacion = false
+```
+
+POS puede tener simultáneamente otra decisión sobre `disponible_para_ticket`.
+
+---
+
+## 7.5 Inicio de servicio
+
+Cuando se abre un ticket vinculado:
+
+```text
+confirmada → en_curso
+```
+
+Desde ese momento:
+
+- la ocupación física proviene exclusivamente de `ticket_mesas`;
+- `reservacion_mesas` no produce un segundo bloqueo;
+- no existe doble conteo.
+
+---
+
+## 7.6 Holds
+
+Bloquean cuando:
 
 ```text
 estado = pendiente_verificacion
-AND hold_expires_at > ahora
+AND
+hold_expires_at > ahora
 ```
 
-El hold deja de bloquear inmediatamente al vencer, aunque todavía no se haya ejecutado un proceso de limpieza.
-
-### 7.5 Reservaciones sin mesas
-
-Una reservación administrativa `confirmada` sin mesas:
-
-- No bloquea mesas específicas.
-- Sí aporta su número de comensales a `demanda_no_asignada`.
-- Debe mostrarse como incidencia de asignación manual pendiente.
-- No crea un estado adicional.
-
-### 7.6 Fechas posteriores al día actual
-
-Los tickets abiertos actuales no se consideran para otros días.
-
-Se consideran:
-
-- Reservaciones confirmadas.
-- Holds vigentes de la fecha.
-- Mesas elegibles.
-- Demanda no asignada de la fecha.
-- Intervalos de 90 minutos.
+Vencen inmediatamente desde el punto de vista de disponibilidad.
 
 ---
 
-## 8. Disponibilidad y creación pública
+## 7.7 Reservaciones sin mesas
 
-### 8.1 Regla estricta
+No bloquean mesas específicas.
 
-Después de elegir fecha, hora y comensales, la landing sólo permite continuar cuando:
+Sí generan:
 
-1. El horario es válido.
-2. Existe capacidad real suficiente.
-3. Existe una combinación automática válida.
-4. No existen conflictos.
-5. La validación final transaccional confirma el mismo resultado.
-
-La landing no muestra capacidad, asientos libres, mesas candidatas ni grupos internos.
-
-### 8.2 Comensales
-
-- De 1 a 12: flujo público disponible.
-- Desde 13: se bloquea el flujo público y se muestran los datos de contacto del restaurante.
-
-### 8.3 Creación
-
-Dentro de una transacción:
-
-1. Revalidar horario.
-2. Revalidar disponibilidad.
-3. Validar duplicado.
-4. Validar máximo por contacto.
-5. Crear `pendiente_verificacion`.
-6. Asignar mesas.
-7. Definir hold de 15 minutos.
-8. Crear OTP.
-9. Confirmar transacción.
-
-Al validar OTP:
-
-- `pendiente_verificacion → confirmada`.
-- Se actualiza `estado_changed_at`.
-
-### 8.4 Duplicados
-
-El mismo contacto no puede tener dos reservaciones activas en la misma fecha y hora.
-
-Cuentan:
-
-- Hold vigente de una alta nueva.
-- `confirmada`.
-
-No cuentan:
-
-- Modificación pendiente.
-- `en_curso`.
-- Estados terminales.
-
-### 8.5 Máximo por contacto
-
-Máximo cinco reservaciones activas futuras por contacto.
-
-Cuentan:
-
-- `confirmada` con fecha igual o posterior a la fecha actual.
-- Holds vigentes de altas nuevas.
-
-No cuentan modificaciones pendientes ni `en_curso`.
+```text
+demanda_no_asignada
+```
 
 ---
 
-## 9. Administración y creación con libertad operativa
+## 7.8 Reloj real y hora de consulta
 
-### 9.1 Principio
-
-Administración consulta exactamente la misma disponibilidad real que landing.
-
-La diferencia es la política:
-
-- Landing exige asignación automática.
-- Administración puede confirmar sin mesas.
-- Administración puede aceptar una advertencia de capacidad.
-- La libertad administrativa no altera ni falsifica la capacidad calculada.
-
-### 9.2 Asignación automática opcional
-
-Para 1–12 personas:
-
-- Puede activarse **Asignar mesas automáticamente**.
-- Utiliza el mismo algoritmo estricto de landing.
-- El operador puede desactivarla.
-
-Desde 13 personas:
-
-- La asignación automática queda deshabilitada.
-- La reservación puede confirmarse sin mesas.
-- Se presenta la decisión `ASIGNACION_MANUAL_REQUERIDA`; la asignación automática no se intenta.
-- La única acción para posponer la asignación es **Asignar más tarde**.
-- La acción secundaria para abandonar el modal es **Volver**; no confirma ni crea la reservación.
-- No se muestra una acción duplicada **Asignar después** ni se usa **Cancelar** para confirmar sin mesas.
-
-### 9.3 Resultados posibles
-
-#### A. Capacidad suficiente y asignación automática disponible
-
-Se puede confirmar con las mesas propuestas.
-
-#### B. Capacidad suficiente pero sin combinación automática
-
-Se presenta una decisión:
+Son conceptos distintos:
 
 ```text
-No se encontró una combinación automática de mesas para esta reservación.
+ahora
+hora_consulta
 ```
 
-Consecuencia:
+`ahora` se utiliza para:
+
+- vigencia;
+- tolerancia;
+- ausencia pendiente;
+- POS actual.
+
+`hora_consulta` se utiliza para:
+
+- capacidad;
+- asignabilidad;
+- proyección del mapa.
+
+El contrato backend debe transportar ambos contextos cuando sean necesarios.
+
+---
+
+# 8. Disponibilidad pública
+
+Landing sólo continúa cuando:
+
+1. horario válido;
+2. capacidad real suficiente;
+3. combinación automática válida;
+4. sin conflictos;
+5. revalidación transaccional exitosa.
+
+De 1 a 12 personas:
 
 ```text
-Puedes crearla sin mesas y realizar la asignación manualmente después.
+flujo público permitido
 ```
+
+Desde 13:
+
+```text
+flujo público bloqueado
+→ contactar restaurante
+```
+
+---
+
+# 9. Administración
+
+## 9.1 Principio
+
+Administración usa exactamente la misma capacidad y asignabilidad que landing.
+
+Puede continuar bajo políticas administrativas explícitas.
+
+---
+
+## 9.2 Asignación automática
+
+1–12:
+
+- opcional;
+- mismo algoritmo de landing.
+
+13+:
+
+- automática deshabilitada;
+- decisión `ASIGNACION_MANUAL_REQUERIDA`;
+- acciones:
+  - **Volver**
+  - **Asignar más tarde**
+
+---
+
+## 9.3 Sin combinación automática
+
+Código:
+
+```text
+SIN_ASIGNACION
+```
+
+Significa:
+
+```text
+puede existir capacidad
+pero no existe combinación automática válida
+```
+
+No significa falta de capacidad.
 
 Acciones:
 
 - Volver.
 - Asignar más tarde.
 
-#### C. Capacidad insuficiente
+---
 
-No se oculta el resultado. Se presenta una advertencia reforzada con:
+## 9.4 Capacidad insuficiente
 
-- Capacidad real disponible.
-- Comensales solicitados.
-- Diferencia.
-- Consecuencia operativa.
-- Indicación de que no se garantiza espacio físico.
+Debe mostrar:
 
-La política administrativa puede permitir confirmar bajo responsabilidad. La operación:
+- comensales;
+- capacidad disponible;
+- diferencia;
+- consecuencia.
 
-- Crea `confirmada`.
-- Puede dejar `reservacion_mesas` vacío.
-- Registra que requiere asignación manual.
-- No modifica el cálculo real mostrado.
-
-### 9.4 Contacto
-
-El contacto es opcional.
-
-Sin contacto:
-
-```text
-contacto_tipo = ninguno
-contacto = NULL
-```
-
-La primera confirmación usa el código `REQUIERE_CONFIRMACION_SIN_CONTACTO` y
-presenta **Crear reservación sin contacto**. Sus acciones canónicas son
-**Volver** y **Crear sin contacto**. El backend devuelve una sola decisión
-pendiente por respuesta; si después falta confirmar la asignación manual, la
-siguiente petición devuelve esa decisión por separado.
-
-Si una reservación fue creada sin contacto, puede agregarse posteriormente. El flujo normal no cambia el tipo de contacto de una reservación que ya lo tiene.
-
-### 9.5 Listado
-
-El listado compacto muestra:
-
-- Sin mesas.
-- 1 mesa.
-- 2 mesas.
-- 3 mesas.
-
-Los números de mesa, ticket y diferencias entre asignación planificada y ocupación física se muestran sólo en detalle.
+Administración puede confirmar bajo responsabilidad si la política vigente lo permite.
 
 ---
 
-## 10. Tolerancia vencida y no-show manual
+## 9.5 Sin contacto
 
-### 10.1 Condición derivada
-
-Una reservación permanece `confirmada` hasta que un operador registre una transición válida.
-
-Se considera ausencia pendiente cuando:
+Código:
 
 ```text
-ahora > fecha_hora_reservacion + 15 minutos
+REQUIERE_CONFIRMACION_SIN_CONTACTO
+```
+
+Acciones:
+
+- Volver.
+- Crear sin contacto.
+
+Las decisiones se devuelven una por respuesta.
+
+---
+
+# 10. Tolerancia y ausencia pendiente
+
+## 10.1 Condición
+
+Existe ausencia pendiente cuando:
+
+```text
+ahora >
+fecha_hora_reservacion
++ TOLERANCIA_LLEGADA_MINUTOS
+
 AND estado = confirmada
+
 AND no existe ticket abierto vinculado
 ```
 
-La comparación es inclusiva:
+Dentro de tolerancia:
 
 ```text
-ahora <= fecha_hora + 15 minutos → dentro de tolerancia
-ahora > fecha_hora + 15 minutos  → ausencia pendiente
+ahora <= limite_tolerancia
 ```
 
-### 10.2 Efecto sobre ocupación
+---
 
-Después de vencer la tolerancia y sin ticket abierto:
+## 10.2 Efecto sobre capacidad
 
-- La reservación deja de bloquear capacidad y mesas.
-- No cambia automáticamente a `no_show`.
-- La mesa puede utilizarse para una nueva operación.
-- La acción pendiente continúa visible hasta que el operador la resuelva.
+Al convertirse en ausencia pendiente:
 
-### 10.3 Representación visual
+- deja de bloquear capacidad;
+- deja de bloquear asignación;
+- no cambia automáticamente de estado;
+- sigue `confirmada`;
+- sigue requiriendo acción manual.
 
-Si no existe otro bloqueo físico:
+Por tanto:
 
-- Fondo verde: mesa disponible.
-- Borde o indicador gris: reservación vencida pendiente de registrar ausencia.
-- Texto accesible: `Acción pendiente: registrar ausencia`.
+```text
+disponible_para_asignacion = true
+```
 
-No se usa azul para esta condición.
+si no existe otro conflicto.
 
-Si existe ticket abierto, el rojo tiene prioridad y no se muestra como ausencia pendiente.
+---
 
-### 10.4 Acción
+## 10.3 Política POS — Opción B
 
-- `puede_iniciar = false`.
-- `puede_marcar_no_show = true`.
-- El registro es manual.
-- La única acción sobre la reservación vencida es **Registrar ausencia**.
+Una ausencia pendiente **NO habilita todavía un walk-in en POS**.
 
-Al confirmar:
+Mientras:
+
+```text
+estado = confirmada
+AND ausencia_pendiente = true
+```
+
+debe cumplirse:
+
+```text
+disponible_para_ticket = false
+puede_iniciar = false
+puede_marcar_no_show = true
+```
+
+La acción obligatoria es:
+
+```text
+Registrar ausencia
+```
+
+Sólo después de ejecutar:
 
 ```text
 confirmada → no_show
 ```
 
-Se libera la asignación de forma atómica. No se abre automáticamente un walk-in.
+la mesa puede utilizarse para un walk-in, sujeto a una nueva validación de ocupación.
+
+No existe apertura automática de ticket.
 
 ---
 
-## 11. Estados
+## 10.4 Visual POS para ausencia pendiente
 
-| Estado | Significado | Bloqueo |
-|---|---|---|
-| `pendiente_verificacion` | Hold esperando OTP | Sí, mientras siga vigente |
-| `confirmada` | Reservación aceptada | Sí, salvo ausencia pendiente |
-| `en_curso` | Existe ticket abierto vinculado | Por `ticket_mesas` |
-| `completada` | Ticket cerrado | No |
-| `cancelada` | Cancelación explícita | No |
-| `no_show` | Ausencia registrada manualmente | No |
-| `expirada` | Hold vencido | No |
-| `reemplazada` | Versión sustituida | No |
+POS conserva el estado operativo especial:
+
+```text
+verde
++
+indicador/borde gris
+```
+
+Texto accesible:
+
+```text
+Acción pendiente: registrar ausencia
+```
+
+Aunque el fondo sea verde:
+
+```text
+disponible_para_ticket = false
+```
+
+hasta registrar `no_show`.
+
+El color no representa por sí solo permiso de acción.
+
+---
+
+## 10.5 Mapa de reservaciones
+
+El mapa administrativo no crea un estado visual especial para ausencia pendiente.
+
+Si la reserva dejó de influir en capacidad y no existe otro bloqueo:
+
+```text
+verde
+```
+
+La incidencia continúa disponible en panel/listado/detalle.
+
+---
+
+# 11. Estados de reservación
+
+| Estado                   | Significado          | Efecto                   |
+| ------------------------ | -------------------- | ------------------------ |
+| `pendiente_verificacion` | Hold OTP             | Bloquea mientras vigente |
+| `confirmada`             | Reservación aceptada | Bloquea según vigencia   |
+| `en_curso`               | Ticket vinculado     | Bloquea por ticket       |
+| `completada`             | Servicio cerrado     | No bloquea               |
+| `cancelada`              | Cancelación          | No bloquea               |
+| `no_show`                | Ausencia registrada  | No bloquea               |
+| `expirada`               | Hold vencido         | No bloquea               |
+| `reemplazada`            | Versión sustituida   | No bloquea               |
 
 Transiciones:
 
@@ -675,587 +1082,912 @@ en_curso
 └── completada
 ```
 
-Estados terminales:
-
-- `completada`
-- `cancelada`
-- `no_show`
-- `expirada`
-- `reemplazada`
-
-`en_curso` no cuenta como reservación activa y se representa mediante el ticket.
-
 ---
 
-## 12. Modificación y cancelación pública
+# 12. Modificación y cancelación pública
 
-### 12.1 Modificación
-
-Se permite hasta 30 minutos antes del inicio original.
-
-La original permanece `confirmada`. Se crea una propuesta:
+La modificación se permite hasta:
 
 ```text
-estado = pendiente_verificacion
-hold_expires_at = ahora + 15 minutos
-reemplaza_reservacion_id = original
-origen = landing
+LIMITE_MODIFICACION_MINUTOS
 ```
 
-La propuesta requiere disponibilidad estricta y asignación automática.
+antes del inicio original.
 
-Secuencia:
+Las propuestas utilizan holds vigentes.
 
-```text
-Modificar
-→ editar
-→ Aceptar
-→ Revisa tu cambio
-→ Confirmar modificación
-```
-
-No se solicita un segundo OTP mientras la sesión pública siga vigente.
-
-La confirmación final es transaccional:
-
-- propuesta `pendiente_verificacion → confirmada`;
-- original `confirmada → reemplazada`.
-
-Si vence el hold, la original sigue vigente.
-
-### 12.2 Horario original
-
-El horario original puede conservarse cuando:
-
-- No cambia fecha ni hora.
-- Faltan al menos 30 minutos.
-- Sigue siendo un horario operativo.
-- La nueva cantidad puede asignarse estrictamente.
-
-La anticipación de 40 minutos aplica sólo a una fecha u hora diferente.
-
-### 12.3 Cancelación
-
-Se permite hasta:
+La cancelación pública se permite hasta:
 
 ```text
-fecha_hora_reservacion + 15 minutos
-```
-
-Al cancelar:
-
-```text
-confirmada → cancelada
+hora_reservacion
++ TOLERANCIA_CANCELACION_PUBLICA_MINUTOS
 ```
 
 No existe eliminación física.
 
 ---
 
-## 13. Integración con punto de venta
+# 13. Integración POS
 
-### 13.1 Inicio de servicio
+## 13.1 Inicio de servicio
 
-Desde 30 minutos antes puede iniciarse una reservación confirmada.
-
-En una transacción:
-
-1. Validar estado y ventana.
-2. Validar todas las mesas.
-3. Crear un ticket.
-4. Crear todas las relaciones `ticket_mesas`.
-5. Vincular `tickets.reservacion_id`.
-6. Cambiar reservación a `en_curso`.
-7. Actualizar `estado_changed_at`.
-
-Una reservación multimesa inicia de forma atómica. No se permite iniciar un subconjunto.
-
-### 13.2 Selección de mesa con ticket abierto
-
-La prioridad de interacción es:
+Puede iniciarse una reservación desde:
 
 ```text
-1. Ticket abierto existente.
-2. Reservación confirmada operable.
-3. Apertura de ticket walk-in.
+INICIO_SERVICIO_ANTICIPADO_MINUTOS
 ```
 
-Cuando una mesa pertenece a un ticket abierto:
+antes de su horario.
 
-- Se muestra el ticket existente.
-- No se muestra **Abrir ticket**.
-- La acción primaria es **Ver ticket** o **Continuar ticket**.
-- Se utiliza el `ticket_id` ya existente.
-- Se muestran todas las mesas vinculadas.
-- Seleccionar cualquiera de sus mesas resuelve el mismo ticket.
-- No se llama al endpoint de creación.
+Debe validarse transaccionalmente:
 
-Contrato mínimo de proyección:
-
-```json
-{
-  "ticket_abierto": {
-    "id": 123,
-    "mesa_ids": [7, 8],
-    "hora_apertura": "14:20:00",
-    "reservacion_id": 45
-  },
-  "puede_abrir_ticket": false,
-  "accion_primaria": "VER_TICKET"
-}
-```
-
-El frontend no deduce esta acción únicamente por el color.
-
-### 13.3 Walk-in con reservación próxima
-
-Entre 60 y 30 minutos antes:
-
-- Se permite continuar sólo después de una advertencia.
-- El modal muestra hora, nombre cuando corresponda, comensales, minutos restantes y consecuencia.
-- El backend vuelve a validar.
-
-Dentro de 30 minutos, la reservación confirmada bloquea el walk-in conforme a las capacidades canónicas.
-
-### 13.4 Cierre
-
-Cerrar un ticket es transaccional e idempotente.
-
-- Actualiza el ticket existente.
-- Si la reservación vinculada está `en_curso`, pasa a `completada`.
-- No crea ni reabre tickets.
-- Las consultas de abiertos usan simultáneamente `estado = abierto` y `closed_at IS NULL`.
+1. estado;
+2. ventana;
+3. mesas;
+4. tickets;
+5. versión;
+6. ocupación;
+7. idempotencia.
 
 ---
 
-## 14. Mapas y representación visual
+## 13.2 Ticket abierto
 
-### 14.1 Componente compartido
-
-POS y gestión de reservaciones reutilizan:
-
-- Mismo mapa.
-- Mismas coordenadas.
-- Mismo shell.
-- Misma toolbar.
-- Misma proyección backend.
-- Mismos componentes de modal y alerta.
-
-No existen dos motores de disponibilidad.
-
-### 14.2 Bloque actual y bloques futuros
-
-- Bloque actual: fotografía física real.
-- Bloques futuros: proyección con liberación estimada.
-
-Para la misma fecha y hora, ambos mapas reciben la misma ocupación canónica. Sólo cambian las acciones disponibles.
-
-### 14.3 Estados visuales
-
-La disponibilidad y la asignación no se deducen de colores. El backend entrega
-hechos comunes por mesa (`ticket_bloquea_consulta`, reservación, minutos,
-intervalo bloqueado, tolerancia, ausencia y disponibilidad para
-ticket/asignación), además de `estado_visual_mapa`,
-`modificadores_visual_mapa` y `aria_label_mapa`. POS y el mapa administrativo
-usan presentadores separados sobre esos mismos hechos.
-
-En el mapa de reservaciones la prioridad visual es:
+Prioridad:
 
 ```text
-1. Selección válida → amarillo
-2. Ticket que bloquea la fecha y hora consultadas → rojo
-3. Reservación confirmada que bloquea el intervalo consultado → rojo
-4. Reservación próxima en 0–30 minutos → azul
-5. Reservación próxima en 30–60 minutos → verde con borde azul punteado
-6. No utilizable → neutro
-7. Disponible → verde
+1. Ticket abierto
+2. Reservación operable
+3. Walk-in
 ```
 
-La leyenda del mapa debe conservar estos significados:
-
-- Verde — Disponible.
-- Rojo — Ocupada.
-- Verde + borde azul punteado — Disponible con reservación en 30–60 minutos.
-- Azul — Reservación próxima.
-- Amarillo — Selección actual.
-- Neutro — No utilizable.
-
-El mapa no proyecta tolerancia, ausencia pendiente ni sus modificadores; esas
-señales permanecen disponibles para POS y para las acciones operativas.
-
-La tolerancia y la ausencia pendiente continúan siendo hechos del dominio y
-estados operativos del POS, pero no crean colores ni bordes propios en este
-mapa. Una reservación confirmada se muestra roja durante su intervalo
-planificado, incluido el inicio exacto y el tiempo posterior al inicio que aún
-pertenece al intervalo.
-La hora y las ventanas se calculan sólo en backend; JavaScript consume la
-proyección recibida mediante `estado_visual_mapa`, `modificadores_mapa` y
-`aria_label_mapa`.
-
-### 14.4 Modo de asignación
-
-Estados de frontend:
-
-- `viewing`
-- `assignment_edit`
-- `saving`
-- `conflict`
-
-Fuera de `assignment_edit`, tocar una mesa no modifica la asignación.
-
-### 14.5 Alertas
-
-Las alertas se superponen sin desplazar el mapa.
-
-Casos mínimos:
-
-- Sin disponibilidad.
-- Reservación sin mesas.
-- Capacidad insuficiente.
-- Ticket abierto.
-- Reservación próxima.
-- Fecha cerrada.
-- Horario inválido.
-- Cambio no guardado.
-- Conflicto al guardar.
-- Proyección actualizada.
+Una mesa con ticket abierto nunca muestra **Abrir ticket**.
 
 ---
 
-## 15. Shell de confirmación
+## 13.3 Walk-in con reservación próxima
 
-Las confirmaciones de landing, administración, mapa y POS utilizan un componente compartido.
+Definir:
 
-### 15.1 Contenido obligatorio
-
-El shell admite:
-
-- Título.
-- Descripción.
-- Resumen.
-- Advertencia.
-- Consecuencia.
-- Acción primaria.
-- Acción secundaria.
-- Estado de carga.
-- Estado deshabilitado.
-- Retorno de foco.
-
-Cada consumidor aporta la causa y la consecuencia. No se acepta un cuerpo genérico con sólo botones.
-
-### 15.2 Dimensiones y legibilidad
-
-Escritorio:
-
-```css
-width: clamp(620px, 72vw, 840px);
-max-width: calc(100vw - 48px);
-max-height: calc(100dvh - 32px);
+```text
+segundos_para_inicio =
+inicio_reservacion - ahora
 ```
 
-Móvil:
+### Normal
 
-```css
-width: calc(100vw - 24px);
-max-height: calc(100dvh - 24px);
+```text
+segundos_para_inicio
+>
+AVISO_RESERVACION_PROXIMA_MINUTOS * 60
 ```
 
-Mínimos:
+Resultado:
 
-- Texto principal: `16px`.
-- Interlineado: `1.45`.
-- Título: mínimo `24px`.
-- Botones: mínimo `46px` de alto.
-- Padding: `24px` móvil y `32px` escritorio.
+```text
+disponible_para_ticket = true
+requiere_advertencia_ticket = false
+```
 
-El shell se monta como portal directamente bajo `document.body`, fuera de paneles, mapas o contenedores con restricciones de ancho, `transform` u `overflow`. El diálogo mantiene `overflow: hidden` y sólo el cuerpo puede desplazarse verticalmente cuando el contenido excede el viewport; encabezado y acciones deben permanecer accesibles.
+### Advertencia
 
-Por debajo de 640 px:
+```text
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60
+<
+segundos_para_inicio
+<=
+AVISO_RESERVACION_PROXIMA_MINUTOS * 60
+```
 
-- Comparaciones y resúmenes en columnas se apilan.
-- Los botones pueden apilarse cuando no quepan con claridad.
+Resultado:
 
-Ningún módulo puede sobrescribir el ancho del shell con medidas locales menores.
+```text
+disponible_para_ticket = true
+requiere_advertencia_ticket = true
+```
 
-### 15.3 Accesibilidad
+La primera petición no hace commit.
 
-- `role="dialog"`.
-- `aria-modal="true"`.
-- Título y descripción asociados.
-- Focus trap.
-- Escape cierra cuando la acción sea cancelable.
-- Foco regresa al disparador.
-- El fondo no queda con `inert`, `aria-hidden` o scroll bloqueado después del cierre.
+La segunda petición, después de confirmación explícita, revalida y puede abrir el ticket.
+
+### Bloqueo
+
+```text
+0
+<=
+segundos_para_inicio
+<=
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60
+```
+
+Resultado:
+
+```text
+disponible_para_ticket = false
+requiere_advertencia_ticket = false
+```
+
+Exactamente en el límite de aviso:
+
+```text
+60 minutos actuales
+→ advertencia
+```
+
+Exactamente en el límite de bloqueo:
+
+```text
+30 minutos actuales
+→ bloqueado
+```
+
+con la configuración vigente.
 
 ---
 
-## 16. Contrato de errores
+## 13.4 Inicio exacto
 
-### 16.1 Regla
-
-El catálogo completo de errores se obtiene mediante un escaneo del módulo antes de centralizarse. No se inventa una lista basada únicamente en documentación.
-
-El escaneo debe cubrir:
-
-- Controladores.
-- Servicios de dominio.
-- Modelos y repositorios.
-- Serializers.
-- Endpoints.
-- JavaScript.
-- Vistas y modales.
-- Pruebas.
-- Excepciones SQL y transacciones.
-
-### 16.2 Inventario obligatorio
-
-Cada error detectado debe registrar:
-
-| Campo | Descripción |
-|---|---|
-| Identificador actual | Código o texto existente |
-| Archivo y línea | Origen exacto |
-| Capa | Dominio, API, infraestructura o interfaz |
-| Condición | Qué lo provoca |
-| HTTP | Estado devuelto |
-| Mensaje actual | Texto mostrado |
-| Consumidores | Landing, admin, mapa o POS |
-| Coherencia | Correcto, ambiguo, duplicado o incorrecto |
-| Consecuencia real | Qué operación se realizó o revirtió |
-| Acción esperada | Qué puede hacer el usuario |
-| Código canónico propuesto | Resultado de la normalización |
-
-### 16.3 Categorías
-
-El catálogo final distingue:
-
-- `VALIDATION`
-- `AUTHENTICATION`
-- `AUTHORIZATION`
-- `CONFLICT`
-- `CAPACITY`
-- `ASSIGNMENT`
-- `TICKET`
-- `STATE`
-- `SECURITY`
-- `INFRASTRUCTURE`
-- `INTERNAL`
-
-### 16.4 Respuesta
-
-Las respuestas de operación deben separar:
+En:
 
 ```text
-ok
-decision_required
+segundos_para_inicio = 0
+```
+
+un walk-in está bloqueado.
+
+La mesa debe resolverse como reservación operable.
+
+La protección debe existir en backend aunque se invoque el endpoint directamente.
+
+La UI no es barrera de seguridad ni de integridad.
+
+---
+
+## 13.5 Durante tolerancia
+
+Si la reservación ya inició, todavía está dentro de tolerancia y no tiene ticket:
+
+```text
+disponible_para_ticket = false
+```
+
+La acción principal es iniciar la reservación.
+
+---
+
+## 13.6 Ausencia pendiente
+
+Aplicar sección 10.3:
+
+```text
+disponible_para_ticket = false
+```
+
+hasta registrar ausencia.
+
+---
+
+# 14. Mapas y representación visual
+
+## 14.1 Principio
+
+POS y mapa de reservaciones reutilizan:
+
+- mismo mapa;
+- mismas coordenadas;
+- mismo shell;
+- mismos hechos backend.
+
+Tienen presentadores separados.
+
+No existe un segundo motor de capacidad.
+
+---
+
+## 14.2 El color NO determina la capacidad
+
+Los colores indican el estado temporal/operativo.
+
+La capacidad y la posibilidad de asignar se determinan mediante:
+
+```text
+disponible_para_asignacion
+```
+
+Por tanto puede existir:
+
+```text
+Mapa:
+verde + borde azul punteado
+
+disponible_para_asignacion:
+false
+```
+
+si una reservación próxima provoca traslape con el intervalo completo solicitado.
+
+Esto es correcto.
+
+En `assignment_edit`, la mesa no puede guardarse aunque visualmente comunique proximidad y no ocupación actual.
+
+---
+
+## 14.3 Estados visuales del mapa de reservaciones
+
+Prioridad:
+
+```text
+1. Selección válida
+2. Ticket que ocupa/bloquea el punto consultado
+3. Reservación que ya inició y sigue influyendo en disponibilidad
+4. Reservación próxima dentro de la ventana de bloqueo
+5. Reservación próxima dentro de la ventana de aviso
+6. No utilizable
+7. Disponible
+```
+
+### Amarillo — selección actual
+
+```text
+seleccionada = true
+AND seleccion_valida = true
+```
+
+La selección no modifica los hechos backend.
+
+---
+
+### Rojo — ocupada
+
+Se muestra rojo cuando:
+
+- existe ticket que bloquea la hora consultada; o
+- la reservación ya comenzó y sigue influyendo en disponibilidad.
+
+Una reservación confirmada que inicia exactamente en la hora consultada:
+
+```text
+rojo
+```
+
+Mientras siga influyendo después del inicio:
+
+```text
+rojo
+```
+
+Si entra en ausencia pendiente y deja de influir:
+
+```text
+verde
+```
+
+en el mapa administrativo.
+
+---
+
+### Azul — reservación próxima
+
+Cuando:
+
+```text
+0 <
+minutos_para_inicio
+<=
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS
+```
+
+Con la configuración actual:
+
+```text
+1–30 minutos
+```
+
+y exactamente:
+
+```text
+30 minutos → azul
+```
+
+Ejemplo:
+
+```text
+Reserva: 13:00
+Consulta: 12:30
+Resultado: azul
+```
+
+---
+
+### Verde con borde azul punteado — reservación cercana
+
+Cuando:
+
+```text
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS
+<
+minutos_para_inicio
+<=
+AVISO_RESERVACION_PROXIMA_MINUTOS
+```
+
+Con la configuración actual:
+
+```text
+31–60 minutos
+```
+
+y exactamente:
+
+```text
+60 minutos → verde con borde azul punteado
+```
+
+Ejemplo:
+
+```text
+Reserva: 13:00
+Consulta: 12:00
+Resultado:
+verde con borde azul punteado
+```
+
+---
+
+### Verde — libre
+
+Cuando no existe:
+
+- ticket bloqueante;
+- reservación iniciada que siga influyendo;
+- reservación próxima dentro del aviso;
+- condición no utilizable.
+
+---
+
+### Neutro — no utilizable
+
+Barras, cajas, para llevar, inactivas o no reservables.
+
+---
+
+## 14.4 Matriz visual del mapa
+
+Con reservación a las 13:00 y configuración actual:
+
+| Hora consultada                           | Estado visual               |
+| ----------------------------------------- | --------------------------- |
+| Antes de 12:00                            | Verde                       |
+| 12:00                                     | Verde + borde azul punteado |
+| 12:01–12:29                               | Verde + borde azul punteado |
+| 12:30                                     | Azul                        |
+| 12:31–12:59                               | Azul                        |
+| 13:00                                     | Rojo                        |
+| Después de 13:00 mientras siga influyendo | Rojo                        |
+| Ausencia pendiente sin otro bloqueo       | Verde                       |
+
+Los límites deben derivarse de configuración, no de literales.
+
+---
+
+## 14.5 Diferencia visual y asignabilidad
+
+Ejemplo:
+
+```text
+Reservación existente:
+13:00
+
+Duración:
+90 minutos
+
+Consulta:
+12:00
+```
+
+Visual:
+
+```text
+verde + borde azul punteado
+```
+
+Pero una nueva reservación:
+
+```text
+12:00–13:30
+```
+
+se traslapa con:
+
+```text
+13:00–14:30
+```
+
+Por tanto:
+
+```text
+disponible_para_asignacion = false
+```
+
+Esto NO es una contradicción.
+
+El visual responde:
+
+```text
+¿Qué tan próxima está la reservación existente?
+```
+
+La asignabilidad responde:
+
+```text
+¿Puede soportar esta mesa todo el nuevo intervalo?
+```
+
+---
+
+## 14.6 POS
+
+POS utiliza los mismos límites visuales antes del inicio:
+
+```text
+> aviso
+→ verde
+
+aviso–bloqueo
+→ verde + borde azul punteado
+
+0–bloqueo
+→ azul
+```
+
+Después del inicio POS puede aplicar estados operativos adicionales:
+
+- inicio de servicio;
+- tolerancia;
+- ausencia pendiente;
+- ticket abierto.
+
+Estos estados no obligan al mapa administrativo a usar el mismo color posterior al inicio.
+
+---
+
+## 14.7 Leyenda del mapa de reservaciones
+
+Debe contener:
+
+```text
+Verde — Disponible
+
+Verde + borde azul punteado —
+Reservación cercana
+
+Azul —
+Reservación próxima
+
+Rojo —
+Ocupada
+
+Amarillo —
+Selección actual
+
+Neutro —
+No utilizable
+```
+
+---
+
+## 14.8 Asignación manual
+
+En modo `assignment_edit`:
+
+- el mapa conserva los estados visuales anteriores;
+- la selección válida continúa amarilla;
+- la autorización se determina con `disponible_para_asignacion`;
+- no se permite persistir una mesa cuyo intervalo esté bloqueado;
+- una mesa azul o con borde azul puede ser visualmente seleccionable sólo como interacción exploratoria, pero debe quedar marcada como conflicto y no guardar;
+- preferentemente el consumidor debe informar:
+  - reservación próxima;
+  - horario;
+  - causa de no asignabilidad.
+
+No usar colores como regla de negocio.
+
+---
+
+# 15. Shell de confirmación
+
+Las superficies utilizan el mismo shell.
+
+Debe soportar:
+
+- título;
+- descripción;
+- resumen;
+- advertencia;
+- consecuencia;
+- acciones provenientes del backend;
+- loading;
+- disabled;
+- retorno de foco.
+
+Los botones de decisiones no usan textos fijos.
+
+Las acciones provienen de:
+
+```text
+acciones[].id
+acciones[].label
+acciones[].tipo
+```
+
+---
+
+# 16. Contrato de decisiones y errores
+
+Distinguir:
+
+```text
+exito
+decision_requerida
 error
 ```
 
-Una falta de asignación automática en administración es `decision_required`, no un error.
+Una decisión válida no se presenta como error.
 
-Para `SIN_ASIGNACION`, el catálogo expone `CONFIRMAR_SIN_MESAS` con la etiqueta **Asignar más tarde** y `VOLVER` con la etiqueta **Volver**. Para una selección manual con capacidad insuficiente se conserva el código `CAPACIDAD_INSUFICIENTE`, separado de los códigos de tickets abiertos.
+Una operación con:
 
-Contrato sugerido:
-
-```json
-{
-  "status": "error",
-  "code": "CODIGO_CANONICO",
-  "category": "CONFLICT",
-  "message": "Mensaje operativo",
-  "consequence": "No se realizó ningún cambio.",
-  "actions": [
-    {"id": "RELOAD", "label": "Actualizar"}
-  ],
-  "context": {},
-  "request_id": "..."
-}
+```text
+commit = true
 ```
 
-No se exponen:
+nunca puede afirmar:
 
-- Excepciones PHP.
-- SQL.
-- Stack traces.
-- Flags internos.
-- Mensajes técnicos sin traducción.
+```text
+No se aplicaron cambios
+```
 
-### 16.5 Códigos ya confirmados
-
-Estos códigos mantienen su separación:
-
-- `SESION_PUBLICA_EXPIRADA`
-- `CSRF_INVALIDO`
-- `OTP_INCORRECTO`
-- `OTP_EXPIRADO`
-- `OTP_INTENTOS_AGOTADOS`
-- `VERIFICACION_NO_ENCONTRADA`
-- `CONTACTO_NO_COINCIDE`
-- `TOLERANCIA_LLEGADA_VENCIDA`
-- `ERROR_INTERNO`
-
-El resto debe confirmarse durante el escaneo.
-
-### 16.6 Centralización
-
-Después del inventario:
-
-- El backend usa un registro único de errores.
-- Los servicios emiten excepciones o resultados tipados.
-- Los controladores no redactan mensajes ad hoc.
-- El frontend renderiza el contrato recibido.
-- Ninguna vista conserva mensajes contradictorios hardcodeados.
-- Las pruebas validan código, categoría, mensaje, consecuencia y acciones.
+Los mensajes y acciones provienen del catálogo canónico.
 
 ---
 
-## 17. Servicios de dominio
+# 17. Servicios de dominio
 
-Responsabilidades:
+## `ReservacionConfig`
 
-### `HorarioReservacionService`
+Única fuente de configuración funcional.
 
-- Horarios efectivos, excepciones, anticipación, cierre y horizonte.
+## `HorarioReservacionService`
 
-### `TicketTemporalService`
+Horarios, excepciones, cierre, horizonte.
 
-- Liberación estimada y proyección actual o futura de tickets.
+## `TicketTemporalService`
 
-### `OcupacionMesasService` y `MesaEstadoService`
+Ocupación física y liberación proyectada de tickets.
 
-- Tickets, reservaciones, holds, ausencias pendientes, bloqueos por mesa y prevención de doble conteo.
+## `OcupacionMesasService`
 
-### `CapacidadReservacionesService` y `DisponibilidadReservacionService`
+Evalúa hechos de ocupación y conflicto de intervalos.
 
-- Capacidad física libre, capacidad real disponible, demanda sin asignar y resultado común para las superficies.
+Debe diferenciar claramente:
 
-### `AsignacionMesasService` y `ReservacionMapaAdministrativaService`
+```text
+ocupacion_fisica
+bloqueo_intervalo
+```
 
-- Candidatos automáticos, grupos autorizados, capacidad de combinaciones, validación manual y versión de asignación.
+## `CapacidadReservacionesService`
 
-### `ReservacionPublicaService` y `ReservacionAdministrativaService`
+Calcula:
 
-- Altas, confirmación, modificación, cancelación, reemplazo, confirmación sin mesas y decisiones explícitas de capacidad.
+- capacidad física libre;
+- demanda no asignada;
+- capacidad real.
 
-### `ReservacionVigenciaService`
+## `DisponibilidadReservacionService`
 
-- Tolerancia de llegada, ausencia pendiente, no-show manual y clasificación operativa.
+Compone capacidad y asignabilidad común.
 
-### `PuntoVentaReservacionService`
+## `MesaEstadoService`
 
-- Inicio y cierre de servicio, tickets vinculados, transiciones POS e idempotencia operativa.
+No debe crear un segundo motor temporal.
 
-### `ReservacionService`, `ContactoAccesoService` y `ReservationClientSession`
+Compone hechos derivados ya calculados:
 
-- Fachada de transiciones históricas delegadas, OTP, intentos, vigencia y sesión pública aislada.
+```text
+ocupada_fisicamente
+bloqueada_en_intervalo
+disponible_para_asignacion
+disponible_para_ticket
+requiere_advertencia_ticket
+ausencia_pendiente
+```
 
-### `PosReservacionQueryService`
+## `AsignacionMesasService`
 
-- Proyección operativa.
-- Ticket abierto.
-- Capacidades y acciones por mesa.
+Usa exclusivamente `disponible_para_asignacion`.
 
-### `PosReservacionSerializer`
+## `ReservacionVigenciaService`
 
-- Contrato `pos-reservacion.v1`.
-- No decide lógica de negocio.
+Determina:
 
-La fachada `ReservacionService`, si se conserva, delega y no implementa un segundo motor.
+- tolerancia;
+- ausencia pendiente;
+- influencia en disponibilidad.
+
+## `PuntoVentaReservacionService`
+
+Autoridad de política POS:
+
+- walk-in;
+- warning;
+- bloqueo;
+- inicio de servicio;
+- ausencia pendiente;
+- idempotencia.
+
+## `PosMesaProjectionPresenter`
+
+Sólo presenta hechos POS.
+
+No redefine ventanas.
+
+## `ReservacionMapaMesaPresenter`
+
+Sólo presenta hechos del mapa.
+
+No calcula capacidad ni traslapes.
+
+## `PosReservacionSerializer`
+
+Serializa.
+
+No decide negocio.
 
 ---
 
-## 18. Transacciones e idempotencia
+# 18. Transacciones e idempotencia
 
-Se requiere transacción para:
+Mutaciones transaccionales:
 
-- Crear reservación.
-- Confirmar hold.
-- Crear modificación.
-- Confirmar modificación.
-- Cancelar.
-- Reasignar mesas.
-- Abrir ticket desde reservación.
-- Cerrar ticket.
-- Registrar no-show.
-
-`request_token` evita doble envío y no sustituye CSRF.
+- crear;
+- confirmar;
+- modificar;
+- cancelar;
+- reasignar;
+- abrir ticket;
+- cerrar ticket;
+- registrar ausencia.
 
 Toda mutación:
 
-1. Valida identidad y CSRF.
-2. Abre transacción.
-3. Bloquea recursos en orden estable.
-4. Recalcula ocupación.
-5. Valida estado y versión.
-6. Ejecuta el cambio.
-7. Confirma o revierte completamente.
+1. identidad;
+2. CSRF;
+3. transacción;
+4. locks;
+5. revalidación;
+6. mutación;
+7. commit/rollback.
 
 ---
 
-## 19. Criterios de aceptación
+# 19. Contratos mínimos de mesa
 
-### Disponibilidad y capacidad
+El backend debe poder emitir una estructura equivalente a:
 
-1. Todas las superficies reciben la misma ocupación canónica.
-2. Landing exige combinación automática válida.
-3. Administración puede confirmar sin mesas sin alterar el cálculo real.
-4. La capacidad física libre suma asientos de mesas disponibles.
-5. Una combinación de mesas con ocho asientos reduce ocho lugares físicos.
-6. Una reservación confirmada sin mesas descuenta sus comensales como demanda no asignada.
-7. Los tickets actuales no afectan días futuros.
-8. Los bloques futuros del mismo día liberan tickets en `hora_apertura + 90 minutos`.
-9. El bloque actual mantiene rojo un ticket que continúa abierto.
-10. La tolerancia de reservación está incluida en los 90 minutos.
-
-### POS y mapa
-
-11. Seleccionar una mesa con ticket abierto muestra ese ticket.
-12. Una mesa con ticket abierto nunca muestra **Abrir ticket**.
-13. Un ticket multimesa se resuelve desde cualquiera de sus mesas.
-14. POS y mapa reciben la misma proyección.
-15. JavaScript no recalcula capacidad o liberación.
-16. Una ausencia pendiente deja la mesa verde con indicador gris.
-17. El no-show sólo se registra manualmente.
-18. Una ausencia pendiente no permite iniciar servicio.
-
-### Administración
-
-19. De 1 a 12 la asignación automática es opcional.
-20. Desde 13 queda deshabilitada.
-21. Sin combinación automática puede confirmarse sin mesas.
-22. Capacidad insuficiente produce advertencia reforzada y no un mensaje engañoso.
-23. Una reservación sin mesas queda visible como asignación pendiente.
-
-### Modales y errores
-
-24. Todos los modales utilizan el mismo shell.
-25. El modal cumple dimensiones y tipografía mínimas.
-26. Cada confirmación explica causa y consecuencia.
-27. No existen mensajes técnicos expuestos.
-28. El catálogo se basa en el escaneo del código.
-29. Un mismo código produce el mismo significado en todas las superficies.
-30. `decision_required` no se presenta como error.
-
-### Integridad
-
-31. No existe doble conteo entre reservación `en_curso` y ticket.
-32. Holds vencidos dejan de bloquear inmediatamente.
-33. Operaciones multimesa son atómicas.
-34. No existe eliminación física desde interfaces.
-35. `estado_changed_at` cambia sólo al cambiar de estado.
-
----
-
-## 20. Documentación complementaria
-
-Esta fuente de verdad no contiene planes de etapas ni reportes históricos.
-
-Los documentos complementarios no modifican este contrato:
-
-```text
-docs/reservaciones/catalogo_errores.md
-docs/reservaciones/historial/
-plan_estabilizacion_reservaciones.md
+```json
+{
+  "mesa_id": 4,
+  "ocupada_fisicamente": false,
+  "bloqueada_en_intervalo": true,
+  "disponible_para_asignacion": false,
+  "disponible_para_ticket": true,
+  "requiere_advertencia_ticket": true,
+  "ausencia_pendiente": false,
+  "estado_visual_mapa": "reservacion-cercana",
+  "estado_visual_pos": "libre",
+  "modificadores_visual_mapa": ["reservacion_advertencia"],
+  "modificadores_visual_pos": ["reservacion_advertencia"]
+}
 ```
 
-Sólo esta fuente de verdad define comportamiento vigente.
+Este contrato es válido para una mesa físicamente libre que no puede asignarse a un intervalo completo pero todavía puede recibir un walk-in con advertencia.
+
+---
+
+# 20. Caso normativo de referencia
+
+Reservación:
+
+```text
+13:00
+```
+
+Configuración:
+
+```text
+DURACION_RESERVACION_MINUTOS = 90
+AVISO_RESERVACION_PROXIMA_MINUTOS = 60
+BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS = 30
+TOLERANCIA_LLEGADA_MINUTOS = 15
+```
+
+## 11:30
+
+```text
+Nueva reservación:
+11:30–13:00
+
+No traslapa.
+```
+
+Resultado:
+
+```text
+disponible_para_asignacion = true
+disponible_para_ticket = true
+warning = false
+mapa = verde
+POS = verde
+```
+
+## 12:00
+
+```text
+Nueva reservación:
+12:00–13:30
+
+Traslapa.
+```
+
+Resultado:
+
+```text
+ocupada_fisicamente = false
+disponible_para_asignacion = false
+disponible_para_ticket = true
+requiere_advertencia_ticket = true
+
+mapa =
+verde + borde azul punteado
+
+POS =
+verde + borde azul punteado
+```
+
+## 12:30
+
+Resultado:
+
+```text
+ocupada_fisicamente = false
+disponible_para_asignacion = false
+disponible_para_ticket = false
+requiere_advertencia_ticket = false
+
+mapa = azul
+POS = azul
+```
+
+## 13:00
+
+Resultado:
+
+```text
+disponible_para_asignacion = false
+disponible_para_ticket = false
+
+mapa = rojo
+
+POS =
+reservación operable / iniciar servicio
+```
+
+No se permite walk-in directo.
+
+## Dentro de tolerancia
+
+```text
+disponible_para_ticket = false
+```
+
+## Después de tolerancia sin ticket
+
+```text
+ausencia_pendiente = true
+
+disponible_para_asignacion = true
+disponible_para_ticket = false
+
+mapa = verde
+
+POS =
+verde + indicador de ausencia pendiente
+```
+
+## Después de Registrar ausencia
+
+```text
+estado = no_show
+ausencia_pendiente = false
+```
+
+Se revalida.
+
+Si no existe otro conflicto:
+
+```text
+disponible_para_ticket = true
+```
+
+---
+
+# 21. Criterios de aceptación
+
+## Capacidad
+
+1. Capacidad usa el intervalo completo configurable.
+2. `DURACION_RESERVACION_MINUTOS` no se replica en literales.
+3. Mesas asignadas descuentan todos sus asientos.
+4. Sin mesas usa demanda no asignada.
+5. Intervalos son semiabiertos.
+6. `disponible_para_asignacion` coincide con capacidad.
+
+## POS
+
+7. `disponible_para_ticket` no se deriva de capacidad.
+8. Exactamente en aviso → warning.
+9. Exactamente en bloqueo → bloqueado.
+10. Inicio exacto → walk-in bloqueado.
+11. Ticket abierto → ver/continuar ticket.
+12. Ausencia pendiente → no permite walk-in.
+13. Registrar ausencia es obligatorio antes de walk-in.
+14. No-show es manual.
+15. Backend revalida toda acción.
+
+## Mapa de reservaciones
+
+16. Verde = disponible.
+17. Verde + borde azul punteado = reservación dentro de ventana de aviso.
+18. Azul = reservación dentro de ventana de bloqueo.
+19. Rojo = ticket bloqueante o reservación ya iniciada que siga influyendo.
+20. Amarillo = selección actual.
+21. Exactamente 60 min → borde azul punteado con configuración actual.
+22. Exactamente 30 min → azul con configuración actual.
+23. Inicio exacto → rojo.
+24. Los colores no determinan asignabilidad.
+25. `assignment_edit` usa `disponible_para_asignacion`.
+26. Ausencia pendiente no crea color especial en mapa administrativo.
+
+## Integridad
+
+27. POS y mapa consumen los mismos hechos.
+28. Pueden tener presentaciones diferentes después del inicio.
+29. JavaScript no calcula intervalos.
+30. JavaScript no calcula ventanas 60/30.
+31. No existe doble conteo reservación/ticket.
+32. Configuración es única.
+33. Serializers no deciden negocio.
+34. Presenters no deciden negocio.
+35. Todas las mutaciones son transaccionales e idempotentes.
+
+---
+
+# 22. Documentación complementaria
+
+Los documentos de:
+
+```text
+docs/reservaciones/
+```
+
+pueden contener auditorías, reportes y evidencia.
+
+No modifican esta fuente.
+
+Sólo:
+
+```text
+docs/reservaciones.md
+```
+
+define el comportamiento vigente.
