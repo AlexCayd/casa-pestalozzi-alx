@@ -640,9 +640,28 @@ Después se recalcula completamente la mesa.
 
 ---
 
-# 11. Simbología visual canónica
+# 11. Simbología visual canónica del mapa administrativo
 
-Esta sección es la única definición normativa de colores del mapa.
+Esta sección define la presentación del mapa administrativo de reservaciones.
+
+El POS tiene una presentación propia. Comparte los hechos de dominio, pero no
+debe copiar automáticamente el color del mapa:
+
+```text
+mismos hechos backend
+≠
+mismo color en todas las superficies
+```
+
+En particular:
+
+```text
+MAPA ADMINISTRATIVO
+rojo puede representar ocupación planificada
+
+POS
+rojo representa ocupación física o ticket abierto
+```
 
 Los colores representan estados visuales.
 
@@ -1236,6 +1255,23 @@ Es un conflicto real entre dos reservaciones cuyos intervalos planificados de oc
 
 # 17. POS
 
+El POS resuelve `estado_visual_pos` mediante `PosMesaProjectionPresenter`.
+`estado_visual_mapa` pertenece al presenter del mapa administrativo y no se
+reutiliza para decidir el color POS.
+
+La precedencia de presentación POS es:
+
+```text
+ticket_abierto u ocupada_fisicamente → rojo
+reservación desde 0 hasta BLOQUEO antes → azul
+reservación iniciada dentro de tolerancia → azul
+reservación en ventana de aviso → verde + borde azul punteado
+ausencia_pendiente → agregar gris al estado base recalculado
+```
+
+El rojo POS no representa una reservación confirmada sin ticket por el solo
+hecho de haber llegado su hora.
+
 ## 17.1 Walk-in normal
 
 Cuando:
@@ -1305,8 +1341,11 @@ el walk-in continúa bloqueado.
 Visual:
 
 ```text
-rojo
+azul
 ```
+
+La mesa espera al cliente y no se considera ocupada físicamente mientras no
+exista ticket abierto.
 
 ---
 
@@ -1327,7 +1366,7 @@ El visual conserva el estado base y agrega gris.
 
 # 18. Mapa de reservaciones
 
-El mapa utiliza la misma simbología:
+El mapa conserva su propia simbología de proyección administrativa:
 
 ```text
 Verde
@@ -1353,6 +1392,10 @@ Gris
 ```
 
 El mapa no deduce asignabilidad por color.
+
+Estas reglas no obligan al POS a usar rojo en el inicio exacto o durante la
+tolerancia. El POS mantiene azul en esas ventanas hasta que exista ticket
+abierto.
 
 ---
 
@@ -1425,6 +1468,7 @@ Ejemplo con tolerancia vencida:
   "mesa_id": 4,
 
   "estado_visual_mapa": "ocupada",
+  "estado_visual_pos": "libre",
 
   "modificadores_visual_mapa": ["ausencia_pendiente"],
 
@@ -1435,7 +1479,7 @@ Ejemplo con tolerancia vencida:
 Resultado:
 
 ```text
-rojo + gris
+rojo + gris (mapa administrativo)
 ```
 
 ---
