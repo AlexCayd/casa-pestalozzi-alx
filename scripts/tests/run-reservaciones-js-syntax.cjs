@@ -68,6 +68,12 @@ assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operac
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
 assertContract(!operation.includes('ventana_operativa'), 'operacion no recalcula ventanas visuales');
 assertContract(operation.includes('estado_visual_mapa'), 'operacion consume proyeccion visual del backend');
+assertContract(operation.includes('currentAssignmentIds'), 'operacion conserva snapshot de asignacion actual');
+assertContract(operation.includes('candidateSelectionIds'), 'operacion separa seleccion candidata');
+assertContract(!operation.includes('state.mesasSeleccionadas'), 'operacion no reutiliza una coleccion ambigua de mesas');
+assertContract(operation.includes('mesa_ids_actuales[]'), 'operacion envia el snapshot actual al backend');
+assertContract(operation.includes('mesa.ticket_abierto !== true'), 'operacion excluye tickets de la seleccion candidata');
+assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
 assertContract(tableAdapter.includes('options.estadoVisual'), 'adaptador consume estado visual explicito');
 assertContract(!tableAdapter.includes('raw.estado_visual_mapa'), 'adaptador no filtra proyeccion administrativa al POS');

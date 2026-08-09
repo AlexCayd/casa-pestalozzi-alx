@@ -483,7 +483,8 @@
             var mesa = tableStateById(mesaId);
             return Boolean(mesa)
                 && mesa.reservable === true
-                && mesa.disponible_para_asignacion === true;
+                && mesa.disponible_para_asignacion === true
+                && mesa.ticket_abierto !== true;
         }
 
         function candidateIdsFromCurrent() {
@@ -495,7 +496,8 @@
                 var mesa = tableStateById(mesaId);
                 return Boolean(mesa)
                     && mesa.asignada_actualmente === true
-                    && mesa.disponible_para_asignacion !== true;
+                    && (mesa.ticket_abierto === true
+                        || mesa.disponible_para_asignacion !== true);
             });
         }
 
@@ -506,6 +508,14 @@
             }
 
             var names = conflicts.map(mesaNombre).join(', ');
+            var ticketConflicts = conflicts.filter(function (mesaId) {
+                var mesa = tableStateById(mesaId);
+                return mesa && mesa.causa_conflicto_asignacion === 'ticket_abierto';
+            });
+            if (conflicts.length === 1 && ticketConflicts.length === 0) {
+                return 'La asignacion actual tiene un conflicto. ' + names +
+                    ' no esta disponible para una nueva asignacion. Selecciona otra mesa para completar la reasignacion.';
+            }
             if (conflicts.length === 1) {
                 return 'La asignación actual tiene un conflicto. ' + names +
                     ' está ocupada por un ticket abierto. Selecciona una nueva mesa para completar la reasignación.';
