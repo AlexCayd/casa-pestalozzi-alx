@@ -373,7 +373,6 @@ class ReservacionOperacionController
                 'fecha_esperada' => (string)($_POST['fecha'] ?? ''),
                 'hora_esperada' => (string)($_POST['hora'] ?? ''),
                 'mesa_ids_actuales' => (array)($_POST['mesa_ids_actuales'] ?? []),
-                'permitir_superposicion_ticket_abierto' => true,
                 'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
             ]
         );

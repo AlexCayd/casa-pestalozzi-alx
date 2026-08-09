@@ -2281,7 +2281,12 @@
                         openCapacityConflictModal(error);
                         return;
                     }
-                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO', 'DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
+                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO'].indexOf(error.codigo) !== -1) {
+                        closeTicketConflictModal();
+                        showInlineError(error.mensaje || '', error);
+                        return;
+                    }
+                    if (error && ['DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
                         openTicketConflictModal(error);
                         return;
                     }

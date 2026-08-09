@@ -445,11 +445,13 @@ class AsignacionMesasService
                     $mesaIds
                 );
                 if ($conflictosTicket !== []) {
-                    if (empty($opciones['permitir_superposicion_ticket_abierto'])) {
+                    if ($modoMapaAdministrativo || empty($opciones['permitir_superposicion_ticket_abierto'])) {
                         self::rollbackSiPropia($db, $gestionarTransaccion);
                         return [
                             'ok' => false,
                             'codigo' => self::SUPERPOSICION_NO_AUTORIZADA,
+                            'requiere_confirmacion' => false,
+                            'confirmaciones_requeridas' => [],
                             'conflictos_ticket' => $conflictosTicket,
                         ];
                     }

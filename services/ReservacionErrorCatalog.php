@@ -394,6 +394,13 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'No se aplicó la asignación solicitada.',
             'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary']],
         ],
+        'SUPERPOSICION_NO_AUTORIZADA' => [
+            'titulo' => 'Mesa ocupada por un ticket',
+            'mensaje' => 'La nueva asignaciÃ³n no puede incluir una mesa con un ticket abierto.',
+            'descripcion' => 'El ticket walk-in permanece vÃ¡lido y no se cerrarÃ¡ ni se moverÃ¡.',
+            'consecuencia' => 'Selecciona otra mesa para completar la reasignaciÃ³n.',
+            'acciones' => [['id' => 'ACTUALIZAR_MAPA', 'tipo' => 'primary'], ['id' => 'VOLVER', 'tipo' => 'secondary']],
+        ],
         'CONFLICTO_CONCURRENTE' => [
             'titulo' => 'La información cambió',
             'mensaje' => 'La operación perdió vigencia porque otra acción actualizó los datos.',
