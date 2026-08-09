@@ -621,6 +621,62 @@ En `assignment_edit`:
 - el frontend puede mostrar tooltip/estado de conflicto;
 - no se debe inferir el permiso por color.
 
+### Conflicto posterior de una asignación persistida
+
+Una asignación persistida puede quedar posteriormente en conflicto debido a
+una ocupación física nueva, como un ticket walk-in abierto sobre una de sus
+mesas.
+
+Este conflicto no invalida el snapshot histórico de la asignación ni impide
+entrar en `assignment_edit` mientras:
+
+- la reservación permanezca `confirmada`;
+- continúe siendo editable;
+- no tenga un ticket propio abierto.
+
+La edición distingue obligatoriamente:
+
+```text
+currentAssignmentIds:
+mesas persistidas actualmente en reservacion_mesas al abrir el modo de edición.
+
+candidateSelectionIds:
+mesas que el operador propone guardar como nueva asignación.
+```
+
+Ambos conjuntos son conceptualmente diferentes y no deben utilizar la misma
+colección mutable.
+
+Una mesa puede cumplir simultáneamente:
+
+```text
+asignada_actualmente = true
+ocupada_fisicamente = true
+disponible_para_asignacion = false
+```
+
+Esto significa que forma parte de la asignación persistida que se intenta
+corregir, pero no puede formar parte de una nueva selección válida.
+
+Las mesas de la asignación anterior permanecen visibles aunque hayan quedado
+en conflicto. La validación de disponibilidad para guardar se aplica
+exclusivamente a `candidateSelectionIds`; la asignación anterior no necesita
+seguir disponible para poder reemplazarla.
+
+Una mesa con ticket abierto ajeno no puede confirmarse como nueva asignación,
+aunque anteriormente perteneciera a la reservación.
+
+La reasignación:
+
+- no cierra el ticket;
+- no mueve el ticket;
+- no modifica `ticket_mesas`;
+- no vincula el ticket a la reservación;
+- no realiza una reasignación automática silenciosa.
+
+Una reservación `en_curso` con ticket propio abierto no utiliza este flujo
+normal de `assignment_edit`.
+
 ---
 
 # 7. Intervalos y proyección temporal
@@ -1584,6 +1640,9 @@ En modo `assignment_edit`:
 - la selección válida continúa amarilla;
 - la autorización se determina con `disponible_para_asignacion`;
 - no se permite persistir una mesa cuyo intervalo esté bloqueado;
+- una mesa de `currentAssignmentIds` puede permanecer roja por ticket abierto
+  y mostrar una indicación secundaria de `asignada_actualmente`, pero no forma
+  parte de `candidateSelectionIds` si no está disponible;
 - una mesa azul o con borde azul puede ser visualmente seleccionable sólo como interacción exploratoria, pero debe quedar marcada como conflicto y no guardar;
 - preferentemente el consumidor debe informar:
   - reservación próxima;
@@ -1777,6 +1836,7 @@ El backend debe poder emitir una estructura equivalente a:
 ```json
 {
   "mesa_id": 4,
+  "asignada_actualmente": false,
   "ocupada_fisicamente": false,
   "bloqueada_en_intervalo": true,
   "disponible_para_asignacion": false,
@@ -1789,6 +1849,34 @@ El backend debe poder emitir una estructura equivalente a:
   "modificadores_visual_pos": ["reservacion_advertencia"]
 }
 ```
+
+En `assignment_edit`, el contrato mínimo agrega `asignada_actualmente` y,
+cuando exista, `causa_conflicto_asignacion`. Por ejemplo:
+
+```json
+{
+  "mesa_id": 4,
+  "asignada_actualmente": true,
+  "ocupada_fisicamente": true,
+  "disponible_para_asignacion": false,
+  "causa_conflicto_asignacion": "ticket_abierto"
+}
+```
+
+La lectura administrativa debe transportar además un snapshot explícito:
+
+```json
+{
+  "assignment_snapshot": {
+    "mesa_ids": [4],
+    "version": "..."
+  }
+}
+```
+
+El amarillo sólo representa una mesa incluida en `candidateSelectionIds` y
+con `disponible_para_asignacion = true`. La ocupación física por ticket
+mantiene precedencia roja.
 
 Este contrato es válido para una mesa físicamente libre que no puede asignarse a un intervalo completo pero todavía puede recibir un walk-in con advertencia.
 
