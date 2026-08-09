@@ -638,6 +638,27 @@ function initMapa() {
     }) || null;
   }
 
+  function resolverOpcionesModalReservacion(context) {
+    context = context || {};
+    var mesa = context.mesa || {};
+    var reserva = context.reserva || {};
+    var previousOptions = context.previousOptions || {};
+    var backend = context.backend || mesaEstadoPorId(mesa.id) || {};
+    var facts = Object.assign({}, mesa, backend);
+    var allowWalkIn = previousOptions.allowWalkIn === true
+      && String(reserva.estado || '') === 'confirmada'
+      && facts.disponible_para_ticket === true
+      && facts.requiere_advertencia_ticket === true
+      && facts.ticket_abierto !== true
+      && facts.ausencia_pendiente !== true
+      && reserva.ticket_abierto !== true
+      && reserva.ausencia_pendiente !== true;
+
+    return Object.assign({}, previousOptions, {
+      allowWalkIn: allowWalkIn
+    });
+  }
+
   // El estado del mapa ya fue decidido por MesaEstadoService en el servidor.
   function estadoMesa(mesaId) {
     var estado = mesaEstadoPorId(mesaId);
@@ -1453,10 +1474,19 @@ function initMapa() {
       };
     }
 
+    var modalOptions = resolverOpcionesModalReservacion({
+      mesa: mesa,
+      reserva: reserva,
+      previousOptions: {
+        allowWalkIn: options.allowWalkIn === true
+      }
+    });
+
     activeReservationModal = {
       id: parseInt(reserva.id || reserva.reservacion_id, 10),
       mesaId: mesa.id,
-      reserva: reserva
+      reserva: reserva,
+      options: modalOptions
     };
 
     var estado = reserva.estado === 'en_curso'
@@ -1464,9 +1494,9 @@ function initMapa() {
       : 'reservada';
     commandaItems = [];
     selectedComensal = 0;
-    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null, options);
+    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null, modalOptions);
     openModalShell();
-    bindModalActions(mesa, reserva, null, options);
+    bindModalActions(mesa, reserva, null, modalOptions);
   }
 
   function closeModal(options) {
@@ -4162,11 +4192,17 @@ function initMapa() {
 
     var focused = document.activeElement;
     var focusedId = focused && modalContent.contains(focused) ? focused.id : '';
+    var modalOptions = resolverOpcionesModalReservacion({
+      mesa: mesa,
+      reserva: reservaActual,
+      previousOptions: activeReservationModal.options
+    });
     activeReservationModal.reserva = reservaActual;
     activeReservationModal.mesaId = mesa.id;
+    activeReservationModal.options = modalOptions;
     var estado = reservaActual.estado === 'en_curso' ? 'ocupada' : 'reservada';
-    modalContent.innerHTML = buildModalContent(mesa, estado, reservaActual, null);
-    bindModalActions(mesa, reservaActual, null);
+    modalContent.innerHTML = buildModalContent(mesa, estado, reservaActual, null, modalOptions);
+    bindModalActions(mesa, reservaActual, null, modalOptions);
 
     if (focusedId) {
       var nextFocus = document.getElementById(focusedId);
