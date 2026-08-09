@@ -42,6 +42,38 @@ $blockingReservation = ReservacionMapaMesaPresenter::presentar([
 assertMapContract($blockingReservation['estado_visual'] === 'reservacion-proxima', '30 minutos usa azul de reservacion');
 assertMapContract($blockingReservation['modificadores'] === ['reservacion_inminente'], '30 minutos usa modificador inminente');
 
+$redAbsence = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'ticket_bloquea_consulta' => true,
+    'reservacion' => [
+        'ventana_mapa' => 'inicio',
+        'ausencia_pendiente' => true,
+    ],
+]);
+assertMapContract($redAbsence['estado_visual'] === 'ocupada', 'rojo conserva la base con ausencia');
+assertMapContract(in_array('ausencia_pendiente', $redAbsence['modificadores'], true), 'rojo agrega ausencia como modificador');
+
+$blueAbsence = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'reservacion' => [
+        'ventana_mapa' => 'bloqueo',
+        'ausencia_pendiente' => true,
+    ],
+]);
+assertMapContract($blueAbsence['estado_visual'] === 'reservacion-proxima', 'azul conserva la base con ausencia');
+assertMapContract($blueAbsence['modificadores'] === ['reservacion_inminente', 'ausencia_pendiente'], 'azul compone ausencia');
+
+$warningAbsence = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'reservacion' => [
+        'ventana_mapa' => 'advertencia',
+        'ausencia_pendiente' => true,
+    ],
+]);
+assertMapContract($warningAbsence['estado_visual'] === 'libre', 'verde conserva la base con ausencia');
+assertMapContract($warningAbsence['modificadores'] === ['reservacion_advertencia', 'ausencia_pendiente'], 'advertencia azul y ausencia gris coexisten');
+assertMapContract(str_contains($warningAbsence['label'], 'ausencia'), 'mapa anuncia ausencia en su etiqueta');
+
 $start = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
     'bloqueada_en_intervalo' => true,

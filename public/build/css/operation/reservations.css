@@ -2190,12 +2190,15 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--map-table-occupied-text);
 }
 
-.mesas-map .mesa-pin--libre.mesa-pin--mod-ausencia_pendiente {
-  border-color: var(--map-table-reservation-overdue-border);
-  border-style: solid;
-  border-width: 2px;
-  background: var(--map-table-available-bg);
-  color: var(--map-table-available-text);
+.mesas-map .mesa-pin--mod-ausencia_pendiente::after,
+.mesas-map .mesa-pin--mod-accion_pendiente::after,
+.mesas-map .mesa-pin--mod-AUSENCIA_PENDIENTE::after {
+  position: absolute;
+  inset: 3px;
+  border: 2px solid var(--map-table-reservation-overdue-border);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
 }
 
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,

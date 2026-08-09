@@ -39,7 +39,7 @@ $usuarioJson = json_encode([
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v3">
+  <link rel="stylesheet" href="/build/css/app.css?v=pos-reservations-v4">
 </head>
 
 <body class="mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
@@ -121,7 +121,7 @@ $usuarioJson = json_encode([
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
-  <script src="/build/js/admin/map.js?v=pos-reservations-v8"></script>
+  <script src="/build/js/admin/map.js?v=pos-reservations-v9"></script>
 </body>
 
 </html>

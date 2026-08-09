@@ -50,6 +50,34 @@ assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'libre', 'ausencia p
 assertPosAbsenceVisual($visualAusencia['modificadores'] === ['ausencia_pendiente'], 'ausencia pendiente agrega indicador gris');
 assertPosAbsenceVisual(str_contains($visualAusencia['aria_label'], 'Acción pendiente: registrar ausencia'), 'aria anuncia la accion pendiente');
 
+$visualRoja = PosMesaProjectionPresenter::presentar([
+    'utilizable' => true,
+    'ticket_bloquea_consulta' => true,
+    'reservacion' => array_merge($reservacion, $politicaAusencia),
+]);
+assertPosAbsenceVisual($visualRoja['estado_visual'] === 'ocupada', 'rojo conserva el estado base con ausencia');
+assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualRoja['modificadores'], true), 'rojo conserva el indicador gris');
+
+$visualAzul = PosMesaProjectionPresenter::presentar([
+    ...$mesaHechos,
+    'reservacion' => array_merge($reservacion, [
+        'ventana_visual_pos' => 'bloqueo',
+        'ausencia_pendiente' => true,
+    ]),
+]);
+assertPosAbsenceVisual($visualAzul['estado_visual'] === 'reservacion-proxima', 'azul conserva el estado base con ausencia');
+assertPosAbsenceVisual($visualAzul['modificadores'] === ['reservacion_inminente', 'ausencia_pendiente'], 'azul compone el indicador gris');
+
+$visualAdvertenciaAusencia = PosMesaProjectionPresenter::presentar([
+    ...$mesaHechos,
+    'reservacion' => array_merge($reservacion, [
+        'ventana_visual_pos' => 'advertencia',
+        'ausencia_pendiente' => true,
+    ]),
+]);
+assertPosAbsenceVisual($visualAdvertenciaAusencia['estado_visual'] === 'libre', 'advertencia conserva el verde base con ausencia');
+assertPosAbsenceVisual($visualAdvertenciaAusencia['modificadores'] === ['reservacion_advertencia', 'ausencia_pendiente'], 'advertencia y ausencia son composables');
+
 $visualConTicket = PosMesaProjectionPresenter::presentar([
     'utilizable' => true,
     'ticket_bloquea_consulta' => true,
