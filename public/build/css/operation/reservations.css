@@ -2166,7 +2166,7 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-unavailable-bg);
 }
 
-.mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+.mesas-map .mesa-pin--libre.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;

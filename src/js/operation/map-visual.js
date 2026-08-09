@@ -230,6 +230,7 @@
             pin.setAttribute('data-estado-visual', table.estadoVisual);
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
+            pin.setAttribute('data-disabled', table.interactivo ? '0' : '1');
             pin.setAttribute('aria-disabled', table.interactivo ? 'false' : 'true');
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
