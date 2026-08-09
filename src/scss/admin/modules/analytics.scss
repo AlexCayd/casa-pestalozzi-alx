@@ -247,27 +247,32 @@
   }
 
   // ── Nivel 3: contexto ─────────────────────────────────────────
+  // Antes era una banda gris con los datos centrados dentro, un tratamiento que
+  // no existe en ningún otro módulo. Ahora son tarjetas del mismo vocabulario
+  // que el resto del panel, solo que más bajas: son contexto, no titular.
   .admin-metrics-strip {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px 28px;
-    padding: 14px 20px;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-md);
-    background: var(--admin-surface-soft);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
   }
 
-  // Cada chip se apila y centra: alineados a la izquierda en una fila que no
-  // llena el ancho, "Platillos vendidos" y "Reservaciones" quedaban colgando
-  // del borde izquierdo de una banda vacía.
   .admin-metric-chip {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 2px;
     min-width: 0;
+    padding: 16px 18px;
+    gap: 4px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+    transition:
+      border-color var(--admin-t-base) var(--admin-ease-out),
+      box-shadow var(--admin-t-base) var(--admin-ease-out);
+
+    &:hover {
+      border-color: var(--admin-border);
+      box-shadow: var(--admin-shadow-sm);
+    }
 
     &__label {
       color: var(--admin-muted);
@@ -277,11 +282,15 @@
       text-transform: uppercase;
     }
 
+    // Serif y cifras tabulares, igual que las tarjetas de arriba: la columna de
+    // números se lee alineada aunque cambien de magnitud.
     &__value {
       color: var(--admin-text);
-      font-size: 17px;
-      font-weight: 800;
+      font-family: var(--admin-font-heading);
+      font-size: 26px;
+      font-weight: 700;
       font-variant-numeric: tabular-nums;
+      line-height: 1.1;
     }
 
     &__detail {
@@ -343,386 +352,8 @@
 
   // El KPI destacado ya no es una tarjeta: es .admin-hero, arriba.
   // Las de apoyo quedan todas al mismo peso, que es justo lo que se busca.
-
-  /*
-   * ── Selector de periodo ───────────────────────────────────────
-   * Reemplaza al <select> estrecho más dos <input type="date">. El disparador
-   * muestra la etiqueta legible y las fechas reales; el popover trae los
-   * accesos rápidos y un calendario de dos meses con el tramo resaltado.
-   */
-  .admin-range {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
-
-    &__caption {
-      color: var(--admin-muted);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    &__trigger {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-height: 58px;
-      padding: 10px 16px;
-      border: 1px solid var(--admin-border);
-      border-radius: var(--admin-radius-sm);
-      background: var(--admin-surface);
-      color: var(--admin-text);
-      box-shadow: var(--admin-shadow-sm);
-      cursor: pointer;
-      text-align: left;
-      transition:
-        border-color var(--admin-t-base) var(--admin-ease-out),
-        box-shadow var(--admin-t-base) var(--admin-ease-out);
-
-      &:hover {
-        border-color: var(--admin-gold);
-      }
-
-      &:focus-visible {
-        outline: none;
-        box-shadow: var(--admin-focus-ring);
-      }
-
-      &[aria-expanded="true"] {
-        border-color: var(--admin-gold);
-      }
-    }
-
-    &__icon {
-      width: 20px;
-      height: 20px;
-      flex: 0 0 20px;
-      fill: none;
-      stroke: var(--admin-gold);
-      stroke-width: 1.7;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    &__trigger-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-    }
-
-    &__trigger-label {
-      color: var(--admin-text);
-      font-size: 14px;
-      font-weight: 800;
-      line-height: 1.2;
-      white-space: nowrap;
-    }
-
-    &__trigger-dates {
-      color: var(--admin-muted);
-      font-size: 12px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    &__chevron {
-      width: 16px;
-      height: 16px;
-      flex: 0 0 16px;
-      margin-left: auto;
-      fill: none;
-      stroke: var(--admin-muted);
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    &__pop {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      z-index: 60;
-      display: flex;
-      width: max-content;
-      max-width: min(660px, calc(100vw - 32px));
-      // Sin tope de alto el popover se salía por abajo y recortaba la lista de
-      // presets. Las clases --arriba / --izq las aplica ajustarPosicion().
-      max-height: min(560px, calc(100vh - 120px));
-      border: 1px solid var(--admin-border);
-      border-radius: var(--admin-radius-md);
-      background: var(--admin-surface);
-      box-shadow: var(--admin-shadow-lg);
-      overflow: auto;
-
-      &[hidden] {
-        display: none;
-      }
-
-      &--arriba {
-        top: auto;
-        bottom: calc(100% + 8px);
-      }
-
-      &--izq {
-        right: auto;
-        left: 0;
-      }
-    }
-
-    &__presets {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding: 12px;
-      // El radio lo daba el overflow:hidden del popover, que ya no está.
-      border-radius: var(--admin-radius-md) 0 0 var(--admin-radius-md);
-      border-right: 1px solid var(--admin-border-soft);
-      background: var(--admin-surface-soft);
-      overflow-y: auto;
-      min-height: 0;
-    }
-
-    &__preset {
-      padding: 9px 14px;
-      border: 0;
-      border-radius: var(--admin-radius-sm);
-      background: transparent;
-      color: var(--admin-muted);
-      font: inherit;
-      font-size: 13px;
-      font-weight: 700;
-      text-align: left;
-      white-space: nowrap;
-      cursor: pointer;
-
-      &:hover {
-        background: var(--admin-surface);
-        color: var(--admin-text);
-      }
-
-      &.is-active {
-        background: var(--admin-gold);
-        color: #1b1a17;
-      }
-    }
-
-    &__cal {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 14px 16px 12px;
-      min-width: 0;
-      min-height: 0;
-    }
-
-    &__nav {
-      display: grid;
-      grid-template-columns: 32px 1fr 1fr 32px;
-      align-items: center;
-      gap: 8px;
-    }
-
-    &__nav-btn {
-      display: grid;
-      width: 32px;
-      height: 32px;
-      place-items: center;
-      border: 1px solid var(--admin-border-soft);
-      border-radius: var(--admin-radius-sm);
-      background: transparent;
-      color: var(--admin-text);
-      cursor: pointer;
-
-      svg {
-        width: 15px;
-        height: 15px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-      }
-
-      &:hover:not(:disabled) {
-        border-color: var(--admin-gold);
-      }
-
-      &:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-    }
-
-    &__month-title {
-      color: var(--admin-text);
-      font-size: 13px;
-      font-weight: 800;
-      text-align: center;
-    }
-
-    &__months {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 22px;
-    }
-
-    &__weekdays,
-    &__grid {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 2px;
-    }
-
-    &__weekdays {
-      margin-bottom: 6px;
-
-      span {
-        color: var(--admin-faint);
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        text-align: center;
-        text-transform: uppercase;
-      }
-    }
-
-    /*
-     * El tramo se pinta con un fondo continuo detrás de los días interiores
-     * (::before a sangre entre celdas) y los extremos en dorado sólido, que es
-     * como se lee un rango en las interfaces de viajes.
-     */
-    &__day {
-      position: relative;
-      display: grid;
-      min-height: 34px;
-      place-items: center;
-      border: 0;
-      background: transparent;
-      color: var(--admin-text);
-      font: inherit;
-      font-size: 12.5px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      cursor: pointer;
-
-      &::before {
-        content: "";
-        position: absolute;
-        inset: 2px -1px;
-        z-index: 0;
-        border-radius: 0;
-      }
-
-      > * ,
-      &:not(.is-empty) {
-        position: relative;
-      }
-
-      &.is-empty {
-        cursor: default;
-      }
-
-      &.is-disabled {
-        color: var(--admin-faint);
-        cursor: not-allowed;
-      }
-
-      &.is-today:not(.is-edge) {
-        color: var(--admin-gold);
-        font-weight: 800;
-      }
-
-      &:hover:not(.is-disabled):not(.is-empty):not(.is-edge)::before {
-        border-radius: 8px;
-        background: var(--admin-surface-soft);
-      }
-
-      &.is-inside::before {
-        background: rgba(204, 163, 82, 0.18);
-      }
-
-      &.is-edge {
-        color: #1b1a17;
-        font-weight: 800;
-        z-index: 1;
-      }
-
-      &.is-edge::before {
-        background: var(--admin-gold);
-      }
-
-      &.is-start::before {
-        border-radius: 8px 0 0 8px;
-        inset: 2px -1px 2px 2px;
-      }
-
-      &.is-end::before {
-        border-radius: 0 8px 8px 0;
-        inset: 2px 2px 2px -1px;
-      }
-
-      &.is-single::before {
-        border-radius: 8px;
-        inset: 2px;
-      }
-    }
-
-    &__foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      padding-top: 10px;
-      border-top: 1px solid var(--admin-border-soft);
-    }
-
-    &__summary {
-      color: var(--admin-muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    &__foot-actions {
-      display: flex;
-      gap: 8px;
-      margin-left: auto;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .admin-range__pop {
-      right: auto;
-      left: 0;
-      flex-direction: column;
-      max-width: calc(100vw - 32px);
-    }
-
-    .admin-range__presets {
-      flex-direction: row;
-      flex-wrap: wrap;
-      border-right: 0;
-      border-bottom: 1px solid var(--admin-border-soft);
-    }
-
-    .admin-range__months {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .admin-range__month--b,
-    .admin-range__month-title--b {
-      display: none;
-    }
-
-    .admin-range__nav {
-      grid-template-columns: 32px 1fr 32px;
-    }
-  }
+  // El selector de periodo se mudó a shared/components/_range-picker.scss:
+  // finanzas e inventario usan el mismo componente.
 
   .admin-chart-grid {
     display: grid;
@@ -1345,6 +976,30 @@
  * modal se renderiza fuera de .admin-analytics; reutiliza .admin-nivel1-badge
  * para que los colores de clase sean los mismos que en la gráfica y la tabla.
  */
+// Cuerpo scrolleable del modal --xwide: el encabezado y el pie quedan fijos y
+// solo esta sección se desplaza. Sin el min-height:0 el hijo flex se niega a
+// encoger por debajo de su contenido y el overflow-y nunca se activa.
+.admin-modal__dialog--xwide > .admin-n1-guide {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--admin-gold) 38%, transparent);
+  }
+}
+
+.admin-modal__dialog--xwide > .admin-modal__head,
+.admin-modal__dialog--xwide > .admin-modal__actions {
+  flex: 0 0 auto;
+}
+
 .admin-n1-guide {
   border-top: 1px solid var(--admin-border-soft);
   padding-top: 20px;
@@ -1362,9 +1017,11 @@
     }
   }
 
-  // Fórmula destacada (RevPASH): tipografía monoespaciada para que se lea como
-  // una expresión y no como prosa.
+  // Fórmula destacada: tipografía monoespaciada para que se lea como una
+  // expresión y no como prosa. display:block porque también se usa como <b>
+  // dentro de un <dd>, entre dos párrafos de texto.
   &__formula {
+    display: block;
     margin-bottom: 22px;
     padding: 13px 16px;
     border: 1px dashed var(--admin-border);
@@ -1383,8 +1040,11 @@
     }
   }
 
+  // Los dos ejes, lado a lado: son dos definiciones del mismo peso y en
+  // vertical obligaban a scrollear para compararlas.
   &__list {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 14px;
   }
 
@@ -1418,12 +1078,21 @@
       color: var(--admin-muted);
       font-size: 13px;
       line-height: 1.6;
+
+      // Dentro de la definición la fórmula va entre dos párrafos, no al final
+      // de un bloque: el margen inferior grande sobra.
+      .admin-n1-guide__formula {
+        margin: 10px 0 12px;
+        text-align: left;
+      }
     }
   }
 
+  // Cuatro fichas en una fila cuando cabe: la matriz se lee de un vistazo, no
+  // en dos pantallas apiladas.
   &__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: 14px;
   }
 
@@ -1434,24 +1103,25 @@
     background: var(--admin-surface-soft);
   }
 
-  &__meaning {
+  // La acción manda sobre la definición: el admin abre la guía para decidir.
+  &__action {
     margin-top: 10px;
     color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  &__meaning {
+    margin-top: 6px;
+    color: var(--admin-muted);
     font-size: 13px;
-    font-weight: 600;
-    line-height: 1.45;
+    line-height: 1.55;
 
     em {
       color: var(--admin-gold-deep);
       font-style: normal;
     }
-  }
-
-  &__action {
-    margin-top: 6px;
-    color: var(--admin-muted);
-    font-size: 13px;
-    line-height: 1.6;
   }
 
   &__text {

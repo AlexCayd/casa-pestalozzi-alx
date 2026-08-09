@@ -47,11 +47,14 @@ Mapa de salidas (`gulpfile.js`) — **editar `src/`, nunca `public/build/`**:
 | `src/scss/app.scss` | `public/build/css/app.css` + `assets/css/` |
 | `src/scss/admin/shared/app-admin.scss` | `public/build/css/admin.css` |
 | `src/scss/admin/modules/*.scss` | `public/build/css/admin/*.css` |
-| `src/js/modules/punto-de-venta.js` | `public/build/js/admin/map.js` |
+| `paths.adminMapJs` (POS: `punto-de-venta.js` + shell/mapa + `core/select.js`) | `public/build/js/admin/map.js` |
 | `src/js/admin/area/area.js` | `public/build/js/admin/area.js` |
 | resto de `src/js/` | `public/build/js/bundle.min.js` |
 
-`src/js/modules/punto-de-venta.js` está **excluido** del bundle general a propósito.
+`src/js/modules/punto-de-venta.js` está **excluido** del bundle general a propósito;
+llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
+`paths.adminMapJs`). El panel admin carga **solo** `admin.js`, nunca
+`bundle.min.js`: lo que deba estar disponible en ambos va en las dos listas.
 
 > `npm test` está roto: apunta a `scripts/` y `tests/`, que no existen en el repo.
 > Verificar con `php -l` y recorridos manuales.
@@ -138,14 +141,41 @@ Vocabulario de clases admin: `admin-page`, `admin-card`, `admin-panel`,
 warning,danger,neutral,info}`, `admin-field` + `__label/__hint/__error`,
 `admin-switch`, `admin-tabs__tab`, `admin-modal`.
 
+### Diálogos: nada nativo
+
+**Prohibido `alert()`, `confirm()` y `prompt()` en JS.** Un diálogo del navegador
+bloquea la pantalla —en la tablet del POS, el turno entero— y no admite estilo.
+Toda comunicación es un componente:
+
+| Necesidad | Componente | Dónde |
+|---|---|---|
+| Confirmar una acción | `ConfirmationModal.get().open({...})` | `src/js/components/confirmation-modal.js` |
+| Aviso transitorio (error de API, validación) | `AppNotice.show({text, variant})` | `src/js/components/toast.js` |
+
+`ConfirmationModal.open()` devuelve una promesa que resuelve con
+`{action: 'primary' | 'secondary' | 'close' | ...}`. Usar `get()` (singleton en
+`<body>`), no `create()`, salvo que se necesite un root propio: `create()` monta
+uno nuevo en cada llamada y nadie los recoge.
+
+Los avisos siempre llevan texto de respaldo: `aviso(result.mensaje)` con un
+`mensaje` vacío del servidor no debe producir una caja en blanco.
+
+`select.js` tampoco usa el `<select>` nativo visible. Excluye las vistas
+operativas (`.mapa-page`, `.area-page`, `.admin-reservation-operation`), pero un
+select puede pedirlo dentro de ellas con `[data-enhance]`.
+
 Trampas conocidas:
 
 - `.admin-card { overflow: hidden }` recorta cualquier dropdown `position:absolute`
   que viva dentro. O el contenedor hace `overflow: visible`, o el desplegable se
   porta al `<body>` con `position: fixed` (lo que hace `src/js/admin/core/select.js`).
+  Al portarlo, revisar el `z-index` contra el del modal que lo contenga.
 - Contrato de modal: alternar el atributo `[hidden]` **y** la clase `.is-open`.
 - Patrón de scroll de la casa: `overflow-y:auto` + `overscroll-behavior:contain` +
   `scrollbar-width:thin` + los tres `::-webkit-scrollbar`.
+- Los parciales PHP incluidos varias veces por página (`views/components/`) deben
+  cerrar con `unset()` de sus parámetros: no se reinicializan entre includes y el
+  segundo hereda lo que dejó el primero.
 
 ### Gráficas
 

@@ -7,6 +7,9 @@
 @use '../operation/map-shell';
 @use '../operation/toolbar';
 @use '../operation/reservation-list';
+// El select de mesero reutiliza el componente del panel admin en vez de
+// duplicar 250 líneas de teclado, ARIA y portal.
+@use '../admin/shared/components/select';
 
 // ── Cursor override ───────────────────────────────────────────
 .pdv-page,
@@ -1267,7 +1270,12 @@
   margin-bottom: .85rem;
 }
 
-.mmodal-name-input {
+// .mmodal-select-native es el <select> de mesero antes de que AdminSelect lo
+// realce. Una vez realzado, .admin-select__native lo oculta con !important y
+// manda el trigger; esta regla sólo evita un campo sin estilo si el realce no
+// llegara a correr.
+.mmodal-name-input,
+.mmodal-select-native {
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -1437,6 +1445,12 @@
   display: flex;
   flex-direction: column;
   gap: .55rem;
+}
+
+// El desplegable del select se portea a <body> con position:fixed, así que su
+// z-index compite con el del modal (200), no con el del campo.
+.mapa-page .admin-select__list {
+  z-index: 300;
 }
 
 .mmodal-btn {
@@ -1661,10 +1675,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: .25rem;
+  gap: .2rem;
   width: 100%;
-  min-height: 52px;
-  padding: .55rem .6rem;
+  // 44px es el mínimo táctil de la casa; el alto real lo fija el nombre, que
+  // nunca se recorta.
+  min-height: 44px;
+  padding: .4rem .5rem;
   border: none;
   border-bottom: 1px solid var(--line-soft);
   border-radius: 0;
@@ -1701,17 +1717,17 @@
 // Primario: es lo que el mesero busca al leer.
 .mmodal-dish-name {
   min-width: 0;
-  font-size: .84rem;
+  font-size: .78rem;
   font-weight: 600;
   color: var(--txt);
-  line-height: 1.25;
+  line-height: 1.22;
   overflow-wrap: anywhere;
 }
 
 // Secundario: confirma, no compite. Cifras tabulares para que la columna de
 // precios quede alineada de un vistazo.
 .mmodal-dish-price {
-  font-size: .76rem;
+  font-size: .7rem;
   color: var(--txt-mute);
   font-variant-numeric: tabular-nums;
 }
@@ -2227,10 +2243,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: .35rem;
+    gap: .25rem;
     height: 100%;
     margin-bottom: 0;
-    padding: .6rem .55rem;
+    padding: .45rem .4rem;
     border-bottom: none;
     border: 1px solid var(--line-soft);
     border-radius: 10px;
@@ -2375,13 +2391,6 @@
 
     &:hover:not(:disabled) { color: var(--text); }
     &:disabled { opacity: .35; cursor: not-allowed; }
-  }
-
-  &__hint {
-    margin: .5rem 0 0;
-    color: var(--txt-faint);
-    font-size: .7rem;
-    line-height: 1.4;
   }
 
   &__foot {
@@ -3041,6 +3050,11 @@
 }
 
 .mapa-page .pos-map .mesas-map {
+  // Sin botonera lateral, el salón puede crecer: los dos topes concuerdan
+  // porque 1440 / 1.75 = 822.9. En tablet manda el 100% y esto es un no-op.
+  --mesas-map-max-width: 1440px;
+  --mesas-map-max-height: 820px;
+
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
@@ -3050,28 +3064,6 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-// Se oculta el encabezado interno del mapa (título + leyenda): el título es
-// redundante y la leyenda se muestra debajo del mapa.
-.mapa-page .mesas-map__header {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 4;
-  display: flex;
-  min-height: 0;
-  padding: 12px;
-  pointer-events: none;
-}
-
-.mapa-page .mesas-map__header .mesas-map__heading,
-.mapa-page .mesas-map__header .mesas-map__legend {
-  display: none;
-}
-
-.mapa-page .mesas-map__toolbar-actions {
-  margin-left: auto;
-  pointer-events: auto;
 }
 
 .mapa-page .mesas-map__viewport {

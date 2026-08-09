@@ -60,33 +60,29 @@
     line-height: 1.3;
   }
 
-  // ── Badges de rol por color ─────────────────────────────────
+  /* ── Etiqueta de rol ────────────────────────────────────────
+     Sin punto y sin borde tintado: tres píldoras de colores saturados en una
+     columna angosta competían con los datos. Queda un tinte tenue por rol —
+     siguen siendo tres alcances distintos (todo / punto de venta / tableros)
+     y conviene distinguirlos— y un ancho fijo para que la columna no baile
+     entre "Mesero" y "Administrador". */
   .admin-role {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    justify-content: center;
+    min-width: 118px;
     min-height: 26px;
-    padding: 0 11px;
-    border-radius: 999px;
-    border: 1px solid var(--admin-neutral-border);
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--admin-radius-sm);
     background: var(--admin-neutral-bg);
     color: var(--admin-neutral-text);
     font-size: 12px;
     font-weight: 700;
+    letter-spacing: 0.01em;
     white-space: nowrap;
-
-    &::before {
-      content: "";
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: currentColor;
-    }
   }
 
-  /* Un color de la paleta por rol. Son solo tres y cada uno tiene un alcance
-     distinto (todo / punto de venta / tableros de área), así que distinguirlos
-     de un vistazo en el listado ahorra leer la columna. */
   .admin-role--admin  { --admin-role-tono: var(--admin-c-magenta); }
   .admin-role--waiter { --admin-role-tono: var(--admin-c-azul); }
   .admin-role--cook   { --admin-role-tono: var(--admin-c-naranja); }
@@ -94,9 +90,8 @@
   .admin-role--admin,
   .admin-role--waiter,
   .admin-role--cook {
-    border-color: color-mix(in srgb, var(--admin-role-tono) 44%, transparent);
-    background: color-mix(in srgb, var(--admin-role-tono) 14%, var(--admin-surface));
-    color: var(--admin-role-tono);
+    background: color-mix(in srgb, var(--admin-role-tono) 10%, var(--admin-surface));
+    color: color-mix(in srgb, var(--admin-role-tono) 72%, var(--admin-text));
   }
 
   // ── Tabla con más aire ──────────────────────────────────────
@@ -314,5 +309,63 @@
 @media (max-width: 720px) {
   .admin-users-form__grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Áreas a las que da acceso el rol seleccionado, bajo las pestañas del
+   formulario. Es informativo: se repinta al cambiar de rol, no se edita. */
+.admin-role-access {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+
+.admin-role-access__title {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-role-access__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-role-access__item {
+  display: grid;
+  gap: 2px;
+  padding-left: 14px;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 7px;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--admin-gold);
+  }
+
+  strong {
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.45;
   }
 }

@@ -1,5 +1,6 @@
 <?php
-    $mes = (string) ($mes ?? '');
+    $rango = is_array($rango ?? null) ? $rango : [];
+    $periodoLabel = (string) ($rango['label'] ?? 'Últimos 30 días');
     $ingresos = (float) ($ingresos ?? 0);
     $propinas = (float) ($propinas ?? 0);
     $tickets = (int) ($tickets ?? 0);
@@ -9,6 +10,12 @@
     $margenBruto = (float) ($margenBruto ?? 0);
     $totalGastos = (float) ($totalGastos ?? 0);
     $utilidadNeta = (float) ($utilidadNeta ?? 0);
+    $margenNeto = (float) ($margenNeto ?? 0);
+    $deltaIngresos = isset($deltaIngresos) ? $deltaIngresos : null;
+    $deltaUtilidadBruta = isset($deltaUtilidadBruta) ? $deltaUtilidadBruta : null;
+    $inventarioValor = (float) ($inventarioValor ?? 0);
+    $rotacion = isset($rotacion) ? $rotacion : null;
+    $diasInventario = isset($diasInventario) ? $diasInventario : null;
     $gastos = isset($gastos) && is_iterable($gastos) ? $gastos : [];
     $gastosPorCategoria = is_array($gastosPorCategoria ?? null) ? $gastosPorCategoria : [];
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : ['renta', 'servicios', 'nomina', 'insumos', 'otros'];
@@ -30,15 +37,65 @@
     };
     $hoyIso = date('Y-m-d');
     $rangoCortes = is_array($rangoCortes ?? null) ? $rangoCortes : ['start' => date('Y-m-d', strtotime('-6 days')), 'end' => $hoyIso];
+
+    // Variación contra el periodo anterior, con el mismo badge que analíticas.
+    $badgeDelta = static function (?float $delta): string {
+        if ($delta === null) {
+            return '';
+        }
+        $clase = $delta >= 0 ? 'is-up' : 'is-down';
+        $signo = $delta >= 0 ? '+' : '';
+        return '<span class="admin-delta ' . $clase . '">'
+            . $signo . number_format($delta, 1) . '%</span>';
+    };
+
+    // Descomposición para el Sankey: de dónde viene el dinero y en qué se va.
+    // Los flujos negativos no se representan: un Sankey sólo entiende caudales,
+    // así que una utilidad neta en rojo se anota aparte en vez de dibujarse.
+    $sankey = [];
+    if ($ingresos > 0) {
+        if ($cogs > 0) {
+            $sankey[] = ['from' => 'Ingresos', 'to' => 'Costo de insumos', 'flow' => round($cogs, 2)];
+        }
+        if ($utilidadBruta > 0) {
+            $sankey[] = ['from' => 'Ingresos', 'to' => 'Utilidad bruta', 'flow' => round($utilidadBruta, 2)];
+            foreach ($gastosPorCategoria as $cat => $monto) {
+                if ($monto > 0) {
+                    $sankey[] = [
+                        'from' => 'Utilidad bruta',
+                        'to' => $etiquetaCat[$cat] ?? (string) $cat,
+                        'flow' => round((float) $monto, 2),
+                    ];
+                }
+            }
+            if ($utilidadNeta > 0) {
+                $sankey[] = ['from' => 'Utilidad bruta', 'to' => 'Utilidad neta', 'flow' => round($utilidadNeta, 2)];
+            }
+        }
+    }
+
+    $gastosChart = ['labels' => [], 'values' => []];
+    foreach ($gastosPorCategoria as $cat => $monto) {
+        $gastosChart['labels'][] = $etiquetaCat[$cat] ?? (string) $cat;
+        $gastosChart['values'][] = round((float) $monto, 2);
+    }
 ?>
+<script>
+    window.AdminFinanzasData = <?php echo json_encode([
+        'sankey' => $sankey,
+        'gastos' => $gastosChart,
+        'utilidadNetaNegativa' => $utilidadNeta < 0,
+    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+</script>
 <section class="admin-finanzas admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Finanzas</span>
             <h2 class="admin-page__title">Situación financiera</h2>
-            <p class="admin-page__subtitle">Rubro del negocio en <?php echo htmlspecialchars($mes); ?>: ingresos por ventas, costo de insumos (según recetas), gastos fijos y utilidad neta.</p>
+            <p class="admin-page__subtitle"><?php echo htmlspecialchars($periodoLabel); ?>: ingresos por ventas, costo de insumos (según recetas), gastos fijos y utilidad neta.</p>
         </div>
         <div class="admin-actions">
+            <?php include __DIR__ . '/../partials/_range-picker.php'; ?>
             <a class="admin-btn admin-btn--secondary" href="/admin/inventario">Inventario</a>
             <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Recetas</a>
         </div>
@@ -48,8 +105,8 @@
 
     <div class="admin-stat-strip">
         <div class="admin-stat-card">
-            <span class="admin-stat-card__label">Ingresos del mes</span>
-            <span class="admin-stat-card__value"><?php echo $money($ingresos); ?></span>
+            <span class="admin-stat-card__label">Ingresos del periodo</span>
+            <span class="admin-stat-card__value"><?php echo $money($ingresos); ?> <?php echo $badgeDelta($deltaIngresos); ?></span>
             <span class="admin-stat-card__sub"><?php echo $tickets; ?> tickets · prom. <?php echo $money($ticketPromedio); ?></span>
         </div>
         <div class="admin-stat-card">
@@ -59,70 +116,114 @@
         </div>
         <div class="admin-stat-card admin-stat-card--gold">
             <span class="admin-stat-card__label">Utilidad bruta</span>
-            <span class="admin-stat-card__value"><?php echo $money($utilidadBruta); ?></span>
+            <span class="admin-stat-card__value"><?php echo $money($utilidadBruta); ?> <?php echo $badgeDelta($deltaUtilidadBruta); ?></span>
             <span class="admin-stat-card__sub">Margen <?php echo number_format($margenBruto, 1); ?>%</span>
         </div>
         <div class="admin-stat-card">
             <span class="admin-stat-card__label">Gastos fijos</span>
             <span class="admin-stat-card__value"><?php echo $money($totalGastos); ?></span>
-            <span class="admin-stat-card__sub">Mensuales</span>
+            <span class="admin-stat-card__sub">Prorrateados al periodo</span>
         </div>
         <div class="admin-stat-card <?php echo $utilidadNeta >= 0 ? 'admin-stat-card--good' : 'admin-stat-card--bad'; ?>">
             <span class="admin-stat-card__label">Utilidad neta estimada</span>
             <span class="admin-stat-card__value"><?php echo $money($utilidadNeta); ?></span>
-            <span class="admin-stat-card__sub">Bruta − gastos fijos</span>
+            <span class="admin-stat-card__sub">Margen <?php echo number_format($margenNeto, 1); ?>%</span>
+        </div>
+        <?php /* Denominador puntual: no hay histórico de stock del que sacar un
+                 inventario promedio, y decirlo evita que se lea como el ratio
+                 contable estricto. */ ?>
+        <div class="admin-stat-card">
+            <span class="admin-stat-card__label">Rotación de inventarios</span>
+            <span class="admin-stat-card__value">
+                <?php echo $rotacion === null ? '—' : number_format($rotacion, 2) . '×'; ?>
+            </span>
+            <span class="admin-stat-card__sub">
+                <?php if ($rotacion === null) : ?>
+                    Sin inventario valorizado
+                <?php else : ?>
+                    <?php echo number_format((float) $diasInventario, 0); ?> días de inventario ·
+                    sobre existencias de hoy (<?php echo $money($inventarioValor); ?>)
+                <?php endif; ?>
+            </span>
         </div>
     </div>
 
     <div class="admin-finanzas__grid">
         <!-- Cascada de resultados -->
         <section class="admin-panel admin-card">
-            <div class="admin-panel-head"><div><h3>Estado de resultados</h3><p><?php echo htmlspecialchars($mes); ?> · ingresos a la fecha vs. gastos fijos del mes</p></div></div>
+            <div class="admin-panel-head"><div><h3>Estado de resultados</h3><p><?php echo htmlspecialchars($periodoLabel); ?></p></div></div>
             <ul class="admin-pnl">
                 <li class="admin-pnl__row"><span>Ingresos por ventas</span><strong class="is-pos"><?php echo $money($ingresos); ?></strong></li>
                 <li class="admin-pnl__row"><span>(−) Costo de insumos</span><strong class="is-neg">-<?php echo $money($cogs); ?></strong></li>
-                <li class="admin-pnl__row admin-pnl__row--total"><span>= Utilidad bruta</span><strong><?php echo $money($utilidadBruta); ?></strong></li>
+                <li class="admin-pnl__row admin-pnl__row--total">
+                    <span>= Utilidad bruta <small class="admin-pnl__margen">margen <?php echo number_format($margenBruto, 1); ?>%</small></span>
+                    <strong><?php echo $money($utilidadBruta); ?></strong>
+                </li>
                 <li class="admin-pnl__row"><span>(−) Gastos fijos</span><strong class="is-neg">-<?php echo $money($totalGastos); ?></strong></li>
-                <li class="admin-pnl__row admin-pnl__row--grand <?php echo $utilidadNeta >= 0 ? 'is-pos' : 'is-neg'; ?>"><span>= Utilidad neta</span><strong><?php echo $money($utilidadNeta); ?></strong></li>
+                <li class="admin-pnl__row admin-pnl__row--grand <?php echo $utilidadNeta >= 0 ? 'is-pos' : 'is-neg'; ?>">
+                    <span>= Utilidad neta <small class="admin-pnl__margen">margen <?php echo number_format($margenNeto, 1); ?>%</small></span>
+                    <strong><?php echo $money($utilidadNeta); ?></strong>
+                </li>
             </ul>
-            <p class="admin-finanzas__note">Las propinas del mes (<?php echo $money($propinas); ?>) no se incluyen en la utilidad; corresponden al personal.</p>
+            <p class="admin-finanzas__note">
+                Las propinas del periodo (<?php echo $money($propinas); ?>) no se incluyen en la utilidad; corresponden al personal.
+                Los gastos fijos son montos mensuales, prorrateados a los días del periodo.
+            </p>
         </section>
 
         <!-- Gastos fijos por categoría -->
         <section class="admin-panel admin-card">
-            <div class="admin-panel-head"><div><h3>Gastos por categoría</h3><p>Distribución mensual</p></div></div>
+            <div class="admin-panel-head"><div><h3>Gastos por categoría</h3><p>Reparto del gasto fijo del periodo</p></div></div>
             <?php if (empty($gastosPorCategoria)) : ?>
                 <p class="admin-empty">Sin gastos registrados.</p>
             <?php else : ?>
-                <div class="admin-finanzas__bars">
-                    <?php foreach ($gastosPorCategoria as $cat => $monto) : ?>
-                        <?php $pct = $totalGastos > 0 ? ($monto / $totalGastos) * 100 : 0; ?>
-                        <div class="admin-finanzas__bar-row">
-                            <span class="admin-finanzas__bar-label"><?php echo htmlspecialchars($etiquetaCat[$cat] ?? $cat); ?></span>
-                            <div class="admin-finanzas__bar"><span style="width:<?php echo number_format($pct, 1); ?>%"></span></div>
-                            <span class="admin-finanzas__bar-val"><?php echo $money($monto); ?></span>
-                        </div>
-                    <?php endforeach; ?>
+                <?php /* Dona más tabla: el color identifica la categoría, pero
+                         una dona no comunica montos exactos y aquí sí importan. */ ?>
+                <div class="admin-finanzas__donut-wrap">
+                    <div class="admin-finanzas__donut"><canvas id="gastosCategoriaChart"></canvas></div>
+                    <ul class="admin-finanzas__donut-list">
+                        <?php foreach ($gastosPorCategoria as $cat => $monto) : ?>
+                            <?php $pct = $totalGastos > 0 ? ($monto / $totalGastos) * 100 : 0; ?>
+                            <li>
+                                <span class="admin-finanzas__donut-label"><?php echo htmlspecialchars($etiquetaCat[$cat] ?? $cat); ?></span>
+                                <span class="admin-finanzas__donut-val"><?php echo $money($monto); ?></span>
+                                <span class="admin-finanzas__donut-pct"><?php echo number_format($pct, 1); ?>%</span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             <?php endif; ?>
         </section>
     </div>
 
+    <!-- Descomposición del ingreso -->
+    <section class="admin-panel admin-card admin-finanzas__sankey-panel">
+        <div class="admin-panel-head">
+            <div>
+                <h3>A dónde va cada peso</h3>
+                <p>Del ingreso del periodo al costo de insumos, los gastos fijos y lo que queda.</p>
+            </div>
+        </div>
+        <?php if (empty($sankey)) : ?>
+            <p class="admin-empty">Sin ingresos en el periodo para descomponer.</p>
+        <?php else : ?>
+            <div class="admin-finanzas__sankey"><canvas id="flujoFinancieroChart"></canvas></div>
+            <?php if ($utilidadNeta < 0) : ?>
+                <p class="admin-finanzas__note">
+                    La utilidad neta es negativa (<?php echo $money($utilidadNeta); ?>): los gastos fijos
+                    superan a la utilidad bruta, así que el diagrama no dibuja ese tramo.
+                </p>
+            <?php endif; ?>
+        <?php endif; ?>
+    </section>
+
     <!-- Cortes de caja por día -->
     <section class="admin-panel admin-card admin-cortes">
         <div class="admin-panel-head">
-            <div><h3>Cortes de caja</h3><p>Resumen diario de tickets cerrados en el rango seleccionado.</p></div>
-            <form class="admin-cortes__filter" method="GET" action="/admin/finanzas" data-cortes-filter>
-                <label class="admin-cortes__field">
-                    <span>Desde</span>
-                    <input type="date" name="desde" max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rangoCortes['start']); ?>">
-                </label>
-                <label class="admin-cortes__field">
-                    <span>Hasta</span>
-                    <input type="date" name="hasta" max="<?php echo $hoyIso; ?>" value="<?php echo htmlspecialchars((string) $rangoCortes['end']); ?>">
-                </label>
-                <button type="submit" class="admin-btn admin-btn--primary admin-btn--small">Aplicar</button>
-            </form>
+            <?php /* Ya no lleva su propio formulario de fechas: el selector de
+                     periodo del encabezado manda sobre toda la pantalla, y dos
+                     rangos distintos en la misma página se contradecían. */ ?>
+            <div><h3>Cortes de caja</h3><p>Resumen diario de tickets cerrados en el periodo seleccionado.</p></div>
         </div>
         <?php if (empty($cortes)) : ?>
             <p class="admin-empty">Sin ventas cerradas en el rango seleccionado.</p>

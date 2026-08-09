@@ -24,22 +24,23 @@ INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre)
 -- -------------------------------------------------------
 
 INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VALUES
-(1,  'Mesa 1',       'mesa',     4, 29.0, 88.0, 1),
-(2,  'Mesa 2',       'mesa',     4,  8.0, 70.0, 1),
-(3,  'Mesa 3',       'mesa',     4, 29.0, 51.0, 1),
-(4,  'Mesa 4',       'mesa',     4,  8.0, 51.0, 1),
-(5,  'Mesa 5',       'mesa',     4,  8.0, 29.0, 1),
-(6,  'Mesa 6',       'mesa',     4, 45.0, 29.0, 1),
-(7,  'Mesa 7',       'mesa',     4, 83.0, 29.0, 1),
-(8,  'Mesa 8',       'mesa',     4, 83.0,  8.0, 1),
-(9,  'Mesa 9',       'mesa',     4, 54.0,  8.0, 1),
-(10, 'Mesa 10',      'mesa',     4, 29.0,  8.0, 1),
-(11, 'Mesa 11',      'mesa',     4,  8.0,  8.0, 1),
+-- Debe ir en sincronía con dml_operativo.sql: mismas coordenadas.
+(1,  'Mesa 1',       'mesa',     4, 30.0, 88.0, 1),
+(2,  'Mesa 2',       'mesa',     4,  7.0, 70.0, 1),
+(3,  'Mesa 3',       'mesa',     4, 30.0, 51.0, 1),
+(4,  'Mesa 4',       'mesa',     4,  7.0, 51.0, 1),
+(5,  'Mesa 5',       'mesa',     4,  7.0, 29.0, 1),
+(6,  'Mesa 6',       'mesa',     4, 44.0, 29.0, 1),
+(7,  'Mesa 7',       'mesa',     4, 88.0, 29.0, 1),
+(8,  'Mesa 8',       'mesa',     4, 88.0,  8.0, 1),
+(9,  'Mesa 9',       'mesa',     4, 56.0,  8.0, 1),
+(10, 'Mesa 10',      'mesa',     4, 30.0,  8.0, 1),
+(11, 'Mesa 11',      'mesa',     4,  7.0,  8.0, 1),
 (12, 'Barra Blanca', 'barra',    8, 62.0, 51.0, 0),
-(13, 'Caja',         'especial', 0, 41.0, 70.0, 0),
-(14, 'Llevar',       'especial', 0, 58.0, 70.0, 0),
-(15, 'Barra Roja',   'barra',    6, 83.0, 70.0, 0),
-(16, 'Barra Roja 2', 'barra',    6, 83.0, 88.0, 0);
+(13, 'Caja',         'especial', 0, 33.0, 70.0, 0),
+(14, 'Llevar',       'especial', 0, 57.0, 70.0, 0),
+(15, 'Barra Roja',   'barra',    6, 88.0, 70.0, 0),
+(16, 'Barra Roja 2', 'barra',    6, 88.0, 88.0, 0);
 
 -- -------------------------------------------------------
 -- Áreas de producción
@@ -806,6 +807,58 @@ VALUES
   (@fecha_cerrada, 'cerrado', 'Cierre de prueba', NULL, NULL, 1),
   (@fecha_especial, 'horario_especial', 'Horario especial de prueba',
    '14:00:00', '21:00:00', 1);
+
+-- Excepciones de la próxima semana, relativas a la fecha de carga: la landing
+-- solo marca en la tabla de horario las que caen dentro de siete días, y con
+-- fechas fijas ese caso deja de reproducirse en cuanto pasan.
+--
+-- Cuatro fechas dentro de la ventana para que la tabla semanal muestre los dos
+-- tipos en días distintos, incluida la fila de mañana y la del último día que
+-- todavía alcanza a marcarse. Las de 'cerrado' van con horas NULL: el servicio
+-- las normaliza a '' al leer y la fila imprime "Cerrado".
+--
+-- ON DUPLICATE KEY porque excepciones_operacion.fecha es UNIQUE: si se siembra
+-- justo cuando alguna de estas coincide con las fechas fijas de arriba, gana la
+-- relativa en vez de abortar la carga completa.
+SET @excepcion_especial_manana = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
+SET @excepcion_cerrada_rel = DATE_ADD(CURDATE(), INTERVAL 3 DAY);
+SET @excepcion_especial_rel = DATE_ADD(CURDATE(), INTERVAL 5 DAY);
+SET @excepcion_cerrada_borde = DATE_ADD(CURDATE(), INTERVAL 6 DAY);
+
+INSERT INTO excepciones_operacion
+  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
+VALUES
+  (@excepcion_especial_manana, 'horario_especial', 'Comida privada, abrimos más tarde',
+   '16:00:00', '23:00:00', 1),
+  (@excepcion_cerrada_rel, 'cerrado', 'Mantenimiento programado', NULL, NULL, 1),
+  (@excepcion_especial_rel, 'horario_especial', 'Evento privado por la mañana',
+   '15:00:00', '22:00:00', 1),
+  (@excepcion_cerrada_borde, 'cerrado', 'Día de descanso del equipo', NULL, NULL, 1)
+ON DUPLICATE KEY UPDATE
+  tipo = VALUES(tipo),
+  motivo = VALUES(motivo),
+  hora_apertura = VALUES(hora_apertura),
+  hora_cierre = VALUES(hora_cierre),
+  activo = VALUES(activo);
+
+-- Fuera de la ventana de siete días: alimentan la línea "Más adelante" de la
+-- landing, que ninguna fila del horario semanal puede representar. Relativas
+-- por la misma razón que las de arriba.
+SET @excepcion_cerrada_lejana = DATE_ADD(CURDATE(), INTERVAL 12 DAY);
+SET @excepcion_especial_lejana = DATE_ADD(CURDATE(), INTERVAL 20 DAY);
+
+INSERT INTO excepciones_operacion
+  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
+VALUES
+  (@excepcion_cerrada_lejana, 'cerrado', 'Capacitación del personal', NULL, NULL, 1),
+  (@excepcion_especial_lejana, 'horario_especial', 'Cena de fin de temporada',
+   '18:00:00', '23:30:00', 1)
+ON DUPLICATE KEY UPDATE
+  tipo = VALUES(tipo),
+  motivo = VALUES(motivo),
+  hora_apertura = VALUES(hora_apertura),
+  hora_cierre = VALUES(hora_cierre),
+  activo = VALUES(activo);
 
 -- Cierra los tickets generales abiertos para aislar la jornada controlada.
 UPDATE tickets

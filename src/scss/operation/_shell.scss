@@ -1,3 +1,38 @@
+// El salto al contenido lo emite operation/partials/shell.php en todas las
+// pantallas operativas. Se recorta hasta recibir foco: visible permanentemente
+// se leía como texto suelto encima del header.
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+
+  &:focus-visible,
+  &:focus {
+    width: auto;
+    height: auto;
+    margin: 8px;
+    padding: 10px 16px;
+    overflow: visible;
+    border-radius: 10px;
+    outline: 2px solid var(--admin-gold);
+    outline-offset: 2px;
+    background: var(--admin-surface);
+    clip-path: none;
+    color: var(--admin-text);
+    font-family: var(--operational-font-ui);
+    font-size: var(--operational-text-sm);
+    font-weight: var(--operational-weight-semibold);
+    text-decoration: none;
+  }
+}
+
 .operational-page {
   --operational-font-brand: "KudosKaps", sans-serif;
   --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;

@@ -73,6 +73,33 @@
         }
     }
 
+    /**
+     * Confirma guardar un horario que deja reservaciones fuera.
+     *
+     * Devuelve una promesa porque el guardado es async y reintenta en bucle con
+     * confirmar_conflictos=true. Sin ConfirmationModal se asume que no: guardar
+     * en silencio es la opción destructiva.
+     */
+    async function confirmarConflictosHorario(total) {
+        const detalle = total + (total === 1 ? ' reservación' : ' reservaciones');
+
+        if (!window.ConfirmationModal) {
+            return false;
+        }
+
+        const resultado = await window.ConfirmationModal.get().open({
+            variant: 'warning',
+            eyebrow: 'Horario de operación',
+            title: 'Hay reservaciones fuera del nuevo horario',
+            description: 'El cambio dejaría ' + detalle + ' fuera del horario que estás guardando.',
+            consequence: 'No se cancelan automáticamente: tendrás que reubicarlas o avisar a cada cliente.',
+            secondaryLabel: 'Revisar el horario',
+            primaryLabel: 'Guardar de todas formas',
+        });
+
+        return resultado && resultado.action === 'primary';
+    }
+
     function initSchedule() {
         const form = document.querySelector('[data-schedule-form]');
         if (!form) {
@@ -453,12 +480,7 @@
                         && !confirmarConflictos
                     ) {
                         const total = Number(data.reservaciones_afectadas || 0);
-                        const confirmed = window.confirm(
-                            'Este cambio dejaría ' + total
-                            + ' reservación(es) fuera del nuevo horario. '
-                            + 'Las reservaciones no serán canceladas automáticamente. '
-                            + '¿Guardar de todas formas?'
-                        );
+                        const confirmed = await confirmarConflictosHorario(total);
                         if (!confirmed) {
                             setStatus(status, 'No se guardaron los cambios de horario.', 'error');
                             return;

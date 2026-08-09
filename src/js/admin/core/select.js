@@ -6,15 +6,22 @@
  * (portal) y se posiciona fija para no ser recortada por tarjetas con overflow.
  *
  * Se excluyen las vistas operativas (mapa/áreas/operación) y cualquier select
- * marcado con [data-native].
+ * marcado con [data-native]. Dentro de esas vistas, un select puede pedir el
+ * componente explícitamente con [data-enhance]: así el POS estiliza el de
+ * mesero sin arrastrar consigo al resto de la pantalla.
  */
 (function () {
     var uid = 0;
     var EXCLUDE = '.mapa-page, .area-page, .admin-reservation-operation';
     var registry = [];
+    var instancias = [];
 
     function enhance(select) {
-        if (select.dataset.enhanced || select.multiple || select.closest(EXCLUDE)) {
+        if (
+            select.dataset.enhanced
+            || select.multiple
+            || (select.closest(EXCLUDE) && !select.hasAttribute('data-enhance'))
+        ) {
             return;
         }
         select.dataset.enhanced = '1';
@@ -231,6 +238,7 @@
 
         var instance = { close: closeList };
         registry.push(instance);
+        instancias.push({ select: select, rebuild: build });
 
         build();
     }
@@ -239,11 +247,28 @@
         (root || document).querySelectorAll('select:not([data-native])').forEach(enhance);
     }
 
+    /**
+     * Repinta las opciones de un select ya realzado.
+     *
+     * El listener de 'change' solo sincroniza el valor mostrado; cuando el
+     * consumidor reescribe los <option> (el POS refresca la lista de meseros en
+     * cada sondeo) hay que regenerar los <li> del portal.
+     */
+    function refreshCustomSelect(select) {
+        for (var i = 0; i < instancias.length; i++) {
+            if (instancias[i].select === select) {
+                instancias[i].rebuild();
+                return true;
+            }
+        }
+        return false;
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () { initCustomSelects(document); });
     } else {
         initCustomSelects(document);
     }
 
-    window.AdminSelect = { init: initCustomSelects };
+    window.AdminSelect = { init: initCustomSelects, refresh: refreshCustomSelect };
 })();

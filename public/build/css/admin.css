@@ -1366,6 +1366,27 @@
     width: 100%;
   }
 }
+/* Variación contra el periodo anterior. Vive en el bundle compartido porque la
+   usan finanzas e inventario, que cargan CSS de módulo distinto. */
+.admin-delta {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.admin-delta.is-up {
+  background: color-mix(in srgb, var(--admin-c-verde) 16%, transparent);
+  color: var(--admin-c-verde);
+}
+.admin-delta.is-down {
+  background: color-mix(in srgb, var(--admin-c-rojo) 16%, transparent);
+  color: var(--admin-c-rojo);
+}
+
 /*
  * Tabla reutilizable para información operativa de administración.
  * Mantiene legibilidad y desplazamiento interno en pantallas estrechas.
@@ -1472,6 +1493,32 @@
 .admin-table__cell-truncate {
   display: block;
   min-width: 0;
+}
+
+/* Variante para paneles a media anchura (analíticas, listados laterales). Sin
+   el min-width de 680px la tabla cabe en el panel y desaparece el scroll
+   horizontal; el thead pegajoso mantiene el encabezado visible mientras se
+   recorre el cuerpo. Va después de .admin-table porque comparten
+   especificidad y decide el orden. */
+.admin-table--compact {
+  min-width: 0;
+}
+.admin-table--compact th,
+.admin-table--compact td {
+  padding: 11px 12px;
+}
+.admin-table--compact thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Columna numérica: alineada a la derecha y con cifras tabulares para que la
+   comparación vertical funcione sin leer dígito a dígito. */
+.admin-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .admin-table__cell-main {
@@ -2095,8 +2142,8 @@
 }
 .admin-tabs__tab {
   display: inline-flex;
-  flex: 1 1 auto;
-  min-width: max-content;
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -2112,12 +2159,14 @@
 .admin-tabs__tab span {
   display: block;
   width: 100%;
-  padding: 9px 12px;
+  padding: 9px 8px;
   border-radius: calc(var(--admin-radius-sm) - 3px);
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+  text-overflow: ellipsis;
   white-space: nowrap;
   transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
 }
@@ -2673,11 +2722,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   pointer-events: none;
 }
 .admin-body .hour-dropdown {
-  overflow: hidden;
+  display: flex;
+  max-height: var(--reservation-picker-dropdown-max-height, none);
+  flex-direction: column;
   padding: 0;
+  overflow: hidden;
 }
 .admin-body .hour-dropdown__head {
   display: grid;
+  flex: 0 0 auto;
   gap: 2px;
   padding: var(--reservation-picker-hours-head-padding, 0.8rem 1rem 0.7rem);
   border-bottom: 1px solid var(--reservation-picker-border, var(--line));
@@ -2697,16 +2750,18 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .admin-body .hour-dropdown__options {
   display: grid;
+  min-height: 0;
+  max-height: var(--reservation-picker-hours-max-height, 220px);
   grid-template-columns: repeat(var(--reservation-picker-hours-columns, 2), minmax(0, 1fr));
   gap: var(--reservation-picker-hours-gap, 3px);
-  max-height: var(--reservation-picker-hours-max-height, 220px);
-  overflow-y: auto;
   padding: var(--reservation-picker-hours-padding, 0.35rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--reservation-picker-accent, var(--accent)) transparent;
 }
 .admin-body .hour-dropdown__options::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .admin-body .hour-dropdown__options::-webkit-scrollbar-track {
   background: transparent;
@@ -2749,15 +2804,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-color: var(--reservation-picker-selected-border, var(--accent));
   background: var(--reservation-picker-hour-selected-bg, transparent);
   color: var(--reservation-picker-hour-selected-color, var(--accent));
-}
-.admin-body .hour-option.sel::after {
-  width: 7px;
-  height: 4px;
-  flex: 0 0 auto;
-  border-bottom: 1.8px solid currentColor;
-  border-left: 1.8px solid currentColor;
-  content: "";
-  transform: translateY(-1px) rotate(-45deg);
+  font-weight: var(--reservation-picker-hour-selected-font-weight, 600);
 }
 .admin-body {
   /*
@@ -2821,6 +2868,351 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 /*
+ * Selector de periodo del panel (analíticas, finanzas, inventario).
+ * Vivía anidado bajo .admin-analytics; se extrajo al bundle compartido cuando
+ * finanzas e inventario estrenaron filtro de rango. El markup lo emite
+ * views/admin/partials/_range-picker.php y lo maneja admin/core/range-picker.js.
+ */
+.admin-range {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.admin-range__caption {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-range__trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-range__trigger:hover {
+  border-color: var(--admin-gold);
+}
+.admin-range__trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-range__trigger[aria-expanded=true] {
+  border-color: var(--admin-gold);
+}
+.admin-range__icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: none;
+  stroke: var(--admin-gold);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.admin-range__trigger-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-range__trigger-label {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.admin-range__trigger-dates {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin-range__chevron {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-left: auto;
+  fill: none;
+  stroke: var(--admin-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.admin-range__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  width: max-content;
+  max-width: min(660px, 100vw - 32px);
+  max-height: min(560px, 100vh - 120px);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+  overflow: auto;
+}
+.admin-range__pop[hidden] {
+  display: none;
+}
+.admin-range__pop--arriba {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+.admin-range__pop--izq {
+  right: auto;
+  left: 0;
+}
+.admin-range__presets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--admin-radius-md) 0 0 var(--admin-radius-md);
+  border-right: 1px solid var(--admin-border-soft);
+  background: var(--admin-surface-soft);
+  overflow-y: auto;
+  min-height: 0;
+}
+.admin-range__preset {
+  padding: 9px 14px;
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.admin-range__preset:hover {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+.admin-range__preset.is-active {
+  background: var(--admin-gold);
+  color: #1b1a17;
+}
+.admin-range__cal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.admin-range__nav {
+  display: grid;
+  grid-template-columns: 32px 1fr 1fr 32px;
+  align-items: center;
+  gap: 8px;
+}
+.admin-range__nav-btn {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: transparent;
+  color: var(--admin-text);
+  cursor: pointer;
+}
+.admin-range__nav-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.admin-range__nav-btn:hover:not(:disabled) {
+  border-color: var(--admin-gold);
+}
+.admin-range__nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.admin-range__month-title {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+.admin-range__months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.admin-range__weekdays, .admin-range__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+.admin-range__weekdays {
+  margin-bottom: 6px;
+}
+.admin-range__weekdays span {
+  color: var(--admin-faint);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.admin-range {
+  /*
+   * El tramo se pinta con un fondo continuo detrás de los días interiores
+   * (::before a sangre entre celdas) y los extremos en dorado sólido, que es
+   * como se lee un rango en las interfaces de viajes.
+   */
+}
+.admin-range__day {
+  position: relative;
+  display: grid;
+  min-height: 34px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.admin-range__day::before {
+  content: "";
+  position: absolute;
+  inset: 2px -1px;
+  z-index: 0;
+  border-radius: 0;
+}
+.admin-range__day > *, .admin-range__day:not(.is-empty) {
+  position: relative;
+}
+.admin-range__day.is-empty {
+  cursor: default;
+}
+.admin-range__day.is-disabled {
+  color: var(--admin-faint);
+  cursor: not-allowed;
+}
+.admin-range__day.is-today:not(.is-edge) {
+  color: var(--admin-gold);
+  font-weight: 800;
+}
+.admin-range__day:hover:not(.is-disabled):not(.is-empty):not(.is-edge)::before {
+  border-radius: 8px;
+  background: var(--admin-surface-soft);
+}
+.admin-range__day.is-inside::before {
+  background: rgba(204, 163, 82, 0.18);
+}
+.admin-range__day.is-edge {
+  color: #1b1a17;
+  font-weight: 800;
+  z-index: 1;
+}
+.admin-range__day.is-edge::before {
+  background: var(--admin-gold);
+}
+.admin-range__day.is-start::before {
+  border-radius: 8px 0 0 8px;
+  inset: 2px -1px 2px 2px;
+}
+.admin-range__day.is-end::before {
+  border-radius: 0 8px 8px 0;
+  inset: 2px 2px 2px -1px;
+}
+.admin-range__day.is-single::before {
+  border-radius: 8px;
+  inset: 2px;
+}
+.admin-range__compare {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  align-items: flex-start;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-range__compare-text {
+  display: grid;
+  gap: 2px;
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 800;
+}
+.admin-range__compare-text small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-range__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-range__summary {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-range__foot-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .admin-range__pop {
+    right: auto;
+    left: 0;
+    flex-direction: column;
+    max-width: calc(100vw - 32px);
+  }
+  .admin-range__presets {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+  .admin-range__months {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-range__month--b,
+  .admin-range__month-title--b {
+    display: none;
+  }
+  .admin-range__nav {
+    grid-template-columns: 32px 1fr 32px;
+  }
+}
+/*
  * Select custom del panel admin (mejora progresiva de <select>).
  * El <select> nativo queda oculto (envía el valor); el trigger + la lista
  * replican el estilo editorial del sitio y son totalmente estilizables.
@@ -2833,7 +3225,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .admin-select__native {
-  display: none;
+  display: none !important;
 }
 
 .admin-select__trigger {
@@ -3593,6 +3985,95 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 
+.app-notice-stack {
+  position: fixed;
+  z-index: 12000;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  width: min(380px, 100vw - 32px);
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-notice {
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--confirmation-surface, var(--admin-surface, #171b17));
+  color: var(--confirmation-text, var(--admin-text, #f4efe6));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.app-notice.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.app-notice--error {
+  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022));
+}
+.app-notice--warning {
+  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400));
+}
+.app-notice--success {
+  --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853));
+}
+.app-notice--info {
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+}
+.app-notice__text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.app-notice__close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.app-notice__close:hover {
+  opacity: 1;
+}
+.app-notice__close:focus-visible {
+  outline: 2px solid var(--app-notice-accent);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+@media (max-width: 520px) {
+  .app-notice-stack {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    width: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-notice {
+    transition: none;
+    transform: none;
+  }
+}
 /*
  * Estado provisional para módulos administrativos pendientes.
  * Presenta el nombre del módulo dentro de una superficie consistente.

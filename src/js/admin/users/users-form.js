@@ -31,6 +31,7 @@
   var nip = form.querySelector("[data-user-nip]");
   var nipField = form.querySelector("[data-user-nip-field]");
   var passwordSection = form.querySelector("[data-user-password-section]");
+  var accessList = form.querySelector("[data-role-access-list]");
   var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
 
   // Un NIP que ya venía escrito (reenvío tras un error de validación) es del
@@ -136,15 +137,51 @@
     }
 
     if (passwordSection) {
+      // Al editar la contraseña es opcional (vacío = sin cambio), así que la
+      // sección se muestra pero nunca marca required.
+      var opcional = passwordSection.hasAttribute("data-user-password-optional");
       passwordSection.hidden = !esAdmin;
       // Los required tienen que caer con la sección: el navegador se niega a
       // enviar un formulario con un campo requerido oculto, y ni siquiera
       // puede enfocarlo para decir dónde está el problema.
       passwordSection.querySelectorAll("input").forEach(function (input) {
         input.disabled = !esAdmin;
-        input.required = esAdmin;
+        input.required = esAdmin && !opcional;
       });
     }
+
+    pintarAcceso();
+  }
+
+  // ── Áreas a las que da acceso el rol ─────────────────────────
+  // Los datos los publica la vista desde Auth::areasPorRol(), que deriva de la
+  // misma guardia que aplica proteger(): no se describen permisos de memoria.
+  function pintarAcceso() {
+    if (!accessList) {
+      return;
+    }
+
+    var areas = (window.AdminUserRoleAccess || {})[rolActual()] || [];
+    accessList.innerHTML = areas
+      .map(function (area) {
+        return (
+          '<li class="admin-role-access__item">' +
+          '<strong>' +
+          escapar(area.titulo) +
+          "</strong>" +
+          "<span>" +
+          escapar(area.detalle) +
+          "</span>" +
+          "</li>"
+        );
+      })
+      .join("");
+  }
+
+  function escapar(valor) {
+    var div = document.createElement("div");
+    div.textContent = String(valor == null ? "" : valor);
+    return div.innerHTML;
   }
 
   roles.forEach(function (input) {

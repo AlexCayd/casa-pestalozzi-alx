@@ -166,6 +166,9 @@ if ($initialOperationNotice !== null) {
                         'canvasMode' => 'operation',
                 'loadingMode' => 'empty',
                 'legendPosition' => 'footer',
+                // Se conserva aquí: es la alternativa accesible al mapa en la
+                // pantalla de escritorio, donde sí sobra alto.
+                'structuredList' => true,
             ];
             include __DIR__ . '/../partials/map.php';
             ?>

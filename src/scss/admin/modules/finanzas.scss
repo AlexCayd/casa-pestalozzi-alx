@@ -102,45 +102,83 @@
   line-height: 1.5;
 }
 
-// ── Barras de gastos por categoría ────────────────────────────
-.admin-finanzas__bars {
+// Margen al lado del renglón total: la cifra absoluta dice cuánto y el
+// porcentaje dice si eso es bueno, que es lo que se compara entre periodos.
+.admin-pnl__margen {
+  margin-left: 8px;
+  color: var(--admin-faint);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+// ── Gastos por categoría: dona + tabla de valores ─────────────
+// La dona comunica el reparto; los montos exactos los da la lista de al lado,
+// que es lo que una dona nunca puede hacer bien.
+.admin-finanzas__donut-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.admin-finanzas__donut {
+  position: relative;
+  height: 160px;
+}
+
+.admin-finanzas__donut-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 10px;
+  }
 }
 
-.admin-finanzas__bar-row {
-  display: grid;
-  grid-template-columns: 90px 1fr auto;
-  align-items: center;
-  gap: 12px;
-}
-
-.admin-finanzas__bar-label {
+.admin-finanzas__donut-label {
   color: var(--admin-muted);
   font-size: 12px;
   font-weight: 700;
 }
 
-.admin-finanzas__bar {
-  height: 10px;
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  overflow: hidden;
-
-  span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--admin-gold-deep, #a07e36), var(--admin-gold));
-  }
-}
-
-.admin-finanzas__bar-val {
+.admin-finanzas__donut-val {
   color: var(--admin-text);
   font-size: 13px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.admin-finanzas__donut-pct {
+  min-width: 46px;
+  color: var(--admin-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+// ── Descomposición del ingreso (Sankey) ───────────────────────
+.admin-finanzas__sankey-panel {
+  margin-bottom: 20px;
+}
+
+.admin-finanzas__sankey {
+  position: relative;
+  height: clamp(260px, 34vw, 400px);
 }
 
 // ── Formularios de gastos ─────────────────────────────────────

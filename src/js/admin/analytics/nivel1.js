@@ -93,7 +93,7 @@
         }
 
         if (!items.length) {
-            emptyRow('[data-n1-menu-table]', 5, 'Sin ventas en el periodo para clasificar el menú.');
+            emptyRow('[data-n1-menu-table]', 3, 'Sin ventas en el periodo para clasificar el menú.');
             makeChart('menuEngineeringChart', { type: 'scatter', data: { datasets: [] }, options: { responsive: true, maintainAspectRatio: false } });
             return;
         }
@@ -102,12 +102,14 @@
         if (tbody) {
             tbody.innerHTML = items.map(function (it) {
                 return '<tr>' +
-                    '<td>' + it.nombre + '</td>' +
+                    '<td><span class="admin-table__cell-main">' + it.nombre + '</span>' +
+                        '<span class="admin-table__cell-sub">' + it.categoria + '</span></td>' +
                     '<td><span class="admin-nivel1-badge admin-nivel1-badge--' + it.clase + '">' +
                         CLASES[it.clase].emoji + ' ' + it.claseLabel + '</span></td>' +
-                    '<td>' + it.unidades + '</td>' +
-                    '<td>' + money2(it.margen) + ' <small>(' + it.margenPct + '%)</small></td>' +
-                    '<td>' + it.categoria + '</td>' +
+                    '<td class="admin-table__num">' +
+                        '<span class="admin-table__cell-main">' + money2(it.margen) + '</span>' +
+                        '<span class="admin-table__cell-sub">' + it.unidades + ' uds · ' + it.margenPct + '%</span>' +
+                    '</td>' +
                     '</tr>';
             }).join('');
         }
@@ -278,7 +280,7 @@
         setText('[data-n1-asociacion-tickets]', (a.tickets || 0) + ' tickets analizados');
 
         if (!items.length) {
-            emptyRow('[data-n1-asociacion-table]', 5, 'No hay pares con afinidad significativa (lift > 1) en el periodo.');
+            emptyRow('[data-n1-asociacion-table]', 3, 'No hay pares con afinidad significativa (lift > 1) en el periodo.');
             return;
         }
 
@@ -286,11 +288,13 @@
         if (tbody) {
             tbody.innerHTML = items.map(function (it) {
                 return '<tr>' +
-                    '<td>' + it.a + '</td>' +
-                    '<td>' + it.b + '</td>' +
-                    '<td>' + it.coocurrencias + '</td>' +
-                    '<td>' + it.confianzaPct + '%</td>' +
-                    '<td><span class="admin-nivel1-lift">×' + it.lift + '</span></td>' +
+                    '<td><span class="admin-table__cell-main">' + it.a + '</span>' +
+                        '<span class="admin-table__cell-sub">+ ' + it.b + '</span></td>' +
+                    '<td class="admin-table__num">' + it.coocurrencias + '</td>' +
+                    '<td class="admin-table__num">' +
+                        '<span class="admin-table__cell-main">' + it.confianzaPct + '%</span>' +
+                        '<span class="admin-table__cell-sub"><span class="admin-nivel1-lift">×' + it.lift + '</span></span>' +
+                    '</td>' +
                     '</tr>';
             }).join('');
         }

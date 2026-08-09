@@ -22,6 +22,9 @@ $mapLoadingMode = (string)($mapVisual['loadingMode'] ?? 'empty');
 // la única nomenclatura.
 $mapLegendPosition = (string)($mapVisual['legendPosition'] ?? 'header');
 $mapLegendPosition = in_array($mapLegendPosition, ['header', 'footer', 'none'], true) ? $mapLegendPosition : 'header';
+// Alternativa accesible al mapa. Opt-in: en el POS le robaba alto al mapa en la
+// tablet, y el listado de mesas ahora vive en /admin/punto-de-venta.
+$mapStructuredList = (bool)($mapVisual['structuredList'] ?? false);
 $mapShowHeading = $mapTitle !== '' || $mapSubtitle !== '';
 $mapHeadClass = $mapToolbarActionsHtml !== '' ? ' operational-map-head--with-trigger' : '';
 $mapHeadClass .= !$mapShowHeading ? ' operational-map-head--legend-only' : '';
@@ -77,10 +80,12 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
         <?php endif; ?>
     </div>
 
-    <details class="operational-map__structured" data-map-structured-details>
-        <summary>Lista estructurada de mesas</summary>
-        <div class="operational-map__structured-list" data-map-structured-list role="list"></div>
-    </details>
+    <?php if ($mapStructuredList): ?>
+        <details class="operational-map__structured" data-map-structured-details>
+            <summary>Lista estructurada de mesas</summary>
+            <div class="operational-map__structured-list" data-map-structured-list role="list"></div>
+        </details>
+    <?php endif; ?>
 
     <?php if ($mapLegendPosition === 'footer'): ?>
         <div class="operational-map__footer mesas-map__footer">
@@ -89,4 +94,4 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>

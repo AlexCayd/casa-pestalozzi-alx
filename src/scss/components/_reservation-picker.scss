@@ -268,13 +268,21 @@
     }
   }
 
+  // Columna flexible en vez de un bloque con overflow oculto: el encabezado
+  // queda fijo y la rejilla es la única que scrollea. Sin el min-height:0 de
+  // más abajo, el hijo flex se niega a encoger por debajo de su contenido y el
+  // overflow-y nunca se activa — el panel sólo recortaba.
   .hour-dropdown {
-    overflow: hidden;
+    display: flex;
+    max-height: var(--reservation-picker-dropdown-max-height, none);
+    flex-direction: column;
     padding: 0;
+    overflow: hidden;
   }
 
   .hour-dropdown__head {
     display: grid;
+    flex: 0 0 auto;
     gap: 2px;
     padding: var(--reservation-picker-hours-head-padding, 0.8rem 1rem 0.7rem);
     border-bottom: 1px solid var(--reservation-picker-border, var(--line));
@@ -297,16 +305,18 @@
 
   .hour-dropdown__options {
     display: grid;
+    min-height: 0;
+    max-height: var(--reservation-picker-hours-max-height, 220px);
     grid-template-columns: repeat(var(--reservation-picker-hours-columns, 2), minmax(0, 1fr));
     gap: var(--reservation-picker-hours-gap, 3px);
-    max-height: var(--reservation-picker-hours-max-height, 220px);
-    overflow-y: auto;
     padding: var(--reservation-picker-hours-padding, 0.35rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--reservation-picker-accent, var(--accent)) transparent;
 
     &::-webkit-scrollbar {
-      width: 4px;
+      width: 6px;
     }
 
     &::-webkit-scrollbar-track {
@@ -351,20 +361,14 @@
       box-shadow: inset 0 0 0 1px var(--reservation-picker-selected-border, var(--accent));
     }
 
+    // Sin palomita: el color y el fondo ya distinguen la hora elegida, y la
+    // marca extra descuadraba la rejilla. El estado accesible lo lleva el
+    // aria-selected que pone selectHour().
     &.sel {
       border-color: var(--reservation-picker-selected-border, var(--accent));
       background: var(--reservation-picker-hour-selected-bg, transparent);
       color: var(--reservation-picker-hour-selected-color, var(--accent));
-
-      &::after {
-        width: 7px;
-        height: 4px;
-        flex: 0 0 auto;
-        border-bottom: 1.8px solid currentColor;
-        border-left: 1.8px solid currentColor;
-        content: "";
-        transform: translateY(-1px) rotate(-45deg);
-      }
+      font-weight: var(--reservation-picker-hour-selected-font-weight, 600);
     }
   }
 }

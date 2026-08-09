@@ -228,6 +228,9 @@
             button.disabled = !(interactive && table.interactivo);
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             button.setAttribute('aria-label', accessibleTableLabel(table));
+            // El CSS pinta el punto de estado desde aquí, con los mismos tokens
+            // --map-table-* que usan los pines del mapa.
+            button.setAttribute('data-estado-visual', table.estadoVisual);
             if (state) {
                 state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
                     + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
@@ -250,6 +253,7 @@
                 button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
                 button.disabled = !(interactive && table.interactivo);
                 button.setAttribute('aria-label', accessibleTableLabel(table));
+                button.setAttribute('data-estado-visual', table.estadoVisual);
 
                 var name = document.createElement('span');
                 name.className = 'operational-map__structured-name';

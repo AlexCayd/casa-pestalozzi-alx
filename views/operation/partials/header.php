@@ -12,11 +12,18 @@ $operationalDate = (string)($operationalDate ?? date('Y-m-d'));
 $operationalHour = (string)($operationalHour ?? '');
 $operationalBrandHref = (string)($operationalBrandHref ?? '/punto-de-venta');
 $operationalHeaderBackUrl = (string)($operationalHeaderBackUrl ?? '');
+// El POS lo apaga para los meseros: el destino vive bajo /admin y la guardia de
+// rol los rebotaría a una pantalla de error.
+$operationalHeaderBack = (bool)($operationalHeaderBack ?? true);
 $operationalDrawerId = (string)($operationalDrawerId ?? 'operational-reservations-drawer');
 $operationalHeaderDrawerToggleHtml = (string)($operationalHeaderDrawerToggleHtml ?? '');
 $operationalHeaderActionsHtml = (string)($operationalHeaderActionsHtml ?? '');
 $operationalUsuarioNombre = trim((string)($operationalUsuarioNombre ?? ''));
 $operationalUsuarioRol = (string)($operationalUsuarioRol ?? 'Usuario');
+// El POS los apaga: sin reloj de actualización y con salida directa en vez de
+// menú desplegable. Reservaciones conserva ambos, de ahí los defaults en true.
+$operationalShowLastUpdate = (bool)($operationalShowLastUpdate ?? true);
+$operationalUserMenu = (bool)($operationalUserMenu ?? true);
 $operationalHeaderUserMenuId = 'operational-user-menu-' . preg_replace('/[^a-z0-9_-]+/i', '-', $operationalModule);
 $operationalHeaderH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 
@@ -62,31 +69,42 @@ if ($operationalHeaderBackUrl === '') {
     </div>
 
     <div class="operational-header__region operational-header__region--right">
-        <div class="operational-header__last-update" aria-label="Última actualización">
-            <?php
-            $operationalUpdateId = $operationalView === 'map' ? 'mapa-live-badge' : '';
-            $operationalUpdateTextId = $operationalView === 'map' ? 'mapa-update-status' : '';
-            $operationalUpdateText = $operationalView === 'map' ? 'En vivo' : 'Preparando operación';
-            $operationalUpdateTextAttributes = $operationalView === 'reservations'
-                ? ['data-operation-update-status' => true]
-                : [];
-            $operationalUpdateClass = $operationalView === 'map' ? 'mapa-live-badge' : '';
-            include __DIR__ . '/last-update.php';
-            ?>
-        </div>
+        <?php if ($operationalShowLastUpdate): ?>
+            <div class="operational-header__last-update" aria-label="Última actualización">
+                <?php
+                $operationalUpdateId = $operationalView === 'map' ? 'mapa-live-badge' : '';
+                $operationalUpdateTextId = $operationalView === 'map' ? 'mapa-update-status' : '';
+                $operationalUpdateText = $operationalView === 'map' ? 'En vivo' : 'Preparando operación';
+                $operationalUpdateTextAttributes = $operationalView === 'reservations'
+                    ? ['data-operation-update-status' => true]
+                    : [];
+                $operationalUpdateClass = $operationalView === 'map' ? 'mapa-live-badge' : '';
+                include __DIR__ . '/last-update.php';
+                ?>
+            </div>
+        <?php endif; ?>
 
         <?php echo $operationalHeaderActionsHtml; ?>
 
-        <a
-            class="operational-header__back"
-            href="<?php echo $operationalHeaderH($operationalHeaderBackUrl); ?>"
-            aria-label="Volver a la gestión"
-            title="Volver a la gestión"
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
-        </a>
+        <?php if ($operationalHeaderBack): ?>
+            <?php // Rejilla de módulos, no flecha: el enlace no retrocede en el
+                  // historial, salta al panel de administración. ?>
+            <a
+                class="operational-header__back"
+                href="<?php echo $operationalHeaderH($operationalHeaderBackUrl); ?>"
+                aria-label="Ir al panel de administración"
+                title="Panel de administración"
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                </svg>
+            </a>
+        <?php endif; ?>
 
-        <?php if ($operationalUsuarioNombre !== ''): ?>
+        <?php if ($operationalUsuarioNombre !== '' && $operationalUserMenu): ?>
             <div class="operational-user-menu" data-operational-user-menu>
                 <button
                     type="button"
@@ -118,7 +136,26 @@ if ($operationalHeaderBackUrl === '') {
                     </form>
                 </div>
             </div>
+        <?php elseif ($operationalUsuarioNombre !== ''): ?>
+            <?php /* Chip informativo: la cuenta se ve, pero salir es un toque, no dos. */ ?>
+            <div class="operational-header__user operational-header__user--static">
+                <span class="operational-header__user-avatar" aria-hidden="true"><?php echo $operationalHeaderH($operationalHeaderInitial); ?></span>
+                <span class="operational-header__user-info">
+                    <span class="operational-header__user-name"><?php echo $operationalHeaderH($operationalUsuarioNombre); ?></span>
+                    <span class="operational-header__user-role"><?php echo $operationalHeaderH($operationalUsuarioRol); ?></span>
+                </span>
+            </div>
+            <form class="operational-header__logout-form" method="POST" action="/logout" data-operational-logout-form data-confirm-logout>
+                <button
+                    type="submit"
+                    class="operational-header__logout"
+                    aria-label="Cerrar sesión"
+                    title="Cerrar sesión"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg>
+                </button>
+            </form>
         <?php endif; ?>
     </div>
 </header>
-<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial); ?>
+<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial, $operationalShowLastUpdate, $operationalUserMenu); ?>

@@ -85,6 +85,11 @@
     var current = selected || minDate || configuredToday || new Date();
     var curYear = current.getFullYear();
     var curMonth = current.getMonth();
+    // Modo inline: el calendario vive siempre abierto dentro del formulario.
+    // El opt-in es de marcado para que ningún consumidor del popover cambie.
+    var inline = options.inline === true || root.getAttribute("data-inline") === "1";
+    // Con el display oculto, display.disabled deja de ser señal utilizable.
+    var controlDisabled = false;
 
     if (!display || !input || !calendar || !label || !grid || !prevBtn || !nextBtn) {
       return null;
@@ -96,6 +101,7 @@
     }
 
     function isDisabled(date) {
+      if (controlDisabled) return true;
       if (minDate && date < minDate) return true;
       if (maxDate && date > maxDate) return true;
       return enabledWeekdays.length > 0 && enabledWeekdays.indexOf(date.getDay()) === -1;
@@ -177,6 +183,10 @@
 
     function openCalendar() {
       if (display.disabled) return;
+      if (inline) {
+        render();
+        return;
+      }
       window.ReservationPopoverCoordinator.open(popover);
       calendar.classList.add("open");
       calendar.setAttribute("aria-hidden", "false");
@@ -190,6 +200,7 @@
     }
 
     function closeCalendar(restoreFocus) {
+      if (inline) return;
       window.ReservationPopoverCoordinator.close(popover, restoreFocus === true);
     }
 
@@ -235,7 +246,9 @@
     });
 
     grid.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") {
+      // Inline no debe tragarse Escape: no hay nada que cerrar y el usuario
+      // puede necesitarlo para el modal o el menú que lo contenga.
+      if (event.key === "Escape" && !inline) {
         event.preventDefault();
         closeCalendar(true);
         return;
@@ -257,15 +270,24 @@
       days[nextIndex].focus();
     });
 
-    window.ReservationPopoverCoordinator.register(popover);
+    // Registrarlo en el coordinador colgaría el calendario inline del listener
+    // global de clic-fuera, que lo cerraría al primer clic en la página.
+    if (inline) {
+      render();
+    } else {
+      window.ReservationPopoverCoordinator.register(popover);
+    }
 
     return {
       setDisabled: function (disabled) {
-        display.disabled = Boolean(disabled);
-        input.disabled = Boolean(disabled);
-        display.setAttribute("aria-disabled", disabled ? "true" : "false");
-        root.classList.toggle("is-disabled", Boolean(disabled));
-        if (disabled) closeCalendar();
+        controlDisabled = Boolean(disabled);
+        display.disabled = controlDisabled;
+        input.disabled = controlDisabled;
+        display.setAttribute("aria-disabled", controlDisabled ? "true" : "false");
+        root.classList.toggle("is-disabled", controlDisabled);
+        // Inline los días siguen a la vista: hay que repintarlos deshabilitados.
+        if (inline) render();
+        else if (controlDisabled) closeCalendar();
       },
       setValue: function (value, silent) {
         selected = parseDate(value);
@@ -275,6 +297,7 @@
           curYear = selected.getFullYear();
           curMonth = selected.getMonth();
         }
+        if (inline) render();
         if (!silent) emitChange();
       },
       getValue: function () {

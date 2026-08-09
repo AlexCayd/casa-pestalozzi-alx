@@ -198,26 +198,78 @@
   line-height: 1.35;
 }
 
+// Alternativa accesible al mapa visual. Vive dentro de una tarjeta de alto
+// fijo, así que al abrirse se topa: sin el max-height + scroll propio, empujaba
+// el mapa fuera del viewport en vez de encogerlo.
 .operational-map__structured {
+  flex: 0 0 auto;
   margin-top: 0.75rem;
   border: 1px solid var(--admin-border-soft);
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--admin-surface-soft) 72%, transparent);
+
+  &[open] {
+    display: flex;
+    max-height: min(38%, 320px);
+    flex-direction: column;
+    border-color: color-mix(in srgb, var(--admin-gold) 26%, var(--admin-border-soft));
+  }
 }
 
 .operational-map__structured summary {
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   padding: 0.7rem 0.85rem;
   color: var(--admin-text);
+  cursor: pointer;
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.02em;
+  list-style: none;
+
+  &::-webkit-details-marker { display: none; }
+
+  &::before {
+    content: "";
+    width: 0;
+    height: 0;
+    flex: 0 0 auto;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid var(--admin-gold);
+    transition: transform 160ms ease;
+  }
+
+  &:hover { color: var(--admin-gold); }
+
+  &:focus-visible {
+    outline: 0;
+    border-radius: 0.75rem;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
+.operational-map__structured[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .operational-map__structured-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.5rem;
+  min-height: 0;
   padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--admin-gold) 34%, transparent);
+  }
 }
 
 .operational-map__structured-list > li {
@@ -226,20 +278,49 @@
 }
 
 .operational-map__structured-list button {
+  // El punto de estado ocupa su propia columna y abarca las dos filas, así el
+  // color se lee antes que el texto — igual que en el mapa.
   display: grid;
+  grid-template-columns: 0.6rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
   width: 100%;
-  gap: 0.15rem;
+  align-items: center;
+  gap: 0.1rem 0.6rem;
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
+  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
   text-align: start;
+  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;
+
+  &::before {
+    content: "";
+    grid-row: 1 / span 2;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--operational-structured-color, var(--admin-border));
+  }
+
+  &[data-estado-visual="libre"] { --operational-structured-color: var(--map-table-available-border); }
+  &[data-estado-visual="ocupada"] { --operational-structured-color: var(--map-table-occupied-border); }
+  &[data-estado-visual="reservacion-proxima"] { --operational-structured-color: var(--map-table-reservation-border); }
+  &[data-estado-visual="seleccionada"] { --operational-structured-color: var(--map-table-selected-text); }
+  &[data-estado-visual="no-utilizable"] { --operational-structured-color: var(--map-table-unavailable-border); }
 }
 
 .operational-map__structured-list button:not(:disabled) {
   cursor: pointer;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--admin-gold) 45%, var(--admin-border-soft));
+    border-left-color: var(--operational-structured-color, var(--admin-gold));
+    background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-gold) 6%);
+    transform: translateY(-1px);
+  }
 }
 
 .operational-map__structured-list button:focus-visible {
@@ -257,12 +338,25 @@
 }
 
 .operational-map__structured-name {
+  grid-column: 2;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
+  grid-column: 2;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operational-map__structured summary::before,
+  .operational-map__structured-list button {
+    transition: none;
+  }
+
+  .operational-map__structured-list button:not(:disabled):hover {
+    transform: none;
+  }
 }
 
 .mesas-map__legend .mapa-leyenda-item {
@@ -386,14 +480,18 @@
   flex: 1 1 0;
 }
 
+// Los pines se miden en cqw (el ancho del lienzo, que declara container-type)
+// y no en vw. Con unidades de viewport el pin no encogía cuando el alto
+// limitaba el lienzo, y pines vecinos como Caja y Llevar —separados por puntos
+// porcentuales de pos_x— acababan encimándose.
 .mesas-map .mesa-pin {
   position: absolute;
   display: grid;
-  width: clamp(80px, 7vw, 100px) !important;
-  min-width: clamp(80px, 7vw, 100px);
-  height: clamp(52px, 4.5vw, 64px) !important;
+  width: clamp(80px, 9cqw, 108px) !important;
+  min-width: clamp(80px, 9cqw, 108px);
+  height: clamp(52px, 5.5cqw, 66px) !important;
   min-height: 52px;
-  padding: clamp(8px, 0.8vw, 11px);
+  padding: clamp(8px, 1cqw, 11px);
   place-items: center;
   border: 1.5px solid var(--admin-border-soft);
   border-radius: 14px;
@@ -460,17 +558,19 @@
 }
 
 .mesas-map .mesa-pin--tipo-barra {
-  width: clamp(122px, 11vw, 164px) !important;
-  min-width: clamp(122px, 11vw, 164px);
-  height: clamp(48px, 4vw, 56px) !important;
+  width: clamp(122px, 15cqw, 172px) !important;
+  min-width: clamp(122px, 15cqw, 172px);
+  height: clamp(48px, 5cqw, 58px) !important;
   min-height: 48px;
   border-radius: 8px;
 }
 
+// Caja y Llevar: 24 puntos de pos_x los separan, así que el ancho tiene que
+// quedar holgadamente por debajo de esos 24cqw o se encavalgan.
 .mesas-map .mesa-pin--tipo-especial {
-  width: clamp(76px, 9vw, 136px) !important;
-  min-width: clamp(76px, 9vw, 136px);
-  height: clamp(48px, 4vw, 56px) !important;
+  width: clamp(76px, 12cqw, 140px) !important;
+  min-width: clamp(76px, 12cqw, 140px);
+  height: clamp(48px, 5cqw, 58px) !important;
   min-height: 48px;
   border-radius: 10px;
 }
@@ -694,49 +794,44 @@
   background: var(--map-selection-mode-overlay);
 }
 
-.pos-ticket-selection-message {
+// Barra flotante del modo selección múltiple. Sustituye a la antigua columna
+// de acciones, que ocupaba ~200px permanentes aunque casi nunca se usara.
+.pos-ticket-selection-bar {
   position: absolute;
-  z-index: 5;
-  top: 12px;
-  left: clamp(12px, 18%, 240px);
-  right: clamp(214px, 22%, 300px);
-  max-width: none;
-  padding: 9px 16px;
+  z-index: 6;
+  bottom: 12px;
+  left: 50%;
+  display: flex;
+  max-width: calc(100% - 24px);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--map-selection-message-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--map-selection-message-bg);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  transform: translateX(-50%);
+
+  &[hidden] { display: none; }
+}
+
+.pos-ticket-selection-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.pos-ticket-selection-message {
+  min-width: 0;
+  margin: 0;
   color: var(--map-selection-message-text);
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
   line-height: 1.25;
-  text-align: center;
-  pointer-events: none;
-}
-
-.pos-map-actions {
-  display: flex;
-  width: clamp(170px, 16vw, 200px);
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.pos-ticket-selection-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.pos-map-actions__separator {
-  width: 100%;
-  height: 1px;
-  margin: 2px 0;
-  background: var(--admin-border-soft);
 }
 
 .operational-map-action {
-  width: 100%;
   min-height: 44px;
   padding: 0 16px;
   border: 1px solid var(--map-action-utility-border);
@@ -775,8 +870,7 @@
   color: var(--map-action-cancel-text);
 }
 
-.operational-map-action:focus-visible,
-.pos-map-actions .operational-map-toggle:focus-visible {
+.operational-map-action:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
@@ -784,16 +878,6 @@
 .operational-map-action:disabled {
   cursor: not-allowed;
   opacity: 0.62;
-}
-
-.pos-map-actions .operational-map-toggle {
-  width: 100%;
-  min-height: 44px;
-  justify-content: center;
-  border-color: var(--map-action-utility-border);
-  border-radius: 10px;
-  background: var(--map-action-utility-bg);
-  color: var(--map-action-utility-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -804,16 +888,14 @@
 }
 
 @media (max-width: 640px) {
-  .pos-ticket-selection-message {
-    left: 12px;
-    right: 12px;
-    padding-right: 212px;
-    text-align: left;
+  .pos-ticket-selection-bar {
+    flex-direction: column;
+    align-items: stretch;
+    width: calc(100% - 24px);
+    text-align: center;
   }
 
-  .pos-map-actions {
-    width: min(190px, calc(100vw - 24px));
-  }
+  .pos-ticket-selection-bar__actions .operational-map-action { flex: 1 1 0; }
 }
 
 @container mesas-map (max-width: 760px) {
@@ -881,22 +963,22 @@
 // y su tipografía para facilitar el toque sin perder densidad.
 @media (min-width: 768px) and (max-width: 1180px) {
   .mesas-map .mesa-pin {
-    width: clamp(92px, 10vw, 120px) !important;
-    min-width: clamp(92px, 10vw, 120px);
-    height: clamp(60px, 6vw, 74px) !important;
+    width: clamp(92px, 11cqw, 124px) !important;
+    min-width: clamp(92px, 11cqw, 124px);
+    height: clamp(60px, 7cqw, 76px) !important;
     min-height: 60px;
   }
 
   .mesas-map .mesa-pin--tipo-barra {
-    width: clamp(140px, 16vw, 190px) !important;
-    min-width: clamp(140px, 16vw, 190px);
-    height: clamp(56px, 5.5vw, 64px) !important;
+    width: clamp(140px, 17cqw, 196px) !important;
+    min-width: clamp(140px, 17cqw, 196px);
+    height: clamp(56px, 6cqw, 66px) !important;
   }
 
   .mesas-map .mesa-pin--tipo-especial {
-    width: clamp(96px, 12vw, 150px) !important;
-    min-width: clamp(96px, 12vw, 150px);
-    height: clamp(56px, 5.5vw, 64px) !important;
+    width: clamp(96px, 13cqw, 152px) !important;
+    min-width: clamp(96px, 13cqw, 152px);
+    height: clamp(56px, 6cqw, 66px) !important;
   }
 
   .mesas-map .mesa-pin__label {

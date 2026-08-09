@@ -148,11 +148,30 @@
             return valor >= promedioVentas ? palette.ventas : palette.bajoPromedio;
         }
 
+        // Periodo anterior: misma magnitud en otro tramo, así que no estrena
+        // color categórico. Se distingue por el trazo punteado y la leyenda,
+        // que es la codificación secundaria que exige el sistema.
+        var seriesVentas = [];
+        if (data.salesByDay.compare && data.salesByDay.compare.values) {
+            seriesVentas.push({
+                label: data.salesByDay.compare.label || 'Periodo anterior',
+                data: data.salesByDay.compare.values,
+                borderColor: palette.grid,
+                backgroundColor: palette.grid,
+                borderWidth: 2,
+                borderDash: [5, 4],
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                fill: false,
+                tension: 0.35
+            });
+        }
+
         createChart('salesByDayChart', {
             type: 'line',
             data: {
                 labels: data.salesByDay.labels,
-                datasets: [
+                datasets: seriesVentas.concat([
                     {
                         label: 'Promedio del periodo',
                         data: ventasDia.map(function () { return promedioVentas; }),
@@ -193,7 +212,7 @@
                         },
                         tension: 0.35
                     }
-                ]
+                ])
             },
             // Dos series: la leyenda deja de ser opcional. Es lo que nombra la
             // línea punteada, sin la cual el color no significa nada.
@@ -295,26 +314,6 @@
             options: baseOptions(palette)
         });
 
-        createChart('reservationSourcesChart', {
-            type: 'doughnut',
-            data: {
-                labels: data.reservationSources.labels,
-                datasets: [{
-                    data: data.reservationSources.values,
-                    backgroundColor: palette.serie.slice(0, 4),
-                    borderColor: palette.surface,
-                    borderWidth: 2
-                }]
-            },
-            options: baseOptions(palette, {
-                cutout: '62%',
-                scales: {},
-                plugins: {
-                    legend: { display: true, position: 'bottom', labels: { color: palette.muted, boxWidth: 12, boxHeight: 12 } },
-                    tooltip: { backgroundColor: palette.tooltipBg, padding: 12, titleColor: '#fff', bodyColor: '#fff' }
-                }
-            })
-        });
     }
 
     function initAnalyticsCharts(data) {

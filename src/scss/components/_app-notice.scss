@@ -1,0 +1,93 @@
+// Avisos transitorios (window.AppNotice). Sustituyen a alert().
+//
+// El mismo archivo se compila en app.css, admin.css y operation/reservations.css:
+// por eso cada color se pide primero al token público y cae al token admin, que
+// es el único disponible bajo .admin-body.
+
+.app-notice-stack {
+  position: fixed;
+  z-index: 12000;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  width: min(380px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-notice {
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--confirmation-surface, var(--admin-surface, #171b17));
+  color: var(--confirmation-text, var(--admin-text, #f4efe6));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  &.is-open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &--error   { --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022)); }
+  &--warning { --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400)); }
+  &--success { --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853)); }
+  &--info    { --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff)); }
+
+  &__text {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  &__close {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0.65;
+    transition: opacity 0.15s ease, background 0.15s ease;
+
+    &:hover { opacity: 1; }
+
+    &:focus-visible {
+      outline: 2px solid var(--app-notice-accent);
+      outline-offset: 2px;
+      opacity: 1;
+    }
+  }
+}
+
+@media (max-width: 520px) {
+  .app-notice-stack {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-notice {
+    transition: none;
+    transform: none;
+  }
+}

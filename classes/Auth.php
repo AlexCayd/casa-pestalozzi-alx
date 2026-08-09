@@ -137,6 +137,43 @@ class Auth {
         return self::check() && self::rol() === 'cook';
     }
 
+    /**
+     * Áreas del sistema a las que un rol puede entrar, en lenguaje humano.
+     *
+     * Deriva de la misma guardia que aplica proteger(): si cambian las reglas
+     * de acceso hay que actualizar las dos, pero al menos el formulario de
+     * usuarios deja de describir permisos de memoria.
+     *
+     * @return array<int, array{titulo: string, detalle: string}>
+     */
+    public static function areasPorRol(string $rol): array {
+        $pos = [
+            'titulo' => 'Punto de venta',
+            'detalle' => 'Mapa de mesas, tickets, comandas y cobro',
+        ];
+        $areas = [
+            'titulo' => 'Tableros de producción',
+            'detalle' => 'Cola de platillos de su área y cambios de estado',
+        ];
+
+        if ($rol === 'admin') {
+            return [
+                [
+                    'titulo' => 'Panel de administración',
+                    'detalle' => 'Menú, inventario, recetas, analíticas, finanzas, usuarios y configuración',
+                ],
+                $pos,
+                $areas,
+            ];
+        }
+
+        if ($rol === 'cook') {
+            return [$areas];
+        }
+
+        return [$pos];
+    }
+
     /** Vista inicial que corresponde a un rol tras iniciar sesión. */
     public static function destinoPorRol(?string $rol = null): string {
         $rol = $rol ?? self::rol();

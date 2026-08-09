@@ -3,7 +3,21 @@
     $ingredientesBajos = isset($ingredientesBajos) && is_iterable($ingredientesBajos) ? $ingredientesBajos : [];
     $totalIngredientes = (int) ($totalIngredientes ?? 0);
     $bajoStock = (int) ($bajoStock ?? 0);
+    $rango = is_array($rango ?? null) ? $rango : [];
+    $valorInventario = (float) ($valorInventario ?? 0);
+    $consumo = is_array($consumo ?? null) ? $consumo : ['valor' => 0.0, 'movimientos' => 0, 'ajustes' => 0];
+    $deltaConsumo = isset($deltaConsumo) ? $deltaConsumo : null;
     $fmt = static fn ($v): string => rtrim(rtrim(number_format((float) $v, 3, '.', ''), '0'), '.');
+    $money = static fn ($v): string => '$' . number_format((float) $v, 2);
+    $badgeDelta = static function (?float $delta): string {
+        if ($delta === null) {
+            return '';
+        }
+        $clase = $delta >= 0 ? 'is-up' : 'is-down';
+        $signo = $delta >= 0 ? '+' : '';
+        return '<span class="admin-delta ' . $clase . '">'
+            . $signo . number_format($delta, 1) . '%</span>';
+    };
 ?>
 <section class="admin-inventario admin-page">
     <header class="admin-page__header">
@@ -13,6 +27,7 @@
             <p class="admin-page__subtitle">Controla las existencias de cada ingrediente. Las ventas descuentan el stock automáticamente según la receta de cada producto.</p>
         </div>
         <div class="admin-actions">
+            <?php include __DIR__ . '/../partials/_range-picker.php'; ?>
             <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Ver recetas</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/inventario/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
@@ -31,6 +46,21 @@
         <div class="admin-stat-card <?php echo $bajoStock > 0 ? 'admin-stat-card--alert' : ''; ?>">
             <span class="admin-stat-card__label">Bajo stock</span>
             <span class="admin-stat-card__value"><?php echo $bajoStock; ?></span>
+        </div>
+        <div class="admin-stat-card">
+            <span class="admin-stat-card__label">Valor del inventario</span>
+            <span class="admin-stat-card__value"><?php echo $money($valorInventario); ?></span>
+            <span class="admin-stat-card__sub">Existencias de hoy × costo unitario</span>
+        </div>
+        <?php /* Valorizado con el costo ACTUAL del ingrediente:
+                 movimientos_inventario no guarda el costo del momento. */ ?>
+        <div class="admin-stat-card">
+            <span class="admin-stat-card__label">Consumo del periodo</span>
+            <span class="admin-stat-card__value"><?php echo $money($consumo['valor']); ?> <?php echo $badgeDelta($deltaConsumo); ?></span>
+            <span class="admin-stat-card__sub">
+                <?php echo (int) $consumo['movimientos']; ?> salidas por venta ·
+                <?php echo (int) $consumo['ajustes']; ?> ajustes · a costo actual
+            </span>
         </div>
     </div>
 

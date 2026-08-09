@@ -222,3 +222,26 @@
     width: 100%;
   }
 }
+
+/* Variación contra el periodo anterior. Vive en el bundle compartido porque la
+   usan finanzas e inventario, que cargan CSS de módulo distinto. */
+.admin-delta {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+
+  &.is-up {
+    background: color-mix(in srgb, var(--admin-c-verde) 16%, transparent);
+    color: var(--admin-c-verde);
+  }
+
+  &.is-down {
+    background: color-mix(in srgb, var(--admin-c-rojo) 16%, transparent);
+    color: var(--admin-c-rojo);
+  }
+}

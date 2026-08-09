@@ -29,9 +29,10 @@
   gap: 18px;
 }
 
-// Cada opción lleva su color de la paleta en --config-accent (lo inyecta la
-// vista desde el controlador). Tres tarjetas idénticas en dorado obligaban a
-// leer el título para saber a cuál se iba; el color las separa antes.
+// Tratamiento neutro: la pantalla sólo lista secciones, y cuatro hues distintos
+// competían entre sí sin aportar jerarquía. El icono diferencia por forma; el
+// dorado —que es el acento de la casa— aparece únicamente al apuntar o enfocar,
+// que es cuando marca a dónde va el clic.
 .admin-config-option {
   position: relative;
   display: flex;
@@ -45,31 +46,43 @@
   text-decoration: none;
   overflow: hidden;
 
-  // Filo superior de color: identifica la tarjeta aunque el icono quede fuera
-  // de la vista al desplazar.
+  // Filo superior: invisible en reposo, dorado al interactuar.
   &::before {
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--config-accent, var(--admin-gold));
+    height: 3px;
+    background: transparent;
+    transition: background var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &:hover::before,
+  &:focus-visible::before {
+    background: var(--admin-gold);
   }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--config-accent, var(--admin-gold));
+    border-color: var(--admin-gold);
     box-shadow: var(--admin-focus-ring), var(--admin-shadow-md);
   }
 
   &:hover {
-    border-color: var(--config-accent, var(--admin-border));
+    border-color: var(--admin-border);
     background: var(--admin-surface-soft);
   }
 
   &:hover &__cta,
   &:focus-visible &__cta {
-    border-color: var(--config-accent, var(--admin-gold));
-    background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 12%, transparent);
+    border-color: var(--admin-gold);
+    background: color-mix(in srgb, var(--admin-gold) 12%, transparent);
+    color: var(--admin-gold-deep);
+  }
+
+  &:hover &__icon,
+  &:focus-visible &__icon {
+    border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
+    color: var(--admin-gold-deep);
   }
 
   &:hover &__cta svg,
@@ -83,10 +96,13 @@
     height: 54px;
     flex: 0 0 54px;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--config-accent, var(--admin-gold)) 42%, transparent);
+    border: 1px solid var(--admin-border-soft);
     border-radius: 16px;
-    background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 15%, var(--admin-surface));
-    color: var(--config-accent, var(--admin-gold-deep));
+    background: var(--admin-surface-soft);
+    color: var(--admin-muted);
+    transition:
+      border-color var(--admin-t-base) var(--admin-ease-out),
+      color var(--admin-t-base) var(--admin-ease-out);
 
     svg {
       width: 27px;
@@ -114,7 +130,7 @@
   }
 
   &__eyebrow {
-    color: var(--config-accent, var(--admin-gold-deep));
+    color: var(--admin-muted);
     font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.07em;
@@ -139,11 +155,14 @@
     border: 1px solid var(--admin-neutral-border);
     border-radius: var(--admin-radius-md);
     background: var(--admin-surface-soft);
-    color: var(--config-accent, var(--admin-gold-deep));
+    color: var(--admin-text);
     font-size: 14px;
     font-weight: 800;
     letter-spacing: 0.01em;
-    transition: border-color var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+    transition:
+      border-color var(--admin-t-base) var(--admin-ease-out),
+      background var(--admin-t-base) var(--admin-ease-out),
+      color var(--admin-t-base) var(--admin-ease-out);
 
     svg {
       width: 18px;

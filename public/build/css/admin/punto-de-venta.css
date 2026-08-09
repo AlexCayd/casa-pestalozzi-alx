@@ -1,0 +1,96 @@
+@charset "UTF-8";
+/*
+ * Módulo de Punto de Venta en el admin.
+ * Publica la tarjeta que lanza el POS y el listado de mesas con su estado.
+ * Depende de admin.css (tokens, .admin-card, .admin-table, .admin-badge).
+ */
+.admin-map--launch {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-launch-card {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 32px);
+  padding: clamp(22px, 3vw, 34px);
+  flex-wrap: wrap;
+}
+
+.admin-launch-card__icon {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  background: var(--admin-neutral-bg);
+  color: var(--admin-gold);
+}
+.admin-launch-card__icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.admin-launch-card__body {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.admin-launch-card__body h3 {
+  margin: 0 0 6px;
+}
+
+.admin-launch-card__button {
+  min-height: 48px;
+  padding-inline: 22px;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.admin-launch-card__button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-pos-tables {
+  min-width: 0;
+  padding: 20px;
+}
+.admin-pos-tables > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.admin-pos-tables > header h3 {
+  margin: 5px 0 0;
+  font-size: 20px;
+}
+.admin-pos-tables > header > span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.admin-pos-tables .admin-table-wrap {
+  max-height: 460px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.admin-pos-tables .admin-table-wrap::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-pos-tables .admin-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-pos-tables .admin-table-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-gold) 38%, transparent);
+}
+.admin-pos-tables .admin-table th:not(:first-child),
+.admin-pos-tables .admin-table td:not(:first-child) {
+  width: 1%;
+  white-space: nowrap;
+}

@@ -43,6 +43,9 @@
     var abortController = null;
     var requestTimeoutId = null;
     var requestTimeoutMs = parseInt(options.requestTimeoutMs, 10) || 10000;
+    // Modo inline: rejilla de horarios siempre visible. Opt-in por marcado para
+    // no tocar a ningún consumidor del desplegable.
+    var inline = options.inline === true || root.getAttribute("data-inline") === "1";
 
     if (!display || !input || !dropdown || !optionsList) {
       return null;
@@ -86,13 +89,24 @@
       status.classList.toggle("show", Boolean(show && text));
     }
 
+    // En modo popover el estado sin horarios se comunica por el placeholder del
+    // display; inline ese display no existe, así que el texto va a la rejilla.
+    function renderInlinePlaceholder(text) {
+      if (!inline) return;
+      var vacio = document.createElement("p");
+      vacio.className = "hour-tabs__empty";
+      vacio.textContent = text || "Elige una fecha para ver horarios.";
+      optionsList.appendChild(vacio);
+    }
+
     function clearRequestTimeout() {
       if (requestTimeoutId === null) return;
       clearTimeout(requestTimeoutId);
       requestTimeoutId = null;
     }
 
-    var popoverCoordinator = window.ReservationPopoverCoordinator || null;
+    // Sin coordinador, el clic-fuera global no cierra la rejilla inline.
+    var popoverCoordinator = inline ? null : (window.ReservationPopoverCoordinator || null);
     var popover = {
       root: root,
       close: function (restoreFocus) {
@@ -105,6 +119,7 @@
     };
 
     function closeDropdown(restoreFocus) {
+      if (inline) return;
       if (popoverCoordinator) {
         popoverCoordinator.close(popover, restoreFocus === true);
         return;
@@ -117,6 +132,7 @@
     }
 
     function openDropdown() {
+      if (inline) return;
       if (popoverCoordinator) popoverCoordinator.open(popover);
       dropdown.classList.add("open");
       root.classList.add("is-open");
@@ -152,6 +168,7 @@
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
+      renderInlinePlaceholder(text || "Elige una fecha para ver horarios.");
       closeDropdown();
       if (!keepStatus) setStatus("", false);
       if (!silent) emitChange();
@@ -173,6 +190,7 @@
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
+      renderInlinePlaceholder("Consultando horarios…");
       closeDropdown();
       setStatus("Consultando horarios…", true);
       emitChange();
@@ -196,6 +214,7 @@
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
+      renderInlinePlaceholder(message || "No pudimos consultar los horarios.");
       closeDropdown();
       setStatus(message, true);
       if (!silent) emitChange();
@@ -294,6 +313,7 @@
         button.setAttribute("data-hour", hour);
         button.setAttribute("role", "option");
         button.setAttribute("aria-selected", "false");
+        if (inline) button.disabled = controlDisabled;
         button.addEventListener("click", function (event) {
           event.stopPropagation();
           selectHour(hour, false);
@@ -475,6 +495,13 @@
       input.disabled = disabled;
       display.setAttribute("aria-disabled", disabled || !enabled ? "true" : "false");
       root.classList.toggle("is-disabled", disabled || !enabled);
+      // Inline los chips están siempre a la vista: sin esto seguirían clicables
+      // en el modo de más de 12 personas, donde el flujo en línea no aplica.
+      if (inline) {
+        optionsList.querySelectorAll(".hour-option").forEach(function (button) {
+          button.disabled = disabled;
+        });
+      }
       if (disabled) closeDropdown();
     }
 
@@ -501,18 +528,22 @@
     });
 
     optionsList.addEventListener("keydown", function (event) {
-      if (["ArrowDown", "ArrowUp", "Home", "End", "Escape"].indexOf(event.key) === -1) return;
+      if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End", "Escape"].indexOf(event.key) === -1) return;
       var buttons = Array.from(optionsList.querySelectorAll(".hour-option"));
       var index = buttons.indexOf(document.activeElement);
       if (event.key === "Escape") {
+        // Inline no hay desplegable que cerrar: dejar pasar la tecla.
+        if (inline) return;
         event.preventDefault();
         closeDropdown(true);
         return;
       }
       if (index === -1 || !buttons.length) return;
       event.preventDefault();
-      if (event.key === "ArrowDown") index = Math.min(buttons.length - 1, index + 1);
-      if (event.key === "ArrowUp") index = Math.max(0, index - 1);
+      // Inline los horarios son una rejilla, no una columna: las flechas
+      // horizontales recorren la misma lista.
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") index = Math.min(buttons.length - 1, index + 1);
+      if (event.key === "ArrowUp" || event.key === "ArrowLeft") index = Math.max(0, index - 1);
       if (event.key === "Home") index = 0;
       if (event.key === "End") index = buttons.length - 1;
       buttons[index].focus();
@@ -538,6 +569,7 @@
       display.setAttribute("aria-disabled", "true");
       root.classList.add("is-disabled");
       optionsList.innerHTML = "";
+      renderInlinePlaceholder("Elige una fecha para ver horarios.");
       closeDropdown();
     } else {
       setUnavailable("Selecciona fecha y comensales", false, true);

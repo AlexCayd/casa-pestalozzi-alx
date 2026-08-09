@@ -164,6 +164,55 @@
   }
 }
 
+// Variante del POS: el chip solo informa con qué cuenta se trabaja; la salida
+// vive en su propio botón, a un toque.
+.operational-header__user--static {
+  cursor: default;
+
+  &:hover {
+    border-color: var(--admin-border);
+    background: var(--admin-surface-soft);
+  }
+}
+
+.operational-header__logout {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  padding: 0;
+  // Rojo tenue en reposo: cerrar sesión a media jornada es destructivo y debe
+  // leerse como tal sin gritar desde la barra.
+  border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 30%, var(--admin-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-c-rojo) 9%, var(--admin-surface-soft));
+  color: color-mix(in srgb, var(--admin-c-rojo) 72%, var(--admin-muted));
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+
+  svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.9;
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--admin-c-rojo) 55%, var(--admin-border));
+    background: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+    color: var(--admin-c-rojo);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring);
+  }
+}
+
 .operational-header__user-avatar {
   display: inline-grid;
   width: 32px;

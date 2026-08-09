@@ -1,0 +1,404 @@
+/*
+ * Selector de periodo del panel (analíticas, finanzas, inventario).
+ * Vivía anidado bajo .admin-analytics; se extrajo al bundle compartido cuando
+ * finanzas e inventario estrenaron filtro de rango. El markup lo emite
+ * views/admin/partials/_range-picker.php y lo maneja admin/core/range-picker.js.
+ */
+.admin-range {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  &__caption {
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 58px;
+    padding: 10px 16px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface);
+    color: var(--admin-text);
+    box-shadow: var(--admin-shadow-sm);
+    cursor: pointer;
+    text-align: left;
+    transition:
+      border-color var(--admin-t-base) var(--admin-ease-out),
+      box-shadow var(--admin-t-base) var(--admin-ease-out);
+
+    &:hover {
+      border-color: var(--admin-gold);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--admin-focus-ring);
+    }
+
+    &[aria-expanded="true"] {
+      border-color: var(--admin-gold);
+    }
+  }
+
+  &__icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    fill: none;
+    stroke: var(--admin-gold);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &__trigger-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__trigger-label {
+    color: var(--admin-text);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  &__trigger-dates {
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__chevron {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin-left: auto;
+    fill: none;
+    stroke: var(--admin-muted);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &__pop {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 60;
+    display: flex;
+    width: max-content;
+    max-width: min(660px, calc(100vw - 32px));
+    // Sin tope de alto el popover se salía por abajo y recortaba la lista de
+    // presets. Las clases --arriba / --izq las aplica ajustarPosicion().
+    max-height: min(560px, calc(100vh - 120px));
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow-lg);
+    overflow: auto;
+
+    &[hidden] {
+      display: none;
+    }
+
+    &--arriba {
+      top: auto;
+      bottom: calc(100% + 8px);
+    }
+
+    &--izq {
+      right: auto;
+      left: 0;
+    }
+  }
+
+  &__presets {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px;
+    // El radio lo daba el overflow:hidden del popover, que ya no está.
+    border-radius: var(--admin-radius-md) 0 0 var(--admin-radius-md);
+    border-right: 1px solid var(--admin-border-soft);
+    background: var(--admin-surface-soft);
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  &__preset {
+    padding: 9px 14px;
+    border: 0;
+    border-radius: var(--admin-radius-sm);
+    background: transparent;
+    color: var(--admin-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--admin-surface);
+      color: var(--admin-text);
+    }
+
+    &.is-active {
+      background: var(--admin-gold);
+      color: #1b1a17;
+    }
+  }
+
+  &__cal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px 12px;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &__nav {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr 32px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__nav-btn {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: transparent;
+    color: var(--admin-text);
+    cursor: pointer;
+
+    svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    &:hover:not(:disabled) {
+      border-color: var(--admin-gold);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  }
+
+  &__month-title {
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  &__months {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  &__weekdays,
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  &__weekdays {
+    margin-bottom: 6px;
+
+    span {
+      color: var(--admin-faint);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+  }
+
+  /*
+   * El tramo se pinta con un fondo continuo detrás de los días interiores
+   * (::before a sangre entre celdas) y los extremos en dorado sólido, que es
+   * como se lee un rango en las interfaces de viajes.
+   */
+  &__day {
+    position: relative;
+    display: grid;
+    min-height: 34px;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--admin-text);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 2px -1px;
+      z-index: 0;
+      border-radius: 0;
+    }
+
+    > * ,
+    &:not(.is-empty) {
+      position: relative;
+    }
+
+    &.is-empty {
+      cursor: default;
+    }
+
+    &.is-disabled {
+      color: var(--admin-faint);
+      cursor: not-allowed;
+    }
+
+    &.is-today:not(.is-edge) {
+      color: var(--admin-gold);
+      font-weight: 800;
+    }
+
+    &:hover:not(.is-disabled):not(.is-empty):not(.is-edge)::before {
+      border-radius: 8px;
+      background: var(--admin-surface-soft);
+    }
+
+    &.is-inside::before {
+      background: rgba(204, 163, 82, 0.18);
+    }
+
+    &.is-edge {
+      color: #1b1a17;
+      font-weight: 800;
+      z-index: 1;
+    }
+
+    &.is-edge::before {
+      background: var(--admin-gold);
+    }
+
+    &.is-start::before {
+      border-radius: 8px 0 0 8px;
+      inset: 2px -1px 2px 2px;
+    }
+
+    &.is-end::before {
+      border-radius: 0 8px 8px 0;
+      inset: 2px 2px 2px -1px;
+    }
+
+    &.is-single::before {
+      border-radius: 8px;
+      inset: 2px;
+    }
+  }
+
+  // Comparación contra el periodo previo: encima del pie porque cambia los
+  // datos que se van a leer, no la forma de aplicarlos.
+  &__compare {
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 10px;
+    align-items: flex-start;
+    border-top: 1px solid var(--admin-border-soft);
+  }
+
+  &__compare-text {
+    display: grid;
+    gap: 2px;
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 800;
+
+    small {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 1px solid var(--admin-border-soft);
+  }
+
+  &__summary {
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__foot-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-range__pop {
+    right: auto;
+    left: 0;
+    flex-direction: column;
+    max-width: calc(100vw - 32px);
+  }
+
+  .admin-range__presets {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border-soft);
+  }
+
+  .admin-range__months {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-range__month--b,
+  .admin-range__month-title--b {
+    display: none;
+  }
+
+  .admin-range__nav {
+    grid-template-columns: 32px 1fr 32px;
+  }
+}

@@ -1,10 +1,10 @@
 <?php
 /**
  * Módulo financiero del panel admin.
- * Muestra la situación del negocio del mes en curso: ingresos por ventas,
+ * Muestra la situación del negocio en el periodo elegido: ingresos por ventas,
  * costo de insumos (según recetas y costo de ingredientes), utilidad bruta,
- * gastos fijos (renta, luz, nómina…) y utilidad neta. Permite administrar los
- * gastos fijos.
+ * gastos fijos (renta, luz, nómina…), utilidad neta y rotación de inventarios.
+ * Permite administrar los gastos fijos.
  */
 
 namespace Controllers;
@@ -13,56 +13,36 @@ use Model\GastoFijo;
 use Model\Producto;
 use MVC\Router;
 use Services\Inventario;
+use Services\RangoPeriodo;
 
 class AdminFinanzasController
 {
     private const PATH = '/admin/finanzas';
     private const CSS = '/build/css/admin/finanzas.css';
+    private const JS = '/build/js/admin/finanzas.js';
+    private const CHART_JS = '/build/js/vendor/chart.umd.min.js';
+    private const SANKEY_JS = '/build/js/vendor/chartjs-chart-sankey.min.js';
 
     public static function index(Router $router): void
     {
+        $rango = RangoPeriodo::resolver($_GET);
+
         $datos = [
             'ingresos' => 0.0,
             'propinas' => 0.0,
             'tickets' => 0,
             'cogs' => 0.0,
         ];
+        $previo = ['ingresos' => 0.0, 'cogs' => 0.0];
         $gastos = [];
         $gastosPorCategoria = [];
         $totalGastos = 0.0;
         $rentabilidad = [];
+        $inventarioValor = 0.0;
+        $costoCache = [];
 
         try {
             $db = Producto::getDB();
-
-            // Las ventas se atribuyen al día del COBRO. COALESCE cubre los
-            // tickets cerrados antes de que existiera hora_cierre.
-            $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
-
-            // Ingresos y tickets cerrados del mes en curso.
-            $resIng = $db->query(
-                "SELECT COALESCE(SUM(ti.precio * ti.cantidad), 0) AS ingresos
-                   FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                        AND YEAR({$cierre}) = YEAR(CURDATE())
-                        AND MONTH({$cierre}) = MONTH(CURDATE())"
-            );
-            if ($resIng && ($row = $resIng->fetch_assoc())) {
-                $datos['ingresos'] = (float) $row['ingresos'];
-            }
-
-            $resTk = $db->query(
-                "SELECT COUNT(*) AS n, COALESCE(SUM(t.propina), 0) AS propinas
-                   FROM tickets t
-                  WHERE t.estado = 'cerrado'
-                        AND YEAR({$cierre}) = YEAR(CURDATE())
-                        AND MONTH({$cierre}) = MONTH(CURDATE())"
-            );
-            if ($resTk && ($row = $resTk->fetch_assoc())) {
-                $datos['tickets'] = (int) $row['n'];
-                $datos['propinas'] = (float) $row['propinas'];
-            }
 
             // Mapa nombre → producto (para enlazar ventas con recetas por nombre).
             $productosPorNombre = [];
@@ -76,40 +56,46 @@ class AdminFinanzasController
                 }
             }
 
-            // Costo de insumos (COGS) del mes: unidades vendidas × costo de receta.
-            $costoCache = [];
-            $resVend = $db->query(
-                "SELECT ti.nombre, SUM(ti.cantidad) AS unidades
-                   FROM ticket_items ti
-                   JOIN tickets t ON t.id = ti.ticket_id
-                  WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
-                        AND YEAR({$cierre}) = YEAR(CURDATE())
-                        AND MONTH({$cierre}) = MONTH(CURDATE())
-                  GROUP BY ti.nombre"
+            $datos = self::agregadosDelPeriodo(
+                $db,
+                (string) $rango['start'],
+                (string) $rango['end'],
+                $productosPorNombre,
+                $costoCache
             );
-            if ($resVend) {
-                while ($row = $resVend->fetch_assoc()) {
-                    $prod = $productosPorNombre[$row['nombre']] ?? null;
-                    if (!$prod) {
-                        continue;
-                    }
-                    $pid = $prod['id'];
-                    if (!isset($costoCache[$pid])) {
-                        $costoCache[$pid] = Inventario::costoDeProducto($pid);
-                    }
-                    $datos['cogs'] += $costoCache[$pid] * (float) $row['unidades'];
-                }
+
+            if (!empty($rango['comparar'])) {
+                $previo = self::agregadosDelPeriodo(
+                    $db,
+                    (string) $rango['prevStart'],
+                    (string) $rango['prevEnd'],
+                    $productosPorNombre,
+                    $costoCache
+                );
             }
 
-            // Gastos fijos.
+            // Gastos fijos. Son un monto MENSUAL recurrente (gastos_fijos no
+            // tiene columna de fecha), así que con un periodo arbitrario se
+            // prorratean a 30 días; la vista lo dice al pie del estado.
+            $factorGastos = ((int) $rango['dias']) / 30;
             $gastos = GastoFijo::todos();
             foreach ($gastos as $g) {
                 if (!$g->activo) {
                     continue;
                 }
-                $monto = (float) $g->monto;
+                $monto = (float) $g->monto * $factorGastos;
                 $totalGastos += $monto;
                 $gastosPorCategoria[$g->categoria] = ($gastosPorCategoria[$g->categoria] ?? 0.0) + $monto;
+            }
+
+            // Valor del inventario a hoy, para la rotación. Es un dato puntual:
+            // no hay histórico de stock ni costo al momento del movimiento.
+            $resInv = $db->query(
+                "SELECT COALESCE(SUM(stock * costo), 0) AS valor
+                   FROM ingredientes WHERE activo = 1"
+            );
+            if ($resInv && ($row = $resInv->fetch_assoc())) {
+                $inventarioValor = (float) $row['valor'];
             }
 
             // Rentabilidad por producto (solo los que tienen receta).
@@ -144,8 +130,17 @@ class AdminFinanzasController
         $cogs = $datos['cogs'];
         $utilidadBruta = $ingresos - $cogs;
         $utilidadNeta = $utilidadBruta - $totalGastos;
+        $utilidadBrutaPrev = $previo['ingresos'] - $previo['cogs'];
 
-        $rangoCortes = self::rangoCortes();
+        // Rotación: cuántas veces se consumió el inventario en el periodo.
+        // El denominador es el inventario ACTUAL, no el promedio: no existe
+        // histórico de stock del que sacar uno. La vista lo advierte.
+        $rotacion = $inventarioValor > 0 ? $cogs / $inventarioValor : null;
+        $diasInventario = ($rotacion !== null && $rotacion > 0)
+            ? ((int) $rango['dias']) / $rotacion
+            : null;
+
+        $rangoCortes = ['start' => (string) $rango['start'], 'end' => (string) $rango['end']];
         $cortes = [];
         try {
             $cortes = self::cortes($rangoCortes['start'], $rangoCortes['end']);
@@ -156,7 +151,7 @@ class AdminFinanzasController
         self::render('finanzas/index', [
             'title' => 'Finanzas',
             'topbarSection' => 'Finanzas',
-            'mes' => self::nombreMes(),
+            'rango' => $rango,
             'cortes' => $cortes,
             'rangoCortes' => $rangoCortes,
             'ingresos' => $ingresos,
@@ -168,12 +163,91 @@ class AdminFinanzasController
             'margenBruto' => $ingresos > 0 ? ($utilidadBruta / $ingresos) * 100 : 0,
             'totalGastos' => $totalGastos,
             'utilidadNeta' => $utilidadNeta,
+            // Faltaba: utilidadNeta se calculaba pero nunca se expresaba como
+            // porcentaje de los ingresos, que es como se compara entre periodos.
+            'margenNeto' => $ingresos > 0 ? ($utilidadNeta / $ingresos) * 100 : 0,
+            'deltaIngresos' => RangoPeriodo::delta($ingresos, $previo['ingresos']),
+            'deltaUtilidadBruta' => RangoPeriodo::delta($utilidadBruta, $utilidadBrutaPrev),
+            'inventarioValor' => $inventarioValor,
+            'rotacion' => $rotacion,
+            'diasInventario' => $diasInventario,
             'gastos' => $gastos,
             'gastosPorCategoria' => $gastosPorCategoria,
             'categorias' => GastoFijo::CATEGORIAS,
             'rentabilidad' => $rentabilidad,
             'alertas' => GastoFijo::getAlertas(),
         ]);
+    }
+
+    /**
+     * Ingresos, propinas, tickets y COGS de un tramo de fechas. Se extrajo del
+     * cuerpo de index() para poder pedir también el periodo anterior sin
+     * duplicar las tres consultas.
+     *
+     * $costoCache se pasa por referencia: costoDeProducto() explota la receta
+     * completa y repetirla por periodo multiplica las consultas.
+     *
+     * @param array<string, array{id: int, precio: float}> $productosPorNombre
+     * @param array<int, float> $costoCache
+     * @return array{ingresos: float, propinas: float, tickets: int, cogs: float}
+     */
+    private static function agregadosDelPeriodo(
+        \mysqli $db,
+        string $start,
+        string $end,
+        array $productosPorNombre,
+        array &$costoCache
+    ): array {
+        // Las ventas se atribuyen al día del COBRO. COALESCE cubre los tickets
+        // cerrados antes de que existiera hora_cierre.
+        $cierre = 'COALESCE(t.hora_cierre, t.hora_apertura)';
+        $filtro = "AND {$cierre} >= '{$start} 00:00:00' AND {$cierre} <= '{$end} 23:59:59'";
+
+        $agregados = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0];
+
+        $res = $db->query(
+            "SELECT COALESCE(SUM(ti.precio * ti.cantidad), 0) AS ingresos
+               FROM ticket_items ti
+               JOIN tickets t ON t.id = ti.ticket_id
+              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtro}"
+        );
+        if ($res && ($row = $res->fetch_assoc())) {
+            $agregados['ingresos'] = (float) $row['ingresos'];
+        }
+
+        $res = $db->query(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(t.propina), 0) AS propinas
+               FROM tickets t
+              WHERE t.estado = 'cerrado' {$filtro}"
+        );
+        if ($res && ($row = $res->fetch_assoc())) {
+            $agregados['tickets'] = (int) $row['n'];
+            $agregados['propinas'] = (float) $row['propinas'];
+        }
+
+        // COGS: unidades vendidas × costo de receta.
+        $res = $db->query(
+            "SELECT ti.nombre, SUM(ti.cantidad) AS unidades
+               FROM ticket_items ti
+               JOIN tickets t ON t.id = ti.ticket_id
+              WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado' {$filtro}
+              GROUP BY ti.nombre"
+        );
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $prod = $productosPorNombre[$row['nombre']] ?? null;
+                if (!$prod) {
+                    continue;
+                }
+                $pid = $prod['id'];
+                if (!isset($costoCache[$pid])) {
+                    $costoCache[$pid] = Inventario::costoDeProducto($pid);
+                }
+                $agregados['cogs'] += $costoCache[$pid] * (float) $row['unidades'];
+            }
+        }
+
+        return $agregados;
     }
 
     public static function guardarGasto(Router $router): void
@@ -213,21 +287,6 @@ class AdminFinanzasController
         }
 
         self::index($router);
-    }
-
-    /**
-     * Resuelve el rango de fechas de los cortes desde $_GET (?desde=&hasta=).
-     * Por defecto, los últimos 7 días. Devuelve ['start','end'].
-     */
-    private static function rangoCortes(): array
-    {
-        $re = '/^\d{4}-\d{2}-\d{2}$/';
-        $desde = trim((string) ($_GET['desde'] ?? ''));
-        $hasta = trim((string) ($_GET['hasta'] ?? ''));
-        if (preg_match($re, $desde) && preg_match($re, $hasta) && $desde <= $hasta) {
-            return ['start' => $desde, 'end' => $hasta];
-        }
-        return ['start' => date('Y-m-d', strtotime('-6 days')), 'end' => date('Y-m-d')];
     }
 
     /**
@@ -306,19 +365,12 @@ class AdminFinanzasController
         return array_values($dias);
     }
 
-    private static function nombreMes(): string
-    {
-        $meses = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-            'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-        return ucfirst($meses[(int) date('n')]) . ' ' . date('Y');
-    }
-
     private static function render(string $view, array $data = []): void
     {
         AdminController::render($view, array_merge([
             'activeModule' => 'finanzas',
             'styles' => [self::CSS],
-            'scripts' => [],
+            'scripts' => [self::CHART_JS, self::SANKEY_JS, self::JS],
         ], $data));
     }
 

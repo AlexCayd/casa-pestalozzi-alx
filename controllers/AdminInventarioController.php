@@ -8,6 +8,7 @@ namespace Controllers;
 
 use Model\Ingrediente;
 use MVC\Router;
+use Services\RangoPeriodo;
 
 class AdminInventarioController
 {
@@ -16,6 +17,8 @@ class AdminInventarioController
 
     public static function index(Router $router): void
     {
+        $rango = RangoPeriodo::resolver($_GET);
+
         $ingredientes = [];
         try {
             $ingredientes = Ingrediente::todos();
@@ -25,22 +28,78 @@ class AdminInventarioController
 
         $bajoStock = 0;
         $bajos = [];
+        $valorInventario = 0.0;
         foreach ($ingredientes as $ing) {
             if ((float) $ing->stock <= (float) $ing->stock_minimo) {
                 $bajoStock++;
                 $bajos[] = $ing;
             }
+            $valorInventario += (float) $ing->stock * (float) $ing->costo;
         }
+
+        $consumo = self::consumo((string) $rango['start'], (string) $rango['end']);
+        $consumoPrev = !empty($rango['comparar'])
+            ? self::consumo((string) $rango['prevStart'], (string) $rango['prevEnd'])
+            : null;
 
         self::render('inventario/index', [
             'title' => 'Inventario',
             'topbarSection' => 'Inventario',
+            'rango' => $rango,
             'ingredientes' => $ingredientes,
             'ingredientesBajos' => $bajos,
             'totalIngredientes' => count($ingredientes),
             'bajoStock' => $bajoStock,
+            'valorInventario' => $valorInventario,
+            'consumo' => $consumo,
+            'consumoPrev' => $consumoPrev,
+            'deltaConsumo' => $consumoPrev === null
+                ? null
+                : RangoPeriodo::delta($consumo['valor'], $consumoPrev['valor']),
             'alertas' => Ingrediente::getAlertas(),
         ]);
+    }
+
+    /**
+     * Consumo de insumos en un tramo: cuánto salió por venta y cuánto costó.
+     * movimientos_inventario.cantidad es negativa en las salidas, y no guarda
+     * el costo del momento, así que se valoriza con el costo actual del
+     * ingrediente. Es una aproximación y la vista lo dice.
+     *
+     * @return array{valor: float, movimientos: int, ajustes: int}
+     */
+    private static function consumo(string $start, string $end): array
+    {
+        $resumen = ['valor' => 0.0, 'movimientos' => 0, 'ajustes' => 0];
+
+        try {
+            $db = Ingrediente::getDB();
+            $filtro = "mi.created_at >= '{$start} 00:00:00' AND mi.created_at <= '{$end} 23:59:59'";
+
+            $res = $db->query(
+                "SELECT COALESCE(SUM(ABS(mi.cantidad) * i.costo), 0) AS valor,
+                        COUNT(*) AS n
+                   FROM movimientos_inventario mi
+                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                  WHERE mi.tipo = 'venta' AND mi.cantidad < 0 AND {$filtro}"
+            );
+            if ($res && ($row = $res->fetch_assoc())) {
+                $resumen['valor'] = (float) $row['valor'];
+                $resumen['movimientos'] = (int) $row['n'];
+            }
+
+            $res = $db->query(
+                "SELECT COUNT(*) AS n FROM movimientos_inventario mi
+                  WHERE mi.tipo = 'ajuste' AND {$filtro}"
+            );
+            if ($res && ($row = $res->fetch_assoc())) {
+                $resumen['ajustes'] = (int) $row['n'];
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminInventarioController::consumo - ' . $e->getMessage());
+        }
+
+        return $resumen;
     }
 
     public static function create(Router $router): void

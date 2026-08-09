@@ -55,18 +55,39 @@
     }, []);
   }
 
+  // El prefijo +52 es un afijo fijo del campo: el servidor exige E.164 y
+  // teclearlo a mano era la causa más común de teléfono rechazado.
   function contactPresentation(type) {
     var phone = String(type || "") === "telefono";
     return {
       type: phone ? "tel" : "email",
       autocomplete: phone ? "tel" : "email",
-      inputmode: phone ? "tel" : "email",
-      placeholder: phone ? "+52 55 1234 5678" : "cliente@ejemplo.com",
+      inputmode: phone ? "numeric" : "email",
+      // "55 1234 5678" = 12 caracteres con los dos separadores.
+      maxlength: phone ? 12 : null,
+      prefix: phone ? "+52" : "",
+      placeholder: phone ? "55 1234 5678" : "cliente@ejemplo.com",
       label: phone ? "Teléfono" : "Correo electrónico",
       help: phone
-        ? "Incluye lada y diez dígitos; el sistema normalizará el prefijo de México."
-        : "Escribe un correo electrónico válido."
+        ? "Diez dígitos, sin lada internacional."
+        : "Te enviaremos un código temporal para confirmar tu reservación."
     };
+  }
+
+  /** Deja solo los dígitos de un teléfono escrito por el usuario. */
+  function phoneDigits(value) {
+    var digits = String(value || "").replace(/\D+/g, "");
+    // Un "52" al frente solo es lada de país si sobran dígitos para el número.
+    if (digits.length > 10 && digits.indexOf("52") === 0) digits = digits.slice(2);
+    return digits.slice(0, 10);
+  }
+
+  /** Presenta diez dígitos como "55 1234 5678". */
+  function formatPhone(value) {
+    var digits = phoneDigits(value);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return digits.slice(0, 2) + " " + digits.slice(2);
+    return digits.slice(0, 2) + " " + digits.slice(2, 6) + " " + digits.slice(6);
   }
 
   function guestTransition(state, action, value, maximum) {
@@ -250,6 +271,8 @@
     availabilityCacheKey: availabilityCacheKey,
     availabilityResponseMatches: availabilityResponseMatches,
     contactPresentation: contactPresentation,
+    phoneDigits: phoneDigits,
+    formatPhone: formatPhone,
     guestTransition: guestTransition,
     availabilityState: availabilityState,
     availabilityTransition: availabilityTransition,

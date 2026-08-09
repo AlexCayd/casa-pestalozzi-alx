@@ -77,10 +77,9 @@ function initMapa() {
   var reservasList  = $('#mapa-reservas-list');
   var ahoraBtn      = $('#mapa-ahora-btn');
   var currentTimeEl = $('#mapa-current-time');
-  var liveBadge     = $('#mapa-live-badge');
-  var updateStatus  = $('#mapa-update-status');
   var reservaCount  = $('#mapa-reserva-count');
   var loadingEl     = $('#mapa-loading');
+  var selectionBar = $('#pos-ticket-selection-bar');
   var selectionToggle = $('#pos-ticket-selection-toggle');
   var selectionCancel = $('#pos-ticket-selection-cancel');
   var selectionMessage = $('#pos-ticket-selection-message');
@@ -104,6 +103,24 @@ function initMapa() {
   };
 
   // ── Helpers ───────────────────────────────────────────────
+  //
+  // Nada de alert(): en tablet un diálogo nativo bloquea el turno entero hasta
+  // que alguien lo toca, y varios de los antiguos podían salir vacíos cuando el
+  // servidor no mandaba mensaje. De ahí el texto de respaldo obligatorio.
+  function aviso(texto, variante) {
+    var mensaje = String(texto || '').trim() || 'No fue posible completar la acción.';
+    if (window.AppNotice && typeof window.AppNotice.show === 'function') {
+      window.AppNotice.show({ text: mensaje, variant: variante || 'error' });
+      return;
+    }
+    // Sin el componente cargado, al menos queda rastro en consola.
+    if (window.console && window.console.warn) window.console.warn(mensaje);
+  }
+
+  function avisoConexion() {
+    aviso('No hay conexión con el servidor. Vuelve a intentarlo.', 'error');
+  }
+
   function minutos(hora) {
     var p = hora.split(':');
     return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
@@ -216,8 +233,7 @@ function initMapa() {
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
     card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
-    star:    '<path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.2l5.9-.9Z"/>'
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'
   };
 
   function svgIcon(name, size) {
@@ -248,30 +264,90 @@ function initMapa() {
   // se bloquea en ese mesero. Si quien entró no es asignable no hay con qué
   // bloquearlo, así que se deja editable; el servidor aplica la misma regla al
   // abrir el ticket, porque un <select> deshabilitado no protege el endpoint.
-  function buildMeseroSelectHtml() {
+  // El campo se construye y se realza UNA vez por vida de página y luego se
+  // reinserta en cada apertura. #mesa-modal-content se reescribe entero cada
+  // vez: volver a realzarlo dejaría un <ul> huérfano en <body> y un listener de
+  // documento extra por apertura — cientos a lo largo de un turno.
+  var meseroField = null;
+  var meseroSelect = null;
+
+  function construirMeseroField() {
+    var wrap = document.createElement('div');
+    wrap.className = 'mmodal-name-wrap';
+
+    var label = document.createElement('div');
+    label.className = 'mmodal-label';
+    label.textContent = 'Mesero';
+
+    meseroSelect = document.createElement('select');
+    // Clase propia y no .mmodal-name-input: esa declara display:block y ganaba
+    // por orden de carga a .admin-select__native, dejando el <select> nativo
+    // visible debajo del trigger realzado.
+    meseroSelect.className = 'mmodal-select-native';
+    meseroSelect.id = 'mmodal-mesero';
+    // Opt-in explícito: .mapa-page está en el EXCLUDE de AdminSelect.
+    meseroSelect.setAttribute('data-enhance', '');
+
+    var hint = document.createElement('p');
+    hint.className = 'mmodal-field-hint';
+    hint.textContent = 'Asignación automática: el ticket queda a tu nombre.';
+    hint.hidden = true;
+
+    wrap.appendChild(label);
+    wrap.appendChild(meseroSelect);
+    wrap.appendChild(hint);
+    meseroField = { root: wrap, hint: hint };
+
+    if (window.AdminSelect && typeof window.AdminSelect.init === 'function') {
+      // Debe estar en el documento para que el portal calcule su posición.
+      document.body.appendChild(wrap);
+      wrap.style.display = 'none';
+      window.AdminSelect.init(wrap);
+      wrap.style.display = '';
+    }
+  }
+
+  function sincronizarMeseroOpciones() {
     var propio = meseroDeSesion();
     var bloqueado = !posConfig.mesero_editable && propio !== null;
-    var h = '<div class="mmodal-name-wrap">';
-    h += '<div class="mmodal-label">Mesero</div>';
-    h += '<select class="mmodal-name-input" id="mmodal-mesero"' + (bloqueado ? ' disabled' : '') + '>';
-    h += '<option value="">— Sin asignar —</option>';
+
+    meseroSelect.innerHTML = '';
+    var vacia = document.createElement('option');
+    vacia.value = '';
+    vacia.textContent = '— Sin asignar —';
+    meseroSelect.appendChild(vacia);
+
     for (var i = 0; i < meseros.length; i++) {
-      var esPropio = propio !== null && parseInt(meseros[i].id, 10) === parseInt(propio.id, 10);
-      h += '<option value="' + meseros[i].id + '"' + (esPropio ? ' selected' : '') + '>' +
-           escHtml(meseros[i].nombre) + '</option>';
+      var opcion = document.createElement('option');
+      opcion.value = meseros[i].id;
+      opcion.textContent = meseros[i].nombre;
+      if (propio !== null && parseInt(meseros[i].id, 10) === parseInt(propio.id, 10)) {
+        opcion.selected = true;
+      }
+      meseroSelect.appendChild(opcion);
     }
-    h += '</select>';
-    if (bloqueado) {
-      h += '<p class="mmodal-field-hint">Asignación automática: el ticket queda a tu nombre.</p>';
+
+    meseroSelect.disabled = bloqueado;
+    if (meseroField) meseroField.hint.hidden = !bloqueado;
+    // El listener de 'change' de AdminSelect solo sincroniza el valor; los <li>
+    // del portal hay que regenerarlos a mano tras reescribir los <option>.
+    if (window.AdminSelect && typeof window.AdminSelect.refresh === 'function') {
+      window.AdminSelect.refresh(meseroSelect);
     }
-    h += '</div>';
-    return h;
+  }
+
+  /** Monta el campo de mesero dentro del contenedor indicado del modal. */
+  function mountMeseroSelect(container) {
+    if (!container) return;
+    if (!meseroField) construirMeseroField();
+    sincronizarMeseroOpciones();
+    // El wrapper .admin-select envuelve al <select>; se mueve el bloque entero.
+    container.appendChild(meseroField.root);
   }
 
   function selectedMeseroId() {
-    var sel = modalContent.querySelector('#mmodal-mesero');
-    if (!sel || !sel.value) return null;
-    return parseInt(sel.value, 10);
+    if (!meseroSelect || !meseroSelect.value) return null;
+    return parseInt(meseroSelect.value, 10);
   }
 
   // ── Sugerencias de venta (flujo de n8n) ───────────────────
@@ -1068,11 +1144,7 @@ function initMapa() {
   // ── Selección multimesa para apertura de ticket ───────────
   function actualizarMensajeSeleccion() {
     if (!selectionMessage) return;
-    if (!ticketSelectionMode) {
-      selectionMessage.hidden = true;
-      return;
-    }
-    selectionMessage.hidden = false;
+    if (!ticketSelectionMode) return;
     selectionMessage.textContent = selectedMesaIds.length
       ? selectedMesaIds.length + (selectedMesaIds.length === 1
         ? ' mesa seleccionada. Confirma para abrir el ticket.'
@@ -1081,24 +1153,27 @@ function initMapa() {
   }
 
   function actualizarControlesApertura() {
+    // La barra entera solo existe dentro del modo selección: fuera de él, el
+    // punto de entrada es "Unir mesas" en el modal de la mesa.
+    if (selectionBar) selectionBar.hidden = !ticketSelectionMode;
     if (selectionToggle) {
+      var validas = selectedMesaIds.filter(function(mesaId) {
+        var mesa = mesaPorId(mesaId);
+        return mesa && mesaPuedeSeleccionarse(mesa, estadoMesaActual(mesaId));
+      }).length;
       selectionToggle.textContent = ticketSelectionState.opening
         ? 'Abriendo ticket…'
-        : (ticketSelectionMode ? 'Confirmar apertura' : 'Abrir ticket');
-      selectionToggle.setAttribute('aria-pressed', ticketSelectionMode ? 'true' : 'false');
+        : 'Confirmar apertura' + (validas ? ' (' + validas + (validas === 1 ? ' mesa)' : ' mesas)') : '');
       if (ticketSelectionState.opening) {
         selectionToggle.setAttribute('aria-busy', 'true');
       } else {
         selectionToggle.removeAttribute('aria-busy');
       }
-      var disabled = ticketSelectionState.opening
-        || (ticketSelectionMode && !hayMesasSeleccionadasValidas());
+      var disabled = ticketSelectionState.opening || validas === 0;
       selectionToggle.disabled = disabled;
       selectionToggle.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-      selectionToggle.classList.toggle('is-active', ticketSelectionMode && !ticketSelectionState.opening);
     }
     if (selectionCancel) {
-      selectionCancel.hidden = !ticketSelectionMode;
       selectionCancel.disabled = ticketSelectionState.opening;
     }
     actualizarMensajeSeleccion();
@@ -1116,11 +1191,7 @@ function initMapa() {
   }
 
   function activarModoSeleccion() {
-    if (ticketSelectionState.opening) return;
-    if (ticketSelectionMode) {
-      confirmarAperturaSeleccion();
-      return;
-    }
+    if (ticketSelectionState.opening || ticketSelectionMode) return;
     selectedMesaIds = [];
     ticketSelectionMode = true;
     ticketSelectionState.mode = 'ticket-selection';
@@ -1519,8 +1590,7 @@ function initMapa() {
     verTicket: true,
     // Orden de las 4 columnas del modal por su clave.
     orden: ['menu', 'cart', 'resumen', 'sugerencias'],
-    categoriaInicial: 0,
-    favoritos: []
+    categoriaInicial: 0
   };
 
   var POS_PANELES = {
@@ -1563,9 +1633,8 @@ function initMapa() {
     if (typeof guardado.categoriaInicial === 'number' && guardado.categoriaInicial >= 0) {
       posPrefs.categoriaInicial = guardado.categoriaInicial;
     }
-    if (Object.prototype.toString.call(guardado.favoritos) === '[object Array]') {
-      posPrefs.favoritos = guardado.favoritos.filter(function (n) { return typeof n === 'string'; });
-    }
+    // 'favoritos' se retiró: si viene en lo guardado se ignora sin más, porque
+    // el bucle de arriba sólo copia claves conocidas de POS_PREFS_DEFAULT.
     if (Object.prototype.toString.call(guardado.orden) === '[object Array]') {
       var limpio = guardado.orden.filter(function (p) { return POS_PANELES.hasOwnProperty(p); });
       // Se completa con los que falten para no perder ningún panel.
@@ -1629,33 +1698,9 @@ function initMapa() {
     setPosPref('orden', orden);
   }
 
-  function esFavorito(nombre) {
-    return getPosPrefs().favoritos.indexOf(nombre) !== -1;
-  }
-
-  function toggleFavorito(nombre) {
-    var favs = getPosPrefs().favoritos.slice();
-    var i = favs.indexOf(nombre);
-    if (i === -1) favs.push(nombre); else favs.splice(i, 1);
-    setPosPref('favoritos', favs);
-  }
-
-  /** Categoría virtual "Favoritos" al frente de las pestañas del menú. */
-  function categoriasConFavoritos() {
-    var base = window.CP_MENU || [];
-    var favs = getPosPrefs().favoritos;
-    if (!favs.length) return base;
-
-    var platillos = [];
-    for (var i = 0; i < base.length; i++) {
-      var dishes = base[i].dishes || [];
-      for (var j = 0; j < dishes.length; j++) {
-        if (favs.indexOf(dishes[j].n) !== -1) platillos.push(dishes[j]);
-      }
-    }
-    if (!platillos.length) return base;
-
-    return [{ id: -1, label: '★ Favoritos', dishes: platillos }].concat(base);
+  /** Categorías del menú tal y como las publica la vista. */
+  function categoriasMenu() {
+    return window.CP_MENU || [];
   }
 
   /**
@@ -1717,8 +1762,7 @@ function initMapa() {
     h += '<div class="mmodal-prefs__group"><h4>Vista del menú</h4>';
     h += grupo('Presentación', 'vistaMenu', [['grid', 'Cuadrícula'], ['lista', 'Lista']]);
     h += grupo('Columnas de platillos', 'columnas', [['2', '2'], ['3', '3'], ['4', '4']]);
-    h += '<p class="mmodal-prefs__hint">Marca la estrella de un platillo para tenerlo en Favoritos.</p>';
-    h += '</div>';
+      h += '</div>';
 
     h += '<div class="mmodal-prefs__foot">' +
            '<button type="button" class="mmodal-prefs__reset" id="mmodal-prefs-reset">Restablecer</button>' +
@@ -1909,7 +1953,7 @@ function initMapa() {
       // Bloques de categoría (grid)
       h += '<div class="mmodal-section-label" id="mmodal-cats-label">Categoría</div>';
       h += '<div class="mmodal-cat-grid" id="mmodal-cats">';
-      var catsMenu = categoriasConFavoritos();
+      var catsMenu = categoriasMenu();
       var catInicial = prefs.categoriaInicial;
       if (catInicial < 0 || catInicial >= catsMenu.length) catInicial = 0;
       for (var mi = 0; mi < catsMenu.length; mi++) {
@@ -2022,9 +2066,8 @@ function initMapa() {
         h += '<div class="mmodal-reserva-nota mmodal-reserva-nota--admin"><span class="mmodal-reserva-nota__label">Comentario administrativo</span>' +
           escHtml(reserva.comentario_admin) + '</div>';
       }
-      h += '<div class="mmodal-reservation__waiter">';
-      h += buildMeseroSelectHtml();
-      h += '</div>';
+      // El campo se inyecta como nodo tras pintar: es un componente vivo, no HTML.
+      h += '<div class="mmodal-reservation__waiter" data-mesero-slot></div>';
       h += '<div class="mmodal-reservation__actions">';
       if (reservaEstado === 'confirmada' && ausenciaPendiente) {
         h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Registrar ausencia</button>';
@@ -2083,7 +2126,7 @@ function initMapa() {
       h += '<input type="text" class="mmodal-name-input" id="mmodal-nombre"';
       h += ' placeholder="Nombre del comensal" autocomplete="off" maxlength="80">';
       h += '</div>';
-      h += buildMeseroSelectHtml();
+      h += '<div data-mesero-slot></div>';
       h += '<div class="mmodal-stepper-wrap">';
       h += '<div class="mmodal-label">Comensales</div>';
       h += '<div class="mmodal-stepper">';
@@ -2094,6 +2137,11 @@ function initMapa() {
       h += '</div>';
       h += '<div class="mmodal-actions">';
       h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir">Abrir ticket</button>';
+      // Punto de entrada al modo selección: reemplaza al botón fijo que vivía
+      // en el mapa y le comía ancho al salón.
+      if (!isLlevar(mesa)) {
+        h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-unir-mesas">Unir mesas</button>';
+      }
       h += '</div>';
     }
 
@@ -2115,42 +2163,26 @@ function initMapa() {
       return;
     }
 
+    // La tarjeta entera es el botón de agregar: en tablet apuntarle a un "+"
+    // de 20px cuesta más que tocar la fila completa. Es un <button> real para
+    // que el teclado y el foco funcionen sin replicarlos a mano.
     for (var i = 0; i < lista.length; i++) {
       var dish = lista[i];
-      var row  = document.createElement('div');
+      var row  = document.createElement('button');
+      row.type = 'button';
       row.className = 'mmodal-dish-row';
+      row.setAttribute('aria-label', 'Agregar ' + dish.n);
       row.innerHTML =
         '<div class="mmodal-dish-info">' +
           '<span class="mmodal-dish-name">' + escHtml(dish.n) + '</span>' +
         '</div>' +
         '<span class="mmodal-dish-price">$' + dish.p + '</span>';
 
-      // Estrella de favorito: alimenta la categoría virtual "★ Favoritos".
-      var favBtn = document.createElement('button');
-      favBtn.className = 'mmodal-dish-fav' + (esFavorito(dish.n) ? ' is-on' : '');
-      favBtn.innerHTML = svgIcon('star', 14);
-      favBtn.setAttribute('aria-pressed', esFavorito(dish.n) ? 'true' : 'false');
-      favBtn.setAttribute('aria-label', 'Marcar ' + dish.n + ' como favorito');
-      (function(d, btn) {
-        btn.addEventListener('click', function(ev) {
-          ev.stopPropagation();
-          toggleFavorito(d.n);
-          btn.classList.toggle('is-on');
-          btn.setAttribute('aria-pressed', btn.classList.contains('is-on') ? 'true' : 'false');
-        });
-      })(dish, favBtn);
-      row.appendChild(favBtn);
-
-      var addBtn = document.createElement('button');
-      addBtn.className   = 'mmodal-dish-add';
-      addBtn.textContent = '+';
-      addBtn.setAttribute('aria-label', 'Agregar ' + dish.n);
       (function(d) {
-        addBtn.addEventListener('click', function() {
+        row.addEventListener('click', function() {
           addToComanda(d.n, d.p, d.area || 'cocina', d._cat || '');
         });
       })(dish);
-      row.appendChild(addBtn);
       dishesEl.appendChild(row);
     }
   }
@@ -2173,7 +2205,7 @@ function initMapa() {
       if (catsGrid)  catsGrid.style.display  = '';
       var activo = catsGrid ? catsGrid.querySelector('.mmodal-cat-block--active') : null;
       var idx = activo ? parseInt(activo.dataset.idx, 10) : 0;
-      var catsBusq = categoriasConFavoritos();
+      var catsBusq = categoriasMenu();
       if (catsBusq[idx]) renderCategoryDishes(catsBusq[idx]);
       return;
     }
@@ -2544,7 +2576,9 @@ function initMapa() {
                             : row.estado === 'listo'          ? 'Listo'
                             : row.estado === 'en_preparacion' ? 'En preparación' : 'Enviado';
             var com = row.comensal !== null ? 'C.' + row.comensal : 'Gral';
-            var entBtn = row.estado === 'listo'
+            // Entregable en cualquier estado vivo: el mesero puede llevarse el
+            // plato aunque el tablero de área vaya un paso atrás.
+            var entBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
               ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">✓ Entregar</button>'
               : '';
             var cancelBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
@@ -2674,13 +2708,13 @@ function initMapa() {
     aplicarPosPrefs();
   }
 
-  /** Repinta la categoría abierta (tras cambiar vista o favoritos). */
+  /** Repinta la categoría abierta (tras cambiar de vista o de densidad). */
   function renderCategoriaActual() {
     // Alcanzable desde el panel de ajustes, que se puede abrir sin ninguna
     // mesa en pantalla.
     if (!modalContent || !modalContent.querySelector('#mmodal-dishes')) return;
     var activa = modalContent.querySelector('.mmodal-cat-block--active');
-    var cats = categoriasConFavoritos();
+    var cats = categoriasMenu();
     var idx = activa ? parseInt(activa.dataset.idx, 10) : 0;
     if (cats[idx]) renderCategoryDishes(cats[idx]);
   }
@@ -2688,7 +2722,7 @@ function initMapa() {
   function bindTabsAndComanda(mesa, ticket) {
     // Bloques de categoría (grid)
     var catTabs = modalContent.querySelectorAll('.mmodal-cat-block');
-    var cats = categoriasConFavoritos();
+    var cats = categoriasMenu();
     if (catTabs.length && cats.length) {
       var inicial = getPosPrefs().categoriaInicial;
       if (inicial < 0 || inicial >= cats.length) inicial = 0;
@@ -2702,7 +2736,7 @@ function initMapa() {
           tab.addEventListener('click', function() {
             for (var k = 0; k < catTabs.length; k++) catTabs[k].classList.remove('mmodal-cat-block--active');
             tab.classList.add('mmodal-cat-block--active');
-            renderCategoryDishes(categoriasConFavoritos()[parseInt(tab.dataset.idx, 10)]);
+            renderCategoryDishes(categoriasMenu()[parseInt(tab.dataset.idx, 10)]);
           });
           // Mantener pulsado fija la categoría de arranque del mesero.
           tab.addEventListener('contextmenu', function(ev) {
@@ -2792,6 +2826,8 @@ function initMapa() {
 
   // ── Bind de acciones del modal ────────────────────────────
   function bindModalActions(mesa, reserva, ticket) {
+    mountMeseroSelect(modalContent.querySelector('[data-mesero-slot]'));
+
     var decBtn = modalContent.querySelector('#mmodal-dec');
     var incBtn = modalContent.querySelector('#mmodal-inc');
     var cval   = modalContent.querySelector('#mmodal-cval');
@@ -2805,6 +2841,17 @@ function initMapa() {
     if (incBtn && cval) {
       incBtn.addEventListener('click', function() {
         cval.textContent = parseInt(cval.textContent, 10) + 1;
+      });
+    }
+
+    var unirBtn = modalContent.querySelector('#mmodal-unir-mesas');
+    if (unirBtn) {
+      unirBtn.addEventListener('click', function() {
+        closeModal();
+        activarModoSeleccion();
+        // La mesa de origen entra preseleccionada: es la que el mesero tocó.
+        mesaSeleccionadaToggle(mesa.id);
+        if (selectionMessage) selectionMessage.focus();
       });
     }
 
@@ -2984,7 +3031,7 @@ function initMapa() {
         renderPagoCompleto(mesa, ticket, (data.ok && data.items) ? data.items : []);
       })
       .catch(function() {
-        alert('Error de conexión');
+        avisoConexion();
         showCierreTipo(mesa, ticket);
       });
   }
@@ -2996,17 +3043,25 @@ function initMapa() {
       totalCents += Math.round(items[i].precio * 100) * items[i].cantidad;
     }
     if (totalCents <= 0) {
-      alert('El ticket no tiene consumo por cobrar');
+      aviso('El ticket no tiene consumo por cobrar.', 'warning');
       showCierreTipo(mesa, ticket);
       return;
     }
 
     function fmt(cents) { return (cents / 100).toFixed(2).replace(/\.00$/, ''); }
 
+    // Propina explícita, no derivada del excedente. Antes todo lo que sobraba
+    // del efectivo se registraba como propina y el cambio no existía: si el
+    // cliente pagaba $500 de una cuenta de $440 el ticket guardaba $60 de
+    // propina en vez de $60 de cambio a devolver.
+    var propinaCents = 0;
+    var propinaPct = null;
+    var PROPINA_PRESETS = [10, 15, 20];
+
     var h = buildCerrarHeader(mesa, ticket);
     h += '<div class="mmodal-cerrar-confirm">';
     h += '<p class="mmodal-cerrar-confirm__msg">Cobro de la cuenta</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige el método y captura el monto recibido.</p>';
+    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige el método, la propina y captura lo recibido.</p>';
 
     h += '<div class="mmodal-pago-btns" id="pc-metodos" style="margin-top:12px">';
     h += '<button type="button" class="mmodal-pago-btn mmodal-pago-btn--active" data-metodo="efectivo">';
@@ -3015,12 +3070,39 @@ function initMapa() {
     h += '<span class="mmodal-pago-btn__icon">' + svgIcon('card', 24) + '</span><span class="mmodal-pago-btn__label">Tarjeta</span></button>';
     h += '</div>';
 
+    h += '<div class="mmodal-propina" id="pc-propina">';
+    h += '<span class="mmodal-propina__label">Propina</span>';
+    h += '<div class="mmodal-propina__btns">';
+    h += '<button type="button" class="mmodal-propina__btn is-on" data-pct="0">Sin propina</button>';
+    for (var pp = 0; pp < PROPINA_PRESETS.length; pp++) {
+      h += '<button type="button" class="mmodal-propina__btn" data-pct="' + PROPINA_PRESETS[pp] + '">' +
+           PROPINA_PRESETS[pp] + '%</button>';
+    }
+    h += '<button type="button" class="mmodal-propina__btn" data-pct="custom">Otro</button>';
+    h += '</div>';
+    h += '<span class="mmodal-propina__monto" id="pc-propina-monto">$<input type="number" ' +
+         'class="mmodal-split-input" id="pc-propina-input" min="0" step="0.01" inputmode="decimal" ' +
+         'placeholder="0" hidden></span>';
+    h += '<button type="button" class="mmodal-propina__quedese" id="pc-quedese" hidden>Quédese con el cambio</button>';
+    h += '</div>';
+
     h += '<div class="mmodal-split-status" style="margin-top:14px">';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
-    h += '<div class="mmodal-total-row" style="align-items:center"><span class="mmodal-total-label">Monto recibido</span>';
-    h += '<span class="mmodal-split-monto">$<input type="number" class="mmodal-split-input" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></span></div>';
-    h += '<p class="mmodal-split-diff" id="pc-diff"></p>';
+    h += '<div class="mmodal-total-row" id="pc-propina-row" hidden><span class="mmodal-total-label">Propina</span><span class="mmodal-total-amount" id="pc-propina-val">$0</span></div>';
+    h += '<div class="mmodal-total-row mmodal-total-row--fuerte"><span class="mmodal-total-label">A cobrar</span><span class="mmodal-total-amount" id="pc-cobrar">$' + fmt(totalCents) + '</span></div>';
     h += '</div>';
+
+    h += '<div class="mmodal-recibido" id="pc-recibido-wrap">';
+    h += '<label class="mmodal-recibido__label" for="pc-recibido">Monto recibido</label>';
+    h += '<div class="mmodal-recibido__field"><span aria-hidden="true">$</span>';
+    h += '<input type="number" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></div>';
+    h += '</div>';
+
+    h += '<div class="mmodal-cambio" id="pc-cambio-wrap" hidden>';
+    h += '<span class="mmodal-cambio__label">Cambio a devolver</span>';
+    h += '<strong class="mmodal-cambio__val" id="pc-cambio">$0</strong>';
+    h += '</div>';
+    h += '<p class="mmodal-split-diff" id="pc-diff"></p>';
 
     h += '<div class="mmodal-cerrar-confirm__btns">';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="pc-volver">← Volver</button>';
@@ -3030,10 +3112,106 @@ function initMapa() {
 
     modalContent.innerHTML = h;
 
-    var metodoBtns = modalContent.querySelectorAll('#pc-metodos .mmodal-pago-btn');
-    var recibidoEl = modalContent.querySelector('#pc-recibido');
-    var diffEl     = modalContent.querySelector('#pc-diff');
-    var confirmBtn = modalContent.querySelector('#pc-confirm');
+    var metodoBtns   = modalContent.querySelectorAll('#pc-metodos .mmodal-pago-btn');
+    var propinaBtns  = modalContent.querySelectorAll('#pc-propina .mmodal-propina__btn');
+    var propinaInput = modalContent.querySelector('#pc-propina-input');
+    var propinaRow   = modalContent.querySelector('#pc-propina-row');
+    var propinaVal   = modalContent.querySelector('#pc-propina-val');
+    var quedeseBtn   = modalContent.querySelector('#pc-quedese');
+    var cobrarEl     = modalContent.querySelector('#pc-cobrar');
+    var recibidoWrap = modalContent.querySelector('#pc-recibido-wrap');
+    var recibidoEl   = modalContent.querySelector('#pc-recibido');
+    var cambioWrap   = modalContent.querySelector('#pc-cambio-wrap');
+    var cambioEl     = modalContent.querySelector('#pc-cambio');
+    var diffEl       = modalContent.querySelector('#pc-diff');
+    var confirmBtn   = modalContent.querySelector('#pc-confirm');
+
+    function metodoActivo() {
+      var a = modalContent.querySelector('#pc-metodos .mmodal-pago-btn--active');
+      return a ? a.dataset.metodo : 'efectivo';
+    }
+
+    function marcarPropinaActiva(pct) {
+      for (var i = 0; i < propinaBtns.length; i++) {
+        propinaBtns[i].classList.toggle('is-on', propinaBtns[i].dataset.pct === String(pct));
+      }
+    }
+
+    function persistir() {
+      guardarCierrePaso(ticket.id, {
+        step: 'completa',
+        metodo: metodoActivo(),
+        recibido: recibidoEl.value,
+        propina: propinaCents,
+        propinaPct: propinaPct
+      });
+    }
+
+    /**
+     * Con tarjeta no hay efectivo en juego: se cobra total + propina y el
+     * cambio no aplica. Con efectivo, el cambio es lo recibido menos el total
+     * menos la propina, así que una propina mayor al excedente es imposible.
+     */
+    function validar() {
+      var esEfectivo = metodoActivo() === 'efectivo';
+      var aCobrar = totalCents + propinaCents;
+
+      cobrarEl.textContent = '$' + fmt(aCobrar);
+      propinaRow.hidden = propinaCents <= 0;
+      propinaVal.textContent = '$' + fmt(propinaCents);
+      recibidoWrap.hidden = !esEfectivo;
+
+      if (!esEfectivo) {
+        cambioWrap.hidden = true;
+        quedeseBtn.hidden = true;
+        diffEl.textContent = propinaCents > 0
+          ? 'Se cargará $' + fmt(aCobrar) + ' a la tarjeta.'
+          : 'Se cargará el total exacto a la tarjeta.';
+        diffEl.className = 'mmodal-split-diff mmodal-split-diff--ok';
+        confirmBtn.disabled = false;
+        return true;
+      }
+
+      var val = parseFloat(recibidoEl.value);
+      var vacio = recibidoEl.value.trim() === '';
+      // Vacío = el cliente entrega justo lo que hay que cobrar.
+      var recibidoCents = vacio ? aCobrar : ((isNaN(val) || val < 0) ? 0 : Math.round(val * 100));
+      var diff = recibidoCents - aCobrar;
+      var excedenteSobreTotal = recibidoCents - totalCents;
+      var ok = diff >= -1;
+
+      // Sólo tiene sentido ofrecerlo cuando hay excedente que convertir y
+      // todavía no está todo asignado a propina.
+      quedeseBtn.hidden = vacio || excedenteSobreTotal <= 1 || diff <= 1;
+
+      cambioWrap.hidden = !ok || diff <= 1;
+      cambioEl.textContent = '$' + fmt(Math.max(0, diff));
+
+      if (diff < -1) {
+        diffEl.textContent = 'Faltan $' + fmt(-diff) + ' para cubrir ' +
+          (propinaCents > 0 ? 'la cuenta con propina' : 'el total');
+        diffEl.className = 'mmodal-split-diff mmodal-split-diff--falta';
+      } else if (diff <= 1) {
+        diffEl.textContent = propinaCents > 0 ? 'Pago exacto con propina, sin cambio' : 'Pago exacto, sin cambio';
+        diffEl.className = 'mmodal-split-diff mmodal-split-diff--ok';
+      } else {
+        diffEl.textContent = 'Devuelve $' + fmt(diff) +
+          (propinaCents > 0 ? ' después de la propina' : '');
+        diffEl.className = 'mmodal-split-diff mmodal-split-diff--ok';
+      }
+
+      confirmBtn.disabled = !ok;
+      return ok;
+    }
+
+    function aplicarPropinaPct(pct) {
+      propinaPct = pct;
+      propinaCents = Math.round(totalCents * pct / 100);
+      propinaInput.hidden = true;
+      marcarPropinaActiva(pct);
+      validar();
+      persistir();
+    }
 
     // Restaurar lo capturado si el mesero había salido a medias.
     var guardado = leerCierrePaso(ticket.id);
@@ -3044,43 +3222,15 @@ function initMapa() {
           metodoBtns[mb].classList.toggle('mmodal-pago-btn--active', metodoBtns[mb].dataset.metodo === 'tarjeta');
         }
       }
-    }
-
-    function metodoActivo() {
-      var a = modalContent.querySelector('#pc-metodos .mmodal-pago-btn--active');
-      return a ? a.dataset.metodo : 'efectivo';
-    }
-
-    function persistir() {
-      guardarCierrePaso(ticket.id, { step: 'completa', metodo: metodoActivo(), recibido: recibidoEl.value });
-    }
-
-    // El botón se habilita cuando el monto recibido cubre el total; el excedente
-    // se muestra como propina.
-    function validar() {
-      var val = parseFloat(recibidoEl.value);
-      var recCents = (isNaN(val) || val < 0) ? 0 : Math.round(val * 100);
-      // Vacío = pago exacto (sin propina).
-      var efectivoCents = recibidoEl.value.trim() === '' ? totalCents : recCents;
-      var diff = efectivoCents - totalCents;
-      var ok   = diff >= -1;
-      if (diffEl) {
-        if (recibidoEl.value.trim() === '') {
-          diffEl.textContent = 'Pago exacto, sin propina';
-          diffEl.className   = 'mmodal-split-diff';
-        } else if (diff < -1) {
-          diffEl.textContent = 'Faltan $' + fmt(-diff) + ' para cubrir el total';
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
-        } else if (diff <= 1) {
-          diffEl.textContent = 'Pago exacto, sin propina';
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
-        } else {
-          diffEl.textContent = '✓ Propina: $' + fmt(diff);
-          diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
+      if (typeof guardado.propina === 'number' && guardado.propina >= 0) {
+        propinaCents = Math.round(guardado.propina);
+        propinaPct = guardado.propinaPct != null ? guardado.propinaPct : 'custom';
+        marcarPropinaActiva(propinaPct);
+        if (propinaPct === 'custom') {
+          propinaInput.hidden = false;
+          propinaInput.value = (propinaCents / 100).toFixed(2);
         }
       }
-      if (confirmBtn) confirmBtn.disabled = !ok;
-      return ok;
     }
 
     for (var b = 0; b < metodoBtns.length; b++) {
@@ -3088,10 +3238,46 @@ function initMapa() {
         btn.addEventListener('click', function() {
           for (var k = 0; k < metodoBtns.length; k++) metodoBtns[k].classList.remove('mmodal-pago-btn--active');
           btn.classList.add('mmodal-pago-btn--active');
+          validar();
           persistir();
         });
       })(metodoBtns[b]);
     }
+
+    for (var pb = 0; pb < propinaBtns.length; pb++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          if (btn.dataset.pct === 'custom') {
+            propinaPct = 'custom';
+            propinaInput.hidden = false;
+            marcarPropinaActiva('custom');
+            propinaInput.focus();
+            return;
+          }
+          aplicarPropinaPct(parseInt(btn.dataset.pct, 10));
+        });
+      })(propinaBtns[pb]);
+    }
+
+    propinaInput.addEventListener('input', function() {
+      var val = parseFloat(propinaInput.value);
+      propinaCents = (isNaN(val) || val < 0) ? 0 : Math.round(val * 100);
+      validar();
+      persistir();
+    });
+
+    quedeseBtn.addEventListener('click', function() {
+      var val = parseFloat(recibidoEl.value);
+      var recibidoCents = isNaN(val) ? totalCents : Math.round(val * 100);
+      propinaCents = Math.max(0, recibidoCents - totalCents);
+      propinaPct = 'custom';
+      propinaInput.hidden = false;
+      propinaInput.value = (propinaCents / 100).toFixed(2);
+      marcarPropinaActiva('custom');
+      validar();
+      persistir();
+    });
+
     recibidoEl.addEventListener('input', function() { validar(); persistir(); });
 
     modalContent.querySelector('#pc-volver').addEventListener('click', function() {
@@ -3100,9 +3286,12 @@ function initMapa() {
     confirmBtn.addEventListener('click', function() {
       if (!validar()) return;
       confirmBtn.disabled = true;
+      var aCobrar = totalCents + propinaCents;
       var val = parseFloat(recibidoEl.value);
-      var recibido = (recibidoEl.value.trim() === '' || isNaN(val)) ? (totalCents / 100) : val;
-      apiCerrarTicket(ticket.id, metodoActivo(), mesa, recibido);
+      var recibido = (metodoActivo() !== 'efectivo' || recibidoEl.value.trim() === '' || isNaN(val))
+        ? (aCobrar / 100)
+        : val;
+      apiCerrarTicket(ticket.id, metodoActivo(), mesa, recibido, propinaCents / 100);
     });
 
     validar();
@@ -3121,7 +3310,7 @@ function initMapa() {
         renderPagoDividido(mesa, ticket, metodoDefault, (data.ok && data.items) ? data.items : []);
       })
       .catch(function() {
-        alert('Error de conexión');
+        avisoConexion();
         showCierreTipo(mesa, ticket);
       });
   }
@@ -3139,7 +3328,7 @@ function initMapa() {
     }
 
     if (totalCents <= 0) {
-      alert('El ticket no tiene consumo por cobrar');
+      aviso('El ticket no tiene consumo por cobrar.', 'warning');
       showCierreTipo(mesa, ticket);
       return;
     }
@@ -3193,6 +3382,15 @@ function initMapa() {
     h += '<button type="button" class="mmodal-split-mode" data-modo="iguales">Partes iguales</button>';
     h += '<button type="button" class="mmodal-split-mode" data-modo="cuenta">Cada quien su cuenta</button>';
     h += '<button type="button" class="mmodal-split-mode mmodal-split-mode--active" data-modo="vacio">Vacío</button>';
+    h += '</div>';
+    h += '<div class="mmodal-propina mmodal-propina--split">';
+    h += '<span class="mmodal-propina__label">Propina sugerida</span>';
+    h += '<div class="mmodal-propina__btns" id="split-propina-btns">';
+    h += '<button type="button" class="mmodal-propina__btn is-on" data-pct="0">Sin propina</button>';
+    h += '<button type="button" class="mmodal-propina__btn" data-pct="10">10%</button>';
+    h += '<button type="button" class="mmodal-propina__btn" data-pct="15">15%</button>';
+    h += '<button type="button" class="mmodal-propina__btn" data-pct="20">20%</button>';
+    h += '</div>';
     h += '</div>';
     h += '<div class="mmodal-split-table">';
     h += '<div class="mmodal-split-row mmodal-split-row--head">';
@@ -3318,20 +3516,40 @@ function initMapa() {
     // opción. En "vacío" los inputs quedan en 0 (placeholder), en los otros
     // modos se muestran los montos calculados como valor editable y placeholder.
     var modeBtns = modalContent.querySelectorAll('.mmodal-split-mode');
+    var propinaBtns = modalContent.querySelectorAll('#split-propina-btns .mmodal-propina__btn');
+    var modoActivo = 'vacio';
+    var propinaPct = 0;
 
-    function aplicarModo(modo) {
+    /**
+     * Reescribe los montos según el modo y el porcentaje de propina. La propina
+     * se reparte con el mismo repartir() que el resto para que los centavos
+     * cuadren: la suma de los inputs tiene que dar total + propina exacto, que
+     * es lo que el servidor vuelve a comprobar.
+     */
+    function aplicarModo(modo, pct) {
+      modoActivo = modo;
+      if (pct != null) propinaPct = pct;
+
       for (var mb = 0; mb < modeBtns.length; mb++) {
         modeBtns[mb].classList.toggle('mmodal-split-mode--active', modeBtns[mb].dataset.modo === modo);
       }
+      for (var pb = 0; pb < propinaBtns.length; pb++) {
+        propinaBtns[pb].classList.toggle('is-on', parseInt(propinaBtns[pb].dataset.pct, 10) === propinaPct);
+      }
+
+      var extra = repartir(Math.round(totalCents * propinaPct / 100), n);
+
       for (var r = 0; r < rows.length; r++) {
         var ci    = parseInt(rows[r].dataset.c, 10);
         var input = rows[r].querySelector('.mmodal-split-input');
         if (modo === 'vacio') {
+          // Sin base sobre la que calcular no hay dónde sumar la propina; el
+          // mesero captura los montos a mano.
           input.value = '';
           input.placeholder = '0';
           continue;
         }
-        var cents = modo === 'iguales' ? modoIguales[ci - 1] : modoCuenta[ci - 1];
+        var cents = (modo === 'iguales' ? modoIguales[ci - 1] : modoCuenta[ci - 1]) + extra[ci - 1];
         input.value = fmt(cents);
         input.placeholder = fmt(cents);
       }
@@ -3341,8 +3559,23 @@ function initMapa() {
 
     for (var mb2 = 0; mb2 < modeBtns.length; mb2++) {
       (function(btn) {
-        btn.addEventListener('click', function() { aplicarModo(btn.dataset.modo); });
+        btn.addEventListener('click', function() { aplicarModo(btn.dataset.modo, null); });
       })(modeBtns[mb2]);
+    }
+
+    for (var pb2 = 0; pb2 < propinaBtns.length; pb2++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var pct = parseInt(btn.dataset.pct, 10);
+          // En modo "vacío" no hay montos base que recalcular: se elige un
+          // reparto primero para que la propina tenga sobre qué aplicarse.
+          if (modoActivo === 'vacio' && pct > 0) {
+            aplicarModo('iguales', pct);
+            return;
+          }
+          aplicarModo(modoActivo, pct);
+        });
+      })(propinaBtns[pb2]);
     }
 
     modalContent.querySelector('#split-volver').addEventListener('click', function() {
@@ -3462,6 +3695,36 @@ function initMapa() {
     }
   }
 
+  // En tablet un toque accidental no debe sacar del turno. La confirmación va
+  // en el modal de marca, no en un diálogo del navegador.
+  function initLogoutConfirm() {
+    var form = document.querySelector('[data-confirm-logout]');
+    if (!form) return;
+
+    form.addEventListener('submit', function(event) {
+      if (form.dataset.logoutConfirmed === '1') return;
+      event.preventDefault();
+      if (!window.ConfirmationModal) {
+        form.dataset.logoutConfirmed = '1';
+        form.submit();
+        return;
+      }
+      window.ConfirmationModal.get().open({
+        variant: 'warning',
+        eyebrow: 'Sesión',
+        title: '¿Cerrar sesión?',
+        description: 'Saldrás del punto de venta y volverás a la pantalla de acceso.',
+        consequence: 'Los tickets abiertos siguen abiertos para el resto del equipo.',
+        secondaryLabel: 'Seguir aquí',
+        primaryLabel: 'Cerrar sesión',
+        onPrimary: function() {
+          form.dataset.logoutConfirmed = '1';
+          form.submit();
+        }
+      });
+    });
+  }
+
   function apiPost(url, data) {
     postJson(url, data)
     .then(function(result) {
@@ -3469,10 +3732,10 @@ function initMapa() {
         closeModal();
         silentRefresh();
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
       }
     })
-    .catch(function() { alert('Error de conexión'); });
+    .catch(function() { avisoConexion(); });
   }
 
   function showOpenTicketNotice(options) {
@@ -3485,7 +3748,9 @@ function initMapa() {
     sugPedidas = false;
     modalContent.innerHTML = '';
     openModalShell();
-    window.ConfirmationModal.create(modalContent).open({
+    // get() reutiliza el singleton de <body>. create() montaba un root nuevo en
+    // cada aviso y ninguno se recogía: se acumulaban durante todo el turno.
+    window.ConfirmationModal.get().open({
       variant: options.variant === 'absence' || options.confirmButtonVariant === 'warning'
         ? 'warning'
         : 'default',
@@ -3853,17 +4118,17 @@ function initMapa() {
         modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, newTicket);
         bindModalActions(mesa, null, newTicket);
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
       }
     })
-    .catch(function() { alert('Error de conexión'); })
+    .catch(function() { avisoConexion(); })
     .finally(function() {
       ticketRequestInFlight = false;
       setActionBusy(button, false);
     });
   }
 
-  function apiCerrarTicket(ticketId, metodoPago, mesa, recibido) {
+  function apiCerrarTicket(ticketId, metodoPago, mesa, recibido, propina) {
     fetch('/api/cerrar-ticket', {
       method:  'POST',
       headers: staffJsonHeaders(),
@@ -3871,7 +4136,10 @@ function initMapa() {
         ticket_id:          ticketId,
         metodo_pago:        metodoPago,
         separar_comensales: false,
-        recibido:           recibido
+        recibido:           recibido,
+        // Explícita: el servidor ya no la deduce del excedente, que ahora es
+        // cambio a devolver.
+        propina:            propina || 0
       })
     })
     .then(function(res) { return res.json(); })
@@ -3880,10 +4148,10 @@ function initMapa() {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
       }
     })
-    .catch(function() { alert('Error de conexión'); });
+    .catch(function() { avisoConexion(); });
   }
 
   function apiCerrarTicketDividido(ticketId, pagos, mesa) {
@@ -3902,13 +4170,13 @@ function initMapa() {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
         var btn = modalContent.querySelector('#split-confirm');
         if (btn) btn.disabled = false;
       }
     })
     .catch(function() {
-      alert('Error de conexión');
+      avisoConexion();
       var btn = modalContent.querySelector('#split-confirm');
       if (btn) btn.disabled = false;
     });
@@ -3950,10 +4218,10 @@ function initMapa() {
         // En desktop: refrescar columna 3 directamente
         if (window.innerWidth >= 768) renderResumen(ticketId);
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
       }
     })
-    .catch(function() { alert('Error de conexión'); });
+    .catch(function() { avisoConexion(); });
   }
 
   function apiEntregarItem(itemId, ticketId) {
@@ -3967,8 +4235,14 @@ function initMapa() {
       if (result.ok) {
         invalidarTicketItems(ticketId);
         renderResumen(ticketId);
+        return;
       }
-    });
+      // Antes se ignoraba el fallo y la fila se quedaba igual sin explicación.
+      aviso(result.mensaje || 'No se pudo entregar el platillo.', 'error');
+      invalidarTicketItems(ticketId);
+      renderResumen(ticketId);
+    })
+    .catch(function() { avisoConexion(); });
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {
@@ -3999,10 +4273,10 @@ function initMapa() {
         invalidarTicketItems(ticketId);
         renderResumen(ticketId);
       } else {
-        alert(result.mensaje || '');
+        aviso(result.mensaje);
       }
     })
-    .catch(function() { alert('Error de conexión'); });
+    .catch(function() { avisoConexion(); });
   }
 
   // ── Selector compartido de fecha ─────────────────────────
@@ -4136,11 +4410,6 @@ function initMapa() {
         renderEstados();
         renderSidebar();
         actualizarModalReservacionActiva();
-        if (updateStatus) {
-          var horaActualizada = partesRelojOperativo();
-          updateStatus.textContent = 'Actualizado ' + String(horaActualizada.hora).padStart(2, '0') + ':' +
-            String(horaActualizada.minuto).padStart(2, '0');
-        }
         if (loadingEl) loadingEl.classList.add('hidden');
       })
       .catch(function(error) {
@@ -4214,7 +4483,8 @@ function initMapa() {
   initMapaCalendar();
   initPrefsOverlay();
   actualizarModoSeleccion();
-  if (selectionToggle) selectionToggle.addEventListener('click', activarModoSeleccion);
+  initLogoutConfirm();
+  if (selectionToggle) selectionToggle.addEventListener('click', confirmarAperturaSeleccion);
   if (selectionCancel) selectionCancel.addEventListener('click', cancelarModoSeleccion);
 
   if (modalBd)    modalBd.addEventListener('click', closeModal);

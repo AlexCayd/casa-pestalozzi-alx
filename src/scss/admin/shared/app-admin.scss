@@ -15,9 +15,11 @@
 @use 'components/badges';
 @use 'components/forms';
 @use 'components/reservation-picker';
+@use 'components/range-picker';
 @use 'components/select';
 @use 'components/theme-toggle';
 @use 'components/transitions';
 @use 'components/modal';
 @use '../../components/confirmation-modal';
+@use '../../components/app-notice';
 @use 'components/placeholders';

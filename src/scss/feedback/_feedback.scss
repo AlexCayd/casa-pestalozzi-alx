@@ -421,21 +421,27 @@ $face-5: #29B6F6;
 }
 
 // ── Botones de pago en el modal del mapa ─────────────────────
+// minmax(0, 1fr) y no 1fr: con `1fr` la pista no baja de su min-content, y dos
+// botones con "EFECTIVO"/"TARJETA" espaciados sumaban ~360px contra los 352px
+// útiles del .mesa-modal__panel, así que la fila se salía del contenedor.
 .mmodal-pago-btns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .75rem;
   margin: 1.25rem 0 .75rem;
+
+  @media (max-width: 420px) { grid-template-columns: 1fr; }
 }
 
 .mmodal-pago-btn {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem 1.25rem;
+  gap: .6rem;
+  padding: 1.25rem 1rem;
   border: 2px solid rgba(255,255,255,.1);
   border-radius: 14px;
   background: rgba(255,255,255,.04);
@@ -444,13 +450,15 @@ $face-5: #29B6F6;
 
   &__icon {
     display: flex;
+    flex: 0 0 auto;
     line-height: 1;
   }
 
   &__label {
-    font-size: .9rem;
+    min-width: 0;
+    font-size: .85rem;
     font-weight: 800;
-    letter-spacing: .12em;
+    letter-spacing: .06em;
     text-transform: uppercase;
   }
 
@@ -637,6 +645,178 @@ $face-5: #29B6F6;
   gap: .3rem;
   font-size: .85rem;
   color: rgba(232,224,212,.6);
+}
+
+// ── Propina explícita ────────────────────────────────────────
+// Se elige antes de capturar el efectivo, porque decide cuánto cambio hay que
+// devolver. En cuenta dividida reparte el porcentaje entre los comensales.
+.mmodal-propina {
+  margin: .9rem 0 0;
+
+  &__label {
+    display: block;
+    margin-bottom: .45rem;
+    color: rgba(232, 224, 212, .6);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  &__btns {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+
+  &__btn {
+    min-height: 40px;
+    padding: .45rem .7rem;
+    flex: 1 1 auto;
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .04);
+    color: rgba(232, 224, 212, .75);
+    font-family: inherit;
+    font-size: .78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+
+    &:hover { border-color: rgba(204, 163, 82, .45); }
+
+    &.is-on {
+      border-color: var(--accent, #cca352);
+      background: rgba(204, 163, 82, .16);
+      color: var(--accent, #cca352);
+    }
+  }
+
+  &__monto {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    margin-top: .5rem;
+    color: rgba(232, 224, 212, .6);
+    font-size: .85rem;
+
+    input[hidden] { display: none; }
+  }
+
+  // "Quédese con el cambio": convierte todo el excedente en propina de un
+  // toque, que es como se resuelve en la mesa la mayoría de las veces.
+  &__quedese {
+    width: 100%;
+    margin-top: .5rem;
+    padding: .5rem;
+    border: 1px dashed rgba(204, 163, 82, .45);
+    border-radius: 9px;
+    background: none;
+    color: var(--accent, #cca352);
+    font-family: inherit;
+    font-size: .75rem;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover { background: rgba(204, 163, 82, .1); }
+  }
+}
+
+// ── Monto recibido ───────────────────────────────────────────
+// Campo grande y solo: es el dato que el mesero teclea con una mano mientras
+// cuenta billetes con la otra.
+.mmodal-recibido {
+  margin-top: .9rem;
+
+  &[hidden] { display: none; }
+
+  &__label {
+    display: block;
+    margin-bottom: .4rem;
+    color: rgba(232, 224, 212, .6);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 56px;
+    padding: 0 .9rem;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .05);
+    color: rgba(232, 224, 212, .55);
+    font-size: 1.2rem;
+
+    &:focus-within { border-color: var(--accent, #cca352); }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      background: none;
+      color: #e8e0d4;
+      font-family: inherit;
+      font-size: 1.6rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      outline: none;
+      -moz-appearance: textfield;
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+  }
+}
+
+// El número que el mesero le dice al cliente: se destaca sobre todo lo demás.
+.mmodal-cambio {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: .75rem;
+  padding: .7rem .9rem;
+  border: 1px solid rgba(204, 163, 82, .35);
+  border-radius: 11px;
+  background: rgba(204, 163, 82, .1);
+
+  &[hidden] { display: none; }
+
+  &__label {
+    color: rgba(232, 224, 212, .72);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  &__val {
+    color: var(--accent, #cca352);
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.mmodal-total-row--fuerte {
+  padding-top: .45rem;
+  border-top: 1px solid rgba(255, 255, 255, .1);
+
+  .mmodal-total-label { color: rgba(232, 224, 212, .85); }
+
+  .mmodal-total-amount {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
 }
 
 // Rellena el importe exacto de un toque. Sustituye al atajo anterior de dejar

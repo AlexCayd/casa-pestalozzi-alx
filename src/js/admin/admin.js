@@ -154,14 +154,37 @@
         });
     }
 
+    // Respaldo de initUserDeleteModal para los formularios que no traen el
+    // modal dedicado. Sin window.confirm: la confirmación siempre es un
+    // componente con estilo (ver CLAUDE.md).
     function initDeleteConfirmations() {
         document.querySelectorAll('[data-confirm-delete]').forEach(function (form) {
             form.addEventListener('submit', function (event) {
-                const confirmed = window.confirm('¿Seguro que deseas eliminar este usuario? Esta acción no se puede deshacer.');
-
-                if (!confirmed) {
-                    event.preventDefault();
+                if (form.dataset.deleteConfirmed === '1') {
+                    return;
                 }
+
+                event.preventDefault();
+
+                if (!window.ConfirmationModal) {
+                    form.dataset.deleteConfirmed = '1';
+                    form.submit();
+                    return;
+                }
+
+                window.ConfirmationModal.get().open({
+                    variant: 'danger',
+                    eyebrow: 'Eliminar usuario',
+                    title: '¿Eliminar este usuario?',
+                    description: 'Perderá el acceso al sistema de inmediato.',
+                    consequence: 'Esta acción no se puede deshacer.',
+                    secondaryLabel: 'Cancelar',
+                    primaryLabel: 'Eliminar',
+                    onPrimary: function () {
+                        form.dataset.deleteConfirmed = '1';
+                        form.submit();
+                    }
+                });
             });
         });
     }

@@ -261,14 +261,6 @@
   grid-area: hours;
   margin-top: 0;
 
-  h5 {
-    font-size: 0.66rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 1rem;
-  }
-
   .row {
     display: flex;
     justify-content: space-between;
@@ -290,125 +282,6 @@
     color: var(--txt-mute);
     font-size: 0.82rem;
     line-height: 1.55;
-  }
-}
-
-.reserva__schedule-changes {
-  margin-top: clamp(1.8rem, 4vw, 2.75rem);
-
-  &-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.7rem;
-  }
-
-  h3 {
-    margin: 0;
-    color: var(--accent);
-    font-family: inherit;
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-  }
-
-  &-grid {
-    display: grid;
-    gap: 0;
-  }
-}
-
-.reserva__schedule-change {
-  display: grid;
-  grid-template-columns: 3.3rem minmax(0, 1fr);
-  gap: 0.95rem;
-  min-width: 0;
-  padding: 0.8rem 0 0.9rem 0.85rem;
-  border: 0;
-  border-left: 1px solid rgba(204, 163, 82, 0.72);
-  background: transparent;
-
-  & + & { padding-top: 1rem; }
-
-  &[hidden] {
-    display: none;
-  }
-
-  > span {
-    color: var(--accent);
-    font-size: 0.56rem;
-    font-weight: 700;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-  }
-
-  &-date {
-    display: grid;
-    align-content: start;
-    gap: 0.05rem;
-    color: var(--beige);
-    font-family: var(--serif);
-    line-height: 1;
-
-    strong {
-      font-size: 1.2rem;
-      font-weight: 400;
-    }
-
-    span {
-      color: var(--accent);
-      font-family: var(--sans);
-      font-size: 0.58rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-    }
-  }
-
-  &-content {
-    display: grid;
-    gap: 0.18rem;
-    min-width: 0;
-
-    > span {
-      color: var(--accent);
-      font-size: 0.58rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    > strong {
-      color: var(--beige);
-      font-size: 0.78rem;
-      font-weight: 500;
-      line-height: 1.45;
-    }
-  }
-
-  small {
-    color: var(--txt-faint);
-    font-size: 0.63rem;
-    line-height: 1.45;
-  }
-
-  &--closed {
-    border-left-color: rgba(255, 249, 228, 0.34);
-  }
-}
-
-.reserva__schedule-toggle {
-  flex: 0 0 auto;
-  padding: 0.2rem 0;
-  border-bottom: 1px solid rgba(204, 163, 82, 0.45);
-  color: var(--accent);
-  font-size: 0.65rem;
-  font-weight: 500;
-
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 4px;
   }
 }
 
@@ -683,6 +556,9 @@
 .guests-stepper {
   display: flex;
   align-items: center;
+  // Centrado para que el número quede bajo la cinta de tabs y no pegado a la
+  // izquierda; el ancho del valor se reserva aparte en .step-val.
+  justify-content: center;
   gap: 1.2rem;
   margin-top: 1rem;
   padding: 0.6rem 0;
@@ -711,7 +587,10 @@
   font-family: var(--serif);
   font-size: 1.5rem;
   color: var(--beige);
-  min-width: 2ch;
+  // Reserva el ancho de "Más de 12": con 2ch el grupo saltaba al cruzar ese
+  // umbral y los botones −/+ cambiaban de posición.
+  min-width: 6ch;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -1750,7 +1629,7 @@
     top: 7.5rem;
   }
 
-  h5 {
+  h3 {
     margin-bottom: 1rem;
     color: var(--beige);
     font-family: var(--serif);
@@ -1783,46 +1662,61 @@
   &-day { gap: 0.65rem; }
   &-value { color: var(--beige); font-variant-numeric: tabular-nums; }
   &-today { color: var(--accent); }
-}
 
-.reserva__schedule-changes {
-  margin-top: 2rem;
+  // ── Excepciones sobre la propia tabla ──────────────────────────
+  // La fila deja de ser dos columnas: la insignia y el motivo se apoyan en el
+  // ancho completo bajo el día, para que el horario real siga a la derecha.
+  .row.is-exception {
+    --reserva-exception-color: var(--c-naranja);
 
-  &-head { margin-bottom: 0.8rem; }
-
-  h3 {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+    background: color-mix(in srgb, var(--reserva-exception-color) 12%, var(--reservation-surface));
+    box-shadow: inset 3px 0 0 var(--reserva-exception-color);
     color: var(--beige);
-    font-family: var(--serif);
-    font-size: 1.15rem;
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-}
 
-.reserva__schedule-change {
-  grid-template-columns: 3.5rem minmax(0, 1fr);
-  gap: 0.9rem;
-  margin-bottom: 0.6rem;
-  padding: 0.9rem;
-  border: 1px solid var(--reservation-border-soft);
-  border-left: 3px solid rgba(204, 163, 82, 0.7);
-  border-radius: 12px;
-  background: var(--reservation-surface);
+    &.today {
+      background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
+    }
 
-  & + & { padding-top: 0.9rem; }
-  &--closed { border-left-color: rgba(255, 249, 228, 0.35); }
-
-  &-content {
-    gap: 0.2rem;
-
-    > span { color: var(--accent); font-size: 0.62rem; }
-    > strong { font-size: 0.84rem; }
+    &.is-exception--closed { --reserva-exception-color: var(--c-rojo); }
   }
 
-  small {
+  &-exception {
+    color: var(--reserva-exception-color, var(--c-naranja));
+    font-weight: 600;
+  }
+
+  &-badge {
+    order: 3;
+    flex: 1 1 100%;
+    color: var(--reserva-exception-color, var(--c-naranja));
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  &-reason {
+    order: 4;
+    flex: 1 1 100%;
     color: var(--reservation-text-secondary);
     font-size: 0.7rem;
+    line-height: 1.4;
+  }
+
+  &-upcoming {
+    margin: 0.9rem 0 0;
+    color: var(--reservation-text-secondary);
+    font-size: 0.72rem;
+    line-height: 1.5;
+
+    span {
+      color: var(--c-naranja);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
   }
 }
 
@@ -1954,11 +1848,13 @@
 .reservation-visit-grid,
 .reservation-data-grid { gap: 1.5rem; }
 
+// Calendario a la izquierda ocupando las dos filas; comensales y horarios se
+// apilan a la derecha. Elegir visita deja de ser "abre, elige, cierra" ×2.
 .reservation-visit-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(300px, 1fr) minmax(260px, 1fr);
   grid-template-areas:
-    "date time"
-    "guests guests";
+    "date guests"
+    "date time";
   align-items: start;
 }
 
@@ -2021,6 +1917,152 @@
   &.sel { background: var(--accent); color: var(--ink); }
 }
 
+// Comensales como cinta segmentada, mismo lenguaje que los chips de horario.
+// Solo estilo: el contrato .sel / aria-pressed de applyGuestState no cambia.
+.reservation-guests--tabs {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.35rem;
+  border: 1px solid var(--reservation-border);
+
+  .pill {
+    flex: initial;
+    min-width: 0;
+    min-height: 54px;
+    padding: 0.55rem 0.4rem;
+    border-radius: 9px;
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
+    transition: background 0.16s ease, color 0.16s ease;
+
+    &:hover:not(.sel) { background: rgba(204, 163, 82, 0.12); color: var(--beige); }
+
+    &.sel { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28); }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// ── Pickers inline (solo el paso 1 del formulario público) ─────────
+// El editor de "Gestionar reservación" sigue en popover: vive dentro de una
+// tarjeta y un calendario abierto le reventaría el alto.
+.reserva .date-picker-wrap--inline,
+.reserva .hour-picker-wrap--inline {
+  width: 100%;
+}
+
+.reserva .cp-calendar--inline,
+.reserva .hour-dropdown--inline {
+  position: static;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--reservation-border);
+  border-radius: 12px;
+  background: var(--reservation-surface-soft);
+  box-shadow: none;
+  animation: none;
+}
+
+.reserva .cp-calendar--inline { padding: 0.9rem; }
+
+.reserva .hour-dropdown--inline {
+  padding: 0.55rem;
+
+  .hour-dropdown__head { display: none; }
+
+  // Rejilla de chips: los horarios se comparan de un vistazo en vez de
+  // recorrerse en una columna desplegable.
+  .hour-dropdown__options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+    gap: 0.4rem;
+    max-height: 15.5rem;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(204, 163, 82, 0.35);
+    }
+  }
+
+  .hour-option {
+    display: grid;
+    min-height: 44px;
+    place-items: center;
+    padding: 0.5rem 0.35rem;
+    border: 1px solid var(--reservation-border);
+    border-radius: 8px;
+    background: var(--reservation-surface);
+    color: var(--beige);
+    font-variant-numeric: tabular-nums;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+
+    &:hover:not(:disabled):not(.sel) {
+      border-color: var(--accent);
+      background: rgba(204, 163, 82, 0.12);
+    }
+
+    &.sel {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// Estado vacío / cargando: sin display visible, el mensaje vive en la rejilla.
+.reserva .hour-tabs__empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 1.1rem 0.75rem;
+  color: var(--reservation-text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+// Afijo +52: el visitante solo teclea los diez dígitos nacionales.
+.reservation-control-affix {
+  position: relative;
+  display: block;
+
+  &.has-prefix .reservation-control { padding-left: 3.1rem; }
+}
+
+.reservation-control__prefix {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  color: var(--txt-mute);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateY(-50%);
+
+  &[hidden] { display: none; }
+}
+
 .guests-stepper {
   margin-top: 0.75rem;
   padding: 0.4rem;
@@ -2039,14 +2081,64 @@
 
 .reserva__special-schedule { margin-top: 1.5rem; }
 
+// El estado de disponibilidad se lee de un vistazo: color de borde, marca y
+// texto vienen del data-state que escribe updateSummaries().
 .reservation-summary {
+  --reservation-summary-accent: var(--accent);
+  --reservation-summary-mark: "•";
+
   display: grid;
   gap: 1rem;
   margin-top: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid rgba(204, 163, 82, 0.38);
+  border: 1px solid color-mix(in srgb, var(--reservation-summary-accent) 42%, transparent);
   border-radius: 14px;
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--reservation-summary-accent) 11%, var(--reservation-surface));
+
+  &[data-state="ready"] {
+    --reservation-summary-accent: var(--c-verde);
+    --reservation-summary-mark: "✓";
+  }
+
+  &[data-state="pending"] {
+    --reservation-summary-accent: var(--c-ambar);
+    --reservation-summary-mark: "!";
+  }
+
+  &[data-state="loading"] {
+    --reservation-summary-accent: var(--txt-mute);
+    --reservation-summary-mark: "…";
+  }
+
+  &[data-state="large-party"] {
+    --reservation-summary-accent: var(--c-naranja);
+    --reservation-summary-mark: "+";
+  }
+}
+
+// La marca vive junto al texto de estado, no como pseudo del contenedor: así
+// hereda su color y no descuadra la fila de acciones.
+.reservation-summary [data-selection-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+
+  &::before {
+    content: var(--reservation-summary-mark);
+    display: grid;
+    width: 1.35rem;
+    height: 1.35rem;
+    flex: 0 0 1.35rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--reservation-summary-accent) 55%, transparent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--reservation-summary-accent) 18%, transparent);
+    color: var(--reservation-summary-accent);
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+  }
 }
 
 .reservation-summary__head,
@@ -2217,8 +2309,8 @@
   .reservation-visit-grid {
     grid-template-areas:
       "date"
-      "time"
-      "guests";
+      "guests"
+      "time";
   }
   .reservation-field--date { grid-area: date; }
   .reservation-field--time { grid-area: time; }
@@ -2249,7 +2341,6 @@
 
 @media (max-width: 420px) {
   .reserva__hours .row { padding-inline: 0.65rem; font-size: 0.76rem; }
-  .reserva__schedule-change { grid-template-columns: 3rem minmax(0, 1fr); padding: 0.75rem; }
   .reservation-step,
   .reserva__otp-step,
   .reservation-access__verify,

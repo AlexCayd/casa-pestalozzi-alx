@@ -23,22 +23,20 @@ class AdminConfigurationController
         self::render('configuration/index', [
             'title' => 'Configuración',
             'topbarSection' => 'Configuración',
-            // 'acento' es un token de la paleta, no un hex: cada opción se
-            // reconoce por color antes de leer su título.
+            // Sin 'acento': la tarjeta ya no se tiñe por opción. La forma del
+            // icono diferencia; el dorado se reserva para hover y foco.
             'configuraciones' => [
                 [
                     'titulo' => 'Horarios de operación',
                     'descripcion' => 'Administra los días abiertos, horarios habituales y cierres especiales.',
                     'ruta' => self::HOURS_PATH,
                     'icono' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-                    'acento' => '--admin-c-azul',
                 ],
                 [
                     'titulo' => 'Anuncio principal',
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
-                    'acento' => '--admin-c-ambar',
                 ],
                 [
                     'titulo' => 'POS',
@@ -51,7 +49,6 @@ class AdminConfigurationController
                     'descripcion' => 'Consulta y administra los problemas reportados por los usuarios.',
                     'ruta' => '/admin/configuracion/reportes',
                     'icono' => '<path d="M9 4h6l1 2h3v15H5V6h3l1-2Z"/><path d="M9 12h6"/><path d="M9 16h4"/>',
-                    'acento' => '--admin-c-magenta',
                 ],
             ],
         ]);
