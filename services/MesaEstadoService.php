@@ -255,8 +255,7 @@ final class MesaEstadoService
                 ]);
                 if ($accionPendiente) {
                     $ausenciaPendiente = true;
-                    self::agregarUnaVez($modificadores, 'accion_pendiente');
-                    self::agregarUnaVez($modificadores, 'AUSENCIA_PENDIENTE');
+                    self::agregarUnaVez($modificadores, 'ausencia_pendiente');
                     $reservacionAsociada = $resumen;
                     $reservacionContrato = $reservacion;
                     $motivoBloqueo = 'Acción pendiente: registrar ausencia.';
@@ -540,17 +539,37 @@ final class MesaEstadoService
         if (!self::booleano($hechos['utilizable'] ?? true)) {
             return $nombre . ', no utilizable.';
         }
-        if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
-            return $nombre . ', ocupada por ticket abierto.';
-        }
-        if (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
+
+        $detalle = is_array($hechos['estado_visual_mapa_detalle'] ?? null)
+            ? $hechos['estado_visual_mapa_detalle']
+            : [];
+        $estado = (string)($detalle['estado_visual'] ?? '');
+        $modificadores = array_map('strval', (array)($detalle['modificadores'] ?? []));
+        if ($estado === 'ocupada') {
+            $label = self::booleano($hechos['ticket_bloquea_consulta'] ?? false)
+                ? $nombre . ', ocupada por ticket abierto.'
+                : $nombre . ', ocupada.';
+        } elseif ($estado === 'reservacion-proxima') {
+            $label = $nombre . ', reservación próxima.';
+        } elseif (in_array('reservacion_advertencia', $modificadores, true)) {
+            $label = $nombre . ', disponible con reservación cercana.';
+        } elseif (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
             $causas = self::idsStrings($hechos['causas_bloqueo'] ?? []);
             if (in_array('reservacion', $causas, true)) {
-                return $nombre . ', no disponible por reservación.';
+                $label = $nombre . ', no disponible por reservación.';
+            } else {
+                $label = $nombre . ', no disponible para el intervalo seleccionado.';
             }
-            return $nombre . ', no disponible para el intervalo seleccionado.';
+        } else {
+            $label = $nombre . ', disponible para el intervalo seleccionado.';
         }
-        return $nombre . ', disponible para el intervalo seleccionado.';
+
+        if (self::booleano($hechos['ausencia_pendiente'] ?? false)
+            || in_array('ausencia_pendiente', $modificadores, true)) {
+            $label .= ' Acción pendiente: registrar ausencia.';
+        }
+
+        return $label;
 
     }
 

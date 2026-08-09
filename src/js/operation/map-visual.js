@@ -136,13 +136,29 @@
 
         function accessibleTableLabel(table) {
             if (table.ariaLabel) {
-                return table.ariaLabel + (table.seleccionada ? ', seleccionada' : '');
+                var suppliedLabel = table.ariaLabel;
+                var suppliedLower = suppliedLabel.toLowerCase();
+                if (table.modificadores.indexOf('ausencia_pendiente') !== -1
+                    && suppliedLower.indexOf('ausencia') === -1) {
+                    suppliedLabel += ' Acción pendiente: registrar ausencia.';
+                }
+                if (table.modificadores.indexOf('reservacion_advertencia') !== -1
+                    && suppliedLower.indexOf('reservaci') === -1) {
+                    suppliedLabel += ' Reservación cercana.';
+                }
+                return suppliedLabel + (table.seleccionada ? ', seleccionada' : '');
             }
             var parts = [table.titulo];
             if (table.capacidad > 0) {
                 parts.push('capacidad ' + table.capacidad);
             }
             parts.push(STATE_LABELS[table.estadoVisual] || table.estadoVisual);
+            if (table.modificadores.indexOf('reservacion_advertencia') !== -1) {
+                parts.push('con reservación cercana');
+            }
+            if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
+                parts.push('acción pendiente: registrar ausencia');
+            }
             if (table.seleccionada) {
                 parts.push('seleccionada');
             }
@@ -214,6 +230,7 @@
             pin.setAttribute('data-estado-visual', table.estadoVisual);
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
+            pin.setAttribute('aria-disabled', table.interactivo ? 'false' : 'true');
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
         }
@@ -230,6 +247,7 @@
 
             var state = button.querySelector('.operational-map__structured-state');
             button.disabled = !(interactive && table.interactivo);
+            button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             button.setAttribute('aria-label', accessibleTableLabel(table));
             if (state) {
@@ -253,6 +271,7 @@
                 button.setAttribute('data-structured-mesa', String(table.id));
                 button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
                 button.disabled = !(interactive && table.interactivo);
+                button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
                 button.setAttribute('aria-label', accessibleTableLabel(table));
 
                 var name = document.createElement('span');
