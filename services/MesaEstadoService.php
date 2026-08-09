@@ -502,6 +502,7 @@ final class MesaEstadoService
             'mesa_id' => $mesaId,
             'utilizable' => $utilizable,
             'ticket_abierto' => $ticketAbierto !== null,
+            'ocupada_fisicamente' => $ocupadaFisicamente,
             'ticket_bloquea_consulta' => $ticketBloqueaEnConsulta,
             'reservacion' => $reservacionPrincipal,
         ]);

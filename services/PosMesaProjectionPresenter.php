@@ -22,7 +22,9 @@ final class PosMesaProjectionPresenter
         $precedencia = 'disponible';
         $ariaLabel = 'Mesa disponible.';
 
-        if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
+        $ticketAbierto = self::booleano($hechos['ticket_abierto'] ?? false);
+        $ocupadaFisicamente = self::booleano($hechos['ocupada_fisicamente'] ?? false);
+        if ($ticketAbierto || $ocupadaFisicamente || self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
             $estado = 'ocupada';
             $modificadores[] = 'ticket_abierto';
             $precedencia = 'ticket';
@@ -35,15 +37,15 @@ final class PosMesaProjectionPresenter
         if ($reservacion !== [] && $estado !== 'ocupada') {
             $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
             if ($ventana === 'inicio') {
-                $estado = 'ocupada';
+                $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_bloqueante';
                 $precedencia = 'reservacion_inicio';
-                $ariaLabel = 'Mesa ocupada por reservación iniciada.';
+                $ariaLabel = 'Mesa con reservación iniciada; espera al cliente.';
             } elseif ($ventana === 'tolerancia') {
-                $estado = 'ocupada';
-                $modificadores[] = 'reservacion_bloqueante';
+                $estado = 'reservacion-proxima';
+                $modificadores[] = 'reservacion_tolerancia';
                 $precedencia = 'tolerancia';
-                $ariaLabel = 'Mesa ocupada por reservación iniciada.';
+                $ariaLabel = 'Mesa con reservación dentro de tolerancia; espera al cliente.';
             } elseif ($ventana === 'bloqueo') {
                 $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_inminente';

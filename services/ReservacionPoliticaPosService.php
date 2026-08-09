@@ -257,7 +257,7 @@ final class ReservacionPoliticaPosService
             return 'bloqueo';
         }
         if ($segundos < 0 && !$ausenciaPendiente && $influyeDisponibilidad) {
-            return 'inicio';
+            return $enTolerancia ? 'tolerancia' : 'inicio';
         }
 
         return 'ausencia_pendiente';
