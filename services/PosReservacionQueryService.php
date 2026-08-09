@@ -87,6 +87,7 @@ final class PosReservacionQueryService
             $horaEvaluacion = $ahora->format('H:i:s');
         }
         $excluirReservacionId = (int)($opciones['excluir_reservacion_id'] ?? 0);
+        $reservacionEnEdicionId = (int)($opciones['reservacion_en_edicion_id'] ?? 0);
 
         $reservaciones = [];
         foreach ($filasReservaciones as $fila) {
@@ -129,6 +130,15 @@ final class PosReservacionQueryService
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
                 && !empty($reservacion['aplica_hora_consultada'])
         ));
+        $asignacionActualIds = [];
+        if ($reservacionEnEdicionId > 0) {
+            foreach ($reservaciones as $reservacion) {
+                if ((int)($reservacion['id'] ?? 0) === $reservacionEnEdicionId) {
+                    $asignacionActualIds = self::ids($reservacion['mesa_ids'] ?? []);
+                    break;
+                }
+            }
+        }
         $evaluacionOcupacion = [];
         try {
             $evaluacionOcupacion = OcupacionMesasService::evaluarHorario(
@@ -166,7 +176,11 @@ final class PosReservacionQueryService
             $fecha,
             $ahora,
             $horaEvaluacion,
-            $evaluacionOcupacion
+            $evaluacionOcupacion,
+            [
+                'reservacion_en_edicion_id' => $reservacionEnEdicionId,
+                'current_assignment_ids' => $asignacionActualIds,
+            ]
         );
         $capacidadHorario = OcupacionMesasService::resumenCapacidad(
             Mesa::reservables(),

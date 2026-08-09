@@ -184,6 +184,7 @@ class ReservacionOperacionController
             'incluir_inactivas' => true,
             'calcular_conflictos' => true,
             'excluir_reservacion_id' => $reservacionExcluida,
+            'reservacion_en_edicion_id' => $reservacionExcluida,
             'incluir_contexto_administrativo' => true,
         ]);
         if (!($lectura['ok'] ?? false)) {

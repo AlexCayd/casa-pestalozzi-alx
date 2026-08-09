@@ -2131,6 +2131,17 @@ html:has(.operation-body.is-assignment-mode) {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Indicador secundario: la mesa sigue roja, pero pertenece al snapshot que
+ * el operador debe resolver durante la reasignación. */
+.mesas-map .mesa-pin--mod-asignada_actualmente {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-gold) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.26);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
+  border-style: double;
+  border-width: 3px;
+}
+
 .mesas-map .mesa-pin--reservacion-proxima {
   border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);

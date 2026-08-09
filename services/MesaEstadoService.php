@@ -31,7 +31,8 @@ final class MesaEstadoService
         string $fecha,
         ?DateTimeImmutable $ahora = null,
         string $hora = '',
-        array $evaluacionOcupacion = []
+        array $evaluacionOcupacion = [],
+        array $opciones = []
     ): array {
         return self::normalizarMesasCanonicas(
             $mesas,
@@ -40,7 +41,8 @@ final class MesaEstadoService
             $fecha,
             $ahora,
             $hora,
-            $evaluacionOcupacion
+            $evaluacionOcupacion,
+            $opciones
         );
 
     }
@@ -59,7 +61,8 @@ final class MesaEstadoService
         string $fecha,
         ?DateTimeImmutable $ahora,
         string $hora,
-        array $evaluacionOcupacion
+        array $evaluacionOcupacion,
+        array $opciones
     ): array {
         $ahora = $ahora ?? ReservacionConfig::ahora();
         $ticketsPorMesa = self::ticketsPorMesa(
@@ -112,6 +115,11 @@ final class MesaEstadoService
         );
         $causasBloqueoPorMesa = (array)($evaluacionOcupacion['causas_bloqueo_por_mesa'] ?? []);
         $tieneBloqueoCanonico = array_key_exists('mesa_ids_bloqueadas', $evaluacionOcupacion);
+        $asignacionActualIds = array_fill_keys(
+            self::ids((array)($opciones['current_assignment_ids'] ?? [])),
+            true
+        );
+        $reservacionEnEdicionId = (int)($opciones['reservacion_en_edicion_id'] ?? 0);
 
         return array_map(static function ($mesa) use (
             $reservacionesPorMesa,
@@ -120,11 +128,14 @@ final class MesaEstadoService
             $mesaIdsBloqueadas,
             $causasBloqueoPorMesa,
             $tieneBloqueoCanonico,
+            $asignacionActualIds,
+            $reservacionEnEdicionId,
             $fecha,
             $hora,
             $ahora
         ): array {
             $mesaId = (int)self::valor($mesa, 'id', 0);
+            $asignadaActualmente = isset($asignacionActualIds[$mesaId]);
             $activada = self::booleano(self::valor($mesa, 'activo', true));
             $reservable = self::booleano(self::valor($mesa, 'reservable', true));
             $tipoMesa = (string)self::valor($mesa, 'tipo', 'mesa');
@@ -297,6 +308,14 @@ final class MesaEstadoService
                 $reservacionPrincipal ?? null,
                 $ticketBloqueaEnConsulta
             );
+            $disponibleParaAsignacion = $utilizable && !$bloqueadaEnIntervalo;
+            $causaConflictoAsignacion = null;
+            if ($asignadaActualmente && $ticketAbierto !== null
+                && (int)($ticketAbierto['reservacion_id'] ?? 0) !== $reservacionEnEdicionId) {
+                $causaConflictoAsignacion = 'ticket_abierto';
+            } elseif ($asignadaActualmente && !$disponibleParaAsignacion) {
+                $causaConflictoAsignacion = $causasBloqueo[0] ?? 'no_disponible';
+            }
             $hechosMesa = self::hechosMesa(
                 $mesaId,
                 $utilizable,
@@ -306,7 +325,9 @@ final class MesaEstadoService
                 $mapaVisual,
                 $bloqueadaEnIntervalo,
                 $causasBloqueo,
-                $ocupacionActual
+                $ocupacionActual,
+                $asignadaActualmente,
+                $causaConflictoAsignacion
             );
             $titulo = self::tituloAccesible(
                 (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
@@ -386,6 +407,8 @@ final class MesaEstadoService
                 'ticket' => $ticketAbierto,
                 'walk_in' => $walkIn,
                 'seleccion_actual' => false,
+                'asignada_actualmente' => $asignadaActualmente,
+                'causa_conflicto_asignacion' => $causaConflictoAsignacion,
                 'motivo_bloqueo' => $motivoBloqueo,
                 'titulo' => $titulo,
             ] + $hechosMesa;
@@ -445,7 +468,9 @@ final class MesaEstadoService
         array $mapaVisual,
         bool $bloqueadaEnIntervalo,
         array $causasBloqueo,
-        bool $ocupadaFisicamente
+        bool $ocupadaFisicamente,
+        bool $asignadaActualmente,
+        ?string $causaConflictoAsignacion
     ): array {
         $presentacionPos = PosMesaProjectionPresenter::presentar([
             'mesa_id' => $mesaId,
@@ -465,6 +490,8 @@ final class MesaEstadoService
 
         return [
             'mesa_id' => $mesaId,
+            'asignada_actualmente' => $asignadaActualmente,
+            'causa_conflicto_asignacion' => $causaConflictoAsignacion,
             'utilizable' => $utilizable,
             'ocupada_fisicamente' => $ocupadaFisicamente,
             'ticket_abierto_hecho' => $ticketAbierto !== null,

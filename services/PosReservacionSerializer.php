@@ -190,6 +190,10 @@ final class PosReservacionSerializer
         // respuesta canónica que consumen POS y la operación pública.
         if (!empty($opciones['incluir_contexto_administrativo'])) {
             $serializado['origen'] = (string)($datos['origen'] ?? '');
+            $serializado['assignment_snapshot'] = [
+                'mesa_ids' => $mesaIds,
+                'version' => $version,
+            ];
         }
 
         return $serializado;
