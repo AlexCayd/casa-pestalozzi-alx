@@ -39,18 +39,18 @@ final class ReservacionMapaMesaPresenter
                     ?? $reservacion['reservacion_influye_mapa']
                     ?? false
             );
-            if ($influyeEnConsulta) {
-                $estado = 'ocupada';
-                $modificadores[] = 'reservacion_bloqueante';
-                $label = 'reservacion dentro del intervalo planificado';
-                $precedencia = 'reservacion_influye';
-            } elseif ($ventana === 'inicio' || $ventana === 'tolerancia') {
-                $estado = 'ocupada';
+            $enIntervaloPlanificado = self::booleano(
+                $reservacion['reservacion_en_intervalo_planificado']
+                    ?? $reservacion['intervalo_planificado_vigente']
+                    ?? false
+            );
+            if ($ventana === 'inicio' || $ventana === 'tolerancia') {
+                $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_bloqueante';
                 $label = $ventana === 'inicio'
-                    ? 'reservación iniciada'
+                    ? 'reservación próxima; iniciar servicio'
                     : 'reservación dentro de tolerancia';
-                $precedencia = 'reservacion_influye';
+                $precedencia = 'reservacion_tolerancia';
             } elseif ($ventana === 'bloqueo') {
                 $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_inminente';
@@ -60,6 +60,16 @@ final class ReservacionMapaMesaPresenter
                 $modificadores[] = 'reservacion_advertencia';
                 $label = 'reservación cercana';
                 $precedencia = 'reservacion_advertencia';
+            } elseif ($ventana === 'ausencia_pendiente' && ($enIntervaloPlanificado || $influyeEnConsulta)) {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación dentro del intervalo planificado';
+                $precedencia = 'reservacion_influye';
+            } elseif ($influyeEnConsulta) {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación dentro del intervalo planificado';
+                $precedencia = 'reservacion_influye';
             }
         }
 

@@ -115,6 +115,19 @@
             || (raw.reservable != null && !booleanValue(raw.reservable));
     }
 
+    function selectionValidity(raw, options) {
+        var valid = true;
+        if (raw.seleccionValida != null) {
+            valid = booleanValue(raw.seleccionValida);
+        } else if (raw.seleccion_valida != null) {
+            valid = booleanValue(raw.seleccion_valida);
+        }
+        if (options.seleccionValida != null) {
+            valid = valid && booleanValue(options.seleccionValida);
+        }
+        return valid;
+    }
+
     /**
      * Resuelve la apariencia sin mezclar estados ni crear etiquetas auxiliares:
      * seleccion valida, ticket/ocupacion, reservacion proxima, no utilizable
@@ -128,7 +141,7 @@
         var selected = options.seleccionActual != null
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
-        var selectionValid = options.seleccionValida !== false;
+        var selectionValid = selectionValidity(raw, options);
         var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima');
@@ -168,7 +181,7 @@
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
         var noUtilizable = isUnusable(raw, options, stateBase);
-        var seleccionValida = options.seleccionValida !== false && !noUtilizable;
+        var seleccionValida = selectionValidity(raw, options) && !noUtilizable;
         selected = selected && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
             modifiers.push('seleccion_actual');

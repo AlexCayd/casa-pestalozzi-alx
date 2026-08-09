@@ -54,6 +54,18 @@ final class PosMesaProjectionPresenter
                 $precedencia = 'reservacion_advertencia';
                 $ariaLabel = 'Mesa disponible con reservación próxima.';
             }
+
+            if ($ventana === 'ausencia_pendiente'
+                && self::booleano(
+                    $reservacion['intervalo_planificado_vigente']
+                        ?? $reservacion['bloquea_intervalo_reservacion']
+                        ?? false
+                )) {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $precedencia = 'reservacion_intervalo';
+                $ariaLabel = 'Mesa ocupada dentro del intervalo planificado.';
+            }
         }
 
         if (self::booleano($hechos['asignada_actualmente'] ?? false)) {

@@ -34,6 +34,14 @@ final class ReservacionPoliticaPosService
         $ticketAbierto = self::ticketAbierto($datos, $ticket);
         $vigencia = ReservacionVigenciaService::clasificar($datos, $ahora, $ticket);
         $inicio = self::fechaHora($datos);
+        $finPlanificado = $inicio instanceof DateTimeImmutable
+            ? $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes')
+            : null;
+        $intervaloPlanificadoVigente = (string)($datos['estado'] ?? '') === 'confirmada'
+            && $inicio instanceof DateTimeImmutable
+            && $finPlanificado instanceof DateTimeImmutable
+            && $ahora >= $inicio
+            && $ahora < $finPlanificado;
         $segundosParaInicio = $inicio instanceof DateTimeImmutable
             ? $inicio->getTimestamp() - $ahora->getTimestamp()
             : null;
@@ -101,6 +109,7 @@ final class ReservacionPoliticaPosService
             'en_tolerancia' => (bool)$vigencia['dentro_tolerancia'],
             'tolerancia_vencida' => (bool)$vigencia['tolerancia_vencida'],
             'ausencia_pendiente' => (bool)$vigencia['ausencia_pendiente'],
+            'intervalo_planificado_vigente' => $intervaloPlanificadoVigente,
             'reservacion_influye' => (bool)$vigencia['influye_disponibilidad'],
             'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
             'bloquea_walk_ins' => !$disponibleParaTicket,
@@ -163,9 +172,9 @@ final class ReservacionPoliticaPosService
         $ausenciaPendiente = (bool)($hechosActuales['ausencia_pendiente'] ?? false);
         $influyeDisponibilidad = (bool)($hechosActuales['influye_disponibilidad'] ?? false);
         $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
+        $reservacionEnIntervaloPlanificado = $horaConsulta >= $inicio && $horaConsulta < $fin;
         $reservacionInfluyeEnConsulta = $influyeDisponibilidad
-            && $horaConsulta >= $inicio
-            && $horaConsulta < $fin;
+            && $reservacionEnIntervaloPlanificado;
         $ventana = self::ventanaVisual(
             $segundos,
             $ausenciaPendiente,
@@ -179,6 +188,7 @@ final class ReservacionPoliticaPosService
             'minutos_desde_inicio_mapa' => $segundos < 0 ? (int)ceil(abs($segundos) / 60) : null,
             'reservacion_influye_mapa' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_consulta' => $reservacionInfluyeEnConsulta,
+            'reservacion_en_intervalo_planificado' => $reservacionEnIntervaloPlanificado,
             'ausencia_pendiente_mapa' => $ausenciaPendiente,
             'en_inicio_exacto_mapa' => $segundos === 0,
             'en_tolerancia_mapa' => $segundos < 0
