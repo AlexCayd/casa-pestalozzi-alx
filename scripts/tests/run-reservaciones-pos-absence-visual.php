@@ -46,8 +46,8 @@ $visualAusencia = PosMesaProjectionPresenter::presentar([
 assertPosAbsenceVisual($politicaAusencia['ausencia_pendiente'] === true, 'despues de tolerancia queda pendiente');
 assertPosAbsenceVisual($politicaAusencia['disponible_para_ticket'] === false, 'ausencia pendiente sigue bloqueando walk-in');
 assertPosAbsenceVisual($politicaAusencia['puede_marcar_no_show'] === true, 'ausencia pendiente permite no-show');
-assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'ocupada', 'ausencia pendiente conserva rojo dentro del intervalo');
-assertPosAbsenceVisual(in_array('reservacion_bloqueante', $visualAusencia['modificadores'], true), 'ausencia pendiente conserva el hecho del intervalo');
+assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'libre', 'ausencia pendiente no fuerza rojo');
+assertPosAbsenceVisual(!in_array('reservacion_bloqueante', $visualAusencia['modificadores'], true), 'ausencia pendiente no agrega bloqueo visual');
 assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualAusencia['modificadores'], true), 'ausencia pendiente agrega indicador gris');
 assertPosAbsenceVisual(str_contains($visualAusencia['aria_label'], 'Acción pendiente: registrar ausencia'), 'aria anuncia la accion pendiente');
 

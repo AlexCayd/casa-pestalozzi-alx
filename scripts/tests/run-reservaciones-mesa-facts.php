@@ -45,9 +45,9 @@ $consultas = [
     '12:00:00' => ['libre', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:00:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:30:00' => ['ocupada', 'ocupada', false, false, false],
-    '14:00:00' => ['ocupada', 'ocupada', false, false, false],
+    '13:00:00' => ['ocupada', 'ocupada', true, false, false],
+    '13:30:00' => ['libre', 'libre', false, false, false],
+    '14:00:00' => ['libre', 'libre', false, false, false],
     '14:30:00' => ['libre', 'libre', false, false, false],
 ];
 
@@ -86,6 +86,13 @@ foreach ($consultas as $hora => [$mapa, $pos, $bloqueadaEsperada, $ticketEsperad
     assertMesaFacts($mesaEstado['requiere_advertencia_ticket'] === $warningEsperado, "warning {$hora}");
     assertMesaFacts($mesaEstado['reservacion_id'] === 25, "reservacion_id {$hora}");
     assertMesaFacts($mesaEstado['reservacion_estado'] === 'confirmada', "reservacion_estado {$hora}");
+    if ($hora >= '13:30:00') {
+        assertMesaFacts($mesaEstado['ausencia_pendiente'] === true, "ausencia pendiente {$hora}");
+        assertMesaFacts($mesaEstado['reservacion_influye_en_disponibilidad'] === false, "ausencia libera influencia {$hora}");
+        assertMesaFacts($mesaEstado['disponible_para_asignacion'] === true, "ausencia libera asignacion {$hora}");
+        assertMesaFacts($mesaEstado['disponible_para_ticket'] === false, "ausencia conserva bloqueo POS {$hora}");
+        assertMesaFacts(in_array('ausencia_pendiente', $mesaEstado['modificadores_visual_mapa'], true), "gris {$hora}");
+    }
 }
 
 $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
@@ -97,7 +104,30 @@ $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
     '13:05:00',
     $mapaEvaluacion('13:05:00')
 )[0];
-assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_tolerancia'], 'POS conserva tolerancia');
+assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_bloqueante'], 'POS inicia rojo desde la hora exacta');
+
+$otraReservacion = [
+    ...$reservacion,
+    'id' => 26,
+    'hora' => '14:00:00',
+];
+$ausenciaConOtra = MesaEstadoService::normalizarMesas(
+    [$mesa],
+    [$reservacion, $otraReservacion],
+    [],
+    '2026-08-06',
+    new DateTimeImmutable('2026-08-06 13:16:00', ReservacionConfig::timezone()),
+    '13:30:00',
+    [
+        'mesas' => [],
+        'tickets_por_mesa' => [],
+        'mesa_ids_bloqueadas' => [4],
+        'causas_bloqueo_por_mesa' => [4 => ['reservacion']],
+    ]
+)[0];
+assertMesaFacts($ausenciaConOtra['estado_visual_mapa'] === 'reservacion-proxima', 'otra reservacion conserva azul');
+assertMesaFacts($ausenciaConOtra['disponible_para_asignacion'] === false, 'otra reservacion conserva el bloqueo');
+assertMesaFacts(in_array('ausencia_pendiente', $ausenciaConOtra['modificadores_visual_mapa'], true), 'otra reservacion compone gris');
 
 $ticket = [
     'id' => 77,

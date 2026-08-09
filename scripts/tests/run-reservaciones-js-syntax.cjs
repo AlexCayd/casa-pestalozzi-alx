@@ -77,9 +77,10 @@ assertContract(operation.includes('mesa.ticket_abierto !== true'), 'operacion ex
 assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
 assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
-assertContract(mapVisual.includes("data-disabled', table.interactivo ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
+assertContract(mapVisual.includes("data-disabled', isInteractive ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
 assertContract(mapVisual.includes('previousClasses.forEach'), 'mapa visual remueve clases stale antes de actualizar');
 assertContract(tableAdapter.includes('modificadores: modifiers'), 'adaptador conserva modificadores del backend');
+assertContract(tableAdapter.includes('disponible_para_asignacion'), 'adaptador consume asignabilidad sin usar el gris como bloqueo');
 assertContract(tableAdapter.includes('function selectionValidity'), 'adaptador consume la validez de seleccion del contrato');
 assertContract(!tableAdapter.includes('if (hasPendingAbsence) return'), 'adaptador no sustituye estado por ausencia');
 assertContract(mapShell.includes('mesa-pin--mod-ausencia_pendiente::after'), 'CSS compone ausencia con pseudo-elemento gris');
@@ -124,6 +125,13 @@ assertContract(
 assertContract(
   adapter.paraMapaVisual({ id: 6, reservable: 1, estado_base: 'disponible', modificadores: ['reservacion_advertencia', 'ausencia_pendiente'] }, { estadoBase: 'disponible' }).modificadores.join(' ') === 'reservacion_advertencia ausencia_pendiente',
   'verde conserva warning y ausencia como modificadores'
+);
+assertContract(
+  adapter.paraMapaVisual(
+    { id: 7, reservable: 1, disponible_para_asignacion: true, estado_base: 'disponible', modificadores: ['ausencia_pendiente'] },
+    { estadoBase: 'disponible', estadoVisual: 'libre' }
+  ).interactivo === true,
+  'ausencia pendiente no deshabilita una mesa asignable'
 );
 assertContract(operation.includes('assignment_snapshot'), 'reasignación conserva snapshot persistido');
 assertContract(operation.includes('state.currentAssignmentIds = new Set(assignmentIdsFor(selected))'), 'reasignación reconstruye currentAssignmentIds');

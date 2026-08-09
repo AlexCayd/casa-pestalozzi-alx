@@ -103,8 +103,9 @@ $redAfterTolerance = ReservacionMapaMesaPresenter::presentar([
         'ausencia_pendiente' => true,
     ],
 ]);
-assertMapContract($redAfterTolerance['estado_visual'] === 'ocupada', 'despues de tolerancia usa rojo dentro del intervalo');
-assertMapContract(in_array('ausencia_pendiente', $redAfterTolerance['modificadores'], true), 'rojo dentro del intervalo compone ausencia');
+assertMapContract($redAfterTolerance['estado_visual'] === 'libre', 'ausencia pendiente no fuerza rojo');
+assertMapContract(!in_array('reservacion_bloqueante', $redAfterTolerance['modificadores'], true), 'ausencia pendiente no agrega bloqueo');
+assertMapContract(in_array('ausencia_pendiente', $redAfterTolerance['modificadores'], true), 'ausencia pendiente conserva gris');
 
 $greenAfterInterval = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,

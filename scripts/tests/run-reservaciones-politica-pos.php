@@ -75,6 +75,7 @@ assertPolitica($tolerancia['ventana_visual_pos'] === 'inicio', 'tolerancia no ex
 
 $ausencia = $evaluar('13:16:00');
 assertPolitica($ausencia['ausencia_pendiente'] === true, '13:16 registra ausencia pendiente');
+assertPolitica($ausencia['reservacion_influye_en_disponibilidad'] === false, 'ausencia pendiente libera influencia de capacidad');
 assertPolitica($ausencia['disponible_para_ticket'] === false, 'ausencia pendiente no permite walk-in');
 assertPolitica($ausencia['puede_marcar_no_show'] === true, 'ausencia pendiente permite no-show manual');
 assertPolitica($ausencia['accion_primaria'] === ReservacionPoliticaPosService::ACCION_REGISTRAR_AUSENCIA, 'ausencia prioriza registrar ausencia');
