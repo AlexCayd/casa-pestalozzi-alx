@@ -251,6 +251,7 @@ final class ReservacionVigenciaService
             'visible_cliente' => $visibleCliente,
             'dentro_tolerancia' => $dentroTolerancia,
             'influye_disponibilidad' => $influyeDisponibilidad,
+            'reservacion_influye_en_disponibilidad' => $influyeDisponibilidad,
             'visible_operacion' => in_array($estado, ReservacionConfig::estadosPermitidos(), true),
             'editable' => !$ticketAbierto && (
                 $holdVigente
