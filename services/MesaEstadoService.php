@@ -300,11 +300,15 @@ final class MesaEstadoService
 
             $modificadores = array_values(array_unique($modificadores));
             $reservacionPrincipal = self::reservacionPrincipal($reservacionesVisualesMapa);
+            $reservacionVisual = self::reservacionVisual(
+                $reservacionPrincipal,
+                $ausenciaPendiente
+            );
             $mapaVisual = self::proyeccionVisualMapa(
                 $utilizable,
                 $bloqueadaEnIntervalo,
                 $causasBloqueo,
-                $reservacionPrincipal ?? null,
+                $reservacionVisual,
                 $ticketBloqueaEnConsulta
             );
             $disponibleParaAsignacion = $utilizable && !$bloqueadaEnIntervalo;
@@ -320,7 +324,7 @@ final class MesaEstadoService
                 $utilizable,
                 $ticketAbierto,
                 $ticketBloqueaEnConsulta,
-                $reservacionPrincipal,
+                $reservacionVisual,
                 $mapaVisual,
                 $bloqueadaEnIntervalo,
                 $causasBloqueo,
@@ -444,6 +448,15 @@ final class MesaEstadoService
     /** @param array<int, array<string, mixed>> $reservaciones */
     private static function reservacionPrincipal(array $reservaciones): ?array
     {
+        $reservacionesBase = array_values(array_filter(
+            $reservaciones,
+            static fn(array $reservacion): bool => !self::booleano(
+                $reservacion['ausencia_pendiente'] ?? false
+            )
+        ));
+        if ($reservacionesBase !== []) {
+            $reservaciones = $reservacionesBase;
+        }
         $principal = null;
         $rangoPrincipal = -1;
         foreach ($reservaciones as $reservacion) {
@@ -455,6 +468,20 @@ final class MesaEstadoService
         }
 
         return $principal;
+    }
+
+    private static function reservacionVisual(
+        ?array $reservacionPrincipal,
+        bool $ausenciaPendiente
+    ): ?array {
+        if ($reservacionPrincipal === null || !$ausenciaPendiente) {
+            return $reservacionPrincipal;
+        }
+
+        $reservacionPrincipal['ausencia_pendiente'] = true;
+        $reservacionPrincipal['ausencia_pendiente_mapa'] = true;
+
+        return $reservacionPrincipal;
     }
 
     /** @return array<string, mixed> */
@@ -506,6 +533,11 @@ final class MesaEstadoService
             'ventana_pos' => $reservacion['ventana_pos'] ?? $reservacion['ventana_operativa'] ?? null,
             'ventana_mapa' => $reservacion['ventana_mapa'] ?? null,
             'reservacion_influye_en_consulta' => self::booleano($reservacion['reservacion_influye_en_consulta'] ?? false),
+            'reservacion_influye_en_disponibilidad' => self::booleano(
+                $reservacion['reservacion_influye_en_disponibilidad']
+                    ?? $reservacion['influye_disponibilidad']
+                    ?? false
+            ),
             'minutos_para_inicio' => $reservacion['minutos_para_inicio'] ?? null,
             'minutos_desde_inicio' => $reservacion['minutos_desde_inicio'] ?? null,
             'minutos_para_inicio_mapa' => $reservacion['minutos_para_inicio_mapa'] ?? null,

@@ -181,6 +181,9 @@
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
         var noUtilizable = isUnusable(raw, options, stateBase);
+        var disponibleParaAsignacion = raw.disponible_para_asignacion == null
+            ? null
+            : booleanValue(raw.disponible_para_asignacion);
         var seleccionValida = selectionValidity(raw, options) && !noUtilizable;
         selected = selected && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
@@ -203,7 +206,8 @@
             seleccionValida: seleccionValida,
             interactivo: options.interactivo != null
                 ? booleanValue(options.interactivo)
-                : booleanValue(raw.reservable),
+                : booleanValue(raw.reservable)
+                    && (disponibleParaAsignacion === null || disponibleParaAsignacion),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ''),
             ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),
             modificadores: modifiers,

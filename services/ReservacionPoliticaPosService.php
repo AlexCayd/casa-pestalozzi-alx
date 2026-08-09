@@ -86,7 +86,8 @@ final class ReservacionPoliticaPosService
             $segundosParaInicio,
             (bool)$vigencia['ausencia_pendiente'],
             (bool)$vigencia['dentro_tolerancia'],
-            $ticketAbierto
+            $ticketAbierto,
+            (bool)$vigencia['influye_disponibilidad']
         );
         $puedeNoShow = (bool)$vigencia['puede_marcar_no_show'] && !$ticketAbierto;
         $acciones = [];
@@ -231,7 +232,8 @@ final class ReservacionPoliticaPosService
         ?int $segundos,
         bool $ausenciaPendiente,
         bool $enTolerancia,
-        bool $ticketAbierto
+        bool $ticketAbierto,
+        bool $influyeDisponibilidad
     ): string {
         if ($ticketAbierto) {
             return 'ticket';
@@ -254,7 +256,7 @@ final class ReservacionPoliticaPosService
         if ($segundos >= 0) {
             return 'bloqueo';
         }
-        if ($segundos < 0 && !$ausenciaPendiente) {
+        if ($segundos < 0 && !$ausenciaPendiente && $influyeDisponibilidad) {
             return 'inicio';
         }
 
