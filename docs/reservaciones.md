@@ -1068,43 +1068,79 @@ No existe apertura automática de ticket.
 
 ## 10.4 Visual POS para ausencia pendiente
 
-POS conserva el estado operativo especial:
+### Ausencia pendiente como modificador visual
+
+`ausencia_pendiente` es un modificador visual superpuesto al estado base de la
+mesa.
+
+No modifica por sí sola:
 
 ```text
-verde
-+
-indicador/borde gris
+estado_visual_pos
+estado_visual_mapa
 ```
 
-Texto accesible:
+El estado base continúa siendo determinado por los hechos de ocupación,
+reservación activa, reservación próxima, reservación cercana, disponibilidad o
+ticket.
+
+Cuando:
 
 ```text
-Acción pendiente: registrar ausencia
+ausencia_pendiente = true
 ```
 
-Aunque el fondo sea verde:
+se agrega un indicador visual gris al estado base correspondiente. El
+indicador debe ser composable y no sustituir los bordes o modificadores
+existentes.
+
+Son combinaciones válidas:
+
+```text
+ocupada + ausencia_pendiente
+→ rojo + indicador gris
+
+reservacion_proxima + ausencia_pendiente
+→ azul + indicador gris
+
+libre + ausencia_pendiente
+→ verde + indicador gris
+
+libre + reservacion_advertencia + ausencia_pendiente
+→ verde + borde azul punteado + indicador gris
+```
+
+La ausencia pendiente no modifica por sí sola la disponibilidad funcional.
+
+La disponibilidad para ticket continúa determinada por la política POS.
+
+Si la política vigente establece:
 
 ```text
 disponible_para_ticket = false
 ```
 
-hasta registrar `no_show`.
+el color base o el indicador gris nunca pueden habilitar un walk-in.
 
-El color no representa por sí solo permiso de acción.
+El indicador también debe reflejarse en el texto accesible, por ejemplo:
+
+```text
+Mesa 4, ocupada. Acción pendiente: registrar ausencia.
+Mesa 4, reservación próxima. Acción pendiente: registrar ausencia.
+Mesa 4, disponible con reservación cercana. Acción pendiente: registrar ausencia.
+```
+
+La incidencia continúa disponible en panel/listado/detalle.
 
 ---
 
 ## 10.5 Mapa de reservaciones
 
-El mapa administrativo no crea un estado visual especial para ausencia pendiente.
-
-Si la reserva dejó de influir en capacidad y no existe otro bloqueo:
-
-```text
-verde
-```
-
-La incidencia continúa disponible en panel/listado/detalle.
+El mapa administrativo conserva el estado base que corresponda a la
+proyección temporal y agrega `ausencia_pendiente` como modificador. Si la
+reservación dejó de influir en capacidad y no existe otro bloqueo, el estado
+base puede ser `verde`, pero la ausencia no se convierte en un estado visual
+excluyente ni elimina otros modificadores.
 
 ---
 
@@ -1412,13 +1448,10 @@ Mientras siga influyendo después del inicio:
 rojo
 ```
 
-Si entra en ausencia pendiente y deja de influir:
-
-```text
-verde
-```
-
-en el mapa administrativo.
+Si entra en ausencia pendiente y deja de influir, el estado base puede seguir
+siendo `verde`, pero se agrega el modificador visual `ausencia_pendiente`.
+Si otro hecho determina `rojo`, `azul` o una reservación cercana, ese estado y
+sus bordes se conservan y el indicador gris se superpone.
 
 ---
 
@@ -1986,10 +2019,10 @@ ausencia_pendiente = true
 disponible_para_asignacion = true
 disponible_para_ticket = false
 
-mapa = verde
+mapa = verde + indicador de ausencia pendiente
 
 POS =
-verde + indicador de ausencia pendiente
+estado base correspondiente + indicador de ausencia pendiente
 ```
 
 ## Después de Registrar ausencia
