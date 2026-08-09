@@ -1046,10 +1046,16 @@ function initMapa() {
       return;
     }
     var reserva = reservaParaModal(mesaId);
-    var reservaCercana = reserva
-      && (reserva.ventana_pos || reserva.ventana_operativa) !== 'futura';
-    if (reservaCercana) {
-      showReservationModal(reserva);
+    var backend = mesaEstadoPorId(mesaId) || {};
+    var walkInConAdvertencia = reserva
+      && backend.disponible_para_ticket === true
+      && backend.requiere_advertencia_ticket === true;
+    if (walkInConAdvertencia) {
+      showReservationModal(reserva, { allowWalkIn: true, mesa: mesa });
+      return;
+    }
+    if (reserva && backend.disponible_para_ticket !== true) {
+      showReservationModal(reserva, { mesa: mesa });
       return;
     }
     if (isLlevar(mesa)) {
@@ -1423,19 +1429,20 @@ function initMapa() {
       ? reservaParaModal(mesa.id)
       : reservaOverride;
     var ticket  = ticketOverride || ticketActual(mesa.id);
-    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket);
+    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, ticket, null);
     openModalShell();
     // Detrás del modal no se ve el mapa, y el sondeo de 30 s compite por el
     // único hilo del servidor de desarrollo. Se reanuda al cerrar.
     stopPolling();
-    bindModalActions(mesa, reserva, ticket);
+    bindModalActions(mesa, reserva, ticket, null);
   }
 
-  function showReservationModal(reserva) {
+  function showReservationModal(reserva, options) {
     if (!modal || !modalContent || !reserva || ticketSelectionMode || ticketSelectionState.opening) return;
+    options = options || {};
 
     var mesaIds = mesaIdsReserva(reserva);
-    var mesa = mesaIds.length ? mesaPorId(mesaIds[0]) : null;
+    var mesa = options.mesa || (mesaIds.length ? mesaPorId(mesaIds[0]) : null);
     if (!mesa) {
       mesa = {
         id: 0,
@@ -1457,9 +1464,9 @@ function initMapa() {
       : 'reservada';
     commandaItems = [];
     selectedComensal = 0;
-    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null);
+    modalContent.innerHTML = buildModalContent(mesa, estado, reserva, null, options);
     openModalShell();
-    bindModalActions(mesa, reserva, null);
+    bindModalActions(mesa, reserva, null, options);
   }
 
   function closeModal(options) {
@@ -1800,7 +1807,7 @@ function initMapa() {
     if (cl) cl.addEventListener('click', cerrarPrefs);
   }
 
-  function buildModalContent(mesa, estado, reserva, ticket) {
+  function buildModalContent(mesa, estado, reserva, ticket, modalOptions) {
     var h = '';
     var reservaChipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
       : estado === 'ocupada' ? 'En ventana de reserva'
@@ -1987,6 +1994,10 @@ function initMapa() {
       var ausenciaPendiente = reservaEstado === 'confirmada'
         && reserva.accion_pendiente === 'REGISTRAR_AUSENCIA'
         && reserva.ticket_abierto !== true;
+      var allowWalkIn = Boolean(modalOptions && modalOptions.allowWalkIn === true
+        && reservaEstado === 'confirmada'
+        && reserva.disponible_para_ticket === true
+        && reserva.requiere_advertencia_ticket === true);
 
       h += '<div class="mmodal-reserva-preview mmodal-reservation">';
       h += '<div class="mmodal-reservation__identity">';
@@ -2030,7 +2041,18 @@ function initMapa() {
       h += buildMeseroSelectHtml();
       h += '</div>';
       h += '<div class="mmodal-reservation__actions">';
-      if (reservaEstado === 'confirmada' && ausenciaPendiente) {
+      if (allowWalkIn) {
+        var minutosAdvertencia = reservaVentanaActual.minutos_restantes != null
+          ? parseInt(reservaVentanaActual.minutos_restantes, 10)
+          : parseInt(reserva.minutos_para_inicio || reserva.minutos_para_reservacion || '0', 10);
+        h += '<section class="mmodal-reservation__blocking mmodal-reservation__blocking--warning" role="alert" aria-live="polite" aria-labelledby="mmodal-reservation-warning-title">';
+        h += '<strong id="mmodal-reservation-warning-title">Reservación cercana</strong>';
+        h += '<p>El walk-in todavía está permitido, pero requiere confirmación explícita.</p>';
+        h += '<p>Faltan ' + escHtml(Math.max(0, minutosAdvertencia || 0)) + ' minutos para la reservación de las ' + escHtml(reservaHora || '--:--') + '.</p>';
+        h += '</section>';
+        h += '<button type="button" class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir-reservacion">Abrir ticket de todas formas</button>';
+        h += '<div class="mmodal-reservation__action-hint">El servidor volverá a validar la reservación y pedirá confirmación antes de crear el ticket.</div>';
+      } else if (reservaEstado === 'confirmada' && ausenciaPendiente) {
         h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Registrar ausencia</button>';
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-reservation-back">Volver</button>';
       } else if (reservaEstado === 'confirmada') {
@@ -2813,7 +2835,7 @@ function initMapa() {
   }
 
   // ── Bind de acciones del modal ────────────────────────────
-  function bindModalActions(mesa, reserva, ticket) {
+  function bindModalActions(mesa, reserva, ticket, modalOptions) {
     var decBtn = modalContent.querySelector('#mmodal-dec');
     var incBtn = modalContent.querySelector('#mmodal-inc');
     var cval   = modalContent.querySelector('#mmodal-cval');
@@ -2842,6 +2864,18 @@ function initMapa() {
         } else {
           apiAbrirTicket([mesa.id], comensales, null, nombre || null, meseroId, abrirBtn);
         }
+      });
+    }
+
+    var abrirReservaBtn = modalContent.querySelector('#mmodal-abrir-reservacion');
+    if (abrirReservaBtn && reserva && modalOptions && modalOptions.allowWalkIn === true) {
+      abrirReservaBtn.addEventListener('click', function() {
+        requestOpenTicket({
+          mesa_ids: [mesa.id],
+          comensales: parseInt(reserva.comensales || reserva.personas || '2', 10) || 2,
+          nombre: reserva.nombre || null,
+          mesero_id: selectedMeseroId()
+        }, { button: abrirReservaBtn });
       });
     }
 

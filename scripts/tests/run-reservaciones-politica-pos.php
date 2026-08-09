@@ -43,11 +43,21 @@ assertPolitica($futura['ventana_visual_pos'] === 'futura', '11:30 es futura');
 $aviso = $evaluar('12:00:00');
 assertPolitica($aviso['disponible_para_ticket'] === true, 'exactamente 60 permite walk-in');
 assertPolitica($aviso['requiere_advertencia_ticket'] === true, 'exactamente 60 requiere warning');
+assertPolitica($aviso['bloqueo_walk_in'] === false, 'exactamente 60 no bloquea walk-in');
 assertPolitica($aviso['ventana_visual_pos'] === 'advertencia', 'exactamente 60 es advertencia');
+
+foreach (['12:01:00', '12:15:00', '12:29:00'] as $horaWarning) {
+    $warningIntermedio = $evaluar($horaWarning);
+    assertPolitica($warningIntermedio['disponible_para_ticket'] === true, "{$horaWarning} permite walk-in");
+    assertPolitica($warningIntermedio['requiere_advertencia_ticket'] === true, "{$horaWarning} requiere warning");
+    assertPolitica($warningIntermedio['bloqueo_walk_in'] === false, "{$horaWarning} no bloquea walk-in");
+    assertPolitica($warningIntermedio['ventana_visual_pos'] === 'advertencia', "{$horaWarning} es advertencia");
+}
 
 $bloqueo = $evaluar('12:30:00');
 assertPolitica($bloqueo['disponible_para_ticket'] === false, 'exactamente 30 bloquea walk-in');
 assertPolitica($bloqueo['requiere_advertencia_ticket'] === false, 'exactamente 30 no es warning');
+assertPolitica($bloqueo['bloqueo_walk_in'] === true, 'exactamente 30 marca bloqueo walk-in');
 assertPolitica($bloqueo['ventana_visual_pos'] === 'bloqueo', 'exactamente 30 es bloqueo');
 
 $inicio = $evaluar('13:00:00');
