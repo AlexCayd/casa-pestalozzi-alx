@@ -229,7 +229,8 @@ class Analiticas
      */
     private static function revpash(string $start, string $end): array
     {
-        $vacio = ['horas' => [], 'dias' => [], 'celdas' => [], 'max' => 0.0, 'asientos' => 0, 'mejor' => null, 'peor' => null];
+        $vacio = ['horas' => [], 'dias' => [], 'celdas' => [], 'max' => 0.0, 'asientos' => 0,
+            'mejor' => null, 'peor' => null, 'porDia' => [], 'promedioDia' => 0.0];
 
         try {
             $db = Ticket::getDB();
@@ -279,6 +280,27 @@ class Analiticas
             if ($res) {
                 while ($r = $res->fetch_assoc()) {
                     $observados[(int) $r['dow']] = (int) $r['d'];
+                }
+            }
+
+            // Horas realmente operadas por día de la semana: pares (fecha, hora)
+            // distintos con venta. Es el fallback del resumen diario cuando un
+            // día no tiene horario declarado; ahí no sirve contar fechas, hace
+            // falta contar horas, que es lo que ese denominador multiplica.
+            $horasConVenta = [];   // [dow] => int
+            $res = $db->query(
+                "SELECT dow, COUNT(*) AS h
+                   FROM (SELECT (DAYOFWEEK(t.hora_apertura) - 1) AS dow,
+                                DATE(t.hora_apertura) AS f,
+                                HOUR(t.hora_apertura) AS hh
+                           FROM tickets t
+                          WHERE t.estado = 'cerrado' {$fTk}
+                          GROUP BY dow, f, hh) AS franjas
+                  GROUP BY dow"
+            );
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $horasConVenta[(int) $r['dow']] = (int) $r['h'];
                 }
             }
 
@@ -365,19 +387,93 @@ class Analiticas
             // las de fuera antes que dejar el pie de la gráfica en blanco.
             $ref = !empty($extremos['abierto']) ? $extremos['abierto'] : $extremos['fuera'];
 
+            [$porDia, $promedioDia] = self::revpashPorDia(
+                $asientos, $ingreso, $avail, $horasConVenta
+            );
+
             return [
-                'horas'    => $etiquetas,
-                'dias'     => $dias,
-                'celdas'   => $celdas,
-                'max'      => round($max, 2),
-                'asientos' => $asientos,
-                'mejor'    => $ref['mejor'] ?? null,
-                'peor'     => $ref['peor'] ?? null,
+                'horas'       => $etiquetas,
+                'dias'        => $dias,
+                'celdas'      => $celdas,
+                'max'         => round($max, 2),
+                'asientos'    => $asientos,
+                'mejor'       => $ref['mejor'] ?? null,
+                'peor'        => $ref['peor'] ?? null,
+                'porDia'      => $porDia,
+                'promedioDia' => $promedioDia,
             ];
         } catch (\Throwable $e) {
             error_log('Analiticas::revpash - ' . $e->getMessage());
             return $vacio;
         }
+    }
+
+    /**
+     * §3.2 (bis) — RevPASH tomando el día completo como unidad:
+     *   RevPASH(día) = ingreso(día) / (asientos × horas abiertas ese día)
+     *
+     * NO es el promedio de la columna del mapa de calor. El mapa divide cada
+     * celda entre las veces que ESA franja estuvo abierta, así que una hora con
+     * media hora de servicio pesa lo mismo que una hora llena; aquí el
+     * denominador son todas las horas-asiento que el restaurante ofreció ese
+     * día, de modo que las horas muertas también cuentan. Responde a otra
+     * pregunta: no "¿qué franja rinde?" sino "¿cuánto rindió el comedor ese
+     * día, de apertura a cierre?".
+     *
+     * Las horas se acumulan sobre todas las fechas del rango que cayeron en ese
+     * día de la semana: cuatro lunes con turno de 8 horas dan 32.
+     *
+     * @param array $ingreso       [dow][hora] => ingreso
+     * @param array $avail         [dow][hora] => fechas abiertas en esa franja
+     * @param array $horasConVenta [dow] => franjas (fecha, hora) con venta
+     * @return array{0: array, 1: float} filas por día y promedio del periodo
+     */
+    private static function revpashPorDia(
+        int $asientos,
+        array $ingreso,
+        array $avail,
+        array $horasConVenta
+    ): array {
+        $filas = [];
+        $ingTotal = 0.0;
+        $horasTotal = 0;
+
+        foreach (self::DIAS_SEMANA as $dow => [$corto, $largo]) {
+            $ing = array_sum($ingreso[$dow] ?? []);
+            $horas = array_sum($avail[$dow] ?? []);
+            $abierto = $horas > 0;
+
+            if (!$abierto) {
+                // Sin horario declarado (o vendiendo un día marcado como
+                // cerrado): se normaliza con las horas que sí tuvieron venta,
+                // igual que hace el mapa con los días observados.
+                $horas = $horasConVenta[$dow] ?? 0;
+            }
+
+            $valor = ($horas > 0 && $ing > 0) ? $ing / ($asientos * $horas) : 0.0;
+
+            $filas[] = [
+                'dow'     => $dow,
+                'corto'   => $corto,
+                'largo'   => $largo,
+                'valor'   => round($valor, 2),
+                'ingreso' => round($ing, 2),
+                'horas'   => $horas,
+                'abierto' => $abierto,
+            ];
+
+            $ingTotal += $ing;
+            $horasTotal += $horas;
+        }
+
+        // Promedio del periodo: se recalcula sobre los totales, no promediando
+        // los siete días. Un domingo de dos horas no puede pesar lo mismo que
+        // un sábado de doce.
+        $promedio = ($horasTotal > 0 && $ingTotal > 0)
+            ? $ingTotal / ($asientos * $horasTotal)
+            : 0.0;
+
+        return [$filas, round($promedio, 2)];
     }
 
     /**

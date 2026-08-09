@@ -573,20 +573,6 @@
   margin-bottom: 20px;
   padding-bottom: 4px;
 }
-.admin-nivel1 .admin-nivel1-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
-  gap: 20px;
-  margin-top: 20px;
-  align-items: stretch;
-}
-.admin-nivel1 [data-n1-revpash] {
-  display: flex;
-  flex-direction: column;
-}
-.admin-nivel1 [data-n1-revpash] .admin-n1-heat {
-  flex: 1 1 auto;
-}
 .admin-nivel1 .admin-nivel1-sub {
   margin-top: 4px;
   color: var(--admin-muted);
@@ -676,12 +662,50 @@
   border-radius: 999px;
   background: linear-gradient(to right, rgba(var(--n1-heat-rgb), 0.05), rgba(var(--n1-heat-rgb), 1));
 }
+.admin-nivel1 {
+  /* ── RevPASH por día completo ──────────────────────────────────────
+     Segunda gráfica del panel de §3.2, no una fusión con el mapa: mide lo
+     mismo con otro denominador. Ocupa todo el ancho del panel y se separa
+     del mapa con un filete para que se lean como dos lecturas, no como una
+     continuación. */
+}
+.admin-nivel1 .admin-n1-daily {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-nivel1 .admin-n1-daily__head {
+  margin-bottom: 10px;
+}
+.admin-nivel1 .admin-n1-daily__head h4 {
+  color: var(--admin-text);
+  font-family: var(--admin-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+}
+.admin-nivel1 .admin-n1-daily__head p {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.admin-nivel1 .admin-n1-daily__canvas {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 260px;
+}
+.admin-nivel1 .admin-n1-daily__canvas canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: 100% !important;
+}
 .admin-nivel1 [data-n1-asociacion] .admin-table-wrap {
   max-height: 460px;
   overflow-y: auto;
 }
-.admin-nivel1 .admin-nivel1-panel + .admin-nivel1-panel,
-.admin-nivel1 .admin-nivel1-grid + .admin-nivel1-panel {
+.admin-nivel1 > .admin-panel + .admin-panel {
   margin-top: 20px;
 }
 .admin-nivel1 .admin-nivel1-panel .admin-table th,
@@ -923,6 +947,9 @@
 .admin-n1-guide__notes li::marker {
   color: var(--admin-gold);
 }
+.admin-n1-guide__text + .admin-n1-guide__notes, .admin-n1-guide__notes + .admin-n1-guide__text {
+  margin-top: 14px;
+}
 .admin-n1-guide strong {
   color: var(--admin-text);
   font-weight: 600;
@@ -939,9 +966,6 @@
 }
 @media (max-width: 1024px) {
   .admin-nivel1 .admin-nivel1-menu__body {
-    grid-template-columns: 1fr;
-  }
-  .admin-nivel1 .admin-nivel1-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -78,6 +78,11 @@ final class CapacidadReservacionesService
         $proyectadas = array_fill_keys(self::ids(
             $evaluacion['mesa_ids_proyectadas'] ?? ($evaluacion['mesas_proyectadas'] ?? [])
         ), true);
+        $tieneBloqueoCanonico = array_key_exists('mesa_ids_bloqueadas', $evaluacion);
+        $bloqueadasCanonicas = array_fill_keys(
+            self::ids($evaluacion['mesa_ids_bloqueadas'] ?? []),
+            true
+        );
         $capacidadTotal = 0;
         $capacidadLibre = 0;
         $capacidadProyectada = 0;
@@ -88,7 +93,10 @@ final class CapacidadReservacionesService
         foreach ($mesasFisicas as $mesaId => $mesa) {
             $capacidad = max(0, (int)self::valor($mesa, 'capacidad', 0));
             $capacidadTotal += $capacidad;
-            if (isset($disponibles[$mesaId])) {
+            $bloqueada = $tieneBloqueoCanonico
+                ? isset($bloqueadasCanonicas[$mesaId])
+                : !isset($disponibles[$mesaId]);
+            if (!$bloqueada) {
                 $capacidadLibre += $capacidad;
                 $mesaIdsLibres[] = $mesaId;
             } else {

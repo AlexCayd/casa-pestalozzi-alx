@@ -195,87 +195,103 @@ $hoyIso = date('Y-m-d');
             </div>
         </article>
 
-        <div class="admin-nivel1-grid">
-            <!-- §3.2 · RevPASH -->
-            <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-revpash>
-                <header>
-                    <div>
-                        <p class="admin-page-eyebrow">3.2 · RevPASH</p>
-                        <h3>Ingreso por asiento disponible por hora</h3>
-                        <p class="admin-nivel1-sub">Mapa de calor por franja y día de la semana</p>
-                    </div>
-                    <div class="admin-nivel1-headside">
-                        <span data-n1-revpash-seats></span>
-                        <button
-                            type="button"
-                            class="admin-nivel1-info admin-nivel1-info--icon"
-                            data-admin-modal-open="n1-revpash-info"
-                            title="Cómo leer el RevPASH"
-                            aria-label="Cómo leer el RevPASH"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
-                <!-- El mapa lo construye nivel1.js como <table> real: las horas
-                     son encabezados de fila y los días de columna, así el lector
-                     de pantalla puede recorrer la matriz. -->
-                <div class="admin-n1-heat" data-n1-revpash-heat></div>
-                <div class="admin-n1-heat__scale" data-n1-revpash-scale hidden>
-                    <span>Menos</span>
-                    <span class="admin-n1-heat__ramp" aria-hidden="true"></span>
-                    <span data-n1-revpash-max></span>
+        <!-- §3.2 · RevPASH -->
+        <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-revpash>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.2 · RevPASH</p>
+                    <h3>Ingreso por asiento disponible por hora</h3>
+                    <p class="admin-nivel1-sub">
+                        Mapa de calor por franja y día de la semana, y abajo el mismo
+                        indicador tomando el día completo
+                    </p>
                 </div>
-                <p class="admin-nivel1-note" data-n1-revpash-note></p>
-            </article>
+                <div class="admin-nivel1-headside">
+                    <span data-n1-revpash-seats></span>
+                    <button
+                        type="button"
+                        class="admin-nivel1-info admin-nivel1-info--icon"
+                        data-admin-modal-open="n1-revpash-info"
+                        title="Cómo leer el RevPASH"
+                        aria-label="Cómo leer el RevPASH"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            <!-- El mapa lo construye nivel1.js como <table> real: las horas
+                 son encabezados de fila y los días de columna, así el lector
+                 de pantalla puede recorrer la matriz. -->
+            <div class="admin-n1-heat" data-n1-revpash-heat></div>
+            <div class="admin-n1-heat__scale" data-n1-revpash-scale hidden>
+                <span>Menos</span>
+                <span class="admin-n1-heat__ramp" aria-hidden="true"></span>
+                <span data-n1-revpash-max></span>
+            </div>
+            <p class="admin-nivel1-note" data-n1-revpash-note></p>
 
-            <!-- §3.4 · Reglas de asociación con lift -->
-            <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
-                <header>
-                    <div>
-                        <p class="admin-page-eyebrow">3.4 · Reglas de asociación</p>
-                        <h3>Qué se pide junto con qué</h3>
-                    </div>
-                    <div class="admin-nivel1-headside">
-                        <span data-n1-asociacion-tickets></span>
-                        <button
-                            type="button"
-                            class="admin-nivel1-info admin-nivel1-info--icon"
-                            data-admin-modal-open="n1-asociacion-info"
-                            title="Cómo leer las reglas de asociación"
-                            aria-label="Cómo leer las reglas de asociación"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
-                <?php // A y B se apilan en una sola celda "Combinación" y el
-                      // lift baja como subtítulo de la confianza: el par es un
-                      // solo dato, no dos columnas independientes. ?>
-                <div class="admin-table-wrap">
-                    <table class="admin-table admin-table--compact">
-                        <thead>
-                            <tr>
-                                <th scope="col">Combinación</th>
-                                <th scope="col" class="admin-table__num">Juntos</th>
-                                <th scope="col" class="admin-table__num">Confianza</th>
-                            </tr>
-                        </thead>
-                        <tbody data-n1-asociacion-table></tbody>
-                    </table>
+            <!-- Vista diaria del mismo indicador. Va en su propia gráfica a
+                 propósito: el mapa divide por franja y esta por el día
+                 completo, así que los valores no son comparables celda a
+                 celda y compartir eje mentiría. -->
+            <section class="admin-n1-daily" aria-label="RevPASH por día completo">
+                <div class="admin-n1-daily__head">
+                    <h4>Por día completo</h4>
+                    <p>Ingreso del día ÷ (asientos × horas de operación de ese día)</p>
                 </div>
-            </article>
-        </div>
+                <div class="admin-n1-daily__canvas">
+                    <canvas id="revpashDailyChart"></canvas>
+                </div>
+                <p class="admin-nivel1-note" data-n1-revpash-daily-note></p>
+            </section>
+        </article>
+
+        <!-- §3.4 · Reglas de asociación con lift -->
+        <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.4 · Reglas de asociación</p>
+                    <h3>Qué se pide junto con qué</h3>
+                </div>
+                <div class="admin-nivel1-headside">
+                    <span data-n1-asociacion-tickets></span>
+                    <button
+                        type="button"
+                        class="admin-nivel1-info admin-nivel1-info--icon"
+                        data-admin-modal-open="n1-asociacion-info"
+                        title="Cómo leer las reglas de asociación"
+                        aria-label="Cómo leer las reglas de asociación"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            <?php // A y B se apilan en una sola celda "Combinación" y el
+                  // lift baja como subtítulo de la confianza: el par es un
+                  // solo dato, no dos columnas independientes. ?>
+            <div class="admin-table-wrap">
+                <table class="admin-table admin-table--compact">
+                    <thead>
+                        <tr>
+                            <th scope="col">Combinación</th>
+                            <th scope="col" class="admin-table__num">Juntos</th>
+                            <th scope="col" class="admin-table__num">Confianza</th>
+                        </tr>
+                    </thead>
+                    <tbody data-n1-asociacion-table></tbody>
+                </table>
+            </div>
+        </article>
     </section>
 </section>
 
@@ -408,7 +424,7 @@ $hoyIso = date('Y-m-d');
         <div class="admin-modal__head">
             <div>
                 <span class="admin-modal__eyebrow">3.2 · RevPASH</span>
-                <h2 class="admin-modal__title" id="n1-revpash-info-title">Cómo leer este mapa</h2>
+                <h2 class="admin-modal__title" id="n1-revpash-info-title">Cómo leer esta analítica</h2>
                 <p class="admin-modal__text">
                     <strong>RevPASH</strong> es el ingreso por asiento disponible por hora.
                     Responde a algo que las ventas totales esconden:
@@ -531,6 +547,37 @@ $hoyIso = date('Y-m-d');
                     Compara celdas <strong>dentro del mismo periodo</strong>. Cambiar el rango de
                     fechas cambia los días abiertos de cada celda y también la celda más fuerte, que
                     es la referencia del color.
+                </li>
+            </ul>
+
+            <h3 class="admin-n1-guide__title">La gráfica de abajo: por día completo</h3>
+            <p class="admin-n1-guide__formula">
+                RevPASH<span>día</span> = ingreso del día ÷ (asientos × horas de operación de ese día)
+            </p>
+            <p class="admin-n1-guide__text">
+                Es el mismo indicador con otra unidad: en vez de una franja de una hora, el
+                <strong>día entero, de apertura a cierre</strong>. Responde a una pregunta que el
+                mapa no contesta: <em>¿qué día aprovecha mejor el comedor en conjunto?</em> Las
+                horas de operación se acumulan sobre todas las fechas del rango que cayeron en ese
+                día de la semana —cuatro lunes de nueve horas dan 36— y la línea punteada es el
+                promedio del periodo completo.
+            </p>
+            <ul class="admin-n1-guide__notes">
+                <li>
+                    <strong>No es el promedio de la columna del mapa.</strong> El mapa divide cada
+                    celda entre las veces que <em>esa franja</em> estuvo abierta; aquí el divisor
+                    son todas las horas que abrió el día, así que las <strong>horas muertas
+                    también pesan</strong>. Por eso las dos gráficas están separadas: sus números
+                    no son comparables entre sí.
+                </li>
+                <li>
+                    Un día que abre pocas horas y las llena puede superar a uno que abre todo el
+                    día y se diluye. Eso es información, no un error: es exactamente el argumento
+                    para <strong>ajustar el horario</strong> de los días flojos.
+                </li>
+                <li>
+                    Si un día vendió sin horario declarado, se normaliza con las horas que sí
+                    tuvieron venta. El detalle al pasar el cursor lo indica.
                 </li>
             </ul>
         </section>

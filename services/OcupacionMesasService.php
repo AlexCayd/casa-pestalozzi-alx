@@ -47,6 +47,8 @@ final class OcupacionMesasService
                 'ocupacion_reservaciones' => [],
                 'tickets_por_mesa' => [],
                 'mesa_ids_disponibles' => [],
+                'mesa_ids_bloqueadas' => [],
+                'causas_bloqueo_por_mesa' => [],
                 'mesa_ids_proyectadas' => [],
                 'tickets_ignorados' => [],
                 'alertas_operativas' => [],
@@ -69,6 +71,10 @@ final class OcupacionMesasService
         $tickets = $ticketsAbiertos ?? TicketMesa::abiertosParaMapa($bloquear);
         $evaluacionTickets = self::evaluarTickets($tickets, $fecha, $horaSql, $ahora);
         $mesas = Mesa::buscarTodasParaMapa();
+        $mesasPorId = [];
+        foreach ($mesas as $mesa) {
+            $mesasPorId[(int)($mesa->id ?? 0)] = $mesa;
+        }
         $porMesa = [];
         $alertas = [];
 
@@ -164,6 +170,39 @@ final class OcupacionMesasService
             }
         }
 
+        $mesaIdsBloqueadas = [];
+        $causasBloqueoPorMesa = [];
+        foreach ($porMesa as $mesaId => &$estado) {
+            $mesa = $mesasPorId[(int)$mesaId] ?? null;
+            $esMesaFisicaElegible = $mesa !== null && self::mesaElegible($mesa);
+            $bloqueadaEnIntervalo = $esMesaFisicaElegible && !$estado['disponible'];
+            $causas = [];
+            if ($bloqueadaEnIntervalo) {
+                $ticket = $evaluacionTickets['por_mesa'][(int)$mesaId] ?? null;
+                if ($ticket !== null && !empty($ticket['bloquea_disponibilidad'])) {
+                    $causas[] = 'ticket';
+                }
+                $reservacion = $ocupacionReservaciones[(int)$mesaId] ?? null;
+                if ($reservacion !== null) {
+                    $causas[] = ($reservacion['fuente'] ?? '') === 'hold'
+                        ? 'hold'
+                        : 'reservacion';
+                }
+                if (($estado['fuente'] ?? '') === 'hold' && !in_array('hold', $causas, true)) {
+                    $causas[] = 'hold';
+                }
+                if ($causas === []) {
+                    $causas[] = 'ocupacion';
+                }
+                $mesaIdsBloqueadas[] = (int)$mesaId;
+                $causasBloqueoPorMesa[(int)$mesaId] = $causas;
+            }
+            $estado['bloqueada_en_intervalo'] = $bloqueadaEnIntervalo;
+            $estado['causas_bloqueo'] = $causas;
+        }
+        unset($estado);
+        sort($mesaIdsBloqueadas, SORT_NUMERIC);
+
         return [
             'ok' => true,
             'fecha' => $fecha,
@@ -180,6 +219,8 @@ final class OcupacionMesasService
             'mesas' => $porMesa,
             'ocupacion_bloqueante' => $ocupacionBloqueante,
             'ocupacion_reservaciones' => $ocupacionReservaciones,
+            'mesa_ids_bloqueadas' => $mesaIdsBloqueadas,
+            'causas_bloqueo_por_mesa' => $causasBloqueoPorMesa,
             'tickets_por_mesa' => $evaluacionTickets['por_mesa'],
             'tickets_bloqueantes' => $evaluacionTickets['bloqueantes'],
             'ocupacion_fisica' => $evaluacionTickets['fisica'],
@@ -401,7 +442,6 @@ final class OcupacionMesasService
         $exclusiones = array_fill_keys(self::normalizarExclusiones($excluirReservacionId), true);
         $resultado = [];
         $inicio = $intervalo['inicio'];
-        $fin = $intervalo['fin'];
         foreach ($asignaciones as $asignacion) {
             if (isset($exclusiones[(int)($asignacion['reservacion_id'] ?? 0)])) {
                 continue;
@@ -410,8 +450,7 @@ final class OcupacionMesasService
             if (!$reserva) {
                 continue;
             }
-            $reservaFin = $reserva->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
-            if ($reserva < $fin && $reservaFin > $inicio) {
+            if (self::intervalosSeTraslapan($reserva, $inicio)) {
                 $resultado[(int)$asignacion['mesa_id']] = $asignacion;
             }
         }
@@ -473,6 +512,26 @@ final class OcupacionMesasService
         $previo = ReservacionConfig::BLOQUEO_PREVIO_MESA_MINUTOS;
         return ($a - $previo) < ($b + $duracion)
             && ($b - $previo) < ($a + $duracion);
+    }
+
+    /**
+     * Evalúa el traslape semiabierto de dos intervalos con duración configurable.
+     * La duración productiva se toma de ReservacionConfig; las pruebas pueden
+     * pasar otra duración sin mutar la configuración de producción.
+     */
+    public static function intervalosSeTraslapan(
+        DateTimeImmutable $ocupacionInicio,
+        DateTimeImmutable $consultaInicio,
+        ?int $duracionMinutos = null
+    ): bool {
+        $duracion = $duracionMinutos ?? ReservacionConfig::DURACION_RESERVACION_MINUTOS;
+        if ($duracion < 1) {
+            return false;
+        }
+        $ocupacionFin = $ocupacionInicio->modify('+' . $duracion . ' minutes');
+        $consultaFin = $consultaInicio->modify('+' . $duracion . ' minutes');
+
+        return $ocupacionInicio < $consultaFin && $ocupacionFin > $consultaInicio;
     }
 
     /** @return array<int, int> */

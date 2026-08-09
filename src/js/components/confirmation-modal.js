@@ -231,6 +231,45 @@
             return options.primaryFocus === true ? primary : (items[0] || dialog);
         }
 
+        function canonicalDecisionActions(options) {
+            if (!(options.decision === true || options.tipo === 'decision_requerida')) {
+                return null;
+            }
+
+            var mensaje = textValue(options.mensaje).trim();
+            if (!mensaje && window.console && typeof window.console.error === 'function') {
+                window.console.error(
+                    'Decisión de reservación sin mensaje',
+                    options.decisionData || options
+                );
+            }
+
+            var actions = Array.isArray(options.actions)
+                ? options.actions.filter(function (action) {
+                    return action && action.id && action.label && action.tipo;
+                })
+                : [];
+            if (!actions.length) {
+                if (window.console && typeof window.console.error === 'function') {
+                    window.console.error(
+                        'Decisión de reservación sin acciones canónicas',
+                        options.decisionData || options
+                    );
+                }
+                return [{ id: 'CERRAR', label: 'Cerrar', tipo: 'secondary' }];
+            }
+            return actions;
+        }
+
+        function actionByType(actions, type) {
+            if (!Array.isArray(actions)) return null;
+            for (var i = 0; i < actions.length; i++) {
+                if (type === 'primary' && actions[i].tipo === 'primary') return actions[i];
+                if (type === 'secondary' && actions[i].tipo !== 'primary') return actions[i];
+            }
+            return null;
+        }
+
         function open(options) {
             options = options || {};
             if (!root.hidden) {
@@ -238,6 +277,9 @@
             }
             current = Object.assign({}, options);
             current.closeBehavior = options.closeBehavior || options.close_behavior || 'cancelable';
+            current.decisionActions = canonicalDecisionActions(options);
+            current.primaryAction = actionByType(current.decisionActions, 'primary');
+            current.secondaryAction = actionByType(current.decisionActions, 'secondary');
             lastFocused = document.activeElement;
             current.returnFocus = options.returnFocus || options.return_focus || options.focusTarget || options.focus_target || lastFocused;
             root.className = 'confirmation-modal confirmation-modal--' + textValue(options.variant || 'default');
@@ -254,10 +296,17 @@
             renderBlock(consequence, options.consequence, 'confirmation-modal__consequence');
             appendCustomContent(custom, options.customContent);
             setStatus(options.status || '', false);
-            secondary.textContent = textValue(options.secondaryLabel || 'Cerrar');
-            primary.textContent = textValue(options.primaryLabel || 'Continuar');
-            secondary.hidden = options.secondaryHidden === true;
-            primary.hidden = options.primaryHidden === true;
+            if (current.decisionActions) {
+                secondary.textContent = textValue(current.secondaryAction && current.secondaryAction.label || 'Cerrar');
+                primary.textContent = textValue(current.primaryAction && current.primaryAction.label || '');
+                secondary.hidden = !current.secondaryAction;
+                primary.hidden = !current.primaryAction;
+            } else {
+                secondary.textContent = textValue(options.secondaryLabel || 'Cerrar');
+                primary.textContent = textValue(options.primaryLabel || 'Continuar');
+                secondary.hidden = options.secondaryHidden === true;
+                primary.hidden = options.primaryHidden === true;
+            }
             secondary.setAttribute('data-disabled', options.secondaryDisabled ? '1' : '0');
             primary.setAttribute('data-disabled', options.primaryDisabled ? '1' : '0');
             secondary.disabled = Boolean(options.secondaryDisabled);
@@ -291,6 +340,11 @@
         secondary.addEventListener('click', function () {
             if (secondary.disabled) return;
             var callback = current && current.onSecondary;
+            if (current && current.secondaryAction && typeof current.onAction === 'function') {
+                callback = function () {
+                    return current.onAction(current.secondaryAction);
+                };
+            }
             if (!requestClose(true, { action: 'secondary' })) return;
             try {
                 if (typeof callback === 'function') callback();
@@ -305,6 +359,11 @@
         primary.addEventListener('click', function () {
             if (primary.disabled) return;
             var callback = current && current.onPrimary;
+            if (current && current.primaryAction && typeof current.onAction === 'function') {
+                callback = function () {
+                    return current.onAction(current.primaryAction);
+                };
+            }
             if (current && current.loadingOnPrimary !== false) setLoading(true);
             try {
                 var result = typeof callback === 'function' ? callback() : undefined;

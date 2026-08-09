@@ -8,11 +8,11 @@
     // La precedencia decide el fondo principal; los modificadores conservan
     // las advertencias secundarias (por ejemplo, ticket + reservación).
     var VISUAL_PRECEDENCE = [
-        'no-utilizable',
         'ocupada',
         'seleccionada',
         'reservacion-proxima',
-        'libre'
+        'libre',
+        'no-utilizable'
     ];
 
     function booleanValue(value) {
@@ -67,6 +67,22 @@
         return modifiers.indexOf(name) !== -1;
     }
 
+    function normalizeVisualState(value) {
+        var state = String(value || '').toLowerCase();
+        var aliases = {
+            disponible: 'libre',
+            libre: 'libre',
+            ocupada: 'ocupada',
+            'reservacion-proxima': 'reservacion-proxima',
+            proxima: 'reservacion-proxima',
+            bloqueada: 'reservacion-proxima',
+            seleccionada: 'seleccionada',
+            'no-utilizable': 'no-utilizable',
+            no_utilizable: 'no-utilizable'
+        };
+        return aliases[state] || 'libre';
+    }
+
     function ticketBloqueaConsulta(raw, options, modifiers) {
         var ticket = raw.ticket_abierto;
         if (ticket && typeof ticket === 'object'
@@ -75,6 +91,9 @@
         }
         if (raw.bloquea_en_consulta != null) {
             return booleanValue(raw.bloquea_en_consulta);
+        }
+        if (raw.ticket_bloquea_consulta != null) {
+            return booleanValue(raw.ticket_bloquea_consulta);
         }
         if (options.ticketAbierto && typeof options.ticketAbierto === 'object'
             && Object.prototype.hasOwnProperty.call(options.ticketAbierto, 'bloquea_en_consulta')) {
@@ -115,11 +134,19 @@
             String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima') || state === 'bloqueada' || state === 'proxima';
+        // `estado_visual_mapa` pertenece a la proyección administrativa. El
+        // adaptador también se comparte con POS, por lo que sólo se consume
+        // cuando la pantalla objetivo lo entrega explícitamente.
+        var explicitVisualState = normalizeVisualState(options.estadoVisual);
+        var hasExplicitVisualState = Boolean(options.estadoVisual);
         var unusable = isUnusable(raw, options, state);
 
         // Una mesa no reservable nunca puede quedar seleccionada, aunque el
         // consumidor haya enviado una intención stale o una opción incompleta.
         if (unusable) return 'no-utilizable';
+        if (selected && selectionValid && options.seleccionPrioritaria === true) {
+            return 'seleccionada';
+        }
 
         // Un ticket abierto conserva la base física roja. La selección se
         // expresa como modificador/ring, no sustituyendo ese estado.
@@ -129,6 +156,7 @@
         // fondo sigue siendo verde y el borde se expresa mediante el
         // modificador `accion_pendiente`.
         if (hasPendingAbsence) return 'libre';
+        if (hasExplicitVisualState) return explicitVisualState;
         if (hasUpcomingReservation) return 'reservacion-proxima';
         return 'libre';
     }
@@ -170,13 +198,15 @@
                 ? booleanValue(options.interactivo)
                 : booleanValue(raw.reservable),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ''),
+            ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),
             modificadores: modifiers,
             estadoVisual: resolverEstadoVisualMesa(raw, Object.assign({}, options, {
                 estadoBase: stateBase,
                 modificadores: modifiers,
                 seleccionActual: selected,
                 seleccionValida: seleccionValida,
-                noUtilizable: noUtilizable
+                noUtilizable: noUtilizable,
+                estadoVisual: options.estadoVisual || ''
             })),
             clasesEstado: modifiers.map(modifierClass).concat(options.clasesEstado || []),
             atributos: Object.assign({
