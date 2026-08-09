@@ -130,9 +130,6 @@
             : booleanValue(raw.seleccion_actual);
         var selectionValid = options.seleccionValida !== false;
         var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
-        var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
-            hasModifier(modifiers, 'ausencia_pendiente') ||
-            String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
             hasModifier(modifiers, 'reservacion_proxima');
         // `estado_visual_mapa` pertenece a la proyección administrativa. El
@@ -153,10 +150,6 @@
         // expresa como modificador/ring, no sustituyendo ese estado.
         if (hasTicket || state === 'ocupada') return 'ocupada';
         if (selected && selectionValid) return 'seleccionada';
-        // La ausencia pendiente no reemplaza la disponibilidad física: el
-        // fondo sigue siendo verde y el borde se expresa mediante el
-        // modificador `accion_pendiente`.
-        if (hasPendingAbsence) return 'libre';
         if (hasExplicitVisualState) return explicitVisualState;
         if (hasUpcomingReservation) return 'reservacion-proxima';
         return 'libre';

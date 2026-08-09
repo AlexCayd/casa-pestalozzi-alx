@@ -17,38 +17,59 @@ final class PosMesaProjectionPresenter
             return self::resultado('no-utilizable', [], 'no-utilizable', 'Mesa no utilizable.');
         }
 
+        $estado = 'libre';
+        $modificadores = [];
+        $precedencia = 'disponible';
+        $ariaLabel = 'Mesa disponible.';
+
         if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
-            return self::resultado('ocupada', ['ticket_abierto'], 'ticket', 'Mesa ocupada por ticket abierto.');
+            $estado = 'ocupada';
+            $modificadores[] = 'ticket_abierto';
+            $precedencia = 'ticket';
+            $ariaLabel = 'Mesa ocupada por ticket abierto.';
         }
 
         $reservacion = is_array($hechos['reservacion'] ?? null)
             ? $hechos['reservacion']
             : [];
-        if ($reservacion !== []) {
+        if ($reservacion !== [] && $estado !== 'ocupada') {
             $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
-            if (self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
-                return self::resultado(
-                    'libre',
-                    ['ausencia_pendiente'],
-                    'ausencia_pendiente',
-                    'Mesa disponible visualmente. Acción pendiente: registrar ausencia.'
-                );
-            }
             if ($ventana === 'inicio') {
-                return self::resultado('reservacion-proxima', ['reservacion_bloqueante'], 'reservacion_inicio', 'Mesa con reservación operable; iniciar servicio.');
-            }
-            if ($ventana === 'tolerancia') {
-                return self::resultado('reservacion-proxima', ['reservacion_tolerancia'], 'tolerancia', 'Mesa con reservación dentro de tolerancia.');
-            }
-            if ($ventana === 'bloqueo') {
-                return self::resultado('reservacion-proxima', ['reservacion_inminente'], 'reservacion_bloqueo', 'Mesa con reservación próxima.');
-            }
-            if ($ventana === 'advertencia') {
-                return self::resultado('libre', ['reservacion_advertencia'], 'reservacion_advertencia', 'Mesa disponible con reservación próxima.');
+                $estado = 'reservacion-proxima';
+                $modificadores[] = 'reservacion_bloqueante';
+                $precedencia = 'reservacion_inicio';
+                $ariaLabel = 'Mesa con reservación operable; iniciar servicio.';
+            } elseif ($ventana === 'tolerancia') {
+                $estado = 'reservacion-proxima';
+                $modificadores[] = 'reservacion_tolerancia';
+                $precedencia = 'tolerancia';
+                $ariaLabel = 'Mesa con reservación dentro de tolerancia.';
+            } elseif ($ventana === 'bloqueo') {
+                $estado = 'reservacion-proxima';
+                $modificadores[] = 'reservacion_inminente';
+                $precedencia = 'reservacion_bloqueo';
+                $ariaLabel = 'Mesa con reservación próxima.';
+            } elseif ($ventana === 'advertencia') {
+                $modificadores[] = 'reservacion_advertencia';
+                $precedencia = 'reservacion_advertencia';
+                $ariaLabel = 'Mesa disponible con reservación próxima.';
             }
         }
 
-        return self::resultado('libre', [], 'disponible', 'Mesa disponible.');
+        if (self::booleano($hechos['asignada_actualmente'] ?? false)) {
+            $modificadores[] = 'asignada_actualmente';
+        }
+        if ($reservacion !== [] && self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
+            $modificadores[] = 'ausencia_pendiente';
+            $ariaLabel = rtrim($ariaLabel) . ' Acción pendiente: registrar ausencia.';
+        }
+
+        return self::resultado(
+            $estado,
+            array_values(array_unique($modificadores)),
+            $precedencia,
+            $ariaLabel
+        );
     }
 
     /** @return array{estado_visual:string,modificadores:array<int,string>,precedencia:string,aria_label:string} */
