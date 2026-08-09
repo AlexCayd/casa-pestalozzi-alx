@@ -38,6 +38,7 @@ final class ReservacionPoliticaPosService
             ? $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes')
             : null;
         $intervaloPlanificadoVigente = (string)($datos['estado'] ?? '') === 'confirmada'
+            && !(bool)$vigencia['ausencia_pendiente']
             && $inicio instanceof DateTimeImmutable
             && $finPlanificado instanceof DateTimeImmutable
             && $ahora >= $inicio
@@ -112,6 +113,7 @@ final class ReservacionPoliticaPosService
             'intervalo_planificado_vigente' => $intervaloPlanificadoVigente,
             'reservacion_influye' => (bool)$vigencia['influye_disponibilidad'],
             'influye_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
+            'reservacion_influye_en_disponibilidad' => (bool)$vigencia['influye_disponibilidad'],
             'bloquea_walk_ins' => !$disponibleParaTicket,
             'bloqueo_walk_in' => $bloqueoWalkIn,
             'disponible_para_ticket' => $disponibleParaTicket,
@@ -175,11 +177,12 @@ final class ReservacionPoliticaPosService
         $reservacionEnIntervaloPlanificado = $horaConsulta >= $inicio && $horaConsulta < $fin;
         $reservacionInfluyeEnConsulta = $influyeDisponibilidad
             && $reservacionEnIntervaloPlanificado;
-        $ventana = self::ventanaVisual(
+        $ventana = self::ventanaVisualMapa(
             $segundos,
-            $ausenciaPendiente,
-            $segundos < 0 && $segundos >= -ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS * 60,
-            $ticketAbierto
+            $ticketAbierto,
+            $reservacionInfluyeEnConsulta,
+            $reservacionEnIntervaloPlanificado,
+            $ausenciaPendiente
         );
 
         return [
@@ -188,6 +191,7 @@ final class ReservacionPoliticaPosService
             'minutos_desde_inicio_mapa' => $segundos < 0 ? (int)ceil(abs($segundos) / 60) : null,
             'reservacion_influye_mapa' => $reservacionInfluyeEnConsulta,
             'reservacion_influye_en_consulta' => $reservacionInfluyeEnConsulta,
+            'reservacion_influye_en_disponibilidad' => $influyeDisponibilidad,
             'reservacion_en_intervalo_planificado' => $reservacionEnIntervaloPlanificado,
             'ausencia_pendiente_mapa' => $ausenciaPendiente,
             'en_inicio_exacto_mapa' => $segundos === 0,
@@ -195,6 +199,32 @@ final class ReservacionPoliticaPosService
                 && $segundos >= -ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS * 60,
             'ticket_bloquea_consulta' => $ticketAbierto,
         ];
+    }
+
+    private static function ventanaVisualMapa(
+        int $segundos,
+        bool $ticketAbierto,
+        bool $reservacionInfluyeEnConsulta,
+        bool $enIntervaloPlanificado,
+        bool $ausenciaPendiente
+    ): string {
+        if ($ticketAbierto) {
+            return 'ticket';
+        }
+        if ($reservacionInfluyeEnConsulta && $enIntervaloPlanificado && $segundos <= 0) {
+            return 'inicio';
+        }
+        if ($segundos > ReservacionConfig::AVISO_RESERVACION_PROXIMA_MINUTOS * 60) {
+            return 'futura';
+        }
+        if ($segundos > ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS * 60) {
+            return 'advertencia';
+        }
+        if ($segundos > 0) {
+            return 'bloqueo';
+        }
+
+        return $ausenciaPendiente ? 'ausencia_pendiente' : 'futura';
     }
 
     private static function ventanaVisual(
@@ -224,8 +254,8 @@ final class ReservacionPoliticaPosService
         if ($segundos >= 0) {
             return 'bloqueo';
         }
-        if ($enTolerancia) {
-            return 'tolerancia';
+        if ($segundos < 0 && !$ausenciaPendiente) {
+            return 'inicio';
         }
 
         return 'ausencia_pendiente';

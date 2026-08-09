@@ -35,15 +35,15 @@ final class PosMesaProjectionPresenter
         if ($reservacion !== [] && $estado !== 'ocupada') {
             $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
             if ($ventana === 'inicio') {
-                $estado = 'reservacion-proxima';
+                $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';
                 $precedencia = 'reservacion_inicio';
-                $ariaLabel = 'Mesa con reservación operable; iniciar servicio.';
+                $ariaLabel = 'Mesa ocupada por reservación iniciada.';
             } elseif ($ventana === 'tolerancia') {
-                $estado = 'reservacion-proxima';
-                $modificadores[] = 'reservacion_tolerancia';
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
                 $precedencia = 'tolerancia';
-                $ariaLabel = 'Mesa con reservación dentro de tolerancia.';
+                $ariaLabel = 'Mesa ocupada por reservación iniciada.';
             } elseif ($ventana === 'bloqueo') {
                 $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_inminente';
@@ -55,17 +55,6 @@ final class PosMesaProjectionPresenter
                 $ariaLabel = 'Mesa disponible con reservación próxima.';
             }
 
-            if ($ventana === 'ausencia_pendiente'
-                && self::booleano(
-                    $reservacion['intervalo_planificado_vigente']
-                        ?? $reservacion['bloquea_intervalo_reservacion']
-                        ?? false
-                )) {
-                $estado = 'ocupada';
-                $modificadores[] = 'reservacion_bloqueante';
-                $precedencia = 'reservacion_intervalo';
-                $ariaLabel = 'Mesa ocupada dentro del intervalo planificado.';
-            }
         }
 
         if (self::booleano($hechos['asignada_actualmente'] ?? false)) {

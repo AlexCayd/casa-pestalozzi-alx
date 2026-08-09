@@ -44,12 +44,15 @@ final class ReservacionMapaMesaPresenter
                     ?? $reservacion['intervalo_planificado_vigente']
                     ?? false
             );
-            if ($ventana === 'inicio' || $ventana === 'tolerancia') {
-                $estado = 'reservacion-proxima';
+            if ($ventana === 'inicio') {
+                $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';
-                $label = $ventana === 'inicio'
-                    ? 'reservación próxima; iniciar servicio'
-                    : 'reservación dentro de tolerancia';
+                $label = 'reservación iniciada';
+                $precedencia = 'reservacion_inicio';
+            } elseif ($ventana === 'tolerancia') {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación iniciada';
                 $precedencia = 'reservacion_tolerancia';
             } elseif ($ventana === 'bloqueo') {
                 $estado = 'reservacion-proxima';
@@ -60,11 +63,6 @@ final class ReservacionMapaMesaPresenter
                 $modificadores[] = 'reservacion_advertencia';
                 $label = 'reservación cercana';
                 $precedencia = 'reservacion_advertencia';
-            } elseif ($ventana === 'ausencia_pendiente' && ($enIntervaloPlanificado || $influyeEnConsulta)) {
-                $estado = 'ocupada';
-                $modificadores[] = 'reservacion_bloqueante';
-                $label = 'reservación dentro del intervalo planificado';
-                $precedencia = 'reservacion_influye';
             } elseif ($influyeEnConsulta) {
                 $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';

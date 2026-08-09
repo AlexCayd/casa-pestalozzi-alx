@@ -80,7 +80,7 @@ $start = ReservacionMapaMesaPresenter::presentar([
     'causas_bloqueo' => ['reservacion'],
     'reservacion' => ['ventana_mapa' => 'inicio'],
 ]);
-assertMapContract($start['estado_visual'] === 'reservacion-proxima', 'inicio exacto conserva azul');
+assertMapContract($start['estado_visual'] === 'ocupada', 'inicio exacto usa rojo');
 
 $tolerance = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
@@ -91,7 +91,7 @@ $tolerance = ReservacionMapaMesaPresenter::presentar([
         'reservacion_influye_en_consulta' => true,
     ],
 ]);
-assertMapContract($tolerance['estado_visual'] === 'reservacion-proxima', 'tolerancia conserva azul');
+assertMapContract($tolerance['estado_visual'] === 'ocupada', 'tolerancia no conserva azul');
 
 $redAfterTolerance = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,

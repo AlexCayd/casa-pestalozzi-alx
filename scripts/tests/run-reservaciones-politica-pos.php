@@ -65,9 +65,13 @@ assertPolitica($inicio['disponible_para_ticket'] === false, 'inicio exacto bloqu
 assertPolitica($inicio['puede_iniciar_reservacion'] === true, 'inicio exacto permite servicio propio');
 assertPolitica($inicio['ventana_visual_pos'] === 'inicio', 'inicio exacto es rojo de mapa');
 
+$unSegundoDespues = $evaluar('13:00:01');
+assertPolitica($unSegundoDespues['ventana_visual_pos'] === 'inicio', 'un segundo despues del inicio sigue rojo');
+
 $tolerancia = $evaluar('13:15:00');
 assertPolitica($tolerancia['ausencia_pendiente'] === false, 'borde de tolerancia sigue protegido');
 assertPolitica($tolerancia['disponible_para_ticket'] === false, 'tolerancia bloquea walk-in');
+assertPolitica($tolerancia['ventana_visual_pos'] === 'inicio', 'tolerancia no extiende azul');
 
 $ausencia = $evaluar('13:16:00');
 assertPolitica($ausencia['ausencia_pendiente'] === true, '13:16 registra ausencia pendiente');
