@@ -77,8 +77,10 @@ assertContract(operation.includes('mesa.ticket_abierto !== true'), 'operacion ex
 assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
 assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
+assertContract(mapVisual.includes("data-disabled', table.interactivo ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
 assertContract(mapVisual.includes('previousClasses.forEach'), 'mapa visual remueve clases stale antes de actualizar');
 assertContract(tableAdapter.includes('modificadores: modifiers'), 'adaptador conserva modificadores del backend');
+assertContract(tableAdapter.includes('function selectionValidity'), 'adaptador consume la validez de seleccion del contrato');
 assertContract(!tableAdapter.includes('if (hasPendingAbsence) return'), 'adaptador no sustituye estado por ausencia');
 assertContract(mapShell.includes('mesa-pin--mod-ausencia_pendiente::after'), 'CSS compone ausencia con pseudo-elemento gris');
 assertContract(!mapShell.includes('.mesa-pin--libre.mesa-pin--mod-ausencia_pendiente'), 'CSS no fuerza ausencia a verde mediante borde');
@@ -133,6 +135,13 @@ assertContract(
     { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, seleccionPrioritaria: true, estadoVisual: 'seleccionada' }
   ).estadoVisual === 'seleccionada',
   'seleccion valida puede ser amarilla sin borrar el hecho de bloqueo'
+);
+assertContract(
+  adapter.paraMapaVisual(
+    { id: 9, reservable: 1, estado_base: 'disponible', seleccionada: true, seleccion_valida: false },
+    { estadoBase: 'disponible' }
+  ).seleccionada === false,
+  'seleccion invalida no se vuelve amarilla'
 );
 
 console.log('Reservaciones: JS contractual OK');

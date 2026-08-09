@@ -46,9 +46,20 @@ $visualAusencia = PosMesaProjectionPresenter::presentar([
 assertPosAbsenceVisual($politicaAusencia['ausencia_pendiente'] === true, 'despues de tolerancia queda pendiente');
 assertPosAbsenceVisual($politicaAusencia['disponible_para_ticket'] === false, 'ausencia pendiente sigue bloqueando walk-in');
 assertPosAbsenceVisual($politicaAusencia['puede_marcar_no_show'] === true, 'ausencia pendiente permite no-show');
-assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'libre', 'ausencia pendiente conserva fondo verde');
-assertPosAbsenceVisual($visualAusencia['modificadores'] === ['ausencia_pendiente'], 'ausencia pendiente agrega indicador gris');
+assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'ocupada', 'ausencia pendiente conserva rojo dentro del intervalo');
+assertPosAbsenceVisual(in_array('reservacion_bloqueante', $visualAusencia['modificadores'], true), 'ausencia pendiente conserva el hecho del intervalo');
+assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualAusencia['modificadores'], true), 'ausencia pendiente agrega indicador gris');
 assertPosAbsenceVisual(str_contains($visualAusencia['aria_label'], 'Acción pendiente: registrar ausencia'), 'aria anuncia la accion pendiente');
+
+$despuesIntervalo = new DateTimeImmutable('2026-08-08 15:30:00', ReservacionConfig::timezone());
+$politicaDespuesIntervalo = ReservacionPoliticaPosService::evaluar($reservacion, $despuesIntervalo);
+$visualDespuesIntervalo = PosMesaProjectionPresenter::presentar([
+    ...$mesaHechos,
+    'reservacion' => array_merge($reservacion, $politicaDespuesIntervalo),
+]);
+assertPosAbsenceVisual($politicaDespuesIntervalo['intervalo_planificado_vigente'] === false, '15:30 termina el intervalo planificado');
+assertPosAbsenceVisual($visualDespuesIntervalo['estado_visual'] === 'libre', 'despues del intervalo recalcula verde');
+assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualDespuesIntervalo['modificadores'], true), 'despues del intervalo conserva gris');
 
 $visualRoja = PosMesaProjectionPresenter::presentar([
     'utilizable' => true,

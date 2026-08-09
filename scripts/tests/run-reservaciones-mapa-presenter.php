@@ -80,7 +80,43 @@ $start = ReservacionMapaMesaPresenter::presentar([
     'causas_bloqueo' => ['reservacion'],
     'reservacion' => ['ventana_mapa' => 'inicio'],
 ]);
-assertMapContract($start['estado_visual'] === 'ocupada', 'inicio exacto usa rojo');
+assertMapContract($start['estado_visual'] === 'reservacion-proxima', 'inicio exacto conserva azul');
+
+$tolerance = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['reservacion'],
+    'reservacion' => [
+        'ventana_mapa' => 'tolerancia',
+        'reservacion_influye_en_consulta' => true,
+    ],
+]);
+assertMapContract($tolerance['estado_visual'] === 'reservacion-proxima', 'tolerancia conserva azul');
+
+$redAfterTolerance = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['reservacion'],
+    'reservacion' => [
+        'ventana_mapa' => 'ausencia_pendiente',
+        'reservacion_en_intervalo_planificado' => true,
+        'ausencia_pendiente' => true,
+    ],
+]);
+assertMapContract($redAfterTolerance['estado_visual'] === 'ocupada', 'despues de tolerancia usa rojo dentro del intervalo');
+assertMapContract(in_array('ausencia_pendiente', $redAfterTolerance['modificadores'], true), 'rojo dentro del intervalo compone ausencia');
+
+$greenAfterInterval = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => false,
+    'reservacion' => [
+        'ventana_mapa' => 'ausencia_pendiente',
+        'reservacion_en_intervalo_planificado' => false,
+        'ausencia_pendiente' => true,
+    ],
+]);
+assertMapContract($greenAfterInterval['estado_visual'] === 'libre', 'fin del intervalo recalcula a verde');
+assertMapContract(in_array('ausencia_pendiente', $greenAfterInterval['modificadores'], true), 'verde posterior conserva ausencia');
 
 $ticket = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,

@@ -45,9 +45,9 @@ $consultas = [
     '12:00:00' => ['libre', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
-    '13:30:00' => ['libre', 'libre', false, false, false],
-    '14:00:00' => ['libre', 'libre', false, false, false],
+    '13:00:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
+    '13:30:00' => ['ocupada', 'ocupada', false, false, false],
+    '14:00:00' => ['ocupada', 'ocupada', false, false, false],
     '14:30:00' => ['libre', 'libre', false, false, false],
 ];
 
