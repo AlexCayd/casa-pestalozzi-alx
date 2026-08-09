@@ -45,7 +45,7 @@ $consultas = [
     '12:00:00' => ['libre', 'libre', true, true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
     '12:59:00' => ['reservacion-proxima', 'reservacion-proxima', true, false, false],
-    '13:00:00' => ['ocupada', 'ocupada', true, false, false],
+    '13:00:00' => ['ocupada', 'reservacion-proxima', true, false, false],
     '13:30:00' => ['libre', 'libre', false, false, false],
     '14:00:00' => ['libre', 'libre', false, false, false],
     '14:30:00' => ['libre', 'libre', false, false, false],
@@ -104,7 +104,7 @@ $sinToleranciaVisual = MesaEstadoService::normalizarMesas(
     '13:05:00',
     $mapaEvaluacion('13:05:00')
 )[0];
-assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_bloqueante'], 'POS inicia rojo desde la hora exacta');
+assertMesaFacts($sinToleranciaVisual['modificadores_visual_pos'] === ['reservacion_tolerancia'], 'POS conserva azul durante la tolerancia');
 
 $otraReservacion = [
     ...$reservacion,

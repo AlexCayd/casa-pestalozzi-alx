@@ -34,7 +34,7 @@ $visualTolerancia = PosMesaProjectionPresenter::presentar([
     'reservacion' => array_merge($reservacion, $politicaTolerancia),
 ]);
 assertPosAbsenceVisual($politicaTolerancia['ausencia_pendiente'] === false, 'dentro de tolerancia no queda pendiente');
-assertPosAbsenceVisual($visualTolerancia['estado_visual'] === 'ocupada', 'tolerancia posterior al inicio usa rojo');
+assertPosAbsenceVisual($visualTolerancia['estado_visual'] === 'reservacion-proxima', 'tolerancia posterior al inicio usa azul');
 assertPosAbsenceVisual($visualTolerancia['modificadores'] !== ['ausencia_pendiente'], 'tolerancia no muestra borde gris');
 
 $despuesTolerancia = new DateTimeImmutable('2026-08-08 14:16:00', ReservacionConfig::timezone());
