@@ -276,10 +276,10 @@ $hoyIso = date('Y-m-d');
                     </button>
                 </div>
             </header>
-            <?php // A y B se apilan en una sola celda "Combinación" y el
-                  // lift baja como subtítulo de la confianza: el par es un
-                  // solo dato, no dos columnas independientes. ?>
-            <div class="admin-table-wrap">
+            <?php // A y B van juntos y al mismo peso en la celda "Combinación",
+                  // y el lift baja como subtítulo de la confianza: el par es un
+                  // solo dato sin dirección, no dos columnas independientes. ?>
+            <div class="admin-table-wrap" data-lenis-prevent>
                 <table class="admin-table admin-table--compact">
                     <thead>
                         <tr>

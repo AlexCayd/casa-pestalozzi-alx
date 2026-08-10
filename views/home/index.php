@@ -108,6 +108,10 @@ if ($schemaHorarios !== []) {
 
   <?php include_once __DIR__ . '/_footer.php'; ?>
 
+  <?php /* Anuncio del restaurante. Va al final del <body> porque es un diálogo:
+           dentro del hero heredaría su transform y dejaría de ser fijo. */ ?>
+  <?php include_once __DIR__ . '/_announcement.php'; ?>
+
   <!-- Tweaks defaults -->
   <script>
     window.CP_TWEAKS = <?php echo json_encode([

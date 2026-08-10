@@ -6,6 +6,8 @@
     $tickets = (int) ($tickets ?? 0);
     $ticketPromedio = (float) ($ticketPromedio ?? 0);
     $cogs = (float) ($cogs ?? 0);
+    $merma = (float) ($merma ?? 0);
+    $deltaMerma = isset($deltaMerma) ? $deltaMerma : null;
     $utilidadBruta = (float) ($utilidadBruta ?? 0);
     $margenBruto = (float) ($margenBruto ?? 0);
     $totalGastos = (float) ($totalGastos ?? 0);
@@ -13,6 +15,15 @@
     $margenNeto = (float) ($margenNeto ?? 0);
     $deltaIngresos = isset($deltaIngresos) ? $deltaIngresos : null;
     $deltaUtilidadBruta = isset($deltaUtilidadBruta) ? $deltaUtilidadBruta : null;
+    $deltaCogs = isset($deltaCogs) ? $deltaCogs : null;
+    $deltaUtilidadNeta = isset($deltaUtilidadNeta) ? $deltaUtilidadNeta : null;
+    $comparando = (bool) ($comparando ?? false);
+    // Cifras del periodo anterior, para que el porcentaje diga desde dónde.
+    $previoCifras = is_array($previo ?? null) ? $previo : [];
+    $previoCifras += [
+        'ingresos' => 0.0, 'cogs' => 0.0, 'merma' => 0.0,
+        'utilidadBruta' => 0.0, 'utilidadNeta' => 0.0,
+    ];
     $inventarioValor = (float) ($inventarioValor ?? 0);
     $rotacion = isset($rotacion) ? $rotacion : null;
     $diasInventario = isset($diasInventario) ? $diasInventario : null;
@@ -38,16 +49,8 @@
     $hoyIso = date('Y-m-d');
     $rangoCortes = is_array($rangoCortes ?? null) ? $rangoCortes : ['start' => date('Y-m-d', strtotime('-6 days')), 'end' => $hoyIso];
 
-    // Variación contra el periodo anterior, con el mismo badge que analíticas.
-    $badgeDelta = static function (?float $delta): string {
-        if ($delta === null) {
-            return '';
-        }
-        $clase = $delta >= 0 ? 'is-up' : 'is-down';
-        $signo = $delta >= 0 ? '+' : '';
-        return '<span class="admin-delta ' . $clase . '">'
-            . $signo . number_format($delta, 1) . '%</span>';
-    };
+    // El badge de variación lo arma ahora views/admin/partials/_stat-card.php,
+    // que además lleva la flecha y la cifra del periodo anterior.
 
     // Descomposición para el Sankey: de dónde viene el dinero y en qué se va.
     // Los flujos negativos no se representan: un Sankey sólo entiende caudales,
@@ -56,6 +59,9 @@
     if ($ingresos > 0) {
         if ($cogs > 0) {
             $sankey[] = ['from' => 'Ingresos', 'to' => 'Costo de insumos', 'flow' => round($cogs, 2)];
+        }
+        if ($merma > 0) {
+            $sankey[] = ['from' => 'Ingresos', 'to' => 'Merma', 'flow' => round($merma, 2)];
         }
         if ($utilidadBruta > 0) {
             $sankey[] = ['from' => 'Ingresos', 'to' => 'Utilidad bruta', 'flow' => round($utilidadBruta, 2)];
@@ -92,60 +98,93 @@
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Finanzas</span>
             <h2 class="admin-page__title">Situación financiera</h2>
-            <p class="admin-page__subtitle"><?php echo htmlspecialchars($periodoLabel); ?>: ingresos por ventas, costo de insumos (según recetas), gastos fijos y utilidad neta.</p>
+            <p class="admin-page__subtitle"><?php echo htmlspecialchars($periodoLabel); ?>: ingresos por ventas, costo de insumos (según recetas), merma, gastos fijos y utilidad neta.</p>
         </div>
+        <?php /* El selector de periodo se queda solo en el encabezado: mide 82px
+                 contra los 44 de un botón y, compartiendo fila, se los comía.
+                 Las acciones bajan a su propia barra, ya a tamaño completo. */ ?>
         <div class="admin-actions">
             <?php include __DIR__ . '/../partials/_range-picker.php'; ?>
-            <a class="admin-btn admin-btn--secondary" href="/admin/inventario">Inventario</a>
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas">Recetas</a>
         </div>
     </header>
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
+    <div class="admin-toolbar admin-finanzas__toolbar">
+        <a class="admin-btn admin-btn--secondary" href="/admin/inventario">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></svg>
+            Inventario
+        </a>
+        <a class="admin-btn admin-btn--secondary" href="/admin/recetas">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+            Recetas
+        </a>
+    </div>
+
     <div class="admin-stat-strip">
-        <div class="admin-stat-card">
-            <span class="admin-stat-card__label">Ingresos del periodo</span>
-            <span class="admin-stat-card__value"><?php echo $money($ingresos); ?> <?php echo $badgeDelta($deltaIngresos); ?></span>
-            <span class="admin-stat-card__sub"><?php echo $tickets; ?> tickets · prom. <?php echo $money($ticketPromedio); ?></span>
-        </div>
-        <div class="admin-stat-card">
-            <span class="admin-stat-card__label">Costo de insumos</span>
-            <span class="admin-stat-card__value"><?php echo $money($cogs); ?></span>
-            <span class="admin-stat-card__sub">Según recetas vendidas</span>
-        </div>
-        <div class="admin-stat-card admin-stat-card--gold">
-            <span class="admin-stat-card__label">Utilidad bruta</span>
-            <span class="admin-stat-card__value"><?php echo $money($utilidadBruta); ?> <?php echo $badgeDelta($deltaUtilidadBruta); ?></span>
-            <span class="admin-stat-card__sub">Margen <?php echo number_format($margenBruto, 1); ?>%</span>
-        </div>
-        <div class="admin-stat-card">
-            <span class="admin-stat-card__label">Gastos fijos</span>
-            <span class="admin-stat-card__value"><?php echo $money($totalGastos); ?></span>
-            <span class="admin-stat-card__sub">Prorrateados al periodo</span>
-        </div>
-        <div class="admin-stat-card <?php echo $utilidadNeta >= 0 ? 'admin-stat-card--good' : 'admin-stat-card--bad'; ?>">
-            <span class="admin-stat-card__label">Utilidad neta estimada</span>
-            <span class="admin-stat-card__value"><?php echo $money($utilidadNeta); ?></span>
-            <span class="admin-stat-card__sub">Margen <?php echo number_format($margenNeto, 1); ?>%</span>
-        </div>
-        <?php /* Denominador puntual: no hay histórico de stock del que sacar un
-                 inventario promedio, y decirlo evita que se lea como el ratio
-                 contable estricto. */ ?>
-        <div class="admin-stat-card">
-            <span class="admin-stat-card__label">Rotación de inventarios</span>
-            <span class="admin-stat-card__value">
-                <?php echo $rotacion === null ? '—' : number_format($rotacion, 2) . '×'; ?>
-            </span>
-            <span class="admin-stat-card__sub">
-                <?php if ($rotacion === null) : ?>
-                    Sin inventario valorizado
-                <?php else : ?>
-                    <?php echo number_format((float) $diasInventario, 0); ?> días de inventario ·
-                    sobre existencias de hoy (<?php echo $money($inventarioValor); ?>)
-                <?php endif; ?>
-            </span>
-        </div>
+        <?php
+            // La utilidad neta abre la franja y a doble ancho: es la cifra que
+            // contesta «¿cómo vamos?» y antes quedaba huérfana en la segunda fila.
+            $statLabel = 'Utilidad neta estimada';
+            $statValue = $money($utilidadNeta);
+            $statSub = 'Margen ' . number_format($margenNeto, 1) . '% · ingresos menos insumos, merma y gastos fijos';
+            $statDelta = $deltaUtilidadNeta ?? null;
+            $statPrev = $comparando ? $money($previoCifras['utilidadNeta']) : '';
+            $statTone = $utilidadNeta >= 0 ? 'good' : 'bad';
+            $statLead = true;
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            $statLabel = 'Ingresos del periodo';
+            $statValue = $money($ingresos);
+            $statSub = $tickets . ' tickets · prom. ' . $money($ticketPromedio);
+            $statDelta = $deltaIngresos ?? null;
+            $statPrev = $comparando ? $money($previoCifras['ingresos']) : '';
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            $statLabel = 'Costo de insumos';
+            $statValue = $money($cogs);
+            $statSub = 'Según recetas vendidas';
+            $statDelta = $deltaCogs ?? null;
+            $statPrev = $comparando ? $money($previoCifras['cogs']) : '';
+            // Que el costo suba no es una buena noticia aunque suba la venta.
+            $statInverso = true;
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            $statLabel = 'Merma';
+            $statValue = $money($merma);
+            $statSub = 'Insumos pagados que no se vendieron'
+                . ($ingresos > 0 ? ' · ' . number_format(($merma / $ingresos) * 100, 1) . '% del ingreso' : '');
+            $statDelta = $deltaMerma ?? null;
+            $statPrev = $comparando ? $money($previoCifras['merma']) : '';
+            $statTone = $merma > 0 ? 'bad' : '';
+            $statInverso = true;
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            $statLabel = 'Utilidad bruta';
+            $statValue = $money($utilidadBruta);
+            $statSub = 'Margen ' . number_format($margenBruto, 1) . '%';
+            $statDelta = $deltaUtilidadBruta ?? null;
+            $statPrev = $comparando ? $money($previoCifras['utilidadBruta']) : '';
+            $statTone = 'gold';
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            // Sin comparativo a propósito: gastos_fijos no guarda fecha, así que
+            // el periodo anterior devuelve exactamente el mismo prorrateo.
+            $statLabel = 'Gastos fijos';
+            $statValue = $money($totalGastos);
+            $statSub = 'Montos mensuales prorrateados al periodo · no se comparan entre periodos';
+            include __DIR__ . '/../partials/_stat-card.php';
+
+            // Denominador puntual: no hay histórico de stock del que sacar un
+            // inventario promedio, y decirlo evita que se lea como el ratio
+            // contable estricto.
+            $statLabel = 'Rotación de inventarios';
+            $statValue = $rotacion === null ? '—' : number_format($rotacion, 2) . '×';
+            $statSub = $rotacion === null
+                ? 'Sin inventario valorizado'
+                : number_format((float) $diasInventario, 0) . ' días de inventario · insumos vendidos y mermados sobre existencias de hoy (' . $money($inventarioValor) . ')';
+            include __DIR__ . '/../partials/_stat-card.php';
+        ?>
     </div>
 
     <div class="admin-finanzas__grid">
@@ -155,6 +194,7 @@
             <ul class="admin-pnl">
                 <li class="admin-pnl__row"><span>Ingresos por ventas</span><strong class="is-pos"><?php echo $money($ingresos); ?></strong></li>
                 <li class="admin-pnl__row"><span>(−) Costo de insumos</span><strong class="is-neg">-<?php echo $money($cogs); ?></strong></li>
+                <li class="admin-pnl__row"><span>(−) Merma</span><strong class="is-neg">-<?php echo $money($merma); ?></strong></li>
                 <li class="admin-pnl__row admin-pnl__row--total">
                     <span>= Utilidad bruta <small class="admin-pnl__margen">margen <?php echo number_format($margenBruto, 1); ?>%</small></span>
                     <strong><?php echo $money($utilidadBruta); ?></strong>
@@ -167,6 +207,7 @@
             </ul>
             <p class="admin-finanzas__note">
                 Las propinas del periodo (<?php echo $money($propinas); ?>) no se incluyen en la utilidad; corresponden al personal.
+                La merma se valoriza al costo que tenía el ingrediente el día en que se registró.
                 Los gastos fijos son montos mensuales, prorrateados a los días del periodo.
             </p>
         </section>
@@ -201,7 +242,7 @@
         <div class="admin-panel-head">
             <div>
                 <h3>A dónde va cada peso</h3>
-                <p>Del ingreso del periodo al costo de insumos, los gastos fijos y lo que queda.</p>
+                <p>Del ingreso del periodo al costo de insumos, la merma, los gastos fijos y lo que queda.</p>
             </div>
         </div>
         <?php if (empty($sankey)) : ?>
@@ -323,7 +364,12 @@
                                 </button>
                             </div>
                         </form>
-                        <form method="POST" action="/admin/finanzas/gasto/eliminar" class="admin-gasto-card__delete" onsubmit="return confirm('¿Eliminar &quot;<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>&quot;?');">
+                        <form method="POST" action="/admin/finanzas/gasto/eliminar" class="admin-gasto-card__delete"
+                              data-confirm-delete
+                              data-confirm-eyebrow="Eliminar gasto fijo"
+                              data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>»?"
+                              data-confirm-description="Dejará de restarse de la utilidad neta en todos los periodos."
+                              data-confirm-consequence="Esta acción no se puede deshacer.">
                             <input type="hidden" name="id" value="<?php echo (int) $g->id; ?>">
                             <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Eliminar" aria-label="Eliminar gasto">
                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>

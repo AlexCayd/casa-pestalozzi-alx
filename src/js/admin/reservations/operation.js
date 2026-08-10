@@ -3,7 +3,7 @@
  * carga el dia, sincroniza seleccion y administra el mapa de mesas.
  */
 (function () {
-    var API_BASE = '/admin/api/reservations/operation';
+    var API_BASE = '/admin/api/reservaciones/operacion';
 
     function initReservationOperation() {
         var root = document.querySelector('[data-page="reservation-operation"]');
@@ -715,14 +715,14 @@
                 params.set('reservation_id', String(reservacionId));
             }
 
-            return '/admin/reservations/operation' + (params.toString() ? '?' + params.toString() : '');
+            return '/admin/reservaciones/operacion' + (params.toString() ? '?' + params.toString() : '');
         }
 
         function buildDetailUrl(reservacion) {
             var id = parseInt((reservacion && reservacion.id) || state.reservacionSeleccionadaId || '0', 10);
             var returnUrl = currentOperationUrl(id);
 
-            return '/admin/reservations/show?id=' + encodeURIComponent(String(id)) +
+            return '/admin/reservaciones/detalle?id=' + encodeURIComponent(String(id)) +
                 '&return_url=' + encodeURIComponent(returnUrl);
         }
 
@@ -750,7 +750,7 @@
                 params.set('return_url', returnUrl);
             }
 
-            window.history.replaceState({}, '', '/admin/reservations/operation' + (params.toString() ? '?' + params.toString() : ''));
+            window.history.replaceState({}, '', '/admin/reservaciones/operacion' + (params.toString() ? '?' + params.toString() : ''));
         }
 
         function setLoading(isLoading) {
@@ -2171,7 +2171,7 @@
             }
 
             setSaving(true);
-            postJson(API_BASE + '/assign-tables', data)
+            postJson(API_BASE + '/asignar-mesas', data)
                 .then(function (payload) {
                     closeTicketConflictModal();
                     exitAssignmentMode({ restoreFocus: false });
@@ -2240,7 +2240,7 @@
             data.append('confirmaciones[]', 'LIBERAR_ASIGNACION_ACTUAL');
 
             setSaving(true);
-            postJson(API_BASE + '/clear-tables', data)
+            postJson(API_BASE + '/liberar-mesas', data)
                 .then(function (payload) {
                     showToast(payload.mensaje || '', 'warning');
                     exitAssignmentMode({ restoreFocus: false });
@@ -2426,7 +2426,7 @@
             data.set('comentario_admin', textarea.value || '');
 
             setSaving(true);
-            postJson(API_BASE + '/update-comment', data)
+            postJson(API_BASE + '/comentario', data)
                 .then(function () {
                     showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
@@ -2450,7 +2450,7 @@
             data.set('reservacion_id', String(reservacion.id));
 
             setSaving(true);
-            postJson(API_BASE + '/reassign', data)
+            postJson(API_BASE + '/reasignar', data)
                 .then(function (payload) {
                     showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });
@@ -2516,7 +2516,7 @@
             data.set('motivo', String(motivo || ''));
 
             setSaving(true);
-            postJson(API_BASE + '/status', data)
+            postJson(API_BASE + '/estado', data)
                 .then(function (payload) {
                     showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
                     refreshDay({ preserveReservationId: reservacion.id });

@@ -147,9 +147,19 @@
     box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
   }
 
-  .cp-calendar.open,
-  .hour-dropdown.open {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+  .cp-calendar.open {
     display: block;
+    animation: var(--reservation-picker-open-animation, none);
+  }
+
+  .hour-dropdown.open {
+    display: flex;
     animation: var(--reservation-picker-open-animation, none);
   }
 
@@ -272,8 +282,12 @@
   // queda fijo y la rejilla es la única que scrollea. Sin el min-height:0 de
   // más abajo, el hijo flex se niega a encoger por debajo de su contenido y el
   // overflow-y nunca se activa — el panel sólo recortaba.
+  //
+  // El `display` NO se declara aquí: esta regla va por debajo del `display:none`
+  // del estado cerrado y con la misma especificidad, así que lo pisaba y el
+  // desplegable se pintaba abierto siempre, tapando los campos de abajo. La
+  // columna flex la pone `.hour-dropdown.open`.
   .hour-dropdown {
-    display: flex;
     max-height: var(--reservation-picker-dropdown-max-height, none);
     flex-direction: column;
     padding: 0;
@@ -339,6 +353,9 @@
     padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
     border: 1px solid transparent;
     border-radius: var(--reservation-picker-hour-option-radius, 0);
+    // Sin fondo declarado el <button> se pintaba con el gris de fábrica del
+    // navegador, que no es de la paleta y desentonaba con el resto del panel.
+    background: var(--reservation-picker-hour-bg, transparent);
     color: var(--reservation-picker-muted, var(--txt-mute));
     font-family: var(--reservation-picker-font-family, var(--serif));
     font-size: var(--reservation-picker-hour-font-size, 0.88rem);

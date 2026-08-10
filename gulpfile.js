@@ -65,6 +65,8 @@ const paths = {
   ],
   adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
+  adminInventarioJs: "src/js/admin/inventario/inventario.js",
+  adminReservationListJs: "src/js/admin/reservations/lista.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
@@ -207,6 +209,24 @@ function adminRecetasJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminInventarioJavascript() {
+  return src(paths.adminInventarioJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("inventario.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminReservationListJavascript() {
+  return src(paths.adminReservationListJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("reservation-list.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminUsersJavascript() {
   return src(paths.adminUsersJs)
     .pipe(sourcemaps.init())
@@ -317,6 +337,8 @@ function devWatch(done) {
   watch("src/js/admin/area/**/*.js", adminAreaJavascript);
   watch("src/js/admin/finanzas/**/*.js", adminFinanzasJavascript);
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
+  watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
+  watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
@@ -358,6 +380,8 @@ exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
 exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
+exports.adminInventarioJs = adminInventarioJavascript;
+exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminUsersJs = adminUsersJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
@@ -382,6 +406,8 @@ exports.dev = parallel(
   adminAreaJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,
+  adminInventarioJavascript,
+  adminReservationListJavascript,
   adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
@@ -409,6 +435,8 @@ exports.build = series(
   adminAnalyticsJavascript,
   adminFinanzasJavascript,
   adminRecetasJavascript,
+  adminInventarioJavascript,
+  adminReservationListJavascript,
   adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,

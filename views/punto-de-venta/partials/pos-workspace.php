@@ -54,7 +54,7 @@ $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
 // Ambos destinos viven bajo /admin: a un mesero la guardia lo rebotaría, así
 // que solo se ofrecen si quien mira es administrador.
-$operationalReservationsHref = $esAdmin ? '/admin/reservations/operation' : '';
+$operationalReservationsHref = $esAdmin ? '/admin/reservaciones/operacion' : '';
 $operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;

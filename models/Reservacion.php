@@ -54,6 +54,41 @@ class Reservacion extends ActiveRecord {
     public $capacidad_total = 0;
     public $mesa_ids = '';
 
+    /*
+     * Clasificación de vigencia — tampoco están en $columnasDB.
+     *
+     * Son las claves que devuelve ReservacionVigenciaService y que los
+     * controladores vuelcan sobre el objeto para que la vista decida qué botones
+     * puede mostrar. Declararlas no es adorno: en PHP 8.2 escribir una propiedad
+     * no declarada emite un Deprecated por cada reservación de la lista.
+     */
+    public $cuenta_limite = false;
+    public $visible_cliente = false;
+    public $dentro_tolerancia = false;
+    public $influye_disponibilidad = false;
+    public $visible_operacion = false;
+    public $editable = false;
+    public $elegible_no_show = false;
+    public $puede_marcar_no_show = false;
+    public $puede_iniciar = false;
+    public $puede_iniciar_servicio = false;
+    public $tolerancia_vencida = false;
+    public $ausencia_pendiente = false;
+    public $ventana_operativa = [];
+    public $hold_vigente = false;
+    public $ticket_abierto = false;
+    public $limite_tolerancia = null;
+    public $ticket_id_abierto = 0;
+
+    /*
+     * Banderas del formulario administrativo: las pone el controlador al
+     * reconstruir la reservación desde el POST para que el servicio sepa que el
+     * operador ya aceptó guardar sin contacto o por encima de la capacidad.
+     * Guardan el valor crudo del formulario ('0' / '1'), no un booleano.
+     */
+    public $confirmar_sin_contacto = '0';
+    public $permitir_capacidad_insuficiente = '0';
+
     public static function findWithMesas($id) {
         $id = (int)$id;
 

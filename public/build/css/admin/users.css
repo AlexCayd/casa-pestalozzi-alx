@@ -95,16 +95,25 @@
 }
 
 .admin-users-panel {
-  max-width: 1040px;
+  max-width: none;
 }
 
 .admin-users-form {
   display: grid;
   gap: 28px;
+  /*
+   * users-form.js oculta por rol la sección de contraseña y el campo de NIP con
+   * el atributo [hidden], pero un `display` de autor le gana al `display:none`
+   * del navegador: sin estas dos reglas el atributo no ocultaba nada y salían
+   * los dos métodos de acceso a la vez.
+   */
 }
 .admin-users-form__section {
   display: grid;
   gap: 16px;
+}
+.admin-users-form__section[hidden] {
+  display: none;
 }
 .admin-users-form__section + .admin-users-form__section {
   padding-top: 26px;
@@ -122,10 +131,27 @@
   font-size: 13px;
   line-height: 1.5;
 }
+.admin-users-form {
+  /*
+   * Columnas por ancho disponible, no un número fijo: a pantalla completa dos
+   * columnas dejaban campos de 700px para escribir un usuario de 20 caracteres.
+   * El tope de tres evita que en un monitor ancho la fila se vuelva ilegible.
+   */
+}
 .admin-users-form__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px 22px;
+}
+@media (min-width: 1100px) {
+  .admin-users-form__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .admin-users-form__grid--pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .admin-users-form__field {
   display: flex;
@@ -133,8 +159,16 @@
   gap: 7px;
   min-width: 0;
 }
+.admin-users-form__field[hidden] {
+  display: none;
+}
 .admin-users-form__field--full {
   grid-column: 1/-1;
+}
+@media (min-width: 780px) {
+  .admin-users-form__field--wide {
+    grid-column: span 2;
+  }
 }
 .admin-users-form__field > label,
 .admin-users-form__field .admin-users-form__field-label {

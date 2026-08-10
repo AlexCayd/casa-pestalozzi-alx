@@ -173,6 +173,12 @@ Trampas conocidas:
 - Contrato de modal: alternar el atributo `[hidden]` **y** la clase `.is-open`.
 - Patrón de scroll de la casa: `overflow-y:auto` + `overscroll-behavior:contain` +
   `scrollbar-width:thin` + los tres `::-webkit-scrollbar`.
+- El panel corre Lenis (smooth scroll) desde `views/admin/layout.php`, y Lenis
+  **cancela el `wheel`** salvo dentro de `[data-lenis-prevent]`. Todo contenedor
+  con scroll propio necesita ese atributo o la rueda no lo mueve: hay que
+  arrastrar la barra. `src/js/admin/core/motion.js` lo aplica por selector
+  (`SCROLLABLES`) — al crear un contenedor con scroll, agrégalo a esa lista o
+  pon el atributo en el marcado.
 - Los parciales PHP incluidos varias veces por página (`views/components/`) deben
   cerrar con `unset()` de sus parámetros: no se reinicializan entre includes y el
   segundo hereda lo que dejó el primero.

@@ -43,7 +43,7 @@ if ($operationalHeaderBackUrl === '') {
         'fecha' => $operationalDate,
         'hora' => $operationalHour,
     ], static fn($value): bool => $value !== ''));
-    $operationalHeaderBackUrl = '/admin/reservations' . ($operationalHeaderQuery !== '' ? '?' . $operationalHeaderQuery : '');
+    $operationalHeaderBackUrl = '/admin/reservaciones' . ($operationalHeaderQuery !== '' ? '?' . $operationalHeaderQuery : '');
 }
 ?>
 <header

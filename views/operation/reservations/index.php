@@ -149,7 +149,7 @@ if ($initialOperationNotice !== null) {
     $operationalDrawerListHtml = '<div class="reservation-operation-skeleton"><span></span><span></span><span></span></div>';
     $operationalActiveModule = 'reservations';
     $operationalMapHref = '/punto-de-venta';
-    $operationalReservationsHref = '/admin/reservations/operation';
+    $operationalReservationsHref = '/admin/reservaciones/operacion';
     include __DIR__ . '/../partials/drawer.php';
     ?>
 
@@ -230,7 +230,7 @@ if ($initialOperationNotice !== null) {
     $diasActivos = range(0, 6);
     $maxComensalesAdmin = \Services\ReservacionConfig::MAX_COMENSALES_ADMIN;
     $asignarAutomaticamente = true;
-    $returnUrl = '/admin/reservations/operation?fecha=' . rawurlencode($fechaInicial);
+    $returnUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaInicial);
     $formTransport = 'json';
     $formActionsExternal = true;
     ob_start();

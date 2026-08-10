@@ -1001,6 +1001,32 @@
 }
 
 /*
+ * Par de la §3.4. Los dos platillos comparten peso, tamaño y color: la regla de
+ * asociación es simétrica y pintar uno como título y otro como subtítulo hacía
+ * leer una jerarquía que el dato no tiene. El «+» queda atenuado porque es
+ * puntuación, no contenido.
+ */
+.admin-nivel1-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
+  min-width: 0;
+
+  &__item {
+    color: var(--admin-text);
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  &__plus {
+    color: var(--admin-muted);
+    font-weight: 700;
+  }
+}
+
+/*
  * Contenido de la guía de lectura (modal de §3.1). Vive a nivel raíz porque el
  * modal se renderiza fuera de .admin-analytics; reutiliza .admin-nivel1-badge
  * para que los colores de clase sean los mismos que en la gráfica y la tabla.

@@ -68,7 +68,20 @@ class UsuarioService
             $stmt->close();
 
             $guardado = self::seleccionarUsuario($id);
-            if (!$guardado || !password_verify((string)$usuario->password, (string)$guardado['password_hash'])) {
+            if (!$guardado) {
+                throw new \RuntimeException('No fue posible verificar el usuario creado.');
+            }
+            /*
+             * Sólo se verifica la contraseña si el alta traía una.
+             *
+             * El personal de piso entra con NIP y deja el campo vacío;
+             * Usuario::hashPassword() guarda entonces un secreto aleatorio para
+             * satisfacer la columna NOT NULL. Comparar la cadena vacía contra
+             * ese hash fallaba siempre, así que el alta de meseros y cocineros
+             * terminaba en rollback con un error genérico.
+             */
+            $passwordEnviada = (string)$usuario->password;
+            if ($passwordEnviada !== '' && !password_verify($passwordEnviada, (string)$guardado['password_hash'])) {
                 throw new \RuntimeException('No fue posible verificar el usuario creado.');
             }
             // El NIP es la única credencial del personal de piso: si se pidió

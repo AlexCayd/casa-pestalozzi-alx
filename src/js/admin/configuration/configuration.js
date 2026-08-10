@@ -56,7 +56,11 @@
             root: root,
             initialTime: field.value,
             staticStep: root.getAttribute('data-static-step'),
-            autoLoad: false
+            autoLoad: false,
+            // En el panel el desplegable vive dentro de una .admin-card, que lo
+            // recorta y lo atrapa en su contexto de apilamiento: portado a
+            // <body> se coloca contra el campo sin tapar el resto del formulario.
+            portal: true
         });
         return field._reservationTimePicker;
     }
@@ -247,7 +251,7 @@
         }
 
         /*
-         * Rejilla de horas 00-23.
+         * Rejilla de horas 00-23, con resolución de media hora.
          *
          * Sustituye a las pestañas de rangos preferidos, que solo ofrecían las
          * combinaciones ya guardadas. Primer toque = apertura, segundo =
@@ -256,13 +260,33 @@
          * señal de que se está empezando otro rango, así que se toma como la
          * nueva apertura.
          *
+         * Cada toque pregunta si es la hora en punto o y media: el restaurante
+         * abre a las 08:30 y con la rejilla a resolución de hora ese horario
+         * existía en la base pero no se podía volver a elegir desde el panel.
+         *
          * Los inputs ocultos siguen siendo la fuente de verdad: la rejilla los
          * escribe y el resto del formulario (dirty state, validación, guardado
          * por API) no se entera de que cambió la forma de elegir.
          */
-        function horaDeValor(valor) {
+
+        /** Minutos desde medianoche, o null si el valor no es una hora. */
+        function minutosDeValor(valor) {
             const normal = normalizeTime(valor);
-            return normal ? Number(normal.slice(0, 2)) : null;
+            if (!normal) {
+                return null;
+            }
+            return Number(normal.slice(0, 2)) * 60 + Number(normal.slice(3, 5));
+        }
+
+        /** Bloque horario (0-23) al que pertenecen unos minutos. */
+        function bloqueDeMinutos(minutos) {
+            return minutos === null ? null : Math.floor(minutos / 60);
+        }
+
+        function textoHora(minutos) {
+            const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
+            const mm = String(minutos % 60).padStart(2, '0');
+            return hh + ':' + mm;
         }
 
         function syncHourGrid(row) {
@@ -275,16 +299,29 @@
             const abierto = Boolean(toggle && toggle.checked);
             const open = row.querySelector('[data-schedule-open]');
             const close = row.querySelector('[data-schedule-close]');
-            const desde = abierto ? horaDeValor(open ? open.value : '') : null;
-            const hasta = abierto ? horaDeValor(close ? close.value : '') : null;
+            const desdeMin = abierto ? minutosDeValor(open ? open.value : '') : null;
+            const hastaMin = abierto ? minutosDeValor(close ? close.value : '') : null;
+            const desde = bloqueDeMinutos(desdeMin);
+            const hasta = bloqueDeMinutos(hastaMin);
 
             grid.querySelectorAll('[data-schedule-hour]').forEach(function (btn) {
                 const hora = Number(btn.dataset.scheduleHour);
-                const esExtremo = hora === desde || hora === hasta;
+                const esApertura = hora === desde;
+                const esCierre = hora === hasta;
+                const esExtremo = esApertura || esCierre;
                 const dentro = desde !== null && hasta !== null && hora > desde && hora < hasta;
 
                 btn.classList.toggle('is-edge', esExtremo);
                 btn.classList.toggle('is-in-range', dentro);
+                // La media hora se marca en la propia celda: sin ella, 08:00 y
+                // 08:30 se veían idénticos en la rejilla.
+                const media = (esApertura && desdeMin % 60 !== 0) || (esCierre && hastaMin % 60 !== 0);
+                btn.classList.toggle('is-half', media);
+                const marca = btn.querySelector('[data-schedule-hour-min]');
+                if (marca) {
+                    marca.textContent = media ? ':30' : '';
+                }
+
                 btn.setAttribute('aria-pressed', esExtremo || dentro ? 'true' : 'false');
                 btn.disabled = !abierto;
             });
@@ -305,14 +342,14 @@
             }
         }
 
-        function aplicarHora(row, hora) {
+        function aplicarMinutos(row, minutos) {
             const open = row.querySelector('[data-schedule-open]');
             const close = row.querySelector('[data-schedule-close]');
-            const valor = String(hora).padStart(2, '0') + ':00';
-            const desde = horaDeValor(open.value);
+            const valor = textoHora(minutos);
+            const desde = minutosDeValor(open.value);
             const rangoCompleto = Boolean(open.value && close.value);
 
-            if (rangoCompleto || desde === null || hora <= desde) {
+            if (rangoCompleto || desde === null || minutos <= desde) {
                 open.value = valor;
                 close.value = '';
             } else {
@@ -324,16 +361,112 @@
             updateDirtyState();
         }
 
+        /*
+         * Elegir el minuto sin diálogo nativo (ver CLAUDE.md): un pequeño
+         * popover anclado al botón con las dos únicas opciones que el negocio
+         * usa. Se cierra al elegir, con Escape o al tocar fuera.
+         */
+        let popMinutos = null;
+
+        function cerrarPopMinutos() {
+            if (!popMinutos) {
+                return;
+            }
+            const anterior = popMinutos;
+            popMinutos = null;
+            if (anterior.boton) {
+                anterior.boton.setAttribute('aria-expanded', 'false');
+            }
+            if (anterior.nodo && anterior.nodo.parentNode) {
+                anterior.nodo.parentNode.removeChild(anterior.nodo);
+            }
+        }
+
+        function pedirMinuto(row, boton, hora) {
+            // Segundo toque sobre el mismo botón: se entiende como cancelar.
+            if (popMinutos && popMinutos.boton === boton) {
+                cerrarPopMinutos();
+                return;
+            }
+            cerrarPopMinutos();
+
+            const enPunto = hora * 60;
+            const yMedia = hora * 60 + 30;
+            const nodo = document.createElement('div');
+            nodo.className = 'admin-schedule__minute-pop';
+            nodo.setAttribute('role', 'group');
+            nodo.setAttribute('aria-label', 'Minuto de la hora ' + textoHora(enPunto));
+            nodo.innerHTML =
+                '<button type="button" class="admin-schedule__minute" data-minutos="' + enPunto + '">' +
+                    '<span class="admin-schedule__minute-hora">' + textoHora(enPunto) + '</span>' +
+                    '<span class="admin-schedule__minute-nombre">En punto</span>' +
+                '</button>' +
+                '<button type="button" class="admin-schedule__minute" data-minutos="' + yMedia + '">' +
+                    '<span class="admin-schedule__minute-hora">' + textoHora(yMedia) + '</span>' +
+                    '<span class="admin-schedule__minute-nombre">Y media</span>' +
+                '</button>';
+
+            nodo.addEventListener('click', function (evento) {
+                const opcion = evento.target.closest('[data-minutos]');
+                if (!opcion) {
+                    return;
+                }
+                const minutos = Number(opcion.dataset.minutos);
+                cerrarPopMinutos();
+                aplicarMinutos(row, minutos);
+            });
+
+            /*
+             * Se cuelga de la rejilla en position:absolute y no como un hijo
+             * más: insertarlo en el flujo le robaría una celda al grid y las 24
+             * horas se recorrerían de sitio cada vez que se abre.
+             */
+            const rejilla = boton.parentNode;
+            rejilla.appendChild(nodo);
+            const maximo = Math.max(0, rejilla.clientWidth - nodo.offsetWidth);
+            nodo.style.left = Math.min(boton.offsetLeft, maximo) + 'px';
+            nodo.style.top = (boton.offsetTop + boton.offsetHeight + 6) + 'px';
+
+            boton.setAttribute('aria-expanded', 'true');
+            popMinutos = { nodo: nodo, boton: boton };
+
+            const primera = nodo.querySelector('[data-minutos]');
+            if (primera) {
+                primera.focus();
+            }
+        }
+
+        document.addEventListener('keydown', function (evento) {
+            if (evento.key === 'Escape' && popMinutos) {
+                const boton = popMinutos.boton;
+                cerrarPopMinutos();
+                if (boton) {
+                    boton.focus();
+                }
+            }
+        });
+
+        document.addEventListener('click', function (evento) {
+            if (!popMinutos) {
+                return;
+            }
+            if (popMinutos.nodo.contains(evento.target) || popMinutos.boton.contains(evento.target)) {
+                return;
+            }
+            cerrarPopMinutos();
+        });
+
         form.querySelectorAll('[data-schedule-row]').forEach(function (row) {
             const toggle = row.querySelector('[data-schedule-toggle]');
             toggle.addEventListener('change', function () {
+                cerrarPopMinutos();
                 updateRow(row);
                 syncHourGrid(row);
                 updateDirtyState();
             });
             row.querySelectorAll('[data-schedule-hour]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    aplicarHora(row, Number(btn.dataset.scheduleHour));
+                    pedirMinuto(row, btn, Number(btn.dataset.scheduleHour));
                 });
             });
             updateRow(row);
@@ -796,6 +929,20 @@
             const marcado = typeInputs.find(function (input) { return input.checked; });
             return marcado ? marcado.value : '';
         }
+
+        /*
+         * Un mensaje escrito por una persona no se pisa nunca. El placeholder
+         * por tipo existía, pero con un anuncio ya guardado el campo llegaba
+         * lleno y no se veía; y con el campo vacío obligaba a redactar desde
+         * cero. Al cambiar de tipo se escribe su frase de ejemplo mientras el
+         * usuario no haya tocado el campo.
+         */
+        let mensajeEditadoAMano = Boolean(message && message.value.trim());
+        if (message) {
+            message.addEventListener('input', function () {
+                mensajeEditadoAMano = true;
+            });
+        }
         const start = form.querySelector('[data-announcement-start]');
         const end = form.querySelector('[data-announcement-end]');
         const linkText = form.querySelector('[data-announcement-link-text]');
@@ -1001,7 +1148,12 @@
             if (exampleIcon) {
                 exampleIcon.innerHTML = selectedConfig.icono || '';
             }
-            message.placeholder = selectedConfig.placeholder || 'Escribe el mensaje del anuncio.';
+            message.placeholder = selectedConfig.placeholder || 'Cuéntale al comensal qué pasa y cuándo.';
+            // El ejemplo entra sólo si el campo sigue virgen: así el tipo elegido
+            // se nota de inmediato sin borrar lo que alguien haya redactado.
+            if (!mensajeEditadoAMano && selectedConfig.ejemplo) {
+                message.value = selectedConfig.ejemplo;
+            }
             linkText.placeholder = selectedConfig.texto_enlace || '';
             previewState.textContent = active.checked ? 'Activo' : 'Inactivo · no será visible';
             previewState.classList.toggle('is-live', active.checked);

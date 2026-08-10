@@ -31,6 +31,7 @@
   var nip = form.querySelector("[data-user-nip]");
   var nipField = form.querySelector("[data-user-nip-field]");
   var passwordSection = form.querySelector("[data-user-password-section]");
+  var hintNip = form.querySelector("[data-hint-nip]");
   var accessList = form.querySelector("[data-role-access-list]");
   var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
 
@@ -126,6 +127,11 @@
 
     if (nipField) {
       nipField.hidden = esAdmin;
+    }
+    // La fecha de nacimiento se sigue pidiendo al admin, pero deja de hablar de
+    // un NIP que su rol no usa.
+    if (hintNip) {
+      hintNip.hidden = esAdmin;
     }
     if (nip) {
       nip.disabled = esAdmin;

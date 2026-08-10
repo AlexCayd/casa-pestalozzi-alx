@@ -15,8 +15,8 @@ $vigencia = is_array($vigencia ?? null) ? $vigencia : [];
 $ticketAbierto = is_array($ticketAbierto ?? null) ? $ticketAbierto : null;
 $ticketFisico = is_array($ticketFisico ?? null) ? $ticketFisico : $ticketAbierto;
 $adminCsrfToken = (string)($adminCsrfToken ?? '');
-$returnUrl = (string)($returnUrl ?? '/admin/reservations');
-$backUrl = (string)($backUrl ?? '/admin/reservations');
+$returnUrl = (string)($returnUrl ?? '/admin/reservaciones');
+$backUrl = (string)($backUrl ?? '/admin/reservaciones');
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -114,7 +114,7 @@ $puedeAsignar = $editable;
 $capacidadRestaurante = max((int)($capacidadRestaurante ?? 0), $comensales, 1);
 $diferenciaCapacidad = $capacidadTotal - $comensales;
 $horaCorta = $horaLegible($hora);
-$operationUrl = '/admin/reservations/operation?' . http_build_query([
+$operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
     'fecha' => $fecha,
     'hora' => $horaCorta,
     'reservation_id' => $id,
@@ -328,7 +328,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
                     <div class="reservation-detail-actions__secondary">
                     <?php if (!$estadoFinal) : ?>
                         <?php if ($editable) : ?>
-                        <form method="POST" action="/admin/reservations/reassign" data-reservation-operational-action>
+                        <form method="POST" action="/admin/reservaciones/reasignar" data-reservation-operational-action>
                             <input type="hidden" name="id" value="<?php echo $id; ?>">
                             <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
                             <input type="hidden" name="return_to" value="<?php echo $h($returnUrl); ?>">
@@ -358,7 +358,7 @@ $operationUrl = '/admin/reservations/operation?' . http_build_query([
     </div>
 
     <div class="reservation-action-confirmation-host" data-reservation-action-confirmation></div>
-    <form method="POST" action="/admin/reservations/status" data-reservation-action-form hidden>
+    <form method="POST" action="/admin/reservaciones/estado" data-reservation-action-form hidden>
         <input type="hidden" name="id" value="<?php echo $id; ?>">
         <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
         <input type="hidden" name="estado" value="" data-reservation-action-state>

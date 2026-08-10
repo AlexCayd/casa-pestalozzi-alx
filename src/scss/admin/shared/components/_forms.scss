@@ -453,6 +453,29 @@
   }
 }
 
+/*
+ * Categorías del menú: tantas como el negocio quiera, así que envuelven.
+ *
+ * El `flex: 1 1 0` de .admin-tabs__tab hace que todas partan de ancho cero y se
+ * repartan la fila; nunca hay desborde, el flex-wrap del contenedor jamás se
+ * dispara y las etiquetas se recortan con puntos suspensivos hasta desaparecer.
+ * Con base automática cada pestaña pide lo que mide su nombre y la fila
+ * siguiente recoge las que no caben.
+ */
+.admin-menu__cats {
+  row-gap: 6px;
+
+  .admin-tabs__tab {
+    flex: 0 1 auto;
+  }
+
+  .admin-tabs__tab a span {
+    width: auto;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
 #cat-nueva-toggle:checked ~ .admin-tabs .admin-tabs__tab--add label span {
   background: var(--admin-gold);
   color: var(--admin-ink-on-gold);

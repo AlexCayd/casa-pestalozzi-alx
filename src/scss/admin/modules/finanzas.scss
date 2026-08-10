@@ -115,30 +115,28 @@
 }
 
 // ── Gastos por categoría: dona + tabla de valores ─────────────
-// La dona comunica el reparto; los montos exactos los da la lista de al lado,
-// que es lo que una dona nunca puede hacer bien.
+// La dona comunica el reparto; los montos exactos los da la lista, que es lo
+// que una dona nunca puede hacer bien.
+//
+// En columna y no lado a lado: encajonada en 160px el anillo salía finísimo y
+// la mitad derecha del panel se desperdiciaba. Ahora la dona ocupa el ancho
+// completo y la lista se reparte debajo en varias columnas.
 .admin-finanzas__donut-wrap {
   display: grid;
-  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
-  gap: 20px;
-  align-items: center;
-
-  @media (max-width: 640px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  gap: 18px;
 }
 
 .admin-finanzas__donut {
   position: relative;
-  height: 160px;
+  height: clamp(240px, 26vw, 320px);
 }
 
 .admin-finanzas__donut-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   margin: 0;
   padding: 0;
-  gap: 8px;
+  gap: 10px 24px;
   list-style: none;
 
   li {
@@ -146,6 +144,8 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: baseline;
     gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--admin-border-soft);
   }
 }
 
@@ -176,9 +176,11 @@
   margin-bottom: 20px;
 }
 
+// Tres columnas de nodos con su monto al lado necesitan aire: por debajo de
+// ~320px los caudales delgados se aplastan hasta volverse una línea.
 .admin-finanzas__sankey {
   position: relative;
-  height: clamp(260px, 34vw, 400px);
+  height: clamp(320px, 40vw, 480px);
 }
 
 // ── Formularios de gastos ─────────────────────────────────────

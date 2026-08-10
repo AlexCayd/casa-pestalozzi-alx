@@ -779,8 +779,16 @@ UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'me
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
--- Anuncio inicial que se modificará
-INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+-- Anuncio del restaurante, activo para poder ver el diálogo de la landing en QA.
+-- Antes decía 'Test' e iba inactivo: no se veía nada y el mensaje de relleno
+-- terminaba apareciendo en las capturas del panel.
+INSERT INTO configuracion_anuncio (id, mensaje, tipo, activo, texto_enlace, url_enlace) VALUES
+(1,
+ 'Este sábado tendremos música en vivo a partir de las 19:00 h. Te esperamos.',
+ 'evento',
+ 1,
+ 'Reservar mesa',
+ '/reservaciones');
 
 -- Ajustes del POS. Arranca con el mesero editable: es el comportamiento que
 -- tenía el sistema antes de que existiera este ajuste, así que una instalación
@@ -808,51 +816,21 @@ VALUES
   (@fecha_especial, 'horario_especial', 'Horario especial de prueba',
    '14:00:00', '21:00:00', 1);
 
--- Excepciones de la próxima semana, relativas a la fecha de carga: la landing
--- solo marca en la tabla de horario las que caen dentro de siete días, y con
--- fechas fijas ese caso deja de reproducirse en cuanto pasan.
+-- Una sola excepción relativa a la fecha de carga, dentro de la ventana de
+-- siete días que la landing marca en la tabla de horario. Antes había seis
+-- (a +1, +3, +5, +6, +12 y +20 días) y la semana entera salía llena de
+-- avisos: para probar el caso basta con una.
 --
--- Cuatro fechas dentro de la ventana para que la tabla semanal muestre los dos
--- tipos en días distintos, incluida la fila de mañana y la del último día que
--- todavía alcanza a marcarse. Las de 'cerrado' van con horas NULL: el servicio
--- las normaliza a '' al leer y la fila imprime "Cerrado".
---
--- ON DUPLICATE KEY porque excepciones_operacion.fecha es UNIQUE: si se siembra
--- justo cuando alguna de estas coincide con las fechas fijas de arriba, gana la
--- relativa en vez de abortar la carga completa.
-SET @excepcion_especial_manana = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
-SET @excepcion_cerrada_rel = DATE_ADD(CURDATE(), INTERVAL 3 DAY);
-SET @excepcion_especial_rel = DATE_ADD(CURDATE(), INTERVAL 5 DAY);
-SET @excepcion_cerrada_borde = DATE_ADD(CURDATE(), INTERVAL 6 DAY);
+-- ON DUPLICATE KEY porque excepciones_operacion.fecha es UNIQUE: si al sembrar
+-- coincide con alguna de las fechas fijas de arriba, gana ésta en vez de
+-- abortar la carga completa.
+SET @excepcion_semana = DATE_ADD(CURDATE(), INTERVAL 2 DAY);
 
 INSERT INTO excepciones_operacion
   (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
 VALUES
-  (@excepcion_especial_manana, 'horario_especial', 'Comida privada, abrimos más tarde',
-   '16:00:00', '23:00:00', 1),
-  (@excepcion_cerrada_rel, 'cerrado', 'Mantenimiento programado', NULL, NULL, 1),
-  (@excepcion_especial_rel, 'horario_especial', 'Evento privado por la mañana',
-   '15:00:00', '22:00:00', 1),
-  (@excepcion_cerrada_borde, 'cerrado', 'Día de descanso del equipo', NULL, NULL, 1)
-ON DUPLICATE KEY UPDATE
-  tipo = VALUES(tipo),
-  motivo = VALUES(motivo),
-  hora_apertura = VALUES(hora_apertura),
-  hora_cierre = VALUES(hora_cierre),
-  activo = VALUES(activo);
-
--- Fuera de la ventana de siete días: alimentan la línea "Más adelante" de la
--- landing, que ninguna fila del horario semanal puede representar. Relativas
--- por la misma razón que las de arriba.
-SET @excepcion_cerrada_lejana = DATE_ADD(CURDATE(), INTERVAL 12 DAY);
-SET @excepcion_especial_lejana = DATE_ADD(CURDATE(), INTERVAL 20 DAY);
-
-INSERT INTO excepciones_operacion
-  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
-VALUES
-  (@excepcion_cerrada_lejana, 'cerrado', 'Capacitación del personal', NULL, NULL, 1),
-  (@excepcion_especial_lejana, 'horario_especial', 'Cena de fin de temporada',
-   '18:00:00', '23:30:00', 1)
+  (@excepcion_semana, 'horario_especial', 'Comida privada, abrimos más tarde',
+   '16:00:00', '23:00:00', 1)
 ON DUPLICATE KEY UPDATE
   tipo = VALUES(tipo),
   motivo = VALUES(motivo),
@@ -1161,4 +1139,18 @@ SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresc
 UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 5, 20  FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';
+
+-- Mermas de ejemplo repartidas en el último mes, con su costo congelado, para
+-- que el KPI de inventario y el renglón de Finanzas no salgan en cero en QA.
+-- Las fechas son relativas a la carga: así el periodo de 7 y el de 30 días
+-- muestran cifras distintas y se ve que el filtro funciona.
+INSERT INTO movimientos_inventario
+    (ingrediente_id, tipo, cantidad, motivo, nota, costo_unitario, created_at)
+VALUES
+(3, 'merma', -1200.000, 'caducidad',   'Se cortó el fin de semana largo', 0.0250, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(8, 'merma',  -350.000, 'dano',        'Caja golpeada en la entrega',     0.0400, DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(1, 'merma',  -180.000, 'preparacion', 'Molienda mal calibrada',          0.3000, DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(4, 'merma',   -60.000, 'derrame',     NULL,                              0.2000, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+(7, 'merma',  -400.000, 'faltante',    'Diferencia contra el conteo físico', 0.0600, DATE_SUB(NOW(), INTERVAL 24 DAY));
+
 -- Fin de dml.sql

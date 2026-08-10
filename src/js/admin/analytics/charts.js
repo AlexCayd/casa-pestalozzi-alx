@@ -20,6 +20,16 @@
         return value || fallback;
     }
 
+    // Sin decimales: en un tooltip de ventas diarias los centavos no cambian
+    // ninguna decisión y alargan la caja.
+    function dinero(valor) {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            maximumFractionDigits: 0
+        }).format(valor || 0);
+    }
+
     /*
      * Paleta de acento de la marca (ver CLAUDE.md), en pasos ajustados a la
      * superficie de cada tema y verificados con el validador de la skill
@@ -82,6 +92,16 @@
         return Object.assign({
             responsive: true,
             maintainAspectRatio: false,
+            /*
+             * Sin esto Chart.js usa su modo 'nearest' con intersect: true, y
+             * como todas las series de línea van con pointRadius: 0 el área
+             * sensible de cada dato queda en el hitRadius por omisión (1px):
+             * había que clavar el cursor en el píxel exacto para ver el tooltip.
+             * Por columna y sin exigir intersección, basta con estar sobre el
+             * día.
+             */
+            interaction: { mode: 'index', intersect: false, axis: 'x' },
+            hover: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
                     display: false,
@@ -232,7 +252,28 @@
                         backgroundColor: palette.tooltipBg,
                         padding: 12,
                         titleColor: '#fff',
-                        bodyColor: '#fff'
+                        bodyColor: '#fff',
+                        // El promedio es el mismo número en los 30 días: como
+                        // renglón del tooltip solo repite ruido, y la línea
+                        // punteada ya lo dice mejor.
+                        filter: function (item) {
+                            return item.dataset.label !== 'Promedio del periodo';
+                        },
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': ' + dinero(ctx.parsed.y);
+                            },
+                            afterBody: function (items) {
+                                if (!items.length || !promedioVentas) {
+                                    return '';
+                                }
+                                var venta = items[0].parsed.y;
+                                var signo = venta >= promedioVentas ? '+' : '−';
+                                var diferencia = Math.abs(venta - promedioVentas);
+                                return 'Promedio del periodo: ' + dinero(promedioVentas)
+                                    + ' (' + signo + dinero(diferencia) + ')';
+                            }
+                        }
                     }
                 }
             })

@@ -102,6 +102,31 @@
     color var(--admin-t-base) var(--admin-ease-out);
 }
 
+/*
+ * Reglas que pide Lenis y que el layout nunca cargó: se sirve lenis.min.js
+ * desde CDN pero no su hoja de estilos.
+ *
+ * La tercera es la que arregla un síntoma concreto: sin `overscroll-behavior:
+ * contain`, al llegar al final de una tabla o de un modal la rueda encadenaba
+ * con la página de detrás y ésta se movía sola.
+ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
 /* color-scheme: hace que selects nativos, scrollbars y date pickers
    se pinten acordes al tema activo (clave para el modo oscuro). */
 [data-admin-theme="light"] {

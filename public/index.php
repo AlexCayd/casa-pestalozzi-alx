@@ -40,7 +40,7 @@ $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
 
 // Reservaciones
-$router->get('/api/reservation-schedules', [ReservacionController::class, 'horarios']);
+$router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
 $router->get('/api/reservaciones/disponibilidad', [ReservacionController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/retencion', [ReservacionController::class, 'retencion']);
 $router->post('/api/reservaciones/crear', [ReservacionController::class, 'crearVerificada']);
@@ -98,23 +98,23 @@ $router->get('/admin/area/horno', [AdminAreaController::class, 'horno']);
 $router->get('/admin/api/area-items', [AdminAreaController::class, 'areaItems']);
 $router->post('/admin/api/advance-item', [AdminAreaController::class, 'advanceItem']);
 $router->post('/admin/api/rollback-item', [AdminAreaController::class, 'rollbackItem']);
-$router->get('/admin/reservations', [AdminReservacionController::class, 'index']);
-$router->get('/admin/reservations/create', [AdminReservacionController::class, 'create']);
-$router->post('/admin/reservations/create', [AdminReservacionController::class, 'store']);
-$router->get('/admin/reservations/operation', [ReservacionOperacionController::class, 'operation']);
-$router->get('/admin/reservations/show', [AdminReservacionController::class, 'show']);
-$router->get('/admin/api/reservations/disponibilidad', [AdminReservacionController::class, 'disponibilidad']);
-$router->post('/admin/reservations/update', [AdminReservacionController::class, 'update']);
-$router->post('/admin/reservations/status', [AdminReservacionController::class, 'status']);
-$router->post('/admin/reservations/reassign', [AdminReservacionController::class, 'reasignarAutomaticamente']);
-$router->get('/admin/reservations/development-tools', [ReservacionMantenimientoController::class, 'index']);
-$router->post('/admin/reservations/development-tools/process-expired', [ReservacionMantenimientoController::class, 'procesarPendientes']);
-$router->get('/admin/api/reservations/operation', [ReservacionOperacionController::class, 'operationData']);
-$router->post('/admin/api/reservations/operation/assign-tables', [ReservacionOperacionController::class, 'apiAssignTables']);
-$router->post('/admin/api/reservations/operation/clear-tables', [ReservacionOperacionController::class, 'apiClearTables']);
-$router->post('/admin/api/reservations/operation/reassign', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
-$router->post('/admin/api/reservations/operation/update-comment', [ReservacionOperacionController::class, 'apiUpdateComment']);
-$router->post('/admin/api/reservations/operation/status', [ReservacionOperacionController::class, 'apiStatus']);
+$router->get('/admin/reservaciones', [AdminReservacionController::class, 'index']);
+$router->get('/admin/reservaciones/crear', [AdminReservacionController::class, 'create']);
+$router->post('/admin/reservaciones/crear', [AdminReservacionController::class, 'store']);
+$router->get('/admin/reservaciones/operacion', [ReservacionOperacionController::class, 'operation']);
+$router->get('/admin/reservaciones/detalle', [AdminReservacionController::class, 'show']);
+$router->get('/admin/api/reservaciones/disponibilidad', [AdminReservacionController::class, 'disponibilidad']);
+$router->post('/admin/reservaciones/actualizar', [AdminReservacionController::class, 'update']);
+$router->post('/admin/reservaciones/estado', [AdminReservacionController::class, 'status']);
+$router->post('/admin/reservaciones/reasignar', [AdminReservacionController::class, 'reasignarAutomaticamente']);
+$router->get('/admin/reservaciones/herramientas-desarrollo', [ReservacionMantenimientoController::class, 'index']);
+$router->post('/admin/reservaciones/herramientas-desarrollo/procesar-vencidas', [ReservacionMantenimientoController::class, 'procesarPendientes']);
+$router->get('/admin/api/reservaciones/operacion', [ReservacionOperacionController::class, 'operationData']);
+$router->post('/admin/api/reservaciones/operacion/asignar-mesas', [ReservacionOperacionController::class, 'apiAssignTables']);
+$router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOperacionController::class, 'apiClearTables']);
+$router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
+$router->post('/admin/api/reservaciones/operacion/comentario', [ReservacionOperacionController::class, 'apiUpdateComment']);
+$router->post('/admin/api/reservaciones/operacion/estado', [ReservacionOperacionController::class, 'apiStatus']);
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
@@ -129,6 +129,7 @@ $router->post('/admin/inventario/edit',     [AdminInventarioController::class, '
 $router->post('/admin/inventario/delete',   [AdminInventarioController::class, 'delete']);
 $router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
 $router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
+$router->post('/admin/inventario/merma',    [AdminInventarioController::class, 'merma']);
 
 // Recetas (composición de platillos y subrecetas). Los datos del platillo se
 // editan en Gestión de menú; aquí solo se arma lo que consume cada unidad.
@@ -169,6 +170,19 @@ $router->get('/admin/productos/edit',             $redir301('/admin/recetas/edit
 $router->get('/admin/productos/subrecetas',        $redir301('/admin/recetas/subrecetas'));
 $router->get('/admin/productos/subrecetas/create', $redir301('/admin/recetas/subrecetas/create'));
 $router->get('/admin/productos/subrecetas/edit',   $redir301('/admin/recetas/subrecetas/edit'));
+
+/*
+ * Rutas de reservaciones en inglés (2026-08). El resto del panel estaba en
+ * español y este módulo se había quedado atrás. Solo GET, por lo mismo que
+ * arriba: un 301 sobre POST lo degrada a GET y pierde el cuerpo. Las APIs no
+ * llevan redirección: sus únicos clientes son los bundles de este repo, que se
+ * recompilan con las rutas nuevas.
+ */
+$router->get('/admin/reservations',                  $redir301('/admin/reservaciones'));
+$router->get('/admin/reservations/create',           $redir301('/admin/reservaciones/crear'));
+$router->get('/admin/reservations/operation',        $redir301('/admin/reservaciones/operacion'));
+$router->get('/admin/reservations/show',             $redir301('/admin/reservaciones/detalle'));
+$router->get('/admin/reservations/development-tools', $redir301('/admin/reservaciones/herramientas-desarrollo'));
 
 // Finanzas
 $router->get('/admin/finanzas',                  [AdminFinanzasController::class, 'index']);

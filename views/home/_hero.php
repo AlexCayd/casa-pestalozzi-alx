@@ -2,7 +2,8 @@
   <div class="hero__bg" data-parallax-bg>
     <img src="/build/images/banner.webp" alt="Interior cálido de Casa Pestalozzi" />
   </div>
-  <?php include __DIR__ . '/_announcement.php'; ?>
+  <?php /* El anuncio salió de aquí: ahora es un diálogo al final del <body>
+           (views/home/index.php) para no heredar el transform del hero. */ ?>
   <div class="hero__inner">
     <span class="eyebrow hero__eyebrow">Mediterráneo · Del Valle · CDMX</span>
     <h1 class="hero__title" data-split>CASA<br />PESTALOZZI</h1>

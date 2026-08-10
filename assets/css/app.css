@@ -1270,26 +1270,69 @@ body.nav-open .nav-overlay__links a {
   outline: 2px solid var(--announcement-gold-soft);
   outline-offset: 2px;
 }
-.hero-announcement__progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+
+/*
+ * Envoltorio de diálogo.
+ *
+ * El anuncio dejó de ser una franja sobre el hero: allí competía con el título
+ * de la portada y se cerraba solo a los 8 s, así que quien llegaba tarde no lo
+ * leía. La tarjeta de arriba no cambia —la comparte la vista previa del panel—;
+ * esto sólo la presenta centrada y sobre un velo.
+ */
+.announcement-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
-.hero-announcement__progress-remaining {
-  display: block;
+.announcement-dialog[hidden] {
+  display: none;
+}
+.announcement-dialog.is-open {
+  opacity: 1;
+}
+.announcement-dialog__backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: var(--announcement-accent);
-  transform: scaleX(1);
-  transform-origin: left center;
-  will-change: transform;
+  padding: 0;
+  border: 0;
+  background: rgba(11, 12, 13, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.announcement-dialog__panel {
+  position: relative;
+  width: min(520px, 100%);
+  transform: translateY(0.75rem) scale(0.98);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.announcement-dialog__panel:focus-visible {
+  outline: none;
+}
+.announcement-dialog.is-open .announcement-dialog__panel {
+  transform: translateY(0) scale(1);
+}
+.announcement-dialog .hero-announcement {
+  width: 100%;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .announcement-dialog,
+  .announcement-dialog__panel {
+    transition: none;
+  }
+  .announcement-dialog__panel {
+    transform: none;
+  }
+}
 @media (max-width: 420px) {
   .hero-announcement {
     gap: 0.6rem;
@@ -1303,9 +1346,6 @@ body.nav-open .nav-overlay__links a {
   .hero-announcement {
     animation: none;
     transition: none;
-  }
-  .hero-announcement__progress-remaining {
-    will-change: auto;
   }
 }
 .hero {
@@ -1337,26 +1377,6 @@ body.nav-open .nav-overlay__links a {
   background: linear-gradient(180deg, rgba(11, 12, 13, 0.62) 0%, rgba(11, 12, 13, 0.3) 32%, rgba(11, 12, 13, 0.55) 62%, rgba(11, 12, 13, 0.95) 100%), radial-gradient(90% 90% at 30% 45%, transparent 35%, rgba(11, 12, 13, 0.7) 100%);
 }
 
-.hero-announcement {
-  position: absolute;
-  top: clamp(1.25rem, 2.4vw, 2rem);
-  left: 50%;
-  z-index: 4;
-  width: min(560px, 100% - 30rem);
-  transform: translateX(-50%);
-  animation: announcement-in 360ms var(--ease) both;
-}
-
-@keyframes announcement-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -0.5rem);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
 .hero__inner {
   position: relative;
   z-index: 2;
@@ -1551,32 +1571,6 @@ body.nav-open .nav-overlay__links a {
 @media (max-width: 1100px) {
   .hero[data-hero=editorial] .hero__figure {
     display: none;
-  }
-  .hero-announcement {
-    width: min(430px, 100% - 22rem);
-  }
-}
-@media (max-width: 980px) {
-  .hero-announcement {
-    top: 6.5rem;
-    width: min(560px, 100% - 2 * var(--pad));
-  }
-}
-@media (max-width: 760px) {
-  .hero-announcement {
-    top: clamp(5.6rem, 16vw, 7rem);
-    width: calc(100% - 2 * var(--pad));
-  }
-  .hero--has-announcement .hero__inner {
-    padding-top: clamp(18rem, 44vh, 21rem);
-  }
-  .hero--announcement-without-link .hero__inner {
-    padding-top: clamp(15rem, 38vh, 18rem);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-announcement {
-    animation: none;
   }
 }
 .about__grid {
@@ -3231,9 +3225,20 @@ body.nav-open .nav-overlay__links a {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.reserva .cp-calendar.open,
-.reserva .hour-dropdown.open {
+.reserva {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.reserva .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.reserva .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .reserva .cp-calendar {
@@ -3338,7 +3343,6 @@ body.nav-open .nav-overlay__links a {
   pointer-events: none;
 }
 .reserva .hour-dropdown {
-  display: flex;
   max-height: var(--reservation-picker-dropdown-max-height, none);
   flex-direction: column;
   padding: 0;
@@ -3396,6 +3400,7 @@ body.nav-open .nav-overlay__links a {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);
@@ -7447,9 +7452,20 @@ footer.foot {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.operational-page .cp-calendar.open,
-.operational-page .hour-dropdown.open {
+.operational-page {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.operational-page .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.operational-page .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .operational-page .cp-calendar {
@@ -7554,7 +7570,6 @@ footer.foot {
   pointer-events: none;
 }
 .operational-page .hour-dropdown {
-  display: flex;
   max-height: var(--reservation-picker-dropdown-max-height, none);
   flex-direction: column;
   padding: 0;
@@ -7612,6 +7627,7 @@ footer.foot {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);

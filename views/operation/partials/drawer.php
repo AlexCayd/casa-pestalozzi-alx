@@ -15,7 +15,7 @@ $operationalActiveModule = (string)($operationalActiveModule ?? 'reservations');
 $operationalMapHref = (string)($operationalMapHref ?? '/punto-de-venta');
 // Un href vacío oculta el enlace: los destinos de /admin solo tienen sentido
 // para quien puede entrar en ellos.
-$operationalReservationsHref = (string)($operationalReservationsHref ?? '/admin/reservations/operation');
+$operationalReservationsHref = (string)($operationalReservationsHref ?? '/admin/reservaciones/operacion');
 $operationalAdminHref = (string)($operationalAdminHref ?? '');
 $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>

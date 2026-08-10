@@ -24,6 +24,7 @@ use Services\ReservacionService;
 class AdminReservacionController
 {
     private const RESERVATIONS_CSS = '/build/css/admin/reservations.css?v=reservation-form-v10';
+    private const RESERVATIONS_LIST_JS = '/build/js/admin/reservation-list.js';
     private const RESERVATION_FORM_JS = '/build/js/admin/reservation-form.js?v=reservation-form-v10';
 
     public static function index(Router $router): void
@@ -52,6 +53,7 @@ class AdminReservacionController
         $data = [
             'title' => 'Reservaciones',
             'topbarSection' => 'Reservaciones',
+            'scripts' => [self::RESERVATIONS_LIST_JS],
             'reservaciones' => $reservaciones,
             'metricas' => $metricas,
             'filtros' => $filtros,
@@ -59,7 +61,7 @@ class AdminReservacionController
             'estadoLabels' => ReservacionService::estadoLabels(),
             'alertas' => self::alertasResultado($_GET['resultado'] ?? ''),
             'queryString' => http_build_query($filtros),
-            'partialUrl' => AdminController::filterUrl('/admin/reservations', $filtros),
+            'partialUrl' => AdminController::filterUrl('/admin/reservaciones', $filtros),
             'developmentTools' => ReservacionConfig::appEnvironment() === 'development',
         ];
 
@@ -204,7 +206,7 @@ class AdminReservacionController
                 return;
             }
             $codigo = self::resultadoCreacion((string)($resultado['codigo'] ?? ReservacionService::CREADA));
-            $url = $id > 0 ? '/admin/reservations/show?id=' . $id : '/admin/reservations';
+            $url = $id > 0 ? '/admin/reservaciones/detalle?id=' . $id : '/admin/reservaciones';
 
             header('Location: ' . self::urlConResultado($url, $codigo), true, 302);
             exit;
@@ -344,8 +346,8 @@ class AdminReservacionController
         if ($resultado['ok'] ?? false) {
             if ($expectsJson) {
                 $returnTo = (string)($_POST['return_to'] ?? '');
-                if (!str_starts_with($returnTo, '/admin/reservations')) {
-                    $returnTo = '/admin/reservations/show?id=' . self::reservacionIdDesdePost();
+                if (!str_starts_with($returnTo, '/admin/reservaciones')) {
+                    $returnTo = '/admin/reservaciones/detalle?id=' . self::reservacionIdDesdePost();
                 }
                 $resultadoUrl = self::urlConResultado(
                     $returnTo,
@@ -506,8 +508,8 @@ class AdminReservacionController
             'capacidadWarning' => $capacidadWarning,
             'formTransport' => 'json',
             'adminCsrfToken' => AdminCsrfService::token(),
-            'returnUrl' => '/admin/reservations',
-            'backUrl' => '/admin/reservations',
+            'returnUrl' => '/admin/reservaciones',
+            'backUrl' => '/admin/reservaciones',
             'scripts' => [self::RESERVATION_FORM_JS],
         ]);
     }
@@ -792,10 +794,10 @@ class AdminReservacionController
 
     private static function redirectBack(string $resultado): void
     {
-        $url = (string)($_POST['return_to'] ?? '/admin/reservations');
+        $url = (string)($_POST['return_to'] ?? '/admin/reservaciones');
 
-        if (!str_starts_with($url, '/admin/reservations')) {
-            $url = '/admin/reservations';
+        if (!str_starts_with($url, '/admin/reservaciones')) {
+            $url = '/admin/reservaciones';
         }
 
         $url = self::urlConResultado($url, $resultado);
@@ -806,7 +808,7 @@ class AdminReservacionController
 
     private static function redirectToIndex(string $resultado): void
     {
-        header('Location: ' . self::urlConResultado('/admin/reservations', $resultado), true, 302);
+        header('Location: ' . self::urlConResultado('/admin/reservaciones', $resultado), true, 302);
         exit;
     }
 
@@ -816,7 +818,7 @@ class AdminReservacionController
             'options' => ['min_range' => 1]
         ]);
 
-        $url = '/admin/reservations/show';
+        $url = '/admin/reservaciones/detalle';
 
         if ($id) {
             $url .= '?id=' . (int)$id;
@@ -824,7 +826,7 @@ class AdminReservacionController
 
         $back = (string)($_GET['return_url'] ?? '');
 
-        if ($back !== '' && str_starts_with($back, '/admin/reservations')) {
+        if ($back !== '' && str_starts_with($back, '/admin/reservaciones')) {
             $url .= (str_contains($url, '?') ? '&' : '?') . 'return_url=' . rawurlencode($back);
         }
 
@@ -835,11 +837,11 @@ class AdminReservacionController
     {
         $back = (string)($_GET['return_url'] ?? '');
 
-        if ($back !== '' && str_starts_with($back, '/admin/reservations')) {
+        if ($back !== '' && str_starts_with($back, '/admin/reservaciones')) {
             return $back;
         }
 
-        return '/admin/reservations';
+        return '/admin/reservaciones';
     }
 
     private static function backUrlDesdePost(): string
@@ -854,21 +856,21 @@ class AdminReservacionController
 
         $back = (string)($query['return_url'] ?? '');
 
-        if ($back !== '' && str_starts_with($back, '/admin/reservations')) {
+        if ($back !== '' && str_starts_with($back, '/admin/reservaciones')) {
             return $back;
         }
 
-        if ($returnTo !== '' && str_starts_with($returnTo, '/admin/reservations')) {
+        if ($returnTo !== '' && str_starts_with($returnTo, '/admin/reservaciones')) {
             return $returnTo;
         }
 
-        return '/admin/reservations';
+        return '/admin/reservaciones';
     }
 
     private static function urlConResultado(string $url, string $resultado): string
     {
         $partes = parse_url($url);
-        $path = $partes['path'] ?? '/admin/reservations';
+        $path = $partes['path'] ?? '/admin/reservaciones';
         $query = [];
 
         if (!empty($partes['query'])) {

@@ -1,124 +1,129 @@
+/**
+ * Anuncio del restaurante: diálogo al entrar al sitio.
+ *
+ * Antes era una franja sobre el hero con cuenta atrás de 8 s. El aviso competía
+ * con la portada y quien llegaba tarde ya no lo veía, así que ahora se presenta
+ * como diálogo y espera a que lo cierren.
+ *
+ * Se conserva la memoria por sesión con la clave id:version: si cambia el
+ * anuncio vuelve a salir, pero navegar por el sitio no lo repite.
+ */
 function initAnnouncementDismiss() {
-  var announcement = document.querySelector('[data-announcement]');
-  if (!announcement) return;
+  var dialogo = document.querySelector('[data-announcement]');
+  if (!dialogo) return;
 
-  var closeButton = announcement.querySelector('[data-announcement-close]');
-  var progress = announcement.querySelector('[data-announcement-progress]');
-  var announcementId = announcement.getAttribute('data-announcement-id') || 'actual';
-  var announcementVersion = announcement.getAttribute('data-announcement-version') || 'sin-version';
-  var duration = parseInt(announcement.getAttribute('data-duration') || '8000', 10);
-  duration = Number.isFinite(duration) && duration > 0 ? duration : 8000;
+  var panel = dialogo.querySelector('[data-announcement-panel]');
+  var cierres = dialogo.querySelectorAll('[data-announcement-close]');
+  var announcementId = dialogo.getAttribute('data-announcement-id') || 'actual';
+  var announcementVersion = dialogo.getAttribute('data-announcement-version') || 'sin-version';
   var storageKey = 'cp-announcement-hidden:' + announcementId + ':' + announcementVersion;
-  var hero = announcement.closest('.hero');
-  var hasLink = announcement.classList.contains('hero-announcement--has-link');
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var remaining = duration;
-  var previousTime = 0;
-  var animationFrame = 0;
-  var pointerPaused = false;
-  var focusPaused = false;
-  var dismissed = false;
+  var overflowPrevio = '';
+  var ultimoFoco = null;
+  var abierto = false;
+  var lenisDetenido = false;
 
-  function setProgress() {
-    if (!progress) return;
-    var ratio = Math.max(0, Math.min(1, remaining / duration));
+  function recordarCierre() {
+    try {
+      window.sessionStorage.setItem(storageKey, '1');
+    } catch (error) {
+      // El diálogo se cierra igual aunque el almacenamiento no esté disponible;
+      // sólo se pierde el "no volver a mostrar" de esta sesión.
+    }
+  }
+
+  function yaSeVio() {
+    try {
+      return window.sessionStorage.getItem(storageKey) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function focoDentro(evento) {
+    if (!abierto || dialogo.contains(evento.target)) return;
+    if (panel) panel.focus();
+  }
+
+  function alPulsarTecla(evento) {
+    if (evento.key === 'Escape') {
+      evento.preventDefault();
+      cerrar();
+    }
+  }
+
+  function cerrar() {
+    if (!abierto) return;
+    abierto = false;
+    recordarCierre();
+
+    document.removeEventListener('keydown', alPulsarTecla);
+    document.removeEventListener('focusin', focoDentro);
+    document.body.style.overflow = overflowPrevio;
+    // Sólo se reanuda si fuimos nosotros quienes lo paramos: si el visitante
+    // tiene el scroll suave desactivado en los ajustes, no se le enciende.
+    if (lenisDetenido && window.startLenis) {
+      window.startLenis();
+      lenisDetenido = false;
+    }
+
+    dialogo.classList.remove('is-open');
+
+    function ocultar() {
+      dialogo.hidden = true;
+    }
+
     if (reducedMotion) {
-      ratio = Math.ceil(ratio * 4) / 4;
+      ocultar();
+    } else {
+      window.setTimeout(ocultar, 220);
     }
-    progress.style.transform = 'scaleX(' + ratio + ')';
-  }
 
-  function finishHiding() {
-    announcement.hidden = true;
-    if (hero) {
-      hero.classList.remove(
-        'hero--has-announcement',
-        'hero--announcement-has-link',
-        'hero--announcement-without-link'
-      );
+    if (ultimoFoco && typeof ultimoFoco.focus === 'function') {
+      ultimoFoco.focus();
     }
   }
 
-  function hideAnnouncement(storeDismissal) {
-    if (dismissed) return;
-    dismissed = true;
-    if (animationFrame) {
-      window.cancelAnimationFrame(animationFrame);
-      animationFrame = 0;
-    }
-    if (storeDismissal) {
-      try {
-        window.sessionStorage.setItem(storageKey, '1');
-      } catch (error) {
-        // El elemento se oculta aunque el almacenamiento no esté disponible.
-      }
-    }
-    announcement.classList.add('is-closing');
-    if (reducedMotion) {
-      finishHiding();
-      return;
-    }
-    announcement.addEventListener('transitionend', finishHiding, { once: true });
-    window.setTimeout(finishHiding, 240);
-  }
+  function abrir() {
+    if (abierto) return;
+    abierto = true;
+    ultimoFoco = document.activeElement;
 
-  function isPaused() {
-    return pointerPaused || focusPaused;
-  }
-
-  function tick(now) {
-    if (dismissed) return;
-    if (!previousTime) previousTime = now;
-    if (!isPaused()) {
-      remaining = Math.max(0, remaining - (now - previousTime));
-      setProgress();
-      if (remaining <= 0) {
-        hideAnnouncement(true);
-        return;
-      }
+    overflowPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // `overflow: hidden` no frena a Lenis, que desplaza por código: sin pararlo,
+    // la rueda seguiría moviendo la portada por detrás del diálogo.
+    if (window.CP_TWEAKS && window.CP_TWEAKS.smooth && window.stopLenis) {
+      window.stopLenis();
+      lenisDetenido = true;
     }
-    previousTime = now;
-    animationFrame = window.requestAnimationFrame(tick);
-  }
 
-  try {
-    if (window.sessionStorage.getItem(storageKey) === '1') {
-      dismissed = true;
-      finishHiding();
-      return;
-    }
-  } catch (error) {
-    // El cierre sigue disponible durante la página actual sin almacenamiento.
-  }
-
-  announcement.addEventListener('mouseenter', function() {
-    pointerPaused = true;
-  });
-  announcement.addEventListener('mouseleave', function() {
-    pointerPaused = false;
-    previousTime = performance.now();
-  });
-  announcement.addEventListener('focusin', function() {
-    focusPaused = true;
-  });
-  announcement.addEventListener('focusout', function(event) {
-    if (!announcement.contains(event.relatedTarget)) {
-      focusPaused = false;
-      previousTime = performance.now();
-    }
-  });
-
-  if (closeButton) {
-    closeButton.addEventListener('click', function() {
-      hideAnnouncement(true);
+    dialogo.hidden = false;
+    window.requestAnimationFrame(function () {
+      dialogo.classList.add('is-open');
+      if (panel) panel.focus();
     });
+
+    document.addEventListener('keydown', alPulsarTecla);
+    // Trampa de foco sencilla: el diálogo tiene dos o tres elementos
+    // enfocables, así que basta con devolver el foco al panel si se escapa.
+    document.addEventListener('focusin', focoDentro);
   }
 
-  setProgress();
-  if (hero) {
-    hero.classList.add('hero--has-announcement');
-    hero.classList.add(hasLink ? 'hero--announcement-has-link' : 'hero--announcement-without-link');
+  if (yaSeVio()) {
+    dialogo.hidden = true;
+    return;
   }
-  announcement.hidden = false;
-  animationFrame = window.requestAnimationFrame(tick);
+
+  for (var i = 0; i < cierres.length; i++) {
+    cierres[i].addEventListener('click', cerrar);
+  }
+
+  // Un enlace del anuncio lleva a otra parte del sitio: se da por visto.
+  var enlace = dialogo.querySelector('.hero-announcement__link');
+  if (enlace) {
+    enlace.addEventListener('click', recordarCierre);
+  }
+
+  abrir();
 }

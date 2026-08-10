@@ -11,6 +11,46 @@
     var sequence = 0;
     var defaultController = null;
 
+    /*
+     * Bloqueo de scroll del documento.
+     *
+     * En el panel delega en AdminScrollLock (motion.js), que lleva contador y
+     * además detiene Lenis: con el motor de scroll suave corriendo,
+     * `overflow:hidden` no impide nada porque Lenis desplaza por código, y los
+     * dos sistemas de modal se pisaban al restaurar el valor.
+     * El respaldo es para el landing y el POS, donde ese lock no existe.
+     */
+    var overflowPropio = '';
+    var bloqueosPropios = 0;
+
+    function bloquearScrollDocumento() {
+        if (window.AdminScrollLock) {
+            window.AdminScrollLock.bloquear();
+            return;
+        }
+        bloqueosPropios++;
+        if (bloqueosPropios > 1) {
+            return;
+        }
+        overflowPropio = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+    }
+
+    function desbloquearScrollDocumento() {
+        if (window.AdminScrollLock) {
+            window.AdminScrollLock.desbloquear();
+            return;
+        }
+        if (bloqueosPropios === 0) {
+            return;
+        }
+        bloqueosPropios--;
+        if (bloqueosPropios === 0) {
+            document.body.style.overflow = overflowPropio;
+            overflowPropio = '';
+        }
+    }
+
     function textValue(value) {
         return value == null ? '' : String(value);
     }
@@ -148,7 +188,6 @@
         var backdrop = root.querySelector('[data-confirmation-backdrop]');
         var lastFocused = null;
         var current = null;
-        var previousBodyOverflow = '';
         var bodyScrollLocked = false;
         var resolveOpen = null;
 
@@ -203,7 +242,7 @@
             secondary.removeAttribute('data-disabled');
             setStatus('', false);
             if (bodyScrollLocked) {
-                document.body.style.overflow = previousBodyOverflow;
+                desbloquearScrollDocumento();
                 bodyScrollLocked = false;
             }
             var focusTarget = current && current.returnFocus;
@@ -312,8 +351,7 @@
             secondary.disabled = Boolean(options.secondaryDisabled);
             primary.disabled = Boolean(options.primaryDisabled);
             closeButton.hidden = options.closeHidden === true;
-            previousBodyOverflow = document.body.style.overflow;
-            document.body.style.overflow = 'hidden';
+            bloquearScrollDocumento();
             bodyScrollLocked = true;
             if (options.loading || options.initial_loading) setLoading(true);
             window.requestAnimationFrame(function () {
