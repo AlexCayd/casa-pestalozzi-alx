@@ -360,7 +360,8 @@
             state.scheduleAlertDismissed = true;
         }
 
-        function showTechnicalError(kind, requestedDate) {
+        function showTechnicalError(kind, requestedDate, error) {
+            error = error || {};
             state.fechaFallida = requestedDate || state.fecha;
             setDateValue(state.fecha);
             updateUrl();
@@ -379,8 +380,9 @@
                 consistency: 'El servidor respondio con datos de otra fecha. La respuesta fue descartada.',
                 server: 'El servidor no pudo completar la consulta. Vuelve a usar Actualizar mapa cuando el servicio esté disponible.'
             };
-            var title = titles[kind] || 'No fue posible actualizar la operacion';
-            var message = messages[kind] || 'Ocurrio un error inesperado al consultar el servidor.';
+            var title = error.titulo || titles[kind] || 'No fue posible actualizar la operacion';
+            var message = error.consecuencia || messages[kind] || 'Ocurrio un error inesperado al consultar el servidor.';
+            var summary = error.mensaje || 'No se pudieron actualizar los datos del mapa.';
 
             if (state.hasLoadedData && state.fecha) {
                 message += ' Los datos anteriores permanecen visibles. Se mantiene la operación del ' + fechaLegible(state.fecha) + '.';
@@ -390,7 +392,7 @@
                 source: 'technical',
                 type: 'error',
                 title: title,
-                summary: 'No se pudieron actualizar los datos del mapa.',
+                summary: summary,
                 message: message + ' Puedes cerrar este aviso y volver a usar Actualizar mapa cuando la conexión esté disponible.'
             });
         }
@@ -2153,10 +2155,16 @@
                         return;
                     }
                     setLoading(false);
-                    state.loadFailure = { title: 'No fue posible cargar las reservaciones.', message: 'Intenta actualizar la consulta.' };
+                    state.loadFailure = {
+                        title: error && error.titulo || 'No fue posible cargar las reservaciones.',
+                        message: error && error.mensaje || 'Intenta actualizar la consulta.'
+                    };
                     var kind = error instanceof TypeError ? 'connection' : ((error && error.kind) || 'unexpected');
-                    setUpdateStatus(kind === 'connection' ? 'Sin conexion' : 'Error al actualizar', 'error');
-                    showTechnicalError(kind, fecha);
+                    var status = error && error.codigo === 'FECHA_FUERA_DE_HORIZONTE'
+                        ? 'Fecha no disponible'
+                        : (kind === 'connection' ? 'Sin conexion' : 'Error al actualizar');
+                    setUpdateStatus(status, 'error');
+                    showTechnicalError(kind, fecha, error);
                     renderAll();
                 });
         }

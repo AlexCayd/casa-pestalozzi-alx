@@ -200,11 +200,17 @@ class PuntoVentaController {
         $metodoPago = isset($data['metodo_pago'])  ? trim($data['metodo_pago'])           : '';
         $separar    = !empty($data['separar_comensales']);
         $pagos      = isset($data['pagos']) && is_array($data['pagos']) ? $data['pagos'] : [];
-        // Monto recibido en cuenta completa. El excedente sobre el total NO es
-        // propina automáticamente: es cambio a devolver salvo que el cliente
-        // deje parte como propina, que llega explícita en 'propina'.
+        // En cuenta completa, `propina` es opcional para conservar clientes
+        // antiguos: si no llega, el excedente se interpreta como propina.
         $recibido   = isset($data['recibido']) ? round((float)$data['recibido'], 2) : null;
-        $propinaSolicitada = isset($data['propina']) ? round((float)$data['propina'], 2) : null;
+        $propinaSolicitada = array_key_exists('propina', $data)
+            ? round((float)$data['propina'], 2)
+            : null;
+
+        if ($propinaSolicitada !== null && $propinaSolicitada < 0) {
+            self::errorJson('PROPINA_INVALIDA', 422);
+            return;
+        }
 
         if (!$ticketId) {
             self::errorJson('TICKET_NO_VALIDO');
@@ -314,35 +320,39 @@ class PuntoVentaController {
             // el método y monto de cada comensal queda en ticket_pagos.
             $metodoPago = 'dividido';
         } else {
-            // Cuenta completa: un único método, el monto recibido y la propina
-            // que el cliente decidió dejar.
+            // Cuenta completa: un único método, monto recibido y propina
+            // explícita. El excedente que no se deja como propina es cambio.
             if (!in_array($metodoPago, $allowedMetodos, true)) {
                 self::errorJson('METODO_PAGO_INVALIDO');
                 return;
             }
 
-            // El cliente nunca fija la propina: se recorta a lo que el efectivo
-            // entregado permite. Sin ese tope, un payload manipulado registraría
-            // propina que nadie dejó.
-            $propina = max(0.0, (float)($propinaSolicitada ?? 0.0));
-
-            // Sin monto recibido se asume que entregó justo lo que hay que cobrar.
+            // Sin monto recibido se asume que se entregó exactamente total +
+            // propina. Esto permite el cierre con tarjeta sin inventar cambio.
             if ($recibido === null) {
-                $recibido = round($total + $propina, 2);
+                $recibido = round($total + (float)($propinaSolicitada ?? 0.0), 2);
             }
 
             $recibidoCents = (int)round($recibido * 100);
-            if ($recibidoCents < $totalCents - 1) {
+            if ($propinaSolicitada !== null) {
+                $propinaCents = (int)round($propinaSolicitada * 100);
+                if ($recibidoCents < $totalCents + $propinaCents - 1) {
+                    self::errorJson('PAGO_INSUFICIENTE', 422, [
+                        'total' => $total,
+                        'propina' => $propinaSolicitada,
+                        'recibido' => $recibido,
+                    ]);
+                    return;
+                }
+                $propina = $propinaCents / 100;
+            } elseif ($recibidoCents < $totalCents - 1) {
                 self::errorJson('PAGO_INSUFICIENTE', 422, [
                     'total' => $total,
                     'recibido' => $recibido,
                 ]);
                 return;
-            }
-
-            if ($metodoPago === 'efectivo') {
-                $excedenteCents = max(0, $recibidoCents - $totalCents);
-                $propina = round(min($propina, $excedenteCents / 100), 2);
+            } else {
+                $propina = round(max(0.0, $recibido - $total), 2);
             }
         }
 
@@ -573,20 +583,11 @@ class PuntoVentaController {
         }
 
         try {
-            // Se entrega desde cualquier estado vivo, no sólo desde 'listo': el
-            // mesero ve el plato en la mano y la cocina puede ir un paso atrás
-            // en el tablero. Lo cancelado y lo ya entregado sí quedan fuera.
+            // La entrega sólo puede avanzar un ítem que la cocina marcó como listo.
             TicketItem::ejecutarSQL(
                 "UPDATE ticket_items SET estado = 'entregado'
-                 WHERE id = {$itemId} AND estado NOT IN ('entregado', 'cancelado')"
+                 WHERE id = {$itemId} AND estado = 'listo'"
             );
-
-            // Sin filas afectadas no hubo entrega. Antes respondía ok:true
-            // igualmente y la UI se quedaba muda ante un ítem ya cancelado.
-            if (TicketItem::getDB()->affected_rows < 1) {
-                self::errorJson('ITEM_NO_ENTREGABLE');
-                return;
-            }
 
             echo json_encode(['ok' => true]);
         } catch (\Throwable $e) {

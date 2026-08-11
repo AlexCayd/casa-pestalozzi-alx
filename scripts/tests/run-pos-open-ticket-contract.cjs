@@ -65,6 +65,26 @@ assertContract(
   requestSource.includes('mostrarAdvertenciaReservacionProxima(payload, warnings, result)'),
   'decision muestra la presentacion canonica antes de validar ticket_id'
 );
+const noticeStart = source.indexOf('function showOpenTicketNotice(options)');
+const noticeEnd = source.indexOf('\n  function mostrarAdvertenciaReservacionProxima', noticeStart);
+const warningStart = source.indexOf('function mostrarAdvertenciaReservacionProxima');
+const warningEnd = source.indexOf('\n  function requestOpenTicket', warningStart);
+assertContract(noticeStart !== -1 && noticeEnd !== -1, 'showOpenTicketNotice tiene limites reconocibles');
+assertContract(warningStart !== -1 && warningEnd !== -1, 'mostrarAdvertenciaReservacionProxima tiene limites reconocibles');
+const noticeSource = source.slice(noticeStart, noticeEnd);
+const warningSource = source.slice(warningStart, warningEnd);
+assertContract(
+  noticeSource.includes('return result.then(function (value)') || noticeSource.includes('return options.onConfirm();'),
+  'el modal propaga la Promise de onConfirm'
+);
+assertContract(
+  warningSource.includes('return requestOpenTicket(confirmedPayload, { warningConfirmed: true });'),
+  'el warning retorna la Promise de apertura confirmada'
+);
+assertContract(
+  requestSource.includes('return result;'),
+  'la apertura confirmada conserva el resultado para cerrar el modal canónico'
+);
 assertContract(
   !requestSource.includes('if (result.ok) {'),
   'requestOpenTicket no usa ok como primera precedencia'

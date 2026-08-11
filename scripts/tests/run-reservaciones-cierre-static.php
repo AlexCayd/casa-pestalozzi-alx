@@ -17,11 +17,20 @@ $controller = file_get_contents($root . '/controllers/PuntoVentaController.php')
 $posRaw = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $pos = is_string($posRaw) ? str_replace(["\r\n", "\r"], "\n", $posRaw) : $posRaw;
 $availability = file_get_contents($root . '/services/DisponibilidadReservacionService.php');
+$reservationForm = file_get_contents($root . '/views/admin/reservations/_form.php');
 
 assertClosureContract(is_string($auth), 'se pudo leer la frontera de autorización');
 assertClosureContract(is_string($controller), 'se pudo leer el controlador POS');
 assertClosureContract(is_string($pos), 'se pudo leer el consumidor POS');
 assertClosureContract(is_string($availability), 'se pudo leer el motor de disponibilidad');
+assertClosureContract(is_string($reservationForm), 'se pudo leer el formulario administrativo de reservaciones');
+
+assertClosureContract(
+    str_contains($reservationForm, '$formDisabled = !$iniciarEdicion;')
+        && substr_count($reservationForm, '$disabled = $formDisabled;') >= 2
+        && !str_contains($reservationForm, 'echo $disabled ?'),
+    'el estado disabled del formulario no se pierde al incluir los selectores de fecha y hora'
+);
 
 assertClosureContract(
     str_contains($auth, "'/api/sugerencias'")
@@ -33,6 +42,18 @@ assertClosureContract(
         && str_contains($controller, "\$resultado['codigo'] = 'NO_SHOW';")
         && str_contains($controller, "\$cierre['codigo'] = 'TICKET_CERRADO';"),
     'mutaciones POS confirmadas exponen códigos con commit canónico'
+);
+assertClosureContract(
+    str_contains($controller, '$propinaSolicitada = array_key_exists(\'propina\', $data)')
+        && str_contains($controller, 'if ($propinaSolicitada !== null)')
+        && str_contains($controller, '$propina = $propinaCents / 100;')
+        && str_contains($controller, '$propina = round(max(0.0, $recibido - $total), 2);'),
+    'el cierre completo acepta propina explícita y conserva el fallback legado sin duplicar el cambio'
+);
+assertClosureContract(
+    str_contains($controller, "WHERE id = {\$itemId} AND estado = 'listo'")
+        && str_contains($controller, "estado NOT IN ('entregado','cancelado')"),
+    'la entrega conserva los estados de entrega compatibles con cocina'
 );
 assertClosureContract(
     str_contains($pos, 'var committed = result && result.commit === true;')
@@ -51,6 +72,15 @@ assertClosureContract(
 assertClosureContract(
     substr_count($pos, 'if (result.commit === true) {') >= 2,
     'los cierres de ticket no usan ok como alias de commit'
+);
+assertClosureContract(
+    str_contains($pos, 'var PROPINA_PRESETS = [10, 15, 20];')
+        && str_contains($pos, 'id="pc-propina"')
+        && str_contains($pos, 'id="pc-cambio-wrap"')
+        && str_contains($pos, 'id="pc-quedese"')
+        && str_contains($pos, 'apiCerrarTicket(ticket.id, metodoActivo(), mesa, recibido, propinaCents / 100);')
+        && str_contains($pos, 'propina:            propina || 0'),
+    'la cuenta completa recupera propina, cambio y el payload explícito sin alterar el contrato commit'
 );
 assertClosureContract(
     str_contains($availability, '$horaSolicitadaEntrada')

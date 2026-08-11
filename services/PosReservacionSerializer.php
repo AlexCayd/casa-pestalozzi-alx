@@ -102,7 +102,7 @@ final class PosReservacionSerializer
             $mesasAsignadas
         ));
         $updatedAt = (string)($datos['updated_at'] ?? $datos['created_at'] ?? '');
-        $version = hash('sha256', $updatedAt . '|' . implode(',', $mesaIds));
+        $version = ReservacionAsignacionVersionService::calcular($updatedAt, $mesaIds);
 
         $serializado = [
             'schema_version' => self::SCHEMA_VERSION,

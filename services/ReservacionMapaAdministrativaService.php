@@ -311,10 +311,9 @@ final class ReservacionMapaAdministrativaService
 
     private static function version(array $reservacion, array $mesaIds): string
     {
-        return hash(
-            'sha256',
-            (string)($reservacion['updated_at'] ?: $reservacion['created_at'])
-                . '|' . implode(',', $mesaIds)
+        return ReservacionAsignacionVersionService::calcular(
+            (string)($reservacion['updated_at'] ?: $reservacion['created_at']),
+            $mesaIds
         );
     }
 

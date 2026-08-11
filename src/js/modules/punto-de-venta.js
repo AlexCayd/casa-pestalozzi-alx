@@ -3144,10 +3144,6 @@ function initMapa() {
 
     function fmt(cents) { return (cents / 100).toFixed(2).replace(/\.00$/, ''); }
 
-    // Propina explícita, no derivada del excedente. Antes todo lo que sobraba
-    // del efectivo se registraba como propina y el cambio no existía: si el
-    // cliente pagaba $500 de una cuenta de $440 el ticket guardaba $60 de
-    // propina en vez de $60 de cambio a devolver.
     var propinaCents = 0;
     var propinaPct = null;
     var PROPINA_PRESETS = [10, 15, 20];
@@ -3231,6 +3227,26 @@ function initMapa() {
       }
     }
 
+    // Restaurar lo capturado si el mesero había salido a medias.
+    var guardado = leerCierrePaso(ticket.id);
+    if (guardado && guardado.step === 'completa') {
+      if (guardado.recibido != null) recibidoEl.value = guardado.recibido;
+      if (guardado.metodo === 'tarjeta') {
+        for (var mb = 0; mb < metodoBtns.length; mb++) {
+          metodoBtns[mb].classList.toggle('mmodal-pago-btn--active', metodoBtns[mb].dataset.metodo === 'tarjeta');
+        }
+      }
+      if (typeof guardado.propina === 'number' && guardado.propina >= 0) {
+        propinaCents = Math.round(guardado.propina);
+        propinaPct = guardado.propinaPct != null ? guardado.propinaPct : 'custom';
+        marcarPropinaActiva(propinaPct);
+        if (propinaPct === 'custom') {
+          propinaInput.hidden = false;
+          propinaInput.value = (propinaCents / 100).toFixed(2);
+        }
+      }
+    }
+
     function persistir() {
       guardarCierrePaso(ticket.id, {
         step: 'completa',
@@ -3241,11 +3257,9 @@ function initMapa() {
       });
     }
 
-    /**
-     * Con tarjeta no hay efectivo en juego: se cobra total + propina y el
-     * cambio no aplica. Con efectivo, el cambio es lo recibido menos el total
-     * menos la propina, así que una propina mayor al excedente es imposible.
-     */
+    // Con tarjeta se cobra total + propina. Con efectivo, el cambio es lo
+    // recibido menos total menos propina; así el excedente no se duplica como
+    // propina en el servidor.
     function validar() {
       var esEfectivo = metodoActivo() === 'efectivo';
       var aCobrar = totalCents + propinaCents;
@@ -3268,16 +3282,12 @@ function initMapa() {
 
       var val = parseFloat(recibidoEl.value);
       var vacio = recibidoEl.value.trim() === '';
-      // Vacío = el cliente entrega justo lo que hay que cobrar.
       var recibidoCents = vacio ? aCobrar : ((isNaN(val) || val < 0) ? 0 : Math.round(val * 100));
       var diff = recibidoCents - aCobrar;
       var excedenteSobreTotal = recibidoCents - totalCents;
       var ok = diff >= -1;
 
-      // Sólo tiene sentido ofrecerlo cuando hay excedente que convertir y
-      // todavía no está todo asignado a propina.
       quedeseBtn.hidden = vacio || excedenteSobreTotal <= 1 || diff <= 1;
-
       cambioWrap.hidden = !ok || diff <= 1;
       cambioEl.textContent = '$' + fmt(Math.max(0, diff));
 
@@ -3307,26 +3317,6 @@ function initMapa() {
       persistir();
     }
 
-    // Restaurar lo capturado si el mesero había salido a medias.
-    var guardado = leerCierrePaso(ticket.id);
-    if (guardado && guardado.step === 'completa') {
-      if (guardado.recibido != null) recibidoEl.value = guardado.recibido;
-      if (guardado.metodo === 'tarjeta') {
-        for (var mb = 0; mb < metodoBtns.length; mb++) {
-          metodoBtns[mb].classList.toggle('mmodal-pago-btn--active', metodoBtns[mb].dataset.metodo === 'tarjeta');
-        }
-      }
-      if (typeof guardado.propina === 'number' && guardado.propina >= 0) {
-        propinaCents = Math.round(guardado.propina);
-        propinaPct = guardado.propinaPct != null ? guardado.propinaPct : 'custom';
-        marcarPropinaActiva(propinaPct);
-        if (propinaPct === 'custom') {
-          propinaInput.hidden = false;
-          propinaInput.value = (propinaCents / 100).toFixed(2);
-        }
-      }
-    }
-
     for (var b = 0; b < metodoBtns.length; b++) {
       (function(btn) {
         btn.addEventListener('click', function() {
@@ -3343,8 +3333,12 @@ function initMapa() {
         btn.addEventListener('click', function() {
           if (btn.dataset.pct === 'custom') {
             propinaPct = 'custom';
+            propinaCents = 0;
+            propinaInput.value = '';
             propinaInput.hidden = false;
             marcarPropinaActiva('custom');
+            validar();
+            persistir();
             propinaInput.focus();
             return;
           }
@@ -3712,8 +3706,8 @@ function initMapa() {
     }
 
     modalContent.querySelector('#qr-cerrar').addEventListener('click', function() {
-      closeModal();
-      silentRefresh();
+      closeModal({ refresh: false });
+      fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
     });
   }
 
@@ -3844,7 +3838,8 @@ function initMapa() {
     openModalShell();
     // get() reutiliza el singleton de <body>. create() montaba un root nuevo en
     // cada aviso y ninguno se recogía: se acumulaban durante todo el turno.
-    window.ConfirmationModal.get().open({
+    var confirmationController = window.ConfirmationModal.get();
+    confirmationController.open({
       variant: options.variant === 'absence' || options.confirmButtonVariant === 'warning'
         ? 'warning'
         : 'default',
@@ -3861,7 +3856,15 @@ function initMapa() {
         closeModal({ refresh: options.refreshOnCancel !== false });
       },
       onPrimary: function () {
-        if (typeof options.onConfirm === 'function') options.onConfirm();
+        if (typeof options.onConfirm !== 'function') return;
+        var result = options.onConfirm();
+        if (!result || typeof result.then !== 'function') return result;
+        return result.then(function (value) {
+          if (value && value.ok === true && value.commit === true) {
+            confirmationController.close(false, { action: 'primary', value: value });
+          }
+          return value;
+        });
       }
     });
   }
@@ -3898,8 +3901,7 @@ function initMapa() {
         var confirmedPayload = Object.assign({}, payload, {
           confirmar_reservacion_proxima: 1
         });
-        requestOpenTicket(confirmedPayload, { warningConfirmed: true });
-        closeModal({ refresh: false });
+        return requestOpenTicket(confirmedPayload, { warningConfirmed: true });
       }
     });
     return true;
@@ -3970,7 +3972,7 @@ function initMapa() {
           cancelLabel: 'Entendido',
           refreshOnCancel: !ticketSelectionMode
         });
-        return;
+        return null;
       }
 
       if (resultadoTipo === 'exito') {
@@ -4013,7 +4015,7 @@ function initMapa() {
         };
         if (refresh && typeof refresh.then === 'function') refresh.then(abrirCreado);
         else abrirCreado();
-        return;
+        return result;
       }
       throw new Error('Respuesta contractual inconsistente al abrir el ticket.');
     })
@@ -4036,6 +4038,7 @@ function initMapa() {
         cancelLabel: 'Entendido',
         refreshOnCancel: !ticketSelectionMode
       });
+      return null;
     })
     .finally(function() {
       ticketRequestInFlight = false;
@@ -4277,8 +4280,6 @@ function initMapa() {
         metodo_pago:        metodoPago,
         separar_comensales: false,
         recibido:           recibido,
-        // Explícita: el servidor ya no la deduce del excedente, que ahora es
-        // cambio a devolver.
         propina:            propina || 0
       })
     })

@@ -52,6 +52,9 @@ assertContract(!form.includes('labels[code] || code'), 'formulario no tiene mapa
 assertContract(!form.includes("label: 'Confirmar', tipo: 'primary'"), 'formulario no inventa accion primaria de decision');
 assertContract(form.includes('decisionConfirmationOptions'), 'formulario adapta decisiones estructuradas');
 assertContract(form.includes('decisionActions'), 'formulario usa acciones canonicas del backend');
+assertContract(form.includes('normalizeContactForServer'), 'formulario admin normaliza telefonos al contrato E.164');
+assertContract(form.includes('contactInput.value = contactoCanonico'), 'formulario admin envia telefono normalizado');
+assertContract(form.includes("contactInput.setAttribute('maxlength'"), 'formulario admin limita la captura visual del telefono');
 assertContract(/acceptedConfirmationCodes\s*=\s*acceptedConfirmationCodes\s*\.concat/.test(form), 'formulario conserva confirmaciones aceptadas entre decisiones');
 assertContract(form.includes("payload.tipo === 'decision_requerida'"), 'formulario prioriza tipo canonico de decision');
 assertContract(operation.includes('commitCreationResult'), 'operacion trata el commit de creacion como exito');
@@ -69,6 +72,8 @@ assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
 assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operacion rechaza respuestas de fecha stale');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
+assertContract(operation.includes("error.codigo === 'FECHA_FUERA_DE_HORIZONTE'"), 'operacion conserva el codigo de fecha fuera de horizonte');
+assertContract(operation.includes('showTechnicalError(kind, fecha, error)'), 'operacion presenta el error canonico de fecha');
 assertContract(!operation.includes('ventana_operativa'), 'operacion no recalcula ventanas visuales');
 assertContract(operation.includes('estado_visual_mapa'), 'operacion consume proyeccion visual del backend');
 assertContract(operation.includes('currentAssignmentIds'), 'operacion conserva snapshot de asignacion actual');

@@ -344,10 +344,9 @@ class AsignacionMesasService
                 return ['ok' => false, 'codigo' => self::DATOS_INCOMPLETOS];
             }
 
-            $versionActual = hash(
-                'sha256',
-                (string)($reservacion['updated_at'] ?: $reservacion['created_at'])
-                    . '|' . implode(',', $asignacionActualIds)
+            $versionActual = ReservacionAsignacionVersionService::calcular(
+                (string)($reservacion['updated_at'] ?: $reservacion['created_at']),
+                $asignacionActualIds
             );
             if ($validarContexto) {
                 $fechaEsperada = trim((string)($opciones['fecha_esperada'] ?? ''));
