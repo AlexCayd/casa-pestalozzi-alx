@@ -1,7 +1,7 @@
 # Módulo de reservaciones — Fuente de verdad vigente
 
 **Proyecto:** Casa Pestalozzi
-**Versión:** 2026-08-09
+**Versión:** 2026-08-10
 **Estado:** Contrato funcional y técnico vigente
 **Zona horaria canónica:** `America/Mexico_City`
 **Propósito:** Definir exclusivamente las reglas vigentes del módulo de reservaciones.
@@ -45,10 +45,10 @@ El módulo permite:
 
 Las superficies son:
 
-1. **Landing pública.**
-2. **Panel administrativo.**
-3. **Mapa de gestión de reservaciones.**
-4. **Mapa del punto de venta.**
+1. ****Landing pública.****
+2. ****Panel administrativo.****
+3. ****Mapa de gestión de reservaciones.****
+4. ****Mapa del punto de venta.****
 
 Todas consumen los mismos hechos canónicos.
 
@@ -597,7 +597,7 @@ AND no existe ticket propio abierto
 Una ausencia pendiente:
 
 - no cambia automáticamente a `no_show`;
-- conserva la acción manual **Registrar ausencia**;
+- conserva la acción manual ****Registrar ausencia****;
 - no permite iniciar la reservación;
 - no permite walk-in en POS hasta registrar ausencia;
 - no modifica por sí sola los demás hechos físicos de la mesa;
@@ -744,7 +744,7 @@ Límites actuales:
 
 ---
 
-## 11.3 Azul — reservación próxima y tolerancia
+## 11.3 Azul — reservación próxima
 
 La mesa se muestra:
 
@@ -773,14 +773,13 @@ fin_azul =
 hora_reservacion
 ```
 
-Intervalo visual:
+Intervalo visual del mapa administrativo:
 
 ```text
 [
     inicio_azul,
     hora_reservacion
 )
-]
 ```
 
 Con configuración actual:
@@ -793,7 +792,7 @@ inmediatamente antes del inicio
 → azul
 
 hora exacta
-→ rojo
+→ rojo en el mapa administrativo
 ```
 
 Ejemplo:
@@ -806,13 +805,14 @@ Reservación: 14:00
 14:00 → rojo
 ```
 
-El azul comunica:
+El azul del mapa administrativo comunica:
 
 ```text
-reservación próxima o dentro de tolerancia
+reservación próxima antes de su inicio
 ```
 
-No significa ocupación física.
+No representa tolerancia posterior al inicio y no significa ocupación física.
+La tolerancia azul posterior al inicio pertenece exclusivamente a la presentación POS definida en la sección 17.
 
 ---
 
@@ -822,7 +822,7 @@ No significa ocupación física.
 ROJO
 ```
 
-representa una mesa ocupada o dentro de una ocupación planificada vigente.
+representa en el mapa administrativo una mesa ocupada físicamente o una ocupación planificada vigente que todavía influye en la proyección.
 
 Se utiliza por:
 
@@ -833,9 +833,9 @@ ticket abierto sobre la mesa
 → rojo
 ```
 
-### Reservación dentro de su intervalo planificado
+### Reservación iniciada que todavía influye
 
-La reservación conserva un intervalo planificado de:
+La reservación tiene un intervalo planificado de:
 
 ```text
 DURACION_RESERVACION_MINUTOS
@@ -847,18 +847,23 @@ Con configuración actual:
 90 minutos
 ```
 
-La reservación se representa como rojo desde su hora exacta de inicio y mientras continúe influyendo en el intervalo consultado:
+Mientras la reservación siga influyendo en disponibilidad, el mapa administrativo la representa en rojo desde su hora exacta de inicio dentro del intervalo planificado:
 
 ```text
-ROJO
+hora_consulta >= hora_reservacion
+AND
+hora_consulta < hora_reservacion + DURACION_RESERVACION_MINUTOS
+AND
+reservacion_influye_en_disponibilidad = true
+
+→ rojo
 ```
 
-Ejemplo:
+Ejemplo de proyección mientras la reservación todavía influye:
 
 ```text
 Reservación 14:00
 Duración 90
-Tolerancia 15
 
 13:30–13:59:59
 → azul
@@ -870,13 +875,31 @@ Tolerancia 15
 → recalcular
 ```
 
-Si la tolerancia ya expiró y la ausencia sigue pendiente:
+La matriz anterior describe la proyección planificada. `ausencia_pendiente` se decide con `ahora`, no únicamente con `hora_consulta`.
+
+Si la tolerancia real ya expiró, no existe ticket propio abierto y se cumple:
 
 ```text
-estado base recalculado sin esa reservación + indicador gris
+ausencia_pendiente = true
 ```
 
-La ausencia pendiente ya no bloquea capacidad ni asignación. Si existe otro ticket o reservación bloqueante, ese otro hecho conserva su color base.
+entonces esa reservación deja de influir en capacidad y asignación y **deja también de determinar el estado base visual**. El estado base se recalcula sin esa reservación y después se agrega el indicador gris.
+
+Ejemplos después de una ausencia pendiente real:
+
+```text
+sin otro conflicto
+→ verde + gris
+
+otro ticket abierto
+→ rojo + gris
+
+otra reservación próxima
+→ azul + gris
+
+otra reservación en aviso
+→ verde + borde azul punteado + gris
+```
 
 ---
 
@@ -993,16 +1016,19 @@ Debe estar asociado exclusivamente a las mesas afectadas por la ausencia pendien
 
 ## 12.3 El gris no determina disponibilidad
 
-Ejemplo:
+El gris sólo indica una acción pendiente. El estado base debe provenir de otros hechos vigentes después de retirar del cálculo a la reservación cuya tolerancia expiró.
+
+Ejemplo con otro hecho que determina rojo:
 
 ```text
 estado base = rojo
+causa del rojo = ticket abierto u otra ocupación vigente
 ausencia_pendiente = true
 
 → rojo + gris
 ```
 
-Otro:
+Ejemplo sin otro conflicto:
 
 ```text
 estado base = verde
@@ -1011,7 +1037,7 @@ ausencia_pendiente = true
 → verde + gris
 ```
 
-Otro:
+Ejemplo con otra reservación próxima:
 
 ```text
 estado base = azul
@@ -1020,11 +1046,11 @@ ausencia_pendiente = true
 → azul + gris
 ```
 
-La política funcional se obtiene por hechos backend, no por el gris.
+La reservación asociada a la ausencia pendiente no puede conservar artificialmente rojo, azul ni un bloqueo de asignación por sí misma. La política funcional se obtiene por hechos backend, no por el gris.
 
 ---
 
-# 13. Matriz visual normativa
+# 13. Matriz visual normativa del mapa administrativo
 
 Con una reservación a las:
 
@@ -1041,60 +1067,64 @@ TOLERANCIA = 15
 DURACION = 90
 ```
 
-la representación base es:
+la representación base del **mapa administrativo**, mientras la reservación todavía influya en disponibilidad, es:
 
-| Hora consultada                   | Visual base                 |
-| --------------------------------- | --------------------------- |
-| Antes de 13:00                    | Verde                       |
-| 13:00                             | Verde + borde azul punteado |
-| 13:01–13:29                       | Verde + borde azul punteado |
-| 13:30                             | Azul                        |
-| 13:31–13:59                       | Azul                        |
-| 14:00                             | Rojo                        |
-| 14:01–15:29                       | Rojo                        |
-| 15:30 en adelante                 | Recalcular estado base      |
+| Hora consultada | Visual base del mapa |
+|---|---|
+| Antes de 13:00 | Verde |
+| 13:00 | Verde + borde azul punteado |
+| 13:01–13:29 | Verde + borde azul punteado |
+| 13:30 | Azul |
+| 13:31–13:59:59 | Azul |
+| 14:00 | Rojo |
+| Después de 14:00 y antes de 15:30 | Rojo mientras la reservación siga influyendo |
+| 15:30 en adelante | Recalcular estado base |
 
-Si después de las 14:15 existe:
+La tolerancia no vuelve azul al mapa después del inicio. Esa representación azul posterior al inicio pertenece al POS.
+
+La ausencia pendiente se evalúa con el reloj real `ahora`:
+
+```text
+ahora > hora_reservacion + TOLERANCIA_LLEGADA_MINUTOS
+AND estado = confirmada
+AND no existe ticket propio abierto
+
+→ ausencia_pendiente = true
+```
+
+En cuanto `ausencia_pendiente = true`, la reservación vencida deja de determinar el estado base, incluso si `hora_consulta` todavía cae dentro de sus 90 minutos planificados.
+
+Ejemplo, si realmente son las 14:20 y la reservación de las 14:00 no llegó:
 
 ```text
 ausencia_pendiente = true
-```
+sin otro ticket ni reservación conflictiva
 
-se agrega gris.
-
-Ejemplo:
-
-```text
-14:20
-base = rojo
-ausencia pendiente = true
-
-→ rojo + gris
-```
-
-Si a las 15:30 la reservación ya no determina el estado base y no existe otro bloqueo:
-
-```text
 base = verde
-ausencia pendiente = true
-
+modificador = gris
 → verde + gris
 ```
 
-Si a esa hora existe otra reservación próxima:
+Si existe otro hecho vigente:
 
 ```text
-base = azul
-ausencia pendiente = true
+otro ticket abierto
+→ rojo + gris
 
+otra reservación próxima
 → azul + gris
+
+otra reservación en aviso
+→ verde + borde azul punteado + gris
 ```
+
+Una proyección futura realizada **antes** de que venza realmente la tolerancia puede seguir mostrando rojo dentro del intervalo planificado, porque en ese momento todavía no existe `ausencia_pendiente`.
 
 ---
 
-# 14. Prioridad visual
+# 14. Prioridad visual del mapa administrativo
 
-Primero se calcula el estado base.
+Primero se calcula el estado base con hechos vigentes.
 
 Prioridad:
 
@@ -1103,9 +1133,10 @@ Prioridad:
 
 2. Ticket abierto → rojo
 
-3. Reservación iniciada y vigente:
+3. Reservación iniciada que todavía influye en disponibilidad:
    desde hora exacta
    hasta fin del intervalo planificado
+   mientras reservacion_influye_en_disponibilidad = true
    → rojo
 
 4. Reservación próxima:
@@ -1122,16 +1153,22 @@ Prioridad:
 7. Disponible → verde
 ```
 
-Después de calcular el estado base:
+Antes de aplicar esta prioridad, una reservación con:
+
+```text
+ausencia_pendiente = true
+```
+
+debe retirarse como causa de ocupación planificada, capacidad y asignación. Después se recalcula el estado base con tickets y otras reservaciones.
+
+Finalmente:
 
 ```text
 si ausencia_pendiente = true
 → agregar indicador gris
 ```
 
-El indicador gris nunca participa en la elección del estado base.
-
-Cuando la reservación asociada está en `ausencia_pendiente`, se retira del cálculo de capacidad y asignación. El estado base se recalcula con tickets y otras reservaciones; después se agrega el gris.
+El indicador gris nunca participa en la elección del estado base y nunca bloquea por sí mismo la selección o la asignación.
 
 ---
 
@@ -1347,9 +1384,77 @@ azul
 La mesa espera al cliente y no se considera ocupada físicamente mientras no
 exista ticket abierto.
 
+## 17.5 Contrato de respuestas mutables
+
+Las respuestas de mutaciones deben interpretarse con la combinación de
+`tipo`, `codigo` y `commit`. `ok` indica que la respuesta fue comprendida y no
+es, por sí solo, una afirmación de que la mutación ya escribió datos.
+
+### Decisión requerida
+
+```json
+{
+  "ok": true,
+  "commit": false,
+  "tipo": "decision_requerida",
+  "codigo": "..."
+}
+```
+
+La solicitud fue comprendida, pero requiere una decisión explícita antes de
+escribir. El cliente debe mostrar la presentación y no exigir datos que sólo
+existen después del commit, como `ticket_id`.
+
+### Éxito confirmado
+
+```json
+{
+  "ok": true,
+  "commit": true,
+  "tipo": "exito",
+  "codigo": "..."
+}
+```
+
+La mutación fue confirmada. Cuando la operación crea un ticket, `ticket_id`
+debe estar presente.
+
+### Error
+
+```json
+{
+  "ok": false,
+  "commit": false,
+  "tipo": "error",
+  "codigo": "..."
+}
+```
+
+Las siguientes combinaciones son inválidas:
+
+```text
+decision_requerida + commit=true
+error              + commit=true
+exito              + commit=false
+```
+
+En el POS, la precedencia de interpretación es:
+
+```text
+decision_requerida
+error
+éxito confirmado
+respuesta inconsistente
+```
+
+Para apertura de ticket, el primer POST de una reservación en ventana de
+advertencia devuelve `REQUIERE_CONFIRMACION` sin escribir; el POST confirmado
+revalida la política y sólo entonces puede devolver un ticket creado con
+`commit=true`.
+
 ---
 
-## 17.5 Tolerancia vencida
+## 17.6 Tolerancia vencida
 
 Si existe ausencia pendiente:
 
@@ -1360,7 +1465,7 @@ puede_marcar_no_show = true
 
 hasta registrar ausencia.
 
-El visual conserva el estado base y agrega gris.
+La reservación vencida se retira como causa del estado base. El POS recalcula el estado con los demás hechos vigentes y después agrega gris. El gris no habilita walk-in: `disponible_para_ticket` permanece en `false` hasta registrar ausencia.
 
 ---
 
@@ -1376,7 +1481,7 @@ Verde + borde azul punteado
 → reservación cercana
 
 Azul
-→ reservación próxima o dentro de tolerancia
+→ reservación próxima, desde el bloqueo hasta inmediatamente antes del inicio
 
 Rojo
 → ticket abierto o reservación iniciada y vigente dentro de su intervalo planificado
@@ -1393,9 +1498,8 @@ Gris
 
 El mapa no deduce asignabilidad por color.
 
-Estas reglas no obligan al POS a usar rojo en el inicio exacto o durante la
-tolerancia. El POS mantiene azul en esas ventanas hasta que exista ticket
-abierto.
+En el mapa administrativo, el rojo comienza exactamente con la hora de la
+reservación y continúa dentro del intervalo planificado **mientras esa reservación siga influyendo en disponibilidad**; la tolerancia no convierte ese estado base en azul. Si la tolerancia real vence sin ticket propio, `ausencia_pendiente=true` retira esa reservación como causa del estado base y se recalcula con los demás hechos. Estas reglas no obligan al POS a usar rojo: el POS mantiene azul en el inicio exacto y durante la tolerancia mientras no exista ticket abierto.
 
 ---
 
@@ -1437,7 +1541,7 @@ Mesa 4, disponible. Acción pendiente: registrar ausencia.
 
 # 20. Contrato mínimo de proyección
 
-El backend debe poder transportar:
+El backend debe poder transportar hechos funcionales y presentaciones separadas. Ejemplo de una mesa con reservación en ventana de advertencia:
 
 ```json
 {
@@ -1456,31 +1560,43 @@ El backend debe poder transportar:
   "estado_visual_pos": "libre",
 
   "modificadores_visual_mapa": ["reservacion_advertencia"],
-
   "modificadores_visual_pos": ["reservacion_advertencia"]
 }
 ```
 
-Ejemplo con tolerancia vencida:
+Ejemplo con tolerancia **realmente vencida**, sin ticket ni otro conflicto:
 
 ```json
 {
   "mesa_id": 4,
 
-  "estado_visual_mapa": "ocupada",
+  "ocupada_fisicamente": false,
+  "bloqueada_en_intervalo": false,
+
+  "disponible_para_asignacion": true,
+  "disponible_para_ticket": false,
+
+  "requiere_advertencia_ticket": false,
+  "ausencia_pendiente": true,
+
+  "estado_visual_mapa": "libre",
   "estado_visual_pos": "libre",
 
   "modificadores_visual_mapa": ["ausencia_pendiente"],
-
-  "ausencia_pendiente": true
+  "modificadores_visual_pos": ["ausencia_pendiente"]
 }
 ```
 
-Resultado:
+Resultado visual:
 
 ```text
-rojo + gris (mapa administrativo)
+mapa administrativo → verde + gris
+POS                 → verde + gris
 ```
+
+El hecho de que POS se vea verde + gris **no habilita walk-in**: `disponible_para_ticket=false` continúa siendo la autoridad operativa hasta registrar ausencia.
+
+Si existe otro ticket o reservación vigente, `estado_visual_mapa` y `estado_visual_pos` se recalculan con ese otro hecho y el modificador gris se conserva.
 
 ---
 
@@ -1632,26 +1748,47 @@ Toda mutación:
 
 # 24. Criterios de aceptación visual
 
+## 24.1 Mapa administrativo
+
 1. Verde significa disponible.
 2. Verde + borde azul punteado significa reservación entre aviso y bloqueo.
 3. Exactamente en aviso se usa verde + borde azul punteado.
 4. Exactamente en bloqueo se usa azul.
-5. Azul comienza `BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS` antes.
-6. Azul continúa desde el inicio durante toda la tolerancia.
-7. Exactamente al final de tolerancia todavía corresponde azul.
-8. Después de tolerancia, mientras la reservación siga dentro de su intervalo planificado, corresponde rojo.
-9. Ticket abierto corresponde rojo.
-10. Amarillo significa únicamente selección válida.
-11. Gris nunca es color base.
-12. Gris significa tolerancia vencida/ausencia pendiente actual.
-13. Gris puede superponerse a verde.
-14. Gris puede superponerse a azul.
-15. Gris puede superponerse a rojo.
-16. Gris puede coexistir con borde azul punteado.
-17. El gris sólo aparece sobre mesas afectadas por una ausencia pendiente vigente.
-18. Registrar no-show elimina la incidencia gris después de revalidar.
-19. JavaScript no calcula ventanas temporales.
-20. Los colores no determinan capacidad ni permisos.
+5. Azul comienza `BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS` antes del inicio.
+6. Azul termina inmediatamente antes de la hora exacta de la reservación.
+7. Exactamente en el inicio, una reservación que todavía influye se muestra roja.
+8. Después del inicio, la reservación continúa roja sólo mientras siga influyendo en disponibilidad dentro de su intervalo planificado.
+9. Si `ausencia_pendiente=true`, esa reservación deja de determinar el estado base; se recalcula y después se agrega gris.
+10. Ticket abierto corresponde rojo.
+11. Amarillo significa únicamente selección válida.
+
+## 24.2 POS
+
+12. Verde significa mesa sin contexto de mayor prioridad.
+13. Verde + borde azul punteado corresponde a la ventana de advertencia 60–30.
+14. Exactamente en bloqueo se usa azul.
+15. Desde 30 minutos antes hasta inmediatamente antes del inicio se usa azul.
+16. En el inicio exacto, si no existe ticket abierto, POS permanece azul.
+17. Durante toda la tolerancia, si no existe ticket abierto, POS permanece azul.
+18. Exactamente al final de tolerancia todavía corresponde azul.
+19. Después de la tolerancia sin llegada, se recalcula el estado base y se agrega gris.
+20. Ticket abierto u ocupación física corresponde rojo.
+21. Rojo POS no se usa por la sola existencia de una reservación confirmada sin ticket.
+
+## 24.3 Modificadores y reglas compartidas
+
+22. Gris nunca es color base.
+23. Gris significa tolerancia vencida/ausencia pendiente actual.
+24. Gris puede superponerse a verde.
+25. Gris puede superponerse a azul.
+26. Gris puede superponerse a rojo.
+27. Gris puede coexistir con borde azul punteado.
+28. El gris sólo aparece sobre mesas afectadas por una ausencia pendiente vigente.
+29. Gris no modifica `disponible_para_asignacion` ni `disponible_para_ticket` por sí mismo.
+30. Registrar no-show elimina la incidencia gris después de revalidar.
+31. JavaScript no calcula ventanas temporales.
+32. Los colores no determinan capacidad ni permisos.
+33. `estado_visual_mapa` y `estado_visual_pos` son contratos distintos y no deben reutilizarse entre superficies.
 
 ---
 
@@ -1695,117 +1832,167 @@ BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS = 30
 TOLERANCIA_LLEGADA_MINUTOS = 15
 ```
 
+Para este ejemplo, salvo donde se indique una proyección futura, `ahora` avanza junto con la hora mostrada.
+
 ## 12:59
 
 ```text
-visual = verde
+mapa = verde
+POS  = verde
 ```
 
 ## 13:00
 
 ```text
-visual = verde + borde azul punteado
+mapa = verde + borde azul punteado
+POS  = verde + borde azul punteado
+
+walk-in POS = permitido con advertencia
 ```
 
 ## 13:29
 
 ```text
-visual = verde + borde azul punteado
+mapa = verde + borde azul punteado
+POS  = verde + borde azul punteado
+
+walk-in POS = permitido con advertencia
 ```
 
 ## 13:30
 
 ```text
-visual = azul
+mapa = azul
+POS  = azul
+
+walk-in POS = bloqueado
 ```
 
 ## 13:59
 
 ```text
-visual = azul
+mapa = azul
+POS  = azul
+
+walk-in POS = bloqueado
 ```
 
 ## 14:00
 
 ```text
-visual = azul
-walk-in = bloqueado
+mapa = rojo
+POS  = azul
+
+walk-in POS = bloqueado
 reservación = operable
+```
+
+La diferencia es deliberada:
+
+```text
+mapa → ocupación planificada desde el inicio
+POS  → espera al cliente dentro de tolerancia mientras no exista ticket
 ```
 
 ## 14:15
 
+Exactamente al final de tolerancia todavía no existe ausencia pendiente:
+
 ```text
-visual = azul
+mapa = rojo
+POS  = azul
+
+ausencia_pendiente = false
 ```
 
-## Después de 14:15 sin llegada
+## Después de 14:15 sin llegada ni ticket propio
+
+En cuanto:
+
+```text
+ahora > 14:15
+```
+
+se cumple:
 
 ```text
 ausencia_pendiente = true
+reservacion_influye_en_disponibilidad = false
 ```
 
-Mientras continúe el intervalo planificado:
-
-```text
-visual base = rojo
-modificador = gris
-
-resultado = rojo + gris
-```
-
-## 15:30
-
-Finaliza el intervalo planificado.
-
-Se recalcula el estado base.
+La reservación de las 14:00 deja de determinar el estado base inmediatamente; no espera hasta las 15:30 para liberar asignación.
 
 Si no existe ningún otro hecho:
 
 ```text
-base = verde
+mapa base = verde
+POS base  = verde
+modificador = gris
+
+mapa = verde + gris
+POS  = verde + gris
+
+disponible_para_asignacion = true
+disponible_para_ticket = false
+puede_marcar_no_show = true
 ```
 
-Si la ausencia sigue pendiente:
+El POS continúa sin permitir walk-in hasta registrar ausencia aunque su estado visual base sea verde.
+
+Si existe otro ticket abierto:
 
 ```text
-resultado = verde + gris
+mapa = rojo + gris
+POS  = rojo + gris
 ```
 
-Si existe otra reservación próxima:
+Si existe otra reservación próxima en su ventana azul:
 
 ```text
-base = azul
-resultado = azul + gris
+mapa = azul + gris
+POS  = azul + gris
 ```
 
-Si existe ticket:
+Si existe otra reservación en ventana de advertencia:
 
 ```text
-base = rojo
-resultado = rojo + gris
+mapa = verde + borde azul punteado + gris
+POS  = verde + borde azul punteado + gris
 ```
+
+## 15:30
+
+Finaliza el intervalo planificado original. Esto no cambia la semántica de una ausencia pendiente ya existente: la reservación original ya había dejado de bloquear capacidad y asignación desde que venció realmente la tolerancia.
+
+Si la incidencia todavía no fue resuelta, el gris permanece sobre el estado base calculado con los demás hechos hasta registrar `no_show` o resolver la reservación.
+
+## Nota sobre proyección futura
+
+Si `ahora` todavía es anterior al vencimiento real de tolerancia y se consulta una `hora_consulta` futura dentro de `[14:00, 15:30)`, el mapa puede proyectar rojo por ocupación planificada porque todavía no existe `ausencia_pendiente`.
+
+Por tanto:
+
+```text
+ahora
+→ decide tolerancia real y ausencia_pendiente
+
+hora_consulta
+→ decide la proyección temporal solicitada
+```
+
+Nunca deben intercambiarse ambos relojes.
 
 ---
 
 # 27. Documentación complementaria
 
-Los archivos ubicados en:
+La implementación y sus procedimientos de mantenimiento se documentan en:
 
 ```text
-docs/reservaciones/
+docs/reservaciones_mantenimiento.md
 ```
 
-pueden contener:
-
-- auditorías;
-- reportes;
-- evidencia;
-- pruebas de cierre.
-
-No modifican este contrato.
-
-Sólo:
+Este documento no sustituye la fuente funcional. Sólo:
 
 ```text
 docs/reservaciones.md
