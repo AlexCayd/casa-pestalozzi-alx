@@ -7,8 +7,8 @@ $modo = (string)($modo ?? 'editar');
 $reservacion = is_object($reservacion ?? null) ? $reservacion : new \Model\Reservacion();
 $errores = is_array($errores ?? null) ? $errores : [];
 $editable = (bool)($editable ?? true);
-$returnUrl = (string)($returnUrl ?? '/admin/reservations');
-$backUrl = (string)($backUrl ?? '/admin/reservations');
+$returnUrl = (string)($returnUrl ?? '/admin/reservaciones');
+$backUrl = (string)($backUrl ?? '/admin/reservaciones');
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $fechaActual = (string)($fechaActual ?? \Services\ReservacionConfig::fechaActual());
 $diasActivos = is_array($diasActivos ?? null) ? $diasActivos : [];
@@ -73,7 +73,7 @@ $requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $disabled = !$iniciarEdicion;
-$action = $modo === 'crear' ? '/admin/reservations/create' : '/admin/reservations/update';
+$action = $modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar';
 $formId = $modo . '-reservation-admin-form';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
 $autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
@@ -189,7 +189,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         $dropdownId = $modo . '-reservation-time-dropdown';
                         $name = 'hora';
                         $value = $hora;
-                        $endpoint = '/admin/api/reservations/disponibilidad';
+                        $endpoint = '/admin/api/reservaciones/disponibilidad';
                         include __DIR__ . '/../../components/reservations/time-picker.php';
                         ?>
                         <?php $error = $errorCampo('hora'); ?>

@@ -21,9 +21,11 @@ $excepcionHorarioEspecial = (string) $valorExcepcion('tipo', 'cerrado') === 'hor
  * "Personalizado" con dos selectores. Aquí las 24 horas están a la vista y el
  * rango se marca con dos toques (apertura y cierre).
  *
- * La resolución baja a la hora en punto. Un horario heredado con minutos
- * (08:30) se conserva tal cual mientras nadie toque ese día: la rejilla solo
- * resalta las horas que abarca, y el valor guardado no se reescribe.
+ * Cada toque abre un pequeño selector que pregunta si es la hora en punto o y
+ * media: la resolución real del horario es de media hora (el restaurante abre a
+ * las 08:30) y `horarios_operacion.hora_apertura` es TIME, así que el minuto
+ * viaja igual que antes. La celda marca con ":30" el extremo que no cae en
+ * punto, o 08:00 y 08:30 se verían idénticos en la rejilla.
  */
 $horasDelDia = range(0, 23);
 ?>
@@ -123,8 +125,10 @@ $horasDelDia = range(0, 23);
                                             class="admin-schedule__hour"
                                             data-schedule-hour="<?php echo $hora; ?>"
                                             aria-pressed="false"
-                                            title="<?php echo sprintf('%02d:00', $hora); ?>">
-                                        <?php echo sprintf('%02d', $hora); ?>
+                                            aria-haspopup="true"
+                                            aria-expanded="false"
+                                            title="<?php echo sprintf('%02d:00 o %02d:30', $hora, $hora); ?>">
+                                        <?php echo sprintf('%02d', $hora); ?><span class="admin-schedule__hour-min" data-schedule-hour-min></span>
                                     </button>
                                 <?php endforeach; ?>
                             </div>

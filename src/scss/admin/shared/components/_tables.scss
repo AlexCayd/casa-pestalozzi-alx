@@ -347,6 +347,20 @@
   }
 }
 
+/* Acción reversible pero con consecuencia (registrar merma): ámbar, no rojo.
+   El rojo queda reservado para lo que destruye el registro. */
+.admin-icon-button--warn {
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 70%, #000);
+  background: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
+  color: var(--admin-warning-text);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--admin-c-ambar) 78%, #000);
+    background: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
+    color: var(--admin-warning-text);
+  }
+}
+
 /* Propina en celda de tabla: monto + porcentaje sobre el consumo. */
 .admin-tk__tip {
   color: var(--admin-success-text);

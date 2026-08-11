@@ -1137,9 +1137,20 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.operational-page .cp-calendar.open,
-.operational-page .hour-dropdown.open {
+.operational-page {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.operational-page .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.operational-page .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .operational-page .cp-calendar {
@@ -1244,7 +1255,6 @@ html:has(.operation-body.is-assignment-mode) {
   pointer-events: none;
 }
 .operational-page .hour-dropdown {
-  display: flex;
   max-height: var(--reservation-picker-dropdown-max-height, none);
   flex-direction: column;
   padding: 0;
@@ -1302,6 +1312,7 @@ html:has(.operation-body.is-assignment-mode) {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);

@@ -33,7 +33,11 @@ class AdminFinanzasController
             'tickets' => 0,
             'cogs' => 0.0,
         ];
-        $previo = ['ingresos' => 0.0, 'cogs' => 0.0];
+        // Las cuatro claves, no dos: con la comparación apagada el resto de
+        // deltas leería índices inexistentes.
+        $previo = ['ingresos' => 0.0, 'propinas' => 0.0, 'tickets' => 0, 'cogs' => 0.0];
+        $merma = 0.0;
+        $mermaPrev = 0.0;
         $gastos = [];
         $gastosPorCategoria = [];
         $totalGastos = 0.0;
@@ -72,6 +76,14 @@ class AdminFinanzasController
                     $productosPorNombre,
                     $costoCache
                 );
+            }
+
+            // La merma es costo consumado: producto pagado que no llegó a
+            // venderse. Va aparte del COGS para que se vea cuánto de la utilidad
+            // se pierde en la barra y no en el plato.
+            $merma = self::mermaDelPeriodo($db, (string) $rango['start'], (string) $rango['end']);
+            if (!empty($rango['comparar'])) {
+                $mermaPrev = self::mermaDelPeriodo($db, (string) $rango['prevStart'], (string) $rango['prevEnd']);
             }
 
             // Gastos fijos. Son un monto MENSUAL recurrente (gastos_fijos no
@@ -128,14 +140,24 @@ class AdminFinanzasController
 
         $ingresos = $datos['ingresos'];
         $cogs = $datos['cogs'];
-        $utilidadBruta = $ingresos - $cogs;
+        $utilidadBruta = $ingresos - $cogs - $merma;
         $utilidadNeta = $utilidadBruta - $totalGastos;
-        $utilidadBrutaPrev = $previo['ingresos'] - $previo['cogs'];
+        $utilidadBrutaPrev = $previo['ingresos'] - $previo['cogs'] - $mermaPrev;
+        $ticketPromedio = $datos['tickets'] > 0 ? $ingresos / $datos['tickets'] : 0.0;
+        $ticketPromedioPrev = $previo['tickets'] > 0 ? $previo['ingresos'] / $previo['tickets'] : 0.0;
+        // Los gastos fijos son mensuales y el periodo previo mide lo mismo, así
+        // que su prorrateo coincide: la utilidad neta anterior sale sin
+        // consultar nada.
+        $utilidadNetaPrev = $utilidadBrutaPrev - $totalGastos;
+        $comparando = !empty($rango['comparar']);
 
         // Rotación: cuántas veces se consumió el inventario en el periodo.
-        // El denominador es el inventario ACTUAL, no el promedio: no existe
-        // histórico de stock del que sacar uno. La vista lo advierte.
-        $rotacion = $inventarioValor > 0 ? $cogs / $inventarioValor : null;
+        // Cuenta también la merma: salió del almacén aunque no se vendiera, y
+        // dejarla fuera hacía parecer que el inventario se mueve menos de lo que
+        // se mueve. El denominador es el inventario ACTUAL, no el promedio: no
+        // existe histórico de stock del que sacar uno. La vista lo advierte.
+        $inventarioConsumido = $cogs + $merma;
+        $rotacion = $inventarioValor > 0 ? $inventarioConsumido / $inventarioValor : null;
         $diasInventario = ($rotacion !== null && $rotacion > 0)
             ? ((int) $rango['dias']) / $rotacion
             : null;
@@ -157,8 +179,9 @@ class AdminFinanzasController
             'ingresos' => $ingresos,
             'propinas' => $datos['propinas'],
             'tickets' => $datos['tickets'],
-            'ticketPromedio' => $datos['tickets'] > 0 ? $ingresos / $datos['tickets'] : 0.0,
+            'ticketPromedio' => $ticketPromedio,
             'cogs' => $cogs,
+            'merma' => $merma,
             'utilidadBruta' => $utilidadBruta,
             'margenBruto' => $ingresos > 0 ? ($utilidadBruta / $ingresos) * 100 : 0,
             'totalGastos' => $totalGastos,
@@ -166,8 +189,35 @@ class AdminFinanzasController
             // Faltaba: utilidadNeta se calculaba pero nunca se expresaba como
             // porcentaje de los ingresos, que es como se compara entre periodos.
             'margenNeto' => $ingresos > 0 ? ($utilidadNeta / $ingresos) * 100 : 0,
+
+            /*
+             * Comparativos contra el periodo anterior. Todos salen de $previo,
+             * que ya se consultaba entero y del que sólo se leían dos claves.
+             *
+             * Los gastos fijos NO llevan comparativo: gastos_fijos no tiene
+             * columna de fecha, así que el periodo anterior arroja exactamente
+             * el mismo prorrateo y un "0%" fingiría una medición que no existe.
+             */
+            'comparando' => $comparando,
             'deltaIngresos' => RangoPeriodo::delta($ingresos, $previo['ingresos']),
+            'deltaCogs' => RangoPeriodo::delta($cogs, $previo['cogs']),
+            'deltaMerma' => RangoPeriodo::delta($merma, $mermaPrev),
             'deltaUtilidadBruta' => RangoPeriodo::delta($utilidadBruta, $utilidadBrutaPrev),
+            'deltaUtilidadNeta' => RangoPeriodo::delta($utilidadNeta, $utilidadNetaPrev),
+            'deltaTicketPromedio' => RangoPeriodo::delta($ticketPromedio, $ticketPromedioPrev),
+            'deltaTickets' => RangoPeriodo::delta((float) $datos['tickets'], (float) $previo['tickets']),
+            'deltaPropinas' => RangoPeriodo::delta($datos['propinas'], $previo['propinas']),
+            'previo' => [
+                'ingresos' => $previo['ingresos'],
+                'cogs' => $previo['cogs'],
+                'merma' => $mermaPrev,
+                'utilidadBruta' => $utilidadBrutaPrev,
+                'utilidadNeta' => $utilidadNetaPrev,
+                'ticketPromedio' => $ticketPromedioPrev,
+                'tickets' => $previo['tickets'],
+                'propinas' => $previo['propinas'],
+            ],
+
             'inventarioValor' => $inventarioValor,
             'rotacion' => $rotacion,
             'diasInventario' => $diasInventario,
@@ -177,6 +227,27 @@ class AdminFinanzasController
             'rentabilidad' => $rentabilidad,
             'alertas' => GastoFijo::getAlertas(),
         ]);
+    }
+
+    /**
+     * Valor de la merma registrada en el tramo.
+     *
+     * Se valoriza con el costo que el movimiento congeló al registrarse; el
+     * COALESCE cubre los movimientos anteriores a que la bitácora guardara ese
+     * costo, que caen al costo actual del ingrediente.
+     */
+    private static function mermaDelPeriodo(\mysqli $db, string $start, string $end): float
+    {
+        $res = $db->query(
+            "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor
+               FROM movimientos_inventario mi
+               JOIN ingredientes i ON i.id = mi.ingrediente_id
+              WHERE mi.tipo = 'merma'
+                AND mi.created_at >= '{$start} 00:00:00'
+                AND mi.created_at <= '{$end} 23:59:59'"
+        );
+
+        return ($res && ($row = $res->fetch_assoc())) ? (float) $row['valor'] : 0.0;
     }
 
     /**

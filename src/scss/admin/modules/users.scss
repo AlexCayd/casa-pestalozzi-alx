@@ -103,9 +103,11 @@
   }
 }
 
-// Aprovecha el espacio horizontal: panel de formulario más ancho.
+// Sin tope propio: el formulario ocupa el ancho del panel y se detiene donde
+// lo hace .admin-content (1440px). Anula el max-width de 720px que
+// .admin-menu__panel--form impone desde menu.css, que carga antes que este.
 .admin-users-panel {
-  max-width: 1040px;
+  max-width: none;
 }
 
 // ── Formularios de Usuarios (crear / editar / contraseña) ─────
@@ -113,9 +115,19 @@
   display: grid;
   gap: 28px;
 
+  /*
+   * users-form.js oculta por rol la sección de contraseña y el campo de NIP con
+   * el atributo [hidden], pero un `display` de autor le gana al `display:none`
+   * del navegador: sin estas dos reglas el atributo no ocultaba nada y salían
+   * los dos métodos de acceso a la vez.
+   */
   &__section {
     display: grid;
     gap: 16px;
+
+    &[hidden] {
+      display: none;
+    }
   }
 
   &__section + &__section {
@@ -139,10 +151,27 @@
     }
   }
 
+  /*
+   * Columnas por ancho disponible, no un número fijo: a pantalla completa dos
+   * columnas dejaban campos de 700px para escribir un usuario de 20 caracteres.
+   * El tope de tres evita que en un monitor ancho la fila se vuelva ilegible.
+   */
   &__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 18px 22px;
+
+    @media (min-width: 1100px) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  // Contraseña y su confirmación son dos campos, no tres: en la rejilla de
+  // tres columnas quedaban encogidos con un hueco al lado.
+  &__grid--pair {
+    @media (min-width: 1100px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   &__field {
@@ -151,8 +180,20 @@
     gap: 7px;
     min-width: 0;
 
+    &[hidden] {
+      display: none;
+    }
+
     &--full {
       grid-column: 1 / -1;
+    }
+
+    // El campo de Rol lleva las pestañas más la lista «Acceso del rol»:
+    // en una sola columna la lista se parte en renglones de una palabra.
+    &--wide {
+      @media (min-width: 780px) {
+        grid-column: span 2;
+      }
     }
 
     // :not(.admin-tabs__tab) porque las pestañas de rol también son <label>:

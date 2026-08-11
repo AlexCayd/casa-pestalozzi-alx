@@ -104,7 +104,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
 
                 <label class="admin-field admin-announcement-form__wide">
                     <span class="admin-field__label admin-field__label--split"><span>Mensaje</span><span data-announcement-counter>0 / 255</span></span>
-                    <textarea name="mensaje" maxlength="255" rows="4" placeholder="<?php echo $h($configTipoPreview['placeholder'] ?? 'Escribe el mensaje del anuncio.'); ?>" <?php echo $isActive ? 'required' : ''; ?> data-announcement-message><?php echo $h($anuncio['mensaje'] ?? ''); ?></textarea>
+                    <textarea name="mensaje" maxlength="255" rows="4" placeholder="<?php echo $h($configTipoPreview['placeholder'] ?? 'Cuéntale al comensal qué pasa y cuándo.'); ?>" <?php echo $isActive ? 'required' : ''; ?> data-announcement-message><?php echo $h($anuncio['mensaje'] ?? ''); ?></textarea>
                     <span class="admin-field__error" data-field-error aria-live="polite"></span>
                 </label>
 
@@ -215,7 +215,9 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                 </label>
                 <label class="admin-field">
                     <span class="admin-field__label">URL del enlace <small>(opcional)</small></span>
-                    <input type="text" name="url_enlace" maxlength="500" value="<?php echo $h($anuncio['url_enlace'] ?? ''); ?>" autocomplete="off" data-announcement-link-url>
+                    <?php /* El campo no daba ninguna pista del formato esperado y
+                             esUrlPermitida() rechaza lo que no reconoce. */ ?>
+                    <input type="text" name="url_enlace" maxlength="500" value="<?php echo $h($anuncio['url_enlace'] ?? ''); ?>" placeholder="/reservaciones" autocomplete="off" data-announcement-link-url>
                     <span class="admin-field__error" data-field-error aria-live="polite"><?php echo $h(implode(' ', $erroresCampos['url_enlace'] ?? [])); ?></span>
                 </label>
 
@@ -247,13 +249,15 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     <?php echo $isActive ? 'Activo' : 'Inactivo · no será visible'; ?>
                 </span>
 
-                <?php /* Franja que insinúa el hero del landing: el anuncio suelto no
-                         daba idea de su peso real sobre la portada. */ ?>
+                <?php /* Franja que insinúa la portada del landing, ahora detrás
+                         de un velo: el anuncio se presenta como diálogo al
+                         entrar al sitio, no como banda sobre el hero. */ ?>
                 <div class="admin-announcement-preview-hero" aria-hidden="true">
                     <span class="admin-announcement-preview-hero__brand">Casa Pestalozzi</span>
                     <span class="admin-announcement-preview-hero__line"></span>
                     <span class="admin-announcement-preview-hero__line admin-announcement-preview-hero__line--short"></span>
                 </div>
+                <span class="admin-announcement-preview-veil" aria-hidden="true"></span>
 
                 <div
                     class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--<?php echo $mostrarEnlacePreview ? 'has-link' : 'without-link'; ?>"
@@ -279,12 +283,11 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                             <?php echo $mostrarEnlacePreview ? '' : 'hidden'; ?>
                         ><span data-preview-link-label><?php echo $h($textoEnlacePreview ?: 'Ver más'); ?></span><span aria-hidden="true"> ↗</span></a>
                     </div>
+                    <?php /* Sin barra de progreso: el anuncio ya no se cierra
+                             solo, espera a que el comensal lo cierre. */ ?>
                     <button class="hero-announcement__close" type="button" tabindex="-1" aria-hidden="true">
                         <span aria-hidden="true">×</span>
                     </button>
-                    <div class="hero-announcement__progress" aria-hidden="true">
-                        <span class="hero-announcement__progress-remaining"></span>
-                    </div>
                 </div>
             </div>
             <div class="admin-announcement-template" data-announcement-template>

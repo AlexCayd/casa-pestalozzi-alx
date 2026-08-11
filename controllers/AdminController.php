@@ -47,7 +47,7 @@ class AdminController
         ],
         'reservations' => [
             'title' => 'Reservaciones',
-            'path' => '/admin/reservations'
+            'path' => '/admin/reservaciones'
         ],
         'feedback' => [
             'title' => 'Feedback de clientes',

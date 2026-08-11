@@ -97,6 +97,31 @@
   transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out);
 }
 
+/*
+ * Reglas que pide Lenis y que el layout nunca cargó: se sirve lenis.min.js
+ * desde CDN pero no su hoja de estilos.
+ *
+ * La tercera es la que arregla un síntoma concreto: sin `overscroll-behavior:
+ * contain`, al llegar al final de una tabla o de un modal la rueda encadenaba
+ * con la página de detrás y ésta se movía sola.
+ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
 /* color-scheme: hace que selects nativos, scrollbars y date pickers
    se pinten acordes al tema activo (clave para el modo oscuro). */
 [data-admin-theme=light] {
@@ -1240,6 +1265,56 @@
   gap: 10px;
 }
 
+/*
+ * El selector de periodo es una columna de ~82px (rótulo + disparador de 58px)
+ * y los botones miden 44: centrarlos contra él dejaba la fila descuadrada y
+ * empujaba el último botón a un renglón suelto. Alineados por abajo, todo
+ * comparte la línea base del disparador.
+ */
+.admin-page__header .admin-actions,
+.admin-page-header .admin-actions {
+  align-items: flex-end;
+  row-gap: 12px;
+}
+
+/* Los botones envuelven como bloque, no de uno en uno. */
+.admin-actions__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-page__header .admin-btn,
+.admin-page-header .admin-btn {
+  min-height: 44px;
+}
+
+/*
+ * Barra de acciones del módulo, bajo el encabezado.
+ *
+ * Los botones dejaron de compartir fila con el selector de periodo: contra un
+ * bloque de 82px de alto quedaban minúsculos y arrinconados. Aquí mandan ellos,
+ * a tamaño completo y alineados con el contenido.
+ */
+.admin-toolbar {
+  margin-bottom: 18px;
+}
+.admin-toolbar .admin-btn {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+.admin-toolbar .admin-create-button {
+  margin-left: auto;
+}
+
+@media (max-width: 576px) {
+  .admin-toolbar .admin-create-button {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+}
 .admin-grid {
   display: grid;
   gap: 16px;
@@ -1289,7 +1364,7 @@
 /* Tarjetas de resumen (KPIs) reutilizables por los módulos. */
 .admin-stat-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -1298,6 +1373,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  justify-content: space-between;
+  min-width: 0;
   padding: 16px 18px;
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md, 14px);
@@ -1314,12 +1391,40 @@
 .admin-stat-card__value {
   color: var(--admin-text);
   font-family: var(--admin-font-display, "Fraunces", serif);
-  font-size: 30px;
-  line-height: 1;
+  font-size: clamp(24px, 2.2vw, 30px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 .admin-stat-card__sub {
   color: var(--admin-faint);
   font-size: 12px;
+  line-height: 1.4;
+}
+.admin-stat-card {
+  /* Pie comparativo: la variación y la cifra de la que parte. */
+}
+.admin-stat-card__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-stat-card__prev {
+  color: var(--admin-faint);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-stat-card {
+  /*
+   * Los cuatro tonos tratan borde y fondo igual: antes --alert y --gold traían
+   * fondo y --good/--bad sólo borde, así que dos tarjetas con la misma
+   * importancia pesaban distinto en la página.
+   */
 }
 .admin-stat-card--alert {
   border-color: var(--admin-warning-border);
@@ -1330,12 +1435,14 @@
 }
 .admin-stat-card--good {
   border-color: var(--admin-success-border);
+  background: var(--admin-success-bg);
 }
 .admin-stat-card--good .admin-stat-card__value {
   color: var(--admin-success-text);
 }
 .admin-stat-card--bad {
   border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
 }
 .admin-stat-card--bad .admin-stat-card__value {
   color: var(--admin-danger-text);
@@ -1346,6 +1453,24 @@
 }
 .admin-stat-card--gold .admin-stat-card__value {
   color: var(--admin-gold);
+}
+.admin-stat-card {
+  /*
+   * Tarjeta destacada: la cifra que responde «¿cómo vamos?». Ocupa dos celdas
+   * y sube de tamaño para que la franja tenga un punto de entrada en vez de
+   * siete tarjetas idénticas entre las que elegir.
+   */
+}
+.admin-stat-card--lead {
+  padding: 20px 22px;
+}
+@media (min-width: 720px) {
+  .admin-stat-card--lead {
+    grid-column: span 2;
+  }
+}
+.admin-stat-card--lead .admin-stat-card__value {
+  font-size: clamp(32px, 3.4vw, 46px);
 }
 
 @media (max-width: 1200px) {
@@ -1366,17 +1491,34 @@
     width: 100%;
   }
 }
-/* Variación contra el periodo anterior. Vive en el bundle compartido porque la
-   usan finanzas e inventario, que cargan CSS de módulo distinto. */
+/*
+ * Variación contra el periodo anterior. Vive en el bundle compartido porque la
+ * usan finanzas e inventario, que cargan CSS de módulo distinto.
+ *
+ * La flecha no es adorno: es la codificación secundaria de la dirección. El
+ * color dice si el cambio es bueno o malo —y en las métricas invertidas, como
+ * la merma, subir es malo—, así que sin flecha el verde y el rojo dejarían de
+ * describir hacia dónde se movió la cifra.
+ */
 .admin-delta {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  vertical-align: middle;
+  line-height: 1.3;
+}
+.admin-delta svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .admin-delta.is-up {
   background: color-mix(in srgb, var(--admin-c-verde) 16%, transparent);
@@ -1693,6 +1835,19 @@
   background: color-mix(in srgb, var(--admin-c-rojo) 88%, #fff);
   color: #fff;
   box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
+}
+
+/* Acción reversible pero con consecuencia (registrar merma): ámbar, no rojo.
+   El rojo queda reservado para lo que destruye el registro. */
+.admin-icon-button--warn {
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 70%, #000);
+  background: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
+  color: var(--admin-warning-text);
+}
+.admin-icon-button--warn:hover {
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 78%, #000);
+  background: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
+  color: var(--admin-warning-text);
 }
 
 /* Propina en celda de tabla: monto + porcentaje sobre el consumo. */
@@ -2242,6 +2397,27 @@
   color: var(--admin-gold);
 }
 
+/*
+ * Categorías del menú: tantas como el negocio quiera, así que envuelven.
+ *
+ * El `flex: 1 1 0` de .admin-tabs__tab hace que todas partan de ancho cero y se
+ * repartan la fila; nunca hay desborde, el flex-wrap del contenedor jamás se
+ * dispara y las etiquetas se recortan con puntos suspensivos hasta desaparecer.
+ * Con base automática cada pestaña pide lo que mide su nombre y la fila
+ * siguiente recoge las que no caben.
+ */
+.admin-menu__cats {
+  row-gap: 6px;
+}
+.admin-menu__cats .admin-tabs__tab {
+  flex: 0 1 auto;
+}
+.admin-menu__cats .admin-tabs__tab a span {
+  width: auto;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 #cat-nueva-toggle:checked ~ .admin-tabs .admin-tabs__tab--add label span {
   background: var(--admin-gold);
   color: var(--admin-ink-on-gold);
@@ -2467,6 +2643,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --reservation-picker-hour-option-radius: var(--admin-radius-sm);
   --reservation-picker-hour-font-size: 13px;
   --reservation-picker-hour-font-weight: 850;
+  --reservation-picker-hour-bg: var(--admin-surface-soft);
+  --reservation-picker-hover-bg: color-mix(in srgb, var(--admin-gold) 14%, var(--admin-surface-soft));
+  --reservation-picker-hover-color: var(--admin-text);
   --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
   --reservation-picker-hour-selected-color: var(--admin-gold-deep);
   --reservation-picker-icon-color: var(--admin-faint);
@@ -2615,9 +2794,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.admin-body .cp-calendar.open,
-.admin-body .hour-dropdown.open {
+.admin-body {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.admin-body .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.admin-body .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .admin-body .cp-calendar {
@@ -2722,7 +2912,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   pointer-events: none;
 }
 .admin-body .hour-dropdown {
-  display: flex;
   max-height: var(--reservation-picker-dropdown-max-height, none);
   flex-direction: column;
   padding: 0;
@@ -2780,6 +2969,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);
@@ -2855,6 +3045,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .admin-body .hour-dropdown__head strong {
   letter-spacing: 0.01em;
+}
+.admin-body {
+  /*
+   * Desplegable portado a <body> (ver el modo portal de
+   * reservation-time-picker.js). Fijo respecto al viewport porque el JS lo
+   * coloca contra el campo con coordenadas de getBoundingClientRect, y por
+   * encima del modal (120) y del select (130) para que también sirva dentro del
+   * diálogo de excepciones de horario.
+   */
+}
+.admin-body .hour-dropdown.is-portal {
+  position: fixed;
+  z-index: 140;
+  max-width: calc(100vw - 16px);
 }
 .admin-body .hour-option.sel {
   box-shadow: inset 0 0 0 1px rgba(204, 163, 82, 0.08);

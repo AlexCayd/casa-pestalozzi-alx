@@ -493,7 +493,7 @@ class ReservacionOperacionController
     {
         $url = (string)$url;
 
-        if ($url !== '' && str_starts_with($url, '/admin/reservations')) {
+        if ($url !== '' && str_starts_with($url, '/admin/reservaciones')) {
             return $url;
         }
 
@@ -539,7 +539,7 @@ class ReservacionOperacionController
             $query['validacion'] = $validacion;
         }
 
-        return '/admin/reservations/operation' . (!empty($query) ? '?' . http_build_query($query) : '');
+        return '/admin/reservaciones/operacion' . (!empty($query) ? '?' . http_build_query($query) : '');
     }
 
     private static function redirectOperacionDesdePost(string $resultado, $reservacion = null): void

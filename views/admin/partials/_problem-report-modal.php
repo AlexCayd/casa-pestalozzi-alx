@@ -52,12 +52,11 @@
                 <textarea name="descripcion" rows="5" maxlength="1200" required placeholder="Describe los pasos y lo que esperabas que sucediera."></textarea>
             </label>
 
-            <p class="admin-modal__notice admin-modal__field--wide">El envío se habilitará cuando el servicio de reportes esté conectado.</p>
             <p class="admin-form-status admin-modal__field--wide" aria-live="polite" data-problem-status></p>
 
             <div class="admin-modal__actions admin-modal__field--wide">
                 <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
-                <button type="button" class="admin-btn admin-btn--primary" data-problem-validate>Revisar reporte</button>
+                <button type="button" class="admin-btn admin-btn--primary" data-problem-validate>Enviar reporte</button>
             </div>
         </form>
     </div>

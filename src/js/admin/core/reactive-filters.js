@@ -221,7 +221,17 @@
                 if (sequence !== self.requestSequence || !self.target) {
                     return;
                 }
+                /*
+                 * Si el resultado filtrado es más corto, el documento encoge y
+                 * el navegador —y Lenis, que anima hacia el nuevo límite—
+                 * arrastran la página hacia arriba. Se preserva la posición: el
+                 * usuario está mirando los filtros, no pidió moverse de sitio.
+                 */
+                var scrollPrevio = window.scrollY;
                 self.target.innerHTML = result.html;
+                if (window.scrollY !== scrollPrevio) {
+                    window.scrollTo(0, scrollPrevio);
+                }
                 self.syncControls(result.canonicalUrl);
                 if (window.history && window.history.replaceState) {
                     var canonical = new URL(result.canonicalUrl, window.location.origin);

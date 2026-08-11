@@ -171,25 +171,79 @@
     }
   }
 
-  &__progress {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.08);
-    pointer-events: none;
+  // La barra de progreso se retiró junto con la cuenta atrás: el anuncio ya no
+  // se cierra solo, así que no hay tiempo restante que dibujar.
+}
+
+/*
+ * Envoltorio de diálogo.
+ *
+ * El anuncio dejó de ser una franja sobre el hero: allí competía con el título
+ * de la portada y se cerraba solo a los 8 s, así que quien llegaba tarde no lo
+ * leía. La tarjeta de arriba no cambia —la comparte la vista previa del panel—;
+ * esto sólo la presenta centrada y sobre un velo.
+ */
+.announcement-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
+
+  &[hidden] {
+    display: none;
   }
 
-  &__progress-remaining {
-    display: block;
+  &.is-open {
+    opacity: 1;
+  }
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    background: var(--announcement-accent);
-    transform: scaleX(1);
-    transform-origin: left center;
-    will-change: transform;
+    padding: 0;
+    border: 0;
+    background: rgba(11, 12, 13, 0.72);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    cursor: pointer;
+  }
+
+  &__panel {
+    position: relative;
+    width: min(520px, 100%);
+    transform: translateY(0.75rem) scale(0.98);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+
+    &:focus-visible {
+      outline: none;
+    }
+  }
+
+  &.is-open &__panel {
+    transform: translateY(0) scale(1);
+  }
+
+  // El diálogo ya recorta el ancho: dentro de él la tarjeta ocupa todo.
+  .hero-announcement {
+    width: 100%;
+    box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-dialog,
+  .announcement-dialog__panel {
+    transition: none;
+  }
+
+  .announcement-dialog__panel {
+    transform: none;
   }
 }
 
@@ -208,9 +262,5 @@
   .hero-announcement {
     animation: none;
     transition: none;
-  }
-
-  .hero-announcement__progress-remaining {
-    will-change: auto;
   }
 }

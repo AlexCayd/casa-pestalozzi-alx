@@ -8,12 +8,14 @@ namespace Controllers;
 
 use Model\Ingrediente;
 use MVC\Router;
+use Services\Inventario;
 use Services\RangoPeriodo;
 
 class AdminInventarioController
 {
     private const PATH = '/admin/inventario';
     private const CSS = '/build/css/admin/inventario.css';
+    private const JS = '/build/js/admin/inventario.js';
 
     public static function index(Router $router): void
     {
@@ -41,6 +43,7 @@ class AdminInventarioController
         $consumoPrev = !empty($rango['comparar'])
             ? self::consumo((string) $rango['prevStart'], (string) $rango['prevEnd'])
             : null;
+        $mermas = self::mermasDelPeriodo((string) $rango['start'], (string) $rango['end']);
 
         self::render('inventario/index', [
             'title' => 'Inventario',
@@ -53,24 +56,117 @@ class AdminInventarioController
             'valorInventario' => $valorInventario,
             'consumo' => $consumo,
             'consumoPrev' => $consumoPrev,
+            'comparando' => $consumoPrev !== null,
             'deltaConsumo' => $consumoPrev === null
                 ? null
                 : RangoPeriodo::delta($consumo['valor'], $consumoPrev['valor']),
+            // El periodo previo ya se consultaba entero y sólo se aprovechaba
+            // el consumo. Ni el valor del inventario ni el bajo stock admiten
+            // comparativo: son fotos del stock de hoy, sin histórico del que
+            // sacar el de hace un mes.
+            'deltaMerma' => $consumoPrev === null
+                ? null
+                : RangoPeriodo::delta($consumo['mermaValor'], $consumoPrev['mermaValor']),
+            'motivosMerma' => Inventario::MOTIVOS_MERMA,
+            'mermas' => $mermas['lista'],
+            'mermaPorMotivo' => $mermas['porMotivo'],
             'alertas' => Ingrediente::getAlertas(),
         ]);
     }
 
     /**
-     * Consumo de insumos en un tramo: cuánto salió por venta y cuánto costó.
-     * movimientos_inventario.cantidad es negativa en las salidas, y no guarda
-     * el costo del momento, así que se valoriza con el costo actual del
-     * ingrediente. Es una aproximación y la vista lo dice.
+     * Mermas registradas en el tramo, de la más reciente a la más antigua.
      *
-     * @return array{valor: float, movimientos: int, ajustes: int}
+     * Se valorizan con el costo que el movimiento congeló; el COALESCE cubre
+     * los registros anteriores a que la bitácora lo guardara. El LEFT JOIN a
+     * usuarios es por la FK ON DELETE SET NULL: dar de baja a quien registró la
+     * merma no debe borrar la merma.
+     *
+     * @return array{lista: array<int, array<string, mixed>>, porMotivo: array<string, float>}
+     */
+    private static function mermasDelPeriodo(string $start, string $end, int $limite = 25): array
+    {
+        $resultado = ['lista' => [], 'porMotivo' => []];
+
+        try {
+            $db = Ingrediente::getDB();
+            $limite = max(1, min(100, $limite));
+            $filtro = "mi.tipo = 'merma'
+                       AND mi.created_at >= '{$start} 00:00:00'
+                       AND mi.created_at <= '{$end} 23:59:59'";
+
+            $res = $db->query(
+                "SELECT mi.id, mi.cantidad, mi.motivo, mi.nota, mi.created_at,
+                        COALESCE(mi.costo_unitario, i.costo) AS costo,
+                        i.nombre AS ingrediente, i.unidad,
+                        u.nombre AS usuario
+                   FROM movimientos_inventario mi
+                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                   LEFT JOIN usuarios u ON u.id = mi.usuario_id
+                  WHERE {$filtro}
+                  ORDER BY mi.created_at DESC, mi.id DESC
+                  LIMIT {$limite}"
+            );
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $cantidad = abs((float) $row['cantidad']);
+                    $resultado['lista'][] = [
+                        'ingrediente' => (string) $row['ingrediente'],
+                        'unidad' => (string) $row['unidad'],
+                        'cantidad' => $cantidad,
+                        'motivo' => (string) ($row['motivo'] ?? ''),
+                        'nota' => (string) ($row['nota'] ?? ''),
+                        'valor' => $cantidad * (float) $row['costo'],
+                        'usuario' => (string) ($row['usuario'] ?? ''),
+                        'fecha' => (string) $row['created_at'],
+                    ];
+                }
+            }
+
+            // El desglose por motivo va sobre TODO el periodo, no sobre las
+            // filas mostradas: es lo que dice dónde se está perdiendo producto.
+            $res = $db->query(
+                "SELECT mi.motivo,
+                        COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor
+                   FROM movimientos_inventario mi
+                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                  WHERE {$filtro}
+                  GROUP BY mi.motivo
+                  ORDER BY valor DESC"
+            );
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $resultado['porMotivo'][(string) ($row['motivo'] ?? 'otro')] = (float) $row['valor'];
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminInventarioController::mermasDelPeriodo - ' . $e->getMessage());
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Movimientos de un tramo: cuánto salió por venta, cuánto se tiró y cuántas
+     * entradas y correcciones hubo.
+     *
+     * Las salidas por venta se valorizan con el costo ACTUAL del ingrediente
+     * porque no lo guardaban al momento; es una aproximación y la vista lo
+     * dice. Las mermas sí traen su costo congelado y se valorizan con él.
+     *
+     * @return array{valor: float, movimientos: int, ajustes: int, entradas: int,
+     *               mermaValor: float, mermas: int}
      */
     private static function consumo(string $start, string $end): array
     {
-        $resumen = ['valor' => 0.0, 'movimientos' => 0, 'ajustes' => 0];
+        $resumen = [
+            'valor' => 0.0,
+            'movimientos' => 0,
+            'ajustes' => 0,
+            'entradas' => 0,
+            'mermaValor' => 0.0,
+            'mermas' => 0,
+        ];
 
         try {
             $db = Ingrediente::getDB();
@@ -88,12 +184,30 @@ class AdminInventarioController
                 $resumen['movimientos'] = (int) $row['n'];
             }
 
+            // COALESCE sobre el costo del ingrediente para los movimientos
+            // anteriores a que la bitácora guardara el costo del momento.
             $res = $db->query(
-                "SELECT COUNT(*) AS n FROM movimientos_inventario mi
-                  WHERE mi.tipo = 'ajuste' AND {$filtro}"
+                "SELECT COALESCE(SUM(ABS(mi.cantidad) * COALESCE(mi.costo_unitario, i.costo)), 0) AS valor,
+                        COUNT(*) AS n
+                   FROM movimientos_inventario mi
+                   JOIN ingredientes i ON i.id = mi.ingrediente_id
+                  WHERE mi.tipo = 'merma' AND {$filtro}"
             );
             if ($res && ($row = $res->fetch_assoc())) {
-                $resumen['ajustes'] = (int) $row['n'];
+                $resumen['mermaValor'] = (float) $row['valor'];
+                $resumen['mermas'] = (int) $row['n'];
+            }
+
+            $res = $db->query(
+                "SELECT mi.tipo, COUNT(*) AS n FROM movimientos_inventario mi
+                  WHERE mi.tipo IN ('ajuste', 'entrada') AND {$filtro}
+                  GROUP BY mi.tipo"
+            );
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $clave = $row['tipo'] === 'entrada' ? 'entradas' : 'ajustes';
+                    $resumen[$clave] = (int) $row['n'];
+                }
             }
         } catch (\Throwable $e) {
             error_log('AdminInventarioController::consumo - ' . $e->getMessage());
@@ -210,9 +324,10 @@ class AdminInventarioController
         try {
             $ingId = (int) $ingrediente->id;
             $deltaSql = number_format($delta, 3, '.', '');
+            $usuarioSql = self::usuarioActual() ?? 'NULL';
             Ingrediente::ejecutarSQL(
-                "INSERT INTO movimientos_inventario (ingrediente_id, tipo, cantidad, ticket_item_id)
-                 VALUES ({$ingId}, 'ajuste', {$deltaSql}, NULL)"
+                "INSERT INTO movimientos_inventario (ingrediente_id, tipo, cantidad, usuario_id, ticket_item_id)
+                 VALUES ({$ingId}, 'ajuste', {$deltaSql}, {$usuarioSql}, NULL)"
             );
         } catch (\Throwable $e) {
             error_log('AdminInventarioController::ajustar - ' . $e->getMessage());
@@ -252,9 +367,13 @@ class AdminInventarioController
         try {
             $ingId = (int) $ingrediente->id;
             $entradaSql = number_format($entrada, 3, '.', '');
+            $costoSql = number_format((float) $ingrediente->costo, 4, '.', '');
+            $usuarioSql = self::usuarioActual() ?? 'NULL';
+            // 'entrada' y no 'ajuste': recibir mercancía no es corregir un
+            // conteo, y mientras compartían tipo el panel no podía separarlas.
             Ingrediente::ejecutarSQL(
-                "INSERT INTO movimientos_inventario (ingrediente_id, tipo, cantidad, ticket_item_id)
-                 VALUES ({$ingId}, 'ajuste', {$entradaSql}, NULL)"
+                "INSERT INTO movimientos_inventario (ingrediente_id, tipo, cantidad, costo_unitario, usuario_id, ticket_item_id)
+                 VALUES ({$ingId}, 'entrada', {$entradaSql}, {$costoSql}, {$usuarioSql}, NULL)"
             );
         } catch (\Throwable $e) {
             error_log('AdminInventarioController::entrada - ' . $e->getMessage());
@@ -262,6 +381,43 @@ class AdminInventarioController
 
         Ingrediente::setAlerta('exito', 'Entrada registrada: ' . htmlspecialchars($ingrediente->nombre));
         self::index($router);
+    }
+
+    /** Merma: producto que se tira. Descuenta stock y lo deja como costo. */
+    public static function merma(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::PATH);
+        }
+
+        $id = self::validarId($_POST['id'] ?? null, $router);
+        $cantidad = $_POST['cantidad'] ?? null;
+
+        if (!is_numeric($cantidad)) {
+            Ingrediente::setAlerta('error', 'La cantidad mermada debe ser un número mayor a cero');
+            self::index($router);
+            return;
+        }
+
+        $resultado = Inventario::registrarMerma(
+            $id,
+            (float) $cantidad,
+            trim((string) ($_POST['motivo'] ?? '')),
+            (string) ($_POST['nota'] ?? ''),
+            self::usuarioActual()
+        );
+
+        Ingrediente::setAlerta(
+            $resultado['ok'] ? 'exito' : 'error',
+            $resultado['mensaje'] ?: 'No se pudo registrar la merma.'
+        );
+        self::index($router);
+    }
+
+    /** Quién está registrando el movimiento; null si no hay sesión. */
+    private static function usuarioActual(): ?int
+    {
+        return ((int) ($_SESSION['id'] ?? 0)) ?: null;
     }
 
     private static function renderForm(Ingrediente $ingrediente, array $alertas, string $accion, string $titulo): void
@@ -281,7 +437,7 @@ class AdminInventarioController
         AdminController::render($view, array_merge([
             'activeModule' => 'inventario',
             'styles' => [self::CSS],
-            'scripts' => [],
+            'scripts' => [self::JS],
         ], $data));
     }
 

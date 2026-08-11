@@ -135,3 +135,107 @@
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+.admin-merma {
+  margin-bottom: 18px;
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 26%, var(--admin-border));
+  scroll-margin-top: 90px;
+}
+.admin-merma__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-merma__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .admin-merma__field--wide {
+    grid-column: span 2;
+  }
+}
+.admin-merma__field label {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-merma__field label small {
+  font-weight: 600;
+  text-transform: none;
+}
+.admin-merma__field input,
+.admin-merma__field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 13px;
+}
+.admin-merma__field input:focus,
+.admin-merma__field select:focus {
+  border-color: var(--admin-gold);
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-merma__actions {
+  display: flex;
+  align-items: end;
+}
+.admin-merma__actions .admin-btn {
+  width: 100%;
+  min-height: 42px;
+  justify-content: center;
+}
+.admin-merma__motivos {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 16px 0 0;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+}
+.admin-merma__motivos li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 999px;
+  background: var(--admin-surface-soft);
+}
+.admin-merma__motivo-label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-merma__motivo-val {
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.admin-merma__empty {
+  margin-top: 16px;
+}
+.admin-merma__table {
+  margin-top: 4px;
+}
+.admin-merma__costo {
+  color: var(--admin-danger-text);
+  font-variant-numeric: tabular-nums;
+}

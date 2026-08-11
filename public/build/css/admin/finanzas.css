@@ -112,27 +112,20 @@
 
 .admin-finanzas__donut-wrap {
   display: grid;
-  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
-  gap: 20px;
-  align-items: center;
-}
-@media (max-width: 640px) {
-  .admin-finanzas__donut-wrap {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  gap: 18px;
 }
 
 .admin-finanzas__donut {
   position: relative;
-  height: 160px;
+  height: clamp(240px, 26vw, 320px);
 }
 
 .admin-finanzas__donut-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   margin: 0;
   padding: 0;
-  gap: 8px;
+  gap: 10px 24px;
   list-style: none;
 }
 .admin-finanzas__donut-list li {
@@ -140,6 +133,8 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: baseline;
   gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--admin-border-soft);
 }
 
 .admin-finanzas__donut-label {
@@ -170,7 +165,7 @@
 
 .admin-finanzas__sankey {
   position: relative;
-  height: clamp(260px, 34vw, 400px);
+  height: clamp(320px, 40vw, 480px);
 }
 
 .admin-finanzas__add {

@@ -167,5 +167,132 @@
   }
 }
 
+// ── Merma ─────────────────────────────────────────────────────
+// Alta y bitácora en el mismo panel: registrar lo que se tira y ver dónde se
+// está perdiendo producto son la misma tarea, no dos pantallas.
+.admin-merma {
+  margin-bottom: 18px;
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 26%, var(--admin-border));
+
+  // scroll-margin para que el enlace "Registrar merma" de la barra no deje el
+  // encabezado del panel debajo de la topbar fija.
+  scroll-margin-top: 90px;
+
+  &__form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    align-items: end;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+
+    &--wide {
+      @media (min-width: 900px) {
+        grid-column: span 2;
+      }
+    }
+
+    label {
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+
+      small {
+        font-weight: 600;
+        text-transform: none;
+      }
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: var(--admin-radius-sm);
+      background: var(--admin-surface);
+      color: var(--admin-text);
+      font: inherit;
+      font-size: 13px;
+
+      &:focus {
+        border-color: var(--admin-gold);
+        outline: 0;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: end;
+
+    .admin-btn {
+      width: 100%;
+      min-height: 42px;
+      justify-content: center;
+    }
+  }
+
+  // Dónde se está perdiendo el producto, que es la pregunta que contesta el
+  // desglose por motivo; el total ya lo da el badge del encabezado.
+  &__motivos {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 16px 0 0;
+    padding: 0;
+    gap: 8px;
+    list-style: none;
+
+    li {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 7px 12px;
+      border: 1px solid var(--admin-border-soft);
+      border-radius: 999px;
+      background: var(--admin-surface-soft);
+    }
+  }
+
+  &__motivo-label {
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &__motivo-val {
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__empty {
+    margin-top: 16px;
+  }
+
+  &__table {
+    margin-top: 4px;
+  }
+
+  &__costo {
+    color: var(--admin-danger-text);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 // Las tarjetas de resumen (.admin-stat-strip / .admin-stat-card) ahora viven en
 // el componente compartido _cards.scss para reutilizarlas en varios módulos.

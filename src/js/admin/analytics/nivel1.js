@@ -570,10 +570,19 @@
 
         var tbody = document.querySelector('[data-n1-asociacion-table]');
         if (tbody) {
+            /*
+             * Los dos platillos se pintan iguales: la regla es simétrica —el
+             * servicio calcula la confianza con min(soporteA, soporteB)— y el
+             * par «principal + acompañamiento» que sugería la jerarquía
+             * anterior no existe en el dato.
+             */
             tbody.innerHTML = items.map(function (it) {
                 return '<tr>' +
-                    '<td><span class="admin-table__cell-main">' + it.a + '</span>' +
-                        '<span class="admin-table__cell-sub">+ ' + it.b + '</span></td>' +
+                    '<td><span class="admin-nivel1-pair">' +
+                        '<span class="admin-nivel1-pair__item">' + it.a + '</span>' +
+                        '<span class="admin-nivel1-pair__plus" aria-hidden="true">+</span>' +
+                        '<span class="admin-nivel1-pair__item">' + it.b + '</span>' +
+                    '</span></td>' +
                     '<td class="admin-table__num">' + it.coocurrencias + '</td>' +
                     '<td class="admin-table__num">' +
                         '<span class="admin-table__cell-main">' + it.confianzaPct + '%</span>' +

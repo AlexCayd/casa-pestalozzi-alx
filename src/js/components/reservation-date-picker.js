@@ -17,8 +17,15 @@
         popover.close(Boolean(restoreFocus));
       }
     };
+    // contains() es opcional: lo implementan los popovers que portan su panel a
+    // <body>, donde root.contains() ya no alcanza y un clic dentro del propio
+    // desplegable se leería como un clic fuera.
     document.addEventListener("click", function (event) {
-      if (activePopover && !activePopover.root.contains(event.target)) {
+      if (!activePopover) return;
+      var dentro = typeof activePopover.contains === "function"
+        ? activePopover.contains(event.target)
+        : activePopover.root.contains(event.target);
+      if (!dentro) {
         window.ReservationPopoverCoordinator.close(activePopover, false);
       }
     });

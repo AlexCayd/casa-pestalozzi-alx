@@ -4,7 +4,7 @@
  */
 
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
-$backUrl = (string)($backUrl ?? '/admin/reservations');
+$backUrl = (string)($backUrl ?? '/admin/reservaciones');
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');

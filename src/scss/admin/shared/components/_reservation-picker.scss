@@ -64,6 +64,10 @@
   --reservation-picker-hour-option-radius: var(--admin-radius-sm);
   --reservation-picker-hour-font-size: 13px;
   --reservation-picker-hour-font-weight: 850;
+  // Cada hora es una superficie de la paleta, no el gris del <button>.
+  --reservation-picker-hour-bg: var(--admin-surface-soft);
+  --reservation-picker-hover-bg: color-mix(in srgb, var(--admin-gold) 14%, var(--admin-surface-soft));
+  --reservation-picker-hover-color: var(--admin-text);
   --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
   --reservation-picker-hour-selected-color: var(--admin-gold-deep);
   --reservation-picker-icon-color: var(--admin-faint);
@@ -131,6 +135,19 @@
 
   .hour-dropdown__head strong {
     letter-spacing: 0.01em;
+  }
+
+  /*
+   * Desplegable portado a <body> (ver el modo portal de
+   * reservation-time-picker.js). Fijo respecto al viewport porque el JS lo
+   * coloca contra el campo con coordenadas de getBoundingClientRect, y por
+   * encima del modal (120) y del select (130) para que también sirva dentro del
+   * diálogo de excepciones de horario.
+   */
+  .hour-dropdown.is-portal {
+    position: fixed;
+    z-index: 140;
+    max-width: calc(100vw - 16px);
   }
 
   .hour-option.sel {
