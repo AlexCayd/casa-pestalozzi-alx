@@ -829,6 +829,14 @@
         outline: 1px dashed var(--admin-warning);
         outline-offset: -2px;
       }
+
+      // Realce del cursor. El anillo va por dentro (inset) porque la tabla usa
+      // border-spacing de 3px: un borde exterior desplazaría la celda y movería
+      // la fila entera. El outline de is-offhours se respeta, así que una celda
+      // fuera de horario conserva su marca al pasar por encima.
+      &:hover {
+        box-shadow: inset 0 0 0 2px var(--admin-gold);
+      }
     }
 
     // Leyenda de la rampa de color.
@@ -998,6 +1006,95 @@
 .admin-nivel1-lift {
   font-weight: 700;
   color: var(--admin-sage-deep);
+}
+
+/*
+ * Globo de detalle de las celdas del mapa de calor (§3.2).
+ *
+ * Vive a nivel raíz porque el JS lo monta en <body>: dentro de la tabla lo
+ * recortaban el overflow:hidden de .admin-card y el overflow-x:auto del propio
+ * mapa. Como <body> lleva la clase .admin-body, los tokens --admin-* siguen
+ * resolviéndose y el globo acompaña el cambio de tema sin repintarse.
+ */
+.admin-n1-tip {
+  position: fixed;
+  z-index: 60;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+  color: var(--admin-text);
+  font-size: 12px;
+  line-height: 1.45;
+  // El puntero nunca debe tocarlo: el globo se coloca sobre la celda y, si
+  // capturara el ratón, dispararía el mouseleave del contenedor y parpadearía.
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__value {
+    margin: 2px 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    span {
+      margin-left: 5px;
+      color: var(--admin-muted);
+      font-size: 11px;
+      font-weight: 500;
+    }
+  }
+
+  &__rows {
+    margin: 0;
+    display: grid;
+    gap: 3px;
+
+    > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    dt {
+      color: var(--admin-muted);
+    }
+
+    dd {
+      margin: 0;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
+  // Estado de la celda: es lo que distingue "no vendió" de "no abrió", que es
+  // justo la confusión que el mapa existe para evitar.
+  &__state {
+    margin: 8px 0 0;
+    padding-top: 7px;
+    border-top: 1px solid var(--admin-border-soft);
+    font-size: 11px;
+
+    &.is-abierto  { color: var(--admin-c-verde); }
+    &.is-sinventa { color: var(--admin-c-rojo); }
+    &.is-fuera    { color: var(--admin-c-ambar); }
+    &.is-cerrado  { color: var(--admin-muted); }
+  }
 }
 
 /*

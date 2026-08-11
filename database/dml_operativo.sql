@@ -54,6 +54,20 @@ INSERT INTO areas_produccion (id, nombre, slug, color) VALUES
 (4, 'Horno Napolitano', 'horno',  '#1a5276');
 
 -- -------------------------------------------------------
+-- Estaciones de impresión (ESC/POS)
+-- -------------------------------------------------------
+--
+-- Una estación de comanda por área de producción más la de cuenta en la caja.
+-- Va aquí, pegado a areas_produccion, porque `impresoras.area_id` es llave
+-- foránea contra esa tabla: sembrarlas antes falla.
+INSERT INTO impresoras (id, nombre, area_id, rol, conexion, host, puerto, dispositivo, ancho, activo) VALUES
+(1, 'Comanda Café',   1, 'comanda', 'red', '192.168.1.51', 9100, NULL, 32, 1),
+(2, 'Comanda Jugos',  2, 'comanda', 'red', '192.168.1.52', 9100, NULL, 32, 1),
+(3, 'Comanda Cocina', 3, 'comanda', 'red', '192.168.1.53', 9100, NULL, 48, 1),
+(4, 'Comanda Horno',  4, 'comanda', 'red', '192.168.1.54', 9100, NULL, 48, 1),
+(5, 'Cuenta Caja', NULL, 'cuenta',  'red', '192.168.1.50', 9100, NULL, 48, 1);
+
+-- -------------------------------------------------------
 -- Categorías del menú
 -- -------------------------------------------------------
 
