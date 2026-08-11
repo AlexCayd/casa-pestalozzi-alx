@@ -38,7 +38,7 @@ const mapShell = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.
 assertContract(!pos.includes('warningsLocalesParaTicket'), 'POS no filtra reservaciones proximas localmente');
 assertContract(!pos.includes("reserva.ventana_operativa || '') !== '30_60'"), 'POS no decide por ventana 30_60');
 assertContract(pos.includes('confirmar_reservacion_proxima = 0'), 'POS envia confirmacion falsa en la primera peticion');
-assertContract(pos.includes("result.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
+assertContract(pos.includes("resultado.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
 assertContract(pos.includes('bloqueo.presentacion'), 'POS renderiza la presentacion de cada bloqueo');
 assertContract(!pos.includes('bloqueo.motivo'), 'POS no renderiza motivo interno');
 assertContract(pos.includes('activeNoticeController'), 'POS conserva referencia al modal de aviso activo');

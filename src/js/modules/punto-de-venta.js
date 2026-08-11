@@ -1,5 +1,25 @@
 /* ── Punto de Venta — Casa Pestalozzi ──────────────────────── */
 
+function clasificarResultadoAperturaTicket(resultado) {
+  resultado = resultado || {};
+  if (
+    resultado.tipo === 'decision_requerida' ||
+    resultado.codigo === 'REQUIERE_CONFIRMACION'
+  ) {
+    return 'decision';
+  }
+  if (resultado.ok === false || resultado.tipo === 'error') {
+    return 'error';
+  }
+  if (
+    resultado.ok === true &&
+    resultado.commit === true
+  ) {
+    return 'exito';
+  }
+  return 'inconsistente';
+}
+
 function initMapa() {
   if (initMapa._done) return;
   initMapa._done = true;
@@ -3595,14 +3615,16 @@ function initMapa() {
     });
   }
 
-  function mostrarAdvertenciaReservacionProxima(payload, warnings) {
+  function mostrarAdvertenciaReservacionProxima(payload, warnings, presentacionRespuesta) {
     warnings = Array.isArray(warnings) ? warnings.filter(Boolean) : [];
     if (!warnings.length) return false;
 
     var warning = warnings[0];
-    var presentacion = warning.presentacion && warning.presentacion.mensaje
-      ? warning.presentacion
-      : null;
+    var presentacion = presentacionRespuesta && presentacionRespuesta.mensaje
+      ? presentacionRespuesta
+      : (warning.presentacion && warning.presentacion.mensaje
+        ? warning.presentacion
+        : null);
     if (!presentacion) {
       console.error('Reservacion POS: advertencia sin presentacion canonica', warning);
       return false;
@@ -3663,7 +3685,44 @@ function initMapa() {
     }
     return postJson('/api/abrir-ticket', payload)
     .then(function(result) {
-      if (result.ok) {
+      var resultadoTipo = clasificarResultadoAperturaTicket(result);
+      if (resultadoTipo === 'decision') {
+        ticketSelectionState.opening = false;
+        ticketSelectionState.warningConfirmed = false;
+        actualizarModoSeleccion();
+        var warnings = Array.isArray(result.advertencias) && result.advertencias.length
+          ? result.advertencias
+          : (result.advertencia ? [result.advertencia] : []);
+        if (mostrarAdvertenciaReservacionProxima(payload, warnings, result)) {
+          return;
+        }
+        throw new Error('La respuesta de confirmación no incluyó una presentación válida.');
+      }
+
+      if (resultadoTipo === 'error') {
+        ticketSelectionState.opening = false;
+        ticketSelectionState.warningConfirmed = false;
+        actualizarModoSeleccion();
+        var message = result.mensaje || '';
+        var conflictDetails = Array.isArray(result.mesas_conflicto)
+          ? result.mesas_conflicto.map(function(mesaId) {
+              var mesaConflict = mesaPorId(mesaId);
+              return mesaConflict ? mesaConflict.nombre : 'Mesa ' + mesaId;
+            })
+          : [];
+        showOpenTicketNotice({
+          title: 'No se puede abrir el ticket',
+          message: message,
+          details: conflictDetails.length
+            ? ['Mesas en conflicto: ' + conflictDetails.join(', ')]
+            : [],
+          cancelLabel: 'Entendido',
+          refreshOnCancel: !ticketSelectionMode
+        });
+        return;
+      }
+
+      if (resultadoTipo === 'exito') {
         if (!result.ticket_id && !result.id) {
           throw new Error('La respuesta no incluyó el ticket creado.');
         }
@@ -3705,37 +3764,7 @@ function initMapa() {
         else abrirCreado();
         return;
       }
-
-      if (result.codigo === 'REQUIERE_CONFIRMACION' && result.advertencia) {
-        ticketSelectionState.opening = false;
-        ticketSelectionState.warningConfirmed = false;
-        actualizarModoSeleccion();
-        var warnings = Array.isArray(result.advertencias) && result.advertencias.length
-          ? result.advertencias
-          : [result.advertencia];
-        mostrarAdvertenciaReservacionProxima(payload, warnings);
-        return;
-      }
-
-      ticketSelectionState.opening = false;
-      ticketSelectionState.warningConfirmed = false;
-      actualizarModoSeleccion();
-      var message = result.mensaje || '';
-      var conflictDetails = Array.isArray(result.mesas_conflicto)
-        ? result.mesas_conflicto.map(function(mesaId) {
-            var mesaConflict = mesaPorId(mesaId);
-            return mesaConflict ? mesaConflict.nombre : 'Mesa ' + mesaId;
-          })
-        : [];
-      showOpenTicketNotice({
-        title: 'No se puede abrir el ticket',
-        message: message,
-        details: conflictDetails.length
-          ? ['Mesas en conflicto: ' + conflictDetails.join(', ')]
-          : [],
-        cancelLabel: 'Entendido',
-        refreshOnCancel: !ticketSelectionMode
-      });
+      throw new Error('Respuesta contractual inconsistente al abrir el ticket.');
     })
     .catch(function(error) {
       ticketSelectionState.opening = false;
@@ -3771,7 +3800,7 @@ function initMapa() {
     setActionBusy(actionButton, true, 'Procesando…');
     return postJson(endpoint, payload)
     .then(function(result) {
-      var committed = result && (result.commit === true || result.ok === true);
+      var committed = result && result.commit === true;
       if (committed) {
         if (typeof options.onCommit === 'function') {
           return options.onCommit(result);
@@ -3961,7 +3990,7 @@ function initMapa() {
         allow_multiple: true
       })
     .then(function(result) {
-      if (result.ok) {
+      if (clasificarResultadoAperturaTicket(result) === 'exito') {
         if (!result.id && !result.ticket_id) {
           throw new Error('La respuesta no incluyó el ticket creado.');
         }
@@ -4001,7 +4030,7 @@ function initMapa() {
     })
     .then(function(res) { return res.json(); })
     .then(function(result) {
-      if (result.ok) {
+      if (result.commit === true) {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {
@@ -4023,7 +4052,7 @@ function initMapa() {
     })
     .then(function(res) { return res.json(); })
     .then(function(result) {
-      if (result.ok) {
+      if (result.commit === true) {
         limpiarCierrePaso(ticketId);
         showFeedbackQR(result.token, mesa ? mesa.nombre : '');
       } else {

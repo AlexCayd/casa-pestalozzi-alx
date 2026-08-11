@@ -36,9 +36,7 @@ final class DisponibilidadReservacionService
         $motivo = self::motivoPublico((string)($resultado['motivo'] ?? ''));
         $respuesta = [
             'ok' => (bool)($resultado['ok'] ?? true),
-            'codigo' => ($resultado['disponible'] ?? false)
-                ? self::DISPONIBILIDAD_CONSULTADA
-                : self::SIN_DISPONIBILIDAD,
+            'codigo' => self::codigoConsultaPublica($resultado),
             'fecha' => (string)($resultado['fecha'] ?? ''),
             'abierto' => (bool)($resultado['abierto'] ?? false),
             'horarios' => array_values(array_map(
@@ -78,6 +76,26 @@ final class DisponibilidadReservacionService
      *
      * @return array<string, mixed>
      */
+    private static function codigoConsultaPublica(array $resultado): string
+    {
+        if (($resultado['disponible'] ?? false) === true) {
+            return self::DISPONIBILIDAD_CONSULTADA;
+        }
+
+        $codigo = (string)($resultado['codigo'] ?? '');
+        return in_array($codigo, [
+            HorarioReservacionService::FECHA_INVALIDA,
+            HorarioReservacionService::FECHA_PASADA,
+            'FECHA_FUERA_DE_HORIZONTE',
+            HorarioReservacionService::HORARIO_INVALIDO,
+            HorarioReservacionService::HORARIO_PASADO,
+            HorarioReservacionService::DIA_INACTIVO,
+            'HORARIO_SIN_CONFIGURACION',
+            'ANTICIPACION_INSUFICIENTE',
+            'DESPUES_DE_ULTIMA_RESERVACION',
+        ], true) ? $codigo : self::SIN_DISPONIBILIDAD;
+    }
+
     public static function consultarUna(
         string $fecha,
         string $hora,
@@ -313,10 +331,22 @@ final class DisponibilidadReservacionService
 
         $base['horarios'] = $slots;
         $disponibles = array_values(array_filter($slots, static fn(array $slot): bool => $slot['disponible']));
+        $horaSolicitadaEntrada = $horaSolicitada !== null ? trim($horaSolicitada) : '';
         $horaSolicitada = $horaSolicitada !== null
-            ? HorarioReservacionService::normalizarHoraCorta($horaSolicitada)
+            ? HorarioReservacionService::normalizarHoraCorta($horaSolicitadaEntrada)
             : '';
         $base['hora'] = $horaSolicitada !== '' ? $horaSolicitada : null;
+
+        if ($horaSolicitadaEntrada !== '' && $horaSolicitada === '') {
+            $base['ok'] = false;
+            $base['codigo'] = HorarioReservacionService::HORARIO_INVALIDO;
+            $base['motivo'] = HorarioReservacionService::MOTIVO_HORARIO_FUERA_DE_OPERACION;
+            $base['disponible'] = false;
+            $base['alternativas'] = $alternativas;
+            return $publico ? self::respuestaConsultaPublica($base) : $base + [
+                'horarios_alternativos' => $alternativas,
+            ];
+        }
         $slotSolicitado = null;
         if ($horaSolicitada !== '') {
             foreach ($slots as $slot) {
@@ -326,6 +356,27 @@ final class DisponibilidadReservacionService
                 }
             }
         }
+
+        if ($horaSolicitada !== '' && $slotSolicitado === null) {
+            $horaSolicitadaSql = HorarioReservacionService::normalizarHoraSql($horaSolicitada);
+            $validacionHora = HorarioReservacionService::validarHora(
+                $fecha,
+                $horaSolicitadaSql,
+                $ahora,
+                false,
+                $horaOriginal !== '' && $horaSolicitadaSql === $horaOriginal
+            );
+            $base['ok'] = false;
+            $base['codigo'] = $validacionHora['codigo'] ?? HorarioReservacionService::HORARIO_INVALIDO;
+            $base['motivo'] = $validacionHora['motivo_no_disponible']
+                ?? HorarioReservacionService::MOTIVO_HORARIO_FUERA_DE_OPERACION;
+            $base['disponible'] = false;
+            $base['alternativas'] = $alternativas;
+            return $publico ? self::respuestaConsultaPublica($base) : $base + [
+                'horarios_alternativos' => $alternativas,
+            ];
+        }
+
         $base['disponible'] = $horaSolicitada !== ''
             ? ($slotSolicitado !== null && (bool)$slotSolicitado['disponible'])
             : $disponibles !== [];

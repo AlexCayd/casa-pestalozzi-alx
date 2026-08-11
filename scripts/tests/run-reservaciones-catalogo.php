@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\ReservacionErrorCatalog;
+use Services\DisponibilidadReservacionService;
 use Services\ReservacionMapaMesaPresenter;
 use Services\PosReservacionSerializer;
 
@@ -82,6 +83,24 @@ assertContract($withoutContact['consecuencia'] === 'La reservación podrá crear
 assertContract($withoutContact['acciones'][1]['id'] === 'CONFIRMAR_SIN_CONTACTO', 'sin contacto usa accion canonica');
 assertContract($withoutContact['acciones'][1]['label'] === 'Crear sin contacto', 'sin contacto etiqueta accion canonica');
 
+$decisionPos = ReservacionErrorCatalog::enriquecer([
+    'ok' => false,
+    'codigo' => 'REQUIERE_CONFIRMACION',
+    'contexto' => ['hora' => '13:00', 'minutos_restantes' => 45],
+]);
+assertContract($decisionPos['ok'] === true, 'decision POS fue comprendida');
+assertContract($decisionPos['tipo'] === ReservacionErrorCatalog::TIPO_DECISION, 'decision POS conserva tipo canonico');
+assertContract($decisionPos['commit'] === false, 'decision POS no confirma escritura');
+assertContract($decisionPos['titulo'] === 'Reservación próxima', 'decision POS usa titulo top-level especifico');
+assertContract(stripos($decisionPos['mensaje'], '13:00') !== false, 'decision POS propaga hora a presentacion top-level');
+assertContract($decisionPos['acciones'][0]['id'] === 'VOLVER', 'decision POS ofrece volver');
+assertContract($decisionPos['acciones'][1]['id'] === 'CONFIRMAR_APERTURA', 'decision POS ofrece abrir ticket');
+
+$ticketCreado = ReservacionErrorCatalog::presentar('TICKET_CREADO');
+assertContract($ticketCreado['tipo'] === ReservacionErrorCatalog::TIPO_EXITO, 'ticket creado usa tipo exito');
+assertContract($ticketCreado['commit'] === true, 'ticket creado confirma el commit');
+assertContract($ticketCreado['acciones'][0]['id'] === 'CERRAR', 'ticket creado expone accion de cierre');
+
 $creada = ReservacionErrorCatalog::presentar('RESERVACION_CREADA', [
     'reservacion_id' => 77,
     'mesa_ids' => [3, 4],
@@ -136,6 +155,23 @@ assertContract($resultadoContextual['comensales'] === 9, 'contexto de resultado 
 assertContract(
     ReservacionMapaMesaPresenter::presentar(['utilizable' => true])['estado_visual'] === 'libre',
     'presenter mapa pinta mesa disponible en verde'
+);
+
+$codigoConsultaPublica = new ReflectionMethod(DisponibilidadReservacionService::class, 'codigoConsultaPublica');
+$codigoConsultaPublica->setAccessible(true);
+assertContract(
+    $codigoConsultaPublica->invoke(null, [
+        'disponible' => false,
+        'codigo' => 'HORARIO_INVALIDO',
+    ]) === 'HORARIO_INVALIDO',
+    'consulta publica conserva error de horario'
+);
+assertContract(
+    $codigoConsultaPublica->invoke(null, [
+        'disponible' => false,
+        'codigo' => 'SIN_COMBINACION_FISICA',
+    ]) === 'SIN_DISPONIBILIDAD',
+    'consulta publica reserva sin disponibilidad para falta de capacidad'
 );
 
 fwrite(STDOUT, "Reservaciones: catalogo contractual OK\n");

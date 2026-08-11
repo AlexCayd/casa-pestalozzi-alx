@@ -192,6 +192,7 @@ final class ReservacionErrorCatalog
         'HORARIO_ORIGINAL_NO_PRESERVABLE' => self::TIPO_CONFLICTO,
 
         // Tickets y operación POS.
+        'TICKET_CREADO' => self::TIPO_EXITO,
         'TICKET_ABIERTO' => self::TIPO_CONFLICTO,
         'TICKET_NO_ENCONTRADO' => self::TIPO_ERROR,
         'TICKET_YA_CERRADO' => self::TIPO_CONFLICTO,
@@ -419,6 +420,18 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'No se abrió un ticket paralelo.',
             'acciones' => [['id' => 'CONSULTAR_TICKET', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
+        'TICKET_CREADO' => [
+            'titulo' => 'Ticket abierto',
+            'mensaje' => 'El ticket se abrió correctamente.',
+            'consecuencia' => 'La mesa quedó ocupada por el ticket.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'TICKET_CERRADO' => [
+            'titulo' => 'Ticket cerrado',
+            'mensaje' => 'El ticket se cerró correctamente.',
+            'consecuencia' => 'La mesa y la reservación quedaron liberadas según su estado operativo.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
         'TOLERANCIA_VIGENTE' => [
             'titulo' => 'Tolerancia vigente',
             'mensaje' => 'La tolerancia de llegada sigue vigente.',
@@ -492,6 +505,13 @@ final class ReservacionErrorCatalog
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'RESERVACION_PROXIMA' => [
+            'descripcion' => 'Una reservacion confirmada necesita las mesas seleccionadas dentro de poco.',
+            'titulo' => 'Reservación próxima',
+            'mensaje' => 'Hay una reservación próxima para las {hora}; faltan {minutos_restantes} minutos.',
+            'consecuencia' => 'Confirma la operación sólo si la mesa quedará disponible a tiempo.',
+            'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary'], ['id' => 'CONFIRMAR_APERTURA', 'tipo' => 'primary']],
+        ],
+        'REQUIERE_CONFIRMACION' => [
             'descripcion' => 'Una reservacion confirmada necesita las mesas seleccionadas dentro de poco.',
             'titulo' => 'Reservación próxima',
             'mensaje' => 'Hay una reservación próxima para las {hora}; faltan {minutos_restantes} minutos.',
@@ -1033,7 +1053,7 @@ final class ReservacionErrorCatalog
         ];
 
         if (in_array($canonical, [
-            'RESERVACION_CREADA', 'ACTUALIZADA', 'COMENTARIO_ACTUALIZADO',
+            'TICKET_CREADO', 'TICKET_CERRADO', 'RESERVACION_CREADA', 'ACTUALIZADA', 'COMENTARIO_ACTUALIZADO',
             'CONFIRMADA', 'COMPLETADA', 'CANCELADA', 'NO_SHOW',
             'RESERVACION_CREADA_SIN_MESA', 'RESERVACION_CONFIRMADA', 'RESERVACION_MODIFICADA',
             'RESERVACION_CANCELADA', 'REEMPLAZO_CREADO', 'REEMPLAZO_CONFIRMADO',
@@ -1201,6 +1221,7 @@ final class ReservacionErrorCatalog
         $resultado['tipo'] = $presentacion['tipo'];
         $resultado['http_status'] = $resultado['http_status'] ?? $presentacion['http_status'];
         $resultado['mensaje_key'] = $presentacion['mensaje_key'];
+        $resultado['titulo'] = $presentacion['titulo'];
         $resultado['mensaje'] = $presentacion['mensaje'];
         $resultado['descripcion'] = $presentacion['descripcion'];
         $resultado['consecuencia'] = $presentacion['consecuencia'];

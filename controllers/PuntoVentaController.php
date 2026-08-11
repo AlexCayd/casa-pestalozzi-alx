@@ -170,7 +170,20 @@ class PuntoVentaController {
                 (int)($_SESSION['id'] ?? 0)
             );
         if (($resultado['ok'] ?? false) && isset($resultado['ticket_id'])) {
+            // La apertura de ticket es una mutación confirmada. El código OK
+            // genérico conserva commit=false para respuestas informativas;
+            // esta ruta expone el éxito específico de ticket.
+            $resultado['codigo'] = 'TICKET_CREADO';
             $resultado['id'] = $resultado['ticket_id'];
+        }
+        if (($resultado['codigo'] ?? '') === 'REQUIERE_CONFIRMACION'
+            && is_array($resultado['advertencia'] ?? null)) {
+            // La presentación top-level debe usar los mismos hechos que la
+            // advertencia anidada, sin volver a calcular la ventana en POS.
+            $contextoAdvertencia = (array)($resultado['advertencia']['contexto'] ?? []);
+            $resultado['contexto'] = array_intersect_key($contextoAdvertencia, array_flip([
+                'hora', 'minutos_restantes', 'hora_objetivo',
+            ]));
         }
         self::responder($resultado);
     }
@@ -199,13 +212,18 @@ class PuntoVentaController {
             "SELECT id, estado FROM tickets WHERE id = {$ticketId} LIMIT 1"
         );
         if (!empty($ticketExistente) && $ticketExistente[0]->estado === 'cerrado') {
-            self::responder(PuntoVentaReservacionService::cerrarTicket(
+            $resultado = PuntoVentaReservacionService::cerrarTicket(
                 $ticketId,
                 'efectivo',
                 0.0,
                 [],
                 (int)($_SESSION['id'] ?? 0)
-            ));
+            );
+            if (($resultado['ok'] ?? false) === true) {
+                $resultado['codigo'] = 'TICKET_CERRADO';
+                $resultado['id'] = $ticketId;
+            }
+            self::responder($resultado);
             return;
         }
 
@@ -325,6 +343,9 @@ class PuntoVentaController {
                 self::responder($cierre);
                 return;
             }
+            $cierre['codigo'] = 'TICKET_CERRADO';
+            $cierre['id'] = $ticketId;
+            $cierre['propina'] = $propina;
             $token = (string)$cierre['token'];
 
             // Impresión de la cuenta: efecto secundario en su propio try/catch.
@@ -367,7 +388,8 @@ class PuntoVentaController {
                 error_log('cerrarTicket — impresión de cuenta falló: ' . $e->getMessage());
             }
 
-            echo json_encode(['ok' => true, 'token' => $token, 'propina' => $propina]);
+            $cierre['token'] = $token;
+            self::responder($cierre);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::cerrarTicket - ' . $e->getMessage());
             self::errorJson('TICKET_CIERRE_FALLIDO');
@@ -691,11 +713,16 @@ class PuntoVentaController {
         if (!self::validarCsrfMutacion($datos)) {
             return;
         }
-        self::responder(PuntoVentaReservacionService::comenzar(
+        $resultado = PuntoVentaReservacionService::comenzar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
             !empty($datos['mesero_id']) ? (int)$datos['mesero_id'] : null
-        ));
+        );
+        if (($resultado['ok'] ?? false) && isset($resultado['ticket_id'])) {
+            $resultado['codigo'] = 'TICKET_CREADO';
+            $resultado['id'] = $resultado['ticket_id'];
+        }
+        self::responder($resultado);
     }
 
     /** POST /api/punto-de-venta/reservaciones/cancelar */
@@ -705,11 +732,15 @@ class PuntoVentaController {
         if (!self::validarCsrfMutacion($datos)) {
             return;
         }
-        self::responder(PuntoVentaReservacionService::cancelar(
+        $resultado = PuntoVentaReservacionService::cancelar(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
             trim((string)($datos['motivo'] ?? ''))
-        ));
+        );
+        if (($resultado['ok'] ?? false) === true) {
+            $resultado['codigo'] = 'CANCELADA';
+        }
+        self::responder($resultado);
     }
 
     /** POST /api/punto-de-venta/reservaciones/no-show */
@@ -719,13 +750,17 @@ class PuntoVentaController {
         if (!self::validarCsrfMutacion($datos)) {
             return;
         }
-        self::responder(PuntoVentaReservacionService::noShow(
+        $resultado = PuntoVentaReservacionService::noShow(
             (int)($datos['reservacion_id'] ?? 0),
             (int)($_SESSION['id'] ?? 0),
             !empty($datos['override']),
             Auth::esAdmin(),
             trim((string)($datos['motivo'] ?? ''))
-        ));
+        );
+        if (($resultado['ok'] ?? false) === true) {
+            $resultado['codigo'] = 'NO_SHOW';
+        }
+        self::responder($resultado);
     }
 
     private static function entradaJson(): array
