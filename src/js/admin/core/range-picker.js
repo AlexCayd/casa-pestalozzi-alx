@@ -10,7 +10,10 @@
  * ya elegido se ven ambos extremos y los días intermedios resaltados.
  *
  * El servidor sigue filtrando: al aplicar se recarga con ?rango=N o
- * ?desde&hasta, que es lo que AdminController::rangoAnalytics ya valida.
+ * ?desde&hasta (más ?comparar=1), que es lo que Services\RangoPeriodo valida.
+ *
+ * Vive en admin/core porque lo usan analíticas, finanzas e inventario; viaja en
+ * admin.js, que todas las pantallas del panel cargan.
  */
 (function () {
   var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
@@ -97,12 +100,24 @@
       window.location.assign(url.toString());
     }
 
+    /**
+     * El interruptor de comparación viaja en cada navegación: el rango y el
+     * "comparar con el periodo anterior" son una sola decisión del usuario y
+     * perder uno al cambiar el otro obliga a volver a marcarlo.
+     */
+    function comparaActiva() {
+      var check = root.querySelector("[data-range-compare]");
+      if (check) return check.checked;
+      return root.getAttribute("data-compare") === "1";
+    }
+
     function irA(params) {
       var url = new URL(window.location.href);
       url.search = "";
       Object.keys(params).forEach(function (k) {
         if (params[k] !== "" && params[k] != null) url.searchParams.set(k, params[k]);
       });
+      if (comparaActiva()) url.searchParams.set("comparar", "1");
       navegar(url);
     }
 
@@ -396,6 +411,18 @@
         irA({ rango: val });
       });
     });
+
+    // Marcar/desmarcar la comparación recarga de inmediato: es un cambio de
+    // datos, no un ajuste que espere al botón Aplicar.
+    var compareCheck = root.querySelector("[data-range-compare]");
+    if (compareCheck) {
+      compareCheck.addEventListener("change", function () {
+        var preset = parseInt(root.getAttribute("data-preset"), 10);
+        irA(preset > 0
+          ? { rango: preset }
+          : { desde: root.getAttribute("data-start"), hasta: root.getAttribute("data-end") });
+      });
+    }
 
     document.addEventListener("click", function (event) {
       if (!pop.hidden && !root.contains(event.target)) cerrar();

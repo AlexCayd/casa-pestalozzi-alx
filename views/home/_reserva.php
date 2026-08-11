@@ -7,7 +7,6 @@ $contactoReservas = \Services\ReservacionConfig::contactoPublico();
 $horariosOperacion = is_array($horariosOperacion ?? null) ? $horariosOperacion : [];
 $proximasExcepcionesOperacion = is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [];
 $horariosOperacionDisponibles = (bool)($horariosOperacionDisponibles ?? false);
-$limiteExcepcionesVisibles = 2;
 $mesesCortos = [
   1 => 'ENE',
   2 => 'FEB',
@@ -22,11 +21,48 @@ $mesesCortos = [
   11 => 'NOV',
   12 => 'DIC',
 ];
-$hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
+$hoyReserva = \DateTimeImmutable::createFromFormat(
   '!Y-m-d',
   \Services\ReservacionConfig::fechaActual(),
   \Services\ReservacionConfig::timezone()
-)->format('w');
+);
+$hoyDiaSemana = (int)$hoyReserva->format('w');
+
+// Las excepciones se leen sobre la tabla de horario, no en una tarjeta aparte:
+// el visitante conecta "el jueves cierran" con la fila del jueves. Solo caben
+// las de los próximos siete días, que son las únicas con una fila que marcar;
+// el resto se resume en una línea. El mapeo día→fecha se resuelve aquí, en la
+// zona horaria del restaurante, porque el reloj del visitante puede ser otro.
+$excepcionesPorDia = [];
+$excepcionesPosteriores = [];
+if ($horariosOperacionDisponibles) {
+  $ventanaSemana = [];
+  for ($i = 0; $i < 7; $i++) {
+    $ventanaSemana[$hoyReserva->modify('+' . $i . ' days')->format('Y-m-d')] = $i;
+  }
+  foreach ($proximasExcepcionesOperacion as $excepcion) {
+    $fechaExcepcion = (string)($excepcion['fecha'] ?? '');
+    if (isset($ventanaSemana[$fechaExcepcion])) {
+      $diaExcepcion = (int)$hoyReserva
+        ->modify('+' . $ventanaSemana[$fechaExcepcion] . ' days')
+        ->format('w');
+      // Una sola excepción por fecha (uq_excepciones_operacion_fecha) y siete
+      // fechas distintas: no hay colisión posible dentro de la ventana.
+      $excepcionesPorDia[$diaExcepcion] = $excepcion;
+      continue;
+    }
+    $excepcionesPosteriores[] = $excepcion;
+  }
+}
+
+/** Devuelve "12 AGO" para la insignia de la fila y la línea de excepciones lejanas. */
+$formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): string {
+  $fecha = \DateTimeImmutable::createFromFormat('!Y-m-d', $fechaIso);
+  if (!$fecha instanceof \DateTimeImmutable) {
+    return $fechaIso;
+  }
+  return $fecha->format('j') . ' ' . ($mesesCortos[(int)$fecha->format('n')] ?? '');
+};
 ?>
 <section class="section reserva" id="reserva" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
   data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
@@ -40,71 +76,71 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
       <h3>Horario habitual</h3>
         <?php if ($horariosOperacionDisponibles) : ?>
           <?php foreach ($horariosOperacion as $horario) : ?>
-            <?php $esHoy = (int)($horario['dia_semana'] ?? -1) === $hoyDiaSemana; ?>
-            <div class="row<?php echo $esHoy ? ' today' : ''; ?>" data-day="<?php echo (int)($horario['dia_semana'] ?? 0); ?>">
+            <?php
+              $diaSemana = (int)($horario['dia_semana'] ?? -1);
+              $esHoy = $diaSemana === $hoyDiaSemana;
+              $excepcionDia = $excepcionesPorDia[$diaSemana] ?? null;
+              $esHorarioEspecial = $excepcionDia !== null
+                && ($excepcionDia['tipo'] ?? '') === 'horario_especial';
+              $claseFila = 'row';
+              if ($esHoy) {
+                $claseFila .= ' today';
+              }
+              if ($excepcionDia !== null) {
+                $claseFila .= ' is-exception is-exception--' . ($esHorarioEspecial ? 'special' : 'closed');
+              }
+            ?>
+            <div class="<?php echo $claseFila; ?>" data-day="<?php echo $diaSemana; ?>"
+              <?php echo $excepcionDia !== null ? 'data-exception-date="' . s((string)$excepcionDia['fecha']) . '"' : ''; ?>>
               <span class="reserva__hours-day">
                 <?php echo s($horario['nombre'] ?? ''); ?>
                 <?php if ($esHoy) : ?><small class="reserva__hours-today">Hoy</small><?php endif; ?>
               </span>
               <span class="reserva__hours-value">
-                <?php if (!empty($horario['abierto'])) : ?>
+                <?php if ($excepcionDia !== null) : ?>
+                  <strong class="reserva__hours-exception">
+                    <?php if ($esHorarioEspecial) : ?>
+                      <?php echo s(($excepcionDia['hora_apertura'] ?? '') . '–' . ($excepcionDia['hora_cierre'] ?? '')); ?>
+                    <?php else : ?>
+                      Cerrado
+                    <?php endif; ?>
+                  </strong>
+                <?php elseif (!empty($horario['abierto'])) : ?>
                   <?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?>
                 <?php else : ?>
                   Cerrado
                 <?php endif; ?>
               </span>
-            </div>
-          <?php endforeach; ?>
-        <?php else : ?>
-          <p class="reserva__hours-unavailable">Consulta la disponibilidad al seleccionar tu fecha.</p>
-        <?php endif; ?>
-
-        <?php if ($horariosOperacionDisponibles && $proximasExcepcionesOperacion !== []) : ?>
-          <section class="reserva__schedule-changes" data-schedule-changes aria-labelledby="upcoming-exceptions-title">
-            <div class="reserva__schedule-changes-head">
-              <h3 id="upcoming-exceptions-title">Próximas excepciones</h3>
-              <?php if (count($proximasExcepcionesOperacion) > $limiteExcepcionesVisibles) : ?>
-                <button type="button" class="reserva__schedule-toggle" data-schedule-toggle aria-expanded="false" aria-controls="upcoming-exceptions-list">
-                  Ver más
-                </button>
+              <?php if ($excepcionDia !== null) : ?>
+                <span class="reserva__hours-badge">
+                  <?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?>
+                  <?php echo s($formatoFechaExcepcion((string)$excepcionDia['fecha'])); ?>
+                </span>
+                <?php if (!empty($excepcionDia['motivo'])) : ?>
+                  <small class="reserva__hours-reason"><?php echo s($excepcionDia['motivo']); ?></small>
+                <?php endif; ?>
               <?php endif; ?>
             </div>
-            <div class="reserva__schedule-changes-grid" id="upcoming-exceptions-list">
-              <?php foreach ($proximasExcepcionesOperacion as $indice => $excepcion) : ?>
-                <?php
-                  $fechaExcepcion = \DateTimeImmutable::createFromFormat('!Y-m-d', (string)($excepcion['fecha'] ?? ''));
-                  $fechaIso = (string)($excepcion['fecha'] ?? '');
-                  $diaVisible = $fechaExcepcion instanceof \DateTimeImmutable
-                    ? (int)$fechaExcepcion->format('j')
-                    : '';
-                  $mesVisible = $fechaExcepcion instanceof \DateTimeImmutable
-                    ? ($mesesCortos[(int)$fechaExcepcion->format('n')] ?? '')
-                    : '';
-                  $esHorarioEspecial = ($excepcion['tipo'] ?? '') === 'horario_especial';
-                  $horarioVisible = $esHorarioEspecial
-                    ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
-                    : 'Cerrado todo el día';
-                  $esAdicional = $indice >= $limiteExcepcionesVisibles;
-                ?>
-                <article
-                  class="reserva__schedule-change reserva__schedule-change--<?php echo $esHorarioEspecial ? 'special' : 'closed'; ?>"
-                  <?php echo $esAdicional ? 'data-schedule-extra hidden' : ''; ?>
-                >
-                  <time class="reserva__schedule-change-date" datetime="<?php echo s($fechaIso); ?>">
-                    <strong><?php echo s((string)$diaVisible); ?></strong>
-                    <span><?php echo s($mesVisible); ?></span>
-                  </time>
-                  <div class="reserva__schedule-change-content">
-                    <span><?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?></span>
-                    <strong><?php echo s($horarioVisible); ?></strong>
-                    <?php if (!empty($excepcion['motivo'])) : ?>
-                      <small><?php echo s($excepcion['motivo']); ?></small>
-                    <?php endif; ?>
-                  </div>
-                </article>
-              <?php endforeach; ?>
-            </div>
-          </section>
+          <?php endforeach; ?>
+          <?php if ($excepcionesPosteriores !== []) : ?>
+            <p class="reserva__hours-upcoming">
+              <span>Más adelante:</span>
+              <?php
+                $resumenPosteriores = array_map(
+                  static function (array $excepcion) use ($formatoFechaExcepcion): string {
+                    return $formatoFechaExcepcion((string)($excepcion['fecha'] ?? ''))
+                      . ' · ' . (($excepcion['tipo'] ?? '') === 'horario_especial'
+                        ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
+                        : 'cerrado');
+                  },
+                  $excepcionesPosteriores
+                );
+              ?>
+              <?php echo s(implode(' · ', $resumenPosteriores)); ?>
+            </p>
+          <?php endif; ?>
+        <?php else : ?>
+          <p class="reserva__hours-unavailable">Consulta la disponibilidad al seleccionar tu fecha.</p>
         <?php endif; ?>
     </div>
 
@@ -180,7 +216,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
           <p class="reservation-step__intro">Fecha, número de personas y horario.</p>
           <div class="reservation-visit-grid">
           <div class="field reservation-field reservation-field--date">
-            <label class="reservation-field__label" for="dateDisplay">Fecha</label>
+            <span class="reservation-field__label" id="dateLabel">Fecha</span>
             <?php
               $rootId = 'datePicker';
               $inputId = 'fechaHidden';
@@ -193,7 +229,9 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
                 ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
                 ->format('Y-m-d');
               $disabled = false;
-              $showIcon = true;
+              // Calendario siempre visible: elegir fecha no debería costar un
+              // clic de apertura ni esconder el mes completo.
+              $inline = true;
               // Las excepciones pueden abrir un día semanalmente cerrado; el backend resuelve cada fecha.
               $enabledWeekdays = range(0, 6);
               $displayAriaDescribedby = 'dateError';
@@ -204,7 +242,7 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
           </div>
           <div class="field reservation-field reservation-field--guests">
             <span class="reservation-field__label" id="guestsLabel">Comensales</span>
-            <div class="pills reservation-guests" id="guestPills" role="group" aria-labelledby="guestsLabel">
+            <div class="pills reservation-guests reservation-guests--tabs" id="guestPills" role="group" aria-labelledby="guestsLabel">
               <button type="button" class="pill" data-g="1" aria-pressed="false">1</button>
               <button type="button" class="pill sel" data-g="2" aria-pressed="true">2</button>
               <button type="button" class="pill" data-g="3" aria-pressed="false">3</button>
@@ -224,8 +262,11 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
             </div>
             <span class="field__msg reservation-field__error" data-field-error="comensales"></span>
           </div>
-          <div class="field reservation-field reservation-field--time">
-            <label class="reservation-field__label" for="hourDisplay">Horario</label>
+          <?php // Oculto hasta que haya fecha: sin ella la rejilla sólo puede
+                // mostrar un placeholder, y ocupa el ancho de un campo real.
+                // form.js lo revela desde updateInterface(). ?>
+          <div class="field reservation-field reservation-field--time" data-reservation-time-field hidden>
+            <span class="reservation-field__label" id="hourLabel">Horario</span>
             <?php
               $rootId = 'hourPicker';
               $inputId = 'horaHidden';
@@ -235,6 +276,8 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
               $value = '';
               $endpoint = '/api/reservaciones/disponibilidad';
               $disabled = false;
+              // Rejilla de horarios a la vista: son pocos y comparar es el paso.
+              $inline = true;
               $displayAriaDescribedby = 'hourStatus';
               $displayAriaInvalid = false;
               include __DIR__ . '/../components/reservations/time-picker.php';
@@ -305,7 +348,11 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
               </div>
               <div class="field reservation-field reservation-field--contact" data-new-reservation-contact-input>
                 <label class="reservation-field__label" for="reservationContact" data-contact-label>Correo electrónico</label>
-                <input id="reservationContact" class="reservation-control reservation-control--text" type="email" name="contacto" placeholder="cliente@ejemplo.com" autocomplete="email" aria-describedby="reservationContactHelp contactError" />
+                <?php /* El afijo +52 es fijo: el servidor exige E.164 y pedirlo a mano sobraba. */ ?>
+                <div class="reservation-control-affix" data-contact-affix-wrap>
+                  <span class="reservation-control__prefix" data-contact-prefix aria-hidden="true" hidden>+52</span>
+                  <input id="reservationContact" class="reservation-control reservation-control--text" type="email" name="contacto" placeholder="cliente@ejemplo.com" autocomplete="email" aria-describedby="reservationContactHelp contactError" />
+                </div>
                 <small class="reservation-field__help" id="reservationContactHelp" data-new-contact-help>Te enviaremos aquí el código de confirmación.</small>
                 <span class="field__msg reservation-field__error" id="contactError" data-field-error="contacto"></span>
               </div>
@@ -412,6 +459,8 @@ $hoyDiaSemana = (int)\DateTimeImmutable::createFromFormat(
         <div class="form__submit reservation-otp__actions">
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
           <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
+          <?php /* Sin esto, un contacto mal escrito deja al visitante sin salida. */ ?>
+          <button type="button" class="reservation-access__link" data-new-reservation-change-contact>Cambiar contacto</button>
         </div>
         <p class="reservation-access__message" data-new-reservation-otp-message role="status" aria-live="polite"></p>
       </section>

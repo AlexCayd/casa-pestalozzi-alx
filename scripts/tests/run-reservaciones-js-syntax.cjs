@@ -41,7 +41,9 @@ assertContract(pos.includes('confirmar_reservacion_proxima = 0'), 'POS envia con
 assertContract(pos.includes("resultado.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
 assertContract(pos.includes('bloqueo.presentacion'), 'POS renderiza la presentacion de cada bloqueo');
 assertContract(!pos.includes('bloqueo.motivo'), 'POS no renderiza motivo interno');
-assertContract(pos.includes('activeNoticeController'), 'POS conserva referencia al modal de aviso activo');
+// El aviso ya no se desmonta a mano: get() reutiliza el singleton de <body>, asi
+// que no queda ningun root huerfano que recoger al cerrar el modal de mesa.
+assertContract(!pos.includes('ConfirmationModal.create'), 'POS no monta un root nuevo de modal por cada aviso');
 assertContract(pos.includes('closeModal({ refresh: false })'), 'POS cierra el modal antes de refrescar tras no-show');
 assertContract(pos.includes('refreshFailed'), 'POS informa refresco fallido sin reintentar la mutacion');
 

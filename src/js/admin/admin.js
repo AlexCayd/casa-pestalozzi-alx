@@ -3,6 +3,29 @@
  * Sincroniza drawer movil, colapso desktop y persistencia local del sidebar.
  */
 (function () {
+    /*
+     * Bloqueo de scroll de los modales. Delega en AdminScrollLock (motion.js),
+     * que además para Lenis: sin pararlo, `overflow:hidden` no impide que la
+     * rueda siga desplazando el fondo, porque Lenis desplaza por código.
+     * El respaldo cubre el caso sin motor de scroll suave (táctil o
+     * reduced-motion), donde AdminScrollLock existe igual pero sin Lenis.
+     */
+    function bloquearScroll() {
+        if (window.AdminScrollLock) {
+            window.AdminScrollLock.bloquear();
+            return;
+        }
+        document.body.style.overflow = 'hidden';
+    }
+
+    function desbloquearScroll() {
+        if (window.AdminScrollLock) {
+            window.AdminScrollLock.desbloquear();
+            return;
+        }
+        document.body.style.overflow = '';
+    }
+
     function initAdminSidebar() {
         const body = document.body;
         const sidebar = document.querySelector('[data-admin-sidebar]');
@@ -154,14 +177,40 @@
         });
     }
 
+    // Respaldo de initUserDeleteModal para los formularios que no traen el
+    // modal dedicado. Sin window.confirm: la confirmación siempre es un
+    // componente con estilo (ver CLAUDE.md).
+    //
+    // Los textos se leen de data-confirm-*; los valores por omisión son los de
+    // usuarios, que fue el primer módulo en usarlo.
     function initDeleteConfirmations() {
         document.querySelectorAll('[data-confirm-delete]').forEach(function (form) {
             form.addEventListener('submit', function (event) {
-                const confirmed = window.confirm('¿Seguro que deseas eliminar este usuario? Esta acción no se puede deshacer.');
-
-                if (!confirmed) {
-                    event.preventDefault();
+                if (form.dataset.deleteConfirmed === '1') {
+                    return;
                 }
+
+                event.preventDefault();
+
+                if (!window.ConfirmationModal) {
+                    form.dataset.deleteConfirmed = '1';
+                    form.submit();
+                    return;
+                }
+
+                window.ConfirmationModal.get().open({
+                    variant: 'danger',
+                    eyebrow: form.dataset.confirmEyebrow || 'Eliminar usuario',
+                    title: form.dataset.confirmTitle || '¿Eliminar este usuario?',
+                    description: form.dataset.confirmDescription || 'Perderá el acceso al sistema de inmediato.',
+                    consequence: form.dataset.confirmConsequence || 'Esta acción no se puede deshacer.',
+                    secondaryLabel: 'Cancelar',
+                    primaryLabel: form.dataset.confirmPrimary || 'Eliminar',
+                    onPrimary: function () {
+                        form.dataset.deleteConfirmed = '1';
+                        form.submit();
+                    }
+                });
             });
         });
     }
@@ -209,7 +258,7 @@
             input.value = '';
             confirmBtn.disabled = true;
             modal.hidden = false;
-            document.body.style.overflow = 'hidden';
+            bloquearScroll();
 
             window.requestAnimationFrame(function () {
                 modal.classList.add('is-open');
@@ -218,8 +267,14 @@
         }
 
         function closeModal() {
+            // Sin esta guarda, un Escape con el diálogo ya cerrado descontaba de
+            // más el contador de bloqueos y dejaba el scroll trabado.
+            if (modal.hidden) {
+                return;
+            }
+
             modal.classList.remove('is-open');
-            document.body.style.overflow = '';
+            desbloquearScroll();
             window.setTimeout(function () { modal.hidden = true; }, 220);
 
             if (lastFocused) {
@@ -287,7 +342,7 @@
             const modal = activeModal;
             activeModal = null;
             modal.classList.remove('is-open');
-            document.body.style.overflow = '';
+            desbloquearScroll();
             modal.dispatchEvent(new CustomEvent('admin:modal-closed'));
 
             window.clearTimeout(closeTimer);
@@ -313,7 +368,7 @@
             lastFocused = trigger || document.activeElement;
             activeModal = modal;
             modal.hidden = false;
-            document.body.style.overflow = 'hidden';
+            bloquearScroll();
 
             window.requestAnimationFrame(function () {
                 modal.classList.add('is-open');
@@ -324,7 +379,11 @@
                 if (focusTarget) {
                     focusTarget.focus();
                 }
-                modal.dispatchEvent(new CustomEvent('admin:modal-opened'));
+                // El disparador viaja en el detalle: quien escuche el evento
+                // suele necesitar saber desde dónde se abrió el diálogo.
+                modal.dispatchEvent(new CustomEvent('admin:modal-opened', {
+                    detail: { trigger: trigger || null }
+                }));
             });
         }
 
@@ -425,9 +484,17 @@
             }
         }
 
+        /*
+         * Desde la propia pantalla de reportes el módulo no se puede adivinar:
+         * autocompletarlo con "Configuración" describiría dónde se llenó el
+         * formulario, no dónde falló el sistema. El disparador de esa pantalla
+         * lo marca y aquí se deja vacío.
+         */
+        let moduloEnBlanco = false;
+
         function prepareContext() {
             routeInput.value = window.location.pathname;
-            if (moduleInput.value.trim() === '') {
+            if (moduleInput.value.trim() === '' && !moduloEnBlanco) {
                 const moduleTitle = document.querySelector('.admin-topbar__module');
                 moduleInput.value = moduleTitle ? moduleTitle.textContent.trim() : '';
             }
@@ -439,7 +506,11 @@
         browserSelect.addEventListener('change', updateOtherBrowser);
         updateOtherBrowser();
         if (modal) {
-            modal.addEventListener('admin:modal-opened', prepareContext);
+            modal.addEventListener('admin:modal-opened', function (event) {
+                const disparador = event.detail && event.detail.trigger;
+                moduloEnBlanco = Boolean(disparador && disparador.hasAttribute('data-problem-blank-module'));
+                prepareContext();
+            });
         }
 
         validateButton.addEventListener('click', function () {
@@ -478,10 +549,20 @@
                         return;
                     }
 
+                    form.reset();
+
+                    // En la propia pantalla de reportes el reporte recién creado
+                    // tiene que aparecer en la tabla; en el resto del panel basta
+                    // con decir dónde seguirlo.
+                    if (document.querySelector('[data-configuration-page="reports"]')) {
+                        status.textContent = 'Reporte registrado. Actualizando la lista…';
+                        window.setTimeout(function () { window.location.reload(); }, 700);
+                        return;
+                    }
+
                     // El folio se consulta en Configuración › Reportes del
                     // sistema, que es donde se le da seguimiento.
                     status.textContent = 'Reporte enviado. Puedes seguirlo en Configuración › Reportes del sistema.';
-                    form.reset();
                 })
                 .catch(function () {
                     validateButton.disabled = false;

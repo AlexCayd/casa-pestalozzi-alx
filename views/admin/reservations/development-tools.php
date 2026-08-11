@@ -10,7 +10,7 @@ $resultadoPendientes = is_array($resultadoPendientes ?? null) ? $resultadoPendie
             <h2 class="admin-page__title">Herramientas de desarrollo</h2>
             <p class="admin-page__subtitle">Procesos no destructivos para mantener el estado temporal de reservaciones durante el desarrollo.</p>
         </div>
-        <a class="admin-btn admin-btn--secondary" href="/admin/reservations">Volver a reservaciones</a>
+        <a class="admin-btn admin-btn--secondary" href="/admin/reservaciones">Volver a reservaciones</a>
     </header>
 
     <?php if ($resultadoPendientes) : ?>
@@ -44,7 +44,7 @@ $resultadoPendientes = is_array($resultadoPendientes ?? null) ? $resultadoPendie
                 <button type="button" class="admin-modal__close" data-admin-modal-close>&times;</button>
             </div>
             <p class="admin-modal__text">Solo se procesarán retenciones vencidas; las pendientes vigentes no cambiarán.</p>
-            <form method="POST" action="/admin/reservations/development-tools/process-expired">
+            <form method="POST" action="/admin/reservaciones/herramientas-desarrollo/procesar-vencidas">
                 <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string)($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="confirmar" value="1">
                 <div class="admin-modal__actions">

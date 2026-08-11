@@ -125,6 +125,34 @@
   min-width: 0;
 }
 
+/* Variante para paneles a media anchura (analíticas, listados laterales). Sin
+   el min-width de 680px la tabla cabe en el panel y desaparece el scroll
+   horizontal; el thead pegajoso mantiene el encabezado visible mientras se
+   recorre el cuerpo. Va después de .admin-table porque comparten
+   especificidad y decide el orden. */
+.admin-table--compact {
+  min-width: 0;
+
+  th,
+  td {
+    padding: 11px 12px;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}
+
+/* Columna numérica: alineada a la derecha y con cifras tabulares para que la
+   comparación vertical funcione sin leer dígito a dígito. */
+.admin-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .admin-table__cell-main {
   color: var(--admin-text);
   font-weight: 900;
@@ -316,6 +344,20 @@
     background: color-mix(in srgb, var(--admin-c-rojo) 88%, #fff);
     color: #fff;
     box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
+  }
+}
+
+/* Acción reversible pero con consecuencia (registrar merma): ámbar, no rojo.
+   El rojo queda reservado para lo que destruye el registro. */
+.admin-icon-button--warn {
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 70%, #000);
+  background: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
+  color: var(--admin-warning-text);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--admin-c-ambar) 78%, #000);
+    background: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
+    color: var(--admin-warning-text);
   }
 }
 

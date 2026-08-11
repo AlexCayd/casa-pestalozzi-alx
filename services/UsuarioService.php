@@ -68,7 +68,20 @@ class UsuarioService
             $stmt->close();
 
             $guardado = self::seleccionarUsuario($id);
-            if (!$guardado || !password_verify((string)$usuario->password, (string)$guardado['password_hash'])) {
+            if (!$guardado) {
+                throw new \RuntimeException('No fue posible verificar el usuario creado.');
+            }
+            /*
+             * Sólo se verifica la contraseña si el alta traía una.
+             *
+             * El personal de piso entra con NIP y deja el campo vacío;
+             * Usuario::hashPassword() guarda entonces un secreto aleatorio para
+             * satisfacer la columna NOT NULL. Comparar la cadena vacía contra
+             * ese hash fallaba siempre, así que el alta de meseros y cocineros
+             * terminaba en rollback con un error genérico.
+             */
+            $passwordEnviada = (string)$usuario->password;
+            if ($passwordEnviada !== '' && !password_verify($passwordEnviada, (string)$guardado['password_hash'])) {
                 throw new \RuntimeException('No fue posible verificar el usuario creado.');
             }
             // El NIP es la única credencial del personal de piso: si se pidió
@@ -135,44 +148,47 @@ class UsuarioService
             // escribir NULL encima de un hash válido.
             $usuario->hashNip();
             $escribeNip = $usuario->nip !== null && $usuario->nip !== '';
+            // Misma regla que el NIP: la contraseña sólo se reescribe cuando el
+            // formulario mandó una. Vacía significa "conservar la actual", así
+            // que las columnas opcionales se añaden al UPDATE en vez de pisar un
+            // hash válido con uno derivado de una cadena vacía.
+            $escribePassword = trim((string) $usuario->password) !== '';
+            if ($escribePassword) {
+                $usuario->hashPassword();
+            }
             $nacimiento = $usuario->fecha_nacimiento ?: null;
 
+            $columnas = ['username = ?', 'nombre = ?', 'fecha_nacimiento = ?'];
+            $tipos = 'sss';
+            $valores = [$usuario->username, $usuario->nombre, $nacimiento];
+
             if ($escribeNip) {
-                $stmt = $db->prepare(
-                    'UPDATE usuarios SET username = ?, nombre = ?, fecha_nacimiento = ?, nip_hash = ?, rol = ?, activo = ?
-                     WHERE id = ? LIMIT 1'
-                );
-                if (!$stmt) {
-                    throw new \RuntimeException($db->error);
-                }
-                $stmt->bind_param(
-                    'sssssii',
-                    $usuario->username,
-                    $usuario->nombre,
-                    $nacimiento,
-                    $usuario->nip_hash,
-                    $usuario->rol,
-                    $usuario->activo,
-                    $usuarioId
-                );
-            } else {
-                $stmt = $db->prepare(
-                    'UPDATE usuarios SET username = ?, nombre = ?, fecha_nacimiento = ?, rol = ?, activo = ?
-                     WHERE id = ? LIMIT 1'
-                );
-                if (!$stmt) {
-                    throw new \RuntimeException($db->error);
-                }
-                $stmt->bind_param(
-                    'ssssii',
-                    $usuario->username,
-                    $usuario->nombre,
-                    $nacimiento,
-                    $usuario->rol,
-                    $usuario->activo,
-                    $usuarioId
-                );
+                $columnas[] = 'nip_hash = ?';
+                $tipos .= 's';
+                $valores[] = $usuario->nip_hash;
             }
+            if ($escribePassword) {
+                $columnas[] = 'password_hash = ?';
+                $tipos .= 's';
+                $valores[] = $usuario->password_hash;
+            }
+
+            $columnas[] = 'rol = ?';
+            $columnas[] = 'activo = ?';
+            $tipos .= 'si';
+            $valores[] = $usuario->rol;
+            $valores[] = (int) $usuario->activo;
+
+            $tipos .= 'i';
+            $valores[] = $usuarioId;
+
+            $stmt = $db->prepare(
+                'UPDATE usuarios SET ' . implode(', ', $columnas) . ' WHERE id = ? LIMIT 1'
+            );
+            if (!$stmt) {
+                throw new \RuntimeException($db->error);
+            }
+            $stmt->bind_param($tipos, ...$valores);
             self::ejecutarStatement($stmt);
             $filasAfectadas = $stmt->affected_rows;
             $stmt->close();

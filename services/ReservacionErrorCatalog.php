@@ -86,6 +86,7 @@ final class ReservacionErrorCatalog
         'ITEM_ID_REQUERIDO' => self::TIPO_ERROR,
         'ITEM_CANCELACION_FALLIDA' => self::TIPO_ERROR,
         'ITEM_ENTREGA_FALLIDA' => self::TIPO_ERROR,
+        'ITEM_NO_ENTREGABLE' => self::TIPO_CONFLICTO,
         'TICKET_ID_REQUERIDO' => self::TIPO_ERROR,
         'TICKET_ACTUALIZACION_FALLIDA' => self::TIPO_ERROR,
         'TICKET_ITEMS_NO_DISPONIBLES' => self::TIPO_ERROR,
@@ -821,6 +822,12 @@ final class ReservacionErrorCatalog
             'mensaje' => 'No fue posible registrar la entrega. Intenta de nuevo.',
             'consecuencia' => 'El producto permanece en su estado anterior.',
             'acciones' => [['id' => 'REINTENTAR', 'tipo' => 'primary']],
+        ],
+        'ITEM_NO_ENTREGABLE' => [
+            'titulo' => 'El producto ya no admite entrega',
+            'mensaje' => 'El producto ya se entregó o fue cancelado.',
+            'consecuencia' => 'El ticket no cambió.',
+            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
         ],
         'TICKET_ID_REQUERIDO' => [
             'titulo' => 'Ticket no identificado',

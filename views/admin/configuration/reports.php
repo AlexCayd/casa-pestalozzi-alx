@@ -22,6 +22,16 @@ $statusLabels = [
                 </svg>
                 Volver
             </a>
+            <?php /* Mismo modal que el botón de la barra superior. Aquí el módulo
+                     se deja en blanco: el que importa es el de la pantalla donde
+                     falló algo, no el de este formulario. */ ?>
+            <button type="button" class="admin-btn admin-btn--primary admin-create-button"
+                    data-problem-blank-module
+                    data-admin-modal-open="admin-problem-modal"
+                    aria-haspopup="dialog" aria-controls="admin-problem-modal">
+                <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                <span>Nuevo reporte</span>
+            </button>
         </div>
     </header>
 

@@ -14,7 +14,8 @@ function assertClosureContract(bool $condition, string $message): void
 
 $auth = file_get_contents($root . '/classes/Auth.php');
 $controller = file_get_contents($root . '/controllers/PuntoVentaController.php');
-$pos = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
+$posRaw = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
+$pos = is_string($posRaw) ? str_replace(["\r\n", "\r"], "\n", $posRaw) : $posRaw;
 $availability = file_get_contents($root . '/services/DisponibilidadReservacionService.php');
 
 assertClosureContract(is_string($auth), 'se pudo leer la frontera de autorización');

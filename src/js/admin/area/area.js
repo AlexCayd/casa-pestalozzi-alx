@@ -18,6 +18,25 @@
             rollback: '/admin/api/rollback-item'
         };
 
+        // Último payload pintado y su firma. El tablero sólo se reconstruye
+        // cuando algo cambió: repintarlo cada segundo destruía el nodo del botón
+        // entre el mousedown y el mouseup, y el click nunca llegaba a dispararse.
+        var items = [];
+        var lastSignature = null;
+        // Ítems con una transición en vuelo. Mientras haya alguno, la respuesta
+        // del poll no pisa el estado local: el servidor todavía no la conoce.
+        var pending = Object.create(null);
+        var pendingCount = 0;
+        // Descarta respuestas fuera de orden: una petición lenta anterior no
+        // debe repintar encima de otra más reciente.
+        var loadSequence = 0;
+        var renderedSequence = 0;
+
+        var TRANSICIONES = {
+            fwd: { enviado: 'en_preparacion', en_preparacion: 'listo' },
+            back: { listo: 'en_preparacion', en_preparacion: 'enviado' }
+        };
+
         var listEnv = document.getElementById('list-enviados');
         var listPrep = document.getElementById('list-prep');
         var listListo = document.getElementById('list-listo');
@@ -57,18 +76,38 @@
             return '<div class="admin-area-empty"><span>' + escHtml(text) + '</span></div>';
         }
 
+        function signatureOf(list) {
+            return list.map(function (item) {
+                return item.id + ':' + item.estado;
+            }).join('|');
+        }
+
         function loadItems() {
+            loadSequence += 1;
+            var sequence = loadSequence;
+
             fetch(endpoints.items)
                 .then(function (response) {
                     return response.json();
                 })
                 .then(function (data) {
+                    if (sequence < renderedSequence) {
+                        return;
+                    }
                     if (!data.ok) {
                         setRefresh('Error al cargar', 'error');
                         return;
                     }
 
-                    renderBoard(data.items || []);
+                    renderedSequence = sequence;
+
+                    // Con una transición en vuelo el servidor va por detrás del
+                    // estado local: pintar su respuesta devolvería la tarjeta a
+                    // la columna anterior durante un instante.
+                    if (pendingCount === 0) {
+                        items = data.items || [];
+                        renderBoard();
+                    }
 
                     var now = new Date();
                     setRefresh('Actualizado ' + now.toLocaleTimeString('es-MX', {
@@ -81,7 +120,13 @@
                 });
         }
 
-        function renderBoard(items) {
+        function renderBoard(force) {
+            var signature = signatureOf(items);
+            if (!force && signature === lastSignature) {
+                return;
+            }
+            lastSignature = signature;
+
             var byTicket = {};
             var ticketOrder = [];
 
@@ -154,8 +199,6 @@
             if (countListo) {
                 countListo.textContent = listoCount;
             }
-
-            bindActions();
         }
 
         function buildCard(group, itemList, colType) {
@@ -237,47 +280,92 @@
             return html;
         }
 
-        function bindActions() {
-            var buttons = document.querySelectorAll('.admin-area-card-kds__btn[data-id]');
-
-            buttons.forEach(function (button) {
-                button.addEventListener('click', function () {
-                    var endpoint = button.dataset.dir === 'back' ? endpoints.rollback : endpoints.advance;
-
-                    button.disabled = true;
-                    button.classList.add('is-loading');
-
-                    fetch(endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            item_id: parseInt(button.dataset.id, 10)
-                        })
-                    })
-                        .then(function (response) {
-                            return response.json();
-                        })
-                        .then(function (result) {
-                            if (result.ok) {
-                                loadItems();
-                                return;
-                            }
-
-                            button.disabled = false;
-                            button.classList.remove('is-loading');
-                        })
-                        .catch(function () {
-                            button.disabled = false;
-                            button.classList.remove('is-loading');
-                        });
-                });
-            });
+        function aviso(texto) {
+            if (window.AppNotice && typeof window.AppNotice.show === 'function') {
+                window.AppNotice.show({ text: texto, variant: 'error' });
+            }
         }
 
+        function itemPorId(itemId) {
+            for (var i = 0; i < items.length; i++) {
+                if (parseInt(items[i].id, 10) === itemId) {
+                    return items[i];
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Mueve el ítem en el modelo local y repinta antes de que responda el
+         * servidor. El tablero de producción se usa con las manos ocupadas: la
+         * tarjeta tiene que reaccionar al toque, no medio segundo después.
+         */
+        function transicionar(itemId, direccion) {
+            var item = itemPorId(itemId);
+            if (!item || pending[itemId]) {
+                return;
+            }
+
+            var destino = TRANSICIONES[direccion][item.estado];
+            if (!destino) {
+                return;
+            }
+
+            var estadoPrevio = item.estado;
+            item.estado = destino;
+            pending[itemId] = true;
+            pendingCount += 1;
+            renderBoard();
+
+            fetch(direccion === 'back' ? endpoints.rollback : endpoints.advance, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ item_id: itemId })
+            })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (result) {
+                    if (!result.ok) {
+                        throw new Error(result.mensaje || '');
+                    }
+                })
+                .catch(function (error) {
+                    var vigente = itemPorId(itemId);
+                    if (vigente) {
+                        vigente.estado = estadoPrevio;
+                    }
+                    aviso((error && error.message) || 'No se pudo cambiar el estado del platillo.');
+                })
+                .then(function () {
+                    delete pending[itemId];
+                    pendingCount = Math.max(0, pendingCount - 1);
+                    renderBoard();
+                    if (pendingCount === 0) {
+                        loadItems();
+                    }
+                });
+        }
+
+        // Delegación: los listeners viven en las columnas, que nunca se
+        // reemplazan. Atarlos a cada botón obligaba a re-atarlos en cada
+        // repintado y dejaba huecos donde el click se perdía.
+        [listEnv, listPrep, listListo].forEach(function (columna) {
+            columna.addEventListener('click', function (event) {
+                var button = event.target.closest('.admin-area-card-kds__btn[data-id]');
+                if (!button || !columna.contains(button)) {
+                    return;
+                }
+                transicionar(parseInt(button.dataset.id, 10), button.dataset.dir);
+            });
+        });
+
         loadItems();
-        pollTimer = window.setInterval(loadItems, 1000);
+        // 3 s en vez de 1 s: con el diff de firma el repintado sólo ocurre
+        // cuando algo cambia, y el tablero no necesita resolución de segundo.
+        pollTimer = window.setInterval(loadItems, 3000);
 
         window.addEventListener('beforeunload', function () {
             if (pollTimer) {

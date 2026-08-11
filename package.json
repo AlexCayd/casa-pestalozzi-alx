@@ -34,6 +34,7 @@
     "terser": "^5.14.2"
   },
   "dependencies": {
-    "chart.js": "^4.5.1"
+    "chart.js": "^4.5.1",
+    "chartjs-chart-sankey": "^0.15.0"
   }
 }

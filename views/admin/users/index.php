@@ -147,7 +147,6 @@ $iniciales = static function (string $nombre, string $username): string {
                             $esUnicoAdminActivo = $rol === 'admin' && $activo && $totalAdminsActivos <= 1;
                             $mensajeAdminActivo = 'Debe existir un usuario administrador activo siempre.';
                             $esYoMismo = $id === (int) ($_SESSION['id'] ?? 0);
-                            $etiquetaCredencial = $rol === 'admin' ? 'Cambiar contraseña' : 'Cambiar NIP';
                             $rolClase = in_array($rol, ['admin', 'waiter', 'cook'], true) ? $rol : 'waiter';
                             ?>
                             <tr data-row-href="/admin/usuarios/edit?id=<?php echo $id; ?>">
@@ -199,19 +198,9 @@ $iniciales = static function (string $nombre, string $username): string {
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <a
-                                            class="admin-icon-button admin-icon-button--edit"
-                                            href="/admin/usuarios/cambiar-credencial?id=<?php echo $id; ?>"
-                                            title="<?php echo htmlspecialchars($etiquetaCredencial, ENT_QUOTES, 'UTF-8'); ?>"
-                                            aria-label="<?php echo htmlspecialchars($etiquetaCredencial, ENT_QUOTES, 'UTF-8'); ?> de <?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?>"
-                                        >
-                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                                <circle cx="8" cy="15" r="4"/>
-                                                <path d="m10.85 12.15 7.4-7.4"/>
-                                                <path d="m18 5 2 2"/>
-                                                <path d="m15 8 2 2"/>
-                                            </svg>
-                                        </a>
+                                        <?php // El cambio de credencial se hace
+                                              // dentro del formulario de cada
+                                              // usuario, no desde la fila. ?>
                                         <form
                                             method="POST"
                                             action="/admin/usuarios/delete"

@@ -10,8 +10,13 @@
   min-width: 150px;
 }
 
+// !important a propósito: ocultar el nativo no es una preferencia de página
+// sino parte del contrato del componente. Cualquier clase de módulo que el
+// <select> arrastre (p. ej. .mmodal-name-input del POS, que declara
+// display:block y se emite después) lo dejaba visible bajo el trigger, y la
+// pantalla mostraba dos selectores.
 .admin-select__native {
-  display: none;
+  display: none !important;
 }
 
 .admin-select__trigger {

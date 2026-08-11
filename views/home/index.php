@@ -86,7 +86,7 @@ if ($schemaHorarios !== []) {
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 
-  <link rel="stylesheet" href="/build/css/app.css?v=reservations-public-redesign-v16" />
+  <link rel="stylesheet" href="/build/css/app.css?v=reservations-public-redesign-v17" />
 </head>
 <body class="reveal-ready" data-hero="cinema" data-page="home">
 
@@ -108,6 +108,10 @@ if ($schemaHorarios !== []) {
 
   <?php include_once __DIR__ . '/_footer.php'; ?>
 
+  <?php /* Anuncio del restaurante. Va al final del <body> porque es un diálogo:
+           dentro del hero heredaría su transform y dejaría de ser fijo. */ ?>
+  <?php include_once __DIR__ . '/_announcement.php'; ?>
+
   <!-- Tweaks defaults -->
   <script>
     window.CP_TWEAKS = <?php echo json_encode([
@@ -125,7 +129,7 @@ if ($schemaHorarios !== []) {
   <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
-  <script src="/build/js/bundle.min.js?v=reservations-public-redesign-v16"></script>
+  <script src="/build/js/bundle.min.js?v=reservations-public-redesign-v17"></script>
 
 </body>
 </html>

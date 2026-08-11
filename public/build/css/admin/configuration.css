@@ -160,26 +160,69 @@
   outline: 2px solid var(--announcement-gold-soft);
   outline-offset: 2px;
 }
-.hero-announcement__progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+
+/*
+ * Envoltorio de diálogo.
+ *
+ * El anuncio dejó de ser una franja sobre el hero: allí competía con el título
+ * de la portada y se cerraba solo a los 8 s, así que quien llegaba tarde no lo
+ * leía. La tarjeta de arriba no cambia —la comparte la vista previa del panel—;
+ * esto sólo la presenta centrada y sobre un velo.
+ */
+.announcement-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
-.hero-announcement__progress-remaining {
-  display: block;
+.announcement-dialog[hidden] {
+  display: none;
+}
+.announcement-dialog.is-open {
+  opacity: 1;
+}
+.announcement-dialog__backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: var(--announcement-accent);
-  transform: scaleX(1);
-  transform-origin: left center;
-  will-change: transform;
+  padding: 0;
+  border: 0;
+  background: rgba(11, 12, 13, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.announcement-dialog__panel {
+  position: relative;
+  width: min(520px, 100%);
+  transform: translateY(0.75rem) scale(0.98);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.announcement-dialog__panel:focus-visible {
+  outline: none;
+}
+.announcement-dialog.is-open .announcement-dialog__panel {
+  transform: translateY(0) scale(1);
+}
+.announcement-dialog .hero-announcement {
+  width: 100%;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .announcement-dialog,
+  .announcement-dialog__panel {
+    transition: none;
+  }
+  .announcement-dialog__panel {
+    transform: none;
+  }
+}
 @media (max-width: 420px) {
   .hero-announcement {
     gap: 0.6rem;
@@ -193,9 +236,6 @@
   .hero-announcement {
     animation: none;
     transition: none;
-  }
-  .hero-announcement__progress-remaining {
-    will-change: auto;
   }
 }
 @font-face {
@@ -240,21 +280,30 @@
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 4px;
-  background: var(--config-accent, var(--admin-gold));
+  height: 3px;
+  background: transparent;
+  transition: background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-config-option:hover::before, .admin-config-option:focus-visible::before {
+  background: var(--admin-gold);
 }
 .admin-config-option:focus-visible {
   outline: none;
-  border-color: var(--config-accent, var(--admin-gold));
+  border-color: var(--admin-gold);
   box-shadow: var(--admin-focus-ring), var(--admin-shadow-md);
 }
 .admin-config-option:hover {
-  border-color: var(--config-accent, var(--admin-border));
+  border-color: var(--admin-border);
   background: var(--admin-surface-soft);
 }
 .admin-config-option:hover .admin-config-option__cta, .admin-config-option:focus-visible .admin-config-option__cta {
-  border-color: var(--config-accent, var(--admin-gold));
-  background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 12%, transparent);
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-gold) 12%, transparent);
+  color: var(--admin-gold-deep);
+}
+.admin-config-option:hover .admin-config-option__icon, .admin-config-option:focus-visible .admin-config-option__icon {
+  border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
+  color: var(--admin-gold-deep);
 }
 .admin-config-option:hover .admin-config-option__cta svg, .admin-config-option:focus-visible .admin-config-option__cta svg {
   transform: translateX(3px);
@@ -265,10 +314,11 @@
   height: 54px;
   flex: 0 0 54px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--config-accent, var(--admin-gold)) 42%, transparent);
+  border: 1px solid var(--admin-border-soft);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--config-accent, var(--admin-gold)) 15%, var(--admin-surface));
-  color: var(--config-accent, var(--admin-gold-deep));
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-config-option__icon svg {
   width: 27px;
@@ -292,7 +342,7 @@
   line-height: 1.08;
 }
 .admin-config-option__eyebrow {
-  color: var(--config-accent, var(--admin-gold-deep));
+  color: var(--admin-muted);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
@@ -315,11 +365,11 @@
   border: 1px solid var(--admin-neutral-border);
   border-radius: var(--admin-radius-md);
   background: var(--admin-surface-soft);
-  color: var(--config-accent, var(--admin-gold-deep));
+  color: var(--admin-text);
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.01em;
-  transition: border-color var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-config-option__cta svg {
   width: 18px;
@@ -409,14 +459,21 @@
 }
 .admin-schedule {
   /* Rejilla de las 24 horas. auto-fit con un mínimo de 40px: en escritorio
-     entran las 24 en dos filas y en móvil se reparte sola sin media queries. */
+     entran las 24 en dos filas y en móvil se reparte sola sin media queries.
+     position:relative porque el selector de minuto se ancla aquí. */
 }
 .admin-schedule__hours {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
   gap: 4px;
 }
 .admin-schedule__hour {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   min-height: 38px;
   padding: 0;
   border: 1px solid var(--admin-border-soft);
@@ -448,12 +505,78 @@
   background: var(--admin-gold);
   color: var(--admin-ink-on-gold);
 }
+.admin-schedule__hour {
+  /* Extremo en media hora: el dorado llena solo la mitad de la celda, así el
+     corte a las y media se ve sin leer el resumen. */
+}
+.admin-schedule__hour.is-edge.is-half {
+  background: linear-gradient(to right, color-mix(in srgb, var(--admin-gold) 30%, transparent) 0 50%, var(--admin-gold) 50% 100%);
+}
 .admin-schedule__hour:disabled {
   cursor: default;
 }
 .admin-schedule__hour:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
+}
+.admin-schedule__hour-min {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.85;
+}
+.admin-schedule__hour-min:empty {
+  display: none;
+}
+.admin-schedule {
+  /* Selector de minuto. En punto o y media son las dos únicas opciones que el
+     negocio usa, y un desplegable de 60 valores para eso era desproporcionado.
+     Absoluto sobre la rejilla: en el flujo le robaría una celda al grid y las
+     24 horas saltarían de sitio cada vez que se abre. */
+}
+.admin-schedule__minute-pop {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--admin-gold);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-md);
+}
+.admin-schedule__minute {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 74px;
+  padding: 7px 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: calc(var(--admin-radius-sm) - 2px);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) ease, border-color var(--admin-t-fast) ease;
+}
+.admin-schedule__minute:hover {
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-gold) 16%, transparent);
+}
+.admin-schedule__minute:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+.admin-schedule__minute-hora {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.admin-schedule__minute-nombre {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
 }
 .admin-schedule__summary {
   color: var(--admin-muted);
@@ -838,7 +961,29 @@
 .admin-announcement-preview-stage .hero-announcement {
   width: 100%;
   min-width: 0;
-  box-shadow: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+/*
+ * Velo entre la portada insinuada y el anuncio: es lo que separa un banner de
+ * un diálogo. Sin él la vista previa seguiría describiendo el comportamiento
+ * anterior.
+ */
+.admin-announcement-preview-veil {
+  display: block;
+  height: 1px;
+  margin: -2px 0 -8px;
+  border-radius: 999px;
+  background: var(--preview-ink-soft);
+  opacity: 0.5;
+}
+
+.admin-announcement-preview-stage[data-tema=oscuro] .admin-announcement-preview-hero {
+  opacity: 0.55;
+}
+
+.admin-announcement-preview-stage[data-tema=claro] .admin-announcement-preview-hero {
+  opacity: 0.5;
 }
 
 .admin-config-filters {

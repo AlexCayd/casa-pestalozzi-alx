@@ -4,7 +4,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..', '..');
 const sourcePath = path.join(root, 'src/js/modules/punto-de-venta.js');
-const source = fs.readFileSync(sourcePath, 'utf8');
+const source = fs.readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 
 function assertContract(condition, message) {
   if (!condition) {

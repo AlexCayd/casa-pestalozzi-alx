@@ -130,6 +130,12 @@ class Usuario extends ActiveRecord
         $this->validarNip(false);
         $this->validarUsernameUnico($this->id);
 
+        // La contraseña es opcional al editar: vacía significa "conservar la
+        // actual". Sólo si llega algo se le exige el formato completo.
+        if (trim((string) $this->password) !== '' || trim((string) $this->password_confirm) !== '') {
+            $this->validarPassword();
+        }
+
         return static::$alertas;
     }
 

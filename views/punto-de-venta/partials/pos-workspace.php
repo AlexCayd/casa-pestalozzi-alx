@@ -39,17 +39,22 @@ $operationalModule = 'tables';
 // mesero y cada rótulo de más le quita sitio al mapa.
 $operationalModuleTitle = '';
 $operationalShowLastUpdate = false;
-$operationalHeaderBack = false;
+// Chip informativo + icono de salida: el mesero ve con qué cuenta trabaja y
+// cierra sesión de un toque, sin desplegable intermedio.
+$operationalUserMenu = false;
+// Solo para administradores: el destino está bajo /admin y a un mesero la
+// guardia de rol lo rebotaría.
+$operationalHeaderBack = $esAdmin;
 $operationalDate = $mapFecha;
 $operationalHour = '';
 $operationalBrandHref = '/punto-de-venta';
-$operationalHeaderBackUrl = '';
+$operationalHeaderBackUrl = '/admin/punto-de-venta';
 $operationalDrawerId = 'map-reservations-drawer';
 $operationalActiveModule = 'map';
 $operationalMapHref = '/punto-de-venta';
 // Ambos destinos viven bajo /admin: a un mesero la guardia lo rebotaría, así
 // que solo se ofrecen si quien mira es administrador.
-$operationalReservationsHref = $esAdmin ? '/admin/reservations/operation' : '';
+$operationalReservationsHref = $esAdmin ? '/admin/reservaciones/operacion' : '';
 $operationalAdminHref = $esAdmin ? '/admin/analytics' : '';
 $operationalUsuarioNombre = $usuarioNombre;
 $operationalUsuarioRol = $usuarioRol;
@@ -74,42 +79,41 @@ $operationalHeaderActionsHtml = (string)ob_get_clean();
 ob_start();
 ?>
   <div class="pos-map" data-operational-workspace>
-  <div class="pos-ticket-selection-message" id="pos-ticket-selection-message" role="status" tabindex="-1" hidden>
-    Selecciona una o m&aacute;s mesas para abrir el ticket.
-  </div>
-  <?php
-  ob_start();
-  ?>
-  <div class="pos-map-actions" aria-label="Controles del mapa">
-    <div class="pos-ticket-selection-actions" aria-label="Apertura de ticket">
-      <button type="button" class="operational-map-action operational-map-action--primary" id="pos-ticket-selection-toggle">
-        Abrir ticket
-      </button>
-      <button type="button" class="operational-map-action operational-map-action--cancel" id="pos-ticket-selection-cancel" hidden>
+  <?php /*
+    Barra de selección múltiple. Aparece solo dentro del modo selección, que
+    ahora arranca desde "Unir mesas" en el modal de la mesa. Los IDs son
+    contrato con punto-de-venta.js; no renombrar.
+  */ ?>
+  <div class="pos-ticket-selection-bar" id="pos-ticket-selection-bar" hidden>
+    <p class="pos-ticket-selection-message" id="pos-ticket-selection-message" role="status" tabindex="-1">
+      Selecciona una o m&aacute;s mesas para abrir el ticket.
+    </p>
+    <div class="pos-ticket-selection-bar__actions">
+      <button type="button" class="operational-map-action operational-map-action--cancel" id="pos-ticket-selection-cancel">
         Cancelar
       </button>
+      <button type="button" class="operational-map-action operational-map-action--primary" id="pos-ticket-selection-toggle">
+        Confirmar apertura
+      </button>
     </div>
-    <div class="pos-map-actions__separator" aria-hidden="true"></div>
-    <?php
-    $operationalMapToggleLabel = 'mapa';
-    include __DIR__ . '/../../operation/partials/map-toggle.php';
-    ?>
   </div>
   <?php
-  $mapToolbarActionsHtml = (string)ob_get_clean();
+  // Sin encabezado ni botonera: el mapa es la pantalla del mesero y cada
+  // rótulo o columna de acciones le quitaba ancho útil al salón. 'titleId'
+  // debe ir vacío o map.php dejaría un aria-labelledby apuntando a la nada.
   $mapVisual = [
     'context' => 'mapa-mesas',
     'sectionClass' => 'mapa-operational-map',
-    'titleId' => 'mapa-operational-title',
-    'title' => 'Mapa de mesas',
-    'subtitle' => 'Estado actual del salón.',
+    'titleId' => '',
+    'title' => '',
+    'subtitle' => '',
+    'ariaLabel' => 'Mapa de mesas',
     'canvasId' => 'mapa-canvas',
     'canvasMode' => 'map',
     'loadingMode' => 'overlay',
     // Sin leyenda: el color de cada mesa ya dice su estado y la lista de
     // abreviaturas ocupaba más que el propio mapa.
     'legendPosition' => 'none',
-    'toolbarActionsHtml' => $mapToolbarActionsHtml,
   ];
   include __DIR__ . '/../../operation/partials/map.php';
   ?>

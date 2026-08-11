@@ -26,80 +26,7 @@ $hoyIso = date('Y-m-d');
             </p>
         </div>
 
-        <?php
-            $presets = [3 => 'Últimos 3 días', 7 => 'Últimos 7 días', 30 => 'Últimos 30 días',
-                        60 => 'Últimos 60 días', 365 => 'Último año'];
-            $mesesCortos = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-            $bonita = static function (string $iso) use ($mesesCortos): string {
-                $ts = strtotime($iso);
-                return $ts ? ((int) date('j', $ts) . ' ' . $mesesCortos[(int) date('n', $ts)]) : $iso;
-            };
-            $resumenRango = $bonita((string) $rango['start']) . ' – ' . $bonita((string) $rango['end'])
-                          . ' ' . date('Y', strtotime((string) $rango['end']));
-        ?>
-        <div class="admin-range" data-analytics-range-picker
-             data-start="<?php echo htmlspecialchars((string) $rango['start']); ?>"
-             data-end="<?php echo htmlspecialchars((string) $rango['end']); ?>"
-             data-today="<?php echo $hoyIso; ?>"
-             data-preset="<?php echo $rangoPreset; ?>">
-
-            <span class="admin-range__caption">Periodo</span>
-
-            <button type="button" class="admin-range__trigger" data-range-trigger
-                    aria-expanded="false" aria-haspopup="dialog">
-                <svg class="admin-range__icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/>
-                </svg>
-                <span class="admin-range__trigger-text">
-                    <span class="admin-range__trigger-label" data-range-label><?php echo htmlspecialchars($rango['label']); ?></span>
-                    <span class="admin-range__trigger-dates" data-range-dates><?php echo htmlspecialchars($resumenRango); ?></span>
-                </span>
-                <svg class="admin-range__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-
-            <div class="admin-range__pop" data-range-pop hidden role="dialog" aria-label="Elegir periodo">
-                <div class="admin-range__presets" role="group" aria-label="Periodos rápidos">
-                    <?php foreach ($presets as $dias => $etiqueta) : ?>
-                        <button type="button" class="admin-range__preset <?php echo $rangoPreset === $dias ? 'is-active' : ''; ?>"
-                                data-range-preset="<?php echo $dias; ?>"><?php echo htmlspecialchars($etiqueta); ?></button>
-                    <?php endforeach; ?>
-                    <button type="button" class="admin-range__preset <?php echo $esCustom ? 'is-active' : ''; ?>"
-                            data-range-preset="custom">Personalizado</button>
-                </div>
-
-                <div class="admin-range__cal">
-                    <div class="admin-range__nav">
-                        <button type="button" class="admin-range__nav-btn" data-range-prev aria-label="Mes anterior">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-                        </button>
-                        <span class="admin-range__month-title" data-range-title-a></span>
-                        <span class="admin-range__month-title admin-range__month-title--b" data-range-title-b></span>
-                        <button type="button" class="admin-range__nav-btn" data-range-next aria-label="Mes siguiente">
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
-                        </button>
-                    </div>
-
-                    <div class="admin-range__months">
-                        <div class="admin-range__month">
-                            <div class="admin-range__weekdays" aria-hidden="true"><span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sa</span></div>
-                            <div class="admin-range__grid" data-range-grid-a></div>
-                        </div>
-                        <div class="admin-range__month admin-range__month--b">
-                            <div class="admin-range__weekdays" aria-hidden="true"><span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sa</span></div>
-                            <div class="admin-range__grid" data-range-grid-b></div>
-                        </div>
-                    </div>
-
-                    <div class="admin-range__foot">
-                        <span class="admin-range__summary" data-range-summary aria-live="polite"></span>
-                        <div class="admin-range__foot-actions">
-                            <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-range-cancel>Cancelar</button>
-                            <button type="button" class="admin-btn admin-btn--primary admin-btn--small" data-range-apply>Aplicar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php include __DIR__ . '/partials/_range-picker.php'; ?>
     </header>
 
     <?php
@@ -176,15 +103,6 @@ $hoyIso = date('Y-m-d');
             </div>
         </article>
 
-        <article class="admin-panel admin-chart-card">
-            <header>
-                <h3>Reservaciones por estado</h3>
-                <span>Estado</span>
-            </header>
-            <div class="admin-chart-card__canvas">
-                <canvas id="reservationSourcesChart"></canvas>
-            </div>
-        </article>
     </div>
 
     <article class="admin-panel admin-table-panel">
@@ -224,7 +142,6 @@ $hoyIso = date('Y-m-d');
                 </div>
                 <p class="admin-page-summary">
                     Del <em>qué pasó</em> al <em>por qué</em> y <em>qué hacer</em>
-                    <span aria-hidden="true">·</span> Nivel 1
                 </p>
             </div>
         </header>
@@ -259,15 +176,17 @@ $hoyIso = date('Y-m-d');
                         <canvas id="menuEngineeringChart"></canvas>
                     </div>
                 </div>
+                <?php // Tres columnas en vez de cinco: la categoría baja como
+                      // subtítulo del platillo y unidades/margen se apilan en
+                      // una sola celda numérica. En un panel a media anchura,
+                      // cinco columnas obligaban a scrollear en los dos ejes. ?>
                 <div class="admin-table-wrap admin-nivel1-menu__table">
-                    <table class="admin-table">
+                    <table class="admin-table admin-table--compact">
                         <thead>
                             <tr>
-                                <th>Platillo</th>
-                                <th>Clase</th>
-                                <th>Uds.</th>
-                                <th>Margen</th>
-                                <th>Categoría</th>
+                                <th scope="col">Platillo</th>
+                                <th scope="col">Clase</th>
+                                <th scope="col" class="admin-table__num">Uds. · Margen</th>
                             </tr>
                         </thead>
                         <tbody data-n1-menu-table></tbody>
@@ -276,86 +195,103 @@ $hoyIso = date('Y-m-d');
             </div>
         </article>
 
-        <div class="admin-nivel1-grid">
-            <!-- §3.2 · RevPASH -->
-            <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-revpash>
-                <header>
-                    <div>
-                        <p class="admin-page-eyebrow">3.2 · RevPASH</p>
-                        <h3>Ingreso por asiento disponible por hora</h3>
-                        <p class="admin-nivel1-sub">Mapa de calor por franja y día de la semana</p>
-                    </div>
-                    <div class="admin-nivel1-headside">
-                        <span data-n1-revpash-seats></span>
-                        <button
-                            type="button"
-                            class="admin-nivel1-info admin-nivel1-info--icon"
-                            data-admin-modal-open="n1-revpash-info"
-                            title="Cómo leer el RevPASH"
-                            aria-label="Cómo leer el RevPASH"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
-                <!-- El mapa lo construye nivel1.js como <table> real: las horas
-                     son encabezados de fila y los días de columna, así el lector
-                     de pantalla puede recorrer la matriz. -->
-                <div class="admin-n1-heat" data-n1-revpash-heat></div>
-                <div class="admin-n1-heat__scale" data-n1-revpash-scale hidden>
-                    <span>Menos</span>
-                    <span class="admin-n1-heat__ramp" aria-hidden="true"></span>
-                    <span data-n1-revpash-max></span>
+        <!-- §3.2 · RevPASH -->
+        <article class="admin-panel admin-chart-card admin-nivel1-panel" data-n1-revpash>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.2 · RevPASH</p>
+                    <h3>Ingreso por asiento disponible por hora</h3>
+                    <p class="admin-nivel1-sub">
+                        Mapa de calor por franja y día de la semana, y abajo el mismo
+                        indicador tomando el día completo
+                    </p>
                 </div>
-                <p class="admin-nivel1-note" data-n1-revpash-note></p>
-            </article>
+                <div class="admin-nivel1-headside">
+                    <span data-n1-revpash-seats></span>
+                    <button
+                        type="button"
+                        class="admin-nivel1-info admin-nivel1-info--icon"
+                        data-admin-modal-open="n1-revpash-info"
+                        title="Cómo leer el RevPASH"
+                        aria-label="Cómo leer el RevPASH"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            <!-- El mapa lo construye nivel1.js como <table> real: las horas
+                 son encabezados de fila y los días de columna, así el lector
+                 de pantalla puede recorrer la matriz. -->
+            <div class="admin-n1-heat" data-n1-revpash-heat></div>
+            <div class="admin-n1-heat__scale" data-n1-revpash-scale hidden>
+                <span>Menos</span>
+                <span class="admin-n1-heat__ramp" aria-hidden="true"></span>
+                <span data-n1-revpash-max></span>
+            </div>
+            <p class="admin-nivel1-note" data-n1-revpash-note></p>
 
-            <!-- §3.4 · Reglas de asociación con lift -->
-            <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
-                <header>
-                    <div>
-                        <p class="admin-page-eyebrow">3.4 · Reglas de asociación</p>
-                        <h3>Qué se pide junto con qué</h3>
-                    </div>
-                    <div class="admin-nivel1-headside">
-                        <span data-n1-asociacion-tickets></span>
-                        <button
-                            type="button"
-                            class="admin-nivel1-info admin-nivel1-info--icon"
-                            data-admin-modal-open="n1-asociacion-info"
-                            title="Cómo leer las reglas de asociación"
-                            aria-label="Cómo leer las reglas de asociación"
-                        >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
-                <div class="admin-table-wrap">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Platillo A</th>
-                                <th>Platillo B</th>
-                                <th>Juntos</th>
-                                <th>Confianza</th>
-                                <th>Lift</th>
-                            </tr>
-                        </thead>
-                        <tbody data-n1-asociacion-table></tbody>
-                    </table>
+            <!-- Vista diaria del mismo indicador. Va en su propia gráfica a
+                 propósito: el mapa divide por franja y esta por el día
+                 completo, así que los valores no son comparables celda a
+                 celda y compartir eje mentiría. -->
+            <section class="admin-n1-daily" aria-label="RevPASH por día completo">
+                <div class="admin-n1-daily__head">
+                    <h4>Por día completo</h4>
+                    <p>Ingreso del día ÷ (asientos × horas de operación de ese día)</p>
                 </div>
-            </article>
-        </div>
+                <div class="admin-n1-daily__canvas">
+                    <canvas id="revpashDailyChart"></canvas>
+                </div>
+                <p class="admin-nivel1-note" data-n1-revpash-daily-note></p>
+            </section>
+        </article>
+
+        <!-- §3.4 · Reglas de asociación con lift -->
+        <article class="admin-panel admin-table-panel admin-nivel1-panel" data-n1-asociacion>
+            <header>
+                <div>
+                    <p class="admin-page-eyebrow">3.4 · Reglas de asociación</p>
+                    <h3>Qué se pide junto con qué</h3>
+                </div>
+                <div class="admin-nivel1-headside">
+                    <span data-n1-asociacion-tickets></span>
+                    <button
+                        type="button"
+                        class="admin-nivel1-info admin-nivel1-info--icon"
+                        data-admin-modal-open="n1-asociacion-info"
+                        title="Cómo leer las reglas de asociación"
+                        aria-label="Cómo leer las reglas de asociación"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 16v-4"></path>
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            <?php // A y B van juntos y al mismo peso en la celda "Combinación",
+                  // y el lift baja como subtítulo de la confianza: el par es un
+                  // solo dato sin dirección, no dos columnas independientes. ?>
+            <div class="admin-table-wrap" data-lenis-prevent>
+                <table class="admin-table admin-table--compact">
+                    <thead>
+                        <tr>
+                            <th scope="col">Combinación</th>
+                            <th scope="col" class="admin-table__num">Juntos</th>
+                            <th scope="col" class="admin-table__num">Confianza</th>
+                        </tr>
+                    </thead>
+                    <tbody data-n1-asociacion-table></tbody>
+                </table>
+            </div>
+        </article>
     </section>
 </section>
 
@@ -366,8 +302,11 @@ $hoyIso = date('Y-m-d');
      initAdminModals() en admin.js. -->
 <div class="admin-modal" id="n1-menu-info" data-admin-modal hidden>
     <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
+    <?php /* --xwide en vez de --wide: fija el encabezado y deja que scrollee
+             solo el cuerpo. Con --wide se iba el título al bajar y el ancho no
+             daba para poner los bloques lado a lado. */ ?>
     <div
-        class="admin-modal__dialog admin-modal__dialog--wide"
+        class="admin-modal__dialog admin-modal__dialog--xwide"
         role="dialog"
         aria-modal="true"
         aria-labelledby="n1-menu-info-title"
@@ -376,100 +315,91 @@ $hoyIso = date('Y-m-d');
     >
         <div class="admin-modal__head">
             <div>
-                <span class="admin-modal__eyebrow">3.1 · Ingeniería de menú</span>
-                <h2 class="admin-modal__title" id="n1-menu-info-title">Cómo leer esta analítica</h2>
+                <span class="admin-modal__eyebrow">Ingeniería de menú</span>
+                <h2 class="admin-modal__title" id="n1-menu-info-title">Qué hacer con cada platillo</h2>
                 <p class="admin-modal__text">
-                    Cruza <strong>qué tanto se vende</strong> cada platillo con
-                    <strong>cuánto deja</strong> cada venta. La combinación dice qué hacer
-                    con cada uno: protegerlo, resucitarlo, ajustarle el precio o retirarlo.
+                    Cada platillo se cruza en dos preguntas: <strong>cuánto se vende</strong> y
+                    <strong>cuánto deja</strong>. Del cruce sale la acción.
                 </p>
             </div>
             <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
         </div>
 
         <section class="admin-n1-guide">
+            <h3 class="admin-n1-guide__title">Las cuatro clases</h3>
+            <?php /* La acción va primero y la definición después: el admin abre
+                     esto para decidir, no para estudiar la matriz. */ ?>
+            <div class="admin-n1-guide__grid">
+                <article class="admin-n1-guide__card">
+                    <span class="admin-nivel1-badge admin-nivel1-badge--estrella">⭐ Estrella</span>
+                    <p class="admin-n1-guide__action">Protégelo.</p>
+                    <p class="admin-n1-guide__meaning">
+                        Se vende mucho y deja mucho. No le muevas receta ni precio, dale el mejor
+                        lugar en la carta y que nunca falte el insumo.
+                    </p>
+                </article>
+                <article class="admin-n1-guide__card">
+                    <span class="admin-nivel1-badge admin-nivel1-badge--vaca">🐎 Vaca</span>
+                    <p class="admin-n1-guide__action">Bájale el costo.</p>
+                    <p class="admin-n1-guide__meaning">
+                        Se vende mucho pero deja poco. Trae gente, así que no lo quites: renegocia
+                        insumos, revisa el gramaje o sube el precio con cuidado.
+                    </p>
+                </article>
+                <article class="admin-n1-guide__card">
+                    <span class="admin-nivel1-badge admin-nivel1-badge--incognita">❓ Incógnita</span>
+                    <p class="admin-n1-guide__action">Dale visibilidad.</p>
+                    <p class="admin-n1-guide__meaning">
+                        Deja mucho pero casi nadie lo pide. Es la mayor oportunidad: muévelo en la
+                        carta o vuélvelo sugerencia del mesero antes de descartarlo.
+                    </p>
+                </article>
+                <article class="admin-n1-guide__card">
+                    <span class="admin-nivel1-badge admin-nivel1-badge--perro">🐕 Perro</span>
+                    <p class="admin-n1-guide__action">Considera retirarlo.</p>
+                    <p class="admin-n1-guide__meaning">
+                        Ni se vende ni deja margen. Antes de quitarlo, revisa si comparte insumos
+                        con una Estrella: a veces conviene por eso.
+                    </p>
+                </article>
+            </div>
+
             <h3 class="admin-n1-guide__title">Los dos ejes</h3>
             <dl class="admin-n1-guide__list">
                 <div class="admin-n1-guide__item">
                     <dt>Popularidad <span>eje horizontal</span></dt>
                     <dd>
-                        Porcentaje que representa el platillo sobre el total de unidades vendidas
-                        en el periodo. Se considera <strong>popular</strong> si vendió al menos el
-                        <strong>70 % del promedio de su propia categoría</strong>, no del menú
-                        completo: así un plato fuerte no compite contra un café.
+                        Qué porcentaje de las unidades vendidas se llevó este platillo.
+                        <b class="admin-n1-guide__formula">Popular = vendió ≥ 70 % del promedio de su categoría</b>
+                        Se compara contra su propia categoría, no contra el menú entero: así un
+                        plato fuerte no compite contra un café.
                     </dd>
                 </div>
                 <div class="admin-n1-guide__item">
                     <dt>Margen de contribución <span>eje vertical</span></dt>
                     <dd>
-                        Lo que deja cada unidad vendida: <strong>precio − costo de la receta</strong>.
-                        No es la utilidad final (no descuenta renta ni nómina), sino lo que aporta
-                        el platillo para cubrirlas. El corte es el
-                        <strong>margen promedio ponderado por unidades vendidas</strong>, dibujado
-                        como la línea punteada de la gráfica.
+                        Lo que deja cada unidad vendida.
+                        <b class="admin-n1-guide__formula">Margen = precio − costo de la receta</b>
+                        No es utilidad final: no descuenta renta ni nómina, sino que aporta para
+                        cubrirlas. La línea punteada de la gráfica es el promedio ponderado.
                     </dd>
                 </div>
             </dl>
 
-            <h3 class="admin-n1-guide__title">Las cuatro clases</h3>
-            <div class="admin-n1-guide__grid">
-                <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--estrella">⭐ Estrella</span>
-                    <p class="admin-n1-guide__meaning">Se vende mucho <em>y</em> deja mucho.</p>
-                    <p class="admin-n1-guide__action">
-                        Protégelo: no le cambies receta ni precio a la ligera, dale el mejor lugar
-                        en la carta y asegúrate de que nunca falte el insumo.
-                    </p>
-                </article>
-                <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--vaca">🐎 Vaca</span>
-                    <p class="admin-n1-guide__meaning">Se vende mucho, pero deja poco.</p>
-                    <p class="admin-n1-guide__action">
-                        Trae gente, así que no lo quites. Trabaja el costo: renegocia insumos,
-                        revisa el gramaje o sube el precio con cuidado y observa si cae la demanda.
-                    </p>
-                </article>
-                <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--incognita">❓ Incógnita</span>
-                    <p class="admin-n1-guide__meaning">Deja mucho, pero casi nadie lo pide.</p>
-                    <p class="admin-n1-guide__action">
-                        Es la mayor oportunidad. Dale visibilidad en la carta, entrénalo como
-                        sugerencia del mesero o pruébalo en promoción antes de descartarlo.
-                    </p>
-                </article>
-                <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--perro">🐕 Perro</span>
-                    <p class="admin-n1-guide__meaning">Ni se vende ni deja margen.</p>
-                    <p class="admin-n1-guide__action">
-                        Candidato a salir de la carta. Antes de retirarlo, revisa si comparte
-                        insumos con una Estrella: a veces conviene conservarlo por eso.
-                    </p>
-                </article>
-            </div>
-
-            <h3 class="admin-n1-guide__title">Cómo leer la gráfica</h3>
-            <p class="admin-n1-guide__text">
-                Cada punto es un platillo. Mientras más a la <strong>derecha</strong>, más se vende;
-                mientras más <strong>arriba</strong>, más deja por unidad. La
-                <strong>línea punteada</strong> es el corte de margen: lo que queda por encima
-                rinde mejor que el promedio del menú. El color del punto ya trae la clasificación,
-                y la tabla de al lado ordena los platillos poniendo primero las Estrellas.
-            </p>
-
-            <h3 class="admin-n1-guide__title">Antes de tomar decisiones</h3>
+            <h3 class="admin-n1-guide__title">Antes de decidir</h3>
             <ul class="admin-n1-guide__notes">
                 <li>
                     Todo se calcula sobre el <strong>periodo seleccionado arriba</strong>. Un rango
                     corto o una temporada atípica mueve las clasificaciones.
                 </li>
                 <li>
-                    Un platillo <strong>sin receta cargada</strong> aparece con costo cero y margen
-                    del 100 %, lo que lo empuja artificialmente hacia Estrella o Incógnita. Si algo
-                    se ve demasiado rentable, revisa primero su receta.
+                    Un platillo <strong>sin receta cargada</strong> sale con costo cero y margen
+                    del 100 %, lo que lo empuja a Estrella o Incógnita sin merecerlo. Si algo se ve
+                    demasiado rentable, revisa su receta primero.
                 </li>
                 <li>
-                    Las clases son relativas al propio menú: siempre habrá Perros, incluso en una
-                    carta sana. Lo que importa es el movimiento entre periodos.
+                    Las clases son relativas a tu propio menú: siempre habrá Perros, incluso en una
+                    carta sana. Lo que importa es cómo se mueven entre periodos.
                 </li>
             </ul>
         </section>
@@ -494,7 +424,7 @@ $hoyIso = date('Y-m-d');
         <div class="admin-modal__head">
             <div>
                 <span class="admin-modal__eyebrow">3.2 · RevPASH</span>
-                <h2 class="admin-modal__title" id="n1-revpash-info-title">Cómo leer este mapa</h2>
+                <h2 class="admin-modal__title" id="n1-revpash-info-title">Cómo leer esta analítica</h2>
                 <p class="admin-modal__text">
                     <strong>RevPASH</strong> es el ingreso por asiento disponible por hora.
                     Responde a algo que las ventas totales esconden:
@@ -617,6 +547,37 @@ $hoyIso = date('Y-m-d');
                     Compara celdas <strong>dentro del mismo periodo</strong>. Cambiar el rango de
                     fechas cambia los días abiertos de cada celda y también la celda más fuerte, que
                     es la referencia del color.
+                </li>
+            </ul>
+
+            <h3 class="admin-n1-guide__title">La gráfica de abajo: por día completo</h3>
+            <p class="admin-n1-guide__formula">
+                RevPASH<span>día</span> = ingreso del día ÷ (asientos × horas de operación de ese día)
+            </p>
+            <p class="admin-n1-guide__text">
+                Es el mismo indicador con otra unidad: en vez de una franja de una hora, el
+                <strong>día entero, de apertura a cierre</strong>. Responde a una pregunta que el
+                mapa no contesta: <em>¿qué día aprovecha mejor el comedor en conjunto?</em> Las
+                horas de operación se acumulan sobre todas las fechas del rango que cayeron en ese
+                día de la semana —cuatro lunes de nueve horas dan 36— y la línea punteada es el
+                promedio del periodo completo.
+            </p>
+            <ul class="admin-n1-guide__notes">
+                <li>
+                    <strong>No es el promedio de la columna del mapa.</strong> El mapa divide cada
+                    celda entre las veces que <em>esa franja</em> estuvo abierta; aquí el divisor
+                    son todas las horas que abrió el día, así que las <strong>horas muertas
+                    también pesan</strong>. Por eso las dos gráficas están separadas: sus números
+                    no son comparables entre sí.
+                </li>
+                <li>
+                    Un día que abre pocas horas y las llena puede superar a uno que abre todo el
+                    día y se diluye. Eso es información, no un error: es exactamente el argumento
+                    para <strong>ajustar el horario</strong> de los días flojos.
+                </li>
+                <li>
+                    Si un día vendió sin horario declarado, se normaliza con las horas que sí
+                    tuvieron venta. El detalle al pasar el cursor lo indica.
                 </li>
             </ul>
         </section>

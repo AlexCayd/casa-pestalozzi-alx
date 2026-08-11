@@ -24,22 +24,23 @@ INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre)
 -- -------------------------------------------------------
 
 INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VALUES
-(1,  'Mesa 1',       'mesa',     4, 29.0, 88.0, 1),
-(2,  'Mesa 2',       'mesa',     4,  8.0, 70.0, 1),
-(3,  'Mesa 3',       'mesa',     4, 29.0, 51.0, 1),
-(4,  'Mesa 4',       'mesa',     4,  8.0, 51.0, 1),
-(5,  'Mesa 5',       'mesa',     4,  8.0, 29.0, 1),
-(6,  'Mesa 6',       'mesa',     4, 45.0, 29.0, 1),
-(7,  'Mesa 7',       'mesa',     4, 83.0, 29.0, 1),
-(8,  'Mesa 8',       'mesa',     4, 83.0,  8.0, 1),
-(9,  'Mesa 9',       'mesa',     4, 54.0,  8.0, 1),
-(10, 'Mesa 10',      'mesa',     4, 29.0,  8.0, 1),
-(11, 'Mesa 11',      'mesa',     4,  8.0,  8.0, 1),
+-- Debe ir en sincronía con dml_operativo.sql: mismas coordenadas.
+(1,  'Mesa 1',       'mesa',     4, 30.0, 88.0, 1),
+(2,  'Mesa 2',       'mesa',     4,  7.0, 70.0, 1),
+(3,  'Mesa 3',       'mesa',     4, 30.0, 51.0, 1),
+(4,  'Mesa 4',       'mesa',     4,  7.0, 51.0, 1),
+(5,  'Mesa 5',       'mesa',     4,  7.0, 29.0, 1),
+(6,  'Mesa 6',       'mesa',     4, 44.0, 29.0, 1),
+(7,  'Mesa 7',       'mesa',     4, 88.0, 29.0, 1),
+(8,  'Mesa 8',       'mesa',     4, 88.0,  8.0, 1),
+(9,  'Mesa 9',       'mesa',     4, 56.0,  8.0, 1),
+(10, 'Mesa 10',      'mesa',     4, 30.0,  8.0, 1),
+(11, 'Mesa 11',      'mesa',     4,  7.0,  8.0, 1),
 (12, 'Barra Blanca', 'barra',    8, 62.0, 51.0, 0),
-(13, 'Caja',         'especial', 0, 41.0, 70.0, 0),
-(14, 'Llevar',       'especial', 0, 58.0, 70.0, 0),
-(15, 'Barra Roja',   'barra',    6, 83.0, 70.0, 0),
-(16, 'Barra Roja 2', 'barra',    6, 83.0, 88.0, 0);
+(13, 'Caja',         'especial', 0, 33.0, 70.0, 0),
+(14, 'Llevar',       'especial', 0, 57.0, 70.0, 0),
+(15, 'Barra Roja',   'barra',    6, 88.0, 70.0, 0),
+(16, 'Barra Roja 2', 'barra',    6, 88.0, 88.0, 0);
 
 -- -------------------------------------------------------
 -- Áreas de producción
@@ -778,8 +779,16 @@ UPDATE tickets t SET t.mesero_id = (SELECT id FROM usuarios WHERE username = 'me
         WHERE ticket_id = t.id AND estado <> 'cancelado'), 0) * 0.08, 2)
 WHERE t.id IN (8, 113, 114, 115, 116, 117, 118);
 
--- Anuncio inicial que se modificará
-INSERT INTO configuracion_anuncio (id, mensaje, activo) VALUES (1, 'Test', 0);
+-- Anuncio del restaurante, activo para poder ver el diálogo de la landing en QA.
+-- Antes decía 'Test' e iba inactivo: no se veía nada y el mensaje de relleno
+-- terminaba apareciendo en las capturas del panel.
+INSERT INTO configuracion_anuncio (id, mensaje, tipo, activo, texto_enlace, url_enlace) VALUES
+(1,
+ 'Este sábado tendremos música en vivo a partir de las 19:00 h. Te esperamos.',
+ 'evento',
+ 1,
+ 'Reservar mesa',
+ '/reservaciones');
 
 -- Ajustes del POS. Arranca con el mesero editable: es el comportamiento que
 -- tenía el sistema antes de que existiera este ajuste, así que una instalación
@@ -806,6 +815,28 @@ VALUES
   (@fecha_cerrada, 'cerrado', 'Cierre de prueba', NULL, NULL, 1),
   (@fecha_especial, 'horario_especial', 'Horario especial de prueba',
    '14:00:00', '21:00:00', 1);
+
+-- Una sola excepción relativa a la fecha de carga, dentro de la ventana de
+-- siete días que la landing marca en la tabla de horario. Antes había seis
+-- (a +1, +3, +5, +6, +12 y +20 días) y la semana entera salía llena de
+-- avisos: para probar el caso basta con una.
+--
+-- ON DUPLICATE KEY porque excepciones_operacion.fecha es UNIQUE: si al sembrar
+-- coincide con alguna de las fechas fijas de arriba, gana ésta en vez de
+-- abortar la carga completa.
+SET @excepcion_semana = DATE_ADD(CURDATE(), INTERVAL 2 DAY);
+
+INSERT INTO excepciones_operacion
+  (fecha, tipo, motivo, hora_apertura, hora_cierre, activo)
+VALUES
+  (@excepcion_semana, 'horario_especial', 'Comida privada, abrimos más tarde',
+   '16:00:00', '23:00:00', 1)
+ON DUPLICATE KEY UPDATE
+  tipo = VALUES(tipo),
+  motivo = VALUES(motivo),
+  hora_apertura = VALUES(hora_apertura),
+  hora_cierre = VALUES(hora_cierre),
+  activo = VALUES(activo);
 
 -- Cierra los tickets generales abiertos para aislar la jornada controlada.
 UPDATE tickets
@@ -1108,4 +1139,18 @@ SELECT p.id, 'ingrediente', 8, 120 FROM productos p WHERE p.nombre = 'Agua Fresc
 UNION ALL SELECT p.id, 'ingrediente', 2, 250 FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 5, 20  FROM productos p WHERE p.nombre = 'Agua Fresca'
 UNION ALL SELECT p.id, 'ingrediente', 9, 100 FROM productos p WHERE p.nombre = 'Agua Fresca';
+
+-- Mermas de ejemplo repartidas en el último mes, con su costo congelado, para
+-- que el KPI de inventario y el renglón de Finanzas no salgan en cero en QA.
+-- Las fechas son relativas a la carga: así el periodo de 7 y el de 30 días
+-- muestran cifras distintas y se ve que el filtro funciona.
+INSERT INTO movimientos_inventario
+    (ingrediente_id, tipo, cantidad, motivo, nota, costo_unitario, created_at)
+VALUES
+(3, 'merma', -1200.000, 'caducidad',   'Se cortó el fin de semana largo', 0.0250, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(8, 'merma',  -350.000, 'dano',        'Caja golpeada en la entrega',     0.0400, DATE_SUB(NOW(), INTERVAL 4 DAY)),
+(1, 'merma',  -180.000, 'preparacion', 'Molienda mal calibrada',          0.3000, DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(4, 'merma',   -60.000, 'derrame',     NULL,                              0.2000, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+(7, 'merma',  -400.000, 'faltante',    'Diferencia contra el conteo físico', 0.0600, DATE_SUB(NOW(), INTERVAL 24 DAY));
+
 -- Fin de dml.sql

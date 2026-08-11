@@ -394,17 +394,35 @@ CREATE TABLE IF NOT EXISTS producto_componentes (
 );
 
 -- Bitácora de movimientos de inventario (trazabilidad del descuento por venta).
+--
+-- `entrada` y `merma` se separan de `ajuste` a propósito: recibir mercancía,
+-- corregir un conteo y tirar producto echado a perder son tres hechos distintos
+-- con consecuencias contables distintas, y mientras los tres eran `ajuste` el
+-- panel no podía valorizar la merma ni distinguir una compra de una corrección.
 CREATE TABLE IF NOT EXISTS movimientos_inventario (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   ingrediente_id INT UNSIGNED NOT NULL,
-  tipo           ENUM('venta','cancelacion','ajuste') NOT NULL,
+  tipo           ENUM('venta','cancelacion','ajuste','entrada','merma') NOT NULL,
   -- Un valor negativo descuenta; uno positivo repone.
   cantidad       DECIMAL(12,3) NOT NULL,
+  -- Por qué se perdió el producto: clave del catálogo de Services\Inventario.
+  -- Solo lo llenan las mermas.
+  motivo         VARCHAR(40) NULL,
+  -- Detalle libre de quien registra la merma.
+  nota           VARCHAR(255) NULL,
+  -- Costo unitario del ingrediente en el momento del movimiento. Sin él, la
+  -- merma de hace tres meses se valorizaba al costo de hoy.
+  costo_unitario DECIMAL(10,4) NULL,
+  -- Quién lo registró. Las salidas por venta no lo llevan: las genera el POS.
+  usuario_id     INT NULL,
   ticket_item_id INT UNSIGNED NULL,
   created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_mi_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   INDEX idx_mi_ing (ingrediente_id),
-  INDEX idx_mi_ti (ticket_item_id)
+  INDEX idx_mi_ti (ticket_item_id),
+  -- Los tableros agregan por tipo dentro de un rango de fechas.
+  INDEX idx_mi_tipo_fecha (tipo, created_at)
 );
 
 -- Gastos fijos mensuales del negocio (renta, luz, agua, nómina, etc.). Se usan

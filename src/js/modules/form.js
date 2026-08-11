@@ -466,24 +466,6 @@ function initSpecialScheduleNotice(form) {
   });
 }
 
-function initScheduleChanges() {
-  var section = document.querySelector("[data-schedule-changes]");
-  if (!section) return;
-
-  var toggle = section.querySelector("[data-schedule-toggle]");
-  var extras = section.querySelectorAll("[data-schedule-extra]");
-  if (!toggle || !extras.length) return;
-
-  toggle.addEventListener("click", function() {
-    var expanded = toggle.getAttribute("aria-expanded") === "true";
-    extras.forEach(function(card) {
-      card.hidden = expanded;
-    });
-    toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-    toggle.textContent = expanded ? "Ver más" : "Ver menos";
-  });
-}
-
 /**
  * Flujo público: exploración -> retención/creación -> OTP cuando corresponde.
  * La disponibilidad mostrada es orientativa; el servidor la repite bajo lock.
@@ -525,6 +507,8 @@ function initForm() {
   var contactInput = form.elements.contacto;
   var contactLabel = form.querySelector("[data-contact-label]");
   var contactHelp = form.querySelector("[data-new-contact-help]");
+  var contactPrefix = form.querySelector("[data-contact-prefix]");
+  var contactAffix = form.querySelector("[data-contact-affix-wrap]");
   var verifiedContactHelp = form.querySelector("[data-new-contact-verified-help]");
   var changeContactButton = form.querySelector("[data-new-contact-change]");
   var submitHelp = form.querySelector("[data-new-reservation-submit-help]");
@@ -556,6 +540,7 @@ function initForm() {
   var countdown = otpStep && otpStep.querySelector("[data-new-reservation-countdown]");
   var verifyButton = otpStep && otpStep.querySelector("[data-new-reservation-verify]");
   var resendButton = otpStep && otpStep.querySelector("[data-new-reservation-resend]");
+  var otpChangeContactButton = otpStep && otpStep.querySelector("[data-new-reservation-change-contact]");
   var otpContact = otpStep && otpStep.querySelector("[data-new-reservation-contact]");
   var confirm = document.getElementById("reservaConfirm");
   var confirmText = document.getElementById("confirmText");
@@ -579,14 +564,39 @@ function initForm() {
   var availabilityKey = "";
   var lastSubmittedFingerprint = "";
   var holdExpiryHandled = false;
+  // Marca que se volvió del OTP: la retención anterior sigue viva y puede
+  // hacer que el segundo intento no encuentre mesa.
+  var cameFromContactChange = false;
   var timePicker;
   var datePicker;
+  var timeField = form.querySelector("[data-reservation-time-field]");
 
+  function phoneDigits(value) {
+    if (typeof formStateHelpers.phoneDigits === "function") {
+      return formStateHelpers.phoneDigits(value);
+    }
+    var digits = String(value || "").replace(/\D+/g, "");
+    if (digits.length > 10 && digits.indexOf("52") === 0) digits = digits.slice(2);
+    return digits.slice(0, 10);
+  }
+
+  function formatPhone(value) {
+    if (typeof formStateHelpers.formatPhone === "function") {
+      return formStateHelpers.formatPhone(value);
+    }
+    var digits = phoneDigits(value);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return digits.slice(0, 2) + " " + digits.slice(2);
+    return digits.slice(0, 2) + " " + digits.slice(2, 6) + " " + digits.slice(6);
+  }
+
+  // El campo solo contiene los diez dígitos nacionales; el +52 que exige
+  // ContactoService::normalizarTelefono se antepone aquí.
   function normalizeContact(type, value) {
     value = String(value || "").trim();
-    return type === "telefono"
-      ? value.replace(/[\s\-().]+/g, "")
-      : value.toLowerCase();
+    if (type !== "telefono") return value.toLowerCase();
+    var digits = phoneDigits(value);
+    return digits.length === 10 ? "+52" + digits : "";
   }
 
   function verifiedContactMatchesForm() {
@@ -612,12 +622,14 @@ function initForm() {
     var typeInput = form.querySelector('input[name="tipo_contacto"][value="' + type + '"]');
     if (typeInput) typeInput.checked = true;
     reservationState.contactType = type;
+    // El servidor devuelve "+52…"; el campo solo admite los diez dígitos.
+    var visible = type === "telefono" ? formatPhone(contact) : contact;
     if (type === "telefono") {
-      reservationState.phone = contact;
+      reservationState.phone = visible;
     } else {
-      reservationState.email = contact;
+      reservationState.email = visible;
     }
-    if (contactInput) contactInput.value = contact;
+    if (contactInput) contactInput.value = visible;
     syncContactInput();
   }
 
@@ -698,15 +710,35 @@ function initForm() {
     }
     var phone = nextType === "telefono";
     reservationState.contactType = nextType;
-    contactInput.type = phone ? "tel" : "email";
-    contactInput.autocomplete = phone ? "tel" : "email";
-    contactInput.placeholder = phone ? "+52 55 1234 5678" : "cliente@ejemplo.com";
-    if (contactLabel) contactLabel.textContent = phone ? "Teléfono" : "Correo electrónico";
-    if (contactHelp) {
-      contactHelp.textContent = phone
-        ? "Incluye el código de país."
-        : "Te enviaremos un código temporal para confirmar tu reservación.";
+    var presentation = typeof formStateHelpers.contactPresentation === "function"
+      ? formStateHelpers.contactPresentation(nextType)
+      : {
+        type: phone ? "tel" : "email",
+        autocomplete: phone ? "tel" : "email",
+        inputmode: phone ? "numeric" : "email",
+        maxlength: phone ? 12 : null,
+        prefix: phone ? "+52" : "",
+        placeholder: phone ? "55 1234 5678" : "cliente@ejemplo.com",
+        label: phone ? "Teléfono" : "Correo electrónico",
+        help: phone
+          ? "Diez dígitos, sin lada internacional."
+          : "Te enviaremos un código temporal para confirmar tu reservación."
+      };
+
+    if (phone) contactInput.value = formatPhone(contactInput.value);
+    contactInput.type = presentation.type;
+    contactInput.autocomplete = presentation.autocomplete;
+    contactInput.setAttribute("inputmode", presentation.inputmode);
+    contactInput.placeholder = presentation.placeholder;
+    if (presentation.maxlength) contactInput.setAttribute("maxlength", presentation.maxlength);
+    else contactInput.removeAttribute("maxlength");
+    if (contactPrefix) {
+      contactPrefix.textContent = presentation.prefix;
+      contactPrefix.hidden = !presentation.prefix;
     }
+    if (contactAffix) contactAffix.classList.toggle("has-prefix", Boolean(presentation.prefix));
+    if (contactLabel) contactLabel.textContent = presentation.label;
+    if (contactHelp) contactHelp.textContent = presentation.help;
     updateInterface();
   }
 
@@ -869,7 +901,7 @@ function initForm() {
     if (!value) return false;
     return reservationState.contactType === "email"
       ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-      : /^\+52\s?(?:\d[\s-]?){10}$/.test(value);
+      : phoneDigits(value).length === 10;
   }
 
   function visitIsValid() {
@@ -906,10 +938,13 @@ function initForm() {
     var people = reservationState.guests + (reservationState.guests === 1 ? " persona" : " personas");
     var selectionReady = Boolean(reservationState.date && reservationState.time);
 
+    // El estado viaja como data-attribute: el SCSS le pone icono y color sin
+    // que el JS tenga que saber de presentación.
     if (reservationState.largeParty) {
       if (selectionStatus) selectionStatus.textContent = "Más de 12 personas";
       if (selectionDetails) selectionDetails.hidden = true;
       if (largePartyInfo) largePartyInfo.hidden = false;
+      summary.dataset.state = "large-party";
       summary.hidden = false;
     } else if (reservationState.date) {
       if (selectionDetails) selectionDetails.hidden = false;
@@ -917,17 +952,24 @@ function initForm() {
       selectionPrimary.textContent = readableDate
         + (reservationState.time ? " · " + reservationState.time : "");
       selectionSecondary.textContent = people;
+      var estadoSeleccion = reservationState.availabilityPending
+        ? "loading"
+        : reservationState.availabilityStatus === "ready" && reservationState.time
+          ? "ready"
+          : "pending";
       if (selectionStatus) {
-        selectionStatus.textContent = reservationState.availabilityPending
+        selectionStatus.textContent = estadoSeleccion === "loading"
           ? "Consultando disponibilidad…"
-          : reservationState.availabilityStatus === "ready" && reservationState.time
+          : estadoSeleccion === "ready"
             ? "Disponibilidad confirmada"
             : "Elige un horario disponible";
       }
+      summary.dataset.state = estadoSeleccion;
       summary.hidden = false;
     } else {
       if (selectionDetails) selectionDetails.hidden = false;
       if (largePartyInfo) largePartyInfo.hidden = true;
+      summary.dataset.state = "empty";
       summary.hidden = true;
     }
 
@@ -939,7 +981,10 @@ function initForm() {
     reviewMethod.textContent = reservationState.contactType === "telefono"
       ? "Confirmación por teléfono"
       : "Confirmación por correo";
-    reviewContact.textContent = currentContact().trim() || "—";
+    var contactoVisible = currentContact().trim();
+    reviewContact.textContent = contactoVisible
+      ? (reservationState.contactType === "telefono" ? "+52 " + contactoVisible : contactoVisible)
+      : "—";
     reviewDetails.textContent = reservationState.details.trim();
     reviewDetailsGroup.hidden = !reservationState.details.trim();
   }
@@ -971,8 +1016,17 @@ function initForm() {
     if (mobileProgressBar) mobileProgressBar.style.width = (currentStep * 25) + "%";
   }
 
+  // El campo de horario no existe visualmente hasta que hay fecha: antes de eso
+  // la rejilla sólo puede ofrecer un placeholder. En grupo grande tampoco aplica,
+  // porque ese caso se atiende por teléfono.
+  function syncTimeFieldVisibility() {
+    if (!timeField) return;
+    timeField.hidden = !reservationState.date || reservationState.largeParty;
+  }
+
   function updateInterface() {
     syncStateFromControls();
+    syncTimeFieldVisibility();
     updateVerifiedContactCopy();
     updateSummaries();
     updateProgress();
@@ -1067,7 +1121,7 @@ function initForm() {
         invalid(
           "contacto",
           reservationState.contactType === "telefono"
-            ? "Escribe un teléfono válido."
+            ? "Escribe los 10 dígitos de tu teléfono."
             : "Escribe un correo electrónico válido."
         );
       }
@@ -1368,7 +1422,6 @@ function initForm() {
   });
 
   datePicker = initCalendar();
-  initScheduleChanges();
   initSpecialScheduleNotice(form);
   timePicker = initHourPicker(form, function() { return guests; });
 
@@ -1424,6 +1477,23 @@ function initForm() {
     updateInterface();
   });
   contactInput.addEventListener("input", function() {
+    if (selectedContactType() === "telefono") {
+      // Reagrupar mueve el texto bajo el cursor; se repone contando dígitos,
+      // no caracteres, para que editar en medio no salte al final.
+      var caret = contactInput.selectionStart;
+      var digitosAntes = phoneDigits(contactInput.value.slice(0, caret)).length;
+      contactInput.value = formatPhone(contactInput.value);
+      var posicion = contactInput.value.length;
+      for (var i = 0, vistos = 0; i < contactInput.value.length; i++) {
+        if (/\d/.test(contactInput.value.charAt(i))) vistos++;
+        if (vistos === digitosAntes) {
+          posicion = i + 1;
+          break;
+        }
+      }
+      if (digitosAntes === 0) posicion = 0;
+      contactInput.setSelectionRange(posicion, posicion);
+    }
     syncStateFromControls();
     if (sessionVerified === true && !verifiedContactMatchesForm()) {
       invalidateVerifiedContact();
@@ -1498,7 +1568,7 @@ function initForm() {
         errors.contacto = "El correo no es válido.";
       } else if (selectedContactType() === "telefono"
         && !contactIsValid()) {
-        errors.contacto = "El teléfono no es válido.";
+        errors.contacto = "El teléfono debe tener 10 dígitos.";
       }
     }
     Object.keys(errors).forEach(function(field) { setFieldError(field, errors[field]); });
@@ -1509,7 +1579,11 @@ function initForm() {
     return {
       nombre: form.elements.nombre.value.trim(),
       tipo_contacto: selectedContactType(),
-      contacto: contactInput ? contactInput.value.trim() : "",
+      // normalizeContact antepone el +52 que el servidor exige en E.164.
+      contacto: normalizeContact(
+        selectedContactType(),
+        contactInput ? contactInput.value : ""
+      ),
       fecha: dateInput.value,
       hora: timeInput.value,
       personas: guests,
@@ -1627,6 +1701,43 @@ function initForm() {
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
+  /**
+   * Regresa del paso OTP al de contacto sin perder la selección de horario.
+   *
+   * NO rota el request_token a propósito: si el visitante vuelve y reenvía sin
+   * cambiar nada, el token intacto hace que crearRetencion resuelva por
+   * idempotencia sobre la retención existente. Con token nuevo, en cambio,
+   * buscarDuplicadaActiva encontraría su propia retención por
+   * (contacto, fecha, hora) y respondería RESERVACION_DUPLICADA: un callejón
+   * sin salida. Si sí cambia el contacto, el fingerprint difiere y
+   * submitReservation ya rota el token por su cuenta.
+   *
+   * La retención abandonada sigue apartando mesas hasta que vence (15 min): no
+   * hay endpoint público de liberación porque cancelar exige sesión verificada.
+   */
+  function returnToContactStep() {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+    // Un tick pendiente no debe disparar handleHoldExpired y borrar el paso 1.
+    holdExpiryHandled = true;
+    holdExpiresAt = 0;
+    activeIdentity = null;
+    cameFromContactChange = true;
+    otpInput.value = "";
+    clearOtpError();
+    otpMessage.textContent = "";
+    if (countdown) countdown.textContent = "";
+    if (otpPreview) {
+      otpPreview.replaceChildren();
+      otpPreview.hidden = true;
+    }
+    form.hidden = false;
+    otpStep.hidden = true;
+    setCurrentStep(2);
+    if (contactInput) contactInput.focus();
+    if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+  }
+
   function showOtp(data, requestPayload) {
     activeIdentity = {
       tipo: requestPayload.tipo_contacto,
@@ -1635,9 +1746,14 @@ function initForm() {
       csrf_token: csrfToken
     };
     holdExpiryHandled = false;
+    cameFromContactChange = false;
     form.hidden = true;
     otpStep.hidden = false;
-    if (otpContact) otpContact.textContent = requestPayload.contacto;
+    if (otpContact) {
+      otpContact.textContent = requestPayload.tipo_contacto === "telefono"
+        ? "+52 " + formatPhone(requestPayload.contacto)
+        : requestPayload.contacto;
+    }
     otpMessage.textContent = data.mensaje || "";
     otpInput.value = "";
     clearOtpError();
@@ -1676,6 +1792,18 @@ function initForm() {
       if (data.codigo === "REQUEST_TOKEN_CONFLICTO") {
         rotateRequestToken();
         setMessage("La solicitud cambió. Revisa los datos y vuelve a intentarlo.", true);
+        return;
+      }
+      // La retención que quedó viva al cambiar de contacto puede estar
+      // ocupando la última mesa de ese horario.
+      if (
+        cameFromContactChange
+        && (data.codigo === "SIN_DISPONIBILIDAD" || data.codigo === "CAPACIDAD_INSUFICIENTE")
+      ) {
+        setMessage(
+          "Aún tenemos apartado tu horario con el contacto anterior. Espera unos minutos o elige otro horario.",
+          true
+        );
         return;
       }
       setMessage(data.mensaje || "No fue posible crear la reservación.", true);
@@ -1776,6 +1904,10 @@ function initForm() {
       otpMessage.textContent = "No fue posible reenviar el código.";
     });
   });
+
+  if (otpChangeContactButton) {
+    otpChangeContactButton.addEventListener("click", returnToContactStep);
+  }
 
   var availabilityRefreshInterval = window.setInterval(function() {
     if (document.hidden || submitting || reservationState.availabilityPending) return;

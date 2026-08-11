@@ -13,15 +13,11 @@ $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES,
 
     <div class="admin-config-grid admin-grid" aria-label="Opciones de configuración">
         <?php foreach ($configuraciones as $configuracion) : ?>
-            <?php
-              // Solo se acepta un nombre de custom property de la paleta: así el
-              // color no puede colarse como valor arbitrario en el style.
-              $acento = (string) ($configuracion['acento'] ?? '--admin-gold');
-              $acento = preg_match('/^--admin-[a-z0-9-]+$/', $acento) ? $acento : '--admin-gold';
-            ?>
+            <?php // Sin acento por tarjeta: cuatro hues compitiendo en una
+                  // pantalla que sólo lista secciones. El dorado aparece en
+                  // hover/foco y la diferenciación la lleva el icono. ?>
             <a
                 class="admin-config-option admin-card"
-                style="--config-accent: var(<?php echo $h($acento); ?>)"
                 href="<?php echo $h($configuracion['ruta'] ?? ''); ?>"
             >
                 <span class="admin-config-option__icon" aria-hidden="true">

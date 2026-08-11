@@ -327,10 +327,13 @@
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
 
+  // flex-basis 0 y min-width 0: con `1 1 auto` + `max-content` cada pestaña
+  // crecía desde el ancho de su texto y "Administrador" quedaba mucho más ancha
+  // que "Mesero". Partiendo de cero, el espacio se reparte por igual.
   &__tab {
     display: inline-flex;
-    flex: 1 1 auto;
-    min-width: max-content;
+    flex: 1 1 0;
+    min-width: 0;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -347,12 +350,14 @@
     span {
       display: block;
       width: 100%;
-      padding: 9px 12px;
+      padding: 9px 8px;
       border-radius: calc(var(--admin-radius-sm) - 3px);
+      overflow: hidden;
       color: var(--admin-muted);
       font-size: 13px;
       font-weight: 700;
       text-align: center;
+      text-overflow: ellipsis;
       white-space: nowrap;
       transition: background var(--admin-t-fast) var(--admin-ease-out), color var(--admin-t-fast) var(--admin-ease-out);
     }
@@ -445,6 +450,29 @@
       background: var(--admin-surface);
       color: var(--admin-gold);
     }
+  }
+}
+
+/*
+ * Categorías del menú: tantas como el negocio quiera, así que envuelven.
+ *
+ * El `flex: 1 1 0` de .admin-tabs__tab hace que todas partan de ancho cero y se
+ * repartan la fila; nunca hay desborde, el flex-wrap del contenedor jamás se
+ * dispara y las etiquetas se recortan con puntos suspensivos hasta desaparecer.
+ * Con base automática cada pestaña pide lo que mide su nombre y la fila
+ * siguiente recoge las que no caben.
+ */
+.admin-menu__cats {
+  row-gap: 6px;
+
+  .admin-tabs__tab {
+    flex: 0 1 auto;
+  }
+
+  .admin-tabs__tab a span {
+    width: auto;
+    overflow: visible;
+    text-overflow: clip;
   }
 }
 

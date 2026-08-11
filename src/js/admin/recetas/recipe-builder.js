@@ -150,7 +150,13 @@
             pintarGrid();
 
             modal.hidden = false;
-            document.body.style.overflow = 'hidden';
+            // AdminScrollLock para además del overflow. Sin pararlo, Lenis
+            // seguía desplazando el fondo con la rueda estando el modal abierto.
+            if (window.AdminScrollLock) {
+                window.AdminScrollLock.bloquear();
+            } else {
+                document.body.style.overflow = 'hidden';
+            }
             window.requestAnimationFrame(function () {
                 modal.classList.add('is-open');
                 if (searchEl) searchEl.focus();
@@ -158,8 +164,16 @@
         }
 
         function cerrar() {
+            if (modal.hidden) {
+                return;
+            }
+
             modal.classList.remove('is-open');
-            document.body.style.overflow = '';
+            if (window.AdminScrollLock) {
+                window.AdminScrollLock.desbloquear();
+            } else {
+                document.body.style.overflow = '';
+            }
             window.setTimeout(function () { modal.hidden = true; }, 220);
             destino = null;
             if (ultimoFoco) ultimoFoco.focus();

@@ -1,3 +1,34 @@
+<?php
+$h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+$mesas = is_array($mesas ?? null) ? $mesas : [];
+
+// Mismos nombres que usa el mapa del POS para no tener dos vocabularios de
+// estado entre pantallas.
+$etiquetaEstado = [
+    'libre' => 'Disponible',
+    'ocupada' => 'Ocupada',
+    'reservacion-proxima' => 'Reservación próxima',
+    'no-utilizable' => 'No utilizable',
+];
+$tonoEstado = [
+    'libre' => 'success',
+    'ocupada' => 'danger',
+    'reservacion-proxima' => 'info',
+    'no-utilizable' => 'neutral',
+];
+
+$totalMesas = 0;
+$totalLibres = 0;
+foreach ($mesas as $mesa) {
+    if (empty($mesa['reservable'])) {
+        continue;
+    }
+    $totalMesas++;
+    if (($mesa['estado_visual'] ?? '') === 'libre') {
+        $totalLibres++;
+    }
+}
+?>
 <section class="admin-map admin-map--launch admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
@@ -34,44 +65,51 @@
             </svg>
         </a>
     </article>
+
+    <article class="admin-panel admin-table-panel admin-pos-tables" data-reveal>
+        <header>
+            <div>
+                <p class="admin-page-eyebrow">Piso</p>
+                <h3>Lista estructurada de mesas</h3>
+            </div>
+            <span><?php echo $h($totalLibres); ?> de <?php echo $h($totalMesas); ?> mesas disponibles</span>
+        </header>
+
+        <?php if ($mesas === []) : ?>
+            <p class="admin-empty">No hay mesas activas configuradas.</p>
+        <?php else : ?>
+            <div class="admin-table-wrap">
+                <table class="admin-table admin-table--compact">
+                    <thead>
+                        <tr>
+                            <th scope="col">Mesa</th>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Capacidad</th>
+                            <th scope="col">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($mesas as $mesa) : ?>
+                            <?php
+                            $estado = (string) ($mesa['estado_visual'] ?? 'libre');
+                            $tono = $tonoEstado[$estado] ?? 'neutral';
+                            $reservable = !empty($mesa['reservable']);
+                            $capacidad = (int) ($mesa['capacidad'] ?? 0);
+                            ?>
+                            <tr>
+                                <th scope="row"><?php echo $h($mesa['nombre'] ?? ''); ?></th>
+                                <td><?php echo $h($reservable ? 'Mesa' : 'Área operativa'); ?></td>
+                                <td><?php echo $capacidad > 0 ? $h($capacidad) : '—'; ?></td>
+                                <td>
+                                    <span class="admin-badge admin-badge--<?php echo $h($tono); ?>">
+                                        <?php echo $h($etiquetaEstado[$estado] ?? $estado); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </article>
 </section>
-
-<style>
-    .admin-launch-card {
-        display: flex;
-        align-items: center;
-        gap: clamp(16px, 3vw, 32px);
-        padding: clamp(22px, 3vw, 34px);
-        flex-wrap: wrap;
-    }
-
-    .admin-launch-card__icon {
-        display: grid;
-        place-items: center;
-        width: 68px;
-        height: 68px;
-        flex: 0 0 auto;
-        border-radius: 18px;
-        color: var(--admin-gold);
-        background: var(--admin-neutral-bg);
-        border: 1px solid var(--admin-border);
-    }
-
-    .admin-launch-card__icon svg { width: 30px; height: 30px; }
-
-    .admin-launch-card__body {
-        flex: 1 1 260px;
-        min-width: 0;
-    }
-
-    .admin-launch-card__body h3 { margin: 0 0 6px; }
-
-    .admin-launch-card__button {
-        gap: 8px;
-        padding-inline: 22px;
-        min-height: 48px;
-        flex: 0 0 auto;
-    }
-
-    .admin-launch-card__button svg { width: 16px; height: 16px; }
-</style>

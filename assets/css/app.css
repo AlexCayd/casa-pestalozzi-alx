@@ -1270,26 +1270,69 @@ body.nav-open .nav-overlay__links a {
   outline: 2px solid var(--announcement-gold-soft);
   outline-offset: 2px;
 }
-.hero-announcement__progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+
+/*
+ * Envoltorio de diálogo.
+ *
+ * El anuncio dejó de ser una franja sobre el hero: allí competía con el título
+ * de la portada y se cerraba solo a los 8 s, así que quien llegaba tarde no lo
+ * leía. La tarjeta de arriba no cambia —la comparte la vista previa del panel—;
+ * esto sólo la presenta centrada y sobre un velo.
+ */
+.announcement-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
-.hero-announcement__progress-remaining {
-  display: block;
+.announcement-dialog[hidden] {
+  display: none;
+}
+.announcement-dialog.is-open {
+  opacity: 1;
+}
+.announcement-dialog__backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: var(--announcement-accent);
-  transform: scaleX(1);
-  transform-origin: left center;
-  will-change: transform;
+  padding: 0;
+  border: 0;
+  background: rgba(11, 12, 13, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+.announcement-dialog__panel {
+  position: relative;
+  width: min(520px, 100%);
+  transform: translateY(0.75rem) scale(0.98);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.announcement-dialog__panel:focus-visible {
+  outline: none;
+}
+.announcement-dialog.is-open .announcement-dialog__panel {
+  transform: translateY(0) scale(1);
+}
+.announcement-dialog .hero-announcement {
+  width: 100%;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .announcement-dialog,
+  .announcement-dialog__panel {
+    transition: none;
+  }
+  .announcement-dialog__panel {
+    transform: none;
+  }
+}
 @media (max-width: 420px) {
   .hero-announcement {
     gap: 0.6rem;
@@ -1303,9 +1346,6 @@ body.nav-open .nav-overlay__links a {
   .hero-announcement {
     animation: none;
     transition: none;
-  }
-  .hero-announcement__progress-remaining {
-    will-change: auto;
   }
 }
 .hero {
@@ -1337,26 +1377,6 @@ body.nav-open .nav-overlay__links a {
   background: linear-gradient(180deg, rgba(11, 12, 13, 0.62) 0%, rgba(11, 12, 13, 0.3) 32%, rgba(11, 12, 13, 0.55) 62%, rgba(11, 12, 13, 0.95) 100%), radial-gradient(90% 90% at 30% 45%, transparent 35%, rgba(11, 12, 13, 0.7) 100%);
 }
 
-.hero-announcement {
-  position: absolute;
-  top: clamp(1.25rem, 2.4vw, 2rem);
-  left: 50%;
-  z-index: 4;
-  width: min(560px, 100% - 30rem);
-  transform: translateX(-50%);
-  animation: announcement-in 360ms var(--ease) both;
-}
-
-@keyframes announcement-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -0.5rem);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
 .hero__inner {
   position: relative;
   z-index: 2;
@@ -1551,32 +1571,6 @@ body.nav-open .nav-overlay__links a {
 @media (max-width: 1100px) {
   .hero[data-hero=editorial] .hero__figure {
     display: none;
-  }
-  .hero-announcement {
-    width: min(430px, 100% - 22rem);
-  }
-}
-@media (max-width: 980px) {
-  .hero-announcement {
-    top: 6.5rem;
-    width: min(560px, 100% - 2 * var(--pad));
-  }
-}
-@media (max-width: 760px) {
-  .hero-announcement {
-    top: clamp(5.6rem, 16vw, 7rem);
-    width: calc(100% - 2 * var(--pad));
-  }
-  .hero--has-announcement .hero__inner {
-    padding-top: clamp(18rem, 44vh, 21rem);
-  }
-  .hero--announcement-without-link .hero__inner {
-    padding-top: clamp(15rem, 38vh, 18rem);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-announcement {
-    animation: none;
   }
 }
 .about__grid {
@@ -2722,13 +2716,6 @@ body.nav-open .nav-overlay__links a {
   grid-area: hours;
   margin-top: 0;
 }
-.reserva__hours h5 {
-  font-size: 0.66rem;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 1rem;
-}
 .reserva__hours .row {
   display: flex;
   justify-content: space-between;
@@ -2763,112 +2750,6 @@ body.nav-open .nav-overlay__links a {
   color: var(--txt-mute);
   font-size: 0.82rem;
   line-height: 1.55;
-}
-
-.reserva__schedule-changes {
-  margin-top: clamp(1.8rem, 4vw, 2.75rem);
-}
-.reserva__schedule-changes-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.7rem;
-}
-.reserva__schedule-changes h3 {
-  margin: 0;
-  color: var(--accent);
-  font-family: inherit;
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-}
-.reserva__schedule-changes-grid {
-  display: grid;
-  gap: 0;
-}
-
-.reserva__schedule-change {
-  display: grid;
-  grid-template-columns: 3.3rem minmax(0, 1fr);
-  gap: 0.95rem;
-  min-width: 0;
-  padding: 0.8rem 0 0.9rem 0.85rem;
-  border: 0;
-  border-left: 1px solid rgba(204, 163, 82, 0.72);
-  background: transparent;
-}
-.reserva__schedule-change + .reserva__schedule-change {
-  padding-top: 1rem;
-}
-.reserva__schedule-change[hidden] {
-  display: none;
-}
-.reserva__schedule-change > span {
-  color: var(--accent);
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-.reserva__schedule-change-date {
-  display: grid;
-  align-content: start;
-  gap: 0.05rem;
-  color: var(--beige);
-  font-family: var(--serif);
-  line-height: 1;
-}
-.reserva__schedule-change-date strong {
-  font-size: 1.2rem;
-  font-weight: 400;
-}
-.reserva__schedule-change-date span {
-  color: var(--accent);
-  font-family: var(--sans);
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-.reserva__schedule-change-content {
-  display: grid;
-  gap: 0.18rem;
-  min-width: 0;
-}
-.reserva__schedule-change-content > span {
-  color: var(--accent);
-  font-size: 0.58rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.reserva__schedule-change-content > strong {
-  color: var(--beige);
-  font-size: 0.78rem;
-  font-weight: 500;
-  line-height: 1.45;
-}
-.reserva__schedule-change small {
-  color: var(--txt-faint);
-  font-size: 0.63rem;
-  line-height: 1.45;
-}
-.reserva__schedule-change--closed {
-  border-left-color: rgba(255, 249, 228, 0.34);
-}
-
-.reserva__schedule-toggle {
-  flex: 0 0 auto;
-  padding: 0.2rem 0;
-  border-bottom: 1px solid rgba(204, 163, 82, 0.45);
-  color: var(--accent);
-  font-size: 0.65rem;
-  font-weight: 500;
-}
-.reserva__schedule-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 4px;
 }
 
 .reserva__special-schedule {
@@ -3160,6 +3041,7 @@ body.nav-open .nav-overlay__links a {
 .guests-stepper {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1.2rem;
   margin-top: 1rem;
   padding: 0.6rem 0;
@@ -3194,7 +3076,8 @@ body.nav-open .nav-overlay__links a {
   font-family: var(--serif);
   font-size: 1.5rem;
   color: var(--beige);
-  min-width: 2ch;
+  min-width: 6ch;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -3342,9 +3225,20 @@ body.nav-open .nav-overlay__links a {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.reserva .cp-calendar.open,
-.reserva .hour-dropdown.open {
+.reserva {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.reserva .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.reserva .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .reserva .cp-calendar {
@@ -3449,11 +3343,14 @@ body.nav-open .nav-overlay__links a {
   pointer-events: none;
 }
 .reserva .hour-dropdown {
-  overflow: hidden;
+  max-height: var(--reservation-picker-dropdown-max-height, none);
+  flex-direction: column;
   padding: 0;
+  overflow: hidden;
 }
 .reserva .hour-dropdown__head {
   display: grid;
+  flex: 0 0 auto;
   gap: 2px;
   padding: var(--reservation-picker-hours-head-padding, 0.8rem 1rem 0.7rem);
   border-bottom: 1px solid var(--reservation-picker-border, var(--line));
@@ -3473,16 +3370,18 @@ body.nav-open .nav-overlay__links a {
 }
 .reserva .hour-dropdown__options {
   display: grid;
+  min-height: 0;
+  max-height: var(--reservation-picker-hours-max-height, 220px);
   grid-template-columns: repeat(var(--reservation-picker-hours-columns, 2), minmax(0, 1fr));
   gap: var(--reservation-picker-hours-gap, 3px);
-  max-height: var(--reservation-picker-hours-max-height, 220px);
-  overflow-y: auto;
   padding: var(--reservation-picker-hours-padding, 0.35rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--reservation-picker-accent, var(--accent)) transparent;
 }
 .reserva .hour-dropdown__options::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .reserva .hour-dropdown__options::-webkit-scrollbar-track {
   background: transparent;
@@ -3501,6 +3400,7 @@ body.nav-open .nav-overlay__links a {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);
@@ -3525,15 +3425,7 @@ body.nav-open .nav-overlay__links a {
   border-color: var(--reservation-picker-selected-border, var(--accent));
   background: var(--reservation-picker-hour-selected-bg, transparent);
   color: var(--reservation-picker-hour-selected-color, var(--accent));
-}
-.reserva .hour-option.sel::after {
-  width: 7px;
-  height: 4px;
-  flex: 0 0 auto;
-  border-bottom: 1.8px solid currentColor;
-  border-left: 1.8px solid currentColor;
-  content: "";
-  transform: translateY(-1px) rotate(-45deg);
+  font-weight: var(--reservation-picker-hour-selected-font-weight, 600);
 }
 .reserva .hour-dropdown {
   min-width: min(260px, 100vw - 48px);
@@ -4503,7 +4395,7 @@ body.nav-open .nav-overlay__links a {
     top: 7.5rem;
   }
 }
-.reserva__hours h5 {
+.reserva__hours h3 {
   margin-bottom: 1rem;
   color: var(--beige);
   font-family: var(--serif);
@@ -4542,51 +4434,51 @@ body.nav-open .nav-overlay__links a {
 .reserva__hours-today {
   color: var(--accent);
 }
-
-.reserva__schedule-changes {
-  margin-top: 2rem;
-}
-.reserva__schedule-changes-head {
-  margin-bottom: 0.8rem;
-}
-.reserva__schedule-changes h3 {
+.reserva__hours .row.is-exception {
+  --reserva-exception-color: var(--c-naranja);
+  flex-wrap: wrap;
+  row-gap: 0.35rem;
+  background: color-mix(in srgb, var(--reserva-exception-color) 12%, var(--reservation-surface));
+  box-shadow: inset 3px 0 0 var(--reserva-exception-color);
   color: var(--beige);
-  font-family: var(--serif);
-  font-size: 1.15rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
 }
-
-.reserva__schedule-change {
-  grid-template-columns: 3.5rem minmax(0, 1fr);
-  gap: 0.9rem;
-  margin-bottom: 0.6rem;
-  padding: 0.9rem;
-  border: 1px solid var(--reservation-border-soft);
-  border-left: 3px solid rgba(204, 163, 82, 0.7);
-  border-radius: 12px;
-  background: var(--reservation-surface);
+.reserva__hours .row.is-exception.today {
+  background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
 }
-.reserva__schedule-change + .reserva__schedule-change {
-  padding-top: 0.9rem;
+.reserva__hours .row.is-exception.is-exception--closed {
+  --reserva-exception-color: var(--c-rojo);
 }
-.reserva__schedule-change--closed {
-  border-left-color: rgba(255, 249, 228, 0.35);
+.reserva__hours-exception {
+  color: var(--reserva-exception-color, var(--c-naranja));
+  font-weight: 600;
 }
-.reserva__schedule-change-content {
-  gap: 0.2rem;
+.reserva__hours-badge {
+  order: 3;
+  flex: 1 1 100%;
+  color: var(--reserva-exception-color, var(--c-naranja));
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
-.reserva__schedule-change-content > span {
-  color: var(--accent);
-  font-size: 0.62rem;
-}
-.reserva__schedule-change-content > strong {
-  font-size: 0.84rem;
-}
-.reserva__schedule-change small {
+.reserva__hours-reason {
+  order: 4;
+  flex: 1 1 100%;
   color: var(--reservation-text-secondary);
   font-size: 0.7rem;
+  line-height: 1.4;
+}
+.reserva__hours-upcoming {
+  margin: 0.9rem 0 0;
+  color: var(--reservation-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.reserva__hours-upcoming span {
+  color: var(--c-naranja);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .reserva__form-wrap {
@@ -4726,8 +4618,8 @@ body.nav-open .nav-overlay__links a {
 }
 
 .reservation-visit-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: "date time" "guests guests";
+  grid-template-columns: minmax(300px, 1fr) minmax(260px, 1fr);
+  grid-template-areas: "date guests" "date time";
   align-items: start;
 }
 
@@ -4806,6 +4698,146 @@ body.nav-open .nav-overlay__links a {
   color: var(--ink);
 }
 
+.reservation-guests--tabs {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.35rem;
+  border: 1px solid var(--reservation-border);
+}
+.reservation-guests--tabs .pill {
+  flex: initial;
+  min-width: 0;
+  min-height: 54px;
+  padding: 0.55rem 0.4rem;
+  border-radius: 9px;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.reservation-guests--tabs .pill:hover:not(.sel) {
+  background: rgba(204, 163, 82, 0.12);
+  color: var(--beige);
+}
+.reservation-guests--tabs .pill.sel {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+.reservation-guests--tabs .pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.reserva .date-picker-wrap--inline,
+.reserva .hour-picker-wrap--inline {
+  width: 100%;
+}
+
+.reserva .cp-calendar--inline,
+.reserva .hour-dropdown--inline {
+  position: static;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--reservation-border);
+  border-radius: 12px;
+  background: var(--reservation-surface-soft);
+  box-shadow: none;
+  animation: none;
+}
+
+.reserva .cp-calendar--inline {
+  padding: 0.9rem;
+}
+
+.reserva .hour-dropdown--inline {
+  padding: 0.55rem;
+}
+.reserva .hour-dropdown--inline .hour-dropdown__head {
+  display: none;
+}
+.reserva .hour-dropdown--inline .hour-dropdown__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.4rem;
+  max-height: 15.5rem;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.reserva .hour-dropdown--inline .hour-dropdown__options::-webkit-scrollbar {
+  width: 6px;
+}
+.reserva .hour-dropdown--inline .hour-dropdown__options::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reserva .hour-dropdown--inline .hour-dropdown__options::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(204, 163, 82, 0.35);
+}
+.reserva .hour-dropdown--inline .hour-option {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  padding: 0.5rem 0.35rem;
+  border: 1px solid var(--reservation-border);
+  border-radius: 8px;
+  background: var(--reservation-surface);
+  color: var(--beige);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.reserva .hour-dropdown--inline .hour-option:hover:not(:disabled):not(.sel) {
+  border-color: var(--accent);
+  background: rgba(204, 163, 82, 0.12);
+}
+.reserva .hour-dropdown--inline .hour-option.sel {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.reserva .hour-dropdown--inline .hour-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.reserva .hour-dropdown--inline .hour-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.reserva .hour-tabs__empty {
+  grid-column: 1/-1;
+  margin: 0;
+  padding: 1.1rem 0.75rem;
+  color: var(--reservation-text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.reservation-control-affix {
+  position: relative;
+  display: block;
+}
+.reservation-control-affix.has-prefix .reservation-control {
+  padding-left: 3.1rem;
+}
+
+.reservation-control__prefix {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  color: var(--txt-mute);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+.reservation-control__prefix[hidden] {
+  display: none;
+}
+
 .guests-stepper {
   margin-top: 0.75rem;
   padding: 0.4rem;
@@ -4827,13 +4859,53 @@ body.nav-open .nav-overlay__links a {
 }
 
 .reservation-summary {
+  --reservation-summary-accent: var(--accent);
+  --reservation-summary-mark: "•";
   display: grid;
   gap: 1rem;
   margin-top: 1.5rem;
   padding: 1.25rem;
-  border: 1px solid rgba(204, 163, 82, 0.38);
+  border: 1px solid color-mix(in srgb, var(--reservation-summary-accent) 42%, transparent);
   border-radius: 14px;
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--reservation-summary-accent) 11%, var(--reservation-surface));
+}
+.reservation-summary[data-state=ready] {
+  --reservation-summary-accent: var(--c-verde);
+  --reservation-summary-mark: "✓";
+}
+.reservation-summary[data-state=pending] {
+  --reservation-summary-accent: var(--c-ambar);
+  --reservation-summary-mark: "!";
+}
+.reservation-summary[data-state=loading] {
+  --reservation-summary-accent: var(--txt-mute);
+  --reservation-summary-mark: "…";
+}
+.reservation-summary[data-state=large-party] {
+  --reservation-summary-accent: var(--c-naranja);
+  --reservation-summary-mark: "+";
+}
+
+.reservation-summary [data-selection-status] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.reservation-summary [data-selection-status]::before {
+  content: var(--reservation-summary-mark);
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 1.35rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--reservation-summary-accent) 55%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--reservation-summary-accent) 18%, transparent);
+  color: var(--reservation-summary-accent);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .reservation-summary__head,
@@ -5186,7 +5258,7 @@ body.nav-open .nav-overlay__links a {
     grid-template-columns: 1fr;
   }
   .reservation-visit-grid {
-    grid-template-areas: "date" "time" "guests";
+    grid-template-areas: "date" "guests" "time";
   }
   .reservation-field--date {
     grid-area: date;
@@ -5264,10 +5336,6 @@ body.nav-open .nav-overlay__links a {
   .reserva__hours .row {
     padding-inline: 0.65rem;
     font-size: 0.76rem;
-  }
-  .reserva__schedule-change {
-    grid-template-columns: 3rem minmax(0, 1fr);
-    padding: 0.75rem;
   }
   .reservation-step,
   .reserva__otp-step,
@@ -5663,6 +5731,95 @@ body.nav-open .nav-overlay__links a {
   }
 }
 
+.app-notice-stack {
+  position: fixed;
+  z-index: 12000;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  width: min(380px, 100vw - 32px);
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.app-notice {
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--confirmation-surface, var(--admin-surface, #171b17));
+  color: var(--confirmation-text, var(--admin-text, #f4efe6));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.app-notice.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.app-notice--error {
+  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022));
+}
+.app-notice--warning {
+  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400));
+}
+.app-notice--success {
+  --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853));
+}
+.app-notice--info {
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+}
+.app-notice__text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.app-notice__close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.app-notice__close:hover {
+  opacity: 1;
+}
+.app-notice__close:focus-visible {
+  outline: 2px solid var(--app-notice-accent);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+@media (max-width: 520px) {
+  .app-notice-stack {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    width: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-notice {
+    transition: none;
+    transform: none;
+  }
+}
 .location {
   background: var(--ink-2);
 }
@@ -6520,6 +6677,47 @@ footer.foot {
   background: var(--admin-surface);
 }
 
+.operational-header__user--static {
+  cursor: default;
+}
+.operational-header__user--static:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+}
+
+.operational-header__logout {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 30%, var(--admin-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--admin-c-rojo) 9%, var(--admin-surface-soft));
+  color: color-mix(in srgb, var(--admin-c-rojo) 72%, var(--admin-muted));
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.operational-header__logout svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.9;
+}
+.operational-header__logout:hover {
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 55%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+  color: var(--admin-c-rojo);
+}
+.operational-header__logout:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
 .operational-header__user-avatar {
   display: inline-grid;
   width: 32px;
@@ -6778,6 +6976,36 @@ footer.foot {
     animation: none;
   }
 }
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip-link:focus-visible, .skip-link:focus {
+  width: auto;
+  height: auto;
+  margin: 8px;
+  padding: 10px 16px;
+  overflow: visible;
+  border-radius: 10px;
+  outline: 2px solid var(--admin-gold);
+  outline-offset: 2px;
+  background: var(--admin-surface);
+  clip-path: none;
+  color: var(--admin-text);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  text-decoration: none;
+}
+
 .operational-page {
   --operational-font-brand: "KudosKaps", sans-serif;
   --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;
@@ -7224,9 +7452,20 @@ footer.foot {
   background: var(--reservation-picker-surface, var(--surface));
   box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
 }
-.operational-page .cp-calendar.open,
-.operational-page .hour-dropdown.open {
+.operational-page {
+  /*
+   * El estado abierto se declara por separado para cada uno: el calendario es
+   * un bloque y el desplegable de horas una columna flex (cabecera fija +
+   * rejilla que scrollea). Cuando compartían `display: block` el flex del
+   * desplegable quedaba inerte y su cabecera scrolleaba con las opciones.
+   */
+}
+.operational-page .cp-calendar.open {
   display: block;
+  animation: var(--reservation-picker-open-animation, none);
+}
+.operational-page .hour-dropdown.open {
+  display: flex;
   animation: var(--reservation-picker-open-animation, none);
 }
 .operational-page .cp-calendar {
@@ -7331,11 +7570,14 @@ footer.foot {
   pointer-events: none;
 }
 .operational-page .hour-dropdown {
-  overflow: hidden;
+  max-height: var(--reservation-picker-dropdown-max-height, none);
+  flex-direction: column;
   padding: 0;
+  overflow: hidden;
 }
 .operational-page .hour-dropdown__head {
   display: grid;
+  flex: 0 0 auto;
   gap: 2px;
   padding: var(--reservation-picker-hours-head-padding, 0.8rem 1rem 0.7rem);
   border-bottom: 1px solid var(--reservation-picker-border, var(--line));
@@ -7355,16 +7597,18 @@ footer.foot {
 }
 .operational-page .hour-dropdown__options {
   display: grid;
+  min-height: 0;
+  max-height: var(--reservation-picker-hours-max-height, 220px);
   grid-template-columns: repeat(var(--reservation-picker-hours-columns, 2), minmax(0, 1fr));
   gap: var(--reservation-picker-hours-gap, 3px);
-  max-height: var(--reservation-picker-hours-max-height, 220px);
-  overflow-y: auto;
   padding: var(--reservation-picker-hours-padding, 0.35rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--reservation-picker-accent, var(--accent)) transparent;
 }
 .operational-page .hour-dropdown__options::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .operational-page .hour-dropdown__options::-webkit-scrollbar-track {
   background: transparent;
@@ -7383,6 +7627,7 @@ footer.foot {
   padding: var(--reservation-picker-hour-option-padding, 0.65rem 1.2rem);
   border: 1px solid transparent;
   border-radius: var(--reservation-picker-hour-option-radius, 0);
+  background: var(--reservation-picker-hour-bg, transparent);
   color: var(--reservation-picker-muted, var(--txt-mute));
   font-family: var(--reservation-picker-font-family, var(--serif));
   font-size: var(--reservation-picker-hour-font-size, 0.88rem);
@@ -7407,15 +7652,7 @@ footer.foot {
   border-color: var(--reservation-picker-selected-border, var(--accent));
   background: var(--reservation-picker-hour-selected-bg, transparent);
   color: var(--reservation-picker-hour-selected-color, var(--accent));
-}
-.operational-page .hour-option.sel::after {
-  width: 7px;
-  height: 4px;
-  flex: 0 0 auto;
-  border-bottom: 1.8px solid currentColor;
-  border-left: 1.8px solid currentColor;
-  content: "";
-  transform: translateY(-1px) rotate(-45deg);
+  font-weight: var(--reservation-picker-hour-selected-font-weight, 600);
 }
 .operational-page .date-display,
 .operational-page .hour-display {
@@ -7997,25 +8234,76 @@ footer.foot {
 }
 
 .operational-map__structured {
+  flex: 0 0 auto;
   margin-top: 0.75rem;
   border: 1px solid var(--admin-border-soft);
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--admin-surface-soft) 72%, transparent);
 }
+.operational-map__structured[open] {
+  display: flex;
+  max-height: min(38%, 320px);
+  flex-direction: column;
+  border-color: color-mix(in srgb, var(--admin-gold) 26%, var(--admin-border-soft));
+}
 
 .operational-map__structured summary {
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   padding: 0.7rem 0.85rem;
   color: var(--admin-text);
+  cursor: pointer;
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+.operational-map__structured summary::-webkit-details-marker {
+  display: none;
+}
+.operational-map__structured summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--admin-gold);
+  transition: transform 160ms ease;
+}
+.operational-map__structured summary:hover {
+  color: var(--admin-gold);
+}
+.operational-map__structured summary:focus-visible {
+  outline: 0;
+  border-radius: 0.75rem;
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operational-map__structured[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .operational-map__structured-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.5rem;
+  min-height: 0;
   padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.operational-map__structured-list::-webkit-scrollbar {
+  width: 6px;
+}
+.operational-map__structured-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.operational-map__structured-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-gold) 34%, transparent);
 }
 
 .operational-map__structured-list > li {
@@ -8025,19 +8313,53 @@ footer.foot {
 
 .operational-map__structured-list button {
   display: grid;
+  grid-template-columns: 0.6rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
   width: 100%;
-  gap: 0.15rem;
+  align-items: center;
+  gap: 0.1rem 0.6rem;
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
+  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
   text-align: start;
+  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;
+}
+.operational-map__structured-list button::before {
+  content: "";
+  grid-row: 1/span 2;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--operational-structured-color, var(--admin-border));
+}
+.operational-map__structured-list button[data-estado-visual=libre] {
+  --operational-structured-color: var(--map-table-available-border);
+}
+.operational-map__structured-list button[data-estado-visual=ocupada] {
+  --operational-structured-color: var(--map-table-occupied-border);
+}
+.operational-map__structured-list button[data-estado-visual=reservacion-proxima] {
+  --operational-structured-color: var(--map-table-reservation-border);
+}
+.operational-map__structured-list button[data-estado-visual=seleccionada] {
+  --operational-structured-color: var(--map-table-selected-text);
+}
+.operational-map__structured-list button[data-estado-visual=no-utilizable] {
+  --operational-structured-color: var(--map-table-unavailable-border);
 }
 
 .operational-map__structured-list button:not(:disabled) {
   cursor: pointer;
+}
+.operational-map__structured-list button:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--admin-gold) 45%, var(--admin-border-soft));
+  border-left-color: var(--operational-structured-color, var(--admin-gold));
+  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-gold) 6%);
+  transform: translateY(-1px);
 }
 
 .operational-map__structured-list button:focus-visible {
@@ -8055,14 +8377,25 @@ footer.foot {
 }
 
 .operational-map__structured-name {
+  grid-column: 2;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
+  grid-column: 2;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .operational-map__structured summary::before,
+  .operational-map__structured-list button {
+    transition: none;
+  }
+  .operational-map__structured-list button:not(:disabled):hover {
+    transform: none;
+  }
+}
 .mesas-map__legend .mapa-leyenda-item {
   display: inline-flex;
   align-items: center;
@@ -8182,11 +8515,11 @@ footer.foot {
 .mesas-map .mesa-pin {
   position: absolute;
   display: grid;
-  width: clamp(80px, 7vw, 100px) !important;
-  min-width: clamp(80px, 7vw, 100px);
-  height: clamp(52px, 4.5vw, 64px) !important;
+  width: clamp(80px, 9cqw, 108px) !important;
+  min-width: clamp(80px, 9cqw, 108px);
+  height: clamp(52px, 5.5cqw, 66px) !important;
   min-height: 52px;
-  padding: clamp(8px, 0.8vw, 11px);
+  padding: clamp(8px, 1cqw, 11px);
   place-items: center;
   border: 1.5px solid var(--admin-border-soft);
   border-radius: 14px;
@@ -8247,17 +8580,17 @@ footer.foot {
 }
 
 .mesas-map .mesa-pin--tipo-barra {
-  width: clamp(122px, 11vw, 164px) !important;
-  min-width: clamp(122px, 11vw, 164px);
-  height: clamp(48px, 4vw, 56px) !important;
+  width: clamp(122px, 15cqw, 172px) !important;
+  min-width: clamp(122px, 15cqw, 172px);
+  height: clamp(48px, 5cqw, 58px) !important;
   min-height: 48px;
   border-radius: 8px;
 }
 
 .mesas-map .mesa-pin--tipo-especial {
-  width: clamp(76px, 9vw, 136px) !important;
-  min-width: clamp(76px, 9vw, 136px);
-  height: clamp(48px, 4vw, 56px) !important;
+  width: clamp(76px, 12cqw, 140px) !important;
+  min-width: clamp(76px, 12cqw, 140px);
+  height: clamp(48px, 5cqw, 58px) !important;
   min-height: 48px;
   border-radius: 10px;
 }
@@ -8421,49 +8754,43 @@ footer.foot {
   background: var(--map-selection-mode-overlay);
 }
 
-.pos-ticket-selection-message {
+.pos-ticket-selection-bar {
   position: absolute;
-  z-index: 5;
-  top: 12px;
-  left: clamp(12px, 18%, 240px);
-  right: clamp(214px, 22%, 300px);
-  max-width: none;
-  padding: 9px 16px;
+  z-index: 6;
+  bottom: 12px;
+  left: 50%;
+  display: flex;
+  max-width: calc(100% - 24px);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--map-selection-message-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--map-selection-message-bg);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  transform: translateX(-50%);
+}
+.pos-ticket-selection-bar[hidden] {
+  display: none;
+}
+
+.pos-ticket-selection-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.pos-ticket-selection-message {
+  min-width: 0;
+  margin: 0;
   color: var(--map-selection-message-text);
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
   line-height: 1.25;
-  text-align: center;
-  pointer-events: none;
-}
-
-.pos-map-actions {
-  display: flex;
-  width: clamp(170px, 16vw, 200px);
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.pos-ticket-selection-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.pos-map-actions__separator {
-  width: 100%;
-  height: 1px;
-  margin: 2px 0;
-  background: var(--admin-border-soft);
 }
 
 .operational-map-action {
-  width: 100%;
   min-height: 44px;
   padding: 0 16px;
   border: 1px solid var(--map-action-utility-border);
@@ -8502,8 +8829,7 @@ footer.foot {
   color: var(--map-action-cancel-text);
 }
 
-.operational-map-action:focus-visible,
-.pos-map-actions .operational-map-toggle:focus-visible {
+.operational-map-action:focus-visible {
   outline: 0;
   box-shadow: var(--admin-focus-ring);
 }
@@ -8513,16 +8839,6 @@ footer.foot {
   opacity: 0.62;
 }
 
-.pos-map-actions .operational-map-toggle {
-  width: 100%;
-  min-height: 44px;
-  justify-content: center;
-  border-color: var(--map-action-utility-border);
-  border-radius: 10px;
-  background: var(--map-action-utility-bg);
-  color: var(--map-action-utility-text);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_bloqueante,
   .operational-map-action {
@@ -8530,14 +8846,14 @@ footer.foot {
   }
 }
 @media (max-width: 640px) {
-  .pos-ticket-selection-message {
-    left: 12px;
-    right: 12px;
-    padding-right: 212px;
-    text-align: left;
+  .pos-ticket-selection-bar {
+    flex-direction: column;
+    align-items: stretch;
+    width: calc(100% - 24px);
+    text-align: center;
   }
-  .pos-map-actions {
-    width: min(190px, 100vw - 24px);
+  .pos-ticket-selection-bar__actions .operational-map-action {
+    flex: 1 1 0;
   }
 }
 @container mesas-map (max-width: 760px) {
@@ -8588,20 +8904,20 @@ footer.foot {
 }
 @media (min-width: 768px) and (max-width: 1180px) {
   .mesas-map .mesa-pin {
-    width: clamp(92px, 10vw, 120px) !important;
-    min-width: clamp(92px, 10vw, 120px);
-    height: clamp(60px, 6vw, 74px) !important;
+    width: clamp(92px, 11cqw, 124px) !important;
+    min-width: clamp(92px, 11cqw, 124px);
+    height: clamp(60px, 7cqw, 76px) !important;
     min-height: 60px;
   }
   .mesas-map .mesa-pin--tipo-barra {
-    width: clamp(140px, 16vw, 190px) !important;
-    min-width: clamp(140px, 16vw, 190px);
-    height: clamp(56px, 5.5vw, 64px) !important;
+    width: clamp(140px, 17cqw, 196px) !important;
+    min-width: clamp(140px, 17cqw, 196px);
+    height: clamp(56px, 6cqw, 66px) !important;
   }
   .mesas-map .mesa-pin--tipo-especial {
-    width: clamp(96px, 12vw, 150px) !important;
-    min-width: clamp(96px, 12vw, 150px);
-    height: clamp(56px, 5.5vw, 64px) !important;
+    width: clamp(96px, 13cqw, 152px) !important;
+    min-width: clamp(96px, 13cqw, 152px);
+    height: clamp(56px, 6cqw, 66px) !important;
   }
   .mesas-map .mesa-pin__label {
     font-size: var(--operational-text-section);
@@ -9290,6 +9606,158 @@ footer.foot {
   text-transform: uppercase;
 }
 
+/*
+ * Select custom del panel admin (mejora progresiva de <select>).
+ * El <select> nativo queda oculto (envía el valor); el trigger + la lista
+ * replican el estilo editorial del sitio y son totalmente estilizables.
+ * La lista se monta en <body> y se posiciona fija desde JS.
+ */
+.admin-select {
+  position: relative;
+  width: 100%;
+  min-width: 150px;
+}
+
+.admin-select__native {
+  display: none !important;
+}
+
+.admin-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 15.5px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-select__trigger:hover {
+  border-color: rgba(204, 163, 82, 0.42);
+}
+.admin-select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--admin-gold);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.admin-select.is-open .admin-select__trigger {
+  border-color: var(--admin-gold);
+  box-shadow: var(--admin-focus-ring);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--admin-surface);
+}
+
+.admin-select.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.admin-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-select__chevron {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--admin-gold);
+  transition: transform var(--admin-t-base) var(--admin-ease);
+}
+
+.admin-select.is-open .admin-select__chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Lista desplegable (portal en <body>) ─────────────────────── */
+.admin-select__list {
+  position: fixed;
+  z-index: 130;
+  width: max-content;
+  max-width: min(340px, 92vw);
+  max-height: 264px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-lg);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 163, 82, 0.4) transparent;
+}
+.admin-select__list[hidden] {
+  display: none;
+}
+.admin-select__list.is-open {
+  animation: admin-select-in var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-select__list::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-select__list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(204, 163, 82, 0.32);
+}
+
+.admin-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: 8px;
+  color: var(--admin-text);
+  font-size: 15px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-select__option.is-active {
+  background: var(--admin-surface-soft);
+}
+.admin-select__option.is-selected {
+  color: var(--admin-gold);
+  font-weight: 600;
+}
+.admin-select__option.is-selected::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5L20 7'/%3E%3C/svg%3E") no-repeat center/contain;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5L20 7'/%3E%3C/svg%3E") no-repeat center/contain;
+}
+.admin-select__option[aria-disabled=true] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@keyframes admin-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 .pdv-page,
 .pdv-page button,
 .pdv-page input,
@@ -10581,7 +11049,8 @@ footer.foot {
   margin-bottom: 0.85rem;
 }
 
-.mmodal-name-input {
+.mmodal-name-input,
+.mmodal-select-native {
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -10595,13 +11064,16 @@ footer.foot {
   outline: none;
   transition: border-color 0.15s;
 }
-.mmodal-name-input::placeholder {
+.mmodal-name-input::placeholder,
+.mmodal-select-native::placeholder {
   color: var(--txt-faint);
 }
-.mmodal-name-input:focus {
+.mmodal-name-input:focus,
+.mmodal-select-native:focus {
   border-color: rgba(204, 163, 82, 0.45);
 }
-.mmodal-name-input:disabled {
+.mmodal-name-input:disabled,
+.mmodal-select-native:disabled {
   opacity: 0.72;
   cursor: not-allowed;
 }
@@ -10758,6 +11230,10 @@ footer.foot {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.mapa-page .admin-select__list {
+  z-index: 300;
 }
 
 .mmodal-btn {
@@ -10975,10 +11451,10 @@ footer.foot {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   width: 100%;
-  min-height: 52px;
-  padding: 0.55rem 0.6rem;
+  min-height: 44px;
+  padding: 0.4rem 0.5rem;
   border: none;
   border-bottom: 1px solid var(--line-soft);
   border-radius: 0;
@@ -11018,15 +11494,15 @@ footer.foot {
 
 .mmodal-dish-name {
   min-width: 0;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--txt);
-  line-height: 1.25;
+  line-height: 1.22;
   overflow-wrap: anywhere;
 }
 
 .mmodal-dish-price {
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   color: var(--txt-mute);
   font-variant-numeric: tabular-nums;
 }
@@ -11528,10 +12004,10 @@ footer.foot {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 0.25rem;
     height: 100%;
     margin-bottom: 0;
-    padding: 0.6rem 0.55rem;
+    padding: 0.45rem 0.4rem;
     border-bottom: none;
     border: 1px solid var(--line-soft);
     border-radius: 10px;
@@ -11661,12 +12137,6 @@ footer.foot {
 .mmodal-prefs__orden-btns button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-.mmodal-prefs__hint {
-  margin: 0.5rem 0 0;
-  color: var(--txt-faint);
-  font-size: 0.7rem;
-  line-height: 1.4;
 }
 .mmodal-prefs__foot {
   grid-column: 1/-1;
@@ -12292,6 +12762,8 @@ footer.foot {
 }
 
 .mapa-page .pos-map .mesas-map {
+  --mesas-map-max-width: 1440px;
+  --mesas-map-max-height: 820px;
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
@@ -12301,26 +12773,6 @@ footer.foot {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.mapa-page .mesas-map__header {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 4;
-  display: flex;
-  min-height: 0;
-  padding: 12px;
-  pointer-events: none;
-}
-
-.mapa-page .mesas-map__header .mesas-map__heading,
-.mapa-page .mesas-map__header .mesas-map__legend {
-  display: none;
-}
-
-.mapa-page .mesas-map__toolbar-actions {
-  margin-left: auto;
-  pointer-events: auto;
 }
 
 .mapa-page .mesas-map__viewport {
@@ -13544,19 +13996,25 @@ footer.foot {
 
 .mmodal-pago-btns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 1.25rem 0 0.75rem;
+}
+@media (max-width: 420px) {
+  .mmodal-pago-btns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mmodal-pago-btn {
   width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem 1.25rem;
+  gap: 0.6rem;
+  padding: 1.25rem 1rem;
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
@@ -13565,12 +14023,14 @@ footer.foot {
 }
 .mmodal-pago-btn__icon {
   display: flex;
+  flex: 0 0 auto;
   line-height: 1;
 }
 .mmodal-pago-btn__label {
-  font-size: 0.9rem;
+  min-width: 0;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .mmodal-pago-btn:hover {
@@ -13766,6 +14226,162 @@ footer.foot {
   gap: 0.3rem;
   font-size: 0.85rem;
   color: rgba(232, 224, 212, 0.6);
+}
+
+.mmodal-propina {
+  margin: 0.9rem 0 0;
+}
+.mmodal-propina__label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: rgba(232, 224, 212, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mmodal-propina__btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.mmodal-propina__btn {
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
+  flex: 1 1 auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(232, 224, 212, 0.75);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.mmodal-propina__btn:hover {
+  border-color: rgba(204, 163, 82, 0.45);
+}
+.mmodal-propina__btn.is-on {
+  border-color: var(--accent, #cca352);
+  background: rgba(204, 163, 82, 0.16);
+  color: var(--accent, #cca352);
+}
+.mmodal-propina__monto {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  color: rgba(232, 224, 212, 0.6);
+  font-size: 0.85rem;
+}
+.mmodal-propina__monto input[hidden] {
+  display: none;
+}
+.mmodal-propina__quedese {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px dashed rgba(204, 163, 82, 0.45);
+  border-radius: 9px;
+  background: none;
+  color: var(--accent, #cca352);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mmodal-propina__quedese:hover {
+  background: rgba(204, 163, 82, 0.1);
+}
+
+.mmodal-recibido {
+  margin-top: 0.9rem;
+}
+.mmodal-recibido[hidden] {
+  display: none;
+}
+.mmodal-recibido__label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: rgba(232, 224, 212, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mmodal-recibido__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 56px;
+  padding: 0 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(232, 224, 212, 0.55);
+  font-size: 1.2rem;
+}
+.mmodal-recibido__field:focus-within {
+  border-color: var(--accent, #cca352);
+}
+.mmodal-recibido__field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: #e8e0d4;
+  font-family: inherit;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.mmodal-recibido__field input::-webkit-outer-spin-button, .mmodal-recibido__field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.mmodal-cambio {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(204, 163, 82, 0.35);
+  border-radius: 11px;
+  background: rgba(204, 163, 82, 0.1);
+}
+.mmodal-cambio[hidden] {
+  display: none;
+}
+.mmodal-cambio__label {
+  color: rgba(232, 224, 212, 0.72);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.mmodal-cambio__val {
+  color: var(--accent, #cca352);
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mmodal-total-row--fuerte {
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.mmodal-total-row--fuerte .mmodal-total-label {
+  color: rgba(232, 224, 212, 0.85);
+}
+.mmodal-total-row--fuerte .mmodal-total-amount {
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .mmodal-monto-exacto {

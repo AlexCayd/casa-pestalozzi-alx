@@ -28,6 +28,10 @@ const paths = {
     "!src/js/modules/punto-de-venta.js",
   ],
   adminJs: [
+    // El panel admin sólo carga /build/js/admin.js: nunca ve bundle.min.js, así
+    // que sus confirmaciones y avisos deben viajar aquí.
+    "src/js/components/confirmation-modal.js",
+    "src/js/components/toast.js",
     "src/js/admin/admin.js",
     "src/js/admin/core/theme.js",
     "src/js/admin/core/motion.js",
@@ -35,18 +39,23 @@ const paths = {
     "src/js/admin/core/select.js",
     "src/js/admin/core/table-sort.js",
     "src/js/admin/core/table-rows.js",
+    // El selector de periodo lo comparten analíticas, finanzas e inventario, así
+    // que vive aquí y no en el bundle de analíticas.
+    "src/js/admin/core/range-picker.js",
   ],
   adminAnalyticsJs: [
     // mock-data.js se retiró: los datos reales llegan desde PHP como
     // window.AdminAnalyticsMock (ver AdminController::construirAnalytics).
     "src/js/admin/analytics/charts.js",
     "src/js/admin/analytics/nivel1.js",
-    "src/js/admin/analytics/range-picker.js",
     "src/js/admin/analytics/analytics-page.js",
     "src/js/admin/analytics/analytics.js",
   ],
   adminMapJs: [
+    // toast.js no va aquí: el POS ya lo recibe dentro de bundle.min.js, que
+    // carga antes que map.js.
     "src/js/components/confirmation-modal.js",
+    "src/js/admin/core/select.js",
     "src/js/components/reservation-date-picker.js",
     "src/js/operation/shell.js",
     "src/js/operation/table-state-adapter.js",
@@ -56,6 +65,8 @@ const paths = {
   ],
   adminAreaJs: "src/js/admin/area/area.js",
   adminRecetasJs: "src/js/admin/recetas/recipe-builder.js",
+  adminInventarioJs: "src/js/admin/inventario/inventario.js",
+  adminReservationListJs: "src/js/admin/reservations/lista.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
@@ -82,7 +93,14 @@ const paths = {
     "src/js/admin/configuration/configuration.js",
   ],
   imagenes: "src/img/**/*",
-  chartJs: "node_modules/chart.js/dist/chart.umd.min.js",
+  adminFinanzasJs: "src/js/admin/finanzas/finanzas.js",
+  // Chart.js y el plugin de Sankey viajan juntos a /vendor: el plugin se
+  // registra sobre el Chart global, así que el orden de carga en la vista
+  // (primero chart.umd, luego el sankey) no es opcional.
+  chartJs: [
+    "node_modules/chart.js/dist/chart.umd.min.js",
+    "node_modules/chartjs-chart-sankey/dist/chartjs-chart-sankey.min.js",
+  ],
 };
 
 // En Windows, antivirus/indexadores pueden conservar brevemente los mapas
@@ -173,10 +191,37 @@ function adminAreaJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminFinanzasJavascript() {
+  return src(paths.adminFinanzasJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("finanzas.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminRecetasJavascript() {
   return src(paths.adminRecetasJs)
     .pipe(sourcemaps.init())
     .pipe(concat("recipe-builder.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminInventarioJavascript() {
+  return src(paths.adminInventarioJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("inventario.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminReservationListJavascript() {
+  return src(paths.adminReservationListJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("reservation-list.js"))
     .pipe(terser())
     .pipe(sourcemaps.write("."))
     .pipe(dest("./public/build/js/admin"));
@@ -272,16 +317,28 @@ function devWatch(done) {
   watch("src/scss/operation/**/*.scss", operationCss);
   watch(paths.js, javascript);
   watch(
-    ["src/js/admin/admin.js", "src/js/admin/core/**/*.js"],
+    [
+      "src/js/admin/admin.js",
+      "src/js/admin/core/**/*.js",
+      "src/js/components/confirmation-modal.js",
+      "src/js/components/toast.js",
+    ],
     adminJavascript,
   );
   watch("src/js/admin/analytics/**/*.js", adminAnalyticsJavascript);
   watch(
-    ["src/js/modules/punto-de-venta.js", "src/js/operation/*.js"],
+    [
+      "src/js/modules/punto-de-venta.js",
+      "src/js/operation/*.js",
+      "src/js/admin/core/select.js",
+    ],
     adminMapJavascript,
   );
   watch("src/js/admin/area/**/*.js", adminAreaJavascript);
+  watch("src/js/admin/finanzas/**/*.js", adminFinanzasJavascript);
   watch("src/js/admin/recetas/**/*.js", adminRecetasJavascript);
+  watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
+  watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
@@ -321,7 +378,10 @@ exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
 exports.adminMapJs = adminMapJavascript;
 exports.adminAreaJs = adminAreaJavascript;
+exports.adminFinanzasJs = adminFinanzasJavascript;
 exports.adminRecetasJs = adminRecetasJavascript;
+exports.adminInventarioJs = adminInventarioJavascript;
+exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminUsersJs = adminUsersJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
@@ -344,7 +404,10 @@ exports.dev = parallel(
   adminJavascript,
   adminAnalyticsJavascript,
   adminAreaJavascript,
+  adminFinanzasJavascript,
   adminRecetasJavascript,
+  adminInventarioJavascript,
+  adminReservationListJavascript,
   adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
@@ -370,11 +433,17 @@ exports.build = series(
   adminMapJavascript,
   adminAreaJavascript,
   adminAnalyticsJavascript,
+  adminFinanzasJavascript,
   adminRecetasJavascript,
+  adminInventarioJavascript,
+  adminReservationListJavascript,
   adminUsersJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
+  // Sin esto un build limpio no publica chart.umd ni el plugin de Sankey, que
+  // finanzas y analíticas cargan desde /build/js/vendor.
+  copyChartJs,
   copyFonts,
   copyImages,
 );

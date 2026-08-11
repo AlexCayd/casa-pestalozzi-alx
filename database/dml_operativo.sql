@@ -22,22 +22,26 @@ INSERT INTO horarios_operacion (dia_semana, abierto, hora_apertura, hora_cierre)
 -- -------------------------------------------------------
 
 INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VALUES
-(1,  'Mesa 1',       'mesa',     4, 29.0, 88.0, 1),
-(2,  'Mesa 2',       'mesa',     4,  8.0, 70.0, 1),
-(3,  'Mesa 3',       'mesa',     4, 29.0, 51.0, 1),
-(4,  'Mesa 4',       'mesa',     4,  8.0, 51.0, 1),
-(5,  'Mesa 5',       'mesa',     4,  8.0, 29.0, 1),
-(6,  'Mesa 6',       'mesa',     4, 45.0, 29.0, 1),
-(7,  'Mesa 7',       'mesa',     4, 83.0, 29.0, 1),
-(8,  'Mesa 8',       'mesa',     4, 83.0,  8.0, 1),
-(9,  'Mesa 9',       'mesa',     4, 54.0,  8.0, 1),
-(10, 'Mesa 10',      'mesa',     4, 29.0,  8.0, 1),
-(11, 'Mesa 11',      'mesa',     4,  8.0,  8.0, 1),
+-- Al quitar la botonera del mapa, el salón recuperó ~200px de ancho. Solo se
+-- mueve pos_x: la estructura por filas es la misma. Caja y Llevar pasan de 17
+-- a 24 puntos de separación porque a 768px (la tablet del mesero) los dos pines
+-- "especial" quedaban a 15px y se leían como uno solo.
+(1,  'Mesa 1',       'mesa',     4, 30.0, 88.0, 1),
+(2,  'Mesa 2',       'mesa',     4,  7.0, 70.0, 1),
+(3,  'Mesa 3',       'mesa',     4, 30.0, 51.0, 1),
+(4,  'Mesa 4',       'mesa',     4,  7.0, 51.0, 1),
+(5,  'Mesa 5',       'mesa',     4,  7.0, 29.0, 1),
+(6,  'Mesa 6',       'mesa',     4, 44.0, 29.0, 1),
+(7,  'Mesa 7',       'mesa',     4, 88.0, 29.0, 1),
+(8,  'Mesa 8',       'mesa',     4, 88.0,  8.0, 1),
+(9,  'Mesa 9',       'mesa',     4, 56.0,  8.0, 1),
+(10, 'Mesa 10',      'mesa',     4, 30.0,  8.0, 1),
+(11, 'Mesa 11',      'mesa',     4,  7.0,  8.0, 1),
 (12, 'Barra Blanca', 'barra',    8, 62.0, 51.0, 0),
-(13, 'Caja',         'especial', 0, 41.0, 70.0, 0),
-(14, 'Llevar',       'especial', 0, 58.0, 70.0, 0),
-(15, 'Barra Roja',   'barra',    6, 83.0, 70.0, 0),
-(16, 'Barra Roja 2', 'barra',    6, 83.0, 88.0, 0);
+(13, 'Caja',         'especial', 0, 33.0, 70.0, 0),
+(14, 'Llevar',       'especial', 0, 57.0, 70.0, 0),
+(15, 'Barra Roja',   'barra',    6, 88.0, 70.0, 0),
+(16, 'Barra Roja 2', 'barra',    6, 88.0, 88.0, 0);
 
 -- -------------------------------------------------------
 -- Áreas de producción
@@ -48,6 +52,20 @@ INSERT INTO areas_produccion (id, nombre, slug, color) VALUES
 (2, 'Barra de Jugos',   'jugos',  '#e8a920'),
 (3, 'Cocina',           'cocina', '#b03a2e'),
 (4, 'Horno Napolitano', 'horno',  '#1a5276');
+
+-- -------------------------------------------------------
+-- Estaciones de impresión (ESC/POS)
+-- -------------------------------------------------------
+--
+-- Una estación de comanda por área de producción más la de cuenta en la caja.
+-- Va aquí, pegado a areas_produccion, porque `impresoras.area_id` es llave
+-- foránea contra esa tabla: sembrarlas antes falla.
+INSERT INTO impresoras (id, nombre, area_id, rol, conexion, host, puerto, dispositivo, ancho, activo) VALUES
+(1, 'Comanda Café',   1, 'comanda', 'red', '192.168.1.51', 9100, NULL, 32, 1),
+(2, 'Comanda Jugos',  2, 'comanda', 'red', '192.168.1.52', 9100, NULL, 32, 1),
+(3, 'Comanda Cocina', 3, 'comanda', 'red', '192.168.1.53', 9100, NULL, 48, 1),
+(4, 'Comanda Horno',  4, 'comanda', 'red', '192.168.1.54', 9100, NULL, 48, 1),
+(5, 'Cuenta Caja', NULL, 'cuenta',  'red', '192.168.1.50', 9100, NULL, 48, 1);
 
 -- -------------------------------------------------------
 -- Categorías del menú

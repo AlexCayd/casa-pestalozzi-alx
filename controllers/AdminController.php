@@ -9,6 +9,7 @@ namespace Controllers;
 use MVC\Router;
 use Services\Analiticas;
 use Services\AreasMejora;
+use Services\RangoPeriodo;
 
 class AdminController
 {
@@ -46,7 +47,7 @@ class AdminController
         ],
         'reservations' => [
             'title' => 'Reservaciones',
-            'path' => '/admin/reservations'
+            'path' => '/admin/reservaciones'
         ],
         'feedback' => [
             'title' => 'Feedback de clientes',
@@ -107,40 +108,12 @@ class AdminController
 
     /**
      * Resuelve el rango de fechas del dashboard desde $_GET.
-     * Acepta ?rango=N (3/7/30/60/365) o ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD.
-     * Devuelve ['start','end','preset','label'].
+     * La lógica vive en Services\RangoPeriodo porque finanzas e inventario usan
+     * exactamente el mismo contrato.
      */
     private static function rangoAnalytics(): array
     {
-        $re = '/^\d{4}-\d{2}-\d{2}$/';
-        $desde = trim((string) ($_GET['desde'] ?? ''));
-        $hasta = trim((string) ($_GET['hasta'] ?? ''));
-
-        // Rango personalizado válido.
-        if (preg_match($re, $desde) && preg_match($re, $hasta) && $desde <= $hasta) {
-            return [
-                'start' => $desde,
-                'end' => $hasta,
-                'preset' => 0,
-                'label' => 'Del ' . date('d/m/Y', strtotime($desde)) . ' al ' . date('d/m/Y', strtotime($hasta)),
-            ];
-        }
-
-        // Preset por número de días.
-        $permitidos = [3, 7, 30, 60, 365];
-        $preset = (int) ($_GET['rango'] ?? 30);
-        if (!in_array($preset, $permitidos, true)) {
-            $preset = 30;
-        }
-        $etiquetas = [3 => 'Últimos 3 días', 7 => 'Últimos 7 días', 30 => 'Últimos 30 días',
-            60 => 'Últimos 60 días', 365 => 'Último año'];
-
-        return [
-            'start' => date('Y-m-d', strtotime('-' . ($preset - 1) . ' days')),
-            'end' => date('Y-m-d'),
-            'preset' => $preset,
-            'label' => $etiquetas[$preset],
-        ];
+        return RangoPeriodo::resolver($_GET);
     }
 
     /** Construye el dataset real del dashboard desde la BD, filtrado por rango. */
@@ -156,7 +129,6 @@ class AdminController
             'paymentMethods' => ['labels' => ['Efectivo', 'Tarjeta', 'Dividido'], 'values' => [0, 0, 0]],
             'topProducts' => ['labels' => [], 'values' => []],
             'reservationsByDay' => ['labels' => [], 'values' => []],
-            'reservationSources' => ['labels' => [], 'values' => []],
         ];
 
         // Límites de fecha (validados en rangoAnalytics; seguros de interpolar).
@@ -222,9 +194,11 @@ class AdminController
             $propProm = $propTickets > 0 ? $propTotal / $propTickets : 0.0;
 
             // ── Periodo anterior de la misma duración (para la variación) ──
-            $dias = (int) ((strtotime($end) - strtotime($start)) / 86400) + 1;
-            $prevEnd = date('Y-m-d', strtotime($start . ' -1 day'));
-            $prevStart = date('Y-m-d', strtotime($prevEnd . ' -' . ($dias - 1) . ' days'));
+            // Los límites los resuelve RangoPeriodo para que analíticas,
+            // finanzas e inventario comparen exactamente el mismo tramo.
+            $dias = (int) $rango['dias'];
+            $prevEnd = (string) $rango['prevEnd'];
+            $prevStart = (string) $rango['prevStart'];
             $ventasPrev = 0.0;
             $res = $db->query(
                 "SELECT COALESCE(SUM(sub.total), 0) AS ventas
@@ -240,8 +214,8 @@ class AdminController
                 $ventasPrev = (float) $r['ventas'];
             }
             // Sin base de comparación (periodo anterior en cero) no se inventa
-            // un "+100%": se omite la variación.
-            $delta = $ventasPrev > 0 ? round((($ventas - $ventasPrev) / $ventasPrev) * 100, 1) : null;
+            // un "+100%": RangoPeriodo::delta devuelve null y no se pinta.
+            $delta = RangoPeriodo::delta($ventas, $ventasPrev);
 
             $metrics = [
                 [
@@ -284,6 +258,37 @@ class AdminController
             foreach ($dias as $d => $v) {
                 $charts['salesByDay']['labels'][] = date('d/m', strtotime($d));
                 $charts['salesByDay']['values'][] = round($v, 2);
+            }
+
+            // Serie del periodo anterior, alineada por índice de día (día 1 con
+            // día 1). Alinear por fecha no serviría: son tramos distintos.
+            if (!empty($rango['comparar'])) {
+                $diasPrev = [];
+                $cursor = strtotime($prevStart);
+                $limite = strtotime($prevEnd);
+                while ($cursor <= $limite) {
+                    $diasPrev[date('Y-m-d', $cursor)] = 0.0;
+                    $cursor = strtotime('+1 day', $cursor);
+                }
+                $res = $db->query(
+                    "SELECT DATE({$cierre}) AS d, SUM(ti.precio * ti.cantidad) AS total
+                       FROM ticket_items ti JOIN tickets t ON t.id = ti.ticket_id
+                      WHERE t.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                            AND {$cierre} >= '{$prevStart} 00:00:00'
+                            AND {$cierre} <= '{$prevEnd} 23:59:59'
+                      GROUP BY d"
+                );
+                if ($res) {
+                    while ($r = $res->fetch_assoc()) {
+                        if (isset($diasPrev[$r['d']])) {
+                            $diasPrev[$r['d']] = (float) $r['total'];
+                        }
+                    }
+                }
+                $charts['salesByDay']['compare'] = [
+                    'label' => 'Periodo anterior',
+                    'values' => array_map(static fn($v): float => round($v, 2), array_values($diasPrev)),
+                ];
             }
 
             // ── Ventas por categoría ───────────────────────────────────
@@ -353,18 +358,6 @@ class AdminController
             foreach ($diasR as $d => $v) {
                 $charts['reservationsByDay']['labels'][] = date('d/m', strtotime($d));
                 $charts['reservationsByDay']['values'][] = $v;
-            }
-
-            // ── Reservaciones por estado ───────────────────────────────
-            $res = $db->query(
-                "SELECT estado, COUNT(*) AS n FROM reservaciones
-                  WHERE {$fRes} GROUP BY estado ORDER BY n DESC"
-            );
-            if ($res) {
-                while ($r = $res->fetch_assoc()) {
-                    $charts['reservationSources']['labels'][] = ucfirst($r['estado']);
-                    $charts['reservationSources']['values'][] = (int) $r['n'];
-                }
             }
 
             // ── Tabla de actividad reciente (últimos tickets CERRADOS) ─

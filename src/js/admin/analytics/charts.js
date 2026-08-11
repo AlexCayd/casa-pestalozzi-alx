@@ -20,6 +20,16 @@
         return value || fallback;
     }
 
+    // Sin decimales: en un tooltip de ventas diarias los centavos no cambian
+    // ninguna decisión y alargan la caja.
+    function dinero(valor) {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            maximumFractionDigits: 0
+        }).format(valor || 0);
+    }
+
     /*
      * Paleta de acento de la marca (ver CLAUDE.md), en pasos ajustados a la
      * superficie de cada tema y verificados con el validador de la skill
@@ -82,6 +92,16 @@
         return Object.assign({
             responsive: true,
             maintainAspectRatio: false,
+            /*
+             * Sin esto Chart.js usa su modo 'nearest' con intersect: true, y
+             * como todas las series de línea van con pointRadius: 0 el área
+             * sensible de cada dato queda en el hitRadius por omisión (1px):
+             * había que clavar el cursor en el píxel exacto para ver el tooltip.
+             * Por columna y sin exigir intersección, basta con estar sobre el
+             * día.
+             */
+            interaction: { mode: 'index', intersect: false, axis: 'x' },
+            hover: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
                     display: false,
@@ -148,11 +168,30 @@
             return valor >= promedioVentas ? palette.ventas : palette.bajoPromedio;
         }
 
+        // Periodo anterior: misma magnitud en otro tramo, así que no estrena
+        // color categórico. Se distingue por el trazo punteado y la leyenda,
+        // que es la codificación secundaria que exige el sistema.
+        var seriesVentas = [];
+        if (data.salesByDay.compare && data.salesByDay.compare.values) {
+            seriesVentas.push({
+                label: data.salesByDay.compare.label || 'Periodo anterior',
+                data: data.salesByDay.compare.values,
+                borderColor: palette.grid,
+                backgroundColor: palette.grid,
+                borderWidth: 2,
+                borderDash: [5, 4],
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                fill: false,
+                tension: 0.35
+            });
+        }
+
         createChart('salesByDayChart', {
             type: 'line',
             data: {
                 labels: data.salesByDay.labels,
-                datasets: [
+                datasets: seriesVentas.concat([
                     {
                         label: 'Promedio del periodo',
                         data: ventasDia.map(function () { return promedioVentas; }),
@@ -193,7 +232,7 @@
                         },
                         tension: 0.35
                     }
-                ]
+                ])
             },
             // Dos series: la leyenda deja de ser opcional. Es lo que nombra la
             // línea punteada, sin la cual el color no significa nada.
@@ -213,7 +252,28 @@
                         backgroundColor: palette.tooltipBg,
                         padding: 12,
                         titleColor: '#fff',
-                        bodyColor: '#fff'
+                        bodyColor: '#fff',
+                        // El promedio es el mismo número en los 30 días: como
+                        // renglón del tooltip solo repite ruido, y la línea
+                        // punteada ya lo dice mejor.
+                        filter: function (item) {
+                            return item.dataset.label !== 'Promedio del periodo';
+                        },
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': ' + dinero(ctx.parsed.y);
+                            },
+                            afterBody: function (items) {
+                                if (!items.length || !promedioVentas) {
+                                    return '';
+                                }
+                                var venta = items[0].parsed.y;
+                                var signo = venta >= promedioVentas ? '+' : '−';
+                                var diferencia = Math.abs(venta - promedioVentas);
+                                return 'Promedio del periodo: ' + dinero(promedioVentas)
+                                    + ' (' + signo + dinero(diferencia) + ')';
+                            }
+                        }
                     }
                 }
             })
@@ -295,26 +355,6 @@
             options: baseOptions(palette)
         });
 
-        createChart('reservationSourcesChart', {
-            type: 'doughnut',
-            data: {
-                labels: data.reservationSources.labels,
-                datasets: [{
-                    data: data.reservationSources.values,
-                    backgroundColor: palette.serie.slice(0, 4),
-                    borderColor: palette.surface,
-                    borderWidth: 2
-                }]
-            },
-            options: baseOptions(palette, {
-                cutout: '62%',
-                scales: {},
-                plugins: {
-                    legend: { display: true, position: 'bottom', labels: { color: palette.muted, boxWidth: 12, boxHeight: 12 } },
-                    tooltip: { backgroundColor: palette.tooltipBg, padding: 12, titleColor: '#fff', bodyColor: '#fff' }
-                }
-            })
-        });
     }
 
     function initAnalyticsCharts(data) {

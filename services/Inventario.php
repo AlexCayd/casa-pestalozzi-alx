@@ -15,6 +15,24 @@ use Model\Ingrediente;
 class Inventario
 {
     /**
+     * Motivos de merma. Es la única lista: alimenta el <select> del modal y la
+     * validación del controlador, para que no puedan divergir.
+     */
+    public const MOTIVOS_MERMA = [
+        'caducidad' => 'Caducidad',
+        'dano' => 'Daño en almacén',
+        'derrame' => 'Derrame o rotura',
+        'preparacion' => 'Error de preparación',
+        'faltante' => 'Faltante de inventario',
+        'otro' => 'Otro',
+    ];
+
+    public static function motivoMermaValido(string $motivo): bool
+    {
+        return isset(self::MOTIVOS_MERMA[$motivo]);
+    }
+
+    /**
      * Descuenta el inventario por la venta de $cantidad unidades del platillo
      * $nombre. Registra un movimiento por cada ingrediente afectado.
      */
@@ -113,6 +131,78 @@ class Inventario
             }
         } catch (\Throwable $e) {
             error_log('Inventario::revertir - ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Registra una merma: descuenta el stock y deja el movimiento con su
+     * motivo, quién lo registró y el costo unitario del momento.
+     *
+     * El costo se congela aquí porque una merma es un gasto consumado: si
+     * mañana sube el precio del ingrediente, lo que se perdió ayer siguió
+     * costando lo que costaba ayer.
+     *
+     * @return array{ok: bool, mensaje: string, valor: float}
+     */
+    public static function registrarMerma(
+        int $ingredienteId,
+        float $cantidad,
+        string $motivo,
+        string $nota,
+        ?int $usuarioId
+    ): array {
+        if ($cantidad <= 0) {
+            return ['ok' => false, 'mensaje' => 'La cantidad debe ser mayor a cero.', 'valor' => 0.0];
+        }
+
+        if (!self::motivoMermaValido($motivo)) {
+            return ['ok' => false, 'mensaje' => 'Elige un motivo de la lista.', 'valor' => 0.0];
+        }
+
+        $ingrediente = Ingrediente::find($ingredienteId);
+        if (!$ingrediente) {
+            return ['ok' => false, 'mensaje' => 'El ingrediente no existe.', 'valor' => 0.0];
+        }
+
+        try {
+            $db = Ingrediente::getDB();
+            if (!$db) {
+                return ['ok' => false, 'mensaje' => 'No hay conexión con la base de datos.', 'valor' => 0.0];
+            }
+
+            $costo = (float) $ingrediente->costo;
+            $cantidadSql = self::num($cantidad);
+
+            // Igual que en las ventas, el stock puede quedar negativo: si el
+            // conteo físico dice que se tiró más de lo registrado, el dato real
+            // es la merma, no el saldo que el sistema creía tener.
+            $db->query("UPDATE ingredientes SET stock = stock - ({$cantidadSql}) WHERE id = {$ingredienteId}");
+
+            // Preparada porque motivo y nota vienen del usuario.
+            $stmt = $db->prepare(
+                'INSERT INTO movimientos_inventario
+                    (ingrediente_id, tipo, cantidad, motivo, nota, costo_unitario, usuario_id)
+                 VALUES (?, \'merma\', ?, ?, ?, ?, ?)'
+            );
+            if (!$stmt) {
+                return ['ok' => false, 'mensaje' => 'No se pudo registrar la merma.', 'valor' => 0.0];
+            }
+
+            $negativa = -$cantidad;
+            $notaLimpia = mb_substr(trim($nota), 0, 255);
+            $notaParam = $notaLimpia === '' ? null : $notaLimpia;
+            $stmt->bind_param('idssdi', $ingredienteId, $negativa, $motivo, $notaParam, $costo, $usuarioId);
+            $stmt->execute();
+            $stmt->close();
+
+            return [
+                'ok' => true,
+                'mensaje' => 'Merma registrada: ' . $cantidad . ' ' . $ingrediente->unidad . ' de ' . $ingrediente->nombre . '.',
+                'valor' => $cantidad * $costo,
+            ];
+        } catch (\Throwable $e) {
+            error_log('Inventario::registrarMerma - ' . $e->getMessage());
+            return ['ok' => false, 'mensaje' => 'No se pudo registrar la merma.', 'valor' => 0.0];
         }
     }
 

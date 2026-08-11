@@ -200,22 +200,24 @@
   color: var(--admin-danger-text);
 }
 .admin-analytics .admin-metrics-strip {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px 28px;
-  padding: 14px 20px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface-soft);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 .admin-analytics .admin-metric-chip {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 2px;
   min-width: 0;
+  padding: 16px 18px;
+  gap: 4px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
+}
+.admin-analytics .admin-metric-chip:hover {
+  border-color: var(--admin-border);
+  box-shadow: var(--admin-shadow-sm);
 }
 .admin-analytics .admin-metric-chip__label {
   color: var(--admin-muted);
@@ -226,9 +228,11 @@
 }
 .admin-analytics .admin-metric-chip__value {
   color: var(--admin-text);
-  font-size: 17px;
-  font-weight: 800;
+  font-family: var(--admin-font-heading);
+  font-size: 26px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 .admin-analytics .admin-metric-chip__detail {
   color: var(--admin-faint);
@@ -279,332 +283,6 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
-}
-.admin-analytics {
-  /*
-   * ── Selector de periodo ───────────────────────────────────────
-   * Reemplaza al <select> estrecho más dos <input type="date">. El disparador
-   * muestra la etiqueta legible y las fechas reales; el popover trae los
-   * accesos rápidos y un calendario de dos meses con el tramo resaltado.
-   */
-}
-.admin-analytics .admin-range {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-.admin-analytics .admin-range__caption {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.admin-analytics .admin-range__trigger {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 10px 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
-  color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
-}
-.admin-analytics .admin-range__trigger:hover {
-  border-color: var(--admin-gold);
-}
-.admin-analytics .admin-range__trigger:focus-visible {
-  outline: none;
-  box-shadow: var(--admin-focus-ring);
-}
-.admin-analytics .admin-range__trigger[aria-expanded=true] {
-  border-color: var(--admin-gold);
-}
-.admin-analytics .admin-range__icon {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
-  fill: none;
-  stroke: var(--admin-gold);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.admin-analytics .admin-range__trigger-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.admin-analytics .admin-range__trigger-label {
-  color: var(--admin-text);
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.admin-analytics .admin-range__trigger-dates {
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.admin-analytics .admin-range__chevron {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-  margin-left: auto;
-  fill: none;
-  stroke: var(--admin-muted);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.admin-analytics .admin-range__pop {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 60;
-  display: flex;
-  width: max-content;
-  max-width: min(660px, 100vw - 32px);
-  max-height: min(560px, 100vh - 120px);
-  border: 1px solid var(--admin-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
-  box-shadow: var(--admin-shadow-lg);
-  overflow: auto;
-}
-.admin-analytics .admin-range__pop[hidden] {
-  display: none;
-}
-.admin-analytics .admin-range__pop--arriba {
-  top: auto;
-  bottom: calc(100% + 8px);
-}
-.admin-analytics .admin-range__pop--izq {
-  right: auto;
-  left: 0;
-}
-.admin-analytics .admin-range__presets {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px;
-  border-radius: var(--admin-radius-md) 0 0 var(--admin-radius-md);
-  border-right: 1px solid var(--admin-border-soft);
-  background: var(--admin-surface-soft);
-  overflow-y: auto;
-  min-height: 0;
-}
-.admin-analytics .admin-range__preset {
-  padding: 9px 14px;
-  border: 0;
-  border-radius: var(--admin-radius-sm);
-  background: transparent;
-  color: var(--admin-muted);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.admin-analytics .admin-range__preset:hover {
-  background: var(--admin-surface);
-  color: var(--admin-text);
-}
-.admin-analytics .admin-range__preset.is-active {
-  background: var(--admin-gold);
-  color: #1b1a17;
-}
-.admin-analytics .admin-range__cal {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px 12px;
-  min-width: 0;
-  min-height: 0;
-}
-.admin-analytics .admin-range__nav {
-  display: grid;
-  grid-template-columns: 32px 1fr 1fr 32px;
-  align-items: center;
-  gap: 8px;
-}
-.admin-analytics .admin-range__nav-btn {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  background: transparent;
-  color: var(--admin-text);
-  cursor: pointer;
-}
-.admin-analytics .admin-range__nav-btn svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.admin-analytics .admin-range__nav-btn:hover:not(:disabled) {
-  border-color: var(--admin-gold);
-}
-.admin-analytics .admin-range__nav-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.admin-analytics .admin-range__month-title {
-  color: var(--admin-text);
-  font-size: 13px;
-  font-weight: 800;
-  text-align: center;
-}
-.admin-analytics .admin-range__months {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-}
-.admin-analytics .admin-range__weekdays, .admin-analytics .admin-range__grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-}
-.admin-analytics .admin-range__weekdays {
-  margin-bottom: 6px;
-}
-.admin-analytics .admin-range__weekdays span {
-  color: var(--admin-faint);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-align: center;
-  text-transform: uppercase;
-}
-.admin-analytics .admin-range {
-  /*
-   * El tramo se pinta con un fondo continuo detrás de los días interiores
-   * (::before a sangre entre celdas) y los extremos en dorado sólido, que es
-   * como se lee un rango en las interfaces de viajes.
-   */
-}
-.admin-analytics .admin-range__day {
-  position: relative;
-  display: grid;
-  min-height: 34px;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--admin-text);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-.admin-analytics .admin-range__day::before {
-  content: "";
-  position: absolute;
-  inset: 2px -1px;
-  z-index: 0;
-  border-radius: 0;
-}
-.admin-analytics .admin-range__day > *, .admin-analytics .admin-range__day:not(.is-empty) {
-  position: relative;
-}
-.admin-analytics .admin-range__day.is-empty {
-  cursor: default;
-}
-.admin-analytics .admin-range__day.is-disabled {
-  color: var(--admin-faint);
-  cursor: not-allowed;
-}
-.admin-analytics .admin-range__day.is-today:not(.is-edge) {
-  color: var(--admin-gold);
-  font-weight: 800;
-}
-.admin-analytics .admin-range__day:hover:not(.is-disabled):not(.is-empty):not(.is-edge)::before {
-  border-radius: 8px;
-  background: var(--admin-surface-soft);
-}
-.admin-analytics .admin-range__day.is-inside::before {
-  background: rgba(204, 163, 82, 0.18);
-}
-.admin-analytics .admin-range__day.is-edge {
-  color: #1b1a17;
-  font-weight: 800;
-  z-index: 1;
-}
-.admin-analytics .admin-range__day.is-edge::before {
-  background: var(--admin-gold);
-}
-.admin-analytics .admin-range__day.is-start::before {
-  border-radius: 8px 0 0 8px;
-  inset: 2px -1px 2px 2px;
-}
-.admin-analytics .admin-range__day.is-end::before {
-  border-radius: 0 8px 8px 0;
-  inset: 2px 2px 2px -1px;
-}
-.admin-analytics .admin-range__day.is-single::before {
-  border-radius: 8px;
-  inset: 2px;
-}
-.admin-analytics .admin-range__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding-top: 10px;
-  border-top: 1px solid var(--admin-border-soft);
-}
-.admin-analytics .admin-range__summary {
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-.admin-analytics .admin-range__foot-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: auto;
-}
-@media (max-width: 720px) {
-  .admin-analytics .admin-range__pop {
-    right: auto;
-    left: 0;
-    flex-direction: column;
-    max-width: calc(100vw - 32px);
-  }
-  .admin-analytics .admin-range__presets {
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: 0;
-    border-bottom: 1px solid var(--admin-border-soft);
-  }
-  .admin-analytics .admin-range__months {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .admin-analytics .admin-range__month--b,
-  .admin-analytics .admin-range__month-title--b {
-    display: none;
-  }
-  .admin-analytics .admin-range__nav {
-    grid-template-columns: 32px 1fr 32px;
-  }
 }
 .admin-analytics .admin-chart-grid {
   display: grid;
@@ -895,20 +573,6 @@
   margin-bottom: 20px;
   padding-bottom: 4px;
 }
-.admin-nivel1 .admin-nivel1-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
-  gap: 20px;
-  margin-top: 20px;
-  align-items: stretch;
-}
-.admin-nivel1 [data-n1-revpash] {
-  display: flex;
-  flex-direction: column;
-}
-.admin-nivel1 [data-n1-revpash] .admin-n1-heat {
-  flex: 1 1 auto;
-}
 .admin-nivel1 .admin-nivel1-sub {
   margin-top: 4px;
   color: var(--admin-muted);
@@ -980,6 +644,9 @@
   outline: 1px dashed var(--admin-warning);
   outline-offset: -2px;
 }
+.admin-nivel1 .admin-n1-heat__cell:hover {
+  box-shadow: inset 0 0 0 2px var(--admin-gold);
+}
 .admin-nivel1 .admin-n1-heat__scale {
   display: flex;
   align-items: center;
@@ -998,12 +665,50 @@
   border-radius: 999px;
   background: linear-gradient(to right, rgba(var(--n1-heat-rgb), 0.05), rgba(var(--n1-heat-rgb), 1));
 }
+.admin-nivel1 {
+  /* ── RevPASH por día completo ──────────────────────────────────────
+     Segunda gráfica del panel de §3.2, no una fusión con el mapa: mide lo
+     mismo con otro denominador. Ocupa todo el ancho del panel y se separa
+     del mapa con un filete para que se lean como dos lecturas, no como una
+     continuación. */
+}
+.admin-nivel1 .admin-n1-daily {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.admin-nivel1 .admin-n1-daily__head {
+  margin-bottom: 10px;
+}
+.admin-nivel1 .admin-n1-daily__head h4 {
+  color: var(--admin-text);
+  font-family: var(--admin-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+}
+.admin-nivel1 .admin-n1-daily__head p {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.admin-nivel1 .admin-n1-daily__canvas {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: 260px;
+}
+.admin-nivel1 .admin-n1-daily__canvas canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  height: 100% !important;
+}
 .admin-nivel1 [data-n1-asociacion] .admin-table-wrap {
   max-height: 460px;
   overflow-y: auto;
 }
-.admin-nivel1 .admin-nivel1-panel + .admin-nivel1-panel,
-.admin-nivel1 .admin-nivel1-grid + .admin-nivel1-panel {
+.admin-nivel1 > .admin-panel + .admin-panel {
   margin-top: 20px;
 }
 .admin-nivel1 .admin-nivel1-panel .admin-table th,
@@ -1103,10 +808,116 @@
 }
 
 /*
+ * Globo de detalle de las celdas del mapa de calor (§3.2).
+ *
+ * Vive a nivel raíz porque el JS lo monta en <body>: dentro de la tabla lo
+ * recortaban el overflow:hidden de .admin-card y el overflow-x:auto del propio
+ * mapa. Como <body> lleva la clase .admin-body, los tokens --admin-* siguen
+ * resolviéndose y el globo acompaña el cambio de tema sin repintarse.
+ */
+.admin-n1-tip {
+  position: fixed;
+  z-index: 60;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  color: var(--admin-text);
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+.admin-n1-tip[hidden] {
+  display: none;
+}
+.admin-n1-tip__title {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-n1-tip__value {
+  margin: 2px 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.admin-n1-tip__value span {
+  margin-left: 5px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.admin-n1-tip__rows {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+}
+.admin-n1-tip__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-n1-tip__rows dt {
+  color: var(--admin-muted);
+}
+.admin-n1-tip__rows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin-n1-tip__state {
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--admin-border-soft);
+  font-size: 11px;
+}
+.admin-n1-tip__state.is-abierto {
+  color: var(--admin-c-verde);
+}
+.admin-n1-tip__state.is-sinventa {
+  color: var(--admin-c-rojo);
+}
+.admin-n1-tip__state.is-fuera {
+  color: var(--admin-c-ambar);
+}
+.admin-n1-tip__state.is-cerrado {
+  color: var(--admin-muted);
+}
+
+/*
  * Contenido de la guía de lectura (modal de §3.1). Vive a nivel raíz porque el
  * modal se renderiza fuera de .admin-analytics; reutiliza .admin-nivel1-badge
  * para que los colores de clase sean los mismos que en la gráfica y la tabla.
  */
+.admin-modal__dialog--xwide > .admin-n1-guide {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.admin-modal__dialog--xwide > .admin-n1-guide::-webkit-scrollbar {
+  width: 6px;
+}
+.admin-modal__dialog--xwide > .admin-n1-guide::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-modal__dialog--xwide > .admin-n1-guide::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-gold) 38%, transparent);
+}
+
+.admin-modal__dialog--xwide > .admin-modal__head,
+.admin-modal__dialog--xwide > .admin-modal__actions {
+  flex: 0 0 auto;
+}
+
 .admin-n1-guide {
   border-top: 1px solid var(--admin-border-soft);
   padding-top: 20px;
@@ -1122,6 +933,7 @@
   margin-top: 26px;
 }
 .admin-n1-guide__formula {
+  display: block;
   margin-bottom: 22px;
   padding: 13px 16px;
   border: 1px dashed var(--admin-border);
@@ -1140,6 +952,7 @@
 }
 .admin-n1-guide__list {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
 }
 .admin-n1-guide__item {
@@ -1171,9 +984,13 @@
   font-size: 13px;
   line-height: 1.6;
 }
+.admin-n1-guide__item dd .admin-n1-guide__formula {
+  margin: 10px 0 12px;
+  text-align: left;
+}
 .admin-n1-guide__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
 }
 .admin-n1-guide__card {
@@ -1182,22 +999,22 @@
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
 }
-.admin-n1-guide__meaning {
+.admin-n1-guide__action {
   margin-top: 10px;
   color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.admin-n1-guide__meaning {
+  margin-top: 6px;
+  color: var(--admin-muted);
   font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.55;
 }
 .admin-n1-guide__meaning em {
   color: var(--admin-gold-deep);
   font-style: normal;
-}
-.admin-n1-guide__action {
-  margin-top: 6px;
-  color: var(--admin-muted);
-  font-size: 13px;
-  line-height: 1.6;
 }
 .admin-n1-guide__text {
   color: var(--admin-muted);
@@ -1216,6 +1033,9 @@
 .admin-n1-guide__notes li::marker {
   color: var(--admin-gold);
 }
+.admin-n1-guide__text + .admin-n1-guide__notes, .admin-n1-guide__notes + .admin-n1-guide__text {
+  margin-top: 14px;
+}
 .admin-n1-guide strong {
   color: var(--admin-text);
   font-weight: 600;
@@ -1232,9 +1052,6 @@
 }
 @media (max-width: 1024px) {
   .admin-nivel1 .admin-nivel1-menu__body {
-    grid-template-columns: 1fr;
-  }
-  .admin-nivel1 .admin-nivel1-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,7 +1,7 @@
 <form
     class="reservation-operation__filters"
     method="GET"
-    action="/admin/reservations/operation"
+    action="/admin/reservaciones/operacion"
     aria-label="Filtros de operación de reservaciones"
     data-operation-filters
 >

@@ -24,8 +24,19 @@
 
     $rolActual = (string) $valor('rol', 'waiter');
     $activoActual = (int) $valor('activo', 1);
-    $mostrarPassword = $modo !== 'editar';
+    // La sección de seguridad se emite SIEMPRE. Al editar, los campos son
+    // opcionales: antes desaparecía y cambiar la contraseña obligaba a salir a
+    // una pantalla aparte.
+    $esEdicion = $modo === 'editar';
+
+    $accesoPorRol = [];
+    foreach ($roles as $rolDisponible) {
+        $accesoPorRol[(string) $rolDisponible] = \Classes\Auth::areasPorRol((string) $rolDisponible);
+    }
 ?>
+<script>
+    window.AdminUserRoleAccess = <?php echo json_encode($accesoPorRol, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+</script>
 
 <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
@@ -88,7 +99,9 @@
                     value="<?php echo htmlspecialchars((string) $valor('fecha_nacimiento'), ENT_QUOTES, 'UTF-8'); ?>"
                     data-birthdate-value
                 >
-                <p class="admin-users-form__hint">Con ella se sugiere el NIP: día y mes del cumpleaños.</p>
+                <?php /* Sólo el personal de piso usa NIP: al administrador esta
+                         pista no le dice nada. La alterna users-form.js. */ ?>
+                <p class="admin-users-form__hint" data-hint-nip>Con ella se sugiere el NIP: día y mes del cumpleaños.</p>
             </div>
 
             <div class="admin-users-form__field" data-user-nip-field>
@@ -110,7 +123,7 @@
                 </p>
             </div>
 
-            <div class="admin-users-form__field">
+            <div class="admin-users-form__field admin-users-form__field--wide">
                 <span class="admin-users-form__field-label">Rol</span>
                 <div class="admin-tabs" role="radiogroup" aria-label="Rol">
                     <?php foreach ($roles as $rol) : ?>
@@ -124,6 +137,15 @@
                     <?php endforeach; ?>
                 </div>
                 <p class="admin-users-form__hint">El administrador entra con contraseña; meseros y cocineros, con NIP.</p>
+
+                <?php /* Qué abre este rol, en vez de dejarlo a la memoria de
+                         quien da de alta. La fuente es Auth::areasPorRol(),
+                         derivada de la misma guardia que aplica proteger().
+                         users-form.js reemplaza la lista al cambiar de tab. */ ?>
+                <div class="admin-role-access" data-role-access>
+                    <span class="admin-role-access__title">Acceso del rol</span>
+                    <ul class="admin-role-access__list" data-role-access-list></ul>
+                </div>
             </div>
 
             <div class="admin-users-form__field">
@@ -138,16 +160,23 @@
         </div>
     </section>
 
-    <?php if ($mostrarPassword) : ?>
-        <section class="admin-users-form__section" data-user-password-section>
+        <section class="admin-users-form__section" data-user-password-section
+                 <?php echo $esEdicion ? 'data-user-password-optional' : ''; ?>>
+            <?php /* Esta sección sólo se muestra al administrador —el personal
+                     de piso entra con NIP—, así que el título puede nombrar la
+                     credencial en vez del genérico «Seguridad». */ ?>
             <div class="admin-users-form__section-head">
-                <h4>Seguridad</h4>
-                <p>Define la contraseña inicial. Podrá cambiarla más adelante.</p>
+                <h4>Contraseña de acceso</h4>
+                <p>
+                    <?php echo $esEdicion
+                        ? 'Deja los campos vacíos para conservar la contraseña actual.'
+                        : 'El administrador entra con usuario y contraseña. Podrá cambiarla más adelante.'; ?>
+                </p>
             </div>
 
-            <div class="admin-users-form__grid">
+            <div class="admin-users-form__grid admin-users-form__grid--pair">
                 <div class="admin-users-form__field">
-                    <label for="password">Contraseña</label>
+                    <label for="password"><?php echo $esEdicion ? 'Nueva contraseña' : 'Contraseña'; ?></label>
                     <div class="admin-password-field">
                         <input
                             type="password"
@@ -159,7 +188,7 @@
                             title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
                             aria-describedby="password_help"
                             data-password-strength
-                            required
+                            <?php echo $esEdicion ? '' : 'required'; ?>
                         >
                         <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password">
                             <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -176,7 +205,7 @@
                 </div>
 
                 <div class="admin-users-form__field">
-                    <label for="password_confirm">Confirmar contraseña</label>
+                    <label for="password_confirm"><?php echo $esEdicion ? "Confirmar nueva contraseña" : "Confirmar contraseña"; ?></label>
                     <div class="admin-password-field">
                         <input
                             type="password"
@@ -186,7 +215,7 @@
                             minlength="8"
                             pattern="(?=.*[A-Z])(?=.*\d).{8,}"
                             title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
-                            required
+                            <?php echo $esEdicion ? '' : 'required'; ?>
                         >
                         <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password_confirm">
                             <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -200,7 +229,6 @@
                 </div>
             </div>
         </section>
-    <?php endif; ?>
 
     <div class="admin-menu__form-actions admin-users-form__actions">
         <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-admin-magnetic>
