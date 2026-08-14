@@ -33,11 +33,12 @@ const form = fs.readFileSync(path.join(root, files[2]), 'utf8');
 const operation = fs.readFileSync(path.join(root, files[3]), 'utf8');
 const mapVisual = fs.readFileSync(path.join(root, files[4]), 'utf8');
 const tableAdapter = fs.readFileSync(path.join(root, files[5]), 'utf8');
+const mapShell = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
 assertContract(!pos.includes('warningsLocalesParaTicket'), 'POS no filtra reservaciones proximas localmente');
 assertContract(!pos.includes("reserva.ventana_operativa || '') !== '30_60'"), 'POS no decide por ventana 30_60');
 assertContract(pos.includes('confirmar_reservacion_proxima = 0'), 'POS envia confirmacion falsa en la primera peticion');
-assertContract(pos.includes("result.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
+assertContract(pos.includes("resultado.codigo === 'REQUIERE_CONFIRMACION'"), 'POS procesa la decision remota canonica del backend');
 assertContract(pos.includes('bloqueo.presentacion'), 'POS renderiza la presentacion de cada bloqueo');
 assertContract(!pos.includes('bloqueo.motivo'), 'POS no renderiza motivo interno');
 // El aviso ya no se desmonta a mano: get() reutiliza el singleton de <body>, asi
@@ -51,6 +52,9 @@ assertContract(!form.includes('labels[code] || code'), 'formulario no tiene mapa
 assertContract(!form.includes("label: 'Confirmar', tipo: 'primary'"), 'formulario no inventa accion primaria de decision');
 assertContract(form.includes('decisionConfirmationOptions'), 'formulario adapta decisiones estructuradas');
 assertContract(form.includes('decisionActions'), 'formulario usa acciones canonicas del backend');
+assertContract(form.includes('normalizeContactForServer'), 'formulario admin normaliza telefonos al contrato E.164');
+assertContract(form.includes('contactInput.value = contactoCanonico'), 'formulario admin envia telefono normalizado');
+assertContract(form.includes("contactInput.setAttribute('maxlength'"), 'formulario admin limita la captura visual del telefono');
 assertContract(/acceptedConfirmationCodes\s*=\s*acceptedConfirmationCodes\s*\.concat/.test(form), 'formulario conserva confirmaciones aceptadas entre decisiones');
 assertContract(form.includes("payload.tipo === 'decision_requerida'"), 'formulario prioriza tipo canonico de decision');
 assertContract(operation.includes('commitCreationResult'), 'operacion trata el commit de creacion como exito');
@@ -68,9 +72,26 @@ assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
 assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operacion rechaza respuestas de fecha stale');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
+assertContract(operation.includes("error.codigo === 'FECHA_FUERA_DE_HORIZONTE'"), 'operacion conserva el codigo de fecha fuera de horizonte');
+assertContract(operation.includes('showTechnicalError(kind, fecha, error)'), 'operacion presenta el error canonico de fecha');
 assertContract(!operation.includes('ventana_operativa'), 'operacion no recalcula ventanas visuales');
 assertContract(operation.includes('estado_visual_mapa'), 'operacion consume proyeccion visual del backend');
+assertContract(operation.includes('currentAssignmentIds'), 'operacion conserva snapshot de asignacion actual');
+assertContract(operation.includes('candidateSelectionIds'), 'operacion separa seleccion candidata');
+assertContract(!operation.includes('state.mesasSeleccionadas'), 'operacion no reutiliza una coleccion ambigua de mesas');
+assertContract(operation.includes('mesa_ids_actuales[]'), 'operacion envia el snapshot actual al backend');
+assertContract(operation.includes('mesa.ticket_abierto !== true'), 'operacion excluye tickets de la seleccion candidata');
+assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
+assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
+assertContract(mapVisual.includes("data-disabled', isInteractive ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
+assertContract(mapVisual.includes('previousClasses.forEach'), 'mapa visual remueve clases stale antes de actualizar');
+assertContract(tableAdapter.includes('modificadores: modifiers'), 'adaptador conserva modificadores del backend');
+assertContract(tableAdapter.includes('disponible_para_asignacion'), 'adaptador consume asignabilidad sin usar el gris como bloqueo');
+assertContract(tableAdapter.includes('function selectionValidity'), 'adaptador consume la validez de seleccion del contrato');
+assertContract(!tableAdapter.includes('if (hasPendingAbsence) return'), 'adaptador no sustituye estado por ausencia');
+assertContract(mapShell.includes('mesa-pin--mod-ausencia_pendiente::after'), 'CSS compone ausencia con pseudo-elemento gris');
+assertContract(!mapShell.includes('.mesa-pin--libre.mesa-pin--mod-ausencia_pendiente'), 'CSS no fuerza ausencia a verde mediante borde');
 assertContract(tableAdapter.includes('options.estadoVisual'), 'adaptador consume estado visual explicito');
 assertContract(!tableAdapter.includes('raw.estado_visual_mapa'), 'adaptador no filtra proyeccion administrativa al POS');
 assertContract(modal.includes('canonicalDecisionActions'), 'ConfirmationModal valida acciones canonicas');
@@ -101,11 +122,41 @@ assertContract(
   'ticket abierto conserva precedencia roja'
 );
 assertContract(
+  adapter.paraMapaVisual({ id: 4, reservable: 1, estado_base: 'ocupada', modificadores: ['ausencia_pendiente'] }, { estadoBase: 'ocupada' }).estadoVisual === 'ocupada',
+  'rojo conserva estado base con ausencia'
+);
+assertContract(
+  adapter.paraMapaVisual({ id: 5, reservable: 1, estado_base: 'bloqueada', modificadores: ['ausencia_pendiente'] }, { estadoBase: 'bloqueada', estadoVisual: 'reservacion-proxima' }).estadoVisual === 'reservacion-proxima',
+  'azul conserva estado base con ausencia'
+);
+assertContract(
+  adapter.paraMapaVisual({ id: 6, reservable: 1, estado_base: 'disponible', modificadores: ['reservacion_advertencia', 'ausencia_pendiente'] }, { estadoBase: 'disponible' }).modificadores.join(' ') === 'reservacion_advertencia ausencia_pendiente',
+  'verde conserva warning y ausencia como modificadores'
+);
+assertContract(
+  adapter.paraMapaVisual(
+    { id: 7, reservable: 1, disponible_para_asignacion: true, estado_base: 'disponible', modificadores: ['ausencia_pendiente'] },
+    { estadoBase: 'disponible', estadoVisual: 'libre' }
+  ).interactivo === true,
+  'ausencia pendiente no deshabilita una mesa asignable'
+);
+assertContract(operation.includes('assignment_snapshot'), 'reasignación conserva snapshot persistido');
+assertContract(operation.includes('state.currentAssignmentIds = new Set(assignmentIdsFor(selected))'), 'reasignación reconstruye currentAssignmentIds');
+assertContract(operation.includes('state.candidateSelectionIds = preserveAssignment'), 'reasignación reconstruye candidateSelectionIds');
+assertContract(operation.includes("'data-disabled': !selectable"), 'reasignación conserva data-disabled contractual');
+assertContract(
   adapter.paraMapaVisual(
     { id: 3, reservable: 1, estado_base: 'ocupada', ticket_abierto: true },
     { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, seleccionPrioritaria: true, estadoVisual: 'seleccionada' }
   ).estadoVisual === 'seleccionada',
   'seleccion valida puede ser amarilla sin borrar el hecho de bloqueo'
+);
+assertContract(
+  adapter.paraMapaVisual(
+    { id: 9, reservable: 1, estado_base: 'disponible', seleccionada: true, seleccion_valida: false },
+    { estadoBase: 'disponible' }
+  ).seleccionada === false,
+  'seleccion invalida no se vuelve amarilla'
 );
 
 console.log('Reservaciones: JS contractual OK');

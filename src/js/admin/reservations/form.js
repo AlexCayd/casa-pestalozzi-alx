@@ -19,6 +19,39 @@
         }
     }
 
+    function phoneDigits(value) {
+        if (typeof formState.phoneDigits === 'function') {
+            return formState.phoneDigits(value);
+        }
+
+        var digits = String(value || '').replace(/\D+/g, '');
+        if (digits.length > 10 && digits.indexOf('52') === 0) {
+            digits = digits.slice(2);
+        }
+        return digits.slice(0, 10);
+    }
+
+    function normalizeContactForServer(type, value) {
+        value = String(value || '').trim();
+        if (type !== 'telefono') {
+            return value;
+        }
+
+        var digits = phoneDigits(value);
+        return digits.length === 10 ? '+52' + digits : '';
+    }
+
+    function formatPhoneForDisplay(value) {
+        if (typeof formState.formatPhone === 'function') {
+            return formState.formatPhone(value);
+        }
+
+        var digits = phoneDigits(value);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 6) return digits.slice(0, 2) + ' ' + digits.slice(2);
+        return digits.slice(0, 2) + ' ' + digits.slice(2, 6) + ' ' + digits.slice(6);
+    }
+
     function initAdminReservationForms() {
         document.querySelectorAll('[data-admin-reservation-form]').forEach(function (form) {
             var mode = form.getAttribute('data-form-mode') || 'editar';
@@ -175,6 +208,9 @@
                     contactInput.value = contactValues[nextType] || '';
                 }
                 activeContactType = nextType;
+                if (nextType === 'telefono') {
+                    contactInput.value = formatPhoneForDisplay(contactInput.value);
+                }
                 var presentation = nextType === 'ninguno'
                     ? {
                         type: 'text',
@@ -198,6 +234,11 @@
                 contactInput.autocomplete = presentation.autocomplete;
                 contactInput.inputMode = presentation.inputmode;
                 contactInput.placeholder = presentation.placeholder;
+                if (presentation.maxlength != null) {
+                    contactInput.setAttribute('maxlength', String(presentation.maxlength));
+                } else {
+                    contactInput.removeAttribute('maxlength');
+                }
                 if (contactLabel) {
                     contactLabel.firstChild.textContent = presentation.label + ' ';
                 }
@@ -749,6 +790,7 @@
                 var comensales = parseInt(formValue(form, 'comensales') || '0', 10);
                 var contacto = String(formValue(form, 'contacto') || '').trim();
                 var contactoTipo = formValue(form, 'contacto_tipo');
+                var contactoCanonico = normalizeContactForServer(contactoTipo, contacto);
                 var invalidClientData = false;
                 if (mode === 'editar') {
                     if (contacto && contactoTipo !== 'email' && contactoTipo !== 'telefono') {
@@ -758,7 +800,7 @@
                     } else if (contacto && contactoTipo === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contacto)) {
                         setFieldError('contacto', 'Escribe un correo electronico valido.');
                         invalidClientData = true;
-                    } else if (contacto && contactoTipo === 'telefono' && !/^\+52(?:[\s().-]*\d){10}$/.test(contacto)) {
+                    } else if (contacto && contactoTipo === 'telefono' && !contactoCanonico) {
                         setFieldError('contacto', 'Usa +52 seguido de diez digitos.');
                         invalidClientData = true;
                     }
@@ -776,7 +818,7 @@
                     setFieldError('contacto', 'Escribe un correo electrónico válido.');
                     invalidClientData = true;
                 }
-                if (contacto && contactoTipo === 'telefono' && !/^(?:\+?52)?[\s\-().]*\d(?:[\s\-().]*\d){9}$/.test(contacto)) {
+                if (contacto && contactoTipo === 'telefono' && !contactoCanonico) {
                     setFieldError('contacto', 'Escribe un teléfono mexicano válido de diez dígitos.');
                     invalidClientData = true;
                 }
@@ -797,7 +839,10 @@
                 }
 
                 var changedContact = mode === 'editar' && (
-                    contacto !== String(originalValues.contacto || '').trim()
+                    contactoCanonico !== normalizeContactForServer(
+                        originalValues.contacto_tipo,
+                        originalValues.contacto
+                    )
                     || contactoTipo !== originalValues.contacto_tipo
                 );
                 // La correccion del valor de contacto se valida y normaliza en
@@ -810,6 +855,11 @@
                 );
 
                 isSubmitting = true;
+                if (contactInput && contactoTipo === 'telefono') {
+                    // El control muestra el número nacional, pero el servicio
+                    // administrativo recibe siempre el contrato E.164.
+                    contactInput.value = contactoCanonico;
+                }
                 if (saveButton) {
                     saveButton.disabled = true;
                     saveButton.textContent = 'Guardando...';

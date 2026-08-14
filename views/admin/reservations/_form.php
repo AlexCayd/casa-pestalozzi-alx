@@ -72,12 +72,12 @@ $estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
-$disabled = !$iniciarEdicion;
+$formDisabled = !$iniciarEdicion;
 $action = $modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar';
 $formId = $modo . '-reservation-admin-form';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
 $autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
-$contactInputDisabled = $disabled || $contactoTipo === 'ninguno';
+$contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
     \Services\ReservacionService::RESERVACION_PASADA => 'No se pueden modificar reservaciones de fechas anteriores.',
@@ -174,6 +174,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         $value = $fecha;
                         $min = $fechaActual;
                         $enabledWeekdays = $diasActivos;
+                        $disabled = $formDisabled;
                         include __DIR__ . '/../../components/reservations/date-picker.php';
                         ?>
                         <?php $error = $errorCampo('fecha'); ?>
@@ -189,6 +190,10 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         $dropdownId = $modo . '-reservation-time-dropdown';
                         $name = 'hora';
                         $value = $hora;
+                        // Los parciales de fecha/hora limpian sus parámetros al
+                        // terminar. Mantener este estado con otro nombre evita
+                        // que el include destruya la condición del formulario.
+                        $disabled = $formDisabled;
                         $endpoint = '/admin/api/reservaciones/disponibilidad';
                         include __DIR__ . '/../../components/reservations/time-picker.php';
                         ?>
@@ -198,7 +203,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
                     <label class="reservation-detail-form__field reservation-detail-form__field--guests">
                         <span>Comensales</span>
-                        <input type="number" name="comensales" min="1" max="<?php echo $maxComensalesAdmin; ?>" value="<?php echo $comensales; ?>" required data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>>
+                        <input type="number" name="comensales" min="1" max="<?php echo $maxComensalesAdmin; ?>" value="<?php echo $comensales; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
                         <?php $error = $errorCampo('comensales'); ?>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comensales"><?php echo $h($error); ?></span>
                     </label>
@@ -240,14 +245,14 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--client">
                     <label class="reservation-detail-form__field reservation-detail-form__field--name">
                         <span>Nombre</span>
-                        <input type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" required data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>>
+                        <input type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
                         <?php $error = $errorCampo('nombre'); ?>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nombre"><?php echo $h($error); ?></span>
                     </label>
 
                     <label class="reservation-detail-form__field reservation-detail-form__field--contact-type">
                         <span>Tipo de contacto</span>
-                        <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $disabled ? 'disabled' : ''; ?>>
+                        <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $formDisabled ? 'disabled' : ''; ?>>
                                 <option value="email" <?php echo $contactoTipo === 'email' ? 'selected' : ''; ?>>Correo</option>
                                 <option value="ninguno" <?php echo $contactoTipo === 'ninguno' ? 'selected' : ''; ?>>Sin contacto</option>
                                 <option value="telefono" <?php echo $contactoTipo === 'telefono' ? 'selected' : ''; ?>>Teléfono</option>
@@ -287,7 +292,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 <?php if ($modo === 'crear') : ?>
                         <label class="reservation-detail-form__field reservation-detail-form__field--note">
                             <span>Nota del cliente <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
-                            <textarea name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
+                            <textarea name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
                                 <small class="reservation-detail-form__helper">Indicaciones proporcionadas por el cliente para su visita.</small>
                             <?php endif; ?>
@@ -299,7 +304,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 <?php if ($comentarioAdminDisponible) : ?>
                         <label class="reservation-detail-form__field reservation-detail-form__field--internal-comment">
                             <span>Comentario interno <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
-                            <textarea name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" data-reservation-control <?php echo $disabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
+                            <textarea name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
                                 <small class="reservation-detail-form__helper">Información visible únicamente para el personal.</small>
                             <?php endif; ?>

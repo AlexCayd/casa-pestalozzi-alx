@@ -43,6 +43,10 @@ final class ReservacionMapaAdministrativaService
             $ticketAbierto = !empty($reservacion['ticket_abierto']);
 
             $reservacion['en_lista_operativa'] = $enListaOperativa;
+            $reservacion['assignment_snapshot'] = (array)($reservacion['assignment_snapshot'] ?? [
+                'mesa_ids' => self::ids($reservacion['mesa_ids'] ?? []),
+                'version' => (string)($reservacion['version'] ?? ''),
+            ]);
             $reservacion['en_lista_terminal'] = $terminal;
             $reservacion['en_proyeccion_mapa'] = $estado !== 'reemplazada' && $enListaOperativa;
             $reservacion['asignacion_pendiente'] = $estado === 'confirmada'
@@ -307,10 +311,9 @@ final class ReservacionMapaAdministrativaService
 
     private static function version(array $reservacion, array $mesaIds): string
     {
-        return hash(
-            'sha256',
-            (string)($reservacion['updated_at'] ?: $reservacion['created_at'])
-                . '|' . implode(',', $mesaIds)
+        return ReservacionAsignacionVersionService::calcular(
+            (string)($reservacion['updated_at'] ?: $reservacion['created_at']),
+            $mesaIds
         );
     }
 

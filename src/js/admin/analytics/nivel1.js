@@ -187,6 +187,152 @@
         });
     }
 
+    // ── §3.2 RevPASH · tooltip de celda ──────────────────────────────────
+    /**
+     * El mapa es una <table>, no un canvas, así que Chart.js no le pone
+     * tooltip: hay que montarlo a mano. Cada celda guarda sus cifras en data-*
+     * y un único globo las lee al pasar el cursor.
+     *
+     * Se monta en <body> con position:fixed a propósito. El mapa vive dentro de
+     * .admin-card, que recorta con overflow:hidden, y además su contenedor tiene
+     * overflow-x:auto para las siete columnas: un globo absoluto dentro de la
+     * tabla quedaba cortado en los bordes y en las celdas de la última fila.
+     */
+    var ESTADOS_HEAT = {
+        abierto:  'Abierto y vendiendo',
+        sinventa: 'Abierto y sin vender · el hueco de desempeño',
+        fuera:    'Venta fuera del horario declarado · otra base de cálculo',
+        cerrado:  'Cerrado · es calendario, no desempeño'
+    };
+
+    var heatTip = null;      // el globo, montado una sola vez
+    var heatCelda = null;    // celda activa, para reposicionar al hacer scroll
+
+    /** Cifras de la celda como atributos data-*, que es lo que lee el globo. */
+    function heatDatos(d, hora, c, valor, ratio, estado) {
+        return 'data-heat-dia="' + d.largo + '"' +
+            ' data-heat-hora="' + hora + '"' +
+            ' data-heat-valor="' + (valor || 0) + '"' +
+            ' data-heat-ing="' + (c.ing || 0) + '"' +
+            ' data-heat-dias="' + (c.dias || 0) + '"' +
+            ' data-heat-ratio="' + (ratio || 0) + '"' +
+            ' data-heat-estado="' + estado + '"';
+    }
+
+    function heatTipMostrar(td) {
+        if (!heatTip) {
+            heatTip = document.createElement('div');
+            heatTip.className = 'admin-n1-tip';
+            heatTip.setAttribute('role', 'presentation');
+            heatTip.hidden = true;
+            document.body.appendChild(heatTip);
+        }
+
+        var estado = td.getAttribute('data-heat-estado');
+        var dias = parseInt(td.getAttribute('data-heat-dias'), 10) || 0;
+        var valor = parseFloat(td.getAttribute('data-heat-valor')) || 0;
+        var ratio = parseFloat(td.getAttribute('data-heat-ratio')) || 0;
+        var filas = '';
+
+        if (estado !== 'cerrado') {
+            filas += heatFila(
+                'Ingreso de la franja',
+                money(parseFloat(td.getAttribute('data-heat-ing')) || 0)
+            );
+            filas += heatFila(
+                dias === 1 ? 'Día que la sostiene' : 'Días que la sostienen',
+                dias + (estado === 'fuera' ? ' con venta' : ' abierto' + (dias === 1 ? '' : 's'))
+            );
+            // La saturación es relativa a la celda más fuerte del periodo, no
+            // absoluta. Sin este dato el color no se puede interpretar.
+            filas += heatFila('Intensidad del color', Math.round(ratio * 100) + ' % del máximo');
+        }
+
+        heatTip.innerHTML =
+            '<p class="admin-n1-tip__title">' +
+                td.getAttribute('data-heat-dia') + ' · ' + td.getAttribute('data-heat-hora') +
+            '</p>' +
+            (estado === 'cerrado'
+                ? ''
+                : '<p class="admin-n1-tip__value">' + money2(valor) +
+                  '<span>por asiento</span></p>') +
+            (filas ? '<dl class="admin-n1-tip__rows">' + filas + '</dl>' : '') +
+            '<p class="admin-n1-tip__state is-' + estado + '">' + ESTADOS_HEAT[estado] + '</p>';
+
+        heatTip.hidden = false;
+        heatCelda = td;
+        heatTipPosicionar();
+    }
+
+    function heatFila(etiqueta, valor) {
+        return '<div><dt>' + etiqueta + '</dt><dd>' + valor + '</dd></div>';
+    }
+
+    /** Encima de la celda y centrado; si no cabe arriba, debajo. */
+    function heatTipPosicionar() {
+        if (!heatTip || heatTip.hidden || !heatCelda) {
+            return;
+        }
+
+        var margen = 8;
+        var celda = heatCelda.getBoundingClientRect();
+        var ancho = heatTip.offsetWidth;
+        var alto = heatTip.offsetHeight;
+
+        var top = celda.top - alto - margen;
+        if (top < margen) {
+            top = celda.bottom + margen;   // no cabe arriba: se voltea
+        }
+
+        var left = celda.left + (celda.width - ancho) / 2;
+        var maximo = document.documentElement.clientWidth - ancho - margen;
+        if (left > maximo) { left = maximo; }
+        if (left < margen) { left = margen; }
+
+        heatTip.style.top = Math.round(top) + 'px';
+        heatTip.style.left = Math.round(left) + 'px';
+    }
+
+    function heatTipOcultar() {
+        if (heatTip) {
+            heatTip.hidden = true;
+        }
+        heatCelda = null;
+    }
+
+    /**
+     * Delegación sobre el contenedor, que sobrevive a los redibujados: al
+     * cambiar de tema renderRevpash() reemplaza el innerHTML entero y un
+     * listener por celda se habría perdido con cada cambio.
+     */
+    function heatTipDelegar(host) {
+        if (host.dataset.tipListo === '1') {
+            return;
+        }
+        host.dataset.tipListo = '1';
+
+        host.addEventListener('mouseover', function (e) {
+            var td = e.target.closest ? e.target.closest('.admin-n1-heat__cell') : null;
+            if (!td) {
+                // La tabla separa las celdas con border-spacing, y esos 3px son
+                // del <table>: sin esto el globo se quedaba describiendo la
+                // celda anterior mientras el cursor estaba en el hueco.
+                heatTipOcultar();
+                return;
+            }
+            if (td !== heatCelda) {
+                heatTipMostrar(td);
+            }
+        });
+        host.addEventListener('mouseleave', heatTipOcultar);
+
+        // El globo va en <body>, así que no se mueve solo con la página ni con
+        // el scroll horizontal de la tabla: hay que recolocarlo. En captura,
+        // para enterarse también del scroll del contenedor interno.
+        window.addEventListener('scroll', heatTipPosicionar, true);
+        window.addEventListener('resize', heatTipPosicionar);
+    }
+
     // ── §3.2 RevPASH (mapa de calor hora × día) ──────────────────────────
     /**
      * El mapa no usa Chart.js: es una <table> con una variable CSS --heat por
@@ -200,6 +346,10 @@
         var dias = rp.dias || [];
         var celdas = rp.celdas || [];
         var max = rp.max || 0;
+
+        // La celda que estuviera bajo el cursor deja de existir al reescribir
+        // la tabla; sin esto el globo se queda flotando apuntando a la nada.
+        heatTipOcultar();
 
         setText('[data-n1-revpash-seats]', (rp.asientos || 0) + ' asientos');
 
@@ -246,7 +396,8 @@
                 if (!c.abierto && !c.ing) {
                     var cerrado = d.largo + ' ' + hora + ' · cerrado';
                     return '<td class="admin-n1-heat__cell is-closed" ' +
-                        'title="' + cerrado + '" aria-label="' + cerrado + '">·</td>';
+                        heatDatos(d, hora, c, 0, 0, 'cerrado') +
+                        ' aria-label="' + cerrado + '">·</td>';
                 }
 
                 var ratio = max > 0 ? valor / max : 0;
@@ -261,12 +412,19 @@
                     cls += ' is-offhours';     // vendió fuera del horario declarado
                 }
 
-                var tip = d.largo + ' ' + hora + ' · ' + money2(valor) + ' por asiento' +
+                var estado = !c.abierto ? 'fuera' : (valor > 0 ? 'abierto' : 'sinventa');
+
+                // aria-label se conserva porque las celdas no reciben foco: es
+                // lo único que lee un lector de pantalla. El tooltip visual sale
+                // de los data-* de heatDatos(), no de un title nativo — dejar los
+                // dos encima mostraba el globo del navegador sobre el nuestro.
+                var etiqueta = d.largo + ' ' + hora + ' · ' + money2(valor) + ' por asiento' +
                     ' · ingreso ' + money(c.ing) + ' · ' + c.dias +
                     (c.dias === 1 ? ' día' : ' días') + (c.abierto ? ' abierto' : ' con venta');
 
                 return '<td class="' + cls + '" style="--heat: ' + ratio.toFixed(3) + '"' +
-                    ' title="' + tip + '" aria-label="' + tip + '">' +
+                    ' ' + heatDatos(d, hora, c, valor, ratio, estado) +
+                    ' aria-label="' + etiqueta + '">' +
                     (valor > 0 ? '$' + Math.round(valor) : '0') + '</td>';
             }).join('');
 
@@ -274,6 +432,7 @@
         }).join('');
 
         host.innerHTML = '<table class="admin-n1-heat__table">' + head + '<tbody>' + body + '</tbody></table>';
+        heatTipDelegar(host);
 
         if (scale) {
             scale.hidden = max <= 0;

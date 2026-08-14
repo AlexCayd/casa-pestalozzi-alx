@@ -5,9 +5,9 @@ namespace Services;
 /**
  * Proyección visual exclusiva del mapa administrativo.
  *
- * Recibe el bloqueo físico ya evaluado por OcupacionMesasService. No calcula
- * traslapes, ventanas de proximidad ni estados de POS: sólo traduce el hecho
- * canónico a los cuatro estados visuales del mapa.
+ * Recibe hechos de intervalo y de proyección temporal ya evaluados. No calcula
+ * traslapes, ventanas, capacidad ni permisos: sólo traduce hechos a estados
+ * visuales del mapa.
  */
 final class ReservacionMapaMesaPresenter
 {
@@ -18,16 +18,83 @@ final class ReservacionMapaMesaPresenter
             return self::resultado('no-utilizable', [], 'no utilizable', 'no-utilizable');
         }
 
-        if (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
-            return self::resultado(
-                'ocupada',
-                [],
-                self::etiquetaBloqueo((array)($hechos['causas_bloqueo'] ?? [])),
-                'ocupacion'
-            );
+        $estado = 'libre';
+        $modificadores = [];
+        $label = 'disponible';
+        $precedencia = 'disponible';
+
+        if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
+            $estado = 'ocupada';
+            $label = 'no disponible por ticket';
+            $precedencia = 'ticket';
         }
 
-        return self::resultado('libre', [], 'disponible', 'disponible');
+        $reservacion = is_array($hechos['reservacion'] ?? null)
+            ? $hechos['reservacion']
+            : [];
+        if ($reservacion !== [] && $estado !== 'ocupada') {
+            $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
+            $influyeEnConsulta = self::booleano(
+                $reservacion['reservacion_influye_en_consulta']
+                    ?? $reservacion['reservacion_influye_mapa']
+                    ?? false
+            );
+            $enIntervaloPlanificado = self::booleano(
+                $reservacion['reservacion_en_intervalo_planificado']
+                    ?? $reservacion['intervalo_planificado_vigente']
+                    ?? false
+            );
+            if ($ventana === 'inicio') {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación iniciada';
+                $precedencia = 'reservacion_inicio';
+            } elseif ($ventana === 'tolerancia') {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación iniciada';
+                $precedencia = 'reservacion_tolerancia';
+            } elseif ($ventana === 'bloqueo') {
+                $estado = 'reservacion-proxima';
+                $modificadores[] = 'reservacion_inminente';
+                $label = 'reservación próxima';
+                $precedencia = 'reservacion_bloqueo';
+            } elseif ($ventana === 'advertencia') {
+                $modificadores[] = 'reservacion_advertencia';
+                $label = 'reservación cercana';
+                $precedencia = 'reservacion_advertencia';
+            } elseif ($influyeEnConsulta) {
+                $estado = 'ocupada';
+                $modificadores[] = 'reservacion_bloqueante';
+                $label = 'reservación dentro del intervalo planificado';
+                $precedencia = 'reservacion_influye';
+            }
+        }
+
+        if ($estado === 'libre' && $reservacion === []
+            && self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
+            $estado = 'ocupada';
+            $label = self::etiquetaBloqueo((array)($hechos['causas_bloqueo'] ?? []));
+            $precedencia = 'ocupacion';
+        }
+
+        if (self::booleano($hechos['asignada_actualmente'] ?? false)) {
+            $modificadores[] = 'asignada_actualmente';
+        }
+        $ausenciaPendiente = $reservacion !== []
+            && (self::booleano($reservacion['ausencia_pendiente_mapa'] ?? false)
+                || self::booleano($reservacion['ausencia_pendiente'] ?? false));
+        if ($ausenciaPendiente) {
+            $modificadores[] = 'ausencia_pendiente';
+            $label .= '. Acción pendiente: registrar ausencia';
+        }
+
+        return self::resultado(
+            $estado,
+            array_values(array_unique($modificadores)),
+            $label,
+            $precedencia
+        );
     }
 
     /** @return array{estado_visual:string,modificadores:array<int,string>,label:string,precedencia:string} */

@@ -85,7 +85,8 @@ $mapBlocked = MesaEstadoService::normalizarMesas(
     '14:00:00',
     $evaluationBlocked
 )[0];
-assertParity($mapBlocked['estado_visual_mapa'] === 'ocupada', 'mapa replica bloqueo de capacidad');
+assertParity($mapBlocked['estado_visual_mapa'] === 'libre', 'mapa comunica proximidad sin copiar capacidad');
+assertParity($mapBlocked['modificadores_visual_mapa'] === ['reservacion_advertencia'], 'mapa usa borde de advertencia');
 assertParity($mapBlocked['bloqueada_en_intervalo'] === true, 'mapa expone hecho de bloqueo');
 
 $mesa7 = array_merge($mesa4, ['id' => 7, 'numero' => 7, 'nombre' => 'Mesa 7', 'capacidad' => 4]);
@@ -101,7 +102,7 @@ $multiEvaluation = [
 $multiCapacity = CapacidadReservacionesService::calcular([$mesa7, $mesa8], $multiEvaluation, []);
 assertParity($multiCapacity['mesa_ids_bloqueadas'] === [7, 8], 'multimesa descuenta ambas mesas');
 assertParity($multiCapacity['capacidad_fisica_comprometida'] === 8, 'multimesa descuenta toda la capacidad');
-$multiReservation = $reservation + ['id' => 101, 'mesa_ids' => [7, 8]];
+$multiReservation = array_merge($reservation, ['id' => 101, 'mesa_ids' => [7, 8]]);
 $multiMap = MesaEstadoService::normalizarMesas(
     [$mesa7, $mesa8],
     [$multiReservation],
@@ -112,7 +113,8 @@ $multiMap = MesaEstadoService::normalizarMesas(
     $multiEvaluation
 );
 foreach ($multiMap as $mesaEstado) {
-    assertParity($mesaEstado['estado_visual_mapa'] === 'ocupada', 'multimesa pinta todas las mesas');
+    assertParity($mesaEstado['estado_visual_mapa'] === 'libre', 'multimesa conserva visual de proximidad');
+    assertParity($mesaEstado['bloqueada_en_intervalo'] === true, 'multimesa conserva bloqueo de intervalo');
 }
 
 $unassignedEvaluation = [
@@ -218,6 +220,7 @@ $alternativeMap = MesaEstadoService::normalizarMesas(
     '13:01:00',
     $alternativeEvaluation
 )[0];
-assertParity($alternativeMap['estado_visual_mapa'] === 'ocupada', 'duracion alternativa llega al mapa');
+assertParity($alternativeMap['estado_visual_mapa'] === 'libre', 'duracion alternativa conserva visual independiente');
+assertParity($alternativeMap['bloqueada_en_intervalo'] === true, 'duracion alternativa conserva bloqueo de capacidad');
 
 fwrite(STDOUT, "Reservaciones: paridad capacidad-mapa OK\n");

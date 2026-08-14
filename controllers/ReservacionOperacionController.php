@@ -147,6 +147,12 @@ class ReservacionOperacionController
 
         $fecha = $fechaFueEnviada ? $fechaSolicitada : ReservacionConfig::fechaActual();
         $soloLectura = HorarioReservacionService::fechaPasada($fecha);
+        $reservacionExcluidaRaw = trim((string)(
+            $_GET['reservation_id'] ?? $_GET['reservacion_id'] ?? ''
+        ));
+        $reservacionExcluida = preg_match('/^[1-9]\d*$/D', $reservacionExcluidaRaw) === 1
+            ? (int)$reservacionExcluidaRaw
+            : 0;
         $horaSolicitada = self::normalizarHoraCorta((string)($_GET['hora'] ?? ''));
         $disponibilidad = ReservacionService::obtenerHorariosDisponiblesParaFecha($fecha, $soloLectura);
         if (!($disponibilidad['ok'] ?? false)) {
@@ -177,6 +183,8 @@ class ReservacionOperacionController
         $lectura = PosReservacionQueryService::paraFecha($fecha, $horaResuelta, [
             'incluir_inactivas' => true,
             'calcular_conflictos' => true,
+            'excluir_reservacion_id' => $reservacionExcluida,
+            'reservacion_en_edicion_id' => $reservacionExcluida,
             'incluir_contexto_administrativo' => true,
         ]);
         if (!($lectura['ok'] ?? false)) {
@@ -365,7 +373,6 @@ class ReservacionOperacionController
                 'fecha_esperada' => (string)($_POST['fecha'] ?? ''),
                 'hora_esperada' => (string)($_POST['hora'] ?? ''),
                 'mesa_ids_actuales' => (array)($_POST['mesa_ids_actuales'] ?? []),
-                'permitir_superposicion_ticket_abierto' => true,
                 'confirmaciones' => (array)($_POST['confirmaciones'] ?? []),
             ]
         );

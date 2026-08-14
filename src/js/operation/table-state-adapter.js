@@ -115,6 +115,19 @@
             || (raw.reservable != null && !booleanValue(raw.reservable));
     }
 
+    function selectionValidity(raw, options) {
+        var valid = true;
+        if (raw.seleccionValida != null) {
+            valid = booleanValue(raw.seleccionValida);
+        } else if (raw.seleccion_valida != null) {
+            valid = booleanValue(raw.seleccion_valida);
+        }
+        if (options.seleccionValida != null) {
+            valid = valid && booleanValue(options.seleccionValida);
+        }
+        return valid;
+    }
+
     /**
      * Resuelve la apariencia sin mezclar estados ni crear etiquetas auxiliares:
      * seleccion valida, ticket/ocupacion, reservacion proxima, no utilizable
@@ -128,12 +141,10 @@
         var selected = options.seleccionActual != null
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
-        var selectionValid = options.seleccionValida !== false;
+        var selectionValid = selectionValidity(raw, options);
         var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
-        var hasPendingAbsence = hasModifier(modifiers, 'accion_pendiente') ||
-            String(raw.accion_pendiente || options.accionPendiente || '') === 'REGISTRAR_AUSENCIA';
         var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
-            hasModifier(modifiers, 'reservacion_proxima') || state === 'bloqueada' || state === 'proxima';
+            hasModifier(modifiers, 'reservacion_proxima');
         // `estado_visual_mapa` pertenece a la proyección administrativa. El
         // adaptador también se comparte con POS, por lo que sólo se consume
         // cuando la pantalla objetivo lo entrega explícitamente.
@@ -152,10 +163,6 @@
         // expresa como modificador/ring, no sustituyendo ese estado.
         if (hasTicket || state === 'ocupada') return 'ocupada';
         if (selected && selectionValid) return 'seleccionada';
-        // La ausencia pendiente no reemplaza la disponibilidad física: el
-        // fondo sigue siendo verde y el borde se expresa mediante el
-        // modificador `accion_pendiente`.
-        if (hasPendingAbsence) return 'libre';
         if (hasExplicitVisualState) return explicitVisualState;
         if (hasUpcomingReservation) return 'reservacion-proxima';
         return 'libre';
@@ -174,7 +181,10 @@
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
         var noUtilizable = isUnusable(raw, options, stateBase);
-        var seleccionValida = options.seleccionValida !== false && !noUtilizable;
+        var disponibleParaAsignacion = raw.disponible_para_asignacion == null
+            ? null
+            : booleanValue(raw.disponible_para_asignacion);
+        var seleccionValida = selectionValidity(raw, options) && !noUtilizable;
         selected = selected && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
             modifiers.push('seleccion_actual');
@@ -196,7 +206,8 @@
             seleccionValida: seleccionValida,
             interactivo: options.interactivo != null
                 ? booleanValue(options.interactivo)
-                : booleanValue(raw.reservable),
+                : booleanValue(raw.reservable)
+                    && (disponibleParaAsignacion === null || disponibleParaAsignacion),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ''),
             ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),
             modificadores: modifiers,

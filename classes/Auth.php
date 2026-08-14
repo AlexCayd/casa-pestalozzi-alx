@@ -36,6 +36,7 @@ class Auth {
         '/api/punto-de-venta/reservaciones/cancelar',
         '/api/punto-de-venta/reservaciones/no-show',
         '/api/corte-caja',
+        '/api/sugerencias',
     ];
 
     /** APIs de los tableros de producción: cocineros y admin. */

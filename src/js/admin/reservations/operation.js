@@ -41,9 +41,11 @@
             assignmentFilter: 'all',
             reservationSearch: '',
             horaSolicitadaInicial: horaCorta(root.getAttribute('data-initial-requested-hour') || ''),
-            mesasSeleccionadas: new Set(),
+            currentAssignmentIds: new Set(),
+            candidateSelectionIds: new Set(),
+            assignmentSnapshot: null,
             assignmentMode: false,
-            assignmentInitialMesaIds: [],
+            assignmentInitialCandidateIds: [],
             assignmentInitialVersion: '',
             assignmentDataUpdated: false,
             assignmentTrigger: null,
@@ -358,7 +360,8 @@
             state.scheduleAlertDismissed = true;
         }
 
-        function showTechnicalError(kind, requestedDate) {
+        function showTechnicalError(kind, requestedDate, error) {
+            error = error || {};
             state.fechaFallida = requestedDate || state.fecha;
             setDateValue(state.fecha);
             updateUrl();
@@ -377,8 +380,9 @@
                 consistency: 'El servidor respondio con datos de otra fecha. La respuesta fue descartada.',
                 server: 'El servidor no pudo completar la consulta. Vuelve a usar Actualizar mapa cuando el servicio esté disponible.'
             };
-            var title = titles[kind] || 'No fue posible actualizar la operacion';
-            var message = messages[kind] || 'Ocurrio un error inesperado al consultar el servidor.';
+            var title = error.titulo || titles[kind] || 'No fue posible actualizar la operacion';
+            var message = error.consecuencia || messages[kind] || 'Ocurrio un error inesperado al consultar el servidor.';
+            var summary = error.mensaje || 'No se pudieron actualizar los datos del mapa.';
 
             if (state.hasLoadedData && state.fecha) {
                 message += ' Los datos anteriores permanecen visibles. Se mantiene la operación del ' + fechaLegible(state.fecha) + '.';
@@ -388,7 +392,7 @@
                 source: 'technical',
                 type: 'error',
                 title: title,
-                summary: 'No se pudieron actualizar los datos del mapa.',
+                summary: summary,
                 message: message + ' Puedes cerrar este aviso y volver a usar Actualizar mapa cuando la conexión esté disponible.'
             });
         }
@@ -456,6 +460,73 @@
             }) || null;
         }
 
+        function normalizeMesaIds(ids) {
+            return Array.from(new Set((Array.isArray(ids) ? ids : []).map(function (mesaId) {
+                return parseInt(mesaId, 10);
+            }).filter(function (mesaId) {
+                return mesaId > 0;
+            })));
+        }
+
+        function assignmentIdsFor(reservacion) {
+            var snapshot = reservacion && reservacion.assignment_snapshot;
+            return normalizeMesaIds(snapshot && Array.isArray(snapshot.mesa_ids)
+                ? snapshot.mesa_ids
+                : (reservacion && reservacion.mesa_ids));
+        }
+
+        function activeSelectionIds() {
+            return state.assignmentMode
+                ? state.candidateSelectionIds
+                : state.currentAssignmentIds;
+        }
+
+        function mesaPuedeSerCandidata(mesaId) {
+            var mesa = tableStateById(mesaId);
+            return Boolean(mesa)
+                && mesa.reservable === true
+                && mesa.disponible_para_asignacion === true
+                && mesa.ticket_abierto !== true;
+        }
+
+        function candidateIdsFromCurrent() {
+            return new Set(Array.from(state.currentAssignmentIds).filter(mesaPuedeSerCandidata));
+        }
+
+        function currentAssignmentConflictIds() {
+            return Array.from(state.currentAssignmentIds).filter(function (mesaId) {
+                var mesa = tableStateById(mesaId);
+                return Boolean(mesa)
+                    && mesa.asignada_actualmente === true
+                    && (mesa.ticket_abierto === true
+                        || mesa.disponible_para_asignacion !== true);
+            });
+        }
+
+        function assignmentConflictMessage() {
+            var conflicts = currentAssignmentConflictIds();
+            if (!conflicts.length) {
+                return '';
+            }
+
+            var names = conflicts.map(mesaNombre).join(', ');
+            var ticketConflicts = conflicts.filter(function (mesaId) {
+                var mesa = tableStateById(mesaId);
+                return mesa && mesa.causa_conflicto_asignacion === 'ticket_abierto';
+            });
+            if (conflicts.length === 1 && ticketConflicts.length === 0) {
+                return 'La asignacion actual tiene un conflicto. ' + names +
+                    ' no esta disponible para una nueva asignacion. Selecciona otra mesa para completar la reasignacion.';
+            }
+            if (conflicts.length === 1) {
+                return 'La asignación actual tiene un conflicto. ' + names +
+                    ' está ocupada por un ticket abierto. Selecciona una nueva mesa para completar la reasignación.';
+            }
+
+            return conflicts.length + ' de las mesas asignadas actualmente tienen un conflicto (' + names +
+                '). Selecciona nuevas mesas para completar la reasignación.';
+        }
+
         /**
          * La lista y el detalle siguen el horario activo; el arreglo diario se
          * conserva completo para poder cambiar de horario sin otra solicitud.
@@ -518,7 +589,7 @@
 
         function selectedCapacity() {
             var total = 0;
-            state.mesasSeleccionadas.forEach(function (mesaId) {
+            activeSelectionIds().forEach(function (mesaId) {
                 var mesa = tableById(mesaId);
                 total += mesa ? parseInt(mesa.capacidad || '0', 10) : 0;
             });
@@ -549,7 +620,7 @@
             var capacidad = selectedCapacity();
             var comensales = parseInt(reservacion.comensales || '0', 10);
             var diferencia = capacidad - comensales;
-            var selectedNames = Array.from(state.mesasSeleccionadas).map(mesaNombre);
+            var selectedNames = Array.from(state.candidateSelectionIds).map(mesaNombre);
 
             els.assignmentReservation.textContent = reservacion.nombre + ' · Reservación #' + reservacion.id;
             els.assignmentPeople.textContent = String(comensales);
@@ -558,7 +629,10 @@
             els.assignmentDifference.classList.toggle('is-insufficient', diferencia < 0);
             els.assignmentTables.textContent = selectedNames.length ? selectedNames.join(', ') : 'Sin mesas seleccionadas';
             if (els.assignmentRefresh) {
-                els.assignmentRefresh.hidden = !state.assignmentDataUpdated;
+                var conflictMessage = assignmentConflictMessage();
+                els.assignmentRefresh.textContent = conflictMessage ||
+                    'Los datos se actualizaron. Tu selección local se conserva; vuelve a validar antes de guardar.';
+                els.assignmentRefresh.hidden = !conflictMessage && !state.assignmentDataUpdated;
             }
             if (els.assignmentCancel) {
                 els.assignmentCancel.textContent = state.assignmentCancelLabel;
@@ -566,7 +640,7 @@
 
             var saveButton = els.assignmentBar.querySelector('[data-operation-assignment-save]');
             if (saveButton) {
-                var disabled = !canAssignTables(reservacion) || state.mesasSeleccionadas.size === 0;
+                var disabled = !canAssignTables(reservacion) || state.candidateSelectionIds.size === 0;
                 saveButton.setAttribute('data-disabled', disabled ? '1' : '0');
                 saveButton.disabled = disabled || state.guardando;
                 saveButton.textContent = 'Guardar asignación';
@@ -600,8 +674,18 @@
                 return;
             }
 
-            state.assignmentInitialMesaIds = Array.from(state.mesasSeleccionadas);
-            state.assignmentInitialVersion = String(reservacion.version || '');
+            state.currentAssignmentIds = new Set(assignmentIdsFor(reservacion));
+            state.assignmentSnapshot = {
+                mesa_ids: Array.from(state.currentAssignmentIds),
+                version: String(
+                    reservacion.assignment_snapshot && reservacion.assignment_snapshot.version
+                        || reservacion.version
+                        || ''
+                )
+            };
+            state.candidateSelectionIds = candidateIdsFromCurrent();
+            state.assignmentInitialCandidateIds = Array.from(state.candidateSelectionIds);
+            state.assignmentInitialVersion = state.assignmentSnapshot.version;
             state.assignmentDataUpdated = false;
             state.assignmentTrigger = trigger || document.activeElement;
             state.assignmentCancelLabel = options.allowAssignLater ? 'Asignar más tarde' : 'Cancelar';
@@ -637,12 +721,11 @@
             }
 
             var trigger = state.assignmentTrigger;
-            if (options.restoreSelection) {
-                state.mesasSeleccionadas = new Set(state.assignmentInitialMesaIds);
-            }
+            state.candidateSelectionIds = new Set();
             state.assignmentMode = false;
-            state.assignmentInitialMesaIds = [];
+            state.assignmentInitialCandidateIds = [];
             state.assignmentInitialVersion = '';
+            state.assignmentSnapshot = null;
             state.assignmentDataUpdated = false;
             state.assignmentTrigger = null;
             state.assignmentCancelLabel = 'Cancelar';
@@ -1507,11 +1590,12 @@
             var assignable = canAssignTables(reservacion);
             var estado = String(reservacion.estado || 'confirmada');
             var mesaIds = Array.isArray(reservacion.mesa_ids) ? reservacion.mesa_ids : [];
+            var selectedIds = activeSelectionIds();
             var capacidad = selectedCapacity();
             var comensales = parseInt(reservacion.comensales || '0', 10);
             var diferencia = capacidad - comensales;
-            var insufficient = state.mesasSeleccionadas.size > 0 && capacidad < comensales;
-            var selectedNames = Array.from(state.mesasSeleccionadas).map(mesaNombre);
+            var insufficient = selectedIds.size > 0 && capacidad < comensales;
+            var selectedNames = Array.from(selectedIds).map(mesaNombre);
             var mesasActuales = Array.isArray(reservacion.mesas_asignadas) && reservacion.mesas_asignadas.length
                 ? reservacion.mesas_asignadas.join(', ')
                 : 'Sin mesas asignadas';
@@ -1574,7 +1658,7 @@
                         '</div>' +
                         '<div class="reservation-operation-panel__selected ' + (!selectedNames.length ? 'is-empty' : '') + '"><span>Mesas asignadas</span><strong>' + esc(selectedNames.length ? selectedNames.join(', ') : 'Sin mesas asignadas') + '</strong></div>' +
                         (insufficient ? '<p class="reservation-operation-inline reservation-operation-inline--warning">La capacidad seleccionada es menor que los comensales. Puedes guardar explícitamente esta asignación.</p>' : '') +
-                        '<button class="admin-btn admin-btn--primary reservation-operation-panel__submit" type="button" data-operation-save data-disabled="' + (!assignable || state.mesasSeleccionadas.size === 0 ? '1' : '0') + '"' + (!assignable || state.mesasSeleccionadas.size === 0 || state.guardando ? ' disabled' : '') + '>' +
+                        '<button class="admin-btn admin-btn--primary reservation-operation-panel__submit" type="button" data-operation-save data-disabled="' + (!assignable || state.candidateSelectionIds.size === 0 ? '1' : '0') + '"' + (!assignable || state.candidateSelectionIds.size === 0 || state.guardando ? ' disabled' : '') + '>' +
                             (insufficient ? 'Guardar de todos modos' : 'Guardar asignación') +
                         '</button>' +
                     '</section>' +
@@ -1619,7 +1703,7 @@
                 ? mesaEstado.modificadores_visual_mapa.slice()
                 : null;
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
-            if (['libre', 'ocupada', 'no-utilizable'].indexOf(estado) === -1
+            if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(estado) === -1
                 || modificadores === null
                 || !ariaLabel) {
                 console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
@@ -1673,7 +1757,8 @@
 
             var mesasVisuales = state.mesasEstado.map(function (mesaEstado) {
                 var mesaId = parseInt(mesaEstado.id, 10);
-                var assigned = state.mesasSeleccionadas.has(mesaId);
+                var assigned = state.currentAssignmentIds.has(mesaId);
+                var candidate = state.candidateSelectionIds.has(mesaId);
                 var conflict = ocupacion[String(mesaId)] || ocupacion[mesaId] || null;
                 var assignedReservation = asignacionesHorario[mesaId] || null;
                 var normalized = window.MesaEstadoAdapter.fusionar(mesaEstado, {});
@@ -1684,6 +1769,9 @@
                     modifiers.push('asignada');
                 }
                 if (assigned) {
+                    modifiers.push('asignada_actualmente');
+                }
+                if (candidate) {
                     modifiers.push('seleccion_actual');
                 }
 
@@ -1694,7 +1782,7 @@
                     reservacion &&
                     normalized.estado_base === 'bloqueada' &&
                     associatedId === parseInt(reservacion.id, 10)
-                );
+                ) || normalized.ticket_abierto === true;
                 if (blockedBySelf) {
                     // Conserva el bloqueo visual, pero no lo interpreta como
                     // conflicto durante la reasignación de la misma reserva.
@@ -1708,12 +1796,10 @@
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
                     normalized.reservable === true &&
-                    (!conflict || ticketConflict) &&
-                    (normalized.estado_base !== 'ocupada' || ticketConflict) &&
-                    (normalized.estado_base !== 'bloqueada' || blockedBySelf);
-                var selectionVisualValid = assigned && selectable;
+                    normalized.disponible_para_asignacion === true;
+                var selectionVisualValid = candidate && selectable;
                 var mapAriaLabel = selectionVisualValid
-                    ? 'SelecciÃ³n actual. ' + mapProjection.ariaLabel
+                    ? 'Selección candidata. ' + mapProjection.ariaLabel
                     : mapProjection.ariaLabel;
                 var title = normalized.titulo;
                 if (assignedReservation) {
@@ -1730,17 +1816,22 @@
                         : normalized.nombre + '. Bloqueada por otra reservación a las ' + horaCorta(conflict.hora) + '.';
                 }
 
+                if (assigned && !candidate && normalized.causa_conflicto_asignacion) {
+                    title += ' Asignada actualmente a esta reservación; debe reemplazarse.';
+                }
+
                 var mapRaw = Object.assign({}, normalized, { modificadores: [] });
                 return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
-                    seleccionActual: assigned,
-                    seleccionValida: !assigned || selectable,
+                    seleccionActual: assigned || candidate,
+                    seleccionValida: !(assigned || candidate) || selectionVisualValid,
                     seleccionPrioritaria: selectionVisualValid,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     ariaLabel: mapAriaLabel,
                     estadoVisual: selectionVisualValid ? 'seleccionada' : mapProjection.estado,
                     modificadores: modifiers,
-                    clasesEstado: assigned && !ticketConflict ? ['reservation-operation-pin--selected'] : [],
+                    clasesEstado: (candidate ? ['reservation-operation-pin--selected'] : [])
+                        .concat(assigned ? ['reservation-operation-pin--assigned'] : []),
                     atributos: {
                         'data-operation-table': mesaId,
                         'data-bloqueada-en-intervalo': mesaEstado.bloqueada_en_intervalo ? '1' : '0',
@@ -1766,7 +1857,9 @@
 
             if (!reservacion) {
                 state.reservacionSeleccionadaId = null;
-                state.mesasSeleccionadas = new Set();
+                state.currentAssignmentIds = new Set();
+                state.candidateSelectionIds = new Set();
+                state.assignmentSnapshot = null;
                 renderAll();
                 return;
             }
@@ -1774,26 +1867,16 @@
             var reservacionId = parseInt(reservacion.id, 10);
             var nextDate = String(reservacion.fecha || state.fecha || '');
             var nextHour = horaCorta(reservacion.hora);
-            var projectionMatchesReservation = state.projectionContext.fecha === nextDate
-                && state.projectionContext.hora === nextHour
-                && state.pendingProjectionContext === null;
             state.reservacionSeleccionadaId = reservacionId;
-            if (!projectionMatchesReservation) {
-                state.mesasSeleccionadas = new Set();
-                loadDay(nextDate, {
-                    preserveHour: nextHour,
-                    requestedHour: nextHour,
-                    preserveReservationId: reservacionId,
-                    discardAssignment: true
-                });
-                return;
-            }
-
-            state.horaSeleccionada = nextHour;
-            state.mesasSeleccionadas = new Set((reservacion.mesa_ids || []).map(function (mesaId) {
-                return parseInt(mesaId, 10);
-            }));
-            renderAll();
+            state.currentAssignmentIds = new Set();
+            state.candidateSelectionIds = new Set();
+            state.assignmentSnapshot = null;
+            loadDay(nextDate, {
+                preserveHour: nextHour,
+                requestedHour: nextHour,
+                preserveReservationId: reservacionId,
+                discardAssignment: true
+            });
         }
 
         function selectTime(hora) {
@@ -1813,7 +1896,9 @@
             dismissScheduleAlert();
 
             state.reservacionSeleccionadaId = null;
-            state.mesasSeleccionadas = new Set();
+            state.currentAssignmentIds = new Set();
+            state.candidateSelectionIds = new Set();
+            state.assignmentSnapshot = null;
             loadDay(state.fecha, { preserveHour: nextHour, requestedHour: nextHour });
         }
 
@@ -1840,7 +1925,9 @@
                 state.projectionContext = { fecha: '', hora: '' };
                 state.pendingProjectionContext = null;
                 state.reservacionSeleccionadaId = null;
-                state.mesasSeleccionadas = new Set();
+                state.currentAssignmentIds = new Set();
+                state.candidateSelectionIds = new Set();
+                state.assignmentSnapshot = null;
                 state.horarios = [];
                 state.reservaciones = [];
                 state.mesas = [];
@@ -1864,7 +1951,7 @@
                 && preserveReservationId !== null
                 && preserveReservationId === state.reservacionSeleccionadaId;
             var localSelectionBeforeRefresh = preserveAssignment
-                ? Array.from(state.mesasSeleccionadas)
+                ? Array.from(state.candidateSelectionIds)
                 : [];
 
             if (!preserveAssignment) {
@@ -1914,6 +2001,9 @@
             var operationQuery = new URLSearchParams({ fecha: fecha });
             if (queryRequestedHour) {
                 operationQuery.set('hora', queryRequestedHour);
+            }
+            if (preserveReservationId) {
+                operationQuery.set('reservation_id', String(preserveReservationId));
             }
 
             fetch(API_BASE + '?' + operationQuery.toString(), {
@@ -2002,11 +2092,14 @@
                     if (selected) {
                         state.reservacionSeleccionadaId = parseInt(selected.id, 10);
                         state.horaSeleccionada = horaCorta(selected.hora);
-                        state.mesasSeleccionadas = preserveAssignment
+                        state.currentAssignmentIds = new Set(assignmentIdsFor(selected));
+                        state.assignmentSnapshot = selected.assignment_snapshot || {
+                            mesa_ids: Array.from(state.currentAssignmentIds),
+                            version: String(selected.version || '')
+                        };
+                        state.candidateSelectionIds = preserveAssignment
                             ? new Set(localSelectionBeforeRefresh)
-                            : new Set((selected.mesa_ids || []).map(function (mesaId) {
-                                return parseInt(mesaId, 10);
-                            }));
+                            : new Set();
                         if (preserveAssignment) {
                             state.assignmentDataUpdated = true;
                         }
@@ -2019,7 +2112,9 @@
                         state.horaSeleccionada = requestedHour && availableHours.indexOf(requestedHour) !== -1
                             ? requestedHour
                             : (data.hora_sugerida || availableHours[0] || null);
-                        state.mesasSeleccionadas = new Set();
+                        state.currentAssignmentIds = new Set();
+                        state.candidateSelectionIds = new Set();
+                        state.assignmentSnapshot = null;
                     }
 
                     setDateValue(state.fecha);
@@ -2060,10 +2155,16 @@
                         return;
                     }
                     setLoading(false);
-                    state.loadFailure = { title: 'No fue posible cargar las reservaciones.', message: 'Intenta actualizar la consulta.' };
+                    state.loadFailure = {
+                        title: error && error.titulo || 'No fue posible cargar las reservaciones.',
+                        message: error && error.mensaje || 'Intenta actualizar la consulta.'
+                    };
                     var kind = error instanceof TypeError ? 'connection' : ((error && error.kind) || 'unexpected');
-                    setUpdateStatus(kind === 'connection' ? 'Sin conexion' : 'Error al actualizar', 'error');
-                    showTechnicalError(kind, fecha);
+                    var status = error && error.codigo === 'FECHA_FUERA_DE_HORIZONTE'
+                        ? 'Fecha no disponible'
+                        : (kind === 'connection' ? 'Sin conexion' : 'Error al actualizar');
+                    setUpdateStatus(status, 'error');
+                    showTechnicalError(kind, fecha, error);
                     renderAll();
                 });
         }
@@ -2152,12 +2253,16 @@
             data.set('reservation_id', String(reservacion.id));
             data.set('fecha', String(reservacion.fecha || state.fecha || ''));
             data.set('hora', horaCorta(reservacion.hora || state.horaSeleccionada || ''));
-            data.set('version_esperada', String(reservacion.version || ''));
+            data.set('version_esperada', String(
+                state.assignmentSnapshot && state.assignmentSnapshot.version
+                    || reservacion.version
+                    || ''
+            ));
             data.set('mesa_ids_actuales_presentes', '1');
-            (reservacion.mesa_ids || []).forEach(function (mesaId) {
+            Array.from(state.currentAssignmentIds).forEach(function (mesaId) {
                 data.append('mesa_ids_actuales[]', String(mesaId));
             });
-            state.mesasSeleccionadas.forEach(function (mesaId) {
+            state.candidateSelectionIds.forEach(function (mesaId) {
                 data.append('mesa_ids[]', String(mesaId));
             });
             if (conflictConfirmation) {
@@ -2194,7 +2299,12 @@
                         openCapacityConflictModal(error);
                         return;
                     }
-                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO', 'DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
+                    if (error && ['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO'].indexOf(error.codigo) !== -1) {
+                        closeTicketConflictModal();
+                        showInlineError(error.mensaje || '', error);
+                        return;
+                    }
+                    if (error && ['DEPENDE_LIBERACION_PROYECTADA'].indexOf(error.codigo) !== -1) {
                         openTicketConflictModal(error);
                         return;
                     }
@@ -2858,13 +2968,16 @@
             }
 
             var mesaId = parseInt(event.detail.mesaId, 10);
-            if (state.mesasSeleccionadas.has(mesaId)) {
-                state.mesasSeleccionadas.delete(mesaId);
+            if (!mesaPuedeSerCandidata(mesaId)) {
+                return;
+            }
+            if (state.candidateSelectionIds.has(mesaId)) {
+                state.candidateSelectionIds.delete(mesaId);
                 if (state.tableWarningMesaId === mesaId) {
                     hideTableWarning();
                 }
             } else {
-                state.mesasSeleccionadas.add(mesaId);
+                state.candidateSelectionIds.add(mesaId);
                 showTableWarning(mesaId);
             }
 

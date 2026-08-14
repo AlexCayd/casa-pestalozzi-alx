@@ -415,7 +415,7 @@ final class OcupacionMesasService
         }
         $filas = [];
         while ($fila = $resultado->fetch_assoc()) {
-            $filas[] = [
+            $asignacion = [
                 'mesa_id' => (int)$fila['mesa_id'],
                 'reservacion_id' => (int)$fila['reservacion_id'],
                 'nombre' => (string)$fila['nombre'],
@@ -426,7 +426,13 @@ final class OcupacionMesasService
                 'estado' => (string)$fila['estado'],
                 'hold_expires_at' => $fila['hold_expires_at'] !== null ? (string)$fila['hold_expires_at'] : null,
                 'fuente' => (string)$fila['fuente'],
+                'reservacion_influye_en_disponibilidad' => true,
             ];
+            $vigencia = ReservacionVigenciaService::clasificar($asignacion, $ahora);
+            if (!(bool)($vigencia['influye_disponibilidad'] ?? false)) {
+                continue;
+            }
+            $filas[] = $asignacion;
         }
         $resultado->free();
         return $filas;
@@ -444,6 +450,10 @@ final class OcupacionMesasService
         $inicio = $intervalo['inicio'];
         foreach ($asignaciones as $asignacion) {
             if (isset($exclusiones[(int)($asignacion['reservacion_id'] ?? 0)])) {
+                continue;
+            }
+            if (array_key_exists('reservacion_influye_en_disponibilidad', $asignacion)
+                && !(bool)$asignacion['reservacion_influye_en_disponibilidad']) {
                 continue;
             }
             $reserva = self::fechaHora((string)$asignacion['fecha'], (string)$asignacion['hora']);

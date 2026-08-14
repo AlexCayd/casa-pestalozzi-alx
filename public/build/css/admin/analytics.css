@@ -644,6 +644,9 @@
   outline: 1px dashed var(--admin-warning);
   outline-offset: -2px;
 }
+.admin-nivel1 .admin-n1-heat__cell:hover {
+  box-shadow: inset 0 0 0 2px var(--admin-gold);
+}
 .admin-nivel1 .admin-n1-heat__scale {
   display: flex;
   align-items: center;
@@ -805,27 +808,86 @@
 }
 
 /*
- * Par de la §3.4. Los dos platillos comparten peso, tamaño y color: la regla de
- * asociación es simétrica y pintar uno como título y otro como subtítulo hacía
- * leer una jerarquía que el dato no tiene. El «+» queda atenuado porque es
- * puntuación, no contenido.
+ * Globo de detalle de las celdas del mapa de calor (§3.2).
+ *
+ * Vive a nivel raíz porque el JS lo monta en <body>: dentro de la tabla lo
+ * recortaban el overflow:hidden de .admin-card y el overflow-x:auto del propio
+ * mapa. Como <body> lleva la clase .admin-body, los tokens --admin-* siguen
+ * resolviéndose y el globo acompaña el cambio de tema sin repintarse.
  */
-.admin-nivel1-pair {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 8px;
-  row-gap: 2px;
-  min-width: 0;
-}
-.admin-nivel1-pair__item {
+.admin-n1-tip {
+  position: fixed;
+  z-index: 60;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
   color: var(--admin-text);
-  font-weight: 800;
-  line-height: 1.25;
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: none;
 }
-.admin-nivel1-pair__plus {
+.admin-n1-tip[hidden] {
+  display: none;
+}
+.admin-n1-tip__title {
+  margin: 0;
   color: var(--admin-muted);
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-n1-tip__value {
+  margin: 2px 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.admin-n1-tip__value span {
+  margin-left: 5px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.admin-n1-tip__rows {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+}
+.admin-n1-tip__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-n1-tip__rows dt {
+  color: var(--admin-muted);
+}
+.admin-n1-tip__rows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.admin-n1-tip__state {
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--admin-border-soft);
+  font-size: 11px;
+}
+.admin-n1-tip__state.is-abierto {
+  color: var(--admin-c-verde);
+}
+.admin-n1-tip__state.is-sinventa {
+  color: var(--admin-c-rojo);
+}
+.admin-n1-tip__state.is-fuera {
+  color: var(--admin-c-ambar);
+}
+.admin-n1-tip__state.is-cerrado {
+  color: var(--admin-muted);
 }
 
 /*

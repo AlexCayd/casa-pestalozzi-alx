@@ -8873,6 +8873,17 @@ footer.foot {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Indicador secundario: la mesa sigue roja, pero pertenece al snapshot que
+ * el operador debe resolver durante la reasignación. */
+.mesas-map .mesa-pin--mod-asignada_actualmente {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-gold) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.26);
+}
+
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
+  border-style: double;
+  border-width: 3px;
+}
+
 .mesas-map .mesa-pin--reservacion-proxima {
   border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);
@@ -8897,7 +8908,7 @@ footer.foot {
   background: var(--map-table-unavailable-bg);
 }
 
-.pos-map .mesas-map .mesa-pin--mod-reservacion_advertencia:not(.mesa-pin--ocupada):not(.mesa-pin--seleccionada) {
+.mesas-map .mesa-pin--libre.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
@@ -8905,7 +8916,7 @@ footer.foot {
   color: var(--map-table-available-text);
 }
 
-.pos-map .mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+.mesas-map .mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
@@ -8913,12 +8924,23 @@ footer.foot {
   color: var(--map-table-selected-text);
 }
 
-.pos-map .mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
+.mesas-map .mesa-pin--ocupada.mesa-pin--mod-reservacion_advertencia {
   border-color: var(--map-reservation-warning-border);
   border-style: dashed;
   border-width: 2px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
+}
+
+.mesas-map .mesa-pin--mod-ausencia_pendiente::after,
+.mesas-map .mesa-pin--mod-accion_pendiente::after,
+.mesas-map .mesa-pin--mod-AUSENCIA_PENDIENTE::after {
+  position: absolute;
+  inset: 3px;
+  border: 2px solid var(--map-table-reservation-overdue-border);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
 }
 
 .pos-map .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--mod-reservacion_inminente,
