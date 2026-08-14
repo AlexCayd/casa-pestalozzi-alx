@@ -6,9 +6,14 @@
 
 namespace Controllers;
 
+use Model\HistorialPrecio;
 use Model\Ingrediente;
+use Model\IngredienteProveedor;
+use Model\Proveedor;
 use MVC\Router;
+use Services\HistorialPrecios;
 use Services\Inventario;
+use Services\Proveedores;
 use Services\RangoPeriodo;
 
 class AdminInventarioController
@@ -229,6 +234,13 @@ class AdminInventarioController
             if (empty($alertas)) {
                 $resultado = $ingrediente->guardar();
                 if ($resultado && ($resultado['resultado'] ?? false)) {
+                    $nuevoId = (int) $resultado['id'];
+                    HistorialPrecios::registrarAlta(
+                        HistorialPrecio::ENTIDAD_INGREDIENTE,
+                        $nuevoId,
+                        $ingrediente->costo
+                    );
+                    Proveedores::asignarAIngrediente($nuevoId, Proveedores::filasDesdePost($_POST));
                     Ingrediente::setAlerta('exito', 'Ingrediente creado correctamente');
                     self::index($router);
                     return;
@@ -255,12 +267,24 @@ class AdminInventarioController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Antes de sincronizar: después el objeto ya trae el costo nuevo.
+            $costoAnterior = $ingrediente->costo;
+
             $ingrediente->sincronizar($_POST);
             $ingrediente->activo = isset($_POST['activo']) ? 1 : 0;
             $alertas = $ingrediente->validar();
 
             if (empty($alertas)) {
                 if ($ingrediente->guardar()) {
+                    // Sólo escribe si el costo cambió de verdad: guardar el
+                    // stock mínimo no es un cambio de precio.
+                    HistorialPrecios::registrar(
+                        HistorialPrecio::ENTIDAD_INGREDIENTE,
+                        (int) $ingrediente->id,
+                        $costoAnterior,
+                        $ingrediente->costo
+                    );
+                    Proveedores::asignarAIngrediente((int) $ingrediente->id, Proveedores::filasDesdePost($_POST));
                     Ingrediente::setAlerta('exito', 'Ingrediente actualizado correctamente');
                     self::index($router);
                     return;
@@ -289,6 +313,144 @@ class AdminInventarioController
         }
 
         self::index($router);
+    }
+
+    // ── Proveedores ──────────────────────────────────────────────
+    //
+    // Submódulo de Inventario y no entrada propia del menú: un proveedor sólo
+    // existe en función de los insumos que surte, y se consulta desde la ficha
+    // del ingrediente.
+
+    public static function proveedores(Router $router): void
+    {
+        self::render('inventario/proveedores', [
+            'title' => 'Proveedores',
+            'topbarSection' => 'Inventario / Proveedores',
+            'proveedores' => Proveedor::todos(),
+            'conteoIngredientes' => IngredienteProveedor::conteoPorProveedor(),
+            'alertas' => Proveedor::getAlertas(),
+        ]);
+    }
+
+    public static function proveedorCreate(Router $router): void
+    {
+        $proveedor = new Proveedor();
+        $alertas = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $proveedor->sincronizar($_POST);
+            $proveedor->activo = isset($_POST['activo']) ? 1 : 0;
+            $alertas = $proveedor->validar();
+
+            if (empty($alertas)) {
+                $resultado = $proveedor->guardar();
+                if ($resultado && ($resultado['resultado'] ?? false)) {
+                    Proveedor::setAlerta('exito', 'Proveedor creado correctamente');
+                    self::proveedores($router);
+                    return;
+                }
+                Proveedor::setAlerta('error', 'No se pudo guardar el proveedor');
+                $alertas = Proveedor::getAlertas();
+            }
+        }
+
+        self::renderProveedorForm($proveedor, $alertas, 'Crear proveedor', 'Nuevo proveedor');
+    }
+
+    public static function proveedorEdit(Router $router): void
+    {
+        $id = self::validarId($_GET['id'] ?? null, $router);
+        $proveedor = Proveedor::find($id);
+
+        if (!$proveedor) {
+            Proveedor::setAlerta('error', 'El proveedor no existe');
+            self::proveedores($router);
+            return;
+        }
+
+        $alertas = [];
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $proveedor->sincronizar($_POST);
+            $proveedor->activo = isset($_POST['activo']) ? 1 : 0;
+            $alertas = $proveedor->validar();
+
+            if (empty($alertas)) {
+                if ($proveedor->guardar()) {
+                    Proveedor::setAlerta('exito', 'Proveedor actualizado correctamente');
+                    self::proveedores($router);
+                    return;
+                }
+                Proveedor::setAlerta('error', 'No se pudo actualizar el proveedor');
+                $alertas = Proveedor::getAlertas();
+            }
+        }
+
+        self::renderProveedorForm($proveedor, $alertas, 'Guardar cambios', 'Editar proveedor');
+    }
+
+    public static function proveedorDelete(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::PATH . '/proveedores');
+        }
+
+        $id = self::validarId($_POST['id'] ?? null, $router);
+
+        if (Proveedores::eliminar($id)) {
+            Proveedor::setAlerta('exito', 'Proveedor eliminado correctamente');
+        } else {
+            Proveedor::setAlerta('error', 'No se pudo eliminar el proveedor');
+        }
+
+        self::proveedores($router);
+    }
+
+    /**
+     * Histórico de precios de un platillo o de un ingrediente, para el modal de
+     * la ficha. Vive aquí y no en un controlador propio porque quien lo consume
+     * son los formularios de Inventario y de Menú, y no justifica un módulo.
+     */
+    public static function historialPrecios(): void
+    {
+        header('Content-Type: application/json');
+
+        $entidad = (string) ($_GET['entidad'] ?? '');
+        $id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+
+        if (!$id || !in_array($entidad, HistorialPrecio::ENTIDADES, true)) {
+            echo json_encode(['ok' => false, 'mensaje' => 'Consulta no válida.']);
+            return;
+        }
+
+        $filas = array_map(static function ($fila) {
+            return [
+                'fecha' => (string) $fila->created_at,
+                'anterior' => $fila->precio_anterior === null ? null : (float) $fila->precio_anterior,
+                'nuevo' => (float) $fila->precio_nuevo,
+                'motivo' => (string) $fila->motivo,
+                'usuario' => $fila->usuario_nombre ? (string) $fila->usuario_nombre : null,
+                'proveedor' => $fila->proveedor_nombre ? (string) $fila->proveedor_nombre : null,
+            ];
+        }, HistorialPrecio::historial($entidad, (int) $id, 30));
+
+        echo json_encode(['ok' => true, 'entidad' => $entidad, 'cambios' => $filas]);
+    }
+
+    private static function renderProveedorForm(Proveedor $proveedor, array $alertas, string $accion, string $titulo): void
+    {
+        self::render('inventario/proveedor-form', [
+            'title' => $titulo,
+            'topbarSection' => 'Inventario / ' . $titulo,
+            'proveedor' => $proveedor,
+            'alertas' => $alertas,
+            'accion' => $accion,
+            'ingredientesSurtidos' => $proveedor->id
+                ? IngredienteProveedor::porProveedor((int) $proveedor->id)
+                : [],
+        ]);
     }
 
     /** Ajuste manual de existencias: fija el nuevo stock y registra el movimiento. */
@@ -429,6 +591,8 @@ class AdminInventarioController
             'unidades' => Ingrediente::UNIDADES,
             'alertas' => $alertas,
             'accion' => $accion,
+            'proveedores' => Proveedor::activos(),
+            'proveedoresAsignados' => Proveedores::deIngrediente((int) ($ingrediente->id ?? 0)),
         ]);
     }
 

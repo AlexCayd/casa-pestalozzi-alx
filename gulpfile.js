@@ -42,6 +42,9 @@ const paths = {
     // El selector de periodo lo comparten analíticas, finanzas e inventario, así
     // que vive aquí y no en el bundle de analíticas.
     "src/js/admin/core/range-picker.js",
+    // El histórico de precios lo abren las fichas de Menú y de Inventario: dos
+    // módulos distintos, así que no cabe en el bundle de ninguno de los dos.
+    "src/js/admin/core/historial-precios.js",
   ],
   adminAnalyticsJs: [
     // mock-data.js se retiró: los datos reales llegan desde PHP como

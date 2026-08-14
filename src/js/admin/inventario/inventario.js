@@ -68,9 +68,84 @@
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
+    /*
+     * Tabla repetible de proveedores en la ficha del ingrediente.
+     *
+     * El <select> del proveedor se clona de un <template> que PHP ya pintó con
+     * el catálogo completo: así no hay que serializar la lista a JavaScript ni
+     * mantenerla en dos sitios.
+     *
+     * El "preferente" es un radio con el índice de fila como valor, y por eso
+     * hay que renumerarlo cada vez que se agrega o se quita una: un radio con
+     * valores repetidos manda el primero que encuentra, no el que se marcó.
+     */
+    function initProveedores() {
+        var raiz = document.querySelector('[data-proveedores]');
+        if (!raiz) {
+            return;
+        }
+
+        var filas = raiz.querySelector('[data-proveedores-filas]');
+        var plantilla = raiz.querySelector('[data-proveedor-plantilla]');
+        var agregar = raiz.querySelector('[data-proveedor-agregar]');
+        var vacio = raiz.querySelector('[data-proveedores-vacio]');
+
+        if (!filas || !plantilla || !agregar) {
+            return;
+        }
+
+        function renumerar() {
+            var todas = filas.querySelectorAll('.admin-proveedores__fila');
+            for (var i = 0; i < todas.length; i++) {
+                var radio = todas[i].querySelector('input[name="proveedor_preferente"]');
+                if (radio) {
+                    radio.value = String(i);
+                }
+            }
+            if (vacio) {
+                vacio.hidden = todas.length > 0;
+            }
+            // Sin preferente marcado, el reabastecimiento no tendría a quién
+            // proponer: se marca la primera, que es la que el orden de la ficha
+            // ya presenta como principal.
+            if (todas.length && !filas.querySelector('input[name="proveedor_preferente"]:checked')) {
+                var primero = todas[0].querySelector('input[name="proveedor_preferente"]');
+                if (primero) {
+                    primero.checked = true;
+                }
+            }
+        }
+
+        agregar.addEventListener('click', function () {
+            filas.appendChild(plantilla.content.cloneNode(true));
+            renumerar();
+            if (window.AdminScrollLock) {
+                window.AdminScrollLock.remedir();
+            }
+        });
+
+        raiz.addEventListener('click', function (event) {
+            if (!event.target.closest('[data-proveedor-quitar]')) {
+                return;
+            }
+            var fila = event.target.closest('.admin-proveedores__fila');
+            if (fila) {
+                fila.remove();
+                renumerar();
+            }
+        });
+
+        renumerar();
+    }
+
+    function boot() {
         init();
+        initProveedores();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
     }
 })();

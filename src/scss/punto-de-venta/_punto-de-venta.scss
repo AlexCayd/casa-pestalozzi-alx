@@ -788,6 +788,147 @@
   .mesa-modal__panel:has(.mmodal-reserva-preview) {
     width: min(620px, calc(100vw - 24px));
   }
+
+  // El cobro apilaba método, propina, totales, recibido y cambio en una sola
+  // columna de 352px útiles: en la tablet del POS había que desplazar el modal
+  // entero para ver el cambio a devolver, con el cliente esperando. A dos
+  // columnas cabe de una vez.
+  .mesa-modal__panel:has(.mmodal-cobro) {
+    width: min(860px, calc(100vw - 24px));
+  }
+}
+
+/*
+ * Cobro a dos columnas: lo que se decide a la izquierda (método, propina,
+ * efectivo recibido) y lo que resulta a la derecha (totales y cambio).
+ *
+ * No se toca .mmodal-cerrar-confirm: la comparten el aviso de cancelación y la
+ * pantalla del QR de feedback, que sí quieren una columna centrada.
+ */
+.mmodal-cobro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem 0 0;
+
+  &__head {
+    text-align: center;
+  }
+
+  // La alineación se fija en la columna, no en el contenedor: la cuenta
+  // dividida arrastra también .mmodal-split, que se declara más tarde en el
+  // bundle con text-align:center y le ganaría al contenedor. Sobre el hijo es
+  // herencia contra regla propia, y gana la regla.
+  &__col {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-width: 0;
+    text-align: left;
+  }
+
+  // El resumen es la respuesta a "¿cuánto le devuelvo?": se despega del resto
+  // con su propio fondo para poder leerlo de un vistazo.
+  &__col--resumen {
+    justify-content: flex-start;
+    padding: .9rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .02);
+  }
+
+  @media (min-width: 640px) {
+    grid-template-columns: 1.05fr .95fr;
+    align-items: start;
+
+    &__head,
+    &__acciones {
+      grid-column: 1 / -1;
+    }
+  }
+
+  // La propina del reparto por comensal es una sugerencia sobre montos ya
+  // calculados, no un cobro: ocupa menos aire que la de la cuenta completa.
+  .mmodal-propina--split {
+    margin-top: .6rem;
+  }
+}
+
+/*
+ * Reparto del excedente entre propina y cambio.
+ *
+ * Antes era un único botón "Quédese con el cambio", todo o nada: dejar $40 de
+ * los $100 que sobraban obligaba a calcular la propina a mano y escribirla en
+ * "Otro". Aquí se ve cuánto sobró y se parte donde toque.
+ */
+.mmodal-excedente {
+  margin-top: .75rem;
+  padding: .7rem .8rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  &__label {
+    font-size: .75rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    opacity: .7;
+  }
+
+  &__val {
+    font-size: 1.1rem;
+  }
+
+  &__btns {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+    margin-top: .55rem;
+  }
+
+  &__btn {
+    flex: 1 1 auto;
+    min-height: 38px;
+    padding: 0 .6rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+
+    &.is-on {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  }
+
+  &__monto {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .6rem;
+    margin-top: .55rem;
+    font-size: .8rem;
+
+    &[hidden] {
+      display: none;
+    }
+
+    input {
+      width: 6.5rem;
+    }
+  }
 }
 
 // El aviso operativo usa el mismo panel, pero necesita un shell más amplio

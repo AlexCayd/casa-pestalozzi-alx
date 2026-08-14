@@ -28,17 +28,29 @@ class UsuarioService
 
     public static function crear(Usuario $usuario): array
     {
-        $alertas = $usuario->validarCrear();
-        if (!empty($alertas['error'])) {
-            return self::resultadoInvalido($usuario, $alertas);
-        }
-
-        $usuario->hashPassword();
-        $usuario->hashNip();
         $db = ActiveRecord::getDB();
 
         try {
+            /*
+             * La validación va dentro de la transacción, no antes.
+             *
+             * La unicidad del NIP no la puede sostener un UNIQUE (bcrypt lleva
+             * sal): la sostiene el barrido con FOR UPDATE de
+             * Usuario::nipDisponible(). Validando fuera, ese bloqueo se soltaba
+             * antes del INSERT y dos altas a la vez con el mismo NIP pasaban las
+             * dos. Es la misma disposición que ya usa editar().
+             */
             $db->begin_transaction();
+
+            $alertas = $usuario->validarCrear();
+            if (!empty($alertas['error'])) {
+                $db->rollback();
+                return self::resultadoInvalido($usuario, $alertas);
+            }
+
+            $usuario->hashPassword();
+            $usuario->hashNip();
+
             $stmt = $db->prepare(
                 'INSERT INTO usuarios (username, nombre, fecha_nacimiento, password_hash, nip_hash, rol, activo)
                  VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -52,7 +64,10 @@ class UsuarioService
             // manda NULL, que es justo lo que quiere un admin (sin NIP) o un
             // alta sin fecha de nacimiento.
             $nacimiento = $usuario->fecha_nacimiento ?: null;
-            $nipHash = $usuario->nip_hash ?: null;
+            // Misma regla que en editar(): un administrador nunca guarda NIP.
+            // Un hash que el barrido de unicidad ignora, pero que serviría para
+            // entrar si mañana pasa a piso, es justo lo que permite duplicados.
+            $nipHash = (string) $usuario->rol === 'admin' ? null : ($usuario->nip_hash ?: null);
             $stmt->bind_param(
                 'ssssssi',
                 $usuario->username,
@@ -148,6 +163,18 @@ class UsuarioService
             // escribir NULL encima de un hash válido.
             $usuario->hashNip();
             $escribeNip = $usuario->nip !== null && $usuario->nip !== '';
+
+            /*
+             * Ascender a alguien a administrador le borra el NIP.
+             *
+             * Un admin entra con usuario y contraseña, así que su nip_hash no
+             * identifica a nadie y por eso Usuario::nipDisponible() lo ignora.
+             * Pero el hash seguía guardado: bastaba con ascender a esa persona,
+             * dejar que otra tomara su NIP —ahora libre para el barrido— y
+             * devolverle el rol de piso para acabar con dos personas
+             * respondiendo al mismo NIP.
+             */
+            $limpiaNip = (string) $usuario->rol === 'admin';
             // Misma regla que el NIP: la contraseña sólo se reescribe cuando el
             // formulario mandó una. Vacía significa "conservar la actual", así
             // que las columnas opcionales se añaden al UPDATE en vez de pisar un
@@ -162,7 +189,11 @@ class UsuarioService
             $tipos = 'sss';
             $valores = [$usuario->username, $usuario->nombre, $nacimiento];
 
-            if ($escribeNip) {
+            if ($limpiaNip) {
+                // Literal en el SQL: no hay valor que enlazar.
+                $columnas[] = 'nip_hash = NULL';
+                $usuario->nip_hash = null;
+            } elseif ($escribeNip) {
                 $columnas[] = 'nip_hash = ?';
                 $tipos .= 's';
                 $valores[] = $usuario->nip_hash;

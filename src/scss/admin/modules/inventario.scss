@@ -296,3 +296,83 @@
 
 // Las tarjetas de resumen (.admin-stat-strip / .admin-stat-card) ahora viven en
 // el componente compartido _cards.scss para reutilizarlas en varios módulos.
+
+/*
+ * Proveedores del ingrediente, dentro de su ficha.
+ *
+ * Es una tabla y no una lista de tarjetas porque lo que se hace aquí es
+ * comparar precios entre proveedores, y comparar cifras pide columnas.
+ */
+.admin-proveedores {
+  &__table {
+    min-width: 0;
+
+    // La tabla compartida trae min-width: 680px para no aplastar las columnas
+    // en un listado. Aquí vive dentro de un formulario y ese mínimo la sacaba
+    // del panel.
+    &.admin-table {
+      min-width: 0;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 38px;
+    }
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  // El botón del histórico va dentro de un __hint: se le quita el aire de
+  // botón para que no compita con el campo de precio al que acompaña.
+  &__historial {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--admin-gold);
+    font-size: 12px;
+    text-decoration: underline;
+  }
+}
+
+/*
+ * Cuerpo del modal de histórico de precios. La tabla la inyecta
+ * historial-precios.js, así que aquí sólo se acota el alto: con años de
+ * cambios, el diálogo crecía hasta salirse de la pantalla.
+ */
+.admin-historial {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: var(--admin-border);
+  }
+
+  .admin-badge {
+    margin-left: 8px;
+  }
+}

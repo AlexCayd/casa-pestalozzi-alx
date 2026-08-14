@@ -44,6 +44,10 @@
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
             Registrar merma
         </a>
+        <a class="admin-btn admin-btn--secondary" href="/admin/inventario/proveedores">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 9h18l-2 11H5L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>
+            Proveedores
+        </a>
         <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/inventario/create">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             <span>Nuevo ingrediente</span>

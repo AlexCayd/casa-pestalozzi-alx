@@ -247,6 +247,27 @@
     &--warn { color: var(--admin-warning-text); }
   }
 
+  /*
+   * Veredicto del NIP mientras se teclea. Va pegado al campo y no en la lista
+   * de errores de la cabecera: el duplicado se corregía a ciegas porque el
+   * aviso quedaba a media pantalla de distancia del input que lo causaba.
+   */
+  &__nip-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+
+    &[hidden] {
+      display: none;
+    }
+
+    &--libre { color: var(--admin-success-text); }
+    &--ocupado { color: var(--admin-danger-text); }
+  }
+
   // Cambio de credencial: actual → nueva → confirmación. Los números hacen
   // visible que es una secuencia y no tres campos sueltos.
   .admin-credential-step {

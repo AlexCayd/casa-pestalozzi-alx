@@ -239,3 +239,67 @@
   color: var(--admin-danger-text);
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Proveedores del ingrediente, dentro de su ficha.
+ *
+ * Es una tabla y no una lista de tarjetas porque lo que se hace aquí es
+ * comparar precios entre proveedores, y comparar cifras pide columnas.
+ */
+.admin-proveedores__table {
+  min-width: 0;
+}
+.admin-proveedores__table.admin-table {
+  min-width: 0;
+}
+.admin-proveedores__table th,
+.admin-proveedores__table td {
+  padding: 10px 12px;
+}
+.admin-proveedores__table input,
+.admin-proveedores__table select {
+  width: 100%;
+  min-height: 38px;
+}
+.admin-proveedores__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.admin-proveedores__historial {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--admin-gold);
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+/*
+ * Cuerpo del modal de histórico de precios. La tabla la inyecta
+ * historial-precios.js, así que aquí sólo se acota el alto: con años de
+ * cambios, el diálogo crecía hasta salirse de la pantalla.
+ */
+.admin-historial {
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.admin-historial::-webkit-scrollbar {
+  width: 8px;
+}
+.admin-historial::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-historial::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--admin-border);
+}
+.admin-historial .admin-badge {
+  margin-left: 8px;
+}

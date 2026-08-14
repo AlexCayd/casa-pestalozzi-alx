@@ -236,13 +236,65 @@
   }
 }
 
+/*
+ * Aviso discreto (promociones y novedades de la carta).
+ *
+ * Sin velo, sin centrar y sin bloquear: se apoya en una esquina, deja la página
+ * viva por detrás y se retira solo. Comparte la tarjeta .hero-announcement con
+ * el diálogo, así que la vista previa del panel sigue enseñando lo mismo.
+ *
+ * Va abajo a la derecha y no arriba porque el nav fijo (.brand-mark) y el hero
+ * ocupan la mitad superior de la portada.
+ */
+.announcement-toast {
+  position: fixed;
+  right: var(--pad, 1.25rem);
+  bottom: var(--pad, 1.25rem);
+  z-index: 200;
+  width: min(380px, calc(100vw - 2rem));
+  opacity: 0;
+  transform: translateY(1rem);
+  transition:
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &.is-open {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &__panel:focus-visible {
+    outline: none;
+  }
+
+  .hero-announcement {
+    width: 100%;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@media (max-width: 520px) {
+  // A pantalla estrecha ocupa el ancho disponible: una tarjeta flotando pegada
+  // a un costado se lee peor que una franja inferior.
+  .announcement-toast {
+    left: var(--pad, 1.25rem);
+    width: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .announcement-dialog,
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transition: none;
   }
 
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transform: none;
   }
 }

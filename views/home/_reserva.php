@@ -435,6 +435,13 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             <div class="reservation-submit">
               <p data-new-reservation-submit-help>Te enviaremos un código temporal para confirmar tu reservación.</p>
               <button type="submit" class="btn-line" data-magnetic disabled><span data-new-reservation-submit-label>Confirmar reservación</span><span class="arrow">→</span></button>
+              <?php /* El aviso se menciona donde el visitante entrega los datos,
+                       no sólo en el pie: aquí es donde la pregunta "¿qué van a
+                       hacer con esto?" se le puede pasar por la cabeza. */ ?>
+              <p class="reservation-privacy">
+                Al confirmar, aceptas que usemos tus datos para gestionar esta reservación.
+                <button type="button" class="reservation-privacy__link" data-privacidad-open>Aviso de privacidad</button>
+              </p>
             </div>
             <span class="form__msg" id="formMsg" role="status" aria-live="polite"></span>
           </div>

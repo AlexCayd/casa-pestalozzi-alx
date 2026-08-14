@@ -70,6 +70,10 @@
                     window.gsap.set(el, { opacity: 1, y: 0 });
                 }
             });
+            // Quitar el translateY(24px) de golpe a media página cambia el alto
+            // del documento, y el límite que Lenis midió al arrancar se queda
+            // corto.
+            window.AdminScrollLock.remedir();
         }, 1800);
     }
 
@@ -105,7 +109,11 @@
      * de repetir el atributo en cada vista.
      */
     var SCROLLABLES = [
-        '.admin-table-wrap',
+        // Scroll propio de verdad (height:100vh + overflow-y:auto). Ya venía
+        // marcado a mano en views/admin/partials/_sidebar.php; se registra aquí
+        // para que el inventario de contenedores con scroll esté completo en un
+        // solo sitio.
+        '.admin-sidebar',
         '.admin-modal',
         // El diálogo de confirmación se monta en <body> fuera de .admin-modal:
         // sin marcarlo, la rueda encima de él la capturaba Lenis y el diálogo
@@ -120,16 +128,51 @@
         '[data-scrollable]'
     ].join(',');
 
+    /*
+     * Marca sólo lo que de verdad desborda en vertical.
+     *
+     * `.admin-table-wrap` estaba en la lista de arriba y es `overflow-x: auto` a
+     * secas: se llevaba la rueda de toda la tabla sin tener nada que desplazar,
+     * y la página se plantaba justo donde empezaba el listado. Las tres que sí
+     * desbordan (analíticas e inventario) traen el atributo escrito a mano en la
+     * vista, así que el marcado automático sobraba.
+     *
+     * `data-lenis-auto` distingue lo que puso esta función de lo que escribió
+     * una vista: sólo se retira lo propio. Un contenedor puede dejar de
+     * desbordar (se filtró la tabla, se agrandó la ventana) y entonces hay que
+     * devolverle la rueda a la página.
+     */
     function marcarScrollables(raiz) {
         if (!raiz || raiz.nodeType !== 1) {
             raiz = document.body;
         }
+
+        function evaluar(el) {
+            var propio = el.hasAttribute('data-lenis-auto');
+
+            // Un [data-lenis-prevent] escrito en la vista es una decisión
+            // deliberada del autor de esa pantalla: ni se retira ni se adopta
+            // como propio (adoptarlo lo dejaría expuesto a que un barrido
+            // posterior lo quitara).
+            if (el.hasAttribute('data-lenis-prevent') && !propio) {
+                return;
+            }
+
+            if (el.scrollHeight > el.clientHeight + 1) {
+                el.setAttribute('data-lenis-prevent', '');
+                el.setAttribute('data-lenis-auto', '');
+            } else if (propio) {
+                el.removeAttribute('data-lenis-prevent');
+                el.removeAttribute('data-lenis-auto');
+            }
+        }
+
         if (raiz.matches && raiz.matches(SCROLLABLES)) {
-            raiz.setAttribute('data-lenis-prevent', '');
+            evaluar(raiz);
         }
         var nodos = raiz.querySelectorAll(SCROLLABLES);
         for (var i = 0; i < nodos.length; i++) {
-            nodos[i].setAttribute('data-lenis-prevent', '');
+            evaluar(nodos[i]);
         }
     }
 
@@ -171,6 +214,22 @@
             document.body.style.overflow = overflowPrevio || '';
             overflowPrevio = null;
             if (lenisActivo) { lenisActivo.start(); }
+            // Un modal alto puede haber cambiado el alto del documento mientras
+            // estuvo abierto; sin remedir, Lenis vuelve con el límite viejo.
+            window.AdminScrollLock.remedir();
+        },
+        /**
+         * Salida de emergencia. Si un modal se destruye sin llamar a
+         * desbloquear() —o si dos sistemas se cruzan— el contador se queda en
+         * alto y la página aparece congelada sin nada abierto. Volver con el
+         * botón atrás (bfcache) restaura el DOM con el bloqueo puesto, así que
+         * ahí es donde más se nota.
+         */
+        reset: function () {
+            bloqueos = 0;
+            document.body.style.overflow = overflowPrevio || '';
+            overflowPrevio = null;
+            if (lenisActivo) { lenisActivo.start(); }
         },
         /** Tras cambiar el alto del documento, para que no clampee y salte. */
         remedir: function () {
@@ -180,6 +239,12 @@
             if (window.ScrollTrigger) { window.ScrollTrigger.refresh(); }
         }
     };
+
+    window.addEventListener('pageshow', function (evento) {
+        if (evento.persisted) {
+            window.AdminScrollLock.reset();
+        }
+    });
 
     function initSmoothScroll() {
         // Suave y opcional: desactivado en táctil, reduced-motion o si la vista
@@ -212,6 +277,54 @@
 
         marcarScrollables(document.body);
 
+        /*
+         * Lenis cachea el límite de scroll y sólo lo recalcula cuando se le
+         * dice. Si el documento crece después de arrancar —las gráficas de
+         * Chart.js dimensionan tarde, los reveals sueltan su translateY(24px),
+         * una fila de tabla se despliega— el motor sigue frenando en el límite
+         * viejo: la página se detiene a media altura aunque la barra nativa
+         * muestre que queda contenido. Observar el contenedor real es lo que
+         * cierra esa clase entera de fallos, venga de donde venga el cambio.
+         */
+        var remedirPendiente = null;
+        function remedirDebounce() {
+            if (remedirPendiente) { window.clearTimeout(remedirPendiente); }
+            remedirPendiente = window.setTimeout(function () {
+                remedirPendiente = null;
+                marcarScrollables(document.body);
+                window.AdminScrollLock.remedir();
+            }, 150);
+        }
+
+        var contenido = document.querySelector('.admin-content');
+        if (contenido && typeof window.ResizeObserver === 'function') {
+            new window.ResizeObserver(remedirDebounce).observe(contenido);
+        }
+        window.addEventListener('resize', remedirDebounce);
+
+        /*
+         * Reevaluar justo bajo el puntero, en fase de captura.
+         *
+         * Un modal o un desplegable que se abre alternando [hidden] no dispara
+         * el MutationObserver (cambia un atributo, no la lista de hijos) y
+         * mientras estuvo oculto medía cero, así que el barrido lo había
+         * descartado por "no desborda". Comprobarlo en el momento del wheel
+         * evita perseguir a cada componente que abre algo.
+         *
+         * La captura en `document` corre antes que el listener de Lenis, que
+         * está en `window` sin capture y por tanto burbujea el último.
+         */
+        document.addEventListener('wheel', function (evento) {
+            var destino = evento.target;
+            if (!destino || !destino.closest) {
+                return;
+            }
+            var candidato = destino.closest(SCROLLABLES);
+            if (candidato) {
+                marcarScrollables(candidato);
+            }
+        }, { capture: true, passive: true });
+
         // Los filtros reactivos sustituyen el listado entero: el documento
         // cambia de alto y Lenis anima hacia el nuevo límite si no se le avisa.
         document.addEventListener('admin:reactive-updated', function (evento) {
@@ -221,6 +334,9 @@
 
         // Solo los nodos que entran: re-escanear el documento entero en cada
         // mutación de <body> costaba un querySelectorAll completo por frame.
+        // `subtree` es obligatorio: sin él sólo se veían los hijos directos de
+        // <body>, y todo lo que se inyecta dentro de .admin-content —que es casi
+        // todo— nunca llegaba a marcarse.
         if (typeof window.MutationObserver === 'function') {
             new window.MutationObserver(function (mutaciones) {
                 for (var i = 0; i < mutaciones.length; i++) {
@@ -229,7 +345,7 @@
                         marcarScrollables(nuevos[j]);
                     }
                 }
-            }).observe(document.body, { childList: true });
+            }).observe(document.body, { childList: true, subtree: true });
         }
 
         // Las fuentes de Google llegan después del DOMContentLoaded y recolocan

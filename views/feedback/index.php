@@ -18,7 +18,7 @@
 
       <!-- ── Ya respondió ───────────────────────────────── -->
       <div class="fb-card fb-card--done">
-        <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
+        <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
         <div class="fb-done-icon">✓</div>
         <h1 class="fb-done-title">¡Gracias por tu reseña!</h1>
         <p class="fb-done-sub">Tu opinión ya fue registrada. Nos alegra que hayas visitado Casa Pestalozzi.</p>
@@ -30,7 +30,7 @@
       <div class="fb-card" id="fb-form-wrap">
 
         <header class="fb-header">
-          <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
+          <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
           <p class="fb-header__sub">Cuéntanos cómo fue tu experiencia</p>
 
           <div class="fb-progress">
@@ -106,7 +106,7 @@
 
       <!-- ── Éxito ──────────────────────────────────────── -->
       <div class="fb-card fb-card--done" id="fb-success" style="display:none">
-        <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
+        <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
         <div class="fb-done-icon">✓</div>
         <h1 class="fb-done-title">¡Gracias por tu reseña!</h1>
         <p class="fb-done-sub">Tu opinión nos ayuda a seguir mejorando. Fue un placer atenderte en Casa Pestalozzi.</p>

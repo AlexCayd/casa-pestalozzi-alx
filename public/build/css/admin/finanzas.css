@@ -14,6 +14,33 @@
 .admin-finanzas > .admin-finanzas__grid {
   margin-bottom: 24px;
 }
+.admin-finanzas {
+  /*
+   * Conteo de columnas fijo, no `auto-fit`.
+   *
+   * Son 7 tarjetas y la primera («Utilidad neta estimada») lleva --lead, que
+   * ocupa dos columnas: 8 celdas en total. El `repeat(auto-fit, minmax(220px,
+   * 1fr))` compartido resolvía a 5 columnas en un panel ancho, así que la
+   * segunda fila se quedaba con 3 tarjetas y dos huecos al final. Con 4
+   * columnas las 8 celdas dan dos filas exactas.
+   *
+   * Va aquí y no en el componente compartido porque Inventario usa la misma
+   * franja con 5 tarjetas y ahí `auto-fit` sí cuadra.
+   */
+}
+.admin-finanzas > .admin-stat-strip {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 720px) {
+  .admin-finanzas > .admin-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .admin-finanzas > .admin-stat-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
 .admin-finanzas .admin-finanzas__add .admin-select__trigger {
   font-size: 14px;
 }

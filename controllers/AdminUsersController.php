@@ -247,6 +247,36 @@ class AdminUsersController
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
 
+    /**
+     * ¿Está libre este NIP? Sólo para avisar mientras se teclea: quien decide
+     * sigue siendo la validación del alta y de la edición, que corre dentro de
+     * la transacción. Un "sí" aquí no reserva nada.
+     *
+     * No amplía lo que ya puede hacer quien la consulta: la ruta está en
+     * APIS_ADMIN y un administrador puede reasignar el NIP de cualquiera desde
+     * esta misma pantalla.
+     */
+    public static function nipDisponible(): void
+    {
+        header('Content-Type: application/json');
+
+        $nip = trim((string) ($_GET['nip'] ?? ''));
+        if (!preg_match('/^\d{4}$/', $nip)) {
+            echo json_encode(['ok' => false, 'motivo' => 'formato']);
+            return;
+        }
+
+        // Al editar, el NIP propio no cuenta como choque consigo mismo.
+        $id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+
+        echo json_encode([
+            'ok' => true,
+            'disponible' => Usuario::nipDisponible($nip, $id ?: null),
+        ]);
+    }
+
     public static function delete(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

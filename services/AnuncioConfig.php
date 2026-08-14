@@ -24,9 +24,24 @@ final class AnuncioConfig
      * evento, la fecha y el horario", que obligaba a escribir algo cualquiera
      * para ver cómo quedaba.
      */
+    /*
+     * `presentacion` decide cómo interrumpe el anuncio al visitante, y es la
+     * única fuente de verdad: ni la vista ni el JS deben volver a decidirlo.
+     *
+     * Un evento o un aviso operativo cambian el plan de quien va a venir —la
+     * terraza cerrada, el horario del sábado—, así que se ganan el modal, que
+     * bloquea hasta que se acusa recibo. Una promoción o una novedad de la carta
+     * son una invitación: interrumpir la visita con un diálogo modal para
+     * anunciar un 2×1 gasta la atención del visitante en algo que puede leer de
+     * reojo, así que van como aviso discreto que se retira solo.
+     */
+    public const PRESENTACION_MODAL = 'modal';
+    public const PRESENTACION_DISCRETA = 'discreto';
+
     public const TIPOS = [
         'evento' => [
             'etiqueta' => 'Evento',
+            'presentacion' => self::PRESENTACION_MODAL,
             'descripcion' => 'Actividades, música en vivo, celebraciones o experiencias especiales.',
             'ejemplo' => 'Este sábado tendremos música en vivo a partir de las 19:00 h.',
             'placeholder' => 'El viernes 12 recibimos al Trío Pestalozzi desde las 20:00 h.',
@@ -36,6 +51,7 @@ final class AnuncioConfig
         ],
         'promocion' => [
             'etiqueta' => 'Promoción',
+            'presentacion' => self::PRESENTACION_DISCRETA,
             'descripcion' => 'Descuentos, paquetes u ofertas disponibles por tiempo limitado.',
             'ejemplo' => 'Disfruta nuestra promoción especial durante todo julio.',
             'placeholder' => 'Todos los martes de agosto, 2×1 en café de olla hasta las 13:00 h.',
@@ -45,6 +61,7 @@ final class AnuncioConfig
         ],
         'novedad_menu' => [
             'etiqueta' => 'Novedad del menú',
+            'presentacion' => self::PRESENTACION_DISCRETA,
             'descripcion' => 'Nuevos platillos, actualizaciones de la carta o menús de temporada.',
             'ejemplo' => 'Descubre nuestros nuevos platillos de temporada, disponibles por tiempo limitado.',
             'placeholder' => 'Ya está en la carta el mole de temporada, servido hasta fin de mes.',
@@ -54,6 +71,7 @@ final class AnuncioConfig
         ],
         'aviso_operativo' => [
             'etiqueta' => 'Aviso operativo',
+            'presentacion' => self::PRESENTACION_MODAL,
             'descripcion' => 'Información sobre accesos, estacionamiento, mantenimiento o disponibilidad de áreas.',
             'ejemplo' => 'Por trabajos de mantenimiento, nuestra terraza permanecerá cerrada temporalmente. El servicio continuará con normalidad en las áreas interiores.',
             'placeholder' => 'La terraza estará cerrada por mantenimiento; el salón atiende con normalidad.',
@@ -71,5 +89,16 @@ final class AnuncioConfig
     public static function tipo(string $tipo): array
     {
         return self::TIPOS[self::tipoValido($tipo) ? $tipo : self::TIPO_PREDETERMINADO];
+    }
+
+    /** Modal bloqueante o aviso discreto que se retira solo. */
+    public static function presentacion(string $tipo): string
+    {
+        return self::tipo($tipo)['presentacion'];
+    }
+
+    public static function esModal(string $tipo): bool
+    {
+        return self::presentacion($tipo) === self::PRESENTACION_MODAL;
     }
 }

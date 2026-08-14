@@ -214,12 +214,55 @@
   box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
 }
 
+/*
+ * Aviso discreto (promociones y novedades de la carta).
+ *
+ * Sin velo, sin centrar y sin bloquear: se apoya en una esquina, deja la página
+ * viva por detrás y se retira solo. Comparte la tarjeta .hero-announcement con
+ * el diálogo, así que la vista previa del panel sigue enseñando lo mismo.
+ *
+ * Va abajo a la derecha y no arriba porque el nav fijo (.brand-mark) y el hero
+ * ocupan la mitad superior de la portada.
+ */
+.announcement-toast {
+  position: fixed;
+  right: var(--pad, 1.25rem);
+  bottom: var(--pad, 1.25rem);
+  z-index: 200;
+  width: min(380px, 100vw - 2rem);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.announcement-toast[hidden] {
+  display: none;
+}
+.announcement-toast.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.announcement-toast__panel:focus-visible {
+  outline: none;
+}
+.announcement-toast .hero-announcement {
+  width: 100%;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 520px) {
+  .announcement-toast {
+    left: var(--pad, 1.25rem);
+    width: auto;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .announcement-dialog,
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transition: none;
   }
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transform: none;
   }
 }
@@ -685,6 +728,16 @@
   max-width: 68ch;
   margin: 10px 0 0;
   color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-announcement-type-presentation {
+  max-width: 68ch;
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--admin-gold);
+  color: var(--admin-text);
   font-size: 11px;
   line-height: 1.5;
 }

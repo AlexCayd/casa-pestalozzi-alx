@@ -35,7 +35,10 @@ $face-5: #29B6F6;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  // 'Inter' nunca se cargó: _fonts.scss solo declara KudosKaps, Playfair
+  // Display, Crimson Text y Montserrat, así que la página caía a Segoe UI y no
+  // se parecía al resto del sitio.
+  font-family: var(--sans);
 }
 
 .fb-shell {
@@ -61,17 +64,27 @@ $face-5: #29B6F6;
   }
 }
 
-// ── Logo (replica brand-mark del landing) ────────────────────
+// ── Logo (replica el wordmark del hero, no el del nav) ───────
+//
+// Copiaba el `.brand-mark` fijo del nav, cuyo `word-spacing: -0.8rem` está
+// calibrado para 1.5rem como mucho. Aquí la fuente sube al doble y ese ajuste
+// negativo descuadraba el interletraje de KudosKaps. El hero (`.hero__title`)
+// es la referencia correcta para un wordmark a este tamaño: tracking positivo
+// y sombra que lo despega del fondo.
+//
+// Lo que NO se copia del nav es `mix-blend-mode: difference`: sobre el
+// #161616 de la tarjeta invierte el dorado a un color sucio.
 .fb-brand-mark {
   display: block;
   text-align: center;
-  font-family: var(--logo, 'KudosKaps', 'Playfair Display', serif);
-  color: var(--accent, #cca352);
-  font-size: clamp(1.6rem, 5vw, 2rem);
+  font-family: var(--logo);
+  color: var(--accent);
+  font-size: clamp(2rem, 6vw, 3rem);
   text-decoration: none;
   margin-bottom: .5rem;
-  word-spacing: -1.0rem;
+  letter-spacing: 0.015em;
   line-height: 1;
+  text-shadow: 0 8px 30px rgba(0, 0, 0, .5);
 }
 
 // ── Header ────────────────────────────────────────────────────

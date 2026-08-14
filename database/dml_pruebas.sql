@@ -1153,4 +1153,43 @@ VALUES
 (4, 'merma',   -60.000, 'derrame',     NULL,                              0.2000, DATE_SUB(NOW(), INTERVAL 15 DAY)),
 (7, 'merma',  -400.000, 'faltante',    'Diferencia contra el conteo físico', 0.0600, DATE_SUB(NOW(), INTERVAL 24 DAY));
 
+-- -------------------------------------------------------
+-- PROVEEDORES Y PRECIOS
+-- -------------------------------------------------------
+
+-- Tres proveedores para que la comparación de precios tenga algo que comparar:
+-- el mismo insumo con dos costos distintos es justo el caso que motiva la tabla.
+INSERT INTO proveedores (id, nombre, contacto, telefono, correo, notas, activo) VALUES
+(1, 'Cafetalera del Sur',  'Rosa Mendez',  '5551234567', 'ventas@cafetaleradelsur.mx', 'Entrega martes y viernes. Pedido minimo 5 kg.', 1),
+(2, 'Lacteos La Vaquita',  'Jorge Ibanez', '5559876543', 'pedidos@lavaquita.mx',       'Entrega diaria antes de las 8:00.',            1),
+(3, 'Abarrotes El Puente', 'Luis Farias',  '5555550101', NULL,                          'Surte lo que falte, mas caro pero sin minimo.', 1);
+
+-- El preferente es el que se propone al recibir mercancia. El Puente sale mas
+-- caro en los dos insumos que comparte: es el proveedor de emergencia.
+INSERT INTO ingrediente_proveedores (ingrediente_id, proveedor_id, costo, codigo, preferente) VALUES
+(1, 1, 0.2800, 'CAF-MOL-1K', 1),
+(1, 3, 0.3400, NULL,         0),
+(3, 2, 0.0230, 'LEC-ENT-1L', 1),
+(3, 3, 0.0290, NULL,         0),
+(5, 3, 0.0300, 'AZU-EST-1K', 1);
+
+-- Historico de precios. Fechas relativas a la carga, como el resto del archivo,
+-- para que la ficha muestre una serie con recorrido en vez de un solo punto.
+--
+-- El autor se resuelve por username y no por un id fijo: usuarios se siembra
+-- por auto_increment mas arriba, asi que el 1 depende del orden de este mismo
+-- archivo y se rompe en cuanto alguien inserte otra fila antes.
+SET @admin_demo = (SELECT id FROM usuarios WHERE username = 'admin_demo');
+
+INSERT INTO historial_precios
+    (entidad, ref_id, precio_anterior, precio_nuevo, motivo, proveedor_id, usuario_id, created_at)
+VALUES
+('ingrediente', 1, NULL,   0.2500, 'alta',      NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 120 DAY)),
+('ingrediente', 1, 0.2500, 0.2800, 'proveedor', 1,    @admin_demo, DATE_SUB(NOW(), INTERVAL 60 DAY)),
+('ingrediente', 1, 0.2800, 0.3000, 'edicion',   NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 14 DAY)),
+('ingrediente', 3, NULL,   0.0200, 'alta',      NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 120 DAY)),
+('ingrediente', 3, 0.0200, 0.0250, 'edicion',   NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 30 DAY)),
+('producto',    1, NULL,   45.00,  'alta',      NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 120 DAY)),
+('producto',    1, 45.00,  50.00,  'edicion',   NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 45 DAY));
+
 -- Fin de dml.sql

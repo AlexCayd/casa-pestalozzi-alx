@@ -383,11 +383,31 @@ class Usuario extends ActiveRecord
         }
     }
 
-    /** Verifica que ningún otro usuario tenga ya este NIP (los NIP van hasheados). */
+    /**
+     * Verifica que ningún otro usuario tenga ya este NIP (los NIP van hasheados,
+     * así que hay que recorrer con password_verify; la plantilla es pequeña).
+     *
+     * El barrido excluye a los administradores por la misma razón que porNip():
+     * su acceso es por usuario y contraseña, así que su nip_hash nunca entra en
+     * juego al identificar a nadie. Incluirlos hacía que el NIP de un admin
+     * bloqueara el de un mesero sin motivo.
+     *
+     * Los inactivos sí cuentan: darlos de alta otra vez es un clic, y entonces
+     * dos personas responderían al mismo NIP.
+     *
+     * El FOR UPDATE es lo único que hace real la unicidad. Un hash bcrypt lleva
+     * sal, así que no hay UNIQUE posible sobre nip_hash y esta comprobación es
+     * la única barrera: sin bloquear, dos altas simultáneas la pasan las dos y
+     * quedan dos personas con el mismo NIP. Recorre la tabla entera y por tanto
+     * bloquea también los huecos, que es justo lo que impide la fila nueva.
+     * Fuera de una transacción el bloqueo se suelta de inmediato y no cuesta
+     * nada; dentro, aguanta hasta el commit.
+     */
     public static function nipDisponible(string $nip, ?int $idActual = null): bool
     {
         $usuarios = self::consultarSQL(
-            "SELECT id, nip_hash FROM " . static::$tabla . " WHERE nip_hash IS NOT NULL"
+            "SELECT id, nip_hash FROM " . static::$tabla .
+            " WHERE nip_hash IS NOT NULL AND rol <> 'admin' FOR UPDATE"
         );
 
         foreach ($usuarios as $usuario) {

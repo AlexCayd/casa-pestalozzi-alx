@@ -112,6 +112,9 @@ if ($schemaHorarios !== []) {
            dentro del hero heredaría su transform y dejaría de ser fijo. */ ?>
   <?php include_once __DIR__ . '/_announcement.php'; ?>
 
+  <?php /* Mismo motivo que el anuncio: es un diálogo y va fuera del hero. */ ?>
+  <?php include_once __DIR__ . '/_privacidad.php'; ?>
+
   <!-- Tweaks defaults -->
   <script>
     window.CP_TWEAKS = <?php echo json_encode([

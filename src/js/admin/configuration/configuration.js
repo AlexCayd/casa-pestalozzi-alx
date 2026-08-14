@@ -957,6 +957,7 @@
         const previewLinkLabel = preview.querySelector('[data-preview-link-label]');
         const previewIcon = preview.querySelector('[data-preview-icon]');
         const purpose = document.querySelector('[data-announcement-purpose]');
+        const presentation = document.querySelector('[data-announcement-presentation]');
         const example = document.querySelector('[data-announcement-example]');
         const exampleBanner = document.querySelector('[data-announcement-example-banner]');
         const exampleTypeLabel = document.querySelector('[data-announcement-example-type]');
@@ -1133,6 +1134,11 @@
             }
             if (purpose) {
                 purpose.textContent = selectedConfig.descripcion || '';
+            }
+            if (presentation) {
+                presentation.textContent = selectedConfig.presentacion === 'discreto'
+                    ? 'Se muestra como aviso discreto en una esquina y desaparece solo a los 8 segundos.'
+                    : 'Se muestra como diálogo centrado y espera a que el visitante lo cierre.';
             }
             if (example) {
                 example.textContent = selectedConfig.ejemplo || '';

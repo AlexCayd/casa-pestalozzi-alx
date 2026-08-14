@@ -1324,12 +1324,55 @@ body.nav-open .nav-overlay__links a {
   box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
 }
 
+/*
+ * Aviso discreto (promociones y novedades de la carta).
+ *
+ * Sin velo, sin centrar y sin bloquear: se apoya en una esquina, deja la página
+ * viva por detrás y se retira solo. Comparte la tarjeta .hero-announcement con
+ * el diálogo, así que la vista previa del panel sigue enseñando lo mismo.
+ *
+ * Va abajo a la derecha y no arriba porque el nav fijo (.brand-mark) y el hero
+ * ocupan la mitad superior de la portada.
+ */
+.announcement-toast {
+  position: fixed;
+  right: var(--pad, 1.25rem);
+  bottom: var(--pad, 1.25rem);
+  z-index: 200;
+  width: min(380px, 100vw - 2rem);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.announcement-toast[hidden] {
+  display: none;
+}
+.announcement-toast.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.announcement-toast__panel:focus-visible {
+  outline: none;
+}
+.announcement-toast .hero-announcement {
+  width: 100%;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 520px) {
+  .announcement-toast {
+    left: var(--pad, 1.25rem);
+    width: auto;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .announcement-dialog,
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transition: none;
   }
-  .announcement-dialog__panel {
+  .announcement-dialog__panel,
+  .announcement-toast {
     transform: none;
   }
 }
@@ -6164,6 +6207,214 @@ footer.foot {
   letter-spacing: 0.05em;
 }
 
+/*
+ * Aviso de privacidad.
+ *
+ * Discreto pero visible: en la página sólo asoma como un enlace en el pie y una
+ * línea junto al botón de confirmar. El texto completo vive en este diálogo,
+ * que se abre sobre la portada sin sacar al visitante del formulario.
+ *
+ * Comparte forma con .announcement-dialog (velo + panel centrado); no se
+ * reutiliza aquel bloque porque éste es texto largo con scroll propio y una
+ * cabecera fija, y mezclarlos habría llenado los dos de modificadores.
+ */
+.privacidad {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.privacidad[hidden] {
+  display: none;
+}
+.privacidad.is-open {
+  opacity: 1;
+}
+.privacidad__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgba(11, 12, 13, 0.78);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+.privacidad__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(660px, 100%);
+  max-height: min(82vh, 46rem);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+  transform: translateY(0.75rem) scale(0.98);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.privacidad__panel:focus-visible {
+  outline: none;
+}
+.privacidad.is-open .privacidad__panel {
+  transform: translateY(0) scale(1);
+}
+.privacidad__head {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 1.5rem 3.25rem 1rem 1.75rem;
+  border-bottom: 1px solid var(--line);
+}
+.privacidad__head h2 {
+  margin: 0.35rem 0 0;
+  font-family: var(--serif);
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 400;
+  color: var(--accent);
+}
+.privacidad__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.privacidad__close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.privacidad__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1.25rem 1.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.privacidad__body::-webkit-scrollbar {
+  width: 8px;
+}
+.privacidad__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.privacidad__body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--line);
+}
+.privacidad__body h3 {
+  margin: 1.5rem 0 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.privacidad__body p {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  opacity: 0.85;
+}
+.privacidad__body ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  opacity: 0.85;
+}
+.privacidad__body li {
+  margin-bottom: 0.4rem;
+}
+.privacidad__body strong {
+  opacity: 1;
+}
+.privacidad__lead {
+  font-size: 0.95rem !important;
+  opacity: 1 !important;
+}
+.privacidad__contacto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.privacidad__contacto a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.privacidad__nota {
+  margin-top: 1.25rem !important;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8rem !important;
+  opacity: 0.6 !important;
+}
+.privacidad__foot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem 1.75rem calc(1.25rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacidad,
+  .privacidad__panel {
+    transition: none;
+  }
+  .privacidad__panel {
+    transform: none;
+  }
+}
+/* ── Los dos puntos de entrada ─────────────────────────────── */
+.reservation-privacy {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  opacity: 0.6;
+}
+
+.reservation-privacy__link,
+.foot__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.reservation-privacy__link:hover,
+.foot__link:hover {
+  opacity: 0.8;
+}
+
+.foot__legal {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
 .lightbox {
   position: fixed;
   inset: 0;
@@ -10555,7 +10806,120 @@ footer.foot {
   .mesa-modal__panel:has(.mmodal-reserva-preview) {
     width: min(620px, 100vw - 24px);
   }
+  .mesa-modal__panel:has(.mmodal-cobro) {
+    width: min(860px, 100vw - 24px);
+  }
 }
+/*
+ * Cobro a dos columnas: lo que se decide a la izquierda (método, propina,
+ * efectivo recibido) y lo que resulta a la derecha (totales y cambio).
+ *
+ * No se toca .mmodal-cerrar-confirm: la comparten el aviso de cancelación y la
+ * pantalla del QR de feedback, que sí quieren una columna centrada.
+ */
+.mmodal-cobro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem 0 0;
+}
+.mmodal-cobro__head {
+  text-align: center;
+}
+.mmodal-cobro__col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  text-align: left;
+}
+.mmodal-cobro__col--resumen {
+  justify-content: flex-start;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+@media (min-width: 640px) {
+  .mmodal-cobro {
+    grid-template-columns: 1.05fr 0.95fr;
+    align-items: start;
+  }
+  .mmodal-cobro__head, .mmodal-cobro__acciones {
+    grid-column: 1/-1;
+  }
+}
+.mmodal-cobro .mmodal-propina--split {
+  margin-top: 0.6rem;
+}
+
+/*
+ * Reparto del excedente entre propina y cambio.
+ *
+ * Antes era un único botón "Quédese con el cambio", todo o nada: dejar $40 de
+ * los $100 que sobraban obligaba a calcular la propina a mano y escribirla en
+ * "Otro". Aquí se ve cuánto sobró y se parte donde toque.
+ */
+.mmodal-excedente {
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.mmodal-excedente[hidden] {
+  display: none;
+}
+.mmodal-excedente__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.mmodal-excedente__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.mmodal-excedente__val {
+  font-size: 1.1rem;
+}
+.mmodal-excedente__btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.55rem;
+}
+.mmodal-excedente__btn {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 0 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.mmodal-excedente__btn.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mmodal-excedente__monto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+  font-size: 0.8rem;
+}
+.mmodal-excedente__monto[hidden] {
+  display: none;
+}
+.mmodal-excedente__monto input {
+  width: 6.5rem;
+}
+
 .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
   left: 0.75rem;
   right: 0.75rem;
@@ -13571,7 +13935,7 @@ footer.foot {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--sans);
 }
 
 .fb-shell {
@@ -13598,13 +13962,14 @@ footer.foot {
 .fb-brand-mark {
   display: block;
   text-align: center;
-  font-family: var(--logo, "KudosKaps", "Playfair Display", serif);
-  color: var(--accent, #cca352);
-  font-size: clamp(1.6rem, 5vw, 2rem);
+  font-family: var(--logo);
+  color: var(--accent);
+  font-size: clamp(2rem, 6vw, 3rem);
   text-decoration: none;
   margin-bottom: 0.5rem;
-  word-spacing: -1rem;
+  letter-spacing: 0.015em;
   line-height: 1;
+  text-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
 
 .fb-header {

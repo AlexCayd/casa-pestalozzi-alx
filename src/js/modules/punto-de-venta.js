@@ -3069,13 +3069,20 @@ function initMapa() {
     var propinaCents = 0;
     var propinaPct = null;
     var PROPINA_PRESETS = [10, 15, 20];
+    // Qué hacer con lo que sobra del efectivo: 'cambio' (devolverlo todo),
+    // 'propina' (quedárselo todo) o 'parcial' (partirlo a mano).
+    var destinoExcedente = 'cambio';
 
     var h = buildCerrarHeader(mesa, ticket);
-    h += '<div class="mmodal-cerrar-confirm">';
+    h += '<div class="mmodal-cobro">';
+    h += '<div class="mmodal-cobro__head">';
     h += '<p class="mmodal-cerrar-confirm__msg">Cobro de la cuenta</p>';
     h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige el método, la propina y captura lo recibido.</p>';
+    h += '</div>';
 
-    h += '<div class="mmodal-pago-btns" id="pc-metodos" style="margin-top:12px">';
+    // Columna izquierda: lo que se decide (método y propina).
+    h += '<div class="mmodal-cobro__col">';
+    h += '<div class="mmodal-pago-btns" id="pc-metodos">';
     h += '<button type="button" class="mmodal-pago-btn mmodal-pago-btn--active" data-metodo="efectivo">';
     h += '<span class="mmodal-pago-btn__icon">' + svgIcon('cash', 24) + '</span><span class="mmodal-pago-btn__label">Efectivo</span></button>';
     h += '<button type="button" class="mmodal-pago-btn" data-metodo="tarjeta">';
@@ -3092,16 +3099,9 @@ function initMapa() {
     }
     h += '<button type="button" class="mmodal-propina__btn" data-pct="custom">Otro</button>';
     h += '</div>';
-    h += '<span class="mmodal-propina__monto" id="pc-propina-monto">$<input type="number" ' +
+    h += '<span class="mmodal-propina__monto" id="pc-propina-monto" hidden>$<input type="number" ' +
          'class="mmodal-split-input" id="pc-propina-input" min="0" step="0.01" inputmode="decimal" ' +
          'placeholder="0" hidden></span>';
-    h += '<button type="button" class="mmodal-propina__quedese" id="pc-quedese" hidden>Quédese con el cambio</button>';
-    h += '</div>';
-
-    h += '<div class="mmodal-split-status" style="margin-top:14px">';
-    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
-    h += '<div class="mmodal-total-row" id="pc-propina-row" hidden><span class="mmodal-total-label">Propina</span><span class="mmodal-total-amount" id="pc-propina-val">$0</span></div>';
-    h += '<div class="mmodal-total-row mmodal-total-row--fuerte"><span class="mmodal-total-label">A cobrar</span><span class="mmodal-total-amount" id="pc-cobrar">$' + fmt(totalCents) + '</span></div>';
     h += '</div>';
 
     h += '<div class="mmodal-recibido" id="pc-recibido-wrap">';
@@ -3109,14 +3109,48 @@ function initMapa() {
     h += '<div class="mmodal-recibido__field"><span aria-hidden="true">$</span>';
     h += '<input type="number" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></div>';
     h += '</div>';
+    h += '</div>';
 
-    h += '<div class="mmodal-cambio" id="pc-cambio-wrap" hidden>';
+    // Columna derecha: lo que resulta (cuentas y cambio).
+    h += '<div class="mmodal-cobro__col mmodal-cobro__col--resumen">';
+    h += '<div class="mmodal-split-status">';
+    h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
+    h += '<div class="mmodal-total-row" id="pc-propina-row" hidden><span class="mmodal-total-label">Propina</span><span class="mmodal-total-amount" id="pc-propina-val">$0</span></div>';
+    h += '<div class="mmodal-total-row mmodal-total-row--fuerte"><span class="mmodal-total-label">A cobrar</span><span class="mmodal-total-amount" id="pc-cobrar">$' + fmt(totalCents) + '</span></div>';
+    h += '</div>';
+
+    /*
+     * Reparto del excedente.
+     *
+     * Antes sólo existía «Quédese con el cambio», todo o nada: si el cliente
+     * pagaba $1,000 de una cuenta de $900 y dejaba $40, el mesero tenía que
+     * calcular la propina aparte y escribirla en «Otro». Aquí se ve el
+     * excedente, se parte donde toque y el cambio se recalcula solo.
+     */
+    h += '<div class="mmodal-excedente" id="pc-excedente" hidden>';
+    h += '<div class="mmodal-excedente__head">';
+    h += '<span class="mmodal-excedente__label">Excedente</span>';
+    h += '<strong class="mmodal-excedente__val" id="pc-excedente-val">$0</strong>';
+    h += '</div>';
+    h += '<div class="mmodal-excedente__btns">';
+    h += '<button type="button" class="mmodal-excedente__btn" data-destino="propina">Todo propina</button>';
+    h += '<button type="button" class="mmodal-excedente__btn is-on" data-destino="cambio">Todo cambio</button>';
+    h += '<button type="button" class="mmodal-excedente__btn" data-destino="parcial">Otro</button>';
+    h += '</div>';
+    h += '<label class="mmodal-excedente__monto" id="pc-excedente-monto" hidden>';
+    h += '<span>Propina</span>';
+    h += '<span>$<input type="number" class="mmodal-split-input" id="pc-excedente-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
+    h += '</label>';
+    h += '</div>';
+
+    h += '<div class="mmodal-cambio" id="pc-cambio-wrap">';
     h += '<span class="mmodal-cambio__label">Cambio a devolver</span>';
     h += '<strong class="mmodal-cambio__val" id="pc-cambio">$0</strong>';
     h += '</div>';
     h += '<p class="mmodal-split-diff" id="pc-diff"></p>';
+    h += '</div>';
 
-    h += '<div class="mmodal-cerrar-confirm__btns">';
+    h += '<div class="mmodal-cerrar-confirm__btns mmodal-cobro__acciones">';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="pc-volver">← Volver</button>';
     h += '<button class="mmodal-btn mmodal-btn--danger" id="pc-confirm">Cerrar ticket</button>';
     h += '</div>';
@@ -3127,9 +3161,14 @@ function initMapa() {
     var metodoBtns   = modalContent.querySelectorAll('#pc-metodos .mmodal-pago-btn');
     var propinaBtns  = modalContent.querySelectorAll('#pc-propina .mmodal-propina__btn');
     var propinaInput = modalContent.querySelector('#pc-propina-input');
+    var propinaMonto = modalContent.querySelector('#pc-propina-monto');
     var propinaRow   = modalContent.querySelector('#pc-propina-row');
     var propinaVal   = modalContent.querySelector('#pc-propina-val');
-    var quedeseBtn   = modalContent.querySelector('#pc-quedese');
+    var excedenteWrap  = modalContent.querySelector('#pc-excedente');
+    var excedenteVal   = modalContent.querySelector('#pc-excedente-val');
+    var excedenteBtns  = modalContent.querySelectorAll('#pc-excedente .mmodal-excedente__btn');
+    var excedenteMonto = modalContent.querySelector('#pc-excedente-monto');
+    var excedenteInput = modalContent.querySelector('#pc-excedente-input');
     var cobrarEl     = modalContent.querySelector('#pc-cobrar');
     var recibidoWrap = modalContent.querySelector('#pc-recibido-wrap');
     var recibidoEl   = modalContent.querySelector('#pc-recibido');
@@ -3141,6 +3180,15 @@ function initMapa() {
     function metodoActivo() {
       var a = modalContent.querySelector('#pc-metodos .mmodal-pago-btn--active');
       return a ? a.dataset.metodo : 'efectivo';
+    }
+
+    /*
+     * Se oculta el envoltorio, no sólo el input: el "$" vive en el <span> de
+     * fuera y se quedaba solo, colgando bajo los botones de propina.
+     */
+    function mostrarPropinaInput(visible) {
+      propinaInput.hidden = !visible;
+      propinaMonto.hidden = !visible;
     }
 
     function marcarPropinaActiva(pct) {
@@ -3155,8 +3203,30 @@ function initMapa() {
         metodo: metodoActivo(),
         recibido: recibidoEl.value,
         propina: propinaCents,
-        propinaPct: propinaPct
+        propinaPct: propinaPct,
+        destino: destinoExcedente
       });
+    }
+
+    /*
+     * El botón activo es el que se eligió, no el que se deduzca del importe.
+     *
+     * Deducirlo tenía un punto ciego: una propina de $0 se lee igual como "todo
+     * cambio" que como "otro, todavía sin escribir". Al pulsar "Otro" la propina
+     * arranca en cero, así que el reparto se declaraba a sí mismo "todo cambio"
+     * y volvía a esconder el campo antes de que diera tiempo a teclear nada.
+     * Quien mueve la propina por otra vía (los porcentajes) actualiza este
+     * estado a mano.
+     */
+    function marcarDestinoActivo() {
+      for (var i = 0; i < excedenteBtns.length; i++) {
+        excedenteBtns[i].classList.toggle('is-on', excedenteBtns[i].dataset.destino === destinoExcedente);
+      }
+      excedenteMonto.hidden = destinoExcedente !== 'parcial';
+      // Mientras se teclea no se pisa lo escrito.
+      if (destinoExcedente === 'parcial' && document.activeElement !== excedenteInput) {
+        excedenteInput.value = (propinaCents / 100).toFixed(2);
+      }
     }
 
     /**
@@ -3175,7 +3245,7 @@ function initMapa() {
 
       if (!esEfectivo) {
         cambioWrap.hidden = true;
-        quedeseBtn.hidden = true;
+        excedenteWrap.hidden = true;
         diffEl.textContent = propinaCents > 0
           ? 'Se cargará $' + fmt(aCobrar) + ' a la tarjeta.'
           : 'Se cargará el total exacto a la tarjeta.';
@@ -3192,11 +3262,16 @@ function initMapa() {
       var excedenteSobreTotal = recibidoCents - totalCents;
       var ok = diff >= -1;
 
-      // Sólo tiene sentido ofrecerlo cuando hay excedente que convertir y
-      // todavía no está todo asignado a propina.
-      quedeseBtn.hidden = vacio || excedenteSobreTotal <= 1 || diff <= 1;
+      // El reparto sólo aparece cuando hay algo que repartir: con el campo
+      // vacío el cliente paga justo y no sobra nada.
+      excedenteWrap.hidden = vacio || excedenteSobreTotal <= 1;
+      excedenteVal.textContent = '$' + fmt(Math.max(0, excedenteSobreTotal));
+      excedenteInput.max = (Math.max(0, excedenteSobreTotal) / 100).toFixed(2);
+      marcarDestinoActivo();
 
-      cambioWrap.hidden = !ok || diff <= 1;
+      // Siempre visible, aunque sea $0: que el cambio desapareciera obligaba a
+      // deducir de su ausencia que no había nada que devolver.
+      cambioWrap.hidden = false;
       cambioEl.textContent = '$' + fmt(Math.max(0, diff));
 
       if (diff < -1) {
@@ -3219,7 +3294,10 @@ function initMapa() {
     function aplicarPropinaPct(pct) {
       propinaPct = pct;
       propinaCents = Math.round(totalCents * pct / 100);
-      propinaInput.hidden = true;
+      mostrarPropinaInput(false);
+      // Un porcentaje fija un importe concreto: si luego cambia lo recibido, la
+      // propina se recorta a lo que sobre en vez de dejar la cuenta corta.
+      destinoExcedente = pct > 0 ? 'parcial' : 'cambio';
       marcarPropinaActiva(pct);
       validar();
       persistir();
@@ -3239,9 +3317,12 @@ function initMapa() {
         propinaPct = guardado.propinaPct != null ? guardado.propinaPct : 'custom';
         marcarPropinaActiva(propinaPct);
         if (propinaPct === 'custom') {
-          propinaInput.hidden = false;
+          mostrarPropinaInput(true);
           propinaInput.value = (propinaCents / 100).toFixed(2);
         }
+      }
+      if (guardado.destino) {
+        destinoExcedente = guardado.destino;
       }
     }
 
@@ -3261,7 +3342,7 @@ function initMapa() {
         btn.addEventListener('click', function() {
           if (btn.dataset.pct === 'custom') {
             propinaPct = 'custom';
-            propinaInput.hidden = false;
+            mostrarPropinaInput(true);
             marcarPropinaActiva('custom');
             propinaInput.focus();
             return;
@@ -3274,23 +3355,84 @@ function initMapa() {
     propinaInput.addEventListener('input', function() {
       var val = parseFloat(propinaInput.value);
       propinaCents = (isNaN(val) || val < 0) ? 0 : Math.round(val * 100);
+      // Una propina escrita a mano es un importe suelto, no "todo el excedente"
+      // ni "nada": el reparto tiene que reflejarlo o los dos bloques dirían
+      // cosas distintas de la misma cifra.
+      destinoExcedente = propinaCents > 0 ? 'parcial' : 'cambio';
       validar();
       persistir();
     });
 
-    quedeseBtn.addEventListener('click', function() {
+    // ── Reparto del excedente ──────────────────────────────────
+    //
+    // El excedente se mide siempre contra el total pelado, no contra "total +
+    // propina": si se midiera contra la propina ya aplicada, mover el reparto
+    // cambiaría la base sobre la que se está repartiendo y los botones se
+    // perseguirían a sí mismos.
+    function excedenteCents() {
       var val = parseFloat(recibidoEl.value);
-      var recibidoCents = isNaN(val) ? totalCents : Math.round(val * 100);
-      propinaCents = Math.max(0, recibidoCents - totalCents);
+      if (recibidoEl.value.trim() === '' || isNaN(val) || val < 0) {
+        return 0;
+      }
+      return Math.max(0, Math.round(val * 100) - totalCents);
+    }
+
+    function aplicarDestino(destino) {
+      destinoExcedente = destino;
+      var sobra = excedenteCents();
+
+      if (destino === 'propina') {
+        propinaCents = sobra;
+      } else if (destino === 'cambio') {
+        propinaCents = 0;
+      } else {
+        var val = parseFloat(excedenteInput.value);
+        // Nadie puede dejar de propina más de lo que sobró: pasarse
+        // significaría cobrar dinero que el cliente no entregó.
+        propinaCents = Math.min(sobra, (isNaN(val) || val < 0) ? 0 : Math.round(val * 100));
+      }
+
+      // La propina deja de venir de un porcentaje en cuanto se reparte a mano.
       propinaPct = 'custom';
-      propinaInput.hidden = false;
-      propinaInput.value = (propinaCents / 100).toFixed(2);
+      mostrarPropinaInput(false);
       marcarPropinaActiva('custom');
       validar();
       persistir();
+    }
+
+    for (var eb = 0; eb < excedenteBtns.length; eb++) {
+      (function(btn) {
+        btn.addEventListener('click', function() {
+          var destino = btn.dataset.destino;
+          if (destino === 'parcial') {
+            // Se arranca desde lo que ya hubiera de propina, para no borrar de
+            // golpe lo que el mesero acababa de elegir.
+            excedenteInput.value = (Math.min(propinaCents, excedenteCents()) / 100).toFixed(2);
+          }
+          aplicarDestino(destino);
+          if (destino === 'parcial') {
+            excedenteInput.focus();
+            excedenteInput.select();
+          }
+        });
+      })(excedenteBtns[eb]);
+    }
+
+    excedenteInput.addEventListener('input', function() {
+      aplicarDestino('parcial');
     });
 
-    recibidoEl.addEventListener('input', function() { validar(); persistir(); });
+    recibidoEl.addEventListener('input', function() {
+      // Cambiar lo recibido mueve el excedente; "todo propina" tiene que
+      // seguirlo o el importe se quedaría anclado al efectivo anterior.
+      if (destinoExcedente === 'propina') {
+        propinaCents = excedenteCents();
+      } else if (destinoExcedente === 'parcial') {
+        propinaCents = Math.min(propinaCents, excedenteCents());
+      }
+      validar();
+      persistir();
+    });
 
     modalContent.querySelector('#pc-volver').addEventListener('click', function() {
       showCierreTipo(mesa, ticket);
@@ -3387,9 +3529,14 @@ function initMapa() {
     var modoCuenta  = calcularPorCuenta();
 
     var h = buildCerrarHeader(mesa, ticket);
-    h += '<div class="mmodal-split">';
+    h += '<div class="mmodal-cobro mmodal-split">';
+    h += '<div class="mmodal-cobro__head">';
     h += '<p class="mmodal-cerrar-confirm__msg">Cuenta dividida por comensal</p>';
     h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige cómo repartir la cuenta; puedes ajustar cada monto.</p>';
+    h += '</div>';
+
+    // Columna izquierda: cómo se reparte.
+    h += '<div class="mmodal-cobro__col">';
     h += '<div class="mmodal-split-modes" role="group" aria-label="Modo de reparto">';
     h += '<button type="button" class="mmodal-split-mode" data-modo="iguales">Partes iguales</button>';
     h += '<button type="button" class="mmodal-split-mode" data-modo="cuenta">Cada quien su cuenta</button>';
@@ -3423,13 +3570,19 @@ function initMapa() {
       h += '</div>';
     }
     h += '</div>';
+    h += '</div>';
+
+    // Columna derecha: cómo va quedando la cuenta.
+    h += '<div class="mmodal-cobro__col mmodal-cobro__col--resumen">';
     h += '<div class="mmodal-split-status">';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Total de la cuenta</span><span class="mmodal-total-amount">$' + fmt(totalCents) + '</span></div>';
     h += '<div class="mmodal-total-row"><span class="mmodal-total-label">Pagado</span><span class="mmodal-total-amount" id="split-pagado">$0</span></div>';
     h += '<div class="mmodal-total-row" id="split-propina-row" style="display:none"><span class="mmodal-total-label">Propina</span><span class="mmodal-total-amount" id="split-propina">$0</span></div>';
     h += '<p class="mmodal-split-diff" id="split-diff"></p>';
     h += '</div>';
-    h += '<div class="mmodal-cerrar-confirm__btns">';
+    h += '</div>';
+
+    h += '<div class="mmodal-cerrar-confirm__btns mmodal-cobro__acciones">';
     h += '<button class="mmodal-btn mmodal-btn--ghost" id="split-volver">← Volver</button>';
     h += '<button class="mmodal-btn mmodal-btn--danger" id="split-confirm" disabled>Cerrar ticket</button>';
     h += '</div>';

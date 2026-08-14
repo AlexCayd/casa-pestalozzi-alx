@@ -57,6 +57,7 @@ function boot() {
   initForm();
   initReservationAccess();
   initAnnouncementDismiss();
+  initPrivacidad();
   initTweaks();
 
   if (window.gsap && window.ScrollTrigger) {

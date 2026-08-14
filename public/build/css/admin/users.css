@@ -218,6 +218,30 @@
 .admin-users-form__hint--warn {
   color: var(--admin-warning-text);
 }
+.admin-users-form {
+  /*
+   * Veredicto del NIP mientras se teclea. Va pegado al campo y no en la lista
+   * de errores de la cabecera: el duplicado se corregía a ciegas porque el
+   * aviso quedaba a media pantalla de distancia del input que lo causaba.
+   */
+}
+.admin-users-form__nip-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.admin-users-form__nip-status[hidden] {
+  display: none;
+}
+.admin-users-form__nip-status--libre {
+  color: var(--admin-success-text);
+}
+.admin-users-form__nip-status--ocupado {
+  color: var(--admin-danger-text);
+}
 .admin-users-form .admin-credential-step {
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: start;

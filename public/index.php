@@ -130,6 +130,16 @@ $router->post('/admin/inventario/delete',   [AdminInventarioController::class, '
 $router->post('/admin/inventario/ajustar',  [AdminInventarioController::class, 'ajustar']);
 $router->post('/admin/inventario/entrada',  [AdminInventarioController::class, 'entrada']);
 $router->post('/admin/inventario/merma',    [AdminInventarioController::class, 'merma']);
+// Proveedores: submódulo de inventario. Cuelgan de los ingredientes, que es lo
+// que se compra; un platillo se produce aquí.
+$router->get('/admin/inventario/proveedores',         [AdminInventarioController::class, 'proveedores']);
+$router->get('/admin/inventario/proveedores/create',  [AdminInventarioController::class, 'proveedorCreate']);
+$router->post('/admin/inventario/proveedores/create', [AdminInventarioController::class, 'proveedorCreate']);
+$router->get('/admin/inventario/proveedores/edit',    [AdminInventarioController::class, 'proveedorEdit']);
+$router->post('/admin/inventario/proveedores/edit',   [AdminInventarioController::class, 'proveedorEdit']);
+$router->post('/admin/inventario/proveedores/delete', [AdminInventarioController::class, 'proveedorDelete']);
+// Histórico de precios: lo consultan las fichas de ingrediente y de platillo.
+$router->get('/admin/api/historial-precios', [AdminInventarioController::class, 'historialPrecios']);
 
 // Recetas (composición de platillos y subrecetas). Los datos del platillo se
 // editan en Gestión de menú; aquí solo se arma lo que consume cada unidad.
@@ -207,6 +217,8 @@ $router->get('/admin/usuarios/cambiar-credencial', [AdminUsersController::class,
 $router->post('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
 // La URL anterior solo cambiaba contraseñas; se conserva por marcadores.
 $router->get('/admin/usuarios/change-password', $redir301('/admin/usuarios/cambiar-credencial'));
+// Aviso en vivo mientras se teclea el NIP; la validación que manda sigue en el POST.
+$router->get('/admin/api/usuarios/nip-disponible', [AdminUsersController::class, 'nipDisponible']);
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);

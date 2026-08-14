@@ -75,6 +75,17 @@
                     <label class="admin-field__label" for="precio">Precio (MXN)</label>
                     <input type="number" id="precio" name="precio" step="0.01" min="0" required
                            value="<?php echo htmlspecialchars((string) ($platillo->precio ?? '')); ?>">
+                    <?php if (!empty($platillo->id)) : ?>
+                        <p class="admin-field__hint">
+                            <button type="button" class="admin-btn admin-btn--ghost"
+                                    data-historial-precios
+                                    data-historial-entidad="producto"
+                                    data-historial-id="<?php echo (int) $platillo->id; ?>"
+                                    data-historial-titulo="<?php echo htmlspecialchars($platillo->nombre ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                Ver histórico de precios
+                            </button>
+                        </p>
+                    <?php endif; ?>
                 </div>
 
                 <label class="admin-switch admin-form-grid__full">
@@ -93,4 +104,6 @@
             <?php endif; ?>
         </div>
     </form>
+
+    <?php include __DIR__ . '/../partials/_historial-precios-modal.php'; ?>
 </section>

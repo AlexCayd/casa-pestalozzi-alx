@@ -40,7 +40,11 @@
 
 <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-<form class="admin-menu__form admin-users-form" data-users-form method="POST" action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>">
+<form class="admin-menu__form admin-users-form" data-users-form method="POST" action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>" data-user-id="<?php echo (int) $valor('id', 0); ?>"
+      <?php /* Si ya tiene NIP, el formulario no debe sugerirle otro: enseñaría
+               uno que no es el suyo y, al guardar, se lo cambiaría sin avisar.
+               Es la misma regla que aplica Usuario::generarNipDesdeNacimiento. */ ?>
+      data-user-has-nip="<?php echo $valor('nip_hash') ? '1' : '0'; ?>">
     <section class="admin-users-form__section">
         <div class="admin-users-form__section-head">
             <h4>Identidad y acceso</h4>
@@ -117,7 +121,14 @@
                     placeholder="<?php echo $modo === 'editar' ? 'Sin cambio' : 'ej. 4821'; ?>"
                     title="NIP numérico de 4 dígitos"
                     data-user-nip
+                    aria-describedby="nip-estado"
                 >
+                <?php /* El NIP duplicado se rechaza en el servidor, pero el aviso
+                         llegaba sólo tras enviar y dentro de la lista genérica de
+                         arriba, sin ligarse a este campo: quien lo tecleaba no
+                         sabía que el problema era el NIP hasta releerla. Esta
+                         línea la rellena users-form.js consultando la API. */ ?>
+                <p class="admin-users-form__nip-status" id="nip-estado" role="status" aria-live="polite" data-user-nip-status hidden></p>
                 <p class="admin-users-form__hint admin-users-form__hint--warn">
                     Un NIP derivado del cumpleaños lo puede adivinar un compañero. Cámbialo cuando importe.
                 </p>

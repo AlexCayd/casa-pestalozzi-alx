@@ -1,9 +1,14 @@
 /**
- * Anuncio del restaurante: diálogo al entrar al sitio.
+ * Anuncio del restaurante al entrar al sitio, en dos presentaciones.
  *
- * Antes era una franja sobre el hero con cuenta atrás de 8 s. El aviso competía
- * con la portada y quien llegaba tarde ya no lo veía, así que ahora se presenta
- * como diálogo y espera a que lo cierren.
+ * `modal` (eventos y avisos operativos): bloquea y espera a que lo cierren,
+ * porque cambia el plan de quien iba a venir.
+ * `discreto` (promociones y novedades de la carta): aparece en la esquina, no
+ * toca el scroll ni el foco, y se retira solo. Un 2×1 no justifica interrumpir
+ * la visita con un diálogo.
+ *
+ * Cuál de las dos usa cada tipo lo decide AnuncioConfig y llega en
+ * data-announcement-presentacion; aquí no se vuelve a decidir.
  *
  * Se conserva la memoria por sesión con la clave id:version: si cambia el
  * anuncio vuelve a salir, pero navegar por el sitio no lo repite.
@@ -18,10 +23,13 @@ function initAnnouncementDismiss() {
   var announcementVersion = dialogo.getAttribute('data-announcement-version') || 'sin-version';
   var storageKey = 'cp-announcement-hidden:' + announcementId + ':' + announcementVersion;
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var esModal = dialogo.getAttribute('data-announcement-presentacion') !== 'discreto';
+  var duracion = parseInt(dialogo.getAttribute('data-announcement-duracion'), 10) || 8000;
   var overflowPrevio = '';
   var ultimoFoco = null;
   var abierto = false;
   var lenisDetenido = false;
+  var temporizador = null;
 
   function recordarCierre() {
     try {
@@ -52,19 +60,37 @@ function initAnnouncementDismiss() {
     }
   }
 
+  // ── Retirada automática del aviso discreto ──────────────────
+  function detenerCuentaAtras() {
+    if (temporizador) {
+      window.clearTimeout(temporizador);
+      temporizador = null;
+    }
+  }
+
+  function arrancarCuentaAtras() {
+    detenerCuentaAtras();
+    temporizador = window.setTimeout(cerrar, duracion);
+  }
+
   function cerrar() {
     if (!abierto) return;
     abierto = false;
+    detenerCuentaAtras();
+    // También al vencer solo: si se retiró sin que nadie lo tocara, ya cumplió
+    // su trabajo y repetirlo en cada página sería un parpadeo constante.
     recordarCierre();
 
-    document.removeEventListener('keydown', alPulsarTecla);
-    document.removeEventListener('focusin', focoDentro);
-    document.body.style.overflow = overflowPrevio;
-    // Sólo se reanuda si fuimos nosotros quienes lo paramos: si el visitante
-    // tiene el scroll suave desactivado en los ajustes, no se le enciende.
-    if (lenisDetenido && window.startLenis) {
-      window.startLenis();
-      lenisDetenido = false;
+    if (esModal) {
+      document.removeEventListener('keydown', alPulsarTecla);
+      document.removeEventListener('focusin', focoDentro);
+      document.body.style.overflow = overflowPrevio;
+      // Sólo se reanuda si fuimos nosotros quienes lo paramos: si el visitante
+      // tiene el scroll suave desactivado en los ajustes, no se le enciende.
+      if (lenisDetenido && window.startLenis) {
+        window.startLenis();
+        lenisDetenido = false;
+      }
     }
 
     dialogo.classList.remove('is-open');
@@ -79,7 +105,8 @@ function initAnnouncementDismiss() {
       window.setTimeout(ocultar, 220);
     }
 
-    if (ultimoFoco && typeof ultimoFoco.focus === 'function') {
+    // Devolver el foco sólo tiene sentido si se lo habíamos quitado.
+    if (esModal && ultimoFoco && typeof ultimoFoco.focus === 'function') {
       ultimoFoco.focus();
     }
   }
@@ -87,27 +114,43 @@ function initAnnouncementDismiss() {
   function abrir() {
     if (abierto) return;
     abierto = true;
-    ultimoFoco = document.activeElement;
 
-    overflowPrevio = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    // `overflow: hidden` no frena a Lenis, que desplaza por código: sin pararlo,
-    // la rueda seguiría moviendo la portada por detrás del diálogo.
-    if (window.CP_TWEAKS && window.CP_TWEAKS.smooth && window.stopLenis) {
-      window.stopLenis();
-      lenisDetenido = true;
+    if (esModal) {
+      ultimoFoco = document.activeElement;
+      overflowPrevio = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      // `overflow: hidden` no frena a Lenis, que desplaza por código: sin
+      // pararlo, la rueda seguiría moviendo la portada por detrás del diálogo.
+      if (window.CP_TWEAKS && window.CP_TWEAKS.smooth && window.stopLenis) {
+        window.stopLenis();
+        lenisDetenido = true;
+      }
     }
 
     dialogo.hidden = false;
     window.requestAnimationFrame(function () {
       dialogo.classList.add('is-open');
-      if (panel) panel.focus();
+      // El discreto no roba el foco: el visitante puede estar escribiendo en el
+      // formulario de reservación cuando aparece.
+      if (esModal && panel) panel.focus();
     });
 
-    document.addEventListener('keydown', alPulsarTecla);
-    // Trampa de foco sencilla: el diálogo tiene dos o tres elementos
-    // enfocables, así que basta con devolver el foco al panel si se escapa.
-    document.addEventListener('focusin', focoDentro);
+    if (esModal) {
+      document.addEventListener('keydown', alPulsarTecla);
+      // Trampa de foco sencilla: el diálogo tiene dos o tres elementos
+      // enfocables, así que basta con devolver el foco al panel si se escapa.
+      document.addEventListener('focusin', focoDentro);
+      return;
+    }
+
+    arrancarCuentaAtras();
+
+    // Nadie debería perder el aviso por haber ido a leerlo: mientras el puntero
+    // o el foco estén encima, la cuenta atrás se detiene y se reinicia al salir.
+    dialogo.addEventListener('mouseenter', detenerCuentaAtras);
+    dialogo.addEventListener('mouseleave', arrancarCuentaAtras);
+    dialogo.addEventListener('focusin', detenerCuentaAtras);
+    dialogo.addEventListener('focusout', arrancarCuentaAtras);
   }
 
   if (yaSeVio()) {

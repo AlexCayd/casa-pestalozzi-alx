@@ -15,6 +15,12 @@
 -- la tabla ya no existe en este esquema (ver nota en SUGERENCIAS).
 DROP TABLE IF EXISTS logs_sugerencias;
 -- Inventario / finanzas (hijos primero).
+-- historial_precios apunta a usuarios y a proveedores; ingrediente_proveedores
+-- a ingredientes y a proveedores. Los tres van antes que proveedores, y
+-- proveedores antes que ingredientes.
+DROP TABLE IF EXISTS historial_precios;
+DROP TABLE IF EXISTS ingrediente_proveedores;
+DROP TABLE IF EXISTS proveedores;
 DROP TABLE IF EXISTS gastos_fijos;
 DROP TABLE IF EXISTS movimientos_inventario;
 DROP TABLE IF EXISTS producto_componentes;
@@ -423,6 +429,80 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
   INDEX idx_mi_ti (ticket_item_id),
   -- Los tableros agregan por tipo dentro de un rango de fechas.
   INDEX idx_mi_tipo_fecha (tipo, created_at)
+);
+
+-- Proveedores que surten los insumos.
+--
+-- Cuelgan de `ingredientes` y no de `productos`: lo que se compra son los
+-- insumos; un platillo se produce aquí. Un mismo ingrediente puede tener varios
+-- proveedores a precios distintos, y esa comparación es justo el motivo de la
+-- tabla — antes la entrada de mercancía era anónima y no había forma de saber a
+-- quién se le compró más caro.
+CREATE TABLE IF NOT EXISTS proveedores (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre     VARCHAR(120) NOT NULL,
+  -- Persona de contacto; el resto son datos para volver a marcarles.
+  contacto   VARCHAR(120) NULL,
+  telefono   VARCHAR(30) NULL,
+  correo     VARCHAR(120) NULL,
+  notas      TEXT NULL,
+  activo     TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_proveedores_nombre (nombre)
+);
+
+-- Precio de compra de un ingrediente por proveedor.
+CREATE TABLE IF NOT EXISTS ingrediente_proveedores (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ingrediente_id INT UNSIGNED NOT NULL,
+  proveedor_id   INT UNSIGNED NOT NULL,
+  -- En la unidad de inventario del ingrediente (g, ml o pieza), la misma que
+  -- ingredientes.costo, para poder compararlos sin convertir nada.
+  costo          DECIMAL(10,4) NOT NULL DEFAULT 0,
+  -- Clave con la que el proveedor identifica el producto en su catálogo.
+  codigo         VARCHAR(60) NULL,
+  -- El preferente es el que se propone al recibir mercancía. No se fuerza a uno
+  -- solo por ingrediente desde el esquema: durante un cambio de proveedor
+  -- conviven dos marcados mientras se decide, y el servicio ya deja uno.
+  preferente     TINYINT(1) NOT NULL DEFAULT 0,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ing_prov_ingrediente FOREIGN KEY (ingrediente_id) REFERENCES ingredientes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ing_prov_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE CASCADE,
+  -- Un proveedor no puede tener dos precios para el mismo ingrediente.
+  UNIQUE KEY uq_ing_prov (ingrediente_id, proveedor_id),
+  INDEX idx_ing_prov_proveedor (proveedor_id)
+);
+
+-- Histórico de precios de platillos y de costos de insumos.
+--
+-- El precio vigente vive en productos.precio y en ingredientes.costo, que se
+-- pisan en cada edición: sin esta bitácora no había manera de contestar "¿desde
+-- cuándo subió el café?" ni de explicar por qué cayó el margen de un mes.
+--
+-- `entidad` + `ref_id` es la misma relación polimórfica que usa
+-- producto_componentes, y por lo mismo ref_id no lleva FK: apunta a
+-- productos.id o a ingredientes.id según entidad.
+CREATE TABLE IF NOT EXISTS historial_precios (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entidad         ENUM('producto','ingrediente') NOT NULL,
+  ref_id          INT UNSIGNED NOT NULL,
+  -- NULL sólo en el alta: antes no había precio del que venir.
+  precio_anterior DECIMAL(10,4) NULL,
+  precio_nuevo    DECIMAL(10,4) NOT NULL,
+  -- DECIMAL(10,4) cubre las dos escalas: productos.precio es (8,2) e
+  -- ingredientes.costo (10,4).
+  motivo          ENUM('alta','edicion','proveedor') NOT NULL DEFAULT 'edicion',
+  -- Sólo en los cambios que vienen de recibir mercancía a otro precio.
+  proveedor_id    INT UNSIGNED NULL,
+  -- usuarios.id es INT con signo, no UNSIGNED.
+  usuario_id      INT NULL,
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_hp_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL,
+  CONSTRAINT fk_hp_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+  -- La consulta que sirve la ficha: los últimos cambios de una entidad.
+  INDEX idx_hp_entidad (entidad, ref_id, created_at)
 );
 
 -- Gastos fijos mensuales del negocio (renta, luz, agua, nómina, etc.). Se usan

@@ -1,0 +1,238 @@
+/*
+ * Aviso de privacidad.
+ *
+ * Discreto pero visible: en la página sólo asoma como un enlace en el pie y una
+ * línea junto al botón de confirmar. El texto completo vive en este diálogo,
+ * que se abre sobre la portada sin sacar al visitante del formulario.
+ *
+ * Comparte forma con .announcement-dialog (velo + panel centrado); no se
+ * reutiliza aquel bloque porque éste es texto largo con scroll propio y una
+ * cabecera fija, y mezclarlos habría llenado los dos de modificadores.
+ */
+.privacidad {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: grid;
+  place-items: center;
+  padding: var(--pad, 1.25rem);
+  opacity: 0;
+  transition: opacity 200ms ease;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &.is-open {
+    opacity: 1;
+  }
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgba(11, 12, 13, 0.78);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+
+  &__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(660px, 100%);
+    // El cuerpo hace su propio scroll: el panel no crece más que la ventana.
+    max-height: min(82vh, 46rem);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+    transform: translateY(0.75rem) scale(0.98);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+
+    &:focus-visible {
+      outline: none;
+    }
+  }
+
+  &.is-open &__panel {
+    transform: translateY(0) scale(1);
+  }
+
+  &__head {
+    position: relative;
+    flex: 0 0 auto;
+    padding: 1.5rem 3.25rem 1rem 1.75rem;
+    border-bottom: 1px solid var(--line);
+
+    h2 {
+      margin: 0.35rem 0 0;
+      font-family: var(--serif);
+      font-size: clamp(1.3rem, 3vw, 1.7rem);
+      font-weight: 400;
+      color: var(--accent);
+    }
+  }
+
+  &__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 160ms ease, color 160ms ease;
+
+    &:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  }
+
+  // Patrón de scroll de la casa. [data-lenis-prevent] va en el marcado: sin él
+  // la rueda la captura Lenis y este cuerpo no se movería.
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 1.25rem 1.75rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background-clip: content-box;
+      background-color: var(--line);
+    }
+
+    h3 {
+      margin: 1.5rem 0 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    p {
+      margin: 0 0 0.75rem;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      opacity: 0.85;
+    }
+
+    ul {
+      margin: 0 0 0.75rem;
+      padding-left: 1.1rem;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      opacity: 0.85;
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    strong {
+      opacity: 1;
+    }
+  }
+
+  &__lead {
+    font-size: 0.95rem !important;
+    opacity: 1 !important;
+  }
+
+  &__contacto {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+
+    a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+
+  &__nota {
+    margin-top: 1.25rem !important;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.8rem !important;
+    opacity: 0.6 !important;
+  }
+
+  &__foot {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 1.75rem calc(1.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacidad,
+  .privacidad__panel {
+    transition: none;
+  }
+
+  .privacidad__panel {
+    transform: none;
+  }
+}
+
+/* ── Los dos puntos de entrada ─────────────────────────────── */
+
+// Junto al botón de confirmar: es donde el visitante entrega los datos.
+.reservation-privacy {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  opacity: 0.6;
+}
+
+.reservation-privacy__link,
+.foot__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.foot__legal {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}

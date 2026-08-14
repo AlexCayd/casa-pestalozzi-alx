@@ -531,6 +531,18 @@
   line-height: 1.5;
 }
 
+// Consecuencia de la elección, no descripción: se separa del texto de arriba
+// con el acento del tipo para que no se lea como más de lo mismo.
+.admin-announcement-type-presentation {
+  max-width: 68ch;
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--admin-gold);
+  color: var(--admin-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /*
  * Ajustes del POS. Un interruptor cuyo efecto no cabe en su etiqueta: las dos
  * tarjetas describen qué pasa en cada estado y la vigente se resalta, para que

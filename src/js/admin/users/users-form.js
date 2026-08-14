@@ -39,6 +39,18 @@
   // usuario, no nuestro: no se pisa.
   var nipEditadoAMano = Boolean(nip && nip.value);
 
+  /*
+   * Quien ya tiene NIP no recibe sugerencia del cumpleaños.
+   *
+   * Sin esto, abrir la ficha de alguien con NIP 2345 y cumpleaños el 23/11
+   * rellenaba el campo con 2311: se leía como si ése fuera su NIP —no lo era—
+   * y, al guardar sin tocar nada, el campo viajaba lleno y se lo cambiaba de
+   * verdad, dejándole fuera del sistema. El servidor ya se guarda de esto
+   * (Usuario::generarNipDesdeNacimiento sale si el usuario tiene nip_hash),
+   * pero su guardia no sirve de nada si el campo llega relleno desde aquí.
+   */
+  var yaTieneNip = form.getAttribute("data-user-has-nip") === "1";
+
   // ── Fecha ────────────────────────────────────────────────────
   function aISO(texto) {
     var partes = String(texto || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -91,8 +103,11 @@
     var iso = aISO(display.value);
     hidden.value = iso;
 
-    if (iso && nip && !nipEditadoAMano && rolActual() !== "admin") {
+    if (iso && nip && !nipEditadoAMano && !yaTieneNip && rolActual() !== "admin") {
       nip.value = nipDesdeFecha(iso);
+      // Es el caso que más choca: dos personas nacidas el mismo día y mes
+      // reciben el mismo NIP sugerido sin que nadie lo teclee.
+      comprobarNip();
     }
   }
 
@@ -107,9 +122,132 @@
     display.addEventListener("blur", sincronizarFecha);
   }
 
+  // ── NIP repetido: no se puede guardar ────────────────────────
+  //
+  // El servidor lo rechaza igual —y es él quien manda, porque valida dentro de
+  // la transacción—, pero el aviso llegaba tras enviar y metido en la lista de
+  // errores de la cabecera: se corregía la fecha, el nombre y el rol antes de
+  // caer en que el problema era el NIP. Aquí el formulario ni siquiera deja
+  // enviar mientras el NIP esté ocupado.
+  var MENSAJE_OCUPADO = "Ese NIP ya está asignado a otro usuario. Elige uno distinto.";
+  var nipStatus = form.querySelector("[data-user-nip-status]");
+  var usuarioId = form.getAttribute("data-user-id") || "0";
+  var consultaNip = null;
+  var peticionNip = 0;
+
+  // Veredicto del último NIP consultado. `disponible: null` = todavía no se
+  // sabe, que no es lo mismo que "libre": al enviar hay que resolverlo antes.
+  var veredicto = { valor: "", disponible: null };
+
+  function mostrarEstadoNip(texto, estado) {
+    if (nipStatus) {
+      nipStatus.hidden = !texto;
+      nipStatus.textContent = texto || "";
+      nipStatus.className = "admin-users-form__nip-status" +
+        (estado ? " admin-users-form__nip-status--" + estado : "");
+    }
+    if (nip) {
+      nip.setAttribute("aria-invalid", estado === "ocupado" ? "true" : "false");
+      // Lo que de verdad impide guardar: con un customValidity no vacío el
+      // navegador se niega a enviar el formulario y señala el campo.
+      nip.setCustomValidity(estado === "ocupado" ? MENSAJE_OCUPADO : "");
+    }
+  }
+
+  /** Consulta el NIP actual. Devuelve una promesa con true/false/null. */
+  function comprobarNip() {
+    if (!nip || nip.disabled) {
+      return Promise.resolve(null);
+    }
+
+    var valor = nip.value.trim();
+    if (!/^\d{4}$/.test(valor)) {
+      // Un NIP a medio escribir no es un error todavía: del formato se encarga
+      // el patrón del campo.
+      veredicto = { valor: valor, disponible: null };
+      mostrarEstadoNip("", "");
+      return Promise.resolve(null);
+    }
+
+    var propia = ++peticionNip;
+    var url = "/admin/api/usuarios/nip-disponible?nip=" + encodeURIComponent(valor) +
+      "&id=" + encodeURIComponent(usuarioId);
+
+    return fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (respuesta) {
+        return respuesta.ok ? respuesta.json() : null;
+      })
+      .then(function (datos) {
+        // Llegó tarde: ya se tecleó otro NIP y su respuesta manda.
+        if (propia !== peticionNip || !datos || !datos.ok) {
+          return null;
+        }
+        veredicto = { valor: valor, disponible: Boolean(datos.disponible) };
+        if (datos.disponible) {
+          mostrarEstadoNip("NIP disponible.", "libre");
+        } else {
+          mostrarEstadoNip(MENSAJE_OCUPADO, "ocupado");
+        }
+        return veredicto.disponible;
+      })
+      .catch(function () {
+        // Sin red no se bloquea el guardado: inventar un "ocupado" dejaría al
+        // administrador sin poder trabajar, y el POST lo comprueba igual.
+        veredicto = { valor: valor, disponible: null };
+        mostrarEstadoNip("", "");
+        return null;
+      });
+  }
+
   if (nip) {
     nip.addEventListener("input", function () {
       nipEditadoAMano = nip.value !== "";
+      mostrarEstadoNip("", "");
+
+      if (consultaNip) {
+        window.clearTimeout(consultaNip);
+      }
+      // Cada comprobación recorre los hashes con password_verify: no conviene
+      // lanzarla en cada pulsación.
+      consultaNip = window.setTimeout(comprobarNip, 350);
+    });
+
+    /*
+     * Último filtro antes de enviar.
+     *
+     * El customValidity ya frena el caso conocido, pero se puede enviar antes
+     * de que la consulta en vuelo conteste —escribir el cuarto dígito y pulsar
+     * "Guardar" de inmediato—. Si el veredicto no corresponde al valor actual,
+     * se detiene el envío, se resuelve y sólo entonces se reenvía.
+     */
+    form.addEventListener("submit", function (evento) {
+      if (nip.disabled) {
+        return;
+      }
+
+      var valor = nip.value.trim();
+      if (!/^\d{4}$/.test(valor) || veredicto.valor === valor) {
+        return;
+      }
+
+      evento.preventDefault();
+      if (consultaNip) {
+        window.clearTimeout(consultaNip);
+      }
+
+      comprobarNip().then(function (disponible) {
+        if (disponible === false) {
+          nip.focus();
+          nip.reportValidity();
+          return;
+        }
+        // Libre, o sin respuesta del servidor: que decida el POST.
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      });
     });
   }
 
@@ -137,8 +275,10 @@
       nip.disabled = esAdmin;
       if (esAdmin) {
         nip.value = "";
-      } else if (!nipEditadoAMano && hidden && hidden.value) {
+        mostrarEstadoNip("", "");
+      } else if (!nipEditadoAMano && !yaTieneNip && hidden && hidden.value) {
         nip.value = nipDesdeFecha(hidden.value);
+        comprobarNip();
       }
     }
 

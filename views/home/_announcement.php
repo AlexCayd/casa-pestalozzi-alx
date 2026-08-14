@@ -1,13 +1,15 @@
 <?php
 /**
- * Anuncio del restaurante, como diálogo al entrar al sitio.
+ * Anuncio del restaurante al entrar al sitio.
  *
- * Antes era una franja flotando sobre el hero que se cerraba sola a los 8 s: el
- * aviso competía con el título de la portada y el que llegaba tarde se lo
- * perdía. Como diálogo se lee una vez, sin prisa, y se cierra a voluntad.
+ * Dos presentaciones según el tipo, decididas en AnuncioConfig y nunca aquí:
+ * los eventos y los avisos operativos cambian el plan de quien va a venir y se
+ * muestran como diálogo modal, que se lee una vez y se cierra a voluntad; las
+ * promociones y novedades de la carta van como aviso discreto en la esquina,
+ * que se retira solo y no bloquea la página.
  *
  * El marcado se emite al final del <body> (ver views/home/index.php) para que
- * el diálogo no herede transform ni overflow de ningún contenedor del hero.
+ * no herede transform ni overflow de ningún contenedor del hero.
  */
 if (!isset($anuncioPublico) || !is_object($anuncioPublico)) {
   return;
@@ -36,20 +38,38 @@ if ($versionAnuncio === '') {
     (string) ($anuncioPublico->fecha_fin ?? ''),
   ]));
 }
+$presentacion = \Services\AnuncioConfig::presentacion($tipo);
+$esModal = $presentacion === \Services\AnuncioConfig::PRESENTACION_MODAL;
+$raiz = $esModal ? 'announcement-dialog' : 'announcement-toast';
 ?>
 <div
-  class="announcement-dialog"
+  class="<?php echo $raiz; ?>"
   data-announcement
   data-announcement-id="<?php echo (int) ($anuncioPublico->id ?? 0); ?>"
   data-announcement-version="<?php echo $h($versionAnuncio); ?>"
   data-announcement-type="<?php echo $h($tipo); ?>"
+  data-announcement-presentacion="<?php echo $h($presentacion); ?>"
+  <?php if (!$esModal) : ?>
+    data-announcement-duracion="<?php echo (int) \Services\AnuncioConfig::DURACION_VISIBLE_MS; ?>"
+  <?php endif; ?>
   hidden
 >
-  <button class="announcement-dialog__backdrop" type="button" tabindex="-1" aria-hidden="true" data-announcement-close></button>
+  <?php if ($esModal) : ?>
+    <button class="announcement-dialog__backdrop" type="button" tabindex="-1" aria-hidden="true" data-announcement-close></button>
+  <?php endif; ?>
+  <?php /* El discreto no es un diálogo: no atrapa el foco ni exige respuesta,
+           así que anunciarlo como role="dialog" le mentiría al lector de
+           pantalla. Va como region con cortesía polite, que lo lee al terminar
+           lo que esté diciendo. */ ?>
   <div
-    class="announcement-dialog__panel"
-    role="dialog"
-    aria-modal="true"
+    class="<?php echo $raiz; ?>__panel"
+    <?php if ($esModal) : ?>
+      role="dialog"
+      aria-modal="true"
+    <?php else : ?>
+      role="status"
+      aria-live="polite"
+    <?php endif; ?>
     aria-labelledby="announcement-dialog-type"
     aria-describedby="announcement-dialog-message"
     tabindex="-1"

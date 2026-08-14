@@ -100,6 +100,15 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                         <?php endforeach; ?>
                     </div>
                     <p class="admin-announcement-type-purpose" id="announcement-type-purpose" data-announcement-purpose><?php echo $h($configTipoPreview['descripcion'] ?? ''); ?></p>
+                    <?php /* El tipo no sólo pinta el acento: decide si el anuncio
+                             interrumpe al visitante o no. Sin decirlo aquí, quien
+                             lo redacta no tiene forma de saberlo antes de
+                             publicarlo. */ ?>
+                    <p class="admin-announcement-type-presentation" data-announcement-presentation>
+                        <?php echo ($configTipoPreview['presentacion'] ?? '') === \Services\AnuncioConfig::PRESENTACION_MODAL
+                            ? 'Se muestra como diálogo centrado y espera a que el visitante lo cierre.'
+                            : 'Se muestra como aviso discreto en una esquina y desaparece solo a los 8 segundos.'; ?>
+                    </p>
                 </div>
 
                 <label class="admin-field admin-announcement-form__wide">

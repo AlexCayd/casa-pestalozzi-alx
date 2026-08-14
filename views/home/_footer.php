@@ -40,7 +40,11 @@
     </div>
     <div class="foot__bottom">
       <span>© <span id="year"></span> Casa Pestalozzi · Del Valle, Ciudad de México</span>
-      <span>Rediseño conceptual</span>
+      <span class="foot__legal">
+        <button type="button" class="foot__link" data-privacidad-open>Aviso de privacidad</button>
+        <span aria-hidden="true">·</span>
+        <span>Rediseño conceptual</span>
+      </span>
     </div>
   </div>
 </footer>
