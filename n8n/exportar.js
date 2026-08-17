@@ -33,7 +33,7 @@ if (!fs.existsSync(DB)) {
 }
 
 const db = new DatabaseSync(DB, { readOnly: true });
-const flujos = db.prepare('SELECT name, nodes, connections, settings, pinData, meta FROM workflow_entity').all();
+const flujos = db.prepare('SELECT name, nodes, connections, settings, meta FROM workflow_entity').all();
 
 for (const flujo of flujos) {
   const exportado = {
@@ -41,7 +41,6 @@ for (const flujo of flujos) {
     nodes: JSON.parse(flujo.nodes),
     connections: JSON.parse(flujo.connections),
     settings: JSON.parse(flujo.settings || '{}'),
-    pinData: JSON.parse(flujo.pinData || '{}'),
     meta: JSON.parse(flujo.meta || '{}'),
   };
 
