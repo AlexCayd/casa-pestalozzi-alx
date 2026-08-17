@@ -70,11 +70,7 @@
             var timeInput = form.querySelector('[data-time-input]');
             var timeStatus = form.querySelector('[data-time-status]');
             var capacitySummary = form.querySelector('[data-reservation-capacity-summary]');
-            var capacityTotal = form.querySelector('[data-capacity-total]');
-            var capacityCommitted = form.querySelector('[data-capacity-committed]');
-            var capacityDemand = form.querySelector('[data-capacity-demand]');
             var capacityReal = form.querySelector('[data-capacity-real]');
-            var capacityProjected = form.querySelector('[data-capacity-projected]');
             var capacityRequested = form.querySelector('[data-capacity-requested]');
             var capacityWarning = form.querySelector('[data-capacity-warning]');
             var contactSelect = form.querySelector('select[data-contact-type]:not([data-contact-type-locked])');
@@ -128,11 +124,7 @@
                     if (capacityWarning) capacityWarning.hidden = true;
                     return;
                 }
-                if (capacityTotal) capacityTotal.textContent = String(detail.capacidad_fisica_total || detail.capacidad_total || 0);
-                if (capacityCommitted) capacityCommitted.textContent = String(detail.capacidad_fisica_comprometida || 0);
-                if (capacityDemand) capacityDemand.textContent = String(detail.demanda_no_asignada || 0);
                 if (capacityReal) capacityReal.textContent = String(detail.capacidad_real_disponible || detail.capacidad_estimada_horario || 0);
-                if (capacityProjected) capacityProjected.textContent = String(detail.capacidad_proyectada || 0);
                 if (capacityRequested) capacityRequested.textContent = String(formValue(form, 'comensales') || 0);
                 if (capacityWarning) {
                     capacityWarning.textContent = detail.advertencia ||

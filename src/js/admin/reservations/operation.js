@@ -117,14 +117,9 @@
             assignmentTables: root.querySelector('[data-operation-assignment-tables]'),
             assignmentRefresh: root.querySelector('[data-operation-assignment-refresh]'),
             capacity: root.querySelector('[data-operation-capacity]'),
-            capacityTotal: root.querySelector('[data-operation-capacity-total]'),
-            capacityCommitted: root.querySelector('[data-operation-capacity-committed]'),
-            capacityDemand: root.querySelector('[data-operation-capacity-demand]'),
             capacityReal: root.querySelector('[data-operation-capacity-real]'),
             capacityOf: root.querySelector('[data-operation-capacity-of]'),
-            capacityProjected: root.querySelector('[data-operation-capacity-projected]'),
             capacitySecondary: root.querySelector('[data-operation-capacity-secondary]'),
-            capacityProjectedWrap: root.querySelector('[data-operation-capacity-projected-wrap]'),
             capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
             tableWarning: null
         };
@@ -153,7 +148,7 @@
                 // En una superficie estrecha la lista ocupa el mismo plano que
                 // el detalle; mantener una sola capa abierta evita ocultar
                 // acciones bajo el overlay de detalle.
-                root.classList.add('is-panel-dismissed');
+                document.dispatchEvent(new CustomEvent('operational:close-panel'));
             });
         }
 
@@ -1187,6 +1182,8 @@
                 return;
             }
 
+            document.dispatchEvent(new CustomEvent('operational:close-drawer'));
+            document.dispatchEvent(new CustomEvent('operational:close-panel'));
             createModalLastFocus = document.activeElement;
             root.classList.add('is-create-modal-open');
             if (typeof createModal.showModal === 'function') {
@@ -1404,22 +1401,19 @@
             els.capacity.hidden = !hasSummary;
             if (!hasSummary) return;
 
-            var total = parseInt(summary.capacidad_fisica_total || summary.capacidad_total || '0', 10);
             var committed = parseInt(summary.capacidad_fisica_comprometida || '0', 10);
             var demand = parseInt(summary.demanda_no_asignada || '0', 10);
             var projected = parseInt(summary.capacidad_proyectada || '0', 10);
             var real = parseInt(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || '0', 10);
-            if (els.capacityTotal) els.capacityTotal.textContent = String(total);
-            if (els.capacityCommitted) els.capacityCommitted.textContent = String(committed);
-            if (els.capacityDemand) els.capacityDemand.textContent = String(demand);
             if (els.capacityReal) els.capacityReal.textContent = String(real);
-            if (els.capacityOf) els.capacityOf.textContent = ' de ' + String(total);
-            if (els.capacityProjected) els.capacityProjected.textContent = String(projected);
-            if (els.capacityTotal && els.capacityTotal.parentElement) els.capacityTotal.parentElement.hidden = total <= 0;
-            if (els.capacityCommitted && els.capacityCommitted.parentElement) els.capacityCommitted.parentElement.hidden = committed <= 0;
-            if (els.capacityDemand && els.capacityDemand.parentElement) els.capacityDemand.parentElement.hidden = demand <= 0;
-            if (els.capacitySecondary) els.capacitySecondary.hidden = !(committed > 0 || demand > 0 || projected > 0);
-            if (els.capacityProjectedWrap) els.capacityProjectedWrap.hidden = !(projected > 0);
+            if (els.capacityOf) els.capacityOf.textContent = ' de ' + String(summary.capacidad_fisica_total || summary.capacidad_total || '0');
+            if (els.capacitySecondary) {
+                var secondary = demand > 0
+                    ? demand + ' sin mesa'
+                    : (projected > 0 ? '+' + projected + ' proyectados' : (committed > 0 ? committed + ' comprometidos' : ''));
+                els.capacitySecondary.textContent = secondary ? '· ' + secondary : '';
+                els.capacitySecondary.hidden = !secondary;
+            }
             if (els.capacityWarning) {
                 els.capacityWarning.hidden = !(projected > 0);
             }
@@ -1546,18 +1540,11 @@
                 return;
             }
 
-            var states = {
-                selection: ['Selecciona una reservación', 'Elige una reservación del menú lateral para consultar sus datos y mesas.', 'reservation-operation-panel--selection'],
-                empty: ['No hay reservaciones para este horario.', 'Puedes consultar otro horario o crear una nueva reservación.', 'reservation-operation-panel--empty'],
-                error: ['No fue posible cargar las reservaciones.', 'Intenta actualizar la consulta.', 'reservation-operation-panel--error']
-            };
-            var current = states[kind] || states.selection;
+            // Sin una selección, el mapa recupera toda su superficie útil.
+            // El detalle es un overlay temporal, no un empty state persistente.
+            setPanelAccessibility(true);
             root.classList.remove('has-selected-reservation');
-            els.panel.innerHTML =
-                '<article class="reservation-operation-panel admin-card ' + current[2] + '" role="status" aria-live="polite">' +
-                    '<h3>' + current[0] + '</h3>' +
-                    '<p class="reservation-operation-panel__muted">' + current[1] + '</p>' +
-                '</article>';
+            els.panel.innerHTML = '';
         }
 
         function renderRecommendedAction(reservacion, mesaIds, editable) {
@@ -1616,7 +1603,6 @@
                 '<article class="reservation-operation-panel admin-card">' +
                     '<div class="reservation-operation-panel__head reservation-operation__summary">' +
                         '<div>' +
-                            '<span class="reservation-operation-panel__label">Detalle operativo</span>' +
                             '<h3>' + esc(reservacion.nombre) + '</h3>' +
                         '</div>' +
                         '<span class="reservations-table__status reservations-table__status--' + esc(estado) + '">' + esc(estadoLabel(estado)) + '</span>' +
@@ -1632,14 +1618,12 @@
                             esc(reservacion.alerta_operativa.mensaje || 'La liberación proyectada no ocurrió.') +
                             '<div class="reservation-operation-actions">' +
                                  '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>' +
-                                (assignable ? '<button class="admin-btn admin-btn--secondary" type="button" data-operation-assignment-start>Reasignar mesas</button>' : '') +
                             '</div>' +
                         '</div>'
                         : '') +
                     (function () {
                         var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
                         var other = '';
-                        if (assignable && recommended.key !== 'reassign') other += renderActionButton('reassign', 'Cambiar mesas', 'admin-btn admin-btn--secondary', false);
                         if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true && mesaIds.length) {
                             other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', false);
                         }
@@ -1660,13 +1644,12 @@
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                         '<h4>Mesas</h4>' +
                         '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
-                        (assignable ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
+                        (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
                     '</section>' +
-                    (clientNote ?
-                        '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
-                            '<h4>Nota del cliente</h4>' +
-                            '<p class="reservation-operation-panel__note">' + esc(clientNote) + '</p>' +
-                        '</section>' : '') +
+                    '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
+                        '<h4>Nota del cliente</h4>' +
+                        '<p class="reservation-operation-panel__note ' + (clientNote ? '' : 'is-empty') + '">' + esc(clientNote || 'Sin indicaciones') + '</p>' +
+                    '</section>' +
                     (commentHtml ?
                         '<section class="reservation-operation-panel__section reservation-operation__comment">' +
                             '<h4>Comentario interno</h4>' +
@@ -2917,6 +2900,21 @@
                 event.preventDefault();
                 openCreateModal();
             }
+        });
+
+        document.addEventListener('operational:close-panel', function () {
+            if (state.assignmentMode) {
+                return;
+            }
+            state.reservacionSeleccionadaId = null;
+            state.currentAssignmentIds = new Set();
+            state.candidateSelectionIds = new Set();
+            state.assignmentSnapshot = null;
+            root.classList.add('is-panel-dismissed');
+            renderReservationDetail();
+            renderTableMap();
+            renderAssignmentBar();
+            updateUrl();
         });
 
         if (root.getAttribute('data-initial-date-warning') === '1') {
