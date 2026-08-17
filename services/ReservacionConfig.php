@@ -279,18 +279,6 @@ class ReservacionConfig
         ], $ahora)['influye_disponibilidad'];
     }
 
-    /**
-     * La vista previa requiere dos controles del servidor: entorno no
-     * productivo y una bandera explícita. Ningún dato del navegador la activa.
-     */
-    public static function otpPreviewEnabled(): bool
-    {
-        $entorno = strtolower(self::env('APP_ENV', 'production'));
-
-        return in_array($entorno, ['development', 'testing'], true)
-            && self::envBool('CONTACT_OTP_PREVIEW', false);
-    }
-
     public static function otpSendEnabled(): bool
     {
         return self::envBool('CONTACT_OTP_SEND_ENABLED', false);

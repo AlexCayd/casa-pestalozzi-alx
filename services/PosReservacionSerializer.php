@@ -16,6 +16,57 @@ final class PosReservacionSerializer
     public const SCHEMA_VERSION = 'pos-reservacion.v1';
 
     /**
+     * Campos de contacto que nunca deben cruzar la frontera de una respuesta
+     * POS para un usuario waiter. La lista también cubre aliases usados por
+     * adaptadores antiguos para evitar que el dato reaparezca anidado.
+     *
+     * @var array<int, string>
+     */
+    private const CAMPOS_CONTACTO_WAITER = [
+        'contacto',
+        'contacto_tipo',
+        'email',
+        'telefono',
+        'phone',
+        'mobile',
+        'correo',
+        'correo_electronico',
+        'numero_telefono',
+        'contact',
+        'contact_info',
+    ];
+
+    /**
+     * Retira contacto de un payload POS completo, incluidos bloques anidados
+     * como ocupación, advertencias y proyecciones de reservaciones.
+     *
+     * La proyección se ejecuta al final de la lectura, después de que las
+     * reglas operativas hayan usado los datos completos. No modifica el
+     * serializer administrativo ni los cálculos de dominio.
+     *
+     * @param array<string|int, mixed> $payload
+     * @return array<string|int, mixed>
+     */
+    public static function sanitizarParaWaiter(array $payload): array
+    {
+        $salida = [];
+        foreach ($payload as $clave => $valor) {
+            if (
+                is_string($clave)
+                && in_array(strtolower($clave), self::CAMPOS_CONTACTO_WAITER, true)
+            ) {
+                continue;
+            }
+
+            $salida[$clave] = is_array($valor)
+                ? self::sanitizarParaWaiter($valor)
+                : $valor;
+        }
+
+        return $salida;
+    }
+
+    /**
      * @param array<string, mixed>|object $fila
      * @param array<string, mixed>|null $ticket
      * @param array<int, array<string, mixed>> $mesas

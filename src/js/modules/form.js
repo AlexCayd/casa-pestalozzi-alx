@@ -536,7 +536,6 @@ function initForm() {
   var otpInput = otpStep && otpStep.querySelector("[data-new-reservation-otp-input]");
   var otpError = otpStep && otpStep.querySelector("[data-new-reservation-otp-error]");
   var otpMessage = otpStep && otpStep.querySelector("[data-new-reservation-otp-message]");
-  var otpPreview = otpStep && otpStep.querySelector("[data-new-reservation-preview]");
   var countdown = otpStep && otpStep.querySelector("[data-new-reservation-countdown]");
   var verifyButton = otpStep && otpStep.querySelector("[data-new-reservation-verify]");
   var resendButton = otpStep && otpStep.querySelector("[data-new-reservation-resend]");
@@ -1638,25 +1637,6 @@ function initForm() {
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
-  function renderPreview(code) {
-    otpPreview.replaceChildren();
-    otpPreview.hidden = !code;
-    if (!code) return;
-    var title = document.createElement("strong");
-    title.textContent = "Modo de desarrollo";
-    var text = document.createElement("span");
-    text.textContent = "Código de prueba: " + code;
-    var use = document.createElement("button");
-    use.type = "button";
-    use.className = "reservation-access__link";
-    use.textContent = "Usar código";
-    use.addEventListener("click", function() {
-      otpInput.value = code;
-      otpInput.focus();
-    });
-    otpPreview.append(title, text, use);
-  }
-
   function startCountdown(value) {
     holdExpiresAt = Date.parse(value || "");
     clearInterval(countdownTimer);
@@ -1727,10 +1707,6 @@ function initForm() {
     clearOtpError();
     otpMessage.textContent = "";
     if (countdown) countdown.textContent = "";
-    if (otpPreview) {
-      otpPreview.replaceChildren();
-      otpPreview.hidden = true;
-    }
     form.hidden = false;
     otpStep.hidden = true;
     setCurrentStep(2);
@@ -1757,7 +1733,6 @@ function initForm() {
     otpMessage.textContent = data.mensaje || "";
     otpInput.value = "";
     clearOtpError();
-    renderPreview(data.preview_code || "");
     startCountdown(data.hold_expires_at || data.otp_expires_at);
     otpInput.focus();
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
@@ -1895,9 +1870,7 @@ function initForm() {
       body: JSON.stringify(activeIdentity)
     }).then(function(data) {
       otpMessage.textContent = data.mensaje || "";
-      if (data.ok) {
-        renderPreview(data.preview_code || "");
-      } else if (data.codigo === "RETENCION_EXPIRADA") {
+      if (!data.ok && data.codigo === "RETENCION_EXPIRADA") {
         handleHoldExpired();
       }
     }).catch(function() {

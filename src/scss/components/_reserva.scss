@@ -154,24 +154,6 @@
   }
 }
 
-.reservation-access__preview {
-  display: grid;
-  gap: 0.35rem;
-  padding: 1rem;
-  border: 1px solid var(--accent);
-  background: rgba(204, 163, 82, 0.1);
-  color: var(--beige);
-
-  &[hidden] { display: none; }
-  strong {
-    color: var(--accent);
-    font-size: 0.68rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-  small { color: var(--txt-mute); }
-}
-
 .reservation-portal[hidden] { display: none; }
 
 .reservation-portal__head {

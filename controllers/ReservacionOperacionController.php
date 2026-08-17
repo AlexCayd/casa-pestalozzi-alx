@@ -186,6 +186,7 @@ class ReservacionOperacionController
             'excluir_reservacion_id' => $reservacionExcluida,
             'reservacion_en_edicion_id' => $reservacionExcluida,
             'incluir_contexto_administrativo' => true,
+            'superficie' => 'admin',
         ]);
         if (!($lectura['ok'] ?? false)) {
             self::jsonResponse([

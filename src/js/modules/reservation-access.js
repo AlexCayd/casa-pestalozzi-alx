@@ -35,7 +35,6 @@ function initReservationAccess() {
   var contactMasked = root.querySelector("[data-contact-masked]");
   var otpInput = root.querySelector("[data-otp-input]");
   var otpError = root.querySelector("[data-contact-otp-error]");
-  var preview = root.querySelector("[data-otp-preview]");
   var message = root.querySelector("[data-contact-message]");
   var portal = root.querySelector("[data-reservation-portal]");
   var list = root.querySelector("[data-reservation-list]");
@@ -134,7 +133,6 @@ function initReservationAccess() {
     window.CP_RESERVATION_CONTACT = null;
     if (contactInput) contactInput.value = "";
     if (otpInput) otpInput.value = "";
-    resetPreview();
   }
 
   function publishVerifiedSession(data) {
@@ -259,38 +257,9 @@ function initReservationAccess() {
       });
   }
 
-  function resetPreview() {
-    preview.hidden = true;
-    preview.replaceChildren();
-  }
-
-  function renderPreview(code, expiresAt) {
-    resetPreview();
-    if (!code) return;
-
-    var title = document.createElement("strong");
-    title.textContent = "Modo de desarrollo";
-    var text = document.createElement("span");
-    text.textContent = "Código de prueba: " + code;
-    var expires = document.createElement("small");
-    expires.textContent = expiresAt ? "Vence en aproximadamente 5 minutos." : "Código temporal.";
-    var useButton = document.createElement("button");
-    useButton.type = "button";
-    useButton.className = "reservation-access__link";
-    useButton.textContent = "Usar código de prueba";
-    useButton.addEventListener("click", function() {
-      otpInput.value = code;
-      otpInput.focus();
-    });
-
-    preview.append(title, text, expires, useButton);
-    preview.hidden = false;
-  }
-
   requestForm.addEventListener("submit", function(event) {
     event.preventDefault();
     setMessage("");
-    resetPreview();
 
     currentIdentity = {
       tipo: selectedType(),
@@ -318,7 +287,6 @@ function initReservationAccess() {
       });
       if (contactMasked) contactMasked.textContent = maskContact(currentIdentity.contacto, currentIdentity.tipo);
       otpInput.value = "";
-      renderPreview(data.preview_code || "", data.expires_at || "");
       setMessage(data.mensaje || "Código solicitado.");
       otpInput.focus();
     }).catch(function() {
@@ -381,7 +349,6 @@ function initReservationAccess() {
     verifyForm.hidden = true;
     otpInput.value = "";
     setOtpError("");
-    resetPreview();
     setMessage("");
     contactInput.focus();
   });
@@ -398,7 +365,6 @@ function initReservationAccess() {
         setMessage(data.mensaje || "No fue posible reenviar el código.", true);
         return;
       }
-      renderPreview(data.preview_code || "", data.expires_at || "");
       setMessage(data.mensaje || "Enviamos un código nuevo.");
     }).catch(function() {
       setMessage("No fue posible reenviar el código.", true);

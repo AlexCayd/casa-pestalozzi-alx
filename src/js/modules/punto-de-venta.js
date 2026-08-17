@@ -2093,8 +2093,6 @@ function initMapa() {
         escHtml(reservaVentanaActual.mensaje || reservaVentanaActual.etiqueta || '') +
         '</small></dd></div>';
       h += '<div><dt>Comensales</dt><dd>' + escHtml(reservaComensales || 0) + '</dd></div>';
-      h += '<div><dt>Contacto</dt><dd class="' + (reserva.contacto ? '' : 'is-empty') + '">' +
-        escHtml(reserva.contacto || 'Sin contacto') + '</dd></div>';
       h += '<div><dt>Mesas</dt><dd class="' + (reservaMesas.length ? '' : 'is-empty') + '">' +
         escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
       h += '</dl>';

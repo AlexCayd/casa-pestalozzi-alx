@@ -433,7 +433,8 @@ como contrato nuevo antes de implementarlo.
 - La sesión pública usa el namespace `reservation_client`, con expiración y
   CSRF propio; no concede rol administrativo ni POS.
 - OTP se almacena con `password_hash()` y se valida con `password_verify()`.
-- La vista previa de OTP requiere entorno no productivo y bandera explícita.
+- En el flujo manual/real, el OTP se entrega únicamente por el proveedor y
+  nunca se expone al navegador; las pruebas pueden inyectar un proveedor fake.
 - Las credenciales de personal usan hash; no se documentan secretos ni valores
   de entorno aquí.
 - La autorización del rol se aplica en servidor; deshabilitar un `<select>` no

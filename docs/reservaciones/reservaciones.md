@@ -1469,6 +1469,27 @@ La reservación vencida se retira como causa del estado base. El POS recalcula e
 
 ---
 
+## 17.7 Proyección de datos por consumidor
+
+El serializer canónico puede leer los datos completos para resolver reglas
+operativas, pero la respuesta se proyecta según el consumidor:
+
+```text
+ADMIN
+→ conserva contacto_tipo y contacto en las superficies administrativas autorizadas.
+
+POS / waiter
+→ conserva nombre, fecha, hora, comensales, nota, comentario_admin, mesas,
+  estado, ticket, ventanas y acciones operativas.
+→ no incluye contacto, contacto_tipo, email, telefono ni aliases equivalentes,
+  incluso dentro de estructuras anidadas.
+```
+
+La proyección POS se aplica en backend al payload de salida. La interfaz no es
+la frontera de seguridad y no puede reconstruir el contacto.
+
+---
+
 # 18. Mapa de reservaciones
 
 El mapa conserva su propia simbología de proyección administrativa:

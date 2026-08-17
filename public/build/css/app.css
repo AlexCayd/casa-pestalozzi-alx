@@ -2649,27 +2649,6 @@ body.nav-open .nav-overlay__links a {
   outline-offset: 4px;
 }
 
-.reservation-access__preview {
-  display: grid;
-  gap: 0.35rem;
-  padding: 1rem;
-  border: 1px solid var(--accent);
-  background: rgba(204, 163, 82, 0.1);
-  color: var(--beige);
-}
-.reservation-access__preview[hidden] {
-  display: none;
-}
-.reservation-access__preview strong {
-  color: var(--accent);
-  font-size: 0.68rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-.reservation-access__preview small {
-  color: var(--txt-mute);
-}
-
 .reservation-portal[hidden] {
   display: none;
 }

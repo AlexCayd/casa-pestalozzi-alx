@@ -9,7 +9,9 @@ const files = [
   'src/js/admin/reservations/form.js',
   'src/js/admin/reservations/operation.js',
   'src/js/operation/map-visual.js',
-  'src/js/operation/table-state-adapter.js'
+  'src/js/operation/table-state-adapter.js',
+  'src/js/modules/form.js',
+  'src/js/modules/reservation-access.js'
 ];
 
 function assertContract(condition, message) {

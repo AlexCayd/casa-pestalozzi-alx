@@ -216,7 +216,7 @@ final class ReservacionPublicaService
                     'request_token' => $datos['request_token'],
                     'hold_expires_at' => self::fechaAtom($vence),
                     'idempotente' => false,
-                ], self::camposPreviewOtp($otp));
+                ], self::camposOtpPublicos($otp));
             } catch (\Throwable $e) {
                 if ($transaccion) {
                     $db->rollback();
@@ -1486,13 +1486,9 @@ final class ReservacionPublicaService
         ];
     }
 
-    private static function camposPreviewOtp(array $otp): array
+    private static function camposOtpPublicos(array $otp): array
     {
-        $campos = ['otp_expires_at' => $otp['expires_at'] ?? null];
-        if (array_key_exists('preview_code', $otp)) {
-            $campos['preview_code'] = $otp['preview_code'];
-        }
-        return $campos;
+        return ['otp_expires_at' => $otp['expires_at'] ?? null];
     }
 
     private static function fechaAtom(string $fecha): string

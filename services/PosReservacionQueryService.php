@@ -213,7 +213,7 @@ final class PosReservacionQueryService
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') !== 'reemplazada'
         ));
 
-        return [
+        $respuesta = [
             'ok' => true,
             'codigo' => 'OK',
             'schema_version' => PosReservacionSerializer::SCHEMA_VERSION,
@@ -234,6 +234,10 @@ final class PosReservacionQueryService
             ],
             'actualizado_en' => $ahora->format(DATE_ATOM),
         ];
+
+        return strtolower((string)($opciones['superficie'] ?? 'waiter')) === 'waiter'
+            ? PosReservacionSerializer::sanitizarParaWaiter($respuesta)
+            : $respuesta;
     }
 
     /**
