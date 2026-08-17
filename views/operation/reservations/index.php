@@ -135,12 +135,7 @@ if ($initialOperationNotice !== null) {
     $operationalContextSelectionHtml =
         '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
             '<strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__of" data-operation-capacity-of> de 0</span> disponibles</strong>' .
-            '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden>' .
-                '<span><strong data-operation-capacity-total>0</strong> físicos</span>' .
-                '<span><strong data-operation-capacity-committed>0</strong> comprometidos</span>' .
-                '<span><strong data-operation-capacity-demand>0</strong> sin mesa</span>' .
-                '<span data-operation-capacity-projected-wrap hidden><strong data-operation-capacity-projected>0</strong> proyectados</span>' .
-            '</span>' .
+            '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden></span>' .
             '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
         '</div>';
     $operationalContextIncludeDrawerToggle = false;
@@ -186,9 +181,9 @@ if ($initialOperationNotice !== null) {
             include __DIR__ . '/../partials/map.php';
             ?>
 
-        <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Detalle operativo" aria-hidden="true" hidden inert>
+        <aside class="reservation-operation__panel" data-operation-panel-shell role="dialog" aria-modal="true" aria-labelledby="operation-detail-title" aria-hidden="true" hidden inert>
                 <div class="reservation-operation__panel-toolbar reservation-operation__header">
-                    <span>Detalle operativo</span>
+                    <span id="operation-detail-title">Detalle operativo</span>
                     <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar detalle" title="Cerrar detalle" data-operation-panel-close>
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
                     </button>

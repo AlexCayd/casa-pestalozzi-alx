@@ -346,7 +346,7 @@
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: rgba(4, 6, 5, 0.62);
+  background: var(--operational-overlay-scrim);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }

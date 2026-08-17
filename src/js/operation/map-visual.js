@@ -100,6 +100,7 @@
             alto: numberOrNull(raw.alto != null ? raw.alto : raw.height),
             reservable: reservable,
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
+            reservacionProxima: raw.reservacion_proxima || null,
             seleccionada: selected,
             interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
                 titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
@@ -178,6 +179,15 @@
             }
             return (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
                 .replace(/^./, function (letter) { return letter.toUpperCase(); });
+        }
+
+        function visibleTableContext(table) {
+            var reservation = table.reservacionProxima || null;
+            var hour = reservation && (reservation.hora || reservation.hora_reservacion)
+                ? String(reservation.hora || reservation.hora_reservacion).slice(0, 5)
+                : '';
+            var capacity = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
+            return [hour, capacity].filter(Boolean).join(' · ');
         }
 
         function dispatch(name, detail) {
@@ -277,8 +287,8 @@
                 state.textContent = visibleTableState(table);
             }
             if (context) {
-                context.textContent = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
-                context.hidden = table.capacidad <= 0;
+                context.textContent = visibleTableContext(table);
+                context.hidden = !context.textContent;
             }
         }
 
@@ -313,8 +323,8 @@
 
                 var context = document.createElement('span');
                 context.className = 'operational-map__structured-context';
-                context.textContent = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
-                context.hidden = table.capacidad <= 0;
+                context.textContent = visibleTableContext(table);
+                context.hidden = !context.textContent;
                 button.appendChild(context);
 
                 button.addEventListener('click', function () {

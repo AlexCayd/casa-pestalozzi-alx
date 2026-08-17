@@ -90,8 +90,8 @@
         <label class="operational-visually-hidden" for="operation-asignacion-filtro">Estado de asignacion</label>
         <select id="operation-asignacion-filtro" data-operation-assignment-filter>
             <option value="all">Todas</option>
-            <option value="pending">Pendientes de asignar</option>
-            <option value="assigned">Con mesas</option>
+            <option value="pending">Sin mesa</option>
+            <option value="assigned">Con mesa</option>
         </select>
     </div>
 

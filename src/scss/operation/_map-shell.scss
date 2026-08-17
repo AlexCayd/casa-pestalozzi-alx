@@ -289,12 +289,11 @@
 
   &::before {
     content: "";
-    width: 0;
-    height: 0;
+    width: 0.4rem;
+    height: 0.6rem;
     flex: 0 0 auto;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 6px solid var(--admin-gold);
+    background: var(--admin-gold);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
     transition: transform 160ms ease;
   }
 
@@ -346,7 +345,7 @@
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
+  border-left: 1px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
@@ -396,13 +395,28 @@
 
 .operational-map__structured-name {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-map__structured-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

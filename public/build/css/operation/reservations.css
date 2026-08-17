@@ -136,8 +136,8 @@
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
-  height: max(500px, 100dvh - var(--operational-header-height) - var(--operational-context-height) - var(--operational-shell-gap) * 4 - var(--operational-shell-pad) * 2);
-  min-height: 500px;
+  height: clamp(320px, 100dvh - var(--operational-header-height) - var(--operational-context-height) - var(--operational-shell-gap) * 4 - var(--operational-shell-pad) * 2 - 124px, 760px);
+  min-height: 0;
   flex: 0 0 auto;
 }
 
@@ -238,8 +238,8 @@ html:has(.operation-body.is-assignment-mode) {
 }
 @media (max-width: 700px) {
   .reservation-operation.assignment-mode .reservation-operation__workspace {
-    height: max(420px, 100dvh - var(--operational-header-height) - 180px);
-    min-height: 420px;
+    height: clamp(300px, 100dvh - var(--operational-header-height) - var(--operational-context-height) - 168px, 620px);
+    min-height: 0;
   }
 }
 .skip-link {
@@ -299,6 +299,12 @@ html:has(.operation-body.is-assignment-mode) {
   --operational-context-height: 56px;
   --operational-module-max-width: 1440px;
   --operational-workspace-max-height: 760px;
+  --operational-accent: var(--admin-gold);
+  --operational-accent-soft: var(--admin-gold-soft);
+  --operational-overlay-scrim: rgba(4, 6, 5, 0.68);
+  --operational-info-strong: #dceeff;
+  --operational-info-soft: #c9def0;
+  --operational-info-bright: #e8f5ff;
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -1764,7 +1770,7 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: rgba(4, 6, 5, 0.62);
+  background: var(--operational-overlay-scrim);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }
@@ -2084,12 +2090,11 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .operational-map__structured summary::before {
   content: "";
-  width: 0;
-  height: 0;
+  width: 0.4rem;
+  height: 0.6rem;
   flex: 0 0 auto;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 6px solid var(--admin-gold);
+  background: var(--admin-gold);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
   transition: transform 160ms ease;
 }
 .operational-map__structured summary:hover {
@@ -2141,7 +2146,7 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
+  border-left: 1px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
@@ -2198,13 +2203,28 @@ html:has(.operation-body.is-assignment-mode) {
 
 .operational-map__structured-name {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-map__structured-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2967,6 +2987,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 .reservation-operation-capacity__primary {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: baseline;
   gap: 0;
   min-width: max-content;
@@ -2990,25 +3011,18 @@ html:has(.operation-body.is-assignment-mode) {
 
 .reservation-operation-capacity__secondary {
   display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
-  gap: 8px;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.reservation-operation-capacity__secondary > span {
-  display: inline;
-}
-
-.reservation-operation-capacity__secondary span + span::before {
-  content: "·";
-  margin-right: 8px;
+.reservation-operation-capacity__secondary::first-letter {
   color: var(--admin-border);
-}
-
-.reservation-operation-capacity__secondary strong {
-  color: var(--admin-text);
-  font-variant-numeric: tabular-nums;
 }
 
 .reservation-operation__filter {
@@ -3526,7 +3540,7 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 0;
   align-content: start;
   gap: 0;
-  padding: 0 0 16px;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -3922,6 +3936,15 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--admin-warning-text);
 }
 
+.reservation-operation-panel__note.is-empty {
+  color: var(--admin-faint);
+  font-style: italic;
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note {
+  overflow-wrap: anywhere;
+}
+
 .reservation-operation-comment {
   display: grid;
   gap: var(--operational-space-2);
@@ -4032,7 +4055,6 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 12px 20px;
   align-items: center;
   border: 1px solid color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border-soft));
-  border-left-width: 4px;
   border-radius: 14px;
   background: linear-gradient(105deg, rgba(204, 163, 82, 0.14), transparent 38%), color-mix(in srgb, var(--admin-surface) 97%, transparent);
   box-shadow: 0 0 0 1px rgba(204, 163, 82, 0.08), 0 18px 42px rgba(0, 0, 0, 0.32);
@@ -4263,7 +4285,6 @@ html:has(.operation-body.is-assignment-mode) {
   margin-bottom: 12px;
   padding: 11px 13px;
   border: 1px solid var(--admin-border-soft);
-  border-left-width: 3px;
   border-radius: 10px;
   background: var(--admin-surface);
   color: var(--admin-muted);
@@ -4316,7 +4337,6 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--admin-border-soft);
-  border-left-width: 3px;
   border-radius: 12px;
   background: var(--admin-surface);
   color: var(--admin-muted);
@@ -4467,25 +4487,25 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-global-notice--restricted {
   border-color: color-mix(in srgb, var(--admin-info-text) 62%, var(--admin-border-strong));
   background: color-mix(in srgb, var(--admin-info-text) 18%, var(--admin-surface-strong));
-  color: #dceeff;
+  color: var(--operational-info-strong);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), 0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
 }
 .operational-global-notice--info .operational-global-notice__icon,
 .operational-global-notice--restricted .operational-global-notice__icon {
   border-color: color-mix(in srgb, var(--admin-info-text) 65%, transparent);
   background: color-mix(in srgb, var(--admin-info-text) 14%, transparent);
-  color: #e8f5ff;
+  color: var(--operational-info-bright);
 }
 .operational-global-notice--info .operational-global-notice__copy > span,
 .operational-global-notice--info .operational-global-notice__detail p,
 .operational-global-notice--restricted .operational-global-notice__copy > span,
 .operational-global-notice--restricted .operational-global-notice__detail p {
-  color: #c9def0;
+  color: var(--operational-info-soft);
   opacity: 1;
 }
 .operational-global-notice--info .operational-global-notice__expand:hover,
 .operational-global-notice--restricted .operational-global-notice__expand:hover {
-  background: color-mix(in srgb, #dceeff 16%, transparent);
+  background: color-mix(in srgb, var(--operational-info-strong) 16%, transparent);
 }
 
 .operational-global-notice--success {
@@ -4802,7 +4822,7 @@ html:has(.operation-body.is-assignment-mode) {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 12px 24px;
+  padding: 12px 24px max(12px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--admin-border-soft);
   background: var(--admin-surface);
 }
@@ -4824,6 +4844,27 @@ html:has(.operation-body.is-assignment-mode) {
 
 .operation-create-modal .reservation-admin-form-card:hover::before {
   opacity: 0;
+}
+
+.operation-create-modal .reservation-admin-form-card__head {
+  display: none;
+}
+
+.operation-create-modal .reservation-capacity-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.operation-create-modal .reservation-capacity-summary > div {
+  min-width: 0;
+}
+.operation-create-modal .reservation-capacity-summary > div strong {
+  overflow-wrap: anywhere;
+  font-size: var(--operational-text-sm);
+  line-height: 1.35;
+}
+.operation-create-modal .reservation-capacity-summary > div strong span {
+  color: var(--admin-text);
+  font-size: 1.15em;
+  font-variant-numeric: tabular-nums;
 }
 
 .operation-create-modal .reservation-detail-form {
@@ -5072,6 +5113,9 @@ html:has(.operation-body.is-assignment-mode) {
   }
   .operation-create-modal__footer .admin-btn {
     width: 100%;
+  }
+  .operation-create-modal .reservation-capacity-summary {
+    grid-template-columns: minmax(0, 1fr);
   }
   .operation-create-modal .reservation-detail-form__wide {
     grid-column: auto;

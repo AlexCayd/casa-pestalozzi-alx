@@ -99,7 +99,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 12px 24px;
+  padding: 12px 24px max(12px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--admin-border-soft);
   background: var(--admin-surface);
 }
@@ -121,6 +121,30 @@
 
 .operation-create-modal .reservation-admin-form-card:hover::before {
   opacity: 0;
+}
+
+.operation-create-modal .reservation-admin-form-card__head {
+  display: none;
+}
+
+.operation-create-modal .reservation-capacity-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  > div {
+    min-width: 0;
+  }
+
+  > div strong {
+    overflow-wrap: anywhere;
+    font-size: var(--operational-text-sm);
+    line-height: 1.35;
+  }
+
+  > div strong span {
+    color: var(--admin-text);
+    font-size: 1.15em;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .operation-create-modal .reservation-detail-form {
@@ -395,6 +419,10 @@
     .admin-btn {
       width: 100%;
     }
+  }
+
+  .operation-create-modal .reservation-capacity-summary {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .operation-create-modal .reservation-detail-form__wide {

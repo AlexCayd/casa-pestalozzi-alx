@@ -60,6 +60,12 @@
   --operational-context-height: 56px;
   --operational-module-max-width: 1440px;
   --operational-workspace-max-height: 760px;
+  --operational-accent: var(--admin-gold);
+  --operational-accent-soft: var(--admin-gold-soft);
+  --operational-overlay-scrim: rgba(4, 6, 5, 0.68);
+  --operational-info-strong: #dceeff;
+  --operational-info-soft: #c9def0;
+  --operational-info-bright: #e8f5ff;
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);

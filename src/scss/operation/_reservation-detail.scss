@@ -41,7 +41,7 @@
   min-height: 0;
   align-content: start;
   gap: 0;
-  padding: 0 0 16px;
+  padding: 0 0 max(16px, env(safe-area-inset-bottom));
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -469,6 +469,15 @@
 
 .reservation-operation-panel__selected.is-empty strong {
   color: var(--admin-warning-text);
+}
+
+.reservation-operation-panel__note.is-empty {
+  color: var(--admin-faint);
+  font-style: italic;
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note {
+  overflow-wrap: anywhere;
 }
 
 .reservation-operation-comment {

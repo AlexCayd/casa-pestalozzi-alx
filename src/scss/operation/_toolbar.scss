@@ -222,6 +222,7 @@
 
 .reservation-operation-capacity__primary {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: baseline;
   gap: 0;
   min-width: max-content;
@@ -245,25 +246,18 @@
 
 .reservation-operation-capacity__secondary {
   display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
   align-items: center;
-  gap: 8px;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.reservation-operation-capacity__secondary > span {
-  display: inline;
-}
-
-.reservation-operation-capacity__secondary span + span::before {
-  content: '·';
-  margin-right: 8px;
+.reservation-operation-capacity__secondary::first-letter {
   color: var(--admin-border);
-}
-
-.reservation-operation-capacity__secondary strong {
-  color: var(--admin-text);
-  font-variant-numeric: tabular-nums;
 }
 
 .reservation-operation__filter {

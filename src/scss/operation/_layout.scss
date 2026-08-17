@@ -139,8 +139,8 @@
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
-  height: max(500px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2)));
-  min-height: 500px;
+  height: clamp(320px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2) - 124px), 760px);
+  min-height: 0;
   flex: 0 0 auto;
 }
 
@@ -249,7 +249,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 @media (max-width: 700px) {
   .reservation-operation.assignment-mode .reservation-operation__workspace {
-    height: max(420px, calc(100dvh - var(--operational-header-height) - 180px));
-    min-height: 420px;
+    height: clamp(300px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - 168px), 620px);
+    min-height: 0;
   }
 }

@@ -95,7 +95,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 <article class="reservation-detail-card admin-card reservation-admin-form-card" data-reservation-form-card>
     <div class="reservation-detail-card__head reservation-admin-form-card__head">
         <div>
-            <span class="reservation-detail-card__label"><?php echo $modo === 'crear' ? 'Alta administrativa' : 'Informacion editable'; ?></span>
+            <span class="reservation-detail-card__label"><?php echo $modo === 'crear' ? 'Datos de la visita' : 'Informacion editable'; ?></span>
             <h3>Datos de la reservacion</h3>
             <p><?php echo $modo === 'crear' ? 'Registra la visita y los datos de contacto del cliente.' : 'Actualiza la informacion de la visita sin perder el contexto operativo.'; ?></p>
         </div>
@@ -165,7 +165,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-visit-title'); ?>">
                 <div class="reservation-detail-form__section-head">
                     <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-visit-title'); ?>">Datos de visita</h3>
-                    <p>Define cuándo y para cuántas personas se prepara la visita.</p>
+                    <p>Define fecha, hora y comensales.</p>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--visit">
                     <label class="reservation-detail-form__field reservation-detail-form__field--date">
@@ -215,28 +215,12 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                 </div>
                 <div class="reservation-capacity-summary" data-reservation-capacity-summary hidden>
                     <div>
-                        <span>Capacidad física total</span>
-                        <strong data-capacity-total>0</strong>
+                        <span>Capacidad para este horario</span>
+                        <strong><span data-capacity-real>0</span> lugares disponibles</strong>
                     </div>
                     <div>
-                        <span>Capacidad comprometida</span>
-                        <strong data-capacity-committed>0</strong>
-                    </div>
-                    <div>
-                        <span>Demanda sin asignar</span>
-                        <strong data-capacity-demand>0</strong>
-                    </div>
-                    <div>
-                        <span>Capacidad disponible</span>
-                        <strong data-capacity-real>0</strong>
-                    </div>
-                    <div>
-                        <span>Comensales solicitados</span>
-                        <strong data-capacity-requested>0</strong>
-                    </div>
-                    <div>
-                        <span>Liberación proyectada</span>
-                        <strong data-capacity-projected>0</strong>
+                        <span>Solicitud</span>
+                        <strong><span data-capacity-requested>0</span> personas</strong>
                     </div>
                     <p class="reservation-capacity-summary__warning" data-capacity-warning hidden></p>
                 </div>
