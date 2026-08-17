@@ -88,15 +88,21 @@
     <?php if ($operationalFilterScope !== 'context'): ?>
     <div class="reservation-operation__filter reservation-operation__assignment-filter">
         <label class="operational-visually-hidden" for="operation-asignacion-filtro">Estado de asignacion</label>
-        <select id="operation-asignacion-filtro" data-operation-assignment-filter>
+        <select class="operational-visually-hidden" id="operation-asignacion-filtro" data-operation-assignment-filter>
             <option value="all">Todas</option>
             <option value="pending">Sin mesa</option>
             <option value="assigned">Con mesa</option>
         </select>
+        <div class="reservation-operation__filter-segmented" role="group" aria-label="Filtrar reservaciones por mesas">
+            <button type="button" class="is-active" data-operation-assignment-option="all" aria-pressed="true">Todas</button>
+            <button type="button" data-operation-assignment-option="pending" aria-pressed="false">Sin mesa</button>
+            <button type="button" data-operation-assignment-option="assigned" aria-pressed="false">Con mesa</button>
+        </div>
     </div>
 
     <div class="reservation-operation__filter reservation-operation__search-filter">
         <label class="operational-visually-hidden" for="operation-reservacion-busqueda"><?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?></label>
+        <svg class="reservation-operation__search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.2"></circle><path d="m16 16 4.5 4.5"></path></svg>
         <input id="operation-reservacion-busqueda" type="search" placeholder="<?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?>" autocomplete="off" data-operation-reservation-search>
     </div>
     <?php endif; ?>

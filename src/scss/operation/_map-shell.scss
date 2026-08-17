@@ -985,6 +985,39 @@
     width: 820px;
     min-width: 820px;
   }
+
+  // En la operación móvil el plano se adapta al viewport: el estado completo
+  // sigue visible y no obliga a desplazar horizontalmente para encontrar mesas.
+  .reservation-operation__map .mesas-map__viewport {
+    place-items: stretch;
+    overflow-x: hidden;
+  }
+
+  .reservation-operation__map .mesas-map__floor {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 320px;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin {
+    width: clamp(64px, 19cqw, 76px) !important;
+    min-width: clamp(64px, 19cqw, 76px);
+    height: clamp(48px, 5.5cqw, 56px) !important;
+    min-height: 48px;
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-barra {
+    width: clamp(88px, 26cqw, 112px) !important;
+    min-width: clamp(88px, 26cqw, 112px);
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-especial {
+    width: clamp(60px, 18cqw, 76px) !important;
+    min-width: clamp(60px, 18cqw, 76px);
+  }
 }
 
 @media (max-height: 680px) and (min-width: 901px) {

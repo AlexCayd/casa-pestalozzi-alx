@@ -437,3 +437,138 @@
     }
   }
 }
+
+// El alta operativa usa el mismo formulario y contratos del admin, pero con
+// una jerarquía más corta: secciones, labels y controles; el footer queda fijo
+// mientras el cuerpo conserva el único scroll del modal.
+.operation-create-modal {
+  max-height: min(820px, calc(100dvh - 32px));
+}
+
+.operation-create-modal__body {
+  padding-block: 22px 26px;
+}
+
+.operation-create-modal .reservation-detail-form {
+  gap: 28px;
+}
+
+.operation-create-modal .reservation-detail-form__grid {
+  gap: 28px;
+}
+
+.operation-create-modal .reservation-detail-form__section {
+  gap: 14px;
+}
+
+.operation-create-modal .reservation-detail-form__section-head {
+  gap: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.operation-create-modal .reservation-detail-form__group-label {
+  color: var(--admin-text);
+  font-size: 18px;
+}
+
+.operation-create-modal .reservation-detail-form__field {
+  gap: 6px;
+}
+
+.operation-create-modal .reservation-detail-form__field > span:first-child {
+  font-size: var(--operational-text-xs);
+}
+
+.operation-create-modal .reservation-detail-form__fields {
+  gap: 14px 16px;
+}
+
+.operation-create-modal .reservation-detail-form__fields input,
+.operation-create-modal .reservation-detail-form__fields select,
+.operation-create-modal .reservation-detail-form__fields .date-display,
+.operation-create-modal .reservation-detail-form__fields .hour-display {
+  min-height: 44px;
+  height: 44px;
+  padding-block: 10px;
+}
+
+.operation-create-modal .reservation-detail-form__optional-section,
+.operation-create-modal .reservation-detail-form__assignment-section {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--admin-border-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.operation-create-modal .reservation-detail-form__optional-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.operation-create-modal .reservation-detail-form__optional-section legend,
+.operation-create-modal .reservation-detail-form__assignment-section legend {
+  padding: 0;
+  color: var(--admin-text);
+  font-family: var(--operational-font-ui);
+  font-size: 18px;
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0;
+}
+
+.operation-create-modal .reservation-detail-form__optional-section label {
+  gap: 6px;
+}
+
+.operation-create-modal .reservation-detail-form__optional-section textarea {
+  min-height: 84px;
+  height: 84px;
+  max-height: 180px;
+}
+
+.operation-create-modal .reservation-detail-form__helper {
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-medium);
+}
+
+.operation-create-modal .reservation-detail-form__assignment-section {
+  gap: 8px;
+}
+
+.operation-create-modal .reservation-detail-form__assignment-section .reservation-admin-form__check {
+  margin: 0;
+}
+
+.operation-create-modal .reservation-detail-form__assignment-section .reservation-admin-form__check-copy small {
+  max-width: 62ch;
+}
+
+@media (max-width: 720px) {
+  .operation-create-modal .reservation-detail-form__optional-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .operation-create-modal {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .operation-create-modal .reservation-detail-form__fields--visit,
+  .operation-create-modal .reservation-detail-form__fields--client {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .operation-create-modal .reservation-detail-form {
+    gap: 24px;
+  }
+
+  .operation-create-modal .reservation-detail-form__grid {
+    gap: 24px;
+  }
+}

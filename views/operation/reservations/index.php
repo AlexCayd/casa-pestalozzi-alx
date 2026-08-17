@@ -116,6 +116,25 @@ if ($initialOperationNotice !== null) {
     $operationalFilterScope = 'context';
     include __DIR__ . '/../partials/map-toggle.php';
     include __DIR__ . '/_filters.php';
+    ?>
+        <button
+            type="button"
+            class="admin-btn admin-btn--secondary operational-tables-trigger"
+            aria-label="Ver lista de mesas"
+            title="Ver lista de mesas"
+            aria-expanded="false"
+            aria-controls="operation-tables-modal"
+            data-operation-tables-open
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            </svg>
+            <span>Mesas</span>
+        </button>
+    <?php
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
@@ -133,8 +152,9 @@ if ($initialOperationNotice !== null) {
     $operationalContextActionsHtml = (string)ob_get_clean();
     $operationalContextView = 'reservations';
     $operationalContextSelectionHtml =
-        '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
-            '<strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__of" data-operation-capacity-of> de 0</span> disponibles</strong>' .
+        '<div class="reservation-operation-capacity" data-operation-capacity role="status" aria-live="polite" hidden>' .
+            '<svg class="reservation-operation-capacity__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 17.5h14M7 14.5h10M9 11.5h6M12 5v3"></path><path d="M8 5h8"></path></svg>' .
+            '<div class="reservation-operation-capacity__copy"><span class="reservation-operation-capacity__label">Disponibilidad</span><strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__of" data-operation-capacity-of> de 0</span> disponibles</strong></div>' .
             '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden></span>' .
             '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
         '</div>';
@@ -174,14 +194,14 @@ if ($initialOperationNotice !== null) {
                         'canvasMode' => 'operation',
                 'loadingMode' => 'empty',
                 'legendPosition' => 'footer',
-                // Se conserva aquí: es la alternativa accesible al mapa en la
-                // pantalla de escritorio, donde sí sobra alto.
-                'structuredList' => true,
+                // La lista operativa vive en el modal de mesas; el canvas no
+                // reserva altura para una segunda superficie de consulta.
+                'structuredList' => false,
             ];
             include __DIR__ . '/../partials/map.php';
             ?>
 
-        <aside class="reservation-operation__panel" data-operation-panel-shell role="dialog" aria-modal="true" aria-labelledby="operation-detail-title" aria-hidden="true" hidden inert>
+        <aside class="reservation-operation__panel" data-operation-panel-shell aria-labelledby="operation-detail-title" aria-hidden="false">
                 <div class="reservation-operation__panel-toolbar reservation-operation__header">
                     <span id="operation-detail-title">Detalle operativo</span>
                     <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar detalle" title="Cerrar detalle" data-operation-panel-close>
@@ -194,6 +214,32 @@ if ($initialOperationNotice !== null) {
         </aside>
         </div>
     </div>
+
+    <dialog
+        class="operation-tables-modal"
+        id="operation-tables-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="operation-tables-modal-title"
+        tabindex="-1"
+        data-operation-tables-modal
+    >
+        <div class="operation-tables-modal__surface">
+            <header class="operation-tables-modal__head">
+                <div>
+                    <span class="operation-tables-modal__eyebrow">Mapa operativo</span>
+                    <h2 id="operation-tables-modal-title">Estado de mesas</h2>
+                    <p data-operation-tables-meta>Consulta actual</p>
+                </div>
+                <button type="button" class="operational-icon-button operation-tables-modal__close" aria-label="Cerrar estado de mesas" title="Cerrar estado de mesas" data-operation-tables-close>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                </button>
+            </header>
+            <div class="operation-tables-modal__body">
+                <div class="operation-tables-modal__grid" data-operation-tables-grid role="list" aria-label="Lista de mesas"></div>
+            </div>
+        </div>
+    </dialog>
 
         <section
             class="reservation-operation-assignment-bar assignment-toolbar"

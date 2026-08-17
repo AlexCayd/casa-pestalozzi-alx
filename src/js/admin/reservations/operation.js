@@ -83,6 +83,7 @@
             hourRoot: root.querySelector('[data-operation-time-group] [data-reservation-time-picker]'),
             hour: root.querySelector('[data-operation-hour]'),
             assignmentFilter: root.querySelector('[data-operation-assignment-filter]'),
+            assignmentOptions: root.querySelectorAll('[data-operation-assignment-option]'),
             reservationSearch: root.querySelector('[data-operation-reservation-search]'),
             load: root.querySelector('[data-operation-load]'),
             create: root.querySelector('[data-operation-create]'),
@@ -106,7 +107,6 @@
             map: root.querySelector('[data-operation-map]'),
             panel: root.querySelector('[data-operation-panel]'),
             panelShell: root.querySelector('[data-operation-panel-shell]'),
-            structuredDetails: root.querySelector('[data-map-structured-details]'),
             assignmentBar: root.querySelector('[data-operation-assignment-bar]'),
             assignmentTitle: root.querySelector('[data-operation-assignment-title]'),
             assignmentCancel: root.querySelector('[data-operation-assignment-cancel]'),
@@ -121,6 +121,11 @@
             capacityOf: root.querySelector('[data-operation-capacity-of]'),
             capacitySecondary: root.querySelector('[data-operation-capacity-secondary]'),
             capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
+            tablesOpen: root.querySelector('[data-operation-tables-open]'),
+            tablesModal: root.querySelector('[data-operation-tables-modal]'),
+            tablesClose: root.querySelector('[data-operation-tables-close]'),
+            tablesMeta: root.querySelector('[data-operation-tables-meta]'),
+            tablesGrid: root.querySelector('[data-operation-tables-grid]'),
             tableWarning: null
         };
 
@@ -134,22 +139,6 @@
 
         if (!mapVisual) {
             return;
-        }
-
-        if (els.structuredDetails) {
-            els.structuredDetails.addEventListener('toggle', function () {
-                if (!els.structuredDetails.open
-                    || !root.classList.contains('has-selected-reservation')
-                    || !window.matchMedia
-                    || !window.matchMedia('(max-width: 900px)').matches) {
-                    return;
-                }
-
-                // En una superficie estrecha la lista ocupa el mismo plano que
-                // el detalle; mantener una sola capa abierta evita ocultar
-                // acciones bajo el overlay de detalle.
-                document.dispatchEvent(new CustomEvent('operational:close-panel'));
-            });
         }
 
         var createModal = root.querySelector('[data-operation-create-modal]');
@@ -179,6 +168,7 @@
         var temporalIntervalId = null;
         var datePicker = null;
         var timePicker = null;
+        var tablesModalLastFocus = null;
 
         function esc(value) {
             return String(value == null ? '' : value)
@@ -620,9 +610,11 @@
             if (!els.panelShell) {
                 return;
             }
-            els.panelShell.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-            els.panelShell.toggleAttribute('inert', hidden);
-            els.panelShell.hidden = hidden;
+            var overlayMode = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+            var shouldHide = hidden && overlayMode;
+            els.panelShell.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
+            els.panelShell.toggleAttribute('inert', shouldHide);
+            els.panelShell.hidden = shouldHide;
         }
 
         function renderAssignmentBar() {
@@ -1364,10 +1356,9 @@
             }
             if (els.panel) {
                 els.panel.innerHTML =
-                    '<article class="reservation-operation-panel admin-card">' +
-                        '<span class="reservation-operation-panel__label">Reservacion seleccionada</span>' +
-                        '<h3>Cargando</h3>' +
-                        '<p class="reservation-operation-panel__muted">Consultando reservaciones del dia.</p>' +
+                    '<article class="reservation-operation-panel reservation-operation-panel--empty">' +
+                        '<span class="reservation-operation-panel__label">Detalle operativo</span>' +
+                        '<p>Consultando reservaciones del día.</p>' +
                     '</article>';
             }
         }
@@ -1380,6 +1371,7 @@
             renderReservationList();
             renderReservationDetail();
             renderTableMap();
+            renderTablesModal();
             renderAssignmentBar();
             if (els.create) {
                 els.create.setAttribute('data-create-date', state.fecha || '');
@@ -1540,11 +1532,13 @@
                 return;
             }
 
-            // Sin una selección, el mapa recupera toda su superficie útil.
-            // El detalle es un overlay temporal, no un empty state persistente.
             setPanelAccessibility(true);
             root.classList.remove('has-selected-reservation');
-            els.panel.innerHTML = '';
+            els.panel.innerHTML =
+                '<article class="reservation-operation-panel reservation-operation-panel--empty">' +
+                    '<span class="reservation-operation-panel__label">Detalle operativo</span>' +
+                    '<p>Selecciona una reservación<br>para consultar sus datos y acciones.</p>' +
+                '</article>';
         }
 
         function renderRecommendedAction(reservacion, mesaIds, editable) {
@@ -1598,6 +1592,21 @@
             var canCancelReservation = estado === 'confirmada' && !reservacion.ticket_abierto;
             var clientNote = String(reservacion.nota || '').trim();
             var commentHtml = renderCommentBox(reservacion, editable);
+            var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
+            var otherActions = '';
+            if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true && mesaIds.length) {
+                otherActions += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', false);
+            }
+            if (recommended.key !== 'no-show' && reservacion.puede_registrar_ausencia === true) {
+                otherActions += renderActionButton('no-show', 'Registrar ausencia', 'admin-btn admin-btn--ghost', false);
+            }
+            if (reservacion.ticket_abierto && reservacion.ticket_id) {
+                otherActions += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>';
+            }
+            var moreActions = detailLink +
+                (assignable && canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--ghost" type="button" data-operation-clear>Liberar mesas</button>' : '') +
+                (canCancelReservation ? renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', false) : '') +
+                otherActions;
 
             els.panel.innerHTML =
                 '<article class="reservation-operation-panel admin-card">' +
@@ -1621,26 +1630,9 @@
                             '</div>' +
                         '</div>'
                         : '') +
-                    (function () {
-                        var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
-                        var other = '';
-                        if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true && mesaIds.length) {
-                            other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', false);
-                        }
-                        if (recommended.key !== 'no-show' && reservacion.puede_registrar_ausencia === true) {
-                            other += renderActionButton('no-show', 'Registrar ausencia', 'admin-btn admin-btn--ghost', false);
-                        }
-                        if (reservacion.ticket_abierto && reservacion.ticket_id) {
-                            other += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>';
-                        }
-                        if (!recommended.html && !other) {
-                            return '';
-                        }
-                        return '<section class="reservation-operation-panel__section reservation-operation-panel__section--actions reservation-operation__quick-actions">' +
-                            (recommended.html ? '<div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + recommended.html + '</div>' : '') +
-                            (other ? '<div class="reservation-operation-action-group"><h4>Acciones disponibles</h4><div class="reservation-operation-actions">' + other + '</div></div>' : '') +
-                        '</section>';
-                    })() +
+                    (recommended.html
+                        ? '<section class="reservation-operation-panel__section reservation-operation-panel__section--actions reservation-operation__quick-actions"><div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + recommended.html + '</div></section>'
+                        : '') +
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                         '<h4>Mesas</h4>' +
                         '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
@@ -1655,11 +1647,9 @@
                             '<h4>Comentario interno</h4>' +
                             commentHtml +
                         '</section>' : '') +
-                    ((detailLink || (assignable && canClearAssignment(reservacion)) || canCancelReservation) ?
+                    (moreActions ?
                         '<section class="reservation-operation-panel__section reservation-operation-panel__section--more-actions"><h4>Más acciones</h4><div class="reservation-operation-actions">' +
-                            detailLink +
-                            (assignable && canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--ghost" type="button" data-operation-clear>Liberar asignación</button>' : '') +
-                            (canCancelReservation ? renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', false) : '') +
+                            moreActions +
                         '</div></section>' : '') +
                 '</article>';
         }
@@ -1851,6 +1841,157 @@
                 mesas: mesasVisuales,
                 elementos: []
             });
+            renderTablesModal();
+        }
+
+        function tableModalState(table) {
+            var mesaId = parseInt(table.id || '0', 10);
+            var selected = state.assignmentMode && (
+                state.currentAssignmentIds.has(mesaId) || state.candidateSelectionIds.has(mesaId)
+            );
+            var modifiers = Array.isArray(table.modificadores_visual_mapa)
+                ? table.modificadores_visual_mapa
+                : (Array.isArray(table.modificadores_mapa) ? table.modificadores_mapa : []);
+            var reservation = table.reservacion || table.reservacion_asociada || null;
+            var hourSource = reservation && (reservation.hora || reservation.hora_reservacion)
+                ? reservation.hora || reservation.hora_reservacion
+                : table.inicio_reservacion || '';
+            var hourMatch = String(hourSource || '').match(/(?:^|T|\s)(\d{2}:\d{2})/);
+            var hour = hourMatch ? hourMatch[1] : '';
+            var visualState = String(table.estado_visual_mapa || table.estado_visual || 'libre');
+            var label = 'Disponible';
+            var context = '';
+
+            if (selected) {
+                label = 'Seleccionada';
+                context = 'Asignación en curso';
+                visualState = 'seleccionada';
+            } else if (table.utilizable === false || table.reservable === false) {
+                label = 'No reservable';
+                context = 'Área operativa';
+                visualState = 'no-utilizable';
+            } else if (table.ausencia_pendiente === true || modifiers.indexOf('ausencia_pendiente') !== -1) {
+                label = 'Ausencia pendiente';
+                context = hour || 'Registrar ausencia';
+            } else if (table.ticket_abierto === true || table.ticket_bloquea_consulta === true) {
+                label = 'Ocupada';
+                context = 'Ticket abierto';
+                visualState = 'ocupada';
+            } else if (visualState === 'ocupada') {
+                label = 'Ocupada';
+                context = 'Servicio activo';
+            } else if (visualState === 'reservacion-proxima'
+                || modifiers.indexOf('reservacion_advertencia') !== -1
+                || modifiers.indexOf('reservacion_inminente') !== -1
+                || table.reservacion_proxima) {
+                label = 'Reserva próxima';
+                context = hour || 'Reserva próxima';
+                visualState = 'reservacion-proxima';
+            }
+
+            return {
+                id: mesaId,
+                label: label,
+                context: context,
+                visualState: visualState,
+                capacity: parseInt(table.capacidad || '0', 10) || 0,
+                interactive: state.assignmentMode && Boolean(selectedReservation()) && mesaPuedeSerCandidata(mesaId) && !state.guardando
+            };
+        }
+
+        function renderTablesModal() {
+            if (!els.tablesGrid) {
+                return;
+            }
+
+            var date = state.fecha ? fechaLegible(state.fecha) : 'Sin fecha';
+            var hour = state.horaSeleccionada || 'Sin horario';
+            if (els.tablesMeta) {
+                els.tablesMeta.textContent = date + ' · ' + hour;
+            }
+
+            els.tablesGrid.innerHTML = state.mesasEstado.map(function (table) {
+                var visual = tableModalState(table);
+                var name = String(table.nombre || ('Mesa ' + visual.id));
+                var capacity = visual.capacity > 0 ? visual.capacity + ' lugares' : '';
+                var className = 'operation-tables-card operation-tables-card--' + esc(visual.visualState);
+                var inner = '<span class="operation-tables-card__name">' + esc(name) + '</span>' +
+                    '<span class="operation-tables-card__state">' + esc(visual.label) + '</span>' +
+                    '<span class="operation-tables-card__context"' + (!visual.context ? ' aria-hidden="true"' : '') + '>' + esc(visual.context) + '</span>' +
+                    '<span class="operation-tables-card__capacity"' + (!capacity ? ' aria-hidden="true"' : '') + '>' + esc(capacity) + '</span>';
+
+                if (visual.interactive) {
+                    return '<div class="' + className + '" role="listitem"><button type="button" data-operation-table-modal="' + visual.id + '" aria-pressed="' + (visual.visualState === 'seleccionada' ? 'true' : 'false') + '" aria-label="' + esc(name + ', ' + visual.label + (visual.context ? ', ' + visual.context : '') + (capacity ? ', ' + capacity : '')) + '">' + inner + '</button></div>';
+                }
+
+                return '<div class="' + className + '" role="listitem">' + inner + '</div>';
+            }).join('');
+        }
+
+        function tablesModalFocusable() {
+            if (!els.tablesModal) {
+                return [];
+            }
+            return Array.prototype.slice.call(els.tablesModal.querySelectorAll(
+                'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+            )).filter(function (element) {
+                return !element.hidden && element.offsetParent !== null;
+            });
+        }
+
+        function closeTablesModal(restoreFocus) {
+            if (!els.tablesModal) {
+                return;
+            }
+            if (typeof els.tablesModal.close === 'function' && els.tablesModal.open) {
+                els.tablesModal.close();
+            } else {
+                els.tablesModal.removeAttribute('open');
+            }
+            if (els.tablesOpen) {
+                els.tablesOpen.setAttribute('aria-expanded', 'false');
+            }
+            if (restoreFocus !== false && tablesModalLastFocus && typeof tablesModalLastFocus.focus === 'function') {
+                tablesModalLastFocus.focus();
+            }
+            tablesModalLastFocus = null;
+        }
+
+        function openTablesModal() {
+            if (!els.tablesModal) {
+                return;
+            }
+            document.dispatchEvent(new CustomEvent('operational:close-drawer'));
+            tablesModalLastFocus = document.activeElement;
+            renderTablesModal();
+            if (els.tablesOpen) {
+                els.tablesOpen.setAttribute('aria-expanded', 'true');
+            }
+            if (typeof els.tablesModal.showModal === 'function') {
+                if (!els.tablesModal.open) {
+                    els.tablesModal.showModal();
+                }
+            } else {
+                els.tablesModal.setAttribute('open', '');
+            }
+            window.requestAnimationFrame(function () {
+                var focusable = tablesModalFocusable();
+                (focusable[0] || els.tablesModal).focus();
+            });
+        }
+
+        function selectTableFromModal(id) {
+            if (!state.assignmentMode || !els.map) {
+                return;
+            }
+            var tableId = parseInt(id || '0', 10);
+            if (!mesaPuedeSerCandidata(tableId)) {
+                return;
+            }
+            els.map.dispatchEvent(new CustomEvent('mapa:mesa-click', {
+                bubbles: true,
+                detail: { contexto: 'operacion-reservaciones', mesaId: tableId }
+            }));
         }
 
         function selectReservation(id) {
@@ -2820,9 +2961,24 @@
         if (els.assignmentFilter) {
             els.assignmentFilter.addEventListener('change', function () {
                 state.assignmentFilter = els.assignmentFilter.value || 'all';
+                els.assignmentOptions.forEach(function (option) {
+                    var active = option.getAttribute('data-operation-assignment-option') === state.assignmentFilter;
+                    option.classList.toggle('is-active', active);
+                    option.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
                 renderReservationList();
             });
         }
+
+        els.assignmentOptions.forEach(function (option) {
+            option.addEventListener('click', function () {
+                if (!els.assignmentFilter) {
+                    return;
+                }
+                els.assignmentFilter.value = option.getAttribute('data-operation-assignment-option') || 'all';
+                els.assignmentFilter.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
 
         if (els.reservationSearch) {
             els.reservationSearch.addEventListener('input', function () {
@@ -2890,8 +3046,54 @@
             });
         }
 
+        if (els.tablesOpen && els.tablesModal) {
+            if (els.tablesClose) {
+                els.tablesClose.addEventListener('click', function () {
+                    closeTablesModal();
+                });
+            }
+            els.tablesModal.addEventListener('cancel', function (event) {
+                event.preventDefault();
+                closeTablesModal();
+            });
+            els.tablesModal.addEventListener('keydown', function (event) {
+                if (event.key !== 'Tab') {
+                    return;
+                }
+                var focusable = tablesModalFocusable();
+                if (!focusable.length) {
+                    event.preventDefault();
+                    els.tablesModal.focus();
+                    return;
+                }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            });
+        }
+
+        window.addEventListener('resize', function () {
+            setPanelAccessibility(!selectedReservation());
+        });
+
         root.addEventListener('click', function (event) {
             var target = event.target;
+
+            var tablesTrigger = target && typeof target.closest === 'function'
+                ? target.closest('[data-operation-tables-open]')
+                : null;
+            if (tablesTrigger && root.contains(tablesTrigger)) {
+                event.preventDefault();
+                openTablesModal();
+                return;
+            }
+
             var createTrigger = target && typeof target.closest === 'function'
                 ? target.closest('[data-operation-create]')
                 : null;
@@ -2899,6 +3101,15 @@
             if (createTrigger && root.contains(createTrigger)) {
                 event.preventDefault();
                 openCreateModal();
+                return;
+            }
+
+            var tableTrigger = target && typeof target.closest === 'function'
+                ? target.closest('[data-operation-table-modal]')
+                : null;
+            if (tableTrigger && root.contains(tableTrigger)) {
+                event.preventDefault();
+                selectTableFromModal(tableTrigger.getAttribute('data-operation-table-modal'));
             }
         });
 
@@ -2906,6 +3117,8 @@
             if (state.assignmentMode) {
                 return;
             }
+
+            root.classList.remove('is-panel-dismissed');
             state.reservacionSeleccionadaId = null;
             state.currentAssignmentIds = new Set();
             state.candidateSelectionIds = new Set();

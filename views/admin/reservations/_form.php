@@ -20,6 +20,7 @@ $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_arra
 $motivoNoEditable = (string)($motivoNoEditable ?? '');
 $formTransport = (string)($formTransport ?? 'html');
 $formActionsExternal = (bool)($formActionsExternal ?? false);
+$modalForm = $formTransport === 'json';
 $formAction = trim((string)($formAction ?? ''));
 $mostrarCamposContacto = (bool)($mostrarCamposContacto ?? true);
 $disponibilidadEndpoint = (string)($disponibilidadEndpoint ?? '/admin/api/reservaciones/disponibilidad');
@@ -164,8 +165,8 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <div class="reservation-detail-form__grid">
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-visit-title'); ?>">
                 <div class="reservation-detail-form__section-head">
-                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-visit-title'); ?>">Datos de visita</h3>
-                    <p>Define fecha, hora y comensales.</p>
+                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-visit-title'); ?>"><?php echo $modalForm ? 'Visita' : 'Datos de visita'; ?></h3>
+                    <?php if (!$modalForm): ?><p>Define fecha, hora y comensales.</p><?php endif; ?>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--visit">
                     <label class="reservation-detail-form__field reservation-detail-form__field--date">
@@ -229,7 +230,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-client-title'); ?>">
                 <div class="reservation-detail-form__section-head">
                     <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-client-title'); ?>"><?php echo $mostrarCamposContacto ? 'Cliente y contacto' : 'Cliente'; ?></h3>
-                    <p><?php echo $mostrarCamposContacto ? 'Usa estos datos para identificar y contactar al cliente.' : 'Usa este dato para identificar la visita en el mapa operativo.'; ?></p>
+                    <?php if (!$modalForm): ?><p><?php echo $mostrarCamposContacto ? 'Usa estos datos para identificar y contactar al cliente.' : 'Usa este dato para identificar la visita en el mapa operativo.'; ?></p><?php endif; ?>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--client">
                     <label class="reservation-detail-form__field reservation-detail-form__field--name">
@@ -280,14 +281,14 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
         <?php if ($modo === 'crear' || $comentarioAdminDisponible) : ?>
             <fieldset class="reservation-detail-form__optional-section">
-                <legend>Detalles adicionales</legend>
-                <p class="reservation-detail-form__section-description">Añade indicaciones del cliente o información útil para el equipo.</p>
+                <legend><?php echo $modalForm ? 'Detalles' : 'Detalles adicionales'; ?></legend>
+                <?php if (!$modalForm): ?><p class="reservation-detail-form__section-description">Añade indicaciones del cliente o información útil para el equipo.</p><?php endif; ?>
                 <?php if ($modo === 'crear') : ?>
                         <label class="reservation-detail-form__field reservation-detail-form__field--note">
                             <span>Nota del cliente <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
                             <textarea name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
-                                <small class="reservation-detail-form__helper">Indicaciones proporcionadas por el cliente para su visita.</small>
+                                <small class="reservation-detail-form__helper"><?php echo $modalForm ? 'Indicaciones para la visita.' : 'Indicaciones proporcionadas por el cliente para su visita.'; ?></small>
                             <?php endif; ?>
                             <?php $error = $errorCampo('nota'); ?>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nota"><?php echo $h($error); ?></span>
@@ -299,7 +300,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                             <span>Comentario interno <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
                             <textarea name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
-                                <small class="reservation-detail-form__helper">Información visible únicamente para el personal.</small>
+                                <small class="reservation-detail-form__helper"><?php echo $modalForm ? 'Visible sólo para el personal.' : 'Información visible únicamente para el personal.'; ?></small>
                             <?php endif; ?>
                             <?php $error = $errorCampo('comentario_admin'); ?>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comentario_admin"><?php echo $h($error); ?></span>
@@ -313,13 +314,13 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <?php if ($modo === 'crear' || $modo === 'editar') : ?>
             <fieldset class="reservation-detail-form__assignment-section">
                 <legend>Asignación de mesas</legend>
-                <p class="reservation-detail-form__section-description">El sistema buscara una combinacion de mesas que cubra el numero de comensales.</p>
+                <?php if (!$modalForm): ?><p class="reservation-detail-form__section-description">El sistema buscará una combinación de mesas que cubra el número de comensales.</p><?php endif; ?>
             <label class="reservation-admin-form__check">
                 <input type="hidden" name="asignar_automaticamente" value="0">
                 <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
                 <span class="reservation-admin-form__check-copy">
-                    <span>Asignar mesas automáticamente.</span>
-                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Puedes guardar sin mesas y asignarlas más tarde desde Operación.'; ?></small>
+                    <span><?php echo $modalForm ? 'Asignar automáticamente' : 'Asignar mesas automáticamente.'; ?></span>
+                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : ($modalForm ? 'El sistema buscará una combinación adecuada. También puedes asignarlas después.' : 'Puedes guardar sin mesas y asignarlas más tarde desde Operación.'); ?></small>
                 </span>
             </label>
             </fieldset>

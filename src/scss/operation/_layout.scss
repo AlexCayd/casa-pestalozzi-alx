@@ -71,6 +71,8 @@
 }
 
 .reservation-operation__map.mesas-map {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -89,53 +91,24 @@
 
 .reservation-operation__panel {
   position: relative;
-}
-
-// El mapa es el lienzo estable. El detalle entra como una capa temporal y no
-// vuelve a calcular columnas ni reduce el área útil del plano.
-.reservation-operation__content {
-  position: relative;
-  display: block;
-}
-
-.reservation-operation__map.mesas-map {
-  width: 100%;
-  height: 100%;
-  border-right: 0;
-}
-
-.reservation-operation__panel {
-  position: absolute;
-  inset: 0 0 0 auto;
-  z-index: 40;
-  width: min(400px, calc(100% - 24px));
-  padding: 0 0 0 12px;
-  background: transparent;
-  pointer-events: none;
-}
-
-.reservation-operation__panel:not([hidden]) {
-  pointer-events: auto;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border-left: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-bg) 94%, transparent);
 }
 
 .reservation-operation__panel-content {
+  min-height: 0;
   height: 100%;
-  overflow: hidden auto;
-  border-left: 1px solid var(--admin-border);
-  background: color-mix(in srgb, var(--admin-bg) 96%, transparent);
-  box-shadow: -22px 0 48px rgba(0, 0, 0, 0.34);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--admin-surface) 82%, transparent);
 }
 
 .reservation-operation__panel-toolbar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
-}
-
-.reservation-operation.is-panel-dismissed .reservation-operation__content,
-.reservation-operation.is-panel-suppressed .reservation-operation__content {
-  grid-template-columns: minmax(0, 1fr);
+  min-height: 54px;
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
@@ -198,8 +171,14 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 @media (min-width: 1600px) {
-  .reservation-operation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__content {
-    grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 370px);
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1199px) {
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
   }
 }
 
@@ -210,40 +189,53 @@ html:has(.operation-body.is-assignment-mode) {
   }
 
   .reservation-operation__content {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    overflow-y: auto;
+    position: relative;
+    display: block;
+    overflow: hidden;
   }
 
   .reservation-operation__panel {
-    position: relative;
-    inset: auto;
-    z-index: auto;
-    width: auto;
-    max-height: 360px;
-    padding: 0;
-    border-left: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__panel {
     position: fixed;
     inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap)) var(--operational-shell-pad) var(--operational-shell-pad) auto;
     z-index: 60;
     width: min(92vw, 380px);
     max-height: none;
-    border-left: 1px solid var(--admin-border);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
     background: color-mix(in srgb, var(--admin-bg) 98%, #000);
     box-shadow: -22px 0 54px rgba(0, 0, 0, 0.42);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(calc(100% + var(--operational-shell-pad)));
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .reservation-operation__panel-content {
+    background: color-mix(in srgb, var(--admin-bg) 98%, #000);
   }
 }
 
 @media (max-width: 640px) {
-  // El mapa debe conservar una superficie táctil propia antes del detalle;
-  // si el panel ocupa toda la fila, el plano termina con altura cero.
   .reservation-operation__content {
-    grid-template-rows: minmax(320px, 1fr) auto;
+    min-height: 320px;
+  }
+
+  .reservation-operation__panel {
+    inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap)) 0 0;
+    width: 100%;
+    border-radius: 14px 14px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reservation-operation__panel {
+    transition: none;
   }
 }
 

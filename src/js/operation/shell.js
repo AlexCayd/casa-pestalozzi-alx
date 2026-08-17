@@ -264,9 +264,14 @@
             });
         }
 
+        function detailUsesOverlay() {
+            return Boolean(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+        }
+
         function detailIsOpen() {
             return Boolean(
                 detailPanel &&
+                detailUsesOverlay() &&
                 !detailPanel.hidden &&
                 detailPanel.getAttribute('aria-hidden') !== 'true' &&
                 operationRoot &&

@@ -381,6 +381,74 @@
   }
 }
 
+// La consulta del drawer tiene su propia fila: el campo recibe todo el ancho
+// útil y los tres estados quedan debajo como control segmentado.
+.operational-drawer__filters .reservation-operation__search-filter {
+  order: -1;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter {
+  position: relative;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter input {
+  padding-left: 40px;
+}
+
+.reservation-operation__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  color: var(--admin-muted);
+  fill: none;
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transform: translateY(-50%);
+}
+
+.operational-drawer__filters .reservation-operation__filter-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 10px;
+  background: var(--admin-bg);
+}
+
+.reservation-operation__filter-segmented button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.reservation-operation__filter-segmented button:hover,
+.reservation-operation__filter-segmented button.is-active {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation__filter-segmented button:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
 // El drawer es una herramienta de búsqueda, no una segunda columna de trabajo.
 .operational-page .operational-drawer {
   width: clamp(320px, 26vw, 350px);

@@ -260,6 +260,72 @@
   color: var(--admin-border);
 }
 
+.reservation-operation-capacity {
+  min-height: 40px;
+  padding: 4px 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 82%, transparent);
+}
+
+.reservation-operation-capacity__icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--admin-gold-soft);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.reservation-operation-capacity__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.reservation-operation-capacity__label {
+  color: var(--admin-muted) !important;
+  font-size: 9px !important;
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.reservation-operation-capacity__primary {
+  line-height: 1.15;
+}
+
+.reservation-operation-capacity__secondary {
+  max-width: 15ch;
+}
+
+.reservation-operation-capacity em {
+  display: none;
+}
+
+// La disponibilidad ocupa la segunda columna; nunca debe cubrir los filtros
+// ni el acceso a la lista de mesas del primer bloque.
+.operational-context-bar--reservations .operational-context-bar__controls {
+  grid-column: 1;
+}
+
+.operational-context-bar--reservations .operational-context-bar__selection {
+  position: static;
+  z-index: auto;
+  grid-column: 2;
+  width: auto;
+  justify-content: flex-start;
+  transform: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions {
+  grid-column: 3;
+}
+
 .reservation-operation__filter {
   position: relative;
   min-width: 0;

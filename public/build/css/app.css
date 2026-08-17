@@ -8306,6 +8306,72 @@ footer.foot {
     transition: none;
   }
 }
+.operational-drawer__filters .reservation-operation__search-filter {
+  order: -1;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter {
+  position: relative;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter input {
+  padding-left: 40px;
+}
+
+.reservation-operation__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  color: var(--admin-muted);
+  fill: none;
+  pointer-events: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transform: translateY(-50%);
+}
+
+.operational-drawer__filters .reservation-operation__filter-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 10px;
+  background: var(--admin-bg);
+}
+
+.reservation-operation__filter-segmented button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.reservation-operation__filter-segmented button:hover,
+.reservation-operation__filter-segmented button.is-active {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation__filter-segmented button:focus-visible {
+  outline: 0;
+  box-shadow: var(--admin-focus-ring);
+}
+
 .operational-page .operational-drawer {
   width: clamp(320px, 26vw, 350px);
 }
@@ -9238,6 +9304,32 @@ footer.foot {
     width: 820px;
     min-width: 820px;
   }
+  .reservation-operation__map .mesas-map__viewport {
+    place-items: stretch;
+    overflow-x: hidden;
+  }
+  .reservation-operation__map .mesas-map__floor {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 320px;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .reservation-operation__map.mesas-map .mesa-pin {
+    width: clamp(64px, 19cqw, 76px) !important;
+    min-width: clamp(64px, 19cqw, 76px);
+    height: clamp(48px, 5.5cqw, 56px) !important;
+    min-height: 48px;
+  }
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-barra {
+    width: clamp(88px, 26cqw, 112px) !important;
+    min-width: clamp(88px, 26cqw, 112px);
+  }
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-especial {
+    width: clamp(60px, 18cqw, 76px) !important;
+    min-width: clamp(60px, 18cqw, 76px);
+  }
 }
 @media (max-height: 680px) and (min-width: 901px) {
   .mesas-map__header {
@@ -9528,6 +9620,70 @@ footer.foot {
 
 .reservation-operation-capacity__secondary::first-letter {
   color: var(--admin-border);
+}
+
+.reservation-operation-capacity {
+  min-height: 40px;
+  padding: 4px 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 82%, transparent);
+}
+
+.reservation-operation-capacity__icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--admin-gold-soft);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.reservation-operation-capacity__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.reservation-operation-capacity__label {
+  color: var(--admin-muted) !important;
+  font-size: 9px !important;
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.reservation-operation-capacity__primary {
+  line-height: 1.15;
+}
+
+.reservation-operation-capacity__secondary {
+  max-width: 15ch;
+}
+
+.reservation-operation-capacity em {
+  display: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls {
+  grid-column: 1;
+}
+
+.operational-context-bar--reservations .operational-context-bar__selection {
+  position: static;
+  z-index: auto;
+  grid-column: 2;
+  width: auto;
+  justify-content: flex-start;
+  transform: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions {
+  grid-column: 3;
 }
 
 .reservation-operation__filter {
