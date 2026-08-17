@@ -1398,7 +1398,7 @@
             var projected = parseInt(summary.capacidad_proyectada || '0', 10);
             var real = parseInt(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || '0', 10);
             if (els.capacityReal) els.capacityReal.textContent = String(real);
-            if (els.capacityOf) els.capacityOf.textContent = ' de ' + String(summary.capacidad_fisica_total || summary.capacidad_total || '0');
+            if (els.capacityOf) els.capacityOf.textContent = ' / ' + String(summary.capacidad_fisica_total || summary.capacidad_total || '0');
             if (els.capacitySecondary) {
                 var secondary = demand > 0
                     ? demand + ' sin mesa'
@@ -1619,7 +1619,6 @@
                     '<dl class="reservation-operation-panel__facts">' +
                         '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
                         '<div><dt>Personas</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
-                        '<div class="reservation-operation-panel__fact--wide"><dt>Mesas</dt><dd>' + esc(mesasActuales) + '</dd></div>' +
                     '</dl>' +
                     (reservacion.conflicto_proximo && reservacion.alerta_operativa
                         ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +

@@ -1699,6 +1699,10 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 0;
 }
 
+.operational-drawer__filters .reservation-operation__filters[data-operation-filters] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .operational-drawer__filters .reservation-operation__filter-actions {
   display: none;
 }
@@ -1795,6 +1799,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .operational-drawer__filters .reservation-operation__search-filter {
   order: -1;
+  width: 100%;
 }
 
 .operational-drawer__filters .reservation-operation__search-filter {
@@ -1802,6 +1807,8 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+  min-height: 44px;
   padding-left: 40px;
 }
 
@@ -1819,44 +1826,6 @@ html:has(.operation-body.is-assignment-mode) {
   stroke-linejoin: round;
   stroke-width: 1.8;
   transform: translateY(-50%);
-}
-
-.operational-drawer__filters .reservation-operation__filter-segmented {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  width: 100%;
-  padding: 4px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 10px;
-  background: var(--admin-bg);
-}
-
-.reservation-operation__filter-segmented button {
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--admin-muted);
-  font: inherit;
-  font-size: var(--operational-text-xs);
-  font-weight: var(--operational-weight-semibold);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.reservation-operation__filter-segmented button:hover,
-.reservation-operation__filter-segmented button.is-active {
-  border-color: var(--admin-border);
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-}
-
-.reservation-operation__filter-segmented button:focus-visible {
-  outline: 0;
-  box-shadow: var(--admin-focus-ring);
 }
 
 .operational-page .operational-drawer {
@@ -3073,7 +3042,7 @@ html:has(.operation-body.is-assignment-mode) {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: baseline;
-  gap: 0;
+  gap: 3px;
   min-width: max-content;
   color: var(--admin-text);
   font-size: var(--operational-text-sm);
@@ -3093,6 +3062,12 @@ html:has(.operation-body.is-assignment-mode) {
   font-weight: var(--operational-weight-medium);
 }
 
+.reservation-operation-capacity__available {
+  color: var(--admin-text);
+  font-size: var(--operational-text-xs);
+  line-height: 1.15;
+}
+
 .reservation-operation-capacity__secondary {
   display: inline-flex;
   flex: 1 1 auto;
@@ -3110,11 +3085,12 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .reservation-operation-capacity {
-  min-height: 40px;
-  padding: 4px 10px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--admin-surface-soft) 82%, transparent);
+  min-height: 36px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .reservation-operation-capacity__icon {
@@ -3146,6 +3122,20 @@ html:has(.operation-body.is-assignment-mode) {
 
 .reservation-operation-capacity__primary {
   line-height: 1.15;
+  font-weight: var(--operational-weight-medium);
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open] {
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open]:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
 }
 
 .reservation-operation-capacity__secondary {
@@ -3476,9 +3466,9 @@ html:has(.operation-body.is-assignment-mode) {
   transform: translateY(-1px);
 }
 .reservation-operation-card.is-selected, .reservation-operation-card.reserva-card--selected {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+  background: var(--admin-surface-soft);
+  box-shadow: none;
 }
 .reservation-operation-card.is-highlighted:not(.is-selected) {
   border-color: color-mix(in srgb, var(--admin-gold) 50%, transparent);
@@ -3504,9 +3494,9 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operational-drawer .reservation-operation-card.reserva-card--selected {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+  background: var(--admin-surface-soft);
+  box-shadow: none;
 }
 
 .reservation-operation-card__button {
@@ -4346,6 +4336,161 @@ html:has(.operation-body.is-assignment-mode) {
   }
   .reservation-operation-panel {
     padding: 18px 18px 28px;
+  }
+}
+.reservation-operation-panel {
+  padding: 22px 24px 30px 20px;
+}
+
+.reservation-operation-panel__head h3 {
+  margin-top: 8px;
+  font-size: clamp(26px, 2vw, 32px);
+  line-height: 1.05;
+}
+
+.reservation-operation-panel__facts {
+  margin-top: 22px;
+  padding-bottom: 16px;
+  gap: 10px 18px;
+}
+
+.reservation-operation-panel__facts dt {
+  color: var(--admin-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.reservation-operation-panel__facts dd {
+  margin-top: 3px;
+  font-size: var(--operational-text-sm);
+  line-height: 1.35;
+}
+
+.reservation-operation-panel__section {
+  margin-top: 20px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.reservation-operation-panel__section h4 {
+  margin-bottom: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.reservation-operation-panel__section--actions,
+.reservation-operation-panel__section--more-actions {
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.reservation-operation__assignment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.reservation-operation__assignment h4 {
+  grid-column: 1/-1;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__selected {
+  grid-column: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__selected strong {
+  overflow-wrap: anywhere;
+  font-size: var(--operational-text-sm);
+}
+
+.reservation-operation__assignment .reservation-operation-panel__assignment-start {
+  grid-column: 2;
+  grid-row: 2;
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 12px;
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__assignment-start:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note {
+  max-width: 48ch;
+  overflow-wrap: anywhere;
+}
+
+.reservation-operation-comment-summary {
+  align-items: center;
+  gap: 10px;
+}
+
+.reservation-operation-comment-summary .reservation-operation-panel__note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reservation-operation-comment-summary .admin-btn,
+.reservation-operation-comment__actions .admin-btn {
+  min-height: 40px;
+  padding-inline: 11px;
+}
+
+.reservation-operation-comment textarea {
+  min-height: 78px;
+  max-height: 170px;
+}
+
+.reservation-operation-panel__section--more-actions .reservation-operation-actions {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reservation-operation-panel__section--more-actions .reservation-operation-actions .admin-btn,
+.reservation-operation-panel__section--more-actions .reservation-operation-panel__edit {
+  width: auto;
+  max-width: 100%;
+  min-height: 40px;
+  flex: 0 1 auto;
+}
+
+.reservation-operation-panel__section--more-actions .admin-btn--danger {
+  border-color: transparent;
+  color: var(--admin-danger-text);
+}
+
+.reservation-operation-panel__section--actions .reservation-operation-actions .admin-btn {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .reservation-operation-panel {
+    padding: 20px 20px 28px 18px;
+  }
+}
+@media (max-width: 520px) {
+  .reservation-operation-panel {
+    padding: 18px 18px 26px 16px;
+  }
+  .reservation-operation-panel__head h3 {
+    font-size: 24px;
+  }
+  .reservation-operation__assignment {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 .operational-tables-trigger {
@@ -5685,7 +5830,7 @@ html:has(.operation-body.is-assignment-mode) {
     padding: 18px 16px 15px;
   }
   .operation-create-modal__body {
-    padding: 18px 16px 20px;
+    padding: 16px 16px 18px;
   }
   .operation-create-modal__footer {
     min-height: 0;
@@ -5713,31 +5858,42 @@ html:has(.operation-body.is-assignment-mode) {
   max-height: min(820px, 100dvh - 32px);
 }
 
+.operation-create-modal__head {
+  padding: 18px 22px 14px;
+}
+
+.operation-create-modal__footer {
+  min-height: 64px;
+  padding: 10px 22px max(10px, env(safe-area-inset-bottom));
+}
+
 .operation-create-modal__body {
-  padding-block: 22px 26px;
+  padding: 18px 22px 20px;
 }
 
 .operation-create-modal .reservation-detail-form {
-  gap: 28px;
+  gap: 24px;
 }
 
 .operation-create-modal .reservation-detail-form__grid {
-  gap: 28px;
+  gap: 24px;
 }
 
 .operation-create-modal .reservation-detail-form__section {
-  gap: 14px;
+  gap: 10px;
 }
 
 .operation-create-modal .reservation-detail-form__section-head {
   gap: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--admin-border-soft);
+  padding: 0;
+  border-bottom: 0;
 }
 
 .operation-create-modal .reservation-detail-form__group-label {
-  color: var(--admin-text);
-  font-size: 18px;
+  color: var(--admin-gold-soft);
+  font-size: var(--operational-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .operation-create-modal .reservation-detail-form__field {
@@ -5749,7 +5905,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operation-create-modal .reservation-detail-form__fields {
-  gap: 14px 16px;
+  gap: 12px 14px;
 }
 
 .operation-create-modal .reservation-detail-form__fields input,
@@ -5761,13 +5917,17 @@ html:has(.operation-body.is-assignment-mode) {
   padding-block: 10px;
 }
 
+.operation-create-modal .reservation-detail-form__fields--client:not(:has(> :nth-child(2))) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .operation-create-modal .reservation-detail-form__optional-section,
 .operation-create-modal .reservation-detail-form__assignment-section {
   position: relative;
   display: grid;
   min-width: 0;
   margin: 0;
-  padding: 18px 0 0;
+  padding: 14px 0 0;
   border: 0;
   border-top: 1px solid var(--admin-border-soft);
   border-radius: 0;
@@ -5782,11 +5942,12 @@ html:has(.operation-body.is-assignment-mode) {
 .operation-create-modal .reservation-detail-form__optional-section legend,
 .operation-create-modal .reservation-detail-form__assignment-section legend {
   padding: 0;
-  color: var(--admin-text);
+  color: var(--admin-gold-soft);
   font-family: var(--operational-font-ui);
-  font-size: 18px;
+  font-size: var(--operational-text-xs);
   font-weight: var(--operational-weight-semibold);
-  letter-spacing: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .operation-create-modal .reservation-detail-form__optional-section label {
@@ -5794,8 +5955,8 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operation-create-modal .reservation-detail-form__optional-section textarea {
-  min-height: 84px;
-  height: 84px;
+  min-height: 72px;
+  height: 72px;
   max-height: 180px;
 }
 
@@ -5814,6 +5975,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 .operation-create-modal .reservation-detail-form__assignment-section .reservation-admin-form__check-copy small {
   max-width: 62ch;
+  color: var(--admin-muted);
 }
 
 @media (max-width: 720px) {
@@ -5825,15 +5987,25 @@ html:has(.operation-body.is-assignment-mode) {
   .operation-create-modal {
     max-height: calc(100dvh - 16px);
   }
+  .operation-create-modal__head {
+    padding: 18px 16px 15px;
+  }
+  .operation-create-modal__body {
+    padding: 16px 16px 18px;
+  }
+  .operation-create-modal__footer {
+    min-height: 0;
+    padding: 12px 16px 16px;
+  }
   .operation-create-modal .reservation-detail-form__fields--visit,
   .operation-create-modal .reservation-detail-form__fields--client {
     grid-template-columns: minmax(0, 1fr);
   }
   .operation-create-modal .reservation-detail-form {
-    gap: 24px;
+    gap: 20px;
   }
   .operation-create-modal .reservation-detail-form__grid {
-    gap: 24px;
+    gap: 20px;
   }
 }
 .confirmation-modal {

@@ -224,7 +224,7 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: baseline;
-  gap: 0;
+  gap: 3px;
   min-width: max-content;
   color: var(--admin-text);
   font-size: var(--operational-text-sm);
@@ -244,6 +244,12 @@
   font-weight: var(--operational-weight-medium);
 }
 
+.reservation-operation-capacity__available {
+  color: var(--admin-text);
+  font-size: var(--operational-text-xs);
+  line-height: 1.15;
+}
+
 .reservation-operation-capacity__secondary {
   display: inline-flex;
   flex: 1 1 auto;
@@ -261,11 +267,12 @@
 }
 
 .reservation-operation-capacity {
-  min-height: 40px;
-  padding: 4px 10px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--admin-surface-soft) 82%, transparent);
+  min-height: 36px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .reservation-operation-capacity__icon {
@@ -297,6 +304,20 @@
 
 .reservation-operation-capacity__primary {
   line-height: 1.15;
+  font-weight: var(--operational-weight-medium);
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open] {
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open]:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
 }
 
 .reservation-operation-capacity__secondary {

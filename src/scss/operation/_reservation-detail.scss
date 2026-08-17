@@ -753,3 +753,164 @@
     padding: 18px 18px 28px;
   }
 }
+
+// La ficha prioriza lectura y acción inmediata; los grupos secundarios no se
+// convierten en una colección de tarjetas o botones equivalentes.
+.reservation-operation-panel {
+  padding: 22px 24px 30px 20px;
+}
+
+.reservation-operation-panel__head h3 {
+  margin-top: 8px;
+  font-size: clamp(26px, 2vw, 32px);
+  line-height: 1.05;
+}
+
+.reservation-operation-panel__facts {
+  margin-top: 22px;
+  padding-bottom: 16px;
+  gap: 10px 18px;
+}
+
+.reservation-operation-panel__facts dt {
+  color: var(--admin-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.reservation-operation-panel__facts dd {
+  margin-top: 3px;
+  font-size: var(--operational-text-sm);
+  line-height: 1.35;
+}
+
+.reservation-operation-panel__section {
+  margin-top: 20px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.reservation-operation-panel__section h4 {
+  margin-bottom: 8px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.reservation-operation-panel__section--actions,
+.reservation-operation-panel__section--more-actions {
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.reservation-operation__assignment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.reservation-operation__assignment h4 {
+  grid-column: 1 / -1;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__selected {
+  grid-column: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__selected strong {
+  overflow-wrap: anywhere;
+  font-size: var(--operational-text-sm);
+}
+
+.reservation-operation__assignment .reservation-operation-panel__assignment-start {
+  grid-column: 2;
+  grid-row: 2;
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 8px 12px;
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.reservation-operation__assignment .reservation-operation-panel__assignment-start:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note {
+  max-width: 48ch;
+  overflow-wrap: anywhere;
+}
+
+.reservation-operation-comment-summary {
+  align-items: center;
+  gap: 10px;
+}
+
+.reservation-operation-comment-summary .reservation-operation-panel__note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reservation-operation-comment-summary .admin-btn,
+.reservation-operation-comment__actions .admin-btn {
+  min-height: 40px;
+  padding-inline: 11px;
+}
+
+.reservation-operation-comment textarea {
+  min-height: 78px;
+  max-height: 170px;
+}
+
+.reservation-operation-panel__section--more-actions .reservation-operation-actions {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reservation-operation-panel__section--more-actions .reservation-operation-actions .admin-btn,
+.reservation-operation-panel__section--more-actions .reservation-operation-panel__edit {
+  width: auto;
+  max-width: 100%;
+  min-height: 40px;
+  flex: 0 1 auto;
+}
+
+.reservation-operation-panel__section--more-actions .admin-btn--danger {
+  border-color: transparent;
+  color: var(--admin-danger-text);
+}
+
+.reservation-operation-panel__section--actions .reservation-operation-actions .admin-btn {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .reservation-operation-panel {
+    padding: 20px 20px 28px 18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .reservation-operation-panel {
+    padding: 18px 18px 26px 16px;
+  }
+
+  .reservation-operation-panel__head h3 {
+    font-size: 24px;
+  }
+
+  .reservation-operation__assignment {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
