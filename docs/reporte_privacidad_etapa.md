@@ -1,8 +1,8 @@
 # Reporte — Sanitización y minimización de datos por superficie
 
-Proyecto: Casa Pestalozzi  
-Fecha: 2026-08-16  
-Rama: `main`  
+Proyecto: Casa Pestalozzi
+Fecha: 2026-08-16
+Rama: `main`
 
 ## 1. Resultado
 
@@ -62,6 +62,7 @@ El aviso de privacidad ahora menciona datos de nombre, email/teléfono, datos de
 - Se eliminaron `preview_code`, `OTP_GENERADO`, el flag de preview y las vistas/estilos de previsualización.
 - Las respuestas públicas conservan únicamente la expiración del OTP.
 - El navegador ya no recibe código plano ni texto de “código de prueba”.
+- Se retiraron dos mapas fuente heredados y no referenciados que todavía contenían el texto histórico en `sourcesContent`; los mapas vigentes de `bundle.min.js` quedaron recompilados.
 - Se conservaron generación, hash, persistencia, expiración, intentos e invalidación del código anterior.
 - Se agregó `FakeContactNotificationProvider` para pruebas, que captura el código fuera del flujo real sin exponerlo al navegador.
 
@@ -99,8 +100,8 @@ No se cambiaron reglas de capacidad, asignación de mesas, intervalos, horarios,
 
 ## 11. Commits
 
-Se dejarán dos commits locales, sin push:
+Se dejaron tres commits locales, sin push:
 
 1. `feat(privacidad): minimizar datos expuestos por reservaciones`
 2. `chore(security): retirar sesiones y pinData versionable`
-
+3. `chore(security): retirar mapas heredados con datos de prueba`

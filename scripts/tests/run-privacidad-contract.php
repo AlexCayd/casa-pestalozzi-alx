@@ -111,6 +111,11 @@ $form = file_get_contents($root . '/src/js/modules/form.js');
 $access = file_get_contents($root . '/src/js/modules/reservation-access.js');
 $pos = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $exporter = file_get_contents($root . '/n8n/exportar.js');
+$browserBundles = [
+    $root . '/assets/js/bundle.min.js',
+    $root . '/public/build/js/bundle.min.js',
+    $root . '/public/build/js/admin/map.js',
+];
 
 assertPrivacidad(!str_contains($otpService, 'preview_code'), 'servicio OTP no devuelve preview_code');
 assertPrivacidad(!str_contains($publicService, 'preview_code'), 'flujo público no propaga preview_code');
@@ -120,5 +125,19 @@ assertPrivacidad(!str_contains($pos, '<dt>Contacto</dt>') && !str_contains($pos,
 assertPrivacidad(!str_contains($pos, 'mostrarContextoAdmin'), 'UI POS no activa contexto administrativo');
 assertPrivacidad(!preg_match('/alergias?/iu', $landing), 'landing no solicita alergias');
 assertPrivacidad(!str_contains($exporter, 'pinData'), 'exportador n8n no versiona pinData');
+foreach ($browserBundles as $browserBundle) {
+    $browserContents = file_get_contents($browserBundle);
+    assertPrivacidad(
+        !str_contains($browserContents, 'preview_code')
+            && !str_contains($browserContents, 'Código de prueba')
+            && !str_contains($browserContents, 'Modo de desarrollo'),
+        'bundle de navegador sin preview OTP: ' . basename($browserBundle)
+    );
+}
+assertPrivacidad(
+    !file_exists($root . '/assets/js/bundle.js.min.map')
+        && !file_exists($root . '/public/build/js/bundle.js.min.map'),
+    'no quedan mapas fuente heredados con preview OTP'
+);
 
 fwrite(STDOUT, "Privacidad: contratos POS, admin, OTP, landing y n8n OK\n");
