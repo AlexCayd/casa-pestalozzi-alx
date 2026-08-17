@@ -91,6 +91,48 @@
   position: relative;
 }
 
+// El mapa es el lienzo estable. El detalle entra como una capa temporal y no
+// vuelve a calcular columnas ni reduce el área útil del plano.
+.reservation-operation__content {
+  position: relative;
+  display: block;
+}
+
+.reservation-operation__map.mesas-map {
+  width: 100%;
+  height: 100%;
+  border-right: 0;
+}
+
+.reservation-operation__panel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 40;
+  width: min(400px, calc(100% - 24px));
+  padding: 0 0 0 12px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.reservation-operation__panel:not([hidden]) {
+  pointer-events: auto;
+}
+
+.reservation-operation__panel-content {
+  height: 100%;
+  overflow: hidden auto;
+  border-left: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--admin-bg) 96%, transparent);
+  box-shadow: -22px 0 48px rgba(0, 0, 0, 0.34);
+}
+
+.reservation-operation__panel-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
 .reservation-operation.is-panel-dismissed .reservation-operation__content,
 .reservation-operation.is-panel-suppressed .reservation-operation__content {
   grid-template-columns: minmax(0, 1fr);

@@ -1,3 +1,4 @@
+<?php $operationalFilterScope = (string)($operationalFilterScope ?? 'all'); ?>
 <form
     class="reservation-operation__filters"
     method="GET"
@@ -5,6 +6,7 @@
     aria-label="Filtros de operación de reservaciones"
     data-operation-filters
 >
+    <?php if ($operationalFilterScope !== 'drawer'): ?>
     <div class="reservation-operation__filter-actions">
         <button type="submit" class="admin-btn admin-btn--secondary operational-toolbar-icon" data-operation-load aria-label="Actualizar mapa" title="Actualizar mapa">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -81,7 +83,9 @@
         include __DIR__ . '/../../components/reservations/time-picker.php';
         ?>
     </div>
+    <?php endif; ?>
 
+    <?php if ($operationalFilterScope !== 'context'): ?>
     <div class="reservation-operation__filter reservation-operation__assignment-filter">
         <label class="operational-visually-hidden" for="operation-asignacion-filtro">Estado de asignacion</label>
         <select id="operation-asignacion-filtro" data-operation-assignment-filter>
@@ -92,8 +96,9 @@
     </div>
 
     <div class="reservation-operation__filter reservation-operation__search-filter">
-        <label class="operational-visually-hidden" for="operation-reservacion-busqueda">Nombre o contacto</label>
-        <input id="operation-reservacion-busqueda" type="search" placeholder="Nombre o contacto" autocomplete="off" data-operation-reservation-search>
+        <label class="operational-visually-hidden" for="operation-reservacion-busqueda"><?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?></label>
+        <input id="operation-reservacion-busqueda" type="search" placeholder="<?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?>" autocomplete="off" data-operation-reservation-search>
     </div>
+    <?php endif; ?>
 
 </form>

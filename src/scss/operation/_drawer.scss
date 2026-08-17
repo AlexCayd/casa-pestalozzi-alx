@@ -266,6 +266,33 @@
   }
 }
 
+.operational-drawer__filters {
+  flex: 0 0 auto;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.operational-drawer__filters .reservation-operation__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+}
+
+.operational-drawer__filters .reservation-operation__filter-actions {
+  display: none;
+}
+
+.operational-drawer__filters .reservation-operation__filter {
+  width: 100%;
+}
+
+.operational-drawer__filters .reservation-operation__assignment-filter select,
+.operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+}
+
 .operational-drawer .reservation-operation-card {
   min-width: 0;
   height: auto;
@@ -351,5 +378,16 @@
 @media (prefers-reduced-motion: reduce) {
   .operational-drawer {
     transition: none;
+  }
+}
+
+// El drawer es una herramienta de búsqueda, no una segunda columna de trabajo.
+.operational-page .operational-drawer {
+  width: clamp(320px, 26vw, 350px);
+}
+
+@media (max-width: 700px) {
+  .operational-page .operational-drawer {
+    width: min(92vw, 350px);
   }
 }

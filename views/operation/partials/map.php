@@ -82,7 +82,7 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
 
     <?php if ($mapStructuredList): ?>
         <details class="operational-map__structured" data-map-structured-details>
-            <summary>Lista estructurada de mesas</summary>
+            <summary>Lista de mesas</summary>
             <div class="operational-map__structured-list" data-map-structured-list role="list"></div>
         </details>
     <?php endif; ?>

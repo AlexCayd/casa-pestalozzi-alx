@@ -19,6 +19,10 @@
   overflow: visible;
 }
 
+.operational-header--reservations {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .operational-header__region {
   display: inline-flex;
   min-width: 0;

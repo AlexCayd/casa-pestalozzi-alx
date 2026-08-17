@@ -165,6 +165,21 @@
             return parts.join(', ');
         }
 
+        function visibleTableState(table) {
+            if (table.estadoVisual === 'no-utilizable') {
+                return 'No reservable';
+            }
+            if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
+                return 'Ausencia pendiente';
+            }
+            if (table.modificadores.indexOf('reservacion_advertencia') !== -1
+                || table.estadoVisual === 'reservacion-proxima') {
+                return 'Reserva próxima';
+            }
+            return (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                .replace(/^./, function (letter) { return letter.toUpperCase(); });
+        }
+
         function dispatch(name, detail) {
             canvas.dispatchEvent(new CustomEvent(name, {
                 bubbles: true,
@@ -250,6 +265,7 @@
             }
 
             var state = button.querySelector('.operational-map__structured-state');
+            var context = button.querySelector('.operational-map__structured-context');
             button.disabled = !(interactive && table.interactivo);
             button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
@@ -258,8 +274,11 @@
             // --map-table-* que usan los pines del mapa.
             button.setAttribute('data-estado-visual', table.estadoVisual);
             if (state) {
-                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                state.textContent = visibleTableState(table);
+            }
+            if (context) {
+                context.textContent = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
+                context.hidden = table.capacidad <= 0;
             }
         }
 
@@ -289,9 +308,14 @@
 
                 var state = document.createElement('span');
                 state.className = 'operational-map__structured-state';
-                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                state.textContent = visibleTableState(table);
                 button.appendChild(state);
+
+                var context = document.createElement('span');
+                context.className = 'operational-map__structured-context';
+                context.textContent = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
+                context.hidden = table.capacidad <= 0;
+                button.appendChild(context);
 
                 button.addEventListener('click', function () {
                     dispatchTableClick(table);

@@ -208,6 +208,64 @@
   box-shadow: none;
 }
 
+.reservation-operation__filters[data-operation-filters] {
+  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
+}
+
+.reservation-operation-capacity {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.reservation-operation-capacity__primary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: max-content;
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+}
+
+.reservation-operation-capacity__primary span {
+  display: inline;
+  color: var(--admin-gold-soft);
+  font-size: 1.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+.reservation-operation-capacity__primary .reservation-operation-capacity__of {
+  color: var(--admin-text);
+  font-size: 1em;
+  font-weight: var(--operational-weight-medium);
+}
+
+.reservation-operation-capacity__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation-capacity__secondary > span {
+  display: inline;
+}
+
+.reservation-operation-capacity__secondary span + span::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--admin-border);
+}
+
+.reservation-operation-capacity__secondary strong {
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .reservation-operation__filter {
   position: relative;
   min-width: 0;

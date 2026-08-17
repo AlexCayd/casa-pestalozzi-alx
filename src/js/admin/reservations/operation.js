@@ -62,6 +62,7 @@
             tableWarningMesaId: null,
             pendingAssignmentConflict: null,
             pendingAction: null,
+            commentEditingReservationId: null,
             config: {
                 estadoLabels: {},
                 estadosEditables: [],
@@ -103,9 +104,9 @@
             mobileLayout: root.querySelector('[data-operation-mobile-view]'),
             reservations: root.querySelector('[data-operation-reservations]'),
             map: root.querySelector('[data-operation-map]'),
-            selectionCopy: root.querySelector('[data-operation-selection-copy]'),
             panel: root.querySelector('[data-operation-panel]'),
             panelShell: root.querySelector('[data-operation-panel-shell]'),
+            structuredDetails: root.querySelector('[data-map-structured-details]'),
             assignmentBar: root.querySelector('[data-operation-assignment-bar]'),
             assignmentTitle: root.querySelector('[data-operation-assignment-title]'),
             assignmentCancel: root.querySelector('[data-operation-assignment-cancel]'),
@@ -120,7 +121,10 @@
             capacityCommitted: root.querySelector('[data-operation-capacity-committed]'),
             capacityDemand: root.querySelector('[data-operation-capacity-demand]'),
             capacityReal: root.querySelector('[data-operation-capacity-real]'),
+            capacityOf: root.querySelector('[data-operation-capacity-of]'),
             capacityProjected: root.querySelector('[data-operation-capacity-projected]'),
+            capacitySecondary: root.querySelector('[data-operation-capacity-secondary]'),
+            capacityProjectedWrap: root.querySelector('[data-operation-capacity-projected-wrap]'),
             capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
             tableWarning: null
         };
@@ -135,6 +139,22 @@
 
         if (!mapVisual) {
             return;
+        }
+
+        if (els.structuredDetails) {
+            els.structuredDetails.addEventListener('toggle', function () {
+                if (!els.structuredDetails.open
+                    || !root.classList.contains('has-selected-reservation')
+                    || !window.matchMedia
+                    || !window.matchMedia('(max-width: 900px)').matches) {
+                    return;
+                }
+
+                // En una superficie estrecha la lista ocupa el mismo plano que
+                // el detalle; mantener una sola capa abierta evita ocultar
+                // acciones bajo el overlay de detalle.
+                root.classList.add('is-panel-dismissed');
+            });
         }
 
         var createModal = root.querySelector('[data-operation-create-modal]');
@@ -607,6 +627,7 @@
             }
             els.panelShell.setAttribute('aria-hidden', hidden ? 'true' : 'false');
             els.panelShell.toggleAttribute('inert', hidden);
+            els.panelShell.hidden = hidden;
         }
 
         function renderAssignmentBar() {
@@ -627,7 +648,7 @@
             var diferencia = capacidad - comensales;
             var selectedNames = Array.from(state.candidateSelectionIds).map(mesaNombre);
 
-            els.assignmentReservation.textContent = reservacion.nombre + ' · Reservación #' + reservacion.id;
+            els.assignmentReservation.textContent = reservacion.nombre;
             els.assignmentPeople.textContent = String(comensales);
             els.assignmentCapacity.textContent = String(capacidad);
             els.assignmentDifference.textContent = (diferencia > 0 ? '+' : '') + diferencia;
@@ -1383,13 +1404,24 @@
             els.capacity.hidden = !hasSummary;
             if (!hasSummary) return;
 
-            if (els.capacityTotal) els.capacityTotal.textContent = String(summary.capacidad_fisica_total || summary.capacidad_total || 0);
-            if (els.capacityCommitted) els.capacityCommitted.textContent = String(summary.capacidad_fisica_comprometida || 0);
-            if (els.capacityDemand) els.capacityDemand.textContent = String(summary.demanda_no_asignada || 0);
-            if (els.capacityReal) els.capacityReal.textContent = String(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || 0);
-            if (els.capacityProjected) els.capacityProjected.textContent = String(summary.capacidad_proyectada || 0);
+            var total = parseInt(summary.capacidad_fisica_total || summary.capacidad_total || '0', 10);
+            var committed = parseInt(summary.capacidad_fisica_comprometida || '0', 10);
+            var demand = parseInt(summary.demanda_no_asignada || '0', 10);
+            var projected = parseInt(summary.capacidad_proyectada || '0', 10);
+            var real = parseInt(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || '0', 10);
+            if (els.capacityTotal) els.capacityTotal.textContent = String(total);
+            if (els.capacityCommitted) els.capacityCommitted.textContent = String(committed);
+            if (els.capacityDemand) els.capacityDemand.textContent = String(demand);
+            if (els.capacityReal) els.capacityReal.textContent = String(real);
+            if (els.capacityOf) els.capacityOf.textContent = ' de ' + String(total);
+            if (els.capacityProjected) els.capacityProjected.textContent = String(projected);
+            if (els.capacityTotal && els.capacityTotal.parentElement) els.capacityTotal.parentElement.hidden = total <= 0;
+            if (els.capacityCommitted && els.capacityCommitted.parentElement) els.capacityCommitted.parentElement.hidden = committed <= 0;
+            if (els.capacityDemand && els.capacityDemand.parentElement) els.capacityDemand.parentElement.hidden = demand <= 0;
+            if (els.capacitySecondary) els.capacitySecondary.hidden = !(committed > 0 || demand > 0 || projected > 0);
+            if (els.capacityProjectedWrap) els.capacityProjectedWrap.hidden = !(projected > 0);
             if (els.capacityWarning) {
-                els.capacityWarning.hidden = !(parseInt(summary.capacidad_proyectada || '0', 10) > 0);
+                els.capacityWarning.hidden = !(projected > 0);
             }
         }
 
@@ -1528,39 +1560,14 @@
                 '</article>';
         }
 
-        function nombreAbreviado(nombre) {
-            var partes = String(nombre || '').trim().split(/\s+/).filter(Boolean);
-            return partes.length > 2 ? partes.slice(0, 2).join(' ') : partes.join(' ');
-        }
-
-        function renderReservationContext(reservacion) {
-            var context = els.selectionCopy && els.selectionCopy.closest('.operational-selection-context');
-            if (!els.selectionCopy) {
-                return;
-            }
-            if (!reservacion) {
-                if (context) {
-                    context.classList.remove('has-selection');
-                }
-                els.selectionCopy.textContent = 'Ninguna reservación seleccionada';
-                return;
-            }
-            var mesas = Array.isArray(reservacion.mesas_asignadas) && reservacion.mesas_asignadas.length
-                ? reservacion.mesas_asignadas.join(', ')
-                : 'Sin mesas asignadas';
-            els.selectionCopy.textContent = '#' + reservacion.id + ' \u00b7 ' + nombreAbreviado(reservacion.nombre) +
-                ' \u00b7 ' + (horaCorta(reservacion.hora) || 'Sin horario') +
-                ' \u00b7 ' + plural(parseInt(reservacion.comensales || '0', 10), 'persona', 'personas') +
-                ' \u00b7 ' + mesas;
-            if (context) {
-                context.classList.add('has-selection');
-            }
-            return;
-            els.selectionCopy.textContent = '#' + reservacion.id + ' · ' + nombreAbreviado(reservacion.nombre) + ' · ' + mesas;
-        }
-
         function renderRecommendedAction(reservacion, mesaIds, editable) {
+            if (reservacion.puede_registrar_ausencia === true) {
+                return { key: 'no-show', html: renderActionButton('no-show', 'Registrar ausencia', 'admin-btn admin-btn--primary', false) };
+            }
             if (!mesaIds.length) {
+                if (!canAssignTables(reservacion)) {
+                    return { key: '', html: '' };
+                }
                 return { key: 'reassign', html: renderActionButton('reassign', 'Asignar mesas', 'admin-btn admin-btn--primary', !canAssignTables(reservacion)) };
             }
             if (String(reservacion.estado) === 'pendiente_verificacion' && editable) {
@@ -1580,8 +1587,7 @@
             }
 
             root.classList.toggle('has-selected-reservation', Boolean(reservacion));
-            renderReservationContext(reservacion);
-
+            setPanelAccessibility(!reservacion);
             if (!reservacion) {
                 renderPanelState(
                     state.loadFailure && !state.hasLoadedData
@@ -1595,27 +1601,22 @@
             var assignable = canAssignTables(reservacion);
             var estado = String(reservacion.estado || 'confirmada');
             var mesaIds = Array.isArray(reservacion.mesa_ids) ? reservacion.mesa_ids : [];
-            var selectedIds = activeSelectionIds();
-            var capacidad = selectedCapacity();
             var comensales = parseInt(reservacion.comensales || '0', 10);
-            var diferencia = capacidad - comensales;
-            var insufficient = selectedIds.size > 0 && capacidad < comensales;
-            var selectedNames = Array.from(selectedIds).map(mesaNombre);
             var mesasActuales = Array.isArray(reservacion.mesas_asignadas) && reservacion.mesas_asignadas.length
                 ? reservacion.mesas_asignadas.join(', ')
                 : 'Sin mesas asignadas';
-            var contactFact = state.surface === 'admin'
-                ? '<div class="reservation-operation-panel__fact--wide reservation-operation-panel__fact--contact"><dt>Contacto</dt><dd>' + esc(reservacion.contacto || '') + '</dd></div>'
-                : '';
             var detailLink = state.surface === 'admin'
                 ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
                 : '';
+            var canCancelReservation = estado === 'confirmada' && !reservacion.ticket_abierto;
+            var clientNote = String(reservacion.nota || '').trim();
+            var commentHtml = renderCommentBox(reservacion, editable);
 
             els.panel.innerHTML =
                 '<article class="reservation-operation-panel admin-card">' +
                     '<div class="reservation-operation-panel__head reservation-operation__summary">' +
                         '<div>' +
-                            '<span class="reservation-operation-panel__label">Reservación #' + esc(reservacion.id) + '</span>' +
+                            '<span class="reservation-operation-panel__label">Detalle operativo</span>' +
                             '<h3>' + esc(reservacion.nombre) + '</h3>' +
                         '</div>' +
                         '<span class="reservations-table__status reservations-table__status--' + esc(estado) + '">' + esc(estadoLabel(estado)) + '</span>' +
@@ -1623,76 +1624,85 @@
                     '<dl class="reservation-operation-panel__facts">' +
                         '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
                         '<div><dt>Personas</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
-                        '<div class="reservation-operation-panel__fact--wide"><dt>Mesas asignadas</dt><dd>' + esc(mesasActuales) + '</dd></div>' +
-                        '<div><dt>Capacidad</dt><dd>' + esc(String(capacidad)) + '</dd></div>' +
-                        '<div><dt>Diferencia</dt><dd class="' + (diferencia < 0 ? 'is-insufficient' : '') + '">' + (diferencia > 0 ? '+' : '') + esc(String(diferencia)) + '</dd></div>' +
-                        contactFact +
+                        '<div class="reservation-operation-panel__fact--wide"><dt>Mesas</dt><dd>' + esc(mesasActuales) + '</dd></div>' +
                     '</dl>' +
                     (reservacion.conflicto_proximo && reservacion.alerta_operativa
                         ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
                             '<strong>Ticket abierto dentro del bloqueo.</strong> ' +
                             esc(reservacion.alerta_operativa.mensaje || 'La liberación proyectada no ocurrió.') +
                             '<div class="reservation-operation-actions">' +
-                                '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Consultar ticket #' + esc(reservacion.alerta_operativa.ticket_id || '') + '</a>' +
+                                 '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>' +
                                 (assignable ? '<button class="admin-btn admin-btn--secondary" type="button" data-operation-assignment-start>Reasignar mesas</button>' : '') +
                             '</div>' +
                         '</div>'
                         : '') +
-                    '<section class="reservation-operation-panel__section reservation-operation-panel__section--actions reservation-operation__quick-actions">' +
-                        (function () {
-                            var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
-                            var other = '';
-                            if (recommended.key !== 'reassign') other += renderActionButton('reassign', 'Cambiar mesas', 'admin-btn admin-btn--secondary', !assignable);
-                            if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true) {
-                                other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', !mesaIds.length);
-                            }
-                            if (reservacion.puede_registrar_ausencia === true) {
-                                other += renderActionButton('no-show', 'Registrar que el cliente no se presentó', 'admin-btn admin-btn--ghost', false);
-                            }
-                            if (reservacion.ticket_abierto && reservacion.ticket_id) {
-                                other += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Consultar ticket #' + esc(reservacion.ticket_id) + '</a>';
-                            }
-                            return '<div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + (recommended.html || '<p class="reservation-operation-panel__muted">No hay una acción recomendada para este estado.</p>') + '</div>' +
-                                '<div class="reservation-operation-action-group"><h4>Otras acciones</h4><div class="reservation-operation-actions">' + (other || '<p class="reservation-operation-panel__muted">No hay otras acciones disponibles.</p>') + '</div></div>' +
-                                '<div class="reservation-operation-action-group reservation-operation-action-group--danger"><h4>Cancelar reservación</h4>' + renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', !(estado === 'confirmada' && !reservacion.ticket_abierto)) + '</div>';
-                        })() +
-                    '</section>' +
+                    (function () {
+                        var recommended = renderRecommendedAction(reservacion, mesaIds, editable);
+                        var other = '';
+                        if (assignable && recommended.key !== 'reassign') other += renderActionButton('reassign', 'Cambiar mesas', 'admin-btn admin-btn--secondary', false);
+                        if (recommended.key !== 'start-service' && reservacion.puede_iniciar_servicio === true && mesaIds.length) {
+                            other += renderActionButton('start-service', 'Iniciar servicio', 'admin-btn admin-btn--secondary', false);
+                        }
+                        if (recommended.key !== 'no-show' && reservacion.puede_registrar_ausencia === true) {
+                            other += renderActionButton('no-show', 'Registrar ausencia', 'admin-btn admin-btn--ghost', false);
+                        }
+                        if (reservacion.ticket_abierto && reservacion.ticket_id) {
+                            other += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>';
+                        }
+                        if (!recommended.html && !other) {
+                            return '';
+                        }
+                        return '<section class="reservation-operation-panel__section reservation-operation-panel__section--actions reservation-operation__quick-actions">' +
+                            (recommended.html ? '<div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + recommended.html + '</div>' : '') +
+                            (other ? '<div class="reservation-operation-action-group"><h4>Acciones disponibles</h4><div class="reservation-operation-actions">' + other + '</div></div>' : '') +
+                        '</section>';
+                    })() +
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
-                        '<h4>Mesas asignadas</h4>' +
-                        (!assignable ? '<p class="reservation-operation-inline reservation-operation-inline--muted">Este estado no permite cambiar mesas.</p>' : '') +
+                        '<h4>Mesas</h4>' +
+                        '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
                         (assignable ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
-                        (canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--danger" type="button" data-operation-clear>Liberar asignación</button>' : '') +
-                        '<div class="reservation-operation-summary">' +
-                            '<div><span>Reservación</span><strong>' + comensales + ' personas</strong></div>' +
-                            '<div><span>Capacidad total</span><strong class="' + (insufficient ? 'is-insufficient' : '') + '">' + capacidad + '</strong></div>' +
-                            '<div><span>Diferencia</span><strong class="' + (diferencia < 0 ? 'is-insufficient' : '') + '">' + (diferencia > 0 ? '+' : '') + diferencia + '</strong></div>' +
-                        '</div>' +
-                        '<div class="reservation-operation-panel__selected ' + (!selectedNames.length ? 'is-empty' : '') + '"><span>Mesas asignadas</span><strong>' + esc(selectedNames.length ? selectedNames.join(', ') : 'Sin mesas asignadas') + '</strong></div>' +
-                        (insufficient ? '<p class="reservation-operation-inline reservation-operation-inline--warning">La capacidad seleccionada es menor que los comensales. Puedes guardar explícitamente esta asignación.</p>' : '') +
-                        '<button class="admin-btn admin-btn--primary reservation-operation-panel__submit" type="button" data-operation-save data-disabled="' + (!assignable || state.candidateSelectionIds.size === 0 ? '1' : '0') + '"' + (!assignable || state.candidateSelectionIds.size === 0 || state.guardando ? ' disabled' : '') + '>' +
-                            (insufficient ? 'Guardar de todos modos' : 'Guardar asignación') +
-                        '</button>' +
                     '</section>' +
-                    '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
-                        '<h4>Nota del cliente</h4>' +
-                        (reservacion.nota ? '<p class="reservation-operation-panel__note">' + esc(reservacion.nota) + '</p>' : '<p class="reservation-operation-panel__muted">Sin nota del cliente.</p>') +
-                    '</section>' +
-                    '<section class="reservation-operation-panel__section reservation-operation__comment">' +
-                        '<h4>Comentario interno</h4>' +
-                        renderCommentBox(reservacion, editable) +
-                    '</section>' +
-                    detailLink +
+                    (clientNote ?
+                        '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
+                            '<h4>Nota del cliente</h4>' +
+                            '<p class="reservation-operation-panel__note">' + esc(clientNote) + '</p>' +
+                        '</section>' : '') +
+                    (commentHtml ?
+                        '<section class="reservation-operation-panel__section reservation-operation__comment">' +
+                            '<h4>Comentario interno</h4>' +
+                            commentHtml +
+                        '</section>' : '') +
+                    ((detailLink || (assignable && canClearAssignment(reservacion)) || canCancelReservation) ?
+                        '<section class="reservation-operation-panel__section reservation-operation-panel__section--more-actions"><h4>Más acciones</h4><div class="reservation-operation-actions">' +
+                            detailLink +
+                            (assignable && canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--ghost" type="button" data-operation-clear>Liberar asignación</button>' : '') +
+                            (canCancelReservation ? renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', false) : '') +
+                        '</div></section>' : '') +
                 '</article>';
         }
 
         function renderCommentBox(reservacion, editable) {
             if (!state.config.comentarioAdminDisponible) {
-                return '<div class="reservation-operation-migration"><p>Los comentarios internos no estan disponibles en esta instalacion.</p></div>';
+                return '';
             }
 
+            var editing = state.commentEditingReservationId === parseInt(reservacion.id, 10);
+            if (!editing) {
+                var comment = String(reservacion.comentario_admin || '').trim();
+                if (!comment && !editable) {
+                    return '';
+                }
+                return '<div class="reservation-operation-comment-summary">' +
+                    (comment ? '<p class="reservation-operation-panel__note">' + esc(comment) + '</p>' : '') +
+                    (editable ? '<button type="button" class="admin-btn admin-btn--ghost" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar nota') + '</button>' : '') +
+                '</div>';
+            }
             return '<div class="reservation-operation-comment">' +
-                '<textarea rows="4" placeholder="Notas internas para recepcion y piso" data-operation-comment ' + (!editable ? 'readonly' : '') + '>' + esc(reservacion.comentario_admin || '') + '</textarea>' +
-                '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-save data-disabled="' + (!editable ? '1' : '0') + '"' + (!editable || state.guardando ? ' disabled' : '') + '>Guardar comentario</button>' +
+                '<textarea rows="4" placeholder="Notas internas para recepción y piso" data-operation-comment ' + (!editable ? 'readonly' : '') + '>' + esc(reservacion.comentario_admin || '') + '</textarea>' +
+                '<div class="reservation-operation-comment__actions">' +
+                    '<button type="button" class="admin-btn admin-btn--ghost" data-operation-comment-cancel>Cancelar</button>' +
+                    '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-save data-disabled="' + (!editable ? '1' : '0') + '"' + (!editable || state.guardando ? ' disabled' : '') + '>Guardar</button>' +
+                '</div>' +
             '</div>';
         }
 
@@ -2458,9 +2468,9 @@
                 var conflictTables = (conflicto.mesas_conflicto || []).map(mesaNombre).join(', ');
                 var allTables = (conflicto.mesa_ids || []).map(mesaNombre).join(', ');
                 var origin = conflicto.origen === 'reservacion'
-                    ? 'Reservación #' + (conflicto.reservacion_id || '')
+                    ? 'Reservación'
                     : 'Walk-in';
-                return 'Ticket #' + conflicto.ticket_id +
+                return 'Ticket abierto' +
                     ' · Mesas seleccionadas: ' + (conflictTables || 'Sin identificar') +
                     ' · Todas sus mesas: ' + (allTables || 'Sin identificar') +
                     ' · Apertura: ' + (conflicto.hora_apertura || 'Sin dato') +
@@ -2548,8 +2558,9 @@
 
             setSaving(true);
             postJson(API_BASE + '/comentario', data)
-                .then(function () {
+                .then(function (payload) {
                     showToast(payload.mensaje || '', 'success', payload.consecuencia || '');
+                    state.commentEditingReservationId = null;
                     refreshDay({ preserveReservationId: reservacion.id });
                 })
                 .catch(function (error) {
@@ -2714,7 +2725,6 @@
                 title: title,
                 description: description,
                 summary: reservacion ? [
-                    'Reservación #' + (reservacion.id || ''),
                     'Cliente: ' + (reservacion.nombre || 'Sin nombre'),
                     'Fecha y hora: ' + (reservacion.fecha || '') + ' ' + String(reservacion.hora || '').slice(0, 5)
                 ] : [],
@@ -3004,6 +3014,8 @@
             var assignmentClear = event.target.closest('[data-operation-clear]');
             var saveButton = event.target.closest('[data-operation-save]');
             var commentButton = event.target.closest('[data-operation-comment-save]');
+            var commentEditButton = event.target.closest('[data-operation-comment-edit]');
+            var commentCancelButton = event.target.closest('[data-operation-comment-cancel]');
             var actionButton = event.target.closest('[data-operation-action]');
             var mobileTab = event.target.closest('[data-operation-mobile-tab]');
 
@@ -3042,6 +3054,25 @@
 
             if (commentButton) {
                 saveComment();
+                return;
+            }
+
+            if (commentEditButton) {
+                var editReservation = selectedReservation();
+                if (editReservation) {
+                    state.commentEditingReservationId = parseInt(editReservation.id, 10);
+                    renderReservationDetail();
+                    window.setTimeout(function () {
+                        var textarea = root.querySelector('[data-operation-comment]');
+                        if (textarea) textarea.focus();
+                    }, 0);
+                }
+                return;
+            }
+
+            if (commentCancelButton) {
+                state.commentEditingReservationId = null;
+                renderReservationDetail();
                 return;
             }
 

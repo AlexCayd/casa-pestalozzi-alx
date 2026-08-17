@@ -113,6 +113,7 @@ if ($initialOperationNotice !== null) {
     ob_start();
     $operationalMapToggleLabel = 'mapa de reservaciones';
     $operationalMapToggleIconOnly = true;
+    $operationalFilterScope = 'context';
     include __DIR__ . '/../partials/map-toggle.php';
     include __DIR__ . '/_filters.php';
     $operationalContextControlsHtml = (string)ob_get_clean();
@@ -132,13 +133,14 @@ if ($initialOperationNotice !== null) {
     $operationalContextActionsHtml = (string)ob_get_clean();
     $operationalContextView = 'reservations';
     $operationalContextSelectionHtml =
-        '<div class="operational-selection-context" role="status" aria-live="polite"><span data-operation-selection-copy>Ninguna reservación seleccionada</span></div>' .
         '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
-            '<span>Total físico <strong data-operation-capacity-total>0</strong></span>' .
-            '<span>Comprometida <strong data-operation-capacity-committed>0</strong></span>' .
-            '<span>Demanda sin mesas <strong data-operation-capacity-demand>0</strong></span>' .
-            '<span>Disponible <strong data-operation-capacity-real>0</strong></span>' .
-            '<span>Proyectada <strong data-operation-capacity-projected>0</strong></span>' .
+            '<strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__of" data-operation-capacity-of> de 0</span> disponibles</strong>' .
+            '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden>' .
+                '<span><strong data-operation-capacity-total>0</strong> físicos</span>' .
+                '<span><strong data-operation-capacity-committed>0</strong> comprometidos</span>' .
+                '<span><strong data-operation-capacity-demand>0</strong> sin mesa</span>' .
+                '<span data-operation-capacity-projected-wrap hidden><strong data-operation-capacity-projected>0</strong> proyectados</span>' .
+            '</span>' .
             '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
         '</div>';
     $operationalContextIncludeDrawerToggle = false;
@@ -152,6 +154,10 @@ if ($initialOperationNotice !== null) {
     $operationalDrawerDateHtml = '';
     $operationalDrawerCountHtml = '<span class="mapa-reserva-count" data-operation-count>0</span>';
     $operationalDrawerSlotHtml = '';
+    ob_start();
+    $operationalFilterScope = 'drawer';
+    include __DIR__ . '/_filters.php';
+    $operationalDrawerFilterHtml = (string)ob_get_clean();
     $operationalDrawerListAttributes = ['data-operation-reservations' => true];
     $operationalDrawerListHtml = '<div class="reservation-operation-skeleton"><span></span><span></span><span></span></div>';
     $operationalActiveModule = 'reservations';
@@ -180,7 +186,7 @@ if ($initialOperationNotice !== null) {
             include __DIR__ . '/../partials/map.php';
             ?>
 
-        <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Detalle operativo" aria-hidden="false">
+        <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Detalle operativo" aria-hidden="true" hidden inert>
                 <div class="reservation-operation__panel-toolbar reservation-operation__header">
                     <span>Detalle operativo</span>
                     <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar detalle" title="Cerrar detalle" data-operation-panel-close>
@@ -188,10 +194,7 @@ if ($initialOperationNotice !== null) {
                     </button>
                 </div>
                 <div class="reservation-operation__panel-content reservation-operation__body" data-operation-panel>
-                    <article class="reservation-operation-panel admin-card">
-                        <h3>Selecciona una reservación</h3>
-                        <p class="reservation-operation-panel__muted">Elige una reservación del menú lateral para consultar sus datos y mesas.</p>
-                    </article>
+                    <article class="reservation-operation-panel admin-card" role="status" aria-live="polite"></article>
                 </div>
         </aside>
         </div>
