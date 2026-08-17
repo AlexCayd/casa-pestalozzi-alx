@@ -15,6 +15,7 @@
 
         var state = {
             fecha: root.getAttribute('data-initial-fecha') || '',
+            surface: root.getAttribute('data-operation-surface') || 'admin',
             fechaMinima: root.getAttribute('data-min-fecha') || '',
             fechaFallida: '',
             modo: root.getAttribute('data-operation-mode') || 'operacion',
@@ -418,7 +419,7 @@
 
         function canClearAssignment(reservacion) {
             return canAssignTables(reservacion)
-                && reservacion.origen === 'admin'
+                && (state.surface === 'waiter' || reservacion.origen === 'admin')
                 && Array.isArray(reservacion.mesa_ids)
                 && reservacion.mesa_ids.length > 0;
         }
@@ -572,7 +573,11 @@
             var search = String(state.reservationSearch || '').trim().toLowerCase();
             if (search) {
                 reservations = reservations.filter(function (reservacion) {
-                    return [reservacion.nombre, reservacion.contacto_visible, reservacion.contacto]
+                    var searchFields = [reservacion.nombre];
+                    if (state.surface === 'admin') {
+                        searchFields.push(reservacion.contacto_visible, reservacion.contacto);
+                    }
+                    return searchFields
                         .join(' ')
                         .toLowerCase()
                         .indexOf(search) !== -1;
@@ -1491,8 +1496,8 @@
                 estadoLabel: estadoLabel(estado),
                 seleccionada: selected,
                 mostrarSinMesas: true,
-                mostrarContextoAdmin: true,
-                contacto: reservacion.contacto_visible || 'Sin contacto',
+                mostrarContextoAdmin: state.surface === 'admin',
+                contacto: state.surface === 'admin' ? (reservacion.contacto_visible || 'Sin contacto') : '',
                 origen: reservacion.origen_visible || '',
                 nota: reservacion.nota_breve || '',
                 clases: [
@@ -1599,6 +1604,12 @@
             var mesasActuales = Array.isArray(reservacion.mesas_asignadas) && reservacion.mesas_asignadas.length
                 ? reservacion.mesas_asignadas.join(', ')
                 : 'Sin mesas asignadas';
+            var contactFact = state.surface === 'admin'
+                ? '<div class="reservation-operation-panel__fact--wide reservation-operation-panel__fact--contact"><dt>Contacto</dt><dd>' + esc(reservacion.contacto || '') + '</dd></div>'
+                : '';
+            var detailLink = state.surface === 'admin'
+                ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
+                : '';
 
             els.panel.innerHTML =
                 '<article class="reservation-operation-panel admin-card">' +
@@ -1615,7 +1626,7 @@
                         '<div class="reservation-operation-panel__fact--wide"><dt>Mesas asignadas</dt><dd>' + esc(mesasActuales) + '</dd></div>' +
                         '<div><dt>Capacidad</dt><dd>' + esc(String(capacidad)) + '</dd></div>' +
                         '<div><dt>Diferencia</dt><dd class="' + (diferencia < 0 ? 'is-insufficient' : '') + '">' + (diferencia > 0 ? '+' : '') + esc(String(diferencia)) + '</dd></div>' +
-                        '<div class="reservation-operation-panel__fact--wide reservation-operation-panel__fact--contact"><dt>Contacto</dt><dd>' + esc(reservacion.contacto) + '</dd></div>' +
+                        contactFact +
                     '</dl>' +
                     (reservacion.conflicto_proximo && reservacion.alerta_operativa
                         ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
@@ -1670,7 +1681,7 @@
                         '<h4>Comentario interno</h4>' +
                         renderCommentBox(reservacion, editable) +
                     '</section>' +
-                    '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>' +
+                    detailLink +
                 '</article>';
         }
 

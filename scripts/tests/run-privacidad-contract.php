@@ -31,6 +31,8 @@ function assertSinContacto($value): void
         'numero_telefono',
         'contact',
         'contact_info',
+        'contacto_visible',
+        'contacto_presente',
     ];
 
     if (!is_array($value)) {

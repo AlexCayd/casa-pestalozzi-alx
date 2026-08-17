@@ -1492,6 +1492,16 @@ la frontera de seguridad y no puede reconstruir el contacto.
 
 # 18. Mapa de reservaciones
 
+## 18.1 Acceso a la superficie operativa
+
+El mapa operativo de reservaciones es una superficie compartida por los roles
+`admin` y `waiter`. El waiter puede consultar y ejecutar las acciones
+operativas permitidas por la política vigente, incluyendo gestión de mesas,
+liberación, reasignación, comentarios operativos y las transiciones operativas
+expresamente autorizadas. Las funciones administrativas de alta, edición
+general y consulta de contacto permanecen restringidas a `admin`. La
+proyección de datos respeta las reglas de privacidad según el rol autenticado.
+
 El mapa conserva su propia simbología de proyección administrativa:
 
 ```text

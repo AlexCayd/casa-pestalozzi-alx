@@ -34,6 +34,10 @@ final class PosReservacionSerializer
         'numero_telefono',
         'contact',
         'contact_info',
+        // Campos derivados que el mapa administrativo calcula para mostrar
+        // contacto; también son contacto aunque no usen el nombre canónico.
+        'contacto_visible',
+        'contacto_presente',
     ];
 
     /**

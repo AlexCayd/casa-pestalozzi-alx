@@ -22,6 +22,8 @@ $initialReservacionId = (int)($initialReservacionId ?? 0);
 $initialOperationIntent = (string)($initialOperationIntent ?? '');
 $initialOperationNotice = is_array($initialOperationNotice ?? null) ? $initialOperationNotice : null;
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? false);
+$puedeCrearAdministrativa = (bool)($puedeCrearAdministrativa ?? false);
+$superficieOperativa = (string)($superficieOperativa ?? ($puedeCrearAdministrativa ? 'admin' : 'waiter'));
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -98,6 +100,7 @@ if ($initialOperationNotice !== null) {
     data-initial-requested-hour="<?php echo $h($horaSolicitadaInicial); ?>"
     data-initial-reservation-id="<?php echo $initialReservacionId; ?>"
     data-initial-operation-intent="<?php echo $h($initialOperationIntent); ?>"
+    data-operation-surface="<?php echo $h($superficieOperativa); ?>"
     data-return-url="<?php echo $h($returnUrl); ?>"
     data-comment-enabled="<?php echo $comentarioAdminDisponible ? '1' : '0'; ?>"
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
@@ -111,7 +114,7 @@ if ($initialOperationNotice !== null) {
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
-    if ($operacionEditable):
+    if ($operacionEditable && $puedeCrearAdministrativa):
     ?>
         <button class="admin-btn admin-btn--gold" type="button" data-operation-create data-create-date="<?php echo $h($fechaInicial); ?>">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -215,6 +218,7 @@ if ($initialOperationNotice !== null) {
             </div>
         </section>
 
+    <?php if ($puedeCrearAdministrativa): ?>
     <?php
     $modalReservacion = new \Model\Reservacion();
     $modalReservacion->fecha = $fechaInicial;
@@ -257,6 +261,7 @@ if ($initialOperationNotice !== null) {
             <button type="submit" class="admin-btn admin-btn--primary" data-form-save form="crear-reservation-admin-form">Crear reservación</button>
         </div>
     </dialog>
+    <?php endif; ?>
 
     <div data-operation-confirmation-host></div>
 

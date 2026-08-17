@@ -161,7 +161,8 @@ final class ReservacionMapaAdministrativaService
                     $db->rollback();
                     return ['ok' => false, 'codigo' => AsignacionMesasService::ESTADO_INVALIDO];
                 }
-                if ((string)($reservacion['origen'] ?? '') !== 'admin') {
+                $liberacionOperativa = !empty($opciones['permitir_liberacion_operativa']);
+                if (!$liberacionOperativa && (string)($reservacion['origen'] ?? '') !== 'admin') {
                     $db->rollback();
                     return ['ok' => false, 'codigo' => AsignacionMesasService::LIBERACION_NO_AUTORIZADA];
                 }
