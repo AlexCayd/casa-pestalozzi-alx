@@ -20,6 +20,9 @@ $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_arra
 $motivoNoEditable = (string)($motivoNoEditable ?? '');
 $formTransport = (string)($formTransport ?? 'html');
 $formActionsExternal = (bool)($formActionsExternal ?? false);
+$formAction = trim((string)($formAction ?? ''));
+$mostrarCamposContacto = (bool)($mostrarCamposContacto ?? true);
+$disponibilidadEndpoint = (string)($disponibilidadEndpoint ?? '/admin/api/reservaciones/disponibilidad');
 $capacidadWarning = is_array($capacidadWarning ?? null) ? $capacidadWarning : [];
 $mostrarCapacidadWarning = $modo === 'crear'
     && $formTransport === 'html'
@@ -73,7 +76,9 @@ $requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $formDisabled = !$iniciarEdicion;
-$action = $modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar';
+$action = $formAction !== ''
+    ? $formAction
+    : ($modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar');
 $formId = $modo . '-reservation-admin-form';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
 $autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
@@ -194,7 +199,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         // terminar. Mantener este estado con otro nombre evita
                         // que el include destruya la condición del formulario.
                         $disabled = $formDisabled;
-                        $endpoint = '/admin/api/reservaciones/disponibilidad';
+                        $endpoint = $disponibilidadEndpoint;
                         include __DIR__ . '/../../components/reservations/time-picker.php';
                         ?>
                         <?php $error = $errorCampo('hora'); ?>
@@ -239,8 +244,8 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-client-title'); ?>">
                 <div class="reservation-detail-form__section-head">
-                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-client-title'); ?>">Cliente y contacto</h3>
-                    <p>Usa estos datos para identificar y contactar al cliente.</p>
+                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-client-title'); ?>"><?php echo $mostrarCamposContacto ? 'Cliente y contacto' : 'Cliente'; ?></h3>
+                    <p><?php echo $mostrarCamposContacto ? 'Usa estos datos para identificar y contactar al cliente.' : 'Usa este dato para identificar la visita en el mapa operativo.'; ?></p>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--client">
                     <label class="reservation-detail-form__field reservation-detail-form__field--name">
@@ -250,6 +255,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nombre"><?php echo $h($error); ?></span>
                     </label>
 
+                    <?php if ($mostrarCamposContacto) : ?>
                     <label class="reservation-detail-form__field reservation-detail-form__field--contact-type">
                         <span>Tipo de contacto</span>
                         <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $formDisabled ? 'disabled' : ''; ?>>
@@ -260,7 +266,9 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <?php $error = $errorCampo('contacto_tipo'); ?>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto_tipo"><?php echo $h($error); ?></span>
                     </label>
+                    <?php endif; ?>
 
+                    <?php if ($mostrarCamposContacto) : ?>
                     <label class="reservation-detail-form__field reservation-detail-form__field--contact">
                         <span data-contact-field-label><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Teléfono' : 'Correo electrónico') : 'Contacto'; ?> <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
                         <input
@@ -281,6 +289,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <small class="reservation-detail-form__helper" data-contact-help><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Incluye lada y diez dígitos; el sistema normalizará el prefijo de México.' : 'Escribe un correo electrónico válido.') : ''; ?></small>
                         <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto"><?php echo $h($error); ?></span>
                     </label>
+                    <?php endif; ?>
                 </div>
             </section>
         </div>

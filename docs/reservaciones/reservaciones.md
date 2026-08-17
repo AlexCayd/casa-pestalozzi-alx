@@ -1498,9 +1498,15 @@ El mapa operativo de reservaciones es una superficie compartida por los roles
 `admin` y `waiter`. El waiter puede consultar y ejecutar las acciones
 operativas permitidas por la política vigente, incluyendo gestión de mesas,
 liberación, reasignación, comentarios operativos y las transiciones operativas
-expresamente autorizadas. Las funciones administrativas de alta, edición
-general y consulta de contacto permanecen restringidas a `admin`. La
-proyección de datos respeta las reglas de privacidad según el rol autenticado.
+expresamente autorizadas. Ambos roles pueden dar de alta desde el mismo
+formulario del mapa y ese alta reutiliza el flujo interno administrativo de
+horarios, capacidad, asignación y advertencias. En el waiter, el servidor
+fuerza `contacto_tipo = 'ninguno'` y `contacto = NULL`, aunque se manipule la
+petición; no se muestra ni se acepta contacto y no se inicia OTP ni
+verificación. El admin conserva el formulario completo de contacto y sus
+funciones administrativas de alta, edición general y consulta de contacto
+fuera del mapa. La proyección de datos respeta las reglas de privacidad según
+el rol autenticado.
 
 El mapa conserva su propia simbología de proyección administrativa:
 

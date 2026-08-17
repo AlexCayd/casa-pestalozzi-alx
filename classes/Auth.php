@@ -29,6 +29,8 @@ class Auth {
         '/admin/reservaciones/operacion',
         '/admin/reservations/operation',
         '/admin/api/reservaciones/operacion',
+        '/admin/api/reservaciones/operacion/crear',
+        '/admin/api/reservaciones/operacion/disponibilidad',
         '/admin/api/reservaciones/operacion/asignar-mesas',
         '/admin/api/reservaciones/operacion/liberar-mesas',
         '/admin/api/reservaciones/operacion/reasignar',

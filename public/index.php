@@ -110,6 +110,8 @@ $router->post('/admin/reservaciones/reasignar', [AdminReservacionController::cla
 $router->get('/admin/reservaciones/herramientas-desarrollo', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservaciones/herramientas-desarrollo/procesar-vencidas', [ReservacionMantenimientoController::class, 'procesarPendientes']);
 $router->get('/admin/api/reservaciones/operacion', [ReservacionOperacionController::class, 'operationData']);
+$router->post('/admin/api/reservaciones/operacion/crear', [ReservacionOperacionController::class, 'createFromOperation']);
+$router->get('/admin/api/reservaciones/operacion/disponibilidad', [ReservacionOperacionController::class, 'availability']);
 $router->post('/admin/api/reservaciones/operacion/asignar-mesas', [ReservacionOperacionController::class, 'apiAssignTables']);
 $router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOperacionController::class, 'apiClearTables']);
 $router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);

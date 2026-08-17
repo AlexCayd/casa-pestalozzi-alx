@@ -23,6 +23,10 @@ $initialOperationIntent = (string)($initialOperationIntent ?? '');
 $initialOperationNotice = is_array($initialOperationNotice ?? null) ? $initialOperationNotice : null;
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? false);
 $puedeCrearAdministrativa = (bool)($puedeCrearAdministrativa ?? false);
+$puedeCrearDesdeMapa = (bool)($puedeCrearDesdeMapa ?? $puedeCrearAdministrativa);
+$puedeCapturarContacto = (bool)($puedeCapturarContacto ?? $puedeCrearAdministrativa);
+$createReservationAction = (string)($createReservationAction ?? '/admin/reservaciones/crear');
+$availabilityEndpoint = (string)($availabilityEndpoint ?? '/admin/api/reservaciones/disponibilidad');
 $superficieOperativa = (string)($superficieOperativa ?? ($puedeCrearAdministrativa ? 'admin' : 'waiter'));
 
 $h = static function ($value): string {
@@ -114,7 +118,7 @@ if ($initialOperationNotice !== null) {
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
-    if ($operacionEditable && $puedeCrearAdministrativa):
+    if ($operacionEditable && $puedeCrearDesdeMapa):
     ?>
         <button class="admin-btn admin-btn--gold" type="button" data-operation-create data-create-date="<?php echo $h($fechaInicial); ?>">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -218,7 +222,7 @@ if ($initialOperationNotice !== null) {
             </div>
         </section>
 
-    <?php if ($puedeCrearAdministrativa): ?>
+    <?php if ($puedeCrearDesdeMapa): ?>
     <?php
     $modalReservacion = new \Model\Reservacion();
     $modalReservacion->fecha = $fechaInicial;
@@ -237,6 +241,9 @@ if ($initialOperationNotice !== null) {
     $returnUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaInicial);
     $formTransport = 'json';
     $formActionsExternal = true;
+    $formAction = $createReservationAction;
+    $mostrarCamposContacto = $puedeCapturarContacto;
+    $disponibilidadEndpoint = $availabilityEndpoint;
     ob_start();
     $modo = $modalFormModo;
     include __DIR__ . '/../../admin/reservations/_form.php';

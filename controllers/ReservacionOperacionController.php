@@ -30,6 +30,7 @@ class ReservacionOperacionController
     public static function operation(Router $router): void
     {
         $esAdmin = Auth::esAdmin();
+        $esMesero = Auth::esMesero();
         $fechaFueEnviada = array_key_exists('fecha', $_GET);
         $fechaSolicitada = trim((string)($_GET['fecha'] ?? ''));
         $fechaInvalida = $fechaFueEnviada && !HorarioReservacionService::fechaValida($fechaSolicitada);
@@ -128,12 +129,65 @@ class ReservacionOperacionController
             'modoSoloLectura' => $soloLectura,
             'operacionEditable' => $operacionEditable,
             'puedeCrearAdministrativa' => $esAdmin,
+            'puedeCrearDesdeMapa' => $esAdmin || $esMesero,
+            'puedeCapturarContacto' => $esAdmin,
+            'createReservationAction' => $esAdmin
+                ? '/admin/reservaciones/crear'
+                : '/admin/api/reservaciones/operacion/crear',
+            'availabilityEndpoint' => $esAdmin
+                ? '/admin/api/reservaciones/disponibilidad'
+                : '/admin/api/reservaciones/operacion/disponibilidad',
             'operationalHeaderBack' => $esAdmin,
             'horaSolicitadaInicial' => $horaSolicitada,
             'initialOperationNotice' => $initialOperationNotice,
             'fechaInvalidaRecibida' => $fechaInvalida ? $fechaSolicitada : '',
             'adminCsrfToken' => AdminCsrfService::token(),
         ]);
+    }
+
+    /**
+     * Alta compartida desde el mapa operativo.
+     *
+     * El servicio administrativo conserva la validacion de horario,
+     * capacidad, asignacion, advertencias e idempotencia. El waiter solo
+     * cambia la frontera de contacto: el servidor ignora cualquier valor
+     * manipulado y confirma internamente el alta sin contacto.
+     */
+    public static function createFromOperation(Router $router): void
+    {
+        $_POST = self::normalizarDatosAltaOperativa($_POST, Auth::esMesero());
+
+        AdminReservacionController::store($router);
+    }
+
+    /** @return array<string, mixed> */
+    private static function normalizarDatosAltaOperativa(array $post, bool $esMesero): array
+    {
+        if (!$esMesero) {
+            return $post;
+        }
+
+        $post['contacto_tipo'] = 'ninguno';
+        $post['contacto'] = null;
+        $post['confirmar_sin_contacto'] = '1';
+
+        $confirmaciones = $post['confirmaciones'] ?? [];
+        if (is_string($confirmaciones)) {
+            $confirmaciones = preg_split('/[,|\s]+/', $confirmaciones, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        if (!is_array($confirmaciones)) {
+            $confirmaciones = [];
+        }
+        $confirmaciones[] = 'SIN_CONTACTO';
+        $post['confirmaciones'] = array_values(array_unique(array_map('strval', $confirmaciones)));
+
+        return $post;
+    }
+
+    /** Disponibilidad de horarios para el formulario alojado en el mapa. */
+    public static function availability(): void
+    {
+        AdminReservacionController::disponibilidad();
     }
 
     public static function operationData(): void

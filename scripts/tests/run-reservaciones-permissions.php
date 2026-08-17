@@ -33,6 +33,8 @@ $authority = readPermissionSource($root, 'docs/reservaciones/reservaciones.md');
 $operationRoutes = [
     '/admin/reservaciones/operacion',
     '/admin/api/reservaciones/operacion',
+    '/admin/api/reservaciones/operacion/crear',
+    '/admin/api/reservaciones/operacion/disponibilidad',
     '/admin/api/reservaciones/operacion/asignar-mesas',
     '/admin/api/reservaciones/operacion/liberar-mesas',
     '/admin/api/reservaciones/operacion/reasignar',
@@ -87,9 +89,10 @@ assertPermissionContract(
 
 assertPermissionContract(
     str_contains($operationView, 'data-operation-surface=')
-        && str_contains($operationView, 'if ($operacionEditable && $puedeCrearAdministrativa):')
-        && str_contains($operationView, 'if ($puedeCrearAdministrativa):'),
-    'waiter no recibe alta administrativa ni el modal de creacion'
+        && str_contains($operationView, 'if ($operacionEditable && $puedeCrearDesdeMapa):')
+        && str_contains($operationView, 'if ($puedeCrearDesdeMapa):')
+        && str_contains($operationView, '$mostrarCamposContacto = $puedeCapturarContacto;'),
+    'admin y waiter comparten el CTA y formulario del mapa con campos por rol'
 );
 assertPermissionContract(
     str_contains($posWorkspace, '$puedeMapaReservaciones')
