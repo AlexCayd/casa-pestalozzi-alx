@@ -13,6 +13,19 @@
             && mesa.disponible_para_asignacion !== true;
     }
 
+    function creationAvailability(options) {
+        options = options || {};
+        var unavailable = options.hasValidDate !== true
+            || options.hasSchedules !== true
+            || options.cargando === true
+            || Boolean(options.loadFailure)
+            || options.readonly === true;
+        return {
+            unavailable: unavailable,
+            disabled: unavailable || options.guardando === true
+        };
+    }
+
     function tableModalState(table, options) {
         options = options || {};
         var selected = options.selected === true;
@@ -78,6 +91,7 @@
     root.ReservationOperationPolicy = {
         mesaPuedeSerCandidata: mesaPuedeSerCandidata,
         currentAssignmentIsConflict: currentAssignmentIsConflict,
+        creationAvailability: creationAvailability,
         tableModalState: tableModalState
     };
 }(window));

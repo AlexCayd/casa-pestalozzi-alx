@@ -145,9 +145,15 @@ if ($initialOperationNotice !== null) {
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
-    if ($operacionEditable && $puedeCrearDesdeMapa):
+    if ($puedeCrearDesdeMapa):
     ?>
-        <button class="admin-btn admin-btn--gold" type="button" data-operation-create data-create-date="<?php echo $h($fechaInicial); ?>">
+        <button
+            class="admin-btn admin-btn--gold"
+            type="button"
+            data-operation-create
+            data-create-date="<?php echo $h($fechaInicial); ?>"
+            <?php echo !$operacionEditable ? 'hidden disabled aria-disabled="true"' : ''; ?>
+        >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <rect x="3" y="5" width="18" height="16" rx="2"></rect>
                 <path d="M8 3v4M16 3v4M3 10h18M12 13v6M9 16h6"></path>

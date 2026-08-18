@@ -131,5 +131,14 @@ assertReservationMapUx(
         && str_contains($operationShell, '[data-operational-map-toggle]'),
     'el control compartido del POS sigue disponible fuera de reservaciones'
 );
+assertReservationMapUx(
+    str_contains($view, 'if ($puedeCrearDesdeMapa):')
+        && str_contains($view, 'data-operation-create')
+        && str_contains($view, '!$operacionEditable ? \'hidden disabled aria-disabled="true"\' : \'\'')
+        && str_contains($operation, 'ReservationOperationPolicy.creationAvailability')
+        && str_contains($operation, 'els.create.hidden = availability.unavailable')
+        && str_contains($operation, 'els.create.disabled = availability.disabled'),
+    'el CTA existe por permiso y su estado se deriva del snapshot dinámico'
+);
 
 fwrite(STDOUT, "OK: contrato UX/UI del mapa de reservaciones\n");

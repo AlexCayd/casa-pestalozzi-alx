@@ -89,8 +89,8 @@ assertPermissionContract(
 
 assertPermissionContract(
     str_contains($operationView, 'data-operation-surface=')
-        && str_contains($operationView, 'if ($operacionEditable && $puedeCrearDesdeMapa):')
         && str_contains($operationView, 'if ($puedeCrearDesdeMapa):')
+        && str_contains($operationView, '!$operacionEditable ? \'hidden disabled aria-disabled="true"\' : \'\'')
         && str_contains($operationView, '$mostrarCamposContacto = $puedeCapturarContacto;'),
     'admin y waiter comparten el CTA y formulario del mapa con campos por rol'
 );

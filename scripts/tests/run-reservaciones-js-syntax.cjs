@@ -152,6 +152,46 @@ assertContract(
   operationPolicyApi.currentAssignmentIsConflict(Object.assign({}, blockedTicket, { asignada_actualmente: true })) === true,
   'ticket dentro del bloqueo crea conflicto de reasignación'
 );
+const availableCreation = operationPolicyApi.creationAvailability({
+  hasValidDate: true,
+  hasSchedules: true,
+  cargando: false,
+  loadFailure: null,
+  readonly: false,
+  guardando: false
+});
+assertContract(
+  availableCreation.unavailable === false && availableCreation.disabled === false,
+  'alta dinámica se habilita con snapshot editable'
+);
+for (const unavailableState of [
+  { hasSchedules: false },
+  { cargando: true },
+  { loadFailure: { message: 'fallo' } },
+  { readonly: true }
+]) {
+  const state = Object.assign({
+    hasValidDate: true,
+    hasSchedules: true,
+    cargando: false,
+    loadFailure: null,
+    readonly: false,
+    guardando: false
+  }, unavailableState);
+  const result = operationPolicyApi.creationAvailability(state);
+  assertContract(result.unavailable === true && result.disabled === true, 'alta se oculta ante contexto no disponible');
+}
+assertContract(
+  operationPolicyApi.creationAvailability({
+    hasValidDate: true,
+    hasSchedules: true,
+    cargando: false,
+    loadFailure: null,
+    readonly: false,
+    guardando: true
+  }).disabled === true,
+  'alta se deshabilita mientras guarda'
+);
 
 const adapterContext = { window: {} };
 vm.runInNewContext(tableAdapter, adapterContext, { filename: files[4] });

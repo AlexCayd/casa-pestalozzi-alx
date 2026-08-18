@@ -887,10 +887,17 @@
             var hasValidDate = fechaValida(state.fecha);
             var hasSchedules = sortedHours().length > 0;
             var readonly = state.modo === 'solo_lectura' || state.editable === false;
-            var unavailable = !hasValidDate || !hasSchedules || state.cargando || Boolean(state.loadFailure) || readonly;
-            els.create.hidden = unavailable;
-            els.create.disabled = unavailable || state.guardando;
-            els.create.setAttribute('aria-disabled', unavailable || state.guardando ? 'true' : 'false');
+            var availability = window.ReservationOperationPolicy.creationAvailability({
+                hasValidDate: hasValidDate,
+                hasSchedules: hasSchedules,
+                cargando: state.cargando,
+                loadFailure: state.loadFailure,
+                readonly: readonly,
+                guardando: state.guardando
+            });
+            els.create.hidden = availability.unavailable;
+            els.create.disabled = availability.disabled;
+            els.create.setAttribute('aria-disabled', availability.disabled ? 'true' : 'false');
         }
 
         function setMobileView(view) {
