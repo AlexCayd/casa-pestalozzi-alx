@@ -31,3 +31,13 @@
         <?php include __DIR__ . '/form.php'; ?>
     </section>
 </section>
+
+<?php if (is_array($nipFlash ?? null) && !empty($nipFlash['nip'])) : ?>
+    <div
+        hidden
+        data-user-nip-delivery
+        data-nip="<?php echo htmlspecialchars((string) $nipFlash['nip'], ENT_QUOTES, 'UTF-8'); ?>"
+        data-after-url="<?php echo htmlspecialchars((string) ($nipFlash['after_url'] ?? '/admin/usuarios'), ENT_QUOTES, 'UTF-8'); ?>"
+        data-flow="<?php echo htmlspecialchars((string) ($nipFlash['flujo'] ?? 'alta'), ENT_QUOTES, 'UTF-8'); ?>"
+    ></div>
+<?php endif; ?>

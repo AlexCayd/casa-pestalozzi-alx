@@ -322,6 +322,9 @@
             lastFocused = document.activeElement;
             current.returnFocus = options.returnFocus || options.return_focus || options.focusTarget || options.focus_target || lastFocused;
             root.className = 'confirmation-modal confirmation-modal--' + textValue(options.variant || 'default');
+            if (options.extraClass) {
+                root.classList.add(textValue(options.extraClass));
+            }
             root.hidden = false;
             root.removeAttribute('aria-hidden');
             root.inert = false;
@@ -382,6 +385,16 @@
                 callback = function () {
                     return current.onAction(current.secondaryAction);
                 };
+            }
+            if (current && current.secondaryCloses === false) {
+                try {
+                    if (typeof callback === 'function') callback();
+                } catch (error) {
+                    if (window.console && typeof window.console.error === 'function') {
+                        window.console.error(error);
+                    }
+                }
+                return;
             }
             if (!requestClose(true, { action: 'secondary' })) return;
             try {

@@ -43,23 +43,21 @@
             </div>
         </div>
 
-        <?php if ($rolUsuario !== 'admin') : ?>
-            <section class="admin-users-access-card" aria-labelledby="admin-users-access-title">
-                <div>
-                    <span class="admin-users-form__field-label">Acceso</span>
-                    <h3 id="admin-users-access-title">NIP configurado</h3>
-                    <p>El código actual no puede consultarse. Si se extravió, genera uno nuevo.</p>
-                </div>
-                <form method="POST" action="/admin/usuarios/regenerar-nip" data-user-regenerate-form>
-                    <input type="hidden" name="id" value="<?php echo $usuarioId; ?>">
-                    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                    <button type="submit" class="admin-btn admin-btn--secondary admin-menu__button" data-user-regenerate>
-                        Regenerar NIP
-                    </button>
-                </form>
-            </section>
-        <?php endif; ?>
+        <form hidden id="admin-user-regenerate-form" method="POST" action="/admin/usuarios/regenerar-nip" data-user-regenerate-form>
+            <input type="hidden" name="id" value="<?php echo $usuarioId; ?>">
+            <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+        </form>
 
         <?php include __DIR__ . '/form.php'; ?>
     </section>
 </section>
+
+<?php if (is_array($nipFlash ?? null) && !empty($nipFlash['nip'])) : ?>
+    <div
+        hidden
+        data-user-nip-delivery
+        data-nip="<?php echo htmlspecialchars((string) $nipFlash['nip'], ENT_QUOTES, 'UTF-8'); ?>"
+        data-after-url="<?php echo htmlspecialchars((string) ($nipFlash['after_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+        data-flow="<?php echo htmlspecialchars((string) ($nipFlash['flujo'] ?? 'regeneracion'), ENT_QUOTES, 'UTF-8'); ?>"
+    ></div>
+<?php endif; ?>

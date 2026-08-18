@@ -110,63 +110,98 @@
   max-width: none;
 }
 
-// Una credencial plana sólo aparece en esta confirmación de un solo consumo.
-.admin-users-nip-once,
-.admin-users-access-card {
+// El estado persistido es una línea secundaria dentro de «Identidad y
+// acceso». El código plano sólo existe dentro del modal global de entrega.
+.admin-users-access-inline {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 22px;
-  padding: 18px 20px;
-  border: 1px solid var(--admin-success-border);
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-success-bg);
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
 
-  h3 {
-    margin-top: 4px;
-    color: var(--admin-text);
-    font-family: var(--admin-font-heading);
-    font-size: 1.15rem;
-    font-weight: 500;
-  }
-
-  p {
-    margin-top: 5px;
-    color: var(--admin-muted);
-    font-size: 13px;
-  }
+  &[hidden] { display: none; }
 }
 
-.admin-users-nip-once__code {
+.admin-users-access-inline__copy {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 0 0 auto;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+
+  .admin-users-form__field-label {
+    flex-basis: 100%;
+  }
 
   strong {
-    color: var(--admin-success-text);
-    font-family: var(--admin-font-heading);
-    font-size: 2rem;
-    letter-spacing: 0.16em;
+    color: var(--admin-text);
+    font-size: 13px;
+    font-weight: 700;
   }
 }
 
-.admin-users-access-card {
-  border-color: var(--admin-border);
-  background: var(--admin-surface-soft);
+.admin-users-access-inline__hint {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.4;
+
+  &[hidden] { display: none; }
+}
+
+// El modal de entrega reutiliza ConfirmationModal; esta variante sólo ajusta
+// su medida y la jerarquía del código para que la credencial no parezca una
+// tarjeta permanente del listado.
+.confirmation-modal--user-nip {
+  .confirmation-modal__dialog {
+    width: min(480px, calc(100vw - 32px));
+  }
+
+  .confirmation-modal__description {
+    max-width: 42ch;
+  }
+}
+
+.admin-user-nip-modal__code {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 42%, var(--admin-border));
+  border-radius: var(--admin-radius-md);
+  background: color-mix(in srgb, var(--admin-gold) 8%, var(--admin-surface-soft));
+  text-align: center;
+
+  strong {
+    color: var(--admin-gold-soft);
+    font-family: var(--admin-font-heading);
+    font-size: clamp(2.25rem, 8vw, 3.5rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    line-height: 1;
+    padding-left: 0.18em;
+  }
+}
+
+.admin-user-nip-modal__label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 640px) {
-  .admin-users-nip-once,
-  .admin-users-access-card {
+  .admin-users-access-inline {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .admin-users-nip-once__code {
+  .admin-users-access-inline .admin-btn {
     width: 100%;
-    justify-content: space-between;
   }
 }
 

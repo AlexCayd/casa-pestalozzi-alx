@@ -1,101 +1,150 @@
-# Reporte: reestructuración del acceso de usuarios
+# Reporte final — refinamiento UX de NIP y consolidación de usuarios
 
 ## 1. Estado inicial
 
-El sistema derivaba el NIP desde un dato personal, aceptaba NIP manual en
-altas/ediciones y cambios de credencial, consultaba una API de disponibilidad y
-recorría todos los hashes con `password_verify()` durante el login.
+La arquitectura de acceso ya estaba estabilizada: `admin` usa usuario y
+contraseña; `waiter` y `cook` usan NIP de cuatro dígitos generado por servidor;
+`fecha_nacimiento` y la captura manual de NIP ya no existían. El pendiente de
+esta etapa era la entrega visual, el flujo de regeneración, la visibilidad por
+rol y la consolidación de seeds/documentación.
 
-## 2. Arquitectura final
+## 2. Flujo anterior vs. nuevo
 
-`Usuario` valida datos base y contraseñas administrativas. `NipService` es la
-fuente única para validar/generar NIP, calcular HMAC y controlar pruebas. `UsuarioService`
-coordina altas, ediciones, cambios de rol, regeneraciones y transacciones.
+Antes, alta y regeneración redirigían al listado y el NIP plano aparecía en
+una tarjeta persistente. Ahora el POST hace commit, guarda un flash one-shot y
+redirige a la pantalla de creación o edición. El GET consume el flash, abre el
+modal y sólo después de “Aceptar” continúa a su destino lógico.
 
-## 3. Esquema y migración
+## 3. Alta con modal
 
-`usuarios` ya no almacena el campo retirado. Conserva `nip_hash VARCHAR(255)` y
-agrega `nip_lookup CHAR(64) NULL`, `UNIQUE KEY uq_usuarios_nip_lookup` y una
-regla `CHECK` que impide credenciales de piso en admins. La migración explícita
-es `database/migrations/20260817_reestructurar_acceso_usuarios.sql`.
+Las altas de `waiter` y `cook`, y el cambio `admin → staff`, muestran el NIP en
+el modal global de confirmación. “Copiar NIP” conserva el modal abierto,
+mantiene ceros iniciales y muestra feedback temporal. “Aceptar” lleva al
+listado; el admin se crea sin modal de NIP.
 
-Como los hashes antiguos no permiten recuperar NIP, la migración se completa
-con `scripts/migrar-credenciales-piso.php`, que rota usuarios de piso y muestra
-la entrega sólo en la salida de esa ejecución.
+## 4. Regeneración con modal
 
-## 4. Generación, HMAC y unicidad
+“Regenerar” es una acción secundaria compacta. Primero abre una confirmación
+cancelable que explica la invalidación inmediata del NIP actual. Al confirmar,
+el backend hace commit y la edición vuelve con el nuevo NIP en el mismo flujo
+de entrega. El modal de entrega no tiene X, no acepta backdrop ni Escape, y
+“Aceptar” mantiene al administrador en la edición.
 
-Se usa `str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT)`. El hash se calcula
-con `password_hash()` y el lookup con HMAC-SHA-256 y `NIP_LOOKUP_SECRET`, que es
-obligatorio y vive fuera del repositorio. El código preselecciona candidatos y
-la base de datos respalda la autoridad final: una colisión sobre
-`uq_usuarios_nip_lookup` hace rollback y reintenta hasta 50 veces.
+## 5. Comportamiento dinámico por rol
 
-## 5. Flujos de usuario
+La sección de NIP sólo aparece para `waiter`/`cook` con credencial persistida.
+Al seleccionar `admin` se oculta inmediatamente. Para `admin → staff` se
+muestra el hint de generación futura y no la acción “Regenerar”. El cambio
+`waiter ↔ cook` conserva la credencial.
 
-- Alta admin: username, nombre, rol, estado y contraseña; ambas columnas de NIP
-  quedan en `NULL`.
-- Alta waiter/cook: genera NIP dentro de la transacción, guarda hash + lookup y
-  lo muestra una sola vez mediante flash de sesión después del commit.
-- Regeneración: POST protegido por admin + CSRF + confirmación; sustituye ambas
-  columnas en transacción y el NIP anterior deja de funcionar.
-- Cambio waiter ↔ cook: conserva la credencial.
-- Piso → admin: limpia la credencial y exige contraseña administrativa válida.
-- Admin → piso: genera NIP nuevo automáticamente.
-- Inactivo: conserva su reserva y no puede entrar; al reactivarse usa el mismo NIP.
+## 6. Protección del NIP de un solo uso
 
-## 6. Login y seguridad
+El valor plano sólo se inserta temporalmente en el DOM de una respuesta que
+abre el modal. No aparece en URL, listado, cookies, localStorage,
+sessionStorage, analytics ni logs. El trigger se elimina al aceptar y el
+listado nunca renderiza el NIP.
 
-El login de piso valida cuatro dígitos, calcula el HMAC y hace `SELECT` directo
-por `nip_lookup` con rol y estado. Sólo después ejecuta `password_verify()`. El
-mensaje es genérico y hay un límite de cinco fallos por sesión/IP durante 60
-segundos. No existe recuperación del NIP actual: regenerar es la única opción.
+## 7. Cache y flash
 
-## 7. Rutas y UI retiradas
+Las pantallas que contienen el flash aplican `Cache-Control: no-store,
+no-cache, must-revalidate, max-age=0`, `Pragma: no-cache` y `Expires: 0`. El
+flash se elimina antes de renderizar; Back/Refresh no puede recuperarlo desde
+servidor.
 
-Se eliminó el endpoint de disponibilidad y la captura de NIP/confirmación en
-formularios. El cambio de contraseña quedó reservado a admins en
-`/admin/usuarios/cambiar-password`; el personal usa
-`/admin/usuarios/regenerar-nip`. La vista de edición sólo indica “NIP
-configurado” y nunca revela el valor actual.
+## 8. DDL
 
-## 8. Archivos relevantes
+`database/ddl.sql` mantiene únicamente estructura: `password_hash`, `nip_hash`,
+`nip_lookup`, `UNIQUE username`, `UNIQUE nip_lookup` y la invariante SQL que
+impide NIP en admins. No se agregaron usuarios ni `INSERT` al DDL.
 
-Se modificaron el modelo, servicios, controladores, rutas, vistas, JS/SCSS del
-módulo, DDL, seeds, credenciales de desarrollo, `CLAUDE.md`, `package.json` y
-los bundles generados de usuarios. Se agregaron `NipService`, la migración, las
-rutinas de migración/seed, el contrato `run-usuarios-acceso.php` y
-`docs/usuarios_acceso.md`.
+## 9. Seeds
 
-No se tocaron reservaciones, POS, KDS, tickets, OTP de clientes ni n8n. Hay
-cambios concurrentes staged de reservaciones fuera de este trabajo; permanecen
-separados.
+`database/dml_pruebas.sql` conserva el admin demo. El seed PHP de piso lee
+`NIP_LOOKUP_SECRET`, calcula `nip_hash` y `nip_lookup` correctamente y muestra
+la entrega sólo en la salida de CLI. Los usuarios `mesero1`, `mesero2`,
+`cocinero1`, `mesero3` y `mesero_inactivo` quedan disponibles para desarrollo y
+QA.
 
-## 9. Pruebas y build
+## 10. Usuarios de desarrollo
 
-- `npm.cmd test`: pasa la suite PHP y JS completa, incluido el contrato de
-  acceso, HMAC, cuatro dígitos y colisión determinista `1234 → 1234 → 5678`.
-- `npm.cmd run build`: pasa completo después de un primer intento bloqueado al
-  abrir temporalmente un `.map` generado.
-- `php -l`: pasa en todos los PHP modificados.
-- Prueba manual HTTP: no fue posible realizarla porque no se detectó un
-  servidor HTTP local disponible.
-- Pruebas contra MySQL real de creación, UNIQUE, regeneración y cambios de rol:
-  no se ejecutaron porque no existe `.env` ni cliente/configuración de BD en
-  este entorno; quedan cubiertas por el código transaccional y los contratos
-  estáticos, y deben ejecutarse al aplicar la migración en una instalación con
-  datos.
+`admin_demo` usa la contraseña `Pestalozzi2026` sólo en desarrollo/QA. Los NIP
+de piso deben tomarse de la salida de `php scripts/seed-usuarios-prueba.php`
+para esa instalación y no se documentan como credenciales de producción.
 
-## 10. Riesgos pendientes
+## 11. Credenciales
 
-La configuración de cada ambiente debe definir `NIP_LOOKUP_SECRET` antes de
-crear o rotar usuarios de piso. La migración de producción debe ejecutarse con
-respaldo y entrega coordinada de los nuevos NIP. El espacio de 10,000 códigos
-es adecuado para el volumen esperado, pero debe monitorearse la cercanía al
-límite.
+El contenido se movió a `docs/usuarios/credenciales.md`, con advertencias de
+uso exclusivo en desarrollo, dependencia de `NIP_LOOKUP_SECRET`, ejecución del
+seed y login por rol. La fuente anterior de credenciales fue retirada.
 
-## 11. Git
+## 12. Consolidación documental
 
-Se creó un commit acotado con el mensaje `refactor(auth): generar NIP de
-personal automáticamente`. No se hizo push. Los cambios
-previos/concurrentes de reservaciones y archivos no relacionados quedaron fuera.
+`docs/usuarios/usuarios.md` es ahora el contrato canónico del módulo y reúne
+roles, matriz de acceso, creación, edición, autenticación, arquitectura NIP,
+colisiones, regeneración, migraciones, seeds, UX e invariantes. El documento
+duplicado de acceso fue retirado. El reporte actual permanece como histórico de
+esta etapa, sin competir con el contrato canónico.
+
+## 13. Archivos eliminados
+
+- La copia anterior de credenciales.
+- El documento duplicado de acceso.
+- La tarjeta de entrega NIP del listado de usuarios.
+
+## 14. Archivos creados
+
+- `docs/usuarios/usuarios.md`.
+- `docs/usuarios/credenciales.md`.
+
+## 15. Archivos modificados
+
+- `controllers/AdminUsersController.php`.
+- `views/admin/users/create.php`.
+- `views/admin/users/edit.php`.
+- `views/admin/users/form.php`.
+- `views/admin/users/index.php`.
+- `src/js/admin/users/users-form.js`.
+- `src/js/components/confirmation-modal.js`.
+- `src/scss/admin/modules/users.scss`.
+- `CLAUDE.md`.
+
+## 16. Tests
+
+Se ajustaron los contratos estáticos de usuarios para cubrir entrega modal,
+flujo one-shot, visibilidad por rol, copia con fallback, cache y ausencia de la
+tarjeta/listado. La suite completa se ejecuta con `npm.cmd test`.
+
+## 17. Build
+
+El bundle del módulo se regenera con `npm.cmd run build`. Los bundles generados
+se mantienen separados de assets compilados concurrentes ajenos a usuarios.
+
+## 18. Prueba manual
+
+No fue posible completar la verificación manual HTTP porque no había un
+servidor HTTP del proyecto disponible en el entorno de trabajo. La validación
+debe cubrir alta de waiter, edición dinámica, cancelación/confirmación de
+regeneración, copia, permanencia en edición y login con NIP nuevo.
+
+## 19. Commits
+
+Esta etapa quedó en un commit separado con el mensaje
+`feat(users): mejorar entrega y regeneración de NIP`, sin push ni mezcla con
+cambios concurrentes de otros módulos. El commit anterior de arquitectura se
+conserva: `61163ae refactor(auth): generar NIP de personal automáticamente`.
+
+## 20. Riesgos pendientes
+
+La instalación debe configurar `NIP_LOOKUP_SECRET` antes de crear o rotar
+credenciales de piso. La migración de datos debe ejecutarse con respaldo y con
+entrega coordinada de los NIP nuevos.
+
+## Confirmaciones de alcance
+
+- No se cambió la arquitectura criptográfica del NIP.
+- Se mantienen exactamente cuatro dígitos y ceros iniciales.
+- No existe captura manual del NIP.
+- El NIP actual nunca puede consultarse; regenerar es la única recuperación.
+- No se colocaron usuarios ni `INSERT` dentro del DDL.
+- Las credenciales documentadas son exclusivamente de desarrollo/QA.
+- No se modificaron reservaciones, POS, OTP de clientes ni n8n.

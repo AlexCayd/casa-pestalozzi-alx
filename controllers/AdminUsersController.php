@@ -30,7 +30,10 @@ class AdminUsersController
         $filtros = self::leerFiltros();
         $usuarios = Usuario::buscarAdmin($filtros);
         $alertas = self::alertasResultado($_GET['resultado'] ?? '');
-        $nipGenerado = self::consumirNipFlash();
+        // El listado nunca es una superficie válida para revelar un NIP. Si
+        // quedó un flash pendiente por una navegación manual, se consume y se
+        // descarta sin incorporarlo al HTML.
+        self::consumirNipFlash();
 
         $data = [
             'title' => 'Usuarios',
@@ -40,7 +43,6 @@ class AdminUsersController
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
             'roleLabels' => self::ROLE_LABELS,
             'alertas' => $alertas,
-            'nipGenerado' => $nipGenerado,
             'totalAdminsActivos' => Usuario::contarAdminsActivos(),
             'partialUrl' => AdminController::filterUrl('/admin/usuarios', $filtros),
         ];
@@ -69,14 +71,25 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
-                self::guardarNipFlash($resultado['nip'] ?? null);
-                header('Location: /admin/usuarios?resultado=creado');
+                $nip = $resultado['nip'] ?? null;
+                if ($nip !== null) {
+                    self::guardarNipFlash($nip, '/admin/usuarios?resultado=creado', 'alta');
+                    header('Location: /admin/usuarios/create?resultado=creado');
+                } else {
+                    self::limpiarNipFlash();
+                    header('Location: /admin/usuarios?resultado=creado');
+                }
                 exit;
             }
 
             if (empty($alertas['error'])) {
                 $alertas['error'][] = 'No se pudo crear el usuario. Intenta de nuevo.';
             }
+        }
+
+        $nipFlash = self::consumirNipFlash();
+        if ($nipFlash !== null) {
+            self::marcarRespuestaConNip();
         }
 
         self::render('users/create', [
@@ -87,6 +100,7 @@ class AdminUsersController
             'accion' => 'Crear usuario',
             'modo' => 'crear',
             'action' => '/admin/usuarios/create',
+            'nipFlash' => $nipFlash,
         ]);
     }
 
@@ -121,11 +135,17 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
-                self::guardarNipFlash($resultado['nip'] ?? null);
                 $queryResultado = ($resultado['codigo'] ?? '') === UsuarioService::USUARIO_SIN_CAMBIOS
                     ? 'usuario_sin_cambios'
                     : 'actualizado';
-                header('Location: /admin/usuarios?resultado=' . $queryResultado);
+                $nip = $resultado['nip'] ?? null;
+                if ($nip !== null) {
+                    self::guardarNipFlash($nip, '/admin/usuarios?resultado=actualizado', 'edicion');
+                    header('Location: /admin/usuarios/edit?id=' . $id . '&resultado=' . $queryResultado);
+                } else {
+                    self::limpiarNipFlash();
+                    header('Location: /admin/usuarios?resultado=' . $queryResultado);
+                }
                 exit;
             }
 
@@ -134,6 +154,11 @@ class AdminUsersController
             } elseif (empty($alertas['error'])) {
                 $alertas['error'][] = 'No se pudo actualizar el usuario. Intenta de nuevo.';
             }
+        }
+
+        $nipFlash = self::consumirNipFlash();
+        if ($nipFlash !== null) {
+            self::marcarRespuestaConNip();
         }
 
         self::render('users/edit', [
@@ -146,6 +171,7 @@ class AdminUsersController
             'action' => '/admin/usuarios/edit?id=' . $id,
             'adminCsrfToken' => AdminCsrfService::token(),
             'rolOriginal' => $rolOriginal,
+            'nipFlash' => $nipFlash,
         ]);
     }
 
@@ -270,8 +296,12 @@ class AdminUsersController
 
         $resultado = UsuarioService::regenerarNip((int) $id);
         if ($resultado['ok'] ?? false) {
-            self::guardarNipFlash($resultado['nip'] ?? null);
-            self::redirect('/admin/usuarios?resultado=nip_regenerado');
+            self::guardarNipFlash(
+                $resultado['nip'] ?? null,
+                '',
+                'regeneracion'
+            );
+            self::redirect('/admin/usuarios/edit?id=' . (int) $id . '&resultado=nip_regenerado');
         }
 
         $codigo = (string) ($resultado['codigo'] ?? '');
@@ -288,8 +318,9 @@ class AdminUsersController
         self::redirect('/admin/usuarios?resultado=error_guardado');
     }
 
-    private static function guardarNipFlash(?string $nip): void
+    private static function guardarNipFlash(?string $nip, string $afterUrl, string $flujo): void
     {
+        self::limpiarNipFlash();
         if ($nip === null || !preg_match('/^\d{4}$/', $nip)) {
             return;
         }
@@ -298,10 +329,13 @@ class AdminUsersController
         $_SESSION['_admin_user_nip_flash'] = [
             'nip' => $nip,
             'expires_at' => time() + 120,
+            'after_url' => $afterUrl,
+            'flujo' => $flujo,
         ];
     }
 
-    private static function consumirNipFlash(): ?string
+    /** @return array{nip:string, after_url:string, flujo:string}|null */
+    private static function consumirNipFlash(): ?array
     {
         Auth::start();
         $flash = $_SESSION['_admin_user_nip_flash'] ?? null;
@@ -312,7 +346,28 @@ class AdminUsersController
         }
 
         $nip = (string) ($flash['nip'] ?? '');
-        return preg_match('/^\d{4}$/', $nip) ? $nip : null;
+        if (!preg_match('/^\d{4}$/', $nip)) {
+            return null;
+        }
+
+        return [
+            'nip' => $nip,
+            'after_url' => (string) ($flash['after_url'] ?? '/admin/usuarios'),
+            'flujo' => (string) ($flash['flujo'] ?? 'alta'),
+        ];
+    }
+
+    private static function limpiarNipFlash(): void
+    {
+        Auth::start();
+        unset($_SESSION['_admin_user_nip_flash']);
+    }
+
+    private static function marcarRespuestaConNip(): void
+    {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
     }
 
     public static function delete(): void

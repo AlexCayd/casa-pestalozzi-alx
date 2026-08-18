@@ -64,7 +64,7 @@ llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
 `database/ddl.sql` (estructura, DROP+CREATE completo),
 `database/dml_operativo.sql` (datos mínimos de operación) y
 `database/dml_pruebas.sql` (datos ficticios para desarrollo y QA).
-Credenciales de demo en `database/CREDENCIALES.md`.
+Credenciales de demo en `docs/usuarios/credenciales.md`.
 
 El esquema nuevo se escribe en `ddl.sql`; las instalaciones existentes usan la
 migración explícita de acceso en `database/migrations/` y la rutina controlada de
@@ -86,7 +86,7 @@ Cosas que cargan peso y no son obvias:
   y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup
   es un HMAC con `NIP_LOOKUP_SECRET` para resolver la fila directamente;
   `password_verify` sólo confirma la credencial encontrada. La generación,
-  rotación y migración están documentadas en `docs/usuarios_acceso.md`.
+  rotación y migración están documentadas en `docs/usuarios/usuarios.md`.
 
 ## Design system
 

@@ -28,6 +28,10 @@
     $esEdicion = $modo === 'editar';
     $esAdmin = $rolActual === 'admin';
     $requierePassword = $esAdmin && (!$esEdicion || $rolOriginal !== 'admin');
+    $tieneNipPersistido = $esEdicion
+        && $rolOriginal !== 'admin'
+        && trim((string) $valor('nip_hash')) !== ''
+        && trim((string) $valor('nip_lookup')) !== '';
 
     $accesoPorRol = [];
     foreach ($roles as $rolDisponible) {
@@ -47,6 +51,8 @@
     action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>"
     data-user-id="<?php echo (int) $valor('id', 0); ?>"
     data-original-role="<?php echo htmlspecialchars($rolOriginal, ENT_QUOTES, 'UTF-8'); ?>"
+    data-form-mode="<?php echo htmlspecialchars($modo, ENT_QUOTES, 'UTF-8'); ?>"
+    data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
 >
     <section class="admin-users-form__section">
         <div class="admin-users-form__section-head">
@@ -111,6 +117,34 @@
                     <ul class="admin-role-access__list" data-role-access-list></ul>
                 </div>
             </div>
+
+            <?php if ($esEdicion) : ?>
+                <div
+                    class="admin-users-form__field admin-users-form__field--full admin-users-access-inline"
+                    data-role-nip-section
+                    data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
+                    <?php echo $esAdmin || !$tieneNipPersistido ? 'hidden' : ''; ?>
+                >
+                    <div class="admin-users-access-inline__copy">
+                        <span class="admin-users-form__field-label">Acceso de piso</span>
+                        <strong data-role-nip-state>NIP configurado</strong>
+                        <span class="admin-users-access-inline__hint" data-role-nip-hint>
+                            El código actual no puede consultarse. Si se extravió, regénéralo.
+                        </span>
+                        <span class="admin-users-access-inline__hint" data-role-nip-pending hidden>
+                            Se generará un NIP automáticamente al guardar los cambios.
+                        </span>
+                    </div>
+                    <button
+                        type="submit"
+                        form="admin-user-regenerate-form"
+                        class="admin-btn admin-btn--secondary admin-btn--small"
+                        data-user-regenerate
+                    >
+                        Regenerar
+                    </button>
+                </div>
+            <?php endif; ?>
 
             <div class="admin-users-form__field">
                 <span class="admin-users-form__field-label">Estado</span>
