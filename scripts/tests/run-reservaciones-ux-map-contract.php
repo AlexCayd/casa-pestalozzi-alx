@@ -24,24 +24,31 @@ $view = readReservationMapUxSource($root, 'views/operation/reservations/index.ph
 $filters = readReservationMapUxSource($root, 'views/operation/reservations/_filters.php');
 $operation = readReservationMapUxSource($root, 'src/js/admin/reservations/operation.js');
 $layout = readReservationMapUxSource($root, 'src/scss/operation/_layout.scss');
+$toolbar = readReservationMapUxSource($root, 'src/scss/operation/_toolbar.scss');
 $drawer = readReservationMapUxSource($root, 'src/scss/operation/_drawer.scss');
 $detail = readReservationMapUxSource($root, 'src/scss/operation/_reservation-detail.scss');
 $mapToggle = readReservationMapUxSource($root, 'views/operation/partials/map-toggle.php');
 $operationShell = readReservationMapUxSource($root, 'src/js/operation/shell.js');
 
 assertReservationMapUx(
-    !str_contains($view, "map-toggle.php")
-        && !str_contains($filters, 'data-operation-load')
-        && !str_contains($operation, 'data-operation-load'),
-    'reservaciones no expone maximizar/restaurar ni actualizar manualmente'
+    str_contains($view, "map-toggle.php")
+        && str_contains($view, 'data-operation-load')
+        && str_contains($operation, 'data-operation-load')
+        && str_contains($view, 'reservation-operation__toolbar-left')
+        && str_contains($view, 'reservation-operation__toolbar-center'),
+    'reservaciones integra utilidades secundarias y separa los tres bloques del toolbar'
 );
 assertReservationMapUx(
     str_contains($view, 'data-operation-capacity-real')
+        && str_contains($view, 'data-operation-capacity-of')
         && str_contains($view, 'lugares disponibles')
-        && !str_contains($view, 'reservation-operation-capacity__icon')
-        && !str_contains($view, 'data-operation-capacity-of')
-        && !str_contains($operation, 'capacityOf'),
-    'disponibilidad usa capacidad_real_disponible sin total redundante ni icono decorativo'
+        && !str_contains($view, 'reservation-operation-capacity__label')
+        && !str_contains($view, 'reservation-operation-capacity__available')
+        && !str_contains($view, 'data-operation-capacity-secondary')
+        && !str_contains($operation, 'capacitySecondary')
+        && str_contains($operation, 'capacityOf')
+        && str_contains($operation, "setAttribute('title', accessibleLabel)"),
+    'disponibilidad muestra solo X/Y y conserva un nombre accesible con la capacidad autoritativa'
 );
 assertReservationMapUx(
     str_contains($operation, "summary.capacidad_real_disponible")
@@ -75,8 +82,26 @@ assertReservationMapUx(
     str_contains($operation, "'Registrar ausencia', 'admin-btn admin-btn--danger'")
         && str_contains($operation, 'data-operation-clear>Liberar mesas')
         && str_contains($operation, 'data-operation-comment-edit>')
+        && str_contains($operation, 'Sin notas internas')
         && str_contains($detail, 'background: var(--admin-danger-bg);'),
-    'acciones secundarias y destructivas conservan una affordance visible'
+    'notas y acciones secundarias/destructivas conservan una affordance visible'
+);
+assertReservationMapUx(
+    str_contains($detail, 'margin-top: auto;')
+        && str_contains($detail, 'reservation-operation-comment-summary')
+        && str_contains($detail, 'color: var(--admin-muted);')
+        && str_contains($detail, 'font-style: italic;'),
+    'el detalle reserva el cierre para acciones y hace legibles notas llenas y vacías'
+);
+assertReservationMapUx(
+    str_contains($detail, 'background: color-mix(in srgb, var(--admin-surface-soft) 58%, transparent);')
+        && str_contains($detail, 'min-height: 100%;'),
+    'el detalle usa zonas sutiles sin reintroducir una tarjeta pesada y mantiene scroll natural'
+);
+assertReservationMapUx(
+    str_contains($toolbar, 'grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);')
+        && str_contains($toolbar, 'reservation-operation__toolbar-left'),
+    'la estructura responsive del toolbar conserva un centro independiente de los extremos'
 );
 assertReservationMapUx(
     str_contains($mapToggle, 'data-operational-map-toggle')

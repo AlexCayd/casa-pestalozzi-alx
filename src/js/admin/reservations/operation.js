@@ -82,6 +82,7 @@
             hourRoot: root.querySelector('[data-operation-time-group] [data-reservation-time-picker]'),
             hour: root.querySelector('[data-operation-hour]'),
             reservationSearch: root.querySelector('[data-operation-reservation-search]'),
+            load: root.querySelector('[data-operation-load]'),
             create: root.querySelector('[data-operation-create]'),
             title: root.querySelector('[data-operation-title]'),
             description: root.querySelector('[data-operation-description]'),
@@ -114,8 +115,7 @@
             assignmentRefresh: root.querySelector('[data-operation-assignment-refresh]'),
             capacity: root.querySelector('[data-operation-capacity]'),
             capacityReal: root.querySelector('[data-operation-capacity-real]'),
-            capacitySecondary: root.querySelector('[data-operation-capacity-secondary]'),
-            capacityWarning: root.querySelector('[data-operation-capacity-warning]'),
+            capacityOf: root.querySelector('[data-operation-capacity-of]'),
             tablesOpen: root.querySelector('[data-operation-tables-open]'),
             tablesModal: root.querySelector('[data-operation-tables-modal]'),
             tablesClose: root.querySelector('[data-operation-tables-close]'),
@@ -834,6 +834,15 @@
 
         function setLoading(isLoading) {
             state.cargando = isLoading;
+            if (els.load) {
+                els.load.disabled = isLoading;
+                els.load.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+                els.load.setAttribute('title', isLoading ? 'Actualizando mapa' : 'Actualizar mapa');
+                var loadLabel = els.load.querySelector('[data-operation-load-label]');
+                if (loadLabel) {
+                    loadLabel.textContent = isLoading ? 'Actualizando mapa…' : 'Actualizar mapa';
+                }
+            }
             if (timePicker) {
                 timePicker.setDisabled(isLoading || sortedHours().length === 0);
             } else if (els.hour) {
@@ -1367,21 +1376,13 @@
             els.capacity.hidden = !hasSummary;
             if (!hasSummary) return;
 
-            var committed = parseInt(summary.capacidad_fisica_comprometida || '0', 10);
-            var demand = parseInt(summary.demanda_no_asignada || '0', 10);
-            var projected = parseInt(summary.capacidad_proyectada || '0', 10);
             var real = parseInt(summary.capacidad_real_disponible || summary.capacidad_estimada_horario || '0', 10);
+            var total = parseInt(summary.capacidad_fisica_total || '0', 10);
             if (els.capacityReal) els.capacityReal.textContent = String(real);
-            if (els.capacitySecondary) {
-                var secondary = demand > 0
-                    ? demand + ' sin mesa'
-                    : (projected > 0 ? '+' + projected + ' proyectados' : (committed > 0 ? committed + ' comprometidos' : ''));
-                els.capacitySecondary.textContent = secondary ? '· ' + secondary : '';
-                els.capacitySecondary.hidden = !secondary;
-            }
-            if (els.capacityWarning) {
-                els.capacityWarning.hidden = !(projected > 0);
-            }
+            if (els.capacityOf) els.capacityOf.textContent = String(total);
+            var accessibleLabel = real + ' de ' + total + ' lugares disponibles';
+            els.capacity.setAttribute('aria-label', accessibleLabel);
+            els.capacity.setAttribute('title', accessibleLabel);
         }
 
         function stopTemporalRefresh() {
@@ -1638,7 +1639,7 @@
                     return '';
                 }
                 return '<div class="reservation-operation-comment-summary">' +
-                    (comment ? '<p class="reservation-operation-panel__note">' + esc(comment) + '</p>' : '') +
+                    '<p class="reservation-operation-panel__note ' + (comment ? '' : 'is-empty') + '">' + esc(comment || 'Sin notas internas') + '</p>' +
                     (editable ? '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar nota') + '</button>' : '') +
                 '</div>';
             }
@@ -2912,6 +2913,15 @@
             els.filters.addEventListener('submit', function (event) {
                 event.preventDefault();
                 requestSelectedDate();
+            });
+        }
+
+        if (els.load) {
+            els.load.addEventListener('click', function (event) {
+                event.preventDefault();
+                if (!state.cargando) {
+                    refreshDay({ preserveReservationId: state.reservacionSeleccionadaId });
+                }
             });
         }
 

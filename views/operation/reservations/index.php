@@ -110,27 +110,52 @@ if ($initialOperationNotice !== null) {
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
     <?php
+    $operationalContextCapacityHtml =
+        '<div class="reservation-operation-capacity" data-operation-capacity role="status" aria-live="polite" aria-label="0 de 0 lugares disponibles" title="0 de 0 lugares disponibles" hidden>' .
+            '<strong class="reservation-operation-capacity__primary" aria-hidden="true"><span class="reservation-operation-capacity__real" data-operation-capacity-real>0</span><span class="reservation-operation-capacity__separator"> / </span><span class="reservation-operation-capacity__of" data-operation-capacity-of>0</span></strong>' .
+        '</div>';
+
     ob_start();
-    $operationalFilterScope = 'context';
-    include __DIR__ . '/_filters.php';
     ?>
-        <button
-            type="button"
-            class="admin-btn admin-btn--secondary operational-tables-trigger"
-            aria-label="Ver lista de mesas"
-            title="Ver lista de mesas"
-            aria-expanded="false"
-            aria-controls="operation-tables-modal"
-            data-operation-tables-open
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-            </svg>
-            <span>Mesas</span>
-        </button>
+        <div class="reservation-operation__toolbar-left" data-operation-toolbar-left>
+            <?php
+            $operationalMapToggleLabel = 'mapa';
+            $operationalMapToggleIconOnly = true;
+            include __DIR__ . '/../partials/map-toggle.php';
+            unset($operationalMapToggleLabel, $operationalMapToggleIconOnly);
+            ?>
+            <button type="button" class="admin-btn admin-btn--secondary operational-toolbar-icon" data-operation-load aria-label="Actualizar mapa" title="Actualizar mapa">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M20 11a8 8 0 1 0 1 4"></path>
+                    <path d="M20 4v7h-7"></path>
+                </svg>
+                <span class="operational-visually-hidden" data-operation-load-label>Actualizar mapa</span>
+            </button>
+            <button
+                type="button"
+                class="admin-btn admin-btn--secondary operational-tables-trigger"
+                aria-label="Ver lista de mesas"
+                title="Ver lista de mesas"
+                aria-expanded="false"
+                aria-controls="operation-tables-modal"
+                data-operation-tables-open
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                </svg>
+                <span>Mesas</span>
+            </button>
+            <?php echo $operationalContextCapacityHtml; ?>
+        </div>
+        <div class="reservation-operation__toolbar-center" data-operation-toolbar-center>
+            <?php
+            $operationalFilterScope = 'context';
+            include __DIR__ . '/_filters.php';
+            ?>
+        </div>
     <?php
     $operationalContextControlsHtml = (string)ob_get_clean();
 
@@ -148,12 +173,7 @@ if ($initialOperationNotice !== null) {
     endif;
     $operationalContextActionsHtml = (string)ob_get_clean();
     $operationalContextView = 'reservations';
-    $operationalContextSelectionHtml =
-        '<div class="reservation-operation-capacity" data-operation-capacity role="status" aria-live="polite" hidden>' .
-            '<div class="reservation-operation-capacity__copy"><span class="reservation-operation-capacity__label">Disponibilidad</span><strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__available">lugares disponibles</span></strong></div>' .
-            '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden></span>' .
-            '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
-        '</div>';
+    $operationalContextSelectionHtml = '';
     $operationalContextIncludeDrawerToggle = false;
     ?>
 
