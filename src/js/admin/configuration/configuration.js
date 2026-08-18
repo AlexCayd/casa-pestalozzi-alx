@@ -113,6 +113,7 @@
         const status = form.querySelector('[data-schedule-status]');
         const submitButton = form.querySelector('[data-schedule-validate]');
         const resetButton = form.querySelector('[data-schedule-reset]');
+        const csrfField = form.querySelector('[name="admin_csrf"]');
         const apiUrl = form.getAttribute('data-schedule-api') || form.action;
         const readApiUrl = form.getAttribute('data-schedule-read-api') || apiUrl;
         const unsavedModal = document.getElementById('schedule-unsaved-modal');
@@ -601,7 +602,8 @@
                         },
                         body: JSON.stringify({
                             horarios: getSchedulePayload(),
-                            confirmar_conflictos: confirmarConflictos
+                            confirmar_conflictos: confirmarConflictos,
+                            admin_csrf: csrfField ? csrfField.value : ''
                         })
                     });
                     data = await jsonResponse(response);
@@ -629,6 +631,14 @@
                         (data && (data.mensaje || (data.errors && data.errors[0])))
                         || 'No fue posible actualizar los horarios.'
                     );
+                }
+
+                if (data.impacto_id) {
+                    window.location.assign(
+                        '/admin/configuracion/horarios?resultado=horarios_actualizados&impacto_id='
+                        + encodeURIComponent(String(data.impacto_id))
+                    );
+                    return;
                 }
 
                 const readResponse = await fetch(readApiUrl, {

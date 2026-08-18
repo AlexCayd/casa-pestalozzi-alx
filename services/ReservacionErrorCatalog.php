@@ -213,6 +213,20 @@ final class ReservacionErrorCatalog
         'AMBIENTE_NO_PERMITIDO' => self::TIPO_ERROR,
         'CONFIRMACION_INVALIDA' => self::TIPO_ERROR,
         'RESERVACIONES_AFECTADAS' => self::TIPO_CONFLICTO,
+        'SEGUIMIENTO_HORARIO_PENDIENTE' => self::TIPO_DECISION,
+        'AFECTACION_NO_ENCONTRADA' => self::TIPO_ERROR,
+        'AFECTACION_NO_NOTIFICABLE' => self::TIPO_CONFLICTO,
+        'NOTIFICACIONES_PENDIENTES' => self::TIPO_DECISION,
+        'CONTACTO_NO_EDITABLE' => self::TIPO_ERROR,
+        'AVISO_ENCOLADO' => self::TIPO_EXITO,
+        'AVISOS_ENCOLADOS' => self::TIPO_EXITO,
+        'CONTACTO_AGREGADO' => self::TIPO_EXITO,
+        'AFECTACION_ATENDIDA_MANUALMENTE' => self::TIPO_EXITO,
+        'LINK_PRUEBA_GENERADO' => self::TIPO_INFORMACION,
+        'NO_DISPONIBLE' => self::TIPO_ERROR,
+        'ERROR_SEGUIMIENTO_HORARIO' => self::TIPO_ERROR,
+        'MAGIC_LINK_INVALIDO' => self::TIPO_ERROR,
+        'CAMBIO_HORARIO_ACCESO_CONCEDIDO' => self::TIPO_EXITO,
 
         // Códigos de validación de campos; no se emiten como causa principal.
         'REQUEST_TOKEN_INVALIDO' => self::TIPO_ERROR,
@@ -524,6 +538,36 @@ final class ReservacionErrorCatalog
             'mensaje' => 'El cambio de horario afecta reservaciones existentes.',
             'consecuencia' => 'Confirma la operación después de revisar las reservaciones afectadas.',
             'acciones' => [['id' => 'CONFIRMAR', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'SEGUIMIENTO_HORARIO_PENDIENTE' => [
+            'titulo' => 'Seguimiento pendiente',
+            'mensaje' => 'Primero debes resolver las reservaciones afectadas por el cambio anterior.',
+            'consecuencia' => 'No se aplicó el nuevo cambio de horario.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'AFECTACION_NO_ENCONTRADA' => [
+            'titulo' => 'Reservación no disponible',
+            'mensaje' => 'La afectación seleccionada ya no está disponible.',
+            'consecuencia' => 'Actualiza el seguimiento antes de continuar.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'AFECTACION_NO_NOTIFICABLE' => [
+            'titulo' => 'Aviso no disponible',
+            'mensaje' => 'Esta reservación no tiene un contacto válido o ya fue atendida.',
+            'consecuencia' => 'Revisa el estado actual de la afectación.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'NOTIFICACIONES_PENDIENTES' => [
+            'titulo' => 'Avisos pendientes',
+            'mensaje' => 'Primero deben procesarse los avisos de las reservaciones con contacto.',
+            'consecuencia' => 'La atención manual estará disponible cuando no queden avisos por encolar.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'MAGIC_LINK_INVALIDO' => [
+            'titulo' => 'Enlace no disponible',
+            'mensaje' => 'Este enlace de cambio de horario ya no es válido.',
+            'consecuencia' => 'Solicita al restaurante un nuevo enlace o verifica tu contacto.',
+            'acciones' => [['id' => 'VOLVER', 'tipo' => 'secondary']],
         ],
         'EXCEPCION_NO_ENCONTRADA' => [
             'titulo' => 'Excepción no encontrada',
@@ -1010,6 +1054,8 @@ final class ReservacionErrorCatalog
             $http = 405;
         } elseif ($canonical === 'RESERVACION_NO_ENCONTRADA') {
             $http = 404;
+        } elseif ($canonical === 'AFECTACION_NO_ENCONTRADA') {
+            $http = 404;
         } elseif (in_array($canonical, ['RETENCION_EXPIRADA', 'OTP_EXPIRADO'], true)) {
             $http = 410;
         } elseif (in_array($canonical, ['REENVIO_NO_DISPONIBLE', 'OTP_INTENTOS_AGOTADOS'], true)) {
@@ -1031,7 +1077,7 @@ final class ReservacionErrorCatalog
             $http = 409;
         } elseif ($canonical === 'TOLERANCIA_VIGENTE') {
             $http = 422;
-        } elseif (in_array($canonical, ['ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS'], true)) {
+        } elseif (in_array($canonical, ['ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS', 'ERROR_SEGUIMIENTO_HORARIO'], true)) {
             $http = 500;
         } elseif ($canonical === 'ERROR_INTERNO') {
             $http = 500;

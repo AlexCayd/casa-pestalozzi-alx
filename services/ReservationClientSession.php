@@ -13,6 +13,7 @@ class ReservationClientSession
 {
     private const SESSION_KEY = 'reservation_client';
     private const CSRF_KEY = 'reservation_client_csrf';
+    private const TARGET_RESERVATION_KEY = 'reservation_client_target_reservation_id';
 
     /**
      * Inicia la sesión con una cookie endurecida cuando todavía es posible
@@ -117,6 +118,26 @@ class ReservationClientSession
         ];
     }
 
+    /** Guarda un destino de una sola lectura para el puente de cambio de horario. */
+    public static function setTargetReservationId(int $reservationId): void
+    {
+        self::start();
+        if ($reservationId > 0) {
+            $_SESSION[self::TARGET_RESERVATION_KEY] = $reservationId;
+        }
+    }
+
+    public static function consumeTargetReservationId(): ?int
+    {
+        self::start();
+        $id = filter_var($_SESSION[self::TARGET_RESERVATION_KEY] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+        unset($_SESSION[self::TARGET_RESERVATION_KEY]);
+
+        return $id ? (int)$id : null;
+    }
+
     /**
      * Devuelve la identidad verificada sin extender su vencimiento.
      * Una nueva verificación es la única forma de crear otra sesión.
@@ -150,6 +171,6 @@ class ReservationClientSession
     public static function cerrar(): void
     {
         self::start();
-        unset($_SESSION[self::SESSION_KEY], $_SESSION[self::CSRF_KEY]);
+        unset($_SESSION[self::SESSION_KEY], $_SESSION[self::CSRF_KEY], $_SESSION[self::TARGET_RESERVATION_KEY]);
     }
 }

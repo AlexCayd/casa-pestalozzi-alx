@@ -6,6 +6,8 @@ use Model\ConfiguracionAnuncio;
 use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
+use Services\AdminCsrfService;
+use Services\HorarioOperacionImpactoService;
 use Services\HorarioOperacionService;
 use Services\ReservacionErrorCatalog;
 use Services\ReporteSistemaService;
@@ -56,10 +58,22 @@ class AdminConfigurationController
 
     public static function hours(Router $router): void
     {
+        $impacto = null;
+        try {
+            $solicitado = filter_var($_GET['impacto_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $impactoId = $solicitado ? (int)$solicitado : HorarioOperacionImpactoService::primerPendienteId();
+            $impacto = $impactoId ? HorarioOperacionImpactoService::obtener($impactoId) : null;
+            if (($impacto['estado'] ?? null) !== HorarioOperacionImpactoService::ESTADO_IMPACTO_PENDIENTE) {
+                $impacto = null;
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::hours seguimiento - ' . $e->getMessage());
+        }
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => self::alertasResultado((string) ($_GET['resultado'] ?? '')),
+            'impactoSeguimiento' => $impacto,
         ]);
     }
 
@@ -82,7 +96,7 @@ class AdminConfigurationController
         );
 
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=horarios_actualizados');
+            self::redirect(self::urlResultadoHorario('horarios_actualizados', $resultado));
         }
 
         self::renderHours([
@@ -109,7 +123,10 @@ class AdminConfigurationController
             ['superficie' => 'administracion']
         );
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=' . (!empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada'));
+            self::redirect(self::urlResultadoHorario(
+                !empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada',
+                $resultado
+            ));
         }
 
         self::renderHours([
@@ -134,19 +151,26 @@ class AdminConfigurationController
             HorarioOperacionService::cambiarEstadoExcepcion(
                 $id ? (int) $id : 0,
                 $activo,
-                self::usuarioAutenticadoId()
+                self::usuarioAutenticadoId(),
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
             ),
             ['superficie' => 'administracion']
         );
 
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=estado_actualizado');
+            self::redirect(self::urlResultadoHorario('estado_actualizado', $resultado));
         }
 
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
+            'pendingScheduleAction' => !empty($resultado['conflictos']) ? [
+                'tipo' => 'estado',
+                'id' => $id ? (int)$id : 0,
+                'activo' => $activo ? 1 : 0,
+                'conflictos' => $resultado['conflictos'],
+            ] : null,
         ]);
     }
 
@@ -158,17 +182,26 @@ class AdminConfigurationController
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $resultado = ReservacionErrorCatalog::enriquecer(
-            HorarioOperacionService::eliminarExcepcion($id ? (int) $id : 0),
+            HorarioOperacionService::eliminarExcepcion(
+                $id ? (int) $id : 0,
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1',
+                self::usuarioAutenticadoId()
+            ),
             ['superficie' => 'administracion']
         );
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=excepcion_eliminada');
+            self::redirect(self::urlResultadoHorario('excepcion_eliminada', $resultado));
         }
 
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
+            'pendingScheduleAction' => !empty($resultado['conflictos']) ? [
+                'tipo' => 'eliminar',
+                'id' => $id ? (int)$id : 0,
+                'conflictos' => $resultado['conflictos'],
+            ] : null,
         ]);
     }
 
@@ -238,7 +271,11 @@ class AdminConfigurationController
     {
         $datos = self::entradaApi();
         $id = (int)($datos['id'] ?? $_GET['id'] ?? 0);
-        self::json(HorarioOperacionService::eliminarExcepcion($id));
+        self::json(HorarioOperacionService::eliminarExcepcion(
+            $id,
+            !empty($datos['confirmar_conflictos']),
+            self::usuarioAutenticadoId()
+        ));
     }
 
     public static function announcement(Router $router): void
@@ -416,8 +453,21 @@ class AdminConfigurationController
             'horarioSemanalConErrores' => false,
             'conflictosHorarios' => [],
             'conflictosExcepcion' => [],
+            'impactoSeguimiento' => null,
+            'pendingScheduleAction' => null,
+            'adminCsrfToken' => AdminCsrfService::token(),
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
+    }
+
+    private static function urlResultadoHorario(string $resultado, array $respuesta): string
+    {
+        $query = ['resultado' => $resultado];
+        if (!empty($respuesta['impacto_id'])) {
+            $query['impacto_id'] = (int)$respuesta['impacto_id'];
+        }
+
+        return self::HOURS_PATH . '?' . http_build_query($query);
     }
 
     private static function alertasResultado(string $resultado): array

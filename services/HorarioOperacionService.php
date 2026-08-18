@@ -6,7 +6,6 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
-use Model\Reservacion;
 
 class HorarioOperacionService
 {
@@ -88,6 +87,11 @@ class HorarioOperacionService
             ]);
         }
 
+        $bloqueo = self::bloqueoPorSeguimientoPendiente();
+        if ($bloqueo !== null) {
+            return $bloqueo;
+        }
+
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
         $lockHorario = false;
@@ -103,8 +107,8 @@ class HorarioOperacionService
                 throw new \RuntimeException('No fue posible bloquear la configuración de horarios.');
             }
 
-            $diasModificados = self::prepararDiasModificados($validacion['datos'], $usuarioId);
-            $conflictos = self::detectarConflictosReservaciones($diasModificados);
+            $evaluacionImpacto = HorarioOperacionImpactoService::evaluarHorarioSemanal($validacion['datos']);
+            $conflictos = $evaluacionImpacto['conflictos'];
             if ($conflictos !== [] && !$confirmarConflictos) {
                 $db->rollback();
                 $transaccionIniciada = false;
@@ -131,6 +135,13 @@ class HorarioOperacionService
 
             self::verificarHorarioCanonico($validacion['datos']);
 
+            $impactoId = HorarioOperacionImpactoService::persistir(
+                $evaluacionImpacto,
+                'horario_semanal',
+                null,
+                $usuarioId
+            );
+
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
@@ -141,6 +152,7 @@ class HorarioOperacionService
                 'codigo' => 'HORARIOS_ACTUALIZADOS',
                 'datos' => $validacion['datos'],
                 'horarios' => self::obtenerHorarioSemanal(),
+                'impacto_id' => $impactoId,
             ];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
@@ -200,6 +212,10 @@ class HorarioOperacionService
 
         $limpios = $validacion['datos'];
         $id = $limpios['id'];
+        $bloqueo = self::bloqueoPorSeguimientoPendiente();
+        if ($bloqueo !== null) {
+            return $bloqueo;
+        }
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
         $locksFecha = [];
@@ -231,19 +247,10 @@ class HorarioOperacionService
                 return self::errorExcepcion('EXCEPCION_DUPLICADA', $limpios);
             }
 
-            if ($limpios['activo'] === 1) {
-                $conflictos = self::detectarConflictosExcepcion(
-                    $limpios['fecha'],
-                    $limpios['tipo'],
-                    $limpios['hora_apertura'],
-                    $limpios['hora_cierre']
-                );
-                if ($conflictos !== [] && !$confirmarConflictos) {
-                    return self::resultadoConflictosExcepcion(
-                        $conflictos,
-                        $limpios
-                    );
-                }
+            $evaluacionImpacto = HorarioOperacionImpactoService::evaluarExcepcion($limpios, $id);
+            $conflictos = $evaluacionImpacto['conflictos'];
+            if ($conflictos !== [] && !$confirmarConflictos) {
+                return self::resultadoConflictosHorario($conflictos, $limpios);
             }
 
             $excepcion = $excepcion ?? new ExcepcionOperacion();
@@ -259,6 +266,13 @@ class HorarioOperacionService
                 throw new \RuntimeException('El guardado de la excepción no fue confirmado.');
             }
 
+            $impactoId = HorarioOperacionImpactoService::persistir(
+                $evaluacionImpacto,
+                'excepcion',
+                (int)$excepcion->id,
+                $usuarioId
+            );
+
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transaccion de la excepcion.');
             }
@@ -269,6 +283,7 @@ class HorarioOperacionService
                 'id' => (int) $excepcion->id,
                 'editada' => $id !== null,
                 'codigo' => $id !== null ? 'EXCEPCION_ACTUALIZADA' : 'EXCEPCION_CREADA',
+                'impacto_id' => $impactoId,
             ];
         } catch (\mysqli_sql_exception $e) {
             error_log('HorarioOperacionService::guardarExcepcion - ' . $e->getMessage());
@@ -288,7 +303,12 @@ class HorarioOperacionService
         }
     }
 
-    public static function cambiarEstadoExcepcion(int $id, bool $activo, ?int $usuarioId = null): array
+    public static function cambiarEstadoExcepcion(
+        int $id,
+        bool $activo,
+        ?int $usuarioId = null,
+        bool $confirmarConflictos = false
+    ): array
     {
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
@@ -296,6 +316,10 @@ class HorarioOperacionService
 
         if ($id < 1) {
             return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
+        }
+        $bloqueo = self::bloqueoPorSeguimientoPendiente();
+        if ($bloqueo !== null) {
+            return $bloqueo;
         }
 
         try {
@@ -319,23 +343,30 @@ class HorarioOperacionService
                 if ($errorTemporal !== null) {
                     return ['ok' => false, 'codigo' => $errorTemporal];
                 }
+            }
 
-                $conflictos = self::detectarConflictosExcepcion(
-                    (string) $excepcion->fecha,
-                    (string) $excepcion->tipo,
-                    self::horaComparable($excepcion->hora_apertura),
-                    self::horaComparable($excepcion->hora_cierre)
-                );
-                if ($conflictos !== []) {
-                    return self::resultadoConflictosExcepcion(
-                        $conflictos
-                    );
-                }
+            $evaluacionImpacto = HorarioOperacionImpactoService::evaluarExcepcion([
+                'fecha' => (string)$excepcion->fecha,
+                'tipo' => (string)$excepcion->tipo,
+                'hora_apertura' => $excepcion->hora_apertura,
+                'hora_cierre' => $excepcion->hora_cierre,
+                'activo' => $activo ? 1 : 0,
+            ], $id);
+            $conflictos = $evaluacionImpacto['conflictos'];
+            if ($conflictos !== [] && !$confirmarConflictos) {
+                return self::resultadoConflictosHorario($conflictos);
             }
 
             if (!ExcepcionOperacion::cambiarEstado($id, $activo, $usuarioId)) {
                 throw new \RuntimeException('No fue posible actualizar el estado.');
             }
+
+            $impactoId = HorarioOperacionImpactoService::persistir(
+                $evaluacionImpacto,
+                'excepcion_estado',
+                $id,
+                $usuarioId
+            );
 
             $persistida = ExcepcionOperacion::buscarPorIdParaActualizar($id);
             if (!$persistida || (int)$persistida->activo !== ($activo ? 1 : 0)) {
@@ -349,6 +380,7 @@ class HorarioOperacionService
             return [
                 'ok' => true,
                 'codigo' => 'EXCEPCION_ESTADO_ACTUALIZADO',
+                'impacto_id' => $impactoId,
             ];
         } catch (\Throwable $e) {
             error_log('HorarioOperacionService::cambiarEstadoExcepcion - ' . $e->getMessage());
@@ -361,12 +393,16 @@ class HorarioOperacionService
         }
     }
 
-    public static function eliminarExcepcion(int $id): array
+    public static function eliminarExcepcion(int $id, bool $confirmarConflictos = false, ?int $usuarioId = null): array
     {
         $locksFecha = [];
 
         if ($id < 1) {
             return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
+        }
+        $bloqueo = self::bloqueoPorSeguimientoPendiente();
+        if ($bloqueo !== null) {
+            return $bloqueo;
         }
 
         $db = ActiveRecord::getDB();
@@ -388,28 +424,27 @@ class HorarioOperacionService
                 throw new \DomainException('La excepción seleccionada no existe.');
             }
 
-            $conflictos = [];
-            if ((string) $excepcion->fecha >= ReservacionConfig::fechaActual()) {
-                $conflictos = self::detectarConflictosHorarioSemanal((string) $excepcion->fecha);
-            }
-            if ($conflictos !== []) {
-                $db->rollback();
-                $transaccionIniciada = false;
-
-                return self::resultadoConflictosExcepcion(
-                    $conflictos
-                );
+            $evaluacionImpacto = HorarioOperacionImpactoService::evaluarExcepcion(null, $id);
+            $conflictos = $evaluacionImpacto['conflictos'];
+            if ($conflictos !== [] && !$confirmarConflictos) {
+                return self::resultadoConflictosHorario($conflictos);
             }
 
             if (!$excepcion->eliminarExcepcion()) {
                 throw new \RuntimeException('La eliminación de la excepción no fue confirmada.');
             }
+            $impactoId = HorarioOperacionImpactoService::persistir(
+                $evaluacionImpacto,
+                'excepcion_eliminada',
+                $id,
+                $usuarioId
+            );
             if (!$db->commit()) {
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
             $transaccionIniciada = false;
 
-            return ['ok' => true, 'codigo' => 'EXCEPCION_ELIMINADA'];
+            return ['ok' => true, 'codigo' => 'EXCEPCION_ELIMINADA', 'impacto_id' => $impactoId];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -643,52 +678,6 @@ class HorarioOperacionService
         ];
     }
 
-    private static function prepararDiasModificados(array $horarios, ?int $usuarioId): array
-    {
-        $persistidos = [];
-        foreach (HorarioOperacion::todosOrdenados() as $horario) {
-            $persistidos[(int) $horario->dia_semana] = $horario;
-        }
-
-        $modificados = [];
-        foreach ($horarios as $datos) {
-            $diaSemana = (int) $datos['dia_semana'];
-            if (!self::horarioFueModificado($persistidos[$diaSemana] ?? null, $datos)) {
-                continue;
-            }
-
-            $horario = new HorarioOperacion($datos);
-            $horario->updated_by = $usuarioId;
-            $intervalos = (int) $horario->abierto === 1
-                ? HorarioReservacionService::generarIntervalos(
-                    (string) $horario->hora_apertura,
-                    (string) $horario->hora_cierre
-                )
-                : [];
-
-            $modificados[$diaSemana] = [
-                'horario' => $horario,
-                'intervalos' => $intervalos,
-            ];
-        }
-
-        return $modificados;
-    }
-
-    private static function horarioFueModificado(?HorarioOperacion $persistido, array $nuevo): bool
-    {
-        if (!$persistido) {
-            return true;
-        }
-
-        if ((int) $persistido->abierto !== (int) $nuevo['abierto']) {
-            return true;
-        }
-
-        return self::horaComparable($persistido->hora_apertura) !== self::horaComparable($nuevo['hora_apertura'])
-            || self::horaComparable($persistido->hora_cierre) !== self::horaComparable($nuevo['hora_cierre']);
-    }
-
     private static function horaComparable($hora): ?string
     {
         if ($hora === null || trim((string) $hora) === '') {
@@ -699,110 +688,7 @@ class HorarioOperacionService
         return $normalizada !== '' ? $normalizada : null;
     }
 
-    private static function detectarConflictosReservaciones(array $diasModificados): array
-    {
-        $reservaciones = Reservacion::buscarFuturasActivas(
-            ReservacionConfig::fechaActual(),
-            ReservacionConfig::horaActual()
-        );
-        $conflictos = [];
-
-        foreach ($reservaciones as $reservacion) {
-            $fecha = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $reservacion->fecha);
-            if (!$fecha instanceof DateTimeImmutable) {
-                continue;
-            }
-
-            $diaSemana = (int) $fecha->format('w');
-            if (!isset($diasModificados[$diaSemana])) {
-                continue;
-            }
-
-            $hora = HorarioReservacionService::normalizarHoraSql((string) $reservacion->hora);
-            $intervalos = $diasModificados[$diaSemana]['intervalos'];
-            if ($hora !== '' && in_array($hora, $intervalos, true)) {
-                continue;
-            }
-
-            $conflictos[] = [
-                'id' => (int) $reservacion->id,
-                'nombre' => (string) $reservacion->nombre,
-                'fecha' => (string) $reservacion->fecha,
-                'hora' => $hora !== '' ? substr($hora, 0, 5) : (string) $reservacion->hora,
-                'estado' => (string) $reservacion->estado,
-            ];
-        }
-
-        return $conflictos;
-    }
-
-    private static function detectarConflictosExcepcion(
-        string $fecha,
-        string $tipo,
-        ?string $horaApertura,
-        ?string $horaCierre
-    ): array {
-        $conflictos = [];
-        foreach (Reservacion::buscarActivasPorFecha($fecha) as $reservacion) {
-            $hora = self::horaComparable($reservacion->hora);
-            $compatible = $tipo === 'horario_especial'
-                && $hora !== null
-                && $horaApertura !== null
-                && $horaCierre !== null
-                && $hora >= $horaApertura
-                && $hora < $horaCierre;
-
-            if (!$compatible) {
-                $conflictos[] = self::datosConflicto($reservacion, $hora);
-            }
-        }
-
-        return $conflictos;
-    }
-
-    private static function detectarConflictosHorarioSemanal(string $fecha): array
-    {
-        $fechaObjeto = self::crearFecha($fecha);
-        if (!$fechaObjeto) {
-            throw new \DomainException('La fecha de la excepción no es válida.');
-        }
-
-        $horario = HorarioOperacion::buscarPorDia((int) $fechaObjeto->format('w'));
-        $apertura = $horario && (int) $horario->abierto === 1
-            ? self::horaComparable($horario->hora_apertura)
-            : null;
-        $cierre = $horario && (int) $horario->abierto === 1
-            ? self::horaComparable($horario->hora_cierre)
-            : null;
-        $conflictos = [];
-
-        foreach (Reservacion::buscarActivasPorFecha($fecha) as $reservacion) {
-            $hora = self::horaComparable($reservacion->hora);
-            $compatible = $hora !== null
-                && $apertura !== null
-                && $cierre !== null
-                && $hora >= $apertura
-                && $hora < $cierre;
-            if (!$compatible) {
-                $conflictos[] = self::datosConflicto($reservacion, $hora);
-            }
-        }
-
-        return $conflictos;
-    }
-
-    private static function datosConflicto(Reservacion $reservacion, ?string $hora): array
-    {
-        return [
-            'id' => (int) $reservacion->id,
-            'nombre' => (string) $reservacion->nombre,
-            'fecha' => (string) $reservacion->fecha,
-            'hora' => $hora !== null ? substr($hora, 0, 5) : (string) $reservacion->hora,
-            'estado' => (string) $reservacion->estado,
-        ];
-    }
-
-    private static function resultadoConflictosExcepcion(
+    private static function resultadoConflictosHorario(
         array $conflictos,
         ?array $datos = null
     ): array {
@@ -951,6 +837,19 @@ class HorarioOperacionService
     private static function errorExcepcion(string $codigo, array $datos): array
     {
         return ['ok' => false, 'codigo' => $codigo, 'datos' => $datos];
+    }
+
+    private static function bloqueoPorSeguimientoPendiente(): ?array
+    {
+        if (HorarioOperacionImpactoService::contarPendientes() < 1) {
+            return null;
+        }
+
+        return [
+            'ok' => false,
+            'codigo' => 'SEGUIMIENTO_HORARIO_PENDIENTE',
+            'resolver_url' => '/admin/configuracion/horarios',
+        ];
     }
 
     private static function fechaValida(string $fecha): bool

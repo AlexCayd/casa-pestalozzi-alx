@@ -28,6 +28,28 @@
   min-width: 0;
 }
 
+.admin-topbar__pending-impact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, 42vw);
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 42%, var(--admin-border-soft));
+  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
+  color: var(--admin-text);
+  font-size: 0.76rem;
+  line-height: 1.35;
+
+  a {
+    flex: 0 0 auto;
+    color: var(--admin-gold-deep);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
 .admin-topbar__actions {
   display: inline-flex;
   align-items: center;
@@ -163,6 +185,16 @@
   .admin-topbar__user {
     justify-self: end;
     gap: 8px;
+  }
+
+  .admin-topbar__pending-impact {
+    position: absolute;
+    top: 100%;
+    right: 16px;
+    left: 16px;
+    z-index: 3;
+    max-width: none;
+    margin: 0;
   }
 }
 

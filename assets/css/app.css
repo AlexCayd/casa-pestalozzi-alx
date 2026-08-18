@@ -2680,6 +2680,10 @@ body.nav-open .nav-overlay__links a {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.02);
 }
+.reservation-card.is-link-target {
+  border-color: rgba(204, 163, 82, 0.72);
+  box-shadow: 0 0 0 2px rgba(204, 163, 82, 0.12);
+}
 .reservation-card h4 {
   margin: 0;
   color: var(--beige);
@@ -5444,6 +5448,36 @@ body.nav-open .nav-overlay__links a {
     animation: none;
   }
 }
+.reservation-link-bridge {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #151b18;
+  color: #f6f2e9;
+}
+
+.reservation-link-bridge__card {
+  width: min(100%, 520px);
+  padding: clamp(28px, 6vw, 56px);
+  border: 1px solid rgba(239, 226, 193, 0.22);
+  background: #202923;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+.reservation-link-bridge__card h1 {
+  margin: 14px 0;
+  color: inherit;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1;
+}
+.reservation-link-bridge__card p {
+  max-width: 38rem;
+  color: rgba(246, 242, 233, 0.76);
+  line-height: 1.6;
+}
+
 .confirmation-modal {
   position: fixed;
   inset: 0;

@@ -289,6 +289,29 @@ class ReservacionConfig
         return strtolower(self::env('APP_ENV', 'production'));
     }
 
+    public static function scheduleChangeLinkTtlHours(): int
+    {
+        $valor = filter_var(self::env('SCHEDULE_CHANGE_LINK_TTL_HOURS', '72'), FILTER_VALIDATE_INT);
+
+        return $valor !== false ? max(1, min(720, (int)$valor)) : 72;
+    }
+
+    /**
+     * URL pública canónica. En producción debe configurarse explícitamente;
+     * sólo los entornos locales usan un fallback deliberado.
+     */
+    public static function reservationPublicBaseUrl(): string
+    {
+        $configurada = rtrim(self::env('RESERVATION_PUBLIC_BASE_URL', ''), '/');
+        if ($configurada !== '') {
+            return $configurada;
+        }
+
+        return in_array(self::appEnvironment(), ['development', 'testing'], true)
+            ? 'http://localhost'
+            : '';
+    }
+
     private static function env(string $key, string $default): string
     {
         $value = $_ENV[$key] ?? getenv($key);

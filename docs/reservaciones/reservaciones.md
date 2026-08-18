@@ -77,6 +77,8 @@ Las observaciones de una reservación son operativas: pueden incluir celebració
 
 ## Referencias vigentes
 
+Los cambios de horario que dejan reservaciones fuera del horario efectivo se registran como impactos persistentes y requieren seguimiento administrativo. La referencia normativa completa está en [Afectaciones de reservaciones por cambios de horario](afectaciones_reservaciones_por_cambios_horario.md).
+
 - [Usuarios](../usuarios/usuarios.md)
 - [Credenciales de desarrollo](../usuarios/credenciales.md)
 - [Privacidad](../privacidad/privacidad.md)

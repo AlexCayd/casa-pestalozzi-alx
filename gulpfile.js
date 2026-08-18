@@ -95,6 +95,7 @@ const paths = {
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/configuration/configuration.js",
+    "src/js/admin/configuration/impacto-horario.js",
   ],
   imagenes: "src/img/**/*",
   adminFinanzasJs: "src/js/admin/finanzas/finanzas.js",

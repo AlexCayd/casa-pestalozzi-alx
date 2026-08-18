@@ -728,6 +728,11 @@ final class ReservacionPublicaService
                     && (string)$original['estado'] === 'reemplazada') {
                     $db->commit();
                     $transaccion = false;
+                    HorarioOperacionImpactoService::resolverPorCliente(
+                        $originalId,
+                        (string)$reemplazo['fecha'],
+                        (string)$reemplazo['hora']
+                    );
                     return self::resultadoReemplazoConfirmado($reemplazo, true);
                 }
                 if ((string)$reemplazo['estado'] !== 'pendiente_verificacion') {
@@ -810,6 +815,11 @@ final class ReservacionPublicaService
                 $transaccion = false;
                 $reemplazo['estado'] = 'confirmada';
                 $reemplazo['estado_changed_at'] = $estadoChangedAt;
+                HorarioOperacionImpactoService::resolverPorCliente(
+                    $originalId,
+                    (string)$reemplazo['fecha'],
+                    (string)$reemplazo['hora']
+                );
                 return self::resultadoReemplazoConfirmado($reemplazo, false);
             } catch (\Throwable $e) {
                 if ($transaccion) {

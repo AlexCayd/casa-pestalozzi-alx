@@ -490,7 +490,9 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
       </div>
 
       <div class="reservation-access" id="reservation-panel-manage" role="tabpanel"
-        aria-labelledby="reservation-tab-manage" data-reservation-panel="manage" hidden>
+        aria-labelledby="reservation-tab-manage" data-reservation-panel="manage"
+        data-reservation-target-id="<?php echo (int)($reservationTargetId ?? 0); ?>"
+        data-reservation-link-error="<?php echo !empty($reservationMagicLinkError) ? '1' : '0'; ?>" hidden>
         <div data-contact-access>
           <div class="reservation-access__head">
             <span class="eyebrow">Gestión de reservaciones</span>

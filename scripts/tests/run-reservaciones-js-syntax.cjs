@@ -12,7 +12,8 @@ const files = [
   'src/js/operation/table-state-adapter.js',
   'src/js/operation/reservation-operation-policy.js',
   'src/js/modules/form.js',
-  'src/js/modules/reservation-access.js'
+  'src/js/modules/reservation-access.js',
+  'src/js/admin/configuration/impacto-horario.js'
 ];
 
 function assertContract(condition, message) {

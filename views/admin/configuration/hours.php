@@ -7,6 +7,9 @@ $abrirModalExcepcion = !empty($abrirModalExcepcion);
 $horarioSemanalConErrores = !empty($horarioSemanalConErrores);
 $conflictosHorarios = is_array($conflictosHorarios ?? null) ? $conflictosHorarios : [];
 $conflictosExcepcion = is_array($conflictosExcepcion ?? null) ? $conflictosExcepcion : [];
+$impactoSeguimiento = is_array($impactoSeguimiento ?? null) ? $impactoSeguimiento : null;
+$pendingScheduleAction = is_array($pendingScheduleAction ?? null) ? $pendingScheduleAction : null;
+$adminCsrfToken = (string)($adminCsrfToken ?? '');
 $fechaActual = (string) ($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $valorExcepcion = static fn (string $campo, $predeterminado = '') => $excepcionFormulario[$campo] ?? $predeterminado;
@@ -33,6 +36,8 @@ $horasDelDia = range(0, 23);
     class="admin-configuration admin-menu admin-page"
     data-configuration-page="hours"
     <?php echo $abrirModalExcepcion ? 'data-open-exception-modal' : ''; ?>
+    <?php echo $impactoSeguimiento ? 'data-schedule-impact data-impact-id="' . (int)($impactoSeguimiento['id'] ?? 0) . '" data-admin-csrf="' . $h($adminCsrfToken) . '"' : ''; ?>
+    <?php echo $pendingScheduleAction ? 'data-open-schedule-impact-confirmation' : ''; ?>
 >
     <header class="admin-page__header">
         <div class="admin-page__intro">
@@ -70,6 +75,7 @@ $horasDelDia = range(0, 23);
             data-initial-dirty="<?php echo $horarioSemanalConErrores ? '1' : '0'; ?>"
             novalidate
         >
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
             <input type="hidden" name="confirmar_conflictos" value="0" data-confirm-schedule-conflicts>
             <div class="admin-schedule" role="group" aria-label="Horario semanal">
                 <?php foreach ($horarios as $index => $horario) : ?>
@@ -196,6 +202,7 @@ $horasDelDia = range(0, 23);
                                 <td data-label="Horario"><?php echo $h($excepcion['horario'] ?? '—'); ?></td>
                                 <td data-label="Estado">
                                     <form action="/admin/configuracion/horarios/excepciones/estado" method="post" data-exception-state-form>
+                                        <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
                                         <input type="hidden" name="id" value="<?php echo (int) ($excepcion['id'] ?? 0); ?>">
                                         <input type="hidden" name="activo" value="<?php echo $activo ? '1' : '0'; ?>" data-exception-state-value>
                                         <label class="admin-switch">
@@ -235,6 +242,105 @@ $horasDelDia = range(0, 23);
     </section>
 </section>
 
+<?php if ($impactoSeguimiento) : ?>
+    <div class="admin-modal schedule-impact-modal" id="schedule-impact-modal" data-admin-modal data-schedule-impact-modal data-impact-required hidden>
+        <div class="admin-modal__backdrop schedule-impact-modal__backdrop" aria-hidden="true"></div>
+        <div class="admin-modal__dialog admin-modal__dialog--wide schedule-impact-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-impact-title" aria-describedby="schedule-impact-description" tabindex="-1" data-admin-modal-dialog>
+            <div class="admin-modal__head">
+                <div>
+                    <span class="admin-modal__eyebrow">Atención requerida</span>
+                    <h2 class="admin-modal__title" id="schedule-impact-title">Reservaciones afectadas</h2>
+                </div>
+                <span class="schedule-impact-modal__count" data-impact-pending-count aria-live="polite"></span>
+            </div>
+            <p class="admin-modal__text" id="schedule-impact-description">
+                Este cambio no cancela reservaciones. Contacta primero a quienes tienen un medio disponible y después atiende los casos sin contacto.
+            </p>
+            <div class="schedule-impact-modal__toolbar">
+                <button type="button" class="admin-btn admin-btn--primary" data-impact-notify-all>Enviar avisos disponibles</button>
+                <span class="admin-form-status" data-impact-status role="status" aria-live="polite"></span>
+            </div>
+            <div class="schedule-impact-modal__notice" data-impact-test-link-notice hidden>
+                <strong>Enlace de prueba listo.</strong>
+                <span data-impact-test-link-label>El enlace sólo vive en esta pantalla.</span>
+                <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-impact-copy-link>Copiar link de prueba</button>
+            </div>
+            <div class="schedule-impact-modal__list" data-impact-list aria-live="polite">
+                <?php foreach ((array)($impactoSeguimiento['reservaciones'] ?? []) as $afectacion) : ?>
+                    <?php
+                    $estadoAfectacion = (string)($afectacion['estado'] ?? '');
+                    $contactoAfectacion = (string)($afectacion['contacto'] ?? '');
+                    ?>
+                    <article class="schedule-impact-row" data-impact-row data-impact-reservation-id="<?php echo (int)($afectacion['id'] ?? 0); ?>">
+                        <div class="schedule-impact-row__identity">
+                            <strong data-impact-name><?php echo $h($afectacion['nombre'] ?? ''); ?></strong>
+                            <span data-impact-date><?php echo $h(($afectacion['fecha'] ?? '') . ' · ' . ($afectacion['hora'] ?? '')); ?></span>
+                            <span data-impact-guests><?php echo (int)($afectacion['comensales'] ?? 0); ?> comensales</span>
+                        </div>
+                        <div class="schedule-impact-row__contact">
+                            <span class="schedule-impact-row__label">Contacto</span>
+                            <span data-impact-contact><?php echo $h($contactoAfectacion !== '' ? $contactoAfectacion : 'Sin contacto'); ?></span>
+                        </div>
+                        <div class="schedule-impact-row__state">
+                            <span class="schedule-impact-row__label">Estado</span>
+                            <span data-impact-state><?php echo $h(str_replace('_', ' ', $estadoAfectacion)); ?></span>
+                        </div>
+                        <div class="schedule-impact-row__actions" data-impact-actions>
+                            <?php if ($estadoAfectacion === 'pendiente_notificacion' && !empty($afectacion['tiene_contacto'])) : ?>
+                                <button type="button" class="admin-btn admin-btn--primary admin-btn--small" data-impact-notify>Enviar aviso</button>
+                            <?php elseif ($estadoAfectacion === 'sin_contacto') : ?>
+                                <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-impact-add-contact>Agregar contacto</button>
+                                <button type="button" class="admin-btn admin-btn--danger admin-btn--small" data-impact-manual <?php echo empty($afectacion['manual_habilitada']) ? 'disabled' : ''; ?>>Atender manualmente</button>
+                            <?php elseif (!empty($afectacion['test_link_disponible'])) : ?>
+                                <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-impact-test-link>Generar link de prueba</button>
+                            <?php endif; ?>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <div class="schedule-impact-modal__complete" data-impact-complete hidden>
+                <strong>Todas las reservaciones de este cambio están atendidas.</strong>
+                <span>El seguimiento quedó resuelto y ya puedes continuar con la configuración.</span>
+                <a class="admin-btn admin-btn--primary" href="/admin/configuracion/horarios">Finalizar seguimiento</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-modal schedule-impact-contact-modal" id="schedule-impact-contact-modal" data-admin-modal hidden>
+        <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
+        <div class="admin-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-impact-contact-title" tabindex="-1" data-admin-modal-dialog>
+            <div class="admin-modal__head">
+                <div>
+                    <span class="admin-modal__eyebrow">Atención manual</span>
+                    <h2 class="admin-modal__title" id="schedule-impact-contact-title">Agregar contacto</h2>
+                </div>
+                <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            </div>
+            <p class="admin-modal__text">El contacto se agregará sólo a la reservación seleccionada para poder enviarle el aviso del cambio.</p>
+            <form class="admin-modal__form" data-impact-contact-form novalidate>
+                <input type="hidden" name="impacto_id" data-impact-contact-impact-id>
+                <input type="hidden" name="impacto_reservacion_id" data-impact-contact-reservation-id>
+                <label class="admin-field">
+                    <span class="admin-field__label">Tipo de contacto</span>
+                    <select name="tipo" data-impact-contact-type required>
+                        <option value="email">Correo electrónico</option>
+                        <option value="telefono">Teléfono</option>
+                    </select>
+                </label>
+                <label class="admin-field">
+                    <span class="admin-field__label">Correo o teléfono</span>
+                    <input type="text" name="contacto" data-impact-contact-value required autocomplete="off">
+                </label>
+                <p class="admin-form-status" data-impact-contact-status role="status" aria-live="polite"></p>
+                <div class="admin-modal__actions">
+                    <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
+                    <button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
+
 <div class="admin-modal" id="schedule-exception-modal" data-admin-modal hidden>
     <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
     <div class="admin-modal__dialog admin-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="exception-modal-title" tabindex="-1" data-admin-modal-dialog>
@@ -247,6 +353,7 @@ $horasDelDia = range(0, 23);
         </div>
 
         <form action="/admin/configuracion/horarios/excepciones/guardar" method="post" class="admin-modal__form" data-exception-form novalidate>
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
             <input type="hidden" name="id" value="<?php echo $h($valorExcepcion('id')); ?>" data-exception-id>
             <input type="hidden" name="confirmar_conflictos" value="0">
             <div class="admin-field">
@@ -406,6 +513,7 @@ $horasDelDia = range(0, 23);
         <p class="admin-modal__text">Al eliminar esta excepción, la fecha volverá a utilizar el horario semanal habitual.</p>
 
         <form action="/admin/configuracion/horarios/excepciones/eliminar" method="post" data-exception-delete-form>
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
             <input type="hidden" name="id" value="" data-exception-delete-id>
             <div class="admin-modal__actions">
                 <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
@@ -414,3 +522,47 @@ $horasDelDia = range(0, 23);
         </form>
     </div>
 </div>
+
+<?php if ($pendingScheduleAction) : ?>
+    <?php
+    $pendingActionId = (int)($pendingScheduleAction['id'] ?? 0);
+    $pendingActionIsState = ($pendingScheduleAction['tipo'] ?? '') === 'estado';
+    $pendingActionActive = !empty($pendingScheduleAction['activo']);
+    $pendingActionUrl = $pendingActionIsState
+        ? '/admin/configuracion/horarios/excepciones/estado'
+        : '/admin/configuracion/horarios/excepciones/eliminar';
+    $pendingActionLabel = $pendingActionIsState
+        ? ($pendingActionActive ? 'activar' : 'desactivar')
+        : 'eliminar';
+    $pendingActionCount = count((array)($pendingScheduleAction['conflictos'] ?? []));
+    ?>
+    <div class="admin-modal" id="schedule-impact-confirmation-modal" data-admin-modal hidden>
+        <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
+        <div class="admin-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-impact-confirmation-title" tabindex="-1" data-admin-modal-dialog>
+            <div class="admin-modal__head">
+                <div>
+                    <span class="admin-modal__eyebrow">Reservaciones afectadas</span>
+                    <h2 class="admin-modal__title" id="schedule-impact-confirmation-title">Confirmar cambio de horario</h2>
+                </div>
+                <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            </div>
+            <p class="admin-modal__text">
+                La acción para <?php echo $h($pendingActionLabel); ?> afectaría a
+                <strong><?php echo $pendingActionCount; ?> reservación<?php echo $pendingActionCount === 1 ? '' : 'es'; ?></strong>.
+                No se cancelarán automáticamente; quedarán en seguimiento para contactar a cada cliente.
+            </p>
+            <form action="<?php echo $h($pendingActionUrl); ?>" method="post">
+                <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
+                <input type="hidden" name="id" value="<?php echo $pendingActionId; ?>">
+                <input type="hidden" name="confirmar_conflictos" value="1">
+                <?php if ($pendingActionIsState) : ?>
+                    <input type="hidden" name="activo" value="<?php echo $pendingActionActive ? '1' : '0'; ?>">
+                <?php endif; ?>
+                <div class="admin-modal__actions">
+                    <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Volver</button>
+                    <button type="submit" class="admin-btn admin-btn--danger-solid">Confirmar y continuar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>

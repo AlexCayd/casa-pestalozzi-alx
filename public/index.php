@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/app.php';
 use MVC\Router;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
+use Controllers\AdminHorarioImpactoController;
 use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
@@ -22,6 +23,7 @@ use Controllers\ReservacionOperacionController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
+use Controllers\ReservacionMagicLinkController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
@@ -38,6 +40,8 @@ $router = new Router();
 // Home
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
+$router->get('/reservaciones/acceso-cambio-horario', [ReservacionMagicLinkController::class, 'show']);
+$router->post('/reservaciones/acceso-cambio-horario', [ReservacionMagicLinkController::class, 'consume']);
 
 // Reservaciones
 $router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
@@ -66,6 +70,12 @@ $router->post('/api/configuracion/horarios/semanales', [AdminConfigurationContro
 $router->post('/api/configuracion/horarios/especiales', [AdminConfigurationController::class, 'apiGuardarEspecial']);
 $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiGuardarExcepcion']);
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
+$router->get('/admin/api/horarios-impactos', [AdminHorarioImpactoController::class, 'show']);
+$router->post('/admin/api/horarios-impactos/notificar', [AdminHorarioImpactoController::class, 'notify']);
+$router->post('/admin/api/horarios-impactos/notificar-disponibles', [AdminHorarioImpactoController::class, 'notifyAvailable']);
+$router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoController::class, 'addContact']);
+$router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
+$router->post('/admin/api/horarios-impactos/link-prueba', [AdminHorarioImpactoController::class, 'testLink']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
