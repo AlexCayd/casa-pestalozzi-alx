@@ -28,11 +28,10 @@
                 </svg>
                 Volver
             </a>
-            <?php
-                $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? '');
-                $etiquetaCredencial = $rolUsuario === 'admin' ? 'Cambiar contraseña' : 'Cambiar NIP';
-            ?>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-credencial?id=<?php echo $usuarioId; ?>"><?php echo $etiquetaCredencial; ?></a>
+            <?php $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? ''); ?>
+            <?php if ($rolUsuario === 'admin') : ?>
+                <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -40,9 +39,26 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del usuario</h3>
-                <p>Actualiza usuario, nombre, rol y estado.</p>
+                <p>Actualiza usuario, nombre, rol y estado. El NIP existente nunca se muestra.</p>
             </div>
         </div>
+
+        <?php if ($rolUsuario !== 'admin') : ?>
+            <section class="admin-users-access-card" aria-labelledby="admin-users-access-title">
+                <div>
+                    <span class="admin-users-form__field-label">Acceso</span>
+                    <h3 id="admin-users-access-title">NIP configurado</h3>
+                    <p>El código actual no puede consultarse. Si se extravió, genera uno nuevo.</p>
+                </div>
+                <form method="POST" action="/admin/usuarios/regenerar-nip" data-user-regenerate-form>
+                    <input type="hidden" name="id" value="<?php echo $usuarioId; ?>">
+                    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                    <button type="submit" class="admin-btn admin-btn--secondary admin-menu__button" data-user-regenerate>
+                        Regenerar NIP
+                    </button>
+                </form>
+            </section>
+        <?php endif; ?>
 
         <?php include __DIR__ . '/form.php'; ?>
     </section>

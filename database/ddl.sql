@@ -82,28 +82,27 @@ CREATE TABLE IF NOT EXISTS categorias (
   activo TINYINT(1) NOT NULL DEFAULT 1
 );
 
--- Accesos: los tres roles entran por /login, que muestra dos pestanas. Los
--- administradores usan usuario + password alfanumerica (password_hash); el
--- personal de piso (meseros y cocineros) usa un NIP numerico de 4 digitos,
--- unico por usuario y guardado hasheado con bcrypt (nip_hash).
+-- Accesos: los administradores usan usuario + password alfanumerica
+-- (password_hash); el personal de piso usa un NIP numerico de 4 digitos,
+-- guardado hasheado con bcrypt (nip_hash). nip_lookup es un HMAC determinista
+-- que permite localizar el candidato y respaldar la unicidad en la BD.
 --
 -- El rol decide a que vista se entra y que rutas se permiten: waiter al punto
 -- de venta, cook a los tableros de area, admin a todo.
---
--- fecha_nacimiento no es dato de RR.HH.: es el origen del NIP por defecto. Si
--- el admin deja el campo vacio al dar de alta, el NIP se genera como DDMM del
--- cumpleanos. Nullable porque los administradores no usan NIP.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
-  fecha_nacimiento DATE NULL,
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
+  nip_lookup    CHAR(64) NULL,
   rol           ENUM('admin','waiter','cook') NOT NULL DEFAULT 'waiter',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_usuarios_nip_lookup (nip_lookup),
+  CONSTRAINT chk_usuarios_admin_sin_nip
+    CHECK (rol <> 'admin' OR (nip_hash IS NULL AND nip_lookup IS NULL))
 );
 
 -- -------------------------------------------------------

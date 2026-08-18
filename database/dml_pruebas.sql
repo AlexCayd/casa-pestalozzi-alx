@@ -403,34 +403,15 @@ ON DUPLICATE KEY UPDATE
 -- descripción y el tag ya quedaron puestos por el bloque de arriba.
 
 -- -------------------------------------------------------
--- Usuarios demo
--- admin_demo entra en /login (pestaña Contraseña) con password: Pestalozzi2026
--- (el resto conserva un bcrypt de prueba sin password conocida)
+-- Usuario demo administrador
+-- admin_demo entra en /login (pestaña Contraseña) con password:
+-- Pestalozzi2026. Los usuarios de piso los crea la rutina controlada de
+-- scripts/seed-usuarios-prueba.php, que calcula su HMAC con el secreto del
+-- entorno y muestra sus NIP de desarrollo sólo en la salida de esa ejecución.
 -- -------------------------------------------------------
 
--- ids implícitos por orden: 1 admin, 2-3 y 5-6 meseros activos, 4 cocinero,
--- 7 mesero inactivo. Tres meseros activos para comparar rendimiento.
---
--- Las fechas de nacimiento están elegidas para que su DDMM no choque entre sí
--- ni con los NIP fijados abajo: así la semilla ejercita los dos caminos, el
--- NIP explícito y el derivado del cumpleaños.
-INSERT INTO usuarios (username, nombre, fecha_nacimiento, password_hash, rol, activo) VALUES
-('admin_demo',      'Administrador Demo',  '1985-06-12', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', 'admin',  1),
-('mesero1',         'Carlos Hernández',    '1993-11-23', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
-('mesero2',         'Valeria Ríos',        '1996-02-17', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
-('cocinero1',       'Mariana López',       '1991-09-05', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'cook',   1),
-('mesero3',         'Emilio Cárdenas',     '1998-07-30', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 1),
-('mesero_inactivo', 'Daniel Torres',       '1994-12-03', '$2y$10$wH8Lm8rMjYpPqOQF3AbY3eGy7PV8wzg6kgAYZ3i.E2oQ1FjiZ3Xj2', 'waiter', 0);
-
--- NIP de acceso demo del personal de piso (bcrypt de 4 dígitos), para /login:
---   mesero1 → 2345 · cocinero1 → 3456
---   mesero2 → 1702 · mesero3 → 3007  (ambos son el DDMM de su cumpleaños)
--- El admin NO usa NIP: entra en /login, pestaña de administrador, con
--- usuario + password.
-UPDATE usuarios SET nip_hash = '$2y$12$Jkhr3umCEYaNQY4OSGedgOu5eHImaGx1PtjXSMY9hXn3Zqu1OmReW' WHERE username = 'mesero1';
-UPDATE usuarios SET nip_hash = '$2y$12$bb8wu.UY6FK8vBzU4E5X6uAZq3lZwzfSOn4kXcG9vRuV9eFMXF1MW' WHERE username = 'cocinero1';
-UPDATE usuarios SET nip_hash = '$2y$12$wbcjrmcyjQqdNQ3l24.zK.FUHBaX55O6866E40kAueBYyiSyiTgxO' WHERE username = 'mesero2';
-UPDATE usuarios SET nip_hash = '$2y$12$ACcHQkJyV/2dXYaxohNsVOz7V3XWaQXgVMAnJoaJOwnbY6coSjjEW' WHERE username = 'mesero3';
+INSERT INTO usuarios (username, nombre, password_hash, nip_hash, nip_lookup, rol, activo) VALUES
+('admin_demo', 'Administrador Demo', '$2y$12$qH/BVO2OPCYRbt7rUfYtIecXWTXOSk8hxWavaadrcfbwEnIHsXXd.', NULL, NULL, 'admin', 1);
 
 -- -------------------------------------------------------
 -- Tickets de ejemplo (para /admin/tickets)

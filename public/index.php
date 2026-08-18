@@ -214,13 +214,11 @@ $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
 $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-// Contraseña (admins) o NIP (personal de piso), según el rol del destino.
-$router->get('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
-$router->post('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
-// La URL anterior solo cambiaba contraseñas; se conserva por marcadores.
-$router->get('/admin/usuarios/change-password', $redir301('/admin/usuarios/cambiar-credencial'));
-// Aviso en vivo mientras se teclea el NIP; la validación que manda sigue en el POST.
-$router->get('/admin/api/usuarios/nip-disponible', [AdminUsersController::class, 'nipDisponible']);
+// Los administradores cambian contraseña; el personal de piso sólo puede
+// recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
+$router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+$router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+$router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);

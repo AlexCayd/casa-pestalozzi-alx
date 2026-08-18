@@ -55,6 +55,20 @@ $iniciales = static function (string $nombre, string $username): string {
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
+    <?php if ($nipGenerado) : ?>
+        <section class="admin-users-nip-once" aria-labelledby="admin-users-nip-once-title">
+            <div>
+                <span class="admin-menu__eyebrow">Entrega inmediata</span>
+                <h3 id="admin-users-nip-once-title">NIP generado</h3>
+                <p>Guarda o entrega este código ahora. Por seguridad no podrá consultarse nuevamente.</p>
+            </div>
+            <div class="admin-users-nip-once__code">
+                <strong data-nip-once-value><?php echo htmlspecialchars($nipGenerado, ENT_QUOTES, 'UTF-8'); ?></strong>
+                <button type="button" class="admin-btn admin-btn--secondary admin-menu__button" data-copy-nip>Copiar NIP</button>
+            </div>
+        </section>
+    <?php endif; ?>
+
     <form
         class="admin-filters"
         method="GET"

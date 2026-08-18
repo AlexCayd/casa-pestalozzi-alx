@@ -24,7 +24,7 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del usuario</h3>
-                <p>Completa usuario, nombre, rol, contraseña y estado.</p>
+            <p>Completa usuario, nombre, rol y estado. La credencial se define según el rol.</p>
             </div>
         </div>
 

@@ -10,6 +10,7 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
+use Services\AdminCsrfService;
 use Services\UsuarioService;
 
 class AdminUsersController
@@ -29,6 +30,7 @@ class AdminUsersController
         $filtros = self::leerFiltros();
         $usuarios = Usuario::buscarAdmin($filtros);
         $alertas = self::alertasResultado($_GET['resultado'] ?? '');
+        $nipGenerado = self::consumirNipFlash();
 
         $data = [
             'title' => 'Usuarios',
@@ -38,6 +40,7 @@ class AdminUsersController
             'filtrosActivos' => self::hayFiltrosActivos($filtros),
             'roleLabels' => self::ROLE_LABELS,
             'alertas' => $alertas,
+            'nipGenerado' => $nipGenerado,
             'totalAdminsActivos' => Usuario::contarAdminsActivos(),
             'partialUrl' => AdminController::filterUrl('/admin/usuarios', $filtros),
         ];
@@ -66,6 +69,7 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
+                self::guardarNipFlash($resultado['nip'] ?? null);
                 header('Location: /admin/usuarios?resultado=creado');
                 exit;
             }
@@ -102,6 +106,7 @@ class AdminUsersController
             exit;
         }
 
+        $rolOriginal = (string) $user->rol;
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -116,6 +121,7 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
+                self::guardarNipFlash($resultado['nip'] ?? null);
                 $queryResultado = ($resultado['codigo'] ?? '') === UsuarioService::USUARIO_SIN_CAMBIOS
                     ? 'usuario_sin_cambios'
                     : 'actualizado';
@@ -138,14 +144,13 @@ class AdminUsersController
             'accion' => 'Guardar cambios',
             'modo' => 'editar',
             'action' => '/admin/usuarios/edit?id=' . $id,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'rolOriginal' => $rolOriginal,
         ]);
     }
 
-    /**
-     * Cambio de credencial: contraseña para administradores, NIP de 4 dígitos
-     * para el personal de piso. El tipo lo decide el rol del usuario destino.
-     */
-    public static function cambiarCredencial(Router $router): void
+    /** Cambio de contraseña administrativa con reautenticación del actor. */
+    public static function cambiarPassword(Router $router): void
     {
         $id = self::idFromQuery();
 
@@ -165,12 +170,16 @@ class AdminUsersController
             session_start();
         }
 
-        $tipoCredencial = $user->rol === 'admin' ? 'password' : 'nip';
+        if ($user->rol !== 'admin') {
+            header('Location: /admin/usuarios/edit?id=' . $id);
+            exit;
+        }
+
         $esPropio = (int) ($_SESSION['id'] ?? 0) === $id;
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $resultado = UsuarioService::cambiarCredencial(
+            $resultado = UsuarioService::cambiarPassword(
                 $id,
                 (int) ($_SESSION['id'] ?? 0),
                 (string) ($_POST['secreto_actual'] ?? ''),
@@ -180,10 +189,7 @@ class AdminUsersController
             $alertas = $resultado['alertas'] ?? [];
 
             if ($resultado['ok'] ?? false) {
-                $destino = ($resultado['codigo'] ?? '') === UsuarioService::NIP_ACTUALIZADO
-                    ? 'nip'
-                    : 'password';
-                header('Location: /admin/usuarios?resultado=' . $destino);
+                header('Location: /admin/usuarios?resultado=password');
                 exit;
             }
 
@@ -196,16 +202,13 @@ class AdminUsersController
             }
         }
 
-        $titulo = $tipoCredencial === 'nip' ? 'Cambiar NIP' : 'Cambiar contraseña';
-
         self::render('users/change-password', [
-            'title' => $titulo,
-            'topbarSection' => 'Usuarios / ' . $titulo,
+            'title' => 'Cambiar contraseña',
+            'topbarSection' => 'Usuarios / Cambiar contraseña',
             'usuario' => $user,
             'alertas' => $alertas,
-            'tipoCredencial' => $tipoCredencial,
             'esPropio' => $esPropio,
-            'action' => '/admin/usuarios/cambiar-credencial?id=' . $id,
+            'action' => '/admin/usuarios/cambiar-password?id=' . $id,
         ]);
     }
 
@@ -247,34 +250,69 @@ class AdminUsersController
         self::redirect('/admin/usuarios?resultado=' . self::resultadoServicio($resultado));
     }
 
-    /**
-     * ¿Está libre este NIP? Sólo para avisar mientras se teclea: quien decide
-     * sigue siendo la validación del alta y de la edición, que corre dentro de
-     * la transacción. Un "sí" aquí no reserva nada.
-     *
-     * No amplía lo que ya puede hacer quien la consulta: la ruta está en
-     * APIS_ADMIN y un administrador puede reasignar el NIP de cualquiera desde
-     * esta misma pantalla.
-     */
-    public static function nipDisponible(): void
+    /** Regenera el NIP de un usuario de piso después de una confirmación CSRF. */
+    public static function regenerarNip(): void
     {
-        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect('/admin/usuarios');
+        }
 
-        $nip = trim((string) ($_GET['nip'] ?? ''));
-        if (!preg_match('/^\d{4}$/', $nip)) {
-            echo json_encode(['ok' => false, 'motivo' => 'formato']);
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirect('/admin/usuarios?resultado=csrf_invalido');
+        }
+
+        $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1]
+        ]);
+        if (!$id) {
+            self::redirect('/admin/usuarios?resultado=id_invalido');
+        }
+
+        $resultado = UsuarioService::regenerarNip((int) $id);
+        if ($resultado['ok'] ?? false) {
+            self::guardarNipFlash($resultado['nip'] ?? null);
+            self::redirect('/admin/usuarios?resultado=nip_regenerado');
+        }
+
+        $codigo = (string) ($resultado['codigo'] ?? '');
+        if ($codigo === UsuarioService::USUARIO_NO_EXISTE) {
+            self::redirect('/admin/usuarios?resultado=no_existe');
+        }
+        if ($codigo === UsuarioService::ROL_INVALIDO) {
+            self::redirect('/admin/usuarios?resultado=rol_invalido');
+        }
+        if ($codigo === UsuarioService::NIP_CONFIGURACION_INVALIDA || $codigo === UsuarioService::NIP_NO_DISPONIBLE) {
+            self::redirect('/admin/usuarios?resultado=nip_error');
+        }
+
+        self::redirect('/admin/usuarios?resultado=error_guardado');
+    }
+
+    private static function guardarNipFlash(?string $nip): void
+    {
+        if ($nip === null || !preg_match('/^\d{4}$/', $nip)) {
             return;
         }
 
-        // Al editar, el NIP propio no cuenta como choque consigo mismo.
-        $id = filter_var($_GET['id'] ?? 0, FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1]
-        ]);
+        Auth::start();
+        $_SESSION['_admin_user_nip_flash'] = [
+            'nip' => $nip,
+            'expires_at' => time() + 120,
+        ];
+    }
 
-        echo json_encode([
-            'ok' => true,
-            'disponible' => Usuario::nipDisponible($nip, $id ?: null),
-        ]);
+    private static function consumirNipFlash(): ?string
+    {
+        Auth::start();
+        $flash = $_SESSION['_admin_user_nip_flash'] ?? null;
+        unset($_SESSION['_admin_user_nip_flash']);
+
+        if (!is_array($flash) || (int) ($flash['expires_at'] ?? 0) < time()) {
+            return null;
+        }
+
+        $nip = (string) ($flash['nip'] ?? '');
+        return preg_match('/^\d{4}$/', $nip) ? $nip : null;
     }
 
     public static function delete(): void
@@ -366,7 +404,7 @@ class AdminUsersController
             'creado' => ['exito' => ['Usuario creado correctamente']],
             'actualizado' => ['exito' => ['Usuario actualizado correctamente']],
             'password' => ['exito' => ['Contraseña actualizada correctamente']],
-            'nip' => ['exito' => ['NIP actualizado correctamente']],
+            'nip_regenerado' => ['exito' => ['NIP regenerado. Entrégalo ahora; por seguridad no podrá consultarse nuevamente.']],
             'activado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'desactivado' => ['exito' => ['Estado del usuario actualizado correctamente.']],
             'eliminado' => ['exito' => ['Usuario eliminado correctamente.']],
@@ -378,6 +416,9 @@ class AdminUsersController
             'usuario_desactivado' => ['exito' => ['Usuario desactivado correctamente.']],
             'usuario_sin_cambios' => ['warning' => ['El usuario ya tenia el estado solicitado; no se realizaron cambios.']],
             'error_guardado' => ['error' => ['No fue posible guardar el cambio solicitado.']],
+            'nip_error' => ['error' => ['No fue posible generar un NIP disponible. Intenta nuevamente.']],
+            'rol_invalido' => ['error' => ['La regeneración sólo aplica a usuarios de piso.']],
+            'csrf_invalido' => ['error' => ['La confirmación expiró. Recarga la página e inténtalo de nuevo.']],
             default => [],
         };
     }

@@ -56,8 +56,8 @@ llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
 `paths.adminMapJs`). El panel admin carga **solo** `admin.js`, nunca
 `bundle.min.js`: lo que deba estar disponible en ambos va en las dos listas.
 
-> `npm test` está roto: apunta a `scripts/` y `tests/`, que no existen en el repo.
-> Verificar con `php -l` y recorridos manuales.
+> `npm test` ejecuta los contratos PHP/JS configurados en `package.json`.
+> Verificar además con `php -l` y recorridos manuales.
 
 ## Base de datos
 
@@ -66,10 +66,10 @@ llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
 `database/dml_pruebas.sql` (datos ficticios para desarrollo y QA).
 Credenciales de demo en `database/CREDENCIALES.md`.
 
-**No hay migraciones incrementales y no se deben crear.** Un cambio de esquema se
-escribe en `ddl.sql` (y su siembra en el DML correspondiente); para aplicarlo se
-vuelve a correr `ddl.sql` y luego `dml_operativo.sql`. `dml_pruebas.sql` es opcional
-y sólo se carga en entornos de desarrollo o QA. El DDL empieza con los
+El esquema nuevo se escribe en `ddl.sql`; las instalaciones existentes usan la
+migración explícita de acceso en `database/migrations/` y la rutina controlada de
+rotación de credenciales. `dml_pruebas.sql` es opcional y sólo se carga en
+entornos de desarrollo o QA. El DDL empieza con los
 `DROP TABLE` en orden inverso de dependencias justo para eso: si agregas una tabla,
 agrega también su `DROP` en el lugar que le toca.
 
@@ -83,9 +83,10 @@ Cosas que cargan peso y no son obvias:
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
 - `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.
 - `usuarios` tiene dos vías de acceso: `password_hash` (admins, usuario+contraseña)
-  y `nip_hash` (personal de piso, NIP de **4 dígitos**). Ambos bcrypt. Como el NIP
-  está hasheado, buscar por NIP recorre las filas con `password_verify` — es
-  intencional, no un descuido.
+  y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup
+  es un HMAC con `NIP_LOOKUP_SECRET` para resolver la fila directamente;
+  `password_verify` sólo confirma la credencial encontrada. La generación,
+  rotación y migración están documentadas en `docs/usuarios_acceso.md`.
 
 ## Design system
 

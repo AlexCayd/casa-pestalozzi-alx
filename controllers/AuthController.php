@@ -43,22 +43,58 @@ class AuthController {
             $tabActiva = 'nip';
             $nip = trim((string) ($_POST['nip'] ?? ''));
 
-            if (!preg_match('/^\d{4}$/', $nip)) {
-                $alertas['error'][] = 'Ingresa un NIP de 4 dígitos';
+            if (!self::nipLoginPermitido()) {
+                $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
+            } elseif (!preg_match('/^\d{4}$/', $nip)) {
+                self::registrarFalloNip();
+                $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
             } else {
                 $usuario = Usuario::porNip($nip);
 
                 if ($usuario) {
+                    self::limpiarFallosNip();
                     Auth::login($usuario);
                     header('Location: ' . Auth::destinoPorRol($usuario->rol));
                     exit;
                 }
 
+                self::registrarFalloNip();
                 $alertas['error'][] = 'NIP incorrecto o usuario inactivo';
             }
         }
 
         include_once __DIR__ . '/../views/auth/login.php';
+    }
+
+    /** Limita intentos por sesión y huella de IP sin bloquear cuentas reales. */
+    private static function nipLoginPermitido(): bool
+    {
+        Auth::start();
+        $ahora = time();
+        $ip = hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        $estado = $_SESSION['_nip_login_rate'] ?? null;
+
+        if (!is_array($estado) || $estado['ip'] !== $ip || $ahora - (int) ($estado['inicio'] ?? 0) >= 60) {
+            $_SESSION['_nip_login_rate'] = ['ip' => $ip, 'inicio' => $ahora, 'fallos' => 0];
+            return true;
+        }
+
+        return (int) ($estado['fallos'] ?? 0) < 5;
+    }
+
+    private static function registrarFalloNip(): void
+    {
+        Auth::start();
+        if (!isset($_SESSION['_nip_login_rate']) || !is_array($_SESSION['_nip_login_rate'])) {
+            self::nipLoginPermitido();
+        }
+        $_SESSION['_nip_login_rate']['fallos'] = (int) ($_SESSION['_nip_login_rate']['fallos'] ?? 0) + 1;
+    }
+
+    private static function limpiarFallosNip(): void
+    {
+        Auth::start();
+        unset($_SESSION['_nip_login_rate']);
     }
 
     /**
