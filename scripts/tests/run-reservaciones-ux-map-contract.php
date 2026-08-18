@@ -88,6 +88,9 @@ assertReservationMapUx(
         && str_contains($operation, 'reservation-operation__detail-inline-action')
         && str_contains($operation, "var mesaHeading = mesaIds.length > 1 ? 'Mesas asignadas' : 'Mesa asignada'")
         && str_contains($operation, "var mesaChangeLabel = mesaIds.length > 1 ? 'Cambiar mesas' : 'Cambiar mesa'")
+        && str_contains($operation, 'class="admin-btn__icon"')
+        && str_contains($operation, 'var assignmentIcon')
+        && str_contains($operation, 'var editIcon')
         && str_contains($operation, 'data-operation-comment-edit>')
         && str_contains($operation, 'Sin notas')
         && str_contains($operation, "<h4>Acciones</h4>")
@@ -108,6 +111,10 @@ assertReservationMapUx(
         && str_contains($detail, 'grid-template-columns: minmax(0, 1fr) auto;')
         && str_contains($detail, 'height: 40px;')
         && str_contains($detail, 'height: 44px;')
+        && str_contains($detail, 'min-height: 44px;')
+        && str_contains($detail, 'padding: 6px 10px;')
+        && str_contains($detail, 'min-height: 48px;')
+        && str_contains($detail, '.reservation-operation__detail-inline-action .admin-btn__icon')
         && str_contains($detail, 'border-radius: var(--admin-radius-sm, 10px);')
         && str_contains($detail, 'min-height: 100%;'),
     'el detalle normaliza controles y notas, usa zonas sutiles y mantiene scroll natural'

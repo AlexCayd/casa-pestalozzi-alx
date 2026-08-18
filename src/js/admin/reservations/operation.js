@@ -1552,8 +1552,10 @@
                 : 'Sin mesas asignadas';
             var mesaHeading = mesaIds.length > 1 ? 'Mesas asignadas' : 'Mesa asignada';
             var mesaChangeLabel = mesaIds.length > 1 ? 'Cambiar mesas' : 'Cambiar mesa';
+            var assignmentIcon = '<svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h13"/><path d="m14 4 3 3-3 3"/><path d="M20 17H7"/><path d="m10 14-3 3 3 3"/></svg>';
+            var editIcon = '<svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
             var detailLink = state.surface === 'admin'
-                ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
+                ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? editIcon : '') + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
                 : '';
             var canCancelReservation = estado === 'confirmada' && !reservacion.ticket_abierto;
             var clientNote = String(reservacion.nota || '').trim();
@@ -1601,7 +1603,7 @@
                             '<h4>' + mesaHeading + '</h4>' +
                             '<div class="reservation-operation-detail-value-row">' +
                                 '<p class="reservation-operation-panel__selected reservation-operation__detail-value-content"><strong>' + esc(mesasActuales) + '</strong></p>' +
-                                (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation__detail-inline-action reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">' + mesaChangeLabel + '</button>' : '') +
+                                (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation__detail-inline-action reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">' + assignmentIcon + mesaChangeLabel + '</button>' : '') +
                             '</div>' +
                         '</section>' +
                         '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
