@@ -77,6 +77,7 @@ class Auth {
         '/api/configuracion/horarios/semanales',
         '/api/configuracion/horarios/especiales',
         '/api/configuracion/horarios/excepciones',
+        '/api/configuracion/horarios/excepciones/estado',
     ];
 
     public static function start(): void {

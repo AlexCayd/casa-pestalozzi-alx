@@ -27,7 +27,7 @@ final class AdminHorarioImpactoController
         }
 
         $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::encolarNotificacion(
+        self::json(HorarioOperacionImpactoService::prepararAviso(
             (int)($datos['impacto_id'] ?? 0),
             (int)($datos['impacto_reservacion_id'] ?? 0),
             self::usuarioId()
@@ -42,7 +42,7 @@ final class AdminHorarioImpactoController
         }
 
         $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::encolarDisponibles(
+        self::json(HorarioOperacionImpactoService::prepararAvisosDisponibles(
             (int)($datos['impacto_id'] ?? 0),
             self::usuarioId()
         ));
@@ -88,7 +88,7 @@ final class AdminHorarioImpactoController
         }
 
         $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::regenerarLinkDePrueba(
+        self::json(HorarioOperacionImpactoService::regenerarAccesoDePrueba(
             (int)($datos['impacto_id'] ?? 0),
             (int)($datos['impacto_reservacion_id'] ?? 0),
             self::usuarioId()

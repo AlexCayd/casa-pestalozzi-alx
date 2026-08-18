@@ -184,11 +184,6 @@
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.02);
 
-  &.is-link-target {
-    border-color: rgba(204, 163, 82, 0.72);
-    box-shadow: 0 0 0 2px rgba(204, 163, 82, 0.12);
-  }
-
   h4 {
     margin: 0;
     color: var(--beige);

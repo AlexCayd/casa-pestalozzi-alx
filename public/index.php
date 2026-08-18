@@ -23,7 +23,7 @@ use Controllers\ReservacionOperacionController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
-use Controllers\ReservacionMagicLinkController;
+use Controllers\ScheduleChangeAccessController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
@@ -40,8 +40,7 @@ $router = new Router();
 // Home
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
-$router->get('/reservaciones/acceso-cambio-horario', [ReservacionMagicLinkController::class, 'show']);
-$router->post('/reservaciones/acceso-cambio-horario', [ReservacionMagicLinkController::class, 'consume']);
+$router->get('/reservaciones/cambio-horario', [ScheduleChangeAccessController::class, 'show']);
 
 // Reservaciones
 $router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
@@ -55,6 +54,8 @@ $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::clas
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
+$router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
 
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
@@ -69,13 +70,14 @@ $router->get('/api/configuracion/horarios/semanales', [AdminConfigurationControl
 $router->post('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiGuardarHorarios']);
 $router->post('/api/configuracion/horarios/especiales', [AdminConfigurationController::class, 'apiGuardarEspecial']);
 $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiGuardarExcepcion']);
+$router->post('/api/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'apiCambiarEstadoExcepcion']);
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
 $router->get('/admin/api/horarios-impactos', [AdminHorarioImpactoController::class, 'show']);
-$router->post('/admin/api/horarios-impactos/notificar', [AdminHorarioImpactoController::class, 'notify']);
-$router->post('/admin/api/horarios-impactos/notificar-disponibles', [AdminHorarioImpactoController::class, 'notifyAvailable']);
+$router->post('/admin/api/horarios-impactos/preparar', [AdminHorarioImpactoController::class, 'notify']);
+$router->post('/admin/api/horarios-impactos/preparar-disponibles', [AdminHorarioImpactoController::class, 'notifyAvailable']);
 $router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoController::class, 'addContact']);
 $router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
-$router->post('/admin/api/horarios-impactos/link-prueba', [AdminHorarioImpactoController::class, 'testLink']);
+$router->post('/admin/api/horarios-impactos/acceso-prueba', [AdminHorarioImpactoController::class, 'testLink']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);

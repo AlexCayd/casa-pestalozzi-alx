@@ -787,25 +787,52 @@ html.lenis body {
   min-width: 0;
 }
 
-.admin-topbar__pending-impact {
+.admin-schedule-impact-alert {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
   display: flex;
+  width: min(380px, 100vw - 48px);
   align-items: center;
-  gap: 12px;
-  max-width: min(560px, 42vw);
-  margin-top: 6px;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold) 42%, var(--admin-border-soft));
-  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 46%, var(--admin-border-soft));
+  background: var(--admin-surface);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.25);
   color: var(--admin-text);
-  font-size: 0.76rem;
-  line-height: 1.35;
 }
-.admin-topbar__pending-impact a {
+
+.admin-schedule-impact-alert__copy {
+  display: grid;
+  gap: 3px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.admin-schedule-impact-alert__copy strong {
+  font-size: 0.86rem;
+}
+
+.admin-schedule-impact-alert__copy span {
+  color: var(--admin-muted);
+}
+
+.admin-schedule-impact-alert__action {
   flex: 0 0 auto;
-  color: var(--admin-gold-deep);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  min-height: 38px;
+  padding: 9px 13px;
+  background: var(--admin-gold);
+  color: #1d1712;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-schedule-impact-alert__action:focus-visible {
+  outline: 2px solid var(--admin-text);
+  outline-offset: 2px;
 }
 
 .admin-topbar__actions {
@@ -933,14 +960,10 @@ html.lenis body {
     justify-self: end;
     gap: 8px;
   }
-  .admin-topbar__pending-impact {
-    position: absolute;
-    top: 100%;
+  .admin-schedule-impact-alert {
     right: 16px;
-    left: 16px;
-    z-index: 3;
-    max-width: none;
-    margin: 0;
+    bottom: 16px;
+    width: min(380px, 100vw - 32px);
   }
 }
 @media (max-width: 576px) {
@@ -965,6 +988,11 @@ html.lenis body {
   .admin-theme-toggle svg {
     width: 16px;
     height: 16px;
+  }
+  .admin-schedule-impact-alert {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
   }
 }
 /*

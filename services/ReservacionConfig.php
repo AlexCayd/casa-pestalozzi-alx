@@ -289,11 +289,11 @@ class ReservacionConfig
         return strtolower(self::env('APP_ENV', 'production'));
     }
 
-    public static function scheduleChangeLinkTtlHours(): int
+    public static function scheduleChangeAccessTtlMinutes(): int
     {
-        $valor = filter_var(self::env('SCHEDULE_CHANGE_LINK_TTL_HOURS', '72'), FILTER_VALIDATE_INT);
+        $valor = filter_var(self::env('SCHEDULE_CHANGE_ACCESS_TTL_MINUTES', '60'), FILTER_VALIDATE_INT);
 
-        return $valor !== false ? max(1, min(720, (int)$valor)) : 72;
+        return $valor !== false ? max(15, min(180, (int)$valor)) : 60;
     }
 
     /**

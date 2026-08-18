@@ -77,12 +77,19 @@
         }
     }
 
+    async function jsonResponse(response) {
+        const contentType = response.headers.get('Content-Type') || '';
+        if (!contentType.toLowerCase().includes('application/json')) {
+            throw new Error('El servidor no devolvió una respuesta JSON válida.');
+        }
+        return response.json();
+    }
+
     /**
      * Confirma guardar un horario que deja reservaciones fuera.
      *
-     * Devuelve una promesa porque el guardado es async y reintenta en bucle con
-     * confirmar_conflictos=true. Sin ConfirmationModal se asume que no: guardar
-     * en silencio es la opción destructiva.
+     * Devuelve una promesa porque el guardado es async y reintenta con
+     * confirmar_conflictos=true sólo después de la confirmación visible.
      */
     async function confirmarConflictosHorario(total) {
         const detalle = total + (total === 1 ? ' reservación' : ' reservaciones');
@@ -94,11 +101,11 @@
         const resultado = await window.ConfirmationModal.get().open({
             variant: 'warning',
             eyebrow: 'Horario de operación',
-            title: 'Hay reservaciones fuera del nuevo horario',
-            description: 'El cambio dejaría ' + detalle + ' fuera del horario que estás guardando.',
-            consequence: 'No se cancelan automáticamente: tendrás que reubicarlas o avisar a cada cliente.',
+            title: 'Confirmar cambio de horario',
+            description: 'Este cambio afecta ' + detalle + '.',
+            consequence: 'Ninguna será cancelada automáticamente. El seguimiento quedará disponible para preparar avisos y atender los casos afectados.',
             secondaryLabel: 'Revisar el horario',
-            primaryLabel: 'Guardar de todas formas',
+            primaryLabel: 'Aplicar cambio',
         });
 
         return resultado && resultado.action === 'primary';
@@ -178,14 +185,6 @@
                 // corresponder con las horas que quedaron puestas.
                 syncHourGrid(row);
             });
-        }
-
-        async function jsonResponse(response) {
-            const contentType = response.headers.get('Content-Type') || '';
-            if (!contentType.toLowerCase().includes('application/json')) {
-                throw new Error('El servidor no devolvió una respuesta JSON válida.');
-            }
-            return response.json();
         }
 
         // Sin badge de estado: que "Guardar horarios" pase de apagado a
@@ -815,7 +814,39 @@
             });
         });
 
-        form.addEventListener('submit', function (event) {
+        async function sendException(confirmarConflictos) {
+            const payload = Object.fromEntries(new FormData(form).entries());
+            payload.confirmar_conflictos = confirmarConflictos;
+            const response = await fetch('/api/configuracion/horarios/excepciones', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            return { response: response, data: await jsonResponse(response) };
+        }
+
+        function confirmException(total, onPrimary) {
+            if (!window.ConfirmationModal) {
+                return false;
+            }
+            window.ConfirmationModal.get().open({
+                variant: 'warning',
+                eyebrow: 'Horario de operación',
+                title: 'Confirmar cambio de horario',
+                description: 'Este cambio afecta ' + total + (total === 1 ? ' reservación.' : ' reservaciones.'),
+                consequence: 'Ninguna será cancelada automáticamente. El seguimiento quedará disponible para preparar avisos y atender los casos afectados.',
+                secondaryLabel: 'Revisar el horario',
+                primaryLabel: 'Aplicar cambio',
+                onPrimary: onPrimary
+            });
+            return true;
+        }
+
+        form.addEventListener('submit', async function (event) {
             setFieldError(open, '');
             setFieldError(close, '');
             let valid = validateDate() && form.checkValidity();
@@ -844,7 +875,54 @@
                 }
                 return;
             }
+            event.preventDefault();
+            if (form.dataset.submitting === '1') {
+                return;
+            }
+
+            form.dataset.submitting = '1';
             setStatus(status, 'Guardando excepción…', 'pending');
+            try {
+                const first = await sendException(false);
+                if (
+                    first.response.status === 409
+                    && first.data.codigo === 'RESERVACIONES_AFECTADAS'
+                    && first.data.requiere_confirmacion === true
+                ) {
+                    form.dataset.submitting = '0';
+                    const opened = confirmException(
+                        Number(first.data.reservaciones_afectadas || 0),
+                        function () {
+                            form.dataset.submitting = '1';
+                            setStatus(status, 'Aplicando cambio…', 'pending');
+                            return sendException(true).then(function (result) {
+                                if (!result.response.ok || !result.data || result.data.ok !== true) {
+                                    throw new Error(result.data.mensaje || 'No fue posible guardar la excepción.');
+                                }
+                                window.location.assign('/admin/configuracion/horarios?resultado='
+                                    + encodeURIComponent(result.data.editada ? 'excepcion_actualizada' : 'excepcion_creada')
+                                    + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                            }).catch(function (error) {
+                                form.dataset.submitting = '0';
+                                setStatus(status, error.message || 'No fue posible guardar la excepción.', 'error');
+                            });
+                        }
+                    );
+                    if (!opened) {
+                        setStatus(status, 'No fue posible abrir la confirmación.', 'error');
+                    }
+                    return;
+                }
+                if (!first.response.ok || !first.data || first.data.ok !== true) {
+                    throw new Error(first.data.mensaje || 'No fue posible guardar la excepción.');
+                }
+                window.location.assign('/admin/configuracion/horarios?resultado='
+                    + encodeURIComponent(first.data.editada ? 'excepcion_actualizada' : 'excepcion_creada')
+                    + (first.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(first.data.impacto_id)) : ''));
+            } catch (error) {
+                form.dataset.submitting = '0';
+                setStatus(status, error.message || 'No fue posible guardar la excepción.', 'error');
+            }
         });
 
         if (document.querySelector('[data-open-exception-modal]')) {
@@ -855,20 +933,67 @@
     }
 
     function initExceptionDelete() {
-        const modal = document.getElementById('schedule-exception-delete-modal');
-        if (!modal) {
-            return;
+        const actionStatus = document.querySelector('[data-exception-action-status]');
+        function sendDelete(id, confirmarConflictos) {
+            return fetch('/api/configuracion/horarios/excepciones', {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    confirmar_conflictos: confirmarConflictos
+                })
+            }).then(function (response) {
+                return jsonResponse(response).then(function (data) {
+                    return { response: response, data: data };
+                });
+            });
         }
 
-        const form = modal.querySelector('[data-exception-delete-form]');
-        const id = form.querySelector('[data-exception-delete-id]');
-        const type = modal.querySelector('[data-exception-delete-type]');
-        const date = modal.querySelector('[data-exception-delete-date]');
-        const reason = modal.querySelector('[data-exception-delete-reason]');
-        const reasonWrap = modal.querySelector('[data-exception-delete-reason-wrap]');
-        const submit = form.querySelector('[data-exception-delete-submit]');
-        const submitLabel = submit.textContent;
-        let submitting = false;
+        function openDeleteConfirmation(data, onPrimary) {
+            if (!window.ConfirmationModal) return false;
+            window.ConfirmationModal.get().open({
+                variant: 'danger',
+                eyebrow: 'Horario de operación',
+                title: 'Eliminar excepción',
+                description: 'Se eliminará ' + (data.tipo_nombre || 'la excepción') + ' del ' + (data.fecha || 'día seleccionado') + '.',
+                consequence: 'Ninguna reservación será cancelada automáticamente. Si el cambio afecta reservaciones, el seguimiento quedará disponible para atenderlas.',
+                secondaryLabel: 'Cancelar',
+                primaryLabel: 'Eliminar excepción',
+                onPrimary: onPrimary
+            });
+            return true;
+        }
+
+        function executeDelete(data, confirmarConflictos, button) {
+            if (button) button.disabled = true;
+            return sendDelete(Number(data.id || 0), confirmarConflictos).then(function (result) {
+                if (
+                    result.response.status === 409
+                    && result.data.codigo === 'RESERVACIONES_AFECTADAS'
+                    && result.data.requiere_confirmacion === true
+                    && !confirmarConflictos
+                ) {
+                    if (button) button.disabled = false;
+                    return openDeleteConfirmation(data, function () {
+                        return executeDelete(data, true, button);
+                    });
+                }
+                if (!result.response.ok || !result.data || result.data.ok !== true) {
+                    throw new Error(result.data.mensaje || 'No fue posible eliminar la excepción.');
+                }
+                window.location.assign('/admin/configuracion/horarios?resultado=excepcion_eliminada'
+                    + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                return true;
+            }).catch(function (error) {
+                if (button) button.disabled = false;
+                setStatus(actionStatus, error.message || 'No fue posible eliminar la excepción.', 'error');
+                return false;
+            });
+        }
 
         document.querySelectorAll('[data-exception-delete]').forEach(function (button) {
             button.addEventListener('click', function () {
@@ -878,35 +1003,15 @@
                 } catch (error) {
                     data = {};
                 }
-
-                id.value = Number.isInteger(Number(data.id)) && Number(data.id) > 0 ? String(data.id) : '';
-                type.textContent = data.tipo_nombre || 'la excepción';
-                date.textContent = data.fecha || 'la fecha seleccionada';
-                reason.textContent = data.motivo || '';
-                reasonWrap.hidden = !data.motivo;
-                submitting = false;
-                submit.disabled = false;
-                submit.textContent = submitLabel;
-
-                document.dispatchEvent(new CustomEvent('admin:open-modal', {
-                    detail: { id: 'schedule-exception-delete-modal', trigger: button }
-                }));
+                openDeleteConfirmation(data, function () {
+                    return executeDelete(data, false, button);
+                });
             });
-        });
-
-        form.addEventListener('submit', function (event) {
-            if (!id.value || submitting) {
-                event.preventDefault();
-                return;
-            }
-
-            submitting = true;
-            submit.disabled = true;
-            submit.textContent = 'Eliminando…';
         });
     }
 
     function initExceptionStateToggles() {
+        const actionStatus = document.querySelector('[data-exception-action-status]');
         document.querySelectorAll('[data-exception-state-form]').forEach(function (form) {
             const toggle = form.querySelector('[data-exception-state-toggle]');
             const label = form.querySelector('[data-switch-label]');
@@ -915,11 +1020,71 @@
                 return;
             }
 
+            function sendState(confirmarConflictos) {
+                return fetch('/api/configuracion/horarios/excepciones/estado', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: Number(form.querySelector('[name="id"]').value || 0),
+                        activo: toggle.checked,
+                        confirmar_conflictos: confirmarConflictos
+                    })
+                }).then(function (response) {
+                    return jsonResponse(response).then(function (data) {
+                        return { response: response, data: data };
+                    });
+                });
+            }
+
+            function applyState(confirmarConflictos, restoreState) {
+                return sendState(confirmarConflictos).then(function (result) {
+                    if (
+                        result.response.status === 409
+                        && result.data.codigo === 'RESERVACIONES_AFECTADAS'
+                        && result.data.requiere_confirmacion === true
+                        && !confirmarConflictos
+                    ) {
+                        toggle.disabled = false;
+                        if (!window.ConfirmationModal) return false;
+                        return window.ConfirmationModal.get().open({
+                            variant: 'warning',
+                            eyebrow: 'Horario de operación',
+                            title: 'Confirmar cambio de horario',
+                            description: 'Este cambio afecta ' + Number(result.data.reservaciones_afectadas || 0) + ' reservaciones.',
+                            consequence: 'Ninguna será cancelada automáticamente. El seguimiento quedará disponible para preparar avisos y atender los casos afectados.',
+                            secondaryLabel: 'Revisar el horario',
+                            primaryLabel: 'Aplicar cambio',
+                            onPrimary: function () { return applyState(true, restoreState); },
+                            onSecondary: restoreState
+                        });
+                    }
+                    if (!result.response.ok || !result.data || result.data.ok !== true) {
+                        throw new Error(result.data.mensaje || 'No fue posible actualizar la excepción.');
+                    }
+                    window.location.assign('/admin/configuracion/horarios?resultado=estado_actualizado'
+                        + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                    return true;
+                });
+            }
+
             toggle.addEventListener('change', function () {
+                const restoreState = function () {
+                    toggle.checked = !toggle.checked;
+                    label.textContent = toggle.checked ? 'Activa' : 'Inactiva';
+                    state.value = toggle.checked ? '1' : '0';
+                    toggle.disabled = false;
+                };
                 label.textContent = toggle.checked ? 'Activa' : 'Inactiva';
                 state.value = toggle.checked ? '1' : '0';
                 toggle.disabled = true;
-                form.submit();
+                applyState(false, restoreState).catch(function (error) {
+                    restoreState();
+                    setStatus(actionStatus, error.message || 'No fue posible actualizar la excepción.', 'error');
+                });
             });
         });
     }

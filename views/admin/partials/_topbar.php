@@ -32,18 +32,6 @@ $authIniciales = strtoupper(
         <p class="admin-topbar__module">
             <?php echo htmlspecialchars($currentModuleTitle, ENT_QUOTES, 'UTF-8'); ?>
         </p>
-        <?php if (($pendingScheduleImpactReservations ?? 0) > 0) : ?>
-            <div class="admin-topbar__pending-impact" role="status">
-                <span>
-                    Hay <?php echo (int)$pendingScheduleImpactReservations; ?>
-                    <?php echo (int)$pendingScheduleImpactReservations === 1 ? 'reservación pendiente' : 'reservaciones pendientes'; ?>
-                    por un cambio de horario.
-                </span>
-                <a href="/admin/configuracion/horarios<?php echo !empty($pendingScheduleImpactId) ? '?impacto_id=' . (int)$pendingScheduleImpactId : ''; ?>">
-                    Resolver
-                </a>
-            </div>
-        <?php endif; ?>
     </div>
 
     <div class="admin-topbar__actions">

@@ -13,8 +13,6 @@ class HomeController
     {
         ReservationClientSession::start();
         $reservationCsrfToken = ReservationClientSession::csrfToken();
-        $reservationTargetId = ReservationClientSession::consumeTargetReservationId();
-        $reservationMagicLinkError = (string)($_GET['cambio_horario'] ?? '') === 'invalido';
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
         $horariosOperacion = [];

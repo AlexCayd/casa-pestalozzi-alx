@@ -47,8 +47,6 @@ function initReservationAccess() {
   var editorTemplate = document.querySelector("[data-reservation-editor-template]");
   var contactValues = { email: "", telefono: "" };
   var activeContactType = "email";
-  var targetReservationId = parseInt(root.getAttribute("data-reservation-target-id") || "0", 10) || 0;
-  var bridgeError = root.getAttribute("data-reservation-link-error") === "1";
 
   function csrfTokenValue() {
     return csrfToken ? csrfToken.getAttribute("data-reservation-csrf") || "" : "";
@@ -899,30 +897,6 @@ function initReservationAccess() {
     limit.classList.toggle("is-limit", !data.can_create_reservation);
   }
 
-  function focusTargetReservation() {
-    if (!targetReservationId) return;
-    setTab("manage");
-    var target = list.querySelector('[data-reservation-id="' + String(targetReservationId) + '"]');
-    if (!target) {
-      setMessage("Este enlace ya no corresponde a una reservación gestionable con este contacto.", true);
-      targetReservationId = 0;
-      return;
-    }
-    target.classList.add("is-link-target");
-    var modify = target.querySelector("[data-reservation-modify]");
-    setMessage("Abrimos la reservación afectada para que puedas elegir un nuevo horario.");
-    if (modify) {
-      window.setTimeout(function () { modify.click(); }, 0);
-    }
-    targetReservationId = 0;
-  }
-
-  function showBridgeError() {
-    if (!bridgeError) return;
-    setTab("manage");
-    setMessage("Este enlace de cambio de horario ya no es válido. Verifica tu contacto para consultar tus reservaciones.", true);
-  }
-
   function showAccess() {
     access.hidden = false;
     portal.hidden = true;
@@ -944,9 +918,7 @@ function initReservationAccess() {
       .then(function(data) {
         if (!data.ok) {
           showAccess();
-          if (bridgeError) {
-            showBridgeError();
-          } else if (data.httpStatus !== 401) {
+          if (data.httpStatus !== 401) {
             setMessage(data.mensaje || "No fue posible consultar tus reservaciones.", true);
           }
           return;
@@ -955,16 +927,10 @@ function initReservationAccess() {
         portal.hidden = false;
         renderReservations(data);
         publishVerifiedSession(data);
-        focusTargetReservation();
-        showBridgeError();
       })
       .catch(function() {
         showAccess();
-        if (bridgeError) {
-          showBridgeError();
-        } else {
-          setMessage("No fue posible consultar tus reservaciones.", true);
-        }
+        setMessage("No fue posible consultar tus reservaciones.", true);
       });
   }
 

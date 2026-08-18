@@ -62,9 +62,12 @@ class AdminConfigurationController
         try {
             $solicitado = filter_var($_GET['impacto_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             $impactoId = $solicitado ? (int)$solicitado : HorarioOperacionImpactoService::primerPendienteId();
-            $impacto = $impactoId ? HorarioOperacionImpactoService::obtener($impactoId) : null;
-            if (($impacto['estado'] ?? null) !== HorarioOperacionImpactoService::ESTADO_IMPACTO_PENDIENTE) {
+            if (!$impactoId || !HorarioOperacionImpactoService::esPendiente((int)$impactoId)) {
                 $impacto = null;
+            } else {
+                // La vista sólo necesita el identificador para que el cliente
+                // cargue el seguimiento una sola vez por API.
+                $impacto = ['id' => (int)$impactoId];
             }
         } catch (\Throwable $e) {
             error_log('AdminConfigurationController::hours seguimiento - ' . $e->getMessage());
@@ -165,12 +168,6 @@ class AdminConfigurationController
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
-            'pendingScheduleAction' => !empty($resultado['conflictos']) ? [
-                'tipo' => 'estado',
-                'id' => $id ? (int)$id : 0,
-                'activo' => $activo ? 1 : 0,
-                'conflictos' => $resultado['conflictos'],
-            ] : null,
         ]);
     }
 
@@ -197,11 +194,6 @@ class AdminConfigurationController
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => ['error' => $resultado['errors'] ?? [$resultado['mensaje'] ?? '']],
-            'pendingScheduleAction' => !empty($resultado['conflictos']) ? [
-                'tipo' => 'eliminar',
-                'id' => $id ? (int)$id : 0,
-                'conflictos' => $resultado['conflictos'],
-            ] : null,
         ]);
     }
 
@@ -275,6 +267,18 @@ class AdminConfigurationController
             $id,
             !empty($datos['confirmar_conflictos']),
             self::usuarioAutenticadoId()
+        ));
+    }
+
+    /** POST /api/configuracion/horarios/excepciones/estado */
+    public static function apiCambiarEstadoExcepcion(Router $router): void
+    {
+        $datos = self::entradaApi();
+        self::json(HorarioOperacionService::cambiarEstadoExcepcion(
+            (int)($datos['id'] ?? 0),
+            !empty($datos['activo']),
+            self::usuarioAutenticadoId(),
+            !empty($datos['confirmar_conflictos'])
         ));
     }
 
@@ -454,7 +458,6 @@ class AdminConfigurationController
             'conflictosHorarios' => [],
             'conflictosExcepcion' => [],
             'impactoSeguimiento' => null,
-            'pendingScheduleAction' => null,
             'adminCsrfToken' => AdminCsrfService::token(),
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
@@ -472,16 +475,6 @@ class AdminConfigurationController
 
     private static function alertasResultado(string $resultado): array
     {
-        return match ($resultado) {
-            'horarios_actualizados' => ['exito' => ['Los horarios de operación se actualizaron correctamente.']],
-            'excepcion_creada' => ['exito' => ['El cierre u horario especial se guardó correctamente.']],
-            'excepcion_actualizada' => ['exito' => ['La excepción se actualizó correctamente.']],
-            'excepcion_eliminada' => ['exito' => ['La excepción se eliminó correctamente. La fecha volverá a utilizar el horario semanal habitual.']],
-            'estado_actualizado' => ['exito' => ['El estado de la excepción se actualizó correctamente.']],
-            'anuncio_actualizado' => ['exito' => ['El anuncio principal se actualizó correctamente.']],
-            'pos_actualizado' => ['exito' => ['La configuración del POS se actualizó correctamente.']],
-            default => [],
-        };
         $codigos = [
             'horarios_actualizados' => 'HORARIOS_ACTUALIZADOS',
             'excepcion_creada' => 'EXCEPCION_CREADA',
@@ -489,6 +482,7 @@ class AdminConfigurationController
             'excepcion_eliminada' => 'EXCEPCION_ELIMINADA',
             'estado_actualizado' => 'EXCEPCION_ESTADO_ACTUALIZADO',
             'anuncio_actualizado' => 'ANUNCIO_ACTUALIZADO',
+            'pos_actualizado' => 'POS_ACTUALIZADO',
         ];
         $codigo = $codigos[$resultado] ?? null;
         if ($codigo === null || !ReservacionErrorCatalog::has($codigo)) {

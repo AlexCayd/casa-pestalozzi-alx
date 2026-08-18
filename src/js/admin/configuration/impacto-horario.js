@@ -9,35 +9,42 @@
     var csrf = page.getAttribute('data-admin-csrf') || '';
     var list = modal.querySelector('[data-impact-list]');
     var status = modal.querySelector('[data-impact-status]');
+    var footerStatus = modal.querySelector('[data-impact-footer-status]');
     var count = modal.querySelector('[data-impact-pending-count]');
-    var notifyAll = modal.querySelector('[data-impact-notify-all]');
+    var prepareAll = modal.querySelector('[data-impact-notify-all]');
     var complete = modal.querySelector('[data-impact-complete]');
+    var finish = modal.querySelector('[data-impact-finish]');
     var notice = modal.querySelector('[data-impact-test-link-notice]');
     var copyLink = modal.querySelector('[data-impact-copy-link]');
-    var contactModal = document.getElementById('schedule-impact-contact-modal');
-    var contactForm = contactModal ? contactModal.querySelector('[data-impact-contact-form]') : null;
+    var contactView = modal.querySelector('[data-impact-contact-view]');
+    var contactForm = modal.querySelector('[data-impact-contact-form]');
+    var contactCancel = modal.querySelector('[data-impact-contact-cancel]');
     var testLink = '';
-    var currentImpact = null;
 
     function setStatus(target, message, type) {
       if (!target) return;
       target.textContent = message || '';
-      target.classList.remove('is-error', 'is-pending');
+      target.classList.remove('is-error', 'is-pending', 'is-success');
       if (type) target.classList.add('is-' + type);
-    }
-
-    function escapeText(value) {
-      return value === null || value === undefined ? '' : String(value);
     }
 
     function stateLabel(state) {
       return {
         pendiente_notificacion: 'Pendiente de aviso',
-        notificacion_encolada: 'Aviso encolado',
+        notificacion_preparada: 'Aviso preparado',
         sin_contacto: 'Sin contacto',
         atendida_manual: 'Atendida manualmente',
         resuelta_por_cliente: 'Resuelta por cliente'
       }[state] || String(state || '').replace(/_/g, ' ');
+    }
+
+    function actionButton(label, attribute, variant) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'admin-btn admin-btn--' + variant + ' admin-btn--small';
+      button.textContent = label;
+      button.setAttribute(attribute, '');
+      return button;
     }
 
     function showTestLink(url) {
@@ -45,25 +52,12 @@
       testLink = String(url);
       notice.hidden = false;
       var label = notice.querySelector('[data-impact-test-link-label]');
-      if (label) label.textContent = 'El enlace sólo vive en esta pantalla y no se guarda en el navegador.';
+      if (label) label.textContent = 'El enlace sólo vive en esta pantalla y se sobrescribe al regenerarlo.';
     }
 
     function clearTestLink() {
       testLink = '';
       if (notice) notice.hidden = true;
-    }
-
-    function copyTestLink() {
-      if (!testLink) return;
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        navigator.clipboard.writeText(testLink).then(function () {
-          setStatus(status, 'Link de prueba copiado.', null);
-        }).catch(function () {
-          fallbackCopy();
-        });
-        return;
-      }
-      fallbackCopy();
     }
 
     function fallbackCopy() {
@@ -79,17 +73,37 @@
       setStatus(status, 'Link de prueba copiado.', null);
     }
 
-    function actionButton(label, attribute, variant) {
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'admin-btn admin-btn--' + variant + ' admin-btn--small';
-      button.textContent = label;
-      button.setAttribute(attribute, '');
-      return button;
+    function copyTestLink() {
+      if (!testLink) return;
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(testLink).then(function () {
+          setStatus(status, 'Link de prueba copiado.', null);
+        }).catch(fallbackCopy);
+        return;
+      }
+      fallbackCopy();
+    }
+
+    function showList() {
+      if (list) list.hidden = false;
+      if (contactView) contactView.hidden = true;
+    }
+
+    function showContact(row) {
+      if (!contactView || !contactForm) return;
+      if (list) list.hidden = true;
+      contactView.hidden = false;
+      contactForm.querySelector('[data-impact-contact-impact-id]').value = String(impactId);
+      contactForm.querySelector('[data-impact-contact-reservation-id]').value = row.getAttribute('data-impact-reservation-id') || '';
+      contactForm.querySelector('[data-impact-contact-value]').value = '';
+      setStatus(contactForm.querySelector('[data-impact-contact-status]'), '', null);
+      window.setTimeout(function () {
+        var field = contactForm.querySelector('[data-impact-contact-value]');
+        if (field) field.focus();
+      }, 0);
     }
 
     function renderImpact(impact) {
-      currentImpact = impact || null;
       var rows = impact && Array.isArray(impact.reservaciones) ? impact.reservaciones : [];
       if (list) list.replaceChildren();
 
@@ -103,10 +117,10 @@
         identity.className = 'schedule-impact-row__identity';
         var name = document.createElement('strong');
         name.setAttribute('data-impact-name', '');
-        name.textContent = escapeText(item.nombre);
+        name.textContent = String(item.nombre || '');
         var date = document.createElement('span');
         date.setAttribute('data-impact-date', '');
-        date.textContent = escapeText(item.fecha) + ' · ' + escapeText(item.hora);
+        date.textContent = String(item.fecha || '') + ' · ' + String(item.hora || '');
         var guests = document.createElement('span');
         guests.setAttribute('data-impact-guests', '');
         guests.textContent = String(item.comensales || 0) + ' ' + (Number(item.comensales) === 1 ? 'comensal' : 'comensales');
@@ -114,32 +128,36 @@
 
         var contact = document.createElement('div');
         contact.className = 'schedule-impact-row__contact';
-        contact.innerHTML = '<span class="schedule-impact-row__label">Contacto</span>';
+        var contactLabel = document.createElement('span');
+        contactLabel.className = 'schedule-impact-row__label';
+        contactLabel.textContent = 'Contacto';
         var contactValue = document.createElement('span');
         contactValue.setAttribute('data-impact-contact', '');
-        contactValue.textContent = item.tiene_contacto ? escapeText(item.contacto) : 'Sin contacto';
-        contact.append(contactValue);
+        contactValue.textContent = item.tiene_contacto ? String(item.contacto || '') : 'Sin contacto';
+        contact.append(contactLabel, contactValue);
 
         var state = document.createElement('div');
         state.className = 'schedule-impact-row__state';
-        state.innerHTML = '<span class="schedule-impact-row__label">Estado</span>';
+        var stateLabelElement = document.createElement('span');
+        stateLabelElement.className = 'schedule-impact-row__label';
+        stateLabelElement.textContent = 'Estado';
         var stateValue = document.createElement('span');
         stateValue.setAttribute('data-impact-state', '');
         stateValue.textContent = stateLabel(item.estado);
-        state.append(stateValue);
+        state.append(stateLabelElement, stateValue);
 
         var actions = document.createElement('div');
         actions.className = 'schedule-impact-row__actions';
         actions.setAttribute('data-impact-actions', '');
         if (item.estado === 'pendiente_notificacion' && item.tiene_contacto) {
-          actions.append(actionButton('Enviar aviso', 'data-impact-notify', 'primary'));
+          actions.append(actionButton('Preparar aviso', 'data-impact-notify', 'primary'));
         } else if (item.estado === 'sin_contacto') {
           actions.append(actionButton('Agregar contacto', 'data-impact-add-contact', 'secondary'));
           var manual = actionButton('Atender manualmente', 'data-impact-manual', 'danger');
           manual.disabled = !item.manual_habilitada;
           actions.append(manual);
         } else if (item.test_link_disponible) {
-          actions.append(actionButton('Generar link de prueba', 'data-impact-test-link', 'secondary'));
+          actions.append(actionButton('Regenerar link de prueba', 'data-impact-test-link', 'secondary'));
         }
 
         row.append(identity, contact, state, actions);
@@ -147,19 +165,25 @@
       });
 
       var pending = Number(impact && impact.pendientes) || 0;
+      var manualReady = Boolean(impact && impact.manual_habilitada);
       if (count) count.textContent = pending + (pending === 1 ? ' pendiente' : ' pendientes');
-      if (notifyAll) notifyAll.disabled = !rows.some(function (item) {
+      if (prepareAll) prepareAll.disabled = !rows.some(function (item) {
         return item.estado === 'pendiente_notificacion' && item.tiene_contacto;
       });
       if (complete) complete.hidden = pending !== 0;
+      if (finish) finish.hidden = pending !== 0;
+      if (footerStatus) footerStatus.textContent = manualReady ? 'Todos los avisos con contacto están preparados.' : '';
       modal.setAttribute('data-impact-pending', pending > 0 ? '1' : '0');
+      if (pending === 0) showList();
     }
 
     function request(url, options) {
       var config = options || {};
-      var headers = Object.assign({ 'Content-Type': 'application/json' }, config.headers || {});
-      var body = config.body || {};
-      body.admin_csrf = csrf;
+      var headers = Object.assign({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }, config.headers || {});
+      var body = Object.assign({}, config.body || {}, { admin_csrf: csrf });
       return fetch(url, {
         method: config.method || 'POST',
         headers: headers,
@@ -176,7 +200,8 @@
     function refresh(message) {
       return fetch('/admin/api/horarios-impactos?impacto_id=' + encodeURIComponent(String(impactId)), {
         credentials: 'same-origin',
-        cache: 'no-store'
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
       }).then(function (response) { return response.json(); }).then(function (data) {
         if (!data.ok) throw new Error(data.mensaje || 'No fue posible cargar el seguimiento.');
         renderImpact(data.impacto);
@@ -186,22 +211,18 @@
     }
 
     function reportResult(data, successMessage) {
-      if (!data || !data.ok) {
+      var partial = data && data.codigo === 'AVISOS_PARCIALES';
+      if (!data || (!data.ok && !partial)) {
         setStatus(status, data && data.mensaje ? data.mensaje : 'No fue posible completar la acción.', 'error');
         return false;
       }
-      var link = data.test_redirect_url || '';
-      if (!link && Array.isArray(data.encoladas)) {
-        data.encoladas.some(function (item) {
-          if (item && item.test_redirect_url) {
-            link = item.test_redirect_url;
-            return true;
-          }
-          return false;
-        });
-      }
+      var link = data.test_access_url || '';
       if (link) showTestLink(link);
-      setStatus(status, successMessage || data.mensaje || 'Acción completada.', null);
+      if (partial) {
+        setStatus(status, 'Se prepararon ' + Number(data.preparadas || 0) + ' de ' + Number(data.total || 0) + ' avisos. Los fallidos siguen pendientes.', 'error');
+      } else {
+        setStatus(status, successMessage || data.mensaje || 'Acción completada.', null);
+      }
       return true;
     }
 
@@ -225,17 +246,6 @@
       });
     }
 
-    function openContact(row) {
-      if (!contactModal || !contactForm) return;
-      contactForm.querySelector('[data-impact-contact-impact-id]').value = String(impactId);
-      contactForm.querySelector('[data-impact-contact-reservation-id]').value = row.getAttribute('data-impact-reservation-id') || '';
-      contactForm.querySelector('[data-impact-contact-value]').value = '';
-      setStatus(contactForm.querySelector('[data-impact-contact-status]'), '', null);
-      document.dispatchEvent(new CustomEvent('admin:open-modal', {
-        detail: { id: 'schedule-impact-contact-modal', trigger: row }
-      }));
-    }
-
     function confirmManual(row, button) {
       if (!window.ConfirmationModal) {
         setStatus(status, 'No fue posible abrir la confirmación. Intenta de nuevo.', 'error');
@@ -248,11 +258,8 @@
         eyebrow: 'Atención manual',
         title: 'Marcar afectación como atendida',
         description: 'Confirma que el restaurante revisó este caso por un canal no registrado.',
-        consequence: 'La reservación no cambiará y el seguimiento sólo registrará quién lo atendió.',
-        summary: [
-          (name ? name.textContent : 'Reservación'),
-          (date ? date.textContent : '')
-        ],
+        consequence: 'La reservación no cambiará y el seguimiento registrará quién lo atendió.',
+        summary: [name ? name.textContent : 'Reservación', date ? date.textContent : ''],
         secondaryLabel: 'Volver',
         primaryLabel: 'Confirmar atención manual',
         onPrimary: function () {
@@ -271,32 +278,33 @@
         if (!button || !row) return;
         var itemId = Number(row.getAttribute('data-impact-reservation-id') || 0);
         if (button.hasAttribute('data-impact-notify')) {
-          perform('/admin/api/horarios-impactos/notificar', {
+          perform('/admin/api/horarios-impactos/preparar', {
             impacto_id: impactId,
             impacto_reservacion_id: itemId
-          }, 'Aviso encolado.', button);
+          }, 'Aviso preparado.', button);
         } else if (button.hasAttribute('data-impact-add-contact')) {
-          openContact(row);
+          showContact(row);
         } else if (button.hasAttribute('data-impact-manual')) {
           confirmManual(row, button);
         } else if (button.hasAttribute('data-impact-test-link')) {
-          perform('/admin/api/horarios-impactos/link-prueba', {
+          perform('/admin/api/horarios-impactos/acceso-prueba', {
             impacto_id: impactId,
             impacto_reservacion_id: itemId
-          }, 'Link de prueba generado.', button);
+          }, 'Link de prueba regenerado.', button);
         }
       });
     }
 
-    if (notifyAll) {
-      notifyAll.addEventListener('click', function () {
-        perform('/admin/api/horarios-impactos/notificar-disponibles', {
+    if (prepareAll) {
+      prepareAll.addEventListener('click', function () {
+        perform('/admin/api/horarios-impactos/preparar-disponibles', {
           impacto_id: impactId
-        }, 'Avisos disponibles encolados.', notifyAll);
+        }, 'Avisos disponibles preparados.', prepareAll);
       });
     }
 
     if (copyLink) copyLink.addEventListener('click', copyTestLink);
+    if (contactCancel) contactCancel.addEventListener('click', showList);
 
     if (contactForm) {
       contactForm.addEventListener('submit', function (event) {
@@ -321,8 +329,7 @@
           }
         }).then(function (data) {
           if (!reportResult(data, 'Contacto agregado.')) return;
-          var close = contactModal.querySelector('[data-admin-modal-close]');
-          if (close) close.click();
+          showList();
           return refresh();
         }).catch(function (error) {
           setStatus(contactStatus, error && error.message ? error.message : 'No fue posible guardar el contacto.', 'error');
@@ -332,8 +339,7 @@
       });
     }
 
-    // El modal de seguimiento no tiene botones de cierre. Estas capturas
-    // protegen además contra el Escape global del administrador.
+    // El seguimiento bloquea la salida hasta que no queden pendientes.
     document.addEventListener('keydown', function (event) {
       if (!modal.classList.contains('is-open') || modal.getAttribute('data-impact-pending') !== '1') return;
       if (event.key === 'Escape') {
@@ -343,7 +349,7 @@
     }, true);
     modal.addEventListener('click', function (event) {
       if (modal.getAttribute('data-impact-pending') !== '1') return;
-      if (event.target.closest('[data-admin-modal-close]') || event.target.classList.contains('schedule-impact-modal__backdrop')) {
+      if (event.target.classList.contains('schedule-impact-modal__backdrop')) {
         event.preventDefault();
         event.stopImmediatePropagation();
       }
@@ -362,18 +368,7 @@
     }, 0);
   }
 
-  function initScheduleImpactConfirmation() {
-    var page = document.querySelector('[data-open-schedule-impact-confirmation]');
-    if (!page || !document.getElementById('schedule-impact-confirmation-modal')) return;
-    window.setTimeout(function () {
-      document.dispatchEvent(new CustomEvent('admin:open-modal', {
-        detail: { id: 'schedule-impact-confirmation-modal' }
-      }));
-    }, 0);
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     initScheduleImpact();
-    initScheduleImpactConfirmation();
   });
 })();

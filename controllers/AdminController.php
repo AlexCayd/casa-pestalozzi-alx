@@ -697,10 +697,9 @@ class AdminController
         $pendingScheduleImpactId = null;
 
         try {
-            $pendingScheduleImpactReservations = HorarioOperacionImpactoService::contarPendientesReservaciones();
-            if ($pendingScheduleImpactReservations > 0) {
-                $pendingScheduleImpactId = HorarioOperacionImpactoService::primerPendienteId();
-            }
+            $resumenImpactos = HorarioOperacionImpactoService::resumenPendientes();
+            $pendingScheduleImpactReservations = (int)($resumenImpactos['cantidad'] ?? 0);
+            $pendingScheduleImpactId = $resumenImpactos['primer_impacto_id'] ?? null;
         } catch (\Throwable $e) {
             // La alerta no debe impedir que el panel cargue durante una
             // instalación previa a la migración de seguimiento.

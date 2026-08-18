@@ -2680,10 +2680,6 @@ body.nav-open .nav-overlay__links a {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.02);
 }
-.reservation-card.is-link-target {
-  border-color: rgba(204, 163, 82, 0.72);
-  box-shadow: 0 0 0 2px rgba(204, 163, 82, 0.12);
-}
 .reservation-card h4 {
   margin: 0;
   color: var(--beige);
@@ -5448,36 +5444,203 @@ body.nav-open .nav-overlay__links a {
     animation: none;
   }
 }
-.reservation-link-bridge {
+.schedule-change-page {
+  min-height: 100vh;
+  background: #f4efe7;
+  color: #241e1a;
+  font-family: var(--cp-font-sans, "Space Grotesk", sans-serif);
+}
+
+.schedule-change-shell {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 24px;
-  background: #151b18;
-  color: #f6f2e9;
+  padding: clamp(20px, 5vw, 72px);
 }
 
-.reservation-link-bridge__card {
-  width: min(100%, 520px);
-  padding: clamp(28px, 6vw, 56px);
-  border: 1px solid rgba(239, 226, 193, 0.22);
-  background: #202923;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+.schedule-change-card {
+  width: min(100%, 680px);
+  padding: clamp(28px, 6vw, 64px);
+  background: #fffdf9;
+  box-shadow: 0 22px 60px rgba(57, 43, 30, 0.12);
 }
-.reservation-link-bridge__card h1 {
-  margin: 14px 0;
-  color: inherit;
+
+.schedule-change-brand,
+.schedule-change-kicker {
+  margin: 0 0 14px;
+  color: #876645;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.schedule-change-card h1 {
+  margin: 0;
   font-family: "Fraunces", Georgia, serif;
-  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-size: clamp(2.2rem, 5vw, 4rem);
   font-weight: 500;
   line-height: 1;
 }
-.reservation-link-bridge__card p {
-  max-width: 38rem;
-  color: rgba(246, 242, 233, 0.76);
+
+.schedule-change-card__intro > p:last-child,
+.schedule-change-card--expired > p:not(.schedule-change-brand) {
+  max-width: 52ch;
+  margin: 20px 0 0;
+  color: #625a53;
+  font-size: 1rem;
   line-height: 1.6;
 }
 
+.schedule-change-current {
+  display: grid;
+  gap: 7px;
+  margin: 30px 0 26px;
+  padding: 16px 18px;
+  border: 1px solid #ded2c4;
+  background: #f8f1e8;
+}
+
+.schedule-change-current span,
+.schedule-change-field > span:first-child {
+  color: #786e65;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.schedule-change-current strong {
+  font-size: 1rem;
+}
+
+.schedule-change-form {
+  display: grid;
+  gap: 18px;
+}
+
+.schedule-change-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.schedule-change-field {
+  display: grid;
+  gap: 8px;
+}
+
+.schedule-change-field input,
+.schedule-change-field select,
+.schedule-change-field textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 12px;
+  border: 1px solid #cfc1b2;
+  border-radius: 2px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+}
+
+.schedule-change-field textarea {
+  resize: vertical;
+}
+
+.schedule-change-field--readonly input {
+  background: #f8f1e8;
+  color: #5b5148;
+}
+
+.schedule-change-field input:focus-visible,
+.schedule-change-field select:focus-visible,
+.schedule-change-field textarea:focus-visible,
+.schedule-change-stepper button:focus-visible,
+.schedule-change-button:focus-visible {
+  outline: 3px solid #be8b4e;
+  outline-offset: 2px;
+}
+
+.schedule-change-stepper {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  gap: 8px;
+}
+
+.schedule-change-stepper button {
+  min-height: 46px;
+  border: 1px solid #cfc1b2;
+  background: #f8f1e8;
+  color: inherit;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.schedule-change-stepper input {
+  text-align: center;
+}
+
+.schedule-change-button {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border: 0;
+  background: #2f5148;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.schedule-change-button:hover {
+  background: #234239;
+}
+
+.schedule-change-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.schedule-change-status {
+  min-height: 24px;
+  margin: 0;
+  color: #625a53;
+  line-height: 1.45;
+}
+
+.schedule-change-status.is-error {
+  color: #a33e35;
+}
+
+.schedule-change-status.is-success {
+  color: #2f5148;
+}
+
+.schedule-change-status.is-pending {
+  color: #876645;
+}
+
+.schedule-change-success {
+  margin: 24px 0 0;
+  padding: 16px;
+  background: #e4efe8;
+  color: #2f5148;
+  font-weight: 700;
+}
+
+@media (max-width: 620px) {
+  .schedule-change-shell {
+    padding: 12px;
+  }
+  .schedule-change-card {
+    padding: 28px 20px;
+  }
+  .schedule-change-form__grid {
+    grid-template-columns: 1fr;
+  }
+}
 .confirmation-modal {
   position: fixed;
   inset: 0;

@@ -23,9 +23,61 @@
   gap: 20px;
 }
 
-.schedule-impact-modal__dialog {
-  max-height: min(88vh, 860px);
-  overflow: auto;
+.admin-modal__dialog--workflow {
+  width: min(960px, calc(100vw - 40px));
+  max-width: min(960px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.schedule-impact-modal__header,
+.schedule-impact-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--admin-surface);
+}
+
+.schedule-impact-modal__header {
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.schedule-impact-modal__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 24px;
+}
+
+.schedule-impact-modal__footer {
+  border-top: 1px solid var(--admin-border-soft);
+}
+
+.schedule-impact-modal__footer [hidden] {
+  display: none;
+}
+
+.schedule-impact-modal__contact {
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+}
+
+.schedule-impact-modal__contact-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.schedule-impact-modal__contact[hidden],
+.schedule-impact-modal__complete[hidden],
+.schedule-impact-modal__notice[hidden] {
+  display: none;
 }
 
 .schedule-impact-modal__count {
@@ -121,6 +173,35 @@
 
 .schedule-impact-modal__backdrop {
   cursor: default;
+}
+
+@media (max-width: 640px) {
+  .admin-modal__dialog--workflow {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .schedule-impact-modal__header,
+  .schedule-impact-modal__footer,
+  .schedule-impact-modal__body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .schedule-impact-modal__header,
+  .schedule-impact-modal__contact-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .schedule-impact-modal__footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .schedule-impact-modal__footer .admin-btn {
+    width: 100%;
+  }
 }
 
 @include mixins.down(vars.$breakpoint-tablet) {

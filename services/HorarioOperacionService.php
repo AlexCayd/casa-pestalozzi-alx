@@ -87,11 +87,6 @@ class HorarioOperacionService
             ]);
         }
 
-        $bloqueo = self::bloqueoPorSeguimientoPendiente();
-        if ($bloqueo !== null) {
-            return $bloqueo;
-        }
-
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
         $lockHorario = false;
@@ -212,10 +207,6 @@ class HorarioOperacionService
 
         $limpios = $validacion['datos'];
         $id = $limpios['id'];
-        $bloqueo = self::bloqueoPorSeguimientoPendiente();
-        if ($bloqueo !== null) {
-            return $bloqueo;
-        }
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
         $locksFecha = [];
@@ -317,11 +308,6 @@ class HorarioOperacionService
         if ($id < 1) {
             return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
         }
-        $bloqueo = self::bloqueoPorSeguimientoPendiente();
-        if ($bloqueo !== null) {
-            return $bloqueo;
-        }
-
         try {
             $excepcion = ExcepcionOperacion::buscarPorId($id);
             if (!$excepcion) {
@@ -400,11 +386,6 @@ class HorarioOperacionService
         if ($id < 1) {
             return ['ok' => false, 'codigo' => 'EXCEPCION_ID_INVALIDO'];
         }
-        $bloqueo = self::bloqueoPorSeguimientoPendiente();
-        if ($bloqueo !== null) {
-            return $bloqueo;
-        }
-
         $db = ActiveRecord::getDB();
         $transaccionIniciada = false;
 
@@ -837,19 +818,6 @@ class HorarioOperacionService
     private static function errorExcepcion(string $codigo, array $datos): array
     {
         return ['ok' => false, 'codigo' => $codigo, 'datos' => $datos];
-    }
-
-    private static function bloqueoPorSeguimientoPendiente(): ?array
-    {
-        if (HorarioOperacionImpactoService::contarPendientes() < 1) {
-            return null;
-        }
-
-        return [
-            'ok' => false,
-            'codigo' => 'SEGUIMIENTO_HORARIO_PENDIENTE',
-            'resolver_url' => '/admin/configuracion/horarios',
-        ];
     }
 
     private static function fechaValida(string $fecha): bool

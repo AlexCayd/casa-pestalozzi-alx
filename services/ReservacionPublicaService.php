@@ -680,6 +680,160 @@ final class ReservacionPublicaService
         return self::crearReemplazo($entrada, $sesion);
     }
 
+    /**
+     * Modificación directa autorizada por un acceso temporal de horario.
+     * Reutiliza las mismas reglas de fecha, horario, capacidad y asignación,
+     * pero obtiene el contacto exclusivamente desde la reservación original.
+     */
+    public static function crearReemplazoAutorizado(array $entrada, array $contexto): array
+    {
+        $id = (int)($contexto['reservacion_id'] ?? 0);
+        $impactoReservacionId = (int)($contexto['impacto_reservacion_id'] ?? 0);
+        $fecha = trim((string)($entrada['fecha'] ?? ''));
+        $hora = HorarioReservacionService::normalizarHoraSql((string)($entrada['hora'] ?? ''));
+        $personas = filter_var($entrada['personas'] ?? $entrada['comensales'] ?? null, FILTER_VALIDATE_INT);
+        $nota = trim((string)($entrada['nota'] ?? $entrada['notas'] ?? ''));
+
+        if ($id < 1 || $impactoReservacionId < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
+            return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
+        }
+        if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            return self::datosInvalidos('COMENSALES_FUERA_DE_RANGO');
+        }
+        if (self::longitud($nota) > ReservacionConfig::NOTA_MAX_CARACTERES) {
+            return self::datosInvalidos('NOTA_DEMASIADO_LARGA');
+        }
+
+        $original = self::buscarPorId($id);
+        if (!$original) {
+            return self::noEncontrada();
+        }
+        $tipo = (string)($original['contacto_tipo'] ?? '');
+        $contacto = (string)($original['contacto'] ?? '');
+        if ($tipo === '' || $contacto === '') {
+            return self::noPertenece();
+        }
+
+        $fechas = [(string)$original['fecha'], $fecha];
+        return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use (
+            $id,
+            $impactoReservacionId,
+            $fecha,
+            $hora,
+            $personas,
+            $nota
+        ): array {
+            $transaccion = false;
+            try {
+                $db->begin_transaction();
+                $transaccion = true;
+                if (!HorarioOperacionImpactoService::accesoValidoEnTransaccion($db, $impactoReservacionId, $id)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::modificacionNoPermitida();
+                }
+                $fila = self::buscarPorIdParaActualizar($id);
+                if (!$fila || (string)$fila['estado'] !== 'confirmada') {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::modificacionNoPermitida();
+                }
+                if (!self::puedeModificarPublicamente($fila)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::modificacionNoPermitida();
+                }
+
+                $pendiente = self::buscarReemplazoPendienteParaActualizar($id);
+                if ($pendiente) {
+                    self::marcarReemplazoExpirado((int)$pendiente['id']);
+                    VerificacionContacto::invalidarPorReservaciones([(int)$pendiente['id']]);
+                }
+
+                $conservaHorarioOriginal = (string)$fila['fecha'] === $fecha
+                    && HorarioReservacionService::normalizarHoraSql((string)$fila['hora']) === $hora;
+                $horario = $conservaHorarioOriginal
+                    ? HorarioReservacionService::validarHoraParaModificacion($fecha, $hora)
+                    : ReservacionService::validarHorarioDisponible($fecha, $hora);
+                if (!($horario['ok'] ?? false)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
+                }
+
+                $disponibilidad = DisponibilidadReservacionService::evaluarHorario(
+                    $fecha,
+                    $hora,
+                    (int)$personas,
+                    $id,
+                    true,
+                    true,
+                    $conservaHorarioOriginal
+                );
+                if (!($disponibilidad['ok'] ?? false)) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::sinDisponibilidad($disponibilidad);
+                }
+
+                $requestToken = bin2hex(random_bytes(16));
+                $reemplazoId = self::insertarReemplazo(
+                    $fila,
+                    $fecha,
+                    $hora,
+                    (int)$personas,
+                    $nota,
+                    null,
+                    $requestToken,
+                    'confirmada'
+                );
+                ReservacionMesa::reemplazarAsignacion($reemplazoId, $disponibilidad['mesa_ids']);
+                if (!ReservacionMesa::tieneMesasAsignadas($reemplazoId)) {
+                    throw new \RuntimeException('El reemplazo autorizado quedó sin mesas.');
+                }
+
+                $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+                $stmt = $db->prepare(
+                    "UPDATE reservaciones
+                     SET estado = 'reemplazada', estado_changed_at = ?
+                     WHERE id = ? AND estado = 'confirmada'"
+                );
+                self::ejecutarStmt($stmt, 'si', [$estadoChangedAt, $id]);
+
+                if (!HorarioOperacionImpactoService::resolverPorClienteEnTransaccion(
+                    $db,
+                    $id,
+                    $fecha,
+                    $hora
+                )) {
+                    throw new \RuntimeException('La afectación ya no está disponible para resolverse.');
+                }
+
+                if (!$db->commit()) {
+                    throw new \RuntimeException('No fue posible confirmar el cambio autorizado.');
+                }
+                $transaccion = false;
+                ScheduleChangeAccessSession::limpiar();
+                $reemplazo = self::buscarPorId($reemplazoId) ?: [
+                    'id' => $reemplazoId,
+                    'nombre' => $fila['nombre'],
+                    'fecha' => $fecha,
+                    'hora' => $hora,
+                    'comensales' => $personas,
+                    'nota' => $nota,
+                    'estado' => 'confirmada',
+                ];
+                return self::resultadoReemplazoConfirmado($reemplazo, false);
+            } catch (\Throwable $e) {
+                if ($transaccion) {
+                    $db->rollback();
+                }
+                error_log('ReservacionPublicaService::crearReemplazoAutorizado - ' . $e->getMessage());
+                return self::errorInterno();
+            }
+        });
+    }
+
     /** Confirma el reemplazo y mueve ambas filas de estado atómicamente. */
     public static function confirmarReemplazo(array $entrada, array $sesion): array
     {
@@ -726,13 +880,14 @@ final class ReservacionPublicaService
 
                 if ((string)$reemplazo['estado'] === 'confirmada'
                     && (string)$original['estado'] === 'reemplazada') {
-                    $db->commit();
-                    $transaccion = false;
-                    HorarioOperacionImpactoService::resolverPorCliente(
+                    HorarioOperacionImpactoService::resolverPorClienteEnTransaccion(
+                        $db,
                         $originalId,
                         (string)$reemplazo['fecha'],
                         (string)$reemplazo['hora']
                     );
+                    $db->commit();
+                    $transaccion = false;
                     return self::resultadoReemplazoConfirmado($reemplazo, true);
                 }
                 if ((string)$reemplazo['estado'] !== 'pendiente_verificacion') {
@@ -809,17 +964,18 @@ final class ReservacionPublicaService
                     (int)$reemplazo['id'],
                     $originalId,
                 ]);
+                HorarioOperacionImpactoService::resolverPorClienteEnTransaccion(
+                    $db,
+                    $originalId,
+                    (string)$reemplazo['fecha'],
+                    (string)$reemplazo['hora']
+                );
                 if (!$db->commit()) {
                     throw new \RuntimeException('No fue posible confirmar el cambio.');
                 }
                 $transaccion = false;
                 $reemplazo['estado'] = 'confirmada';
                 $reemplazo['estado_changed_at'] = $estadoChangedAt;
-                HorarioOperacionImpactoService::resolverPorCliente(
-                    $originalId,
-                    (string)$reemplazo['fecha'],
-                    (string)$reemplazo['hora']
-                );
                 return self::resultadoReemplazoConfirmado($reemplazo, false);
             } catch (\Throwable $e) {
                 if ($transaccion) {
@@ -1295,15 +1451,19 @@ final class ReservacionPublicaService
         string $hora,
         int $personas,
         string $nota,
-        string $holdExpiresAt,
-        string $requestToken
+        ?string $holdExpiresAt,
+        string $requestToken,
+        string $estado = 'pendiente_verificacion'
     ): int {
+        if (!in_array($estado, ['pendiente_verificacion', 'confirmada'], true)) {
+            throw new \InvalidArgumentException('Estado de reemplazo no permitido.');
+        }
         $stmt = ActiveRecord::getDB()->prepare(
             "INSERT INTO reservaciones
                 (nombre, contacto_tipo, contacto, fecha, hora, comensales, nota,
                  origen, estado, hold_expires_at, reemplaza_reservacion_id,
                  request_token, estado_changed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'landing', 'pendiente_verificacion', ?, ?, ?, ?)"
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'landing', ?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el reemplazo.');
@@ -1314,7 +1474,7 @@ final class ReservacionPublicaService
         $estadoChangedAt = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $originalId = (int)$original['id'];
         $stmt->bind_param(
-            'sssssississ',
+            'sssssisssiss',
             $nombre,
             $tipo,
             $contacto,
@@ -1322,6 +1482,7 @@ final class ReservacionPublicaService
             $hora,
             $personas,
             $nota,
+            $estado,
             $holdExpiresAt,
             $originalId,
             $requestToken,
