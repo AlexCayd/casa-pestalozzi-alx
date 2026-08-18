@@ -1550,6 +1550,8 @@
             var mesasActuales = Array.isArray(reservacion.mesas_asignadas) && reservacion.mesas_asignadas.length
                 ? reservacion.mesas_asignadas.join(', ')
                 : 'Sin mesas asignadas';
+            var mesaHeading = mesaIds.length > 1 ? 'Mesas asignadas' : 'Mesa asignada';
+            var mesaChangeLabel = mesaIds.length > 1 ? 'Cambiar mesas' : 'Cambiar mesa';
             var detailLink = state.surface === 'admin'
                 ? '<a class="admin-btn admin-btn--secondary reservation-operation-panel__edit reservation-operation__secondary-actions" href="' + esc(buildDetailUrl(reservacion)) + '">' + (editable ? 'Editar reservación' : 'Ver detalle') + '</a>'
                 : '';
@@ -1578,36 +1580,40 @@
                     '<div class="reservation-operation-panel__head reservation-operation__summary">' +
                         '<div>' +
                             '<h3>' + esc(reservacion.nombre) + '</h3>' +
-                        '</div>' +
-                        '<span class="reservations-table__status reservations-table__status--' + esc(estado) + '">' + esc(estadoLabel(estado)) + '</span>' +
                     '</div>' +
-                    '<dl class="reservation-operation-panel__facts">' +
-                        '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
-                        '<div><dt>Personas</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
-                    '</dl>' +
-                    (reservacion.conflicto_proximo && reservacion.alerta_operativa
-                        ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
-                            '<strong>Ticket abierto dentro del bloqueo.</strong> ' +
-                            esc(reservacion.alerta_operativa.mensaje || 'La liberación proyectada no ocurrió.') +
-                            '<div class="reservation-operation-actions">' +
-                                 '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>' +
+                    '<span class="reservations-table__status reservations-table__status--' + esc(estado) + '">' + esc(estadoLabel(estado)) + '</span>' +
+                '</div>' +
+                    '<div class="reservation-operation__detail-content">' +
+                        '<dl class="reservation-operation-panel__facts">' +
+                            '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
+                            '<div><dt>Personas</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
+                        '</dl>' +
+                        (reservacion.conflicto_proximo && reservacion.alerta_operativa
+                            ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
+                                '<strong>Ticket abierto dentro del bloqueo.</strong> ' +
+                                esc(reservacion.alerta_operativa.mensaje || 'La liberación proyectada no ocurrió.') +
+                                '<div class="reservation-operation-actions">' +
+                                     '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>' +
+                                '</div>' +
+                            '</div>'
+                            : '') +
+                        '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
+                            '<h4>' + mesaHeading + '</h4>' +
+                            '<div class="reservation-operation-detail-value-row">' +
+                                '<p class="reservation-operation-panel__selected reservation-operation__detail-value-content"><strong>' + esc(mesasActuales) + '</strong></p>' +
+                                (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation__detail-inline-action reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">' + mesaChangeLabel + '</button>' : '') +
                             '</div>' +
-                        '</div>'
-                        : '') +
-                    '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
-                        '<h4>Mesas</h4>' +
-                        '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
-                        (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation__secondary-inline reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar</button>' : '') +
-                    '</section>' +
-                    '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
-                        '<h4>Nota del cliente</h4>' +
-                        '<p class="reservation-operation-panel__note ' + (clientNote ? '' : 'is-empty') + '">' + esc(clientNote || 'Sin indicaciones') + '</p>' +
-                    '</section>' +
-                    (commentHtml ?
-                        '<section class="reservation-operation-panel__section reservation-operation__comment">' +
-                            '<h4>Comentario interno</h4>' +
-                            commentHtml +
-                        '</section>' : '') +
+                        '</section>' +
+                        '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
+                            '<h4>Nota del cliente</h4>' +
+                            '<p class="reservation-operation-panel__note reservation-operation__detail-value ' + (clientNote ? '' : 'is-empty') + '">' + esc(clientNote || 'Sin indicaciones') + '</p>' +
+                        '</section>' +
+                        (commentHtml ?
+                            '<section class="reservation-operation-panel__section reservation-operation__comment">' +
+                                '<h4>Comentario interno</h4>' +
+                                commentHtml +
+                            '</section>' : '') +
+                    '</div>' +
                     (moreActions ?
                         '<section class="reservation-operation-panel__section reservation-operation-panel__section--more-actions reservation-operation__actions"><h4>Acciones</h4><div class="reservation-operation-actions">' +
                             moreActions +
@@ -1626,9 +1632,9 @@
                 if (!comment && !editable) {
                     return '';
                 }
-                return '<div class="reservation-operation-comment-summary">' +
+                return '<div class="reservation-operation-comment-summary reservation-operation__detail-value">' +
                     '<p class="reservation-operation-panel__note ' + (comment ? '' : 'is-empty') + '">' + esc(comment || 'Sin notas') + '</p>' +
-                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary reservation-operation__secondary-inline" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar') + '</button>' : '') +
+                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary reservation-operation__detail-inline-action" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar') + '</button>' : '') +
                 '</div>';
             }
             return '<div class="reservation-operation-comment">' +
@@ -3132,7 +3138,7 @@
                     source: 'assignment',
                     type: 'info',
                     title: 'Modo de asignación inactivo',
-                    summary: 'Selecciona una reservación y pulsa “Cambiar”.',
+                    summary: 'Selecciona una reservación y usa la acción de cambio de mesa.',
                     message: 'El mapa solo cambia mesas dentro del modo de asignación explícito. La vista actual no se modificó.'
                 });
                 return;

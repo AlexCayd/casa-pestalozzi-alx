@@ -85,9 +85,9 @@ assertReservationMapUx(
 assertReservationMapUx(
     str_contains($operation, "'Registrar ausencia', 'admin-btn admin-btn--danger'")
         && str_contains($operation, 'data-operation-clear>Liberar mesas')
-        && str_contains($operation, 'reservation-operation__secondary-inline')
-        && str_contains($operation, '>Cambiar</button>')
-        && !str_contains($operation, '>Cambiar mesas</button>')
+        && str_contains($operation, 'reservation-operation__detail-inline-action')
+        && str_contains($operation, "var mesaHeading = mesaIds.length > 1 ? 'Mesas asignadas' : 'Mesa asignada'")
+        && str_contains($operation, "var mesaChangeLabel = mesaIds.length > 1 ? 'Cambiar mesas' : 'Cambiar mesa'")
         && str_contains($operation, 'data-operation-comment-edit>')
         && str_contains($operation, 'Sin notas')
         && str_contains($operation, "<h4>Acciones</h4>")
@@ -103,6 +103,9 @@ assertReservationMapUx(
 );
 assertReservationMapUx(
     str_contains($detail, 'background: color-mix(in srgb, var(--admin-surface-soft) 58%, transparent);')
+        && str_contains($detail, 'reservation-operation-detail-value-row')
+        && str_contains($detail, 'grid-template-columns: minmax(0, 1fr);')
+        && str_contains($detail, 'grid-template-columns: minmax(0, 1fr) auto;')
         && str_contains($detail, 'height: 40px;')
         && str_contains($detail, 'height: 44px;')
         && str_contains($detail, 'border-radius: var(--admin-radius-sm, 10px);')
