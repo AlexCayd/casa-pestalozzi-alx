@@ -757,7 +757,12 @@
 // La ficha prioriza lectura y acción inmediata; los grupos secundarios no se
 // convierten en una colección de tarjetas o botones equivalentes.
 .reservation-operation-panel {
-  padding: 22px 24px 30px 20px;
+  min-height: 0;
+  padding: 18px 22px 24px 20px;
+}
+
+.reservation-operation-panel:not(.reservation-operation-panel--empty):not(.reservation-operation-panel--error):not(.reservation-operation-panel--selection) {
+  min-height: 0;
 }
 
 .reservation-operation-panel__head h3 {
@@ -767,8 +772,8 @@
 }
 
 .reservation-operation-panel__facts {
-  margin-top: 22px;
-  padding-bottom: 16px;
+  margin-top: 16px;
+  padding-bottom: 14px;
   gap: 10px 18px;
 }
 
@@ -785,7 +790,7 @@
 }
 
 .reservation-operation-panel__section {
-  margin-top: 20px;
+  margin-top: 16px;
   padding-top: 0;
   border-top: 0;
 }
@@ -798,7 +803,7 @@
 
 .reservation-operation-panel__section--actions,
 .reservation-operation-panel__section--more-actions {
-  padding-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid var(--admin-border-soft);
 }
 
@@ -833,9 +838,9 @@
   min-height: 40px;
   margin: 0;
   padding: 8px 12px;
-  border-color: var(--admin-border-soft);
-  background: var(--admin-surface);
-  color: var(--admin-muted);
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
   box-shadow: none;
   white-space: nowrap;
 }
@@ -844,6 +849,13 @@
   border-color: var(--admin-border);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
+}
+
+.reservation-operation-panel__selected,
+.reservation-operation-panel__note,
+.reservation-operation-comment-summary .reservation-operation-panel__note {
+  color: var(--admin-text);
+  line-height: 1.45;
 }
 
 .reservation-operation__client-note .reservation-operation-panel__note {
@@ -873,9 +885,10 @@
 }
 
 .reservation-operation-panel__section--more-actions .reservation-operation-actions {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 6px;
+  align-items: stretch;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .reservation-operation-panel__section--more-actions .reservation-operation-actions .admin-btn,
@@ -887,8 +900,26 @@
 }
 
 .reservation-operation-panel__section--more-actions .admin-btn--danger {
-  border-color: transparent;
+  border-color: var(--admin-danger-border);
+  background: var(--admin-danger-bg);
   color: var(--admin-danger-text);
+}
+
+.reservation-operation-panel__section--more-actions .admin-btn--secondary,
+.reservation-operation-panel__section--more-actions .reservation-operation-panel__edit,
+.reservation-operation-comment-summary .admin-btn,
+.reservation-operation-comment__actions .admin-btn--ghost {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation-panel__section--more-actions .admin-btn--secondary:hover,
+.reservation-operation-panel__section--more-actions .reservation-operation-panel__edit:hover,
+.reservation-operation-comment-summary .admin-btn:hover,
+.reservation-operation-comment__actions .admin-btn--ghost:hover {
+  border-color: var(--admin-border-soft);
+  background: var(--admin-surface);
 }
 
 .reservation-operation-panel__section--actions .reservation-operation-actions .admin-btn {

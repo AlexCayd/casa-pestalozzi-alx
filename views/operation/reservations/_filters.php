@@ -7,16 +7,6 @@
     data-operation-filters
 >
     <?php if ($operationalFilterScope !== 'drawer'): ?>
-    <div class="reservation-operation__filter-actions">
-        <button type="submit" class="admin-btn admin-btn--secondary operational-toolbar-icon" data-operation-load aria-label="Actualizar mapa" title="Actualizar mapa">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M20 11a8 8 0 1 0 1 4"></path>
-                <path d="M20 4v7h-7"></path>
-            </svg>
-            <span class="operational-visually-hidden" data-operation-load-label>Actualizar mapa</span>
-        </button>
-    </div>
-
     <div class="reservation-operation__filter reservation-operation__date-group" data-operation-date-group>
         <label class="operational-visually-hidden" for="operation-fecha-display">Fecha</label>
         <?php

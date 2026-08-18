@@ -111,10 +111,7 @@ if ($initialOperationNotice !== null) {
 >
     <?php
     ob_start();
-    $operationalMapToggleLabel = 'mapa de reservaciones';
-    $operationalMapToggleIconOnly = true;
     $operationalFilterScope = 'context';
-    include __DIR__ . '/../partials/map-toggle.php';
     include __DIR__ . '/_filters.php';
     ?>
         <button
@@ -153,8 +150,7 @@ if ($initialOperationNotice !== null) {
     $operationalContextView = 'reservations';
     $operationalContextSelectionHtml =
         '<div class="reservation-operation-capacity" data-operation-capacity role="status" aria-live="polite" hidden>' .
-            '<svg class="reservation-operation-capacity__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 17.5h14M7 14.5h10M9 11.5h6M12 5v3"></path><path d="M8 5h8"></path></svg>' .
-            '<div class="reservation-operation-capacity__copy"><span class="reservation-operation-capacity__label">Disponibilidad</span><strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__of" data-operation-capacity-of> / 0</span></strong><span class="reservation-operation-capacity__available">disponibles</span></div>' .
+            '<div class="reservation-operation-capacity__copy"><span class="reservation-operation-capacity__label">Disponibilidad</span><strong class="reservation-operation-capacity__primary"><span data-operation-capacity-real>0</span><span class="reservation-operation-capacity__available">lugares disponibles</span></strong></div>' .
             '<span class="reservation-operation-capacity__secondary" data-operation-capacity-secondary hidden></span>' .
             '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
         '</div>';

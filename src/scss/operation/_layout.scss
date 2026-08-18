@@ -112,9 +112,10 @@
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
-  height: clamp(320px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2) - 124px), 760px);
+  height: auto;
   min-height: 0;
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .reservation-operation.assignment-mode .reservation-operation__content {
@@ -127,9 +128,9 @@
 
 .operation-body.is-assignment-mode,
 .operation-body:has(.reservation-operation.assignment-mode) {
-  height: auto;
-  min-height: 100dvh;
-  overflow: visible;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .operation-shell,
@@ -138,9 +139,9 @@
 .operation-body.is-assignment-mode .operational-module,
 .operation-body:has(.reservation-operation.assignment-mode) .operation-shell,
 .operation-main:has(.reservation-operation.assignment-mode) {
-  height: auto;
-  min-height: calc(100dvh - (var(--operational-shell-pad) * 2));
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .operational-module {
@@ -149,9 +150,9 @@
 
 html.is-assignment-mode,
 html:has(.operation-body.is-assignment-mode) {
-  height: auto;
+  height: 100%;
   min-height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .mesas-map__viewport {
@@ -159,9 +160,9 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .reservation-operation.assignment-mode {
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .reservation-operation .admin-card {
@@ -240,8 +241,23 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 @media (max-width: 700px) {
+  .operation-body:has(.reservation-operation.assignment-mode),
+  .operation-body:has(.reservation-operation.assignment-mode) .operation-shell,
+  .operation-body:has(.reservation-operation.assignment-mode) .operation-main,
+  html:has(.operation-body.is-assignment-mode) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .reservation-operation.assignment-mode {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .reservation-operation.assignment-mode .reservation-operation__workspace {
-    height: clamp(300px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - 168px), 620px);
-    min-height: 0;
+    flex: 1 1 auto;
   }
 }

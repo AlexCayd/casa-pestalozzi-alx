@@ -398,18 +398,20 @@
 .operational-drawer__filters .reservation-operation__search-filter input {
   width: 100%;
   min-height: 44px;
-  padding-left: 40px;
+  padding-inline: 42px 12px !important;
+  line-height: 1.2;
 }
 
 .reservation-operation__search-icon {
   position: absolute;
   top: 50%;
-  left: 13px;
+  left: 12px;
   width: 17px;
   height: 17px;
   color: var(--admin-muted);
   fill: none;
   pointer-events: none;
+  transform: translateY(-50%);
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
