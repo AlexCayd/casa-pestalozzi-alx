@@ -156,7 +156,21 @@ coloca en query string, cookies, localStorage, sessionStorage, analytics,
 logs ni listado posterior. Copiar conserva el modal abierto y muestra feedback
 temporal.
 
-## 22. Ventana temporal de entrega del NIP
+## 22. Presentación del acceso de piso
+
+Para roles `waiter` y `cook`, la edición del usuario muestra un bloque de
+“Acceso de piso” junto al bloque “Estado”, usando la misma estructura visual de
+título, control principal y descripción. La acción secundaria se presenta como
+“Regenerar NIP” y la descripción recuerda que el NIP actual no puede
+consultarse.
+
+Para `admin`, el bloque de acceso de piso se oculta completamente y el bloque
+de estado ocupa la fila disponible sin dejar un hueco roto. Si un administrador
+cambia un usuario a `waiter` o `cook`, se muestra el estado “NIP se generará al
+guardar” y la descripción de generación automática, sin habilitar regeneración
+antes de que exista una credencial.
+
+## 23. Ventana temporal de entrega del NIP
 
 Después del commit, la pantalla de alta o edición muestra el NIP en un modal
 no cancelable. La credencial se visualiza en texto plano únicamente durante la
@@ -173,7 +187,7 @@ no reinicia la ventana. “Aceptar” y el cierre automático limpian el NIP del
 DOM y del estado JavaScript y continúan al mismo destino: el listado después
 del alta o cambio de rol, y la edición después de una regeneración.
 
-## 23. Invariantes
+## 24. Invariantes
 
 ```text
 admin
@@ -209,7 +223,7 @@ NIP_LOOKUP_SECRET
 → estable dentro de una instalación
 ```
 
-## 24. Archivos relacionados
+## 25. Archivos relacionados
 
 - `controllers/AdminUsersController.php`: rutas y PRG/flash.
 - `services/UsuarioService.php`: transacciones, roles y mutaciones.

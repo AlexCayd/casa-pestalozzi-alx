@@ -14,9 +14,11 @@
     var passwordSection = form.querySelector("[data-user-password-section]");
     var roleHint = form.querySelector("[data-role-credential-hint]");
     var accessList = form.querySelector("[data-role-access-list]");
+    var accessStatusGrid = form.querySelector("[data-user-access-status-grid]");
     var nipSection = form.querySelector("[data-role-nip-section]");
-    var nipState = form.querySelector("[data-role-nip-state]");
+    var nipHint = form.querySelector("[data-role-nip-hint]");
     var nipPendingHint = form.querySelector("[data-role-nip-pending]");
+    var nipPendingDescription = form.querySelector("[data-role-nip-pending-description]");
     var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
     var originalRole = form.getAttribute("data-original-role") || "";
     var mode = form.getAttribute("data-form-mode") || "crear";
@@ -72,10 +74,18 @@
         });
       }
 
+      if (accessStatusGrid) {
+        accessStatusGrid.classList.toggle(
+          "admin-users-access-status-grid--single",
+          !(showConfiguredNip || showPendingNip)
+        );
+      }
+
       if (nipSection) {
         nipSection.hidden = !(showConfiguredNip || showPendingNip);
-        if (nipState) nipState.hidden = !showConfiguredNip;
+        if (nipHint) nipHint.hidden = !showConfiguredNip;
         if (nipPendingHint) nipPendingHint.hidden = !showPendingNip;
+        if (nipPendingDescription) nipPendingDescription.hidden = !showPendingNip;
         var regenerate = nipSection.querySelector("[data-user-regenerate]");
         if (regenerate) regenerate.hidden = !showConfiguredNip;
       }

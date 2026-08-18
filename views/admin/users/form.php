@@ -118,38 +118,48 @@
                 </div>
             </div>
 
-            <?php if ($esEdicion) : ?>
-                <div
-                    class="admin-users-form__field admin-users-form__field--full admin-users-nip-line"
-                    data-role-nip-section
-                    data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
-                    <?php echo $esAdmin || !$tieneNipPersistido ? 'hidden' : ''; ?>
-                >
-                    <div class="admin-users-nip-line__copy">
-                        <strong data-role-nip-state>NIP configurado</strong>
-                        <span class="admin-users-nip-line__hint" data-role-nip-pending hidden>
-                            Se generará un NIP automáticamente al guardar.
-                        </span>
-                    </div>
-                    <button
-                        type="submit"
-                        form="admin-user-regenerate-form"
-                        class="admin-btn admin-btn--ghost admin-btn--small"
-                        data-user-regenerate
+            <div
+                class="admin-users-access-status-grid<?php echo !$esEdicion || $esAdmin ? ' admin-users-access-status-grid--single' : ''; ?>"
+                data-user-access-status-grid
+            >
+                <?php if ($esEdicion) : ?>
+                    <div
+                        class="admin-users-form__field admin-users-access-status-card admin-users-access-card"
+                        data-role-nip-section
+                        data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
+                        <?php echo $esAdmin ? 'hidden' : ''; ?>
                     >
-                        Regenerar
-                    </button>
-                </div>
-            <?php endif; ?>
+                        <span class="admin-users-form__field-label">Acceso de piso</span>
+                        <button
+                            type="submit"
+                            form="admin-user-regenerate-form"
+                            class="admin-btn admin-btn--secondary admin-btn--small"
+                            data-user-regenerate
+                            <?php echo !$tieneNipPersistido ? 'hidden' : ''; ?>
+                        >
+                            Regenerar NIP
+                        </button>
+                        <span class="admin-users-access-card__status" data-role-nip-pending <?php echo $tieneNipPersistido ? 'hidden' : ''; ?>>
+                            NIP se generará al guardar
+                        </span>
+                        <p class="admin-users-form__hint" data-role-nip-hint <?php echo !$tieneNipPersistido ? 'hidden' : ''; ?>>
+                            El NIP actual no puede consultarse. Si se extravió, genera uno nuevo.
+                        </p>
+                        <p class="admin-users-form__hint" data-role-nip-pending-description <?php echo $tieneNipPersistido ? 'hidden' : ''; ?>>
+                            El código se generará automáticamente al guardar los cambios.
+                        </p>
+                    </div>
+                <?php endif; ?>
 
-            <div class="admin-users-form__field">
-                <span class="admin-users-form__field-label">Estado</span>
-                <label class="admin-users-form__toggle">
-                    <input type="checkbox" id="activo" name="activo" value="1" <?php echo $activoActual === 1 ? 'checked' : ''; ?>>
-                    <span class="admin-users-form__toggle-track" aria-hidden="true"><span class="admin-users-form__toggle-thumb"></span></span>
-                    <span class="admin-users-form__toggle-text">Usuario activo</span>
-                </label>
-                <p class="admin-users-form__hint">Los usuarios inactivos conservan su credencial, pero no pueden iniciar sesión.</p>
+                <div class="admin-users-form__field admin-users-access-status-card admin-users-state-card">
+                    <span class="admin-users-form__field-label">Estado</span>
+                    <label class="admin-users-form__toggle admin-users-access-status-card__control">
+                        <input type="checkbox" id="activo" name="activo" value="1" <?php echo $activoActual === 1 ? 'checked' : ''; ?>>
+                        <span class="admin-users-form__toggle-track" aria-hidden="true"><span class="admin-users-form__toggle-thumb"></span></span>
+                        <span class="admin-users-form__toggle-text">Usuario activo</span>
+                    </label>
+                    <p class="admin-users-form__hint">Los usuarios inactivos conservan su credencial, pero no pueden iniciar sesión.</p>
+                </div>
             </div>
         </div>
     </section>

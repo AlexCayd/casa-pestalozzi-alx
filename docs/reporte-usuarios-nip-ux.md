@@ -1,18 +1,19 @@
-# Reporte — Simplificación UX del NIP
+# Reporte — Presentación visual del acceso de piso
 
 ## Resultado
 
-- El NIP configurado aparece como una línea compacta debajo del selector de
-  rol, con la acción “Regenerar” y sin un bloque visual independiente.
-- Al seleccionar `admin`, la línea y sus acciones desaparecen sin dejar
-  espacio residual.
-- Al cambiar de `admin` a `waiter` o `cook`, se muestra únicamente la
-  indicación de generación automática al guardar.
-- El modal posterior al commit conserva la entrega de cuatro dígitos, copia
+- “Acceso de piso” y “Estado” comparten una subrejilla de dos columnas con
+  título, control y descripción; en móvil se apilan.
+- Los usuarios de piso existentes muestran “Regenerar NIP” como acción
+  secundaria visible, sin competir con “Guardar cambios”.
+- `admin` oculta completamente el bloque de acceso y el estado ocupa la fila
+  disponible; admin → staff muestra sólo el aviso de generación futura.
+- El modal posterior al commit mantiene la entrega de cuatro dígitos, copia
   con feedback temporal y cierre no cancelable.
-- La ventana de visualización es configurable desde
-  `Services\\UsuarioConfig`; el modal usa una barra de progreso fina y cierra
-  por “Aceptar” o automáticamente hacia el mismo destino.
+- La ventana de visualización continúa siendo configurable desde
+  `Services\\UsuarioConfig`; ahora el track y la barra activa son perceptibles.
+- El tiempo configurable, el temporizador funcional y la lógica de cierre no
+  cambiaron.
 
 ## Alcance preservado
 

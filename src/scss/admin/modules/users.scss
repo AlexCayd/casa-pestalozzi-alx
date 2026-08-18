@@ -110,37 +110,61 @@
   max-width: none;
 }
 
-// El estado persistido vive debajo del selector de rol. El código plano sólo
-// existe dentro del modal global de entrega.
-.admin-users-form__field.admin-users-nip-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 34px;
-  padding: 0;
-
-  &[hidden] { display: none; }
-}
-
-.admin-users-nip-line__copy {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+// Acceso de piso y Estado son una pareja de decisión: comparten estructura,
+// altura y ritmo sin duplicar la rejilla general del formulario.
+.admin-users-access-status-grid {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 22px;
+  align-items: stretch;
   min-width: 0;
 
-  strong {
-    color: var(--admin-text);
-    font-size: 13px;
-    font-weight: 700;
+  &--single {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.admin-users-nip-line__hint {
-  color: var(--admin-muted);
+.admin-users-form__field.admin-users-access-status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 148px;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+
+  &[hidden] { display: none; }
+
+  .admin-users-form__hint {
+    margin: 0;
+  }
+}
+
+.admin-users-access-card .admin-btn--secondary {
+  border-color: color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-gold) 12%, var(--admin-surface-soft));
+  color: var(--admin-text);
+
+  &:hover {
+    border-color: var(--admin-gold);
+    background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface-soft));
+  }
+}
+
+.admin-users-access-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 36%, var(--admin-border));
+  border-radius: var(--admin-radius-sm);
+  background: color-mix(in srgb, var(--admin-gold) 10%, var(--admin-surface-soft));
+  color: var(--admin-gold-soft);
   font-size: 12px;
-  line-height: 1.4;
+  font-weight: 700;
 
   &[hidden] { display: none; }
 }
@@ -190,20 +214,23 @@
 
 .admin-user-nip-modal__progress {
   align-self: stretch;
-  height: 2px;
-  margin-top: 6px;
+  height: 6px;
+  margin-top: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-gold) 18%, var(--admin-border));
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 32%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface));
 }
 
 .admin-user-nip-modal__progress-bar {
   display: block;
   width: 100%;
-  height: 100%;
+  height: 4px;
+  margin: 0;
   transform: scaleX(1);
   transform-origin: left center;
-  background: var(--admin-gold);
+  border-radius: inherit;
+  background: var(--admin-gold-soft);
 }
 
 .admin-user-nip-modal__progress.is-running .admin-user-nip-modal__progress-bar {
@@ -216,13 +243,9 @@
   font-size: 12px;
 }
 
-@media (max-width: 640px) {
-  .admin-users-nip-line {
-    align-items: center;
-
-    .admin-btn {
-      flex: 0 0 auto;
-    }
+@media (max-width: 720px) {
+  .admin-users-access-status-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
