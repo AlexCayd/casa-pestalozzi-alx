@@ -1081,3 +1081,154 @@
     margin-top: 32px;
   }
 }
+
+// ── Normalización final del detalle operativo ────────────────────────────
+.reservation-operation-panel__head {
+  align-items: flex-start;
+  gap: 16px;
+  padding-right: 0;
+
+  > div {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  h3 {
+    max-width: 28ch;
+    font-size: clamp(24px, 1.8vw, 30px);
+    line-height: 1.08;
+  }
+
+  .reservations-table__status {
+    min-height: 30px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+}
+
+.reservation-operation-panel__facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 10px;
+  margin-top: 18px;
+
+  dt {
+    line-height: 1.2;
+  }
+
+  dd {
+    margin-top: 6px;
+    line-height: 1.35;
+  }
+}
+
+.reservation-operation__secondary-inline {
+  display: inline-flex;
+  min-height: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm, 10px);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-medium);
+  line-height: 1.2;
+  box-shadow: none;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--admin-border-soft);
+    background: var(--admin-surface);
+    color: var(--admin-text);
+  }
+
+  &:focus-visible {
+    outline: 0;
+    box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  }
+}
+
+.reservation-operation__assignment .reservation-operation-panel__assignment-start {
+  min-height: 40px;
+  height: 40px;
+  padding: 0 12px;
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note,
+.reservation-operation-comment-summary {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 10px 11px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm, 10px);
+  background: color-mix(in srgb, var(--admin-surface-soft) 58%, transparent);
+}
+
+.reservation-operation__client-note .reservation-operation-panel__note {
+  height: auto;
+  max-width: none;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  line-height: 1.5;
+}
+
+.reservation-operation-comment-summary {
+  align-items: center;
+  gap: 10px;
+}
+
+.reservation-operation-comment-summary .reservation-operation-panel__note {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-text);
+  line-height: 1.5;
+}
+
+.reservation-operation-comment-summary .reservation-operation-panel__note.is-empty,
+.reservation-operation__client-note .reservation-operation-panel__note.is-empty {
+  color: var(--admin-muted);
+  font-style: italic;
+}
+
+.reservation-operation-comment-summary .reservation-operation__secondary-inline {
+  flex: 0 0 auto;
+}
+
+.reservation-operation__actions .reservation-operation-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8px;
+  row-gap: 12px;
+}
+
+.reservation-operation__actions .reservation-operation-actions .admin-btn {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--admin-radius-sm, 10px);
+  line-height: 1.2;
+}
+
+.reservation-operation__actions .reservation-operation-actions [data-operation-action="cancel"] {
+  width: auto;
+  min-width: 0;
+  height: 44px;
+  margin-top: 0;
+  padding: 0 12px;
+}
+
+@media (max-width: 520px) {
+  .reservation-operation-panel__head h3 {
+    max-width: 22ch;
+    font-size: 24px;
+  }
+
+  .reservation-operation__actions .reservation-operation-actions [data-operation-action="cancel"] {
+    width: 100%;
+  }
+}

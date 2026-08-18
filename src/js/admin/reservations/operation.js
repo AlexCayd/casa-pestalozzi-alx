@@ -1597,7 +1597,7 @@
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                         '<h4>Mesas</h4>' +
                         '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
-                        (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar mesas</button>' : '') +
+                        (assignable && mesaIds.length ? '<button class="admin-btn admin-btn--secondary reservation-operation__secondary-inline reservation-operation-panel__assignment-start" type="button" data-operation-assignment-start aria-controls="operation-assignment-bar" aria-expanded="' + (state.assignmentMode ? 'true' : 'false') + '">Cambiar</button>' : '') +
                     '</section>' +
                     '<section class="reservation-operation-panel__section reservation-operation__client-note">' +
                         '<h4>Nota del cliente</h4>' +
@@ -1628,7 +1628,7 @@
                 }
                 return '<div class="reservation-operation-comment-summary">' +
                     '<p class="reservation-operation-panel__note ' + (comment ? '' : 'is-empty') + '">' + esc(comment || 'Sin notas') + '</p>' +
-                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar') + '</button>' : '') +
+                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary reservation-operation__secondary-inline" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar') + '</button>' : '') +
                 '</div>';
             }
             return '<div class="reservation-operation-comment">' +
@@ -3132,7 +3132,7 @@
                     source: 'assignment',
                     type: 'info',
                     title: 'Modo de asignación inactivo',
-                    summary: 'Selecciona una reservación y pulsa “Cambiar mesas”.',
+                    summary: 'Selecciona una reservación y pulsa “Cambiar”.',
                     message: 'El mapa solo cambia mesas dentro del modo de asignación explícito. La vista actual no se modificó.'
                 });
                 return;

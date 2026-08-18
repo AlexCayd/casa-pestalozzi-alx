@@ -35,9 +35,12 @@ assertReservationMapUx(
         && !str_contains($view, 'data-operation-load')
         && !str_contains($operation, 'data-operation-load')
         && str_contains($view, 'data-operation-tables-open')
+        && str_contains($view, '<rect x="5" y="5" width="14" height="10" rx="2"></rect>')
+        && str_contains($view, '<path d="M8 15v4M16 15v4M5 19h14"></path>')
+        && !str_contains($view, '<rect x="3" y="3" width="7" height="7" rx="1"></rect>')
         && str_contains($view, 'reservation-operation__toolbar-left')
         && str_contains($view, 'reservation-operation__toolbar-center'),
-    'reservaciones conserva Mesas y separa los tres bloques finales del toolbar'
+    'reservaciones conserva Mesas con un icono de mesa reconocible y separa los tres bloques finales del toolbar'
 );
 assertReservationMapUx(
     str_contains($view, 'data-operation-capacity-real')
@@ -82,6 +85,9 @@ assertReservationMapUx(
 assertReservationMapUx(
     str_contains($operation, "'Registrar ausencia', 'admin-btn admin-btn--danger'")
         && str_contains($operation, 'data-operation-clear>Liberar mesas')
+        && str_contains($operation, 'reservation-operation__secondary-inline')
+        && str_contains($operation, '>Cambiar</button>')
+        && !str_contains($operation, '>Cambiar mesas</button>')
         && str_contains($operation, 'data-operation-comment-edit>')
         && str_contains($operation, 'Sin notas')
         && str_contains($operation, "<h4>Acciones</h4>")
@@ -97,8 +103,11 @@ assertReservationMapUx(
 );
 assertReservationMapUx(
     str_contains($detail, 'background: color-mix(in srgb, var(--admin-surface-soft) 58%, transparent);')
+        && str_contains($detail, 'height: 40px;')
+        && str_contains($detail, 'height: 44px;')
+        && str_contains($detail, 'border-radius: var(--admin-radius-sm, 10px);')
         && str_contains($detail, 'min-height: 100%;'),
-    'el detalle usa zonas sutiles sin reintroducir una tarjeta pesada y mantiene scroll natural'
+    'el detalle normaliza controles y notas, usa zonas sutiles y mantiene scroll natural'
 );
 assertReservationMapUx(
     str_contains($toolbar, 'grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);')

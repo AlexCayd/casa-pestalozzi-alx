@@ -128,10 +128,8 @@ if ($initialOperationNotice !== null) {
                 data-operation-tables-open
             >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                    <rect x="5" y="5" width="14" height="10" rx="2"></rect>
+                    <path d="M8 15v4M16 15v4M5 19h14"></path>
                 </svg>
                 <span>Mesas</span>
             </button>
