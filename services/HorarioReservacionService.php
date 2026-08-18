@@ -540,6 +540,16 @@ class HorarioReservacionService
             ? $solicitada
             : '';
         if ($resuelta === '' && $normalizados !== []) {
+            if ($fecha > $ahora->format('Y-m-d')) {
+                return [
+                    'hora_solicitada' => $solicitada,
+                    'hora_resuelta' => $normalizados[0],
+                    'ajustada' => $solicitada !== '' && $normalizados[0] !== $solicitada,
+                    'solicitada_vencida' => false,
+                    'sin_horarios_futuros' => false,
+                    'jornada_terminada' => false,
+                ];
+            }
             $reloj = $ahora->format('H:i');
             foreach ($normalizados as $hora) {
                 if ($hora <= $reloj) {

@@ -88,6 +88,7 @@ const paths = {
     "src/js/operation/table-state-adapter.js",
     "src/js/operation/map-visual.js",
     "src/js/operation/reservation-card.js",
+    "src/js/operation/reservation-operation-policy.js",
     "src/js/admin/reservations/operation.js",
   ],
   adminConfigurationJs: [

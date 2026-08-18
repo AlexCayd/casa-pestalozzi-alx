@@ -314,6 +314,7 @@ final class MesaEstadoService
             $disponibleParaAsignacion = $utilizable && !$bloqueadaEnIntervalo;
             $causaConflictoAsignacion = null;
             if ($asignadaActualmente && $ticketAbierto !== null
+                && $ticketBloqueaEnConsulta
                 && (int)($ticketAbierto['reservacion_id'] ?? 0) !== $reservacionEnEdicionId) {
                 $causaConflictoAsignacion = 'ticket_abierto';
             } elseif ($asignadaActualmente && !$disponibleParaAsignacion) {

@@ -80,4 +80,3 @@ Las observaciones de una reservación son operativas: pueden incluir celebració
 - [Usuarios](../usuarios/usuarios.md)
 - [Credenciales de desarrollo](../usuarios/credenciales.md)
 - [Privacidad](../privacidad/privacidad.md)
-- [Auditoría técnica de refresh y proyección](../auditoria_reservaciones_refresh_proyeccion.md)

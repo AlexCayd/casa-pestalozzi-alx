@@ -25,7 +25,7 @@ use Services\ReservacionService;
 class ReservacionOperacionController
 {
     private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v29';
-    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v29';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v30';
 
     public static function operation(Router $router): void
     {
@@ -192,6 +192,9 @@ class ReservacionOperacionController
 
     public static function operationData(): void
     {
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+
         $fechaFueEnviada = array_key_exists('fecha', $_GET);
         $fechaSolicitada = trim((string)($_GET['fecha'] ?? ''));
         if ($fechaFueEnviada && !HorarioReservacionService::fechaValida($fechaSolicitada)) {

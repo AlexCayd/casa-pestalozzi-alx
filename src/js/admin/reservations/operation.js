@@ -52,9 +52,7 @@
             assignmentCancelLabel: 'Cancelar',
             cargando: false,
             guardando: false,
-            abortController: null,
-            timeoutId: null,
-            timedOutSequence: 0,
+            activeRequest: null,
             requestSequence: 0,
             projectionContext: { fecha: '', hora: '' },
             pendingProjectionContext: null,
@@ -483,10 +481,7 @@
 
         function mesaPuedeSerCandidata(mesaId) {
             var mesa = tableStateById(mesaId);
-            return Boolean(mesa)
-                && mesa.reservable === true
-                && mesa.disponible_para_asignacion === true
-                && mesa.ticket_abierto !== true;
+            return window.ReservationOperationPolicy.mesaPuedeSerCandidata(mesa);
         }
 
         function candidateIdsFromCurrent() {
@@ -496,10 +491,7 @@
         function currentAssignmentConflictIds() {
             return Array.from(state.currentAssignmentIds).filter(function (mesaId) {
                 var mesa = tableStateById(mesaId);
-                return Boolean(mesa)
-                    && mesa.asignada_actualmente === true
-                    && (mesa.ticket_abierto === true
-                        || mesa.disponible_para_asignacion !== true);
+                return window.ReservationOperationPolicy.currentAssignmentIsConflict(mesa);
             });
         }
 
@@ -1252,6 +1244,7 @@
 
             closeCreateModal(true);
             loadDay(fecha, {
+                intent: 'reservation-edit',
                 preserveReservationId: reservationId,
                 preserveHour: hora,
                 enterAssignmentMode: payload.requiresManualAssignment === true,
@@ -1818,53 +1811,17 @@
             var selected = state.assignmentMode && (
                 state.currentAssignmentIds.has(mesaId) || state.candidateSelectionIds.has(mesaId)
             );
-            var modifiers = Array.isArray(table.modificadores_visual_mapa)
-                ? table.modificadores_visual_mapa
-                : (Array.isArray(table.modificadores_mapa) ? table.modificadores_mapa : []);
-            var reservation = table.reservacion || table.reservacion_asociada || null;
-            var hourSource = reservation && (reservation.hora || reservation.hora_reservacion)
-                ? reservation.hora || reservation.hora_reservacion
-                : table.inicio_reservacion || '';
-            var hourMatch = String(hourSource || '').match(/(?:^|T|\s)(\d{2}:\d{2})/);
-            var hour = hourMatch ? hourMatch[1] : '';
-            var visualState = String(table.estado_visual_mapa || table.estado_visual || 'libre');
-            var label = 'Disponible';
-            var context = '';
-
-            if (selected) {
-                label = 'Seleccionada';
-                context = 'Asignación en curso';
-                visualState = 'seleccionada';
-            } else if (table.utilizable === false || table.reservable === false) {
-                label = 'No reservable';
-                context = 'Área operativa';
-                visualState = 'no-utilizable';
-            } else if (table.ausencia_pendiente === true || modifiers.indexOf('ausencia_pendiente') !== -1) {
-                label = 'Ausencia pendiente';
-                context = hour || 'Registrar ausencia';
-            } else if (table.ticket_abierto === true || table.ticket_bloquea_consulta === true) {
-                label = 'Ocupada';
-                context = 'Ticket abierto';
-                visualState = 'ocupada';
-            } else if (visualState === 'ocupada') {
-                label = 'Ocupada';
-                context = 'Servicio activo';
-            } else if (visualState === 'reservacion-proxima'
-                || modifiers.indexOf('reservacion_advertencia') !== -1
-                || modifiers.indexOf('reservacion_inminente') !== -1
-                || table.reservacion_proxima) {
-                label = 'Reserva próxima';
-                context = hour || 'Reserva próxima';
-                visualState = 'reservacion-proxima';
-            }
+            var intervalState = window.ReservationOperationPolicy.tableModalState(table, {
+                selected: selected
+            });
 
             return {
                 id: mesaId,
-                label: label,
-                context: context,
-                visualState: visualState,
+                label: intervalState.label,
+                context: intervalState.context,
+                visualState: intervalState.visualState,
                 capacity: parseInt(table.capacidad || '0', 10) || 0,
-                interactive: state.assignmentMode && Boolean(selectedReservation()) && mesaPuedeSerCandidata(mesaId) && !state.guardando
+                interactive: state.assignmentMode && Boolean(selectedReservation()) && intervalState.assignable && !state.guardando
             };
         }
 
@@ -1986,6 +1943,7 @@
             state.candidateSelectionIds = new Set();
             state.assignmentSnapshot = null;
             loadDay(nextDate, {
+                intent: 'reservation-edit',
                 preserveHour: nextHour,
                 requestedHour: nextHour,
                 preserveReservationId: reservacionId,
@@ -2013,7 +1971,11 @@
             state.currentAssignmentIds = new Set();
             state.candidateSelectionIds = new Set();
             state.assignmentSnapshot = null;
-            loadDay(state.fecha, { preserveHour: nextHour, requestedHour: nextHour });
+            loadDay(state.fecha, {
+                intent: 'hour-change',
+                preserveHour: nextHour,
+                requestedHour: nextHour
+            });
         }
 
         function loadDay(fecha, options) {
@@ -2023,14 +1985,11 @@
             var previousDate = state.fecha;
             var dateChanged = fecha !== previousDate;
             var requestSequence = ++state.requestSequence;
-            state.timedOutSequence = 0;
 
-            if (state.timeoutId) {
-                window.clearTimeout(state.timeoutId);
-                state.timeoutId = null;
-            }
-            if (state.abortController) {
-                state.abortController.abort();
+            if (state.activeRequest) {
+                state.activeRequest.cancelledByNewRequest = true;
+                state.activeRequest.controller.abort();
+                state.activeRequest = null;
             }
 
             if (dateChanged) {
@@ -2089,8 +2048,13 @@
                 return;
             }
 
-            state.abortController = new AbortController();
-            var requestedHour = horaCorta(options.preserveHour || state.horaSeleccionada);
+            var intent = options.intent || (dateChanged ? 'date-change' : 'refresh');
+            var requestedHour = '';
+            if (intent === 'initial-load' || intent === 'date-change') {
+                requestedHour = horaCorta(options.requestedHour || '');
+            } else {
+                requestedHour = horaCorta(options.preserveHour || state.horaSeleccionada);
+            }
             var queryRequestedHour = horaCorta(options.requestedHour || requestedHour);
             state.pendingProjectionContext = {
                 fecha: fecha,
@@ -2105,12 +2069,19 @@
                 hideGlobalNotice('technical');
             }
 
-            state.timeoutId = window.setTimeout(function () {
-                state.timedOutSequence = requestSequence;
-                if (state.abortController) {
-                    state.abortController.abort();
-                }
+            var controller = new AbortController();
+            var request = {
+                sequence: requestSequence,
+                controller: controller,
+                timeoutId: null,
+                timedOut: false,
+                cancelledByNewRequest: false
+            };
+            request.timeoutId = window.setTimeout(function () {
+                request.timedOut = true;
+                controller.abort();
             }, 12000);
+            state.activeRequest = request;
 
             var operationQuery = new URLSearchParams({ fecha: fecha });
             if (queryRequestedHour) {
@@ -2122,8 +2093,9 @@
 
             fetch(API_BASE + '?' + operationQuery.toString(), {
                 headers: { 'Accept': 'application/json' },
-                signal: state.abortController.signal,
-                credentials: 'same-origin'
+                signal: controller.signal,
+                credentials: 'same-origin',
+                cache: 'no-store'
             })
                 .then(function (response) {
                     return response.text().then(function (body) {
@@ -2143,6 +2115,7 @@
                 })
                 .then(function (data) {
                     if (requestSequence !== state.requestSequence || state.fecha !== fecha) {
+                        window.clearTimeout(request.timeoutId);
                         return;
                     }
                     if (String(data.fecha || '') !== fecha) {
@@ -2157,9 +2130,9 @@
                             responseHour: responseHour
                         };
                     }
-                    if (state.timeoutId) {
-                        window.clearTimeout(state.timeoutId);
-                        state.timeoutId = null;
+                    window.clearTimeout(request.timeoutId);
+                    if (state.activeRequest === request) {
+                        state.activeRequest = null;
                     }
                     state.fecha = data.fecha || fecha;
                     state.projectionContext = {
@@ -2205,7 +2178,7 @@
                     }
                     if (selected) {
                         state.reservacionSeleccionadaId = parseInt(selected.id, 10);
-                        state.horaSeleccionada = horaCorta(selected.hora);
+                        state.horaSeleccionada = responseHour;
                         state.currentAssignmentIds = new Set(assignmentIdsFor(selected));
                         state.assignmentSnapshot = selected.assignment_snapshot || {
                             mesa_ids: Array.from(state.currentAssignmentIds),
@@ -2223,9 +2196,7 @@
                         }
                         var availableHours = sortedHours();
                         state.reservacionSeleccionadaId = null;
-                        state.horaSeleccionada = requestedHour && availableHours.indexOf(requestedHour) !== -1
-                            ? requestedHour
-                            : (data.hora_sugerida || availableHours[0] || null);
+                        state.horaSeleccionada = responseHour || (availableHours[0] || null);
                         state.currentAssignmentIds = new Set();
                         state.candidateSelectionIds = new Set();
                         state.assignmentSnapshot = null;
@@ -2251,12 +2222,12 @@
                     setUpdateStatus('Actualizado ' + new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }), 'ready');
                 })
                 .catch(function (error) {
-                    if (state.timeoutId) {
-                        window.clearTimeout(state.timeoutId);
-                        state.timeoutId = null;
+                    window.clearTimeout(request.timeoutId);
+                    if (state.activeRequest === request) {
+                        state.activeRequest = null;
                     }
                     if (error && error.name === 'AbortError') {
-                        if (state.timedOutSequence === requestSequence && requestSequence === state.requestSequence) {
+                        if (request.timedOut && requestSequence === state.requestSequence) {
                             setLoading(false);
                             state.loadFailure = { title: 'No fue posible cargar las reservaciones.', message: 'Intenta actualizar la consulta.' };
                             setUpdateStatus('Tiempo agotado', 'error');
@@ -2286,6 +2257,7 @@
         function refreshDay(options) {
             options = options || {};
             loadDay(state.fecha, {
+                intent: 'refresh',
                 preserveReservationId: options.preserveReservationId || state.reservacionSeleccionadaId,
                 preserveHour: state.horaSeleccionada,
                 discardAssignment: options.discardAssignment === true
@@ -2882,7 +2854,7 @@
 
         function requestSelectedDate() {
             loadDay(els.date ? els.date.value : state.fecha, {
-                preserveHour: els.hour ? els.hour.value : state.horaSeleccionada
+                intent: 'date-change'
             });
         }
 
@@ -3246,12 +3218,9 @@
 
         window.addEventListener('pagehide', function () {
             stopTemporalRefresh();
-            if (state.timeoutId) {
-                window.clearTimeout(state.timeoutId);
-                state.timeoutId = null;
-            }
-            if (state.abortController) {
-                state.abortController.abort();
+            if (state.activeRequest) {
+                state.activeRequest.controller.abort();
+                state.activeRequest = null;
             }
         });
 
@@ -3269,8 +3238,8 @@
         });
 
         loadDay(state.fecha, {
+            intent: 'initial-load',
             preserveReservationId: state.reservacionSeleccionadaId,
-            preserveHour: state.horaSeleccionada,
             requestedHour: state.horaSolicitadaInicial,
             preserveDateWarning: root.getAttribute('data-initial-date-warning') === '1'
         });
