@@ -110,31 +110,25 @@
   max-width: none;
 }
 
-// El estado persistido es una línea secundaria dentro de «Identidad y
-// acceso». El código plano sólo existe dentro del modal global de entrega.
-.admin-users-access-inline {
+// El estado persistido vive debajo del selector de rol. El código plano sólo
+// existe dentro del modal global de entrega.
+.admin-users-form__field.admin-users-nip-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface-soft);
+  gap: 12px;
+  min-height: 34px;
+  padding: 0;
 
   &[hidden] { display: none; }
 }
 
-.admin-users-access-inline__copy {
+.admin-users-nip-line__copy {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px 10px;
   min-width: 0;
-
-  .admin-users-form__field-label {
-    flex-basis: 100%;
-  }
 
   strong {
     color: var(--admin-text);
@@ -143,7 +137,7 @@
   }
 }
 
-.admin-users-access-inline__hint {
+.admin-users-nip-line__hint {
   color: var(--admin-muted);
   font-size: 12px;
   line-height: 1.4;
@@ -194,14 +188,41 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 640px) {
-  .admin-users-access-inline {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+.admin-user-nip-modal__progress {
+  align-self: stretch;
+  height: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-gold) 18%, var(--admin-border));
+}
 
-  .admin-users-access-inline .admin-btn {
-    width: 100%;
+.admin-user-nip-modal__progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(1);
+  transform-origin: left center;
+  background: var(--admin-gold);
+}
+
+.admin-user-nip-modal__progress.is-running .admin-user-nip-modal__progress-bar {
+  transform: scaleX(0);
+  transition: transform var(--nip-modal-duration) linear;
+}
+
+.admin-user-nip-modal__auto-close {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .admin-users-nip-line {
+    align-items: center;
+
+    .admin-btn {
+      flex: 0 0 auto;
+    }
   }
 }
 

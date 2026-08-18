@@ -16,7 +16,6 @@
     var accessList = form.querySelector("[data-role-access-list]");
     var nipSection = form.querySelector("[data-role-nip-section]");
     var nipState = form.querySelector("[data-role-nip-state]");
-    var nipHint = form.querySelector("[data-role-nip-hint]");
     var nipPendingHint = form.querySelector("[data-role-nip-pending]");
     var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
     var originalRole = form.getAttribute("data-original-role") || "";
@@ -54,12 +53,13 @@
       if (roleHint) {
         if (isAdmin) {
           roleHint.textContent = "El administrador entra con usuario y contraseña.";
-        } else if (mode === "editar" && showPendingNip) {
-          roleHint.textContent = "Se generará un NIP automáticamente al guardar los cambios.";
-        } else if (mode === "editar" && showConfiguredNip) {
-          roleHint.textContent = "El NIP actual no puede consultarse; regénéralo sólo si se extravió.";
+          roleHint.hidden = false;
+        } else if (mode === "editar" && (showPendingNip || showConfiguredNip)) {
+          roleHint.textContent = "";
+          roleHint.hidden = true;
         } else {
           roleHint.textContent = "El NIP se genera automáticamente al crear el usuario.";
+          roleHint.hidden = false;
         }
       }
 
@@ -75,7 +75,6 @@
       if (nipSection) {
         nipSection.hidden = !(showConfiguredNip || showPendingNip);
         if (nipState) nipState.hidden = !showConfiguredNip;
-        if (nipHint) nipHint.hidden = !showConfiguredNip;
         if (nipPendingHint) nipPendingHint.hidden = !showPendingNip;
         var regenerate = nipSection.querySelector("[data-user-regenerate]");
         if (regenerate) regenerate.hidden = !showConfiguredNip;
@@ -115,7 +114,7 @@
 
         window.ConfirmationModal.get().open({
           variant: "danger",
-          eyebrow: "Acceso de piso",
+          eyebrow: "Credencial de piso",
           title: "Regenerar NIP",
           description: "El NIP actual dejará de funcionar inmediatamente.",
           consequence: "Se generará un código nuevo y sólo podrás consultarlo una vez. Asegúrate de entregárselo a la persona antes de cerrar la confirmación.",
@@ -165,40 +164,58 @@
     var trigger = document.querySelector("[data-user-nip-delivery]");
     if (!trigger || !window.ConfirmationModal) return;
 
-    var value = trigger.getAttribute("data-nip") || "";
-    if (!/^\d{4}$/.test(value)) return;
+    var nip = trigger.getAttribute("data-nip") || "";
+    if (!/^\d{4}$/.test(nip)) return;
 
     var afterUrl = trigger.getAttribute("data-after-url") || "";
+    var configuredSeconds = Number(trigger.getAttribute("data-nip-visibility-seconds"));
+    var visibilitySeconds = Number.isFinite(configuredSeconds) && configuredSeconds > 0
+      ? Math.floor(configuredSeconds)
+      : 1;
     var returnFocus = document.querySelector("[data-user-regenerate]");
     var controller = window.ConfirmationModal.get();
-    var statusTimer = null;
-    var copyButtonTimer = null;
+    var state = {
+      nip: nip,
+      statusTimer: null,
+      timerId: null,
+      finished: false
+    };
     var customContent = document.createElement("div");
     customContent.className = "admin-user-nip-modal__code";
     customContent.innerHTML =
       '<span class="admin-user-nip-modal__label">Código temporal</span>' +
-      '<strong aria-label="NIP de cuatro dígitos">' + value + '</strong>';
+      '<strong aria-label="NIP de cuatro dígitos">' + nip + '</strong>' +
+      '<div class="admin-user-nip-modal__progress" aria-hidden="true">' +
+        '<span class="admin-user-nip-modal__progress-bar"></span>' +
+      '</div>' +
+      '<span class="admin-user-nip-modal__auto-close">Se cerrará automáticamente.</span>';
+    var progress = customContent.querySelector(".admin-user-nip-modal__progress");
 
     function showCopyStatus(message, isError) {
+      if (state.finished) return;
       controller.setStatus(message, isError);
-      if (statusTimer) window.clearTimeout(statusTimer);
-      if (copyButtonTimer) window.clearTimeout(copyButtonTimer);
+      if (state.statusTimer) window.clearTimeout(state.statusTimer);
       var copyButton = controller.element.querySelector("[data-confirmation-secondary]");
       if (copyButton) copyButton.textContent = isError ? "Copiar NIP" : "Copiado";
       if (!isError) {
-        statusTimer = window.setTimeout(function () {
+        state.statusTimer = window.setTimeout(function () {
+          if (state.finished) return;
           controller.setStatus("", false);
           if (copyButton) copyButton.textContent = "Copiar NIP";
         }, 1400);
-        copyButtonTimer = statusTimer;
       }
     }
 
-    function cleanup() {
-      if (statusTimer) window.clearTimeout(statusTimer);
-      if (copyButtonTimer) window.clearTimeout(copyButtonTimer);
+    function finishDelivery() {
+      if (state.finished) return;
+      state.finished = true;
+      if (state.statusTimer) window.clearTimeout(state.statusTimer);
+      if (state.timerId) window.clearTimeout(state.timerId);
+      state.nip = null;
       trigger.remove();
       customContent.replaceChildren();
+      controller.close(true);
+      if (afterUrl) window.location.assign(afterUrl);
     }
 
     controller.open({
@@ -216,17 +233,20 @@
       initialFocus: "secondary",
       returnFocus: returnFocus,
       onSecondary: function () {
-        copyNip(value).then(function () {
+        if (!state.nip) return;
+        copyNip(state.nip).then(function () {
           showCopyStatus("Copiado", false);
         }).catch(function () {
           showCopyStatus("No se pudo copiar el NIP. Inténtalo nuevamente.", true);
         });
       },
-      onPrimary: function () {
-        cleanup();
-        controller.close(true);
-        if (afterUrl) window.location.assign(afterUrl);
-      }
+      onPrimary: finishDelivery
+    });
+
+    progress.style.setProperty("--nip-modal-duration", visibilitySeconds + "s");
+    state.timerId = window.setTimeout(finishDelivery, visibilitySeconds * 1000);
+    window.requestAnimationFrame(function () {
+      if (!state.finished) progress.classList.add("is-running");
     });
   }
 

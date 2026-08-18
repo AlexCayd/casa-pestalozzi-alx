@@ -156,7 +156,24 @@ coloca en query string, cookies, localStorage, sessionStorage, analytics,
 logs ni listado posterior. Copiar conserva el modal abierto y muestra feedback
 temporal.
 
-## 22. Invariantes
+## 22. Ventana temporal de entrega del NIP
+
+Después del commit, la pantalla de alta o edición muestra el NIP en un modal
+no cancelable. La credencial se visualiza en texto plano únicamente durante la
+ventana configurada para la entrega; esta ventana no expira ni modifica la
+credencial persistida.
+
+La única fuente de verdad es
+`Services\\UsuarioConfig::NIP_MODAL_VISIBILIDAD_SEGUNDOS`. El valor vigente es
+10 segundos. La vista lo expone en `data-nip-visibility-seconds` y el frontend
+lo usa para cerrar el modal y animar una barra de progreso discreta.
+
+“Copiar NIP” copia exactamente los cuatro dígitos, conserva el modal abierto y
+no reinicia la ventana. “Aceptar” y el cierre automático limpian el NIP del
+DOM y del estado JavaScript y continúan al mismo destino: el listado después
+del alta o cambio de rol, y la edición después de una regeneración.
+
+## 23. Invariantes
 
 ```text
 admin
@@ -192,11 +209,12 @@ NIP_LOOKUP_SECRET
 → estable dentro de una instalación
 ```
 
-## 23. Archivos relacionados
+## 24. Archivos relacionados
 
 - `controllers/AdminUsersController.php`: rutas y PRG/flash.
 - `services/UsuarioService.php`: transacciones, roles y mutaciones.
 - `services/NipService.php`: generación, hash, HMAC y colisiones.
+- `services/UsuarioConfig.php`: configuración de la ventana temporal de entrega.
 - `models/Usuario.php`: validación y login.
 - `views/admin/users/`: listado y formularios.
 - `src/js/admin/users/users-form.js`: estados de rol, confirmación y entrega.

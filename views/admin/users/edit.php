@@ -57,6 +57,7 @@
         hidden
         data-user-nip-delivery
         data-nip="<?php echo htmlspecialchars((string) $nipFlash['nip'], ENT_QUOTES, 'UTF-8'); ?>"
+        data-nip-visibility-seconds="<?php echo (int) \Services\UsuarioConfig::NIP_MODAL_VISIBILIDAD_SEGUNDOS; ?>"
         data-after-url="<?php echo htmlspecialchars((string) ($nipFlash['after_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
         data-flow="<?php echo htmlspecialchars((string) ($nipFlash['flujo'] ?? 'regeneracion'), ENT_QUOTES, 'UTF-8'); ?>"
     ></div>
