@@ -82,7 +82,6 @@
             hourRoot: root.querySelector('[data-operation-time-group] [data-reservation-time-picker]'),
             hour: root.querySelector('[data-operation-hour]'),
             reservationSearch: root.querySelector('[data-operation-reservation-search]'),
-            load: root.querySelector('[data-operation-load]'),
             create: root.querySelector('[data-operation-create]'),
             title: root.querySelector('[data-operation-title]'),
             description: root.querySelector('[data-operation-description]'),
@@ -375,11 +374,11 @@
                 server: 'Error interno del servidor'
             };
             var messages = {
-                connection: 'No se pudo actualizar la información. Revisa tu conexión antes de volver a usar Actualizar mapa.',
-                timeout: 'La solicitud excedió el tiempo de espera. Espera un momento antes de volver a usar Actualizar mapa.',
+                connection: 'No se pudo actualizar la información. Revisa tu conexión antes de volver a consultar.',
+                timeout: 'La solicitud excedió el tiempo de espera. Espera un momento y vuelve a consultar.',
                 invalid_json: 'No fue posible interpretar la respuesta del servidor.',
                 consistency: 'El servidor respondio con datos de otra fecha. La respuesta fue descartada.',
-                server: 'El servidor no pudo completar la consulta. Vuelve a usar Actualizar mapa cuando el servicio esté disponible.'
+                server: 'El servidor no pudo completar la consulta. Vuelve a consultar cuando el servicio esté disponible.'
             };
             var title = error.titulo || titles[kind] || 'No fue posible actualizar la operacion';
             var message = error.consecuencia || messages[kind] || 'Ocurrio un error inesperado al consultar el servidor.';
@@ -394,7 +393,7 @@
                 type: 'error',
                 title: title,
                 summary: summary,
-                message: message + ' Puedes cerrar este aviso y volver a usar Actualizar mapa cuando la conexión esté disponible.'
+                message: message + ' Puedes cerrar este aviso y volver a consultar cuando la conexión esté disponible.'
             });
         }
 
@@ -834,15 +833,6 @@
 
         function setLoading(isLoading) {
             state.cargando = isLoading;
-            if (els.load) {
-                els.load.disabled = isLoading;
-                els.load.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-                els.load.setAttribute('title', isLoading ? 'Actualizando mapa' : 'Actualizar mapa');
-                var loadLabel = els.load.querySelector('[data-operation-load-label]');
-                if (loadLabel) {
-                    loadLabel.textContent = isLoading ? 'Actualizando mapa…' : 'Actualizar mapa';
-                }
-            }
             if (timePicker) {
                 timePicker.setDisabled(isLoading || sortedHours().length === 0);
             } else if (els.hour) {
@@ -1577,7 +1567,8 @@
             if (reservacion.ticket_abierto && reservacion.ticket_id) {
                 otherActions += '<a class="admin-btn admin-btn--secondary" href="/punto-de-venta">Ver ticket</a>';
             }
-            var moreActions = detailLink +
+            var moreActions = (recommended.html || '') +
+                detailLink +
                 (assignable && canClearAssignment(reservacion) ? '<button class="admin-btn admin-btn--secondary" type="button" data-operation-clear>Liberar mesas</button>' : '') +
                 (canCancelReservation ? renderActionButton('cancel', 'Cancelar reservación', 'admin-btn admin-btn--danger', false) : '') +
                 otherActions;
@@ -1603,9 +1594,6 @@
                             '</div>' +
                         '</div>'
                         : '') +
-                    (recommended.html
-                        ? '<section class="reservation-operation-panel__section reservation-operation-panel__section--actions reservation-operation__quick-actions"><div class="reservation-operation-action-group reservation-operation-action-group--recommended"><h4>Siguiente acción</h4>' + recommended.html + '</div></section>'
-                        : '') +
                     '<section class="reservation-operation-panel__section reservation-operation-panel__section--assignment reservation-operation__assignment">' +
                         '<h4>Mesas</h4>' +
                         '<p class="reservation-operation-panel__selected"><strong>' + esc(mesasActuales) + '</strong></p>' +
@@ -1621,7 +1609,7 @@
                             commentHtml +
                         '</section>' : '') +
                     (moreActions ?
-                        '<section class="reservation-operation-panel__section reservation-operation-panel__section--more-actions"><h4>Más acciones</h4><div class="reservation-operation-actions">' +
+                        '<section class="reservation-operation-panel__section reservation-operation-panel__section--more-actions reservation-operation__actions"><h4>Acciones</h4><div class="reservation-operation-actions">' +
                             moreActions +
                         '</div></section>' : '') +
                 '</article>';
@@ -1639,8 +1627,8 @@
                     return '';
                 }
                 return '<div class="reservation-operation-comment-summary">' +
-                    '<p class="reservation-operation-panel__note ' + (comment ? '' : 'is-empty') + '">' + esc(comment || 'Sin notas internas') + '</p>' +
-                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar nota') + '</button>' : '') +
+                    '<p class="reservation-operation-panel__note ' + (comment ? '' : 'is-empty') + '">' + esc(comment || 'Sin notas') + '</p>' +
+                    (editable ? '<button type="button" class="admin-btn admin-btn--secondary" data-operation-comment-edit>' + (comment ? 'Editar' : 'Agregar') + '</button>' : '') +
                 '</div>';
             }
             return '<div class="reservation-operation-comment">' +
@@ -2913,15 +2901,6 @@
             els.filters.addEventListener('submit', function (event) {
                 event.preventDefault();
                 requestSelectedDate();
-            });
-        }
-
-        if (els.load) {
-            els.load.addEventListener('click', function (event) {
-                event.preventDefault();
-                if (!state.cargando) {
-                    refreshDay({ preserveReservationId: state.reservacionSeleccionadaId });
-                }
             });
         }
 

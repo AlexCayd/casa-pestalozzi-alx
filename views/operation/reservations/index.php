@@ -118,19 +118,6 @@ if ($initialOperationNotice !== null) {
     ob_start();
     ?>
         <div class="reservation-operation__toolbar-left" data-operation-toolbar-left>
-            <?php
-            $operationalMapToggleLabel = 'mapa';
-            $operationalMapToggleIconOnly = true;
-            include __DIR__ . '/../partials/map-toggle.php';
-            unset($operationalMapToggleLabel, $operationalMapToggleIconOnly);
-            ?>
-            <button type="button" class="admin-btn admin-btn--secondary operational-toolbar-icon" data-operation-load aria-label="Actualizar mapa" title="Actualizar mapa">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M20 11a8 8 0 1 0 1 4"></path>
-                    <path d="M20 4v7h-7"></path>
-                </svg>
-                <span class="operational-visually-hidden" data-operation-load-label>Actualizar mapa</span>
-            </button>
             <button
                 type="button"
                 class="admin-btn admin-btn--secondary operational-tables-trigger"

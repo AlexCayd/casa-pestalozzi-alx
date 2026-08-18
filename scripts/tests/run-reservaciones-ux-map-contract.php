@@ -31,12 +31,13 @@ $mapToggle = readReservationMapUxSource($root, 'views/operation/partials/map-tog
 $operationShell = readReservationMapUxSource($root, 'src/js/operation/shell.js');
 
 assertReservationMapUx(
-    str_contains($view, "map-toggle.php")
-        && str_contains($view, 'data-operation-load')
-        && str_contains($operation, 'data-operation-load')
+    !str_contains($view, "map-toggle.php")
+        && !str_contains($view, 'data-operation-load')
+        && !str_contains($operation, 'data-operation-load')
+        && str_contains($view, 'data-operation-tables-open')
         && str_contains($view, 'reservation-operation__toolbar-left')
         && str_contains($view, 'reservation-operation__toolbar-center'),
-    'reservaciones integra utilidades secundarias y separa los tres bloques del toolbar'
+    'reservaciones conserva Mesas y separa los tres bloques finales del toolbar'
 );
 assertReservationMapUx(
     str_contains($view, 'data-operation-capacity-real')
@@ -82,8 +83,9 @@ assertReservationMapUx(
     str_contains($operation, "'Registrar ausencia', 'admin-btn admin-btn--danger'")
         && str_contains($operation, 'data-operation-clear>Liberar mesas')
         && str_contains($operation, 'data-operation-comment-edit>')
-        && str_contains($operation, 'Sin notas internas')
-        && str_contains($detail, 'background: var(--admin-danger-bg);'),
+        && str_contains($operation, 'Sin notas')
+        && str_contains($operation, "<h4>Acciones</h4>")
+        && str_contains($detail, 'background: transparent;'),
     'notas y acciones secundarias/destructivas conservan una affordance visible'
 );
 assertReservationMapUx(
@@ -100,7 +102,9 @@ assertReservationMapUx(
 );
 assertReservationMapUx(
     str_contains($toolbar, 'grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);')
-        && str_contains($toolbar, 'reservation-operation__toolbar-left'),
+        && str_contains($toolbar, 'reservation-operation__toolbar-left')
+        && str_contains($toolbar, 'grid-area: left;')
+        && str_contains($toolbar, 'grid-area: center;'),
     'la estructura responsive del toolbar conserva un centro independiente de los extremos'
 );
 assertReservationMapUx(

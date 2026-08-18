@@ -517,7 +517,7 @@
 
 @media (max-width: 640px) {
   .operational-page {
-    --operational-context-height: 264px;
+    --operational-context-height: 168px;
   }
 
   .operational-context-bar,
@@ -593,7 +593,7 @@
 
 @media (max-width: 480px) {
   .operational-page {
-    --operational-context-height: 318px;
+    --operational-context-height: 212px;
   }
 
   .reservation-operation__filters {
@@ -623,6 +623,7 @@
   display: flex;
   min-height: 44px;
   align-items: center;
+  grid-area: left;
   justify-self: start;
   gap: 8px;
   flex-wrap: nowrap;
@@ -633,6 +634,7 @@
   min-height: 44px;
   align-items: center;
   justify-content: center;
+  grid-area: center;
   justify-self: center;
 }
 
@@ -644,6 +646,8 @@
   grid-area: actions;
   grid-column: auto;
   justify-self: end;
+  padding-left: 0;
+  border-left: 0;
 }
 
 .operational-context-bar--reservations .operational-context-bar__actions,
