@@ -9,7 +9,6 @@ namespace Controllers;
 use MVC\Router;
 use Services\Analiticas;
 use Services\AreasMejora;
-use Services\HorarioOperacionImpactoService;
 use Services\RangoPeriodo;
 
 class AdminController
@@ -693,19 +692,6 @@ class AdminController
         $modules = self::MODULES;
         $styles = [];
         $scripts = [];
-        $pendingScheduleImpactReservations = 0;
-        $pendingScheduleImpactId = null;
-
-        try {
-            $resumenImpactos = HorarioOperacionImpactoService::resumenPendientes();
-            $pendingScheduleImpactReservations = (int)($resumenImpactos['cantidad'] ?? 0);
-            $pendingScheduleImpactId = $resumenImpactos['primer_impacto_id'] ?? null;
-        } catch (\Throwable $e) {
-            // La alerta no debe impedir que el panel cargue durante una
-            // instalación previa a la migración de seguimiento.
-            error_log('AdminController::render seguimiento horario - ' . $e->getMessage());
-        }
-
         foreach ($data as $key => $value) {
             $$key = $value;
         }

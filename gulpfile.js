@@ -39,6 +39,7 @@ const paths = {
     "src/js/admin/core/select.js",
     "src/js/admin/core/table-sort.js",
     "src/js/admin/core/table-rows.js",
+    "src/js/admin/buzon.js",
     // El selector de periodo lo comparten analíticas, finanzas e inventario, así
     // que vive aquí y no en el bundle de analíticas.
     "src/js/admin/core/range-picker.js",
@@ -95,7 +96,6 @@ const paths = {
     "src/js/components/reservation-date-picker.js",
     "src/js/components/reservation-time-picker.js",
     "src/js/admin/configuration/configuration.js",
-    "src/js/admin/configuration/impacto-horario.js",
   ],
   imagenes: "src/img/**/*",
   adminFinanzasJs: "src/js/admin/finanzas/finanzas.js",

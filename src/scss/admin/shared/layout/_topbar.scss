@@ -28,44 +28,6 @@
   min-width: 0;
 }
 
-.admin-schedule-impact-alert {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 40;
-  display: flex;
-  width: min(380px, calc(100vw - 48px));
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold) 46%, var(--admin-border-soft));
-  background: var(--admin-surface);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, .25);
-  color: var(--admin-text);
-}
-
-.admin-schedule-impact-alert__copy {
-  display: grid;
-  gap: 3px;
-  font-size: .78rem;
-  line-height: 1.4;
-}
-
-.admin-schedule-impact-alert__copy strong { font-size: .86rem; }
-.admin-schedule-impact-alert__copy span { color: var(--admin-muted); }
-.admin-schedule-impact-alert__action {
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 9px 13px;
-  background: var(--admin-gold);
-  color: #1d1712;
-  font-size: .78rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-.admin-schedule-impact-alert__action:focus-visible { outline: 2px solid var(--admin-text); outline-offset: 2px; }
-
 .admin-topbar__actions {
   display: inline-flex;
   align-items: center;
@@ -203,7 +165,6 @@
     gap: 8px;
   }
 
-  .admin-schedule-impact-alert { right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); }
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
@@ -233,5 +194,4 @@
     }
   }
 
-  .admin-schedule-impact-alert { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
 }

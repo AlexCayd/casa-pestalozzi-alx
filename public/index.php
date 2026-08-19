@@ -10,6 +10,7 @@ use MVC\Router;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
+use Controllers\AdminBuzonController;
 use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
@@ -55,6 +56,7 @@ $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::c
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
 $router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
+$router->get('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
 
 // Admin
@@ -78,6 +80,9 @@ $router->post('/admin/api/horarios-impactos/preparar-disponibles', [AdminHorario
 $router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoController::class, 'addContact']);
 $router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
 $router->post('/admin/api/horarios-impactos/acceso-prueba', [AdminHorarioImpactoController::class, 'testLink']);
+$router->get('/admin/api/buzon/resumen', [AdminBuzonController::class, 'resumen']);
+$router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
+$router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);

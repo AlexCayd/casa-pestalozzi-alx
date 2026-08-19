@@ -76,7 +76,8 @@ final class AdminHorarioImpactoController
         self::json(HorarioOperacionImpactoService::atenderManual(
             (int)($datos['impacto_id'] ?? 0),
             (int)($datos['impacto_reservacion_id'] ?? 0),
-            self::usuarioId()
+            self::usuarioId(),
+            trim((string)($datos['cierre_motivo'] ?? 'mantener_reservacion'))
         ));
     }
 

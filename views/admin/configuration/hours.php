@@ -7,7 +7,6 @@ $abrirModalExcepcion = !empty($abrirModalExcepcion);
 $horarioSemanalConErrores = !empty($horarioSemanalConErrores);
 $conflictosHorarios = is_array($conflictosHorarios ?? null) ? $conflictosHorarios : [];
 $conflictosExcepcion = is_array($conflictosExcepcion ?? null) ? $conflictosExcepcion : [];
-$impactoSeguimiento = is_array($impactoSeguimiento ?? null) ? $impactoSeguimiento : null;
 $adminCsrfToken = (string)($adminCsrfToken ?? '');
 $fechaActual = (string) ($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -35,7 +34,6 @@ $horasDelDia = range(0, 23);
     class="admin-configuration admin-menu admin-page"
     data-configuration-page="hours"
     <?php echo $abrirModalExcepcion ? 'data-open-exception-modal' : ''; ?>
-    <?php echo $impactoSeguimiento ? 'data-schedule-impact data-impact-id="' . (int)($impactoSeguimiento['id'] ?? 0) . '" data-admin-csrf="' . $h($adminCsrfToken) . '"' : ''; ?>
 >
     <header class="admin-page__header">
         <div class="admin-page__intro">
@@ -225,73 +223,6 @@ $horasDelDia = range(0, 23);
         <?php endif; ?>
     </section>
 </section>
-
-<?php if ($impactoSeguimiento) : ?>
-    <div class="admin-modal schedule-impact-modal" id="schedule-impact-modal" data-admin-modal data-schedule-impact-modal data-impact-required hidden>
-        <div class="admin-modal__backdrop schedule-impact-modal__backdrop" aria-hidden="true"></div>
-        <div class="admin-modal__dialog admin-modal__dialog--workflow schedule-impact-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-impact-title" aria-describedby="schedule-impact-description" tabindex="-1" data-admin-modal-dialog>
-            <header class="schedule-impact-modal__header">
-                <div>
-                    <span class="admin-modal__eyebrow">Atención requerida</span>
-                    <h2 class="admin-modal__title" id="schedule-impact-title">Reservaciones afectadas</h2>
-                </div>
-                <span class="schedule-impact-modal__count" data-impact-pending-count aria-live="polite"></span>
-            </header>
-            <div class="schedule-impact-modal__body">
-                <p class="admin-modal__text" id="schedule-impact-description">
-                    Este cambio no cancela reservaciones. Prepara los avisos disponibles y después atiende los casos sin contacto.
-                </p>
-                <div class="schedule-impact-modal__toolbar">
-                    <button type="button" class="admin-btn admin-btn--primary" data-impact-notify-all>Preparar avisos disponibles</button>
-                    <span class="admin-form-status" data-impact-status role="status" aria-live="polite"></span>
-                </div>
-                <div class="schedule-impact-modal__notice" data-impact-test-link-notice hidden>
-                    <strong>Enlace de prueba listo.</strong>
-                    <span data-impact-test-link-label>El enlace sólo vive en esta pantalla.</span>
-                    <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-impact-copy-link>Copiar link de prueba</button>
-                </div>
-                <div class="schedule-impact-modal__list" data-impact-list aria-live="polite"></div>
-                <section class="schedule-impact-modal__contact" data-impact-contact-view hidden aria-labelledby="schedule-impact-contact-title">
-                    <div class="schedule-impact-modal__contact-head">
-                        <div>
-                            <span class="admin-modal__eyebrow">Contacto interno</span>
-                            <h3 class="admin-modal__subtitle" id="schedule-impact-contact-title">Agregar contacto</h3>
-                        </div>
-                        <button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-impact-contact-cancel>Volver al seguimiento</button>
-                    </div>
-                    <p class="admin-modal__text">El dato se agregará sólo a la reservación seleccionada para preparar su aviso.</p>
-                    <form class="admin-modal__form" data-impact-contact-form novalidate>
-                        <input type="hidden" name="impacto_id" data-impact-contact-impact-id>
-                        <input type="hidden" name="impacto_reservacion_id" data-impact-contact-reservation-id>
-                        <label class="admin-field">
-                            <span class="admin-field__label">Tipo de contacto</span>
-                            <select name="tipo" data-impact-contact-type required>
-                                <option value="email">Correo electrónico</option>
-                                <option value="telefono">Teléfono</option>
-                            </select>
-                        </label>
-                        <label class="admin-field">
-                            <span class="admin-field__label">Correo o teléfono</span>
-                            <input type="text" name="contacto" data-impact-contact-value required autocomplete="off">
-                        </label>
-                        <p class="admin-form-status" data-impact-contact-status role="status" aria-live="polite"></p>
-                        <div class="admin-modal__actions">
-                            <button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button>
-                        </div>
-                    </form>
-                </section>
-                <div class="schedule-impact-modal__complete" data-impact-complete hidden>
-                    <strong>Todas las reservaciones de este cambio están atendidas.</strong>
-                    <span>El seguimiento quedó resuelto y puedes continuar con la configuración.</span>
-                </div>
-            </div>
-            <footer class="schedule-impact-modal__footer">
-                <span class="admin-form-status" data-impact-footer-status role="status" aria-live="polite"></span>
-                <a class="admin-btn admin-btn--primary" href="/admin/configuracion/horarios" data-impact-finish hidden>Finalizar seguimiento</a>
-            </footer>
-        </div>
-    </div>
-<?php endif; ?>
 
 <div class="admin-modal" id="schedule-exception-modal" data-admin-modal hidden>
     <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>

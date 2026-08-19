@@ -20,6 +20,8 @@ use Services\HorarioReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionService;
+use Services\ReservacionBuzonService;
+use Services\HorarioOperacionImpactoService;
 
 class AdminReservacionController
 {
@@ -147,6 +149,7 @@ class AdminReservacionController
 
         if ($resultado['ok'] ?? false) {
             $id = (int)($resultado['id'] ?? 0);
+            self::sincronizarBuzonReservacion($id);
             if ($expectsJson) {
                 $decisiones = ReservacionErrorCatalog::decisionesResultado($resultado);
                 $mesaIds = array_values(array_map('intval', (array)($resultado['mesa_ids'] ?? [])));
@@ -344,6 +347,8 @@ class AdminReservacionController
         );
 
         if ($resultado['ok'] ?? false) {
+            $reservacionIdActualizada = self::reservacionIdDesdePost();
+            self::sincronizarBuzonReservacion($reservacionIdActualizada);
             if ($expectsJson) {
                 $returnTo = (string)($_POST['return_to'] ?? '');
                 if (!str_starts_with($returnTo, '/admin/reservaciones')) {
@@ -459,6 +464,8 @@ class AdminReservacionController
             trim((string)($_POST['motivo'] ?? ''))
         );
         if ($resultado['ok'] ?? false) {
+            $reservacionId = self::reservacionIdDesdePost();
+            self::sincronizarBuzonReservacion($reservacionId);
             self::redirectBack(match ($estado) {
                 'confirmada' => 'confirmada',
                 'cancelada' => 'cancelada',
@@ -478,6 +485,7 @@ class AdminReservacionController
             self::redirectBack('csrf_invalido');
         }
         $resultado = AsignacionMesasService::asignarAutomaticamente(self::reservacionIdDesdePost());
+        self::sincronizarBuzonReservacion(self::reservacionIdDesdePost());
         self::redirectBack(self::resultadoAsignacion($resultado['codigo'] ?? AsignacionMesasService::ERROR_INTERNO, true));
     }
 
@@ -512,6 +520,27 @@ class AdminReservacionController
             'backUrl' => '/admin/reservaciones',
             'scripts' => [self::RESERVATION_FORM_JS],
         ]);
+    }
+
+    private static function sincronizarBuzonReservacion(int $reservacionId): void
+    {
+        if ($reservacionId < 1) {
+            return;
+        }
+        try {
+            ReservacionBuzonService::sincronizarGrupoGrande(
+                $reservacionId,
+                (int)($_SESSION['id'] ?? 0) ?: null
+            );
+            HorarioOperacionImpactoService::reconciliarReservacion(
+                $reservacionId,
+                (int)($_SESSION['id'] ?? 0) ?: null
+            );
+        } catch (\Throwable $e) {
+            // El buzón recuerda el caso, pero no puede impedir guardar una
+            // reservación o una transición canónica ya confirmada.
+            error_log('AdminReservacionController::sincronizarBuzonReservacion - ' . $e->getMessage());
+        }
     }
 
     private static function reservacionDesdePost(array $post, $base = null)

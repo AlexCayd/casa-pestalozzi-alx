@@ -1,0 +1,116 @@
+@use "../abstracts/variables" as vars;
+@use "../abstracts/mixins" as mixins;
+
+.admin-inbox {
+  position: relative;
+  z-index: 140;
+  pointer-events: none;
+
+  &__trigger {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    display: grid;
+    width: 54px;
+    height: 54px;
+    place-items: center;
+    border: 1px solid var(--admin-gold);
+    border-radius: 50%;
+    background: var(--admin-surface-strong);
+    color: var(--admin-gold);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, .3);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: transform var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+
+    &:hover { transform: translateY(-2px); background: var(--admin-surface); }
+    &:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 4px; }
+    svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+  }
+
+  &__badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: grid;
+    min-width: 21px;
+    height: 21px;
+    padding: 0 5px;
+    place-items: center;
+    border: 2px solid var(--admin-bg);
+    border-radius: 999px;
+    background: var(--admin-danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 8, 9, .45);
+    opacity: 0;
+    pointer-events: auto;
+    transition: opacity var(--admin-t-base) var(--admin-ease-out);
+    &[hidden] { display: none; }
+    &.is-open { opacity: 1; }
+  }
+
+  &__drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    display: grid;
+    width: min(460px, 100vw);
+    height: 100dvh;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    border-left: 1px solid var(--admin-border);
+    background: var(--admin-bg);
+    box-shadow: -20px 0 52px rgba(0, 0, 0, .22);
+    pointer-events: auto;
+    transform: translateX(102%);
+    transition: transform var(--admin-t-base) var(--admin-ease);
+    &[hidden] { display: none; }
+    &.is-open { transform: translateX(0); }
+  }
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--admin-border-soft);
+    background: var(--admin-surface);
+    h2 { margin: 4px 0 0; color: var(--admin-text); font-family: var(--admin-font-heading); font-size: 1.55rem; font-weight: 500; }
+    p:last-child { margin-top: 6px; color: var(--admin-muted); font-size: .78rem; }
+  }
+
+  &__eyebrow { color: var(--admin-gold); font-size: .65rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+  &__close { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; border: 1px solid var(--admin-border); border-radius: 50%; background: var(--admin-surface-strong); color: var(--admin-muted); cursor: pointer; &:hover { color: var(--admin-text); } &:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 2px; } svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; } }
+
+  &__filters { display: flex; gap: 8px; padding: 14px 24px; border-bottom: 1px solid var(--admin-border-soft); background: var(--admin-bg); button { min-height: 34px; padding: 7px 12px; border: 1px solid var(--admin-border); border-radius: 999px; color: var(--admin-muted); font-size: .72rem; font-weight: 700; cursor: pointer; &:hover, &.is-active { border-color: var(--admin-gold); color: var(--admin-text); background: color-mix(in srgb, var(--admin-gold) 10%, transparent); } &:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 2px; } } }
+  &__body { min-height: 0; overflow-y: auto; padding: 18px 20px 30px; overscroll-behavior: contain; scrollbar-color: var(--admin-border) transparent; }
+  &__loading, &__empty { display: grid; gap: 7px; padding: 30px 10px; color: var(--admin-muted); font-size: .82rem; line-height: 1.5; text-align: center; strong { color: var(--admin-text); font-size: .95rem; } &.is-error strong { color: var(--admin-danger-text); } }
+  &__card { display: grid; gap: 12px; margin-bottom: 12px; padding: 16px; border: 1px solid var(--admin-border-soft); background: var(--admin-surface); &:last-child { margin-bottom: 0; } }
+  &__card-head { display: flex; align-items: flex-start; gap: 10px; h3 { min-width: 0; margin: 2px 0 0; overflow: hidden; color: var(--admin-text); font-size: .98rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; } }
+  &__priority { display: inline-flex; min-height: 22px; align-items: center; padding: 3px 7px; border: 1px solid var(--admin-border); color: var(--admin-muted); font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; &.is-high { border-color: var(--admin-warning-border); color: var(--admin-warning-text); background: var(--admin-warning-bg); } }
+  &__meta { color: var(--admin-muted); font-size: .76rem; }
+  &__reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+  &__reason { padding: 5px 7px; border: 1px solid var(--admin-border-soft); color: var(--admin-text); font-size: .7rem; line-height: 1.2; }
+  &__actions { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 2px; }
+  &__context { display: grid; gap: 10px; padding: 16px 20px 22px; border-top: 1px solid var(--admin-border); background: var(--admin-surface); h3 { color: var(--admin-text); font-family: var(--admin-font-heading); font-size: 1.1rem; font-weight: 500; } > p { color: var(--admin-muted); font-size: .76rem; line-height: 1.45; } &[hidden] { display: none; } }
+  &__contact-form { display: grid; gap: 10px; label { display: grid; gap: 5px; color: var(--admin-muted); font-size: .68rem; font-weight: 700; } input, select { min-height: 40px; padding: 8px 10px; border: 1px solid var(--admin-border); background: var(--admin-bg); color: var(--admin-text); font: inherit; font-size: .78rem; } input:focus-visible, select:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 2px; } > div { display: flex; justify-content: flex-end; gap: 8px; } }
+  &__context-status { min-height: 18px; color: var(--admin-warning-text); font-size: .72rem; }
+}
+
+body.admin-inbox-open { overflow: hidden; }
+
+@include mixins.down(vars.$breakpoint-mobile) {
+  .admin-inbox__trigger { right: 12px; bottom: 12px; }
+  .admin-inbox__header { padding: 22px 16px 18px; }
+  .admin-inbox__filters, .admin-inbox__body { padding-left: 16px; padding-right: 16px; }
+  .admin-inbox__actions .admin-btn { flex: 1 1 auto; }
+  .admin-inbox__context { padding-left: 16px; padding-right: 16px; }
+}

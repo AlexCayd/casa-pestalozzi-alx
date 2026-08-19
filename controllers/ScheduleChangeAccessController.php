@@ -30,12 +30,12 @@ final class ScheduleChangeAccessController
 
     public static function disponibilidad(Router $router): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'], true)) {
             self::json(['ok' => false, 'codigo' => 'METODO_NO_PERMITIDO'], 405);
             return;
         }
         $datos = self::entrada();
-        $contexto = self::contextoAutorizado($datos);
+        $contexto = self::contextoAutorizado($datos, $_SERVER['REQUEST_METHOD'] !== 'GET');
         if (!$contexto) {
             return;
         }
@@ -75,9 +75,9 @@ final class ScheduleChangeAccessController
         self::json($resultado);
     }
 
-    private static function contextoAutorizado(array $datos): ?array
+    private static function contextoAutorizado(array $datos, bool $requiereCsrf = true): ?array
     {
-        if (!ScheduleChangeAccessSession::validarCsrf((string)($datos['csrf_token'] ?? ''))) {
+        if ($requiereCsrf && !ScheduleChangeAccessSession::validarCsrf((string)($datos['csrf_token'] ?? ''))) {
             self::json(['ok' => false, 'codigo' => 'CSRF_INVALIDO'], 403);
             return null;
         }
@@ -97,7 +97,10 @@ final class ScheduleChangeAccessController
     private static function entrada(): array
     {
         $json = json_decode((string)file_get_contents('php://input'), true);
-        return is_array($json) ? $json : $_POST;
+        if (is_array($json)) {
+            return $json;
+        }
+        return $_SERVER['REQUEST_METHOD'] === 'GET' ? $_GET : $_POST;
     }
 
     private static function json(array $resultado, int $status = 200): void

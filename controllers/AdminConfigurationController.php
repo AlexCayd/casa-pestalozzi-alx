@@ -7,7 +7,6 @@ use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
 use Services\AdminCsrfService;
-use Services\HorarioOperacionImpactoService;
 use Services\HorarioOperacionService;
 use Services\ReservacionErrorCatalog;
 use Services\ReporteSistemaService;
@@ -58,25 +57,10 @@ class AdminConfigurationController
 
     public static function hours(Router $router): void
     {
-        $impacto = null;
-        try {
-            $solicitado = filter_var($_GET['impacto_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            $impactoId = $solicitado ? (int)$solicitado : HorarioOperacionImpactoService::primerPendienteId();
-            if (!$impactoId || !HorarioOperacionImpactoService::esPendiente((int)$impactoId)) {
-                $impacto = null;
-            } else {
-                // La vista sólo necesita el identificador para que el cliente
-                // cargue el seguimiento una sola vez por API.
-                $impacto = ['id' => (int)$impactoId];
-            }
-        } catch (\Throwable $e) {
-            error_log('AdminConfigurationController::hours seguimiento - ' . $e->getMessage());
-        }
         self::renderHours([
             'horarios' => HorarioOperacionService::obtenerHorarioSemanal(),
             'excepciones' => HorarioOperacionService::listarExcepciones(),
             'alertas' => self::alertasResultado((string) ($_GET['resultado'] ?? '')),
-            'impactoSeguimiento' => $impacto,
         ]);
     }
 
@@ -457,7 +441,6 @@ class AdminConfigurationController
             'horarioSemanalConErrores' => false,
             'conflictosHorarios' => [],
             'conflictosExcepcion' => [],
-            'impactoSeguimiento' => null,
             'adminCsrfToken' => AdminCsrfService::token(),
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
@@ -465,12 +448,7 @@ class AdminConfigurationController
 
     private static function urlResultadoHorario(string $resultado, array $respuesta): string
     {
-        $query = ['resultado' => $resultado];
-        if (!empty($respuesta['impacto_id'])) {
-            $query['impacto_id'] = (int)$respuesta['impacto_id'];
-        }
-
-        return self::HOURS_PATH . '?' . http_build_query($query);
+        return self::HOURS_PATH . '?' . http_build_query(['resultado' => $resultado]);
     }
 
     private static function alertasResultado(string $resultado): array

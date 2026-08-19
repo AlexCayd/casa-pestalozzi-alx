@@ -72,7 +72,7 @@
         </div>
     </div>
 
-    <?php include_once __DIR__ . '/partials/_schedule-impact-alert.php'; ?>
+    <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
     <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>

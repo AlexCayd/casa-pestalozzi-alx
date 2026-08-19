@@ -10,8 +10,8 @@ use Model\Reservacion;
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.
  *
  * La notificación futura se representa en la propia fila afectada: preparar
- * un aviso genera un hash de acceso y una fecha durable, sin crear una outbox
- * paralela mientras n8n todavía no consume este contrato.
+ * un aviso genera un hash de acceso y una fecha durable. La presentación
+ * persistente vive en el buzón genérico y no en una outbox del módulo.
  */
 final class HorarioOperacionImpactoService
 {
@@ -195,6 +195,7 @@ final class HorarioOperacionImpactoService
             throw new \RuntimeException($mensaje);
         }
         $stmt->close();
+        self::clasificarSeguimientosEnTransaccion($db, $impactoId, $usuarioId);
         self::actualizarEstadoImpacto($db, $impactoId);
 
         return $impactoId;
@@ -362,7 +363,10 @@ final class HorarioOperacionImpactoService
                     'idempotente' => true,
                 ];
             }
-            if (!self::filaTieneContacto($fila) || (string)$fila['estado'] !== self::ESTADO_ITEM_PENDIENTE) {
+            if (!self::filaTieneContacto($fila)
+                || (string)$fila['estado'] !== self::ESTADO_ITEM_PENDIENTE
+                || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
 
@@ -385,6 +389,12 @@ final class HorarioOperacionImpactoService
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
             $stmt->close();
+            ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
+                $db,
+                $id,
+                BuzonNotificacionesService::PRIORIDAD_NORMAL,
+                $expira
+            );
             self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
 
             $respuesta = [
@@ -459,13 +469,10 @@ final class HorarioOperacionImpactoService
             return ['ok' => false, 'codigo' => 'CONTACTO_INVALIDO'];
         }
 
-        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $tipo, $normalizado): array {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $tipo, $normalizado, $adminId): array {
             $fila = self::bloquearFilaImpacto($db, $impactoId, $impactoReservacionId);
             if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_SIN_CONTACTO) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
-            }
-            if (!self::faseManualDisponible($impactoId)) {
-                return ['ok' => false, 'codigo' => 'NOTIFICACIONES_PENDIENTES'];
             }
             $stmt = $db->prepare(
                 "UPDATE reservaciones
@@ -488,32 +495,54 @@ final class HorarioOperacionImpactoService
             $stmt->bind_param('i', $impactoReservacionId);
             $stmt->execute();
             $stmt->close();
+            self::prepararFilaSiEsElegibleEnTransaccion($db, $impactoReservacionId, $adminId);
+            self::actualizarEstadoImpacto($db, $impactoId);
             return ['ok' => true, 'codigo' => 'CONTACTO_AGREGADO'];
         });
     }
 
-    public static function atenderManual(int $impactoId, int $impactoReservacionId, ?int $adminId): array
+    public static function atenderManual(
+        int $impactoId,
+        int $impactoReservacionId,
+        ?int $adminId,
+        string $motivo = 'mantener_reservacion'
+    ): array
     {
-        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $adminId): array {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $adminId, $motivo): array {
             $fila = self::bloquearFilaImpacto($db, $impactoId, $impactoReservacionId);
-            if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_SIN_CONTACTO) {
+            if (!$fila || !in_array((string)$fila['estado'], [
+                self::ESTADO_ITEM_PENDIENTE,
+                self::ESTADO_ITEM_PREPARADO,
+                self::ESTADO_ITEM_SIN_CONTACTO,
+            ], true)) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
-            if (!self::faseManualDisponible($impactoId)) {
-                return ['ok' => false, 'codigo' => 'NOTIFICACIONES_PENDIENTES'];
-            }
+            $motivo = in_array($motivo, ['mantener_reservacion', 'coordinacion_externa'], true)
+                ? $motivo
+                : 'mantener_reservacion';
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'atendida_manual', resolved_by = NULLIF(?, 0),
                      resolved_at = NOW(), access_invalidated_at = NOW()
-                 WHERE id = ? AND estado = 'sin_contacto'"
+                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
             );
             $usuario = $adminId ?? 0;
             $stmt->bind_param('ii', $usuario, $impactoReservacionId);
             $stmt->execute();
             $stmt->close();
+            BuzonNotificacionesService::cerrarEnTransaccion(
+                $db,
+                (int)$fila['impacto_reservacion_id'],
+                $adminId,
+                $motivo
+            );
             self::actualizarEstadoImpacto($db, $impactoId);
-            return ['ok' => true, 'codigo' => 'AFECTACION_ATENDIDA_MANUALMENTE'];
+            return [
+                'ok' => true,
+                'codigo' => $motivo === 'coordinacion_externa'
+                    ? 'AFECTACION_COORDINADA_EXTERNAMENTE'
+                    : 'AFECTACION_ATENDIDA_MANUALMENTE',
+            ];
         });
     }
 
@@ -527,7 +556,9 @@ final class HorarioOperacionImpactoService
             if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_PREPARADO) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
-            if (!self::filaTieneContacto($fila)) {
+            if (!self::filaTieneContacto($fila)
+                || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
             $token = bin2hex(random_bytes(32));
@@ -612,6 +643,12 @@ final class HorarioOperacionImpactoService
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $stmt->close();
+            BuzonNotificacionesService::cerrarEnTransaccion(
+                $db,
+                $id,
+                null,
+                'resuelta_por_cliente'
+            );
             self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
         }
         return $filas !== [];
@@ -650,6 +687,240 @@ final class HorarioOperacionImpactoService
             && self::entre($hora, $horario['hora_apertura'] ?? null, $horario['hora_cierre'] ?? null);
     }
 
+    /**
+     * Clasifica de inmediato las filas nuevas. El único caso que obtiene
+     * acceso automático es 1–12 con contacto; los demás reciben un aviso
+     * visible ahora y quedan para acción administrativa.
+     */
+    private static function clasificarSeguimientosEnTransaccion(\mysqli $db, int $impactoId, ?int $adminId): void
+    {
+        $stmt = $db->prepare(
+            "SELECT ir.id, ir.estado, ir.access_expires_at,
+                    r.comensales, r.contacto_tipo, r.contacto
+             FROM horario_impacto_reservaciones ir
+             JOIN reservaciones r ON r.id = ir.reservacion_id
+             WHERE ir.impacto_id = ?
+             FOR UPDATE"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible clasificar las reservaciones afectadas.');
+        }
+        $stmt->bind_param('i', $impactoId);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        $filas = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $filas[] = $fila;
+        }
+        $stmt->close();
+
+        foreach ($filas as $fila) {
+            $id = (int)$fila['id'];
+            $estado = (string)$fila['estado'];
+            $tieneContacto = self::filaTieneContacto($fila);
+            $comensales = (int)$fila['comensales'];
+            $expira = $fila['access_expires_at'] !== null
+                ? (string)$fila['access_expires_at']
+                : null;
+
+            if ($estado === self::ESTADO_ITEM_PENDIENTE
+                && $tieneContacto
+                && $comensales <= ReservacionConfig::MAX_COMENSALES_PUBLICO
+            ) {
+                $expira = self::prepararFilaEnTransaccion($db, $id);
+            }
+
+            $prioridad = $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                ? BuzonNotificacionesService::PRIORIDAD_ALTA
+                : BuzonNotificacionesService::PRIORIDAD_NORMAL;
+            ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
+                $db,
+                $id,
+                $prioridad,
+                $expira
+            );
+        }
+    }
+
+    private static function prepararFilaSiEsElegibleEnTransaccion(\mysqli $db, int $impactoReservacionId, ?int $adminId): void
+    {
+        $stmt = $db->prepare(
+            "SELECT ir.id, ir.estado, r.comensales, r.contacto_tipo, r.contacto
+             FROM horario_impacto_reservaciones ir
+             JOIN reservaciones r ON r.id = ir.reservacion_id
+             WHERE ir.id = ? LIMIT 1 FOR UPDATE"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible revisar la afectación.');
+        }
+        $stmt->bind_param('i', $impactoReservacionId);
+        $stmt->execute();
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_PENDIENTE) {
+            return;
+        }
+        if (self::filaTieneContacto($fila) && (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            $expira = self::prepararFilaEnTransaccion($db, $impactoReservacionId);
+            ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
+                $db,
+                $impactoReservacionId,
+                BuzonNotificacionesService::PRIORIDAD_NORMAL,
+                $expira
+            );
+        }
+    }
+
+    private static function prepararFilaEnTransaccion(\mysqli $db, int $impactoReservacionId): string
+    {
+        $hash = hash('sha256', bin2hex(random_bytes(32)));
+        $expira = ReservacionConfig::ahora()
+            ->modify('+' . ReservacionConfig::scheduleChangeAccessTtlMinutes() . ' minutes')
+            ->format('Y-m-d H:i:s');
+        $stmt = $db->prepare(
+            "UPDATE horario_impacto_reservaciones
+             SET estado = 'notificacion_preparada', notification_prepared_at = NOW(),
+                 access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
+                 resolved_by = NULL, resolved_at = NULL
+             WHERE id = ? AND estado = 'pendiente_notificacion'"
+        );
+        if (!$stmt) {
+            throw new \RuntimeException('No fue posible preparar el acceso temporal.');
+        }
+        $stmt->bind_param('ssi', $hash, $expira, $impactoReservacionId);
+        if (!$stmt->execute() || $stmt->affected_rows !== 1) {
+            $mensaje = $stmt->error;
+            $stmt->close();
+            throw new \RuntimeException($mensaje !== '' ? $mensaje : 'La afectación ya no está pendiente.');
+        }
+        $stmt->close();
+        return $expira;
+    }
+
+    /** @return array<string, mixed>|null */
+    public static function obtenerPorItem(int $impactoReservacionId): ?array
+    {
+        if ($impactoReservacionId < 1) {
+            return null;
+        }
+        $stmt = ActiveRecord::getDB()->prepare(
+            "SELECT i.id AS impacto_id, ir.id AS impacto_reservacion_id,
+                    ir.reservacion_id, ir.estado, ir.notification_prepared_at,
+                    ir.access_expires_at, ir.access_invalidated_at,
+                    r.nombre, r.fecha, r.hora, r.comensales,
+                    r.contacto_tipo, r.contacto, i.estado AS impacto_estado
+             FROM horario_impacto_reservaciones ir
+             JOIN horario_impactos i ON i.id = ir.impacto_id
+             JOIN reservaciones r ON r.id = ir.reservacion_id
+             WHERE ir.id = ? LIMIT 1"
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('i', $impactoReservacionId);
+        $stmt->execute();
+        $fila = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        if (!$fila) {
+            return null;
+        }
+        $tieneContacto = self::filaTieneContacto($fila);
+        return [
+            'impacto_id' => (int)$fila['impacto_id'],
+            'impacto_reservacion_id' => (int)$fila['impacto_reservacion_id'],
+            'reservacion_id' => (int)$fila['reservacion_id'],
+            'estado' => (string)$fila['estado'],
+            'impacto_estado' => (string)$fila['impacto_estado'],
+            'nombre' => (string)$fila['nombre'],
+            'fecha' => (string)$fila['fecha'],
+            'hora' => substr((string)$fila['hora'], 0, 5),
+            'comensales' => (int)$fila['comensales'],
+            'tiene_contacto' => $tieneContacto,
+            'access_expires_at' => $fila['access_expires_at'],
+            'access_invalidated_at' => $fila['access_invalidated_at'],
+            'test_link_disponible' => self::esEntornoPruebas()
+                && (string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO
+                && $fila['access_invalidated_at'] === null,
+        ];
+    }
+
+    /** Reconciliación idempotente después de una edición/cancelación administrativa. */
+    public static function reconciliarReservacion(int $reservacionId, ?int $adminId = null): int
+    {
+        if ($reservacionId < 1) {
+            return 0;
+        }
+        $db = ActiveRecord::getDB();
+        try {
+            $db->begin_transaction();
+            $stmt = $db->prepare('SELECT id, estado, fecha, hora FROM reservaciones WHERE id = ? LIMIT 1 FOR UPDATE');
+            if (!$stmt) {
+                throw new \RuntimeException('No fue posible bloquear la reservación.');
+            }
+            $stmt->bind_param('i', $reservacionId);
+            $stmt->execute();
+            $reservacion = $stmt->get_result()->fetch_assoc() ?: null;
+            $stmt->close();
+            if (!$reservacion) {
+                $db->commit();
+                return 0;
+            }
+            $resuelta = in_array((string)$reservacion['estado'], ReservacionConfig::ESTADOS_FINALES, true)
+                || HorarioOperacionService::estaAbierto((string)$reservacion['fecha'], (string)$reservacion['hora']);
+            if (!$resuelta) {
+                $db->commit();
+                return 0;
+            }
+
+            $stmt = $db->prepare(
+                "SELECT id, impacto_id
+                 FROM horario_impacto_reservaciones
+                 WHERE reservacion_id = ?
+                   AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
+                 FOR UPDATE"
+            );
+            if (!$stmt) {
+                throw new \RuntimeException('No fue posible bloquear las afectaciones.');
+            }
+            $stmt->bind_param('i', $reservacionId);
+            $stmt->execute();
+            $resultado = $stmt->get_result();
+            $filas = [];
+            while ($fila = $resultado->fetch_assoc()) {
+                $filas[] = $fila;
+            }
+            $stmt->close();
+            foreach ($filas as $fila) {
+                $id = (int)$fila['id'];
+                $stmt = $db->prepare(
+                    "UPDATE horario_impacto_reservaciones
+                     SET estado = 'atendida_manual', resolved_by = NULLIF(?, 0),
+                         resolved_at = NOW(), access_invalidated_at = NOW()
+                     WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
+                );
+                if (!$stmt) {
+                    throw new \RuntimeException('No fue posible reconciliar la afectación.');
+                }
+                $admin = $adminId ?? 0;
+                $stmt->bind_param('ii', $admin, $id);
+                if (!$stmt->execute()) {
+                    $mensaje = $stmt->error;
+                    $stmt->close();
+                    throw new \RuntimeException($mensaje);
+                }
+                $stmt->close();
+                BuzonNotificacionesService::cerrarEnTransaccion($db, $id, $adminId, 'fuente_resuelta');
+                self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
+            }
+            $db->commit();
+            return count($filas);
+        } catch (\Throwable $e) {
+            $db->rollback();
+            error_log('HorarioOperacionImpactoService::reconciliarReservacion - ' . $e->getMessage());
+            return 0;
+        }
+    }
+
     private static function actualizarEstadoImpacto(\mysqli $db, int $impactoId): void
     {
         $stmt = $db->prepare(
@@ -676,7 +947,7 @@ final class HorarioOperacionImpactoService
     {
         $stmt = $db->prepare(
             "SELECT ir.id AS impacto_reservacion_id, ir.impacto_id, ir.reservacion_id,
-                    ir.estado, r.contacto_tipo, r.contacto
+                    ir.estado, r.contacto_tipo, r.contacto, r.comensales
              FROM horario_impacto_reservaciones ir
              JOIN reservaciones r ON r.id = ir.reservacion_id
              WHERE ir.id = ? AND ir.impacto_id = ? LIMIT 1 FOR UPDATE"

@@ -632,14 +632,6 @@
                     );
                 }
 
-                if (data.impacto_id) {
-                    window.location.assign(
-                        '/admin/configuracion/horarios?resultado=horarios_actualizados&impacto_id='
-                        + encodeURIComponent(String(data.impacto_id))
-                    );
-                    return;
-                }
-
                 const readResponse = await fetch(readApiUrl, {
                     method: 'GET',
                     credentials: 'same-origin',
@@ -900,8 +892,7 @@
                                     throw new Error(result.data.mensaje || 'No fue posible guardar la excepción.');
                                 }
                                 window.location.assign('/admin/configuracion/horarios?resultado='
-                                    + encodeURIComponent(result.data.editada ? 'excepcion_actualizada' : 'excepcion_creada')
-                                    + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                                    + encodeURIComponent(result.data.editada ? 'excepcion_actualizada' : 'excepcion_creada'));
                             }).catch(function (error) {
                                 form.dataset.submitting = '0';
                                 setStatus(status, error.message || 'No fue posible guardar la excepción.', 'error');
@@ -917,8 +908,7 @@
                     throw new Error(first.data.mensaje || 'No fue posible guardar la excepción.');
                 }
                 window.location.assign('/admin/configuracion/horarios?resultado='
-                    + encodeURIComponent(first.data.editada ? 'excepcion_actualizada' : 'excepcion_creada')
-                    + (first.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(first.data.impacto_id)) : ''));
+                    + encodeURIComponent(first.data.editada ? 'excepcion_actualizada' : 'excepcion_creada'));
             } catch (error) {
                 form.dataset.submitting = '0';
                 setStatus(status, error.message || 'No fue posible guardar la excepción.', 'error');
@@ -985,8 +975,7 @@
                 if (!result.response.ok || !result.data || result.data.ok !== true) {
                     throw new Error(result.data.mensaje || 'No fue posible eliminar la excepción.');
                 }
-                window.location.assign('/admin/configuracion/horarios?resultado=excepcion_eliminada'
-                    + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                window.location.assign('/admin/configuracion/horarios?resultado=excepcion_eliminada');
                 return true;
             }).catch(function (error) {
                 if (button) button.disabled = false;
@@ -1065,8 +1054,7 @@
                     if (!result.response.ok || !result.data || result.data.ok !== true) {
                         throw new Error(result.data.mensaje || 'No fue posible actualizar la excepción.');
                     }
-                    window.location.assign('/admin/configuracion/horarios?resultado=estado_actualizado'
-                        + (result.data.impacto_id ? '&impacto_id=' + encodeURIComponent(String(result.data.impacto_id)) : ''));
+                    window.location.assign('/admin/configuracion/horarios?resultado=estado_actualizado');
                     return true;
                 });
             }
