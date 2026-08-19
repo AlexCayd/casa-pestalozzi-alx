@@ -1,5 +1,6 @@
 <?php
 use Services\BuzonNotificacionesService;
+use Services\ReservacionConfig;
 
 $buzonResumen = ['cantidad' => 0, 'prioridad_maxima' => null];
 try {
@@ -8,8 +9,13 @@ try {
     error_log('Buzón administrativo no disponible: ' . $e->getMessage());
 }
 $buzonCantidad = (int)($buzonResumen['cantidad'] ?? 0);
+$buzonPrioridad = (string)($buzonResumen['prioridad_maxima'] ?? '');
+$buzonEstado = $buzonCantidad > 0 ? 'has-items' : 'is-empty';
+if ($buzonPrioridad === 'alta') {
+    $buzonEstado .= ' has-high-priority';
+}
 ?>
-<div class="admin-inbox" data-admin-inbox data-admin-csrf="<?php echo htmlspecialchars((string)\Services\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>">
+<div class="admin-inbox <?php echo htmlspecialchars($buzonEstado, ENT_QUOTES, 'UTF-8'); ?>" data-admin-inbox data-admin-csrf="<?php echo htmlspecialchars((string)\Services\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>" data-inbox-refresh-seconds="<?php echo (int)ReservacionConfig::REFRESCO_ESTADOS_SEGUNDOS; ?>">
     <button
         class="admin-inbox__trigger"
         type="button"
@@ -52,6 +58,6 @@ $buzonCantidad = (int)($buzonResumen['cantidad'] ?? 0);
         <div class="admin-inbox__body" data-inbox-list aria-live="polite">
             <p class="admin-inbox__loading" data-inbox-loading>Cargando acciones…</p>
         </div>
-        <div class="admin-inbox__context" data-inbox-context hidden></div>
+        <div class="admin-inbox__context" data-inbox-context role="region" aria-live="polite" hidden></div>
     </aside>
 </div>

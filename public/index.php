@@ -81,6 +81,7 @@ $router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoContr
 $router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
 $router->post('/admin/api/horarios-impactos/acceso-prueba', [AdminHorarioImpactoController::class, 'testLink']);
 $router->get('/admin/api/buzon/resumen', [AdminBuzonController::class, 'resumen']);
+$router->post('/admin/api/buzon/sincronizar', [AdminBuzonController::class, 'sincronizar']);
 $router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
 $router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);

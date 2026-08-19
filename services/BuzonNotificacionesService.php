@@ -52,7 +52,8 @@ final class BuzonNotificacionesService
              VALUES (?, ?, ?, ?, ?, COALESCE(?, NOW()), ?)
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id),
                  prioridad = VALUES(prioridad), visible_from = VALUES(visible_from),
-                 leida_at = NULL, cerrada_at = NULL, cerrada_por = NULL,
+                 leida_at = IF(cerrada_at IS NULL, leida_at, NULL),
+                 cerrada_at = NULL, cerrada_por = NULL,
                  cierre_motivo = NULL, updated_at = NOW()"
         );
         if (!$stmt) {
@@ -227,6 +228,61 @@ final class BuzonNotificacionesService
             return 0;
         }
         $stmt->bind_param('issi', $usuario, $motivo, $entidadTipo, $entidadId);
+        $stmt->execute();
+        $afectadas = (int)$stmt->affected_rows;
+        $stmt->close();
+        return $afectadas;
+    }
+
+    /**
+     * Cierra únicamente el tipo y la entidad solicitados. Los módulos nuevos
+     * deben usar este método para no ocultar otros motivos de la misma entidad.
+     */
+    public static function cerrarTipoEntidad(
+        string $tipo,
+        string $entidadTipo,
+        int $entidadId,
+        ?int $usuarioId,
+        string $motivo
+    ): int {
+        if ($tipo === '' || $entidadTipo === '' || $entidadId < 1) {
+            return 0;
+        }
+
+        return self::cerrarTipoEntidadEnTransaccion(
+            ActiveRecord::getDB(),
+            $tipo,
+            $entidadTipo,
+            $entidadId,
+            $usuarioId,
+            $motivo
+        );
+    }
+
+    public static function cerrarTipoEntidadEnTransaccion(
+        \mysqli $db,
+        string $tipo,
+        string $entidadTipo,
+        int $entidadId,
+        ?int $usuarioId,
+        string $motivo
+    ): int {
+        if ($tipo === '' || $entidadTipo === '' || $entidadId < 1) {
+            return 0;
+        }
+
+        $motivo = trim($motivo) !== '' ? trim($motivo) : 'resuelto';
+        $usuario = $usuarioId ?? 0;
+        $stmt = $db->prepare(
+            'UPDATE buzon_notificaciones
+             SET cerrada_at = COALESCE(cerrada_at, NOW()), cerrada_por = NULLIF(?, 0),
+                 cierre_motivo = ?, updated_at = NOW()
+             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL'
+        );
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('isssi', $usuario, $motivo, $tipo, $entidadTipo, $entidadId);
         $stmt->execute();
         $afectadas = (int)$stmt->affected_rows;
         $stmt->close();

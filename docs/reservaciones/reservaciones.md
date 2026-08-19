@@ -69,6 +69,19 @@ No es válido mostrar un mapa de un contexto junto con capacidad de otro. Cualqu
 
 La fecha, hora y asignaciones enviadas al crear o editar una reservación deben validarse nuevamente en backend. Los datos enviados por el navegador no sustituyen las reglas de disponibilidad.
 
+## Seguimiento temporal administrativo
+
+El buzón administrativo sincroniza sus pendientes mediante `POST /admin/api/buzon/sincronizar`, protegido por CSRF. La sincronización consulta en lote las reservaciones del día actual, las reservaciones que ya tienen un aviso temporal abierto y los tickets abiertos; no se ejecuta dentro de alta, edición, asignación o transición de estado.
+
+Los avisos temporales iniciales son:
+
+- `reservacion_ausencia_pendiente`: reservación confirmada del día, sin ticket abierto, cuya tolerancia de llegada venció y puede pasar a no-show;
+- `reservacion_sin_asignacion_proxima`: reservación confirmada de hasta 12 personas, sin ticket ni mesas, dentro de la advertencia, bloqueo o tolerancia canónicos y dentro del horario efectivo.
+
+La primera notificación es de prioridad alta. La segunda es normal entre 60 y 30 minutos, y alta a 30 minutos o menos, incluida la tolerancia. No se crea fuera de ese intervalo. La ausencia suprime la notificación de asignación próxima. Leer un aviso sólo registra `leida_at`; resolverlo requiere la acción de dominio correspondiente y un cierre por `tipo + entidad_tipo + entidad_id` con motivo auditable.
+
+Una reservación confirmada que quede fuera del horario efectivo se conserva visible en el contexto operativo con `fuera_horario_operacion = true`. El mapa administrativo la incluye en `reservaciones_admin`, pero la excluye de `en_proyeccion_mapa`; el hecho no modifica estado, capacidad, ocupación, tickets ni asignación. El POS presenta el mismo indicador textual.
+
 ## Roles operativos
 
 El mapa operativo es una superficie compartida por los roles `admin` y `waiter`. El administrador puede gestionar reservaciones y, cuando corresponde, consultar los datos de contacto necesarios para la operación. El personal de piso puede operar el mapa y las asignaciones de acuerdo con sus permisos; no debe recibir teléfono ni correo de los clientes cuando la tarea no lo requiere.

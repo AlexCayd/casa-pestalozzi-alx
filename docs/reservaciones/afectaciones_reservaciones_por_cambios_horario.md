@@ -410,9 +410,17 @@ Una notificación debe mostrar información derivada de su entidad fuente y acci
 Tipos iniciales permitidos:
 
 - `reservacion_horario_afectado`;
-- `reservacion_grupo_grande`.
+- `reservacion_grupo_grande`;
+- `reservacion_ausencia_pendiente`;
+- `reservacion_sin_asignacion_proxima`.
 
-No agregar tipos hipotéticos hasta que exista una necesidad real.
+Los avisos temporales se sincronizan desde el buzón con el endpoint administrativo protegido por CSRF. La sincronización usa la vigencia y la política POS canónicas, lee en lote los tickets abiertos y no se inserta en los flujos críticos de alta, edición, asignación o transición.
+
+`reservacion_ausencia_pendiente` se crea para una reservación confirmada del día cuya tolerancia venció sin ticket abierto y cuya acción canónica permite no-show. Es de prioridad alta, permanece abierto aunque cambie el día y se cierra después de no-show, inicio de servicio, ticket abierto o estado final.
+
+`reservacion_sin_asignacion_proxima` se crea para una reservación confirmada de hasta 12 personas, sin ticket ni mesas, dentro del horario efectivo y de la ventana canónica. Es normal entre 60 y 30 minutos y alta a 30 minutos o menos, incluida la tolerancia. No se crea después de 60 minutos, fuera de horario, para grupos grandes o cuando existe ausencia pendiente. Se cierra al asignar mesas, abrir ticket, salir de la ventana, cancelar/finalizar, entrar en ausencia o quedar fuera del horario efectivo.
+
+No agregar tipos hipotéticos hasta que exista una necesidad real. La agrupación muestra una tarjeta por reservación y ordena ausencia, afectación de horario, grupo grande y asignación próxima.
 
 El buzón queda diseñado para admitir posteriormente avisos de otros módulos sin cambiar su modelo base.
 

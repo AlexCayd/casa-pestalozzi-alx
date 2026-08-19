@@ -3,11 +3,16 @@
 namespace Controllers;
 
 use Model\Reservacion;
+use Model\TicketMesa;
 use MVC\Router;
 use Services\AdminCsrfService;
 use Services\BuzonNotificacionesService;
 use Services\HorarioOperacionImpactoService;
+use Services\HorarioOperacionService;
 use Services\ReservacionBuzonService;
+use Services\ReservacionConfig;
+use Services\ReservacionPoliticaPosService;
+use Services\ReservacionVigenciaService;
 
 /** API ligera del buzón flotante administrativo. */
 final class AdminBuzonController
@@ -17,18 +22,64 @@ final class AdminBuzonController
         self::json(array_merge(['ok' => true, 'codigo' => 'BUZON_RESUMEN'], BuzonNotificacionesService::resumen()));
     }
 
+    public static function sincronizar(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::json(['ok' => false, 'codigo' => 'METODO_NO_PERMITIDO'], 405);
+            return;
+        }
+        $datos = self::entrada();
+        if (!self::csrfValido($datos)) {
+            self::json(['ok' => false, 'codigo' => 'CSRF_INVALIDO'], 403);
+            return;
+        }
+
+        $resultado = ReservacionBuzonService::sincronizarPendientesTemporales();
+        self::json(array_merge(
+            ['ok' => true, 'codigo' => 'BUZON_SINCRONIZADO'],
+            $resultado['resumen'],
+            ['sincronizacion' => [
+                'procesadas' => $resultado['procesadas'],
+                'avisos_creados' => $resultado['avisos_creados'],
+                'avisos_cerrados' => $resultado['avisos_cerrados'],
+            ]]
+        ));
+    }
+
     public static function listar(Router $router): void
     {
         $notificaciones = BuzonNotificacionesService::listar(['limit' => 100]);
+        $ticketsPorReservacion = [];
+        foreach (TicketMesa::abiertosParaMapa() as $ticket) {
+            $reservacionId = (int)($ticket['reservacion_id'] ?? 0);
+            if ($reservacionId > 0) {
+                $ticketsPorReservacion[$reservacionId] = $ticket;
+            }
+        }
         $grupos = [];
         foreach ($notificaciones as $notificacion) {
-            $item = self::fuente($notificacion);
+            $item = self::fuente($notificacion, $ticketsPorReservacion);
+            $tipo = (string)$notificacion['tipo'];
             if ($item === null) {
-                BuzonNotificacionesService::cerrar(
-                    (int)$notificacion['id'],
-                    self::usuarioId(),
-                    'fuente_inexistente_o_resuelta'
-                );
+                if (in_array($tipo, [
+                    ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE,
+                    ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA,
+                    ReservacionBuzonService::TIPO_GRUPO_GRANDE,
+                ], true)) {
+                    BuzonNotificacionesService::cerrarTipoEntidad(
+                        $tipo,
+                        (string)$notificacion['entidad_tipo'],
+                        (int)$notificacion['entidad_id'],
+                        self::usuarioId(),
+                        'fuente_inexistente_o_resuelta'
+                    );
+                } else {
+                    BuzonNotificacionesService::cerrar(
+                        (int)$notificacion['id'],
+                        self::usuarioId(),
+                        'fuente_inexistente_o_resuelta'
+                    );
+                }
                 continue;
             }
             $reservacionId = (int)$item['reservacion_id'];
@@ -40,6 +91,7 @@ final class AdminBuzonController
                     'hora' => (string)$item['hora'],
                     'comensales' => (int)$item['comensales'],
                     'prioridad' => 'normal',
+                    'severidad' => (int)($item['severidad'] ?? 50),
                     'leida' => true,
                     'motivos' => [],
                     'notificaciones' => [],
@@ -50,24 +102,32 @@ final class AdminBuzonController
             if ($prioridad === 'alta') {
                 $grupo['prioridad'] = 'alta';
             }
+            $grupo['severidad'] = min($grupo['severidad'], (int)($item['severidad'] ?? 50));
             if (($notificacion['leida_at'] ?? null) === null) {
                 $grupo['leida'] = false;
             }
-            $motivo = [
-                'tipo' => (string)$notificacion['tipo'],
+            $grupo['motivos'][] = [
+                'tipo' => $tipo,
                 'prioridad' => $prioridad,
                 'etiqueta' => $item['etiqueta'],
+                'descripcion' => $item['descripcion'] ?? null,
                 'estado' => $item['estado'] ?? null,
+                'severidad' => (int)($item['severidad'] ?? 50),
             ];
-            $grupo['motivos'][] = $motivo;
             $grupo['notificaciones'][] = [
                 'id' => (int)$notificacion['id'],
-                'tipo' => (string)$notificacion['tipo'],
+                'tipo' => $tipo,
                 'entidad_tipo' => (string)$notificacion['entidad_tipo'],
                 'entidad_id' => (int)$notificacion['entidad_id'],
                 'prioridad' => $prioridad,
                 'leida_at' => $notificacion['leida_at'],
                 'estado' => $item['estado'] ?? null,
+                'etiqueta' => $item['etiqueta'],
+                'descripcion' => $item['descripcion'] ?? null,
+                'accion_primaria' => $item['accion_primaria'] ?? null,
+                'puede_registrar_no_show' => (bool)($item['puede_registrar_no_show'] ?? false),
+                'puede_asignar_mesas' => (bool)($item['puede_asignar_mesas'] ?? false),
+                'ventana_operativa' => $item['ventana_operativa'] ?? null,
                 'impacto_id' => $item['impacto_id'] ?? null,
                 'impacto_reservacion_id' => $item['impacto_reservacion_id'] ?? null,
                 'tiene_contacto' => $item['tiene_contacto'] ?? null,
@@ -76,15 +136,37 @@ final class AdminBuzonController
             unset($grupo);
         }
 
-        $items = array_values($grupos);
+        foreach ($grupos as &$grupo) {
+            $hayAusencia = array_filter(
+                $grupo['notificaciones'],
+                static fn(array $notificacion): bool => $notificacion['tipo'] === ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE
+            );
+            if ($hayAusencia) {
+                $grupo['notificaciones'] = array_values(array_filter(
+                    $grupo['notificaciones'],
+                    static fn(array $notificacion): bool => $notificacion['tipo'] !== ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA
+                ));
+                $grupo['motivos'] = array_values(array_filter(
+                    $grupo['motivos'],
+                    static fn(array $motivo): bool => $motivo['tipo'] !== ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA
+                ));
+            }
+        }
+        unset($grupo);
+
+        $items = array_values(array_filter($grupos, static fn(array $grupo): bool => $grupo['notificaciones'] !== []));
         usort($items, static function (array $a, array $b): int {
-            return (($a['prioridad'] === 'alta' ? 0 : 1) <=> ($b['prioridad'] === 'alta' ? 0 : 1));
+            return [$a['severidad'], $a['prioridad'] === 'alta' ? 0 : 1]
+                <=> [$b['severidad'], $b['prioridad'] === 'alta' ? 0 : 1];
         });
         self::json([
             'ok' => true,
             'codigo' => 'BUZON_LISTA',
             'items' => $items,
-            'cantidad' => count($notificaciones),
+            'cantidad' => array_sum(array_map(
+                static fn(array $item): int => count($item['notificaciones']),
+                $items
+            )),
         ]);
     }
 
@@ -102,8 +184,8 @@ final class AdminBuzonController
         ], $ok ? 200 : 404);
     }
 
-    /** @return array<string, mixed>|null */
-    private static function fuente(array $notificacion): ?array
+    /** @param array<int, array<string, mixed>> $ticketsPorReservacion */
+    private static function fuente(array $notificacion, array $ticketsPorReservacion = []): ?array
     {
         $tipo = (string)$notificacion['tipo'];
         if ($tipo === ReservacionBuzonService::TIPO_HORARIO_AFECTADO) {
@@ -115,35 +197,101 @@ final class AdminBuzonController
                 return null;
             }
             $fuente['etiqueta'] = 'Afectada por cambio de horario';
+            $fuente['descripcion'] = 'La reservación quedó fuera del horario efectivo y requiere coordinación.';
+            $fuente['accion_primaria'] = 'Gestionar reservación';
+            $fuente['severidad'] = 20;
             return $fuente;
         }
 
-        if ($tipo === ReservacionBuzonService::TIPO_GRUPO_GRANDE) {
-            $reservacion = Reservacion::findWithMesas((int)$notificacion['entidad_id']);
-            if (!$reservacion) {
-                return null;
-            }
-            $sinContacto = !in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true)
-                || trim((string)($reservacion->contacto ?? '')) === '';
-            $requiereAccion = (int)$reservacion->comensales > 12
-                && !in_array((string)$reservacion->estado, \Services\ReservacionConfig::ESTADOS_FINALES, true)
-                && ($sinContacto || (int)$reservacion->mesas_count === 0);
-            if (!$requiereAccion) {
-                return null;
-            }
-            return [
-                'reservacion_id' => (int)$reservacion->id,
-                'nombre' => (string)$reservacion->nombre,
-                'fecha' => (string)$reservacion->fecha,
-                'hora' => substr((string)$reservacion->hora, 0, 5),
-                'comensales' => (int)$reservacion->comensales,
-                'estado' => (string)$reservacion->estado,
-                'etiqueta' => 'Grupo grande requiere coordinación',
-                'tiene_contacto' => !$sinContacto,
-                'test_link_disponible' => false,
-            ];
+        if (!in_array($tipo, [
+            ReservacionBuzonService::TIPO_GRUPO_GRANDE,
+            ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE,
+            ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA,
+        ], true)) {
+            return null;
         }
-        return null;
+
+        $reservacion = Reservacion::findWithMesas((int)$notificacion['entidad_id']);
+        if (!$reservacion) {
+            return null;
+        }
+        $reservacionId = (int)$reservacion->id;
+        $ticket = $ticketsPorReservacion[$reservacionId] ?? null;
+        $estado = (string)$reservacion->estado;
+        $estadoFinal = in_array($estado, ReservacionConfig::ESTADOS_FINALES, true);
+        $sinContacto = !in_array((string)$reservacion->contacto_tipo, ['email', 'telefono'], true)
+            || trim((string)($reservacion->contacto ?? '')) === '';
+        $vigencia = ReservacionVigenciaService::clasificar($reservacion, null, $ticket);
+        $politica = ReservacionPoliticaPosService::evaluar(
+            $reservacion,
+            null,
+            $ticket,
+            null,
+            ['sin_mesas' => (int)$reservacion->mesas_count === 0]
+        );
+
+        $base = [
+            'reservacion_id' => $reservacionId,
+            'nombre' => (string)$reservacion->nombre,
+            'fecha' => (string)$reservacion->fecha,
+            'hora' => substr((string)$reservacion->hora, 0, 5),
+            'comensales' => (int)$reservacion->comensales,
+            'estado' => $estado,
+            'tiene_contacto' => !$sinContacto,
+            'test_link_disponible' => false,
+        ];
+
+        if ($tipo === ReservacionBuzonService::TIPO_GRUPO_GRANDE) {
+            if (!ReservacionBuzonService::grupoGrandeVisibleParaBuzon($reservacion)) {
+                return null;
+            }
+            return array_merge($base, [
+                'etiqueta' => 'Grupo grande requiere coordinación',
+                'descripcion' => 'Más de 12 personas requieren asignación y coordinación administrativa.',
+                'accion_primaria' => 'Gestionar reservación',
+                'severidad' => 30,
+            ]);
+        }
+
+        if ($tipo === ReservacionBuzonService::TIPO_AUSENCIA_PENDIENTE) {
+            if ($estado !== 'confirmada'
+                || $ticket
+                || !$vigencia['ausencia_pendiente']
+                || !$vigencia['puede_marcar_no_show']) {
+                return null;
+            }
+            return array_merge($base, [
+                'etiqueta' => 'Tolerancia de llegada vencida',
+                'descripcion' => 'La reservación sigue confirmada y ya puede registrarse como no-show.',
+                'accion_primaria' => 'Registrar no-show',
+                'puede_registrar_no_show' => true,
+                'severidad' => 10,
+            ]);
+        }
+
+        $fueraHorario = !HorarioOperacionService::estaAbierto(
+            (string)$reservacion->fecha,
+            (string)$reservacion->hora
+        );
+        $ventana = (string)($vigencia['ventana_operativa']['estado'] ?? $politica['ventana_pos'] ?? 'futura');
+        if ($estado !== 'confirmada'
+            || $estadoFinal
+            || $ticket
+            || (int)$reservacion->mesas_count > 0
+            || (int)$reservacion->comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            || $vigencia['ausencia_pendiente']
+            || $fueraHorario
+            || !in_array($ventana, ['advertencia', 'bloqueo', 'tolerancia'], true)) {
+            return null;
+        }
+        return array_merge($base, [
+            'etiqueta' => 'Sin mesas asignadas para una reservación próxima',
+            'descripcion' => 'La reservación entra en su ventana operativa y todavía no tiene mesas asignadas.',
+            'accion_primaria' => 'Asignar mesas',
+            'puede_asignar_mesas' => true,
+            'ventana_operativa' => $ventana,
+            'severidad' => 40,
+        ]);
     }
 
     private static function entrada(): array

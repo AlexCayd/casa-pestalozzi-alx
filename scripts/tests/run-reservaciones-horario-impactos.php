@@ -109,7 +109,8 @@ impactoAssert(!str_contains($impactView, 'data-schedule-impact'), 'horarios no c
 impactoAssert(is_string($layout) && str_contains($layout, '_buzon.php'), 'layout incluye el buzón persistente');
 impactoAssert(!str_contains($layout, '_schedule-impact-alert.php'), 'layout retiró la alerta antigua');
 impactoAssert(is_string($inboxView) && str_contains($inboxView, 'data-inbox-drawer'), 'buzón tiene drawer');
-impactoAssert(is_string($inboxJs) && str_contains($inboxJs, 'Marcar leída'), 'buzón separa lectura de resolución');
+impactoAssert(is_string($inboxJs) && str_contains($inboxJs, 'markItemRead'), 'buzón marca leído al abrir el detalle');
+impactoAssert(!str_contains($inboxJs, 'Marcar leída'), 'buzón no muestra una acción separada de lectura');
 impactoAssert(str_contains($inboxJs, 'Mantener reservación') && str_contains($inboxJs, 'Coordinar'), 'buzón ofrece acciones de resolución');
 impactoAssert(str_contains($impactService, 'clasificarSeguimientosEnTransaccion'), 'impacto clasifica seguimiento al persistir');
 impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'MAX_COMENSALES_PUBLICO'), 'impacto aplica acceso diferido y umbral');
