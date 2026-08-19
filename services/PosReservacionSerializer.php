@@ -158,6 +158,11 @@ final class PosReservacionSerializer
         ));
         $updatedAt = (string)($datos['updated_at'] ?? $datos['created_at'] ?? '');
         $version = ReservacionAsignacionVersionService::calcular($updatedAt, $mesaIds);
+        $horarioEfectivo = $opciones['horario_efectivo'] ?? null;
+        $fueraHorarioOperacion = $estado === 'confirmada'
+            && is_array($horarioEfectivo)
+            && $horarioEfectivo !== []
+            && !self::dentroHorarioEfectivo($datos, $horarioEfectivo);
 
         $serializado = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -168,6 +173,7 @@ final class PosReservacionSerializer
             'estado' => $estado,
             'fecha' => (string)($datos['fecha'] ?? ''),
             'hora' => (string)($datos['hora'] ?? ''),
+            'fuera_horario_operacion' => $fueraHorarioOperacion,
             'date' => (string)($datos['fecha'] ?? ''),
             'time' => (string)($datos['hora'] ?? ''),
             'nombre' => (string)($datos['nombre'] ?? ''),
@@ -459,6 +465,18 @@ final class PosReservacionSerializer
         } catch (\Throwable $error) {
             return null;
         }
+    }
+
+    /** El horario efectivo es un hecho derivado; no cambia reservación ni capacidad. */
+    private static function dentroHorarioEfectivo(array $datos, array $horario): bool
+    {
+        if (!(bool)($horario['abierto'] ?? false)) {
+            return false;
+        }
+        $hora = HorarioReservacionService::normalizarHoraSql((string)($datos['hora'] ?? ''));
+        $apertura = HorarioReservacionService::normalizarHoraSql((string)($horario['hora_apertura'] ?? ''));
+        $cierre = HorarioReservacionService::normalizarHoraSql((string)($horario['hora_cierre'] ?? ''));
+        return $hora !== '' && $apertura !== '' && $cierre !== '' && $hora >= $apertura && $hora < $cierre;
     }
 
     /**

@@ -1108,10 +1108,16 @@ function initMapa() {
       else if (['en_curso', 'bloqueo', 'inicio', 'tolerancia'].indexOf(tempEstado) !== -1) {
         cardClasses.push('reserva-card--activa');
       } else if (tempEstado === 'advertencia') cardClasses.push('reserva-card--proxima');
+      if (r.fuera_horario_operacion === true) cardClasses.push('reserva-card--fuera-horario');
 
       var temporalLabel = r.accion_pendiente === 'REGISTRAR_AUSENCIA'
         ? 'Acción pendiente: registrar ausencia'
         : TEMPORAL_LABELS[tempEstado];
+      if (r.fuera_horario_operacion === true) {
+        temporalLabel = temporalLabel
+          ? temporalLabel + ' · Fuera de horario de operación'
+          : 'Fuera de horario de operación';
+      }
       var card = window.OperationalReservationCard.create(r, {
         hora: r.hora.substring(0, 5),
         estado: r.estado,

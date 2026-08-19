@@ -546,7 +546,9 @@
         function reservationsForOperationalList() {
             var reservations = state.reservaciones.filter(function (reservacion) {
                 return String(reservacion.estado || '') === 'confirmada'
-                    && (reservacion.en_lista_operativa === true || reservacion.en_lista_terminal === true);
+                    && (reservacion.en_lista_operativa === true
+                        || reservacion.en_lista_terminal === true
+                        || reservacion.fuera_horario_operacion === true);
             });
 
             var search = String(state.reservationSearch || '').trim().toLowerCase();
@@ -1590,6 +1592,9 @@
                             '<div><dt>Hora</dt><dd>' + esc(horaCorta(reservacion.hora)) + '</dd></div>' +
                             '<div><dt>Personas</dt><dd>' + esc(plural(comensales, 'persona', 'personas')) + '</dd></div>' +
                         '</dl>' +
+                        (reservacion.fuera_horario_operacion === true
+                            ? '<div class="reservation-operation-inline reservation-operation-inline--warning"><strong>Fuera de horario de operación.</strong> La reservación se conserva visible para seguimiento, pero no participa en la proyección del mapa.</div>'
+                            : '') +
                         (reservacion.conflicto_proximo && reservacion.alerta_operativa
                             ? '<div class="reservation-operation-inline reservation-operation-inline--warning">' +
                                 '<strong>Ticket abierto dentro del bloqueo.</strong> ' +

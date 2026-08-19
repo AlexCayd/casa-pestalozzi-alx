@@ -41,6 +41,8 @@ final class ReservacionMapaAdministrativaService
             $terminal = in_array($estado, ReservacionConfig::ESTADOS_FINALES, true);
             $enListaOperativa = isset($operativas[$id]);
             $ticketAbierto = !empty($reservacion['ticket_abierto']);
+            $fueraHorarioOperacion = $estado === 'confirmada'
+                && !empty($reservacion['fuera_horario_operacion']);
 
             $reservacion['en_lista_operativa'] = $enListaOperativa;
             $reservacion['assignment_snapshot'] = (array)($reservacion['assignment_snapshot'] ?? [
@@ -48,7 +50,13 @@ final class ReservacionMapaAdministrativaService
                 'version' => (string)($reservacion['version'] ?? ''),
             ]);
             $reservacion['en_lista_terminal'] = $terminal;
-            $reservacion['en_proyeccion_mapa'] = $estado !== 'reemplazada' && $enListaOperativa;
+            $reservacion['fuera_horario_operacion'] = $fueraHorarioOperacion;
+            $reservacion['en_proyeccion_mapa'] = $estado !== 'reemplazada'
+                && $enListaOperativa
+                && !$fueraHorarioOperacion;
+            $reservacion['en_lista_administrativa'] = $enListaOperativa
+                || $terminal
+                || $fueraHorarioOperacion;
             $reservacion['asignacion_pendiente'] = $estado === 'confirmada'
                 && empty($reservacion['mesa_ids']);
             $reservacion['contacto_presente'] = $tieneContacto;
@@ -74,8 +82,7 @@ final class ReservacionMapaAdministrativaService
 
         $administrativas = array_values(array_filter(
             $proyeccion,
-            static fn(array $reservacion): bool => !empty($reservacion['en_lista_operativa'])
-                || !empty($reservacion['en_lista_terminal'])
+            static fn(array $reservacion): bool => !empty($reservacion['en_lista_administrativa'])
         ));
 
         return [

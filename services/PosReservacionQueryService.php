@@ -36,6 +36,7 @@ final class PosReservacionQueryService
         if (!$ahora instanceof DateTimeImmutable) {
             $ahora = ReservacionConfig::ahora();
         }
+        $horarioEfectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
 
         $incluirInactivas = (bool)($opciones['incluir_inactivas'] ?? false);
         $mesasLeidas = $incluirInactivas
@@ -108,6 +109,7 @@ final class PosReservacionQueryService
                     'conflicto_fisico' => $mesasBloqueantes !== [],
                     'mesas_bloqueantes' => $mesasBloqueantes,
                     'hora_consulta' => $horaEvaluacion,
+                    'horario_efectivo' => $horarioEfectivo,
                     'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
