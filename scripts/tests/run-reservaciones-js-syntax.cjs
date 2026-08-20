@@ -13,7 +13,8 @@ const files = [
   'src/js/operation/reservation-operation-policy.js',
   'src/js/modules/form.js',
   'src/js/modules/reservation-access.js',
-  'src/js/modules/schedule-change-access.js'
+  'src/js/modules/schedule-change-access.js',
+  'src/js/admin/buzon.js'
 ];
 
 function assertContract(condition, message) {
@@ -107,6 +108,9 @@ assertContract(modal.includes('canonicalDecisionActions'), 'ConfirmationModal va
 assertContract(modal.includes('textValue(options.mensaje).trim()'), 'ConfirmationModal exige mensaje de decision');
 assertContract(modal.includes('Decisión de reservación sin acciones canónicas'), 'ConfirmationModal registra decisiones sin acciones');
 assertContract(modal.includes('current.decisionActions'), 'ConfirmationModal configura botones desde acciones');
+assertContract(modal.includes('primaryCloses === false') && modal.includes('close(true, { action: \'primary\''), 'ConfirmationModal cierra al completar correctamente');
+assertContract(modal.includes("setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true)") && !modal.includes("settle({ action: 'error'"), 'ConfirmationModal conserva abierto el modal ante rechazo');
+assertContract(pos.includes('reservacion_programada') && pos.includes('Todavía no hay acciones disponibles.'), 'POS presenta reservación propia futura como información');
 
 const vm = require('vm');
 const policyContext = { window: {} };

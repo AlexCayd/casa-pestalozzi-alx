@@ -1,517 +1,113 @@
 # Afectaciones de reservaciones por cambios de horario
 
-## Propósito
+## Alcance
 
-Cuando una modificación del horario efectivo deja una reservación confirmada fuera de operación, el sistema conserva la reservación y registra un seguimiento durable. Ningún cambio de horario cancela reservaciones automáticamente.
+Cuando un cambio del horario efectivo deja una reservación fuera de operación, el sistema conserva la reservación y crea un seguimiento durable. El cambio de horario no cancela, reprograma ni modifica automáticamente la reservación y nunca agrega un estado a `reservaciones`.
 
-El seguimiento es operativo. El sistema debe intentar resolver automáticamente los casos simples, recordar de forma persistente los casos que requieren intervención administrativa y ofrecer un acceso temporal al cliente únicamente cuando el autoservicio sea apropiado.
+La autoridad de la afectación es `horario_impacto_reservaciones`. El buzón sólo presenta el caso y registra su cierre técnico; no es un CRM, un sistema de tickets ni una bitácora de decisiones humanas.
 
-El estado canónico de `reservaciones` no se modifica para representar afectaciones de horario. Una reservación afectada continúa siendo una reservación confirmada mientras no exista una transición canónica distinta.
+## Estados y tablas
 
-## Principios
+Las tablas son:
 
-1. Un cambio de horario nunca cancela, reprograma ni modifica automáticamente una reservación existente.
-2. Una afectación de horario no es un estado del ciclo de vida de la reservación.
-3. Las incidencias operativas se registran fuera de `reservaciones.estado`.
-4. El guardado del horario no depende de que las afectaciones se resuelvan en la misma petición.
-5. El sistema debe recordar los pendientes; el administrador no debe memorizar reservaciones afectadas.
-6. Las acciones repetitivas deben automatizarse cuando exista suficiente información.
-7. Las reservaciones de más de 12 personas requieren tratamiento administrativo especial y no deben entrar automáticamente al flujo de autoservicio.
-8. El buzón administrativo es reutilizable por otros módulos y no constituye una segunda fuente de verdad del dominio.
-9. Leer una notificación del buzón no equivale a resolverla.
-10. Las acciones del buzón deben delegar la resolución al servicio de dominio correspondiente.
+- `horario_impactos`: cabecera del cambio, con estado `pendiente` o `resuelto`.
+- `horario_impacto_reservaciones`: una fila por reservación afectada.
+- `buzon_notificaciones`: presentación administrativa reutilizable.
 
-## Modelo de datos
+Estados no finales de una fila afectada:
 
-La arquitectura utiliza tres tablas relacionadas con esta funcionalidad:
+- `pendiente_notificacion`;
+- `notificacion_preparada`;
+- `sin_contacto`.
 
-- `horario_impactos`: cabecera de un evento de cambio de horario.
-- `horario_impacto_reservaciones`: una fila por reservación afectada por ese evento.
-- `buzon_notificaciones`: buzón administrativo reutilizable para acciones pendientes de reservaciones y otros módulos.
+Estados finales:
 
-No se crean tablas independientes para links temporales ni una outbox de notificaciones en esta etapa.
+- `atendida_manual`;
+- `resuelta_por_cliente`.
 
-### `horario_impactos`
+`notificacion_preparada` significa que el aviso/acceso está listo para esperar la respuesta del cliente; no resuelve el impacto. El impacto padre pasa a `resuelto` sólo cuando todas sus filas son finales.
 
-Representa un único cambio de horario que afectó una o más reservaciones.
+La fila individual también conserva `notification_attempts` y `last_notification_at`. No existe historial de intentos ni campo de motivo de resolución de negocio.
 
-Campos mínimos:
+## Matriz operativa
 
-- `id`;
-- `tipo_origen`;
-- `origen_id`;
-- `estado`;
-- `dedup_key`;
-- `created_by`;
-- `created_at`;
-- `resolved_at`.
+| Caso | Al detectar el cambio | Buzón durante el acceso | Acciones administrativas |
+| --- | --- | --- | --- |
+| Hasta 12 personas con contacto válido | Preparar automáticamente el aviso y el acceso | `Aviso preparado` · `Esperando respuesta` | Ninguna CTA principal; el detalle puede ofrecer `Gestionar` como enlace secundario |
+| Hasta 12 personas sin contacto | Mostrar el caso como accionable | `Sin contacto` | `Agregar contacto` y `Gestionar` |
+| Más de 12 con contacto | No crear autoservicio ni acceso automático | `Grupo de más de 12 personas` · `Requiere gestión administrativa.` | Sólo `Gestionar` |
+| Más de 12 sin contacto | No crear autoservicio ni acceso automático | `Grupo de más de 12 personas` y, en detalle, `Sin contacto registrado.` | Sólo `Gestionar` |
 
-Estados:
+Agregar contacto guarda el dato mediante `ContactoService` y prepara automáticamente el aviso si la reservación tiene hasta 12 personas. No hay un segundo paso de preparar, enviar o confirmar envío.
 
-- `pendiente`;
-- `resuelto`.
+Si el acceso vence sin modificación del cliente, el caso pasa a `requiere_accion` y el detalle muestra `Gestionar` y `Mandar aviso`. `Mandar aviso` sólo se habilita con contacto válido, hasta 12 personas, afectación pendiente, acceso vencido, menos de tres intentos y cooldown terminado. Durante el acceso vigente no se permite reenviar.
 
-El impacto pasa a `resuelto` únicamente cuando todas sus filas asociadas están en un estado final.
+Mientras no exista confirmación de entrega de un proveedor externo, la interfaz dice `Aviso preparado` y no `Notificación enviada`. El enlace de prueba sólo aparece en `development` o `testing`, dentro de `Herramientas de desarrollo`, y no cuenta como intento de aviso.
 
-### `horario_impacto_reservaciones`
+## Avisos y acceso
 
-Representa la afectación individual de una reservación.
+Una afectación admite como máximo tres avisos totales, incluido el automático. Cada nuevo aviso:
 
-Campos mínimos:
+1. genera un token nuevo;
+2. persiste sólo su hash;
+3. reemplaza la expiración por un TTL de 60 minutos;
+4. invalida de facto el token anterior;
+5. incrementa `notification_attempts` y actualiza `last_notification_at`.
 
-- `id`;
-- `impacto_id`;
-- `reservacion_id`;
-- `estado`;
-- `notification_prepared_at`;
-- `access_token_hash`;
-- `access_expires_at`;
-- `access_invalidated_at`;
+El cooldown es de 15 minutos (`ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES`). Al llegar a tres intentos, se oculta `Mandar aviso` y se muestra `Se alcanzó el límite de avisos.`. La administración nunca queda bloqueada por ese límite.
+
+## Gestión y resolución
+
+`Gestionar` lleva al detalle administrativo de la reservación y conserva `return_url` cuando se llega desde el buzón. El detalle muestra el banner contextual:
+
+> Esta reservación requiere atención
+>
+> Un cambio en el horario de operación dejó esta reservación fuera del horario actual.
+>
+> Modifica la fecha u horario, cancela la reservación si corresponde o confirma que el caso se resolverá fuera del sistema.
+
+Desde ahí se reutilizan las acciones existentes `Modificar reservación` y `Cancelar reservación`, además de `Marcar como resuelta`. La última usa el modal `Marcar seguimiento como resuelto` y sólo actualiza:
+
+- `horario_impacto_reservaciones.estado = atendida_manual`;
 - `resolved_by`;
 - `resolved_at`;
-- `created_at`;
-- `updated_at`.
+- `access_invalidated_at = NOW()`;
+- el cierre del aviso por tipo y entidad.
 
-Estados:
+No cambia `reservaciones.estado`, fecha, hora, mesas ni comensales. No se guarda si el administrador llamó, escribió por WhatsApp, coordinó externamente o decidió mantener la reservación. Se permite sólo un motivo técnico de cierre, como `resuelta_admin`, `fuente_resuelta` o `resuelta_por_cliente`.
 
-| Estado                   | Significado                                                            |
-| ------------------------ | ---------------------------------------------------------------------- |
-| `pendiente_notificacion` | Tiene contacto, admite autoservicio y aún no se ha preparado el aviso. |
-| `notificacion_preparada` | El aviso y el acceso temporal están preparados.                        |
-| `sin_contacto`           | No hay contacto utilizable; requiere revisión administrativa.          |
-| `atendida_manual`        | Administración resolvió el seguimiento sin autoservicio.               |
-| `resuelta_por_cliente`   | El cliente confirmó un reemplazo desde el acceso temporal.             |
-
-No se agregan estados como `afectada_horario` a `reservaciones.estado`.
-
-### `buzon_notificaciones`
-
-Es una infraestructura administrativa genérica. Su objetivo es presentar acciones pendientes sin duplicar la lógica del módulo que las originó.
-
-Campos mínimos recomendados:
-
-- `id`;
-- `tipo`;
-- `modulo`;
-- `entidad_tipo`;
-- `entidad_id`;
-- `prioridad`;
-- `visible_from`;
-- `leida_at`;
-- `cerrada_at`;
-- `cerrada_por`;
-- `cierre_motivo`;
-- `dedup_key`;
-- `created_at`;
-- `updated_at`.
-
-Índices mínimos:
-
-- `UNIQUE(dedup_key)`;
-- índice por `cerrada_at, visible_from`;
-- índice por `tipo, cerrada_at`;
-- índice por `entidad_tipo, entidad_id`.
-
-El buzón no almacena nombre, teléfono, correo ni otros datos personales del cliente.
-
-`entidad_tipo + entidad_id` identifica la fuente del aviso. La integridad de esta referencia polimórfica se valida desde `BuzonNotificacionesService`; si la entidad fuente ya no existe o dejó de requerir atención, el aviso debe cerrarse/reconciliarse automáticamente.
-
-El buzón no almacena una copia del estado de negocio. El estado real permanece en la entidad fuente.
-
-## Semántica del buzón
-
-Una notificación puede estar:
-
-- visible y no leída;
-- visible y leída;
-- cerrada.
-
-`leida_at` sólo registra que un administrador abrió o vio el aviso.
-
-Una notificación permanece pendiente mientras `cerrada_at IS NULL`.
-
-Cerrar una notificación relacionada con una acción operativa debe ocurrir después de que el servicio de dominio correspondiente haya resuelto o descartado explícitamente el caso.
-
-No debe existir una acción genérica que oculte silenciosamente una incidencia no resuelta.
-
-Cuando el producto permita “Descartar”, la acción debe tener una semántica de dominio explícita, por ejemplo:
-
-- mantener la reservación actual;
-- no requiere notificación;
-- coordinación completada;
-- caso resuelto por otro medio.
-
-La resolución se registra primero en el dominio y después se cierra el aviso del buzón.
-
-## Detección de impacto
-
-Las siguientes mutaciones deben evaluar impacto:
-
-- modificación del horario semanal;
-- creación de excepción;
-- edición de excepción;
-- activación de excepción;
-- desactivación de excepción;
-- eliminación de excepción.
-
-La evaluación compara el horario efectivo anterior con el horario efectivo resultante.
-
-Una reservación genera una afectación cuando era válida antes del cambio y queda fuera del nuevo horario efectivo.
-
-La misma mutación no debe duplicar el impacto ni sus reservaciones si la petición se repite.
-
-## Confirmación de cambios de horario
-
-Cuando existen reservaciones afectadas se muestra un único `ConfirmationModal`:
-
-> Este cambio afecta N reservaciones. Ninguna será cancelada automáticamente.
-
-La acción primaria es `Aplicar cambio`.
-
-No existe un segundo botón de “Guardar de todas formas” ni una confirmación paralela.
-
-Después de confirmar:
-
-1. se guarda el cambio de horario;
-2. se persiste `horario_impactos`;
-3. se persisten sus reservaciones afectadas;
-4. se generan o programan los avisos de buzón correspondientes;
-5. la petición termina.
-
-La resolución de los casos no bloquea el guardado del horario.
-
-## Clasificación de reservaciones afectadas
-
-### Reservaciones de 1 a 12 personas con contacto
-
-Son elegibles para autoservicio.
-
-El sistema prepara automáticamente el aviso y el acceso temporal; no se requiere que el administrador pulse un botón de envío por cada reservación.
-
-En una integración futura con n8n, la aplicación enviará automáticamente la intención de notificación al mecanismo de entrega.
-
-Mientras no exista envío externo real, `notification_prepared_at` significa únicamente “aviso preparado”, no “mensaje enviado”.
-
-Al preparar el acceso se crea también una notificación de buzón con `visible_from = access_expires_at`.
-
-Si el cliente modifica la reservación antes del vencimiento, la afectación y el aviso del buzón se resuelven automáticamente y nunca requieren intervención administrativa.
-
-Si el acceso vence sin modificación, el aviso se vuelve visible en el buzón.
-
-### Reservaciones de 1 a 12 personas sin contacto
-
-No se intenta autoservicio.
-
-La fila queda en `sin_contacto` y se crea una notificación de buzón visible inmediatamente.
-
-El administrador puede:
-
-- gestionar la reservación;
-- agregar contacto;
-- mantener la reservación actual;
-- resolver el caso por otro medio.
-
-Agregar contacto permite reclasificar el caso como notificable y preparar el acceso temporal.
-
-La falta de contacto nunca bloquea el cambio de horario.
-
-### Reservaciones de más de 12 personas
-
-Las reservaciones de más de 12 personas son administrativas y requieren coordinación especial.
-
-Aunque tengan contacto, no se envía automáticamente un enlace de autoservicio por un cambio de horario.
-
-Se crea una notificación de buzón de prioridad alta para revisión administrativa.
-
-El administrador puede:
-
-- gestionar la reservación;
-- agregar o actualizar contacto si corresponde;
-- coordinar directamente con el cliente;
-- mantener la reservación aunque quede fuera del nuevo horario;
-- reprogramarla administrativamente;
-- marcar la coordinación como completada.
-
-La razón es que las reservaciones de más de 12 personas no usan asignación automática y pueden requerir decisiones de capacidad, mesas y operación que no deben delegarse al formulario público.
-
-## Seguimiento de grupos de más de 12 personas
-
-El buzón puede reutilizarse también para reservaciones administrativas de grupo grande aunque no exista un cambio de horario.
-
-Cuando una reservación de más de 12 personas se crea o queda en una condición que requiera intervención operativa, puede generarse una notificación de tipo `reservacion_grupo_grande`.
-
-No se crean estados adicionales en `reservaciones`.
-
-La reservación permanece `confirmada` y el seguimiento se expresa mediante el buzón y los servicios administrativos.
-
-Una misma reservación puede tener varios motivos de seguimiento, pero la interfaz debe agruparlos por reservación para no mostrar avisos redundantes.
-
-Ejemplo:
-
-- grupo grande;
-- afectada por cambio de horario;
-- sin mesas asignadas.
-
-La interfaz puede mostrar una sola tarjeta con todos los motivos activos.
-
-## Acceso temporal del cliente
-
-El acceso se abre en:
+El contrato de cierre es `BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion()`. Para una afectación usa:
 
 ```text
-GET /reservaciones/cambio-horario?access=<TOKEN>
+tipo = reservacion_horario_afectado
+entidad_tipo = horario_impacto_reservacion
+entidad_id = impacto_reservacion_id
 ```
 
-Al preparar un aviso se genera:
+Nunca se usa el id de la afectación como si fuera el id de `buzon_notificaciones`. La resolución por cliente, la reconciliación posterior a una modificación/cancelación y la sincronización de fuentes finales usan el mismo contrato.
 
-```php
-bin2hex(random_bytes(32))
-```
-
-La base de datos conserva únicamente:
-
-```php
-hash('sha256', $token)
-```
-
-El TTL se configura mediante:
-
-```text
-SCHEDULE_CHANGE_ACCESS_TTL_MINUTES
-```
-
-Reglas:
-
-- predeterminado: 60 minutos;
-- mínimo: 15 minutos;
-- máximo: 180 minutos.
-
-El primer GET valida el token y crea un contexto de sesión independiente limitado a:
-
-- `impacto_reservacion_id`;
-- `reservacion_id`;
-- `expires_at`;
-- CSRF independiente.
-
-Después responde con `303` hacia `/reservaciones/cambio-horario` sin query string.
-
-No reutiliza `ReservationClientSession`.
-
-No guarda nombre, contacto, teléfono, correo ni otra PII en el contexto temporal.
-
-Cada petición vuelve a validar:
-
-- afectación;
-- reservación;
-- expiración;
-- ids;
-- estado;
-- editabilidad.
-
-El token se invalida cuando:
-
-- el cliente modifica correctamente;
-- administración resuelve manualmente;
-- administración regenera el acceso;
-- la afectación deja de ser válida.
-
-Un acceso inválido o expirado muestra una pantalla con:
-
-`Gestionar mi reservación`
-
-hacia el flujo normal de `/reservaciones` con verificación de contacto.
-
-## Formulario público
-
-La página es independiente del gestor general, pero debe utilizar el mismo lenguaje visual de la landing.
-
-Debe reutilizar, siempre que sean compatibles:
-
-- selector de fecha de reservaciones;
-- selector de horarios;
-- stepper de comensales;
-- estilos de campos;
-- botones;
-- tipografía;
-- espaciado;
-- tokens visuales;
-- comportamiento responsive.
-
-No se debe crear una segunda familia visual de componentes para este formulario.
-
-La pantalla muestra únicamente:
-
-- nombre readonly;
-- fecha y hora actuales;
-- comensales actuales;
-- nueva fecha;
-- nuevo horario;
-- comensales;
-- comentario público.
-
-El contacto nunca llega a:
-
-- HTML;
-- JSON;
-- atributos `data-*`;
-- JavaScript;
-- URL;
-- inputs hidden.
-
-Los endpoints son:
-
-```text
-POST /api/reservaciones/cambio-horario/disponibilidad
-POST /api/reservaciones/cambio-horario/modificar
-```
-
-La consulta y modificación reutilizan las reglas canónicas de disponibilidad, horario, capacidad, mesas, límites públicos y modificación.
-
-El acceso temporal sólo sustituye la verificación inicial de identidad.
-
-## Modificación y resolución
-
-La confirmación de un reemplazo desde el acceso temporal coordina en una misma operación:
-
-1. reservar el nuevo horario;
-2. confirmar la nueva reservación;
-3. marcar la original como reemplazada;
-4. marcar la afectación como `resuelta_por_cliente`;
-5. invalidar el acceso temporal;
-6. cerrar cualquier aviso de buzón asociado;
-7. marcar `horario_impactos` como resuelto si ya no quedan filas pendientes.
-
-Si administración modifica la reservación por el flujo normal y ésta deja de estar afectada, la afectación debe reconciliarse automáticamente.
-
-También debe resolverse automáticamente cuando:
-
-- la reservación se cancela;
-- la reservación termina en un estado final que elimina la obligación;
-- un cambio posterior de horario vuelve a hacer válida la reservación.
+No existe una `faseManualDisponible` ni `manual_habilitada`. Cada reservación afectada se gestiona de forma independiente; una reserva no bloquea el tratamiento de otra del mismo cambio de horario.
 
 ## Buzón administrativo
 
-El panel administrativo dispone de un buzón flotante y persistente.
+El trigger está en el topbar. El drawer vive como portal global en el layout y tiene dos vistas mutuamente excluyentes:
 
-El contador muestra avisos abiertos y visibles, no simplemente avisos no leídos.
+- **Lista:** una card por reservación, con `Revisar` como única acción de la card y filtros `Atención`, `Seguimiento` y `Todas`.
+- **Detalle:** una sola reservación y sólo sus acciones válidas.
 
-El buzón puede implementarse como drawer lateral para no alterar el layout principal.
+El resumen distingue `cantidad_accionable`, `cantidad_seguimiento` y `prioridad_maxima_accionable`. El badge del topbar cuenta únicamente `cantidad_accionable`. El icono de seguimiento es discreto y no usa pulse ni shake permanentes.
 
-La consulta global debe obtener únicamente un resumen ligero:
+Al abrir el drawer se llama `window.AdminScrollLock.bloquear()` y al cerrar `desbloquear()`. La página no se desplaza; sólo el cuerpo del drawer usa `overflow-y: auto` y `overscroll-behavior: contain`. Si falla una actualización, se conserva la lista anterior cuando ya existe y se muestra `No pudimos actualizar las notificaciones.` con `Reintentar`.
 
-- cantidad visible;
-- prioridad máxima;
-- primeros identificadores si son necesarios.
+`GET /admin/api/buzon` y `GET /admin/api/buzon/resumen` son de lectura. La reconciliación y la creación de avisos temporales ocurren en `POST /admin/api/buzon/sincronizar`. Una fuente final no vuelve a abrir su aviso por un `ON DUPLICATE KEY UPDATE` posterior.
 
-La lista completa se carga únicamente al abrir el buzón.
+## Otros avisos
 
-Una notificación debe mostrar información derivada de su entidad fuente y acciones específicas según su `tipo`.
+La ausencia pendiente conserva el flujo canónico: `Tolerancia de llegada vencida`, `Registrar no-show` y `Gestionar`. La asignación próxima conserva `Reservación próxima sin mesas`, `Asignar mesas` y `Gestionar`; las mesas se asignan en el mapa, no dentro del buzón. Varios motivos de una misma reservación se agrupan en una sola card.
 
-Tipos iniciales permitidos:
+## Validación
 
-- `reservacion_horario_afectado`;
-- `reservacion_grupo_grande`;
-- `reservacion_ausencia_pendiente`;
-- `reservacion_sin_asignacion_proxima`.
-
-Los avisos temporales se sincronizan desde el buzón con el endpoint administrativo protegido por CSRF. La sincronización usa la vigencia y la política POS canónicas, lee en lote los tickets abiertos y no se inserta en los flujos críticos de alta, edición, asignación o transición.
-
-`reservacion_ausencia_pendiente` se crea para una reservación confirmada del día cuya tolerancia venció sin ticket abierto y cuya acción canónica permite no-show. Es de prioridad alta, permanece abierto aunque cambie el día y se cierra después de no-show, inicio de servicio, ticket abierto o estado final.
-
-`reservacion_sin_asignacion_proxima` se crea para una reservación confirmada de hasta 12 personas, sin ticket ni mesas, dentro del horario efectivo y de la ventana canónica. Es normal entre 60 y 30 minutos y alta a 30 minutos o menos, incluida la tolerancia. No se crea después de 60 minutos, fuera de horario, para grupos grandes o cuando existe ausencia pendiente. Se cierra al asignar mesas, abrir ticket, salir de la ventana, cancelar/finalizar, entrar en ausencia o quedar fuera del horario efectivo.
-
-No agregar tipos hipotéticos hasta que exista una necesidad real. La agrupación muestra una tarjeta por reservación y ordena ausencia, afectación de horario, grupo grande y asignación próxima.
-
-El buzón queda diseñado para admitir posteriormente avisos de otros módulos sin cambiar su modelo base.
-
-## Acciones de buzón para cambios de horario
-
-Para una reservación afectada se pueden ofrecer, según contexto:
-
-- `Gestionar reservación`;
-- `Agregar contacto`;
-- `Mantener reservación`;
-- `Coordinar por otro medio`;
-- `Copiar link de prueba` únicamente en `development`/`testing`.
-
-`Mantener reservación` significa que administración acepta conservar el compromiso aunque se encuentre fuera del nuevo horario.
-
-Esa acción:
-
-- no cambia `reservaciones.estado`;
-- resuelve la afectación administrativamente;
-- invalida el acceso temporal si existe;
-- cierra el aviso correspondiente.
-
-No se debe obligar al administrador a mantener abierto un modal hasta resolver todos los casos.
-
-## Modo development/testing
-
-No se realizan envíos externos.
-
-Para reservaciones elegibles se prepara automáticamente el acceso temporal.
-
-El sistema puede ofrecer:
-
-`Copiar link de prueba`
-
-para validar el flujo.
-
-La interfaz debe indicar:
-
-`Aviso preparado para pruebas`
-
-y nunca afirmar que el mensaje fue enviado.
-
-Regenerar el link sobrescribe el hash y la expiración anteriores; no crea otra fila.
-
-## Integración futura con n8n
-
-El guardado del horario y el seguimiento no dependen de n8n.
-
-Cuando se integre:
-
-1. la aplicación decide qué reservaciones son notificables;
-2. genera el acceso temporal;
-3. prepara la intención de notificación;
-4. n8n se encarga de la entrega externa;
-5. cualquier fallo de entrega genera o mantiene una acción administrativa visible.
-
-El administrador no debe enviar manualmente uno por uno los avisos normales.
-
-Las reservaciones de más de 12 personas permanecen bajo coordinación administrativa salvo que en el futuro se defina explícitamente un flujo distinto.
-
-## Seguridad y privacidad
-
-- El acceso temporal autoriza únicamente la reservación asociada a la afectación.
-- El mismo contacto no permite acceder a otra reservación desde ese contexto.
-- El contacto nunca se expone en el formulario directo.
-- Los tokens planos no se persisten.
-- Las respuestas temporales evitan cache y referrer leakage.
-- El buzón no duplica PII.
-- El buzón no sustituye la autorización del módulo fuente.
-- Cada acción vuelve a validar permisos y estado de la entidad.
-- Un aviso huérfano o cuya fuente ya fue resuelta debe cerrarse por reconciliación.
-
-## Validación de arquitectura
-
-La implementación debe mantener una única autoridad por responsabilidad:
-
-| Responsabilidad                        | Autoridad                            |
-| -------------------------------------- | ------------------------------------ |
-| Ciclo de vida de la reservación        | `reservaciones.estado`               |
-| Evento de cambio de horario            | `horario_impactos`                   |
-| Afectación individual                  | `horario_impacto_reservaciones`      |
-| Presentación persistente de pendientes | `buzon_notificaciones`               |
-| Disponibilidad/capacidad/mesas         | servicios canónicos de reservaciones |
-
-No almacenar el mismo hecho de negocio como dos estados independientes.
-
-El buzón puede registrar lectura y cierre, pero la resolución de una afectación siempre se realiza primero en el dominio correspondiente.
-
-## Validación funcional
-
-Antes de integrar cambios se ejecutan:
+La validación esperada incluye:
 
 ```text
 npm test
@@ -520,21 +116,4 @@ php -l <cada PHP modificado>
 git diff --check
 ```
 
-Además deben existir pruebas para:
-
-- cambio de horario con reservaciones afectadas;
-- deduplicación de impactos;
-- reservación de 1–12 con contacto;
-- expiración del acceso temporal;
-- aparición diferida en buzón al expirar;
-- reservación sin contacto;
-- reservación de más de 12 personas;
-- agrupación de varios motivos sobre una misma reservación;
-- resolución por cliente;
-- resolución administrativa;
-- restauración posterior del horario;
-- cancelación de reservación;
-- privacidad del formulario;
-- buzón leído sin resolver;
-- cierre del buzón únicamente después de una resolución válida;
-- contador global sin cargar la lista completa.
+También deben cubrirse la matriz de cuatro casos, el límite y cooldown, la invalidación de tokens, cierre por entidad, resolución sin modificar la reservación, modal de confirmación, drawer, listado administrativo y presentación POS.

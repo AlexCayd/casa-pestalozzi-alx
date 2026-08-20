@@ -46,13 +46,14 @@ impactoAssert(!HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-
 
 $ddl = file_get_contents($root . '/database/ddl.sql');
 $migration = file_get_contents($root . '/database/migrations/2026_08_19_buzon_notificaciones.sql');
+$finalMigration = file_get_contents($root . '/database/migrations/2026_08_19_seguimiento_buzon_final.sql');
 $legacyMigration = file_get_contents($root . '/database/migrations/2026_08_18_simplificar_afectaciones_horario.sql');
-impactoAssert(is_string($ddl) && is_string($migration) && is_string($legacyMigration), 'se pudieron leer esquema y migraciones forward');
+impactoAssert(is_string($ddl) && is_string($migration) && is_string($legacyMigration) && is_string($finalMigration), 'se pudieron leer esquema y migraciones forward');
 impactoAssert(str_contains($ddl, 'CREATE TABLE IF NOT EXISTS buzon_notificaciones'), 'DDL crea el buzón genérico');
-foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'dedup_key', 'uq_buzon_notificaciones_dedup', 'idx_buzon_notificaciones_visibles'] as $column) {
+foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'requiere_accion', 'dedup_key', 'uq_buzon_notificaciones_dedup', 'idx_buzon_notificaciones_visibles'] as $column) {
     impactoAssert(str_contains($ddl, $column), "DDL contiene {$column}");
 }
-foreach (['notification_prepared_at', 'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'resolved_by', 'resolved_at'] as $column) {
+foreach (['notification_prepared_at', 'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'notification_attempts', 'last_notification_at', 'resolved_by', 'resolved_at'] as $column) {
     impactoAssert(str_contains($ddl, $column), "DDL contiene {$column}");
 }
 impactoAssert(!str_contains($ddl, 'CREATE TABLE IF NOT EXISTS reservacion_notificaciones'), 'DDL final no crea outbox específica');
@@ -61,8 +62,10 @@ impactoAssert(str_contains($migration, 'CREATE TABLE IF NOT EXISTS buzon_notific
 impactoAssert(str_contains($migration, 'DROP TABLE IF EXISTS reservacion_notificaciones'), 'migración elimina outbox anterior');
 impactoAssert(str_contains($migration, 'DROP TABLE IF EXISTS reservacion_magic_links'), 'migración elimina links anteriores');
 impactoAssert(str_contains($legacyMigration, 'estado = \'notificacion_preparada\''), 'forward previo conserva estado preparado');
+impactoAssert(str_contains($finalMigration, 'notification_attempts') && str_contains($finalMigration, 'last_notification_at'), 'migración final agrega límite e intervalo de avisos');
+impactoAssert(str_contains($finalMigration, 'visible_from = NOW()'), 'seguimiento preparado es visible de inmediato');
 
-foreach (['AVISO_PREPARADO', 'AVISOS_PREPARADOS', 'AVISOS_PARCIALES', 'AFECTACION_COORDINADA_EXTERNAMENTE', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
+foreach (['AVISO_PREPARADO', 'AVISO_VIGENTE', 'AVISO_EN_COOLDOWN', 'AVISOS_LIMITE_ALCANZADO', 'AVISOS_PREPARADOS', 'AVISOS_PARCIALES', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
     impactoAssert(ReservacionErrorCatalog::has($code), "{$code} está catalogado");
     impactoAssert(ReservacionErrorCatalog::presentar($code)['mensaje'] !== '', "{$code} tiene mensaje");
 }
@@ -111,9 +114,13 @@ impactoAssert(!str_contains($layout, '_schedule-impact-alert.php'), 'layout reti
 impactoAssert(is_string($inboxView) && str_contains($inboxView, 'data-inbox-drawer'), 'buzón tiene drawer');
 impactoAssert(is_string($inboxJs) && str_contains($inboxJs, 'markItemRead'), 'buzón marca leído al abrir el detalle');
 impactoAssert(!str_contains($inboxJs, 'Marcar leída'), 'buzón no muestra una acción separada de lectura');
-impactoAssert(str_contains($inboxJs, 'Mantener reservación') && str_contains($inboxJs, 'Coordinar'), 'buzón ofrece acciones de resolución');
+impactoAssert(str_contains($inboxJs, 'Marcar seguimiento como resuelto'), 'buzón conserva el contrato de resolución simple');
+impactoAssert(!str_contains($inboxJs, 'Mantener reservación') && !str_contains($inboxJs, 'Coordinar'), 'buzón retiró motivos de resolución de negocio');
+impactoAssert(str_contains($inboxJs, 'AdminScrollLock') && str_contains($inboxJs, 'window.AdminScrollLock.bloquear'), 'drawer usa el lock de scroll administrativo');
+impactoAssert(str_contains($inboxJs, 'data-schedule-impact-resolve'), 'detalle administrativo puede resolver el seguimiento');
 impactoAssert(str_contains($impactService, 'clasificarSeguimientosEnTransaccion'), 'impacto clasifica seguimiento al persistir');
 impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'MAX_COMENSALES_PUBLICO'), 'impacto aplica acceso diferido y umbral');
+impactoAssert(str_contains($impactService, "BuzonNotificacionesService::PRIORIDAD_NORMAL,\n                null"), 'seguimiento no espera a la expiración para aparecer');
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousTtl === null) unset($_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES']); else $_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES'] = $previousTtl;

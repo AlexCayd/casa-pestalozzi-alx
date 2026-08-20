@@ -82,6 +82,8 @@ La primera notificación es de prioridad alta. La segunda es normal entre 60 y 3
 
 Una reservación confirmada que quede fuera del horario efectivo se conserva visible en el contexto operativo con `fuera_horario_operacion = true`. El mapa administrativo la incluye en `reservaciones_admin`, pero la excluye de `en_proyeccion_mapa`; el hecho no modifica estado, capacidad, ocupación, tickets ni asignación. El POS presenta el mismo indicador textual.
 
+El listado normal de `/admin/reservaciones` excluye `pendiente_verificacion` y `expirada`, porque son holds o intentos de verificación pública y no reservaciones operativas. Un filtro explícito de estado puede consultarlas sin eliminarlas. Los holds vigentes siguen participando en capacidad y disponibilidad según las reglas canónicas.
+
 ## Roles operativos
 
 El mapa operativo es una superficie compartida por los roles `admin` y `waiter`. El administrador puede gestionar reservaciones y, cuando corresponde, consultar los datos de contacto necesarios para la operación. El personal de piso puede operar el mapa y las asignaciones de acuerdo con sus permisos; no debe recibir teléfono ni correo de los clientes cuando la tarea no lo requiere.
