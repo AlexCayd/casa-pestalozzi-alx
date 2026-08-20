@@ -13,6 +13,16 @@ $authPalabras = preg_split('/\s+/', $authNombre) ?: [];
 $authIniciales = strtoupper(
     mb_substr($authPalabras[0] ?? 'A', 0, 1) . mb_substr($authPalabras[1] ?? '', 0, 1)
 );
+$buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
+try {
+    $buzonResumen = \Services\BuzonNotificacionesService::resumen();
+} catch (Throwable $e) {
+    error_log('Buzón administrativo no disponible: ' . $e->getMessage());
+}
+$buzonCantidadAccionable = (int)($buzonResumen['cantidad_accionable'] ?? 0);
+$buzonCantidadSeguimiento = (int)($buzonResumen['cantidad_seguimiento'] ?? 0);
+$buzonCantidadTotal = $buzonCantidadAccionable + $buzonCantidadSeguimiento;
+$buzonPrioridadAccionable = (string)($buzonResumen['prioridad_maxima_accionable'] ?? '');
 ?>
 <header class="admin-topbar">
     <button
@@ -35,6 +45,21 @@ $authIniciales = strtoupper(
     </div>
 
     <div class="admin-topbar__actions">
+        <button
+            class="admin-topbar__inbox<?php echo $buzonCantidadTotal > 0 ? ' has-items' : ' is-empty'; ?><?php echo $buzonCantidadSeguimiento > 0 && $buzonCantidadAccionable === 0 ? ' has-followup' : ''; ?><?php echo $buzonPrioridadAccionable === 'alta' ? ' has-high-priority' : ''; ?>"
+            type="button"
+            aria-label="Abrir notificaciones administrativas"
+            aria-controls="admin-inbox-drawer"
+            aria-expanded="false"
+            data-inbox-open
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
+                <path d="M10 21h4"/>
+            </svg>
+            <span class="admin-topbar__inbox-badge" data-inbox-count<?php echo $buzonCantidadAccionable > 0 ? '' : ' hidden'; ?>><?php echo $buzonCantidadAccionable; ?></span>
+        </button>
+
         <button
             class="admin-topbar__support"
             type="button"

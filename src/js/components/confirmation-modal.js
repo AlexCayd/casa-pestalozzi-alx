@@ -415,6 +415,7 @@
                     return current.onAction(current.primaryAction);
                 };
             }
+            var options = current || {};
             if (current && current.loadingOnPrimary !== false) setLoading(true);
             try {
                 var result = typeof callback === 'function' ? callback() : undefined;
@@ -424,19 +425,27 @@
                 }
                 if (result && typeof result.then === 'function') {
                     result.then(function (value) {
-                        settle({ action: 'primary', value: value });
+                        if (options.primaryCloses === false) {
+                            setLoading(false);
+                            settle({ action: 'primary', value: value });
+                            return;
+                        }
+                        close(true, { action: 'primary', value: value });
                     }).catch(function (error) {
                         setLoading(false);
                         setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
-                        settle({ action: 'error', error: error });
                     });
                     return;
                 }
-                settle({ action: 'primary', value: result });
+                if (options.primaryCloses === false) {
+                    setLoading(false);
+                    settle({ action: 'primary', value: result });
+                    return;
+                }
+                close(true, { action: 'primary', value: result });
             } catch (error) {
                 setLoading(false);
                 setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
-                settle({ action: 'error', error: error });
             }
         });
         root.addEventListener('keydown', function (event) {
