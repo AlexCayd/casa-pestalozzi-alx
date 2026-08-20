@@ -4,6 +4,7 @@
     var form = document.querySelector('[data-schedule-change-form]');
     if (!page || !form) return;
 
+    var card = form.closest('[data-schedule-change-card]');
     var csrf = form.querySelector('[data-change-csrf]');
     var dateRoot = form.querySelector('[data-reservation-date-picker]');
     var timeRoot = form.querySelector('[data-reservation-time-picker]');
@@ -16,10 +17,12 @@
     var timeHint = form.querySelector('[data-change-time-hint]');
     var submit = form.querySelector('[data-change-submit]');
     var moreGuests = form.querySelector('[data-change-guest-more]');
+    var guestPills = form.querySelector('[data-change-guest-pills]');
     var stepper = form.querySelector('[data-change-guest-stepper]');
     var minGuests = 1;
     var maxGuests = Number(form.getAttribute('data-max-guests') || '0');
     if (!Number.isFinite(maxGuests) || maxGuests < minGuests) maxGuests = minGuests;
+    var pillMaxGuests = Math.min(6, maxGuests);
     var datePicker = null;
     var timePicker = null;
     var retryButton = null;
@@ -84,17 +87,18 @@
       guests.value = String(value);
       if (guestValue) guestValue.textContent = String(value);
 
-      form.querySelectorAll('[data-g]').forEach(function (button) {
+      form.querySelectorAll('[data-g]:not([data-change-guest-more])').forEach(function (button) {
         var selected = Number(button.getAttribute('data-g')) === value;
         button.classList.toggle('sel', selected);
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
       if (moreGuests) {
-        var expanded = value > 6;
+        var expanded = value > pillMaxGuests;
         moreGuests.classList.toggle('sel', expanded);
         moreGuests.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       }
-      if (stepper) stepper.hidden = value <= 6;
+      if (guestPills) guestPills.hidden = value > pillMaxGuests;
+      if (stepper) stepper.hidden = value <= pillMaxGuests;
       if (reload && dateInput.value) loadTimes();
     }
 
@@ -117,7 +121,7 @@
 
     function loadTimes() {
       if (!timePicker || !dateInput.value) {
-        setTimeHint('Selecciona una fecha para ver horarios disponibles.');
+        setTimeHint('Selecciona una fecha para ver horarios.');
         hideRetryButton();
         return;
       }
@@ -155,7 +159,7 @@
         ? data.horarios.filter(function (slot) { return slot && slot.disponible !== false; })
         : [];
       if (data.abierto === false || available.length === 0) {
-        setTimeHint(data.mensaje || 'No hay horarios disponibles para esa fecha.');
+        setTimeHint('No hay horarios disponibles para esa fecha.');
       } else {
         setTimeHint('Elige una hora disponible.');
       }
@@ -203,18 +207,40 @@
         var success = document.createElement('section');
         success.className = 'schedule-change-success';
         success.setAttribute('role', 'status');
+        success.setAttribute('aria-labelledby', 'schedule-change-success-title');
+        success.setAttribute('tabindex', '-1');
+        var mark = document.createElement('span');
+        mark.className = 'schedule-change-success__mark';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4.5 4.5L19 7"/></svg>';
+        var content = document.createElement('div');
         var eyebrow = document.createElement('p');
         eyebrow.className = 'schedule-change-eyebrow';
-        eyebrow.textContent = 'Listo';
+        eyebrow.textContent = 'Nuevo horario confirmado';
         var title = document.createElement('h2');
-        title.textContent = 'Reservación actualizada';
+        title.id = 'schedule-change-success-title';
+        title.textContent = 'Tu reservación está lista';
         var summary = document.createElement('p');
         summary.className = 'schedule-change-success__summary';
         summary.textContent = formatConfirmedDate(dateInput.value) + ' · ' + String(timeInput.value || '').substring(0, 5) + ' · ' + people + ' ' + (people === 1 ? 'persona' : 'personas');
+        var name = document.createElement('p');
+        name.className = 'schedule-change-success__name';
+        name.textContent = 'A nombre de ' + ((card && card.getAttribute('data-change-name')) || 'tu reservación');
         var copy = document.createElement('p');
-        copy.textContent = 'Te esperamos en Casa Pestalozzi.';
-        success.append(eyebrow, title, summary, copy);
-        form.replaceWith(success);
+        copy.className = 'schedule-change-success__copy';
+        copy.textContent = 'Tu reservación sigue confirmada con este nuevo horario. Te esperamos en Casa Pestalozzi.';
+        var home = document.createElement('a');
+        home.className = 'btn-line';
+        home.href = '/';
+        home.innerHTML = 'Volver al inicio <span aria-hidden="true">→</span>';
+        content.append(eyebrow, title, summary, name, copy, home);
+        success.append(mark, content);
+        if (card) {
+          card.replaceChildren(success);
+        } else {
+          form.replaceWith(success);
+        }
+        window.requestAnimationFrame(function () { success.focus({ preventScroll: true }); });
       }).catch(function (error) {
         setStatus(error.message || 'No fue posible completar la solicitud.', 'error');
         submit.disabled = false;

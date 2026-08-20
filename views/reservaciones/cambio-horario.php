@@ -45,7 +45,12 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                 <a class="btn-line" href="/reservaciones">Gestionar reservación <span aria-hidden="true">→</span></a>
             </section>
         <?php else : ?>
-            <section class="schedule-change-card" aria-labelledby="schedule-change-title">
+            <section
+                class="schedule-change-card"
+                aria-labelledby="schedule-change-title"
+                data-schedule-change-card
+                data-change-name="<?php echo $h($formulario['nombre']); ?>"
+            >
                 <div class="schedule-change-card__intro">
                     <p class="schedule-change-eyebrow">Cambio de horario</p>
                     <h1 id="schedule-change-title">Elige un nuevo horario</h1>
@@ -86,7 +91,7 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
 
                     <div class="field reservation-field reservation-field--guests">
                         <span class="reservation-field__label">Personas</span>
-                        <div class="pills reservation-guests reservation-guests--tabs" data-change-guest-pills role="group" aria-label="Cantidad de personas">
+                        <div class="pills reservation-guests reservation-guests--tabs" data-change-guest-pills<?php echo $personasActuales > 6 ? ' hidden' : ''; ?> role="group" aria-label="Cantidad de personas">
                             <?php for ($personas = 1; $personas <= 6; $personas++) : ?>
                                 <button type="button" class="pill<?php echo $personasActuales === $personas ? ' sel' : ''; ?>" data-g="<?php echo $personas; ?>" aria-pressed="<?php echo $personasActuales === $personas ? 'true' : 'false'; ?>"><?php echo $personas; ?></button>
                             <?php endfor; ?>
@@ -115,11 +120,12 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                         $placeholder = 'Elige una hora';
                         $staticStep = 0;
                         $required = true;
+                        $displayAriaDescribedby = 'schedule-change-time-hint';
                         $inline = false;
                         $inputDataAttributes = ['data-change-time' => true];
                         include __DIR__ . '/../components/reservations/time-picker.php';
                         ?>
-                        <p class="reservation-field__help" data-change-time-hint>Selecciona una fecha para ver horarios disponibles.</p>
+                        <p class="reservation-field__help" id="schedule-change-time-hint" data-change-time-hint>Selecciona una fecha para ver horarios.</p>
                     </div>
 
                     <label class="field reservation-field" for="schedule-change-note">

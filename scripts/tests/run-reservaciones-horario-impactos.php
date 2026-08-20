@@ -124,7 +124,7 @@ impactoAssert(str_contains($impactService, "BuzonNotificacionesService::PRIORIDA
 impactoAssert(str_contains($publicView, 'Elige un nuevo horario') && str_contains($publicView, 'Confirmar nuevo horario'), 'formulario público usa copy y CTA de cambio de horario');
 impactoAssert(str_contains($publicView, 'reservation-guests--tabs') && str_contains($publicView, 'guests-stepper') && str_contains($publicView, 'btn-line'), 'formulario público reutiliza controles canónicos');
 impactoAssert(str_contains($publicView, 'data-max-guests') && !str_contains($publicJs, 'var maxGuests = 12'), 'límite de personas viene de PHP');
-impactoAssert(str_contains($publicJs, 'Reservación actualizada') && str_contains($publicJs, 'Te esperamos en Casa Pestalozzi.'), 'éxito público muestra valores confirmados y cierre de marca');
+impactoAssert(str_contains($publicJs, 'Tu reservación está lista') && str_contains($publicJs, 'Te esperamos en Casa Pestalozzi.'), 'éxito público muestra valores confirmados y cierre de marca');
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousTtl === null) unset($_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES']); else $_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES'] = $previousTtl;

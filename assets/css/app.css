@@ -5513,16 +5513,16 @@ body.nav-open .nav-overlay__links a {
 
 .schedule-change-shell {
   display: grid;
-  width: min(100% - 2 * var(--pad), 960px);
+  width: min(100% - 2 * var(--pad), 840px);
   min-height: calc(100vh - 150px);
   align-content: start;
   margin: 0 auto;
-  padding: clamp(3.5rem, 8vw, 7rem) 0;
+  padding: clamp(1.5rem, 3.5vw, 2.25rem) 0 2rem;
 }
 
 .schedule-change-card {
   position: relative;
-  padding: clamp(1.6rem, 5vw, 3.5rem);
+  padding: clamp(1.75rem, 4vw, 2.25rem);
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
@@ -5533,7 +5533,7 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-eyebrow {
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
   color: var(--accent);
   font-size: 0.66rem;
   font-weight: 400;
@@ -5544,7 +5544,7 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-card h1 {
   max-width: 15ch;
   color: var(--beige);
-  font-size: clamp(2.25rem, 4vw, 3.35rem);
+  font-size: clamp(2.2rem, 4vw, 2.8rem);
   letter-spacing: -0.03em;
 }
 
@@ -5562,8 +5562,8 @@ body.nav-open .nav-overlay__links a {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin: 1.75rem 0 2rem;
-  padding: 0.95rem 0;
+  margin: 1.25rem 0 1.5rem;
+  padding: 0.75rem 0;
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -5580,14 +5580,14 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-current strong {
   color: var(--beige);
   font-family: var(--serif);
-  font-size: 1.08rem;
+  font-size: 1rem;
   font-weight: 400;
 }
 .schedule-change-current p {
   margin: 0;
-  color: var(--txt-mute);
+  color: var(--beige);
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.4;
   text-align: left;
 }
@@ -5596,7 +5596,7 @@ body.nav-open .nav-overlay__links a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas: "date time" "guests guests" "note note" "status status" "submit submit";
-  gap: 1.35rem 1.5rem;
+  gap: 1.1rem 1.25rem;
   align-items: start;
 }
 
@@ -5622,7 +5622,7 @@ body.nav-open .nav-overlay__links a {
 
 .schedule-change-form .reservation-field__label {
   display: block;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.55rem;
   color: var(--accent);
   font-size: 0.68rem;
   letter-spacing: 0.13em;
@@ -5639,6 +5639,30 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-page .date-picker-wrap,
 .schedule-change-page .hour-picker-wrap {
   width: 100%;
+}
+
+.schedule-change-page .date-display,
+.schedule-change-page .hour-display {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--beige);
+  font-family: var(--sans);
+  font-size: 0.92rem;
+}
+
+.schedule-change-page .hour-picker-control .hour-display {
+  padding-left: 2.35rem !important;
+  padding-right: 2.2rem !important;
+}
+
+.schedule-change-page .cp-calendar,
+.schedule-change-page .hour-dropdown {
+  width: min(310px, 100vw - 32px);
+  min-width: 0;
 }
 
 .schedule-change-page .date-display,
@@ -5678,6 +5702,40 @@ body.nav-open .nav-overlay__links a {
   stroke-width: 1.8;
 }
 
+.schedule-change-form .reservation-guests--tabs {
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface-2);
+}
+
+.schedule-change-form .reservation-guests--tabs .pill {
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+
+.schedule-change-form .guests-stepper {
+  min-height: 48px;
+  margin-top: 0.5rem;
+  padding: 0.25rem;
+}
+
+.schedule-change-form .guests-stepper[hidden],
+.schedule-change-form .reservation-guests[hidden] {
+  display: none !important;
+}
+
+.schedule-change-form .reservation-field__help {
+  margin-top: 0.4rem;
+  color: var(--txt-mute);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.schedule-change-form .reservation-control--textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
 .schedule-change-retry {
   width: fit-content;
   padding: 0.4rem 0;
@@ -5714,6 +5772,12 @@ body.nav-open .nav-overlay__links a {
   color: var(--accent-soft);
 }
 
+.schedule-change-form .schedule-change-status[hidden],
+.schedule-change-form .schedule-change-retry[hidden],
+.schedule-change-success[hidden] {
+  display: none !important;
+}
+
 .schedule-change-submit {
   grid-area: submit;
   width: fit-content;
@@ -5727,30 +5791,70 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-success {
-  padding-top: 1rem;
-  border-top: 1px solid var(--line-soft);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem 1.25rem;
+  align-items: start;
+  animation: fade-in-up 0.4s var(--ease);
+}
+.schedule-change-success__mark {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+}
+.schedule-change-success__mark svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.schedule-change-success:focus {
+  outline: 0;
+}
+.schedule-change-success .schedule-change-eyebrow {
+  margin-bottom: 0.45rem;
 }
 .schedule-change-success h2 {
-  max-width: 14ch;
+  max-width: 18ch;
+  margin: 0;
   color: var(--beige);
   font-family: var(--serif);
-  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-size: clamp(2rem, 4vw, 2.8rem);
   font-weight: 400;
   letter-spacing: -0.02em;
 }
-.schedule-change-success p {
-  max-width: 48ch;
-  margin-top: 1rem;
-  color: var(--txt-mute);
-  font-family: var(--crimson);
-  font-size: 1.1rem;
-  line-height: 1.5;
-}
 .schedule-change-success__summary {
+  margin-top: 0.9rem;
   color: var(--beige);
   font-family: var(--sans);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  line-height: 1.45;
+}
+.schedule-change-success__name {
+  margin-top: 0.35rem;
+  color: var(--beige);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.schedule-change-success__copy {
+  max-width: 48ch;
+  margin-top: 0.9rem;
+  color: var(--txt-mute);
+  font-family: var(--crimson);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+.schedule-change-success .btn-line {
+  width: fit-content;
+  margin-top: 1.1rem;
 }
 
 .schedule-change-card--expired {
@@ -5767,6 +5871,11 @@ body.nav-open .nav-overlay__links a {
   text-transform: uppercase;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .schedule-change-success {
+    animation: none;
+  }
+}
 @media (max-width: 640px) {
   .schedule-change-header {
     width: calc(100% - 2rem);
@@ -5786,10 +5895,10 @@ body.nav-open .nav-overlay__links a {
     padding: 2rem 0 3rem;
   }
   .schedule-change-card {
-    padding: 1.4rem 1rem 1.6rem;
+    padding: 1.5rem 1rem 1.75rem;
   }
   .schedule-change-card h1 {
-    font-size: clamp(2.35rem, 13vw, 3.5rem);
+    font-size: clamp(2.2rem, 11vw, 2.8rem);
   }
   .schedule-change-current {
     align-items: start;
@@ -5811,6 +5920,13 @@ body.nav-open .nav-overlay__links a {
   .schedule-change-submit {
     width: 100%;
     justify-self: stretch;
+  }
+  .schedule-change-success {
+    grid-template-columns: 1fr;
+  }
+  .schedule-change-success .btn-line {
+    width: 100%;
+    justify-content: center;
   }
 }
 .confirmation-modal {
