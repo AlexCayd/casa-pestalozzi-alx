@@ -103,6 +103,7 @@ $hora = (string)$valor($reservacion, 'hora');
 $comensales = (int)$valor($reservacion, 'comensales', 0);
 $nota = trim((string)$valor($reservacion, 'nota'));
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
+$motivoCancelacion = trim((string)$valor($reservacion, 'motivo_cancelacion'));
 $estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $createdAt = (string)$valor($reservacion, 'created_at', '');
 $updatedAt = (string)$valor($reservacion, 'updated_at', '');
@@ -129,7 +130,9 @@ $seguimientoActivo = $seguimientoHorario !== null;
     data-reservation-detail-root
 >
     <header class="admin-menu__header admin-page__header reservation-detail-header">
-        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
+        <a class="admin-btn admin-btn--secondary admin-btn--icon admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>" aria-label="Volver a reservaciones" title="Volver a reservaciones">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        </a>
         <div class="admin-page__intro">
             <h1 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h1>
         </div>
@@ -188,18 +191,6 @@ $seguimientoActivo = $seguimientoHorario !== null;
                         <dt>Estado</dt>
                         <dd><?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?></dd>
                     </div>
-                    <div>
-                        <dt>Origen</dt>
-                        <dd><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing publica'; ?></dd>
-                    </div>
-                    <div>
-                        <dt>Contacto</dt>
-                        <dd><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></dd>
-                    </div>
-                    <div>
-                        <dt>Tipo de contacto</dt>
-                        <dd><?php echo $h($contactoTipo === 'ninguno' ? 'Sin contacto' : ucfirst($contactoTipo)); ?></dd>
-                    </div>
                     <?php if (!empty($vigencia['tolerancia_vencida'])) : ?>
                         <div>
                             <dt>Condición operativa</dt>
@@ -252,6 +243,25 @@ $seguimientoActivo = $seguimientoHorario !== null;
                 </dl>
             </article>
 
+            <article class="reservation-detail-card admin-card">
+                <div class="reservation-detail-card__head">
+                    <div>
+                        <span class="reservation-detail-card__label">Cliente</span>
+                        <h3><?php echo $h($nombre !== '' ? $nombre : 'Sin nombre'); ?></h3>
+                    </div>
+                </div>
+                <dl class="reservation-detail-list reservation-detail-list--grid">
+                    <div>
+                        <dt>Contacto</dt>
+                        <dd><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></dd>
+                    </div>
+                    <div>
+                        <dt>Origen</dt>
+                        <dd><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing pública'; ?></dd>
+                    </div>
+                </dl>
+            </article>
+
             <?php
             $modo = 'editar';
             include __DIR__ . '/_form.php';
@@ -261,7 +271,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
                 <div class="reservation-detail-card__head">
                     <div>
                         <span class="reservation-detail-card__label">Notas</span>
-                        <h3>Cliente y operacion</h3>
+                        <h3>Notas</h3>
                     </div>
                 </div>
                 <div class="reservation-detail-notes">
@@ -283,6 +293,27 @@ $seguimientoActivo = $seguimientoHorario !== null;
                     </section>
                 </div>
             </article>
+
+            <?php if ($estado === 'cancelada') : ?>
+                <article class="reservation-detail-card admin-card reservation-cancellation-card">
+                    <div class="reservation-detail-card__head">
+                        <div>
+                            <span class="reservation-detail-card__label">Cancelación</span>
+                            <h3>Motivo y registro</h3>
+                        </div>
+                    </div>
+                    <dl class="reservation-detail-list">
+                        <div>
+                            <dt>Motivo</dt>
+                            <dd><?php echo $motivoCancelacion !== '' ? nl2br($h($motivoCancelacion)) : 'Sin motivo registrado.'; ?></dd>
+                        </div>
+                        <div>
+                            <dt>Cancelada</dt>
+                            <dd><?php echo $stateChangedAt !== '' ? $h($fechaHoraLegible($stateChangedAt)) : 'Sin fecha registrada.'; ?></dd>
+                        </div>
+                    </dl>
+                </article>
+            <?php endif; ?>
 
             <?php if ($ticketFisico) : ?>
                 <article class="reservation-detail-card admin-card">

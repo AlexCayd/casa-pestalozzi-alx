@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   comensales           INT UNSIGNED NOT NULL DEFAULT 2,
   nota                 TEXT,
   comentario_admin     TEXT NULL,
+  motivo_cancelacion   VARCHAR(500) NULL,
   origen               ENUM('landing','admin') NOT NULL,
   request_token        VARCHAR(64) NULL,
   -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.

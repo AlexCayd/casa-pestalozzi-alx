@@ -23,6 +23,7 @@ class Reservacion extends ActiveRecord {
         'comensales',
         'nota',
         'comentario_admin',
+        'motivo_cancelacion',
         'origen',
         'estado',
         'hold_expires_at',
@@ -40,6 +41,7 @@ class Reservacion extends ActiveRecord {
     public $comensales = 2;
     public $nota;
     public $comentario_admin = null;
+    public $motivo_cancelacion = null;
     public $origen = 'admin';
     public $reemplaza_reservacion_id = null;
     public $request_token = null;
@@ -106,6 +108,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -132,6 +135,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -439,6 +443,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -467,6 +472,7 @@ class Reservacion extends ActiveRecord {
                         r.hora,
                         r.comensales,
                         r.nota,
+                        r.motivo_cancelacion,
                         r.estado,
                         r.hold_expires_at,
                         r.reemplaza_reservacion_id,
@@ -496,6 +502,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -522,6 +529,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.estado,
                     r.hold_expires_at,
                     r.reemplaza_reservacion_id,
