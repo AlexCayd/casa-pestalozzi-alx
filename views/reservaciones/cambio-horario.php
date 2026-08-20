@@ -4,9 +4,9 @@ use Services\ReservacionConfig;
 $h = static fn ($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 $formulario = is_array($formulario ?? null) ? $formulario : null;
 $fechaActual = DateTimeImmutable::createFromFormat('!Y-m-d', (string)($formulario['fecha'] ?? ''), ReservacionConfig::timezone());
-$meses = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-$fechaActualLegible = $fechaActual
-    ? $fechaActual->format('j') . ' de ' . ($meses[(int)$fechaActual->format('n')] ?? $fechaActual->format('m')) . ' de ' . $fechaActual->format('Y')
+$mesesCortos = [1 => 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+$fechaActualCorta = $fechaActual
+    ? $fechaActual->format('j') . ' ' . ($mesesCortos[(int)$fechaActual->format('n')] ?? $fechaActual->format('m')) . ' ' . $fechaActual->format('Y')
     : (string)($formulario['fecha'] ?? '');
 $personasActuales = (int)($formulario['comensales'] ?? 0);
 ?>
@@ -49,14 +49,13 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                 <div class="schedule-change-card__intro">
                     <p class="schedule-change-eyebrow">Cambio de horario</p>
                     <h1 id="schedule-change-title">Elige un nuevo horario</h1>
-                    <p>Tu reservación sigue confirmada. Selecciona una nueva fecha y hora para reprogramarla.</p>
                 </div>
 
                 <div class="schedule-change-current" aria-label="Reservación actual">
                     <div>
                         <span>Reservación actual</span>
-                        <strong><?php echo $h($fechaActualLegible); ?> · <?php echo $h(substr((string)$formulario['hora'], 0, 5)); ?> · <?php echo $personasActuales; ?> <?php echo $personasActuales === 1 ? 'persona' : 'personas'; ?></strong>
-                        <p><?php echo $h($formulario['nombre']); ?></p>
+                        <strong><?php echo $h($fechaActualCorta); ?> · <?php echo $h(substr((string)$formulario['hora'], 0, 5)); ?> · <?php echo $personasActuales; ?> <?php echo $personasActuales === 1 ? 'persona' : 'personas'; ?></strong>
+                        <p>A nombre de <?php echo $h($formulario['nombre']); ?></p>
                     </div>
                 </div>
 
@@ -79,7 +78,7 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                         $enabledWeekdays = range(0, 6);
                         $allowPast = false;
                         $required = true;
-                        $inline = true;
+                        $inline = false;
                         $inputDataAttributes = ['data-change-date' => true];
                         include __DIR__ . '/../components/reservations/date-picker.php';
                         ?>
@@ -94,9 +93,9 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                             <button type="button" class="pill<?php echo $personasActuales > 6 ? ' sel' : ''; ?>" data-g="7" data-change-guest-more aria-controls="schedule-change-guest-stepper" aria-expanded="<?php echo $personasActuales > 6 ? 'true' : 'false'; ?>">+</button>
                         </div>
                         <div class="guests-stepper" id="schedule-change-guest-stepper" data-change-guest-stepper<?php echo $personasActuales > 6 ? '' : ' hidden'; ?> role="group" aria-label="Ajustar cantidad de personas">
-                            <button class="step-btn" type="button" data-change-minus aria-label="Reducir personas">−</button>
+                            <button class="step-btn" type="button" data-change-minus aria-label="Reducir personas" title="Reducir personas"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14"/></svg></button>
                             <output class="step-val" data-change-guests-value><?php echo $personasActuales; ?></output>
-                            <button class="step-btn" type="button" data-change-plus aria-label="Aumentar personas">+</button>
+                            <button class="step-btn" type="button" data-change-plus aria-label="Aumentar personas" title="Aumentar personas"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></button>
                         </div>
                         <input type="hidden" name="personas" value="<?php echo $personasActuales; ?>" data-change-guests>
                         <span class="reservation-field__help">Hasta <?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?> personas en este acceso.</span>
@@ -116,11 +115,11 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                         $placeholder = 'Elige una hora';
                         $staticStep = 0;
                         $required = true;
-                        $inline = true;
+                        $inline = false;
                         $inputDataAttributes = ['data-change-time' => true];
                         include __DIR__ . '/../components/reservations/time-picker.php';
                         ?>
-                        <p class="reservation-field__help" data-change-time-hint>Primero elige una fecha.</p>
+                        <p class="reservation-field__help" data-change-time-hint>Selecciona una fecha para ver horarios disponibles.</p>
                     </div>
 
                     <label class="field reservation-field" for="schedule-change-note">

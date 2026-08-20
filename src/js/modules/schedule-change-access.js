@@ -117,7 +117,7 @@
 
     function loadTimes() {
       if (!timePicker || !dateInput.value) {
-        setTimeHint('Primero elige una fecha.');
+        setTimeHint('Selecciona una fecha para ver horarios disponibles.');
         hideRetryButton();
         return;
       }
@@ -128,13 +128,14 @@
 
     datePicker = window.createReservationDatePicker({
       root: dateRoot,
-      inline: true,
+      inline: false,
       allowPast: false
     });
     timePicker = window.createReservationTimePicker({
       root: timeRoot,
-      inline: true,
+      inline: false,
       endpoint: '/api/reservaciones/cambio-horario/disponibilidad',
+      autoLoad: false,
       requestTimeoutMs: 10000,
       getQueryParams: function () {
         return { personas: Number(guests.value || 0) };

@@ -1061,6 +1061,21 @@ html.lenis body {
   font-size: 12px;
 }
 
+.admin-btn--icon {
+  width: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+}
+.admin-btn--icon .admin-btn__icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .admin-btn--gold {
   border-color: var(--admin-gold-deep);
   background: var(--admin-gold);
@@ -2849,6 +2864,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
+.admin-body .cpc-nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
 .admin-body .cpc-nav:hover {
   border-color: var(--reservation-picker-nav-hover-border, currentColor);
   background: var(--reservation-picker-hover-bg, transparent);
@@ -4133,7 +4157,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin: 0;
   padding: 14px 8px 14px 16px;
   border: 0;
-  border-bottom: 1px solid var(--admin-border-soft);
+  border-bottom: 1px solid var(--admin-border);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -4142,10 +4166,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transition: background var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-inbox__row:first-child {
-  border-top: 1px solid var(--admin-border-soft);
+  border-top: 1px solid var(--admin-border);
 }
 .admin-inbox__row:hover {
-  background: var(--admin-surface);
+  background: var(--admin-surface-strong);
 }
 .admin-inbox__row:focus-visible {
   z-index: 1;
@@ -4153,8 +4177,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   outline-offset: -2px;
 }
 .admin-inbox__row.is-unread {
-  border-left: 3px solid var(--admin-gold);
-  padding-left: 13px;
+  box-shadow: inset 3px 0 0 var(--admin-gold);
 }
 .admin-inbox__row.is-followup {
   background: color-mix(in srgb, var(--admin-surface-strong) 42%, transparent);
@@ -4166,8 +4189,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__row-head h3 {
   margin: 0;
   color: var(--admin-text);
-  font-size: 0.94rem;
-  font-weight: 700;
+  font-family: var(--admin-font-heading);
+  font-size: 0.98rem;
+  font-weight: 600;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
@@ -4189,6 +4213,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__row-reason-label {
   color: var(--admin-text);
   font-size: 0.82rem;
+  font-weight: 700;
   line-height: 1.35;
 }
 .admin-inbox__row-more {
@@ -4213,24 +4238,35 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-width: 1.8;
 }
 .admin-inbox__detail-back {
-  width: max-content;
+  display: grid;
+  width: 42px;
   min-height: 42px;
   margin: 0 0 14px;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
   color: var(--admin-muted);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
   cursor: pointer;
 }
 .admin-inbox__detail-back:hover {
+  border-color: var(--admin-gold);
   color: var(--admin-text);
+  background: var(--admin-surface-strong);
 }
 .admin-inbox__detail-back:focus-visible {
   outline: 2px solid var(--admin-gold);
   outline-offset: 3px;
+}
+.admin-inbox__detail-back svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 .admin-inbox__detail-identity {
   padding-bottom: 18px;
@@ -4239,7 +4275,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__detail-identity h3 {
   margin: 0;
   color: var(--admin-text);
-  font-size: 1.15rem;
+  font-family: var(--admin-font-heading);
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 .admin-inbox__detail-identity p {
   margin: 5px 0 0;

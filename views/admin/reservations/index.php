@@ -21,6 +21,12 @@ if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaOperacion) !== 1) {
 }
 
 $operationUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaOperacion);
+$rango = [
+    'start' => (string)($filtros['fecha_inicio'] ?? $fechaDefault),
+    'end' => (string)($filtros['fecha_fin'] ?? $fechaDefault),
+    'preset' => 0,
+    'label' => 'Periodo',
+];
 
 $valor = static function ($item, string $campo, $default = '') {
     if (is_array($item)) {
@@ -178,9 +184,6 @@ foreach ($alertas as $tipo => $mensajes) {
             <p class="admin-page__subtitle">Consulta, confirma y administra las reservaciones del restaurante.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <?php if ($developmentTools) : ?>
-                <a class="admin-btn admin-btn--secondary" href="/admin/reservaciones/herramientas-desarrollo">Herramientas de desarrollo</a>
-            <?php endif; ?>
             <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary admin-reservations__header-action" href="/admin/reservaciones/crear">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/>
@@ -233,27 +236,17 @@ foreach ($alertas as $tipo => $mensajes) {
                 placeholder="Nombre o correo"
             >
         </div>
-        <div class="admin-filters__group">
-            <label for="reservations-fecha-inicio">Desde</label>
-            <input
-                id="reservations-fecha-inicio"
-                type="date"
-                data-reactive-control
-                data-reactive-default="<?php echo $h($fechaDefault); ?>"
-                name="fecha_inicio"
-                value="<?php echo $h($filtros['fecha_inicio'] ?? date('Y-m-d')); ?>"
-            >
-        </div>
-        <div class="admin-filters__group">
-            <label for="reservations-fecha-fin">Hasta</label>
-            <input
-                id="reservations-fecha-fin"
-                type="date"
-                data-reactive-control
-                data-reactive-default="<?php echo $h($fechaDefault); ?>"
-                name="fecha_fin"
-                value="<?php echo $h($filtros['fecha_fin'] ?? date('Y-m-d')); ?>"
-            >
+        <div class="admin-filters__range">
+            <?php
+            $rangeCaption = 'Periodo';
+            $rangeCompare = false;
+            $rangeStartParam = 'fecha_inicio';
+            $rangeEndParam = 'fecha_fin';
+            $rangeAllowFuture = true;
+            $rangeShowPresets = false;
+            $rangePreserveQuery = true;
+            include __DIR__ . '/../partials/_range-picker.php';
+            ?>
         </div>
         <div class="admin-filters__actions">
             <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-reactive-submit>Buscar</button>
@@ -370,12 +363,16 @@ foreach ($alertas as $tipo => $mensajes) {
                 <fieldset class="admin-tabs reservations-views">
                     <legend class="admin-visually-hidden">Forma de ver las reservaciones</legend>
                     <label class="admin-tabs__tab">
-                        <input type="radio" name="reservations-view" value="lista" checked data-reservations-view>
-                        <span>Lista</span>
+                        <input type="radio" name="reservations-view" value="lista" checked data-reservations-view aria-label="Vista de lista" title="Lista">
+                        <span title="Lista" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 6h14M5 12h14M5 18h14"/></svg>
+                        </span>
                     </label>
                     <label class="admin-tabs__tab">
-                        <input type="radio" name="reservations-view" value="agenda" data-reservations-view>
-                        <span>Agenda</span>
+                        <input type="radio" name="reservations-view" value="agenda" data-reservations-view aria-label="Vista de agenda" title="Agenda">
+                        <span title="Agenda" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 9h16M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01"/></svg>
+                        </span>
                     </label>
                 </fieldset>
             <?php endif; ?>

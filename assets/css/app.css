@@ -3302,6 +3302,15 @@ body.nav-open .nav-overlay__links a {
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
+.reserva .cpc-nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
 .reserva .cpc-nav:hover {
   border-color: var(--reservation-picker-nav-hover-border, currentColor);
   background: var(--reservation-picker-hover-bg, transparent);
@@ -5535,11 +5544,10 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-card h1 {
   max-width: 15ch;
   color: var(--beige);
-  font-size: clamp(2.7rem, 5vw, 4.1rem);
+  font-size: clamp(2.25rem, 4vw, 3.35rem);
   letter-spacing: -0.03em;
 }
 
-.schedule-change-card__intro > p:last-child,
 .schedule-change-card--expired > p:not(.schedule-change-eyebrow) {
   max-width: 55ch;
   margin-top: 1.25rem;
@@ -5554,8 +5562,8 @@ body.nav-open .nav-overlay__links a {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin: 2rem 0 2.25rem;
-  padding: 0.9rem 0;
+  margin: 1.75rem 0 2rem;
+  padding: 0.95rem 0;
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -5576,16 +5584,19 @@ body.nav-open .nav-overlay__links a {
   font-weight: 400;
 }
 .schedule-change-current p {
+  margin: 0;
   color: var(--txt-mute);
-  font-size: 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
   text-align: left;
 }
 
 .schedule-change-form {
   display: grid;
-  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.85fr);
-  grid-template-areas: "date guests" "date time" "note note" "status status" "submit submit";
-  gap: 1.7rem 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "date time" "guests guests" "note note" "status status" "submit submit";
+  gap: 1.35rem 1.5rem;
   align-items: start;
 }
 
@@ -5625,9 +5636,46 @@ body.nav-open .nav-overlay__links a {
   text-transform: none;
 }
 
-.schedule-change-page .date-picker-wrap--inline,
-.schedule-change-page .hour-picker-wrap--inline {
+.schedule-change-page .date-picker-wrap,
+.schedule-change-page .hour-picker-wrap {
   width: 100%;
+}
+
+.schedule-change-page .date-display,
+.schedule-change-page .hour-display {
+  cursor: pointer;
+}
+
+.schedule-change-page .date-display:disabled,
+.schedule-change-page .hour-display:disabled {
+  cursor: not-allowed;
+}
+
+.schedule-change-page .cpc-nav,
+.schedule-change-page .cpc-day,
+.schedule-change-page .hour-option,
+.schedule-change-page .pill,
+.schedule-change-page .step-btn,
+.schedule-change-page .btn-line {
+  cursor: pointer;
+}
+
+.schedule-change-page .cpc-nav:focus-visible,
+.schedule-change-page .cpc-day:focus-visible,
+.schedule-change-page .hour-option:focus-visible,
+.schedule-change-page .pill:focus-visible,
+.schedule-change-page .step-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.schedule-change-page .step-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
 }
 
 .schedule-change-retry {
@@ -8067,6 +8115,15 @@ footer.foot {
   font-weight: var(--reservation-picker-nav-font-weight, 400);
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.operational-page .cpc-nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 .operational-page .cpc-nav:hover {
   border-color: var(--reservation-picker-nav-hover-border, currentColor);

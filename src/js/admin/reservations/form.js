@@ -64,6 +64,7 @@
             var cancelButton = form.querySelector('[data-form-cancel]') || (externalActions && externalActions.querySelector('[data-form-cancel]'));
             var saveButton = form.querySelector('[data-form-save]') || (externalActions && externalActions.querySelector('[data-form-save]'));
             var editBanner = card.querySelector('[data-edit-mode-banner]');
+            var editBadge = card.querySelector('[data-editing-badge]');
             var dateRoot = form.querySelector('[data-reservation-date-picker]');
             var timeRoot = form.querySelector('[data-reservation-time-picker]');
             var dateInput = form.querySelector('[data-date-input]');
@@ -600,6 +601,7 @@
                     editButton.hidden = isEditing || !editable;
                     editButton.setAttribute('aria-expanded', isEditing ? 'true' : 'false');
                 }
+                if (editBadge) editBadge.hidden = !isEditing;
                 if (cancelButton) {
                     cancelButton.hidden = mode === 'crear' || !isEditing;
                 }

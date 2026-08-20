@@ -29,7 +29,7 @@ if ($buzonPrioridad === 'alta') {
                 <h2 id="admin-inbox-title" data-inbox-title>Notificaciones</h2>
                 <p data-inbox-summary><?php echo $buzonCantidadAccionable . ' por atender · ' . $buzonCantidadSeguimiento . ' en espera'; ?></p>
             </div>
-            <button class="admin-inbox__close" type="button" aria-label="Cerrar buzón" data-inbox-close>
+            <button class="admin-inbox__close" type="button" aria-label="Cerrar notificaciones" title="Cerrar notificaciones" data-inbox-close>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
             </button>
         </header>

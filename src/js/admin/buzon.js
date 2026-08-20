@@ -255,7 +255,9 @@
       back.type = 'button';
       back.className = 'admin-inbox__detail-back';
       back.setAttribute('data-inbox-action', 'close-detail');
-      back.textContent = '← Volver';
+      back.setAttribute('aria-label', 'Volver a notificaciones');
+      back.setAttribute('title', 'Volver a notificaciones');
+      back.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
       return back;
     }
 

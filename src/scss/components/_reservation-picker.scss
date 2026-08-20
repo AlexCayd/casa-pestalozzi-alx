@@ -205,6 +205,16 @@
     line-height: 1;
     transition: border-color 0.2s, background 0.2s, color 0.2s;
 
+    svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+
     &:hover {
       border-color: var(--reservation-picker-nav-hover-border, currentColor);
       background: var(--reservation-picker-hover-bg, transparent);
