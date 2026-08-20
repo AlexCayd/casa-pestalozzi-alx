@@ -30,6 +30,9 @@ assertUxRefinement(str_contains($publicScript, "setTimeHint('Consultando horario
 assertUxRefinement(str_contains($publicScript, "setTimeHint('Elige una hora disponible.')"), 'hora comunica disponibilidad');
 assertUxRefinement(str_contains($publicScript, "setTimeHint('No hay horarios disponibles para esa fecha.')"), 'hora comunica ausencia de horarios');
 assertUxRefinement(str_contains($publicView, 'data-max-guests'), 'cambio de horario expone el máximo de personas desde PHP');
+assertUxRefinement(str_contains($publicView, 'schedule-change-context') && str_contains($publicView, 'schedule-change-editor'), 'cambio de horario separa contexto y edición');
+assertUxRefinement(str_contains($publicView, 'schedule-change-logo__mark') && !str_contains($publicView, '<img src="/build/images/logo.svg"'), 'logo público usa la marca enmascarada');
+assertUxRefinement(str_contains($publicView, 'rows="2"'), 'indicaciones usa una altura compacta');
 assertUxRefinement(str_contains($publicScript, 'var pillMaxGuests = Math.min(6, maxGuests)'), 'pills de personas respetan el máximo del formulario');
 assertUxRefinement(str_contains($publicScript, 'guestPills.hidden = value > pillMaxGuests'), 'pills y stepper no se muestran simultáneamente');
 assertUxRefinement(str_contains($publicScript, "card.replaceChildren(success)"), 'éxito reemplaza el contenido completo de la tarjeta');
@@ -38,7 +41,13 @@ assertUxRefinement(str_contains($publicScript, 'schedule-change-success__mark') 
 
 $scheduleStyle = $read('src/scss/components/_schedule-change-access.scss');
 assertUxRefinement(str_contains($scheduleStyle, '.guests-stepper[hidden]') && str_contains($scheduleStyle, '.schedule-change-status[hidden]'), 'estados ocultos públicos tienen autoridad CSS');
+assertUxRefinement(str_contains($scheduleStyle, 'grid-template-columns: minmax(240px, .72fr) minmax(0, 1.45fr)'), 'cambio de horario usa composición desktop de dos zonas');
 assertUxRefinement(str_contains($scheduleStyle, 'grid-template-areas:') && str_contains($scheduleStyle, '"date time"'), 'cambio de horario conserva orden compacto de escritorio');
+assertUxRefinement(str_contains($scheduleStyle, 'mask: url(\'/build/images/logo.svg\')') && str_contains($scheduleStyle, 'background: var(--beige)'), 'logo usa máscara y token de marca');
+assertUxRefinement(str_contains($scheduleStyle, 'display: inline-flex') && str_contains($scheduleStyle, 'max-width: 220px'), 'stepper de grupos grandes es compacto');
+assertUxRefinement(str_contains($scheduleStyle, 'schedule-change-page button') && str_contains($scheduleStyle, 'cursor: pointer') && str_contains($scheduleStyle, 'cursor: not-allowed'), 'controles públicos tienen cursores scoped');
+assertUxRefinement(str_contains($scheduleStyle, 'min-height: 64px') && str_contains($scheduleStyle, 'schedule-change-form__action'), 'indicaciones y CTA comparten una fila de acción compacta');
+assertUxRefinement(str_contains($scheduleStyle, '&:empty { min-height: 0; margin: 0; }'), 'status vacío no reserva una banda visual');
 
 $inboxView = $read('views/admin/partials/_buzon.php');
 $inboxScript = $read('src/js/admin/buzon.js');

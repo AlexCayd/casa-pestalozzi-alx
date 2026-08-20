@@ -29,7 +29,7 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
     -->
     <header class="schedule-change-header">
         <a class="schedule-change-logo" href="/" aria-label="Casa Pestalozzi, inicio">
-            <img src="/build/images/logo.svg" alt="">
+            <span class="schedule-change-logo__mark" aria-hidden="true"></span>
             <span>Casa Pestalozzi</span>
         </a>
         <span class="schedule-change-header__rule" aria-hidden="true"></span>
@@ -51,20 +51,26 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                 data-schedule-change-card
                 data-change-name="<?php echo $h($formulario['nombre']); ?>"
             >
-                <div class="schedule-change-card__intro">
-                    <p class="schedule-change-eyebrow">Cambio de horario</p>
-                    <h1 id="schedule-change-title">Elige un nuevo horario</h1>
-                </div>
+                <div class="schedule-change-context">
+                    <div class="schedule-change-card__intro">
+                        <p class="schedule-change-eyebrow">Cambio de horario</p>
+                        <h1 id="schedule-change-title">Elige un nuevo horario</h1>
+                    </div>
 
-                <div class="schedule-change-current" aria-label="Reservación actual">
-                    <div>
-                        <span>Reservación actual</span>
-                        <strong><?php echo $h($fechaActualCorta); ?> · <?php echo $h(substr((string)$formulario['hora'], 0, 5)); ?> · <?php echo $personasActuales; ?> <?php echo $personasActuales === 1 ? 'persona' : 'personas'; ?></strong>
-                        <p>A nombre de <?php echo $h($formulario['nombre']); ?></p>
+                    <div class="schedule-change-current" aria-label="Reservación actual">
+                        <p class="schedule-change-current__label">Reservación actual</p>
+                        <p class="schedule-change-current__date"><?php echo $h($fechaActualCorta); ?></p>
+                        <p class="schedule-change-current__details"><?php echo $h(substr((string)$formulario['hora'], 0, 5)); ?> · <?php echo $personasActuales; ?> <?php echo $personasActuales === 1 ? 'persona' : 'personas'; ?></p>
+                        <div class="schedule-change-current__name">
+                            <span>A nombre de</span>
+                            <strong><?php echo $h($formulario['nombre']); ?></strong>
+                        </div>
                     </div>
                 </div>
 
-                <form class="schedule-change-form" data-schedule-change-form data-max-guests="<?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?>" novalidate>
+                <div class="schedule-change-editor">
+                    <p class="schedule-change-editor__eyebrow">Nueva visita</p>
+                    <form class="schedule-change-form" data-schedule-change-form data-max-guests="<?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?>" novalidate>
                     <input type="hidden" name="csrf_token" value="<?php echo $h($formulario['csrf_token']); ?>" data-change-csrf>
 
                     <div class="field reservation-field reservation-field--date">
@@ -130,14 +136,17 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
 
                     <label class="field reservation-field" for="schedule-change-note">
                         <span class="reservation-field__label">Indicaciones <small>(opcional)</small></span>
-                        <textarea class="reservation-control reservation-control--textarea" id="schedule-change-note" name="nota" maxlength="<?php echo (int)ReservacionConfig::NOTA_MAX_CARACTERES; ?>" rows="3" data-change-note><?php echo $h($formulario['nota']); ?></textarea>
+                        <textarea class="reservation-control reservation-control--textarea" id="schedule-change-note" name="nota" maxlength="<?php echo (int)ReservacionConfig::NOTA_MAX_CARACTERES; ?>" rows="2" data-change-note><?php echo $h($formulario['nota']); ?></textarea>
                     </label>
 
-                    <p class="schedule-change-status" data-change-status role="status" aria-live="polite"></p>
-                    <button class="btn-line schedule-change-submit" type="submit" data-change-submit>
-                        Confirmar nuevo horario <span aria-hidden="true">→</span>
-                    </button>
-                </form>
+                        <div class="schedule-change-form__action">
+                            <p class="schedule-change-status" data-change-status role="status" aria-live="polite"></p>
+                            <button class="btn-line schedule-change-submit" type="submit" data-change-submit>
+                                Confirmar nuevo horario <span aria-hidden="true">→</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </section>
         <?php endif; ?>
     </main>
