@@ -256,7 +256,7 @@
       back.className = 'admin-inbox__detail-back';
       back.setAttribute('data-inbox-action', 'close-detail');
       back.setAttribute('aria-label', 'Volver a notificaciones');
-      back.setAttribute('title', 'Volver a notificaciones');
+      back.setAttribute('title', 'Volver');
       back.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>';
       return back;
     }
@@ -283,11 +283,15 @@
       if (!visible.length) {
         var empty = document.createElement('div');
         empty.className = 'admin-inbox__empty';
+        var emptyMark = document.createElement('span');
+        emptyMark.className = 'admin-inbox__empty-mark';
+        emptyMark.setAttribute('aria-hidden', 'true');
+        emptyMark.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M6 10a6 6 0 0 1 12 0v4l2 2H4l2-2z"/><path d="M10 19h4"/></svg>';
         var emptyTitle = document.createElement('strong');
         emptyTitle.textContent = activeFilter === 'followup' ? 'No hay reservaciones en espera.' : 'Todo al día';
         var emptyCopy = document.createElement('span');
         emptyCopy.textContent = activeFilter === 'followup' ? 'Las notificaciones informativas aparecerán aquí mientras el cliente responde.' : 'No hay reservaciones por atender.';
-        empty.append(emptyTitle, emptyCopy);
+        empty.append(emptyMark, emptyTitle, emptyCopy);
         list.appendChild(empty);
         return;
       }
@@ -338,10 +342,20 @@
 
     function reasonFor(notification) {
       var copy = notification.descripcion || 'Esta reservación requiere atención administrativa.';
+      var label = notification.etiqueta || 'Seguimiento';
+      var tone = 'neutral';
       if (notification.tipo === 'reservacion_horario_afectado' && notification.requiere_accion === false) {
+        label = 'Esperando respuesta';
         copy = 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
+        tone = 'info';
+      } else if (notification.tipo === 'reservacion_ausencia_pendiente') {
+        tone = 'danger';
+      } else if (notification.tipo === 'reservacion_sin_asignacion_proxima' || notification.tipo === 'reservacion_grupo_grande') {
+        tone = 'warning';
+      } else if (notification.requiere_accion === false) {
+        tone = 'info';
       }
-      return { notification: notification, label: notification.etiqueta || 'Seguimiento', copy: copy };
+      return { notification: notification, label: label, copy: copy, tone: tone };
     }
 
     function resolveInboxCase(item) {
@@ -374,7 +388,6 @@
         } else if (isLargeGroup) {
           primaryAction = openAction(schedule, 'Abrir reservación', 'primary');
         } else if (schedule.requiere_accion === false) {
-          status = { label: 'Esperando respuesta', copy: 'El enlace para cambiar el horario sigue activo hasta ' + formatTime(schedule.access_expires_at) + '.' };
           secondaryAction = openAction(schedule);
         } else if (schedule.puede_mandar_aviso) {
           primaryAction = { kind: 'button', action: 'notify', label: 'Enviar recordatorio', variant: 'primary', attrs: notificationAttrs(schedule) };
@@ -418,7 +431,7 @@
 
     function renderDetailReason(reason, primary) {
       var section = document.createElement('section');
-      section.className = 'admin-inbox__detail-reason' + (primary ? ' is-primary' : '');
+      section.className = 'admin-inbox__detail-reason' + (primary ? ' is-primary is-' + (reason.tone || 'neutral') : '');
       var title = document.createElement(primary ? 'h3' : 'strong');
       title.textContent = reason.label;
       var copy = document.createElement('p');
@@ -463,10 +476,10 @@
         actions.appendChild(status);
       }
       if (resolved.secondary_action) actions.appendChild(renderInboxAction(item, resolved.secondary_action));
-      var development = document.createElement('div');
+      var development = document.createElement('details');
       development.className = 'admin-inbox__development';
-      var developmentTitle = document.createElement('strong');
-      developmentTitle.textContent = 'Herramientas de desarrollo';
+      var developmentTitle = document.createElement('summary');
+      developmentTitle.textContent = 'Herramientas de prueba';
       development.appendChild(developmentTitle);
       resolved.development_actions.forEach(function (action) { development.appendChild(renderInboxAction(item, action)); });
       var back = detailBackButton();
@@ -577,9 +590,13 @@
       list.replaceChildren();
       var box = document.createElement('div');
       box.className = 'admin-inbox__empty is-error';
+      var errorMark = document.createElement('span');
+      errorMark.className = 'admin-inbox__empty-mark';
+      errorMark.setAttribute('aria-hidden', 'true');
+      errorMark.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 4 3.5 19h17z"/><path d="M12 9v5M12 17h.01"/></svg>';
       var heading = document.createElement('strong');
       heading.textContent = 'No pudimos actualizar las notificaciones.';
-      box.append(heading, button('Reintentar', 'retry', {}, true));
+      box.append(errorMark, heading, button('Reintentar', 'retry', {}, true));
       list.appendChild(box);
       if (summary) summary.textContent = error && error.message ? error.message : 'Intenta nuevamente.';
     }

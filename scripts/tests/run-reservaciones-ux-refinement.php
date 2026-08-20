@@ -25,7 +25,30 @@ assertUxRefinement(substr_count($publicView, '$inline = false;') === 2, 'cambio 
 assertUxRefinement(!str_contains($publicView, '$inline = true;'), 'cambio de horario no deja pickers inline');
 assertUxRefinement(substr_count($publicScript, 'inline: false') === 2, 'JS público inicializa ambos pickers como popover');
 assertUxRefinement(str_contains($publicView, 'A nombre de'), 'el titular tiene jerarquía visible');
-assertUxRefinement(str_contains($publicView, 'Selecciona una fecha para ver horarios disponibles.'), 'hora tiene un estado vacío único');
+assertUxRefinement(str_contains($publicView, 'Selecciona una fecha para ver horarios.'), 'hora tiene un estado inicial único');
+assertUxRefinement(str_contains($publicScript, "setTimeHint('Consultando horarios…')"), 'hora comunica la consulta en curso');
+assertUxRefinement(str_contains($publicScript, "setTimeHint('Elige una hora disponible.')"), 'hora comunica disponibilidad');
+assertUxRefinement(str_contains($publicScript, "setTimeHint('No hay horarios disponibles para esa fecha.')"), 'hora comunica ausencia de horarios');
+assertUxRefinement(str_contains($publicView, 'data-max-guests'), 'cambio de horario expone el máximo de personas desde PHP');
+assertUxRefinement(str_contains($publicScript, 'var pillMaxGuests = Math.min(6, maxGuests)'), 'pills de personas respetan el máximo del formulario');
+assertUxRefinement(str_contains($publicScript, 'guestPills.hidden = value > pillMaxGuests'), 'pills y stepper no se muestran simultáneamente');
+assertUxRefinement(str_contains($publicScript, "card.replaceChildren(success)"), 'éxito reemplaza el contenido completo de la tarjeta');
+assertUxRefinement(str_contains($publicScript, 'Nuevo horario confirmado') && str_contains($publicScript, 'Tu reservación está lista'), 'éxito usa la jerarquía final solicitada');
+assertUxRefinement(str_contains($publicScript, 'schedule-change-success__mark') && str_contains($publicScript, 'Te esperamos en Casa Pestalozzi.'), 'éxito conserva marca visual y copy de confirmación');
+
+$scheduleStyle = $read('src/scss/components/_schedule-change-access.scss');
+assertUxRefinement(str_contains($scheduleStyle, '.guests-stepper[hidden]') && str_contains($scheduleStyle, '.schedule-change-status[hidden]'), 'estados ocultos públicos tienen autoridad CSS');
+assertUxRefinement(str_contains($scheduleStyle, 'grid-template-areas:') && str_contains($scheduleStyle, '"date time"'), 'cambio de horario conserva orden compacto de escritorio');
+
+$inboxView = $read('views/admin/partials/_buzon.php');
+$inboxScript = $read('src/js/admin/buzon.js');
+$inboxStyle = $read('src/scss/admin/shared/components/_buzon.scss');
+assertUxRefinement(str_contains($inboxView, 'data-inbox-filters'), 'Buzón conserva el control segmentado');
+assertUxRefinement(str_contains($inboxView, 'data-inbox-context') && str_contains($inboxView, 'hidden'), 'Buzón conserva el detalle ocultable');
+assertUxRefinement(str_contains($inboxScript, "title', 'Volver'") && str_contains($inboxScript, "aria-label', 'Volver a notificaciones'"), 'volver usa icono accesible y tooltip corto');
+assertUxRefinement(str_contains($inboxScript, "document.createElement('details')") && str_contains($inboxScript, 'Herramientas de prueba'), 'herramientas de prueba quedan relegadas a details');
+assertUxRefinement(str_contains($inboxStyle, '&__filters[hidden]') && str_contains($inboxStyle, '&__list-view[hidden]') && str_contains($inboxStyle, '&__detail-view[hidden]'), 'Buzón tiene autoridad CSS para ocultar vistas');
+assertUxRefinement(str_contains($inboxStyle, 'background: var(--admin-surface-soft)') && str_contains($inboxStyle, 'border-radius: 10px'), 'Buzón usa superficies y radios consistentes');
 
 $rangeView = $read('views/admin/partials/_range-picker.php');
 $rangeScript = $read('src/js/admin/core/range-picker.js');
