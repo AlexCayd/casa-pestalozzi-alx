@@ -367,7 +367,8 @@ foreach ($alertas as $tipo => $mensajes) {
                 <?php /* Dos lecturas del mismo dato: la lista para trabajar fila
                          a fila y la agenda para ver de un vistazo cómo se reparte
                          la carga del servicio. */ ?>
-                <div class="admin-tabs reservations-views" role="tablist" aria-label="Forma de ver las reservaciones">
+                <fieldset class="admin-tabs reservations-views">
+                    <legend class="admin-visually-hidden">Forma de ver las reservaciones</legend>
                     <label class="admin-tabs__tab">
                         <input type="radio" name="reservations-view" value="lista" checked data-reservations-view>
                         <span>Lista</span>
@@ -376,7 +377,7 @@ foreach ($alertas as $tipo => $mensajes) {
                         <input type="radio" name="reservations-view" value="agenda" data-reservations-view>
                         <span>Agenda</span>
                     </label>
-                </div>
+                </fieldset>
             <?php endif; ?>
         </div>
 
@@ -474,9 +475,9 @@ foreach ($alertas as $tipo => $mensajes) {
                                     </td>
                                     <td class="reservations-table__actions-cell">
                                         <div class="reservations-table__actions">
-                                            <a class="admin-btn admin-btn--small admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
+                                            <a class="admin-btn admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
                                             <a
-                                                class="admin-btn admin-btn--small admin-btn--ghost reservations-table__operate-action"
+                                                class="admin-btn admin-btn--ghost reservations-table__operate-action"
                                                 href="<?php echo $h($operationContextUrl); ?>"
                                                 title="Abrir esta reservación en la vista operativa"
                                                 aria-label="Abrir esta reservación en la vista operativa"

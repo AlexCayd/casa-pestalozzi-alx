@@ -19,7 +19,7 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
     <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
     <link rel="stylesheet" href="/build/css/app.css?v=schedule-change-access-v2">
 </head>
-<body class="schedule-change-page">
+<body class="schedule-change-page reserva">
     <!--
         THESIS: una modificación breve y clara para devolver la visita a su nuevo horario.
         OWN-WORLD: negro Casa Pestalozzi, dorado editorial, serif de la landing y controles táctiles.
@@ -109,10 +109,10 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                     <div class="field reservation-field reservation-field--guests">
                         <span class="reservation-field__label">Personas</span>
                         <div class="pills reservation-guests reservation-guests--tabs" data-change-guest-pills role="group" aria-label="Cantidad de personas">
-                                <?php for ($personas = 1; $personas <= 6; $personas++) : ?>
-                                    <button type="button" class="pill<?php echo $personasActuales === $personas ? ' sel' : ''; ?>" data-change-guest="<?php echo $personas; ?>" aria-pressed="<?php echo $personasActuales === $personas ? 'true' : 'false'; ?>"><?php echo $personas; ?></button>
-                                <?php endfor; ?>
-                                <button type="button" class="pill<?php echo $personasActuales > 6 ? ' sel' : ''; ?>" data-change-guest-more aria-expanded="<?php echo $personasActuales > 6 ? 'true' : 'false'; ?>">Más</button>
+                            <?php for ($personas = 1; $personas <= 6; $personas++) : ?>
+                                <button type="button" class="pill<?php echo $personasActuales === $personas ? ' sel' : ''; ?>" data-g="<?php echo $personas; ?>" aria-pressed="<?php echo $personasActuales === $personas ? 'true' : 'false'; ?>"><?php echo $personas; ?></button>
+                            <?php endfor; ?>
+                            <button type="button" class="pill<?php echo $personasActuales > 6 ? ' sel' : ''; ?>" data-g="7" data-change-guest-more aria-controls="schedule-change-guest-stepper" aria-expanded="<?php echo $personasActuales > 6 ? 'true' : 'false'; ?>">+</button>
                         </div>
                         <div class="guests-stepper" id="schedule-change-guest-stepper" data-change-guest-stepper<?php echo $personasActuales > 6 ? '' : ' hidden'; ?> role="group" aria-label="Ajustar cantidad de personas">
                             <button class="step-btn" type="button" data-change-minus aria-label="Reducir personas">−</button>

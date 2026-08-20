@@ -84,8 +84,8 @@
       guests.value = String(value);
       if (guestValue) guestValue.textContent = String(value);
 
-      form.querySelectorAll('[data-change-guest]').forEach(function (button) {
-        var selected = Number(button.getAttribute('data-change-guest')) === value;
+      form.querySelectorAll('[data-g]').forEach(function (button) {
+        var selected = Number(button.getAttribute('data-g')) === value;
         button.classList.toggle('sel', selected);
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
@@ -161,9 +161,9 @@
       hideRetryButton();
     });
 
-    form.querySelectorAll('[data-change-guest]').forEach(function (button) {
+    form.querySelectorAll('[data-g]:not([data-change-guest-more])').forEach(function (button) {
       button.addEventListener('click', function () {
-        updateGuestState(button.getAttribute('data-change-guest'), true);
+        updateGuestState(button.getAttribute('data-g'), true);
       });
     });
     if (moreGuests) {
@@ -192,7 +192,7 @@
       }
 
       submit.disabled = true;
-      setStatus('Guardando modificación…', 'pending');
+      setStatus('Guardando cambio…', 'pending');
       request('/api/reservaciones/cambio-horario/modificar', {
         fecha: dateInput.value,
         hora: timeInput.value,

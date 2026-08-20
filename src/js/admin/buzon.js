@@ -421,7 +421,7 @@
       var heading = document.createElement('h3');
       heading.textContent = 'Agregar contacto';
       var copy = document.createElement('p');
-      copy.textContent = 'Agrega un correo o teléfono para poder enviar el enlace.';
+      copy.textContent = 'Agrega un correo o teléfono para enviar el enlace.';
       var form = document.createElement('form');
       form.className = 'admin-inbox__contact-form';
       form.innerHTML = '<label><span>Tipo de contacto</span><select name="tipo"><option value="email">Correo electrónico</option><option value="telefono">Teléfono</option></select></label><label><span>Contacto</span><input name="contacto" required autocomplete="off"></label><p class="admin-inbox__context-status" data-contact-status></p><div><button type="button" class="admin-btn admin-btn--secondary" data-contact-cancel>Cancelar</button><button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button></div>';

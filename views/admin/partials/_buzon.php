@@ -38,12 +38,12 @@ if ($buzonPrioridad === 'alta') {
             </button>
         </header>
         <div class="admin-inbox__filters" role="tablist" aria-label="Filtrar notificaciones" data-inbox-filters>
-            <button type="button" class="is-active" data-inbox-filter="action" role="tab" aria-selected="true">Por atender</button>
-            <button type="button" data-inbox-filter="followup" role="tab" aria-selected="false">En espera</button>
-            <button type="button" data-inbox-filter="all" role="tab" aria-selected="false">Todas</button>
+            <button type="button" class="is-active" data-inbox-filter="action" role="tab" aria-selected="true" aria-controls="admin-inbox-list">Por atender</button>
+            <button type="button" data-inbox-filter="followup" role="tab" aria-selected="false" aria-controls="admin-inbox-list">En espera</button>
+            <button type="button" data-inbox-filter="all" role="tab" aria-selected="false" aria-controls="admin-inbox-list">Todas</button>
         </div>
         <div class="admin-inbox__content">
-            <div class="admin-inbox__body admin-inbox__list-view" data-inbox-list aria-live="polite">
+            <div class="admin-inbox__body admin-inbox__list-view" id="admin-inbox-list" data-inbox-list role="tabpanel" aria-live="polite">
                 <p class="admin-inbox__loading" data-inbox-loading>Cargando notificaciones…</p>
             </div>
             <div class="admin-inbox__context admin-inbox__detail-view" data-inbox-context role="region" aria-live="polite" hidden></div>

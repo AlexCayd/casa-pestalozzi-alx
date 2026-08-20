@@ -1,7 +1,7 @@
 .reservation-operation__reservations {
   display: flex;
   min-height: 0;
-  padding: 16px;
+  padding: 20px;
   overflow: hidden;
   flex-direction: column;
 }
@@ -107,6 +107,12 @@
   border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
   background: var(--admin-surface-soft);
   box-shadow: none;
+}
+
+@media (max-width: 700px) {
+  .reservation-operation__reservations {
+    padding: 16px;
+  }
 }
 
 .reservation-operation-card__button {

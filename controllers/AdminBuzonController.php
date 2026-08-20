@@ -198,7 +198,7 @@ final class AdminBuzonController
                 $fuente['severidad'] = 30;
             } elseif (!$tieneContacto) {
                 $fuente['etiqueta'] = 'Falta un contacto';
-                $fuente['descripcion'] = 'Agrega un correo o teléfono para poder enviar el enlace.';
+                $fuente['descripcion'] = 'Agrega un correo o teléfono para enviar el enlace.';
                 $fuente['severidad'] = 20;
             } elseif ($expirada) {
                 $fuente['etiqueta'] = 'Sin respuesta';

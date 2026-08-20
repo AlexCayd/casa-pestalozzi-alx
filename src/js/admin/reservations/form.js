@@ -137,17 +137,42 @@
                 return form.querySelector('[data-field-error="' + name + '"]');
             }
 
+            function fieldControls(name) {
+                var controls = [];
+                var named = form.elements[name];
+                if (named) {
+                    if (named.length && !named.tagName) {
+                        Array.prototype.forEach.call(named, function (control) {
+                            if (controls.indexOf(control) === -1) controls.push(control);
+                        });
+                    } else {
+                        controls.push(named);
+                    }
+                }
+
+                var visibleControl = name === 'fecha'
+                    ? form.querySelector('[data-date-display]')
+                    : (name === 'hora' ? form.querySelector('[data-time-display]') : null);
+                if (visibleControl && controls.indexOf(visibleControl) === -1) {
+                    controls.push(visibleControl);
+                }
+                return controls;
+            }
+
+            function setFieldInvalid(name, invalid) {
+                fieldControls(name).forEach(function (control) {
+                    control.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+                });
+            }
+
             function setFieldError(name, message) {
                 var target = fieldMessage(name);
-                var control = form.elements[name];
                 message = Array.isArray(message) ? (message[0] || '') : (message || '');
                 if (target) {
                     target.textContent = String(message);
                     target.classList.toggle('show', Boolean(message));
                 }
-                if (control) {
-                    control.setAttribute('aria-invalid', message ? 'true' : 'false');
-                }
+                setFieldInvalid(name, Boolean(message));
             }
 
             function showFeedback(message, type) {
@@ -458,7 +483,8 @@
                     message.setAttribute('data-client-required-error', '1');
                     message.classList.add('show');
                 }
-                control.setAttribute('aria-invalid', 'true');
+                if (control.name) setFieldInvalid(control.name, true);
+                else control.setAttribute('aria-invalid', 'true');
 
                 if (!requiredFocusQueued) {
                     requiredFocusQueued = true;
@@ -753,7 +779,8 @@
                     setFormValue(form, 'confirmar_sobrecapacidad', '0');
                 }
                 if (control && control.required) {
-                    control.removeAttribute('aria-invalid');
+                    if (control.name) setFieldInvalid(control.name, false);
+                    else control.setAttribute('aria-invalid', 'false');
                     var field = control.closest('.reservation-detail-form__field');
                     var message = field ? field.querySelector('.reservation-detail-field-msg') : null;
                     if (message && message.getAttribute('data-client-required-error') === '1') {

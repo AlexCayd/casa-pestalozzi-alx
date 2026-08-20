@@ -3587,7 +3587,7 @@ html:has(.operation-body.is-assignment-mode) {
 .reservation-operation__reservations {
   display: flex;
   min-height: 0;
-  padding: 16px;
+  padding: 20px;
   overflow: hidden;
   flex-direction: column;
 }
@@ -3686,6 +3686,11 @@ html:has(.operation-body.is-assignment-mode) {
   box-shadow: none;
 }
 
+@media (max-width: 700px) {
+  .reservation-operation__reservations {
+    padding: 16px;
+  }
+}
 .reservation-operation-card__button {
   display: grid;
   gap: 8px;
