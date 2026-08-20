@@ -41,12 +41,14 @@ assertUxRefinement(str_contains($publicScript, 'schedule-change-success__mark') 
 
 $scheduleStyle = $read('src/scss/components/_schedule-change-access.scss');
 assertUxRefinement(str_contains($scheduleStyle, '.guests-stepper[hidden]') && str_contains($scheduleStyle, '.schedule-change-status[hidden]'), 'estados ocultos públicos tienen autoridad CSS');
-assertUxRefinement(str_contains($scheduleStyle, 'grid-template-columns: minmax(240px, .72fr) minmax(0, 1.45fr)'), 'cambio de horario usa composición desktop de dos zonas');
+assertUxRefinement(str_contains($scheduleStyle, 'grid-template-columns: minmax(220px, .65fr) minmax(0, 1.45fr)'), 'cambio de horario usa composición desktop de dos zonas');
 assertUxRefinement(str_contains($scheduleStyle, 'grid-template-areas:') && str_contains($scheduleStyle, '"date time"'), 'cambio de horario conserva orden compacto de escritorio');
-assertUxRefinement(str_contains($scheduleStyle, 'mask: url(\'/build/images/logo.svg\')') && str_contains($scheduleStyle, 'background: var(--beige)'), 'logo usa máscara y token de marca');
+assertUxRefinement(str_contains($scheduleStyle, 'mask: url(\'/build/images/logo.svg\')') && str_contains($scheduleStyle, 'background: var(--accent)'), 'logo usa máscara y token de marca');
 assertUxRefinement(str_contains($scheduleStyle, 'display: inline-flex') && str_contains($scheduleStyle, 'max-width: 220px'), 'stepper de grupos grandes es compacto');
 assertUxRefinement(str_contains($scheduleStyle, 'schedule-change-page button') && str_contains($scheduleStyle, 'cursor: pointer') && str_contains($scheduleStyle, 'cursor: not-allowed'), 'controles públicos tienen cursores scoped');
 assertUxRefinement(str_contains($scheduleStyle, 'min-height: 64px') && str_contains($scheduleStyle, 'schedule-change-form__action'), 'indicaciones y CTA comparten una fila de acción compacta');
+assertUxRefinement(str_contains($scheduleStyle, 'schedule-change-submit') && str_contains($scheduleStyle, 'color: var(--ink)'), 'CTA conserva contraste en hover y foco');
+assertUxRefinement(str_contains($scheduleStyle, '.schedule-change-card:has(> .schedule-change-success)') && str_contains($scheduleStyle, 'min-height: clamp(360px, 50vh, 480px)'), 'éxito reduce la proporción de la tarjeta');
 assertUxRefinement(str_contains($scheduleStyle, '&:empty { min-height: 0; margin: 0; }'), 'status vacío no reserva una banda visual');
 
 $inboxView = $read('views/admin/partials/_buzon.php');
