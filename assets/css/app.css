@@ -5504,7 +5504,7 @@ body.nav-open .nav-overlay__links a {
 
 .schedule-change-shell {
   display: grid;
-  width: min(100% - 2 * var(--pad), 760px);
+  width: min(100% - 2 * var(--pad), 960px);
   min-height: calc(100vh - 150px);
   align-content: start;
   margin: 0 auto;
@@ -5533,9 +5533,9 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-card h1 {
-  max-width: 12ch;
+  max-width: 15ch;
   color: var(--beige);
-  font-size: clamp(2.5rem, 6vw, 4.8rem);
+  font-size: clamp(2.7rem, 5vw, 4.1rem);
   letter-spacing: -0.03em;
 }
 
@@ -5554,8 +5554,8 @@ body.nav-open .nav-overlay__links a {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin: 2.4rem 0 2.2rem;
-  padding: 1rem 0;
+  margin: 2rem 0 2.25rem;
+  padding: 0.9rem 0;
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
 }
@@ -5572,7 +5572,7 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-current strong {
   color: var(--beige);
   font-family: var(--serif);
-  font-size: 1.25rem;
+  font-size: 1.08rem;
   font-weight: 400;
 }
 .schedule-change-current p {
@@ -5583,7 +5583,46 @@ body.nav-open .nav-overlay__links a {
 
 .schedule-change-form {
   display: grid;
-  gap: 2rem;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.85fr);
+  grid-template-areas: "date guests" "date time" "note note" "status status" "submit submit";
+  gap: 1.7rem 2rem;
+  align-items: start;
+}
+
+.schedule-change-form .reservation-field {
+  min-width: 0;
+}
+
+.schedule-change-form .reservation-field--date {
+  grid-area: date;
+}
+
+.schedule-change-form .reservation-field--guests {
+  grid-area: guests;
+}
+
+.schedule-change-form .reservation-field--time {
+  grid-area: time;
+}
+
+.schedule-change-form .reservation-field:not(.reservation-field--date):not(.reservation-field--time):not(.reservation-field--guests) {
+  grid-area: note;
+}
+
+.schedule-change-form .reservation-field__label {
+  display: block;
+  margin-bottom: 0.7rem;
+  color: var(--accent);
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.schedule-change-form .reservation-field__label small {
+  color: var(--txt-faint);
+  font-size: inherit;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .schedule-change-page .date-picker-wrap--inline,
@@ -5610,8 +5649,9 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-status {
+  grid-area: status;
   min-height: 1.4rem;
-  margin: -0.5rem 0 0;
+  margin: 0;
   color: var(--txt-mute);
   font-size: 0.78rem;
   line-height: 1.45;
@@ -5627,7 +5667,9 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-submit {
-  width: 100%;
+  grid-area: submit;
+  width: fit-content;
+  justify-self: end;
   justify-content: center;
 }
 
@@ -5710,6 +5752,17 @@ body.nav-open .nav-overlay__links a {
   }
   .schedule-change-footer {
     width: calc(100% - 2rem);
+  }
+}
+@media (max-width: 860px) {
+  .schedule-change-form {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "date" "guests" "time" "note" "status" "submit";
+    gap: 1.5rem;
+  }
+  .schedule-change-submit {
+    width: 100%;
+    justify-self: stretch;
   }
 }
 .confirmation-modal {

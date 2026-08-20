@@ -17,7 +17,7 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elige un nuevo horario · Casa Pestalozzi</title>
     <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
-    <link rel="stylesheet" href="/build/css/app.css?v=schedule-change-access-v2">
+    <link rel="stylesheet" href="/build/css/app.css?v=schedule-change-access-v3">
 </head>
 <body class="schedule-change-page reserva">
     <!--
@@ -85,6 +85,23 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                         ?>
                     </div>
 
+                    <div class="field reservation-field reservation-field--guests">
+                        <span class="reservation-field__label">Personas</span>
+                        <div class="pills reservation-guests reservation-guests--tabs" data-change-guest-pills role="group" aria-label="Cantidad de personas">
+                            <?php for ($personas = 1; $personas <= 6; $personas++) : ?>
+                                <button type="button" class="pill<?php echo $personasActuales === $personas ? ' sel' : ''; ?>" data-g="<?php echo $personas; ?>" aria-pressed="<?php echo $personasActuales === $personas ? 'true' : 'false'; ?>"><?php echo $personas; ?></button>
+                            <?php endfor; ?>
+                            <button type="button" class="pill<?php echo $personasActuales > 6 ? ' sel' : ''; ?>" data-g="7" data-change-guest-more aria-controls="schedule-change-guest-stepper" aria-expanded="<?php echo $personasActuales > 6 ? 'true' : 'false'; ?>">+</button>
+                        </div>
+                        <div class="guests-stepper" id="schedule-change-guest-stepper" data-change-guest-stepper<?php echo $personasActuales > 6 ? '' : ' hidden'; ?> role="group" aria-label="Ajustar cantidad de personas">
+                            <button class="step-btn" type="button" data-change-minus aria-label="Reducir personas">−</button>
+                            <output class="step-val" data-change-guests-value><?php echo $personasActuales; ?></output>
+                            <button class="step-btn" type="button" data-change-plus aria-label="Aumentar personas">+</button>
+                        </div>
+                        <input type="hidden" name="personas" value="<?php echo $personasActuales; ?>" data-change-guests>
+                        <span class="reservation-field__help">Hasta <?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?> personas en este acceso.</span>
+                    </div>
+
                     <div class="field reservation-field reservation-field--time">
                         <span class="reservation-field__label">Hora</span>
                         <?php
@@ -106,23 +123,6 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
                         <p class="reservation-field__help" data-change-time-hint>Primero elige una fecha.</p>
                     </div>
 
-                    <div class="field reservation-field reservation-field--guests">
-                        <span class="reservation-field__label">Personas</span>
-                        <div class="pills reservation-guests reservation-guests--tabs" data-change-guest-pills role="group" aria-label="Cantidad de personas">
-                            <?php for ($personas = 1; $personas <= 6; $personas++) : ?>
-                                <button type="button" class="pill<?php echo $personasActuales === $personas ? ' sel' : ''; ?>" data-g="<?php echo $personas; ?>" aria-pressed="<?php echo $personasActuales === $personas ? 'true' : 'false'; ?>"><?php echo $personas; ?></button>
-                            <?php endfor; ?>
-                            <button type="button" class="pill<?php echo $personasActuales > 6 ? ' sel' : ''; ?>" data-g="7" data-change-guest-more aria-controls="schedule-change-guest-stepper" aria-expanded="<?php echo $personasActuales > 6 ? 'true' : 'false'; ?>">+</button>
-                        </div>
-                        <div class="guests-stepper" id="schedule-change-guest-stepper" data-change-guest-stepper<?php echo $personasActuales > 6 ? '' : ' hidden'; ?> role="group" aria-label="Ajustar cantidad de personas">
-                            <button class="step-btn" type="button" data-change-minus aria-label="Reducir personas">−</button>
-                            <output class="step-val" data-change-guests-value><?php echo $personasActuales; ?></output>
-                            <button class="step-btn" type="button" data-change-plus aria-label="Aumentar personas">+</button>
-                        </div>
-                        <input type="hidden" name="personas" value="<?php echo $personasActuales; ?>" data-change-guests>
-                        <span class="reservation-field__help">Hasta <?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?> personas en este acceso.</span>
-                    </div>
-
                     <label class="field reservation-field" for="schedule-change-note">
                         <span class="reservation-field__label">Indicaciones <small>(opcional)</small></span>
                         <textarea class="reservation-control reservation-control--textarea" id="schedule-change-note" name="nota" maxlength="<?php echo (int)ReservacionConfig::NOTA_MAX_CARACTERES; ?>" rows="3" data-change-note><?php echo $h($formulario['nota']); ?></textarea>
@@ -138,6 +138,6 @@ $personasActuales = (int)($formulario['comensales'] ?? 0);
     </main>
 
     <footer class="schedule-change-footer">Casa Pestalozzi · Tu visita, a su tiempo.</footer>
-    <script src="/build/js/bundle.min.js?v=schedule-change-access-v2" defer></script>
+    <script src="/build/js/bundle.min.js?v=schedule-change-access-v3" defer></script>
 </body>
 </html>

@@ -36,7 +36,7 @@
 
 .schedule-change-shell {
   display: grid;
-  width: min(100% - 2 * var(--pad), 760px);
+  width: min(100% - 2 * var(--pad), 960px);
   min-height: calc(100vh - 150px);
   align-content: start;
   margin: 0 auto;
@@ -53,7 +53,7 @@
 
 .schedule-change-card__intro { max-width: 59ch; }
 .schedule-change-eyebrow { margin: 0 0 1rem; color: var(--accent); font-size: .66rem; font-weight: 400; letter-spacing: .27em; text-transform: uppercase; }
-.schedule-change-card h1 { max-width: 12ch; color: var(--beige); font-size: clamp(2.5rem, 6vw, 4.8rem); letter-spacing: -.03em; }
+.schedule-change-card h1 { max-width: 15ch; color: var(--beige); font-size: clamp(2.7rem, 5vw, 4.1rem); letter-spacing: -.03em; }
 .schedule-change-card__intro > p:last-child,
 .schedule-change-card--expired > p:not(.schedule-change-eyebrow) { max-width: 55ch; margin-top: 1.25rem; color: var(--txt-mute); font-family: var(--crimson); font-size: 1.18rem; line-height: 1.5; }
 
@@ -62,24 +62,41 @@
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin: 2.4rem 0 2.2rem;
-  padding: 1rem 0;
+  margin: 2rem 0 2.25rem;
+  padding: .9rem 0;
   border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft);
   div { display: grid; gap: .25rem; }
   span { color: var(--accent); font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; }
-  strong { color: var(--beige); font-family: var(--serif); font-size: 1.25rem; font-weight: 400; }
+  strong { color: var(--beige); font-family: var(--serif); font-size: 1.08rem; font-weight: 400; }
   p { color: var(--txt-mute); font-size: .8rem; text-align: left; }
 }
 
-.schedule-change-form { display: grid; gap: 2rem; }
-// El formulario comparte el lenguaje de la landing: estos ajustes sólo
-// resuelven el ancho de los pickers dentro de esta tarjeta.
+.schedule-change-form {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, .85fr);
+  grid-template-areas:
+    "date guests"
+    "date time"
+    "note note"
+    "status status"
+    "submit submit";
+  gap: 1.7rem 2rem;
+  align-items: start;
+}
+
+.schedule-change-form .reservation-field { min-width: 0; }
+.schedule-change-form .reservation-field--date { grid-area: date; }
+.schedule-change-form .reservation-field--guests { grid-area: guests; }
+.schedule-change-form .reservation-field--time { grid-area: time; }
+.schedule-change-form .reservation-field:not(.reservation-field--date):not(.reservation-field--time):not(.reservation-field--guests) { grid-area: note; }
+.schedule-change-form .reservation-field__label { display: block; margin-bottom: .7rem; color: var(--accent); font-size: .68rem; letter-spacing: .13em; text-transform: uppercase; }
+.schedule-change-form .reservation-field__label small { color: var(--txt-faint); font-size: inherit; letter-spacing: 0; text-transform: none; }
 .schedule-change-page .date-picker-wrap--inline,
 .schedule-change-page .hour-picker-wrap--inline { width: 100%; }
 .schedule-change-retry { width: fit-content; padding: .4rem 0; border: 0; color: var(--accent-soft); font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; &[hidden] { display: none; } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } }
-.schedule-change-status { min-height: 1.4rem; margin: -.5rem 0 0; color: var(--txt-mute); font-size: .78rem; line-height: 1.45; &.is-error { color: var(--schedule-change-status-error); } &.is-success { color: var(--schedule-change-status-success); } &.is-pending { color: var(--accent-soft); } }
-.schedule-change-submit { width: 100%; justify-content: center; }
+.schedule-change-status { grid-area: status; min-height: 1.4rem; margin: 0; color: var(--txt-mute); font-size: .78rem; line-height: 1.45; &.is-error { color: var(--schedule-change-status-error); } &.is-success { color: var(--schedule-change-status-success); } &.is-pending { color: var(--accent-soft); } }
+.schedule-change-submit { grid-area: submit; width: fit-content; justify-self: end; justify-content: center; }
 .schedule-change-submit:disabled { cursor: wait; opacity: .5; }
 .schedule-change-success { padding-top: 1rem; border-top: 1px solid var(--line-soft); h2 { max-width: 14ch; color: var(--beige); font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 400; letter-spacing: -.02em; } p { max-width: 48ch; margin-top: 1rem; color: var(--txt-mute); font-family: var(--crimson); font-size: 1.1rem; line-height: 1.5; } &__summary { color: var(--beige); font-family: var(--sans); font-size: .9rem; font-weight: 700; } }
 .schedule-change-card--expired { align-self: center; }
@@ -96,4 +113,20 @@
   .schedule-change-current { align-items: start; flex-direction: column; }
   .schedule-change-current p { text-align: left; }
   .schedule-change-footer { width: calc(100% - 2rem); }
+}
+
+@media (max-width: 860px) {
+  .schedule-change-form {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "date"
+      "guests"
+      "time"
+      "note"
+      "status"
+      "submit";
+    gap: 1.5rem;
+  }
+
+  .schedule-change-submit { width: 100%; justify-self: stretch; }
 }

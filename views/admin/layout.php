@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/build/css/admin.css?v=time-picker-clean-v2">
+    <link rel="stylesheet" href="/build/css/admin.css?v=inbox-recomposition-v1">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">
     <?php endforeach; ?>
@@ -78,7 +78,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js" defer></script>
-    <script src="/build/js/admin.js?v=reactive-filters" defer></script>
+    <script src="/build/js/admin.js?v=inbox-recomposition-v1" defer></script>
     <?php foreach ($scripts ?? [] as $script): ?>
         <script src="<?php echo htmlspecialchars($script, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
     <?php endforeach; ?>

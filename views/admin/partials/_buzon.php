@@ -25,10 +25,6 @@ if ($buzonPrioridad === 'alta') {
         data-inbox-drawer
     >
         <header class="admin-inbox__header">
-            <button class="admin-inbox__back" type="button" data-inbox-back hidden>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
-                <span>Notificaciones</span>
-            </button>
             <div>
                 <h2 id="admin-inbox-title" data-inbox-title>Notificaciones</h2>
                 <p data-inbox-summary><?php echo $buzonCantidadAccionable . ' por atender · ' . $buzonCantidadSeguimiento . ' en espera'; ?></p>

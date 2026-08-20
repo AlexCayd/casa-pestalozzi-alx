@@ -71,7 +71,6 @@
     var drawer = root.querySelector('[data-inbox-drawer]');
     var shade = root.querySelector('.admin-inbox__backdrop');
     var closeButtons = root.querySelectorAll('[data-inbox-close]');
-    var backButton = root.querySelector('[data-inbox-back]');
     var title = root.querySelector('[data-inbox-title]');
     var filters = root.querySelector('[data-inbox-filters]');
     var count = document.querySelector('[data-inbox-count]');
@@ -173,8 +172,8 @@
       var detail = next === 'detail';
       if (list) list.hidden = detail;
       if (filters) filters.hidden = detail;
-      if (backButton) backButton.hidden = !detail;
-      if (title) title.textContent = detail ? 'Detalle de reservación' : 'Notificaciones';
+      if (summary) summary.hidden = detail;
+      if (title) title.textContent = 'Notificaciones';
       if (summary && !detail) refreshSummary().catch(function () {});
       if (!detail) clearContext(); else if (item) renderDetail(item);
     }
@@ -230,15 +229,15 @@
       return element;
     }
 
-    function reservationLink(item, label, notification) {
+    function reservationLink(item, label, notification, variant) {
       var params = new URLSearchParams();
       params.set('id', String(item.reservacion_id));
       params.set('return_url', '/admin/reservaciones');
       if (notification && notification.impacto_reservacion_id) params.set('impacto_reservacion_id', String(notification.impacto_reservacion_id));
       var link = document.createElement('a');
-      link.className = 'admin-btn admin-btn--secondary';
+      link.className = 'admin-btn admin-btn--' + (variant || 'secondary');
       link.href = '/admin/reservaciones/detalle?' + params.toString();
-      link.textContent = label || 'Abrir reservación';
+      link.innerHTML = (label || 'Abrir reservación') + ' <span aria-hidden="true">→</span>';
       return link;
     }
 
@@ -249,6 +248,15 @@
       link.href = '/admin/reservaciones/operacion?' + params.toString();
       link.textContent = 'Asignar mesas';
       return link;
+    }
+
+    function detailBackButton() {
+      var back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'admin-inbox__detail-back';
+      back.setAttribute('data-inbox-action', 'close-detail');
+      back.textContent = '← Volver';
+      return back;
     }
 
     function notificationAttrs(notification) {
@@ -282,36 +290,38 @@
         return;
       }
       visible.forEach(function (item) {
-        var card = document.createElement('article');
-        card.className = 'admin-inbox__card' + (item.leida ? '' : ' is-unread') + (itemRequiresAction(item) ? ' is-action' : ' is-followup');
-        card.setAttribute('data-reservation-id', String(item.reservacion_id));
+        var card = button('Ver detalle', 'review', { 'data-reservation-id': item.reservacion_id }, false);
+        card.className = 'admin-inbox__row' + (item.leida ? '' : ' is-unread') + (itemRequiresAction(item) ? ' is-action' : ' is-followup');
+        card.setAttribute('aria-label', 'Ver detalle de ' + (item.nombre || 'reservación'));
+        card.textContent = '';
         var head = document.createElement('div');
-        head.className = 'admin-inbox__card-head';
+        head.className = 'admin-inbox__row-head';
         var name = document.createElement('h3');
         name.textContent = item.nombre || 'Reservación';
         head.append(name);
         var facts = document.createElement('p');
-        facts.className = 'admin-inbox__card-facts';
+        facts.className = 'admin-inbox__row-facts';
         facts.textContent = formatDate(item.fecha) + ' · ' + formatTime(item.hora) + ' · ' + item.comensales + (Number(item.comensales) === 1 ? ' persona' : ' personas');
         var reasons = document.createElement('div');
-        reasons.className = 'admin-inbox__reasons';
+        reasons.className = 'admin-inbox__row-reason';
         var primaryReason = (item.motivos || [])[0];
         if (primaryReason) {
           var reasonLabel = document.createElement('span');
-          reasonLabel.className = 'admin-inbox__card-reason';
+          reasonLabel.className = 'admin-inbox__row-reason-label';
           reasonLabel.textContent = primaryReason.etiqueta || primaryReason.tipo;
           reasons.appendChild(reasonLabel);
           if ((item.motivos || []).length > 1) {
             var moreReasons = document.createElement('span');
-            moreReasons.className = 'admin-inbox__card-more';
+            moreReasons.className = 'admin-inbox__row-more';
             moreReasons.textContent = '+ ' + ((item.motivos || []).length - 1) + ' más';
             reasons.appendChild(moreReasons);
           }
         }
-        var actions = document.createElement('div');
-        actions.className = 'admin-inbox__actions';
-        actions.appendChild(button('Ver detalle', 'review', { 'data-reservation-id': item.reservacion_id }, false));
-        card.append(head, facts, reasons, actions);
+        var chevron = document.createElement('span');
+        chevron.className = 'admin-inbox__row-chevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="m9 18 6-6-6-6"/></svg>';
+        card.append(head, facts, reasons, chevron);
         list.appendChild(card);
       });
     }
@@ -324,8 +334,100 @@
       })).then(function () { item.leida = true; render(); });
     }
 
+    function reasonFor(notification) {
+      var copy = notification.descripcion || 'Esta reservación requiere atención administrativa.';
+      if (notification.tipo === 'reservacion_horario_afectado' && notification.requiere_accion === false) {
+        copy = 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
+      }
+      return { notification: notification, label: notification.etiqueta || 'Seguimiento', copy: copy };
+    }
+
+    function resolveInboxCase(item) {
+      var notifications = item.notificaciones || [];
+      var absence = notifications.find(function (notification) { return notification.tipo === 'reservacion_ausencia_pendiente' && notification.puede_registrar_no_show; });
+      var schedule = notifications.find(function (notification) { return notification.tipo === 'reservacion_horario_afectado'; });
+      var assignment = notifications.find(function (notification) { return notification.tipo === 'reservacion_sin_asignacion_proxima' && notification.puede_asignar_mesas; });
+      var manual = notifications.find(function (notification) { return notification.tipo === 'reservacion_grupo_grande'; });
+      var primary = absence || schedule || assignment || manual || notifications[0] || null;
+      var primaryAction = null;
+      var secondaryAction = null;
+      var status = null;
+      var developmentActions = [];
+
+      function openAction(notification, label, variant) {
+        return { kind: 'reservation', label: label || 'Abrir reservación', variant: variant || 'secondary', notification: notification || primary };
+      }
+
+      if (absence) {
+        primary = absence;
+        primaryAction = { kind: 'button', action: 'no-show', label: 'Registrar que no llegó', variant: 'primary', attrs: notificationAttrs(absence) };
+        secondaryAction = openAction(absence);
+      } else if (schedule) {
+        primary = schedule;
+        var isLargeGroup = Number(item.comensales) > 12;
+        var attempts = Number(schedule.notification_attempts || 0);
+        if (schedule.tiene_contacto === false && !isLargeGroup) {
+          primaryAction = { kind: 'button', action: 'contact', label: 'Agregar contacto', variant: 'primary', attrs: notificationAttrs(schedule) };
+          secondaryAction = openAction(schedule);
+        } else if (isLargeGroup) {
+          primaryAction = openAction(schedule, 'Abrir reservación', 'primary');
+        } else if (schedule.requiere_accion === false) {
+          status = { label: 'Esperando respuesta', copy: 'El enlace para cambiar el horario sigue activo hasta ' + formatTime(schedule.access_expires_at) + '.' };
+          secondaryAction = openAction(schedule);
+        } else if (schedule.puede_mandar_aviso) {
+          primaryAction = { kind: 'button', action: 'notify', label: 'Enviar recordatorio', variant: 'primary', attrs: notificationAttrs(schedule) };
+          secondaryAction = openAction(schedule);
+        } else {
+          status = attempts >= 3
+            ? { label: 'Límite de recordatorios alcanzado', copy: 'Abre la reservación para revisar el seguimiento.' }
+            : (schedule.cooldown_hasta ? { label: 'Recordatorio en espera', copy: 'Podrás enviar otro recordatorio a las ' + formatTime(schedule.cooldown_hasta) + '.' } : null);
+          primaryAction = openAction(schedule, 'Abrir reservación', 'primary');
+        }
+        if (schedule.test_link_disponible) {
+          developmentActions.push({ kind: 'button', action: 'test-link', label: 'Copiar enlace de prueba', variant: 'secondary', small: true, attrs: notificationAttrs(schedule) });
+        }
+      } else if (assignment) {
+        primary = assignment;
+        primaryAction = { kind: 'assignment', label: 'Asignar mesas', variant: 'primary' };
+        secondaryAction = openAction(assignment);
+      } else if (manual) {
+        primary = manual;
+        primaryAction = openAction(manual, 'Abrir reservación', 'primary');
+      } else if (primary) {
+        primaryAction = openAction(primary, 'Abrir reservación', 'primary');
+      }
+
+      return {
+        primary_reason: primary ? reasonFor(primary) : null,
+        secondary_reasons: notifications.filter(function (notification) { return notification !== primary; }).map(reasonFor),
+        primary_action: primaryAction,
+        secondary_action: secondaryAction,
+        status: status,
+        development_actions: developmentActions
+      };
+    }
+
+    function renderInboxAction(item, action) {
+      if (!action) return null;
+      if (action.kind === 'assignment') return assignmentLink(item);
+      if (action.kind === 'reservation') return reservationLink(item, action.label, action.notification, action.variant);
+      return button(action.label, action.action, action.attrs, action.variant === 'primary', action.small);
+    }
+
+    function renderDetailReason(reason, primary) {
+      var section = document.createElement('section');
+      section.className = 'admin-inbox__detail-reason' + (primary ? ' is-primary' : '');
+      var title = document.createElement(primary ? 'h3' : 'strong');
+      title.textContent = reason.label;
+      var copy = document.createElement('p');
+      copy.textContent = reason.copy;
+      section.append(title, copy);
+      return section;
+    }
+
     function renderDetail(item) {
       if (!context) return;
+      var resolved = resolveInboxCase(item);
       context.hidden = false;
       context.replaceChildren();
       var identity = document.createElement('div');
@@ -337,79 +439,36 @@
       identity.append(name, facts);
       var reasons = document.createElement('div');
       reasons.className = 'admin-inbox__detail-reasons';
-      (item.notificaciones || []).forEach(function (notification) {
-        var reason = document.createElement('section');
-        reason.className = 'admin-inbox__detail-reason';
-        var reasonTitle = document.createElement('strong');
-        reasonTitle.textContent = notification.etiqueta || 'Seguimiento';
-        var reasonCopy = document.createElement('p');
-        if (notification.tipo === 'reservacion_horario_afectado' && notification.requiere_accion === false) {
-          reasonCopy.textContent = 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
-        } else {
-          reasonCopy.textContent = notification.descripcion || 'Esta reservación requiere atención administrativa.';
-        }
-        reason.append(reasonTitle, reasonCopy);
-        reasons.appendChild(reason);
-      });
+      if (resolved.primary_reason) reasons.appendChild(renderDetailReason(resolved.primary_reason, true));
+      if (resolved.secondary_reasons.length) {
+        var secondaryHeading = document.createElement('h4');
+        secondaryHeading.className = 'admin-inbox__secondary-heading';
+        secondaryHeading.textContent = 'También en esta reservación';
+        reasons.appendChild(secondaryHeading);
+        resolved.secondary_reasons.forEach(function (reason) { reasons.appendChild(renderDetailReason(reason, false)); });
+      }
       var actions = document.createElement('div');
       actions.className = 'admin-inbox__detail-actions';
-      var gestionarAgregado = false;
-      function addGestionar(notification) {
-        if (gestionarAgregado) return;
-        gestionarAgregado = true;
-        actions.appendChild(reservationLink(item, 'Abrir reservación', notification));
+      if (resolved.primary_action) actions.appendChild(renderInboxAction(item, resolved.primary_action));
+      if (resolved.status) {
+        var status = document.createElement('div');
+        status.className = 'admin-inbox__action-status';
+        var statusLabel = document.createElement('strong');
+        statusLabel.textContent = resolved.status.label;
+        var statusCopy = document.createElement('p');
+        statusCopy.textContent = resolved.status.copy;
+        status.append(statusLabel, statusCopy);
+        actions.appendChild(status);
       }
+      if (resolved.secondary_action) actions.appendChild(renderInboxAction(item, resolved.secondary_action));
       var development = document.createElement('div');
       development.className = 'admin-inbox__development';
       var developmentTitle = document.createElement('strong');
       developmentTitle.textContent = 'Herramientas de desarrollo';
       development.appendChild(developmentTitle);
-      var hasDevelopment = false;
-      (item.notificaciones || []).forEach(function (notification) {
-        var attrs = notificationAttrs(notification);
-        if (notification.tipo === 'reservacion_ausencia_pendiente' && notification.puede_registrar_no_show) {
-          actions.appendChild(button('Registrar que no llegó', 'no-show', attrs, true));
-          addGestionar(notification);
-        } else if (notification.tipo === 'reservacion_sin_asignacion_proxima' && notification.puede_asignar_mesas) {
-          actions.appendChild(assignmentLink(item));
-          addGestionar(notification);
-        } else if (notification.tipo === 'reservacion_horario_afectado') {
-          if (notification.tiene_contacto === false && Number(item.comensales) <= 12) {
-            actions.appendChild(button('Agregar contacto', 'contact', attrs, true));
-            addGestionar(notification);
-          } else if (Number(item.comensales) > 12) {
-            addGestionar(notification);
-          } else if (notification.requiere_accion === false) {
-            var waiting = document.createElement('p');
-            waiting.className = 'admin-inbox__waiting';
-            waiting.textContent = 'Esperando respuesta';
-            actions.appendChild(waiting);
-            addGestionar(notification);
-          } else {
-            if (notification.puede_mandar_aviso) {
-              actions.appendChild(button('Enviar recordatorio', 'notify', attrs, true));
-            } else if (Number(notification.notification_attempts || 0) >= 3) {
-              var limit = document.createElement('p');
-              limit.className = 'admin-inbox__limit';
-              limit.textContent = 'Se alcanzó el límite de recordatorios.';
-              actions.appendChild(limit);
-            } else if (notification.cooldown_hasta) {
-              var cooldown = document.createElement('p');
-              cooldown.className = 'admin-inbox__limit';
-              cooldown.textContent = 'Podrás enviar otro recordatorio a las ' + formatTime(notification.cooldown_hasta) + '.';
-              actions.appendChild(cooldown);
-            }
-            addGestionar(notification);
-          }
-          if (notification.test_link_disponible) {
-            hasDevelopment = true;
-            development.appendChild(button('Copiar enlace de prueba', 'test-link', attrs, false, true));
-          }
-        } else if (notification.tipo === 'reservacion_grupo_grande') {
-          addGestionar(notification);
-        }
-      });
-      if (hasDevelopment) context.append(identity, reasons, actions, development); else context.append(identity, reasons, actions);
+      resolved.development_actions.forEach(function (action) { development.appendChild(renderInboxAction(item, action)); });
+      var back = detailBackButton();
+      if (resolved.development_actions.length) context.append(back, identity, reasons, actions, development); else context.append(back, identity, reasons, actions);
       markItemRead(item).catch(function () {});
     }
 
@@ -418,22 +477,24 @@
     function showContact(item, notification) {
       context.replaceChildren();
       context.hidden = false;
+      context.appendChild(detailBackButton());
       var heading = document.createElement('h3');
       heading.textContent = 'Agregar contacto';
       var copy = document.createElement('p');
-      copy.textContent = 'Agrega un correo o teléfono para enviar el enlace.';
+      copy.textContent = 'El contacto se usará para enviar el enlace de cambio.';
       var form = document.createElement('form');
       form.className = 'admin-inbox__contact-form';
-      form.innerHTML = '<label><span>Tipo de contacto</span><select name="tipo"><option value="email">Correo electrónico</option><option value="telefono">Teléfono</option></select></label><label><span>Contacto</span><input name="contacto" required autocomplete="off"></label><p class="admin-inbox__context-status" data-contact-status></p><div><button type="button" class="admin-btn admin-btn--secondary" data-contact-cancel>Cancelar</button><button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button></div>';
+      form.innerHTML = '<div class="admin-field"><label class="admin-field__label" for="inbox-contact-type">Tipo de contacto</label><select class="admin-field__control" id="inbox-contact-type" name="tipo"><option value="email">Correo electrónico</option><option value="telefono">Teléfono</option></select></div><div class="admin-field"><label class="admin-field__label" for="inbox-contact-value">Contacto</label><input class="admin-field__control" id="inbox-contact-value" name="contacto" required autocomplete="off"><p class="admin-field__help">El contacto se usará para enviar el enlace de cambio.</p></div><p class="admin-form-status" data-contact-status role="status" aria-live="polite"></p><div class="admin-inbox__contact-form-actions"><button type="button" class="admin-btn admin-btn--secondary" data-contact-cancel>Cancelar</button><button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button></div>';
       form.addEventListener('submit', function (event) {
         event.preventDefault();
         var submit = form.querySelector('[type="submit"]');
         var status = form.querySelector('[data-contact-status]');
         submit.disabled = true;
         status.textContent = 'Guardando…';
+        status.classList.remove('is-error');
         request('/admin/api/horarios-impactos/contacto', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0), tipo: form.elements.tipo.value, contacto: form.elements.contacto.value.trim() } })
           .then(function () { setView('list'); return refreshAfterAction('Contacto agregado; el recordatorio quedó preparado.'); })
-          .catch(function (error) { status.textContent = error.message || 'No fue posible guardar el contacto.'; submit.disabled = false; });
+          .catch(function (error) { status.textContent = error.message || 'No fue posible guardar el contacto.'; status.classList.add('is-error'); submit.disabled = false; });
       });
       form.querySelector('[data-contact-cancel]').addEventListener('click', function () { openDetail(item); });
       context.append(heading, copy, form);
@@ -548,7 +609,6 @@
       });
     });
     trigger.addEventListener('click', open);
-    backButton.addEventListener('click', function () { setView('list'); });
     closeButtons.forEach(function (buttonElement) { buttonElement.addEventListener('click', close); });
     document.addEventListener('keydown', function (event) { if (!drawer.hidden && event.key === 'Escape') close(); });
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncPendientes(false); });
