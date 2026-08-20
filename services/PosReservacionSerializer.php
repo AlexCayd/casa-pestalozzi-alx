@@ -120,6 +120,10 @@ final class PosReservacionSerializer
         $accionPendiente = $politica['accion_pendiente'];
         $acciones = (array)($politica['acciones'] ?? []);
         $muestraAdvertencia = (bool)$politica['muestra_advertencia'];
+        $reservacionProgramada = $estado === 'confirmada'
+            && !$puedeIniciar
+            && !$politica['ausencia_pendiente']
+            && $ventana === 'futura';
 
         $motivo = self::motivoOperativo(
             $estado,
@@ -203,6 +207,7 @@ final class PosReservacionSerializer
             // puede_iniciar_servicio para los consumidores existentes.
             'puede_iniciar' => $puedeIniciar,
             'puede_iniciar_servicio' => $puedeIniciar,
+            'reservacion_programada' => $reservacionProgramada,
             'motivo_bloqueo' => $codigoBloqueo,
             'bloqueo' => $bloqueo,
             'accion_pendiente' => $accionPendiente,

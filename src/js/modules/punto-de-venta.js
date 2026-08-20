@@ -2143,9 +2143,18 @@ function initMapa() {
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-reservation-back">Volver</button>';
       } else if (reservaEstado === 'confirmada') {
         var puedeIniciar = reserva.puede_iniciar_servicio === true;
+        var reservacionProgramada = reserva.reservacion_programada === true
+          || (!puedeIniciar && reserva.ventana_pos === 'futura' && !ausenciaPendiente);
         var mesasBloqueantes = Array.isArray(reserva.mesas_bloqueantes)
           ? reserva.mesas_bloqueantes
           : [];
+        if (reservacionProgramada) {
+          h += '<section class="mmodal-reservation__scheduled" aria-label="Reservación programada">';
+          h += '<strong>Reservación programada</strong>';
+          h += '<p>' + escHtml(reservaHora || '--:--') + ' · ' + escHtml(reserva.nombre || 'Reservación') + '</p>';
+          h += '<span>Todavía no hay acciones disponibles.</span>';
+          h += '</section>';
+        } else {
         var mostrarBloqueo = !puedeIniciar && (
           mesasBloqueantes.length > 0 ||
           Boolean(reserva.bloqueo)
@@ -2200,6 +2209,7 @@ function initMapa() {
         var puedeMarcarAusencia = reserva.puede_registrar_ausencia === true && !reserva.ticket_abierto;
         if (puedeMarcarAusencia) {
           h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Cliente no se presentó</button>';
+        }
         }
       }
       h += '</div>';

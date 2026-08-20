@@ -12239,6 +12239,28 @@ footer.foot {
   font-size: 0.68rem;
 }
 
+.mmodal-reservation__scheduled {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.mmodal-reservation__scheduled strong {
+  color: var(--txt);
+  font-size: 0.82rem;
+}
+.mmodal-reservation__scheduled p {
+  margin: 0;
+  color: var(--txt);
+}
+
 .mmodal-reservation__actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
