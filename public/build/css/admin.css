@@ -4083,38 +4083,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-linecap: round;
   stroke-width: 1.8;
 }
-.admin-inbox__filters {
-  display: flex;
-  gap: 7px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--admin-border-soft);
-  background: var(--admin-bg);
+.admin-inbox__content {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
 }
-.admin-inbox__filters button {
-  min-height: 34px;
-  padding: 7px 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--admin-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-.admin-inbox__filters button:hover, .admin-inbox__filters button.is-active {
-  border-color: var(--admin-gold);
-  color: var(--admin-text);
-  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
-}
-.admin-inbox__filters button:focus-visible {
-  outline: 2px solid var(--admin-gold);
-  outline-offset: 2px;
-}
-.admin-inbox__body {
+.admin-inbox__list-view, .admin-inbox__detail-view {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px 20px 32px;
+  padding: 20px 24px 32px;
   scrollbar-color: var(--admin-border) transparent;
 }
 .admin-inbox__loading, .admin-inbox__empty {
@@ -4122,7 +4100,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 7px;
   padding: 34px 10px;
   color: var(--admin-muted);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   text-align: center;
 }
@@ -4158,7 +4136,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__card-head {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
 }
 .admin-inbox__card-head h3 {
@@ -4171,38 +4148,32 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.admin-inbox__card-state {
-  flex: 0 0 auto;
-  color: var(--admin-muted);
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.admin-inbox__card.is-action .admin-inbox__card-state {
-  color: var(--admin-warning-text);
-}
 .admin-inbox__card-facts {
   margin: 0;
   color: var(--admin-muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 .admin-inbox__reasons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: baseline;
+  gap: 8px;
 }
-.admin-inbox__reason {
-  padding: 5px 7px;
-  border: 1px solid var(--admin-border-soft);
+.admin-inbox__card-reason {
   color: var(--admin-text);
-  font-size: 0.7rem;
-  line-height: 1.2;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.admin-inbox__card-more {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
 }
 .admin-inbox__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
   padding-top: 2px;
 }
@@ -4218,7 +4189,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__detail-identity p {
   margin: 5px 0 0;
   color: var(--admin-muted);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 .admin-inbox__detail-reasons {
   display: grid;
@@ -4231,13 +4203,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-inbox__detail-reason strong {
   display: block;
   color: var(--admin-text);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 .admin-inbox__detail-reason p {
   margin: 5px 0 0;
   color: var(--admin-muted);
-  font-size: 0.76rem;
-  line-height: 1.5;
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 .admin-inbox__detail-reason .admin-inbox__detail-note {
   color: var(--admin-warning-text);
@@ -4252,8 +4224,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 1 1 100%;
   margin: 0;
   color: var(--admin-muted);
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 .admin-inbox__limit {
   color: var(--admin-warning-text);
@@ -4308,7 +4280,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-height: 18px;
   margin: 0;
   color: var(--admin-warning-text);
-  font-size: 0.72rem;
+  font-size: 0.82rem;
 }
 
 @media (max-width: 576px) {
@@ -4331,7 +4303,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     top: 16px;
     right: 16px;
   }
-  .admin-inbox__filters, .admin-inbox__body {
+  .admin-inbox__filters, .admin-inbox__list-view, .admin-inbox__detail-view {
     padding-left: 16px;
     padding-right: 16px;
   }

@@ -30,22 +30,23 @@ if ($buzonPrioridad === 'alta') {
                 <span>Notificaciones</span>
             </button>
             <div>
-                <p class="admin-inbox__eyebrow" data-inbox-eyebrow>Seguimiento administrativo</p>
                 <h2 id="admin-inbox-title" data-inbox-title>Notificaciones</h2>
-                <p data-inbox-summary><?php echo $buzonCantidadAccionable . ' requieren atención · ' . $buzonCantidadSeguimiento . ' en seguimiento'; ?></p>
+                <p data-inbox-summary><?php echo $buzonCantidadAccionable . ' por atender · ' . $buzonCantidadSeguimiento . ' en espera'; ?></p>
             </div>
             <button class="admin-inbox__close" type="button" aria-label="Cerrar buzón" data-inbox-close>
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
             </button>
         </header>
         <div class="admin-inbox__filters" role="tablist" aria-label="Filtrar notificaciones" data-inbox-filters>
-            <button type="button" class="is-active" data-inbox-filter="action" role="tab" aria-selected="true">Atención</button>
-            <button type="button" data-inbox-filter="followup" role="tab" aria-selected="false">Seguimiento</button>
+            <button type="button" class="is-active" data-inbox-filter="action" role="tab" aria-selected="true">Por atender</button>
+            <button type="button" data-inbox-filter="followup" role="tab" aria-selected="false">En espera</button>
             <button type="button" data-inbox-filter="all" role="tab" aria-selected="false">Todas</button>
         </div>
-        <div class="admin-inbox__body" data-inbox-list aria-live="polite">
-            <p class="admin-inbox__loading" data-inbox-loading>Cargando acciones…</p>
+        <div class="admin-inbox__content">
+            <div class="admin-inbox__body admin-inbox__list-view" data-inbox-list aria-live="polite">
+                <p class="admin-inbox__loading" data-inbox-loading>Cargando notificaciones…</p>
+            </div>
+            <div class="admin-inbox__context admin-inbox__detail-view" data-inbox-context role="region" aria-live="polite" hidden></div>
         </div>
-        <div class="admin-inbox__context" data-inbox-context role="region" aria-live="polite" hidden></div>
     </aside>
 </div>

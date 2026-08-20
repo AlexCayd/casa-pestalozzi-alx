@@ -44,11 +44,11 @@
       window.ConfirmationModal.get().open({
         variant: 'warning',
         eyebrow: 'Buzón administrativo',
-        title: 'Marcar seguimiento como resuelto',
-        description: 'Confirma que esta reservación ya no necesita seguimiento desde el sistema.',
-        consequence: 'La reservación no será cancelada ni modificada.',
+        title: 'Cerrar seguimiento',
+        description: 'Confirma que deseas retirar este pendiente del buzón.',
+        consequence: 'La reservación seguirá confirmada. Sólo se retirará este pendiente del buzón.',
         secondaryLabel: 'Cancelar',
-        primaryLabel: 'Marcar como resuelta',
+        primaryLabel: 'Cerrar seguimiento',
         onPrimary: function () {
           return request('/admin/api/horarios-impactos/atender-manual', {
             impacto_id: impactId,
@@ -118,7 +118,7 @@
     }
 
     function summaryText(actionable, followup) {
-      return actionable + ' requieren atención · ' + followup + ' en seguimiento';
+      return actionable + ' por atender · ' + followup + ' en espera';
     }
 
     function updateCount(data) {
@@ -214,12 +214,16 @@
       return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', timeZone: 'UTC' }).format(date).replace('.', '').toUpperCase();
     }
 
-    function formatTime(value) { return String(value || '').substring(0, 5); }
+    function formatTime(value) {
+      var text = String(value || '');
+      var match = text.match(/\b\d{2}:\d{2}/);
+      return match ? match[0] : text.substring(0, 5);
+    }
 
-    function button(label, action, attrs, primary) {
+    function button(label, action, attrs, primary, small) {
       var element = document.createElement('button');
       element.type = 'button';
-      element.className = 'admin-btn ' + (primary ? 'admin-btn--primary' : 'admin-btn--secondary') + ' admin-btn--small';
+      element.className = 'admin-btn ' + (primary ? 'admin-btn--primary' : 'admin-btn--secondary') + (small ? ' admin-btn--small' : '');
       element.textContent = label;
       element.setAttribute('data-inbox-action', action);
       Object.keys(attrs || {}).forEach(function (key) { element.setAttribute(key, String(attrs[key])); });
@@ -232,16 +236,16 @@
       params.set('return_url', '/admin/reservaciones');
       if (notification && notification.impacto_reservacion_id) params.set('impacto_reservacion_id', String(notification.impacto_reservacion_id));
       var link = document.createElement('a');
-      link.className = 'admin-btn admin-btn--secondary admin-btn--small';
+      link.className = 'admin-btn admin-btn--secondary';
       link.href = '/admin/reservaciones/detalle?' + params.toString();
-      link.textContent = label || 'Gestionar';
+      link.textContent = label || 'Abrir reservación';
       return link;
     }
 
     function assignmentLink(item) {
       var params = new URLSearchParams({ reservation_id: String(item.reservacion_id), fecha: String(item.fecha || ''), hora: String(item.hora || ''), mode: 'assign', return_url: '/admin/reservaciones' });
       var link = document.createElement('a');
-      link.className = 'admin-btn admin-btn--primary admin-btn--small';
+      link.className = 'admin-btn admin-btn--primary';
       link.href = '/admin/reservaciones/operacion?' + params.toString();
       link.textContent = 'Asignar mesas';
       return link;
@@ -270,9 +274,9 @@
         var empty = document.createElement('div');
         empty.className = 'admin-inbox__empty';
         var emptyTitle = document.createElement('strong');
-        emptyTitle.textContent = activeFilter === 'followup' ? 'No hay casos en seguimiento.' : 'Todo al día';
+        emptyTitle.textContent = activeFilter === 'followup' ? 'No hay reservaciones en espera.' : 'Todo al día';
         var emptyCopy = document.createElement('span');
-        emptyCopy.textContent = activeFilter === 'followup' ? 'Los avisos informativos aparecerán aquí mientras esperan respuesta.' : 'No hay reservaciones que requieran atención.';
+        emptyCopy.textContent = activeFilter === 'followup' ? 'Las notificaciones informativas aparecerán aquí mientras el cliente responde.' : 'No hay reservaciones por atender.';
         empty.append(emptyTitle, emptyCopy);
         list.appendChild(empty);
         return;
@@ -285,24 +289,28 @@
         head.className = 'admin-inbox__card-head';
         var name = document.createElement('h3');
         name.textContent = item.nombre || 'Reservación';
-        var status = document.createElement('span');
-        status.className = 'admin-inbox__card-state';
-        status.textContent = itemRequiresAction(item) ? 'Requiere atención' : 'En seguimiento';
-        head.append(name, status);
+        head.append(name);
         var facts = document.createElement('p');
         facts.className = 'admin-inbox__card-facts';
         facts.textContent = formatDate(item.fecha) + ' · ' + formatTime(item.hora) + ' · ' + item.comensales + (Number(item.comensales) === 1 ? ' persona' : ' personas');
         var reasons = document.createElement('div');
         reasons.className = 'admin-inbox__reasons';
-        (item.motivos || []).forEach(function (reason) {
-          var tag = document.createElement('span');
-          tag.className = 'admin-inbox__reason';
-          tag.textContent = reason.etiqueta || reason.tipo;
-          reasons.appendChild(tag);
-        });
+        var primaryReason = (item.motivos || [])[0];
+        if (primaryReason) {
+          var reasonLabel = document.createElement('span');
+          reasonLabel.className = 'admin-inbox__card-reason';
+          reasonLabel.textContent = primaryReason.etiqueta || primaryReason.tipo;
+          reasons.appendChild(reasonLabel);
+          if ((item.motivos || []).length > 1) {
+            var moreReasons = document.createElement('span');
+            moreReasons.className = 'admin-inbox__card-more';
+            moreReasons.textContent = '+ ' + ((item.motivos || []).length - 1) + ' más';
+            reasons.appendChild(moreReasons);
+          }
+        }
         var actions = document.createElement('div');
         actions.className = 'admin-inbox__actions';
-        actions.appendChild(button('Revisar', 'review', { 'data-reservation-id': item.reservacion_id }, true));
+        actions.appendChild(button('Ver detalle', 'review', { 'data-reservation-id': item.reservacion_id }, false));
         card.append(head, facts, reasons, actions);
         list.appendChild(card);
       });
@@ -335,14 +343,12 @@
         var reasonTitle = document.createElement('strong');
         reasonTitle.textContent = notification.etiqueta || 'Seguimiento';
         var reasonCopy = document.createElement('p');
-        reasonCopy.textContent = notification.descripcion || 'Esta reservación requiere atención administrativa.';
-        reason.append(reasonTitle, reasonCopy);
-        if (notification.tiene_contacto === false && notification.tipo === 'reservacion_horario_afectado') {
-          var noContact = document.createElement('p');
-          noContact.className = 'admin-inbox__detail-note';
-          noContact.textContent = 'Sin contacto registrado.';
-          reason.appendChild(noContact);
+        if (notification.tipo === 'reservacion_horario_afectado' && notification.requiere_accion === false) {
+          reasonCopy.textContent = 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
+        } else {
+          reasonCopy.textContent = notification.descripcion || 'Esta reservación requiere atención administrativa.';
         }
+        reason.append(reasonTitle, reasonCopy);
         reasons.appendChild(reason);
       });
       var actions = document.createElement('div');
@@ -351,7 +357,7 @@
       function addGestionar(notification) {
         if (gestionarAgregado) return;
         gestionarAgregado = true;
-        actions.appendChild(reservationLink(item, 'Gestionar', notification));
+        actions.appendChild(reservationLink(item, 'Abrir reservación', notification));
       }
       var development = document.createElement('div');
       development.className = 'admin-inbox__development';
@@ -362,7 +368,7 @@
       (item.notificaciones || []).forEach(function (notification) {
         var attrs = notificationAttrs(notification);
         if (notification.tipo === 'reservacion_ausencia_pendiente' && notification.puede_registrar_no_show) {
-          actions.appendChild(button('Registrar no-show', 'no-show', attrs, true));
+          actions.appendChild(button('Registrar que no llegó', 'no-show', attrs, true));
           addGestionar(notification);
         } else if (notification.tipo === 'reservacion_sin_asignacion_proxima' && notification.puede_asignar_mesas) {
           actions.appendChild(assignmentLink(item));
@@ -376,27 +382,28 @@
           } else if (notification.requiere_accion === false) {
             var waiting = document.createElement('p');
             waiting.className = 'admin-inbox__waiting';
-            waiting.textContent = 'Aviso preparado · Esperando respuesta';
+            waiting.textContent = 'Esperando respuesta';
             actions.appendChild(waiting);
-          } else {
             addGestionar(notification);
+          } else {
             if (notification.puede_mandar_aviso) {
-              actions.appendChild(button('Mandar aviso', 'notify', attrs, true));
+              actions.appendChild(button('Enviar recordatorio', 'notify', attrs, true));
             } else if (Number(notification.notification_attempts || 0) >= 3) {
               var limit = document.createElement('p');
               limit.className = 'admin-inbox__limit';
-              limit.textContent = 'Se alcanzó el límite de avisos.';
+              limit.textContent = 'Se alcanzó el límite de recordatorios.';
               actions.appendChild(limit);
             } else if (notification.cooldown_hasta) {
               var cooldown = document.createElement('p');
               cooldown.className = 'admin-inbox__limit';
-              cooldown.textContent = 'Podrás enviar otro aviso a las ' + formatTime(notification.cooldown_hasta) + '.';
+              cooldown.textContent = 'Podrás enviar otro recordatorio a las ' + formatTime(notification.cooldown_hasta) + '.';
               actions.appendChild(cooldown);
             }
+            addGestionar(notification);
           }
           if (notification.test_link_disponible) {
             hasDevelopment = true;
-            development.appendChild(button('Copiar link de prueba', 'test-link', attrs, false));
+            development.appendChild(button('Copiar enlace de prueba', 'test-link', attrs, false, true));
           }
         } else if (notification.tipo === 'reservacion_grupo_grande') {
           addGestionar(notification);
@@ -414,10 +421,10 @@
       var heading = document.createElement('h3');
       heading.textContent = 'Agregar contacto';
       var copy = document.createElement('p');
-      copy.textContent = 'Se guardará en la reservación y el aviso se preparará automáticamente.';
+      copy.textContent = 'Agrega un correo o teléfono para poder enviar el enlace.';
       var form = document.createElement('form');
       form.className = 'admin-inbox__contact-form';
-      form.innerHTML = '<label><span>Tipo de contacto</span><select name="tipo"><option value="email">Correo electrónico</option><option value="telefono">Teléfono</option></select></label><label><span>Contacto</span><input name="contacto" required autocomplete="off"></label><p class="admin-inbox__context-status" data-contact-status></p><div><button type="button" class="admin-btn admin-btn--secondary admin-btn--small" data-contact-cancel>Cancelar</button><button type="submit" class="admin-btn admin-btn--primary admin-btn--small">Guardar contacto</button></div>';
+      form.innerHTML = '<label><span>Tipo de contacto</span><select name="tipo"><option value="email">Correo electrónico</option><option value="telefono">Teléfono</option></select></label><label><span>Contacto</span><input name="contacto" required autocomplete="off"></label><p class="admin-inbox__context-status" data-contact-status></p><div><button type="button" class="admin-btn admin-btn--secondary" data-contact-cancel>Cancelar</button><button type="submit" class="admin-btn admin-btn--primary">Guardar contacto</button></div>';
       form.addEventListener('submit', function (event) {
         event.preventDefault();
         var submit = form.querySelector('[type="submit"]');
@@ -425,25 +432,12 @@
         submit.disabled = true;
         status.textContent = 'Guardando…';
         request('/admin/api/horarios-impactos/contacto', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0), tipo: form.elements.tipo.value, contacto: form.elements.contacto.value.trim() } })
-          .then(function () { setView('list'); return refreshAfterAction('Contacto agregado; el aviso quedó preparado.'); })
+          .then(function () { setView('list'); return refreshAfterAction('Contacto agregado; el recordatorio quedó preparado.'); })
           .catch(function (error) { status.textContent = error.message || 'No fue posible guardar el contacto.'; submit.disabled = false; });
       });
       form.querySelector('[data-contact-cancel]').addEventListener('click', function () { openDetail(item); });
       context.append(heading, copy, form);
       form.elements.contacto.focus();
-    }
-
-    function confirmResolved(item, notification) {
-      if (!window.ConfirmationModal) return;
-      var run = function () {
-        return request('/admin/api/horarios-impactos/atender-manual', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0) } })
-          .then(function () { setView('list'); return refreshAfterAction('Seguimiento marcado como resuelto.'); });
-      };
-      window.ConfirmationModal.get().open({
-        variant: 'warning', eyebrow: 'Buzón administrativo', title: 'Marcar seguimiento como resuelto',
-        description: 'Confirma que esta reservación ya no necesita seguimiento desde el sistema.',
-        consequence: 'La reservación no será cancelada ni modificada.', secondaryLabel: 'Cancelar', primaryLabel: 'Marcar como resuelta', onPrimary: run
-      });
     }
 
     function confirmNoShow(item) {
@@ -453,20 +447,20 @@
         form.set('reservation_id', String(item.reservacion_id));
         form.set('estado', 'no_show');
         form.set('motivo', 'buzon_ausencia_pendiente');
-        return request('/admin/api/reservaciones/operacion/estado', { method: 'POST', body: form }).then(function () { setView('list'); return refreshAfterAction('No-show registrado.'); });
+        return request('/admin/api/reservaciones/operacion/estado', { method: 'POST', body: form }).then(function () { setView('list'); return refreshAfterAction('Se registró que no llegó.'); });
       };
       window.ConfirmationModal.get().open({
-        variant: 'warning', eyebrow: 'Buzón administrativo', title: 'Registrar ausencia',
+        variant: 'warning', eyebrow: 'Buzón administrativo', title: 'Registrar que no llegó',
         description: 'La tolerancia de llegada ya venció para esta reservación.',
-        consequence: 'La reservación pasará a no-show y dejará de requerir seguimiento.', secondaryLabel: 'Cancelar', primaryLabel: 'Registrar no-show', onPrimary: run
+        consequence: 'La reservación quedará registrada como ausencia y dejará de requerir seguimiento.', secondaryLabel: 'Cancelar', primaryLabel: 'Registrar que no llegó', onPrimary: run
       });
     }
 
     function sendNotice(item, notification, control) {
       control.disabled = true;
       request('/admin/api/horarios-impactos/preparar', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0) } })
-        .then(function () { setView('list'); return refreshAfterAction('Aviso preparado; esperando respuesta.'); })
-        .catch(function (error) { control.disabled = false; if (summary) summary.textContent = error.message || 'No fue posible preparar el aviso.'; });
+        .then(function () { setView('list'); return refreshAfterAction('Recordatorio preparado; el cliente puede responder.'); })
+        .catch(function (error) { control.disabled = false; if (summary) summary.textContent = error.message || 'No fue posible preparar el recordatorio.'; });
     }
 
     function copyText(value) {
@@ -476,7 +470,7 @@
       document.body.appendChild(field); field.select();
       var copied = false;
       try { copied = document.execCommand('copy'); } finally { field.remove(); }
-      return copied ? Promise.resolve() : Promise.reject(new Error('No fue posible copiar el link de prueba.'));
+      return copied ? Promise.resolve() : Promise.reject(new Error('No fue posible copiar el enlace de prueba.'));
     }
 
     function findItem(notificationId) {
@@ -497,15 +491,14 @@
       var notification = item && (item.notificaciones || []).find(function (candidate) { return Number(candidate.id) === notificationId; });
       if (!item || !notification) return;
       if (action === 'contact') showContact(item, notification);
-      if (action === 'resolve') confirmResolved(item, notification);
       if (action === 'no-show') confirmNoShow(item);
       if (action === 'notify') sendNotice(item, notification, control);
       if (action === 'test-link') {
         control.disabled = true;
         request('/admin/api/horarios-impactos/acceso-prueba', { method: 'POST', body: { impacto_id: notification.impacto_id, impacto_reservacion_id: notification.impacto_reservacion_id } })
-          .then(function (data) { if (!data.test_access_url) throw new Error('No hay un link de prueba disponible.'); return copyText(data.test_access_url); })
-          .then(function () { if (summary) summary.textContent = 'Link de prueba copiado.'; })
-          .catch(function (error) { if (summary) summary.textContent = error.message || 'No fue posible copiar el link de prueba.'; })
+          .then(function (data) { if (!data.test_access_url) throw new Error('No hay un enlace de prueba disponible.'); return copyText(data.test_access_url); })
+          .then(function () { if (summary) summary.textContent = 'Enlace de prueba copiado.'; })
+          .catch(function (error) { if (summary) summary.textContent = error.message || 'No fue posible copiar el enlace de prueba.'; })
           .finally(function () { control.disabled = false; });
       }
     }

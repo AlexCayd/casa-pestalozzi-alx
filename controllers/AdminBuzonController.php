@@ -140,6 +140,10 @@ final class AdminBuzonController
                     static fn(array $motivo): bool => $motivo['tipo'] !== ReservacionBuzonService::TIPO_SIN_ASIGNACION_PROXIMA
                 ));
             }
+            usort($grupo['motivos'], static function (array $a, array $b): int {
+                return [(int)($a['severidad'] ?? 50), (string)($a['etiqueta'] ?? '')]
+                    <=> [(int)($b['severidad'] ?? 50), (string)($b['etiqueta'] ?? '')];
+            });
         }
         unset($grupo);
 
@@ -189,31 +193,37 @@ final class AdminBuzonController
             $esGrupoGrande = (int)($fuente['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO;
             $requiereAccion = !$tieneContacto || $esGrupoGrande || $expirada;
             if ($esGrupoGrande) {
-                $fuente['etiqueta'] = 'Grupo de más de 12 personas';
-                $fuente['descripcion'] = 'Requiere gestión administrativa.';
+                $fuente['etiqueta'] = 'Requiere gestión manual';
+                $fuente['descripcion'] = 'Los grupos de más de 12 personas se coordinan desde la reservación.';
                 $fuente['severidad'] = 30;
             } elseif (!$tieneContacto) {
-                $fuente['etiqueta'] = 'Sin contacto';
-                $fuente['descripcion'] = 'Agrega un contacto o gestiona la reservación.';
+                $fuente['etiqueta'] = 'Falta un contacto';
+                $fuente['descripcion'] = 'Agrega un correo o teléfono para poder enviar el enlace.';
                 $fuente['severidad'] = 20;
             } elseif ($expirada) {
-                $fuente['etiqueta'] = 'Sin respuesta del cliente';
-                $fuente['descripcion'] = 'El acceso para modificar la reservación venció.';
+                $fuente['etiqueta'] = 'Sin respuesta';
+                $fuente['descripcion'] = 'El enlace para cambiar el horario venció.';
                 $fuente['severidad'] = 20;
             } else {
-                $fuente['etiqueta'] = 'Aviso preparado';
-                $fuente['descripcion'] = 'Esperando respuesta del cliente.';
+                $fuente['etiqueta'] = 'Esperando respuesta';
+                $horaExpiracion = '';
+                try {
+                    $horaExpiracion = (new \DateTimeImmutable((string)$fuente['access_expires_at'], ReservacionConfig::timezone()))->format('H:i');
+                } catch (\Throwable) {
+                    $horaExpiracion = substr((string)$fuente['access_expires_at'], 11, 5);
+                }
+                $fuente['descripcion'] = 'El cliente tiene un enlace activo hasta ' . $horaExpiracion . '.';
                 $fuente['severidad'] = 50;
             }
-            $fuente['accion_primaria'] = 'Gestionar';
+            $fuente['accion_primaria'] = 'Abrir reservación';
             $fuente['requiere_accion'] = $requiereAccion;
             $fuente['puede_mandar_aviso'] = !$esGrupoGrande
                 && $tieneContacto
                 && (bool)($fuente['puede_mandar_aviso'] ?? false);
             $fuente['mensaje_aviso'] = $fuente['puede_mandar_aviso']
-                ? 'Mandar aviso'
+                ? 'Enviar recordatorio'
                 : ((int)($fuente['notification_attempts'] ?? 0) >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS
-                    ? 'Se alcanzó el límite de avisos.'
+                    ? 'Se alcanzó el límite de recordatorios.'
                     : null);
             return $fuente;
         }
@@ -262,9 +272,9 @@ final class AdminBuzonController
                 return null;
             }
             return array_merge($base, [
-                'etiqueta' => 'Grupo grande requiere coordinación',
-                'descripcion' => 'Más de 12 personas requieren asignación y coordinación administrativa.',
-                'accion_primaria' => 'Gestionar reservación',
+                'etiqueta' => 'Requiere gestión manual',
+                'descripcion' => 'Los grupos de más de 12 personas se coordinan desde la reservación.',
+                'accion_primaria' => 'Abrir reservación',
                 'requiere_accion' => true,
                 'severidad' => 30,
             ]);
@@ -278,9 +288,9 @@ final class AdminBuzonController
                 return null;
             }
             return array_merge($base, [
-                'etiqueta' => 'Tolerancia de llegada vencida',
-                'descripcion' => 'La reservación sigue confirmada y ya puede registrarse como no-show.',
-                'accion_primaria' => 'Registrar no-show',
+                'etiqueta' => 'Tolerancia vencida',
+                'descripcion' => 'El cliente no llegó dentro del tiempo de tolerancia.',
+                'accion_primaria' => 'Registrar que no llegó',
                 'puede_registrar_no_show' => true,
                 'requiere_accion' => true,
                 'severidad' => 10,
@@ -303,8 +313,8 @@ final class AdminBuzonController
             return null;
         }
         return array_merge($base, [
-            'etiqueta' => 'Sin mesas asignadas para una reservación próxima',
-            'descripcion' => 'La reservación entra en su ventana operativa y todavía no tiene mesas asignadas.',
+            'etiqueta' => 'Falta asignar mesas',
+            'descripcion' => 'La reservación comienza a las ' . substr((string)$reservacion->hora, 0, 5) . ' y todavía no tiene mesas asignadas.',
             'accion_primaria' => 'Asignar mesas',
             'puede_asignar_mesas' => true,
             'requiere_accion' => true,

@@ -57,8 +57,8 @@ buzonAssert(str_contains($routes, '/admin/api/buzon/sincronizar'), 'ruta de sinc
 buzonAssert(!str_contains($critical, 'sincronizarBuzonReservacion'), 'alta/edición/estado/asignación no sincronizan el buzón');
 buzonAssert(str_contains($inboxJs, "data-inbox-refresh-seconds") && str_contains($inboxJs, "'/admin/api/buzon/sincronizar'"), 'refresh usa configuración y endpoint');
 buzonAssert(substr_count($inboxJs, 'window.setInterval') === 1, 'el buzón no duplica intervalos');
-buzonAssert(str_contains($inboxJs, "button('Revisar', 'review'") && str_contains($inboxJs, 'markItemRead'), 'tarjeta abre detalle y marca leído');
-buzonAssert(str_contains($inboxJs, 'Marcar seguimiento como resuelto') && str_contains($inboxJs, 'data-schedule-impact-resolve'), 'resolución usa una sola acción');
+buzonAssert(str_contains($inboxJs, "button('Ver detalle', 'review'") && str_contains($inboxJs, 'markItemRead'), 'tarjeta abre detalle y marca leído');
+buzonAssert(str_contains($inboxJs, 'Cerrar seguimiento') && str_contains($inboxJs, 'data-schedule-impact-resolve'), 'resolución usa una sola acción');
 buzonAssert(!str_contains($inboxJs, 'Mantener reservación') && !str_contains($inboxJs, 'Coordinar'), 'buzón no guarda motivos de resolución');
 buzonAssert(str_contains($inboxJs, 'No pudimos actualizar las notificaciones.') && str_contains($inboxJs, 'items.length'), 'error no borra datos cargados');
 buzonAssert(!str_contains($inboxJs, 'Marcar leída'), 'no existe botón independiente de lectura');
@@ -66,7 +66,9 @@ buzonAssert(str_contains($inboxView, 'has-high-priority') && str_contains($inbox
 buzonAssert(str_contains($topbarView, 'data-inbox-open') && str_contains($topbarView, 'data-inbox-count'), 'trigger del buzón vive en el topbar');
 buzonAssert(str_contains($impactService, 'ESTADOS_ITEM_FINALES') && str_contains($impactService, 'ESTADOS_ITEM_PENDIENTES'), 'estados de afectación están centralizados');
 buzonAssert(str_contains($impactService, 'cerrarTipoEntidadEnTransaccion'), 'fuente usa cierre por entidad');
-buzonAssert(str_contains($critical, 'impacto_reservacion_id') && str_contains($reservationView, 'Esta reservación requiere atención'), 'Gestionar conserva el contexto de la afectación');
+buzonAssert(str_contains($critical, 'impacto_reservacion_id') && str_contains($reservationView, 'Esta reservación quedó fuera del horario actual'), 'Gestionar conserva el contexto de la afectación');
+buzonAssert(str_contains($inboxView, 'Por atender') && str_contains($inboxView, 'En espera') && str_contains($inboxView, 'Todas'), 'filtros del buzón usan la jerarquía operativa');
+buzonAssert(str_contains($inboxJs, 'Enviar recordatorio') && str_contains($inboxJs, 'Abrir reservación') && str_contains($inboxJs, 'Registrar que no llegó'), 'acciones del buzón usan copy canónico');
 buzonAssert(str_contains($reservationModel, "r.estado NOT IN ('pendiente_verificacion', 'expirada')"), 'listado admin excluye holds por defecto');
 buzonAssert(str_contains($mapService, "'fuera_horario_operacion'") && str_contains($mapService, '&& !$fueraHorarioOperacion'), 'mapa separa seguimiento de proyección');
 buzonAssert(str_contains($posJs, 'Fuera de horario de operación'), 'POS presenta el mismo indicador');

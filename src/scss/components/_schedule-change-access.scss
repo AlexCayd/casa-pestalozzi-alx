@@ -1,3 +1,5 @@
+@use "reservation-picker" as reservationPicker;
+
 .schedule-change-page {
   min-height: 100vh;
   background: var(--ink-2);
@@ -5,6 +7,30 @@
   font-family: var(--sans);
   cursor: auto;
   overflow-x: hidden;
+
+  --reservation-picker-field-height: 46px;
+  --reservation-picker-field-padding: 10px 12px;
+  --reservation-picker-field-border: 1px solid var(--line);
+  --reservation-picker-field-border-bottom: 1px solid var(--line);
+  --reservation-picker-field-radius: 10px;
+  --reservation-picker-field-bg: var(--surface-2);
+  --reservation-picker-field-color: var(--beige);
+  --reservation-picker-field-font-size: .9rem;
+  --reservation-picker-focus-border: var(--accent);
+  --reservation-picker-border: var(--line);
+  --reservation-picker-radius: 10px;
+  --reservation-picker-surface: var(--surface);
+  --reservation-picker-muted: var(--txt-mute);
+  --reservation-picker-faint: var(--txt-faint);
+  --reservation-picker-accent: var(--accent);
+  --reservation-picker-selected-bg: var(--accent);
+  --reservation-picker-selected-color: var(--ink);
+  --reservation-picker-hours-columns: 3;
+  --reservation-picker-hour-option-height: 44px;
+  --reservation-picker-hour-option-radius: 999px;
+  --reservation-picker-hour-option-padding: .65rem .8rem;
+
+  @include reservationPicker.reservation-picker;
 }
 
 .schedule-change-header {
@@ -66,21 +92,31 @@
   div { display: grid; gap: .25rem; }
   span { color: var(--accent); font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; }
   strong { color: var(--beige); font-family: var(--serif); font-size: 1.25rem; font-weight: 400; }
-  p { color: var(--txt-mute); font-size: .75rem; text-align: right; }
+  p { color: var(--txt-mute); font-size: .8rem; text-align: left; }
 }
 
 .schedule-change-form { display: grid; gap: 2rem; }
-.schedule-change-section { display: grid; gap: .7rem; }
-.schedule-change-section__title { color: var(--beige); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.schedule-change-section__title small { color: var(--txt-faint); font-size: .68rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
-.schedule-change-field__hint { color: var(--txt-faint); font-size: .72rem; line-height: 1.45; }
+.schedule-change-form .reservation-field { display: grid; gap: .7rem; min-width: 0; }
+.schedule-change-page .reservation-field__label { margin: 0; color: rgba(244, 239, 230, .88); font-size: .68rem; letter-spacing: .1em; }
+.schedule-change-page .reservation-field__label small { color: var(--txt-faint); font-size: .68rem; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.schedule-change-page .reservation-field__help { margin: -.15rem 0 0; color: var(--txt-faint); font-size: .78rem; line-height: 1.45; }
 
 // Los parciales canónicos conservan su calendario y rejilla; aquí sólo se
 // ajusta el contenedor al lenguaje editorial de esta pantalla.
 .schedule-change-page .date-picker-wrap--inline,
 .schedule-change-page .hour-picker-wrap--inline { width: 100%; }
 .schedule-change-page .cp-calendar--inline,
-.schedule-change-page .hour-dropdown--inline { border-color: var(--line); border-radius: 0; background: var(--surface-2); }
+.schedule-change-page .hour-dropdown--inline {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  border-color: var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.schedule-change-page .cp-calendar--inline { display: block; }
+.schedule-change-page .hour-dropdown--inline { display: flex; }
 .schedule-change-page .cpc-head { padding: .9rem 1rem; border-bottom-color: var(--line-soft); }
 .schedule-change-page .cpc-label { color: var(--beige); font-family: var(--serif); font-size: 1.05rem; }
 .schedule-change-page .cpc-nav { color: var(--accent); &:hover { color: var(--accent-soft); } }
@@ -90,17 +126,17 @@
 .schedule-change-page .hour-dropdown__options { gap: .5rem; padding: 1rem; }
 .schedule-change-page .hour-option { min-height: 44px; border-color: var(--line); border-radius: 999px; color: var(--txt-mute); &:hover, &.sel { border-color: var(--accent); background: rgba(204, 163, 82, .14); color: var(--beige); } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } }
 
-.schedule-change-guests { display: grid; gap: .8rem; }
-.schedule-change-guest-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
-.schedule-change-pill { min-width: 44px; min-height: 44px; padding: .65rem .85rem; border: 1px solid var(--line); border-radius: 999px; color: var(--txt-mute); font-size: .82rem; cursor: pointer; &:hover, &.is-selected { border-color: var(--accent); background: rgba(204, 163, 82, .13); color: var(--beige); } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } }
-.schedule-change-stepper { display: grid; width: min(100%, 210px); grid-template-columns: 44px minmax(0, 1fr) 44px; gap: .5rem; align-items: center; &[hidden] { display: none; } button { min-height: 44px; border: 1px solid var(--line); color: var(--accent); font-size: 1.25rem; cursor: pointer; &:hover { background: rgba(204, 163, 82, .12); } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } } output { color: var(--beige); font-family: var(--serif); font-size: 1.4rem; text-align: center; } }
-
-.schedule-change-note { cursor: text; textarea { width: 100%; min-height: 100px; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: 0; background: var(--surface-2); color: var(--txt); font: inherit; font-size: .85rem; line-height: 1.55; resize: vertical; &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } } }
+.schedule-change-page .reservation-control--textarea { width: 100%; min-height: 100px; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--txt); font: inherit; font-size: .9rem; line-height: 1.55; resize: vertical; &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } }
+.schedule-change-page .reservation-guests--tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .3rem; padding: .35rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.schedule-change-page .reservation-guests--tabs .pill { min-width: 0; min-height: 46px; border: 0; border-radius: 8px; background: transparent; color: var(--txt-mute); cursor: pointer; &:hover:not(.sel) { background: rgba(204, 163, 82, .12); color: var(--beige); } &.sel { background: var(--accent); color: var(--ink); } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } }
+.schedule-change-page .guests-stepper { display: grid; width: min(100%, 210px); grid-template-columns: 44px minmax(0, 1fr) 44px; gap: .5rem; align-items: center; &[hidden] { display: none; } }
+.schedule-change-page .step-btn { width: 44px; height: 44px; border: 1px solid var(--line); background: transparent; color: var(--accent); font-size: 1.25rem; cursor: pointer; &:hover { background: rgba(204, 163, 82, .12); } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } }
+.schedule-change-page .step-val { color: var(--beige); font-family: var(--serif); font-size: 1.4rem; text-align: center; }
 .schedule-change-retry { width: fit-content; padding: .4rem 0; border: 0; color: var(--accent-soft); font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; &[hidden] { display: none; } &:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } }
 .schedule-change-status { min-height: 1.4rem; margin: -.5rem 0 0; color: var(--txt-mute); font-size: .78rem; line-height: 1.45; &.is-error { color: #efaa9a; } &.is-success { color: #acd2a2; } &.is-pending { color: var(--accent-soft); } }
-.schedule-change-button { display: inline-flex; width: fit-content; min-height: 48px; align-items: center; justify-content: center; gap: .9rem; padding: .85rem 1.2rem; background: var(--accent); color: var(--ink); font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; transition: background .2s var(--ease), transform .2s var(--ease); &:hover { background: var(--accent-soft); transform: translateY(-2px); } &:focus-visible { outline: 2px solid var(--beige); outline-offset: 3px; } &:disabled { cursor: wait; opacity: .5; transform: none; } }
-.schedule-change-button--submit { width: 100%; }
-.schedule-change-success { padding-top: 1rem; border-top: 1px solid var(--line-soft); h2 { max-width: 14ch; color: var(--beige); font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 400; letter-spacing: -.02em; } p:last-child { max-width: 48ch; margin-top: 1rem; color: var(--txt-mute); font-family: var(--crimson); font-size: 1.1rem; line-height: 1.5; } }
+.schedule-change-submit { width: 100%; justify-content: center; }
+.schedule-change-submit:disabled { cursor: wait; opacity: .5; }
+.schedule-change-success { padding-top: 1rem; border-top: 1px solid var(--line-soft); h2 { max-width: 14ch; color: var(--beige); font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 400; letter-spacing: -.02em; } p { max-width: 48ch; margin-top: 1rem; color: var(--txt-mute); font-family: var(--crimson); font-size: 1.1rem; line-height: 1.5; } &__summary { color: var(--beige); font-family: var(--sans); font-size: .9rem; font-weight: 700; } }
 .schedule-change-card--expired { align-self: center; }
 .schedule-change-footer { width: min(100% - 2 * var(--pad), var(--maxw)); padding-bottom: 2rem; margin: 0 auto; color: var(--txt-faint); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
 

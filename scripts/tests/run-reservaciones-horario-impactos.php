@@ -114,13 +114,17 @@ impactoAssert(!str_contains($layout, '_schedule-impact-alert.php'), 'layout reti
 impactoAssert(is_string($inboxView) && str_contains($inboxView, 'data-inbox-drawer'), 'buzón tiene drawer');
 impactoAssert(is_string($inboxJs) && str_contains($inboxJs, 'markItemRead'), 'buzón marca leído al abrir el detalle');
 impactoAssert(!str_contains($inboxJs, 'Marcar leída'), 'buzón no muestra una acción separada de lectura');
-impactoAssert(str_contains($inboxJs, 'Marcar seguimiento como resuelto'), 'buzón conserva el contrato de resolución simple');
+impactoAssert(str_contains($inboxJs, 'Cerrar seguimiento'), 'buzón conserva el contrato de resolución simple');
 impactoAssert(!str_contains($inboxJs, 'Mantener reservación') && !str_contains($inboxJs, 'Coordinar'), 'buzón retiró motivos de resolución de negocio');
 impactoAssert(str_contains($inboxJs, 'AdminScrollLock') && str_contains($inboxJs, 'window.AdminScrollLock.bloquear'), 'drawer usa el lock de scroll administrativo');
 impactoAssert(str_contains($inboxJs, 'data-schedule-impact-resolve'), 'detalle administrativo puede resolver el seguimiento');
 impactoAssert(str_contains($impactService, 'clasificarSeguimientosEnTransaccion'), 'impacto clasifica seguimiento al persistir');
 impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'MAX_COMENSALES_PUBLICO'), 'impacto aplica acceso diferido y umbral');
 impactoAssert(str_contains($impactService, "BuzonNotificacionesService::PRIORIDAD_NORMAL,\n                null"), 'seguimiento no espera a la expiración para aparecer');
+impactoAssert(str_contains($publicView, 'Elige un nuevo horario') && str_contains($publicView, 'Confirmar nuevo horario'), 'formulario público usa copy y CTA de cambio de horario');
+impactoAssert(str_contains($publicView, 'reservation-guests--tabs') && str_contains($publicView, 'guests-stepper') && str_contains($publicView, 'btn-line'), 'formulario público reutiliza controles canónicos');
+impactoAssert(str_contains($publicView, 'data-max-guests') && !str_contains($publicJs, 'var maxGuests = 12'), 'límite de personas viene de PHP');
+impactoAssert(str_contains($publicJs, 'Reservación actualizada') && str_contains($publicJs, 'Te esperamos en Casa Pestalozzi.'), 'éxito público muestra valores confirmados y cierre de marca');
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousTtl === null) unset($_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES']); else $_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES'] = $previousTtl;

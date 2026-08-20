@@ -153,16 +153,15 @@ $seguimientoActivo = $seguimientoHorario !== null;
         <section class="reservation-followup-banner admin-card" data-schedule-impact-banner>
             <div class="reservation-followup-banner__copy">
                 <span class="reservation-detail-card__label">Cambio de horario</span>
-                <h2>Esta reservación requiere atención</h2>
-                <p>Un cambio en el horario de operación dejó esta reservación fuera del horario actual.</p>
-                <p>Modifica la fecha u horario, cancela la reservación si corresponde o confirma que el caso se resolverá fuera del sistema.</p>
+                <h2>Esta reservación quedó fuera del horario actual</h2>
+                <p>Modifica la fecha u hora, cancélala si corresponde o cierra el seguimiento si la atenderás fuera del sistema.</p>
             </div>
             <div class="reservation-followup-banner__actions">
                 <?php if ($editable) : ?>
-                    <button type="button" class="admin-btn admin-btn--primary" data-schedule-impact-edit>Modificar reservación</button>
+                    <button type="button" class="admin-btn admin-btn--primary" data-schedule-impact-edit>Modificar</button>
                 <?php endif; ?>
                 <?php if (!$estadoFinal && in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
-                    <?php $actionButton('cancelada', 'Cancelar reservación', 'admin-btn admin-btn--secondary', true); ?>
+                    <?php $actionButton('cancelada', 'Cancelar', 'admin-btn admin-btn--secondary', true); ?>
                 <?php endif; ?>
                 <button
                     type="button"
@@ -170,7 +169,7 @@ $seguimientoActivo = $seguimientoHorario !== null;
                     data-schedule-impact-resolve
                     data-impact-id="<?php echo (int)$seguimientoHorario['impacto_id']; ?>"
                     data-impact-reservation-id="<?php echo (int)$seguimientoHorario['impacto_reservacion_id']; ?>"
-                >Marcar como resuelta</button>
+                >Cerrar seguimiento</button>
             </div>
         </section>
     <?php endif; ?>

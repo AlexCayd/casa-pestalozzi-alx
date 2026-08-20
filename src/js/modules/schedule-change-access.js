@@ -18,7 +18,8 @@
     var moreGuests = form.querySelector('[data-change-guest-more]');
     var stepper = form.querySelector('[data-change-guest-stepper]');
     var minGuests = 1;
-    var maxGuests = 12;
+    var maxGuests = Number(form.getAttribute('data-max-guests') || '0');
+    if (!Number.isFinite(maxGuests) || maxGuests < minGuests) maxGuests = minGuests;
     var datePicker = null;
     var timePicker = null;
     var retryButton = null;
@@ -34,6 +35,13 @@
 
     function setTimeHint(message) {
       if (timeHint) timeHint.textContent = message || '';
+    }
+
+    function formatConfirmedDate(value) {
+      var match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return String(value || '');
+      var date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
     }
 
     function request(url, body) {
@@ -78,12 +86,12 @@
 
       form.querySelectorAll('[data-change-guest]').forEach(function (button) {
         var selected = Number(button.getAttribute('data-change-guest')) === value;
-        button.classList.toggle('is-selected', selected);
+        button.classList.toggle('sel', selected);
         button.setAttribute('aria-pressed', selected ? 'true' : 'false');
       });
       if (moreGuests) {
         var expanded = value > 6;
-        moreGuests.classList.toggle('is-selected', expanded);
+        moreGuests.classList.toggle('sel', expanded);
         moreGuests.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       }
       if (stepper) stepper.hidden = value <= 6;
@@ -109,7 +117,7 @@
 
     function loadTimes() {
       if (!timePicker || !dateInput.value) {
-        setTimeHint('Elige una fecha para consultar horarios.');
+        setTimeHint('Primero elige una fecha.');
         hideRetryButton();
         return;
       }
@@ -148,7 +156,7 @@
       if (data.abierto === false || available.length === 0) {
         setTimeHint(data.mensaje || 'No hay horarios disponibles para esa fecha.');
       } else {
-        setTimeHint('Selecciona una hora disponible.');
+        setTimeHint('Elige una hora disponible.');
       }
       hideRetryButton();
     });
@@ -179,7 +187,7 @@
         return;
       }
       if (people < minGuests || people > maxGuests) {
-        setStatus('Elige entre 1 y 12 personas.', 'error');
+        setStatus('Elige entre ' + minGuests + ' y ' + maxGuests + ' personas.', 'error');
         return;
       }
 
@@ -194,7 +202,17 @@
         var success = document.createElement('section');
         success.className = 'schedule-change-success';
         success.setAttribute('role', 'status');
-        success.innerHTML = '<p class="schedule-change-eyebrow">Listo</p><h2>Tu reservación fue actualizada</h2><p>La nueva fecha y el horario quedaron confirmados.</p>';
+        var eyebrow = document.createElement('p');
+        eyebrow.className = 'schedule-change-eyebrow';
+        eyebrow.textContent = 'Listo';
+        var title = document.createElement('h2');
+        title.textContent = 'Reservación actualizada';
+        var summary = document.createElement('p');
+        summary.className = 'schedule-change-success__summary';
+        summary.textContent = formatConfirmedDate(dateInput.value) + ' · ' + String(timeInput.value || '').substring(0, 5) + ' · ' + people + ' ' + (people === 1 ? 'persona' : 'personas');
+        var copy = document.createElement('p');
+        copy.textContent = 'Te esperamos en Casa Pestalozzi.';
+        success.append(eyebrow, title, summary, copy);
         form.replaceWith(success);
       }).catch(function (error) {
         setStatus(error.message || 'No fue posible completar la solicitud.', 'error');
