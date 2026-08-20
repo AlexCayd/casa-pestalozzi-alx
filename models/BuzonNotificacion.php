@@ -8,7 +8,7 @@ class BuzonNotificacion extends ActiveRecord
     protected static $tabla = 'buzon_notificaciones';
     protected static $columnasDB = [
         'id', 'tipo', 'modulo', 'entidad_tipo', 'entidad_id', 'prioridad',
-        'visible_from', 'leida_at', 'cerrada_at', 'cerrada_por', 'cierre_motivo',
+        'requiere_accion', 'visible_from', 'leida_at', 'cerrada_at', 'cerrada_por', 'cierre_motivo',
         'dedup_key', 'created_at', 'updated_at',
     ];
 
@@ -18,6 +18,7 @@ class BuzonNotificacion extends ActiveRecord
     public $entidad_tipo = '';
     public $entidad_id = 0;
     public $prioridad = 'normal';
+    public $requiere_accion = 1;
     public $visible_from = null;
     public $leida_at = null;
     public $cerrada_at = null;

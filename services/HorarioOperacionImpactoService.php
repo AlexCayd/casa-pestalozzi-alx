@@ -23,6 +23,17 @@ final class HorarioOperacionImpactoService
     public const ESTADO_ITEM_MANUAL = 'atendida_manual';
     public const ESTADO_ITEM_CLIENTE = 'resuelta_por_cliente';
 
+    private const ESTADOS_ITEM_PENDIENTES = [
+        self::ESTADO_ITEM_PENDIENTE,
+        self::ESTADO_ITEM_PREPARADO,
+        self::ESTADO_ITEM_SIN_CONTACTO,
+    ];
+
+    private const ESTADOS_ITEM_FINALES = [
+        self::ESTADO_ITEM_MANUAL,
+        self::ESTADO_ITEM_CLIENTE,
+    ];
+
     /** @return array{semanal: array<int, array<string, mixed>>, excepciones: array<string, array<string, mixed>>} */
     public static function snapshotActual(): array
     {
@@ -205,15 +216,21 @@ final class HorarioOperacionImpactoService
     public static function resumenPendientes(): array
     {
         $resultado = ActiveRecord::getDB()->query(
-            "SELECT COUNT(*) AS cantidad, MIN(impacto_id) AS primer_impacto_id
-             FROM (
-                 SELECT ir.impacto_id
-                 FROM horario_impacto_reservaciones ir
-                 JOIN horario_impactos i ON i.id = ir.impacto_id
-                 WHERE i.estado = 'pendiente'
-                   AND ir.estado IN ('pendiente_notificacion', 'sin_contacto')
-                 GROUP BY ir.id, ir.impacto_id
-             ) pendientes"
+            "SELECT COUNT(*) AS cantidad,
+                    COALESCE(SUM(
+                        ir.estado IN ('pendiente_notificacion', 'sin_contacto')
+                        OR (ir.estado = 'notificacion_preparada'
+                            AND (ir.access_expires_at IS NULL OR ir.access_expires_at <= NOW()))
+                    ), 0) AS cantidad_accionable,
+                    COALESCE(SUM(
+                        ir.estado = 'notificacion_preparada'
+                        AND ir.access_expires_at > NOW()
+                    ), 0) AS cantidad_seguimiento,
+                    MIN(ir.impacto_id) AS primer_impacto_id
+             FROM horario_impacto_reservaciones ir
+             JOIN horario_impactos i ON i.id = ir.impacto_id
+             WHERE i.estado = 'pendiente'
+               AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')"
         );
         if (!$resultado) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);
@@ -223,6 +240,8 @@ final class HorarioOperacionImpactoService
 
         return [
             'cantidad' => (int)($fila['cantidad'] ?? 0),
+            'cantidad_accionable' => (int)($fila['cantidad_accionable'] ?? 0),
+            'cantidad_seguimiento' => (int)($fila['cantidad_seguimiento'] ?? 0),
             'primer_impacto_id' => !empty($fila['primer_impacto_id']) ? (int)$fila['primer_impacto_id'] : null,
         ];
     }
@@ -252,7 +271,7 @@ final class HorarioOperacionImpactoService
              FROM horario_impactos i
              JOIN horario_impacto_reservaciones ir ON ir.impacto_id = i.id
              WHERE i.id = ? AND i.estado = 'pendiente'
-               AND ir.estado IN ('pendiente_notificacion', 'sin_contacto')
+               AND ir.estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')
              LIMIT 1"
         );
         $stmt->bind_param('i', $impactoId);
@@ -273,6 +292,7 @@ final class HorarioOperacionImpactoService
                     i.created_at AS impacto_created_at, ir.id AS impacto_reservacion_id,
                     ir.reservacion_id, ir.estado, ir.notification_prepared_at,
                     ir.access_expires_at, ir.access_invalidated_at,
+                    ir.notification_attempts, ir.last_notification_at,
                     ir.resolved_by, ir.resolved_at,
                     r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora, r.comensales
              FROM horario_impactos i
@@ -318,7 +338,8 @@ final class HorarioOperacionImpactoService
                 'notification_prepared_at' => $fila['notification_prepared_at'],
                 'access_expires_at' => $fila['access_expires_at'],
                 'access_invalidated_at' => $fila['access_invalidated_at'],
-                'manual_habilitada' => false,
+                'notification_attempts' => (int)($fila['notification_attempts'] ?? 0),
+                'last_notification_at' => $fila['last_notification_at'],
                 'test_link_disponible' => self::esEntornoPruebas()
                     && (string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO
                     && $fila['access_invalidated_at'] === null,
@@ -329,18 +350,16 @@ final class HorarioOperacionImpactoService
             return null;
         }
 
-        $manualHabilitada = self::faseManualDisponible($impactoId);
         foreach ($filas as &$fila) {
-            $fila['manual_habilitada'] = $manualHabilitada && !$fila['tiene_contacto'];
+            $fila['requiere_accion'] = self::filaRequiereAccion($fila);
+            $fila['puede_mandar_aviso'] = self::puedeMandarAviso($fila);
+            $fila['cooldown_hasta'] = self::cooldownHasta($fila);
         }
         unset($fila);
         $impacto['reservaciones'] = $filas;
-        $impacto['manual_habilitada'] = $manualHabilitada;
         $impacto['pendientes'] = count(array_filter(
             $filas,
-            static fn(array $fila): bool => in_array(
-                $fila['estado'], [self::ESTADO_ITEM_PENDIENTE, self::ESTADO_ITEM_SIN_CONTACTO], true
-            )
+            static fn(array $fila): bool => self::esEstadoPendiente((string)$fila['estado'])
         ));
 
         return $impacto;
@@ -354,33 +373,52 @@ final class HorarioOperacionImpactoService
             if (!$fila) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
-            if ((string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO) {
-                return [
-                    'ok' => true,
-                    'codigo' => 'AVISO_PREPARADO',
-                    'impacto_id' => (int)$fila['impacto_id'],
-                    'impacto_reservacion_id' => (int)$fila['impacto_reservacion_id'],
-                    'idempotente' => true,
-                ];
-            }
             if (!self::filaTieneContacto($fila)
-                || (string)$fila['estado'] !== self::ESTADO_ITEM_PENDIENTE
+                || !in_array((string)$fila['estado'], [self::ESTADO_ITEM_PENDIENTE, self::ESTADO_ITEM_PREPARADO], true)
                 || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
 
+            $ahora = ReservacionConfig::ahora();
+            $expiraActual = $fila['access_expires_at'] !== null
+                ? new DateTimeImmutable((string)$fila['access_expires_at'], ReservacionConfig::timezone())
+                : null;
+            if ($expiraActual instanceof DateTimeImmutable && $expiraActual > $ahora) {
+                return [
+                    'ok' => false,
+                    'codigo' => 'AVISO_VIGENTE',
+                    'expires_at' => $expiraActual->format('Y-m-d H:i:s'),
+                ];
+            }
+            $intentos = (int)($fila['notification_attempts'] ?? 0);
+            if ($intentos >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS) {
+                return ['ok' => false, 'codigo' => 'AVISOS_LIMITE_ALCANZADO'];
+            }
+            $ultimoAviso = $fila['last_notification_at'] !== null
+                ? new DateTimeImmutable((string)$fila['last_notification_at'], ReservacionConfig::timezone())
+                : null;
+            $cooldownHasta = $ultimoAviso?->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes');
+            if ($cooldownHasta instanceof DateTimeImmutable && $cooldownHasta > $ahora) {
+                return [
+                    'ok' => false,
+                    'codigo' => 'AVISO_EN_COOLDOWN',
+                    'retry_at' => $cooldownHasta->format('Y-m-d H:i:s'),
+                ];
+            }
+
             $token = bin2hex(random_bytes(32));
             $hash = hash('sha256', $token);
-            $expira = ReservacionConfig::ahora()
+            $expira = $ahora
                 ->modify('+' . ReservacionConfig::scheduleChangeAccessTtlMinutes() . ' minutes')
                 ->format('Y-m-d H:i:s');
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'notificacion_preparada', notification_prepared_at = NOW(),
                      access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
-                     resolved_by = NULL, resolved_at = NULL
-                 WHERE id = ? AND estado = 'pendiente_notificacion'"
+                     notification_attempts = notification_attempts + 1,
+                     last_notification_at = NOW(), resolved_by = NULL, resolved_at = NULL
+                 WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada')"
             );
             $id = (int)$fila['impacto_reservacion_id'];
             $stmt->bind_param('ssi', $hash, $expira, $id);
@@ -393,7 +431,8 @@ final class HorarioOperacionImpactoService
                 $db,
                 $id,
                 BuzonNotificacionesService::PRIORIDAD_NORMAL,
-                $expira
+                null,
+                false
             );
             self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
 
@@ -404,6 +443,7 @@ final class HorarioOperacionImpactoService
                 'impacto_reservacion_id' => $id,
                 'idempotente' => false,
                 'expires_at' => $expira,
+                'notification_attempts' => $intentos + 1,
             ];
             if (self::esEntornoPruebas()) {
                 $respuesta['test_access_url'] = self::accessUrl($token);
@@ -504,11 +544,10 @@ final class HorarioOperacionImpactoService
     public static function atenderManual(
         int $impactoId,
         int $impactoReservacionId,
-        ?int $adminId,
-        string $motivo = 'mantener_reservacion'
+        ?int $adminId
     ): array
     {
-        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $adminId, $motivo): array {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $adminId): array {
             $fila = self::bloquearFilaImpacto($db, $impactoId, $impactoReservacionId);
             if (!$fila || !in_array((string)$fila['estado'], [
                 self::ESTADO_ITEM_PENDIENTE,
@@ -517,9 +556,6 @@ final class HorarioOperacionImpactoService
             ], true)) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
-            $motivo = in_array($motivo, ['mantener_reservacion', 'coordinacion_externa'], true)
-                ? $motivo
-                : 'mantener_reservacion';
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'atendida_manual', resolved_by = NULLIF(?, 0),
@@ -530,18 +566,18 @@ final class HorarioOperacionImpactoService
             $stmt->bind_param('ii', $usuario, $impactoReservacionId);
             $stmt->execute();
             $stmt->close();
-            BuzonNotificacionesService::cerrarEnTransaccion(
+            BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
                 $db,
+                ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
                 (int)$fila['impacto_reservacion_id'],
                 $adminId,
-                $motivo
+                'resuelta_admin'
             );
             self::actualizarEstadoImpacto($db, $impactoId);
             return [
                 'ok' => true,
-                'codigo' => $motivo === 'coordinacion_externa'
-                    ? 'AFECTACION_COORDINADA_EXTERNAMENTE'
-                    : 'AFECTACION_ATENDIDA_MANUALMENTE',
+                'codigo' => 'AFECTACION_ATENDIDA_MANUALMENTE',
             ];
         });
     }
@@ -643,8 +679,10 @@ final class HorarioOperacionImpactoService
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $stmt->close();
-            BuzonNotificacionesService::cerrarEnTransaccion(
+            BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
                 $db,
+                ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
                 $id,
                 null,
                 'resuelta_por_cliente'
@@ -652,23 +690,6 @@ final class HorarioOperacionImpactoService
             self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
         }
         return $filas !== [];
-    }
-
-    public static function faseManualDisponible(int $impactoId): bool
-    {
-        $stmt = ActiveRecord::getDB()->prepare(
-            "SELECT COUNT(*) AS total
-             FROM horario_impacto_reservaciones ir
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE ir.impacto_id = ? AND ir.estado = 'pendiente_notificacion'
-               AND r.contacto_tipo IN ('email', 'telefono')
-               AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''"
-        );
-        $stmt->bind_param('i', $impactoId);
-        $stmt->execute();
-        $total = (int)($stmt->get_result()->fetch_assoc()['total'] ?? 0);
-        $stmt->close();
-        return $total === 0;
     }
 
     public static function horarioValidoEnSnapshot(string $fecha, string $hora, array $snapshot): bool
@@ -719,6 +740,17 @@ final class HorarioOperacionImpactoService
             $estado = (string)$fila['estado'];
             $tieneContacto = self::filaTieneContacto($fila);
             $comensales = (int)$fila['comensales'];
+            if (in_array($estado, self::ESTADOS_ITEM_FINALES, true)) {
+                BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
+                    $db,
+                    ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                    ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+                    $id,
+                    $adminId,
+                    'fuente_resuelta'
+                );
+                continue;
+            }
             $expira = $fila['access_expires_at'] !== null
                 ? (string)$fila['access_expires_at']
                 : null;
@@ -733,11 +765,16 @@ final class HorarioOperacionImpactoService
             $prioridad = $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
                 ? BuzonNotificacionesService::PRIORIDAD_ALTA
                 : BuzonNotificacionesService::PRIORIDAD_NORMAL;
+            $requiereAccion = !$tieneContacto
+                || $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                || $expira === null
+                || $expira <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
             ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
                 $db,
                 $id,
                 $prioridad,
-                $expira
+                null,
+                $requiereAccion
             );
         }
     }
@@ -766,7 +803,8 @@ final class HorarioOperacionImpactoService
                 $db,
                 $impactoReservacionId,
                 BuzonNotificacionesService::PRIORIDAD_NORMAL,
-                $expira
+                null,
+                false
             );
         }
     }
@@ -781,7 +819,8 @@ final class HorarioOperacionImpactoService
             "UPDATE horario_impacto_reservaciones
              SET estado = 'notificacion_preparada', notification_prepared_at = NOW(),
                  access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
-                 resolved_by = NULL, resolved_at = NULL
+                 notification_attempts = notification_attempts + 1,
+                 last_notification_at = NOW(), resolved_by = NULL, resolved_at = NULL
              WHERE id = ? AND estado = 'pendiente_notificacion'"
         );
         if (!$stmt) {
@@ -807,6 +846,7 @@ final class HorarioOperacionImpactoService
             "SELECT i.id AS impacto_id, ir.id AS impacto_reservacion_id,
                     ir.reservacion_id, ir.estado, ir.notification_prepared_at,
                     ir.access_expires_at, ir.access_invalidated_at,
+                    ir.notification_attempts, ir.last_notification_at,
                     r.nombre, r.fecha, r.hora, r.comensales,
                     r.contacto_tipo, r.contacto, i.estado AS impacto_estado
              FROM horario_impacto_reservaciones ir
@@ -825,7 +865,7 @@ final class HorarioOperacionImpactoService
             return null;
         }
         $tieneContacto = self::filaTieneContacto($fila);
-        return [
+        $resultado = [
             'impacto_id' => (int)$fila['impacto_id'],
             'impacto_reservacion_id' => (int)$fila['impacto_reservacion_id'],
             'reservacion_id' => (int)$fila['reservacion_id'],
@@ -838,10 +878,16 @@ final class HorarioOperacionImpactoService
             'tiene_contacto' => $tieneContacto,
             'access_expires_at' => $fila['access_expires_at'],
             'access_invalidated_at' => $fila['access_invalidated_at'],
+            'notification_attempts' => (int)($fila['notification_attempts'] ?? 0),
+            'last_notification_at' => $fila['last_notification_at'],
             'test_link_disponible' => self::esEntornoPruebas()
                 && (string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO
                 && $fila['access_invalidated_at'] === null,
         ];
+        $resultado['requiere_accion'] = self::filaRequiereAccion($resultado);
+        $resultado['puede_mandar_aviso'] = self::puedeMandarAviso($resultado);
+        $resultado['cooldown_hasta'] = self::cooldownHasta($resultado);
+        return $resultado;
     }
 
     /** Reconciliación idempotente después de una edición/cancelación administrativa. */
@@ -909,7 +955,14 @@ final class HorarioOperacionImpactoService
                     throw new \RuntimeException($mensaje);
                 }
                 $stmt->close();
-                BuzonNotificacionesService::cerrarEnTransaccion($db, $id, $adminId, 'fuente_resuelta');
+                BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
+                    $db,
+                    ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                    ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+                    $id,
+                    $adminId,
+                    'fuente_resuelta'
+                );
                 self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
             }
             $db->commit();
@@ -927,7 +980,7 @@ final class HorarioOperacionImpactoService
             "UPDATE horario_impactos i
              LEFT JOIN (
                  SELECT impacto_id,
-                        SUM(estado IN ('pendiente_notificacion', 'sin_contacto')) AS pendientes
+                        SUM(estado IN ('pendiente_notificacion', 'notificacion_preparada', 'sin_contacto')) AS pendientes
                  FROM horario_impacto_reservaciones
                  GROUP BY impacto_id
              ) pendientes ON pendientes.impacto_id = i.id
@@ -942,12 +995,80 @@ final class HorarioOperacionImpactoService
         $stmt->close();
     }
 
-    /** @return array<string, mixed> */
+    public static function actualizarSeguimientosVencidosEnTransaccion(\mysqli $db): void
+    {
+        $stmt = $db->prepare(
+            "UPDATE buzon_notificaciones bn
+             JOIN horario_impacto_reservaciones ir
+               ON bn.tipo = 'reservacion_horario_afectado'
+              AND bn.entidad_tipo = 'horario_impacto_reservacion'
+              AND bn.entidad_id = ir.id
+             SET bn.requiere_accion = 1, bn.visible_from = LEAST(bn.visible_from, NOW()), bn.updated_at = NOW()
+             WHERE bn.cerrada_at IS NULL
+               AND ir.estado = 'notificacion_preparada'
+               AND ir.access_expires_at IS NOT NULL
+               AND ir.access_expires_at <= NOW()"
+        );
+        if ($stmt) {
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+
+    private static function esEstadoPendiente(string $estado): bool
+    {
+        return in_array($estado, self::ESTADOS_ITEM_PENDIENTES, true);
+    }
+
+    private static function filaRequiereAccion(array $fila): bool
+    {
+        if (!$fila['tiene_contacto'] || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
+            return true;
+        }
+        if ((string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO) {
+            return true;
+        }
+        return $fila['access_expires_at'] === null
+            || (string)$fila['access_expires_at'] <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+    }
+
+    private static function puedeMandarAviso(array $fila): bool
+    {
+        if (!$fila['tiene_contacto']
+            || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+            || (string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO
+            || !$fila['access_expires_at']
+            || (string)$fila['access_expires_at'] > ReservacionConfig::ahora()->format('Y-m-d H:i:s')
+            || (int)($fila['notification_attempts'] ?? 0) >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS
+        ) {
+            return false;
+        }
+        $cooldown = self::cooldownHasta($fila);
+        return $cooldown === null || $cooldown <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+    }
+
+    private static function cooldownHasta(array $fila): ?string
+    {
+        if (empty($fila['last_notification_at'])) {
+            return null;
+        }
+        try {
+            return (new DateTimeImmutable(
+                (string)$fila['last_notification_at'],
+                ReservacionConfig::timezone()
+            ))->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes')
+                ->format('Y-m-d H:i:s');
+        } catch (\Throwable $error) {
+            return null;
+        }
+    }
+
     private static function bloquearFilaImpacto(\mysqli $db, int $impactoId, int $impactoReservacionId): ?array
     {
         $stmt = $db->prepare(
             "SELECT ir.id AS impacto_reservacion_id, ir.impacto_id, ir.reservacion_id,
-                    ir.estado, r.contacto_tipo, r.contacto, r.comensales
+                    ir.estado, ir.access_expires_at, ir.notification_attempts,
+                    ir.last_notification_at, r.contacto_tipo, r.contacto, r.comensales
              FROM horario_impacto_reservaciones ir
              JOIN reservaciones r ON r.id = ir.reservacion_id
              WHERE ir.id = ? AND ir.impacto_id = ? LIMIT 1 FOR UPDATE"

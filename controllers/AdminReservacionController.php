@@ -17,6 +17,7 @@ use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
 use Services\HorarioReservacionService;
+use Services\HorarioOperacionImpactoService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionService;
@@ -297,6 +298,23 @@ class AdminReservacionController
         }
         $ticketFisico = Ticket::buscarPorReservacion((int)$reservacion->id);
         $vigencia = ReservacionService::clasificarVigencia($reservacion, $ticketAbierto);
+        $seguimientoHorario = null;
+        $impactoReservacionId = filter_var($_GET['impacto_reservacion_id'] ?? 0, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+        if ($impactoReservacionId) {
+            $candidato = HorarioOperacionImpactoService::obtenerPorItem((int)$impactoReservacionId);
+            if ($candidato
+                && (int)$candidato['reservacion_id'] === (int)$reservacion->id
+                && in_array((string)$candidato['estado'], [
+                    HorarioOperacionImpactoService::ESTADO_ITEM_PENDIENTE,
+                    HorarioOperacionImpactoService::ESTADO_ITEM_PREPARADO,
+                    HorarioOperacionImpactoService::ESTADO_ITEM_SIN_CONTACTO,
+                ], true)
+            ) {
+                $seguimientoHorario = $candidato;
+            }
+        }
 
         self::render('reservations/show', [
             'title' => 'Detalle de reservación',
@@ -310,6 +328,7 @@ class AdminReservacionController
             'errores' => [],
             'editable' => ReservacionService::puedeEditar($reservacion),
             'vigencia' => $vigencia,
+            'seguimientoHorario' => $seguimientoHorario,
             'ticketAbierto' => $ticketAbierto,
             'ticketFisico' => $ticketFisico,
             'adminCsrfToken' => AdminCsrfService::token(),

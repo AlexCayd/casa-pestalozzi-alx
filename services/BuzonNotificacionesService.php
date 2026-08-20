@@ -30,6 +30,8 @@ final class BuzonNotificacionesService
         $entidadTipo = trim((string)($datos['entidad_tipo'] ?? ''));
         $entidadId = (int)($datos['entidad_id'] ?? 0);
         $prioridad = trim((string)($datos['prioridad'] ?? self::PRIORIDAD_NORMAL));
+        $requiereAccion = !array_key_exists('requiere_accion', $datos)
+            || (bool)$datos['requiere_accion'];
         $visibleFrom = $datos['visible_from'] ?? null;
         $dedupKey = trim((string)($datos['dedup_key'] ?? ''));
 
@@ -48,10 +50,11 @@ final class BuzonNotificacionesService
 
         $stmt = $db->prepare(
             "INSERT INTO buzon_notificaciones
-                (tipo, modulo, entidad_tipo, entidad_id, prioridad, visible_from, dedup_key)
-             VALUES (?, ?, ?, ?, ?, COALESCE(?, NOW()), ?)
+                (tipo, modulo, entidad_tipo, entidad_id, prioridad, requiere_accion, visible_from, dedup_key)
+             VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), ?)
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id),
                  prioridad = VALUES(prioridad), visible_from = VALUES(visible_from),
+                 requiere_accion = VALUES(requiere_accion),
                  leida_at = IF(cerrada_at IS NULL, leida_at, NULL),
                  cerrada_at = NULL, cerrada_por = NULL,
                  cierre_motivo = NULL, updated_at = NOW()"
@@ -60,12 +63,13 @@ final class BuzonNotificacionesService
             throw new \RuntimeException('No fue posible preparar el aviso del buzón.');
         }
         $stmt->bind_param(
-            'sssisss',
+            'sssisiss',
             $tipo,
             $modulo,
             $entidadTipo,
             $entidadId,
             $prioridad,
+            $requiereAccion,
             $visibleFrom,
             $dedupKey
         );
@@ -82,14 +86,18 @@ final class BuzonNotificacionesService
         return $id;
     }
 
-    /** @return array{cantidad:int,prioridad_maxima:?string} */
+    /** @return array{cantidad:int,cantidad_accionable:int,cantidad_seguimiento:int,prioridad_maxima:?string,prioridad_maxima_accionable:?string} */
     public static function resumen(): array
     {
         try {
             $resultado = ActiveRecord::getDB()->query(
                 "SELECT COUNT(*) AS cantidad,
+                        COALESCE(SUM(requiere_accion = 1), 0) AS cantidad_accionable,
+                        COALESCE(SUM(requiere_accion = 0), 0) AS cantidad_seguimiento,
                         CASE WHEN SUM(prioridad = 'alta') > 0 THEN 'alta'
-                             WHEN COUNT(*) > 0 THEN 'normal' ELSE NULL END AS prioridad_maxima
+                             WHEN COUNT(*) > 0 THEN 'normal' ELSE NULL END AS prioridad_maxima,
+                        CASE WHEN SUM(requiere_accion = 1 AND prioridad = 'alta') > 0 THEN 'alta'
+                             WHEN SUM(requiere_accion = 1) > 0 THEN 'normal' ELSE NULL END AS prioridad_maxima_accionable
                  FROM buzon_notificaciones
                  WHERE cerrada_at IS NULL AND visible_from <= NOW()"
             );
@@ -100,13 +108,24 @@ final class BuzonNotificacionesService
             $resultado->free();
             return [
                 'cantidad' => (int)($fila['cantidad'] ?? 0),
+                'cantidad_accionable' => (int)($fila['cantidad_accionable'] ?? 0),
+                'cantidad_seguimiento' => (int)($fila['cantidad_seguimiento'] ?? 0),
                 'prioridad_maxima' => $fila['prioridad_maxima'] !== null
                     ? (string)$fila['prioridad_maxima']
+                    : null,
+                'prioridad_maxima_accionable' => $fila['prioridad_maxima_accionable'] !== null
+                    ? (string)$fila['prioridad_maxima_accionable']
                     : null,
             ];
         } catch (\Throwable $e) {
             error_log('BuzonNotificacionesService::resumen - ' . $e->getMessage());
-            return ['cantidad' => 0, 'prioridad_maxima' => null];
+            return [
+                'cantidad' => 0,
+                'cantidad_accionable' => 0,
+                'cantidad_seguimiento' => 0,
+                'prioridad_maxima' => null,
+                'prioridad_maxima_accionable' => null,
+            ];
         }
     }
 
@@ -126,6 +145,7 @@ final class BuzonNotificacionesService
         }
         $limit = min(100, max(1, (int)($filtros['limit'] ?? 50)));
         $sql = "SELECT id, tipo, modulo, entidad_tipo, entidad_id, prioridad,
+                       requiere_accion,
                        visible_from, leida_at, cerrada_at, cerrada_por,
                        cierre_motivo, dedup_key, created_at, updated_at
                 FROM buzon_notificaciones
@@ -180,7 +200,7 @@ final class BuzonNotificacionesService
         return $ok;
     }
 
-    public static function cerrar(int $id, ?int $usuarioId, string $motivo): bool
+    public static function cerrar(int $id, ?int $usuarioId, string $motivo = 'resuelto'): bool
     {
         if ($id < 1) {
             return false;
@@ -189,7 +209,7 @@ final class BuzonNotificacionesService
         return self::cerrarEnTransaccion($db, $id, $usuarioId, $motivo);
     }
 
-    public static function cerrarEnTransaccion(\mysqli $db, int $id, ?int $usuarioId, string $motivo): bool
+    public static function cerrarEnTransaccion(\mysqli $db, int $id, ?int $usuarioId, string $motivo = 'resuelto'): bool
     {
         if ($id < 1) {
             return false;
@@ -243,7 +263,7 @@ final class BuzonNotificacionesService
         string $entidadTipo,
         int $entidadId,
         ?int $usuarioId,
-        string $motivo
+        string $motivo = 'fuente_resuelta'
     ): int {
         if ($tipo === '' || $entidadTipo === '' || $entidadId < 1) {
             return 0;
@@ -265,7 +285,7 @@ final class BuzonNotificacionesService
         string $entidadTipo,
         int $entidadId,
         ?int $usuarioId,
-        string $motivo
+        string $motivo = 'fuente_resuelta'
     ): int {
         if ($tipo === '' || $entidadTipo === '' || $entidadId < 1) {
             return 0;

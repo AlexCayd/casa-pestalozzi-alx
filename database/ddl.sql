@@ -666,6 +666,8 @@ CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
   access_token_hash      CHAR(64) NULL,
   access_expires_at      DATETIME NULL,
   access_invalidated_at  DATETIME NULL,
+  notification_attempts  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  last_notification_at   DATETIME NULL,
   resolved_by           INT NULL,
   resolved_at           DATETIME NULL,
   created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -690,6 +692,7 @@ CREATE TABLE IF NOT EXISTS buzon_notificaciones (
   entidad_tipo   VARCHAR(80) NOT NULL,
   entidad_id     INT UNSIGNED NOT NULL,
   prioridad      ENUM('normal', 'alta') NOT NULL DEFAULT 'normal',
+  requiere_accion TINYINT(1) NOT NULL DEFAULT 1,
   visible_from   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   leida_at       DATETIME NULL,
   cerrada_at     DATETIME NULL,
@@ -703,6 +706,7 @@ CREATE TABLE IF NOT EXISTS buzon_notificaciones (
   UNIQUE KEY uq_buzon_notificaciones_dedup (dedup_key),
   INDEX idx_buzon_notificaciones_visibles (cerrada_at, visible_from),
   INDEX idx_buzon_notificaciones_tipo (tipo, cerrada_at),
+  INDEX idx_buzon_notificaciones_accion (cerrada_at, visible_from, requiere_accion),
   INDEX idx_buzon_notificaciones_entidad (entidad_tipo, entidad_id)
 );
 

@@ -3,7 +3,7 @@
 namespace Services;
 
 use DateTimeImmutable;
-use ModelActiveRecord;
+use Model\ActiveRecord;
 use Model\TicketMesa;
 
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */
@@ -40,7 +40,8 @@ final class ReservacionBuzonService
         \mysqli $db,
         int $impactoReservacionId,
         string $prioridad,
-        ?string $visibleFrom
+        ?string $visibleFrom,
+        bool $requiereAccion = true
     ): int {
         return BuzonNotificacionesService::crearEnTransaccion($db, [
             'tipo' => self::TIPO_HORARIO_AFECTADO,
@@ -49,6 +50,7 @@ final class ReservacionBuzonService
             'entidad_id' => $impactoReservacionId,
             'prioridad' => $prioridad,
             'visible_from' => $visibleFrom,
+            'requiere_accion' => $requiereAccion,
             'dedup_key' => self::dedupHorario($impactoReservacionId),
         ]);
     }
@@ -85,6 +87,7 @@ final class ReservacionBuzonService
                 throw new \RuntimeException('No fue posible iniciar la sincronización del buzón.');
             }
             $transaccion = true;
+            HorarioOperacionImpactoService::actualizarSeguimientosVencidosEnTransaccion($db);
 
             foreach ($reservaciones as $reservacion) {
                 $id = (int)($reservacion['id'] ?? 0);
@@ -386,8 +389,9 @@ final class ReservacionBuzonService
         $sinContacto = !in_array((string)($reservacion['contacto_tipo'] ?? ''), ['email', 'telefono'], true)
             || trim((string)($reservacion['contacto'] ?? '')) === '';
 
-        return (int)($reservacion['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+        return (string)($reservacion['estado'] ?? '') === 'confirmada'
             && !$estadoFinal
+            && (int)($reservacion['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
             && ($sinContacto || (int)($reservacion['mesas_count'] ?? 0) === 0);
     }
 

@@ -8,7 +8,8 @@ class HorarioImpactoReservacion extends ActiveRecord
     protected static $tabla = 'horario_impacto_reservaciones';
     protected static $columnasDB = [
         'id', 'impacto_id', 'reservacion_id', 'estado', 'notification_prepared_at',
-        'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'resolved_by',
+        'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'notification_attempts',
+        'last_notification_at', 'resolved_by',
         'resolved_at', 'created_at', 'updated_at',
     ];
 
@@ -20,6 +21,8 @@ class HorarioImpactoReservacion extends ActiveRecord
     public $access_token_hash = null;
     public $access_expires_at = null;
     public $access_invalidated_at = null;
+    public $notification_attempts = 0;
+    public $last_notification_at = null;
     public $resolved_by = null;
     public $resolved_at = null;
     public $created_at = null;

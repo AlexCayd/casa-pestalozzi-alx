@@ -567,7 +567,7 @@ class Reservacion extends ActiveRecord {
         }
 
         $query = "SELECT
-                    COUNT(*) AS total,
+                    COALESCE(SUM(estado NOT IN ('pendiente_verificacion', 'expirada')), 0) AS total,
                     COALESCE(SUM(estado = 'pendiente_verificacion'), 0) AS pendientes,
                     COALESCE(SUM(estado = 'confirmada'), 0) AS confirmadas,
                     COALESCE(SUM(estado = 'completada'), 0) AS completadas,
@@ -630,6 +630,15 @@ class Reservacion extends ActiveRecord {
         if ($incluirEstado && in_array($estado, ReservacionConfig::estadosPermitidos(), true)) {
             $estado = self::escaparString($estado);
             $condiciones[] = "r.estado = '{$estado}'";
+        } elseif ($incluirEstado) {
+            // Las retenciones públicas son existencia técnica para holds y
+            // verificación; no son reservaciones operativas del restaurante.
+            // Un filtro explícito de estado sigue permitiendo auditarlas.
+            $condiciones[] = "r.estado NOT IN ('pendiente_verificacion', 'expirada')";
+        } else {
+            // Las métricas calculan el indicador explícito de "Por confirmar"
+            // a partir del mismo conjunto; el total operativo los excluye
+            // abajo sin perder ese dato histórico.
         }
 
         if (in_array($origen, ['landing', 'admin'], true)) {

@@ -1069,6 +1069,7 @@ final class ReservacionPublicaService
                 ]);
                 $db->commit();
                 $transaccion = false;
+                HorarioOperacionImpactoService::reconciliarReservacion($id, null);
                 return [
                     'ok' => true,
                     'codigo' => self::RESERVACION_CANCELADA,

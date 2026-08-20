@@ -41,6 +41,8 @@ class ReservacionConfig
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
     public const MARGEN_MINIMO_SEGURIDAD_MINUTOS = 30;
     public const REFRESCO_ESTADOS_SEGUNDOS = 60;
+    public const SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES = 15;
+    public const SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS = 3;
     public const ESTADO_RETENCION_PENDIENTE = 'pendiente_verificacion';
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',

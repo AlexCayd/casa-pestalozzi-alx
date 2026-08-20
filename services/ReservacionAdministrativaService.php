@@ -575,6 +575,7 @@ final class ReservacionAdministrativaService
             self::ejecutar("UPDATE reservaciones SET estado = 'cancelada', hold_expires_at = NULL, estado_changed_at = NOW() WHERE id = {$id} LIMIT 1");
             $db->commit();
             $transaccion = false;
+            HorarioOperacionImpactoService::reconciliarReservacion($id, $usuarioId);
             return ['ok' => true, 'codigo' => ReservacionService::CANCELADA, 'idempotente' => false, 'motivo' => trim($motivo)];
         } catch (\Throwable $e) {
             if ($transaccion) {
