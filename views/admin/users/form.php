@@ -54,6 +54,7 @@
     data-form-mode="<?php echo htmlspecialchars($modo, ENT_QUOTES, 'UTF-8'); ?>"
     data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
 >
+    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <section class="admin-users-form__section">
         <div class="admin-users-form__section-head">
             <h4>Identidad y acceso</h4>

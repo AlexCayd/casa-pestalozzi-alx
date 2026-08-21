@@ -113,6 +113,8 @@ $form = file_get_contents($root . '/src/js/modules/form.js');
 $access = file_get_contents($root . '/src/js/modules/reservation-access.js');
 $pos = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $exporter = file_get_contents($root . '/n8n/exportar.js');
+$n8nSuggestionWorkflow = file_get_contents($root . '/n8n/sugerencias.json');
+$n8nFeedbackWorkflow = file_get_contents($root . '/n8n/areas-de-mejora.json');
 $browserBundles = [
     $root . '/assets/js/bundle.min.js',
     $root . '/public/build/js/bundle.min.js',
@@ -127,6 +129,11 @@ assertPrivacidad(!str_contains($pos, '<dt>Contacto</dt>') && !str_contains($pos,
 assertPrivacidad(!str_contains($pos, 'mostrarContextoAdmin'), 'UI POS no activa contexto administrativo');
 assertPrivacidad(!preg_match('/alergias?/iu', $landing), 'landing no solicita alergias');
 assertPrivacidad(!str_contains($exporter, 'pinData'), 'exportador n8n no versiona pinData');
+foreach ([$n8nSuggestionWorkflow, $n8nFeedbackWorkflow] as $workflow) {
+    assertPrivacidad(!str_contains($workflow, 'pinData'), 'workflow n8n no versiona pinData');
+    assertPrivacidad(!str_contains($workflow, 'r.email'), 'workflow n8n no consulta correo de reservaciones');
+    assertPrivacidad(!str_contains($workflow, 'cliente_email'), 'workflow n8n no recibe correo de cliente');
+}
 foreach ($browserBundles as $browserBundle) {
     $browserContents = file_get_contents($browserBundle);
     assertPrivacidad(

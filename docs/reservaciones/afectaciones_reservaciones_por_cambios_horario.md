@@ -88,12 +88,27 @@ Nunca se usa el id de la afectación como si fuera el id de `buzon_notificacione
 
 No existe una `faseManualDisponible` ni `manual_habilitada`. Cada reservación afectada se gestiona de forma independiente; una reserva no bloquea el tratamiento de otra del mismo cambio de horario.
 
+Tampoco existe una acción batch de “preparar disponibles”: el único contrato de
+preparación es `POST /admin/api/horarios-impactos/preparar` para una fila
+`impacto_id + impacto_reservacion_id`. Así el estado, el cooldown, el límite de
+intentos y el acceso temporal siguen siendo propiedades del caso individual.
+
 ## Buzón administrativo
 
 El trigger está en el topbar. El drawer vive como portal global en el layout y tiene dos vistas mutuamente excluyentes:
 
 - **Lista:** una card por reservación, con `Revisar` como única acción de la card y filtros `Atención`, `Seguimiento` y `Todas`.
 - **Detalle:** una sola reservación y sólo sus acciones válidas.
+
+Las tarjetas se agrupan por entidad y muestran una sola reservación afectada,
+aunque tenga varios motivos o seguimientos abiertos. La lista usa la autoridad
+de `buzon_notificaciones` para `requiere_accion`, `prioridad`, `leida_at` y
+`cerrada_at`; el estado de negocio de la afectación sigue viviendo en
+`horario_impacto_reservaciones` (`pendiente_notificacion`,
+`notificacion_preparada`, `sin_contacto`, `atendida_manual` o
+`resuelta_por_cliente`). Las acciones visibles son `Revisar`, `Gestionar`,
+`Agregar contacto`, `Mandar aviso` cuando las reglas lo permiten y `Cerrar
+seguimiento`; no se agrega un estado paralelo en `reservaciones`.
 
 El resumen distingue `cantidad_accionable`, `cantidad_seguimiento` y `prioridad_maxima_accionable`. El badge del topbar cuenta únicamente `cantidad_accionable`. El icono de seguimiento es discreto y no usa pulse ni shake permanentes.
 

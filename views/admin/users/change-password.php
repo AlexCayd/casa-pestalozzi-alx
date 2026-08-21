@@ -36,6 +36,7 @@
         <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
         <form class="admin-menu__form admin-users-form admin-users-form--single" method="POST" action="<?php echo $h($action); ?>">
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken ?? ''); ?>">
             <section class="admin-users-form__section admin-credential-step">
                 <span class="admin-credential-step__num" aria-hidden="true">1</span>
                 <div class="admin-credential-step__body">

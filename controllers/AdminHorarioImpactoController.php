@@ -34,20 +34,6 @@ final class AdminHorarioImpactoController
         ));
     }
 
-    public static function notifyAvailable(Router $router): void
-    {
-        if (!self::csrfValido()) {
-            self::json(['ok' => false, 'codigo' => 'CSRF_INVALIDO'], 403);
-            return;
-        }
-
-        $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::prepararAvisosDisponibles(
-            (int)($datos['impacto_id'] ?? 0),
-            self::usuarioId()
-        ));
-    }
-
     public static function addContact(Router $router): void
     {
         if (!self::csrfValido()) {

@@ -221,7 +221,6 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true
   }

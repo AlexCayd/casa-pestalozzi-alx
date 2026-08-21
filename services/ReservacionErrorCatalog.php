@@ -221,8 +221,6 @@ final class ReservacionErrorCatalog
         'AVISO_VIGENTE' => self::TIPO_INFORMACION,
         'AVISO_EN_COOLDOWN' => self::TIPO_ADVERTENCIA,
         'AVISOS_LIMITE_ALCANZADO' => self::TIPO_ADVERTENCIA,
-        'AVISOS_PREPARADOS' => self::TIPO_EXITO,
-        'AVISOS_PARCIALES' => self::TIPO_ADVERTENCIA,
         'CONTACTO_AGREGADO' => self::TIPO_EXITO,
         'AFECTACION_ATENDIDA_MANUALMENTE' => self::TIPO_EXITO,
         'LINK_PRUEBA_GENERADO' => self::TIPO_INFORMACION,
@@ -578,18 +576,6 @@ final class ReservacionErrorCatalog
             'mensaje' => 'Esta reservación ya recibió el máximo de avisos.',
             'consecuencia' => 'Gestiona la reservación desde su detalle administrativo.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'AVISOS_PREPARADOS' => [
-            'titulo' => 'Avisos preparados',
-            'mensaje' => 'Los avisos disponibles quedaron preparados.',
-            'consecuencia' => 'Los casos sin contacto siguen pendientes de gestión.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'AVISOS_PARCIALES' => [
-            'titulo' => 'Avisos parcialmente preparados',
-            'mensaje' => 'Algunos avisos quedaron preparados y otros siguen pendientes.',
-            'consecuencia' => 'Revisa las reservaciones fallidas antes de finalizar el seguimiento.',
-            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
         ],
         'ACCESO_CAMBIO_HORARIO_INVALIDO' => [
             'titulo' => 'Enlace no válido',

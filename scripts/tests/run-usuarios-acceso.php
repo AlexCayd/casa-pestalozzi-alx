@@ -47,8 +47,11 @@ $configuracion = file_get_contents($root . '/services/UsuarioConfig.php');
 $servicio = file_get_contents($root . '/services/UsuarioService.php');
 $login = file_get_contents($root . '/models/Usuario.php');
 $controlador = file_get_contents($root . '/controllers/AdminUsersController.php');
+$authController = file_get_contents($root . '/controllers/AuthController.php');
+$routes = file_get_contents($root . '/public/index.php');
 $edicion = file_get_contents($root . '/views/admin/users/edit.php');
 $alta = file_get_contents($root . '/views/admin/users/create.php');
+$cambioPassword = file_get_contents($root . '/views/admin/users/change-password.php');
 $listado = file_get_contents($root . '/views/admin/users/index.php');
 $credenciales = file_get_contents($root . '/docs/usuarios/credenciales.md');
 $usuariosDocs = file_get_contents($root . '/docs/usuarios/usuarios.md');
@@ -85,6 +88,16 @@ comprobar(str_contains($controlador, '/admin/usuarios/edit?id='), 'La regeneraci
 comprobar(str_contains($confirmation, 'secondaryCloses === false'), 'El modal global no admite una acción secundaria no cerrable.');
 comprobar(str_contains($controlador, 'AdminCsrfService::validar'), 'La regeneración no valida CSRF.');
 comprobar(str_contains($edicion, 'name="admin_csrf"'), 'La edición no entrega token CSRF para regenerar.');
+comprobar(substr_count($controlador, 'if (!self::adminCsrfValido())') >= 7, 'Todas las mutaciones de usuarios exigen CSRF y sesión admin.');
+comprobar(str_contains($formulario, 'name="admin_csrf"'), 'Alta y edición no entregan token CSRF.');
+comprobar(str_contains($listado, 'name="admin_csrf"'), 'Activación, desactivación y eliminación no entregan token CSRF.');
+comprobar(str_contains($cambioPassword, 'name="admin_csrf"'), 'Cambio de contraseña no entrega token CSRF.');
+foreach (['/registro', '/olvide', '/reestablecer', '/mensaje', '/confirmar-cuenta'] as $rutaLegacy) {
+    comprobar(!str_contains($routes, $rutaLegacy), "La ruta legacy {$rutaLegacy} sigue registrada.");
+}
+foreach (['registro', 'olvide', 'reestablecer', 'mensaje', 'confirmar'] as $metodoLegacy) {
+    comprobar(!str_contains($authController, 'function ' . $metodoLegacy), "El método legacy {$metodoLegacy} sigue en AuthController.");
+}
 comprobar(!str_contains($listado, 'admin-users-nip-once'), 'El listado aún conserva la tarjeta de NIP.');
 comprobar(!str_contains($listado, 'data-nip-once-value'), 'El listado aún contiene un valor NIP plano.');
 comprobar(str_contains($formulario, 'data-role-nip-section'), 'La edición no expone el bloque de acceso de piso.');

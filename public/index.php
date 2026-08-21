@@ -76,7 +76,6 @@ $router->post('/api/configuracion/horarios/excepciones/estado', [AdminConfigurat
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
 $router->get('/admin/api/horarios-impactos', [AdminHorarioImpactoController::class, 'show']);
 $router->post('/admin/api/horarios-impactos/preparar', [AdminHorarioImpactoController::class, 'notify']);
-$router->post('/admin/api/horarios-impactos/preparar-disponibles', [AdminHorarioImpactoController::class, 'notifyAvailable']);
 $router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoController::class, 'addContact']);
 $router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
 $router->post('/admin/api/horarios-impactos/acceso-prueba', [AdminHorarioImpactoController::class, 'testLink']);
@@ -283,22 +282,6 @@ $router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/logout', [AuthController::class, 'logout']);
-
-// Crear Cuenta
-$router->get('/registro', [AuthController::class, 'registro']);
-$router->post('/registro', [AuthController::class, 'registro']);
-
-// Formulario de olvide mi password
-$router->get('/olvide', [AuthController::class, 'olvide']);
-$router->post('/olvide', [AuthController::class, 'olvide']);
-
-// Colocar el nuevo password
-$router->get('/reestablecer', [AuthController::class, 'reestablecer']);
-$router->post('/reestablecer', [AuthController::class, 'reestablecer']);
-
-// Confirmación de Cuenta
-$router->get('/mensaje', [AuthController::class, 'mensaje']);
-$router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
 // Carta pública: JSON para la landing y PDF para el comensal.
 // /menu/pdf queda fuera de /admin/, así que Auth::proteger lo deja público.

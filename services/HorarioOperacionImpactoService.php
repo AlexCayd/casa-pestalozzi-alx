@@ -452,50 +452,6 @@ final class HorarioOperacionImpactoService
         });
     }
 
-    /** @return array<string, mixed> */
-    public static function prepararAvisosDisponibles(int $impactoId, ?int $adminId): array
-    {
-        $impacto = self::obtener($impactoId);
-        if (!$impacto) {
-            return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
-        }
-        $candidatos = array_values(array_filter(
-            (array)$impacto['reservaciones'],
-            static fn(array $fila): bool => $fila['tiene_contacto']
-                && $fila['estado'] === self::ESTADO_ITEM_PENDIENTE
-        ));
-        $preparadas = 0;
-        $fallas = [];
-        foreach ($candidatos as $fila) {
-            try {
-                $resultado = self::prepararAviso($impactoId, (int)$fila['id'], $adminId);
-                if (($resultado['ok'] ?? false) === true) {
-                    $preparadas++;
-                } else {
-                    $fallas[] = [
-                        'impacto_reservacion_id' => (int)$fila['id'],
-                        'codigo' => (string)($resultado['codigo'] ?? 'ERROR_SEGUIMIENTO_HORARIO'),
-                    ];
-                }
-            } catch (\Throwable $e) {
-                error_log('HorarioOperacionImpactoService::prepararAvisosDisponibles - ' . $e->getMessage());
-                $fallas[] = [
-                    'impacto_reservacion_id' => (int)$fila['id'],
-                    'codigo' => 'ERROR_SEGUIMIENTO_HORARIO',
-                ];
-            }
-        }
-        $fallidas = count($fallas);
-        return [
-            'ok' => $fallidas === 0,
-            'codigo' => $fallidas === 0 ? 'AVISOS_PREPARADOS' : 'AVISOS_PARCIALES',
-            'total' => count($candidatos),
-            'preparadas' => $preparadas,
-            'fallidas' => $fallidas,
-            'fallas' => $fallas,
-        ];
-    }
-
     public static function agregarContacto(
         int $impactoId,
         int $impactoReservacionId,

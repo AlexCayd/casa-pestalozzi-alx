@@ -45,6 +45,7 @@ class AdminUsersController
             'alertas' => $alertas,
             'totalAdminsActivos' => Usuario::contarAdminsActivos(),
             'partialUrl' => AdminController::filterUrl('/admin/usuarios', $filtros),
+            'adminCsrfToken' => AdminCsrfService::token(),
         ];
 
         if (AdminController::isPartialRequest()) {
@@ -61,6 +62,10 @@ class AdminUsersController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!self::adminCsrfValido()) {
+                self::redirect('/admin/usuarios?resultado=csrf_invalido');
+            }
+
             $user->sincronizar($_POST);
 
             // Checkbox: si no viene en POST, queda inactivo.
@@ -100,6 +105,7 @@ class AdminUsersController
             'accion' => 'Crear usuario',
             'modo' => 'crear',
             'action' => '/admin/usuarios/create',
+            'adminCsrfToken' => AdminCsrfService::token(),
             'nipFlash' => $nipFlash,
         ]);
     }
@@ -124,6 +130,10 @@ class AdminUsersController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!self::adminCsrfValido()) {
+                self::redirect('/admin/usuarios?resultado=csrf_invalido');
+            }
+
             $nuevoRol = (string) ($_POST['rol'] ?? $user->rol);
             $nuevoActivo = isset($_POST['activo']) ? 1 : 0;
 
@@ -205,6 +215,10 @@ class AdminUsersController
         $alertas = [];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!self::adminCsrfValido()) {
+                self::redirect('/admin/usuarios?resultado=csrf_invalido');
+            }
+
             $resultado = UsuarioService::cambiarPassword(
                 $id,
                 (int) ($_SESSION['id'] ?? 0),
@@ -235,6 +249,7 @@ class AdminUsersController
             'alertas' => $alertas,
             'esPropio' => $esPropio,
             'action' => '/admin/usuarios/cambiar-password?id=' . $id,
+            'adminCsrfToken' => AdminCsrfService::token(),
         ]);
     }
 
@@ -243,6 +258,10 @@ class AdminUsersController
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: /admin/usuarios');
             exit;
+        }
+
+        if (!self::adminCsrfValido()) {
+            self::redirect('/admin/usuarios?resultado=csrf_invalido');
         }
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
@@ -264,6 +283,10 @@ class AdminUsersController
             exit;
         }
 
+        if (!self::adminCsrfValido()) {
+            self::redirect('/admin/usuarios?resultado=csrf_invalido');
+        }
+
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1]
         ]);
@@ -283,7 +306,7 @@ class AdminUsersController
             self::redirect('/admin/usuarios');
         }
 
-        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+        if (!self::adminCsrfValido()) {
             self::redirect('/admin/usuarios?resultado=csrf_invalido');
         }
 
@@ -376,6 +399,10 @@ class AdminUsersController
             self::redirect('/admin/usuarios');
         }
 
+        if (!self::adminCsrfValido()) {
+            self::redirect('/admin/usuarios?resultado=csrf_invalido');
+        }
+
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1]
         ]);
@@ -410,6 +437,12 @@ class AdminUsersController
             'scripts' => [self::USERS_JS],
             'roles' => Usuario::rolesPermitidos(),
         ], $data));
+    }
+
+    private static function adminCsrfValido(): bool
+    {
+        return Auth::esAdmin()
+            && AdminCsrfService::validar($_POST['admin_csrf'] ?? null);
     }
 
     private static function leerFiltros(): array

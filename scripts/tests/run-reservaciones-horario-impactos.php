@@ -65,7 +65,7 @@ impactoAssert(str_contains($legacyMigration, 'estado = \'notificacion_preparada\
 impactoAssert(str_contains($finalMigration, 'notification_attempts') && str_contains($finalMigration, 'last_notification_at'), 'migración final agrega límite e intervalo de avisos');
 impactoAssert(str_contains($finalMigration, 'visible_from = NOW()'), 'seguimiento preparado es visible de inmediato');
 
-foreach (['AVISO_PREPARADO', 'AVISO_VIGENTE', 'AVISO_EN_COOLDOWN', 'AVISOS_LIMITE_ALCANZADO', 'AVISOS_PREPARADOS', 'AVISOS_PARCIALES', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
+foreach (['AVISO_PREPARADO', 'AVISO_VIGENTE', 'AVISO_EN_COOLDOWN', 'AVISOS_LIMITE_ALCANZADO', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
     impactoAssert(ReservacionErrorCatalog::has($code), "{$code} está catalogado");
     impactoAssert(ReservacionErrorCatalog::presentar($code)['mensaje'] !== '', "{$code} tiene mensaje");
 }
@@ -125,6 +125,8 @@ impactoAssert(str_contains($publicView, 'Elige un nuevo horario') && str_contain
 impactoAssert(str_contains($publicView, 'reservation-guests--tabs') && str_contains($publicView, 'guests-stepper') && str_contains($publicView, 'btn-line'), 'formulario público reutiliza controles canónicos');
 impactoAssert(str_contains($publicView, 'data-max-guests') && !str_contains($publicJs, 'var maxGuests = 12'), 'límite de personas viene de PHP');
 impactoAssert(str_contains($publicJs, 'Tu reservación está lista') && str_contains($publicJs, 'Te esperamos en Casa Pestalozzi.'), 'éxito público muestra valores confirmados y cierre de marca');
+impactoAssert(!str_contains($routes, 'preparar-disponibles'), 'ruta batch de avisos disponibles retirada');
+impactoAssert(!str_contains($impactService, 'prepararAvisosDisponibles'), 'servicio batch de avisos disponibles retirado');
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousTtl === null) unset($_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES']); else $_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES'] = $previousTtl;
