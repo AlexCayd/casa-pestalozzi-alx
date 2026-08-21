@@ -1076,28 +1076,39 @@
 
 .reservation-followup-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, auto);
+  gap: 24px;
   align-items: center;
   margin-bottom: 16px;
+  padding: 20px 22px;
+  border-top: 1px solid rgba(204, 163, 82, 0.18);
   border-left: 3px solid var(--admin-gold);
   background: linear-gradient(135deg, var(--admin-surface), rgba(204, 163, 82, 0.07));
 
+  &__copy {
+    min-width: 0;
+  }
+
+  .reservation-detail-card__label {
+    color: var(--admin-gold-soft);
+  }
+
   h2 {
-    margin: 5px 0 9px;
+    margin: 6px 0 8px;
     color: var(--admin-text);
     font-family: var(--admin-font-heading);
-    font-size: 21px;
+    font-size: clamp(20px, 2vw, 24px);
     font-weight: 500;
-    line-height: 1.15;
+    line-height: 1.12;
   }
 
   p {
-    max-width: 760px;
+    max-width: 68ch;
     margin: 0;
-    color: var(--admin-muted);
+    color: var(--admin-text);
     font-size: .875rem;
     line-height: 1.55;
+    opacity: .72;
 
     + p { margin-top: 6px; }
   }
@@ -1105,10 +1116,67 @@
   &__actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
+    min-width: 0;
+    padding-left: 18px;
+    border-left: 1px solid var(--admin-border-soft);
 
-    .admin-btn { min-height: 42px; white-space: nowrap; }
+    .admin-btn {
+      min-height: 42px;
+      white-space: nowrap;
+
+      &:focus-visible {
+        outline: 0;
+        box-shadow: var(--admin-focus-ring);
+      }
+    }
+
+    .admin-btn--primary {
+      border-color: var(--admin-terra);
+      background: var(--admin-terra);
+      color: #fff;
+
+      &:hover:not(:disabled),
+      &:focus-visible:not(:disabled) {
+        border-color: var(--admin-terra-deep);
+        background: var(--admin-terra-deep);
+        color: #fff;
+      }
+    }
+
+    .admin-btn--secondary {
+      &:hover:not(:disabled),
+      &:focus-visible:not(:disabled) {
+        border-color: var(--admin-gold);
+        background: var(--admin-surface-strong);
+        color: var(--admin-text);
+      }
+    }
+
+    .admin-btn--ghost {
+      &:hover:not(:disabled),
+      &:focus-visible:not(:disabled) {
+        border-color: var(--admin-border);
+        background: color-mix(in srgb, var(--admin-gold) 9%, transparent);
+        color: var(--admin-text);
+      }
+    }
+  }
+}
+
+@include mixins.down(vars.$breakpoint-drawer) {
+  .reservation-followup-banner {
+    grid-template-columns: 1fr;
+
+    &__actions {
+      justify-content: flex-start;
+      padding-top: 14px;
+      padding-left: 0;
+      border-top: 1px solid var(--admin-border-soft);
+      border-left: 0;
+    }
   }
 }
 
@@ -1948,9 +2016,11 @@
     grid-template-columns: 1fr;
 
     &__actions {
-      justify-content: flex-start;
+      display: grid;
+      grid-template-columns: 1fr;
+      justify-content: stretch;
 
-      .admin-btn { flex: 1 1 180px; }
+      .admin-btn { width: 100%; }
     }
   }
 

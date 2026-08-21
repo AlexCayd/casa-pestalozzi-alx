@@ -5462,6 +5462,9 @@ body.nav-open .nav-overlay__links a {
   overflow-x: hidden;
   --schedule-change-status-error: #efaa9a;
   --schedule-change-status-success: #acd2a2;
+  --schedule-change-control-bg: var(--surface-2);
+  --schedule-change-control-border: var(--line);
+  --schedule-change-control-radius: 10px;
 }
 
 .schedule-change-page.reserva,
@@ -5534,9 +5537,9 @@ body.nav-open .nav-overlay__links a {
   position: relative;
   display: grid;
   grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.45fr);
-  gap: clamp(1.75rem, 3vw, 2rem);
-  min-height: clamp(520px, 64vh, 620px);
-  padding: clamp(2rem, 4vw, 2.75rem);
+  gap: clamp(2rem, 3.5vw, 2.75rem);
+  min-height: clamp(450px, 56vh, 540px);
+  padding: clamp(1.75rem, 3.5vw, 2.5rem);
   border: 1px solid var(--line);
   background: var(--surface);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
@@ -5546,12 +5549,13 @@ body.nav-open .nav-overlay__links a {
   display: grid;
   min-width: 0;
   align-content: start;
-  gap: clamp(2.25rem, 7vh, 4.5rem);
+  gap: clamp(1.5rem, 4vh, 2.75rem);
 }
 
 .schedule-change-editor {
   min-width: 0;
-  align-self: center;
+  align-self: start;
+  padding-top: 0.15rem;
 }
 
 .schedule-change-editor__eyebrow {
@@ -5584,26 +5588,32 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-card--expired > p:not(.schedule-change-eyebrow) {
-  max-width: 55ch;
-  margin-top: 1.25rem;
+  max-width: 48ch;
+  margin-top: 0.9rem;
   color: var(--txt-mute);
   font-family: var(--crimson);
-  font-size: 1.18rem;
+  font-size: 1.1rem;
   line-height: 1.5;
 }
 
 .schedule-change-card--expired {
   display: block;
-  width: min(100%, 840px);
+  width: min(100%, 680px);
   min-height: 0;
   align-self: center;
   justify-self: center;
+  padding: clamp(2.25rem, 6vw, 3.75rem);
+}
+
+.schedule-change-card--expired .btn-line {
+  margin-top: 1.2rem;
 }
 
 .schedule-change-current {
   display: block;
+  width: min(100%, 19rem);
   margin: 0;
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 0.9rem;
   border: 1px solid var(--line-soft);
   border-left: 1px solid var(--accent);
   background: var(--surface-2);
@@ -5611,7 +5621,7 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-current__label {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.45rem;
   color: var(--accent);
   font-size: 0.62rem;
   letter-spacing: 0.16em;
@@ -5627,11 +5637,11 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-current__details {
-  margin: 0.2rem 0 0.75rem;
+  margin: 0.16rem 0 0.6rem;
   color: var(--txt-mute);
   font-size: 0.84rem;
   font-weight: 650;
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .schedule-change-current__name {
@@ -5647,8 +5657,8 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-current__name strong {
-  color: var(--txt);
-  font-size: 0.94rem;
+  color: var(--beige);
+  font-size: 0.96rem;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
@@ -5657,7 +5667,7 @@ body.nav-open .nav-overlay__links a {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas: "date time" "guests guests" "note note" "action action";
-  gap: 0.9rem;
+  gap: 0.8rem 1rem;
   align-items: start;
 }
 
@@ -5683,7 +5693,7 @@ body.nav-open .nav-overlay__links a {
 
 .schedule-change-form .reservation-field__label {
   display: block;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.45rem;
   color: var(--accent);
   font-size: 0.68rem;
   letter-spacing: 0.13em;
@@ -5703,16 +5713,44 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-page .reservation-field .date-display,
-.schedule-change-page .reservation-field .hour-display {
+.schedule-change-page .reservation-field .hour-display,
+.schedule-change-page.reserva .field .reservation-control--textarea,
+.schedule-change-form .reservation-guests--tabs,
+.schedule-change-form .guests-stepper {
   box-sizing: border-box;
   min-height: 48px;
   padding: 0.7rem 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
+  border: 1px solid var(--schedule-change-control-border);
+  border-radius: var(--schedule-change-control-radius);
+  background: var(--schedule-change-control-bg);
   color: var(--beige);
   font-family: var(--sans);
   font-size: 0.92rem;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.schedule-change-page .reservation-field .date-display:hover,
+.schedule-change-page .reservation-field .hour-display:hover,
+.schedule-change-page.reserva .field .reservation-control--textarea:hover,
+.schedule-change-form .reservation-guests--tabs:hover,
+.schedule-change-form .guests-stepper:hover {
+  border-color: var(--accent-soft);
+}
+
+.schedule-change-page .date-picker-wrap:focus-within .date-display,
+.schedule-change-page .hour-picker-wrap:focus-within .hour-display,
+.schedule-change-page.reserva .field .reservation-control--textarea:focus-visible,
+.schedule-change-form .reservation-guests--tabs:focus-within,
+.schedule-change-form .guests-stepper:focus-within {
+  border-color: var(--accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.16);
+}
+
+.schedule-change-page.reserva .field .reservation-control--textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .schedule-change-page .hour-picker-control .hour-display {
@@ -5784,7 +5822,6 @@ body.nav-open .nav-overlay__links a {
 .schedule-change-form .reservation-guests--tabs {
   gap: 0.25rem;
   padding: 0.25rem;
-  background: var(--surface-2);
 }
 
 .schedule-change-form .reservation-guests--tabs .pill {
@@ -5797,9 +5834,8 @@ body.nav-open .nav-overlay__links a {
   width: fit-content;
   min-width: 184px;
   max-width: 220px;
-  min-height: 48px;
   margin-top: 0.5rem;
-  padding: 0.25rem;
+  padding: 0.25rem 0.45rem;
   justify-content: space-between;
   gap: 0.75rem;
 }
@@ -5819,15 +5855,10 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-form .reservation-field__help {
-  margin-top: 0.4rem;
+  margin-top: 0.35rem;
   color: var(--txt-mute);
   font-size: 0.72rem;
   line-height: 1.4;
-}
-
-.schedule-change-page.reserva .schedule-change-form .reservation-control--textarea {
-  min-height: 64px;
-  resize: vertical;
 }
 
 .schedule-change-retry {
@@ -5854,7 +5885,7 @@ body.nav-open .nav-overlay__links a {
   align-items: center;
   justify-content: flex-end;
   gap: 1rem;
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
 }
 
 .schedule-change-status {
@@ -5891,18 +5922,21 @@ body.nav-open .nav-overlay__links a {
 }
 
 .schedule-change-page.reserva .schedule-change-submit {
+  isolation: isolate;
+  background: var(--ink);
   color: var(--beige);
-  background: transparent;
   border-color: var(--accent);
-  transition: color 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.15s ease;
+  transition: background 0.25s var(--ease), color 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.15s ease;
 }
 .schedule-change-page.reserva .schedule-change-submit::before {
-  background: var(--accent);
+  display: none;
 }
 .schedule-change-page.reserva .schedule-change-submit > span {
   color: inherit;
 }
 .schedule-change-page.reserva .schedule-change-submit:hover:not(:disabled), .schedule-change-page.reserva .schedule-change-submit:focus-visible:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--ink);
 }
 .schedule-change-page.reserva .schedule-change-submit:focus-visible {
@@ -5913,25 +5947,30 @@ body.nav-open .nav-overlay__links a {
   transform: translateY(1px);
 }
 .schedule-change-page.reserva .schedule-change-submit:disabled {
+  background: var(--surface-2);
+  border-color: var(--line-soft);
+  color: var(--txt-faint);
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 1;
 }
 
 .schedule-change-success {
   display: grid;
   grid-template-columns: 1fr;
   justify-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   align-self: center;
   grid-column: 1/-1;
   width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
   text-align: center;
   animation: fade-in-up 0.4s var(--ease);
 }
 .schedule-change-success__mark {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 54px;
+  height: 54px;
   place-items: center;
   border: 1px solid var(--accent);
   border-radius: 50%;
@@ -5954,7 +5993,7 @@ body.nav-open .nav-overlay__links a {
   justify-items: center;
 }
 .schedule-change-success .schedule-change-eyebrow {
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.35rem;
 }
 .schedule-change-success h2 {
   max-width: none;
@@ -5966,7 +6005,7 @@ body.nav-open .nav-overlay__links a {
   letter-spacing: -0.02em;
 }
 .schedule-change-success__summary {
-  margin-top: 0.65rem;
+  margin-top: 0.45rem;
   color: var(--beige);
   font-family: var(--sans);
   font-size: 0.95rem;
@@ -5974,14 +6013,14 @@ body.nav-open .nav-overlay__links a {
   line-height: 1.4;
 }
 .schedule-change-success__name {
-  margin-top: 0.25rem;
+  margin-top: 0.18rem;
   color: var(--txt);
   font-size: 0.9rem;
   font-weight: 650;
 }
 .schedule-change-success__copy {
   max-width: 48ch;
-  margin-top: 0.65rem;
+  margin-top: 0.5rem;
   color: var(--txt);
   font-family: var(--crimson);
   font-size: 1rem;
@@ -5989,15 +6028,15 @@ body.nav-open .nav-overlay__links a {
 }
 .schedule-change-success .btn-line {
   width: fit-content;
-  margin-top: 0.8rem;
-  padding: 0.85rem 1.6rem;
+  margin-top: 0.6rem;
+  padding: 0.8rem 1.5rem;
 }
 
 .schedule-change-card:has(> .schedule-change-success) {
   grid-template-columns: 1fr;
   min-height: clamp(360px, 50vh, 480px);
   align-content: center;
-  padding: clamp(1.75rem, 4vw, 2.5rem);
+  padding: clamp(2rem, 4vw, 2.75rem);
 }
 
 .schedule-change-card--expired {
@@ -6050,6 +6089,9 @@ body.nav-open .nav-overlay__links a {
   }
   .schedule-change-current p {
     text-align: left;
+  }
+  .schedule-change-card--expired {
+    padding: 2.25rem 1.25rem;
   }
   .schedule-change-footer {
     width: calc(100% - 2rem);
