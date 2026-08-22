@@ -151,6 +151,11 @@ Si una ausencia pendiente coincide con otros motivos, la ausencia domina la acci
 
 Las herramientas de desarrollo aparecen en una sección separada y no modifican esta jerarquía.
 
+Cuando existe estado de transporte, el buzón presenta `pending` como `Aviso
+preparado`, `accepted` como `Esperando respuesta`, `delivered` como `Esperando
+respuesta` con `Aviso enviado.` de forma secundaria, y `failed` como `No
+pudimos enviar el aviso.`. La entrega nunca sustituye la resolución del caso.
+
 El resumen distingue `cantidad_accionable`, `cantidad_seguimiento` y `prioridad_maxima_accionable`. El badge del topbar cuenta únicamente `cantidad_accionable`. El icono de seguimiento es discreto y no usa animaciones permanentes.
 
 Al abrir el drawer se llama `window.AdminScrollLock.bloquear()` y al cerrar `desbloquear()`. La página no se desplaza; sólo el cuerpo del drawer usa `overflow-y: auto` y `overscroll-behavior: contain`.
@@ -171,7 +176,8 @@ Varios motivos de una misma reservación se agrupan en una sola fila y un solo d
 
 ## Transporte externo y n8n
 
-La rama actual prepara el dominio y el acceso temporal, pero la entrega externa definitiva de OTP y avisos operativos se integra como una capa separada.
+La entrega externa usa el evento `reservation.schedule_change` y el provider
+seleccionado por `RESERVATION_NOTIFICATION_PROVIDER`. El OTP continúa separado.
 
 La aplicación es la autoridad para decidir:
 
@@ -185,9 +191,28 @@ La aplicación es la autoridad para decidir:
 
 n8n actúa únicamente como transporte y orquestación del canal externo. No decide estados de reservación, capacidad, mesas, elegibilidad, intentos ni resolución del seguimiento.
 
-El guardado de horarios y la persistencia de impactos deben confirmar su transacción antes de depender de una llamada externa. Una falla de n8n no debe revertir el cambio de horario ni dejar la base de datos en una transacción abierta.
+El guardado de horarios y la persistencia de impactos confirman la transacción y
+liberan sus locks antes de invocar al dispatcher. Para cada reservación de hasta
+12 personas con contacto válido, el dispatcher genera el acceso, persiste sólo
+su hash y entrega el token plano al provider únicamente en memoria. Una falla
+de n8n no revierte el cambio de horario ni deja una transacción abierta.
 
-Para la integración definitiva, el token plano del acceso debe entregarse al proveedor sólo en memoria y después persistirse únicamente su hash. El proveedor externo nunca recibe credenciales internas ni datos operativos adicionales que no sean necesarios para entregar el aviso.
+`notification_delivery_status` es independiente de `estado`:
+
+- `pending`: el aviso quedó preparado y el buzón sigue accionable;
+- `accepted`: n8n respondió 202 y el buzón pasa a espera;
+- `delivered`: el canal confirmó entrega, pero la afectación sigue pendiente de
+  respuesta;
+- `failed`: el acceso se invalida y el buzón vuelve a requerir acción.
+
+Un `pending` o `accepted` sin callback durante más de cinco minutos se
+reconcilia como `failed`. No se reenvía automáticamente. El reintento manual
+conserva el cooldown y el máximo canónicos.
+
+La acción administrativa `Enviar recordatorio` utiliza el mismo
+dispatcher/provider que el envío posterior al cambio de horario. `Copiar enlace
+de prueba` no llama n8n, no incrementa intentos ni cambia el estado de entrega,
+y sólo está disponible en development/testing.
 
 Los exports versionados de n8n no deben contener `pinData`, códigos OTP, tokens de acceso, teléfono, correo ni payloads reales de clientes.
 

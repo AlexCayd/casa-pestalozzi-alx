@@ -111,6 +111,39 @@ El mapa operativo es una superficie compartida por los roles `admin` y `waiter`.
 
 Las observaciones de una reservación son operativas: pueden incluir celebración, ubicación solicitada o necesidades de accesibilidad. No deben usarse como canal de marketing ni contener secretos o credenciales.
 
+## Comunicaciones y gestión por acceso temporal
+
+Las comunicaciones operativas de reservaciones usan dos eventos:
+`reservation.schedule_change` y `reservation.reminder_next_day`. PHP conserva
+la elegibilidad, deduplicación, token, vigencia, capacidad y acciones de
+dominio; n8n sólo transporta el mensaje y devuelve `delivered` o `failed`.
+
+La configuración del recordatorio vive en
+`/admin/configuracion/reservaciones`. Es una fila única de base de datos,
+desactivada y con hora `18:00` por omisión. El proceso programado consulta cada
+cinco minutos, pero prepara todas las reservaciones elegibles de mañana desde
+la hora configurada: una caída temporal no limita la recuperación a una
+ventana de cinco minutos.
+
+El acceso temporal canónico es `/reservaciones/gestionar`. La URL intercambia
+el token plano por una sesión limitada a `source_type + source_id +
+reservation_id`; la base sólo almacena SHA-256. Las rutas anteriores de
+`/reservaciones/cambio-horario` son aliases, no una segunda implementación.
+
+Desde este acceso se puede modificar mediante el reemplazo canónico o cancelar
+mediante la cancelación canónica, siempre con CSRF y revalidación transaccional.
+Un recordatorio para más de 12 personas no permite modificación pública, pero
+mantiene la cancelación mientras la política temporal lo permita. El éxito
+invalida la fuente exacta; sólo un `schedule_change` resuelve además la
+afectación y cierra su seguimiento de buzón.
+
+Los estados `pending`, `accepted`, `delivered` y `failed` describen únicamente
+el transporte. `delivered` no confirma, cancela ni resuelve una reservación. Un
+fallo invalida el acceso y, para afectaciones, vuelve accionable el buzón.
+
+La referencia normativa completa está en [Arquitectura de comunicaciones de
+reservaciones con n8n](arquitectura_notificaciones_reservaciones_n8n.md).
+
 ## Referencias vigentes
 
 Los cambios de horario que dejan reservaciones fuera del horario efectivo se registran como impactos persistentes y requieren seguimiento administrativo. La referencia normativa completa está en [Afectaciones de reservaciones por cambios de horario](afectaciones_reservaciones_por_cambios_horario.md).
