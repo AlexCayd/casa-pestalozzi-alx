@@ -19,7 +19,7 @@ $read = static function (string $path) use ($root): string {
     return $contents;
 };
 
-$publicView = $read('views/reservaciones/cambio-horario.php');
+$publicView = $read('views/reservaciones/gestionar.php');
 $publicScript = $read('src/js/modules/schedule-change-access.js');
 assertUxRefinement(substr_count($publicView, '$inline = false;') === 2, 'cambio de horario usa pickers compactos');
 assertUxRefinement(!str_contains($publicView, '$inline = true;'), 'cambio de horario no deja pickers inline');
@@ -27,8 +27,8 @@ assertUxRefinement(substr_count($publicScript, 'inline: false') === 2, 'JS públ
 assertUxRefinement(str_contains($publicView, 'A nombre de'), 'el titular tiene jerarquía visible');
 assertUxRefinement(str_contains($publicView, 'Selecciona una fecha para ver horarios.'), 'hora tiene un estado inicial único');
 assertUxRefinement(str_contains($publicScript, "setTimeHint('Consultando horarios…')"), 'hora comunica la consulta en curso');
-assertUxRefinement(str_contains($publicScript, "setTimeHint('Elige una hora disponible.')"), 'hora comunica disponibilidad');
-assertUxRefinement(str_contains($publicScript, "setTimeHint('No hay horarios disponibles para esa fecha.')"), 'hora comunica ausencia de horarios');
+assertUxRefinement(str_contains($publicScript, "'Elige una hora disponible.'"), 'hora comunica disponibilidad');
+assertUxRefinement(str_contains($publicScript, "'No hay horarios disponibles para esa fecha.'"), 'hora comunica ausencia de horarios');
 assertUxRefinement(str_contains($publicView, 'data-max-guests'), 'cambio de horario expone el máximo de personas desde PHP');
 assertUxRefinement(str_contains($publicView, 'schedule-change-context') && str_contains($publicView, 'schedule-change-editor'), 'cambio de horario separa contexto y edición');
 assertUxRefinement(str_contains($publicView, 'schedule-change-logo__mark') && !str_contains($publicView, '<img src="/build/images/logo.svg"'), 'logo público usa la marca enmascarada');
@@ -37,7 +37,7 @@ assertUxRefinement(str_contains($publicScript, 'var pillMaxGuests = Math.min(6, 
 assertUxRefinement(str_contains($publicScript, 'guestPills.hidden = value > pillMaxGuests'), 'pills y stepper no se muestran simultáneamente');
 assertUxRefinement(str_contains($publicScript, "card.replaceChildren(success)"), 'éxito reemplaza el contenido completo de la tarjeta');
 assertUxRefinement(str_contains($publicScript, 'Nuevo horario confirmado') && str_contains($publicScript, 'Tu reservación está lista'), 'éxito usa la jerarquía final solicitada');
-assertUxRefinement(str_contains($publicScript, 'schedule-change-success__mark') && str_contains($publicScript, 'Te esperamos en Casa Pestalozzi.'), 'éxito conserva marca visual y copy de confirmación');
+assertUxRefinement(str_contains($publicScript, 'schedule-change-success__mark') && str_contains($publicScript, 'Tu nuevo horario está confirmado'), 'éxito conserva marca visual y copy según la fuente');
 
 $scheduleStyle = $read('src/scss/components/_schedule-change-access.scss');
 assertUxRefinement(str_contains($scheduleStyle, '.guests-stepper[hidden]') && str_contains($scheduleStyle, '.schedule-change-status[hidden]'), 'estados ocultos públicos tienen autoridad CSS');

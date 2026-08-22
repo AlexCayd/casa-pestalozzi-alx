@@ -73,11 +73,11 @@ impactoAssert(BuzonNotificacionesService::PRIORIDAD_ALTA === 'alta', 'el buzón 
 impactoAssert(ReservacionBuzonService::TIPO_HORARIO_AFECTADO === 'reservacion_horario_afectado', 'tipo de horario afectado');
 impactoAssert(ReservacionBuzonService::TIPO_GRUPO_GRANDE === 'reservacion_grupo_grande', 'tipo de grupo grande');
 
-$publicView = file_get_contents($root . '/views/reservaciones/cambio-horario.php');
+$publicView = file_get_contents($root . '/views/reservaciones/gestionar.php');
 $publicJs = file_get_contents($root . '/src/js/modules/schedule-change-access.js');
-$accessService = file_get_contents($root . '/services/ScheduleChangeAccessService.php');
-$accessSession = file_get_contents($root . '/services/ScheduleChangeAccessSession.php');
-$accessController = file_get_contents($root . '/controllers/ScheduleChangeAccessController.php');
+$accessService = file_get_contents($root . '/services/ReservationManagementAccessService.php');
+$accessSession = file_get_contents($root . '/services/ReservationManagementAccessSession.php');
+$accessController = file_get_contents($root . '/controllers/ReservationManagementAccessController.php');
 $impactService = file_get_contents($root . '/services/HorarioOperacionImpactoService.php');
 $buzonRules = file_get_contents($root . '/services/ReservacionBuzonService.php');
 $impactView = file_get_contents($root . '/views/admin/configuration/hours.php');
@@ -95,12 +95,13 @@ impactoAssert(!str_contains($publicView, 'type="date"') && !str_contains($public
 foreach (['createReservationDatePicker', 'createReservationTimePicker', 'requestTimeoutMs', 'Reintentar', 'finally'] as $fragment) {
     impactoAssert(str_contains($publicJs, $fragment), "JS público contiene {$fragment}");
 }
-impactoAssert(str_contains($accessService, "hash('sha256', \$token)"), 'el acceso sólo compara hashes SHA-256');
-impactoAssert(is_string($impactService) && str_contains($impactService, 'bin2hex(random_bytes(32))'), 'el token temporal tiene 32 bytes aleatorios');
+impactoAssert(str_contains($accessService, 'ReservationAccessTokenService::hash'), 'el acceso sólo compara hashes SHA-256 mediante el servicio común');
+$tokenService = file_get_contents($root . '/services/ReservationAccessTokenService.php');
+impactoAssert(is_string($tokenService) && str_contains($tokenService, 'bin2hex(random_bytes(32))'), 'el token temporal tiene 32 bytes aleatorios');
 impactoAssert(str_contains($accessService, 'access_invalidated_at') && str_contains($accessService, 'access_expires_at'), 'el acceso revalida vigencia');
 impactoAssert(str_contains($accessService, 'puedeModificarPublicamente'), 'el acceso revalida editabilidad');
 impactoAssert(!str_contains($accessService, 'ReservationClientSession'), 'el acceso no reutiliza sesión pública general');
-impactoAssert(str_contains($accessSession, 'impacto_reservacion_id') && str_contains($accessSession, 'reservacion_id'), 'sesión limitada sólo guarda ids');
+impactoAssert(str_contains($accessSession, 'source_id') && str_contains($accessSession, 'reservation_id'), 'sesión limitada sólo guarda fuente e ids');
 impactoAssert(is_string($accessController) && str_contains($accessController, "['GET', 'POST']"), 'disponibilidad acepta GET y POST');
 impactoAssert(str_contains($accessController, "\$_SERVER['REQUEST_METHOD'] === 'GET' ? \$_GET : \$_POST"), 'disponibilidad lee la fuente correcta de parámetros');
 impactoAssert(is_string($routes) && str_contains($routes, '/api/reservaciones/cambio-horario/modificar'), 'ruta pública directa de modificación');
@@ -124,7 +125,7 @@ impactoAssert(str_contains($impactService, "BuzonNotificacionesService::PRIORIDA
 impactoAssert(str_contains($publicView, 'Elige un nuevo horario') && str_contains($publicView, 'Confirmar nuevo horario'), 'formulario público usa copy y CTA de cambio de horario');
 impactoAssert(str_contains($publicView, 'reservation-guests--tabs') && str_contains($publicView, 'guests-stepper') && str_contains($publicView, 'btn-line'), 'formulario público reutiliza controles canónicos');
 impactoAssert(str_contains($publicView, 'data-max-guests') && !str_contains($publicJs, 'var maxGuests = 12'), 'límite de personas viene de PHP');
-impactoAssert(str_contains($publicJs, 'Tu reservación está lista') && str_contains($publicJs, 'Te esperamos en Casa Pestalozzi.'), 'éxito público muestra valores confirmados y cierre de marca');
+impactoAssert(str_contains($publicJs, 'Tu reservación está lista') && str_contains($publicJs, 'Tu nuevo horario está confirmado'), 'éxito público distingue la fuente y muestra valores confirmados');
 impactoAssert(!str_contains($routes, 'preparar-disponibles'), 'ruta batch de avisos disponibles retirada');
 impactoAssert(!str_contains($impactService, 'prepararAvisosDisponibles'), 'servicio batch de avisos disponibles retirado');
 
