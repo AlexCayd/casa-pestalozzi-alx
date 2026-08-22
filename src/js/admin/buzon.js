@@ -344,10 +344,22 @@
       var copy = notification.descripcion || 'Esta reservación requiere atención administrativa.';
       var label = notification.etiqueta || 'Seguimiento';
       var tone = 'neutral';
-      if (notification.tipo === 'reservacion_horario_afectado' && notification.requiere_accion === false) {
-        label = 'Esperando respuesta';
-        copy = 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
-        tone = 'info';
+      if (notification.tipo === 'reservacion_horario_afectado') {
+        var delivery = notification.notification_delivery_status || 'pending';
+        if (delivery === 'failed') {
+          label = 'No pudimos enviar el aviso.';
+          copy = notification.descripcion || 'El acceso se invalidó. Revisa el contacto antes de volver a intentarlo.';
+          tone = 'danger';
+        } else if (delivery === 'pending') {
+          label = 'Aviso preparado';
+          copy = 'Esperando respuesta del servicio de envío.';
+          tone = 'info';
+        } else if (notification.requiere_accion === false) {
+          label = 'Esperando respuesta';
+          copy = (delivery === 'delivered' ? 'Aviso enviado. ' : '')
+            + 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
+          tone = 'info';
+        }
       } else if (notification.tipo === 'reservacion_ausencia_pendiente') {
         tone = 'danger';
       } else if (notification.tipo === 'reservacion_sin_asignacion_proxima' || notification.tipo === 'reservacion_grupo_grande') {

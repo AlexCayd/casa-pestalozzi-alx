@@ -229,6 +229,25 @@ final class ReservacionErrorCatalog
         'ACCESO_CAMBIO_HORARIO_INVALIDO' => self::TIPO_ERROR,
         'ACCESO_CAMBIO_HORARIO_EXPIRADO' => self::TIPO_ERROR,
         'ACCESO_CAMBIO_HORARIO_CONCEDIDO' => self::TIPO_EXITO,
+        'ACCESO_GESTION_EXPIRADO' => self::TIPO_ERROR,
+        'CONFIGURACION_RESERVACIONES_ACTUALIZADA' => self::TIPO_EXITO,
+        'CONFIGURACION_RESERVACIONES_INVALIDA' => self::TIPO_ERROR,
+        'N8N_SECRET_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_EVENTO_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_URL_FALTANTE' => self::TIPO_ERROR,
+        'NOTIFICACION_SECRET_FALTANTE' => self::TIPO_ERROR,
+        'NOTIFICACION_PAYLOAD_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_CONEXION_FALLIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_RESPUESTA_INVALIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_NO_ACEPTADA' => self::TIPO_ERROR,
+        'NOTIFICACION_CONFIGURACION_INVALIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_ACEPTADA' => self::TIPO_EXITO,
+        'NOTIFICACION_ACEPTADA_DESARROLLO' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_SOURCE_NO_ENCONTRADO' => self::TIPO_ERROR,
+        'NOTIFICACION_CALLBACK_STALE' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_IDEMPOTENTE' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_REGISTRADO' => self::TIPO_EXITO,
 
         // Códigos de validación de campos; no se emiten como causa principal.
         'REQUEST_TOKEN_INVALIDO' => self::TIPO_ERROR,
@@ -594,6 +613,36 @@ final class ReservacionErrorCatalog
             'mensaje' => 'El acceso temporal está listo.',
             'consecuencia' => 'Elige un horario disponible para continuar.',
             'acciones' => [['id' => 'CONTINUAR', 'tipo' => 'primary']],
+        ],
+        'ACCESO_GESTION_EXPIRADO' => [
+            'titulo' => 'Este enlace ha expirado',
+            'mensaje' => 'El acceso temporal para gestionar la reservación ya no está disponible.',
+            'consecuencia' => 'Gestiona tu reservación desde el acceso general.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'CONFIGURACION_RESERVACIONES_ACTUALIZADA' => [
+            'titulo' => 'Configuración actualizada',
+            'mensaje' => 'La configuración de comunicaciones quedó guardada.',
+            'consecuencia' => 'Los siguientes recordatorios usarán esta configuración.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'CONFIGURACION_RESERVACIONES_INVALIDA' => [
+            'titulo' => 'Revisa la configuración',
+            'mensaje' => 'La hora del recordatorio no es válida.',
+            'consecuencia' => 'Usa una hora con formato de 24 horas antes de guardar.',
+            'acciones' => [['id' => 'CORREGIR', 'tipo' => 'primary']],
+        ],
+        'NOTIFICACION_CALLBACK_INVALIDO' => [
+            'titulo' => 'Resultado no válido',
+            'mensaje' => 'El resultado de entrega no cumple el contrato esperado.',
+            'consecuencia' => 'No se modificó el estado de la comunicación.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'NOTIFICACION_SOURCE_NO_ENCONTRADO' => [
+            'titulo' => 'Comunicación no encontrada',
+            'mensaje' => 'La comunicación indicada ya no existe.',
+            'consecuencia' => 'Actualiza el estado antes de reintentar.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
         ],
         'POS_ACTUALIZADO' => [
             'titulo' => 'Configuración actualizada',
@@ -1090,8 +1139,12 @@ final class ReservacionErrorCatalog
             $http = 404;
         } elseif ($canonical === 'ACCESO_CAMBIO_HORARIO_INVALIDO') {
             $http = 403;
-        } elseif ($canonical === 'ACCESO_CAMBIO_HORARIO_EXPIRADO') {
+        } elseif (in_array($canonical, ['ACCESO_CAMBIO_HORARIO_EXPIRADO', 'ACCESO_GESTION_EXPIRADO'], true)) {
             $http = 410;
+        } elseif ($canonical === 'N8N_SECRET_INVALIDO') {
+            $http = 403;
+        } elseif ($canonical === 'NOTIFICACION_SOURCE_NO_ENCONTRADO') {
+            $http = 404;
         } elseif (in_array($canonical, ['RETENCION_EXPIRADA', 'OTP_EXPIRADO'], true)) {
             $http = 410;
         } elseif (in_array($canonical, ['REENVIO_NO_DISPONIBLE', 'OTP_INTENTOS_AGOTADOS'], true)) {

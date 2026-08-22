@@ -9,9 +9,8 @@ use Model\Reservacion;
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.
  *
- * La notificación futura se representa en la propia fila afectada: preparar
- * un aviso genera un hash de acceso y una fecha durable. La presentación
- * persistente vive en el buzón genérico y no en una outbox del módulo.
+ * La fila afectada conserva dominio, acceso y estado de transporte. El token
+ * plano sólo sale de una preparación post-commit hacia el dispatcher.
  */
 final class HorarioOperacionImpactoService
 {
@@ -293,6 +292,7 @@ final class HorarioOperacionImpactoService
                     ir.reservacion_id, ir.estado, ir.notification_prepared_at,
                     ir.access_expires_at, ir.access_invalidated_at,
                     ir.notification_attempts, ir.last_notification_at,
+                    ir.notification_delivery_status, ir.notification_delivery_updated_at,
                     ir.resolved_by, ir.resolved_at,
                     r.nombre, r.contacto_tipo, r.contacto, r.fecha, r.hora, r.comensales
              FROM horario_impactos i
@@ -340,6 +340,8 @@ final class HorarioOperacionImpactoService
                 'access_invalidated_at' => $fila['access_invalidated_at'],
                 'notification_attempts' => (int)($fila['notification_attempts'] ?? 0),
                 'last_notification_at' => $fila['last_notification_at'],
+                'notification_delivery_status' => (string)($fila['notification_delivery_status'] ?? 'pending'),
+                'notification_delivery_updated_at' => $fila['notification_delivery_updated_at'],
                 'test_link_disponible' => self::esEntornoPruebas()
                     && (string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO
                     && $fila['access_invalidated_at'] === null,
@@ -365,63 +367,86 @@ final class HorarioOperacionImpactoService
         return $impacto;
     }
 
-    /** Prepara un aviso y un acceso temporal; el token plano sólo vuelve en development/testing. */
+    /** Alias administrativo: prepara y despacha por el provider operativo. */
     public static function prepararAviso(int $impactoId, int $impactoReservacionId, ?int $adminId): array
     {
-        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId): array {
-            $fila = self::bloquearFilaImpacto($db, $impactoId, $impactoReservacionId);
+        $fila = self::obtenerPorItem($impactoReservacionId);
+        if (!$fila || (int)$fila['impacto_id'] !== $impactoId) {
+            return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
+        }
+        return ReservationNotificationDispatcher::dispatchScheduleChangeItem($impactoReservacionId);
+    }
+
+    /**
+     * Prepara un único intento y devuelve PII/token solamente en memoria al
+     * dispatcher. No realiza llamadas externas ni expone el resultado al admin.
+     */
+    public static function prepararAvisoParaEntrega(int $impactoReservacionId): array
+    {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId): array {
+            $stmt = $db->prepare(
+                "SELECT ir.id AS impacto_reservacion_id, ir.impacto_id, ir.reservacion_id,
+                        ir.estado, ir.access_expires_at, ir.notification_attempts,
+                        ir.last_notification_at, i.estado AS impacto_estado,
+                        r.estado AS reservacion_estado, r.nombre, r.contacto_tipo, r.contacto,
+                        r.fecha, r.hora, r.comensales
+                 FROM horario_impacto_reservaciones ir
+                 JOIN horario_impactos i ON i.id = ir.impacto_id
+                 JOIN reservaciones r ON r.id = ir.reservacion_id
+                 WHERE ir.id = ? LIMIT 1 FOR UPDATE"
+            );
+            $stmt->bind_param('i', $impactoReservacionId);
+            $stmt->execute();
+            $fila = $stmt->get_result()->fetch_assoc() ?: null;
+            $stmt->close();
             if (!$fila) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
             }
-            if (!self::filaTieneContacto($fila)
+            if ((string)$fila['impacto_estado'] !== self::ESTADO_IMPACTO_PENDIENTE
+                || (string)$fila['reservacion_estado'] !== 'confirmada'
+                || !self::filaTieneContacto($fila)
                 || !in_array((string)$fila['estado'], [self::ESTADO_ITEM_PENDIENTE, self::ESTADO_ITEM_PREPARADO], true)
-                || (int)($fila['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO
+                || (int)$fila['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
-
             $ahora = ReservacionConfig::ahora();
-            $expiraActual = $fila['access_expires_at'] !== null
-                ? new DateTimeImmutable((string)$fila['access_expires_at'], ReservacionConfig::timezone())
-                : null;
-            if ($expiraActual instanceof DateTimeImmutable && $expiraActual > $ahora) {
-                return [
-                    'ok' => false,
-                    'codigo' => 'AVISO_VIGENTE',
-                    'expires_at' => $expiraActual->format('Y-m-d H:i:s'),
-                ];
-            }
             $intentos = (int)($fila['notification_attempts'] ?? 0);
-            if ($intentos >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS) {
-                return ['ok' => false, 'codigo' => 'AVISOS_LIMITE_ALCANZADO'];
-            }
-            $ultimoAviso = $fila['last_notification_at'] !== null
-                ? new DateTimeImmutable((string)$fila['last_notification_at'], ReservacionConfig::timezone())
-                : null;
-            $cooldownHasta = $ultimoAviso?->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes');
-            if ($cooldownHasta instanceof DateTimeImmutable && $cooldownHasta > $ahora) {
-                return [
-                    'ok' => false,
-                    'codigo' => 'AVISO_EN_COOLDOWN',
-                    'retry_at' => $cooldownHasta->format('Y-m-d H:i:s'),
-                ];
+            if ((string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO) {
+                $expiraActual = $fila['access_expires_at'] !== null
+                    ? new DateTimeImmutable((string)$fila['access_expires_at'], ReservacionConfig::timezone())
+                    : null;
+                if ($expiraActual instanceof DateTimeImmutable && $expiraActual > $ahora) {
+                    return ['ok' => false, 'codigo' => 'AVISO_VIGENTE', 'expires_at' => $expiraActual->format('Y-m-d H:i:s')];
+                }
+                if ($intentos >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS) {
+                    return ['ok' => false, 'codigo' => 'AVISOS_LIMITE_ALCANZADO'];
+                }
+                $ultimoAviso = $fila['last_notification_at'] !== null
+                    ? new DateTimeImmutable((string)$fila['last_notification_at'], ReservacionConfig::timezone())
+                    : null;
+                $cooldownHasta = $ultimoAviso?->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes');
+                if ($cooldownHasta instanceof DateTimeImmutable && $cooldownHasta > $ahora) {
+                    return ['ok' => false, 'codigo' => 'AVISO_EN_COOLDOWN', 'retry_at' => $cooldownHasta->format('Y-m-d H:i:s')];
+                }
             }
 
-            $token = bin2hex(random_bytes(32));
-            $hash = hash('sha256', $token);
+            $token = ReservationAccessTokenService::generar();
             $expira = $ahora
                 ->modify('+' . ReservacionConfig::scheduleChangeAccessTtlMinutes() . ' minutes')
                 ->format('Y-m-d H:i:s');
+            $managementUrl = ReservationAccessTokenService::url($token['token']);
             $stmt = $db->prepare(
                 "UPDATE horario_impacto_reservaciones
                  SET estado = 'notificacion_preparada', notification_prepared_at = NOW(),
                      access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
                      notification_attempts = notification_attempts + 1,
-                     last_notification_at = NOW(), resolved_by = NULL, resolved_at = NULL
+                     last_notification_at = NOW(),
+                     notification_delivery_status = 'pending', notification_delivery_updated_at = NOW(),
+                     resolved_by = NULL, resolved_at = NULL
                  WHERE id = ? AND estado IN ('pendiente_notificacion', 'notificacion_preparada')"
             );
-            $id = (int)$fila['impacto_reservacion_id'];
-            $stmt->bind_param('ssi', $hash, $expira, $id);
+            $stmt->bind_param('ssi', $token['hash'], $expira, $impactoReservacionId);
             if (!$stmt->execute() || $stmt->affected_rows !== 1) {
                 $stmt->close();
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
@@ -429,26 +454,30 @@ final class HorarioOperacionImpactoService
             $stmt->close();
             ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
                 $db,
-                $id,
+                $impactoReservacionId,
                 BuzonNotificacionesService::PRIORIDAD_NORMAL,
                 null,
-                false
+                true
             );
-            self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
-
-            $respuesta = [
+            return [
                 'ok' => true,
                 'codigo' => 'AVISO_PREPARADO',
                 'impacto_id' => (int)$fila['impacto_id'],
-                'impacto_reservacion_id' => $id,
-                'idempotente' => false,
-                'expires_at' => $expira,
-                'notification_attempts' => $intentos + 1,
+                'impacto_reservacion_id' => $impactoReservacionId,
+                'notification' => [
+                    'source_id' => $impactoReservacionId,
+                    'reservation_id' => (int)$fila['reservacion_id'],
+                    'attempt' => $intentos + 1,
+                    'contact_type' => (string)$fila['contacto_tipo'],
+                    'contact' => (string)$fila['contacto'],
+                    'name' => (string)$fila['nombre'],
+                    'reservation_date' => (string)$fila['fecha'],
+                    'reservation_time' => substr((string)$fila['hora'], 0, 5),
+                    'guests' => (int)$fila['comensales'],
+                    'management_url' => $managementUrl,
+                    'access_expires_at' => (new DateTimeImmutable($expira, ReservacionConfig::timezone()))->format(DATE_ATOM),
+                ],
             ];
-            if (self::esEntornoPruebas()) {
-                $respuesta['test_access_url'] = self::accessUrl($token);
-            }
-            return $respuesta;
         });
     }
 
@@ -465,7 +494,7 @@ final class HorarioOperacionImpactoService
             return ['ok' => false, 'codigo' => 'CONTACTO_INVALIDO'];
         }
 
-        return self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $tipo, $normalizado, $adminId): array {
+        $resultado = self::conTransaccion(function (\mysqli $db) use ($impactoId, $impactoReservacionId, $tipo, $normalizado): array {
             $fila = self::bloquearFilaImpacto($db, $impactoId, $impactoReservacionId);
             if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_SIN_CONTACTO) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
@@ -491,10 +520,22 @@ final class HorarioOperacionImpactoService
             $stmt->bind_param('i', $impactoReservacionId);
             $stmt->execute();
             $stmt->close();
-            self::prepararFilaSiEsElegibleEnTransaccion($db, $impactoReservacionId, $adminId);
+            ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
+                $db,
+                $impactoReservacionId,
+                BuzonNotificacionesService::PRIORIDAD_NORMAL,
+                null,
+                true
+            );
             self::actualizarEstadoImpacto($db, $impactoId);
             return ['ok' => true, 'codigo' => 'CONTACTO_AGREGADO'];
         });
+        if (!is_array($resultado) || !($resultado['ok'] ?? false)) {
+            return is_array($resultado) ? $resultado : ['ok' => false, 'codigo' => 'ERROR_SEGUIMIENTO_HORARIO'];
+        }
+        $dispatch = ReservationNotificationDispatcher::dispatchScheduleChangeItem($impactoReservacionId);
+        $resultado['notification_dispatch'] = $dispatch;
+        return $resultado;
     }
 
     public static function atenderManual(
@@ -553,8 +594,7 @@ final class HorarioOperacionImpactoService
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
-            $token = bin2hex(random_bytes(32));
-            $hash = hash('sha256', $token);
+            $token = ReservationAccessTokenService::generar();
             $expira = ReservacionConfig::ahora()
                 ->modify('+' . ReservacionConfig::scheduleChangeAccessTtlMinutes() . ' minutes')
                 ->format('Y-m-d H:i:s');
@@ -563,13 +603,13 @@ final class HorarioOperacionImpactoService
                  SET access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL
                  WHERE id = ? AND estado = 'notificacion_preparada'"
             );
-            $stmt->bind_param('ssi', $hash, $expira, $impactoReservacionId);
+            $stmt->bind_param('ssi', $token['hash'], $expira, $impactoReservacionId);
             $stmt->execute();
             $stmt->close();
             return [
                 'ok' => true,
                 'codigo' => 'LINK_PRUEBA_GENERADO',
-                'test_access_url' => self::accessUrl($token),
+                'test_access_url' => ReservationAccessTokenService::url($token['token']),
                 'expires_at' => $expira,
             ];
         });
@@ -707,89 +747,145 @@ final class HorarioOperacionImpactoService
                 );
                 continue;
             }
-            $expira = $fila['access_expires_at'] !== null
-                ? (string)$fila['access_expires_at']
-                : null;
-
-            if ($estado === self::ESTADO_ITEM_PENDIENTE
-                && $tieneContacto
-                && $comensales <= ReservacionConfig::MAX_COMENSALES_PUBLICO
-            ) {
-                $expira = self::prepararFilaEnTransaccion($db, $id);
-            }
-
             $prioridad = $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
                 ? BuzonNotificacionesService::PRIORIDAD_ALTA
                 : BuzonNotificacionesService::PRIORIDAD_NORMAL;
-            $requiereAccion = !$tieneContacto
-                || $comensales > ReservacionConfig::MAX_COMENSALES_PUBLICO
-                || $expira === null
-                || $expira <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
             ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
                 $db,
                 $id,
                 $prioridad,
                 null,
-                $requiereAccion
+                true
             );
         }
     }
 
-    private static function prepararFilaSiEsElegibleEnTransaccion(\mysqli $db, int $impactoReservacionId, ?int $adminId): void
+    /** @return int[] */
+    public static function itemsPendientesNotificables(int $impactoId): array
+    {
+        if ($impactoId < 1) {
+            return [];
+        }
+        $stmt = ActiveRecord::getDB()->prepare(
+            "SELECT ir.id
+             FROM horario_impacto_reservaciones ir
+             JOIN horario_impactos i ON i.id = ir.impacto_id
+             JOIN reservaciones r ON r.id = ir.reservacion_id
+             WHERE ir.impacto_id = ? AND i.estado = 'pendiente'
+               AND ir.estado = 'pendiente_notificacion'
+               AND r.estado = 'confirmada'
+               AND r.comensales <= ?
+               AND r.contacto_tipo IN ('email', 'telefono')
+               AND r.contacto IS NOT NULL AND TRIM(r.contacto) <> ''
+             ORDER BY ir.id ASC"
+        );
+        $maximo = ReservacionConfig::MAX_COMENSALES_PUBLICO;
+        $stmt->bind_param('ii', $impactoId, $maximo);
+        $stmt->execute();
+        $resultado = $stmt->get_result();
+        $ids = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $ids[] = (int)$fila['id'];
+        }
+        $stmt->close();
+        return $ids;
+    }
+
+    public static function marcarEntregaAceptada(int $impactoReservacionId, int $attempt): bool
+    {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $attempt): bool {
+            $stmt = $db->prepare(
+                "UPDATE horario_impacto_reservaciones
+                 SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
+                 WHERE id = ? AND notification_attempts = ?
+                   AND notification_delivery_status = 'pending'"
+            );
+            $stmt->bind_param('ii', $impactoReservacionId, $attempt);
+            $stmt->execute();
+            $actualizada = $stmt->affected_rows === 1;
+            $stmt->close();
+            if (!$actualizada) {
+                return false;
+            }
+            BuzonNotificacionesService::establecerRequiereAccionEnTransaccion(
+                $db,
+                ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+                $impactoReservacionId,
+                false
+            );
+            return true;
+        }) === true;
+    }
+
+    public static function marcarEntregaFallida(int $impactoReservacionId, int $attempt): bool
+    {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $attempt): bool {
+            $stmt = $db->prepare(
+                "UPDATE horario_impacto_reservaciones
+                 SET notification_delivery_status = 'failed', notification_delivery_updated_at = NOW(),
+                     access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
+                     access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
+                 WHERE id = ? AND notification_attempts = ?
+                   AND notification_delivery_status IN ('pending', 'accepted')"
+            );
+            $stmt->bind_param('ii', $impactoReservacionId, $attempt);
+            $stmt->execute();
+            $actualizada = $stmt->affected_rows === 1;
+            $stmt->close();
+            if (!$actualizada) {
+                return false;
+            }
+            BuzonNotificacionesService::establecerRequiereAccionEnTransaccion(
+                $db,
+                ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+                $impactoReservacionId,
+                true
+            );
+            return true;
+        }) === true;
+    }
+
+    /** Finaliza exactamente la afectación que autorizó el acceso temporal. */
+    public static function resolverAccesoTemporalEnTransaccion(\mysqli $db, int $impactoReservacionId): bool
     {
         $stmt = $db->prepare(
-            "SELECT ir.id, ir.estado, r.comensales, r.contacto_tipo, r.contacto
-             FROM horario_impacto_reservaciones ir
-             JOIN reservaciones r ON r.id = ir.reservacion_id
-             WHERE ir.id = ? LIMIT 1 FOR UPDATE"
+            "SELECT id, impacto_id
+             FROM horario_impacto_reservaciones
+             WHERE id = ? AND estado = 'notificacion_preparada'
+             LIMIT 1 FOR UPDATE"
         );
-        if (!$stmt) {
-            throw new \RuntimeException('No fue posible revisar la afectación.');
-        }
         $stmt->bind_param('i', $impactoReservacionId);
         $stmt->execute();
         $fila = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-        if (!$fila || (string)$fila['estado'] !== self::ESTADO_ITEM_PENDIENTE) {
-            return;
+        if (!$fila) {
+            return false;
         }
-        if (self::filaTieneContacto($fila) && (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO) {
-            $expira = self::prepararFilaEnTransaccion($db, $impactoReservacionId);
-            ReservacionBuzonService::crearSeguimientoHorarioEnTransaccion(
-                $db,
-                $impactoReservacionId,
-                BuzonNotificacionesService::PRIORIDAD_NORMAL,
-                null,
-                false
-            );
-        }
-    }
-
-    private static function prepararFilaEnTransaccion(\mysqli $db, int $impactoReservacionId): string
-    {
-        $hash = hash('sha256', bin2hex(random_bytes(32)));
-        $expira = ReservacionConfig::ahora()
-            ->modify('+' . ReservacionConfig::scheduleChangeAccessTtlMinutes() . ' minutes')
-            ->format('Y-m-d H:i:s');
         $stmt = $db->prepare(
             "UPDATE horario_impacto_reservaciones
-             SET estado = 'notificacion_preparada', notification_prepared_at = NOW(),
-                 access_token_hash = ?, access_expires_at = ?, access_invalidated_at = NULL,
-                 notification_attempts = notification_attempts + 1,
-                 last_notification_at = NOW(), resolved_by = NULL, resolved_at = NULL
-             WHERE id = ? AND estado = 'pendiente_notificacion'"
+             SET estado = 'resuelta_por_cliente', resolved_by = NULL,
+                 resolved_at = NOW(), access_invalidated_at = NOW()
+             WHERE id = ? AND estado = 'notificacion_preparada'"
         );
-        if (!$stmt) {
-            throw new \RuntimeException('No fue posible preparar el acceso temporal.');
-        }
-        $stmt->bind_param('ssi', $hash, $expira, $impactoReservacionId);
-        if (!$stmt->execute() || $stmt->affected_rows !== 1) {
-            $mensaje = $stmt->error;
-            $stmt->close();
-            throw new \RuntimeException($mensaje !== '' ? $mensaje : 'La afectación ya no está pendiente.');
-        }
+        $stmt->bind_param('i', $impactoReservacionId);
+        $stmt->execute();
+        $actualizada = $stmt->affected_rows === 1;
         $stmt->close();
-        return $expira;
+        if (!$actualizada) {
+            return false;
+        }
+        BuzonNotificacionesService::cerrarTipoEntidadEnTransaccion(
+            $db,
+            ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+            ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+            $impactoReservacionId,
+            null,
+            'resuelta_por_cliente'
+        );
+        self::actualizarEstadoImpacto($db, (int)$fila['impacto_id']);
+        return true;
     }
 
     /** @return array<string, mixed>|null */
@@ -803,6 +899,7 @@ final class HorarioOperacionImpactoService
                     ir.reservacion_id, ir.estado, ir.notification_prepared_at,
                     ir.access_expires_at, ir.access_invalidated_at,
                     ir.notification_attempts, ir.last_notification_at,
+                    ir.notification_delivery_status, ir.notification_delivery_updated_at,
                     r.nombre, r.fecha, r.hora, r.comensales,
                     r.contacto_tipo, r.contacto, i.estado AS impacto_estado
              FROM horario_impacto_reservaciones ir
@@ -836,6 +933,8 @@ final class HorarioOperacionImpactoService
             'access_invalidated_at' => $fila['access_invalidated_at'],
             'notification_attempts' => (int)($fila['notification_attempts'] ?? 0),
             'last_notification_at' => $fila['last_notification_at'],
+            'notification_delivery_status' => (string)($fila['notification_delivery_status'] ?? 'pending'),
+            'notification_delivery_updated_at' => $fila['notification_delivery_updated_at'],
             'test_link_disponible' => self::esEntornoPruebas()
                 && (string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO
                 && $fila['access_invalidated_at'] === null,
@@ -954,6 +1053,26 @@ final class HorarioOperacionImpactoService
     public static function actualizarSeguimientosVencidosEnTransaccion(\mysqli $db): void
     {
         $stmt = $db->prepare(
+            "UPDATE horario_impacto_reservaciones ir
+             JOIN buzon_notificaciones bn
+               ON bn.tipo = 'reservacion_horario_afectado'
+              AND bn.entidad_tipo = 'horario_impacto_reservacion'
+              AND bn.entidad_id = ir.id
+             SET ir.notification_delivery_status = 'failed',
+                 ir.notification_delivery_updated_at = NOW(),
+                 ir.access_invalidated_at = COALESCE(ir.access_invalidated_at, NOW()),
+                 ir.access_expires_at = LEAST(COALESCE(ir.access_expires_at, NOW()), NOW()),
+                 bn.requiere_accion = 1, bn.updated_at = NOW()
+             WHERE bn.cerrada_at IS NULL
+               AND ir.notification_delivery_status IN ('pending', 'accepted')
+               AND ir.notification_delivery_updated_at IS NOT NULL
+               AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
+        );
+        if ($stmt) {
+            $stmt->execute();
+            $stmt->close();
+        }
+        $stmt = $db->prepare(
             "UPDATE buzon_notificaciones bn
              JOIN horario_impacto_reservaciones ir
                ON bn.tipo = 'reservacion_horario_afectado'
@@ -982,6 +1101,9 @@ final class HorarioOperacionImpactoService
             return true;
         }
         if ((string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO) {
+            return true;
+        }
+        if (in_array((string)($fila['notification_delivery_status'] ?? 'pending'), ['pending', 'failed'], true)) {
             return true;
         }
         return $fila['access_expires_at'] === null
@@ -1038,11 +1160,7 @@ final class HorarioOperacionImpactoService
 
     private static function accessUrl(string $token): string
     {
-        $base = ReservacionConfig::reservationPublicBaseUrl();
-        if ($base === '') {
-            throw new \RuntimeException('RESERVATION_PUBLIC_BASE_URL no está configurada.');
-        }
-        return $base . '/reservaciones/cambio-horario?access=' . rawurlencode($token);
+        return ReservationAccessTokenService::url($token);
     }
 
     private static function filaTieneContacto(array $fila): bool

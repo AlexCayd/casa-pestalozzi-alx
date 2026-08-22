@@ -1557,6 +1557,27 @@
         applyFilters();
     }
 
+    function initReservationSettings() {
+        const form = document.querySelector('[data-reservation-settings]');
+        if (!form) return;
+        const enabled = form.querySelector('[data-reminder-enabled]');
+        const time = form.querySelector('[data-reminder-time]');
+        const fallback = form.querySelector('[data-reminder-time-fallback]');
+        if (!enabled || !time || !fallback) return;
+
+        function sync() {
+            if (time.value) fallback.value = time.value;
+            time.disabled = !enabled.checked;
+            fallback.disabled = enabled.checked;
+            time.setAttribute('aria-disabled', enabled.checked ? 'false' : 'true');
+        }
+        enabled.addEventListener('change', sync);
+        time.addEventListener('input', function () {
+            fallback.value = time.value;
+        });
+        sync();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!document.querySelector('[data-configuration-page]')) {
             return;
@@ -1568,5 +1589,6 @@
         initExceptionStateToggles();
         initAnnouncement();
         initReports();
+        initReservationSettings();
     });
 })();

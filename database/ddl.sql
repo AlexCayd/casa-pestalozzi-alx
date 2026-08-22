@@ -29,8 +29,10 @@ DROP TABLE IF EXISTS subrecetas;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
 DROP TABLE IF EXISTS configuracion_pos;
+DROP TABLE IF EXISTS configuracion_reservaciones;
 DROP TABLE IF EXISTS configuracion_anuncio;
 DROP TABLE IF EXISTS buzon_notificaciones;
+DROP TABLE IF EXISTS reservacion_recordatorios;
 DROP TABLE IF EXISTS horario_impacto_reservaciones;
 DROP TABLE IF EXISTS horario_impactos;
 DROP TABLE IF EXISTS excepciones_operacion;
@@ -669,6 +671,9 @@ CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
   access_invalidated_at  DATETIME NULL,
   notification_attempts  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   last_notification_at   DATETIME NULL,
+  notification_delivery_status ENUM('pending', 'accepted', 'delivered', 'failed')
+                           NOT NULL DEFAULT 'pending',
+  notification_delivery_updated_at DATETIME NULL,
   resolved_by           INT NULL,
   resolved_at           DATETIME NULL,
   created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -681,7 +686,34 @@ CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
     FOREIGN KEY (resolved_by) REFERENCES usuarios(id) ON DELETE SET NULL,
   UNIQUE KEY uq_horario_impacto_reservacion (impacto_id, reservacion_id),
   INDEX idx_horario_impacto_reservaciones_estado (impacto_id, estado),
-  INDEX idx_horario_impacto_reservaciones_access (access_token_hash, access_expires_at)
+  INDEX idx_horario_impacto_reservaciones_access (access_token_hash, access_expires_at),
+  INDEX idx_horario_impacto_reservaciones_delivery (notification_delivery_status)
+);
+
+-- Recordatorios ordinarios: una fila por raíz/tipo/fecha, sin duplicar PII.
+CREATE TABLE IF NOT EXISTS reservacion_recordatorios (
+  id                              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id                  INT NOT NULL,
+  reservacion_raiz_id             INT NOT NULL,
+  tipo                            ENUM('dia_anterior') NOT NULL DEFAULT 'dia_anterior',
+  dedup_key                       VARCHAR(191) NOT NULL,
+  access_token_hash               CHAR(64) NULL,
+  access_expires_at               DATETIME NULL,
+  access_invalidated_at           DATETIME NULL,
+  notification_delivery_status    ENUM('pending', 'accepted', 'delivered', 'failed')
+                                    NOT NULL DEFAULT 'pending',
+  notification_delivery_updated_at DATETIME NULL,
+  created_at                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_reservacion_recordatorios_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_reservacion_recordatorios_raiz
+    FOREIGN KEY (reservacion_raiz_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
+  UNIQUE KEY uq_reservacion_recordatorios_dedup (dedup_key),
+  UNIQUE KEY uq_reservacion_recordatorios_access (access_token_hash),
+  INDEX idx_reservacion_recordatorios_reservacion (reservacion_id),
+  INDEX idx_reservacion_recordatorios_raiz (reservacion_raiz_id),
+  INDEX idx_reservacion_recordatorios_delivery (notification_delivery_status)
 );
 
 -- Buzón administrativo genérico. No almacena PII ni sustituye la autoridad
@@ -755,6 +787,24 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
     REFERENCES usuarios(id)
     ON DELETE SET NULL
 );
+
+-- Comunicaciones de reservaciones. Fila única y desactivada por omisión.
+CREATE TABLE IF NOT EXISTS configuracion_reservaciones (
+  id                                  TINYINT UNSIGNED NOT NULL,
+  recordatorio_dia_anterior_activo    TINYINT(1) NOT NULL DEFAULT 0,
+  hora_recordatorio                   TIME NOT NULL DEFAULT '18:00:00',
+  updated_by                          INT NULL,
+  updated_at                          TIMESTAMP NOT NULL
+                                        DEFAULT CURRENT_TIMESTAMP
+                                        ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_configuracion_reservaciones_usuario
+    FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+INSERT INTO configuracion_reservaciones
+  (id, recordatorio_dia_anterior_activo, hora_recordatorio, updated_by)
+VALUES (1, 0, '18:00:00', NULL);
 
 CREATE TABLE IF NOT EXISTS reportes_sistema (
   id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

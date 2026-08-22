@@ -309,6 +309,33 @@ final class BuzonNotificacionesService
         return $afectadas;
     }
 
+    /** Actualiza sólo la presentación operativa de un seguimiento abierto. */
+    public static function establecerRequiereAccionEnTransaccion(
+        \mysqli $db,
+        string $tipo,
+        string $entidadTipo,
+        int $entidadId,
+        bool $requiereAccion
+    ): int {
+        if ($tipo === '' || $entidadTipo === '' || $entidadId < 1) {
+            return 0;
+        }
+        $valor = $requiereAccion ? 1 : 0;
+        $stmt = $db->prepare(
+            'UPDATE buzon_notificaciones
+             SET requiere_accion = ?, visible_from = LEAST(visible_from, NOW()), updated_at = NOW()
+             WHERE tipo = ? AND entidad_tipo = ? AND entidad_id = ? AND cerrada_at IS NULL'
+        );
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('issi', $valor, $tipo, $entidadTipo, $entidadId);
+        $stmt->execute();
+        $afectadas = (int)$stmt->affected_rows;
+        $stmt->close();
+        return $afectadas;
+    }
+
     /**
      * Cierra avisos sólo cuando el módulo fuente confirma que ya no requieren
      * atención. La callback evita meter reglas de reservaciones aquí.

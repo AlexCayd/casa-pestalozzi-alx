@@ -250,6 +250,84 @@
   padding: clamp(2rem, 4vw, 2.75rem);
 }
 .schedule-change-card--expired { align-self: center; }
+.schedule-change-card--summary-only {
+  grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);
+  min-height: 390px;
+}
+
+.schedule-change-limited {
+  padding: 1.25rem;
+  border: 1px solid var(--line-soft);
+  border-left-color: var(--accent);
+  background: var(--surface-2);
+
+  h2 { margin: 0; color: var(--beige); font-family: var(--serif); font-size: clamp(1.45rem, 2.5vw, 1.8rem); font-weight: 400; }
+  p { max-width: 48ch; margin: .55rem 0 0; color: var(--txt-mute); line-height: 1.55; }
+}
+
+.schedule-change-cancel-zone {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.schedule-change-cancel {
+  padding: .45rem 0;
+  border: 0;
+  color: var(--txt-mute);
+  font: inherit;
+  font-size: .76rem;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: color .2s var(--ease), text-decoration-color .2s var(--ease);
+
+  &:hover { color: #e3a59d; text-decoration-color: currentColor; }
+  &:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+}
+
+body.is-management-modal-open { overflow: hidden; }
+
+.schedule-change-modal {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+
+  &[hidden] { display: none; }
+  &__backdrop { position: absolute; inset: 0; border: 0; background: rgba(8, 8, 7, .78); backdrop-filter: blur(5px); }
+  &__dialog {
+    position: relative;
+    width: min(100%, 480px);
+    padding: clamp(1.5rem, 5vw, 2.25rem);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 28px 85px rgba(0, 0, 0, .5);
+  }
+  h2 { margin: 0; color: var(--beige); font-family: var(--serif); font-size: clamp(1.8rem, 5vw, 2.25rem); font-weight: 400; }
+  p { margin: .75rem 0 0; color: var(--txt-mute); line-height: 1.55; }
+  &__actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
+}
+
+.schedule-change-danger {
+  min-height: 46px;
+  padding: .72rem 1rem;
+  border: 1px solid #a85d55;
+  background: #733f39;
+  color: #fff4f1;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  transition: background .2s var(--ease), border-color .2s var(--ease);
+
+  &:hover:not(:disabled) { border-color: #d58a81; background: #8a4942; }
+  &:focus-visible { outline: 2px solid #f0aaa1; outline-offset: 3px; }
+  &:disabled { cursor: not-allowed; opacity: .58; }
+}
 .schedule-change-footer { width: min(100% - 2 * var(--pad), var(--maxw)); padding-bottom: 2rem; margin: 0 auto; color: var(--txt-faint); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -267,6 +345,9 @@
   .schedule-change-current { align-items: start; flex-direction: column; }
   .schedule-change-current p { text-align: left; }
   .schedule-change-card--expired { padding: 2.25rem 1.25rem; }
+  .schedule-change-modal__actions { align-items: stretch; flex-direction: column-reverse; }
+  .schedule-change-modal__actions .btn-line,
+  .schedule-change-danger { width: 100%; justify-content: center; }
   .schedule-change-footer { width: calc(100% - 2rem); }
 }
 

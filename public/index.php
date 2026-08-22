@@ -25,6 +25,8 @@ use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\ScheduleChangeAccessController;
+use Controllers\ReservationManagementAccessController;
+use Controllers\N8nReservationsController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\FeedbackController;
@@ -41,6 +43,7 @@ $router = new Router();
 // Home
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
+$router->get('/reservaciones/gestionar', [ReservationManagementAccessController::class, 'show']);
 $router->get('/reservaciones/cambio-horario', [ScheduleChangeAccessController::class, 'show']);
 
 // Reservaciones
@@ -58,6 +61,13 @@ $router->post('/api/reservaciones/contacto/logout', [ReservacionController::clas
 $router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
 $router->get('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
 $router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
+$router->post('/api/reservaciones/cambio-horario/cancelar', [ScheduleChangeAccessController::class, 'cancelar']);
+$router->get('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
+$router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAccessController::class, 'cancelar']);
+$router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
+$router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
 
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
@@ -65,6 +75,8 @@ $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
+$router->get('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'reservations']);
+$router->post('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'guardarReservaciones']);
 $router->post('/admin/configuracion/horarios/excepciones/guardar', [AdminConfigurationController::class, 'guardarExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'cambiarEstadoExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);

@@ -9,6 +9,7 @@ use Services\AnuncioConfig;
 use Services\AdminCsrfService;
 use Services\HorarioOperacionService;
 use Services\ReservacionErrorCatalog;
+use Services\ReservacionNotificacionConfigService;
 use Services\ReporteSistemaService;
 
 class AdminConfigurationController
@@ -18,6 +19,7 @@ class AdminConfigurationController
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
     private const POS_PATH = '/admin/configuracion/pos';
+    private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
 
     public static function index(Router $router): void
     {
@@ -38,6 +40,12 @@ class AdminConfigurationController
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                ],
+                [
+                    'titulo' => 'Reservaciones',
+                    'descripcion' => 'Configura recordatorios automáticos y comunicaciones con clientes.',
+                    'ruta' => self::RESERVATIONS_PATH,
+                    'icono' => '<path d="M6 3v3M18 3v3M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="m9 14 2 2 4-4"/>',
                 ],
                 [
                     'titulo' => 'POS',
@@ -368,6 +376,53 @@ class AdminConfigurationController
         self::renderPos($configuracion->valoresFormulario(), $alertas);
     }
 
+    public static function reservations(Router $router): void
+    {
+        $alertas = (string)($_GET['resultado'] ?? '') === 'reservaciones_actualizadas'
+            ? ['exito' => ['La configuración de reservaciones se actualizó correctamente.']]
+            : [];
+        try {
+            $configuracion = ReservacionNotificacionConfigService::obtenerOCrear();
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::reservations - configuración no disponible.');
+            $configuracion = ReservacionNotificacionConfigService::obtener();
+            $alertas['error'][] = 'No fue posible cargar la configuración de reservaciones.';
+        }
+        self::renderReservations($configuracion, $alertas);
+    }
+
+    public static function guardarReservaciones(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::RESERVATIONS_PATH);
+        }
+        $entrada = [
+            'recordatorio_dia_anterior_activo' => isset($_POST['recordatorio_dia_anterior_activo'])
+                && is_scalar($_POST['recordatorio_dia_anterior_activo'])
+                && (string)$_POST['recordatorio_dia_anterior_activo'] === '1',
+            'hora_recordatorio' => is_scalar($_POST['hora_recordatorio'] ?? null)
+                ? trim((string)$_POST['hora_recordatorio'])
+                : '',
+        ];
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string)$_POST['admin_csrf'] : null)) {
+            self::renderReservations($entrada, ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']]);
+            return;
+        }
+        try {
+            $resultado = ReservacionNotificacionConfigService::guardar($entrada, self::usuarioAutenticadoId());
+            if (($resultado['ok'] ?? false) === true) {
+                self::redirect(self::RESERVATIONS_PATH . '?resultado=reservaciones_actualizadas');
+            }
+            self::renderReservations(
+                (array)($resultado['configuracion'] ?? $entrada),
+                ['error' => (array)($resultado['errors'] ?? ['La configuración no es válida.'])]
+            );
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarReservaciones - guardado no disponible.');
+            self::renderReservations($entrada, ['error' => ['No fue posible actualizar la configuración. Intenta de nuevo.']]);
+        }
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -444,6 +499,17 @@ class AdminConfigurationController
             'adminCsrfToken' => AdminCsrfService::token(),
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
+    }
+
+    private static function renderReservations(array $configuracion, array $alertas): void
+    {
+        self::render('configuration/reservations', [
+            'title' => 'Reservaciones',
+            'topbarSection' => 'Configuración',
+            'configuracionReservaciones' => $configuracion,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+        ]);
     }
 
     private static function urlResultadoHorario(string $resultado, array $respuesta): string

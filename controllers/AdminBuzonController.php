@@ -191,7 +191,11 @@ final class AdminBuzonController
                 && (string)$fuente['access_expires_at'] <= $ahora;
             $tieneContacto = (bool)($fuente['tiene_contacto'] ?? false);
             $esGrupoGrande = (int)($fuente['comensales'] ?? 0) > ReservacionConfig::MAX_COMENSALES_PUBLICO;
-            $requiereAccion = !$tieneContacto || $esGrupoGrande || $expirada;
+            $estadoEntrega = (string)($fuente['notification_delivery_status'] ?? 'pending');
+            $requiereAccion = !$tieneContacto
+                || $esGrupoGrande
+                || in_array($estadoEntrega, ['pending', 'failed'], true)
+                || $expirada;
             if ($esGrupoGrande) {
                 $fuente['etiqueta'] = 'Requiere gestión manual';
                 $fuente['descripcion'] = 'Los grupos de más de 12 personas se coordinan desde la reservación.';
@@ -200,6 +204,14 @@ final class AdminBuzonController
                 $fuente['etiqueta'] = 'Falta un contacto';
                 $fuente['descripcion'] = 'Agrega un correo o teléfono para enviar el enlace.';
                 $fuente['severidad'] = 20;
+            } elseif ($estadoEntrega === 'failed') {
+                $fuente['etiqueta'] = 'No pudimos enviar el aviso.';
+                $fuente['descripcion'] = 'El acceso se invalidó. Revisa el contacto antes de enviar un recordatorio.';
+                $fuente['severidad'] = 20;
+            } elseif ($estadoEntrega === 'pending') {
+                $fuente['etiqueta'] = 'Aviso preparado';
+                $fuente['descripcion'] = 'Esperando respuesta del servicio de envío.';
+                $fuente['severidad'] = 40;
             } elseif ($expirada) {
                 $fuente['etiqueta'] = 'Sin respuesta';
                 $fuente['descripcion'] = 'El enlace para cambiar el horario venció.';
@@ -212,7 +224,8 @@ final class AdminBuzonController
                 } catch (\Throwable) {
                     $horaExpiracion = substr((string)$fuente['access_expires_at'], 11, 5);
                 }
-                $fuente['descripcion'] = 'El cliente tiene un enlace activo hasta ' . $horaExpiracion . '.';
+                $fuente['descripcion'] = ($estadoEntrega === 'delivered' ? 'Aviso enviado. ' : '')
+                    . 'El cliente tiene un enlace activo hasta ' . $horaExpiracion . '.';
                 $fuente['severidad'] = 50;
             }
             $fuente['accion_primaria'] = 'Abrir reservación';

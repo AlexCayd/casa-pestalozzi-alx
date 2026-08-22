@@ -141,6 +141,11 @@ class HorarioOperacionService
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
             $transaccionIniciada = false;
+            if ($lockHorario) {
+                HorarioConfigLock::liberar($db);
+                $lockHorario = false;
+            }
+            $notificationDispatch = self::dispatchImpactoSeguro($impactoId);
 
             return [
                 'ok' => true,
@@ -148,6 +153,7 @@ class HorarioOperacionService
                 'datos' => $validacion['datos'],
                 'horarios' => self::obtenerHorarioSemanal(),
                 'impacto_id' => $impactoId,
+                'notification_dispatch' => $notificationDispatch,
             ];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
@@ -268,6 +274,9 @@ class HorarioOperacionService
                 throw new \RuntimeException('No fue posible confirmar la transaccion de la excepcion.');
             }
             $transaccionIniciada = false;
+            self::liberarLocksFecha($db, $locksFecha);
+            $locksFecha = [];
+            $notificationDispatch = self::dispatchImpactoSeguro($impactoId);
 
             return [
                 'ok' => true,
@@ -275,6 +284,7 @@ class HorarioOperacionService
                 'editada' => $id !== null,
                 'codigo' => $id !== null ? 'EXCEPCION_ACTUALIZADA' : 'EXCEPCION_CREADA',
                 'impacto_id' => $impactoId,
+                'notification_dispatch' => $notificationDispatch,
             ];
         } catch (\mysqli_sql_exception $e) {
             error_log('HorarioOperacionService::guardarExcepcion - ' . $e->getMessage());
@@ -362,11 +372,15 @@ class HorarioOperacionService
                 throw new \RuntimeException('No fue posible confirmar la transaccion de estado.');
             }
             $transaccionIniciada = false;
+            self::liberarLocksFecha($db, $locksFecha);
+            $locksFecha = [];
+            $notificationDispatch = self::dispatchImpactoSeguro($impactoId);
 
             return [
                 'ok' => true,
                 'codigo' => 'EXCEPCION_ESTADO_ACTUALIZADO',
                 'impacto_id' => $impactoId,
+                'notification_dispatch' => $notificationDispatch,
             ];
         } catch (\Throwable $e) {
             error_log('HorarioOperacionService::cambiarEstadoExcepcion - ' . $e->getMessage());
@@ -424,8 +438,15 @@ class HorarioOperacionService
                 throw new \RuntimeException('No fue posible confirmar la transacción.');
             }
             $transaccionIniciada = false;
+            self::liberarLocksFecha($db, $locksFecha);
+            $locksFecha = [];
 
-            return ['ok' => true, 'codigo' => 'EXCEPCION_ELIMINADA', 'impacto_id' => $impactoId];
+            return [
+                'ok' => true,
+                'codigo' => 'EXCEPCION_ELIMINADA',
+                'impacto_id' => $impactoId,
+                'notification_dispatch' => self::dispatchImpactoSeguro($impactoId),
+            ];
         } catch (\Throwable $e) {
             if ($transaccionIniciada) {
                 $db->rollback();
@@ -858,6 +879,20 @@ class HorarioOperacionService
     private static function normalizarBooleano($valor): bool
     {
         return in_array($valor, [1, '1', true, 'true', 'on'], true);
+    }
+
+    /** El resultado del dominio ya fue confirmado; el transporte nunca lo revierte. */
+    private static function dispatchImpactoSeguro(?int $impactoId): array
+    {
+        if (!$impactoId) {
+            return ['attempted' => 0, 'accepted' => 0, 'failed' => 0];
+        }
+        try {
+            return ReservationNotificationDispatcher::dispatchScheduleChange($impactoId);
+        } catch (\Throwable $e) {
+            error_log('HorarioOperacionService::dispatchImpactoSeguro - fallo post-commit redactado.');
+            return ['attempted' => 0, 'accepted' => 0, 'failed' => 0, 'error' => true];
+        }
     }
 
     private static function horaCorta(string $hora): string

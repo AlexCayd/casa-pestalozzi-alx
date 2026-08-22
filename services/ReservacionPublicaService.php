@@ -685,16 +685,22 @@ final class ReservacionPublicaService
      * Reutiliza las mismas reglas de fecha, horario, capacidad y asignación,
      * pero obtiene el contacto exclusivamente desde la reservación original.
      */
-    public static function crearReemplazoAutorizado(array $entrada, array $contexto): array
+    public static function crearReemplazoConAccesoTemporal(array $entrada, array $contexto): array
     {
-        $id = (int)($contexto['reservacion_id'] ?? 0);
-        $impactoReservacionId = (int)($contexto['impacto_reservacion_id'] ?? 0);
+        $id = (int)($contexto['reservation_id'] ?? $contexto['reservacion_id'] ?? 0);
+        $sourceId = (int)($contexto['source_id'] ?? $contexto['impacto_reservacion_id'] ?? 0);
+        $sourceType = (string)($contexto['source_type'] ?? ReservationManagementAccessService::SOURCE_SCHEDULE_CHANGE);
+        $contexto['source_id'] = $sourceId;
+        $contexto['source_type'] = $sourceType;
         $fecha = trim((string)($entrada['fecha'] ?? ''));
         $hora = HorarioReservacionService::normalizarHoraSql((string)($entrada['hora'] ?? ''));
         $personas = filter_var($entrada['personas'] ?? $entrada['comensales'] ?? null, FILTER_VALIDATE_INT);
         $nota = trim((string)($entrada['nota'] ?? $entrada['notas'] ?? ''));
 
-        if ($id < 1 || $impactoReservacionId < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
+        if ($id < 1 || $sourceId < 1 || !in_array($sourceType, [
+            ReservationManagementAccessService::SOURCE_SCHEDULE_CHANGE,
+            ReservationManagementAccessService::SOURCE_REMINDER_NEXT_DAY,
+        ], true) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
             return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
         }
         if ($personas === false || $personas < 1 || $personas > ReservacionConfig::MAX_COMENSALES_PUBLICO) {
@@ -717,7 +723,7 @@ final class ReservacionPublicaService
         $fechas = [(string)$original['fecha'], $fecha];
         return self::conLocks($tipo, $contacto, $fechas, function (\mysqli $db) use (
             $id,
-            $impactoReservacionId,
+            $contexto,
             $fecha,
             $hora,
             $personas,
@@ -727,7 +733,7 @@ final class ReservacionPublicaService
             try {
                 $db->begin_transaction();
                 $transaccion = true;
-                if (!HorarioOperacionImpactoService::accesoValidoEnTransaccion($db, $impactoReservacionId, $id)) {
+                if (!ReservationManagementAccessService::accesoValidoEnTransaccion($db, $contexto, 'modify')) {
                     $db->rollback();
                     $transaccion = false;
                     return self::modificacionNoPermitida();
@@ -800,20 +806,14 @@ final class ReservacionPublicaService
                 );
                 self::ejecutarStmt($stmt, 'si', [$estadoChangedAt, $id]);
 
-                if (!HorarioOperacionImpactoService::resolverPorClienteEnTransaccion(
-                    $db,
-                    $id,
-                    $fecha,
-                    $hora
-                )) {
-                    throw new \RuntimeException('La afectación ya no está disponible para resolverse.');
+                if (!ReservationManagementAccessService::finalizarEnTransaccion($db, $contexto)) {
+                    throw new \RuntimeException('El acceso temporal ya no está disponible para resolverse.');
                 }
 
                 if (!$db->commit()) {
                     throw new \RuntimeException('No fue posible confirmar el cambio autorizado.');
                 }
                 $transaccion = false;
-                ScheduleChangeAccessSession::limpiar();
                 $reemplazo = self::buscarPorId($reemplazoId) ?: [
                     'id' => $reemplazoId,
                     'nombre' => $fila['nombre'],
@@ -828,10 +828,20 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearReemplazoAutorizado - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearReemplazoConAccesoTemporal - ' . $e->getMessage());
                 return self::errorInterno();
             }
         });
+    }
+
+    /** Alias heredado para accesos de cambio de horario. */
+    public static function crearReemplazoAutorizado(array $entrada, array $contexto): array
+    {
+        $contexto['source_type'] = $contexto['source_type']
+            ?? ReservationManagementAccessService::SOURCE_SCHEDULE_CHANGE;
+        $contexto['source_id'] = $contexto['source_id']
+            ?? (int)($contexto['impacto_reservacion_id'] ?? 0);
+        return self::crearReemplazoConAccesoTemporal($entrada, $contexto);
     }
 
     /** Confirma el reemplazo y mueve ambas filas de estado atómicamente. */
@@ -1003,16 +1013,67 @@ final class ReservacionPublicaService
             return self::noPertenece();
         }
 
-        return self::conLocks($tipo, $contacto, [(string)$actual['fecha']], function (\mysqli $db) use ($id, $tipo, $contacto): array {
+        return self::cancelarComun(
+            $id,
+            $actual,
+            static fn(\mysqli $db, array $fila): bool => self::mismoContacto($fila, $tipo, $contacto),
+            null
+        );
+    }
+
+    /** Cancela sólo la reservación autorizada por la sesión temporal. */
+    public static function cancelarConAccesoTemporal(int $id, array $contexto): array
+    {
+        if ($id < 1 || $id !== (int)($contexto['reservation_id'] ?? 0)) {
+            return self::datosInvalidos('DATOS_RESERVACION_INVALIDOS');
+        }
+        $actual = self::buscarPorId($id);
+        if (!$actual) {
+            return self::noEncontrada();
+        }
+        if (!in_array((string)($actual['contacto_tipo'] ?? ''), ContactoService::TIPOS, true)
+            || trim((string)($actual['contacto'] ?? '')) === ''
+        ) {
+            return self::cancelacionNoPermitida();
+        }
+
+        return self::cancelarComun(
+            $id,
+            $actual,
+            static fn(\mysqli $db, array $fila): bool => ReservationManagementAccessService::accesoValidoEnTransaccion(
+                $db,
+                $contexto,
+                'cancel'
+            ),
+            $contexto
+        );
+    }
+
+    /** Cuerpo transaccional único para sesión de contacto y acceso temporal. */
+    private static function cancelarComun(
+        int $id,
+        array $actual,
+        callable $autorizar,
+        ?array $contexto
+    ): array {
+        $tipo = (string)$actual['contacto_tipo'];
+        $contacto = (string)$actual['contacto'];
+
+        return self::conLocks($tipo, $contacto, [(string)$actual['fecha']], function (\mysqli $db) use ($id, $autorizar, $contexto): array {
             $transaccion = false;
             try {
                 $db->begin_transaction();
                 $transaccion = true;
-                $fila = self::buscarPorIdParaActualizar($id);
-                if (!$fila || !self::mismoContacto($fila, $tipo, $contacto)) {
+                if ($contexto !== null && !$autorizar($db, [])) {
                     $db->rollback();
                     $transaccion = false;
-                    return self::noPertenece();
+                    return self::cancelacionNoPermitida();
+                }
+                $fila = self::buscarPorIdParaActualizar($id);
+                if (!$fila || ($contexto === null && !$autorizar($db, $fila))) {
+                    $db->rollback();
+                    $transaccion = false;
+                    return self::cancelacionNoPermitida();
                 }
                 if ((string)$fila['estado'] === 'cancelada') {
                     $db->commit();
@@ -1067,9 +1128,16 @@ final class ReservacionPublicaService
                     ReservacionConfig::ahora()->format('Y-m-d H:i:s'),
                     $id,
                 ]);
+                if ($contexto !== null
+                    && !ReservationManagementAccessService::finalizarEnTransaccion($db, $contexto)
+                ) {
+                    throw new \RuntimeException('El acceso temporal ya no está disponible para cancelar.');
+                }
                 $db->commit();
                 $transaccion = false;
-                HorarioOperacionImpactoService::reconciliarReservacion($id, null);
+                if ($contexto === null) {
+                    HorarioOperacionImpactoService::reconciliarReservacion($id, null);
+                }
                 return [
                     'ok' => true,
                     'codigo' => self::RESERVACION_CANCELADA,
@@ -1631,6 +1699,14 @@ final class ReservacionPublicaService
         return [
             'ok' => false,
             'codigo' => self::MODIFICACION_NO_PERMITIDA,
+        ];
+    }
+
+    private static function cancelacionNoPermitida(): array
+    {
+        return [
+            'ok' => false,
+            'codigo' => self::CANCELACION_NO_PERMITIDA,
         ];
     }
 

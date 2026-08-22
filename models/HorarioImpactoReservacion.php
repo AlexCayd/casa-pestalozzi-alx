@@ -9,7 +9,8 @@ class HorarioImpactoReservacion extends ActiveRecord
     protected static $columnasDB = [
         'id', 'impacto_id', 'reservacion_id', 'estado', 'notification_prepared_at',
         'access_token_hash', 'access_expires_at', 'access_invalidated_at', 'notification_attempts',
-        'last_notification_at', 'resolved_by',
+        'last_notification_at', 'notification_delivery_status',
+        'notification_delivery_updated_at', 'resolved_by',
         'resolved_at', 'created_at', 'updated_at',
     ];
 
@@ -23,6 +24,8 @@ class HorarioImpactoReservacion extends ActiveRecord
     public $access_invalidated_at = null;
     public $notification_attempts = 0;
     public $last_notification_at = null;
+    public $notification_delivery_status = 'pending';
+    public $notification_delivery_updated_at = null;
     public $resolved_by = null;
     public $resolved_at = null;
     public $created_at = null;
