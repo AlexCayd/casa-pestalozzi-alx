@@ -18,6 +18,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <title>menu-casa-pestalozzi</title>
     <style>
         @font-face {
             font-family: "Playfair Display";
