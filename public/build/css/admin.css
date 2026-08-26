@@ -11,17 +11,26 @@
  */
 /* ── Tokens compartidos (independientes del tema) ─────────────── */
 .admin-body {
-  /* Marca */
-  --admin-gold: #cca352;
-  --admin-gold-soft: #e0c184;
-  --admin-gold-deep: #a07e36;
+  /* ═══ Capa 1 · MARCA ═════════════════════════════════════════
+     Los cuatro colores del manual. Son los únicos hex de marca del panel;
+     todo lo demás se deriva de ellos con color-mix. El panel repite la capa
+     en lugar de leer la del sitio público porque está aislado a propósito:
+     `admin.css` nunca carga `app.css`. */
+  --admin-brand-verde: #225036;
+  --admin-brand-vino: #4b1915;
+  --admin-brand-oro: #d2ab67;
+  --admin-brand-crema: #f5f1e8;
+  /* ═══ Capa 2 · ESCALAS ═══════════════════════════════════════ */
+  --admin-gold: var(--admin-brand-oro);
+  --admin-gold-soft: color-mix(in srgb, var(--admin-brand-oro) 55%, var(--admin-brand-crema));
+  --admin-gold-deep: color-mix(in srgb, var(--admin-brand-oro) 52%, var(--admin-brand-vino));
   /* Tinta para texto sobre dorado. Fija en ambos temas: el dorado no cambia,
      así que su contraparte legible tampoco. */
-  --admin-ink-on-gold: #1b1a17;
-  --admin-sage: #5f7d56;
-  --admin-sage-deep: #4e6148;
-  --admin-terra: #7c3d1d;
-  --admin-terra-deep: #632f16;
+  --admin-ink-on-gold: color-mix(in srgb, var(--admin-brand-verde) 72%, black);
+  --admin-sage: var(--admin-brand-verde);
+  --admin-sage-deep: color-mix(in srgb, var(--admin-brand-verde) 72%, black);
+  --admin-terra: var(--admin-brand-vino);
+  --admin-terra-deep: color-mix(in srgb, var(--admin-brand-vino) 76%, black);
   /* Paleta de acento de marca. La base del panel sigue siendo negro +
      dorado; estos tokens cubren todo lo que no lo es (estados, series de
      gráficas, tipos de anuncio). Consumirlos por variable. Ver CLAUDE.md. */
@@ -82,9 +91,16 @@
   --admin-t-base: 260ms;
   --admin-t-slow: 480ms;
   --admin-glow:
-    0 0 0 1px rgba(204, 163, 82, 0.35),
-    0 0 22px rgba(204, 163, 82, 0.18);
-  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.3);
+    0 0 0 1px color-mix(in srgb, var(--admin-gold) 35%, transparent),
+    0 0 22px color-mix(in srgb, var(--admin-gold) 18%, transparent);
+  --admin-focus-ring: 0 0 0 3px color-mix(in srgb, var(--admin-gold) 30%, transparent);
+  /* Serie de las gráficas. Vive aquí para que charts.js la lea con readToken()
+     en vez de guardar su propia copia en JS. NO adopta la paleta de marca:
+     verde y vino son indistinguibles bajo deuteranopia, y estos pasos están
+     validados (ver CLAUDE.md y el skill dataviz). Se declaran con valores
+     literales, no con color-mix, porque getComputedStyle devuelve la función
+     sin resolver y Chart.js no sabe interpretarla. */
+  --admin-chart-grid: color-mix(in srgb, var(--admin-muted) 40%, transparent);
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -135,54 +151,74 @@ html.lenis body {
 /* ── Tema claro ────────────────────────────────────────────────── */
 [data-admin-theme=light] .admin-body {
   /* Superficies */
-  --admin-bg: #f6f1e7;
-  --admin-surface: #fdfcfb;
-  --admin-surface-soft: #fbf9f4;
-  --admin-surface-strong: #ffffff;
+  --admin-bg: var(--admin-brand-crema);
+  --admin-surface: color-mix(in srgb, var(--admin-brand-crema) 45%, white);
+  --admin-surface-soft: color-mix(in srgb, var(--admin-brand-crema) 70%, white);
+  --admin-surface-strong: white;
+  /* Velo sobre foto y sombra proyectada. El velo es oscuro en los dos temas:
+     sobre una imagen el texto siempre va en claro. */
+  --admin-scrim: color-mix(in srgb, var(--admin-brand-verde) 82%, black);
+  --admin-sombra: color-mix(in srgb, var(--admin-brand-verde) 55%, black);
   /*
    * Sidebar: en claro también va en claro. Antes quedaba fijo en tinta
    * profunda y el interruptor de tema no lo tocaba.
    */
-  --admin-sidebar: #fffdf8;
-  --admin-sidebar-soft: #f6f1e7;
-  --admin-sidebar-border: rgba(11, 12, 13, 0.09);
-  --admin-sidebar-text: #0b0c0d;
-  --admin-sidebar-link: rgba(11, 12, 13, 0.68);
-  --admin-sidebar-link-hover: #0b0c0d;
-  --admin-sidebar-hover-bg: rgba(11, 12, 13, 0.05);
-  --admin-sidebar-active-bg: rgba(204, 163, 82, 0.18);
-  --admin-sidebar-active-text: #0b0c0d;
-  --admin-sidebar-mark-bg: rgba(11, 12, 13, 0.05);
-  --admin-sidebar-mark-active-text: #1b1a17;
-  --admin-sidebar-scroll: rgba(160, 126, 54, 0.36);
-  --admin-sidebar-scroll-hover: rgba(160, 126, 54, 0.55);
-  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.18);
-  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.35);
+  --admin-sidebar: color-mix(in srgb, var(--admin-brand-crema) 40%, white);
+  --admin-sidebar-soft: var(--admin-brand-crema);
+  --admin-sidebar-border: color-mix(in srgb, var(--admin-ink-on-gold) 12%, transparent);
+  --admin-sidebar-text: var(--admin-ink-on-gold);
+  --admin-sidebar-link: color-mix(in srgb, var(--admin-ink-on-gold) 68%, transparent);
+  --admin-sidebar-link-hover: var(--admin-ink-on-gold);
+  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-ink-on-gold) 6%, transparent);
+  --admin-sidebar-active-bg: color-mix(in srgb, var(--admin-gold) 22%, transparent);
+  --admin-sidebar-active-text: var(--admin-ink-on-gold);
+  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-ink-on-gold) 6%, transparent);
+  --admin-sidebar-mark-active-text: var(--admin-ink-on-gold);
+  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-gold-deep) 40%, transparent);
+  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-gold-deep) 60%, transparent);
+  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
+  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 35%, transparent);
   /* Texto */
-  --admin-text: #0b0c0d;
-  --admin-muted: rgba(11, 12, 13, 0.58);
-  --admin-faint: rgba(11, 12, 13, 0.42);
-  --admin-text-inverse: #ede9df;
-  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  --admin-text: var(--admin-ink-on-gold);
+  --admin-muted: color-mix(in srgb, var(--admin-ink-on-gold) 62%, var(--admin-bg));
+  --admin-faint: color-mix(in srgb, var(--admin-ink-on-gold) 42%, var(--admin-bg));
+  --admin-text-inverse: var(--admin-brand-crema);
+  --admin-muted-inverse: color-mix(in srgb, var(--admin-brand-crema) 62%, var(--admin-scrim));
   /* Bordes */
-  --admin-border: rgba(204, 163, 82, 0.22);
-  --admin-border-soft: rgba(11, 12, 13, 0.08);
+  --admin-border: color-mix(in srgb, var(--admin-gold) 34%, transparent);
+  --admin-border-soft: color-mix(in srgb, var(--admin-ink-on-gold) 10%, transparent);
   --admin-line: var(--admin-border-soft);
+  /* Serie categórica y magnitudes, un paso más oscuras para contrastar sobre
+     la superficie clara. Valores literales: los lee Chart.js. */
+  --admin-chart-1: #0895a2;
+  --admin-chart-2: #cc4e12;
+  --admin-chart-3: #2a73e8;
+  --admin-chart-4: #b32f9e;
+  --admin-chart-5: #2a9247;
+  --admin-chart-ventas: #2a9247;
+  --admin-chart-reservas: #cc4e12;
+  --admin-chart-bajo: #c40e1d;
+  --admin-chart-tooltip: #211f1b;
+  /* Cuadrantes de la matriz de ingeniería de menú (Nivel 1). */
+  --admin-n1-estrella: #3f8f4f;
+  --admin-n1-vaca: #c98a1f;
+  --admin-n1-incognita: #2f6db3;
+  --admin-n1-perro: #c1462e;
   /* Estados base: directo a la paleta, sin tonos paralelos. */
   --admin-success: var(--admin-c-verde);
   --admin-warning: var(--admin-c-ambar);
   --admin-danger: var(--admin-c-rojo);
   --admin-info: var(--admin-c-azul);
   /* Superficies elevadas / cristal */
-  --admin-topbar-bg: rgba(253, 252, 251, 0.72);
-  --admin-topbar-border: rgba(11, 12, 13, 0.08);
-  --admin-table-head: rgba(11, 12, 13, 0.54);
+  --admin-topbar-bg: color-mix(in srgb, var(--admin-surface) 72%, transparent);
+  --admin-topbar-border: color-mix(in srgb, var(--admin-ink-on-gold) 8%, transparent);
+  --admin-table-head: color-mix(in srgb, var(--admin-ink-on-gold) 54%, var(--admin-bg));
   /* Sombras */
-  --admin-shadow-sm: 0 1px 0 rgba(11, 12, 13, 0.04);
-  --admin-shadow-md: 0 18px 44px rgba(11, 12, 13, 0.07);
-  --admin-shadow-lg: 0 30px 80px rgba(11, 12, 13, 0.14);
+  --admin-shadow-sm: 0 1px 0 color-mix(in srgb, var(--admin-sombra) 5%, transparent);
+  --admin-shadow-md: 0 18px 44px color-mix(in srgb, var(--admin-sombra) 9%, transparent);
+  --admin-shadow-lg: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 16%, transparent);
   /* Botones dependientes de superficie */
-  --admin-btn-secondary-bg: #fffaf0;
+  --admin-btn-secondary-bg: color-mix(in srgb, var(--admin-brand-crema) 30%, white);
   /* Grano/viñeta cinematográfica (apagado en claro) */
   --admin-grain: 0;
   /* Trios de estado (badges/status/alertas). Se derivan de la paleta de marca
@@ -190,18 +226,18 @@ html.lenis body {
      verde que el del POS y el de las gráficas. Sobre fondo claro los textos
      se oscurecen mezclando con la tinta para conservar el contraste. */
   --admin-neutral-text: var(--admin-gold-deep);
-  --admin-neutral-bg: rgba(187, 143, 62, 0.12);
-  --admin-neutral-border: rgba(160, 126, 54, 0.24);
-  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, #0b0c0d);
+  --admin-neutral-bg: color-mix(in srgb, var(--admin-gold) 14%, transparent);
+  --admin-neutral-border: color-mix(in srgb, var(--admin-gold-deep) 26%, transparent);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, var(--admin-ink-on-gold));
   --admin-success-bg: var(--admin-c-verde-bg);
   --admin-success-border: var(--admin-c-verde-border);
-  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 52%, #0b0c0d);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 52%, var(--admin-ink-on-gold));
   --admin-warning-bg: var(--admin-c-ambar-bg);
   --admin-warning-border: var(--admin-c-ambar-border);
-  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 68%, #0b0c0d);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 68%, var(--admin-ink-on-gold));
   --admin-danger-bg: var(--admin-c-rojo-bg);
   --admin-danger-border: var(--admin-c-rojo-border);
-  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 62%, #0b0c0d);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 62%, var(--admin-ink-on-gold));
   --admin-info-bg: var(--admin-c-azul-bg);
   --admin-info-border: var(--admin-c-azul-border);
 }
@@ -209,68 +245,86 @@ html.lenis body {
 /* ── Tema oscuro cinematográfico (por defecto; paridad con mapa/áreas/landing) ─ */
 .admin-body,
 [data-admin-theme=dark] .admin-body {
-  /* Superficies */
-  --admin-bg: #101213;
-  --admin-surface: #15181a;
-  --admin-surface-soft: #1c2023;
-  --admin-surface-strong: #21262a;
+  /* Superficies: verde de marca hundido hacia el negro, no gris neutro. */
+  --admin-bg: color-mix(in srgb, var(--admin-brand-verde) 34%, black);
+  --admin-surface: color-mix(in srgb, var(--admin-brand-verde) 44%, black);
+  --admin-surface-soft: color-mix(in srgb, var(--admin-brand-verde) 56%, black);
+  --admin-surface-strong: color-mix(in srgb, var(--admin-brand-verde) 68%, black);
+  --admin-scrim: color-mix(in srgb, var(--admin-brand-verde) 82%, black);
+  --admin-sombra: black;
   /* Sidebar aún más profundo que el fondo */
-  --admin-sidebar: #0b0c0d;
-  --admin-sidebar-soft: #101213;
+  --admin-sidebar: color-mix(in srgb, var(--admin-brand-verde) 22%, black);
+  --admin-sidebar-soft: var(--admin-bg);
   --admin-sidebar-border: transparent;
-  --admin-sidebar-text: #ede9df;
-  --admin-sidebar-link: rgba(248, 239, 226, 0.78);
-  --admin-sidebar-link-hover: #fff;
-  --admin-sidebar-hover-bg: rgba(248, 239, 226, 0.1);
-  --admin-sidebar-active-bg: rgba(248, 239, 226, 0.12);
-  --admin-sidebar-active-text: #fff;
-  --admin-sidebar-mark-bg: rgba(248, 239, 226, 0.08);
-  --admin-sidebar-mark-active-text: #101213;
-  --admin-sidebar-scroll: rgba(204, 163, 82, 0.32);
-  --admin-sidebar-scroll-hover: rgba(204, 163, 82, 0.5);
-  --admin-sidebar-shadow: 0 30px 80px rgba(33, 31, 27, 0.28);
-  --admin-sidebar-backdrop: rgba(33, 31, 27, 0.5);
+  --admin-sidebar-text: var(--admin-brand-crema);
+  --admin-sidebar-link: color-mix(in srgb, var(--admin-brand-crema) 78%, transparent);
+  --admin-sidebar-link-hover: white;
+  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-brand-crema) 10%, transparent);
+  --admin-sidebar-active-bg: color-mix(in srgb, var(--admin-gold) 18%, transparent);
+  --admin-sidebar-active-text: white;
+  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-brand-crema) 8%, transparent);
+  --admin-sidebar-mark-active-text: var(--admin-ink-on-gold);
+  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-gold) 32%, transparent);
+  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-gold) 50%, transparent);
+  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 28%, transparent);
+  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 50%, transparent);
   /* Texto */
-  --admin-text: #ede9df;
-  --admin-muted: rgba(237, 233, 223, 0.58);
-  --admin-faint: rgba(237, 233, 223, 0.34);
-  --admin-text-inverse: #ede9df;
-  --admin-muted-inverse: rgba(237, 233, 223, 0.58);
+  --admin-text: var(--admin-brand-crema);
+  --admin-muted: color-mix(in srgb, var(--admin-brand-crema) 58%, var(--admin-bg));
+  --admin-faint: color-mix(in srgb, var(--admin-brand-crema) 34%, var(--admin-bg));
+  --admin-text-inverse: var(--admin-brand-crema);
+  --admin-muted-inverse: color-mix(in srgb, var(--admin-brand-crema) 58%, var(--admin-scrim));
   /* Bordes: hairline dorado sobre oscuro */
-  --admin-border: rgba(204, 163, 82, 0.24);
-  --admin-border-soft: rgba(245, 245, 245, 0.08);
+  --admin-border: color-mix(in srgb, var(--admin-gold) 24%, transparent);
+  --admin-border-soft: color-mix(in srgb, var(--admin-brand-crema) 8%, transparent);
   --admin-line: var(--admin-border-soft);
+  /* Serie categórica ajustada a la superficie oscura. Valores literales
+     porque los lee Chart.js con getComputedStyle. */
+  --admin-chart-1: #17a2ad;
+  --admin-chart-2: #e05a18;
+  --admin-chart-3: #3a86ff;
+  --admin-chart-4: #c93db2;
+  --admin-chart-5: #34a853;
+  --admin-chart-ventas: #34a853;
+  --admin-chart-reservas: #e05a18;
+  --admin-chart-bajo: #e51022;
+  --admin-chart-tooltip: #0b0c0d;
+  /* Cuadrantes de la matriz de ingeniería de menú (Nivel 1). */
+  --admin-n1-estrella: #6cc24a;
+  --admin-n1-vaca: #f2b134;
+  --admin-n1-incognita: #5aa9e6;
+  --admin-n1-perro: #f2673f;
   /* Estados base: misma paleta que en claro. */
   --admin-success: var(--admin-c-verde);
   --admin-warning: var(--admin-c-ambar);
   --admin-danger: var(--admin-c-rojo);
   --admin-info: var(--admin-c-azul);
   /* Cristal / topbar translúcido */
-  --admin-topbar-bg: rgba(16, 18, 19, 0.66);
-  --admin-topbar-border: rgba(204, 163, 82, 0.16);
-  --admin-table-head: rgba(237, 233, 223, 0.5);
+  --admin-topbar-bg: color-mix(in srgb, var(--admin-bg) 66%, transparent);
+  --admin-topbar-border: color-mix(in srgb, var(--admin-gold) 16%, transparent);
+  --admin-table-head: color-mix(in srgb, var(--admin-brand-crema) 50%, var(--admin-bg));
   /* Sombras más profundas y frías */
-  --admin-shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4);
-  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
-  --admin-shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.55);
-  --admin-btn-secondary-bg: rgba(204, 163, 82, 0.08);
+  --admin-shadow-sm: 0 1px 0 color-mix(in srgb, var(--admin-sombra) 40%, transparent);
+  --admin-shadow-md: 0 20px 50px color-mix(in srgb, var(--admin-sombra) 45%, transparent);
+  --admin-shadow-lg: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 55%, transparent);
+  --admin-btn-secondary-bg: color-mix(in srgb, var(--admin-gold) 8%, transparent);
   /* Grano/viñeta encendido */
   --admin-grain: 1;
   /* Trios de estado (texto claro sobre tintes). Mismos colores de paleta que
-     en claro, aclarados con blanco para levantar el contraste sobre #15181a. */
+     en claro, aclarados con blanco para levantar el contraste sobre la superficie. */
   --admin-neutral-text: var(--admin-gold-soft);
-  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
-  --admin-neutral-border: rgba(204, 163, 82, 0.3);
-  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, #ffffff);
+  --admin-neutral-bg: color-mix(in srgb, var(--admin-gold) 14%, transparent);
+  --admin-neutral-border: color-mix(in srgb, var(--admin-gold) 30%, transparent);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, white);
   --admin-success-bg: var(--admin-c-verde-bg);
   --admin-success-border: var(--admin-c-verde-border);
-  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 82%, #ffffff);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 82%, white);
   --admin-warning-bg: var(--admin-c-ambar-bg);
   --admin-warning-border: var(--admin-c-ambar-border);
-  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 56%, #ffffff);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 56%, white);
   --admin-danger-bg: var(--admin-c-rojo-bg);
   --admin-danger-border: var(--admin-c-rojo-border);
-  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 66%, #ffffff);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 66%, white);
   --admin-info-bg: var(--admin-c-azul-bg);
   --admin-info-border: var(--admin-c-azul-border);
 }
@@ -283,7 +337,7 @@ html.lenis body {
   z-index: 1;
   pointer-events: none;
   opacity: var(--admin-grain, 0);
-  background: radial-gradient(120% 120% at 50% 0%, transparent 58%, rgba(0, 0, 0, 0.5) 100%);
+  background: radial-gradient(120% 120% at 50% 0%, transparent 58%, color-mix(in srgb, var(--admin-sombra) 50%, transparent) 100%);
   mix-blend-mode: multiply;
   transition: opacity var(--admin-t-slow) var(--admin-ease-out);
 }
@@ -318,7 +372,7 @@ html.lenis body {
 
 .admin-body ::selection {
   background: var(--admin-gold);
-  color: #0b0c0d;
+  color: var(--admin-ink-on-gold);
 }
 
 /*
@@ -611,7 +665,7 @@ html.lenis body {
   background: var(--admin-gold);
   transform: translateY(-50%) scaleY(0);
   transform-origin: center;
-  box-shadow: 0 0 12px rgba(204, 163, 82, 0.55);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--admin-gold) 55%, transparent);
   transition: transform var(--admin-t-base) var(--admin-ease);
 }
 .admin-sidebar__link .admin-sidebar__link-mark {
@@ -824,8 +878,8 @@ html.lenis body {
   stroke-width: 1.8;
 }
 .admin-topbar__support:hover {
-  border-color: rgba(200, 90, 60, 0.5);
-  background: rgba(200, 90, 60, 0.1);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
   color: var(--admin-danger-text);
 }
 .admin-topbar__support:focus-visible {
@@ -865,7 +919,7 @@ html.lenis body {
   place-items: center;
   border-radius: 50%;
   background: var(--admin-sage-deep);
-  color: #fff;
+  color: var(--admin-text-inverse);
   font-size: 11px;
 }
 
@@ -896,7 +950,7 @@ html.lenis body {
 }
 .admin-topbar__logout:hover {
   color: var(--admin-danger-text);
-  border-color: rgba(232, 112, 96, 0.5);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
 }
 
 @media (max-width: 768px) {
@@ -1000,7 +1054,7 @@ html.lenis body {
 .admin-menu__button--primary {
   border-color: var(--admin-terra);
   background: var(--admin-terra);
-  color: #fff;
+  color: var(--admin-text-inverse);
 }
 .admin-btn--primary::before,
 .admin-menu__button--primary::before {
@@ -1016,7 +1070,7 @@ html.lenis body {
 .admin-menu__button--primary:hover {
   border-color: var(--admin-terra-deep);
   background: var(--admin-terra);
-  color: #fff;
+  color: var(--admin-text-inverse);
   transform: translateY(-1px);
 }
 .admin-btn--primary:hover::before,
@@ -1092,7 +1146,7 @@ html.lenis body {
 .admin-body .admin-btn--primary,
 .admin-body .admin-menu__button--primary {
   background-color: var(--admin-terra);
-  color: #fff;
+  color: var(--admin-text-inverse);
 }
 
 .admin-body .admin-btn--secondary,
@@ -1337,7 +1391,7 @@ html.lenis body {
   position: absolute;
   inset: 0 0 auto 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(204, 163, 82, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--admin-gold) 50%, transparent), transparent);
   opacity: 0;
   transition: opacity var(--admin-t-base) var(--admin-ease-out);
 }
@@ -1448,8 +1502,8 @@ html.lenis body {
   color: var(--admin-danger-text);
 }
 .admin-stat-card--gold {
-  border-color: rgba(204, 163, 82, 0.4);
-  background: rgba(204, 163, 82, 0.07);
+  border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
+  background: color-mix(in srgb, var(--admin-gold) 7%, transparent);
 }
 .admin-stat-card--gold .admin-stat-card__value {
   color: var(--admin-gold);
@@ -1771,11 +1825,11 @@ html.lenis body {
   min-width: 38px;
   height: 38px;
   padding: 0;
-  border: 1px solid rgba(160, 126, 54, 0.48);
+  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 48%, transparent);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow: var(--admin-shadow-sm), inset 0 0 0 1px color-mix(in srgb, var(--admin-text) 12%, transparent);
   cursor: pointer;
   text-decoration: none;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
@@ -1790,9 +1844,9 @@ html.lenis body {
   stroke-width: 2;
 }
 .admin-icon-button:hover {
-  border-color: rgba(160, 126, 54, 0.68);
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 68%, transparent);
   background: var(--admin-surface-strong, var(--admin-surface));
-  box-shadow: 0 8px 20px rgba(11, 12, 13, 0.1);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--admin-sombra) 10%, transparent);
 }
 .admin-icon-button:focus-visible {
   outline: 2px solid var(--admin-gold);
@@ -1812,40 +1866,40 @@ html.lenis body {
    El verde y el rojo salen de la paleta, oscurecidos lo justo para que el
    blanco del icono conserve contraste. */
 .admin-icon-button--edit {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, #000);
+  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
   background: var(--admin-c-verde);
-  color: #fff;
+  color: var(--admin-text-inverse);
   box-shadow: var(--admin-shadow-sm);
 }
 .admin-icon-button--edit:hover {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, #000);
-  background: color-mix(in srgb, var(--admin-c-verde) 86%, #fff);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
+  background: color-mix(in srgb, var(--admin-c-verde) 86%, white);
+  color: var(--admin-text-inverse);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-verde) 35%, transparent);
 }
 
 .admin-icon-button--danger {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, #000);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
   background: var(--admin-c-rojo);
-  color: #fff;
+  color: var(--admin-text-inverse);
   box-shadow: var(--admin-shadow-sm);
 }
 .admin-icon-button--danger:hover {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, #000);
-  background: color-mix(in srgb, var(--admin-c-rojo) 88%, #fff);
-  color: #fff;
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, black);
+  background: color-mix(in srgb, var(--admin-c-rojo) 88%, white);
+  color: var(--admin-text-inverse);
   box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-rojo) 35%, transparent);
 }
 
 /* Acción reversible pero con consecuencia (registrar merma): ámbar, no rojo.
    El rojo queda reservado para lo que destruye el registro. */
 .admin-icon-button--warn {
-  border-color: color-mix(in srgb, var(--admin-c-ambar) 70%, #000);
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 70%, black);
   background: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
   color: var(--admin-warning-text);
 }
 .admin-icon-button--warn:hover {
-  border-color: color-mix(in srgb, var(--admin-c-ambar) 78%, #000);
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 78%, black);
   background: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
   color: var(--admin-warning-text);
 }
@@ -2026,13 +2080,13 @@ html.lenis body {
   padding: 12px 14px;
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent), var(--admin-surface-soft);
   color: var(--admin-text);
   font: inherit;
   font-size: 14px;
   line-height: 1.4;
   caret-color: var(--admin-gold);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent);
   transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-body textarea {
@@ -2042,8 +2096,8 @@ html.lenis body {
 .admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=submit]):not([type=button]):hover,
 .admin-body select:hover,
 .admin-body textarea:hover {
-  border-color: rgba(204, 163, 82, 0.42);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(204, 163, 82, 0.08);
+  border-color: color-mix(in srgb, var(--admin-gold) 42%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent), 0 0 0 1px color-mix(in srgb, var(--admin-gold) 8%, transparent);
 }
 .admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,
 .admin-body input:not([type=checkbox]):not([type=radio]):not([type=range]):focus-visible,
@@ -2053,7 +2107,7 @@ html.lenis body {
 .admin-body textarea:focus-visible {
   outline: none;
   border-color: var(--admin-gold);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--admin-surface);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent), var(--admin-surface);
   box-shadow: var(--admin-focus-ring);
 }
 .admin-body ::placeholder {
@@ -2332,7 +2386,7 @@ html.lenis body {
 .admin-tabs__tab input:checked + span {
   background: var(--admin-gold);
   color: var(--admin-ink-on-gold);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
 }
 .admin-tabs__tab input:focus-visible + span {
   outline: 2px solid var(--admin-gold);
@@ -2368,7 +2422,7 @@ html.lenis body {
 .admin-tabs--links .admin-tabs__tab a.is-active span {
   background: var(--admin-gold);
   color: var(--admin-ink-on-gold);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
 }
 .admin-tabs--links .admin-tabs__tab a:focus-visible span {
   outline: 2px solid var(--admin-gold);
@@ -2600,7 +2654,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --reservation-picker-border: var(--admin-border);
   --reservation-picker-radius: var(--admin-radius-sm);
   --reservation-picker-surface: var(--admin-surface);
-  --reservation-picker-shadow: 0 18px 44px rgba(11, 12, 13, 0.18);
+  --reservation-picker-shadow: 0 18px 44px color-mix(in srgb, var(--admin-scrim) 18%, transparent);
   --reservation-picker-z-index: 80;
   --reservation-picker-calendar-padding: 14px;
   --reservation-picker-head-display: grid;
@@ -2616,7 +2670,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --reservation-picker-nav-border: 1px solid var(--admin-border-soft);
   --reservation-picker-accent: var(--admin-gold-deep);
   --reservation-picker-accent-soft: var(--admin-gold-deep);
-  --reservation-picker-nav-hover-border: rgba(160, 126, 54, 0.42);
+  --reservation-picker-nav-hover-border: color-mix(in srgb, var(--admin-gold-deep) 42%, transparent);
   --reservation-picker-hover-bg: var(--admin-surface-soft);
   --reservation-picker-hover-color: var(--admin-text);
   --reservation-picker-grid-gap: 4px;
@@ -2629,11 +2683,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --reservation-picker-faint: var(--admin-faint);
   --reservation-picker-day-font-size: 12px;
   --reservation-picker-day-font-weight: 850;
-  --reservation-picker-day-hover-border: rgba(160, 126, 54, 0.28);
-  --reservation-picker-today-border: rgba(204, 163, 82, 0.58);
+  --reservation-picker-day-hover-border: color-mix(in srgb, var(--admin-gold-deep) 28%, transparent);
+  --reservation-picker-today-border: color-mix(in srgb, var(--admin-gold) 58%, transparent);
   --reservation-picker-today-color: var(--admin-gold-deep);
   --reservation-picker-selected-border: var(--admin-gold);
-  --reservation-picker-selected-bg: rgba(204, 163, 82, 0.18);
+  --reservation-picker-selected-bg: color-mix(in srgb, var(--admin-gold) 18%, transparent);
   --reservation-picker-selected-color: var(--admin-text);
   --reservation-picker-day-disabled-opacity: 0.44;
   --reservation-picker-hours-max-height: 240px;
@@ -2646,7 +2700,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   --reservation-picker-hour-bg: var(--admin-surface-soft);
   --reservation-picker-hover-bg: color-mix(in srgb, var(--admin-gold) 14%, var(--admin-surface-soft));
   --reservation-picker-hover-color: var(--admin-text);
-  --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
+  --reservation-picker-hour-selected-bg: color-mix(in srgb, var(--admin-gold) 16%, transparent);
   --reservation-picker-hour-selected-color: var(--admin-gold-deep);
   --reservation-picker-icon-color: var(--admin-faint);
   --reservation-picker-time-icon-left: 13px;
@@ -2734,6 +2788,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   min-width: 0;
 }
+.admin-body .hour-picker-control[hidden] {
+  display: none;
+}
 .admin-body .hour-picker-control__icon,
 .admin-body .hour-picker-control__chevron {
   position: absolute;
@@ -2792,7 +2849,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid var(--reservation-picker-border, var(--line));
   border-radius: var(--reservation-picker-radius, 0);
   background: var(--reservation-picker-surface, var(--surface));
-  box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
+  box-shadow: var(--reservation-picker-shadow, 0 20px 60px color-mix(in srgb, var(--sombra) 55%, transparent));
 }
 .admin-body {
   /*
@@ -2899,7 +2956,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-body .cpc-day.selected {
   border-color: var(--reservation-picker-selected-border, transparent);
   background: var(--reservation-picker-selected-bg, var(--accent));
-  color: var(--reservation-picker-selected-color, var(--ink));
+  color: var(--reservation-picker-selected-color, var(--on-accent));
 }
 .admin-body .cpc-day.disabled {
   color: var(--reservation-picker-faint, var(--txt-faint));
@@ -3026,11 +3083,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .admin-body .date-display,
 .admin-body .hour-display {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent);
 }
 .admin-body .date-display:hover:not(:disabled),
 .admin-body .hour-display:hover:not(:disabled) {
-  border-color: rgba(204, 163, 82, 0.42);
+  border-color: color-mix(in srgb, var(--admin-gold) 42%, transparent);
 }
 .admin-body .date-display:focus, .admin-body .date-display:focus-visible,
 .admin-body .hour-display:focus,
@@ -3038,7 +3095,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: var(--admin-focus-ring);
 }
 .admin-body .hour-picker-control .hour-display {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent), var(--admin-surface-soft);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.8%, transparent), transparent), var(--admin-surface-soft);
 }
 .admin-body .hour-picker-wrap.has-value .hour-display {
   color: var(--admin-text);
@@ -3061,7 +3118,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   max-width: calc(100vw - 16px);
 }
 .admin-body .hour-option.sel {
-  box-shadow: inset 0 0 0 1px rgba(204, 163, 82, 0.08);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 8%, transparent);
 }
 .admin-body .admin-field.has-error .date-display,
 .admin-body .admin-field.has-error .hour-display,
@@ -3213,7 +3270,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .admin-range__preset.is-active {
   background: var(--admin-gold);
-  color: #1b1a17;
+  color: var(--on-accent);
 }
 .admin-range__cal {
   display: flex;
@@ -3330,10 +3387,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: var(--admin-surface-soft);
 }
 .admin-range__day.is-inside::before {
-  background: rgba(204, 163, 82, 0.18);
+  background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
 }
 .admin-range__day.is-edge {
-  color: #1b1a17;
+  color: var(--on-accent);
   font-weight: 800;
   z-index: 1;
 }
@@ -3442,17 +3499,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 12px 14px;
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent), var(--admin-surface-soft);
   color: var(--admin-text);
   font: inherit;
   font-size: 15.5px;
   text-align: left;
   cursor: pointer;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent);
   transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-select__trigger:hover {
-  border-color: rgba(204, 163, 82, 0.42);
+  border-color: color-mix(in srgb, var(--admin-gold) 42%, transparent);
 }
 .admin-select__trigger:focus-visible {
   outline: none;
@@ -3463,7 +3520,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-select.is-open .admin-select__trigger {
   border-color: var(--admin-gold);
   box-shadow: var(--admin-focus-ring);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent), var(--admin-surface);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent), var(--admin-surface);
 }
 
 .admin-select.is-disabled {
@@ -3505,7 +3562,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: var(--admin-shadow-lg);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204, 163, 82, 0.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--admin-gold) 40%, transparent) transparent;
 }
 .admin-select__list[hidden] {
   display: none;
@@ -3520,7 +3577,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 2px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
-  background-color: rgba(204, 163, 82, 0.32);
+  background-color: color-mix(in srgb, var(--admin-gold) 32%, transparent);
 }
 
 .admin-select__option {
@@ -3588,7 +3645,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-theme-toggle:hover {
-  border-color: rgba(160, 126, 54, 0.5);
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 50%, transparent);
   color: var(--admin-gold);
   box-shadow: var(--admin-shadow-md);
   transform: translateY(-1px);
@@ -3679,7 +3736,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-modal__backdrop {
   position: absolute;
   inset: -24px;
-  background: rgba(6, 7, 8, 0.62);
+  background: color-mix(in srgb, var(--admin-scrim) 62%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   opacity: 0;
@@ -3844,12 +3901,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-modal .admin-btn--danger-solid {
   border-color: var(--admin-danger);
   background: var(--admin-danger);
-  color: #fff;
+  color: var(--admin-text-inverse);
 }
 .admin-modal .admin-btn--danger-solid:hover:not(:disabled) {
   filter: brightness(1.06);
   background: var(--admin-danger);
-  color: #fff;
+  color: var(--admin-text-inverse);
 }
 .admin-modal .admin-btn--danger-solid:disabled {
   opacity: 0.45;
@@ -3887,7 +3944,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(7, 9, 8, 0.76);
+  background: color-mix(in srgb, var(--scrim) 76%, transparent);
   opacity: 0;
   transition: opacity 0.18s ease;
 }
@@ -3914,11 +3971,11 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 32px;
-  border: 1px solid rgba(210, 174, 91, 0.42);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: 18px;
-  background: var(--confirmation-surface, #171b17);
-  color: var(--confirmation-text, #f4efe6);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  background: var(--confirmation-surface);
+  color: var(--confirmation-text);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
   transform: translateY(0.5rem) scale(0.985);
   transition: transform 0.18s ease;
 }
@@ -3937,9 +3994,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 44px;
   place-items: center;
   flex: 0 0 44px;
-  border: 1px solid rgba(210, 174, 91, 0.5);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 50%;
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
   font-size: 22px;
   font-weight: 700;
 }
@@ -3949,7 +4006,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .confirmation-modal__eyebrow {
   display: block;
   margin-bottom: 6px;
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -3972,14 +4029,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__description {
   margin: 8px 0 0;
-  color: rgba(244, 239, 230, 0.84);
+  color: color-mix(in srgb, var(--txt) 84%, transparent);
 }
 .confirmation-modal__close {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(244, 239, 230, 0.24);
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -4004,9 +4061,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__summary {
   padding: 16px;
-  border: 1px solid rgba(244, 239, 230, 0.14);
+  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
   border-radius: 12px;
-  background: rgba(244, 239, 230, 0.05);
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
 }
 .confirmation-modal__summary[hidden] {
   display: none;
@@ -4022,15 +4079,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__warning {
   padding: 14px 16px;
-  border-left: 4px solid #e2a44d;
-  background: rgba(226, 164, 77, 0.12);
-  color: #f0c47d;
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-soft);
 }
 .confirmation-modal__warning[hidden] {
   display: none;
 }
 .confirmation-modal__consequence {
-  color: rgba(244, 239, 230, 0.82);
+  color: color-mix(in srgb, var(--txt) 82%, transparent);
 }
 .confirmation-modal__consequence[hidden] {
   display: none;
@@ -4043,7 +4100,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 8px;
 }
 .confirmation-modal__reason span {
-  color: rgba(244, 239, 230, 0.82);
+  color: color-mix(in srgb, var(--txt) 82%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -4051,25 +4108,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 96px;
   padding: 12px;
-  border: 1px solid rgba(244, 239, 230, 0.24);
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
   border-radius: 9px;
-  background: rgba(244, 239, 230, 0.05);
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
   color: inherit;
   font: inherit;
   resize: vertical;
 }
 .confirmation-modal__reason textarea:focus {
-  outline: 2px solid var(--accent, #d2ae5b);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .confirmation-modal__status {
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
 }
 .confirmation-modal__status[hidden] {
   display: none;
 }
 .confirmation-modal__status.is-error {
-  color: #f0a69a;
+  color: var(--feedback-danger);
 }
 .confirmation-modal__comparison {
   display: grid;
@@ -4081,16 +4138,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(244, 239, 230, 0.12);
+  border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
 }
 .confirmation-modal__comparison-row:last-child {
   border-bottom: 0;
 }
 .confirmation-modal__comparison-row.is-changed {
-  background: rgba(210, 174, 91, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .confirmation-modal__comparison-label {
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
 }
 .confirmation-modal__comparison-cell {
   display: grid;
@@ -4098,7 +4155,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
 }
 .confirmation-modal__comparison-cell small {
-  color: rgba(244, 239, 230, 0.64);
+  color: color-mix(in srgb, var(--txt) 64%, transparent);
   font-size: 14px;
 }
 .confirmation-modal__actions {
@@ -4107,7 +4164,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid rgba(244, 239, 230, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
 }
 .confirmation-modal__button {
   min-height: 46px;
@@ -4125,25 +4182,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.55;
 }
 .confirmation-modal__button--secondary {
-  border-color: rgba(244, 239, 230, 0.25);
+  border-color: color-mix(in srgb, var(--txt) 25%, transparent);
   background: transparent;
   color: inherit;
 }
 .confirmation-modal__button--primary {
-  background: var(--accent, #d2ae5b);
-  color: #11140f;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .confirmation-modal--danger .confirmation-modal__icon {
-  border-color: rgba(217, 135, 120, 0.7);
-  color: #f0a69a;
+  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
+  color: var(--feedback-danger);
 }
 .confirmation-modal--danger .confirmation-modal__button--primary {
-  background: #a94c3e;
-  color: #fff9f3;
+  background: var(--feedback-danger);
+  color: var(--txt);
 }
 .confirmation-modal--warning .confirmation-modal__icon {
-  border-color: rgba(226, 164, 77, 0.7);
-  color: #f0c47d;
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  color: var(--accent-soft);
 }
 @media (max-width: 639px) {
   .confirmation-modal {
@@ -4202,7 +4259,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .app-notice {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -4211,9 +4268,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
   border-left-width: 4px;
   border-radius: 12px;
-  background: var(--confirmation-surface, var(--admin-surface, #171b17));
-  color: var(--confirmation-text, var(--admin-text, #f4efe6));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  background: var(--confirmation-surface, var(--admin-surface));
+  color: var(--confirmation-text, var(--admin-text));
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--sombra) 42%, transparent);
   opacity: 0;
   pointer-events: auto;
   transform: translateY(-8px);
@@ -4224,16 +4281,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transform: translateY(0);
 }
 .app-notice--error {
-  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022));
+  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo));
 }
 .app-notice--warning {
-  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400));
+  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar));
 }
 .app-notice--success {
-  --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853));
+  --app-notice-accent: var(--c-verde, var(--admin-c-verde));
 }
 .app-notice--info {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
 }
 .app-notice__text {
   margin: 0;
@@ -4307,10 +4364,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: center;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid rgba(185, 134, 63, 0.35);
+  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 35%, transparent);
   border-radius: 999px;
-  background: rgba(185, 134, 63, 0.12);
-  color: #75511f;
+  background: color-mix(in srgb, var(--admin-gold-deep) 12%, transparent);
+  color: var(--accent-deep);
   font-size: 13px;
   font-weight: 700;
 }

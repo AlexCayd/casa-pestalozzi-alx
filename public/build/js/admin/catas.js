@@ -1,0 +1,2 @@
+!function(){"use strict";function t(){var t=document.querySelectorAll("[data-cata-estado]");t.length&&Array.prototype.forEach.call(t,(function(t){t.dataset.valorPrevio=t.value,t.addEventListener("change",(function(){if(t.value!==t.dataset.valorPrevio){var e=t.closest("form");e&&(t.disabled=!0,e.submit())}}))}))}"loading"===document.readyState?document.addEventListener("DOMContentLoaded",t):t()}();
+//# sourceMappingURL=catas.js.map

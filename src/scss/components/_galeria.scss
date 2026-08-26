@@ -1,8 +1,27 @@
 // ── Galería (Lo mejor de la casa) ─────────────────────────────
+//
+// La sección se FIJA mientras la tira recorre su ancho (ver vetrinaConScroll en
+// gallery.js), así que tiene que caber en una pantalla ENTERA: cabecera, fila
+// de tarjetas y el pie de cada tarjeta. No cabía —las tarjetas iban a
+// `aspect-ratio` sobre un ancho en vw, y en una ventana de 900px salían de 660
+// de alto que, sumados a la cabecera, dejaban el rótulo y el nombre del
+// platillo por debajo del pliegue: se empezaba a desplazar sin haber leído
+// ninguno.
+//
+// Ahora el alto lo manda la ventana y el ancho sale de la proporción, que es la
+// única forma de garantizar que el pie entra en pantalla sea cual sea el
+// tamaño.
 .signature {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
   overflow: hidden;
   padding-left: 0;
   padding-right: 0;
+  // Menos aire vertical que una sección normal: aquí el alto es un presupuesto
+  // que se reparte entre la cabecera y las tarjetas.
+  padding-block: clamp(3rem, 7vh, 6rem);
 }
 
 .signature__head {
@@ -27,22 +46,123 @@
   gap: 0.6rem;
 }
 
+// La tira la mueve GSAP sobre `x` mientras la sección cruza la pantalla (ver
+// vetrinaConScroll en gallery.js). No lleva scroll propio ni arrastre: un solo
+// dueño del eje, en vez de un arrastre escribiendo scrollLeft y una
+// ScrollTrigger escribiendo el mismo valor por su cuenta.
 .gallery-track {
   display: flex;
   gap: 1.4rem;
-  padding: 0 var(--pad);
-  cursor: grab;
+  padding-left: var(--pad);
+  padding-right: 0;
   will-change: transform;
 
-  &:active { cursor: grabbing; }
+  // El aire final es un item flex y no `padding-right`. El recorrido de la
+  // vetrina se mide con `clientWidth - scrollWidth` (gallery.js) y el
+  // padding-inline-end de un contenedor flex no entra en `scrollWidth` de forma
+  // fiable: la tira se paraba un pad antes de tiempo y la última tarjeta
+  // terminaba cortada contra el borde. Como item sí cuenta, siempre.
+  &::after {
+    content: "";
+    flex: 0 0 var(--pad);
+  }
 }
 
+// Respaldo cuando no hay GSAP o el visitante pidió movimiento reducido: sin
+// nada que desplace la tira, las tarjetas de la derecha quedarían recortadas
+// por el `overflow: hidden` de la sección. Aquí recupera scroll propio y el
+// patrón de barra de la casa.
+.gallery-track--estatico {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  will-change: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 55%, transparent) transparent;
+  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: 3px;
+  }
+}
+
+// El ALTO manda y el ancho lo deduce la proporción: al revés —ancho en vw y
+// `aspect-ratio`— el alto quedaba a merced de lo ancha que fuera la ventana y
+// el pie de la tarjeta se salía de pantalla en cuanto se pasaba de 1400px.
+//
+// La tarjeta es el MARCO, mismo cartón que la vista previa de la carta (ver
+// .menu__preview-frame): relleno crema, filete grueso fuera, filete fino en el
+// borde del hueco y escuadras en las cuatro esquinas. Llevaba un filete de
+// --line a secas y sobre el beige de la sección apenas se leía; siete fotos
+// seguidas sin montura se leían como una tira de imágenes, no como una vitrina.
+//
+// El marco aquí es más estrecho que el de la carta: allí es una pieza sola a
+// media pantalla, aquí son siete en fila y con 30px de cartón cada una la
+// fotografía se quedaba sin sitio.
 .gcard {
+  --gcard-marco: clamp(12px, 1.4vw, 20px);
+  // Cartón en crema de marca y no en un rol, por lo mismo que en la carta: es
+  // papel, y tiene que serlo sobre cualquier tono al que se mude la sección.
+  --gcard-carton: var(--brand-crema);
+
   position: relative;
-  flex: 0 0 clamp(260px, 30vw, 420px);
+  flex: 0 0 auto;
+  // El tope lo pone la sección, que es `min-height: 100vh`: cabecera + tarjeta +
+  // padding tienen que seguir entrando en una ventana baja sin desbordarla.
+  height: clamp(340px, 62vh, 640px);
   aspect-ratio: 3/4;
+  padding: var(--gcard-marco);
+  border: 2px solid var(--gcard-carton);
+  background: var(--gcard-carton);
+}
+
+// Las escuadras, igual que en .menu__preview-frame::before: ocho degradados
+// planos —un brazo horizontal y otro vertical por esquina— sobre un solo
+// pseudoelemento. Sin aritmética de recortes que se pueda desajustar.
+.gcard::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--gcard-marco) / 2.6);
+  z-index: 2;
+  pointer-events: none;
+
+  --gcard-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --gcard-brazo: 16%;
+
+  background-image:
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra)),
+    linear-gradient(var(--gcard-escuadra), var(--gcard-escuadra));
+  background-repeat: no-repeat;
+  background-size:
+    var(--gcard-brazo) 1px, 1px var(--gcard-brazo),
+    var(--gcard-brazo) 1px, 1px var(--gcard-brazo),
+    var(--gcard-brazo) 1px, 1px var(--gcard-brazo),
+    var(--gcard-brazo) 1px, 1px var(--gcard-brazo);
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+}
+
+// El hueco: el rectángulo de la fotografía. Todo lo que va sobre la foto vive
+// aquí dentro y se alinea con `inset: 0`, que es lo que evita que cada capa
+// —velo, cartela, chapa de ampliar— repita la medida del marco por su cuenta.
+.gcard__hueco {
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid var(--line);
+  // El filete interior es lo que convierte el relleno en cartón montado: sin él
+  // el hueco no tiene borde y el marco se lee como un margen.
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
 
   img {
     width: 100%;
@@ -53,16 +173,24 @@
     pointer-events: none;
   }
 
-  &:hover img { transform: scale(1.08); filter: brightness(1); }
-
+  // El velo de pie, para que la cartela se lea sobre cualquier fotografía.
   &::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent 50%, rgba(11,12,13,0.85));
+    background: linear-gradient(180deg, transparent 50%, color-mix(in srgb, var(--scrim) 85%, transparent));
+    pointer-events: none;
   }
 }
 
+.gcard:hover .gcard__hueco img { transform: scale(1.08); filter: brightness(1); }
+
+// El pie de la tarjeta descansa sobre la FOTOGRAFÍA, no sobre el tono de la
+// sección: su tinta se fija en claro, como cualquier texto sobre imagen. Con el
+// rol del tono (beige aquí) salía en café oscuro contra el degradado y no se
+// leía ninguna de las dos líneas.
+//
+// Va dentro del hueco: su respiro se mide contra la foto, no contra el cartón.
 .gcard__cap {
   position: absolute;
   bottom: 1.3rem;
@@ -70,17 +198,22 @@
   right: 1.3rem;
   z-index: 2;
 
-  .n { font-family: var(--serif); font-size: 1.2rem; color: var(--beige); }
-  .t { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); }
+  .n { font-family: var(--serif); font-weight: 500; font-size: 1.2rem; color: var(--brand-crema); }
+  .t { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--brand-beige); }
 }
 
 // ── Zoom badge (aplica a cualquier [data-zoom]) ───────────────
 [data-zoom] { position: relative; }
 
+// Abajo al centro y no en la esquina superior derecha: arriba caía justo sobre
+// la parte más clara de casi todas las fotos y encima competía con el botón de
+// menú, que es fijo y vive en esa misma esquina de la pantalla. Tinta crema
+// sobre un velo café —los colores del acento no contrastan contra una foto
+// cualquiera, un velo oscuro sí.
 .zoom-badge {
   position: absolute;
-  top: 0.8rem;
-  right: 0.8rem;
+  left: 50%;
+  bottom: 1rem;
   z-index: 4;
   pointer-events: none;
   display: inline-flex;
@@ -90,14 +223,19 @@
   font-size: 0.56rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink);
-  background: var(--accent);
-  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+  color: var(--brand-crema);
+  background: color-mix(in srgb, var(--cafe-deep) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-crema) 28%, transparent);
+  backdrop-filter: blur(4px);
+  padding: 0.4rem 0.85rem;
   border-radius: 40px;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translate(-50%, 6px);
   transition: opacity 0.35s, transform 0.35s;
 }
 
-[data-zoom]:hover .zoom-badge { opacity: 0.96; transform: translateY(0); }
-@media (pointer: coarse) { .zoom-badge { opacity: 0.9; transform: none; } }
+[data-zoom]:hover .zoom-badge { opacity: 1; transform: translate(-50%, 0); }
+@media (pointer: coarse) {
+  .zoom-badge { opacity: 0.92; transform: translate(-50%, 0); }
+}

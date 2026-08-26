@@ -2650,10 +2650,14 @@ function initMapa() {
                   escHtml(ag.label) + '</div>';
           for (var j = 0; j < ag.items.length; j++) {
             var row = ag.items[j];
-            var statusColor = row.estado === 'cancelado'      ? '#555'
-                            : row.estado === 'entregado'      ? '#5ba4cf'
-                            : row.estado === 'listo'          ? '#8bbf7e'
-                            : row.estado === 'en_preparacion' ? '#e8a920' : '#9a9a9a';
+            // Los colores de estado salen de los tokens --estado-*, los mismos
+            // que usan los tableros de área: aquí eran cuatro hex sueltos que
+            // ya no coincidían del todo con el CSS.
+            var statusColor = row.estado === 'cancelado'      ? 'var(--estado-cancelado)'
+                            : row.estado === 'entregado'      ? 'var(--estado-entregado)'
+                            : row.estado === 'listo'          ? 'var(--estado-listo)'
+                            : row.estado === 'en_preparacion' ? 'var(--estado-preparacion)'
+                            : 'var(--estado-enviado)';
             var statusLabel = row.estado === 'cancelado'      ? 'Cancelado'
                             : row.estado === 'entregado'      ? 'Entregado ✓'
                             : row.estado === 'listo'          ? 'Listo'

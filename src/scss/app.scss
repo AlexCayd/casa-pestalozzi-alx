@@ -15,14 +15,17 @@
 @use 'components/cursor';
 @use 'components/buttons';
 @use 'components/announcement';
+// Vocabulario italiano compartido (insegna, arco, filete). Va antes de las
+// secciones: varias lo consumen.
+@use 'components/italia';
 @use 'components/hero';
 @use 'components/nosotros';
 @use 'components/menu';
-@use 'components/maridaje';
+@use 'components/catas';
 @use 'components/galeria';
 @use 'components/chef';
 @use 'components/panaderia';
-@use 'components/eventos';
+@use 'components/catering';
 @use 'components/reserva';
 @use 'components/confirmation-modal';
 @use 'components/app-notice';

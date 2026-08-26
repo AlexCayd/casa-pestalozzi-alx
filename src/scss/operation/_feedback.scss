@@ -232,7 +232,7 @@
 .operational-global-notice--restricted {
   border-color: color-mix(in srgb, var(--admin-info-text) 62%, var(--admin-border-strong));
   background: color-mix(in srgb, var(--admin-info-text) 18%, var(--admin-surface-strong));
-  color: #dceeff;
+  color: var(--feedback-info);
   box-shadow:
     0 14px 34px rgb(0 0 0 / 42%),
     0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
@@ -240,17 +240,17 @@
   .operational-global-notice__icon {
     border-color: color-mix(in srgb, var(--admin-info-text) 65%, transparent);
     background: color-mix(in srgb, var(--admin-info-text) 14%, transparent);
-    color: #e8f5ff;
+    color: var(--feedback-info);
   }
 
   .operational-global-notice__copy > span,
   .operational-global-notice__detail p {
-    color: #c9def0;
+    color: var(--feedback-info);
     opacity: 1;
   }
 
   .operational-global-notice__expand:hover {
-    background: color-mix(in srgb, #dceeff 16%, transparent);
+    background: color-mix(in srgb, var(--feedback-info-bg) 16%, transparent);
   }
 }
 

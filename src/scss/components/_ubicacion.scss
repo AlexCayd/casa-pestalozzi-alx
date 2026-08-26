@@ -1,5 +1,5 @@
 // ── Ubicación ─────────────────────────────────────────────────
-.location { background: var(--ink-2); }
+.location { background: var(--bg-alt); }
 
 .loc__grid {
   display: grid;
@@ -27,7 +27,7 @@
   border-bottom: 1px solid var(--line-soft);
   align-items: flex-start;
 
-  .ic { color: var(--accent); flex: 0 0 auto; margin-top: 3px; }
+  .ic { color: var(--accent-text); flex: 0 0 auto; margin-top: 3px; }
 
   .ct {
     b {
@@ -55,43 +55,81 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--beige);
-    transition: all 0.4s;
+    color: var(--txt-strong);
+    transition: background 0.4s, color 0.4s, border-color 0.4s;
 
-    &:hover { background: var(--accent); color: var(--ink); }
+    &:hover,
+    &:focus-visible { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   }
 }
 
-// Mapa estilizado
+// ── Mapa: plancha de papel ────────────────────────────────────
+//
+// El plano vivía sobre el verde de la sección y no contrastaba con nada: las
+// manzanas eran txt al 4.5%, las calles acento al 13% y la retícula al 40% de
+// opacidad, es decir, tres grises sobre un fondo oscuro.
+//
+// Ahora es una lámina de papel crema apoyada sobre la mesa verde, con la
+// materia del resto de la página. La inversión completa la hace el
+// data-tono="crema" del marcado: dentro de la lámina --txt vuelve a ser verde
+// profundo, --accent vuelve a ser café y --line vuelve a cumplir el 3:1 contra
+// crema, así que cada pieza toma su tinta sin una regla de color propia.
 .loc__map {
   position: relative;
   min-height: clamp(420px, 50vw, 580px);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
   overflow: hidden;
-  background: #0d1011;
+  isolation: isolate;
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 60px color-mix(in srgb, var(--brand-cafe) 10%, transparent),
+    0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent);
+
+  // La misma fibra de mantel de las secciones: es lo que separa "papel" de
+  // "rectángulo claro".
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px,
+        transparent 1px 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+        transparent 1px 6px
+      );
+  }
 }
 
+// Retícula del papel pautado. Opacidad plena y línea tenue en vez de línea de
+// componente al 40%: el resultado es el mismo peso pero con un borde limpio.
 .map2__grid {
   position: absolute;
   inset: 0;
-  opacity: 0.4;
   background-image:
-    linear-gradient(var(--line-soft) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--brand-cafe) 9%, transparent) 1px, transparent 1px);
+  background-size: 34px 34px;
 }
 
-// Parque
+// Parque. Verde de marca rebajado sobre el papel, no el verde de "éxito" de la
+// paleta funcional: aquí es un giardino, no un estado.
 .map2__park {
   position: absolute;
   top: 7%;
   left: 5%;
   width: 41%;
   height: 48%;
-  border-radius: 10px;
-  background: linear-gradient(150deg, rgba(95,125,86,0.42), rgba(78,97,72,0.30));
-  border: 1px solid rgba(136,163,123,0.4);
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.25);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--brand-verde) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-verde) 55%, transparent);
 }
 
 .map2__parklabel {
@@ -101,50 +139,65 @@
   transform: translate(-50%, -50%);
   text-align: center;
   font-family: var(--serif);
-  font-size: clamp(0.85rem, 1.4vw, 1.15rem);
-  color: rgba(213,228,205,0.85);
+  font-weight: 500;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--brand-verde) 88%, var(--bg));
   line-height: 1.15;
-  letter-spacing: 0.02em;
 }
 
-// Bloques genéricos
+// Manzanas: beige con filete café, como las islas rellenas de un plano impreso.
 .map2__block {
   position: absolute;
-  background: rgba(245,245,245,0.045);
-  border: 1px solid var(--line-soft);
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--brand-beige) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-cafe) 34%, transparent);
+  border-radius: 2px;
 
   &.b1 { top: 7%;   right: 6%;  width: 24%; height: 30%; }
   &.b2 { bottom: 8%; left: 6%;  width: 30%; height: 22%; }
   &.b3 { bottom: 8%; right: 6%; width: 22%; height: 24%; }
 }
 
-// Calles
+// Calles en blanco con contorno, que es como se dibuja un viario en papel: el
+// hueco es la calle y la línea es la acera.
 .map2__road {
   position: absolute;
-  background: rgba(204,163,82,0.13);
+  // --surface dentro de la lámina es --crema-lift: el papel un punto más claro.
+  // Es el rol que toca, y así la calle sigue al tono en vez de a un blanco fijo.
+  background: var(--surface);
+  border-block: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
 
   span {
-    font-family: var(--sans);
-    font-size: 0.6rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--gold-soft);
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 0.66rem;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.2em;
+    color: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
     white-space: nowrap;
-    opacity: 0.9;
   }
 
   &.road--pilares { top: 60%;  left: -4%; width: 108%; height: 30px; transform: rotate(-4deg); }
-  &.road--uni     { top: -6%;  left: 80%; width: 30px; height: 112%; }
+  &.road--uni {
+    top: -6%; left: 80%; width: 34px; height: 112%;
+    border-block: none;
+    border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 26%, transparent);
+  }
   &.road--uni span { writing-mode: vertical-rl; }
-  &.road--frias   { top: -6%;  left: 1%;  width: 24px; height: 112%; background: rgba(245,245,245,0.05); }
-  &.road--frias span { writing-mode: vertical-rl; font-size: 0.52rem; color: var(--txt-mute); }
+  &.road--frias {
+    top: -6%; left: 1%; width: 24px; height: 112%;
+    border-block: none;
+    border-inline: 1px solid color-mix(in srgb, var(--brand-cafe) 20%, transparent);
+  }
+  &.road--frias span { writing-mode: vertical-rl; font-size: 0.58rem; }
 }
 
-// Metro
+// Metro. Va en café con tinta crema: es el único rótulo del plano que
+// representa un servicio y no una calle, así que se lee como una chapa.
 .map2__metro {
   position: absolute;
   top: 1.2rem;
@@ -156,13 +209,13 @@
   font-size: 0.6rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--txt-mute);
-  background: rgba(11,12,13,0.7);
-  border: 1px solid var(--line-soft);
+  color: var(--on-accent);
+  background: var(--accent);
+  border: 1px solid var(--accent-deep);
   padding: 0.4rem 0.7rem;
   border-radius: 40px;
 
-  .m { color: #d98a3d; font-size: 0.9rem; line-height: 1; }
+  .m { font-size: 0.9rem; line-height: 1; }
 }
 
 // Pin
@@ -193,21 +246,22 @@
     height: 16px;
     border-radius: 50% 50% 50% 0;
     background: var(--accent);
-    box-shadow: 0 0 22px var(--accent);
     transform: rotate(-45deg);
-    border: 2px solid var(--beige);
+    border: 2px solid var(--bg);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--sombra) 45%, transparent);
   }
 
   .tag {
     margin-top: 14px;
     white-space: nowrap;
     font-family: var(--serif);
+    font-weight: 500;
     font-size: 0.95rem;
-    color: var(--beige);
-    background: rgba(11,12,13,0.85);
-    border: 1px solid var(--accent);
+    color: var(--on-accent);
+    background: var(--accent);
+    border: 1px solid var(--accent-deep);
     padding: 0.45rem 0.9rem;
-    border-radius: 6px;
+    border-radius: 3px;
     text-align: center;
     line-height: 1.2;
 
@@ -216,7 +270,7 @@
       font-family: var(--sans);
       font-size: 0.56rem;
       letter-spacing: 0.1em;
-      color: var(--txt-mute);
+      color: color-mix(in srgb, var(--on-accent) 78%, transparent);
       text-transform: uppercase;
       margin-top: 0.2rem;
     }

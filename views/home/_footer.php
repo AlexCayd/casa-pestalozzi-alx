@@ -1,35 +1,84 @@
-<?php /* Footer + lightbox + tweaks panel + scripts */ ?>
+<?php
+/**
+ * Pie + lightbox + panel de tweaks.
+ *
+ * El horario se pinta con las MISMAS excepciones que la sección de reservación
+ * (Services\HorarioOperacionService::mapearExcepcionesDeLaSemana): antes el pie
+ * listaba sólo el horario semanal y podía contradecir a la tabla de arriba —una
+ * decía "martes 16:00–23:00 por comida privada" y la otra "martes 08:30–22:00"—.
+ */
 
-<footer class="foot">
+use Services\HorarioOperacionService;
+use Services\ReservacionConfig;
+use Services\SitioConfig;
+
+$hoyFooter = ReservacionConfig::ahora();
+$hoyDiaFooter = (int)$hoyFooter->format('w');
+$excepcionesFooter = !empty($horariosOperacionDisponibles)
+  ? HorarioOperacionService::mapearExcepcionesDeLaSemana(
+      is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [],
+      $hoyFooter
+    )
+  : [];
+?>
+
+<footer class="foot" data-tono="cafe">
   <div class="wrap">
     <div class="foot__top">
       <div class="foot__brand">
-        <h3 class="bm">Casa Pestalozzi</div>
-        <p>Cocina mediterránea con corazón mexicano.</p>
+        <h3 class="bm">Casa Pestalozzi</h3>
+        <p>Cucina italiana, cuore messicano.</p>
+        <?php
+          $redesClase = 'foot__social';
+          $redesConNombre = true;
+          include __DIR__ . '/_redes.php';
+        ?>
       </div>
       <div class="foot__cols">
         <div class="foot__col">
           <h6>Explora</h6>
           <a href="#menu">La Carta</a>
-          <a href="#maridaje">Maridaje</a>
+          <a href="#firma">Lo de la Casa</a>
           <a href="#panaderia">Panadería</a>
-          <a href="#eventos">Eventos</a>
+          <a href="#catas">Catas</a>
+          <a href="#catering">Catering</a>
         </div>
         <div class="foot__col">
           <h6>Visita</h6>
-          <span>Pestalozzi 1250, CDMX</span>
-          <a href="tel:+525614818297">56 1481 8297</a>
+          <a href="<?php echo s(SitioConfig::mapsUrl()); ?>" target="_blank" rel="noopener"><?php echo s(SitioConfig::direccionCorta()); ?></a>
+          <a href="tel:<?php echo s(SitioConfig::telefonoTel()); ?>"><?php echo s(SitioConfig::telefonoVisible()); ?></a>
+          <a href="mailto:<?php echo s(SitioConfig::correo()); ?>"><?php echo s(SitioConfig::correo()); ?></a>
           <a href="#reserva">Reservar mesa</a>
         </div>
-        <div class="foot__col">
+        <div class="foot__col foot__col--horario">
           <h6>Horario</h6>
           <?php if (!empty($horariosOperacionDisponibles)) : ?>
             <?php foreach ($horariosOperacion as $horario) : ?>
-              <span>
-                <?php echo s($horario['nombre'] ?? ''); ?>
-                <?php echo !empty($horario['abierto'])
-                  ? s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? ''))
-                  : 'Cerrado'; ?>
+              <?php
+                $diaFooter = (int)($horario['dia_semana'] ?? -1);
+                $esHoyFooter = $diaFooter === $hoyDiaFooter;
+                $excepcionFooter = $excepcionesFooter[$diaFooter] ?? null;
+                $especialFooter = $excepcionFooter !== null
+                  && ($excepcionFooter['tipo'] ?? '') === 'horario_especial';
+                $claseFooter = 'foot__horario';
+                if ($esHoyFooter) {
+                  $claseFooter .= ' is-hoy';
+                }
+                if ($excepcionFooter !== null) {
+                  $claseFooter .= ' is-excepcion';
+                }
+              ?>
+              <span class="<?php echo $claseFooter; ?>">
+                <b><?php echo s($horario['nombre'] ?? ''); ?><?php if ($esHoyFooter) : ?><small>Hoy</small><?php endif; ?></b>
+                <?php if ($excepcionFooter !== null) : ?>
+                  <em><?php echo $especialFooter
+                    ? s(($excepcionFooter['hora_apertura'] ?? '') . '–' . ($excepcionFooter['hora_cierre'] ?? ''))
+                    : 'Cerrado'; ?></em>
+                <?php elseif (!empty($horario['abierto'])) : ?>
+                  <span><?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?></span>
+                <?php else : ?>
+                  <span>Cerrado</span>
+                <?php endif; ?>
               </span>
             <?php endforeach; ?>
           <?php else : ?>
@@ -48,9 +97,13 @@
     </div>
   </div>
 </footer>
+<?php unset($hoyFooter, $hoyDiaFooter, $excepcionesFooter, $diaFooter, $esHoyFooter, $excepcionFooter, $especialFooter, $claseFooter, $horario); ?>
 
-<!-- Lightbox -->
-<div class="lightbox" id="lightbox" aria-hidden="true">
+<?php /* Lightbox. Lleva data-tono="cafe" como cualquier banda oscura de la
+         landing: es lo que hace que sus textos, líneas y acento se resuelvan
+         solos. Sin el tono heredaba la capa 3 de :root —pensada para fondo
+         crema— y pintaba café sobre café. */ ?>
+<div class="lightbox" id="lightbox" data-tono="cafe" aria-hidden="true">
   <div class="lightbox__counter"><b id="lbCur">1</b> / <span id="lbTotal">1</span></div>
   <button class="lightbox__close" id="lbClose" aria-label="Cerrar">✕</button>
   <button class="lightbox__nav prev" id="lbPrev" aria-label="Anterior">‹</button>
@@ -73,14 +126,8 @@
       <button class="tw-opt" data-val="minimal">Minimal</button>
     </div>
   </div>
-  <div class="tw-group">
-    <label>Acento</label>
-    <div class="tw-opts" data-tw="accent">
-      <button class="tw-swatch" data-val="oro" style="background:#cca352" title="Oro"></button>
-      <button class="tw-swatch" data-val="terracota" style="background:#b9602f" title="Terracota"></button>
-      <button class="tw-swatch" data-val="salvia" style="background:#7c9a6f" title="Salvia"></button>
-    </div>
-  </div>
+  <?php /* El selector de acento salió del panel: la paleta la fija el manual
+           de marca en los tokens y ya no se conmuta desde el navegador. */ ?>
   <div class="tw-group">
     <label>Interacción</label>
     <div class="tw-toggle"><span>Cursor personalizado</span><button class="tw-switch" data-tw="cursor"></button></div>

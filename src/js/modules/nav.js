@@ -8,7 +8,7 @@ function initNav() {
       e.preventDefault();
       var id = a.getAttribute("href");
       body.classList.remove("nav-open");
-      setTimeout(function() { scrollTo(id); }, 200);
+      setTimeout(function() { irASeccion(id); }, 200);
     });
   });
 
@@ -19,7 +19,7 @@ function initNav() {
       var id = a.getAttribute("href");
       if (id.length < 2 || !$(id)) return;
       e.preventDefault();
-      scrollTo(id);
+      irASeccion(id);
     });
   });
 

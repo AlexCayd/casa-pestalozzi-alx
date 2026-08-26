@@ -938,6 +938,15 @@ function initForm() {
     var people = reservationState.guests + (reservationState.guests === 1 ? " persona" : " personas");
     var selectionReady = Boolean(reservationState.date && reservationState.time);
 
+    // El recuento de la reservación NO se muestra en el paso 1. Repetía debajo
+    // del calendario lo que el visitante acababa de elegir tres píxeles más
+    // arriba, y el paso 4 ya es exactamente eso: una pantalla de revisión.
+    //
+    // La única razón por la que este bloque sigue apareciendo aquí es el aviso
+    // de grupo grande: con más de 12 comensales la reserva en línea no aplica y
+    // esto es la salida —el teléfono y el WhatsApp del restaurante—. Eso no es
+    // un resumen, es lo que impide que alguien se quede sin saber qué hacer.
+    //
     // El estado viaja como data-attribute: el SCSS le pone icono y color sin
     // que el JS tenga que saber de presentación.
     if (reservationState.largeParty) {
@@ -946,30 +955,17 @@ function initForm() {
       if (largePartyInfo) largePartyInfo.hidden = false;
       summary.dataset.state = "large-party";
       summary.hidden = false;
-    } else if (reservationState.date) {
-      if (selectionDetails) selectionDetails.hidden = false;
-      if (largePartyInfo) largePartyInfo.hidden = true;
-      selectionPrimary.textContent = readableDate
-        + (reservationState.time ? " · " + reservationState.time : "");
-      selectionSecondary.textContent = people;
-      var estadoSeleccion = reservationState.availabilityPending
-        ? "loading"
-        : reservationState.availabilityStatus === "ready" && reservationState.time
-          ? "ready"
-          : "pending";
-      if (selectionStatus) {
-        selectionStatus.textContent = estadoSeleccion === "loading"
-          ? "Consultando disponibilidad…"
-          : estadoSeleccion === "ready"
-            ? "Disponibilidad confirmada"
-            : "Elige un horario disponible";
-      }
-      summary.dataset.state = estadoSeleccion;
-      summary.hidden = false;
     } else {
+      // Los campos se siguen rellenando aunque el bloque esté oculto: si el
+      // conteo sube de 12 en caliente, el aviso aparece ya con sus datos.
       if (selectionDetails) selectionDetails.hidden = false;
       if (largePartyInfo) largePartyInfo.hidden = true;
-      summary.dataset.state = "empty";
+      if (reservationState.date) {
+        selectionPrimary.textContent = readableDate
+          + (reservationState.time ? " · " + reservationState.time : "");
+        selectionSecondary.textContent = people;
+      }
+      summary.dataset.state = reservationState.date ? "pending" : "empty";
       summary.hidden = true;
     }
 
@@ -1501,10 +1497,73 @@ function initForm() {
     clearFieldError("contacto");
     updateInterface();
   });
+  // ── Sugerencias del campo de notas ─────────────────────────────
+  //
+  // Pastillas que escriben en el MISMO textarea `nota`: no hay campo nuevo ni
+  // contrato nuevo con el backend, sólo frases ya redactadas. El estado no se
+  // guarda aparte —se deduce de lo que hay escrito—, así que quien borre la
+  // frase a mano ve la pastilla apagarse sola y no quedan dos verdades.
+  var chipsNota = $$("[data-nota-frase]", form);
+
+  function limpiarSeparadores(texto) {
+    return texto
+      .replace(/\s*\.\s*\.\s*/g, ". ")
+      .replace(/^\s*\.\s*/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function sincronizarSugerenciasNota() {
+    var actual = form.elements.nota.value;
+    chipsNota.forEach(function(chip) {
+      var frase = chip.getAttribute("data-nota-frase");
+      var puesta = actual.indexOf(frase) !== -1;
+      chip.setAttribute("aria-pressed", puesta ? "true" : "false");
+      chip.classList.toggle("is-puesta", puesta);
+    });
+  }
+
+  function initSugerenciasNota() {
+    if (!chipsNota.length) return;
+    var tope = parseInt(form.elements.nota.getAttribute("maxlength"), 10) || 500;
+
+    chipsNota.forEach(function(chip) {
+      chip.addEventListener("click", function() {
+        var frase = chip.getAttribute("data-nota-frase");
+        var actual = form.elements.nota.value;
+        var siguiente;
+
+        if (actual.indexOf(frase) !== -1) {
+          siguiente = limpiarSeparadores(actual.split(frase).join(" "));
+        } else {
+          siguiente = limpiarSeparadores(actual === "" ? frase : actual + ". " + frase);
+          // El campo tiene tope de caracteres y el navegador sólo lo aplica a lo
+          // que se teclea: si se recortara aquí a medias, la frase quedaría
+          // truncada y la pastilla no volvería a reconocerla.
+          if (siguiente.length > tope) {
+            if (window.AppNotice) {
+              window.AppNotice.warning("Ya no cabe otra indicación; resume las que tienes.");
+            }
+            return;
+          }
+        }
+
+        form.elements.nota.value = siguiente;
+        reservationState.details = siguiente;
+        sincronizarSugerenciasNota();
+        updateInterface();
+      });
+    });
+
+    sincronizarSugerenciasNota();
+  }
+
   form.elements.nota.addEventListener("input", function() {
     reservationState.details = form.elements.nota.value;
+    sincronizarSugerenciasNota();
     updateInterface();
   });
+  initSugerenciasNota();
   if (otpInput) {
     otpInput.addEventListener("input", function() {
       clearOtpError();

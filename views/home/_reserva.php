@@ -29,31 +29,16 @@ $hoyReserva = \DateTimeImmutable::createFromFormat(
 $hoyDiaSemana = (int)$hoyReserva->format('w');
 
 // Las excepciones se leen sobre la tabla de horario, no en una tarjeta aparte:
-// el visitante conecta "el jueves cierran" con la fila del jueves. Solo caben
-// las de los próximos siete días, que son las únicas con una fila que marcar;
-// el resto se resume en una línea. El mapeo día→fecha se resuelve aquí, en la
-// zona horaria del restaurante, porque el reloj del visitante puede ser otro.
-$excepcionesPorDia = [];
-$excepcionesPosteriores = [];
-if ($horariosOperacionDisponibles) {
-  $ventanaSemana = [];
-  for ($i = 0; $i < 7; $i++) {
-    $ventanaSemana[$hoyReserva->modify('+' . $i . ' days')->format('Y-m-d')] = $i;
-  }
-  foreach ($proximasExcepcionesOperacion as $excepcion) {
-    $fechaExcepcion = (string)($excepcion['fecha'] ?? '');
-    if (isset($ventanaSemana[$fechaExcepcion])) {
-      $diaExcepcion = (int)$hoyReserva
-        ->modify('+' . $ventanaSemana[$fechaExcepcion] . ' days')
-        ->format('w');
-      // Una sola excepción por fecha (uq_excepciones_operacion_fecha) y siete
-      // fechas distintas: no hay colisión posible dentro de la ventana.
-      $excepcionesPorDia[$diaExcepcion] = $excepcion;
-      continue;
-    }
-    $excepcionesPosteriores[] = $excepcion;
-  }
-}
+// el visitante conecta "el jueves cierran" con la fila del jueves. Sólo se
+// anuncian las de la semana en curso, que son las únicas con una fila que
+// marcar; el resumen "Más adelante" que iba debajo se retiró —era una lista de
+// fechas sueltas sin contexto, y la sección promete el horario de AHORA—.
+$excepcionesPorDia = $horariosOperacionDisponibles
+  ? \Services\HorarioOperacionService::mapearExcepcionesDeLaSemana(
+      $proximasExcepcionesOperacion,
+      $hoyReserva
+    )
+  : [];
 
 /** Devuelve "12 AGO" para la insignia de la fila y la línea de excepciones lejanas. */
 $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): string {
@@ -64,11 +49,11 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
   return $fecha->format('j') . ' ' . ($mesesCortos[(int)$fecha->format('n')] ?? '');
 };
 ?>
-<section class="section reserva" id="reserva" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
+<section class="section reserva" id="reserva" data-tono="beige" data-screen-label="Reservar" aria-labelledby="reservation-section-title"
   data-reservation-csrf="<?php echo s($reservationCsrfToken ?? ''); ?>">
   <div class="wrap reserva__grid">
     <div class="reserva__intro">
-      <span class="eyebrow" data-reveal>08 — Reservaciones</span>
+      <span class="eyebrow" data-reveal>08 — Il tavolo</span>
       <h2 class="reserva__title" id="reservation-section-title" data-reveal>Reserva <em class="accent-italic">tu mesa</em></h2>
       <p class="body" data-reveal>Déjate sorprender por nuestros sabores en un espacio íntimo, con atención al detalle y servicio personalizado.</p>
     </div>
@@ -98,15 +83,21 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               </span>
               <span class="reserva__hours-value">
                 <?php if ($excepcionDia !== null) : ?>
+                  <?php /*
+                    El guion va en su propio <span>: el rango se compone en la
+                    serif de la casa, y en un didone la raya es un pelo tan fino
+                    que a este cuerpo desaparecía —"16:00 23:00" se leía como dos
+                    horas sueltas—. El separador se dibuja en la sans.
+                  */ ?>
                   <strong class="reserva__hours-exception">
                     <?php if ($esHorarioEspecial) : ?>
-                      <?php echo s(($excepcionDia['hora_apertura'] ?? '') . '–' . ($excepcionDia['hora_cierre'] ?? '')); ?>
+                      <?php echo s($excepcionDia['hora_apertura'] ?? ''); ?><span class="reserva__hours-sep">–</span><?php echo s($excepcionDia['hora_cierre'] ?? ''); ?>
                     <?php else : ?>
                       Cerrado
                     <?php endif; ?>
                   </strong>
                 <?php elseif (!empty($horario['abierto'])) : ?>
-                  <?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?>
+                  <?php echo s($horario['hora_apertura'] ?? ''); ?><span class="reserva__hours-sep">–</span><?php echo s($horario['hora_cierre'] ?? ''); ?>
                 <?php else : ?>
                   Cerrado
                 <?php endif; ?>
@@ -122,23 +113,6 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
-          <?php if ($excepcionesPosteriores !== []) : ?>
-            <p class="reserva__hours-upcoming">
-              <span>Más adelante:</span>
-              <?php
-                $resumenPosteriores = array_map(
-                  static function (array $excepcion) use ($formatoFechaExcepcion): string {
-                    return $formatoFechaExcepcion((string)($excepcion['fecha'] ?? ''))
-                      . ' · ' . (($excepcion['tipo'] ?? '') === 'horario_especial'
-                        ? ($excepcion['hora_apertura'] ?? '') . '–' . ($excepcion['hora_cierre'] ?? '')
-                        : 'cerrado');
-                  },
-                  $excepcionesPosteriores
-                );
-              ?>
-              <?php echo s(implode(' · ', $resumenPosteriores)); ?>
-            </p>
-          <?php endif; ?>
         <?php else : ?>
           <p class="reserva__hours-unavailable">Consulta la disponibilidad al seleccionar tu fecha.</p>
         <?php endif; ?>
@@ -210,7 +184,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         <section class="reservation-step reservation-step--visit is-active" data-reservation-step="1"
           aria-labelledby="reservation-visit-title">
           <div class="reservation-step__head">
-            <span class="section-index" aria-hidden="true">01</span>
+            <span class="section-index targa" aria-hidden="true">01</span>
             <h3 id="reservation-visit-title" tabindex="-1">Selecciona tu visita</h3>
           </div>
           <p class="reservation-step__intro">Fecha, número de personas y horario.</p>
@@ -249,8 +223,11 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               <button type="button" class="pill" data-g="4" aria-pressed="false">4</button>
               <button type="button" class="pill" data-g="5" aria-pressed="false">5</button>
               <button type="button" class="pill" data-g="6" aria-pressed="false">6</button>
-              <button type="button" class="pill" data-g="7" aria-pressed="false"
-                aria-controls="guestsExtra">+</button>
+              <?php /* El texto no lo lee nadie: applyGuestState sólo mira
+                       data-g. Decía "+" y a 48px de alto en una esquina de la
+                       retícula no se veía; "7 +" dice además qué abre. */ ?>
+              <button type="button" class="pill pill--mas" data-g="7" aria-pressed="false"
+                aria-controls="guestsExtra">7 +</button>
             </div>
             <div class="guests-extra" id="guestsExtra" hidden>
               <div class="guests-stepper" role="group" aria-label="Cantidad de comensales; después de 12 se activa la atención directa">
@@ -293,13 +270,24 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             <small data-special-schedule-note>El horario habitual no aplica en esta fecha.</small>
             <small class="reserva__special-schedule-reference">Referencia habitual: <span data-special-schedule-regular></span></small>
           </aside>
+          <?php /*
+            Este bloque ya NO es el recuento de la reservación: el paso 1 dejó
+            de repetir bajo el calendario lo que el visitante acaba de elegir
+            encima, y para eso está el paso 4.
+
+            Lo único que sigue sacándolo a la luz es el aviso de grupo grande
+            —más de 12 comensales no se reservan en línea—, así que el rótulo
+            lo dice y el botón "Editar" salió: apuntaba al paso 1 estando ya en
+            el paso 1. Los campos de detalle siguen en el marcado porque
+            updateSummaries() los mantiene al día por si el conteo sube de 12 a
+            media selección.
+          */ ?>
           <aside class="reserva__selection-summary reservation-summary reservation-summary--compact" data-reservation-selection-summary hidden aria-live="polite">
             <div class="reservation-summary__head">
               <div>
-                <span class="reservation-summary__eyebrow">Tu reservación</span>
+                <span class="reservation-summary__eyebrow">Grupo grande</span>
                 <strong data-selection-status>Completa tu selección</strong>
               </div>
-              <button type="button" class="reservation-summary__edit" data-reservation-edit="1">Editar</button>
             </div>
             <div class="reservation-summary__details" data-selection-details>
               <div><small>Fecha y hora</small><strong data-selection-primary></strong></div>
@@ -319,7 +307,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             </div>
           </aside>
           <div class="reservation-stage-actions reservation-stage-actions--single">
-            <button type="button" class="btn-line" data-reservation-next disabled>
+            <button type="button" class="btn-line btn-line--solid" data-reservation-next disabled>
               <span>Continuar</span><span class="arrow">→</span>
             </button>
           </div>
@@ -328,7 +316,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         <section class="reservation-step reserva__identity" data-reservation-step="2" hidden
           aria-labelledby="reservation-identity-title">
           <div class="reservation-step__head">
-            <span class="section-index" aria-hidden="true">02</span>
+            <span class="section-index targa" aria-hidden="true">02</span>
             <h3 id="reservation-identity-title" tabindex="-1">¿A nombre de quién reservamos?</h3>
           </div>
           <p class="reservation-step__intro">Usaremos estos datos únicamente para confirmar tu visita.</p>
@@ -366,7 +354,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             <button type="button" class="btn-line btn-line--secondary reservation-stage-back" data-reservation-back>
               <span class="arrow">←</span><span>Atrás</span>
             </button>
-            <button type="button" class="btn-line" data-reservation-next disabled>
+            <button type="button" class="btn-line btn-line--solid" data-reservation-next disabled>
               <span>Continuar</span><span class="arrow">→</span>
             </button>
           </div>
@@ -375,11 +363,54 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         <section class="reservation-step reservation-step--optional" data-reservation-step="3" hidden
           aria-labelledby="reservation-details-title">
           <div class="reservation-step__head">
-            <span class="section-index" aria-hidden="true">03</span>
+            <span class="section-index targa" aria-hidden="true">03</span>
             <h3 id="reservation-details-title" tabindex="-1">¿Necesitamos considerar algo?</h3>
           </div>
+          <?php
+            // Sugerencias del paso opcional. Ante un textarea vacío la mayoría
+            // no escribe nada —no porque no tenga nada que decir, sino porque no
+            // sabe qué es útil contar—, y luego la mesa se entera del pastel de
+            // cumpleaños al llegar. Cada pastilla escribe su frase en el mismo
+            // campo `nota`: no hay columna nueva ni contrato nuevo con el
+            // backend, sólo texto ya redactado.
+            $sugerenciasNota = [
+              'Ocasión' => [
+                'Estoy celebrando un cumpleaños',
+                'Es un aniversario',
+                'Vamos a pedir matrimonio',
+              ],
+              'Familia y accesibilidad' => [
+                'Van niños pequeños',
+                'Necesito silla para bebé',
+                'Alguien usa silla de ruedas',
+              ],
+              'Alimentación' => [
+                'Hay alguien vegetariano o vegano',
+                'Alergia a algún ingrediente',
+                'Sin gluten',
+              ],
+              'Mesa' => [
+                'Prefiero zona tranquila',
+                'Queremos terraza',
+                'Mesa cerca de la ventana',
+              ],
+            ];
+          ?>
           <div class="field reservation-field">
             <label class="reservation-details-label" for="reservationOccasion">Indicaciones para tu visita <span>(opcional)</span></label>
+            <div class="reservation-suggestions" data-nota-sugerencias>
+              <?php foreach ($sugerenciasNota as $grupo => $frases) : ?>
+                <div class="reservation-suggestions__grupo" role="group" aria-label="<?php echo s($grupo); ?>">
+                  <span class="reservation-suggestions__rotulo"><?php echo s($grupo); ?></span>
+                  <div class="reservation-suggestions__chips">
+                    <?php foreach ($frases as $frase) : ?>
+                      <button type="button" class="reservation-suggestion" aria-pressed="false"
+                        data-nota-frase="<?php echo s($frase); ?>"><?php echo s($frase); ?></button>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
             <textarea id="reservationOccasion" class="reservation-control reservation-control--textarea" name="nota" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…" aria-describedby="occasionError"></textarea>
             <span class="field__msg reservation-field__error" id="occasionError" data-field-error="nota"></span>
           </div>
@@ -387,7 +418,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             <button type="button" class="btn-line btn-line--secondary reservation-stage-back" data-reservation-back>
               <span class="arrow">←</span><span>Atrás</span>
             </button>
-            <button type="button" class="btn-line" data-reservation-next>
+            <button type="button" class="btn-line btn-line--solid" data-reservation-next>
               <span>Continuar</span><span class="arrow">→</span>
             </button>
           </div>
@@ -396,7 +427,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         <section class="reservation-step reservation-step--review" data-reservation-step="4" hidden
           aria-labelledby="reservation-review-title">
           <div class="reservation-step__head">
-            <span class="section-index" aria-hidden="true">04</span>
+            <span class="section-index targa" aria-hidden="true">04</span>
             <h3 id="reservation-review-title" tabindex="-1">Confirma los detalles</h3>
           </div>
           <div class="reservation-review__intro">
@@ -434,7 +465,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             </button>
             <div class="reservation-submit">
               <p data-new-reservation-submit-help>Te enviaremos un código temporal para confirmar tu reservación.</p>
-              <button type="submit" class="btn-line" data-magnetic disabled><span data-new-reservation-submit-label>Confirmar reservación</span><span class="arrow">→</span></button>
+              <button type="submit" class="btn-line btn-line--solid" data-magnetic disabled><span data-new-reservation-submit-label>Confirmar reservación</span><span class="arrow">→</span></button>
               <?php /* El aviso se menciona donde el visitante entrega los datos,
                        no sólo en el pie: aquí es donde la pregunta "¿qué van a
                        hacer con esto?" se le puede pasar por la cabeza. */ ?>

@@ -67,7 +67,7 @@
 .admin-menu__button--primary {
     border-color: var(--admin-terra);
     background: var(--admin-terra);
-    color: #fff;
+    color: var(--admin-text-inverse);
 
     &::before {
         content: "";
@@ -82,7 +82,7 @@
     &:hover {
         border-color: var(--admin-terra-deep);
         background: var(--admin-terra);
-        color: #fff;
+        color: var(--admin-text-inverse);
         transform: translateY(-1px);
     }
 
@@ -162,7 +162,7 @@
 .admin-body .admin-btn--primary,
 .admin-body .admin-menu__button--primary {
     background-color: var(--admin-terra);
-    color: #fff;
+    color: var(--admin-text-inverse);
 }
 
 .admin-body .admin-btn--secondary,

@@ -24,7 +24,7 @@
   flex: 0 0 auto;
   border-radius: 50%;
   border: 1px solid var(--admin-border);
-  background: radial-gradient(120% 120% at 30% 20%, rgba(204, 163, 82, 0.28), transparent 70%), var(--admin-surface-soft);
+  background: radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--admin-gold) 28%, transparent), transparent 70%), var(--admin-surface-soft);
   color: var(--admin-gold);
   font-family: var(--admin-font-heading);
   font-size: 15px;

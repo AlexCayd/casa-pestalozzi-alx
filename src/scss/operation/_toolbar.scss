@@ -92,7 +92,7 @@
   }
 
   em {
-    color: var(--admin-warning-text, #ffd98b);
+    color: var(--admin-warning-text);
     font-size: 10px;
     font-style: normal;
   }
@@ -121,7 +121,7 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--sombra) 18%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
 }
 
 .operational-selection-context span {

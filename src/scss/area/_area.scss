@@ -1,6 +1,6 @@
 // ── KDS — Área de Producción · Casa Pestalozzi ───────────────
 
-.area-page { background: var(--ink-2); }
+.area-page { background: var(--bg); }
 
 // ── Cursor override (previene cursor:none del cursor.js) ──────
 .area-page,
@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--ink-2);
+  background: var(--bg);
   color: var(--txt);
   font-family: var(--sans);
   overflow: hidden;
@@ -127,21 +127,21 @@
 }
 
 .area-col--enviados .area-col-count {
-  background: rgba(232,160,96,.12);
-  color: #e8a060;
-  border-color: rgba(232,160,96,.25);
+  background: color-mix(in srgb, var(--feedback-warn) 12%, transparent);
+  color: var(--feedback-warn);
+  border-color: color-mix(in srgb, var(--feedback-warn) 25%, transparent);
 }
 
 .area-col--prep .area-col-count {
-  background: rgba(204,163,82,.12);
-  color: var(--gold);
-  border-color: rgba(204,163,82,.28);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .area-col--listo .area-col-count {
-  background: rgba(139,191,126,.1);
-  color: #8bbf7e;
-  border-color: rgba(139,191,126,.25);
+  background: color-mix(in srgb, var(--feedback-ok) 10%, transparent);
+  color: var(--feedback-ok);
+  border-color: color-mix(in srgb, var(--feedback-ok) 25%, transparent);
 }
 
 .area-col-items {
@@ -149,11 +149,11 @@
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204,163,82,.25) transparent;
+  scrollbar-color: color-mix(in srgb, var(--accent) 25%, transparent) transparent;
 
   &::-webkit-scrollbar       { width: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.25); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); border-radius: 2px; }
 }
 
 // ── Empty state ───────────────────────────────────────────────
@@ -182,8 +182,8 @@
   border-left: 3px solid var(--line-soft);
   transition: border-color .2s;
 
-  &--alerta  { border-left-color: rgba(232,160,96,.7); }
-  &--urgente { border-left-color: rgba(232, 87, 80,.8); }
+  &--alerta  { border-left-color: color-mix(in srgb, var(--feedback-warn) 70%, transparent); }
+  &--urgente { border-left-color: color-mix(in srgb, var(--feedback-danger) 80%, transparent); }
 }
 
 .area-card__head {
@@ -220,8 +220,8 @@
   flex-shrink: 0;
   white-space: nowrap;
 
-  .area-card--alerta  & { color: #e8a060; }
-  .area-card--urgente & { color: #e87060; }
+  .area-card--alerta  & { color: var(--feedback-warn); }
+  .area-card--urgente & { color: var(--feedback-danger); }
 }
 
 // ── Items dentro del card ─────────────────────────────────────
@@ -254,7 +254,7 @@
 .area-card__qty {
   font-size: .88rem;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--accent-text);
   min-width: 28px;
   flex-shrink: 0;
 }
@@ -278,15 +278,15 @@
 
 .area-card__nota {
   font-size: .72rem;
-  color: rgba(232,224,212,.85);
+  color: color-mix(in srgb, var(--txt) 85%, transparent);
   margin-top: .35rem;
   margin-bottom: .25rem;
   line-height: 1.3;
   word-break: break-word;
   white-space: normal;
   padding: .35rem .6rem .35rem .65rem;
-  background: rgba(204,163,82,.09);
-  border-left: 2px solid rgba(204,163,82,.5);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 2px;
 }
 
@@ -320,7 +320,7 @@
   padding: .8rem 1rem;
   border: 1px solid var(--estado-entregado);
   border-radius: 8px;
-  background: rgba(58, 134, 255, .12);
+  background: color-mix(in srgb, var(--feedback-info) 12%, transparent);
   color: var(--estado-entregado);
   font-family: var(--sans);
   font-size: .8rem;
@@ -359,29 +359,29 @@
     flex: 0 0 auto;
     font-size: .72rem;
     padding: .8rem .9rem;
-    background: rgba(255,255,255,.04);
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
     color: var(--txt-faint);
     border: 1px solid var(--line-soft);
 
-    &:hover:not(:disabled) { background: rgba(255,255,255,.09); color: var(--txt-mute); }
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--txt) 9%, transparent); color: var(--txt-mute); }
   }
 
   // Enviado → En preparación
   &--prep {
-    background: rgba(232,160,96,.18);
-    color: #e8a060;
-    border: 1px solid rgba(232,160,96,.4);
+    background: color-mix(in srgb, var(--feedback-warn) 18%, transparent);
+    color: var(--feedback-warn);
+    border: 1px solid color-mix(in srgb, var(--feedback-warn) 40%, transparent);
 
-    &:hover:not(:disabled) { background: rgba(232,160,96,.28); }
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--feedback-warn) 28%, transparent); }
   }
 
   // En preparación → Listo
   &--listo {
-    background: rgba(139,191,126,.18);
-    color: #8bbf7e;
-    border: 1px solid rgba(139,191,126,.38);
+    background: color-mix(in srgb, var(--feedback-ok) 18%, transparent);
+    color: var(--feedback-ok);
+    border: 1px solid color-mix(in srgb, var(--feedback-ok) 38%, transparent);
 
-    &:hover:not(:disabled) { background: rgba(139,191,126,.28); }
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--feedback-ok) 28%, transparent); }
   }
 
   &--loading {
@@ -434,7 +434,7 @@
   flex-direction: column;
   gap: clamp(1.5rem, 4vh, 3rem);
   padding: clamp(1.5rem, 5vw, 4rem);
-  background: var(--ink);
+  background: var(--bg);
   color: var(--txt);
 }
 
@@ -452,7 +452,7 @@
   font-size: .68rem;
   letter-spacing: .22em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--accent-text);
 }
 
 .area-select__title {

@@ -1,9 +1,15 @@
 // ── Lightbox universal ────────────────────────────────────────
+//
+// El fondo salía de --scrim, que se mezcla sobre --verde-deep: la ventana de
+// ampliar una foto se abría en verde botella, un color que no tiene ninguna
+// otra capa de la landing. Ahora es café —el fondo con el que la casa cierra— y
+// lleva la misma fibra de mantel que las secciones, para que ampliar una imagen
+// se sienta parte de la página y no un visor pegado encima.
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: rgba(6,7,8,0.985);
+  background: color-mix(in srgb, var(--cafe-deep) 97%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -12,8 +18,29 @@
   pointer-events: none;
   transition: opacity 0.4s;
   padding: clamp(1rem, 4vw, 3rem);
+  isolation: isolate;
 
   &.open { opacity: 1; pointer-events: all; }
+
+  // Misma trama que .section::before en su variante para fondos oscuros.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--brand-crema) 5%, transparent) 0 1px,
+        transparent 1px 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--brand-crema) 4%, transparent) 0 1px,
+        transparent 1px 6px
+      );
+  }
 }
 
 .lightbox__img {
@@ -34,12 +61,15 @@
 .lightbox__cap {
   text-align: center;
   margin-top: 1.2rem;
-  background: rgba(6,7,8,0.6);
   padding: 0.7rem 1.2rem;
-  border-radius: 4px;
 
-  .n { font-family: var(--serif); font-size: clamp(1.2rem, 3vw, 1.6rem); color: var(--beige); }
-  .t { font-size: 0.66rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--accent); }
+  .n {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    color: var(--txt-strong);
+  }
+  .t { font-size: 0.66rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--accent-text); }
 }
 
 .lightbox__close {
@@ -51,18 +81,18 @@
   height: 52px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: rgba(20,22,24,0.7);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0;
   font-size: 1.3rem;
-  color: var(--beige);
+  color: var(--txt-strong);
   transition: background 0.3s, color 0.3s, transform 0.3s;
   line-height: 1;
 
-  &:hover { background: var(--accent); color: var(--ink); transform: rotate(90deg); }
+  &:hover { background: var(--accent); color: var(--on-accent); transform: rotate(90deg); }
 }
 
 .lightbox__counter {
@@ -74,11 +104,9 @@
   font-size: 0.95rem;
   color: var(--txt-mute);
   letter-spacing: 0.1em;
-  background: rgba(6,7,8,0.45);
   padding: 0.3rem 0.7rem;
-  border-radius: 4px;
 
-  b { color: var(--accent); font-weight: 400; }
+  b { color: var(--accent-text); font-weight: 500; }
 }
 
 .lightbox__nav {
@@ -90,18 +118,18 @@
   height: 56px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: rgba(20,22,24,0.6);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--serif);
   font-size: 2rem;
-  color: var(--beige);
+  color: var(--txt-strong);
   transition: background 0.3s, color 0.3s;
   padding-bottom: 6px;
 
-  &:hover { background: var(--accent); color: var(--ink); }
+  &:hover { background: var(--accent); color: var(--on-accent); }
   &.prev { left: clamp(0.8rem, 3vw, 2.5rem); }
   &.next { right: clamp(0.8rem, 3vw, 2.5rem); }
 }
@@ -122,4 +150,34 @@
   .lightbox__nav.next { right: 0.6rem; }
   .lightbox__img { max-width: 94vw; }
   .lightbox__hint { display: none; }
+}
+
+// ── View Transitions ──────────────────────────────────────────
+//
+// Abrir, cerrar y pasar de foto van por la API de transiciones de vista (ver
+// lightbox.js). Aquí sólo se le da el tiempo y la curva de la casa: por defecto
+// el navegador funde en 250 ms lineales y se nota seco al lado del resto.
+//
+// ::view-transition-group(zoom-origen) es el par miniatura↔imagen grande: se
+// deja con el ajuste automático del navegador y sólo se le alarga el recorrido,
+// que es lo que convierte el salto en un desplazamiento legible.
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-group(zoom-origen) {
+  animation-duration: 0.52s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// Con movimiento reducido el JS ni siquiera arranca la transición, pero si el
+// navegador la disparara por su cuenta hay que dejarla en nada.
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

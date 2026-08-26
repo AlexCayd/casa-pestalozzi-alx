@@ -30,8 +30,10 @@
   .hero__meta .mi { flex: 1 1 40%; }
   .scroll-cue { display: none; }
 
-  .about__media { height: auto; grid-template-rows: 200px 200px; }
-  .about__media .m:nth-child(1) { grid-row: span 1; grid-column: span 2; height: 220px; }
+  // Los overrides de .about__media salieron: eran de la versión de tres fotos
+  // —dos filas fijas y una primera pieza a doble ancho— y ya sólo sobrevivía a
+  // medias, con un `height` de 220px dentro de una fila de 200. El mosaico de
+  // diez piezas trae su propio bloque móvil en components/_nosotros.scss.
 
   .menu__tabs {
     flex-wrap: nowrap;
@@ -47,17 +49,19 @@
 
   .reserve-fab { padding: 0.8rem 1.3rem; font-size: 0.66rem; }
 
-  .pair { min-height: 360px; }
-  .pair__body p { max-height: 200px; opacity: 1; margin-top: 0.5rem; }
+  // Los overrides de .pair salieron con la sección de Maridaje: la agenda de
+  // Catas trae su propio bloque móvil en components/_catas.scss.
 
   .gcard { flex: 0 0 78vw; }
 
-  .testi blockquote .o { font-size: 1.25rem; }
+  // El override de .testi salió con el bloque de testimonios de Catering.
 
   .reserva__hours .row { font-size: 0.78rem; }
   .loc__map { min-height: 380px; }
   .map2__parklabel { font-size: 0.8rem; }
-  .foot__top { flex-direction: column; gap: 2rem; }
+  // El pie pasó de flex a rejilla y trae sus propios breakpoints en
+  // components/_footer.scss; aquí sólo se aprieta el aire.
+  .foot__top { gap: 2rem; }
 }
 
 @media (max-width: 420px) {
@@ -65,9 +69,17 @@
   .dish__thumb { width: 54px; height: 54px; }
 }
 
+// Faltaban las dos últimas líneas, y son las que de verdad paran las cosas:
+// sin `animation-iteration-count` un bucle infinito como el de la insegna
+// seguía corriendo —sólo que a 0.001ms por vuelta, o sea peor—, y sin
+// `scroll-behavior` los saltos de ancla seguían desplazándose con inercia.
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

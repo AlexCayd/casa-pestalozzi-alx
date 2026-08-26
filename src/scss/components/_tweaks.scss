@@ -7,7 +7,7 @@
   width: 320px;
   max-width: 88vw;
   z-index: 10000;
-  background: rgba(12,14,15,0.97);
+  background: color-mix(in srgb, var(--scrim) 97%, transparent);
   border-left: 1px solid var(--line);
   backdrop-filter: blur(14px);
   transform: translateX(100%);
@@ -43,7 +43,7 @@
     font-size: 0.6rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-text);
     display: block;
     margin-bottom: 0.8rem;
   }
@@ -59,7 +59,7 @@
   color: var(--txt-mute);
   transition: all 0.3s;
 
-  &.sel { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  &.sel { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 }
 
 .tw-swatch {
@@ -103,5 +103,5 @@
   }
 
   &.on { background: var(--accent); }
-  &.on::after { transform: translateX(20px); background: var(--ink); }
+  &.on::after { transform: translateX(20px); background: var(--on-accent); }
 }

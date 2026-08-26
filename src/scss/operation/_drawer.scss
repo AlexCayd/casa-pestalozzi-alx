@@ -57,7 +57,7 @@
 
   &:focus-visible {
     outline: 0;
-    box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+    box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
   }
 
   &:active:not(:disabled) {
@@ -108,7 +108,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 14px;
   background: var(--admin-surface);
-  box-shadow: 22px 0 54px rgba(0, 0, 0, 0.46);
+  box-shadow: 22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
   overflow: hidden;
   flex-direction: column;
   transform: translateX(calc(-100% - var(--operational-shell-pad)));
@@ -214,7 +214,7 @@
 
   &:focus-visible {
     outline: 0;
-    box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+    box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
   }
 }
 
@@ -249,7 +249,7 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: rgba(245, 245, 245, 0.035);
+    background: color-mix(in srgb, var(--txt) 3.5%, transparent);
     border-radius: 999px;
   }
 
@@ -319,7 +319,7 @@
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: rgba(4, 6, 5, 0.62);
+  background: color-mix(in srgb, var(--scrim) 62%, transparent);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }

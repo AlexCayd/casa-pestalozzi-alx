@@ -169,6 +169,25 @@
             selected = date;
             input.value = formatValue(date);
             display.value = formatDisplay(date);
+            // La marca se pone A MANO sobre la rejilla ya pintada. El `selected`
+            // de arriba sólo se lee mientras se construye el mes, y en modo
+            // popover eso bastaba porque el calendario se cierra y se vuelve a
+            // pintar al abrirlo. Inline no se cierra —closeCalendar() no hace
+            // nada— así que el día elegido se quedaba sin señalar: se pulsaba y
+            // la rejilla no acusaba el clic.
+            //
+            // Se marca en sitio en vez de re-renderizar el mes entero: rehacer
+            // la rejilla dentro del propio manejador tira el botón que acaba de
+            // recibir el clic y con él el foco del teclado.
+            Array.prototype.forEach.call(
+              grid.querySelectorAll(".cpc-day.selected"),
+              function (dia) {
+                dia.classList.remove("selected");
+                dia.setAttribute("aria-selected", "false");
+              }
+            );
+            btn.classList.add("selected");
+            btn.setAttribute("aria-selected", "true");
             closeCalendar();
             emitChange();
           });

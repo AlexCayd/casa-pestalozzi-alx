@@ -124,10 +124,25 @@ class HorarioReservacionService
         $tipo = $efectivo['tipo'] ?? null;
         $base['origen'] = $origen;
         $base['tipo'] = $tipo;
+        // El detalle lleva fecha, etiqueta, horas y la referencia habitual
+        // porque es lo que pinta la tarjeta de "horario especial" de la landing
+        // (ver initSpecialScheduleNotice en src/js/modules/form.js). Con sólo
+        // es_excepcion/tipo/motivo la tarjeta se abría con la fecha y las horas
+        // en blanco y un "Referencia habitual: Cerrado" siempre falso.
         $base['detalle_horario'] = [
             'es_excepcion' => $origen === 'excepcion',
             'tipo' => $tipo,
             'motivo' => $efectivo['motivo'] ?? null,
+            'etiqueta' => $tipo === 'cerrado' ? 'Cierre especial' : 'Horario especial',
+            'fecha' => $fecha,
+            'abierto' => (bool)($efectivo['abierto'] ?? false),
+            'hora_apertura' => !empty($efectivo['hora_apertura'])
+                ? substr((string)$efectivo['hora_apertura'], 0, 5)
+                : null,
+            'hora_cierre' => !empty($efectivo['hora_cierre'])
+                ? substr((string)$efectivo['hora_cierre'], 0, 5)
+                : null,
+            'habitual' => HorarioOperacionService::obtenerHorarioHabitualParaFecha($fecha),
         ];
 
         if (!($efectivo['abierto'] ?? false)) {

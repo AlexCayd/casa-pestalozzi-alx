@@ -1,10 +1,21 @@
 // ── Nosotros ──────────────────────────────────────────────────
+// El mosaico creció de tres piezas a nueve, así que ya no se puede centrar el
+// texto contra él: con `align-items: center` la columna de la izquierda queda
+// flotando a media altura de una rejilla de cuatro filas.
+//
+// Las dos columnas COMPARTEN alto: `stretch` estira el mosaico hasta el pie del
+// texto y sus tres filas se reparten esa medida. Estuvieron en `start`, cada una
+// por su cuenta, y el mosaico terminaba a media altura de las cifras —la sección
+// se leía como una foto pegada al lado de un texto más largo, no como dos
+// columnas—. El texto sí se ancla arriba: estirarlo no le aporta nada.
 .about__grid {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: 0.85fr 1.15fr;
   gap: clamp(2rem, 6vw, 6rem);
-  align-items: center;
+  align-items: stretch;
 }
+
+.about__text { align-self: start; }
 @media (max-width: 900px) { .about__grid { grid-template-columns: 1fr; } }
 
 .about__head { margin-bottom: 2rem; }
@@ -14,16 +25,8 @@
   margin: 1.5rem 0;
 }
 
-.about__quote {
-  font-family: var(--crimson);
-  font-style: italic;
-  font-size: clamp(1.5rem, 2.6vw, 2.3rem);
-  color: var(--beige);
-  line-height: 1.45;
-  margin-bottom: 2rem;
-
-  .q { color: var(--accent); font-size: 1.4em; }
-}
+// .about__quote salió del marcado: la cita repetía en primera persona lo que el
+// párrafo de debajo ya explica con ejemplos.
 
 .about__stats {
   display: flex;
@@ -34,7 +37,7 @@
   .stat b {
     font-family: var(--serif);
     font-size: clamp(2.2rem, 4vw, 3.4rem);
-    color: var(--accent);
+    color: var(--accent-text);
     display: block;
     line-height: 1;
   }
@@ -46,12 +49,36 @@
   }
 }
 
+// ── Mosaico escalonado ────────────────────────────────────────
+//
+// Diez piezas en CUATRO columnas por tres filas. Estuvo en tres columnas por
+// cinco filas y el mosaico pasaba de los 900px de alto: la sección se convertía
+// en un scroll largo por sí sola y el texto de la izquierda quedaba flotando
+// contra una pared de fotos. Con una columna más y dos filas menos entran las
+// mismas diez piezas en poco más de la mitad del alto.
+//
+// Doce celdas, diez piezas y dos tramos dobles: la vertical del cóctel y la
+// apaisada de la fachada, que son las dos que necesitan una forma concreta. El
+// resto van en cuadrado, que es como llegan la mayoría.
+//
+// La colocación va por `nth-child` y no por clases modificadoras: el orden del
+// marcado es el orden de lectura, y una sola fuente de verdad evita que una
+// clase diga una cosa y la rejilla otra.
+//
+// El alto ya no es propio: lo da la columna de texto por el `stretch` de la
+// rejilla padre, y las tres filas se lo reparten en partes iguales. El
+// `min-height` es el suelo para cuando el texto queda más corto que el mosaico
+// —ventanas anchas y bajas—, y equivale a las tres filas de 205px que había
+// antes. `grid-auto-rows` se conserva para una undécima pieza, que caería fuera
+// de las tres filas declaradas.
 .about__media {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 1rem;
-  height: clamp(360px, 50vw, 560px);
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: clamp(130px, 14vw, 205px);
+  height: 100%;
+  min-height: clamp(390px, 42vw, 615px);
+  gap: clamp(0.5rem, 0.8vw, 0.8rem);
 
   .m {
     overflow: hidden;
@@ -64,14 +91,47 @@
       transform: scale(1.15);
       will-change: transform;
     }
+  }
 
-    &:nth-child(1) { grid-row: span 2; }
+  // El marco rectangular que iba aquí se retiró. Los marcos comparten
+  // `border-radius: … / 22%`, que es un porcentaje del ALTO: las piezas que
+  // ocupan dos filas sacan un arco de verdad, pero las bajas quedaban casi
+  // rectas y su filete se leía como un marco pegado alrededor de la foto
+  // —justo el que no debía estar—. Por eso `arco--rebajado` sólo lo lleva en el
+  // marcado la pieza 3, que es la única que ocupa dos filas.
+  //
+  //   fila 1 │  1  │  3  │  4  │  5   ← 3 arranca aquí y baja
+  //   fila 2 │  2  │  ↓  │     6      ← la fachada, apaisada
+  //   fila 3 │  7  │  8  │  9  │ 10
+  .m:nth-child(1)  { grid-area: 1 / 1; }
+  .m:nth-child(2)  { grid-area: 2 / 1; }
+  .m:nth-child(3)  { grid-area: 1 / 2 / span 2 / span 1; }
+  .m:nth-child(4)  { grid-area: 1 / 3; }
+  .m:nth-child(5)  { grid-area: 1 / 4; }
+  .m:nth-child(6)  { grid-area: 2 / 3 / span 1 / span 2; }
+  .m:nth-child(7)  { grid-area: 3 / 1; }
+  .m:nth-child(8)  { grid-area: 3 / 2; }
+  .m:nth-child(9)  { grid-area: 3 / 3; }
+  .m:nth-child(10) { grid-area: 3 / 4; }
+}
 
-    &::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border: 1px solid var(--line-soft);
-    }
+// Por debajo de la tablet el escalonado no se sostiene: tres columnas dejan
+// celdas de 90px y las piezas dobles se vuelven ilegibles. Dos columnas, todas
+// las piezas al mismo tramo y colocación automática.
+@media (max-width: 900px) {
+  .about__media {
+    grid-template-columns: repeat(2, 1fr);
+    // A una columna ya no hay texto al lado con el que empatar: el mosaico
+    // vuelve a mandar sobre su propio alto y las diez piezas se colocan solas.
+    grid-template-rows: none;
+    grid-auto-rows: clamp(130px, 30vw, 210px);
+    height: auto;
+    min-height: 0;
+    margin-top: clamp(2rem, 4vh, 3rem);
+
+    // `:nth-child(n)` no filtra nada: está para empatar la especificidad de las
+    // nueve reglas de colocación de arriba y ganarles por orden, que es lo que
+    // corresponde aquí en vez de un !important.
+    .m:nth-child(n) { grid-area: auto; }
   }
 }

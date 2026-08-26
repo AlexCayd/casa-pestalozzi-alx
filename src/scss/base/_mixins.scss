@@ -42,12 +42,17 @@
     @media (max-width: $bp) { @content; }
 }
 
-// Overlay degradado oscuro desde abajo
+// Overlay degradado oscuro desde abajo. El velo es --scrim y no --bg: va sobre
+// una foto, donde el texto siempre es claro aunque la página esté en crema.
 @mixin overlay-dark($start: 30%, $opacity: 0.92) {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent $start, rgba(11,12,13,$opacity));
+    background: linear-gradient(
+        180deg,
+        transparent $start,
+        color-mix(in srgb, var(--scrim) #{$opacity * 100%}, transparent)
+    );
 }
 
 // Borde sutil con token de línea
@@ -69,7 +74,7 @@
     font-size: clamp(0.66rem, 0.9vw, 0.78rem);
     letter-spacing: 0.42em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-text);
     display: inline-flex;
     align-items: center;
     gap: 1.1rem;

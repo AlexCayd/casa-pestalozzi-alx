@@ -1,5 +1,5 @@
 // ── Menú (La Carta) ───────────────────────────────────────────
-.menu { background: var(--ink); }
+.menu { background: var(--bg); }
 
 .menu__head {
   display: flex;
@@ -34,7 +34,7 @@
   white-space: nowrap;
 
   &:hover { color: var(--beige); }
-  &.active { color: var(--ink); background: var(--accent); }
+  &.active { color: var(--on-accent); background: var(--accent); }
 
   .count {
     font-family: var(--serif);
@@ -93,14 +93,17 @@
   transition: color 0.3s;
 }
 .dish:hover .dish__idx,
-.dish.active .dish__idx { color: var(--accent); }
+.dish.active .dish__idx { color: var(--accent-text); }
 
 .dish__main {
+  // El nombre del platillo es lo que se lee primero de la carta: va al texto
+  // más fuerte del tono, que sobre el verde de la sección es claro. Antes salía
+  // en café oscuro sobre verde y era la línea menos legible de la página.
   h4 {
     font-family: var(--serif);
     font-size: clamp(1.15rem, 1.8vw, 1.5rem);
-    color: var(--beige);
-    font-weight: 400;
+    color: var(--txt-strong);
+    font-weight: 500;
     transition: color 0.3s;
   }
   p {
@@ -112,13 +115,13 @@
   }
 }
 .dish:hover .dish__main h4,
-.dish.active .dish__main h4 { color: var(--accent-soft); }
+.dish.active .dish__main h4 { color: var(--accent-text); }
 
 
 .dish__price {
   font-family: var(--serif);
   font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
 
   small { color: var(--txt-faint); font-family: var(--sans); font-size: 0.6rem; }
@@ -143,7 +146,7 @@
     bottom: 2px;
     font-size: 0.7rem;
     color: var(--beige);
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 1px 4px color-mix(in srgb, var(--sombra) 80%, transparent);
     opacity: 0.85;
   }
 }
@@ -154,12 +157,52 @@
   top: 12vh;
 }
 
+// Marco de fotografía, no borde de caja: el filete de --line sobre el verde de
+// la sección apenas se leía y la imagen flotaba.
+//
+// Historia de dos tropiezos, porque el segundo se hereda del primero:
+//
+//  1. El relleno pretendía hacer de passe-partout y no lo hacía. Los
+//     desplazamientos de un absoluto se resuelven contra la caja de RELLENO del
+//     contenedor, no contra la de contenido, así que un `inset: 0` cubría el
+//     relleno entero y del marco sólo quedaba el filete de 1px.
+//  2. Al arreglarlo con `inset: var(--menu-marco)` el marco apareció, pero
+//     entonces eran CUATRO capas —foto, velo, cartela y la chapa de ampliar que
+//     inyecta el lightbox— cuadrándose cada una por su cuenta contra el mismo
+//     rectángulo, repitiendo la misma medida. Cualquiera que se saliera del
+//     acuerdo descuadraba el conjunto, y eso es lo que se veía.
+//
+// Ahora el rectángulo es un ELEMENTO (.menu__preview-hueco) y las cuatro capas
+// se posicionan dentro de él con `inset: 0`. No hay medida que repetir.
+//
+// El marco, por su parte, es cartón crema de verdad: relleno, fondo claro,
+// filete grueso fuera, filete fino en el borde del hueco y escuadras en las
+// cuatro esquinas.
 .menu__preview-frame {
+  --menu-marco: clamp(18px, 2.1vw, 30px);
+  // El cartón va en crema de marca y no en un rol: es papel, y tiene que serlo
+  // igual sobre el verde de esta sección que sobre cualquier otra a la que se
+  // mude el componente.
+  --menu-carton: var(--brand-crema);
+
   position: relative;
   aspect-ratio: 4/5;
+  padding: var(--menu-marco);
+  border: 2px solid var(--menu-carton);
+  background: var(--menu-carton);
+}
+
+// El hueco: el rectángulo de la fotografía. Todo lo que va sobre la foto vive
+// aquí dentro y se alinea con `inset: 0`.
+.menu__preview-hueco {
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  // El filete interior es lo que convierte el relleno en cartón montado: sin él
+  // el hueco no tiene borde y el marco se lee como un margen.
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-cafe) 45%, transparent);
+  background: var(--surface-2);
 
   img {
     position: absolute;
@@ -174,17 +217,66 @@
     &.show { opacity: 1; transform: scale(1); }
   }
 
+  // El velo de pie, para que la cartela se lea sobre cualquier fotografía.
   &::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, transparent 55%, rgba(11,12,13,0.85));
+    background: linear-gradient(180deg, transparent 55%, color-mix(in srgb, var(--scrim) 85%, transparent));
     pointer-events: none;
   }
 }
 
+// ── Las escuadras ─────────────────────────────────────────────
+//
+// Cuatro remates en ángulo sobre el cartón, a media distancia entre el filete
+// exterior y el borde del hueco.
+//
+// Se dibujan con ocho degradados planos —un brazo horizontal y otro vertical
+// por esquina— sobre un solo pseudoelemento, en vez de con bordes recortados
+// por clip-path: un recorte por porcentajes sobre una caja de proporción fija
+// obliga a rehacer la cuenta cada vez que cambia `--menu-marco`, y basta con
+// que el redondeo caiga del lado equivocado para que un brazo desaparezca.
+// Cada degradado se posiciona en su esquina y mide lo que mide; no hay
+// aritmética que se pueda desajustar.
+//
+// El trazo va en CAFÉ sobre el cartón crema: en crema sobre crema no habría
+// adorno que ver.
+.menu__preview-frame::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--menu-marco) / 2.6);
+  pointer-events: none;
+
+  --menu-escuadra: color-mix(in srgb, var(--brand-cafe) 55%, transparent);
+  --menu-brazo: 18%;
+
+  background-image:
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra)),
+    linear-gradient(var(--menu-escuadra), var(--menu-escuadra));
+  background-repeat: no-repeat;
+  background-size:
+    var(--menu-brazo) 1px, 1px var(--menu-brazo),
+    var(--menu-brazo) 1px, 1px var(--menu-brazo),
+    var(--menu-brazo) 1px, 1px var(--menu-brazo),
+    var(--menu-brazo) 1px, 1px var(--menu-brazo);
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+}
+
 .menu__preview-cap {
   position: absolute;
+  // Dentro del hueco: su respiro se mide contra la fotografía, no contra el
+  // cartón.
   bottom: 1.6rem;
   left: 1.6rem;
   right: 1.6rem;
@@ -194,7 +286,7 @@
     font-size: 0.6rem;
     letter-spacing: 0.3em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   .pc-name {

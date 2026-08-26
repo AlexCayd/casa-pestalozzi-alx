@@ -2,15 +2,15 @@
 // El posicionamiento pertenece a cada contexto; la tarjeta conserva aquí su
 // apariencia, tipografía y estados de tipo como única fuente de verdad.
 .hero-announcement {
-  --announcement-gold: var(--accent, #cca352);
-  --announcement-gold-soft: var(--accent-soft, #e0c184);
-  --announcement-cream: var(--beige, #fff9e4);
+  --announcement-gold: var(--accent);
+  --announcement-gold-soft: var(--accent-soft);
+  --announcement-cream: var(--beige);
   --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
-  --announcement-accent: #9fc2c5;
-  --announcement-border: rgba(159, 194, 197, 0.52);
+  --announcement-accent: var(--feedback-info-bg);
+  --announcement-border: color-mix(in srgb, var(--feedback-info) 52%, transparent);
   --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
-  --announcement-background: #101112;
-  --announcement-icon-background: rgba(159, 194, 197, 0.12);
+  --announcement-background: var(--surface);
+  --announcement-icon-background: color-mix(in srgb, var(--feedback-info) 12%, transparent);
   --announcement-icon-background: color-mix(in srgb, var(--announcement-accent) 12%, transparent);
   --announcement-link-color: var(--announcement-accent);
   box-sizing: border-box;
@@ -23,15 +23,38 @@
   gap: 0.75rem;
   padding: 0.8rem 0.75rem 0.8rem 0.85rem;
   border: 1px solid var(--announcement-border);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--announcement-background);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+  // Sombra más corta: el aviso se apoya en la esquina, no flota sobre un velo.
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 22%, transparent);
   color: var(--announcement-cream);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  // Se retiró el backdrop-filter: cuesta una capa de composición por fotograma
+  // y detrás sólo hay el fondo de la sección, así que no difuminaba nada.
   overflow: hidden;
+  isolation: isolate;
   opacity: 1;
   transition: opacity 180ms ease, transform 180ms ease;
+
+  // La fibra de mantel del resto de la página: es lo que hace que el aviso se
+  // lea como una nota de la casa y no como una notificación del navegador.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px,
+        transparent 1px 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+        transparent 1px 6px
+      );
+  }
 
   &[hidden] {
     display: none !important;
@@ -117,7 +140,7 @@
     line-height: 1.4;
     letter-spacing: 0.04em;
     text-decoration: underline;
-    text-decoration-color: rgba(224, 193, 132, 0.46);
+    text-decoration-color: color-mix(in srgb, var(--accent-soft) 46%, transparent);
     text-underline-offset: 0.25rem;
     transition: color 180ms ease, text-decoration-color 180ms ease;
 
@@ -152,7 +175,7 @@
     border-radius: 50%;
     appearance: none;
     background: transparent;
-    color: rgba(255, 249, 228, 0.72);
+    color: color-mix(in srgb, var(--txt) 72%, transparent);
     cursor: pointer;
     font-family: var(--announcement-font);
     font-size: 1.2rem;
@@ -160,8 +183,8 @@
     transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 
     &:hover {
-      border-color: rgba(224, 193, 132, 0.42);
-      background: rgba(224, 193, 132, 0.1);
+      border-color: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+      background: color-mix(in srgb, var(--accent-soft) 10%, transparent);
       color: var(--announcement-cream);
     }
 
@@ -208,7 +231,7 @@
     height: 100%;
     padding: 0;
     border: 0;
-    background: rgba(11, 12, 13, 0.72);
+    background: color-mix(in srgb, var(--scrim) 72%, transparent);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     cursor: pointer;
@@ -232,7 +255,7 @@
   // El diálogo ya recorta el ancho: dentro de él la tarjeta ocupa todo.
   .hero-announcement {
     width: 100%;
-    box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 26px 60px color-mix(in srgb, var(--sombra) 50%, transparent);
   }
 }
 
@@ -267,13 +290,23 @@
     transform: translateY(0);
   }
 
+  // Con GSAP al mando la entrada la lleva el panel de dentro (ver `entrada()`
+  // en announcement.js). El contenedor se aparta: si conservara su transición,
+  // los dos desplazamientos se sumarían y el aviso llegaría desde más abajo de
+  // lo que se diseñó.
+  &.is-gsap {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
   &__panel:focus-visible {
     outline: none;
   }
 
   .hero-announcement {
     width: 100%;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 45%, transparent);
   }
 }
 

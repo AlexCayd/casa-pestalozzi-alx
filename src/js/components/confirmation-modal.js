@@ -151,7 +151,11 @@
                 '</div>' +
                 '<button type="button" class="confirmation-modal__close" aria-label="Cerrar confirmación" data-confirmation-close>×</button>' +
               '</header>' +
-              '<div class="confirmation-modal__body">' +
+              // data-lenis-prevent: el cuerpo tiene scroll propio y en el
+              // landing Lenis desplaza por código, así que el `overflow: hidden`
+              // del <body> no lo frena — sin la marca, la rueda sobre un modal
+              // largo arrastraba la página de detrás.
+              '<div class="confirmation-modal__body" data-lenis-prevent>' +
                 '<div class="confirmation-modal__summary" data-confirmation-summary></div>' +
                 '<div class="confirmation-modal__warning" role="note" data-confirmation-warning></div>' +
                 '<div class="confirmation-modal__consequence" data-confirmation-consequence></div>' +

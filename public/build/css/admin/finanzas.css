@@ -241,7 +241,7 @@
   transition: border-color var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-gasto-card:hover {
-  border-color: rgba(160, 126, 54, 0.4);
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 40%, transparent);
 }
 .admin-gasto-card.is-inactive {
   opacity: 0.62;
@@ -322,7 +322,7 @@
   font-weight: 800;
 }
 .admin-cortes .is-today {
-  background: rgba(95, 125, 86, 0.1);
+  background: color-mix(in srgb, var(--admin-c-verde) 10%, transparent);
 }
 .admin-cortes .is-today .admin-table__cell-main {
   color: var(--admin-success-text);

@@ -161,7 +161,7 @@
 
     &.is-active {
       background: var(--admin-gold);
-      color: #1b1a17;
+      color: var(--on-accent);
     }
   }
 
@@ -297,11 +297,11 @@
     }
 
     &.is-inside::before {
-      background: rgba(204, 163, 82, 0.18);
+      background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
     }
 
     &.is-edge {
-      color: #1b1a17;
+      color: var(--on-accent);
       font-weight: 800;
       z-index: 1;
     }

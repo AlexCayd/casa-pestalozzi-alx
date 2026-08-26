@@ -8,11 +8,6 @@ function initTweaks() {
     if (window.ScrollTrigger) ScrollTrigger.refresh();
   }
 
-  function setAccentTw(v) {
-    applyAccent(v);
-    $$('[data-tw="accent"] .tw-swatch').forEach(function(b) { b.classList.toggle("sel", b.dataset.val === v); });
-  }
-
   function setSwitch(name, on) {
     var sw = $('.tw-switch[data-tw="' + name + '"]');
     if (sw) sw.classList.toggle("on", !!on);
@@ -23,7 +18,6 @@ function initTweaks() {
 
   // Inicializar desde defaults
   setHero(T.hero);
-  setAccentTw(T.accent);
   setSwitch("cursor", T.cursor);
   setSwitch("smooth", T.smooth);
   setSwitch("anim", T.anim);
@@ -31,9 +25,6 @@ function initTweaks() {
   // Conectar controles
   $$('[data-tw="hero"] .tw-opt').forEach(function(b) {
     b.addEventListener("click", function() { setHero(b.dataset.val); persist({ hero: b.dataset.val }); });
-  });
-  $$('[data-tw="accent"] .tw-swatch').forEach(function(b) {
-    b.addEventListener("click", function() { setAccentTw(b.dataset.val); persist({ accent: b.dataset.val }); });
   });
   ["cursor", "smooth", "anim"].forEach(function(name) {
     var sw = $('.tw-switch[data-tw="' + name + '"]');

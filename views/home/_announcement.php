@@ -80,7 +80,7 @@ $raiz = $esModal ? 'announcement-dialog' : 'announcement-toast';
              viendo exactamente lo que verá el comensal. */ ?>
     <aside
       class="hero-announcement hero-announcement--<?php echo $h($tipo); ?> hero-announcement--<?php echo $tieneEnlace ? 'has-link' : 'without-link'; ?>"
-      style="--announcement-accent: <?php echo $h($configTipo['acento'] ?? '#9fc2c5'); ?>"
+      style="--announcement-accent: <?php echo $h($configTipo['acento'] ?? 'var(--accent)'); ?>"
     >
       <span class="hero-announcement__indicator" aria-hidden="true"></span>
       <div class="hero-announcement__content">

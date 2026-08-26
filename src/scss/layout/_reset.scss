@@ -1,31 +1,134 @@
 // ── Tokens CSS + Reset base CP ────────────────────────────────
+//
+// El color vive en tres capas y sólo la primera contiene hex. Cambiar la
+// paleta de marca es editar la capa 1: todo lo demás se deriva con color-mix
+// y el CSS de la casa consume únicamente los roles de la capa 3.
+//
+//   1 · MARCA    los cuatro colores del manual. Nada más lleva hex aquí.
+//   2 · ESCALAS  variantes derivadas de la marca (profundo, suave, elevado).
+//   3 · ROLES    lo que el CSS usa: fondo, texto, línea, acento.
+//
+// La capa 3 se redeclara por ámbito para cambiar de modo sin duplicar reglas:
+// [data-modo="oscuro"] para las pantallas de piso y [data-tono] para el ritmo
+// de secciones de la landing.
+
+// ── Alias heredados ───────────────────────────────────────────
+//
+// Nombres antiguos que cientos de reglas siguen consumiendo. Cada uno apunta al
+// rol que representaba, para que cambiar de ámbito los arrastre sin reescribir
+// nada.
+//
+// Van en un mixin y NO sueltos en :root porque una custom property que
+// referencia a otra se resuelve en el elemento donde se DECLARA. Con
+// `--beige: var(--txt-strong)` sólo en :root, el valor computado allí
+// —café profundo— se heredaba hacia abajo y ninguna sección lo podía cambiar:
+// que [data-tono="verde"] redeclarara --txt-strong: white no servía de nada, y
+// por eso los títulos de la carta, los textos de los botones y el lightbox
+// entero salían en café sobre verde. Incluyendo el mixin en cada ámbito, los
+// alias se vuelven a resolver ahí y siguen al rol que representan.
+@mixin alias-heredados {
+  --gold: var(--accent);
+  --gold-soft: var(--accent-soft);
+  --gold-deep: var(--accent-deep);
+  --beige: var(--txt-strong);
+  --white: var(--txt-strong);
+  --ink: var(--on-accent);
+  --ink-2: var(--bg-alt);
+}
+
 :root {
-  --gold: #cca352;
-  --gold-soft: #e0c184;
-  --gold-deep: #a07e36;
-  --terra: #7c3d1d;
-  --sage: #5f7d56;
-  --sage-deep: #4e6148;
-  --beige: #fff9e4;
-  --white: #f5f5f5;
+  /* ═══ Capa 1 · MARCA ══════════════════════════════════════════
+     Tres colores: verde, café y beige. El dorado salió de la landing —era el
+     acento de todo y sobre crema no contrasta con nada, así que las secciones
+     claras se leían planas. Ahora el acento es el café, que sí separa del
+     fondo, y el beige hace de acento sobre los fondos oscuros. */
+  --brand-verde: #225036;
+  --brand-cafe: #4a2f21;
+  --brand-beige: #e3d5bb;
+  --brand-crema: #f5f1e8;
 
-  --ink: #0b0c0d;
-  --ink-2: #101213;
-  --surface: #15181a;
-  --surface-2: #1c2023;
-  --line: rgba(204, 163, 82, 0.18);
-  --line-soft: rgba(245, 245, 245, 0.1);
+  /* El oro de marca sigue existiendo, pero SÓLO lo consumen las pantallas de
+     piso ([data-modo="oscuro"]): sobre verde profundo sí contrasta y es el
+     color con el que meseros y cocina llevan meses trabajando. La landing no
+     lo toca. */
+  --brand-oro: #d2ab67;
 
-  --txt: #ede9df;
-  --txt-mute: rgba(237, 233, 223, 0.58);
-  --txt-faint: rgba(237, 233, 223, 0.32);
+  /* ═══ Capa 2 · ESCALAS ════════════════════════════════════════ */
+  --verde-deep: color-mix(in srgb, var(--brand-verde) 72%, black);
+  --verde-shade: color-mix(in srgb, var(--brand-verde) 44%, black);
+  --verde-soft: color-mix(in srgb, var(--brand-verde) 55%, var(--brand-crema));
+  --cafe-deep: color-mix(in srgb, var(--brand-cafe) 74%, black);
+  --cafe-shade: color-mix(in srgb, var(--brand-cafe) 52%, black);
+  --cafe-soft: color-mix(in srgb, var(--brand-cafe) 60%, var(--brand-beige));
+  /* El beige tiene dos direcciones: hacia el café para dibujar líneas sobre
+     fondo claro, y hacia el blanco para levantar tarjetas del fondo. */
+  --beige-deep: color-mix(in srgb, var(--brand-beige) 82%, var(--brand-cafe));
+  --beige-lift: color-mix(in srgb, var(--brand-beige) 42%, white);
+  --crema-deep: color-mix(in srgb, var(--brand-crema) 88%, var(--brand-cafe));
+  --crema-lift: color-mix(in srgb, var(--brand-crema) 50%, white);
+  --oro-deep: color-mix(in srgb, var(--brand-oro) 52%, var(--brand-cafe));
+  --oro-soft: color-mix(in srgb, var(--brand-oro) 55%, var(--brand-crema));
 
-  --accent: var(--gold);
-  --accent-soft: var(--gold-soft);
+  /* ═══ Capa 3 · ROLES (landing en claro) ═══════════════════════ */
+  --bg: var(--brand-crema);
+  --bg-alt: var(--brand-beige);
+  --surface: var(--crema-lift);
+  --surface-2: var(--crema-deep);
 
-  /* Paleta de acento de marca. La base sigue siendo negro + dorado; estos
-     tokens son para todo lo demás (estados, series de datos, categorías).
-     Consumirlos por variable, nunca repitiendo el hex. Ver CLAUDE.md. */
+  --txt: var(--verde-deep);
+  --txt-strong: var(--cafe-deep);
+  /* Las escalas de texto secundario subieron (66→80, 40→58): mezcladas contra
+     el fondo se volvían gris papel y los párrafos de las secciones claras
+     desaparecían.
+     Segunda corrección, ya con la cuenta hecha: al 58% --txt-faint daba 3.39:1
+     sobre crema — por debajo del 4.5:1 que pide AA. Cada tono necesita su
+     porcentaje porque el fondo con el que se mezcla es distinto; el que se
+     fija aquí es el de crema. */
+  --txt-mute: color-mix(in srgb, var(--verde-deep) 80%, var(--bg));
+  --txt-faint: color-mix(in srgb, var(--verde-deep) 69%, var(--bg));
+  --txt-inverse: var(--brand-crema);
+
+  /* Las líneas iban muy por debajo del 3:1 que pide un elemento no textual
+     (--line daba 1.90:1 sobre crema y --line-soft 1.33:1, o sea nada). Era el
+     motivo real de que las tarjetas y los campos se vieran sin borde.
+       · --line        borde de componente, alcanza el 3:1.
+       · --line-soft   separador decorativo; no tiene que llegar al 3:1, pero
+                       sí verse.
+       · --line-strong jerarquía y estados activos. */
+  --line: color-mix(in srgb, var(--brand-cafe) 54%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-cafe) 30%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+
+  /* --accent es el café de marca: relleno, borde y adorno. --accent-text es la
+     versión legible como texto sobre el fondo del modo activo y --on-accent la
+     tinta que va ENCIMA de un relleno de acento. Al pasar de oro a café el
+     relleno se volvió oscuro, así que la tinta encima es crema, no verde. */
+  --accent: var(--brand-cafe);
+  --accent-soft: var(--cafe-shade);
+  --accent-deep: var(--cafe-deep);
+  --accent-text: var(--brand-cafe);
+  --on-accent: var(--brand-crema);
+
+  /* El anillo de foco. Va como rol y no como color suelto porque tiene que
+     seguir viéndose en los seis ámbitos: sobre crema es la tinta de texto,
+     sobre verde o café lo redeclara el tono. Antes no existía y el foco de
+     teclado quedaba en el contorno por defecto del navegador, que sobre los
+     fondos oscuros de la landing es prácticamente invisible. */
+  --focus: var(--txt);
+
+  --vineta: color-mix(in srgb, var(--brand-cafe) 7%, transparent);
+  /* El velo que va encima de una foto para que el texto se lea. NO es --bg:
+     sobre una imagen el texto siempre es claro, así que el velo es oscuro en
+     todos los modos y tonos. Quien escriba sobre él usa [data-tono="foto"]. */
+  --scrim: color-mix(in srgb, var(--verde-deep) 88%, black);
+  --sombra: color-mix(in srgb, var(--brand-verde) 55%, black);
+
+  @include alias-heredados;
+
+  /* Paleta funcional: estados, series de datos y categorías. NO adopta la
+     paleta de marca a propósito — verde y vino son indistinguibles bajo
+     deuteranopia y estos tonos están validados para daltonismo (CLAUDE.md).
+     Consumirlos por variable, nunca repitiendo el hex. */
   --c-ambar: #f5b400;
   --c-naranja: #fc6722;
   --c-rojo: #e51022;
@@ -37,24 +140,237 @@
   --c-turquesa: #46bdc6;
   --c-verde: #34a853;
 
+  /* Retroalimentación de formularios y avisos. Antes cada pantalla inventaba
+     su propio coral o su propio verde (había una docena de variantes); ahora
+     las tres familias salen de la paleta funcional mezclada con el fondo del
+     modo activo, así que se mantienen legibles en claro y en oscuro. */
+  --feedback-ok: color-mix(in srgb, var(--c-verde) 78%, var(--txt));
+  --feedback-ok-bg: color-mix(in srgb, var(--c-verde) 14%, var(--bg));
+  --feedback-warn: color-mix(in srgb, var(--c-ambar) 70%, var(--txt));
+  --feedback-warn-bg: color-mix(in srgb, var(--c-ambar) 16%, var(--bg));
+  --feedback-danger: color-mix(in srgb, var(--c-rojo) 78%, var(--txt));
+  --feedback-danger-bg: color-mix(in srgb, var(--c-rojo) 12%, var(--bg));
+  --feedback-info: color-mix(in srgb, var(--c-azul) 76%, var(--txt));
+  --feedback-info-bg: color-mix(in srgb, var(--c-azul) 13%, var(--bg));
+
   /* Estados operativos de un platillo, compartidos por POS y tableros de
      área para que ambas pantallas hablen del mismo color. */
   --estado-enviado: var(--txt-mute);
   --estado-preparacion: var(--c-ambar);
   --estado-listo: var(--c-verde);
   --estado-entregado: var(--c-azul);
-  --estado-cancelado: #555;
+  --estado-cancelado: var(--txt-faint);
 
-  --serif: "Playfair Display", Georgia, serif;
+  // Bodoni Moda es la serif de titular: el didone de Parma. Playfair queda
+  // detrás como respaldo mientras la variable carga. Ver _fonts.scss.
+  --serif: "Bodoni Moda", "Playfair Display", Georgia, serif;
   --crimson: "Crimson Text", Georgia, serif;
   --sans: "Montserrat", "Helvetica Neue", Arial, sans-serif;
-  --logo: "KudosKaps", "Playfair Display", serif;
+  --logo: "KudosKaps", "Bodoni Moda", serif;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 
   --pad: clamp(1.5rem, 5vw, 7rem);
   --maxw: 1320px;
+}
+
+// ── Modo oscuro: pantallas de piso ────────────────────────────
+//
+// POS, tableros de área, login y feedback siguen en oscuro: son pantallas de
+// turno completo en tablet. Cambia el modo, no la marca. Aquí SÍ vive el oro:
+// sobre verde profundo contrasta de sobra y es el color con el que el piso
+// lleva meses trabajando. Por eso el bloque redeclara la familia --accent
+// completa (no sólo -soft y -text): en :root el acento pasó a café, y sin
+// estas tres líneas el POS heredaría un acento marrón sobre fondo oscuro.
+[data-modo="oscuro"] {
+  --bg: var(--verde-deep);
+  --bg-alt: var(--verde-shade);
+  --surface: color-mix(in srgb, var(--brand-verde) 42%, black);
+  --surface-2: color-mix(in srgb, var(--brand-verde) 56%, black);
+
+  --txt: var(--brand-crema);
+  --txt-strong: color-mix(in srgb, var(--brand-crema) 62%, white);
+  --txt-mute: color-mix(in srgb, var(--brand-crema) 62%, var(--bg));
+  /* Era el peor de todos los ámbitos: al 36% daba 2.80:1. Y no es sólo texto
+     de apoyo — --estado-cancelado cuelga de aquí, así que un platillo
+     cancelado se leía peor que ninguno en el POS y en los tableros de área. */
+  --txt-faint: color-mix(in srgb, var(--brand-crema) 55%, var(--bg));
+  --txt-inverse: var(--verde-deep);
+
+  /* El oro es más oscuro que el beige, así que sobre verde profundo necesita
+     bastante más carga que los tonos claros para alcanzar el mismo 3:1: al 45%
+     se quedaba en 2.34. El techo del oro opaco aquí es 5.83:1. */
+  --line: color-mix(in srgb, var(--brand-oro) 60%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-crema) 24%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-oro) 88%, transparent);
+
+  --accent: var(--brand-oro);
+  --accent-soft: var(--oro-soft);
+  --accent-deep: var(--oro-deep);
+  --accent-text: var(--brand-oro);
+  --on-accent: var(--verde-deep);
+
+  --vineta: color-mix(in srgb, black 50%, transparent);
+  --sombra: black;
+}
+
+// ── Tonos de sección ──────────────────────────────────────────
+//
+// El ritmo visual de la landing. Cada <section data-tono> redeclara la capa 3
+// y todo lo que vive dentro —botones, reglas, títulos, textos— se readapta
+// solo, sin una regla por sección.
+[data-tono] {
+  background: var(--bg);
+  color: var(--txt);
+}
+
+// Los dos tonos claros son el papel y el lino. Existen dos, y no uno, porque
+// con un único claro la landing encadenaba tres secciones idénticas y el ojo
+// perdía el corte entre ellas.
+[data-tono="crema"] {
+  --bg: var(--brand-crema);
+  --bg-alt: var(--brand-beige);
+  --surface: var(--crema-lift);
+  --surface-2: var(--crema-deep);
+
+  @include alias-heredados;
+}
+
+[data-tono="beige"] {
+  --bg: var(--brand-beige);
+  --bg-alt: var(--beige-deep);
+  /* Sobre lino la tarjeta sube hacia el blanco: si usara crema quedaba a un
+     paso del fondo y el borde de las tarjetas dejaba de existir. */
+  --surface: var(--beige-lift);
+  --surface-2: var(--brand-crema);
+
+  /* El lino es el fondo más oscuro de los dos claros, así que todo lo que se
+     mezcle contra él necesita más tinta que sobre crema para llegar al mismo
+     ratio: 74% en el texto tenue y 58% en la línea. */
+  --txt-faint: color-mix(in srgb, var(--verde-deep) 74%, var(--bg));
+
+  --line: color-mix(in srgb, var(--brand-cafe) 58%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-cafe) 32%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-cafe) 80%, transparent);
+  --vineta: color-mix(in srgb, var(--brand-cafe) 9%, transparent);
+
+  @include alias-heredados;
+}
+
+// Sobre los fondos oscuros el acento es el BEIGE, no el café: café sobre café
+// no se ve. Es el mismo intercambio que hacía el oro, pero dentro de la marca.
+[data-tono="cafe"] {
+  --bg: var(--cafe-deep);
+  --bg-alt: color-mix(in srgb, var(--brand-cafe) 86%, black);
+  --surface: color-mix(in srgb, var(--brand-cafe) 80%, black);
+  --surface-2: var(--brand-cafe);
+
+  --txt: var(--brand-crema);
+  --txt-strong: white;
+  --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
+  --txt-faint: color-mix(in srgb, var(--brand-crema) 52%, var(--bg));
+  --txt-inverse: var(--cafe-deep);
+
+  /* Sobre café profundo la crema al 52% ya cumplía AA (4.64:1): el texto tenue
+     se queda como estaba y sólo suben las líneas. */
+  --line: color-mix(in srgb, var(--brand-beige) 42%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-beige) 65%, transparent);
+
+  --accent: var(--brand-beige);
+  --accent-soft: var(--brand-beige);
+  --accent-deep: var(--beige-deep);
+  --accent-text: var(--brand-beige);
+  --on-accent: var(--cafe-deep);
+  --vineta: color-mix(in srgb, black 34%, transparent);
+
+  @include alias-heredados;
+}
+
+// Alias de compatibilidad: quedaba marcado con data-tono="vino" y ese color
+// salió de la marca. Se resuelve al mismo café que el resto.
+[data-tono="vino"] {
+  --bg: var(--cafe-deep);
+  --bg-alt: color-mix(in srgb, var(--brand-cafe) 86%, black);
+  --surface: color-mix(in srgb, var(--brand-cafe) 80%, black);
+  --surface-2: var(--brand-cafe);
+
+  --txt: var(--brand-crema);
+  --txt-strong: white;
+  --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
+  --txt-faint: color-mix(in srgb, var(--brand-crema) 52%, var(--bg));
+  --txt-inverse: var(--cafe-deep);
+
+  /* Sobre café profundo la crema al 52% ya cumplía AA (4.64:1): el texto tenue
+     se queda como estaba y sólo suben las líneas. */
+  --line: color-mix(in srgb, var(--brand-beige) 42%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-beige) 65%, transparent);
+
+  --accent: var(--brand-beige);
+  --accent-soft: var(--brand-beige);
+  --accent-deep: var(--beige-deep);
+  --accent-text: var(--brand-beige);
+  --on-accent: var(--cafe-deep);
+  --vineta: color-mix(in srgb, black 34%, transparent);
+
+  @include alias-heredados;
+}
+
+// Contenido que descansa sobre una fotografía con velo. El fondo del elemento
+// no cambia (lo pone la imagen), pero el texto tiene que ir en claro aunque la
+// página esté en crema: sin esto el hero perdería el título al pasar a tema
+// claro.
+[data-tono="foto"] {
+  --txt: var(--brand-crema);
+  --txt-strong: white;
+  --txt-mute: color-mix(in srgb, var(--brand-crema) 84%, var(--scrim));
+  --txt-faint: color-mix(in srgb, var(--brand-crema) 60%, var(--scrim));
+  --txt-inverse: var(--verde-deep);
+
+  --surface: color-mix(in srgb, var(--scrim) 82%, transparent);
+  --surface-2: var(--scrim);
+  --line: color-mix(in srgb, var(--brand-beige) 56%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-crema) 32%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-beige) 80%, transparent);
+
+  --accent: var(--brand-beige);
+  --accent-soft: var(--brand-beige);
+  --accent-deep: var(--beige-deep);
+  --accent-text: var(--brand-beige);
+  --on-accent: var(--verde-deep);
+  --sombra: black;
+
+  @include alias-heredados;
+}
+
+[data-tono="verde"] {
+  --bg: var(--brand-verde);
+  --bg-alt: var(--verde-deep);
+  --surface: var(--verde-shade);
+  --surface-2: color-mix(in srgb, var(--brand-verde) 68%, black);
+
+  --txt: var(--brand-crema);
+  --txt-strong: white;
+  --txt-mute: color-mix(in srgb, var(--brand-crema) 78%, var(--bg));
+  /* El verde de marca es más claro que el café profundo, así que el mismo 52%
+     que allí cumplía aquí daba 3.49:1. Sube a 65%. */
+  --txt-faint: color-mix(in srgb, var(--brand-crema) 65%, var(--bg));
+  --txt-inverse: var(--verde-deep);
+
+  --line: color-mix(in srgb, var(--brand-beige) 54%, transparent);
+  --line-soft: color-mix(in srgb, var(--brand-crema) 30%, transparent);
+  --line-strong: color-mix(in srgb, var(--brand-beige) 78%, transparent);
+
+  --accent: var(--brand-beige);
+  --accent-soft: var(--brand-beige);
+  --accent-deep: var(--beige-deep);
+  --accent-text: var(--brand-beige);
+  --on-accent: var(--verde-deep);
+  --vineta: color-mix(in srgb, black 34%, transparent);
+
+  @include alias-heredados;
 }
 
 * {
@@ -71,13 +387,50 @@ html {
 }
 
 body {
-  background: var(--ink-2);
+  background: var(--bg);
   color: var(--txt);
   font-family: var(--sans);
   font-weight: 300;
   line-height: 1.7;
+  /* El recorte horizontal va aquí y NO en <html>, aunque parezca equivalente.
+     Mientras el overflow del <html> siga en `visible`, el navegador PROPAGA al
+     viewport el del <body> y el body no se convierte en scrollport: la página
+     se sigue desplazando sola. Eso es justo lo que hace que
+     `document.body.style.overflow = "hidden"` bloquee de verdad el fondo, que
+     es como cierran el suyo el lightbox, el anuncio y el aviso de privacidad.
+     Subirlo a <html> rompe esos bloqueos, y como `overflow-x: clip` es peor
+     todavía: el eje vertical pasa a `clip` por coerción y la página deja de
+     poder desplazarse en absoluto. */
   overflow-x: hidden;
   cursor: none;
+}
+
+/*
+ * Reglas que pide Lenis y que la landing nunca cargó: index.php sirve
+ * lenis.min.js desde /build/js/vendor pero no su hoja de estilos, y sin ella la
+ * rueda del ratón no movía la página. El panel admin ya las tenía (ver
+ * src/scss/admin/shared/base/_globals.scss); esta es la misma cura para el
+ * bundle público.
+ *
+ * La tercera arregla un síntoma concreto: sin `overscroll-behavior: contain`,
+ * al llegar al final de un contenedor con scroll propio la rueda encadenaba con
+ * la página de detrás.
+ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 @media (max-width: 900px), (pointer: coarse) {
   body {
@@ -102,20 +455,44 @@ button {
 }
 ::selection {
   background: var(--accent);
-  color: var(--ink);
+  color: var(--on-accent);
 }
 
-/* film grain + vignette */
+/* Foco de teclado. El contorno por defecto del navegador es azul y fino: sobre
+   el verde y el café de la landing desaparece, y esta página se recorre entera
+   con tabulador en el flujo de reservación. Va con :focus-visible para no
+   dibujar el anillo a quien navega con puntero.
+   El desplazamiento se hace con dos sombras en vez de outline-offset porque el
+   segundo halo —en el color del fondo— es lo que mantiene el anillo legible
+   cuando cae sobre una fotografía. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+[data-tono="foto"] :focus-visible {
+  box-shadow: 0 0 0 5px var(--scrim);
+}
+
+/* Viñeta cinematográfica. Su intensidad la fija --vineta, que cada modo y cada
+   tono ajustan: sobre crema y lino basta un velo café casi imperceptible
+   —multiply sobre un fondo claro se come el contraste del texto que cae cerca
+   del borde—, sobre café o verde profundo se necesita el negro para cerrar. */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 4;
+  /* --vineta-boost lo mueve scroll-art.js con la velocidad del scroll: al
+     dividir el punto de arranque del degradado, un valor >1 lo adelanta y el
+     plano se cierra. El color (--vineta) no se toca, así que cada tono
+     conserva la intensidad que le toca; lo único que cambia es cuánto abarca.
+     El respaldo de 1 deja el gradiente exactamente como estaba. */
   background: radial-gradient(
-    120% 120% at 50% 0%,
-    transparent 55%,
-    rgba(0, 0, 0, 0.55) 100%
+    130% 130% at 50% 0%,
+    transparent calc(66% / var(--vineta-boost, 1)),
+    var(--vineta) 100%
   );
   mix-blend-mode: multiply;
 }
@@ -123,21 +500,28 @@ body::after {
 // ── Tipografía global ─────────────────────────────────────────
 .eyebrow {
   font-family: var(--sans);
-  font-weight: 400;
+  font-weight: 500;
   font-size: clamp(0.66rem, 0.9vw, 0.78rem);
   letter-spacing: 0.42em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
   display: inline-flex;
   align-items: center;
   gap: 1.1rem;
 
+  /* La rayita se traza al entrar la sección: --trazo lo lleva scroll-art.js de
+     0 a 1. Se escala en vez de animar el ancho porque un pseudoelemento no es
+     un nodo y GSAP no puede tomarlo; y `transform` no dispara maquetación,
+     que sobre un elemento repetido ocho veces en la página importa.
+     El respaldo de 1 deja la regla completa si el JS no llega. */
   &::before {
     content: "";
     width: clamp(1.4rem, 3vw, 3rem);
     height: 1px;
     background: var(--accent);
-    opacity: 0.7;
+    opacity: 0.85;
+    transform: scaleX(var(--trazo, 1));
+    transform-origin: left center;
   }
 
   &.no-rule::before {
@@ -145,23 +529,77 @@ body::after {
   }
 }
 
+// La coletilla en italiano que acompaña a cada eyebrow. Va dentro del mismo
+// <span class="eyebrow"> y rompe la caja de versalitas con cursiva: es el gesto
+// que declara la cocina de la casa sin gritar una bandera.
+.eyebrow__it {
+  font-family: var(--crimson);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.35em;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--txt-mute);
+  margin-left: -0.55rem;
+
+  &::before {
+    content: "· ";
+    color: var(--accent-text);
+  }
+}
+
+/* El tracking se abrió al pasar de Playfair a Bodoni. Un didone tiene astas
+   finísimas y remates rectos: apretado se empasta y las palabras se cierran.
+   `font-optical-sizing: auto` deja que el eje opsz de la variable engorde los
+   remates a cuerpo pequeño y los afine en los titulares. */
+// Un heading es UNA sola voz: Bodoni. El contraste entre sus dos líneas lo da
+// el PESO, no un cambio de familia. Antes la segunda línea saltaba a Crimson
+// —"Cocina italiana," en didone y "contada en mexicano." en otra serif— y el
+// título se leía como dos títulos pegados en vez de como una frase.
+// Ojo con --logo: KudosKaps sólo existe en peso 400, así que cualquier heading
+// que la consuma tiene que declararlo o se lleva este 600 y el navegador le
+// fabrica una negrita falsa (ver .hero__title).
 h1,
 h2,
 h3,
 h4 {
   font-family: var(--serif);
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  line-height: 0.92;
+  letter-spacing: 0;
+  font-optical-sizing: auto;
 }
 
 .display {
   font-family: var(--serif);
+  font-weight: 600;
   font-size: clamp(2.8rem, 7vw, 6.5rem);
-  line-height: 0.98;
-  letter-spacing: -0.02em;
+  line-height: 0.92;
+  letter-spacing: -0.005em;
+  font-optical-sizing: auto;
 }
+
+// La cursiva de acento DENTRO de un heading: misma familia, peso de libro. El
+// salto de 600 a 400 y la inclinación bastan para separar las dos líneas.
+h1 em,
+h2 em,
+h3 em,
+h4 em,
+h1 .accent-italic,
+h2 .accent-italic,
+h3 .accent-italic,
+h4 .accent-italic,
 .display em,
+.display .accent-italic {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent-text);
+  font-optical-sizing: auto;
+}
+
+// Fuera de un heading, .accent-italic sigue siendo la voz italiana en Crimson
+// (leads, citas, notas al pie de sección).
 .accent-italic {
   font-family: var(--crimson);
   font-style: italic;
@@ -169,11 +607,29 @@ h4 {
   font-weight: 400;
 }
 
+// Títulos que entran línea a línea (scroll-art.js). La caja exterior recorta y
+// la interior es la que se desplaza; el padding/margin compensados existen
+// porque `overflow:hidden` sobre una línea de serif corta las colas de la g y
+// de la y, y sin ese respiro el título aparece decapitado por abajo.
+.linea {
+  display: block;
+  overflow: hidden;
+  padding-block: 0.12em;
+  margin-block: -0.12em;
+}
+.linea__in {
+  display: block;
+  will-change: transform;
+}
+.no-anim .linea__in {
+  transform: none !important;
+}
+
 .section-index {
   font-family: var(--serif);
   font-size: 0.95rem;
   letter-spacing: 0.2em;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .lead {
@@ -217,5 +673,9 @@ p.body {
 }
 .no-anim [data-reveal] {
   opacity: 1 !important;
+  transform: none !important;
+}
+/* Sin animación la regla del eyebrow se dibuja entera de salida. */
+.no-anim .eyebrow::before {
   transform: none !important;
 }

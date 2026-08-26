@@ -1,4 +1,12 @@
-/* Galería "Lo mejor de la casa" — drag to scroll */
+/* Galería "Lo mejor de la casa" — la vetrina que avanza con el scroll
+   ------------------------------------------------------------------
+   La tira ya no se arrastra ni tiene scroll propio: se desplaza con GSAP sobre
+   `x` mientras la sección cruza la pantalla. Es un solo dueño del eje, que es
+   lo que antes no había —el arrastre escribía scrollLeft y una ScrollTrigger de
+   scroll-art.js escribía el mismo valor por su cuenta— y lo que convertía el
+   gesto en una pelea.
+
+   Sin arrastre, la tarjeta sólo hace una cosa al tocarla: ampliar. */
 var GALLERY = [
   { img: "/build/images/mejor-2.webp", n: "Tagliatelle al Limón", t: "Pasta" },
   { img: "/build/images/mejor-5.webp", n: "Camarones a la Brasa", t: "Mariscos" },
@@ -14,40 +22,89 @@ function initGallery() {
   GALLERY.forEach(function(g) {
     var c = document.createElement("div");
     c.className = "gcard";
-    c.setAttribute("data-cursor", "Arrastrar");
+    c.setAttribute("data-cursor", "Ampliar");
     c.setAttribute("data-zoom", "");
     c.setAttribute("data-zoom-name", g.n);
     c.setAttribute("data-zoom-cat", g.t);
-    c.innerHTML = '<img src="' + g.img + '" alt="' + g.n + '" loading="lazy" draggable="false" /><div class="gcard__cap"><div class="t">' + g.t + '</div><div class="n">' + g.n + '</div></div>';
+    // La foto y todo lo que va encima viven dentro del hueco; la tarjeta en sí
+    // es el cartón del marco (ver .gcard en _galeria.scss).
+    c.innerHTML = '<div class="gcard__hueco"><img src="' + g.img + '" alt="' + g.n + '" loading="lazy" draggable="false" /><div class="gcard__cap"><div class="t">' + g.t + '</div><div class="n">' + g.n + '</div></div></div>';
 
-    // Direct click handler — bypasses event delegation issues with pointer capture
+    // El clic va directo en la tarjeta y no por delegación: el lightbox también
+    // escucha en document, y con el arrastre había un pointer capture de por
+    // medio que se comía el evento.
     (function(card) {
       card.addEventListener("click", function(e) {
         e.stopPropagation();
-        if (!suppressClick && window.__openZoom) window.__openZoom(card);
+        if (window.__openZoom) window.__openZoom(card);
       });
     })(c);
 
     track.appendChild(c);
   });
 
-  var isDown = false, startX = 0, scrollStart = 0, moved = 0, pos = 0;
-  var max = function() { return Math.max(0, track.scrollWidth - track.clientWidth + 8); };
-  function setPos(p) { pos = Math.max(-max(), Math.min(0, p)); track.style.transform = "translateX(" + pos + "px)"; }
+  vetrinaConScroll(track);
+}
 
-  track.addEventListener("pointerdown", function(e) { isDown = true; moved = 0; startX = e.clientX; scrollStart = pos; track.setPointerCapture(e.pointerId); });
-  track.addEventListener("pointermove", function(e) {
-    if (!isDown) return;
-    var dx = e.clientX - startX;
-    moved += Math.abs(e.movementX || 0);
-    if (moved > 15) suppressClick = true;
-    setPos(scrollStart + dx);
+/* La sección se FIJA y la tira recorre su ancho entero.
+   ------------------------------------------------------------------
+   El recorrido se mide en cada refresh y no se cachea: son imágenes con
+   `loading="lazy"` y su ancho real no existe hasta que cargan.
+
+   Dos intentos previos, y los dos fallaban por lo mismo —la sección se iba
+   mientras la tira todavía corría—:
+
+     · de `top bottom` a `bottom top` consumiendo el tramo central: la tira
+       arrancaba en cuanto la sección asomaba por abajo, así que al llegar de
+       verdad ya se había comido media galería;
+     · arrancando en `top 30%` con un tramo fijo de algo más de una ventana:
+       mejor principio, pero al terminar el recorrido la banda ya estaba
+       saliendo de pantalla y las últimas tarjetas pasaban de largo.
+
+   Con `pin` la sección se queda quieta y CADA píxel de scroll es recorrido de
+   la tira: se ven todas, enteras, sin carrera contra la salida de la sección.
+   `end` es exactamente lo que sobra de la tira, así que no hay scroll muerto
+   ni al principio ni al final.
+
+   El pin-spacer que ScrollTrigger monta alrededor de la sección la saca de ser
+   hija directa de <main>, y de eso vive el filtro de bandas de
+   tonoBajoLaMarca(). Está contemplado allí —si el padre es .pin-spacer se mira
+   el abuelo—, así que el negativo de la marca sigue cambiando al cruzarla. */
+function vetrinaConScroll(track) {
+  // Sin GSAP, o con movimiento reducido, no hay nada que mueva la tira — y sin
+  // arrastre las tarjetas de la derecha quedarían fuera de alcance, recortadas
+  // por el `overflow: hidden` de la sección. La clase le devuelve scroll
+  // horizontal propio: se recorre con la barra, con el trackpad y con el
+  // teclado, sin animación ninguna.
+  if (reduce || !window.gsap || !window.ScrollTrigger) {
+    track.classList.add("gallery-track--estatico");
+    track.setAttribute("data-lenis-prevent", "");
+    return;
+  }
+
+  var seccion = track.closest("section") || track.parentNode;
+  var recorrido = function() {
+    return Math.min(0, track.clientWidth - track.scrollWidth);
+  };
+
+  gsap.set(track, { x: 0 });
+
+  ScrollTrigger.create({
+    trigger: seccion,
+    // La sección se ha colocado del todo: a partir de aquí se queda.
+    start: "top top",
+    pin: true,
+    // Sin él, el fijado entra un fotograma tarde y la sección da un salto al
+    // engancharse.
+    anticipatePin: 1,
+    // Lo que sobra de tira, ni un píxel más: el tramo de scroll y el recorrido
+    // son la misma distancia. Función, para que invalidateOnRefresh la remida
+    // cuando cargan las imágenes lazy o cambia el ancho de la ventana.
+    end: function() { return "+=" + Math.abs(recorrido()); },
+    scrub: 1,
+    invalidateOnRefresh: true,
+    onUpdate: function(self) {
+      gsap.set(track, { x: recorrido() * self.progress });
+    },
   });
-  var up = function() { isDown = false; setTimeout(function() { suppressClick = false; }, 60); };
-  track.addEventListener("pointerup", up);
-  track.addEventListener("pointercancel", up);
-  track.addEventListener("pointerleave", up);
-  track.addEventListener("wheel", function(e) {
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { e.preventDefault(); setPos(pos - e.deltaX); }
-  }, { passive: false });
 }

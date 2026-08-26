@@ -47,17 +47,20 @@
         var heat = readToken(
             '--n1-heat-rgb', dark ? '108, 194, 74' : '63, 143, 79', '[data-admin-nivel1]'
         );
+        // Los cuadrantes salen de los tokens --admin-n1-* de _globals.scss. Los
+        // literales que quedan son sólo respaldo por si la hoja aún no pintó.
         return {
             heat: 'rgba(' + heat + ', 0.85)',
             heatBorde: 'rgb(' + heat + ')',
             dark: dark,
             muted: muted,
-            grid: dark ? 'rgba(237,233,223,0.12)' : 'rgba(118,111,101,0.18)',
-            tooltipBg: dark ? '#0b0c0d' : '#211f1b',
-            estrella: dark ? '#6cc24a' : '#3f8f4f',
-            vaca: dark ? '#f2b134' : '#c98a1f',
-            incognita: dark ? '#5aa9e6' : '#2f6db3',
-            perro: dark ? '#f2673f' : '#c1462e'
+            grid: readToken('--admin-chart-grid', dark ? 'rgba(237,233,223,0.12)' : 'rgba(118,111,101,0.18)'),
+            tooltipBg: readToken('--admin-chart-tooltip', dark ? '#0b0c0d' : '#211f1b'),
+            texto: readToken('--admin-text-inverse', '#ede9df'),
+            estrella: readToken('--admin-n1-estrella', dark ? '#6cc24a' : '#3f8f4f'),
+            vaca: readToken('--admin-n1-vaca', dark ? '#f2b134' : '#c98a1f'),
+            incognita: readToken('--admin-n1-incognita', dark ? '#5aa9e6' : '#2f6db3'),
+            perro: readToken('--admin-n1-perro', dark ? '#f2673f' : '#c1462e')
         };
     }
 
@@ -163,7 +166,7 @@
                 plugins: {
                     legend: { labels: { color: pal.muted, boxWidth: 12, boxHeight: 12 } },
                     tooltip: {
-                        backgroundColor: pal.tooltipBg, padding: 12, titleColor: '#fff', bodyColor: '#fff',
+                        backgroundColor: pal.tooltipBg, padding: 12, titleColor: pal.texto, bodyColor: pal.texto,
                         callbacks: {
                             label: function (ctx) {
                                 var p = ctx.raw;
@@ -519,7 +522,7 @@
                     legend: { display: false },
                     tooltip: {
                         backgroundColor: pal.tooltipBg, padding: 12,
-                        titleColor: '#fff', bodyColor: '#fff',
+                        titleColor: pal.texto, bodyColor: pal.texto,
                         callbacks: {
                             title: function (ctx) {
                                 return dias[ctx[0].dataIndex].largo;

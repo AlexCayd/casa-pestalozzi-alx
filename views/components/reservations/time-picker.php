@@ -99,6 +99,11 @@ $cpPickerEscape = static function ($item): string {
             <strong>Horarios disponibles</strong>
             <span>Selecciona una hora</span>
         </div>
+        <?php /* Sin data-lenis-prevent en el marcado: lo pone y lo quita
+                 reservation-time-picker.js según la rejilla desborde de verdad.
+                 Fijo aquí dejaba la página CLAVADA en escritorio —el modo inline
+                 le quita el max-height, así que no hay nada que desplazar, pero
+                 Lenis cancela el wheel igual en cuanto ve el atributo. */ ?>
         <div class="hour-dropdown__options" data-time-options></div>
     </div>
 </div>

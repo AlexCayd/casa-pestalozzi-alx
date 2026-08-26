@@ -1,6 +1,6 @@
 // ── Chef ──────────────────────────────────────────────────────
 .chef {
-  background: var(--ink);
+  background: var(--bg);
   overflow: hidden;
 }
 
@@ -36,7 +36,7 @@
     font-size: 0.66rem;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-text);
     margin-bottom: 0.6rem;
   }
 
@@ -55,7 +55,7 @@
 // Placeholder visual
 .ph {
   background:
-    repeating-linear-gradient(45deg, rgba(204,163,82,0.06) 0 12px, transparent 12px 24px),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 6%, transparent) 0 12px, transparent 12px 24px),
     var(--surface);
   display: flex;
   align-items: center;

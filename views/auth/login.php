@@ -38,7 +38,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="/build/css/app.css" />
 </head>
-<body class="login-page" data-page="login">
+<body class="login-page" data-page="login" data-modo="oscuro">
 
   <main class="login-shell">
     <div class="login-aside" aria-hidden="true">

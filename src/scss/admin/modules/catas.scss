@@ -1,0 +1,238 @@
+// ── Módulo Catas del panel ────────────────────────────────────
+//
+// Todo el color sale de los tokens --admin-*: este archivo no declara ni un
+// hex. Lo propio del módulo es la ficha de fecha, la barra de ocupación y la
+// rejilla del formulario.
+
+.admin-catas {
+  &__filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__buscador {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+
+    .admin-field__label {
+      margin: 0;
+    }
+  }
+
+  &__input,
+  &__textarea {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    color: var(--admin-text);
+    font-family: inherit;
+    font-size: 0.92rem;
+    transition: border-color var(--admin-t-fast) var(--admin-ease-out),
+      box-shadow var(--admin-t-fast) var(--admin-ease-out);
+
+    &:focus {
+      outline: none;
+      border-color: var(--admin-gold);
+      box-shadow: var(--admin-focus-ring);
+    }
+  }
+
+  &__textarea {
+    min-height: 7rem;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  // Dentro de una celda de tabla el control compite con el texto: se encoge.
+  &__input--compacto {
+    width: auto;
+    min-width: 9rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.82rem;
+  }
+
+  &__panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+
+    h3 {
+      margin: 0 0 0.25rem;
+      font-size: 1.05rem;
+    }
+
+    p {
+      margin: 0;
+      color: var(--admin-muted);
+      font-size: 0.85rem;
+    }
+  }
+
+  // Ficha de calendario: el día grande es lo que se busca al escanear la lista.
+  &__fecha {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.1rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    line-height: 1.1;
+  }
+
+  &__dia {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--admin-text);
+  }
+
+  &__mes {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--admin-gold-deep);
+  }
+
+  &__cupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 8rem;
+  }
+
+  &__cupo-cifra {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  &__barra {
+    display: block;
+    width: 100%;
+    height: 5px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--admin-faint) 26%, transparent);
+    overflow: hidden;
+  }
+
+  &__barra-fill {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--admin-gold);
+    transition: width var(--admin-t-base) var(--admin-ease-out);
+  }
+
+  &__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+
+    form {
+      margin: 0;
+    }
+  }
+
+  &__estado-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  &__muted {
+    color: var(--admin-faint);
+  }
+
+  // ── Formulario ──────────────────────────────────────────────
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1.25rem;
+  }
+
+  &__form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  // ── Detalle ─────────────────────────────────────────────────
+  &__resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+  }
+
+  &__stat-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--admin-muted);
+  }
+
+  &__stat-valor {
+    font-size: 1.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__descripcion {
+    margin-bottom: 1.5rem;
+
+    h3 {
+      margin: 0 0 0.6rem;
+      font-size: 1.05rem;
+    }
+
+    p {
+      margin: 0;
+      color: var(--admin-muted);
+      line-height: 1.7;
+    }
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-catas {
+    &__filtros {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__buscador {
+      flex-wrap: wrap;
+    }
+
+    &__acciones {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+}

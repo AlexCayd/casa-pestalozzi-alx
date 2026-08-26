@@ -77,12 +77,12 @@
 .operation-body[data-operation-module="reservations"] {
   // La diferencia entre módulos queda limitada al fondo: el resto del
   // sistema visual comparte color, jerarquía y estados con el mapa de mesas.
-  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, #466b75);
+  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, var(--feedback-info-bg));
 }
 
 .operation-shell--reservations {
   background:
-    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem),
     var(--operational-shell-background, var(--admin-bg));
 }
 
@@ -197,7 +197,7 @@
 
   &:focus-visible {
     outline: 0;
-    box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+    box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
   }
 }
 

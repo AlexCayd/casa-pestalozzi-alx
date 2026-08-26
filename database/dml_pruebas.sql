@@ -1192,4 +1192,67 @@ VALUES
 ('producto',    1, NULL,   45.00,  'alta',      NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 120 DAY)),
 ('producto',    1, 45.00,  50.00,  'edicion',   NULL, @admin_demo, DATE_SUB(NOW(), INTERVAL 45 DAY));
 
+-- -------------------------------------------------------
+-- Catas y catering
+-- -------------------------------------------------------
+--
+-- Fechas relativas a la carga, como el resto del archivo, para que la agenda
+-- pública siempre tenga futuro. Cubre los tres casos que hay que poder ver en
+-- pantalla: una cata con lugares, otra llena (la sincronización de cupo la
+-- pasará sola a 'agotada') y una en borrador que NO debe salir en la landing.
+
+INSERT INTO catas (titulo, descripcion, fecha, hora, duracion_min, cupo, precio, imagen, estado) VALUES
+('Tintos de Guanajuato',
+ 'Cinco etiquetas de la región con maridaje de quesos curados y pan de masa madre de la casa.',
+ DATE_ADD(CURDATE(), INTERVAL 12 DAY), '19:30:00', 90, 14, 850.00, '/build/images/maridaje-3.webp', 'publicada'),
+('Blancos y mariscos',
+ 'Recorrido por blancos frescos del Valle de Guadalupe junto a nuestra barra de mariscos.',
+ DATE_ADD(CURDATE(), INTERVAL 26 DAY), '20:00:00', 120, 10, 990.00, '/build/images/maridaje-1.webp', 'publicada'),
+('Espumosos y postres',
+ 'Cierre dulce: tres espumosos contra la carta de postres del chef.',
+ DATE_ADD(CURDATE(), INTERVAL 40 DAY), '19:00:00', 75, 12, 780.00, '/build/images/maridaje-2.webp', 'publicada'),
+('Cata de aceites de oliva',
+ 'En preparación: aún sin fecha confirmada con el productor.',
+ DATE_ADD(CURDATE(), INTERVAL 60 DAY), '18:30:00', 60, 16, 640.00, NULL, 'borrador');
+
+-- Las inscripciones se enganchan por título y no por id: catas se siembra por
+-- auto_increment y el 1 depende del orden de este mismo archivo.
+SET @cata_tintos    = (SELECT id FROM catas WHERE titulo = 'Tintos de Guanajuato');
+SET @cata_blancos   = (SELECT id FROM catas WHERE titulo = 'Blancos y mariscos');
+SET @cata_espumosos = (SELECT id FROM catas WHERE titulo = 'Espumosos y postres');
+
+INSERT INTO cata_inscripciones (cata_id, nombre, contacto_tipo, contacto, personas, nota, estado, created_at) VALUES
+(@cata_tintos,  'Mariana Olvera',  'email',    'mariana.olvera@example.com', 2, 'Celebramos aniversario.', 'confirmada', DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(@cata_tintos,  'Diego Fuentes',   'telefono', '+525512345678',              4, NULL,                      'confirmada', DATE_SUB(NOW(), INTERVAL 7 DAY)),
+(@cata_tintos,  'Paola Cervantes', 'email',    'paola.cervantes@example.com',2, 'Una persona es celiaca.', 'pendiente',  DATE_SUB(NOW(), INTERVAL 2 DAY)),
+-- Estas dos llenan el cupo de 10 de 'Blancos y mariscos'.
+(@cata_blancos, 'Ricardo Lemus',   'email',    'ricardo.lemus@example.com',  6, 'Cumpleaños sorpresa.',    'confirmada', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(@cata_blancos, 'Ana Sierra',      'telefono', '+525587654321',              4, NULL,                      'confirmada', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(@cata_espumosos,'Hugo Barrera',   'email',    'hugo.barrera@example.com',   3, NULL,                      'pendiente',  DATE_SUB(NOW(), INTERVAL 1 DAY));
+
+-- 'Blancos y mariscos' queda sin lugares: se marca agotada, que es lo que hace
+-- CataService::sincronizarCupo cuando entra la inscripción que la llena.
+UPDATE catas SET estado = 'agotada' WHERE id = @cata_blancos;
+
+INSERT INTO catering_solicitudes
+    (nombre, contacto_tipo, contacto, tipo_evento, fecha_evento, invitados, presupuesto, mensaje, comentario_admin, estado, created_at)
+VALUES
+('Valeria Nieto', 'email', 'valeria.nieto@example.com', 'Boda',
+ DATE_ADD(CURDATE(), INTERVAL 90 DAY), 120, '$180,000 – $220,000',
+ 'Queremos menú de tres tiempos y una barra de postres. El jardín es al aire libre.',
+ NULL, 'nueva', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+('Grupo Ferrer', 'telefono', '+525599887766', 'Evento corporativo',
+ DATE_ADD(CURDATE(), INTERVAL 30 DAY), 45, '$60,000',
+ 'Coffee break de media mañana y comida ejecutiva para un taller de dos días.',
+ 'Llamados el lunes; piden desglose por día.', 'contactada', DATE_SUB(NOW(), INTERVAL 8 DAY)),
+('Sofía Aguilar', 'email', 'sofia.aguilar@example.com', 'Cumpleaños',
+ DATE_ADD(CURDATE(), INTERVAL 21 DAY), 30, NULL,
+ 'Taquiza premium para 30 personas, dos opciones vegetarianas.',
+ 'Cotización enviada el martes.', 'cotizada', DATE_SUB(NOW(), INTERVAL 12 DAY)),
+('Fundación Arce', 'email', 'eventos@fundacionarce.example.com', 'Coffee break',
+ DATE_SUB(CURDATE(), INTERVAL 15 DAY), 200, '$95,000',
+ 'Congreso anual, dos coffee breaks al día durante tres días.',
+ 'Cerrado y facturado.', 'ganada', DATE_SUB(NOW(), INTERVAL 45 DAY));
+
+
 -- Fin de dml.sql

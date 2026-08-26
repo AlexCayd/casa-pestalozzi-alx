@@ -1,7 +1,7 @@
 // ── Reserva (formulario) ──────────────────────────────────────
 @use "reservation-picker" as reservationPicker;
 
-.reserva { background: var(--ink); }
+.reserva { background: var(--bg); }
 
 .reserva__grid {
   display: grid;
@@ -9,8 +9,17 @@
   grid-template-areas:
     "intro form"
     "hours form";
+  // `max-content 1fr` no es cosmético: sin él las dos filas son `auto` y el
+  // formulario, que abarca las dos, reparte su altura entre ellas. La fila 1
+  // crecía muy por encima de lo que mide el intro y empujaba el horario media
+  // pantalla hacia abajo, dejando un hueco enorme bajo el párrafo.
+  //
+  // Ahora la fila 1 mide exactamente el intro y la 2 se queda el resto: el
+  // horario aparece pegado al párrafo y su pista es alta, que es la condición
+  // para que el `position: sticky` de más abajo tenga por dónde desplazarse.
+  grid-template-rows: max-content 1fr;
   column-gap: clamp(2rem, 5vw, 5rem);
-  row-gap: clamp(2rem, 4vw, 3.5rem);
+  row-gap: clamp(1.4rem, 2.5vw, 2.2rem);
   align-items: start;
 }
 @media (max-width: 1099px) {
@@ -44,7 +53,7 @@
 
   &.is-active {
     background: var(--accent);
-    color: var(--ink);
+    color: var(--on-accent);
   }
 
   &:focus-visible {
@@ -118,7 +127,7 @@
   input:checked + span {
     border-color: var(--accent);
     color: var(--beige);
-    background: rgba(204, 163, 82, 0.12);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   input:focus-visible + span {
@@ -136,16 +145,16 @@
 .reservation-access__message {
   min-height: 1.5rem;
   margin-top: 1.2rem;
-  color: var(--accent);
+  color: var(--accent-text);
 
-  &.is-error { color: #e5a08d; }
+  &.is-error { color: var(--feedback-danger); }
 }
 
 .reservation-access__link {
   width: fit-content;
   padding: 0.3rem 0;
   border-bottom: 1px solid currentColor;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.75rem;
 
   &:focus-visible {
@@ -159,12 +168,12 @@
   gap: 0.35rem;
   padding: 1rem;
   border: 1px solid var(--accent);
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--beige);
 
   &[hidden] { display: none; }
   strong {
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 0.68rem;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -200,7 +209,7 @@
   gap: 0.35rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--txt) 2%, transparent);
 
   h4 {
     margin: 0;
@@ -219,7 +228,7 @@
 }
 
 .reservation-card__kicker {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.58rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -229,7 +238,7 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.68rem;
 }
 
@@ -237,7 +246,7 @@
   padding: 0.8rem;
   border-left: 2px solid var(--accent);
   color: var(--beige);
-  background: rgba(204, 163, 82, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 @media (max-width: 560px) {
@@ -276,7 +285,7 @@
 
   &-day { display: inline-flex; align-items: baseline; gap: 0.55rem; }
   &-value { text-align: right; white-space: nowrap; }
-  &-today { color: var(--accent); font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; }
+  &-today { color: var(--accent-text); font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; }
 
   &-unavailable {
     color: var(--txt-mute);
@@ -291,17 +300,17 @@
   width: 100%;
   margin: 0;
   padding: 1rem 1.1rem;
-  border: 1px solid rgba(204, 163, 82, 0.46);
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, transparent);
   border-left: 3px solid var(--accent);
   border-radius: 0.75rem;
-  background: rgba(204, 163, 82, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 
   &[hidden] {
     display: none;
   }
 
   &-label {
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 0.61rem;
     font-weight: 700;
     letter-spacing: 0.15em;
@@ -410,7 +419,7 @@
   font-family: var(--serif);
 
   &:hover { border-color: var(--accent); color: var(--beige); }
-  &.sel { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  &.sel { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 }
 
 .form__submit {
@@ -423,7 +432,7 @@
 
 .form__msg {
   font-size: 0.78rem;
-  color: var(--accent);
+  color: var(--accent-text);
   font-family: var(--crimson);
   font-style: italic;
   opacity: 0;
@@ -437,7 +446,7 @@
   min-height: 1.1rem;
   margin-top: 0.35rem;
   font-size: 0.74rem;
-  color: var(--accent);
+  color: var(--accent-text);
   font-family: var(--crimson);
   font-style: italic;
   opacity: 0;
@@ -452,9 +461,9 @@
   gap: 1rem;
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(204, 163, 82, 0.65);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
   color: var(--txt-mute);
-  background: rgba(204, 163, 82, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   font-size: 0.86rem;
 
   &[hidden] { display: none; }
@@ -467,7 +476,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--accent);
+    color: var(--accent-text);
     font-family: var(--serif);
     font-size: 1rem;
   }
@@ -486,7 +495,7 @@
     gap: 0.8rem;
 
     a {
-      color: var(--accent);
+      color: var(--accent-text);
       border-bottom: 1px solid currentColor;
       padding-bottom: 0.1rem;
     }
@@ -514,7 +523,7 @@
     align-items: center;
     justify-content: center;
     margin: 0 auto 1.5rem;
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 1.5rem;
   }
 
@@ -522,10 +531,10 @@
   p  { color: var(--txt-mute); font-size: 0.9rem; }
 
   &--warning {
-    border-color: rgba(204, 163, 82, 0.65);
+    border-color: color-mix(in srgb, var(--accent) 65%, transparent);
 
     .mark {
-      background: rgba(204, 163, 82, 0.12);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
     }
   }
 }
@@ -570,7 +579,7 @@
   height: 32px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 1.3rem;
   line-height: 1;
   display: flex;
@@ -579,7 +588,7 @@
   transition: background 0.3s, color 0.3s, border-color 0.3s;
   flex-shrink: 0;
 
-  &:hover:not(:disabled) { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  &:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   &:disabled { opacity: 0.3; cursor: default; }
 }
 
@@ -628,9 +637,9 @@
 .reserva__selection-summary {
   margin: 1.2rem 0;
   padding: 1rem 1.2rem;
-  border: 1px solid rgba(204, 163, 82, 0.32);
-  background: rgba(204, 163, 82, 0.08);
-  color: var(--text, #f4efe6);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
   letter-spacing: 0.02em;
 }
 
@@ -659,21 +668,21 @@
 }
 
 .reservation-access__link--danger {
-  color: #d98778;
+  color: var(--feedback-danger);
 }
 
 .reservation-cancel-dialog {
   width: min(480px, calc(100vw - 32px));
   max-width: none;
   padding: 0;
-  border: 1px solid rgba(204, 163, 82, 0.32);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   border-radius: 1rem;
-  background: #171b18;
-  color: #f4efe6;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+  background: var(--surface);
+  color: var(--txt);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 58%, transparent);
 
   &::backdrop {
-    background: rgba(4, 7, 5, 0.76);
+    background: color-mix(in srgb, var(--scrim) 76%, transparent);
     backdrop-filter: blur(4px);
   }
 }
@@ -689,20 +698,20 @@
   }
 
   h3 {
-    color: #f4efe6;
+    color: var(--txt);
     font-family: var(--serif);
     font-size: clamp(1.55rem, 5vw, 2rem);
     font-weight: 400;
   }
 
   p {
-    color: rgba(244, 239, 230, 0.76);
+    color: color-mix(in srgb, var(--txt) 76%, transparent);
     line-height: 1.6;
   }
 }
 
 .reservation-cancel-dialog__eyebrow {
-  color: #d98778;
+  color: var(--feedback-danger);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -720,8 +729,8 @@
 .reservation-cancel-dialog__confirm {
   width: auto;
   margin: 0;
-  border-color: rgba(217, 135, 120, 0.62);
-  background: #9f4538;
+  border-color: color-mix(in srgb, var(--feedback-danger) 62%, transparent);
+  background: var(--feedback-danger-bg);
 }
 
 @media (max-width: 480px) {
@@ -741,21 +750,21 @@
   gap: 0.8rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
 
   label {
     display: grid;
     gap: 0.35rem;
     font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.72);
+    color: color-mix(in srgb, var(--txt) 72%, transparent);
   }
 
   input,
   textarea {
     width: 100%;
     padding: 0.65rem;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid color-mix(in srgb, var(--txt) 18%, transparent);
+    background: color-mix(in srgb, var(--sombra) 18%, transparent);
     color: inherit;
   }
 
@@ -774,8 +783,8 @@
 
 // ── Flujo público estable y progresivo ───────────────────────
 .reserva {
-  --reservation-text-secondary: rgba(244, 239, 230, 0.72);
-  --reservation-text-help: rgba(244, 239, 230, 0.62);
+  --reservation-text-secondary: color-mix(in srgb, var(--txt) 72%, transparent);
+  --reservation-text-help: color-mix(in srgb, var(--txt) 62%, transparent);
 }
 
 .reserva__intro {
@@ -830,7 +839,7 @@
   &.is-active {
     border-bottom-color: var(--accent);
     background: transparent;
-    color: var(--accent);
+    color: var(--accent-text);
   }
 }
 
@@ -851,7 +860,7 @@
 .reservation-progress__step {
   min-height: 44px;
   min-width: 44px;
-  color: rgba(244, 239, 230, 0.56);
+  color: color-mix(in srgb, var(--txt) 56%, transparent);
   font-size: 0.62rem;
   font-weight: 400;
   letter-spacing: 0.13em;
@@ -868,7 +877,7 @@
   .reservation-progress__label--compact { display: none; }
 
   &.is-current {
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   &.is-complete {
@@ -876,7 +885,7 @@
   }
 
   &.is-invalid {
-    color: #e5a08d;
+    color: var(--feedback-danger);
   }
 
   &:disabled {
@@ -891,7 +900,7 @@
 
 .reservation-progress__line {
   height: 1px;
-  background: rgba(244, 239, 230, 0.22);
+  background: color-mix(in srgb, var(--txt) 22%, transparent);
   transition: background 0.3s var(--ease);
 
   &.is-complete { background: var(--accent); }
@@ -930,7 +939,7 @@
     width: auto;
     height: auto;
     border: 0;
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 0.72rem;
   }
 
@@ -986,7 +995,7 @@
 .reservation-access__types legend {
   display: block;
   margin-bottom: 0.5rem;
-  color: rgba(244, 239, 230, 0.82);
+  color: color-mix(in srgb, var(--txt) 82%, transparent);
   font-size: 0.66rem;
   font-weight: 600;
   letter-spacing: 0.13em;
@@ -1003,7 +1012,7 @@
 
 .reservation-field__error {
   min-height: 0;
-  color: #f1ac9a;
+  color: var(--feedback-danger);
   font-family: var(--sans);
   font-style: normal;
   line-height: 1.45;
@@ -1020,7 +1029,7 @@
   }
 
   &[aria-invalid="true"] {
-    border-color: #e79784;
+    border-color: var(--feedback-danger);
   }
 }
 
@@ -1037,7 +1046,7 @@
   min-width: 44px;
   min-height: 44px;
   padding: 0.55rem 0.9rem;
-  color: rgba(244, 239, 230, 0.72);
+  color: color-mix(in srgb, var(--txt) 72%, transparent);
   cursor: pointer;
 
   &:focus-visible {
@@ -1140,7 +1149,7 @@
 
   &:hover {
     border-bottom-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   &:focus-visible {
@@ -1187,7 +1196,7 @@
 
 .reservation-review__intro {
   margin: 0 0 0.85rem;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.64rem;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -1196,8 +1205,8 @@
 
 .reservation-review {
   padding: 0.35rem 1.15rem 0;
-  border-left: 2px solid rgba(204, 163, 82, 0.72);
-  background: rgba(204, 163, 82, 0.025);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--accent) 2.5%, transparent);
 }
 
 .reservation-review__group {
@@ -1233,7 +1242,7 @@
   }
 
   button {
-    color: var(--accent);
+    color: var(--accent-text);
     white-space: nowrap;
   }
 
@@ -1253,7 +1262,7 @@
   font-style: normal;
   line-height: 1.45;
 
-  &.is-error { color: #f1ac9a; }
+  &.is-error { color: var(--feedback-danger); }
 }
 
 .reservation-access {
@@ -1297,7 +1306,7 @@
 .reservation-access__types {
   span {
     min-height: 42px;
-    color: rgba(244, 239, 230, 0.72);
+    color: color-mix(in srgb, var(--txt) 72%, transparent);
   }
 
   input:disabled + span {
@@ -1312,7 +1321,7 @@
 
   label {
     display: block;
-    color: rgba(244, 239, 230, 0.82);
+    color: color-mix(in srgb, var(--txt) 82%, transparent);
   }
 
   input,
@@ -1491,11 +1500,11 @@
 // Esta capa conserva los pickers y los estados existentes, pero concentra la
 // jerarquía visual en superficies, espaciado y controles táctiles.
 .reserva {
-  --reservation-surface: #0d0f10;
-  --reservation-surface-strong: #0b0c0d;
-  --reservation-surface-soft: #080a0b;
-  --reservation-border: rgba(204, 163, 82, 0.2);
-  --reservation-border-soft: rgba(245, 245, 245, 0.09);
+  --reservation-surface: var(--surface);
+  --reservation-surface-strong: var(--surface);
+  --reservation-surface-soft: var(--surface);
+  --reservation-border: color-mix(in srgb, var(--accent) 20%, transparent);
+  --reservation-border-soft: color-mix(in srgb, var(--txt) 9%, transparent);
   --reservation-picker-field-height: 52px;
   --reservation-picker-field-padding: 0 0.9rem;
   --reservation-picker-field-border: 1px solid var(--reservation-border);
@@ -1544,7 +1553,7 @@
 
   span {
     border-color: var(--reservation-border);
-    background: var(--ink);
+    background: var(--surface);
   }
 }
 
@@ -1630,7 +1639,7 @@
   }
 
   h3 {
-    margin-bottom: 1rem;
+    margin-bottom: 1.4rem;
     color: var(--beige);
     font-family: var(--serif);
     font-size: clamp(1.2rem, 2vw, 1.55rem);
@@ -1640,83 +1649,134 @@
     text-transform: none;
   }
 
+  // Las siete filas son la otra mitad de la sección, no una nota al pie del
+  // formulario: al alto de antes la columna terminaba a media altura de la
+  // primera etapa y el lino de debajo quedaba vacío media pantalla.
+  //
+  // Formato TABLA: día a la izquierda, horario a la derecha. Se probó como
+  // ficha centrada —día arriba, hora debajo— y se lee peor: siete parejas
+  // centradas no comparten ningún eje, así que para comparar el jueves con el
+  // viernes hay que ir buscando cada hora en un sitio distinto. En dos columnas
+  // los siete horarios caen en la misma vertical y la tabla se recorre de un
+  // vistazo, que es para lo que está.
   .row {
-    min-height: 44px;
-    margin-bottom: 0.35rem;
-    padding: 0.65rem 0.8rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    min-height: 62px;
+    margin-bottom: 0.5rem;
+    padding: 0.85rem 1.15rem;
     border: 0;
     border-radius: 10px;
     background: var(--reservation-surface);
     color: var(--reservation-text-secondary);
-    font-size: 0.82rem;
-    align-items: center;
+    text-align: left;
 
     &:last-child { margin-bottom: 0; }
     &.today {
-      background: rgba(204, 163, 82, 0.1);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
       box-shadow: inset 3px 0 0 var(--accent);
       color: var(--beige);
     }
   }
 
-  &-day { gap: 0.65rem; }
-  &-value { color: var(--beige); font-variant-numeric: tabular-nums; }
-  &-today { color: var(--accent); }
+  &-day {
+    align-items: baseline;
+    gap: 0.55rem;
+    font-size: 0.92rem;
+  }
+
+  // El horario es el dato que se viene a buscar: va en serif, más grande que el
+  // nombre del día y con cifras de ancho fijo para que las siete filas alineen
+  // los dos puntos.
+  &-value {
+    color: var(--beige);
+    font-family: var(--serif);
+    font-size: 1.12rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  // La raya del rango, en la SANS. Bodoni es un didone: su guion es un pelo
+  // finísimo y a este cuerpo se perdía —"16:00 23:00" parecía dos horas
+  // sueltas—. Va algo más pequeño y con aire a los lados, que es como se
+  // compone un rango.
+  &-sep {
+    padding-inline: 0.3em;
+    font-family: var(--sans);
+    font-size: 0.7em;
+    vertical-align: 0.1em;
+  }
+
+  &-today { color: var(--accent-text); }
 
   // ── Excepciones sobre la propia tabla ──────────────────────────
-  // La fila deja de ser dos columnas: la insignia y el motivo se apoyan en el
-  // ancho completo bajo el día, para que el horario real siga a la derecha.
+  // La fila excepcional apila cuatro piezas en vez de dos: día, chapa, horario
+  // y motivo, todas centradas como el resto de las fichas.
+  //
+  // El color sale de la MARCA, no de la paleta funcional: un horario distinto
+  // no es un fallo, es información, y el naranja y el rojo que había antes eran
+  // los dos únicos colores de la landing fuera del manual.
+  //
+  // Pero tampoco puede ser el acento de la sección: en café, que es el acento
+  // de todo el lino, la fila excepcional se confundía con las otras seis. Va en
+  // VERDE de marca —el único color de la casa que sobre lino no compite con el
+  // café— y el cierre en café profundo, que lee como "apagado" frente a él.
   .row.is-exception {
-    --reserva-exception-color: var(--c-naranja);
+    --reserva-exception-color: var(--brand-verde);
 
     flex-wrap: wrap;
-    row-gap: 0.35rem;
+    justify-content: flex-start;
+    gap: 0.35rem 0.7rem;
+    padding-block: 0.9rem;
     background: color-mix(in srgb, var(--reserva-exception-color) 12%, var(--reservation-surface));
     box-shadow: inset 3px 0 0 var(--reserva-exception-color);
-    color: var(--beige);
+    color: var(--txt-strong);
+
+    // Orden explícito: día · chapa · horario, y el motivo en su propia línea.
+    // La fila normal reparte con `space-between`, que con un tercer elemento
+    // dejaba el horario flotando a media caja; `margin-left: auto` es lo que lo
+    // devuelve al borde derecho, en la misma vertical que los otros seis.
+    .reserva__hours-day { order: 1; }
+    .reserva__hours-badge { order: 2; }
+    .reserva__hours-value { order: 3; margin-left: auto; }
+    .reserva__hours-reason { order: 4; flex: 1 1 100%; }
 
     &.today {
       background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
     }
 
-    &.is-exception--closed { --reserva-exception-color: var(--c-rojo); }
+    &.is-exception--closed { --reserva-exception-color: var(--cafe-deep); }
   }
 
   &-exception {
-    color: var(--reserva-exception-color, var(--c-naranja));
-    font-weight: 600;
+    color: var(--reserva-exception-color, var(--brand-verde));
+    font-weight: 700;
   }
 
+  // Chapa sólida, no texto suelto: en una tabla de siete filas una línea de
+  // versalitas del mismo peso que el resto no señala nada.
   &-badge {
-    order: 3;
-    flex: 1 1 100%;
-    color: var(--reserva-exception-color, var(--c-naranja));
-    font-size: 0.6rem;
-    font-weight: 600;
+    align-self: center;
+    flex: 0 0 auto;
+    padding: 0.18rem 0.5rem;
+    border-radius: 3px;
+    background: var(--reserva-exception-color, var(--brand-verde));
+    color: var(--bg);
+    font-size: 0.58rem;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
   &-reason {
-    order: 4;
-    flex: 1 1 100%;
-    color: var(--reservation-text-secondary);
-    font-size: 0.7rem;
-    line-height: 1.4;
-  }
-
-  &-upcoming {
-    margin: 0.9rem 0 0;
     color: var(--reservation-text-secondary);
     font-size: 0.72rem;
-    line-height: 1.5;
-
-    span {
-      color: var(--c-naranja);
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
+    line-height: 1.4;
   }
 }
 
@@ -1734,7 +1794,7 @@
   border: 1px solid var(--reservation-border);
   border-radius: 999px;
   background: var(--reservation-surface-soft);
-  box-shadow: inset 0 1px 0 rgba(245, 245, 245, 0.035), 0 12px 26px rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--txt) 3.5%, transparent), 0 12px 26px color-mix(in srgb, var(--sombra) 18%, transparent);
 }
 
 .reservation-access__tab {
@@ -1752,13 +1812,13 @@
   text-align: center;
   text-transform: none;
 
-  &:hover { background: rgba(204, 163, 82, 0.08); color: var(--beige); }
+  &:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--beige); }
 
   &.is-active {
     border-color: var(--accent);
     background: var(--accent);
-    box-shadow: 0 5px 16px rgba(204, 163, 82, 0.18);
-    color: var(--ink);
+    box-shadow: 0 5px 16px color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--on-accent);
   }
 }
 
@@ -1808,13 +1868,13 @@
   &.is-current .reservation-progress__number {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--ink);
+    color: var(--on-accent);
   }
 
   &.is-complete .reservation-progress__number {
-    background: rgba(204, 163, 82, 0.18);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-text);
   }
 }
 
@@ -1848,30 +1908,40 @@
 .reservation-visit-grid,
 .reservation-data-grid { gap: 1.5rem; }
 
-// Calendario a la izquierda ocupando las dos filas; comensales y horarios se
-// apilan a la derecha. Elegir visita deja de ser "abre, elige, cierra" ×2.
+// Calendario y comensales comparten la primera fila; el horario cruza entero
+// por debajo. Antes comensales y horario se apilaban en la columna derecha, y
+// eso obligaba a la rejilla de horas a caber en media anchura: salían tres
+// chips por línea y había que desplazarla para ver el servicio de la tarde.
+//
+// `align-items: stretch` es lo que iguala el alto de las dos columnas de
+// arriba: la cinta de comensales mide exactamente lo que mide el calendario.
 .reservation-visit-grid {
-  grid-template-columns: minmax(300px, 1fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(300px, 1.15fr) minmax(220px, 0.85fr);
   grid-template-areas:
     "date guests"
-    "date time";
-  align-items: start;
+    "time time";
+  align-items: stretch;
 }
 
 .reservation-field--date { grid-area: date; }
-.reservation-field--time {
-  grid-area: time;
-  grid-column: auto;
-}
+// Sin `grid-column: auto` detrás de estos `grid-area`. `grid-area: time` fija
+// fila Y columna a partir de "time time", así que el campo cruzaba la rejilla
+// entera — y la línea siguiente devolvía la columna a `auto`, con lo que la
+// autocolocación lo metía en la primera. De ahí que la rejilla de horas saliera
+// a cuatro chips por línea en media anchura teniendo el paso entero disponible.
+.reservation-field--time { grid-area: time; }
 .reservation-field--guests {
   grid-area: guests;
-  grid-column: auto;
+  // Columna: la etiqueta arriba, la cinta ocupando todo el hueco restante y el
+  // mensaje de error al pie.
+  display: flex;
+  flex-direction: column;
 }
 
 .reservation-field__label,
 .reservation-access__types legend {
   margin-bottom: 0.55rem;
-  color: rgba(244, 239, 230, 0.88);
+  color: color-mix(in srgb, var(--txt) 88%, transparent);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
 }
@@ -1914,35 +1984,65 @@
   padding: 0.55rem 0.65rem;
   color: var(--txt-mute);
 
-  &.sel { background: var(--accent); color: var(--ink); }
+  &.sel { background: var(--accent); color: var(--on-accent); }
 }
 
-// Comensales como cinta segmentada, mismo lenguaje que los chips de horario.
-// Solo estilo: el contrato .sel / aria-pressed de applyGuestState no cambia.
+// Comensales como retícula de pastillas, mismo lenguaje que los chips de
+// horario. Sólo estilo: el contrato .sel / aria-pressed de applyGuestState no
+// cambia.
+//
+// Dos columnas y no siete en línea: en cinta horizontal las pastillas quedaban
+// en 54px de alto contra un calendario de casi 300, y el campo se leía como una
+// nota al pie del calendario en vez de como la otra mitad de la decisión. En
+// retícula la columna llena el hueco y las dos piezas pesan lo mismo.
 .reservation-guests--tabs {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.3rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  flex: 1;
+  gap: 0.35rem;
   padding: 0.35rem;
   border: 1px solid var(--reservation-border);
 
   .pill {
     flex: initial;
     min-width: 0;
-    min-height: 54px;
+    min-height: 48px;
     padding: 0.55rem 0.4rem;
     border-radius: 9px;
     font-size: 1.05rem;
     font-variant-numeric: tabular-nums;
     transition: background 0.16s ease, color 0.16s ease;
 
-    &:hover:not(.sel) { background: rgba(204, 163, 82, 0.12); color: var(--beige); }
+    &:hover:not(.sel) { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--txt-strong); }
 
-    &.sel { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28); }
+    &.sel { box-shadow: 0 6px 16px color-mix(in srgb, var(--sombra) 28%, transparent); }
 
     &:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
+    }
+
+    // El "7 +" cierra la retícula ocupando la fila entera: son siete pastillas
+    // en dos columnas y la suelta quedaría descolgada en una esquina.
+    &:last-child { grid-column: 1 / -1; }
+  }
+
+  // Y se distingue de las seis cifras: no es un comensal más, es la puerta al
+  // contador de grupos grandes. Con el mismo tratamiento tenue que las demás
+  // —y siendo un glifo suelto— desaparecía del campo.
+  //
+  // Lo que NO puede hacer es cambiar de letra: se distingue por el borde
+  // discontinuo y por el acento, no por saltar a la sans a 0.72rem mientras sus
+  // seis hermanas van en serif a 1.05. En la retícula eso se leía como una
+  // pieza de otro componente metida en la esquina.
+  .pill--mas {
+    border: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+    color: var(--accent-text);
+
+    &.sel {
+      border-style: solid;
+      color: var(--on-accent);
     }
   }
 }
@@ -1970,20 +2070,126 @@
 
 .reserva .cp-calendar--inline { padding: 0.9rem; }
 
+// La rejilla de horas NO es un campo: es una tira de chips a la vista. Por eso
+// aquí se le quitan el filete, el fondo y el relleno que hereda del
+// desplegable —con ellos se leía como una caja de formulario abierta debajo de
+// otra caja de formulario— y los chips se apoyan directamente sobre el lino de
+// la sección. El estado de selección lo sigue llevando cada chip.
 .reserva .hour-dropdown--inline {
-  padding: 0.55rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 
   .hour-dropdown__head { display: none; }
 
-  // Rejilla de chips: los horarios se comparan de un vistazo en vez de
-  // recorrerse en una columna desplegable.
+  // ── Franjas del día ───────────────────────────────────────
+  //
+  // Control segmentado sobre la rejilla: mañana / tarde / noche. Lo inyecta
+  // reservation-time-picker.js en modo inline y sólo cuando la fecha tiene
+  // horas en más de una franja.
+  //
+  // Mismo lenguaje que .reservation-access__tabs —la píldora de "Reservar una
+  // mesa / Gestionar reservación" de arriba—: es el segundo control de este
+  // tipo en la misma columna y tienen que reconocerse como la misma pieza.
+  //
+  // Ocupa TODO el ancho del paso y los botones se reparten a partes iguales.
+  // Estuvo ciñéndose a su contenido y centrada, y el resultado era una píldora
+  // corta flotando sobre una rejilla de horas que sí llega de borde a borde: dos
+  // anchos distintos en el mismo bloque, sin nada que los relacionara.
+  .hour-franjas {
+    display: flex;
+    width: 100%;
+    margin: 0 0 1.1rem;
+    gap: 0.3rem;
+    padding: 0.35rem;
+    border: 1px solid var(--reservation-border);
+    border-radius: 999px;
+    background: var(--reservation-surface-soft);
+  }
+
+  .hour-franjas__btn {
+    display: inline-flex;
+    flex: 1 1 0;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--txt-mute);
+    font-family: var(--sans);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.22s ease, color 0.22s ease;
+
+    &:hover { color: var(--beige); }
+
+    &.is-activa {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  }
+
+  // El icono hereda la tinta del botón, así que cambia solo al activarse.
+  .hour-franjas__icono {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: 0 0 auto;
+  }
+
+  // Bajo el móvil sólo se aprieta la letra: tres botones con icono no caben en
+  // 390px con el relleno de escritorio.
+  @media (max-width: 520px) {
+    .hour-franjas__btn {
+      padding-inline: 0.5rem;
+      font-size: 0.66rem;
+      letter-spacing: 0.08em;
+    }
+    .hour-franjas__icono { width: 1rem; height: 1rem; }
+  }
+
+  // El filtrado es por atributo y no reconstruyendo la rejilla: los botones
+  // conservan su oyente y su estado `.sel`, así que cambiar de franja nunca
+  // pierde la hora ya elegida. Sin `[data-franja]` —una sola franja, o el
+  // desplegable del panel— no se oculta nada.
+  .hour-dropdown__options[data-franja="manana"] .hour-option:not([data-franja="manana"]),
+  .hour-dropdown__options[data-franja="tarde"]  .hour-option:not([data-franja="tarde"]),
+  .hour-dropdown__options[data-franja="noche"]  .hour-option:not([data-franja="noche"]) {
+    display: none;
+  }
+
+  // Al cruzar el paso entero (ver .reservation-field--time) caben todos los
+  // turnos de un servicio en dos líneas, así que ya no hay que desplazar: el
+  // tope de alto se retira en escritorio y sólo vuelve en pantallas estrechas.
+  //
+  // Flex y no una rejilla de `auto-fill`: con pocas horas —la franja de noche
+  // son cuatro— la rejilla dejaba las columnas sobrantes vacías a la derecha y
+  // los chips se apelotonaban contra el borde izquierdo. Aquí el ancho de
+  // columna lo reparte reservation-time-picker.js sobre las horas VISIBLES (ver
+  // repartirColumnas), así que las filas completas llenan el ancho y una última
+  // fila corta se queda centrada bajo la anterior.
   .hour-dropdown__options {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
-    gap: 0.4rem;
-    max-height: 15.5rem;
+    // El hueco vive en variable porque el JS lo necesita para la cuenta: una
+    // sola fuente de verdad en vez del mismo 0.5rem escrito en dos sitios.
+    --horas-hueco: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--horas-hueco);
+    max-height: none;
     padding: 0;
-    overflow-y: auto;
+    overflow-y: visible;
     overscroll-behavior: contain;
     scrollbar-width: thin;
 
@@ -1991,14 +2197,25 @@
     &::-webkit-scrollbar-track { background: transparent; }
     &::-webkit-scrollbar-thumb {
       border-radius: 999px;
-      background: rgba(204, 163, 82, 0.35);
+      background: color-mix(in srgb, var(--accent) 35%, transparent);
     }
   }
 
   .hour-option {
     display: grid;
+    // Una columna exacta del reparto. El respaldo, 5.6rem, es el ancho MÍNIMO
+    // del chip: es lo que se pinta antes de la primera medida y, además, lo que
+    // el JS mide para saber cuántos caben por línea.
+    flex: 0 0 var(--horas-ancho, 5.6rem);
     min-height: 44px;
+    // La regla base del componente reparte hora y etiqueta a los lados
+    // (`justify-content: space-between`), y eso sobrevive al pasar a grid: con
+    // una sola pista, `space-between` la deja pegada al inicio y el número salía
+    // a la izquierda por mucho que `place-items` lo centrara DENTRO de su pista.
+    // `place-content` centra la pista; `place-items`, la hora dentro de ella.
+    place-content: center;
     place-items: center;
+    text-align: center;
     padding: 0.5rem 0.35rem;
     border: 1px solid var(--reservation-border);
     border-radius: 8px;
@@ -2009,13 +2226,13 @@
 
     &:hover:not(:disabled):not(.sel) {
       border-color: var(--accent);
-      background: rgba(204, 163, 82, 0.12);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
     }
 
     &.sel {
       border-color: var(--accent);
       background: var(--accent);
-      color: var(--ink);
+      color: var(--on-accent);
       font-weight: 600;
     }
 
@@ -2033,7 +2250,8 @@
 
 // Estado vacío / cargando: sin display visible, el mensaje vive en la rejilla.
 .reserva .hour-tabs__empty {
-  grid-column: 1 / -1;
+  // La rejilla pasó a flex: `grid-column` ya no la ensancha, `flex-basis` sí.
+  flex: 1 1 100%;
   margin: 0;
   padding: 1.1rem 0.75rem;
   color: var(--reservation-text-secondary);
@@ -2081,8 +2299,76 @@
 
 .reserva__special-schedule { margin-top: 1.5rem; }
 
-// El estado de disponibilidad se lee de un vistazo: color de borde, marca y
-// texto vienen del data-state que escribe updateSummaries().
+// ── Sugerencias del campo de notas ────────────────────────────
+//
+// Van ENCIMA del textarea, no debajo: son el punto de partida, y detrás de un
+// campo vacío nadie las buscaría. Agrupadas por tema porque doce frases
+// seguidas se leen como una lista de la compra.
+.reservation-suggestions {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0.6rem 0 1rem;
+}
+
+.reservation-suggestions__rotulo {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--reservation-text-help);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.reservation-suggestions__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.reservation-suggestion {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--reservation-border);
+  border-radius: 999px;
+  background: var(--reservation-surface-soft);
+  color: var(--reservation-text-secondary);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+
+  &:hover { border-color: var(--accent); color: var(--txt-strong); }
+
+  // Puesta = la frase está escrita en el textarea. El estado no se guarda
+  // aparte: si alguien la borra a mano, la pastilla se apaga sola.
+  &.is-puesta {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+
+    &::before {
+      content: "✓";
+      margin-right: 0.4rem;
+      font-size: 0.7em;
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+// Resumen de la selección. Era una tarjeta con caja, esquinas redondeadas y un
+// semáforo completo —verde, ámbar, naranja— justo debajo de los campos: pesaba
+// más que el propio formulario y sus colores no estaban en ninguna otra parte
+// de la landing.
+//
+// Ahora es una nota al margen con filete a la izquierda, y el estado se cuenta
+// con el acento de marca. La paleta funcional se reserva para lo que de verdad
+// es un aviso: un grupo grande, que sí cambia lo que el visitante puede hacer.
 .reservation-summary {
   --reservation-summary-accent: var(--accent);
   --reservation-summary-mark: "•";
@@ -2090,18 +2376,19 @@
   display: grid;
   gap: 1rem;
   margin-top: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--reservation-summary-accent) 42%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--reservation-summary-accent) 11%, var(--reservation-surface));
+  padding: 1rem 0 1rem 1.1rem;
+  border: none;
+  border-left: 2px solid color-mix(in srgb, var(--reservation-summary-accent) 60%, transparent);
+  border-radius: 0;
+  background: transparent;
 
   &[data-state="ready"] {
-    --reservation-summary-accent: var(--c-verde);
+    --reservation-summary-accent: var(--accent-deep);
     --reservation-summary-mark: "✓";
   }
 
   &[data-state="pending"] {
-    --reservation-summary-accent: var(--c-ambar);
+    --reservation-summary-accent: var(--accent);
     --reservation-summary-mark: "!";
   }
 
@@ -2110,9 +2397,14 @@
     --reservation-summary-mark: "…";
   }
 
+  // La única que conserva la paleta funcional: por encima de 12 comensales el
+  // flujo en línea deja de estar disponible y hay que llamar.
   &[data-state="large-party"] {
-    --reservation-summary-accent: var(--c-naranja);
+    --reservation-summary-accent: var(--feedback-warn);
     --reservation-summary-mark: "+";
+
+    padding: 1rem 1.1rem;
+    background: var(--feedback-warn-bg);
   }
 }
 
@@ -2152,7 +2444,7 @@
 .reservation-summary__head > div { display: grid; gap: 0.25rem; }
 .reservation-summary__eyebrow,
 .reservation-summary__details small {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -2187,16 +2479,16 @@
     align-items: center;
     min-height: 42px;
     padding: 0.65rem 0.85rem;
-    border: 1px solid rgba(204, 163, 82, 0.48);
+    border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
     border-radius: 999px;
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 0.72rem;
     letter-spacing: 0.05em;
     text-decoration: none;
   }
 }
 .reservation-summary__edit,
-.reservation-review button { min-height: 44px; color: var(--accent); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.reservation-review button { min-height: 44px; color: var(--accent-text); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
 
 .reservation-stage-actions {
   display: flex;
@@ -2232,7 +2524,7 @@
 }
 
 .reservation-review__label {
-  color: var(--accent) !important;
+  color: var(--accent-text) !important;
   font-size: 0.62rem !important;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -2259,7 +2551,7 @@
 .reservation-access__masked { color: var(--reservation-text-secondary); font-size: 0.82rem; line-height: 1.55; }
 .reservation-otp__contact strong,
 .reservation-access__masked strong { color: var(--beige); }
-.reservation-otp__countdown { color: var(--accent); font-size: 0.78rem; }
+.reservation-otp__countdown { color: var(--accent-text); font-size: 0.78rem; }
 .reservation-otp__actions { justify-content: flex-start; margin-top: 0; }
 
 .reserva__confirm {
@@ -2267,17 +2559,17 @@
   gap: 1.5rem;
   margin-top: 0.5rem;
   padding: clamp(1.5rem, 4vw, 2.5rem);
-  border: 1px solid rgba(204, 163, 82, 0.5);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 18px;
-  background: linear-gradient(145deg, rgba(204, 163, 82, 0.15), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 15%, transparent), color-mix(in srgb, var(--txt) 4%, transparent));
   text-align: left;
 
   &.show { display: grid; }
 }
 
 .reserva__confirm-header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 1rem; }
-.reserva__confirm-mark { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); font-size: 1.25rem; }
-.reservation-confirmation__status { color: var(--accent); font-size: 0.64rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.reserva__confirm-mark { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent-text); font-size: 1.25rem; }
+.reservation-confirmation__status { color: var(--accent-text); font-size: 0.64rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 .reserva__confirm h3 { margin: 0.35rem 0 0.4rem; color: var(--beige); font-size: clamp(1.65rem, 3vw, 2.2rem); }
 .reserva__confirm p { color: var(--reservation-text-secondary); font-size: 0.82rem; }
 .reserva__confirm-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; padding-top: 1.25rem; border-top: 1px solid var(--reservation-border-soft); }
@@ -2298,7 +2590,7 @@
   .reservation-progress__mobile { display: grid; gap: 0.7rem; margin-bottom: 1rem; }
   .reservation-progress__mobile > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
   .reservation-progress__mobile-kicker { color: var(--txt-mute); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
-  .reservation-progress__mobile-kicker strong { color: var(--accent); }
+  .reservation-progress__mobile-kicker strong { color: var(--accent-text); }
   .reservation-progress__mobile-name { color: var(--beige); font-family: var(--serif); font-size: 1rem; font-weight: 400; }
   .reservation-progress__mobile-track { display: block; height: 4px; overflow: hidden; border-radius: 999px; background: var(--reservation-border); }
   .reservation-progress__mobile-track span { display: block; width: 25%; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.3s var(--ease); }
@@ -2315,6 +2607,13 @@
   .reservation-field--date { grid-area: date; }
   .reservation-field--time { grid-area: time; }
   .reservation-field--guests { grid-area: guests; }
+  // En una sola columna los chips se apilan de tres en tres y la rejilla se
+  // come la pantalla: aquí sí vuelve el tope de alto y el scroll propio. El
+  // [data-lenis-prevent] del marcado es lo que deja que la rueda lo mueva.
+  .reserva .hour-dropdown--inline .hour-dropdown__options {
+    max-height: 17rem;
+    overflow-y: auto;
+  }
   .reservation-field--guests,
   .reservation-field--time,
   .reservation-field--contact,
@@ -2340,7 +2639,10 @@
 }
 
 @media (max-width: 420px) {
-  .reserva__hours .row { padding-inline: 0.65rem; font-size: 0.76rem; }
+  // Se aprieta la caja, no la letra: la ficha es lo que se viene a leer y en
+  // 390px sigue teniendo ancho de sobra para el día y su horario.
+  .reserva__hours .row { min-height: 66px; padding-inline: 0.65rem; }
+  .reserva__hours-value { font-size: 1.08rem; }
   .reservation-step,
   .reserva__otp-step,
   .reservation-access__verify,
@@ -2357,8 +2659,8 @@
 .reservation-field.is-invalid .hour-display,
 .reservation-field.is-invalid .reservation-guests,
 .field.is-invalid .reservation-control {
-  border-color: #e39a87;
-  box-shadow: 0 0 0 1px rgba(227, 154, 135, 0.32);
+  border-color: var(--feedback-danger);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--feedback-danger) 32%, transparent);
 }
 
 .reservation-field__error {
@@ -2366,7 +2668,7 @@
   align-items: flex-start;
   gap: 0.38rem;
   margin-top: 0.45rem;
-  color: #f1ac9a;
+  color: var(--feedback-danger);
 }
 
 .reservation-field__error-icon {

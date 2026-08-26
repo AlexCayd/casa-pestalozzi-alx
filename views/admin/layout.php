@@ -48,7 +48,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/build/css/admin.css?v=time-picker-clean-v2">
+    <link rel="stylesheet" href="/build/css/admin.css?v=marca-manual-v1">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">
     <?php endforeach; ?>

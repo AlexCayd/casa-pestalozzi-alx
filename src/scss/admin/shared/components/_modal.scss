@@ -28,7 +28,7 @@
     // bordes fuera del viewport, el halo queda recortado y no se ve.
     // El desbordamiento no genera scroll: el ancestro es position: fixed.
     inset: -24px;
-    background: rgba(6, 7, 8, 0.62);
+    background: color-mix(in srgb, var(--admin-scrim) 62%, transparent);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     opacity: 0;
@@ -217,12 +217,12 @@
   .admin-btn--danger-solid {
     border-color: var(--admin-danger);
     background: var(--admin-danger);
-    color: #fff;
+    color: var(--admin-text-inverse);
 
     &:hover:not(:disabled) {
       filter: brightness(1.06);
       background: var(--admin-danger);
-      color: #fff;
+      color: var(--admin-text-inverse);
     }
 
     &:disabled {

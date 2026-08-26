@@ -1,13 +1,51 @@
 // ── Hero ──────────────────────────────────────────────────────
+//
+// Alto exacto de una pantalla: el hero es un cartel, no una sección con
+// scroll propio. Por eso la caja es una rejilla de tres bandas (insignia /
+// título / pie) y no un bloque centrado — con `align-items:center` el pie se
+// despegaba del borde inferior en pantallas altas y se comía la señal de
+// "aquí sigue habiendo página".
 .hero {
   position: relative;
-  min-height: 100svh;
-  display: flex;
-  align-items: center;
+  height: 100vh;
+  // Ventanas muy bajas (portátiles de 13" con la barra de marcadores abierta):
+  // por debajo de esto el título y el pie se pisan, así que se deja crecer.
+  min-height: 620px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  // El aire entre las tres bandas. Estaba en 2rem de tope y las dos llamadas
+  // quedaban a un dedo del filete del pie: se leían como parte de la ficha de
+  // la casa en vez de como el remate del bloque del nombre.
+  gap: clamp(1.6rem, 4vh, 3.2rem);
+  align-content: stretch;
   overflow: hidden;
-  padding: 0 var(--pad);
+  // El aire de arriba tiene que dejar pasar la marca fija —que termina hacia
+  // los 72px— y además separarse de ella: las dos piezas dicen "Del Valle" y
+  // pegadas se leían como un solo bloque de cuatro líneas.
+  padding: clamp(8rem, 17vh, 11rem) var(--pad) clamp(1.6rem, 4vh, 2.8rem);
+  isolation: isolate;
+
+  // El velo de la portada tiraba a verde porque --scrim se mezcla sobre
+  // --verde-deep, y la máscara del shader remataba con otro viraje verde
+  // encima. Aquí el velo se re-tiñe a café: es el color con el que la casa
+  // cierra sus fondos oscuros y el que deja respirar el beige del texto.
+  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
 }
 
+// En móvil la barra de direcciones entra y sale: con 100vh el pie del hero
+// queda debajo del pliegue hasta que el usuario hace scroll.
+@supports (height: 100svh) {
+  @media (pointer: coarse) {
+    .hero { height: 100svh; }
+  }
+}
+
+// ── Fondo: foto, lienzo WebGL y velo ─────────────────────────
+//
+// La foto es la base y el respaldo: si Three.js no arranca (sin WebGL, con
+// movimiento reducido o en un móvil modesto) la portada sigue siendo la misma
+// imagen, sólo que quieta. El lienzo se pinta encima y sólo se revela cuando
+// el shader ya tiene la textura cargada — así no hay parpadeo a negro.
 .hero__bg {
   position: absolute;
   inset: 0;
@@ -16,97 +54,233 @@
 
   img {
     width: 100%;
-    height: 120%;
+    height: 118%;
     object-fit: cover;
     transform: translateY(0);
     will-change: transform;
   }
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(180deg, rgba(11,12,13,0.62) 0%, rgba(11,12,13,0.30) 32%, rgba(11,12,13,0.55) 62%, rgba(11,12,13,0.95) 100%),
-      radial-gradient(90% 90% at 30% 45%, transparent 35%, rgba(11,12,13,0.7) 100%);
-  }
 }
 
-// El anuncio ya no vive en el hero: es un diálogo al entrar al sitio, y su
-// posicionamiento está en _announcement.scss junto al resto del componente.
+.hero__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+  pointer-events: none;
 
-.hero__inner {
-  position: relative;
+  canvas { display: block; width: 100%; height: 100%; }
+}
+.hero.is-webgl .hero__canvas { opacity: 1; }
+// Con el lienzo activo la foto sólo sirve de fondo bajo el shader: dejarla
+// visible duplicaba la imagen y ensuciaba el desplazamiento.
+.hero.is-webgl .hero__bg img { opacity: 0; }
+
+// El velo. Es lo que hace legible el título: la foto original es un contraluz
+// con una copa dorada justo donde cae la primera línea, y sin esta capa las
+// letras se perdían dentro del vino de la copa.
+.hero__velo {
+  position: absolute;
+  inset: 0;
   z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--scrim) 78%, transparent) 0%,
+      color-mix(in srgb, var(--scrim) 46%, transparent) 26%,
+      color-mix(in srgb, var(--scrim) 62%, transparent) 62%,
+      color-mix(in srgb, var(--scrim) 96%, transparent) 100%
+    ),
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--scrim) 82%, transparent) 0%,
+      color-mix(in srgb, var(--scrim) 40%, transparent) 52%,
+      transparent 80%
+    );
+}
+
+// Grano de película. Es lo que le quita el aspecto de "foto de stock con texto
+// encima" y lo acerca a un cartel impreso.
+.hero__grano {
+  position: absolute;
+  inset: -50%;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: repeating-conic-gradient(
+    var(--brand-crema) 0% 25%,
+    transparent 0% 50%
+  );
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  animation: heroGrano 0.9s steps(3) infinite;
+}
+@keyframes heroGrano {
+  0%   { transform: translate(0, 0); }
+  33%  { transform: translate(-1.5%, 1%); }
+  66%  { transform: translate(1%, -1.5%); }
+  100% { transform: translate(0, 0); }
+}
+.no-anim .hero__grano { animation: none; }
+
+// ── Bandas ────────────────────────────────────────────────────
+.hero__banda {
+  position: relative;
+  z-index: 5;
   width: 100%;
   max-width: var(--maxw);
   margin: 0 auto;
-  padding-top: clamp(4rem, 8vh, 7rem);
+}
+
+.hero__insignia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .hero__eyebrow {
   display: inline-flex;
-  margin-top: clamp(1rem, 3.5vh, 2.4rem);
-  margin-bottom: clamp(1.2rem, 3vh, 2.2rem);
+  flex-wrap: wrap;
+  row-gap: 0.4rem;
+}
+
+// ── Título ────────────────────────────────────────────────────
+//
+// El espaciado va por `gap` y no por márgenes encadenados en cada hijo: la
+// banda vive en una fila `1fr` y con márgenes sueltos no había forma de saber
+// cuánto medía el bloque, así que en ventanas bajas se desbordaba por abajo y
+// el subtítulo se comía la ficha del pie.
+.hero__centro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.5rem, 1.6vh, 1.1rem);
+  min-height: 0;
+
+  // El `gap` manda, pero sólo si nadie más pone espacio: el <h1> y el <p> traen
+  // los márgenes de fábrica del navegador, que en em crecen con el cuerpo del
+  // título. En una ventana de 800px eso sumaba más de 100px y empujaba el
+  // bloque fuera de su fila, así que las llamadas terminaban pisando el filete
+  // del pie por debajo — justo el desbordamiento que el comentario de arriba
+  // dice haber resuelto pasando el espaciado a `gap`.
+  > * { margin: 0; }
 }
 
 .hero__title {
   font-family: var(--logo);
-  color: var(--accent);
-  font-size: clamp(2rem, 8vw, 7.5rem);
-  line-height: 1.0;
-  letter-spacing: 0.015em;
-  text-shadow: 0 12px 50px rgba(0, 0, 0, 0.55);
+  // KudosKaps tiene UNA sola cara, de peso 400. Sin esta línea el título
+  // heredaba el `font-weight: 600` del selector `h1` —que gana por
+  // incomparecencia, porque la clase no declaraba peso— y el navegador
+  // fabricaba una negrita falsa dilatando los trazos: sobre una display de
+  // alto contraste eso empasta los remates y el wordmark deja de reconocerse.
+  // El PDF del menú documenta el mismo tropiezo en views/admin/menu/items-pdf.php.
+  font-weight: 400;
+  // Crema, no acento: sobre una fotografía el máximo contraste lo da el claro
+  // puro, y el beige de la capa 3 es lo que sostiene la cursiva de abajo.
+  color: var(--txt-strong);
+  // El tope por ancho no basta: en una ventana panorámica y baja (1900×850, un
+  // portátil normal) 9.5vw daban un título de casi 500px de alto que no cabía
+  // en su fila. El `min()` lo acota TAMBIÉN por alto de ventana.
+  font-size: clamp(2.6rem, min(9vw, 14vh), 7.5rem);
+  line-height: 0.92;
+  letter-spacing: 0.012em;
+  text-shadow:
+    0 2px 4px color-mix(in srgb, black 45%, transparent),
+    0 18px 60px color-mix(in srgb, black 60%, transparent);
 
-  .word { display: block; overflow: hidden; white-space: nowrap; padding-block: 0.04em; margin-block: -0.06em; }
+  .word {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    padding-block: 0.04em;
+    margin-block: -0.06em;
+  }
   .char { display: inline-block; will-change: transform; }
 }
 
-.hero__sub {
+// La firma italiana bajo el nombre. Va en beige y en cursiva: es la voz de la
+// cocina, y separarla tipográficamente del título evita tener que explicarla.
+.hero__firma {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.8rem, 2vw, 1.4rem);
   font-family: var(--crimson);
   font-style: italic;
-  font-size: clamp(1.15rem, 2.4vw, 2rem);
-  color: var(--beige);
-  margin-top: clamp(1rem, 2.5vh, 1.6rem);
-  opacity: 0.95;
-  max-width: none;
+  font-size: clamp(1.05rem, 2.1vw, 1.75rem);
+  color: var(--accent-text);
+  text-shadow: 0 2px 14px color-mix(in srgb, black 55%, transparent);
 
-  em { color: var(--accent-soft); font-style: italic; }
+  &::before {
+    content: "";
+    flex: 0 0 clamp(1.6rem, 5vw, 4.5rem);
+    height: 1px;
+    background: var(--accent);
+  }
 }
+
+// .hero__sub salió del marcado: la portada decía tres veces lo mismo —el
+// wordmark, la firma italiana y una lista de argumentos que la página entera
+// desarrolla después—. Queda nombre, firma y las dos llamadas.
 
 .hero__cta {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem 1.6rem;
+  gap: 0.9rem 1.5rem;
   align-items: center;
-  margin-top: clamp(1.6rem, 4vh, 2.6rem);
+  // Separación propia de la firma, por encima del `gap` de la banda: las dos
+  // llamadas son el final del bloque central y necesitan despegarse tanto de
+  // la cursiva de arriba como del filete del pie.
+  margin-top: clamp(1.4rem, 4vh, 3rem);
+}
+
+// ── Pie ───────────────────────────────────────────────────────
+.hero__pie {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 3rem);
+  padding-top: clamp(1rem, 2.4vh, 1.6rem);
+  border-top: 1px solid var(--line);
 }
 
 .hero__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(1.2rem, 4vw, 3rem);
-  margin-top: clamp(2rem, 5vh, 3.6rem);
+  gap: clamp(1.2rem, 4vw, 3.4rem);
   align-items: flex-start;
-  padding-top: clamp(1.4rem, 3vh, 2rem);
-  border-top: 1px solid var(--line);
-  max-width: 720px;
 
   .mi {
-    font-size: 0.66rem;
+    font-size: 0.62rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--txt-mute);
+    text-shadow: 0 1px 10px color-mix(in srgb, black 60%, transparent);
+
+    // El rótulo italiano va arriba y pequeño; debajo, en serif, lo que
+    // realmente es. Leerlo en ese orden es el chiste de la sección.
+    i {
+      display: block;
+      font-family: var(--crimson);
+      font-style: italic;
+      font-size: 1.15rem;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      color: var(--accent-text);
+      line-height: 1.2;
+    }
 
     b {
       display: block;
       font-family: var(--serif);
-      font-size: clamp(1.1rem, 1.6vw, 1.45rem);
+      font-size: clamp(0.98rem, 1.3vw, 1.2rem);
       letter-spacing: 0;
       text-transform: none;
-      color: var(--beige);
+      color: var(--txt-strong);
       font-weight: 400;
-      margin-bottom: 0.25rem;
+      margin: 0.1rem 0 0.15rem;
     }
 
     span { display: block; }
@@ -114,20 +288,16 @@
 }
 
 .scroll-cue {
-  position: absolute;
-  bottom: 2.2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.7rem;
   color: var(--txt-mute);
+  flex: 0 0 auto;
 
   .line {
     width: 1px;
-    height: 50px;
+    height: clamp(28px, 5vh, 46px);
     background: linear-gradient(var(--accent), transparent);
     position: relative;
     overflow: hidden;
@@ -139,12 +309,16 @@
       left: 0;
       width: 100%;
       height: 40%;
-      background: var(--beige);
+      background: var(--txt-strong);
       animation: scrolldrop 2.2s var(--ease) infinite;
     }
   }
 
-  span { font-size: 0.58rem; letter-spacing: 0.3em; text-transform: uppercase; }
+  span {
+    font-size: 0.55rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
 }
 
 @keyframes scrolldrop {
@@ -152,42 +326,57 @@
   60%, 100% { transform: translateY(260%); }
 }
 
-// ── Variantes del hero ────────────────────────────────────────
-.hero__figure { display: none; }
+// ── Responsive ────────────────────────────────────────────────
+//
+// Ventanas panorámicas y bajas: el cartel sigue siendo de tres bandas, pero el
+// aire entre ellas se aprieta antes de que el bloque central desborde su fila.
+@media (max-height: 860px) and (min-width: 901px) {
+  // Se aprieta el aire INTERIOR, no el de arriba: éste es el que separa el
+  // rótulo de la marca fija, y recortarlo aquí era exactamente lo que devolvía
+  // las dos piezas pegadas en las ventanas de portátil.
+  .hero { padding-top: clamp(7.5rem, 16vh, 10rem); }
+  .hero__centro { gap: 0.45rem; }
+  // Se aprieta, pero no hasta devolver los botones al filete: en portátil este
+  // override era justo el que anulaba el aire nuevo del bloque de arriba.
+  .hero__cta { margin-top: 1.2rem; }
+  .hero__meta .mi i { font-size: 1rem; }
+}
 
-.hero[data-hero="editorial"] {
-  .hero__bg img { opacity: 0.4; }
-  .hero__inner { max-width: var(--maxw); }
-  .hero__title { font-size: clamp(2.7rem, 9vw, 8.5rem); }
-
-  .hero__figure {
-    display: block;
-    position: absolute;
-    top: 50%;
-    right: var(--pad);
-    transform: translateY(-50%);
-    width: clamp(240px, 24vw, 360px);
-    aspect-ratio: 3/4;
-    overflow: hidden;
-    border: 1px solid var(--line);
-    z-index: 1;
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-
-    img { width: 100%; height: 100%; object-fit: cover; }
+// Por debajo de la tablet el hero deja de ser un cartel de tres bandas: los
+// rótulos italianos del pie se retiran antes de que empiecen a pisarse entre
+// ellos.
+@media (max-width: 900px) {
+  .hero { gap: clamp(0.8rem, 2vh, 1.4rem); }
+  .hero__pie { flex-direction: column; align-items: flex-start; gap: 1.2rem; }
+  .scroll-cue { flex-direction: row; align-items: center; gap: 0.8rem;
+    .line { width: 34px; height: 1px; background: linear-gradient(90deg, var(--accent), transparent);
+      &::after { width: 40%; height: 100%; animation: none; } }
   }
 }
 
-.hero[data-hero="cinema"] .hero__inner { text-align: left; }
-
-.hero[data-hero="minimal"] {
-  .hero__bg img { opacity: 0.16; filter: grayscale(0.3); }
-  .hero__inner { text-align: center; display: flex; flex-direction: column; align-items: center; }
-  .hero__title { max-width: none; }
-  .hero__sub { max-width: 38ch; }
-  .hero__meta { justify-content: center; margin-left: auto; margin-right: auto; }
-  .eyebrow::before { display: none; }
+@media (max-width: 620px) {
+  .hero__meta .mi:nth-child(n + 3) { display: none; }
+  .hero__firma::before { display: none; }
 }
 
-@media (max-width: 1100px) {
-  .hero[data-hero="editorial"] .hero__figure { display: none; }
+// ── Variantes del panel de tweaks ─────────────────────────────
+//
+// El panel escribe el atributo en <body>, no en el <header>. Las reglas
+// antiguas colgaban de `.hero[data-hero]` y el marcado trae "cinema" fijo, así
+// que ninguna de las otras dos llegaba a aplicarse nunca. Se cuelgan del body,
+// que es quien realmente cambia.
+body[data-hero="minimal"] .hero {
+  .hero__insignia { justify-content: center; }
+  .hero__centro { align-items: center; text-align: center; }
+  .hero__firma::before { display: none; }
+  .hero__pie { justify-content: center; }
+  .hero__meta { justify-content: center; }
 }
+
+body[data-hero="editorial"] .hero {
+  .hero__title { font-size: clamp(2.4rem, 8vw, 7.5rem); }
+  .hero__velo { background: linear-gradient(180deg, color-mix(in srgb, var(--scrim) 90%, transparent), color-mix(in srgb, var(--scrim) 96%, transparent)); }
+}
+
+// El anuncio ya no vive en el hero: es un diálogo al entrar al sitio, y su
+// posicionamiento está en _announcement.scss junto al resto del componente.

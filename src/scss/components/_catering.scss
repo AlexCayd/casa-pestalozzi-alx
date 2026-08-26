@@ -1,0 +1,377 @@
+// ── Catering ──────────────────────────────────────────────────
+//
+// El tono (verde) lo pone data-tono en el marcado. Antes la sección se pintaba
+// con un degradado de tinta a tinta que era lo único que la separaba de la
+// anterior; ahora el fondo lo decide el rol --bg del tono.
+
+.catering__head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem 4rem;
+  align-items: end;
+  margin-bottom: clamp(2.5rem, 5vh, 4rem);
+}
+@media (max-width: 800px) { .catering__head { grid-template-columns: 1fr; } }
+
+// El CTA sube aquí: antes vivía al final, después de dos testimonios, y había
+// que recorrer la sección entera para encontrar cómo pedir una cotización.
+.catering__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.2rem;
+}
+
+// Es el único botón de la sección desde que salieron los testimonios —que
+// llevaban un segundo "Cotizar Evento"—, así que se le da cuerpo de CTA único
+// en vez del tamaño de un botón más de la página.
+.catering__cta {
+  font-size: 0.82rem;
+  padding: 1.3rem 3rem;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--sombra) 34%, transparent);
+}
+
+.catering__cta-nota {
+  font-family: var(--crimson);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--txt-mute);
+}
+
+.catering__title {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  margin: 1.2rem 0;
+}
+
+// ── Banda de portadas ─────────────────────────────────────────
+//
+// Va entre la cabecera y las ocasiones: la prueba visual antes de que el
+// visitante elija su celebración. Cuatro retratos con `aspect-ratio`, no con
+// alto fijo: las fotos de evento llegan en vertical y recortarlas a una banda
+// apaisada se lleva por delante justo el montaje que hay que enseñar.
+.catering__fotos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+  margin-bottom: clamp(2.5rem, 5vh, 4rem);
+
+  .cf {
+    position: relative;
+    aspect-ratio: 3/4;
+    overflow: hidden;
+    border: 1px solid var(--line);
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 1.2s var(--ease);
+    }
+
+    &:hover img { transform: scale(1.06); }
+  }
+}
+
+@media (max-width: 760px) {
+  .catering__fotos { grid-template-columns: repeat(2, 1fr); }
+}
+
+// ── Rejilla de tipos de evento ────────────────────────────────
+//
+// Sustituye a la lista de cuatro servicios con miniatura. Cada celda es un
+// enlace a WhatsApp con su mensaje ya escrito (ver _catering.php); el hover y
+// el foco lo previsualizan abajo, y en móvil el toque abre la conversación.
+//
+// Va en columnas y no en filas anchas: dieciocho ocasiones en lista vertical
+// obligaban a recorrer media pantalla para encontrar la propia, y la sección de
+// Catas, justo encima, ya es una agenda de filas anchas.
+.eventos {
+  border-top: 2px solid var(--accent);
+  padding: clamp(1.6rem, 3vh, 2.4rem) clamp(1.2rem, 2.5vw, 2.2rem) clamp(1.4rem, 2.5vh, 2rem);
+  margin-bottom: clamp(2.5rem, 5vh, 4rem);
+  // El panel es lo que separa el bloque accionable del de respaldo: las
+  // ocasiones se apoyan en una superficie, los argumentos van al aire.
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+
+.eventos__rotulo {
+  display: block;
+  margin-bottom: 1.4rem;
+}
+
+.eventos__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  // 16.5rem y no 15: por debajo de eso "Bautizo o primera comunión" y
+  // "Presentación de producto" parten en dos líneas y su celda pasa a medir el
+  // doble que las vecinas — que es lo que hacía que unas ocasiones se leyeran
+  // más grandes que otras.
+  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+  // Todas las filas al alto de la mayor. Con `auto` una etiqueta que aún así
+  // parta en dos deja un escalón entre su fila y la siguiente.
+  grid-auto-rows: 1fr;
+  gap: 0.2rem 2.5rem;
+
+  // "Bautizo o primera comunión" ocupa dos líneas y estira su fila entera. Sin
+  // esto los vecinos se quedaban arriba y su filete flotaba a media altura de
+  // la celda, así que los subrayados de una misma fila no coincidían.
+  > li { display: grid; }
+}
+
+// Tinta fuerte, no acento: el nombre de la ocasión es el contenido de la
+// rejilla y sobre el verde de la sección tiene que leerse de un vistazo.
+.eventos__item {
+  display: flex;
+  align-items: center;
+  // La celda entera, para que el filete caiga siempre al pie de la fila.
+  height: 100%;
+  // `nowrap`, y no es un detalle: la flecha del ::after es un elemento flex más
+  // y con `wrap` la etiqueta más larga la empujaba a una segunda línea. La
+  // flecha va a opacidad 0 hasta el hover, así que no se veía nada — sólo que
+  // esa ocasión aparecía más arriba que sus vecinas de fila. Sin envoltura la
+  // flecha se queda al lado y el texto largo parte dentro de su propia caja.
+  flex-wrap: nowrap;
+  gap: 0.7rem;
+  padding: 0.7rem 0;
+  font-family: var(--serif);
+  // Cuerpo FIJO, no un clamp con vw. Todas las ocasiones son lo mismo —una
+  // celebración que se puede reconocer y pulsar—, así que ninguna puede
+  // leerse con más peso que otra.
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--txt-strong);
+  border-bottom: 1px solid var(--line-soft);
+  transition: color 0.3s, padding-left 0.4s var(--ease);
+
+  // La flecha aparece al apuntar: sin ella la celda no se lee como enlace, y
+  // con ella siempre visible dieciocho flechas hacen ruido.
+  &::after {
+    content: "↗";
+    margin-left: auto;
+    font-size: 0.85em;
+    opacity: 0;
+    transform: translate(-4px, 4px);
+    transition: opacity 0.3s, transform 0.4s var(--ease);
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--accent-text);
+    padding-left: 0.6rem;
+
+    &::after { opacity: 1; transform: translate(0, 0); }
+  }
+}
+
+// La previsualización del mensaje. Reserva su alto de entrada: si creciera al
+// apuntar, la rejilla entera daría un salto bajo el cursor.
+.eventos__mensaje {
+  margin: 1.6rem 0 0;
+  min-height: 2.4rem;
+  font-family: var(--crimson);
+  font-style: italic;
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
+  color: var(--txt-faint);
+  transition: color 0.3s;
+
+  &.is-activo { color: var(--accent-text); }
+}
+
+.eventos__mensaje-guia { font-size: 0.9em; }
+
+@media (max-width: 560px) {
+  .eventos__lista { gap: 0 1.5rem; }
+}
+
+// ── Razones ───────────────────────────────────────────────────
+//
+// Otra VOZ que las ocasiones, no otro tamaño. Arriba, serif: son elecciones que
+// abren una conversación. Aquí, versalitas sans: son respaldo, y no se pulsan.
+// Con las dos en serif crema la sección se leía como una lista de veintidós
+// cosas y la rejilla de ocasiones perdía todo su peso.
+.reasons__rotulo {
+  display: block;
+  margin-top: clamp(3rem, 6vh, 5rem);
+  margin-bottom: 1.4rem;
+}
+
+.reasons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem 2.5rem;
+}
+@media (max-width: 820px) { .reasons { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .reasons { grid-template-columns: 1fr; } }
+
+.reason {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 1rem;
+
+  b {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.6rem;
+  }
+
+  p { font-size: 0.76rem; color: var(--txt-faint); line-height: 1.65; }
+}
+
+// ── Panel de cotización ───────────────────────────────────────
+//
+// Comparte forma con el de catas (mismo patrón de campos con línea inferior)
+// pero clases propias: viven en secciones de tono distinto y cada una ajusta
+// su rejilla.
+.catering__panel {
+  margin-top: clamp(3rem, 6vh, 5rem);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.catering-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: clamp(1.6rem, 4vw, 2.6rem);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.catering-form__head {
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.catering-form__titulo {
+  margin: 0.7rem 0 0;
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+}
+
+.catering-form__cerrar {
+  position: absolute;
+  top: -0.4rem;
+  right: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--line);
+  color: var(--txt-mute);
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.3s, border-color 0.3s;
+
+  &:hover {
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+}
+
+.catering-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
+}
+
+.catering-form__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+
+  > span {
+    font-size: 0.64rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+
+    small {
+      letter-spacing: 0.12em;
+      text-transform: none;
+      opacity: 0.75;
+    }
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 0.7rem 0;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: var(--txt);
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    transition: border-color 0.3s;
+
+    &::placeholder {
+      color: var(--txt-faint);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  textarea {
+    font-family: var(--sans);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    resize: vertical;
+  }
+}
+
+// Fuera de pantalla en vez de display:none: hay rellenadores automáticos que
+// saltan los campos ocultos y entonces la trampa no atraparía nada.
+.catering-form__trampa {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.catering-form__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.catering-form__aviso {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.85rem;
+  color: var(--txt-mute);
+
+  &.is-error {
+    color: var(--feedback-danger);
+  }
+
+  &.is-ok {
+    color: var(--feedback-ok);
+  }
+}
+
+@media (max-width: 760px) {
+  .catering__intro {
+    align-items: stretch;
+  }
+
+  .catering-form__pie {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

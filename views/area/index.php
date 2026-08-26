@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="/build/css/app.css" />
 </head>
-<body class="area-page" data-page="area">
+<body class="area-page" data-page="area" data-modo="oscuro">
 
   <div class="area-shell">
 

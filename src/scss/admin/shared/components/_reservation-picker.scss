@@ -21,7 +21,7 @@
   --reservation-picker-border: var(--admin-border);
   --reservation-picker-radius: var(--admin-radius-sm);
   --reservation-picker-surface: var(--admin-surface);
-  --reservation-picker-shadow: 0 18px 44px rgba(11, 12, 13, 0.18);
+  --reservation-picker-shadow: 0 18px 44px color-mix(in srgb, var(--admin-scrim) 18%, transparent);
   --reservation-picker-z-index: 80;
   --reservation-picker-calendar-padding: 14px;
   --reservation-picker-head-display: grid;
@@ -37,7 +37,7 @@
   --reservation-picker-nav-border: 1px solid var(--admin-border-soft);
   --reservation-picker-accent: var(--admin-gold-deep);
   --reservation-picker-accent-soft: var(--admin-gold-deep);
-  --reservation-picker-nav-hover-border: rgba(160, 126, 54, 0.42);
+  --reservation-picker-nav-hover-border: color-mix(in srgb, var(--admin-gold-deep) 42%, transparent);
   --reservation-picker-hover-bg: var(--admin-surface-soft);
   --reservation-picker-hover-color: var(--admin-text);
   --reservation-picker-grid-gap: 4px;
@@ -50,11 +50,11 @@
   --reservation-picker-faint: var(--admin-faint);
   --reservation-picker-day-font-size: 12px;
   --reservation-picker-day-font-weight: 850;
-  --reservation-picker-day-hover-border: rgba(160, 126, 54, 0.28);
-  --reservation-picker-today-border: rgba(204, 163, 82, 0.58);
+  --reservation-picker-day-hover-border: color-mix(in srgb, var(--admin-gold-deep) 28%, transparent);
+  --reservation-picker-today-border: color-mix(in srgb, var(--admin-gold) 58%, transparent);
   --reservation-picker-today-color: var(--admin-gold-deep);
   --reservation-picker-selected-border: var(--admin-gold);
-  --reservation-picker-selected-bg: rgba(204, 163, 82, 0.18);
+  --reservation-picker-selected-bg: color-mix(in srgb, var(--admin-gold) 18%, transparent);
   --reservation-picker-selected-color: var(--admin-text);
   --reservation-picker-day-disabled-opacity: 0.44;
   --reservation-picker-hours-max-height: 240px;
@@ -68,7 +68,7 @@
   --reservation-picker-hour-bg: var(--admin-surface-soft);
   --reservation-picker-hover-bg: color-mix(in srgb, var(--admin-gold) 14%, var(--admin-surface-soft));
   --reservation-picker-hover-color: var(--admin-text);
-  --reservation-picker-hour-selected-bg: rgba(204, 163, 82, 0.16);
+  --reservation-picker-hour-selected-bg: color-mix(in srgb, var(--admin-gold) 16%, transparent);
   --reservation-picker-hour-selected-color: var(--admin-gold-deep);
   --reservation-picker-icon-color: var(--admin-faint);
   --reservation-picker-time-icon-left: 13px;
@@ -111,10 +111,10 @@
 
   .date-display,
   .hour-display {
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent);
 
     &:hover:not(:disabled) {
-      border-color: rgba(204, 163, 82, 0.42);
+      border-color: color-mix(in srgb, var(--admin-gold) 42%, transparent);
     }
 
     &:focus,
@@ -125,7 +125,7 @@
 
   .hour-picker-control .hour-display {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+      linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.8%, transparent), transparent),
       var(--admin-surface-soft);
   }
 
@@ -151,7 +151,7 @@
   }
 
   .hour-option.sel {
-    box-shadow: inset 0 0 0 1px rgba(204, 163, 82, 0.08);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 8%, transparent);
   }
 
   .admin-field.has-error,

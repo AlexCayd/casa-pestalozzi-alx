@@ -1,0 +1,529 @@
+// ── Catas ─────────────────────────────────────────────────────
+//
+// Sustituye al antiguo Maridaje (tres tarjetas con foto de fondo). Ahora es una
+// agenda vertical: filas anchas con ficha de fecha a la izquierda y precio +
+// acción a la derecha. La forma es deliberadamente distinta del mosaico de
+// Panadería y de la lista numerada de Catering — el contraste entre las tres
+// secciones no lo sostiene sólo el color.
+//
+// El tono (vino) lo pone data-tono en el marcado; aquí no se fija ni un color:
+// todo sale de los roles, que dentro de la sección ya llegan invertidos.
+
+.catas {
+  position: relative;
+}
+
+// Cabecera asimétrica a DOS columnas. Panadería, la sección de encima, es un
+// bloque centrado de eyebrow + título + párrafo; repetir la misma figura aquí
+// hacía que las dos se leyeran como una sola aunque cambiara el color.
+//
+// El título ancla a la izquierda, alineado con la ficha de fecha de la agenda, y
+// el texto cae a su derecha alineado a ese borde: los dos extremos de la
+// cabecera coinciden con los dos extremos de las filas de la agenda de abajo.
+//
+// Fueron tres columnas, con un segundo párrafo —"la cantina, a diario"— junto al
+// primero; los dos decían lo mismo y ahora van fundidos en uno (ver _catas.php).
+//
+// `align-items: end` alinea el texto al PIE del título, que es lo que lo ata a
+// él en vez de dejarlo flotando a media altura.
+.catas__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  align-items: end;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  margin: 0 0 clamp(2.5rem, 5vh, 3.5rem);
+}
+
+.catas__head-texto {
+  margin: 0;
+  padding-bottom: 0.6rem;
+  margin-left: auto;
+  text-align: right;
+}
+
+.catas__title {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  margin: 1.2rem 0 0;
+}
+
+// Por debajo de la tablet, a una columna: 34rem de texto junto a un título de
+// 4.5rem no caben, y el párrafo se estrangularía. Vuelve a la izquierda —a lo
+// ancho de la columna, alineado a la derecha se lee como un pie de foto— y el
+// título deja de tener nada al lado con lo que empatar el borde.
+@media (max-width: 1080px) {
+  .catas__head {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .catas__head-texto {
+    padding-bottom: 0;
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+// ── Maridaje: la cantina de todos los días ────────────────────
+//
+// Va antes de la agenda porque es lo que la sección promete el resto del año:
+// quien no puede ninguna de las fechas se iba sin saber que existe. Se pinta
+// haya o no catas publicadas, así que también es lo que sostiene la sección
+// cuando la agenda está vacía.
+.maridaje {
+  margin-bottom: clamp(3rem, 7vh, 5rem);
+}
+
+// El texto de este bloque subió a la cabecera y hoy va fundido dentro de
+// .catas__head-texto: aquí queda sólo la galería, así que .maridaje ya no
+// necesita entradilla propia.
+
+// Mosaico escalonado y no una tira: la agenda de abajo ya es una lista de filas
+// anchas, y con las dos en la misma figura la sección se leía de un solo ritmo.
+//
+// Cuatro columnas por dos filas, ocho celdas para cinco piezas: dos altas que
+// hacen de jambas en los extremos y una apaisada que cierra el hueco central de
+// la fila de abajo.
+//
+// La forma de cada celda sigue la PROPORCIÓN de su fotografía, y esto costó dos
+// intentos: la celda ancha llevaba una foto vertical de dos botellas y salía un
+// recorte a media altura del cristal —una franja negra que no se entendía—.
+// Las dos verticales van a las jambas, las dos cuadradas arriba y la única
+// apaisada del grupo, la de la barra sirviendo, a la celda ancha.
+// Las dos filas NO miden lo mismo. Con las dos a 17vw la celda ancha de abajo
+// quedaba en una caja de casi 3:1 para una foto de 16:9: la barra sirviendo
+// perdía un tercio del alto y no se entendía qué pasaba en la escena. La fila de
+// abajo va a 24vw, que devuelve esa celda a ~1.85:1 —la proporción nativa de la
+// foto— y de paso alarga las dos jambas verticales, que es lo que les conviene.
+.maridaje__galeria {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: clamp(150px, 17vw, 230px) clamp(200px, 24vw, 340px);
+  gap: 0.8rem;
+
+  .mg {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 1.2s var(--ease);
+    }
+
+    &:hover img { transform: scale(1.06); }
+  }
+
+  //   fila 1 │  1  │  2  │  3  │  4  │   1 y 4 bajan a la fila 2 (jambas)
+  //   fila 2 │  ↓  │     5     │  ↓  │   5 es la apaisada
+  .mg:nth-child(1) { grid-area: 1 / 1 / span 2 / span 1; }
+  .mg:nth-child(2) { grid-area: 1 / 2; }
+  .mg:nth-child(3) { grid-area: 1 / 3; }
+  .mg:nth-child(4) { grid-area: 1 / 4 / span 2 / span 1; }
+  .mg:nth-child(5) { grid-area: 2 / 2 / span 1 / span 2; }
+}
+
+@media (max-width: 760px) {
+  .maridaje__galeria {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: clamp(130px, 30vw, 200px);
+
+    // `:nth-child(n)` no filtra: empata la especificidad de las cinco reglas de
+    // colocación para ganarles por orden en vez de con un !important.
+    .mg:nth-child(n) { grid-area: auto; }
+    // La alta sigue siendo la portada del bloque, sólo que ahora a lo ancho.
+    .mg:nth-child(1) { grid-column: 1 / -1; }
+  }
+}
+
+// ── Cómo es una cata ──────────────────────────────────────────
+//
+// La dinámica, en la misma VOZ de respaldo que las razones de Catering:
+// versalitas sans, no serif. En serif competía con los títulos de las catas de
+// la agenda y las dos listas se leían como una sola.
+.catas__dinamica-rotulo {
+  display: block;
+  margin-bottom: 1.4rem;
+}
+
+.catas__dinamica {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem 2.5rem;
+  margin-bottom: clamp(3rem, 7vh, 5rem);
+}
+@media (max-width: 820px) { .catas__dinamica { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .catas__dinamica { grid-template-columns: 1fr; } }
+
+.dinamica {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 1rem;
+
+  &__num {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--serif);
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    color: var(--txt-faint);
+  }
+
+  b {
+    display: block;
+    margin-bottom: 0.6rem;
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--txt-faint);
+  }
+}
+
+// ── Agenda ────────────────────────────────────────────────────
+.catas__agenda {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.cata {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(1.2rem, 3vw, 2.5rem);
+  padding: clamp(1.6rem, 3vh, 2.4rem) 0;
+  border-bottom: 1px solid var(--line);
+  transition: padding-left 0.4s var(--ease);
+
+  &:hover {
+    padding-left: 1rem;
+
+    .cata__titulo {
+      color: var(--accent-text);
+    }
+  }
+
+  // Una cata agotada sigue visible —comunica demanda— pero se apaga.
+  //
+  // La atenuación va PIEZA A PIEZA y no con un `opacity: 0.55` sobre la fila
+  // entera: la opacidad del padre arrastra a todos los hijos, así que también
+  // apagaba la chapa de "Agotada" —el único dato por el que esa fila sigue ahí—
+  // y encima se sumaba al `--txt-faint` que la chapa ya tenía. Dos atenuaciones
+  // encadenadas sobre el dato más importante de la fila.
+  &--cerrada {
+    .cata__titulo,
+    .cata__texto,
+    .cata__meta,
+    .cata__precio { color: var(--txt-faint); }
+
+    .cata__fecha { border-color: var(--line-soft); }
+    .cata__dia,
+    .cata__mes { color: var(--txt-faint); }
+
+    img { filter: grayscale(1); }
+
+    &:hover {
+      padding-left: 0;
+    }
+  }
+}
+
+// Ficha de calendario. El día grande es el ancla visual de cada fila.
+.cata__fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(3.6rem, 6vw, 4.6rem);
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  line-height: 1;
+}
+
+.cata__dia {
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  color: var(--txt);
+}
+
+.cata__mes {
+  margin-top: 0.35rem;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--accent-text);
+}
+
+.cata__titulo {
+  font-size: clamp(1.4rem, 2.6vw, 2.1rem);
+  margin: 0;
+  transition: color 0.4s var(--ease);
+}
+
+.cata__texto {
+  margin: 0.6rem 0 0;
+  max-width: 52ch;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  color: var(--txt-mute);
+}
+
+.cata__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+}
+
+.cata__cupo {
+  color: var(--accent-text);
+}
+
+.cata__accion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.9rem;
+  text-align: right;
+}
+
+.cata__precio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  color: var(--txt);
+  line-height: 1;
+
+  small {
+    margin-top: 0.35rem;
+    font-family: var(--sans);
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+  }
+}
+
+// Chapa sólida, no texto tenue. Era `--txt-faint` dentro de una fila ya
+// atenuada: el estado que decide si alguien puede o no inscribirse era lo menos
+// legible de la fila. Misma forma que .reserva__hours-badge, que es el
+// vocabulario de chapa de la casa, y en relleno de acento —beige sobre café en
+// esta sección— para que gane a todo lo que tiene alrededor.
+.cata__agotada {
+  display: inline-block;
+  padding: 0.34rem 0.7rem;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// ── Estado vacío ──────────────────────────────────────────────
+.catas__vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6rem;
+  padding: clamp(3rem, 8vh, 5rem) 1.5rem;
+  border: 1px solid var(--line);
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-family: var(--crimson);
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    color: var(--txt-mute);
+  }
+}
+
+// ── Panel de inscripción ──────────────────────────────────────
+//
+// Se abre bajo la agenda en lugar de en un modal: en móvil un diálogo con seis
+// campos obliga a scrollear dentro de una capa, y aquí basta con bajar.
+.catas__panel {
+  margin-top: clamp(2rem, 5vh, 3.5rem);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.cata-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: clamp(1.6rem, 4vw, 2.6rem);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.cata-form__head {
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.cata-form__titulo {
+  margin: 0.7rem 0 0;
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+}
+
+.cata-form__cerrar {
+  position: absolute;
+  top: -0.4rem;
+  right: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--line);
+  color: var(--txt-mute);
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.3s, border-color 0.3s;
+
+  &:hover {
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+}
+
+.cata-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
+}
+
+.cata-form__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+
+  > span {
+    font-size: 0.64rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 0.7rem 0;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: var(--txt);
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    transition: border-color 0.3s;
+
+    &::placeholder {
+      color: var(--txt-faint);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  textarea {
+    font-family: var(--sans);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    resize: vertical;
+  }
+
+  &--corto {
+    max-width: 8rem;
+  }
+}
+
+// Campo trampa para bots. No usa display:none: algunos rellenadores lo saltan
+// justamente por eso. Se saca de la pantalla y se le quita el foco.
+.cata-form__trampa {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.cata-form__pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cata-form__aviso {
+  margin: 0;
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.85rem;
+  color: var(--txt-mute);
+
+  &.is-error {
+    color: var(--feedback-danger);
+  }
+
+  &.is-ok {
+    color: var(--feedback-ok);
+  }
+}
+
+// ── Móvil ─────────────────────────────────────────────────────
+@media (max-width: 760px) {
+  .cata {
+    grid-template-columns: auto 1fr;
+    row-gap: 1.2rem;
+
+    &:hover {
+      padding-left: 0;
+    }
+  }
+
+  .cata__accion {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .cata__precio {
+    align-items: flex-start;
+  }
+
+  .cata-form__pie {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

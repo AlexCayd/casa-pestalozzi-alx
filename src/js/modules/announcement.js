@@ -93,22 +93,74 @@ function initAnnouncementDismiss() {
       }
     }
 
-    dialogo.classList.remove('is-open');
-
     function ocultar() {
+      dialogo.classList.remove('is-open');
+      dialogo.classList.remove('is-gsap');
       dialogo.hidden = true;
+      // El panel queda con los transform de la línea de tiempo puestos; sin
+      // limpiarlos, un segundo abrir() partiría desde donde acabó el cierre.
+      if (window.gsap && panel) gsap.set(panel, { clearProps: 'all' });
     }
 
-    if (reducedMotion) {
-      ocultar();
-    } else {
-      window.setTimeout(ocultar, 220);
-    }
+    salida(ocultar);
 
     // Devolver el foco sólo tiene sentido si se lo habíamos quitado.
     if (esModal && ultimoFoco && typeof ultimoFoco.focus === 'function') {
       ultimoFoco.focus();
     }
+  }
+
+  /* La entrada: "la comanda que se posa en el mantel".
+     ------------------------------------------------------------------
+     La tarjeta no aparece, se DEJA: sube desde abajo a la derecha —de donde
+     viene quien trae algo a la mesa—, entra ligeramente ladeada y se asienta
+     recta, como un papel que se suelta y encuentra su sitio. El filete de
+     acento se traza después, de arriba abajo: el mismo gesto que la rayita de
+     los rótulos de sección, que es lo que la ata al resto de la página.
+
+     Todo esto es un extra. La clase .is-open sigue siendo el contrato y el CSS
+     conserva su transición: sin GSAP, o con movimiento reducido, el aviso entra
+     igual con el fundido de siempre. */
+  function entrada() {
+    if (reducedMotion || !window.gsap || !panel) return;
+
+    // Le dice al CSS que se aparte: su propia transición de entrada se sumaría
+    // a ésta y el aviso llegaría desde más abajo de lo que se diseñó.
+    dialogo.classList.add('is-gsap');
+
+    var filete = dialogo.querySelector('.hero-announcement__indicator');
+    var tl = gsap.timeline();
+
+    tl.fromTo(panel,
+      { yPercent: 14, rotate: 1.6, opacity: 0, transformOrigin: '100% 100%' },
+      { yPercent: 0, rotate: 0, opacity: 1, duration: 0.72, ease: 'power3.out' });
+
+    if (filete) {
+      tl.fromTo(filete,
+        { scaleY: 0, transformOrigin: 'top center' },
+        { scaleY: 1, duration: 0.5, ease: 'power2.out' }, '-=0.34');
+    }
+  }
+
+  /* Tres caminos, y ninguno puede dejar la tarjeta a medias:
+     con GSAP se retira hacia abajo; sin GSAP se le deja a la transición CSS sus
+     220 ms quitando .is-open antes; y con movimiento reducido se oculta en seco. */
+  function salida(alTerminar) {
+    if (reducedMotion) { alTerminar(); return; }
+
+    if (!window.gsap || !panel) {
+      dialogo.classList.remove('is-open');
+      window.setTimeout(alTerminar, 220);
+      return;
+    }
+
+    gsap.to(panel, {
+      yPercent: 12,
+      opacity: 0,
+      duration: 0.32,
+      ease: 'power2.in',
+      onComplete: alTerminar,
+    });
   }
 
   function abrir() {
@@ -130,6 +182,7 @@ function initAnnouncementDismiss() {
     dialogo.hidden = false;
     window.requestAnimationFrame(function () {
       dialogo.classList.add('is-open');
+      entrada();
       // El discreto no roba el foco: el visitante puede estar escribiendo en el
       // formulario de reservación cuando aparece.
       if (esModal && panel) panel.focus();

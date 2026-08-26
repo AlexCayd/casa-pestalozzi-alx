@@ -1,19 +1,23 @@
 // ── Formulario de Feedback — Casa Pestalozzi ──────────────────
-@use 'sass:color';
 
 // ── Tokens ───────────────────────────────────────────────────
-$fb-bg:      #0d0d0d;
-$fb-card-bg: #161616;
-$fb-border:  rgba(255,255,255,.08);
-$fb-text:    #e8e0d4;
-$fb-muted:   rgba(232,224,212,.5);
+//
+// Eran ocho literales que repetían la paleta; ahora son alias de los roles del
+// tema. La página corre con data-modo="oscuro", así que --bg y --surface ya
+// llegan en su versión de piso.
+$fb-bg:      var(--bg);
+$fb-card-bg: var(--surface);
+$fb-border:  var(--line-soft);
+$fb-text:    var(--txt);
+$fb-muted:   var(--txt-mute);
 
-// Colores de caras 1→5
-$face-1: #e53935;
-$face-2: #F57C00;
-$face-3: #F9A825;
-$face-4: #43A047;
-$face-5: #29B6F6;
+// Escala de caras 1→5. No adopta la paleta de marca: es una serie ordinal que
+// debe distinguirse de un vistazo, y para eso sirve la paleta funcional.
+$face-1: var(--c-rojo);
+$face-2: var(--c-naranja);
+$face-3: var(--c-ambar);
+$face-4: var(--c-verde);
+$face-5: var(--c-turquesa);
 
 // ── Cursor (override global cursor:none del reset) ────────────
 .fb-page,
@@ -73,18 +77,18 @@ $face-5: #29B6F6;
 // y sombra que lo despega del fondo.
 //
 // Lo que NO se copia del nav es `mix-blend-mode: difference`: sobre el
-// #161616 de la tarjeta invierte el dorado a un color sucio.
+// var(--surface) de la tarjeta invierte el dorado a un color sucio.
 .fb-brand-mark {
   display: block;
   text-align: center;
   font-family: var(--logo);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: clamp(2rem, 6vw, 3rem);
   text-decoration: none;
   margin-bottom: .5rem;
   letter-spacing: 0.015em;
   line-height: 1;
-  text-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+  text-shadow: 0 8px 30px color-mix(in srgb, var(--sombra) 50%, transparent);
 }
 
 // ── Header ────────────────────────────────────────────────────
@@ -111,14 +115,14 @@ $face-5: #29B6F6;
 .fb-progress__bar {
   flex: 1;
   height: 4px;
-  background: rgba(255,255,255,.08);
+  background: color-mix(in srgb, var(--txt) 8%, transparent);
   border-radius: 99px;
   overflow: hidden;
 }
 
 .fb-progress__fill {
   height: 100%;
-  background: var(--accent, #cca352);
+  background: var(--accent);
   border-radius: 99px;
   width: 0%;
   transition: width .35s cubic-bezier(.4,0,.2,1);
@@ -181,23 +185,25 @@ $face-5: #29B6F6;
     font-size: .6rem;
     font-weight: 700;
     letter-spacing: .06em;
-    color: rgba(232,224,212,.3);
+    color: color-mix(in srgb, var(--txt) 30%, transparent);
     text-transform: uppercase;
     transition: color .15s ease;
     white-space: nowrap;
   }
 
   &:hover svg        { filter: grayscale(10%) brightness(.9); transform: scale(1.1); }
-  &:hover &__label   { color: rgba(232,224,212,.65); }
+  &:hover &__label   { color: color-mix(in srgb, var(--txt) 65%, transparent); }
 
   &--active svg      { filter: none; transform: scale(1.18); }
-  &--active &__label { color: rgba(232,224,212,.95); }
+  &--active &__label { color: color-mix(in srgb, var(--txt) 95%, transparent); }
 
-  &--1.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-1}99); }
-  &--2.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-2}99); }
-  &--3.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-3}99); }
-  &--4.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-4}99); }
-  &--5.fb-face--active svg { filter: drop-shadow(0 0 12px #{$face-5}99); }
+  // El halo era el hex de la cara con "99" pegado como alfa. Con un token eso
+  // ya no se puede concatenar: la transparencia se pide con color-mix.
+  &--1.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-1} 60%, transparent)); }
+  &--2.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-2} 60%, transparent)); }
+  &--3.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-3} 60%, transparent)); }
+  &--4.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-4} 60%, transparent)); }
+  &--5.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-5} 60%, transparent)); }
 }
 
 // ── Navegación Anterior / Siguiente ──────────────────────────
@@ -225,19 +231,19 @@ $face-5: #29B6F6;
   color: $fb-muted;
 
   &:hover {
-    border-color: rgba(255,255,255,.2);
+    border-color: color-mix(in srgb, var(--txt) 20%, transparent);
     color: $fb-text;
     transform: translateX(-2px);
   }
 }
 
 .fb-nav__next {
-  border: 2px solid var(--accent, #cca352);
-  background: rgba(204,163,82,.12);
-  color: var(--accent, #cca352);
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-text);
 
   &:hover {
-    background: rgba(204,163,82,.22);
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
     transform: translateX(2px);
   }
 }
@@ -246,7 +252,7 @@ $face-5: #29B6F6;
 .fb-textarea {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(255,255,255,.04);
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
   border: 1px solid $fb-border;
   border-radius: 10px;
   color: $fb-text;
@@ -259,15 +265,15 @@ $face-5: #29B6F6;
   margin-bottom: 1.5rem;
 
   &::placeholder { color: $fb-muted; }
-  &:focus        { border-color: var(--accent, #cca352); }
+  &:focus        { border-color: var(--accent); }
 }
 
 // ── Mensaje de error ──────────────────────────────────────────
 .fb-error {
   font-size: .8rem;
-  color: #e74c3c;
-  background: rgba(231,76,60,.12);
-  border: 1px solid rgba(231,76,60,.25);
+  color: var(--feedback-danger);
+  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--feedback-danger) 25%, transparent);
   border-radius: 8px;
   padding: .6rem .9rem;
   margin-bottom: .75rem;
@@ -284,8 +290,8 @@ $face-5: #29B6F6;
   margin-top: .5rem;
   border: none;
   border-radius: 50px;
-  background: var(--accent, #cca352);
-  color: #0d0d0d;
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: .9rem;
   font-weight: 800;
   letter-spacing: .1em;
@@ -293,9 +299,11 @@ $face-5: #29B6F6;
   transition: background .15s ease, transform .12s ease, box-shadow .15s ease;
 
   &:hover:not(:disabled) {
-    background: color.adjust(#cca352, $lightness: -8%);
+    // El oscurecido va con color-mix y no con color.adjust de Sass: éste último
+    // exige un color literal en tiempo de compilación y volvería a clavar el hex.
+    background: color-mix(in srgb, var(--accent) 88%, black);
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(204,163,82,.35);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 35%, transparent);
   }
 
   &:active:not(:disabled) { transform: translateY(0); }
@@ -309,13 +317,13 @@ $face-5: #29B6F6;
 
 .fb-resumen-row {
   padding: .65rem 0;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid color-mix(in srgb, var(--txt) 6%, transparent);
 
   &__label {
     font-size: .7rem;
     font-weight: 600;
     letter-spacing: .05em;
-    color: rgba(232,224,212,.45);
+    color: color-mix(in srgb, var(--txt) 45%, transparent);
     text-transform: uppercase;
     margin-bottom: .45rem;
   }
@@ -341,9 +349,9 @@ $face-5: #29B6F6;
   transition: background .15s ease;
 
   &:hover {
-    background: rgba(255,255,255,.04);
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
     svg { filter: grayscale(20%) brightness(.8); transform: scale(1.08); }
-    .fb-resumen-face__lbl { color: rgba(232,224,212,.5); }
+    .fb-resumen-face__lbl { color: color-mix(in srgb, var(--txt) 50%, transparent); }
   }
 
   svg {
@@ -358,7 +366,7 @@ $face-5: #29B6F6;
     font-size: .48rem;
     font-weight: 700;
     letter-spacing: .04em;
-    color: rgba(232,224,212,.2);
+    color: color-mix(in srgb, var(--txt) 20%, transparent);
     text-transform: uppercase;
     white-space: nowrap;
     transition: color .2s ease;
@@ -366,7 +374,7 @@ $face-5: #29B6F6;
 
   &--active {
     svg { filter: none; transform: scale(1.22); }
-    .fb-resumen-face__lbl { color: rgba(232,224,212,.9); }
+    .fb-resumen-face__lbl { color: color-mix(in srgb, var(--txt) 90%, transparent); }
 
     &:hover svg { transform: scale(1.28); }
   }
@@ -389,7 +397,7 @@ $face-5: #29B6F6;
     font-size: .7rem;
     font-weight: 600;
     letter-spacing: .05em;
-    color: rgba(232,224,212,.45);
+    color: color-mix(in srgb, var(--txt) 45%, transparent);
     text-transform: uppercase;
     flex-shrink: 0;
   }
@@ -408,9 +416,9 @@ $face-5: #29B6F6;
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(39,174,96,.15);
-  border: 2px solid #27ae60;
-  color: #27ae60;
+  background: color-mix(in srgb, var(--feedback-ok) 15%, transparent);
+  border: 2px solid var(--feedback-ok);
+  color: var(--feedback-ok);
   font-size: 1.6rem;
   display: flex;
   align-items: center;
@@ -455,10 +463,10 @@ $face-5: #29B6F6;
   justify-content: center;
   gap: .6rem;
   padding: 1.25rem 1rem;
-  border: 2px solid rgba(255,255,255,.1);
+  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
   border-radius: 14px;
-  background: rgba(255,255,255,.04);
-  color: rgba(232,224,212,.75);
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  color: color-mix(in srgb, var(--txt) 75%, transparent);
   transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
 
   &__icon {
@@ -476,11 +484,11 @@ $face-5: #29B6F6;
   }
 
   &:hover {
-    border-color: var(--accent, #cca352);
-    background: rgba(204,163,82,.1);
-    color: var(--accent, #cca352);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent-text);
     transform: translateY(-2px);
-    box-shadow: 0 4px 18px rgba(204,163,82,.18);
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
   &:active { transform: translateY(0); }
@@ -488,9 +496,9 @@ $face-5: #29B6F6;
 
 .mmodal-pago-badge {
   display: inline-block;
-  background: rgba(204,163,82,.15);
-  border: 1px solid rgba(204,163,82,.3);
-  color: var(--accent, #cca352);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-text);
   border-radius: 50px;
   padding: .1rem .65rem;
   font-size: .78rem;
@@ -500,9 +508,9 @@ $face-5: #29B6F6;
 
 // Estado activo del selector de método (cuenta completa)
 .mmodal-pago-btn--active {
-  border-color: var(--accent, #cca352);
-  background: rgba(204,163,82,.14);
-  color: var(--accent, #cca352);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-text);
 }
 
 // ── Elegir tipo de cierre: completa vs dividida ──────────────
@@ -523,23 +531,23 @@ $face-5: #29B6F6;
   align-items: center;
   gap: .4rem;
   padding: 1.4rem 1rem;
-  border: 2px solid rgba(255,255,255,.1);
+  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
   border-radius: 14px;
-  background: rgba(255,255,255,.04);
-  color: rgba(232,224,212,.8);
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  color: color-mix(in srgb, var(--txt) 80%, transparent);
   text-align: center;
   transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
 
-  &__icon  { display: flex; line-height: 1; color: var(--accent, #cca352); }
+  &__icon  { display: flex; line-height: 1; color: var(--accent-text); }
   &__title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; }
-  &__desc  { font-size: .72rem; color: rgba(232,224,212,.55); line-height: 1.3; }
+  &__desc  { font-size: .72rem; color: color-mix(in srgb, var(--txt) 55%, transparent); line-height: 1.3; }
 
   &:hover {
-    border-color: var(--accent, #cca352);
-    background: rgba(204,163,82,.1);
-    color: var(--accent, #cca352);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent-text);
     transform: translateY(-2px);
-    box-shadow: 0 4px 18px rgba(204,163,82,.18);
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
   }
   &:active { transform: translateY(0); }
 }
@@ -548,7 +556,7 @@ $face-5: #29B6F6;
 .mmodal-cerrar-hint {
   font-size: .72rem;
   font-weight: 600;
-  color: #d98c6a;
+  color: var(--feedback-warn);
   text-align: center;
   margin-bottom: .5rem;
 }
@@ -569,10 +577,10 @@ $face-5: #29B6F6;
 
 .mmodal-split-mode {
   padding: .5rem .35rem;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
   border-radius: 9px;
-  background: rgba(255,255,255,.03);
-  color: rgba(232,224,212,.6);
+  background: color-mix(in srgb, var(--txt) 3%, transparent);
+  color: color-mix(in srgb, var(--txt) 60%, transparent);
   font-family: var(--sans);
   font-size: .66rem;
   font-weight: 700;
@@ -583,20 +591,20 @@ $face-5: #29B6F6;
   transition: color .15s ease, border-color .15s ease, background .15s ease;
 
   &:hover {
-    color: rgba(232,224,212,.9);
-    border-color: rgba(204,163,82,.4);
+    color: color-mix(in srgb, var(--txt) 90%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   &--active {
-    color: var(--accent, #cca352);
-    border-color: var(--accent, #cca352);
-    background: rgba(204,163,82,.14);
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
 }
 
 .mmodal-split-table {
   margin: 1rem 0 .75rem;
-  border: 1px solid rgba(255,255,255,.09);
+  border: 1px solid color-mix(in srgb, var(--txt) 9%, transparent);
   border-radius: 10px;
   overflow: hidden;
   text-align: left;
@@ -609,22 +617,22 @@ $face-5: #29B6F6;
   gap: .5rem;
   padding: .55rem .75rem;
 
-  & + & { border-top: 1px solid rgba(255,255,255,.06); }
+  & + & { border-top: 1px solid color-mix(in srgb, var(--txt) 6%, transparent); }
 
   &--head {
-    background: rgba(255,255,255,.04);
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
     font-size: .58rem;
     letter-spacing: .1em;
     text-transform: uppercase;
     font-weight: 700;
-    color: rgba(232,224,212,.5);
+    color: color-mix(in srgb, var(--txt) 50%, transparent);
   }
 }
 
 .mmodal-split-name {
   font-size: .82rem;
   font-weight: 700;
-  color: rgba(232,224,212,.85);
+  color: color-mix(in srgb, var(--txt) 85%, transparent);
 }
 
 .mmodal-split-metodos {
@@ -637,18 +645,18 @@ $face-5: #29B6F6;
   align-items: center;
   justify-content: center;
   padding: .3rem .55rem;
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
   border-radius: 8px;
-  background: rgba(255,255,255,.03);
+  background: color-mix(in srgb, var(--txt) 3%, transparent);
   line-height: 1;
   cursor: pointer;
-  color: rgba(232,224,212,.45);
+  color: color-mix(in srgb, var(--txt) 45%, transparent);
   transition: color .15s ease, border-color .15s ease, background .15s ease;
 
   &--active {
-    color: var(--accent, #cca352);
-    border-color: var(--accent, #cca352);
-    background: rgba(204,163,82,.14);
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
 }
 
@@ -657,7 +665,7 @@ $face-5: #29B6F6;
   align-items: center;
   gap: .3rem;
   font-size: .85rem;
-  color: rgba(232,224,212,.6);
+  color: color-mix(in srgb, var(--txt) 60%, transparent);
 }
 
 // ── Propina explícita ────────────────────────────────────────
@@ -669,7 +677,7 @@ $face-5: #29B6F6;
   &__label {
     display: block;
     margin-bottom: .45rem;
-    color: rgba(232, 224, 212, .6);
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
     font-size: .72rem;
     font-weight: 700;
     letter-spacing: .08em;
@@ -686,10 +694,10 @@ $face-5: #29B6F6;
     min-height: 40px;
     padding: .45rem .7rem;
     flex: 1 1 auto;
-    border: 1px solid rgba(255, 255, 255, .14);
+    border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
     border-radius: 9px;
-    background: rgba(255, 255, 255, .04);
-    color: rgba(232, 224, 212, .75);
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
+    color: color-mix(in srgb, var(--txt) 75%, transparent);
     font-family: inherit;
     font-size: .78rem;
     font-weight: 700;
@@ -697,12 +705,12 @@ $face-5: #29B6F6;
     cursor: pointer;
     transition: border-color .15s, background .15s, color .15s;
 
-    &:hover { border-color: rgba(204, 163, 82, .45); }
+    &:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 
     &.is-on {
-      border-color: var(--accent, #cca352);
-      background: rgba(204, 163, 82, .16);
-      color: var(--accent, #cca352);
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      color: var(--accent-text);
     }
   }
 
@@ -711,7 +719,7 @@ $face-5: #29B6F6;
     align-items: center;
     gap: .3rem;
     margin-top: .5rem;
-    color: rgba(232, 224, 212, .6);
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
     font-size: .85rem;
 
     input[hidden] { display: none; }
@@ -723,16 +731,16 @@ $face-5: #29B6F6;
     width: 100%;
     margin-top: .5rem;
     padding: .5rem;
-    border: 1px dashed rgba(204, 163, 82, .45);
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
     border-radius: 9px;
     background: none;
-    color: var(--accent, #cca352);
+    color: var(--accent-text);
     font-family: inherit;
     font-size: .75rem;
     font-weight: 700;
     cursor: pointer;
 
-    &:hover { background: rgba(204, 163, 82, .1); }
+    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   }
 }
 
@@ -747,7 +755,7 @@ $face-5: #29B6F6;
   &__label {
     display: block;
     margin-bottom: .4rem;
-    color: rgba(232, 224, 212, .6);
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
     font-size: .72rem;
     font-weight: 700;
     letter-spacing: .08em;
@@ -760,20 +768,20 @@ $face-5: #29B6F6;
     gap: .5rem;
     min-height: 56px;
     padding: 0 .9rem;
-    border: 1px solid rgba(255, 255, 255, .16);
+    border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
     border-radius: 11px;
-    background: rgba(255, 255, 255, .05);
-    color: rgba(232, 224, 212, .55);
+    background: color-mix(in srgb, var(--txt) 5%, transparent);
+    color: color-mix(in srgb, var(--txt) 55%, transparent);
     font-size: 1.2rem;
 
-    &:focus-within { border-color: var(--accent, #cca352); }
+    &:focus-within { border-color: var(--accent); }
 
     input {
       width: 100%;
       min-width: 0;
       border: 0;
       background: none;
-      color: #e8e0d4;
+      color: var(--txt);
       font-family: inherit;
       font-size: 1.6rem;
       font-weight: 700;
@@ -798,14 +806,14 @@ $face-5: #29B6F6;
   gap: 1rem;
   margin-top: .75rem;
   padding: .7rem .9rem;
-  border: 1px solid rgba(204, 163, 82, .35);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: 11px;
-  background: rgba(204, 163, 82, .1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 
   &[hidden] { display: none; }
 
   &__label {
-    color: rgba(232, 224, 212, .72);
+    color: color-mix(in srgb, var(--txt) 72%, transparent);
     font-size: .78rem;
     font-weight: 700;
     letter-spacing: .05em;
@@ -813,7 +821,7 @@ $face-5: #29B6F6;
   }
 
   &__val {
-    color: var(--accent, #cca352);
+    color: var(--accent-text);
     font-size: 1.5rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
@@ -822,9 +830,9 @@ $face-5: #29B6F6;
 
 .mmodal-total-row--fuerte {
   padding-top: .45rem;
-  border-top: 1px solid rgba(255, 255, 255, .1);
+  border-top: 1px solid color-mix(in srgb, var(--txt) 10%, transparent);
 
-  .mmodal-total-label { color: rgba(232, 224, 212, .85); }
+  .mmodal-total-label { color: color-mix(in srgb, var(--txt) 85%, transparent); }
 
   .mmodal-total-amount {
     font-size: 1.05rem;
@@ -838,10 +846,10 @@ $face-5: #29B6F6;
 .mmodal-monto-exacto {
   flex-shrink: 0;
   padding: .42rem .6rem;
-  border: 1px solid rgba(204, 163, 82, .4);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 8px;
   background: none;
-  color: var(--accent, #cca352);
+  color: var(--accent-text);
   font-family: inherit;
   font-size: .72rem;
   font-weight: 700;
@@ -850,17 +858,17 @@ $face-5: #29B6F6;
   cursor: pointer;
   transition: background .15s;
 
-  &:hover { background: rgba(204, 163, 82, .14); }
+  &:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 }
 
 .mmodal-split-input {
   width: 100%;
   min-width: 0;
   padding: .42rem .5rem;
-  border: 1px solid rgba(255,255,255,.14);
+  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
   border-radius: 8px;
-  background: rgba(255,255,255,.05);
-  color: #e8e0d4;
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  color: var(--txt);
   font-size: .9rem;
   font-weight: 600;
   text-align: right;
@@ -874,8 +882,8 @@ $face-5: #29B6F6;
 
   &:focus {
     outline: none;
-    border-color: var(--accent, #cca352);
-    background: rgba(204,163,82,.08);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 }
 
@@ -890,9 +898,9 @@ $face-5: #29B6F6;
   font-weight: 700;
   text-align: right;
 
-  &--ok    { color: #8bbf7e; }
-  &--falta { color: #e8a920; }
-  &--sobra { color: #e87060; }
+  &--ok    { color: var(--feedback-ok); }
+  &--falta { color: var(--feedback-warn); }
+  &--sobra { color: var(--feedback-danger); }
 }
 
 .mmodal-btn:disabled {
@@ -912,13 +920,15 @@ $face-5: #29B6F6;
     font-weight: 600;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: rgba(232,224,212,.6);
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
     margin: 0 0 1.25rem;
   }
 
   &__canvas {
     display: inline-block;
-    background: #fff;
+    // Blanco literal a propósito: es el lienzo del QR y el contraste que
+    // necesita el lector no depende del tema.
+    background: white;
     border-radius: 10px;
     padding: .75rem;
     margin-bottom: 1rem;
@@ -928,7 +938,7 @@ $face-5: #29B6F6;
 
   &__url {
     font-size: .72rem;
-    color: rgba(232,224,212,.4);
+    color: color-mix(in srgb, var(--txt) 40%, transparent);
     word-break: break-all;
     margin: 0 0 1.25rem;
     font-family: 'Courier New', monospace;

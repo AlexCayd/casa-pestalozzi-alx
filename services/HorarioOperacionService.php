@@ -62,6 +62,48 @@ class HorarioOperacionService
         return array_merge(array_slice($semana, 1), array_slice($semana, 0, 1));
     }
 
+    /**
+     * Indexa por día de la semana las excepciones que caen dentro de los
+     * próximos siete días.
+     *
+     * La landing muestra las excepciones SOBRE la fila del día que les toca —el
+     * visitante conecta "el martes abren tarde" con la fila del martes— y para
+     * eso hace falta traducir una fecha a su día de la semana. La cuenta vive
+     * aquí y no en la vista porque la piden dos: la tabla de la sección de
+     * reservación y la columna de horario del pie, que antes ignoraba las
+     * excepciones y contradecía a la de arriba.
+     *
+     * Sólo entran siete días porque sólo hay siete filas que marcar; lo que cae
+     * más allá no se anuncia. La ventana se calcula en la zona horaria del
+     * restaurante: el reloj del visitante puede ser otro.
+     *
+     * @param array<int, array<string, mixed>> $excepciones
+     * @return array<int, array<string, mixed>> día de la semana (0-6) => excepción
+     */
+    public static function mapearExcepcionesDeLaSemana(
+        array $excepciones,
+        DateTimeImmutable $hoy
+    ): array {
+        $ventana = [];
+        for ($i = 0; $i < 7; $i++) {
+            $ventana[$hoy->modify('+' . $i . ' days')->format('Y-m-d')] = $i;
+        }
+
+        $porDia = [];
+        foreach ($excepciones as $excepcion) {
+            $fecha = (string) ($excepcion['fecha'] ?? '');
+            if (!isset($ventana[$fecha])) {
+                continue;
+            }
+            // Una sola excepción por fecha (uq_excepciones_operacion_fecha) y
+            // siete fechas distintas: no hay colisión posible en la ventana.
+            $dia = (int) $hoy->modify('+' . $ventana[$fecha] . ' days')->format('w');
+            $porDia[$dia] = $excepcion;
+        }
+
+        return $porDia;
+    }
+
     /** Devuelve solo las próximas excepciones activas que pueden mostrarse públicamente. */
     public static function obtenerProximasExcepciones(?int $limite = 5): array
     {

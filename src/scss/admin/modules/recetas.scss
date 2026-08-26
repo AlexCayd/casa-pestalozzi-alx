@@ -55,7 +55,7 @@
 }
 
 .admin-recipe {
-  border-color: rgba(204, 163, 82, 0.32);
+  border-color: color-mix(in srgb, var(--admin-gold) 32%, transparent);
   box-shadow:
     inset 3px 0 0 var(--admin-gold),
     var(--admin-shadow-sm);
@@ -105,7 +105,7 @@
     // La fila con ingrediente elegido se marca en verde: da acuse de recibo
     // sin tener que releer el campo.
     &.is-complete {
-      border-color: var(--admin-success-border, rgba(95, 125, 86, 0.5));
+      border-color: var(--admin-success-border, color-mix(in srgb, var(--admin-c-verde) 50%, transparent));
     }
 
     // Igual de alto que los campos que tiene al lado (46px), no 38px.

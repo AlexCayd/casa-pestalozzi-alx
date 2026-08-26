@@ -60,11 +60,27 @@ final class DisponibilidadReservacionService
         }
 
         if (array_key_exists('detalle_horario', $resultado)) {
+            // La lista es explícita —no se reenvía $detalle entero— para que
+            // añadir un campo interno al resolver no lo publique sin querer.
+            // Todo lo que hay aquí es horario informativo: lo mismo que ya se
+            // imprime en la tabla de la sección, y lo que la tarjeta de aviso
+            // necesita para no salir con la fecha y las horas en blanco.
             $detalle = (array)($resultado['detalle_horario'] ?? []);
+            $habitual = (array)($detalle['habitual'] ?? []);
             $respuesta['detalle_horario'] = [
                 'es_excepcion' => (bool)($detalle['es_excepcion'] ?? false),
                 'tipo' => $detalle['tipo'] ?? null,
                 'motivo' => $detalle['motivo'] ?? null,
+                'etiqueta' => $detalle['etiqueta'] ?? null,
+                'fecha' => $detalle['fecha'] ?? null,
+                'abierto' => (bool)($detalle['abierto'] ?? false),
+                'hora_apertura' => $detalle['hora_apertura'] ?? null,
+                'hora_cierre' => $detalle['hora_cierre'] ?? null,
+                'habitual' => [
+                    'abierto' => (bool)($habitual['abierto'] ?? false),
+                    'hora_apertura' => $habitual['hora_apertura'] ?? null,
+                    'hora_cierre' => $habitual['hora_cierre'] ?? null,
+                ],
             ];
         }
 

@@ -29,10 +29,10 @@
     align-items: center;
     height: 32px;
     padding: 0 12px;
-    border: 1px solid rgba(185, 134, 63, 0.35);
+    border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 35%, transparent);
     border-radius: 999px;
-    background: rgba(185, 134, 63, 0.12);
-    color: #75511f;
+    background: color-mix(in srgb, var(--admin-gold-deep) 12%, transparent);
+    color: var(--accent-deep);
     font-size: 13px;
     font-weight: 700;
 }

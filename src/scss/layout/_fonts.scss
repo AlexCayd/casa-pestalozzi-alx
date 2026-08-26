@@ -1,21 +1,78 @@
 // ── Fuentes locales Casa Pestalozzi ────────────────────────────
+//
+// Las caras nuevas (.woff2) las siembra `gulp copyVendorFonts` desde
+// node_modules hacia assets/fonts/. Las viejas (.ttf/.otf) están versionadas a
+// mano en ese mismo directorio.
+// Un solo peso, el 400: cualquier heading que la consuma tiene que declararlo,
+// o el navegador fabrica una negrita falsa dilatando los trazos y una display
+// de alto contraste como ésta se empasta (le pasó al h1 del hero).
+//
+// `block` y no `swap` porque es un wordmark: durante el swap el navegador
+// pintaba el nombre del restaurante con el respaldo —Bodoni— y el salto de una
+// cara a otra se ve mucho más que un instante en blanco. Va precargada desde
+// views/home/index.php, así que el bloqueo es de milisegundos.
 @font-face {
   font-family: "KudosKaps";
   src: url("../fonts/KudosKapsOneNF.otf") format("opentype");
   font-weight: 400;
+  font-display: block;
+}
+
+// ── Bodoni Moda: la voz de titular ────────────────────────────
+//
+// Sustituye a Playfair Display. Bodoni se cortó en Parma y es el didone
+// italiano por antonomasia: el carácter de la casa lo pone la letra antes que
+// cualquier adorno. De paso su contraste de trazo separa mucho más el titular
+// del fondo que la Playfair.
+//
+// Es variable con DOS ejes (wght 400-900 y opsz 6-96), de ahí que una sola
+// familia cubra display y cursiva de acento: un didone a cuerpo de texto
+// necesita serifas más robustas que a cuerpo de cartel, y el eje óptico es
+// justo quien lo resuelve. Playfair declaraba `400 900` con un único fichero
+// Regular, así que todo peso por encima de 400 venía siendo un falso negrita.
+@font-face {
+  font-family: "Bodoni Moda";
+  src: url("../fonts/bodoni-moda-latin-standard-normal.woff2") format("woff2-variations");
+  font-weight: 400 900;
+  font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: "Bodoni Moda";
+  src: url("../fonts/bodoni-moda-latin-standard-italic.woff2") format("woff2-variations");
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+// Playfair se conserva como respaldo de --serif mientras Bodoni carga.
 @font-face {
   font-family: "Playfair Display";
   src: url("../fonts/PlayfairDisplay-Regular.ttf") format("truetype");
   font-weight: 400 900;
   font-display: swap;
 }
+
+// ── Crimson Text: la cursiva italiana ─────────────────────────
+//
+// La cara itálica es el gesto más repetido de la landing (.eyebrow__it, .lead,
+// .display em, .accent-italic) y hasta ahora NO existía: sólo se cargaba la
+// redonda, así que el navegador venía inclinándola por su cuenta. Una oblicua
+// sintética no es una cursiva —no cambia la construcción de la a, la e ni la
+// g—, y era precisamente donde la página decía "italiano".
 @font-face {
   font-family: "Crimson Text";
-  src: url("../fonts/CrimsonText-Regular.ttf") format("truetype");
+  src: url("../fonts/crimson-text-latin-400-normal.woff2") format("woff2"),
+    url("../fonts/CrimsonText-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Crimson Text";
+  src: url("../fonts/crimson-text-latin-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
   font-display: swap;
 }
 @font-face {

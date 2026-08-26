@@ -1,0 +1,233 @@
+// ── Vocabulario italiano ──────────────────────────────────────
+//
+// Los tres gestos que declaran la cocina de la casa sin depender de una
+// fotografía ni de una bandera: la insegna (el rótulo que corre), el arco
+// (la forma de las portadas) y el filete (la regla doble que separa).
+//
+// Viven juntos aquí y no repartidos por sección porque son un mismo sistema:
+// si cambia el arco, cambia en Nosotros, en Panadería y en el Chef a la vez.
+
+// ── Insegna: el rótulo que corre ─────────────────────────────
+//
+// Banda a sangre completa entre secciones. Hace tres cosas: corta el ritmo de
+// bloques de la landing, mete el italiano en pantalla completa y —al ir en
+// tono oscuro entre dos secciones claras— resuelve de golpe el problema de
+// que tres secciones seguidas se leían como una sola.
+.insegna {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.1rem, 3vh, 2rem) 0;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  // El texto no se selecciona: es ornamento, y arrastrarlo con el cursor de la
+  // casa dejaba una selección enorme a lo ancho de la pantalla.
+  user-select: none;
+}
+
+.insegna__pista {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: insegnaCorre 42s linear infinite;
+}
+.no-anim .insegna__pista,
+.insegna.is-scrubbed .insegna__pista {
+  animation: none;
+}
+
+@keyframes insegnaCorre {
+  from { transform: translateX(0); }
+  // Dos copias idénticas del grupo: al desplazar exactamente la mitad, la
+  // segunda cae donde estaba la primera y el bucle no tiene costura.
+  to   { transform: translateX(-50%); }
+}
+
+.insegna__grupo {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: clamp(1.6rem, 4vw, 3.2rem);
+  padding-right: clamp(1.6rem, 4vw, 3.2rem);
+}
+
+.insegna__it {
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 4.2vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--txt-strong);
+  white-space: nowrap;
+}
+
+// La traducción va pequeña y en cursiva detrás de cada rótulo: el visitante
+// que no lee italiano no se queda fuera del chiste.
+.insegna__es {
+  font-family: var(--crimson);
+  font-style: italic;
+  font-size: clamp(0.85rem, 1.4vw, 1.15rem);
+  color: var(--txt-mute);
+  white-space: nowrap;
+  align-self: flex-end;
+  padding-bottom: 0.35em;
+}
+
+.insegna__rombo {
+  flex: 0 0 auto;
+  width: clamp(6px, 0.7vw, 10px);
+  height: clamp(6px, 0.7vw, 10px);
+  transform: rotate(45deg);
+  background: var(--accent);
+}
+
+// ── Arco: la forma de las portadas ───────────────────────────
+//
+// Medio punto arriba, recto abajo. Se aplica sobre el contenedor de la imagen,
+// no sobre el <img>: los parallax de reveals.js mueven el <img> dentro y con
+// el radio en la imagen el borde superior se despegaba del marco al hacer
+// scroll.
+.arco {
+  border-radius: 999px 999px 0 0;
+  overflow: hidden;
+}
+
+// Variante rebajada, para marcos anchos donde el medio punto completo se comía
+// media fotografía.
+.arco--rebajado {
+  border-radius: 42% 42% 0 0 / 22% 22% 0 0;
+  overflow: hidden;
+}
+
+// ── Filetto: la regla doble ──────────────────────────────────
+.filetto {
+  position: relative;
+  height: 3px;
+  width: 100%;
+  background: var(--line);
+  background-clip: content-box;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background-color: transparent;
+}
+
+// Aquí vivía el filo tricolore de la insegna: una regla de 2px partida en tres
+// tramos duros —verde, crema, café— en el orden de la bandera.
+//
+// Se retiró, y no por el guiño sino por cómo se veía. Sobre el café de la banda
+// el tramo café es invisible y el verde casi, así que de la regla entera sólo
+// quedaba el tercio crema del medio: una barra blanca suelta, centrada, que se
+// leía como un desperfecto del marquee y no como un remate. Con dos de tres
+// tramos que no se ven, el guiño no llega a nadie y el defecto lo ve todo el
+// mundo.
+//
+// Si vuelve, tiene que hacerlo con tres tramos que contrasten contra el tono de
+// la banda, no contra el papel.
+
+// ── La textura del mantel ────────────────────────────────────
+//
+// Hasta ahora la única materia de la página era el grano del hero; el resto
+// eran planos de color lisos. La trattoria vive en el mantel y en el papel de
+// carta, así que todas las secciones llevan una fibra muy tenue.
+//
+// Cuelga de .section (y del pie) y no de una clase nueva a propósito: la
+// materia es parte del sistema de tonos, no una decoración que cada vista
+// decida. Así ninguna sección futura nace lisa por olvido.
+//
+// Se construye con gradientes sobre tokens —ni un hex, ni una imagen nueva— y
+// vive en un pseudoelemento para no ocupar el `background`, que ya usa
+// [data-tono]. La trama en dos diagonales imita el cruce del hilo: a esta
+// opacidad no se "ve", se nota.
+//
+// `isolation: isolate` no es opcional. El pseudoelemento va a z-index -1 para
+// quedar bajo el contenido, y sin contexto de apilamiento propio se hundiría
+// también por detrás del fondo de la sección, que es donde deja de existir.
+.section,
+.foot {
+  position: relative;
+  isolation: isolate;
+}
+
+.section::before,
+.foot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px,
+      transparent 1px 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--brand-cafe) 2%, transparent) 0 1px,
+      transparent 1px 6px
+    );
+}
+
+// Sobre los fondos oscuros el hilo tiene que ser claro: la misma fibra en café
+// sobre café no existe.
+.section[data-tono="cafe"]::before,
+.section[data-tono="verde"]::before,
+.foot[data-tono="cafe"]::before,
+.foot[data-tono="verde"]::before {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--brand-crema) 5%, transparent) 0 1px,
+      transparent 1px 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--brand-crema) 4%, transparent) 0 1px,
+      transparent 1px 6px
+    );
+}
+
+// ── Targa: la placa esmaltada ────────────────────────────────
+//
+// El rótulo de calle italiano: rectángulo con doble filo y versalitas dentro.
+// Envuelve al .section-index para que el número de sección deje de ser un
+// dato suelto y pase a leerse como señalética.
+.targa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.32em 0.85em;
+  border: 1px solid var(--line-strong);
+  // El segundo filo, hacia dentro, es lo que la convierte en placa y no en
+  // caja: es el mismo recurso del filetto aplicado al perímetro.
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  color: var(--accent-text);
+  font-family: var(--sans);
+  font-size: clamp(0.6rem, 0.85vw, 0.72rem);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+// ── Rótulo vertical ──────────────────────────────────────────
+//
+// La etiqueta girada que las trattorias pintan en el canto de la fachada.
+// Sólo aparece a partir de la tablet: en vertical no hay margen donde ponerla.
+.rotulo-vertical {
+  position: absolute;
+  right: calc(var(--pad) * 0.32);
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  transform-origin: center;
+  font-size: 0.58rem;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@media (max-width: 1100px) {
+  .rotulo-vertical { display: none; }
+}

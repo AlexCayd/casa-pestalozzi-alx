@@ -36,6 +36,11 @@ DROP TABLE IF EXISTS verificaciones_contacto;
 DROP TABLE IF EXISTS ticket_mesas;
 DROP TABLE IF EXISTS ticket_pagos;
 DROP TABLE IF EXISTS reservacion_mesas;
+-- cata_inscripciones apunta a catas, así que va antes. catering_solicitudes no
+-- depende de nadie.
+DROP TABLE IF EXISTS cata_inscripciones;
+DROP TABLE IF EXISTS catas;
+DROP TABLE IF EXISTS catering_solicitudes;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
@@ -220,6 +225,98 @@ CREATE TABLE IF NOT EXISTS reservacion_mesas (
   UNIQUE KEY uq_reservacion_orden (reservacion_id, orden),
   INDEX idx_rm_mesa (mesa_id),
   INDEX idx_rm_reservacion (reservacion_id)
+);
+
+-- -------------------------------------------------------
+-- CATAS Y CATERING
+-- -------------------------------------------------------
+
+-- Catas dirigidas: sesiones con fecha, cupo y precio que el panel programa y la
+-- landing publica. La agenda pública sólo lee 'publicada'; 'agotada' la marca
+-- sola CataService al llenarse el cupo, y por eso es un estado y no un cálculo:
+-- el admin puede cerrar inscripciones antes de tiempo poniéndolo a mano.
+CREATE TABLE IF NOT EXISTS catas (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  titulo        VARCHAR(120) NOT NULL,
+  descripcion   TEXT NULL,
+  fecha         DATE NOT NULL,
+  hora          TIME NOT NULL,
+  duracion_min  SMALLINT UNSIGNED NOT NULL DEFAULT 90,
+  cupo          SMALLINT UNSIGNED NOT NULL DEFAULT 12,
+  precio        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  -- Ruta relativa dentro de /build/images. NULL usa la imagen por defecto.
+  imagen        VARCHAR(180) NULL,
+  estado        ENUM(
+                  'borrador',
+                  'publicada',
+                  'agotada',
+                  'realizada',
+                  'cancelada'
+                ) NOT NULL DEFAULT 'borrador',
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_catas_agenda (estado, fecha, hora),
+  CONSTRAINT chk_catas_cupo CHECK (cupo > 0),
+  CONSTRAINT chk_catas_precio CHECK (precio >= 0),
+  CONSTRAINT chk_catas_duracion CHECK (duracion_min > 0)
+);
+
+-- Inscripciones a una cata. El contacto se guarda ya normalizado en PHP, con la
+-- misma regla que reservaciones: correo en minúsculas o teléfono a 10 dígitos.
+CREATE TABLE IF NOT EXISTS cata_inscripciones (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  cata_id       INT NOT NULL,
+  nombre        VARCHAR(100) NOT NULL,
+  contacto_tipo ENUM('email','telefono') NOT NULL,
+  contacto      VARCHAR(150) NOT NULL,
+  personas      SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  nota          TEXT NULL,
+  estado        ENUM(
+                  'pendiente',
+                  'confirmada',
+                  'cancelada',
+                  'asistio',
+                  'no_show'
+                ) NOT NULL DEFAULT 'pendiente',
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cata_inscripcion_cata
+    FOREIGN KEY (cata_id) REFERENCES catas(id) ON DELETE CASCADE,
+  -- El índice por (cata_id, estado) es el que sostiene el conteo de lugares.
+  INDEX idx_cata_inscripciones_cata (cata_id, estado),
+  -- Y éste el freno de reenvíos por contacto.
+  INDEX idx_cata_inscripciones_contacto (contacto_tipo, contacto, created_at),
+  CONSTRAINT chk_cata_inscripciones_personas CHECK (personas > 0),
+  CONSTRAINT chk_cata_inscripciones_contacto CHECK (TRIM(contacto) <> '')
+);
+
+-- Solicitudes de cotización de catering nacidas en la landing. Es una bandeja
+-- de seguimiento comercial: el estado avanza a mano desde el panel.
+CREATE TABLE IF NOT EXISTS catering_solicitudes (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  nombre           VARCHAR(100) NOT NULL,
+  contacto_tipo    ENUM('email','telefono') NOT NULL,
+  contacto         VARCHAR(150) NOT NULL,
+  tipo_evento      VARCHAR(80) NOT NULL,
+  fecha_evento     DATE NULL,
+  invitados        SMALLINT UNSIGNED NULL,
+  -- Rango de presupuesto tal como lo escribe el visitante, no un importe.
+  presupuesto      VARCHAR(60) NULL,
+  mensaje          TEXT NULL,
+  comentario_admin TEXT NULL,
+  estado           ENUM(
+                     'nueva',
+                     'contactada',
+                     'cotizada',
+                     'ganada',
+                     'perdida'
+                   ) NOT NULL DEFAULT 'nueva',
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_catering_bandeja (estado, created_at),
+  INDEX idx_catering_contacto (contacto_tipo, contacto, created_at),
+  CONSTRAINT chk_catering_invitados CHECK (invitados IS NULL OR invitados > 0),
+  CONSTRAINT chk_catering_contacto CHECK (TRIM(contacto) <> '')
 );
 
 -- -------------------------------------------------------

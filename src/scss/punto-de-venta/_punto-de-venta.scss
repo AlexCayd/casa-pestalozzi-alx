@@ -38,7 +38,7 @@
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: var(--ink-2);
+  background: var(--bg);
   color: var(--txt);
 }
 
@@ -56,7 +56,7 @@
 
 .pdv-logo {
   font-family: var(--logo);
-  color: var(--gold);
+  color: var(--accent-text);
   font-size: 1.05rem;
   text-decoration: none;
   white-space: nowrap;
@@ -112,7 +112,7 @@
   white-space: nowrap;
   transition: color .15s;
 
-  &:hover { color: var(--gold); }
+  &:hover { color: var(--accent-text); }
 }
 
 // ── Calendario dropdown ───────────────────────────────────────
@@ -126,7 +126,7 @@
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: .85rem;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, .6);
+  box-shadow: 0 16px 48px color-mix(in srgb, var(--sombra) 60%, transparent);
   min-width: 232px;
 
   &--open { display: block; }
@@ -161,7 +161,7 @@
   cursor: pointer;
   transition: color .15s, border-color .15s;
 
-  &:hover { color: var(--gold); border-color: rgba(204, 163, 82, .4); }
+  &:hover { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 }
 
 .pdv-cal__weekdays {
@@ -199,15 +199,15 @@
   transition: background .12s, color .12s;
   font-family: var(--sans);
 
-  &:hover:not(&--empty) { background: rgba(204, 163, 82, .12); color: var(--txt); }
+  &:hover:not(&--empty) { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--txt); }
 
   &--empty { pointer-events: none; }
 
-  &--today { color: var(--gold); font-weight: 700; }
+  &--today { color: var(--accent-text); font-weight: 700; }
 
   &--selected {
     background: var(--gold) !important;
-    color: var(--ink) !important;
+    color: var(--on-accent) !important;
     font-weight: 700;
   }
 }
@@ -233,8 +233,8 @@
   transition: color .3s, border-color .3s;
 
   &:hover {
-    color: #e87060;
-    border-color: rgba(232, 112, 96, .5);
+    color: var(--feedback-danger);
+    border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
   }
 
   span {
@@ -282,9 +282,9 @@
 .pdv-reserva-count {
   font-size: .75rem;
   font-weight: 700;
-  color: var(--gold);
-  background: rgba(204, 163, 82, .12);
-  border: 1px solid rgba(204, 163, 82, .2);
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 999px;
   padding: .1rem .55rem;
   min-width: 24px;
@@ -317,7 +317,7 @@
   font-size: .8rem;
   text-align: center;
 
-  &--error { color: #e87060; }
+  &--error { color: var(--feedback-danger); }
 }
 
 .pdv-empty-icon {
@@ -345,24 +345,24 @@
   }
 
   &:hover {
-    background: rgba(245, 245, 245, .03);
+    background: color-mix(in srgb, var(--txt) 3%, transparent);
   }
 
   &--selected {
-    background: rgba(204, 163, 82, .07);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
 
     &::before { background: var(--gold); }
   }
 
   &--activa   { &::before { background: var(--gold); } }
-  &--proxima  { &::before { background: #e8a060; } }
+  &--proxima  { &::before { background: var(--feedback-warn-bg); } }
   &--pasada   { opacity: .4; }
 }
 
 .reserva-card__hora {
   font-family: var(--serif);
   font-size: 1rem;
-  color: var(--gold);
+  color: var(--accent-text);
   min-width: 40px;
   line-height: 1.2;
   padding-top: .05rem;
@@ -413,9 +413,9 @@
   flex-shrink: 0;
   align-self: flex-start;
 
-  &--pendiente_verificacion   { background: rgba(204, 163, 82, .12); color: #d4b06a; }
-  &--confirmada  { background: rgba(95, 125, 86, .2);   color: #8bbf7e; }
-  &--cancelada   { background: rgba(180, 60, 40, .15);  color: #e87060; }
+  &--pendiente_verificacion   { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-text); }
+  &--confirmada  { background: color-mix(in srgb, var(--feedback-ok) 20%, transparent);   color: var(--feedback-ok); }
+  &--cancelada   { background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);  color: var(--feedback-danger); }
 }
 
 // ── Canvas wrap ───────────────────────────────────────────────
@@ -425,7 +425,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--ink-2);
+  background: var(--bg);
   overflow: hidden;
   padding: 2rem;
 }
@@ -437,15 +437,15 @@
   max-width: 900px;
   aspect-ratio: 1.85 / 1;
   background:
-    linear-gradient(rgba(245,245,245,.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245,245,245,.015) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--txt) 1.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--txt) 1.5%, transparent) 1px, transparent 1px),
     var(--surface);
   background-size: 60px 60px, 60px 60px;
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow:
-    0 0 0 1px rgba(204,163,82,.06),
-    0 32px 80px rgba(0,0,0,.5);
+    0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent),
+    0 32px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
 }
 
 // ── Canvas del plano ──────────────────────────────────────────
@@ -456,7 +456,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(11, 12, 13, .65);
+  background: color-mix(in srgb, var(--scrim) 65%, transparent);
   border-radius: 12px;
   backdrop-filter: blur(4px);
   transition: opacity .4s;
@@ -543,13 +543,13 @@
     border-radius: 50%;
     background: var(--gold);
     border: 2px solid var(--ink);
-    box-shadow: 0 0 8px rgba(204, 163, 82, .5);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent);
     cursor: pointer;
     transition: transform .15s, box-shadow .15s;
 
     &:hover {
       transform: scale(1.2);
-      box-shadow: 0 0 16px rgba(204, 163, 82, .7);
+      box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 70%, transparent);
     }
   }
 
@@ -559,7 +559,7 @@
     border-radius: 50%;
     background: var(--gold);
     border: 2px solid var(--ink);
-    box-shadow: 0 0 8px rgba(204, 163, 82, .5);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent);
     cursor: pointer;
     border: none;
   }
@@ -575,7 +575,7 @@
   transform: translateX(-50%);
   background: var(--surface-2);
   border: 1px solid var(--line);
-  color: var(--gold);
+  color: var(--accent-text);
   font-size: .7rem;
   font-weight: 700;
   letter-spacing: .06em;
@@ -624,14 +624,14 @@
 
   &:hover {
     color: var(--txt);
-    border-color: rgba(204, 163, 82, .3);
-    background: rgba(204, 163, 82, .07);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
   }
 
   &--active {
-    color: #4cde80;
-    border-color: rgba(76, 222, 128, .3);
-    background: rgba(76, 222, 128, .07);
+    color: var(--feedback-ok);
+    border-color: color-mix(in srgb, var(--feedback-ok) 30%, transparent);
+    background: color-mix(in srgb, var(--feedback-ok) 7%, transparent);
   }
 }
 
@@ -646,7 +646,7 @@
 .pdv-current-time {
   font-family: var(--serif);
   font-size: 1.25rem;
-  color: var(--gold);
+  color: var(--accent-text);
   min-width: 52px;
   text-align: right;
   letter-spacing: .04em;
@@ -750,7 +750,7 @@
 .mesa-modal__bd {
   position: absolute;
   inset: 0;
-  background: rgba(11, 12, 13, .7);
+  background: color-mix(in srgb, var(--scrim) 70%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: mm-fade .2s ease forwards;
@@ -779,7 +779,7 @@
     border-radius: 16px;
     border: 1px solid var(--line);
     padding: 1.5rem;
-    box-shadow: 0 32px 80px rgba(0, 0, 0, .55);
+    box-shadow: 0 32px 80px color-mix(in srgb, var(--sombra) 55%, transparent);
     animation: mm-scale .2s cubic-bezier(.25,.46,.45,.94) forwards;
   }
 }
@@ -834,7 +834,7 @@
     padding: .9rem;
     border: 1px solid var(--line);
     border-radius: 12px;
-    background: rgba(255, 255, 255, .02);
+    background: color-mix(in srgb, var(--txt) 2%, transparent);
   }
 
   @media (min-width: 640px) {
@@ -909,7 +909,7 @@
 
     &.is-on {
       border-color: var(--accent);
-      color: var(--accent);
+      color: var(--accent-text);
     }
   }
 
@@ -1102,14 +1102,14 @@
   margin: 0;
 
   &--bloqueada, &--ocupada {
-    background: rgba(232, 112, 96, .15);
-    color: #e87060;
-    border: 1px solid rgba(232, 112, 96, .3);
+    background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
+    color: var(--feedback-danger);
+    border: 1px solid color-mix(in srgb, var(--feedback-danger) 30%, transparent);
   }
   &--proxima {
-    background: rgba(204, 163, 82, .15);
-    color: var(--gold);
-    border: 1px solid rgba(204, 163, 82, .3);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent-text);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
   &--warning {
     background: color-mix(in srgb, var(--map-table-available-bg) 72%, var(--gold) 8%);
@@ -1127,9 +1127,9 @@
     border: 1px solid var(--map-table-reservation-overdue-border);
   }
   &--ticket {
-    background: rgba(95, 125, 86, .18);
-    color: #8bbf7e;
-    border: 1px solid rgba(95, 125, 86, .3);
+    background: color-mix(in srgb, var(--feedback-ok) 18%, transparent);
+    color: var(--feedback-ok);
+    border: 1px solid color-mix(in srgb, var(--feedback-ok) 30%, transparent);
   }
 }
 
@@ -1241,8 +1241,8 @@
   flex-direction: column;
   gap: .2rem;
   margin: 0;
-  background: rgba(204, 163, 82, .07);
-  border: 1px solid rgba(204, 163, 82, .2);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 6px;
   padding: .5rem .65rem;
   line-height: 1.45;
@@ -1431,7 +1431,7 @@
   transition: border-color .15s;
 
   &::placeholder { color: var(--txt-faint); }
-  &:focus { border-color: rgba(204,163,82,.45); }
+  &:focus { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 
   // Campo bloqueado (p. ej. el mesero con la asignación automática activada):
   // se lee, pero queda claro que no se toca.
@@ -1461,13 +1461,13 @@
   padding: .38rem .7rem;
   border-radius: 6px;
   border: 1px solid var(--gold-soft);
-  background: rgba(204,163,82,.1);
-  color: var(--gold);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-text);
   font-size: .9rem;
   cursor: pointer;
   transition: background .15s;
   line-height: 1;
-  &:hover { background: rgba(204,163,82,.22); }
+  &:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 }
 
 // ── Lista de pedidos Llevar ───────────────────────────────────
@@ -1476,9 +1476,9 @@
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--gold);
-  background: rgba(204,163,82,.12);
-  border: 1px solid rgba(204,163,82,.28);
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-radius: 999px;
   padding: .18rem .6rem;
 }
@@ -1501,7 +1501,7 @@
   cursor: pointer;
   transition: border-color .15s, background .15s;
 
-  &:hover { border-color: var(--gold-soft); background: rgba(204,163,82,.06); }
+  &:hover { border-color: var(--gold-soft); background: color-mix(in srgb, var(--accent) 6%, transparent); }
   &:active { transform: scale(.99); }
 }
 
@@ -1576,7 +1576,7 @@
 .mmodal-step-val {
   font-family: var(--serif);
   font-size: 1.9rem;
-  color: var(--gold);
+  color: var(--accent-text);
   flex: 1;
   text-align: center;
   pointer-events: none;
@@ -1613,27 +1613,27 @@
 
   &:focus-visible {
     outline: 0;
-    box-shadow: 0 0 0 3px rgba(224, 193, 132, .34);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 34%, transparent);
   }
 
   &--primary {
     background: var(--gold);
-    color: var(--ink);
+    color: var(--on-accent);
     border-color: var(--gold-deep, var(--gold));
     &:hover {
       background: var(--gold-soft);
       border-color: var(--gold-soft);
-      color: var(--ink);
-      box-shadow: 0 0 0 3px rgba(204, 163, 82, .22), 0 8px 18px rgba(0, 0, 0, .2);
+      color: var(--on-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 8px 18px color-mix(in srgb, var(--sombra) 20%, transparent);
       opacity: 1;
       transform: translateY(-1px);
     }
   }
   &--danger {
-    background: rgba(180, 60, 40, .14);
-    color: #e87060;
-    border: 1px solid rgba(180, 60, 40, .28);
-    &:hover { background: rgba(180, 60, 40, .22); }
+    background: color-mix(in srgb, var(--feedback-danger) 14%, transparent);
+    color: var(--feedback-danger);
+    border: 1px solid color-mix(in srgb, var(--feedback-danger) 28%, transparent);
+    &:hover { background: color-mix(in srgb, var(--feedback-danger) 22%, transparent); }
   }
   &--ghost {
     background: var(--surface-2);
@@ -1659,14 +1659,14 @@
     justify-content: center;
     background: transparent;
     color: var(--gold-soft);
-    border-color: rgba(204, 163, 82, .52);
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
     text-align: center;
     text-decoration: none;
 
     &:hover {
-      background: rgba(204, 163, 82, .1);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
       border-color: var(--gold-soft);
-      color: var(--gold);
+      color: var(--accent-text);
     }
   }
 
@@ -1674,12 +1674,12 @@
     min-height: 38px;
     padding-block: .65rem;
     background: transparent;
-    border-color: rgba(180, 60, 40, .28);
-    color: #d56f61;
+    border-color: color-mix(in srgb, var(--feedback-danger) 28%, transparent);
+    color: var(--feedback-danger);
 
     &:hover {
-      background: rgba(180, 60, 40, .1);
-      border-color: rgba(180, 60, 40, .5);
+      background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
+      border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
     }
   }
 
@@ -1788,12 +1788,12 @@
   transition: background .15s, color .15s, border-color .15s;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover { border-color: rgba(204,163,82,.4); color: var(--txt); }
+  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--txt); }
 
   &--active {
-    background: rgba(204,163,82,.18);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
     border-color: var(--gold);
-    color: var(--gold);
+    color: var(--accent-text);
   }
 }
 
@@ -1833,8 +1833,8 @@
   -webkit-tap-highlight-color: transparent;
 
   &:last-child { border-bottom: none; }
-  &:hover  { background: rgba(204, 163, 82, .06); }
-  &:active { background: rgba(204, 163, 82, .14); }
+  &:hover  { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  &:active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
   &:focus-visible {
     outline: 2px solid var(--gold);
@@ -1847,7 +1847,7 @@
     background: var(--gold);
 
     .mmodal-dish-name,
-    .mmodal-dish-price { color: var(--ink); }
+    .mmodal-dish-price { color: var(--on-accent); }
 
     .mmodal-dish-price { opacity: .78; }
 
@@ -1962,7 +1962,7 @@
 .mmodal-total-amount {
   font-family: var(--serif);
   font-size: 1.25rem;
-  color: var(--gold);
+  color: var(--accent-text);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1980,10 +1980,10 @@
   border-radius: 3px;
   margin-top: .2rem;
 
-  &--en-curso  { background: rgba(204,163,82,.15); color: var(--gold); }
-  &--proxima   { background: rgba(232,160,96,.13); color: #e8a060; }
-  &--vencida   { background: rgba(120,120,120,.1); color: var(--txt-faint); }
-  &--cancelada { background: rgba(180,60,40,.1);  color: #e87060; }
+  &--en-curso  { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent-text); }
+  &--proxima   { background: color-mix(in srgb, var(--feedback-warn) 13%, transparent); color: var(--feedback-warn); }
+  &--vencida   { background: color-mix(in srgb, var(--txt-faint) 10%, transparent); color: var(--txt-faint); }
+  &--cancelada { background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);  color: var(--feedback-danger); }
 }
 
 // ── Tabs principales del modal (Agregar / Resumen) ────────────
@@ -2010,15 +2010,15 @@
   position: relative;
 
   &--active {
-    color: var(--gold);
+    color: var(--accent-text);
     border-bottom-color: var(--gold);
   }
 }
 
 .mmodal-tab-badge {
   display: inline-block;
-  background: rgba(204,163,82,.18);
-  color: var(--gold);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-text);
   border-radius: 999px;
   font-size: .57rem;
   padding: .05rem .32rem;
@@ -2056,11 +2056,11 @@
   transition: background .14s, color .14s, border-color .14s;
   -webkit-tap-highlight-color: transparent;
 
-  &:hover { border-color: rgba(204,163,82,.4); color: var(--txt); }
+  &:hover { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--txt); }
 
   &--active {
-    background: rgba(204,163,82,.18);
-    color: var(--gold);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent-text);
     border-color: var(--gold);
   }
 }
@@ -2208,10 +2208,10 @@
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204,163,82,.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent;
   &::-webkit-scrollbar       { width: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.4); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 2px; }
 }
 
 // Los botones de acción SIEMPRE visibles — no son parte del scroll
@@ -2247,14 +2247,14 @@
   text-transform: uppercase;
   padding: .18rem .5rem;
   border-radius: 3px;
-  border: 1px solid rgba(91,164,207,.5);
-  background: rgba(91,164,207,.1);
-  color: #5ba4cf;
+  border: 1px solid color-mix(in srgb, var(--feedback-info) 50%, transparent);
+  background: color-mix(in srgb, var(--feedback-info) 10%, transparent);
+  color: var(--feedback-info);
   cursor: pointer;
   flex-shrink: 0;
   transition: background .14s;
   white-space: nowrap;
-  &:hover { background: rgba(91,164,207,.22); }
+  &:hover { background: color-mix(in srgb, var(--feedback-info) 22%, transparent); }
 }
 
 // ── Empty state de columnas (más visible que mmodal-cart-empty) ─
@@ -2391,7 +2391,7 @@
     border-bottom: none;
     border: 1px solid var(--line-soft);
     border-radius: 10px;
-    background: rgba(28, 32, 35, .45);
+    background: color-mix(in srgb, var(--surface) 45%, transparent);
 
     &.is-active {
       border-color: var(--gold);
@@ -2496,8 +2496,8 @@
     &:hover { color: var(--text); }
 
     &.is-active {
-      background: var(--admin-gold, #cca352);
-      color: #1b1a17;
+      background: var(--admin-gold);
+      color: var(--on-accent);
     }
   }
 
@@ -2581,7 +2581,7 @@
   transition: color .14s, border-color .14s;
 
   &:hover { color: var(--txt-mute); border-color: var(--line); }
-  &--active { color: var(--gold); border-color: rgba(204,163,82,.4); }
+  &--active { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 }
 
 .mmodal-cart-nota-wrap {
@@ -2604,7 +2604,7 @@
   outline: none;
 
   &::placeholder { color: var(--txt-faint); font-style: italic; }
-  &:focus { border-color: rgba(204,163,82,.4); }
+  &:focus { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 }
 
 // ── Nota en resumen del ticket ────────────────────────────────
@@ -2634,9 +2634,9 @@
   height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid rgba(180,60,40,.35);
-  background: rgba(180,60,40,.08);
-  color: #e07060;
+  border: 1px solid color-mix(in srgb, var(--feedback-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--feedback-danger) 8%, transparent);
+  color: var(--feedback-danger);
   font-size: .85rem;
   line-height: 1;
   cursor: pointer;
@@ -2646,14 +2646,14 @@
   padding: 0;
   transition: background .14s;
 
-  &:hover { background: rgba(180,60,40,.22); }
+  &:hover { background: color-mix(in srgb, var(--feedback-danger) 22%, transparent); }
 }
 
 // ── Overlay confirmación de cancelación ───────────────────────
 .mmodal-cancel-confirm-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(11,12,13,.82);
+  background: color-mix(in srgb, var(--scrim) 82%, transparent);
   border-radius: inherit;
   backdrop-filter: blur(4px);
   display: flex;
@@ -2699,8 +2699,8 @@
 
   &--absence {
     max-width: 360px;
-    border-color: rgba(180, 60, 40, .48);
-    box-shadow: 0 18px 44px rgba(0, 0, 0, .34), 0 0 0 3px rgba(180, 60, 40, .08);
+    border-color: color-mix(in srgb, var(--feedback-danger) 48%, transparent);
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 34%, transparent), 0 0 0 3px color-mix(in srgb, var(--feedback-danger) 8%, transparent);
     padding: 1.35rem 1.25rem 1.15rem;
     gap: .7rem;
 
@@ -2710,20 +2710,20 @@
       display: grid;
       place-items: center;
       margin: 0 auto .1rem;
-      border: 1px solid rgba(180, 60, 40, .46);
+      border: 1px solid color-mix(in srgb, var(--feedback-danger) 46%, transparent);
       border-radius: 50%;
-      background: rgba(180, 60, 40, .12);
-      color: #e07060;
+      background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
+      color: var(--feedback-danger);
       font-size: 1.05rem;
       font-weight: 800;
     }
 
-    .mmodal-cancel-confirm__msg strong { color: #e07060; }
+    .mmodal-cancel-confirm__msg strong { color: var(--feedback-danger); }
 
     .mmodal-cancel-confirm__sub {
       padding: .8rem .85rem;
       border: 1px solid var(--line-soft);
-      border-left: 3px solid rgba(180, 60, 40, .58);
+      border-left: 3px solid color-mix(in srgb, var(--feedback-danger) 58%, transparent);
       border-radius: 8px;
       background: var(--surface-2);
       color: var(--txt);
@@ -2783,11 +2783,11 @@
   overscroll-behavior: contain;
   padding: .9rem 0 1rem;
   scrollbar-width: thin;
-  scrollbar-color: rgba(204,163,82,.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent;
 
   &::-webkit-scrollbar { width: 3px; }
   &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: rgba(204,163,82,.4); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 2px; }
 }
 
 .mmodal-cancel-confirm--operation .mmodal-cancel-confirm__sub {
@@ -2812,12 +2812,12 @@
 
 // ── Danger variant del botón modal ────────────────────────────
 .mmodal-btn--danger {
-  border-color: rgba(180,60,40,.5);
-  color: #e07060;
+  border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
+  color: var(--feedback-danger);
 
   &:hover {
-    background: rgba(180,60,40,.15);
-    border-color: rgba(180,60,40,.8);
+    background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
+    border-color: color-mix(in srgb, var(--feedback-danger) 80%, transparent);
   }
 }
 
@@ -2839,7 +2839,7 @@
   padding: 1rem 1rem 1rem;
   transition: border-color .15s;
 
-  &:hover { border-color: rgba(204,163,82,.3); }
+  &:hover { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
 }
 
 .mmodal-sug-header {
@@ -2860,9 +2860,9 @@
 .mmodal-sug-price {
   font-size: .8rem;
   font-weight: 700;
-  color: var(--gold);
-  background: rgba(204,163,82,.12);
-  border: 1px solid rgba(204,163,82,.28);
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-radius: 4px;
   padding: .15rem .5rem;
   flex-shrink: 0;
@@ -2886,9 +2886,9 @@
   padding: .15rem .5rem;
   border: 1px solid currentColor;
 
-  &--entradas   { color: #6fa8dc; }
-  &--desarrollo { color: var(--gold); }
-  &--cierre     { color: #d98c6a; }
+  &--entradas   { color: var(--feedback-info); }
+  &--desarrollo { color: var(--accent-text); }
+  &--cierre     { color: var(--feedback-warn); }
 }
 
 // Acción del panel vacío: pedir otra tanda a n8n o reintentar tras un error
@@ -2951,13 +2951,13 @@
   -webkit-tap-highlight-color: transparent;
 
   &:hover:not(.mmodal-sug-chip--on) {
-    border-color: rgba(204,163,82,.4);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
     color: var(--txt);
   }
 
   &--on {
-    background: rgba(204,163,82,.18);
-    color: var(--gold);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent-text);
     border-color: var(--gold);
   }
 }
@@ -2987,13 +2987,13 @@
   &:hover {
     color: var(--txt);
     border-color: var(--line-soft);
-    background: rgba(255,255,255,.04);
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
   }
 }
 
 // Shell operativo compartido (mapa + reservaciones)
 .mapa-page.operational-page {
-  --admin-bg: var(--ink-2);
+  --admin-bg: var(--bg);
   --admin-surface: var(--surface);
   --admin-surface-soft: var(--surface-2);
   --admin-border: var(--line);
@@ -3007,23 +3007,23 @@
   // usan la paleta de la casa y no tonos propios: disponible lima, asignada
   // u ocupada por reserva naranja, ocupada rojo.
   --admin-success: var(--c-lima);
-  --admin-success-text: color-mix(in srgb, var(--c-lima) 78%, #fff);
+  --admin-success-text: color-mix(in srgb, var(--c-lima) 78%, white);
   --admin-success-bg: color-mix(in srgb, var(--c-lima) 16%, transparent);
   --admin-success-border: color-mix(in srgb, var(--c-lima) 46%, transparent);
   --admin-warning: var(--c-naranja);
-  --admin-warning-text: color-mix(in srgb, var(--c-naranja) 74%, #fff);
+  --admin-warning-text: color-mix(in srgb, var(--c-naranja) 74%, white);
   --admin-warning-bg: color-mix(in srgb, var(--c-naranja) 16%, transparent);
   --admin-warning-border: color-mix(in srgb, var(--c-naranja) 48%, transparent);
   --admin-danger: var(--c-rojo);
-  --admin-danger-text: color-mix(in srgb, var(--c-rojo) 62%, #fff);
+  --admin-danger-text: color-mix(in srgb, var(--c-rojo) 62%, white);
   --admin-danger-bg: color-mix(in srgb, var(--c-rojo) 18%, transparent);
   --admin-danger-border: color-mix(in srgb, var(--c-rojo) 50%, transparent);
   --admin-neutral-text: var(--admin-gold-soft);
-  --admin-neutral-bg: rgba(204, 163, 82, 0.14);
-  --admin-neutral-border: rgba(204, 163, 82, 0.3);
-  --admin-shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.22);
-  --admin-shadow-md: 0 20px 50px rgba(0, 0, 0, 0.45);
-  --admin-focus-ring: 0 0 0 3px rgba(204, 163, 82, 0.28);
+  --admin-neutral-bg: color-mix(in srgb, var(--accent) 14%, transparent);
+  --admin-neutral-border: color-mix(in srgb, var(--accent) 30%, transparent);
+  --admin-shadow-sm: 0 8px 22px color-mix(in srgb, var(--sombra) 22%, transparent);
+  --admin-shadow-md: 0 20px 50px color-mix(in srgb, var(--sombra) 45%, transparent);
+  --admin-focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
   color-scheme: dark;
   overflow: hidden;
 
@@ -3041,7 +3041,7 @@
   display: block;
   height: 100dvh;
   background:
-    radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem),
+    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem),
     var(--admin-bg);
 }
 
@@ -3095,12 +3095,12 @@
   &:hover,
   &.is-active {
     color: var(--admin-text);
-    border-color: var(--admin-gold, #cca352);
+    border-color: var(--admin-gold);
     background: var(--admin-surface);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--admin-gold, #cca352);
+    outline: 2px solid var(--admin-gold);
     outline-offset: 2px;
   }
 
@@ -3122,7 +3122,7 @@
   &__bd {
     position: absolute;
     inset: 0;
-    background: rgba(11, 12, 13, 0.7);
+    background: color-mix(in srgb, var(--scrim) 70%, transparent);
     backdrop-filter: blur(2px);
   }
 
@@ -3135,7 +3135,7 @@
     border: 1px solid var(--line);
     border-radius: 14px;
     background: var(--surface-2);
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 30px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
     overflow: hidden;
   }
 
@@ -3171,7 +3171,7 @@
 
     &:hover {
       color: var(--text);
-      border-color: var(--admin-gold, #cca352);
+      border-color: var(--admin-gold);
     }
   }
 
@@ -3348,10 +3348,10 @@
   }
 
   &--main {
-    border-color: rgba(204, 163, 82, .4);
-    background: rgba(204, 163, 82, .08);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
 
-    .mmodal-caja-kpi__value { color: var(--gold); }
+    .mmodal-caja-kpi__value { color: var(--accent-text); }
   }
 }
 
@@ -3362,9 +3362,9 @@
   padding: .8rem 1rem;
   border-radius: 10px;
   background: var(--gold);
-  color: var(--ink);
+  color: var(--on-accent);
 
-  .mmodal-total-label { color: rgba(11, 12, 13, .7); }
+  .mmodal-total-label { color: color-mix(in srgb, var(--scrim) 70%, transparent); }
 
   &__amount {
     font-family: var(--serif);
@@ -3386,7 +3386,7 @@
   overflow: hidden;
   background: var(--surface-2);
 
-  &__ef  { background: #8bbf7e; }
+  &__ef  { background: var(--feedback-ok-bg); }
   &__tar { background: var(--gold); }
 }
 
@@ -3416,7 +3416,7 @@
     border-radius: 50%;
     flex-shrink: 0;
 
-    &--ef  { background: #8bbf7e; }
+    &--ef  { background: var(--feedback-ok-bg); }
     &--tar { background: var(--gold); }
   }
 }
@@ -3440,7 +3440,7 @@
   &__qty {
     font-size: .72rem;
     font-weight: 700;
-    color: var(--gold);
+    color: var(--accent-text);
     min-width: 30px;
   }
 

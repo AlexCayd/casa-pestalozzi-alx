@@ -2,7 +2,7 @@
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--ink-2);
+  background: var(--bg);
   color: var(--txt);
   cursor: auto;
   overflow: hidden;
@@ -32,8 +32,8 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(120% 120% at 20% 10%, rgba(204, 163, 82, 0.16), transparent 55%),
-    linear-gradient(160deg, #15181a, #0b0c0d);
+    radial-gradient(120% 120% at 20% 10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
+    linear-gradient(160deg, var(--surface), var(--surface));
   border-right: 1px solid var(--line);
 }
 
@@ -41,8 +41,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(80% 60% at 70% 90%, rgba(124, 61, 29, 0.28), transparent 60%),
-    radial-gradient(60% 50% at 30% 20%, rgba(95, 125, 86, 0.16), transparent 60%);
+    radial-gradient(80% 60% at 70% 90%, color-mix(in srgb, var(--accent-deep) 28%, transparent), transparent 60%),
+    radial-gradient(60% 50% at 30% 20%, color-mix(in srgb, var(--feedback-ok) 16%, transparent), transparent 60%);
   pointer-events: none;
 }
 
@@ -69,7 +69,7 @@
 // entre palabras: sin él "CASA PESTALOZZI" se lee como dos logos sueltos.
 .login-aside__sign {
   font-family: var(--logo);
-  color: var(--gold);
+  color: var(--accent-text);
   font-size: 1.25rem;
   letter-spacing: 0.02em;
   word-spacing: -0.62em;
@@ -107,7 +107,7 @@
 .login-brand {
   display: inline-block;
   font-family: var(--logo);
-  color: var(--gold);
+  color: var(--accent-text);
   font-size: 1.45rem;
   letter-spacing: 0.02em;
   word-spacing: -0.62em;
@@ -125,7 +125,7 @@
   padding: 0.28rem;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(11, 12, 13, 0.55);
+  background: color-mix(in srgb, var(--scrim) 55%, transparent);
 }
 
 .login-tab {
@@ -149,7 +149,7 @@
 
   &.is-active {
     background: var(--gold);
-    color: var(--ink);
+    color: var(--on-accent);
   }
 
   &:focus-visible {
@@ -209,7 +209,7 @@
   padding: 0 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(28, 32, 35, 0.6);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
   color: var(--txt);
   font-family: var(--sans);
   font-size: 1rem;
@@ -228,8 +228,8 @@
 .login-form input:focus {
   outline: none;
   border-color: var(--gold);
-  background: rgba(28, 32, 35, 0.9);
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.18);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .login-eye {
@@ -250,8 +250,8 @@
 }
 
 .login-eye svg { width: 19px; height: 19px; }
-.login-eye:hover { color: var(--gold); background: rgba(204, 163, 82, 0.1); }
-.login-eye.is-on { color: var(--gold); }
+.login-eye:hover { color: var(--accent-text); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.login-eye.is-on { color: var(--accent-text); }
 
 // ── Fila de opciones ──────────────────────────────────────────
 .login-row {
@@ -274,7 +274,7 @@
 .login-check input { accent-color: var(--gold); width: 15px; height: 15px; }
 
 .login-link {
-  color: var(--gold);
+  color: var(--accent-text);
   text-decoration: none;
   transition: color 0.25s var(--ease);
 }
@@ -351,7 +351,7 @@
   height: 14px;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background: rgba(28, 32, 35, 0.6);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
   transition: background 0.2s var(--ease), border-color 0.2s var(--ease),
     transform 0.2s var(--ease);
 
@@ -375,7 +375,7 @@
   height: clamp(46px, 7.2vh, 66px);
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(28, 32, 35, 0.6);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
   color: var(--txt);
   font-family: var(--sans);
   font-size: 1.3rem;
@@ -386,7 +386,7 @@
 
   &:hover {
     border-color: var(--gold);
-    background: rgba(204, 163, 82, 0.12);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   &:active {

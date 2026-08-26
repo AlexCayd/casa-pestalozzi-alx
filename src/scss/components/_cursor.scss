@@ -9,29 +9,39 @@
   border-radius: 50%;
   transform: translate(-50%, -50%);
   mix-blend-mode: difference;
+  // Capa propia. Con el blend, cada escritura de transform obliga a recomponer
+  // contra el fondo; sin promover, esa recomposición cae en el hilo principal
+  // junto al repintado de la página y el seguimiento se arrastra.
+  will-change: transform;
 }
 
+// Crema y no --beige. El alias resolvía a "texto fuerte", que en la landing es
+// café profundo: un punto café en mix-blend-mode difference sobre la fachada
+// nocturna del hero da casi negro y el cursor desaparecía justo en la portada.
+// Con crema la diferencia se invierte sola —claro sobre lo oscuro, oscuro sobre
+// la crema de las secciones claras— que es para lo que está el blend.
 .cursor-dot {
   width: 7px;
   height: 7px;
-  background: var(--beige);
+  background: var(--brand-crema);
 }
 
+// La caja mide siempre 42px y el crecimiento al pasar sobre algo lo hace
+// cursor.js por `scale` dentro de su propio rAF. Animar aquí width/height —que
+// es como estaba— metía 300ms de reflow cada vez que el puntero entraba o salía
+// de un enlace, y con el blend encima eso se traduce en recomponer la ventana
+// entera durante toda la transición.
 .cursor-ring {
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(245, 245, 245, 0.7);
+  border: 1px solid color-mix(in srgb, var(--brand-crema) 70%, transparent);
   transition:
-    width 0.3s var(--ease),
-    height 0.3s var(--ease),
     background 0.3s,
     border-color 0.3s,
     opacity 0.3s;
 
   &.hover {
-    width: 72px;
-    height: 72px;
-    background: rgba(245, 245, 245, 0.08);
+    background: color-mix(in srgb, var(--brand-crema) 12%, transparent);
     border-color: transparent;
   }
 
@@ -45,20 +55,18 @@
     font-size: 0.6rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--beige);
+    color: var(--brand-crema);
     opacity: 0;
     transition: opacity 0.25s;
     white-space: nowrap;
   }
 
   &.labeled {
-    width: 86px;
-    height: 86px;
     background: var(--accent);
     border-color: transparent;
     mix-blend-mode: normal;
 
-    .clabel { opacity: 1; color: var(--ink); }
+    .clabel { opacity: 1; color: var(--on-accent); }
   }
 }
 

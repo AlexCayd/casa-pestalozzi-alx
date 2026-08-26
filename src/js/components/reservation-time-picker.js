@@ -55,6 +55,66 @@
       root.classList.toggle("has-value", Boolean(input.value));
     }
 
+    // Lenis cancela el `wheel` de TODO lo que lleve data-lenis-prevent en su
+    // camino, tenga scroll propio o no. El atributo estaba fijo en el marcado y
+    // en escritorio la rejilla inline no desborda —el modo inline le quita el
+    // max-height y la deja en `overflow-y: visible`—, así que la rueda sobre las
+    // horas no movía ni el contenedor ni la página: la reserva se sentía
+    // trabada. Ahora la marca describe la realidad y se revisa cada vez que
+    // cambia el alto de la rejilla.
+    function marcarScrollPropio() {
+      if (optionsList.scrollHeight > optionsList.clientHeight + 1) {
+        optionsList.setAttribute("data-lenis-prevent", "");
+      } else {
+        optionsList.removeAttribute("data-lenis-prevent");
+      }
+    }
+
+    // Reparto de la rejilla en columnas iguales.
+    //
+    // Con el chip creciendo libre, cada línea metía cuantos cupieran y el
+    // resultado dependía del número de horas: la tarde salía 7+5 y llenaba el
+    // ancho, pero la mañana caía en 7+2 y la noche —cuatro horas— dejaba media
+    // línea vacía. Aquí se busca cuántas columnas reparten mejor las horas
+    // VISIBLES y el chip pasa a medir una columna exacta: las filas completas
+    // llenan el ancho y una última fila corta queda centrada bajo la anterior.
+    function repartirColumnas() {
+      if (!inline) return;
+      // Sin la variable el chip vuelve a su base, que es su ancho mínimo: es lo
+      // que hay que medir para saber cuántos caben por línea.
+      optionsList.style.removeProperty("--horas-ancho");
+
+      var visibles = 0;
+      var minimo = 0;
+      Array.prototype.forEach.call(optionsList.querySelectorAll(".hour-option"), function (chip) {
+        // El filtrado por franja es `display: none`: sin caja, no cuenta.
+        if (!chip.offsetWidth) return;
+        visibles++;
+        if (!minimo) minimo = chip.offsetWidth;
+      });
+
+      var ancho = optionsList.clientWidth;
+      if (!visibles || !minimo || !ancho) return;
+
+      var hueco = parseFloat(getComputedStyle(optionsList).columnGap) || 0;
+      var porFila = Math.max(1, Math.floor((ancho + hueco) / (minimo + hueco)));
+      // Filas lo más parejas posible: nueve horas con siete de tope son 5+4, no
+      // 7+2.
+      var columnas = Math.ceil(visibles / Math.ceil(visibles / porFila));
+
+      optionsList.style.setProperty(
+        "--horas-ancho",
+        "calc((100% - " + (columnas - 1) * hueco + "px) / " + columnas + ")"
+      );
+    }
+
+    // El reparto va primero: cambia el número de filas y con ello el alto, que
+    // es justo lo que mira marcarScrollPropio().
+    function ajustarRejilla() {
+      repartirColumnas();
+      marcarScrollPropio();
+    }
+
     function emitChange() {
       var event;
       try {
@@ -89,14 +149,126 @@
       status.classList.toggle("show", Boolean(show && text));
     }
 
+    // ── Franjas del día (sólo inline) ──────────────────────────
+    //
+    // La rejilla de la landing llega a las veinticinco horas seguidas, de las
+    // 08:30 a las 21:30: una cinta de números por la que hay que buscar. Se
+    // agrupan en mañana / tarde / noche y se filtran con un control segmentado,
+    // que es como se piensa una reserva —"a comer" o "a cenar"— antes de pensar
+    // la hora exacta.
+    //
+    // Sólo en inline. El desplegable del panel y el editor de "Gestionar
+    // reservación" siguen con su lista corriente: allí la lista es corta y vive
+    // dentro de una tarjeta, y un control de más le quitaría el sitio.
+    // Los iconos son SVG en línea y de trazo (`currentColor`), no emoji ni una
+    // fuente de iconos: así heredan la tinta del botón y cambian solos al
+    // activarse, que es lo que un glifo de color no sabe hacer.
+    //
+    //   mañana → sol saliendo (semicírculo sobre el horizonte)
+    //   tarde  → sol pleno
+    //   noche  → luna
+    var ICONOS = {
+      manana: '<circle cx="12" cy="14" r="3.4"/><path d="M12 6.5V4.8M5.9 8.1 4.7 6.9M18.1 8.1l1.2-1.2M3.5 14h1.7M18.8 14h1.7M3 19h18"/>',
+      tarde: '<circle cx="12" cy="12" r="4"/><path d="M12 3.4V5M12 19v1.6M4.6 4.6 5.8 5.8M18.2 18.2l1.2 1.2M3.4 12H5M19 12h1.6M4.6 19.4l1.2-1.2M18.2 5.8l1.2-1.2"/>',
+      noche: '<path d="M20 14.3A8.2 8.2 0 0 1 9.7 4a8.4 8.4 0 1 0 10.3 10.3Z"/>'
+    };
+
+    var FRANJAS = [
+      { id: "manana", label: "Mañana", hasta: 13 },
+      { id: "tarde", label: "Tarde", hasta: 19 },
+      { id: "noche", label: "Noche", hasta: 24 }
+    ];
+    var franjasNav = null;
+
+    function franjaDe(hour) {
+      var h = parseInt(String(hour).slice(0, 2), 10);
+      for (var i = 0; i < FRANJAS.length; i++) {
+        if (h < FRANJAS[i].hasta) return FRANJAS[i].id;
+      }
+      return FRANJAS[FRANJAS.length - 1].id;
+    }
+
+    function limpiarFranjas() {
+      if (franjasNav && franjasNav.parentNode) franjasNav.parentNode.removeChild(franjasNav);
+      franjasNav = null;
+      optionsList.removeAttribute("data-franja");
+    }
+
+    // El filtrado va por atributo sobre la rejilla y el CSS oculta lo que no
+    // toca. No se reconstruye el DOM: cada botón conserva su oyente y su estado
+    // `.sel`, así que cambiar de franja no puede perder la hora ya elegida.
+    function activarFranja(id) {
+      if (!franjasNav) return;
+      optionsList.setAttribute("data-franja", id);
+      Array.prototype.forEach.call(
+        franjasNav.querySelectorAll("[data-franja-id]"),
+        function (boton) {
+          var activa = boton.getAttribute("data-franja-id") === id;
+          boton.classList.toggle("is-activa", activa);
+          boton.setAttribute("aria-pressed", activa ? "true" : "false");
+        }
+      );
+      // El filtrado oculta chips: cambian tanto el reparto de columnas como el
+      // alto de la rejilla.
+      ajustarRejilla();
+    }
+
+    // Se reconstruye en cada render porque las franjas con horas cambian de una
+    // fecha a otra: un martes que abre a las 16:00 no tiene mañana.
+    function pintarFranjas(horas, preferida) {
+      if (!inline || !horas.length) return;
+
+      var presentes = FRANJAS.filter(function (franja) {
+        return horas.some(function (hora) { return franjaDe(hora) === franja.id; });
+      });
+      // Con una sola franja el control no informa de nada y le roba sitio a la
+      // rejilla.
+      if (presentes.length < 2) return;
+
+      franjasNav = document.createElement("div");
+      franjasNav.className = "hour-franjas";
+      presentes.forEach(function (franja) {
+        var boton = document.createElement("button");
+        boton.type = "button";
+        boton.className = "hour-franjas__btn";
+        // El icono es decorativo: la etiqueta ya dice de qué franja se trata, y
+        // repetirlo al lector de pantalla sólo añade ruido.
+        boton.innerHTML =
+          '<svg class="hour-franjas__icono" viewBox="0 0 24 24" fill="none" stroke="currentColor"' +
+          ' stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' +
+          ' focusable="false">' + (ICONOS[franja.id] || "") + '</svg>' +
+          '<span>' + franja.label + '</span>';
+        boton.setAttribute("data-franja-id", franja.id);
+        boton.setAttribute("aria-pressed", "false");
+        boton.addEventListener("click", function (event) {
+          event.stopPropagation();
+          activarFranja(franja.id);
+        });
+        franjasNav.appendChild(boton);
+      });
+      dropdown.insertBefore(franjasNav, optionsList);
+
+      // Arranca en la franja de la hora ya elegida; si no hay ninguna elegida,
+      // en la primera que tenga horas.
+      var inicial = preferida ? franjaDe(preferida) : "";
+      var valida = inicial && presentes.some(function (f) { return f.id === inicial; });
+      activarFranja(valida ? inicial : presentes[0].id);
+    }
+
     // En modo popover el estado sin horarios se comunica por el placeholder del
     // display; inline ese display no existe, así que el texto va a la rejilla.
+    //
+    // Es el embudo de todos los caminos "no hay rejilla que enseñar"
+    // —setUnavailable, setLoading y las salidas vacías de renderHours—, así que
+    // es aquí donde se retira el control de franjas.
     function renderInlinePlaceholder(text) {
       if (!inline) return;
+      limpiarFranjas();
       var vacio = document.createElement("p");
       vacio.className = "hour-tabs__empty";
       vacio.textContent = text || "Elige una fecha para ver horarios.";
       optionsList.appendChild(vacio);
+      marcarScrollPropio();
     }
 
     function clearRequestTimeout() {
@@ -342,6 +514,13 @@
         button.classList.toggle("sel", selected);
         button.setAttribute("aria-selected", selected ? "true" : "false");
       });
+      // Una hora preseleccionada de otra franja —al volver del OTP, o tras
+      // cambiar de fecha conservando la hora— quedaría marcada dentro de un
+      // grupo oculto: la rejilla no enseñaría ninguna elegida.
+      if (inline && hour) {
+        var franja = franjaDe(hour);
+        if (optionsList.getAttribute("data-franja") !== franja) activarFranja(franja);
+      }
       setStatus("", false);
       closeDropdown();
       if (!silent) emitChange();
@@ -352,6 +531,9 @@
       var seen = {};
       preferredHour = normalizeHour(preferredHour);
       optionsList.innerHTML = "";
+      // El control de franjas es hermano de la rejilla, no hijo: vaciar el
+      // innerHTML de ésta no se lo lleva.
+      limpiarFranjas();
 
       (Array.isArray(hours) ? hours : []).forEach(function (hour) {
         if (hour && typeof hour === "object") {
@@ -393,6 +575,7 @@
         button.className = "hour-option";
         button.textContent = hour;
         button.setAttribute("data-hour", hour);
+        button.setAttribute("data-franja", franjaDe(hour));
         button.setAttribute("role", "option");
         button.setAttribute("aria-selected", "false");
         if (inline) button.disabled = controlDisabled;
@@ -402,6 +585,13 @@
         });
         optionsList.appendChild(button);
       });
+
+      // Después de los botones y ANTES de resolver la hora preferida: si esa
+      // hora cae en otra franja, selectHour() la trae a la vista.
+      pintarFranjas(normalized, preferredHour);
+      // pintarFranjas() puede no llegar a activar ninguna franja —con una sola
+      // no se pinta el control—, así que el ajuste va también aquí.
+      ajustarRejilla();
 
       if (preferredHour && seen[preferredHour]) {
         selectHour(preferredHour, true);
@@ -667,6 +857,11 @@
 
     setControlDisabled(initiallyDisabled);
     syncValueState();
+
+    // Al cambiar el ancho cambian las dos cosas: cuántos chips caben por línea y
+    // si la rejilla desborda. El umbral de 640px, donde vuelve el max-height,
+    // cruza en los dos sentidos.
+    window.addEventListener("resize", ajustarRejilla);
 
     return {
       loadForDate: loadForDate,

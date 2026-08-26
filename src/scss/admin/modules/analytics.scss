@@ -140,7 +140,7 @@
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius-md);
     background:
-      linear-gradient(120deg, rgba(124, 61, 29, 0.14), transparent 62%),
+      linear-gradient(120deg, color-mix(in srgb, var(--admin-terra) 14%, transparent), transparent 62%),
       var(--admin-surface);
 
     &__main {
@@ -315,7 +315,7 @@
 
     &:hover {
       transform: translateY(-2px);
-      box-shadow: var(--admin-shadow-md, 0 12px 28px rgba(0, 0, 0, 0.18));
+      box-shadow: var(--admin-shadow-md, 0 12px 28px color-mix(in srgb, var(--admin-sombra) 18%, transparent));
     }
 
     span {
@@ -804,7 +804,7 @@
 
       // Sobre fondo saturado el texto claro se pierde en ambos temas.
       &.is-strong {
-        color: #0b0c0d;
+        color: var(--on-accent);
       }
 
       // Abierto y sin vender: el hueco que hay que detectar. Sin relleno y

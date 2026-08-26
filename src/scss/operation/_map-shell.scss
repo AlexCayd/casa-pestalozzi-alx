@@ -5,27 +5,34 @@
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
 
-  /* Estados semanticos del mapa: una sola paleta reutilizable. */
-  --map-table-available-bg: rgba(139, 191, 126, 0.14);
-  --map-table-available-text: #9fd3a6;
-  --map-table-available-border: rgba(139, 191, 126, 0.32);
-  --map-table-occupied-bg: rgba(232, 112, 96, 0.14);
-  --map-table-occupied-text: #f0a79b;
-  --map-table-occupied-border: rgba(232, 112, 96, 0.34);
-  --map-table-selected-bg: rgba(224, 193, 132, 0.34);
-  --map-table-selected-text: #f2d89a;
+  /*
+   * Estados semánticos del mapa de mesas. Cada trío (fondo / texto / borde)
+   * se deriva de la paleta funcional mezclada con la superficie activa, igual
+   * que los badges del panel. Antes había dos bloques —uno por tema— con
+   * dieciocho literales entre ambos; con color-mix sobre --admin-surface un
+   * solo bloque sirve para claro y oscuro.
+   */
+  --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 15%, var(--admin-surface));
+  --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 72%, var(--admin-text));
+  --map-table-available-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
+  --map-table-occupied-bg: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+  --map-table-occupied-text: color-mix(in srgb, var(--admin-c-rojo) 68%, var(--admin-text));
+  --map-table-occupied-border: color-mix(in srgb, var(--admin-c-rojo) 40%, transparent);
+  --map-table-selected-bg: color-mix(in srgb, var(--admin-gold) 34%, var(--admin-surface));
+  --map-table-selected-text: color-mix(in srgb, var(--admin-gold) 74%, var(--admin-text));
   --map-table-selected-border: var(--admin-border-soft);
-  --map-table-reservation-bg: rgba(103, 150, 192, 0.18);
-  --map-table-reservation-text: #b5d6f2;
-  --map-table-reservation-border: rgba(103, 150, 192, 0.38);
+  --map-table-reservation-bg: color-mix(in srgb, var(--admin-c-azul) 16%, var(--admin-surface));
+  --map-table-reservation-text: color-mix(in srgb, var(--admin-c-azul) 66%, var(--admin-text));
+  --map-table-reservation-border: color-mix(in srgb, var(--admin-c-azul) 42%, transparent);
   --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
   --map-table-reservation-overdue-text: var(--map-table-reservation-text);
-  --map-table-reservation-overdue-border: rgba(161, 168, 176, 0.62);
-  --map-table-unavailable-bg: rgba(128, 136, 143, 0.12);
+  /* El retraso se marca apagando el borde a neutro, no cambiando el relleno. */
+  --map-table-reservation-overdue-border: color-mix(in srgb, var(--admin-faint) 70%, transparent);
+  --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 12%, var(--admin-surface));
   --map-table-unavailable-text: var(--admin-faint);
   --map-table-unavailable-border: var(--admin-border);
   --map-action-primary-bg: var(--admin-gold);
-  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-text: var(--admin-ink-on-gold);
   --map-action-primary-border: var(--admin-gold);
   --map-action-cancel-bg: var(--admin-danger-bg);
   --map-action-cancel-text: var(--admin-danger-text);
@@ -43,44 +50,6 @@
   --map-reservation-block-border: var(--map-table-reservation-border);
 }
 
-[data-admin-theme="light"] .operational-page {
-  --map-table-available-bg: #e3f1e1;
-  --map-table-available-text: #315d3e;
-  --map-table-available-border: #8fbd8b;
-  --map-table-occupied-bg: #f7dfdc;
-  --map-table-occupied-text: #81382f;
-  --map-table-occupied-border: #d69b92;
-  --map-table-selected-bg: #f5e4b5;
-  --map-table-selected-text: #664b16;
-  --map-table-selected-border: var(--admin-border-soft);
-  --map-table-reservation-bg: #e1eef8;
-  --map-table-reservation-text: #31506d;
-  --map-table-reservation-border: #94b9d6;
-  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
-  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
-  --map-table-reservation-overdue-border: #9299a1;
-  --map-table-unavailable-bg: #ecebe7;
-  --map-table-unavailable-text: rgba(11, 12, 13, 0.48);
-  --map-table-unavailable-border: rgba(11, 12, 13, 0.16);
-  --map-action-primary-bg: var(--admin-gold);
-  --map-action-primary-text: var(--admin-bg);
-  --map-action-primary-border: var(--admin-gold);
-  --map-action-cancel-bg: var(--admin-danger-bg);
-  --map-action-cancel-text: var(--admin-danger-text);
-  --map-action-cancel-border: var(--admin-danger-border);
-  --map-action-utility-bg: var(--admin-surface-soft);
-  --map-action-utility-text: var(--admin-text);
-  --map-action-utility-border: var(--admin-border);
-  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 64%, var(--admin-border-soft));
-  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 6%, transparent);
-  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 92%, var(--admin-gold) 8%);
-  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 58%, var(--admin-border-soft));
-  --map-selection-message-text: var(--admin-text);
-  --map-reservation-warning-border: var(--map-table-reservation-border);
-  --map-reservation-block-bg: var(--map-table-reservation-bg);
-  --map-reservation-block-border: var(--map-table-reservation-border);
-}
-
 .mesas-map {
   display: flex;
   width: 100%;
@@ -92,10 +61,10 @@
   border: 1px solid var(--admin-border);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, #fff 3%), var(--admin-surface));
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, white 3%), var(--admin-surface));
   box-shadow:
-    var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent)),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
   overflow: hidden;
   container-name: mesas-map;
   container-type: inline-size;
@@ -104,7 +73,7 @@
 
 .mesas-map:hover {
   border-color: var(--admin-border-soft);
-  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2));
+  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent));
   transform: none;
 }
 
@@ -470,14 +439,14 @@
   border-radius: 14px;
   background:
     radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 85%, transparent), transparent 65%),
-    linear-gradient(rgba(204, 163, 82, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(204, 163, 82, 0.045) 1px, transparent 1px),
-    color-mix(in srgb, var(--admin-surface-soft) 92%, #000 8%);
+    linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--admin-surface-soft) 92%, black 8%);
   background-size: auto, 46px 46px, 46px 46px, auto;
   box-shadow:
-    0 26px 60px rgba(0, 0, 0, 0.32),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.025),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    0 26px 60px color-mix(in srgb, var(--sombra) 32%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--txt) 2.5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
   container-type: inline-size;
 }
 
@@ -502,11 +471,11 @@
   border: 1.5px solid var(--admin-border-soft);
   border-radius: 14px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, #fff 5%), var(--admin-surface));
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, white 5%), var(--admin-surface));
   color: var(--admin-text);
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 10px 26px color-mix(in srgb, var(--sombra) 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -525,15 +494,15 @@
   border-color: color-mix(in srgb, var(--admin-gold) 55%, var(--admin-border));
   transform: translate(-50%, -50%) scale(1.045);
   box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(204, 163, 82, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 16px 34px color-mix(in srgb, var(--sombra) 34%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 6%, transparent);
 }
 
 .mesas-map .mesa-pin:focus-visible {
   z-index: 3;
   outline: 0;
-  box-shadow: var(--admin-focus-ring), 0 9px 24px rgba(0, 0, 0, 0.26);
+  box-shadow: var(--admin-focus-ring), 0 9px 24px color-mix(in srgb, var(--sombra) 26%, transparent);
 }
 
 .mesas-map .mesa-pin:disabled {
@@ -590,7 +559,7 @@
   line-height: 1.2;
   text-align: center;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--sombra) 35%, transparent);
 }
 
 .mesas-map .mesa-pin--libre {
@@ -598,8 +567,8 @@
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 6%, transparent);
 }
 
 .mesas-map .mesa-pin--ocupada {
@@ -608,9 +577,9 @@
   color: var(--map-table-occupied-text);
   opacity: 0.96;
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.26),
+    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent),
     0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /* Indicador secundario: la mesa sigue roja, pero pertenece al snapshot que
@@ -618,7 +587,7 @@
 .mesas-map .mesa-pin--mod-asignada_actualmente {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--admin-gold) 70%, transparent),
-    0 10px 26px rgba(0, 0, 0, 0.26);
+    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent);
 }
 
 .mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
@@ -631,8 +600,8 @@
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
 }
 
 .mesas-map .mesa-pin--no-utilizable,
@@ -646,8 +615,8 @@
   color: var(--map-table-unavailable-text);
   opacity: 0.94;
   box-shadow:
-    0 8px 20px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    0 8px 20px color-mix(in srgb, var(--sombra) 20%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
 }
 
 .mesas-map .mesa-pin--tipo-barra {
@@ -706,7 +675,7 @@
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.26),
+    0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
 }
 
@@ -718,7 +687,7 @@
   color: var(--map-table-selected-text);
   opacity: 1;
   box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.3),
+    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
   outline: 0;
 }
@@ -729,9 +698,9 @@
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.3),
+    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /*
@@ -745,10 +714,10 @@
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.3),
+    0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent),
     0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent),
     0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 .pos-map.is-ticket-selection-mode {
@@ -777,7 +746,7 @@
   border: 1px solid var(--map-selection-message-border);
   border-radius: 12px;
   background: var(--map-selection-message-bg);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 42%, transparent);
   transform: translateX(-50%);
 
   &[hidden] { display: none; }

@@ -120,7 +120,7 @@
   padding: var(--admin-lead-pad, 20px);
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius-md);
-  background: linear-gradient(120deg, rgba(124, 61, 29, 0.14), transparent 62%), var(--admin-surface);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--admin-terra) 14%, transparent), transparent 62%), var(--admin-surface);
 }
 .admin-analytics .admin-hero__main {
   display: flex;
@@ -254,7 +254,7 @@
 }
 .admin-analytics .admin-metric-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--admin-shadow-md, 0 12px 28px rgba(0, 0, 0, 0.18));
+  box-shadow: var(--admin-shadow-md, 0 12px 28px color-mix(in srgb, var(--admin-sombra) 18%, transparent));
 }
 .admin-analytics .admin-metric-card span {
   display: block;
@@ -629,7 +629,7 @@
   cursor: default;
 }
 .admin-nivel1 .admin-n1-heat__cell.is-strong {
-  color: #0b0c0d;
+  color: var(--on-accent);
 }
 .admin-nivel1 .admin-n1-heat__cell.is-empty {
   color: var(--admin-faint);

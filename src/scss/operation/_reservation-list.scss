@@ -14,7 +14,7 @@
   place-items: center;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--admin-gold-soft);
   font-size: var(--operational-text-xs);
   font-weight: var(--operational-weight-semibold);

@@ -3,7 +3,12 @@ var currentCat = 0;
 
 function initMenu() {
   var tabs = $("#menuTabs"), list = $("#menuList");
-  var pcCat = $("#pcCat"), pcName = $("#pcName"), pcCount = $("#pcCount"), frame = $("#previewFrame");
+  var pcCat = $("#pcCat"), pcName = $("#pcName"), pcCount = $("#pcCount");
+  // El marco es el cartón; el hueco es donde va la fotografía. La imagen se
+  // inserta en el HUECO —no en el marco— porque es él quien define el
+  // rectángulo contra el que se alinean también el velo y la cartela. Ver el
+  // comentario de views/home/_menu.php.
+  var hueco = $("#previewHueco");
 
   list.innerHTML = '<p style="padding:2rem;opacity:.5">Cargando menú…</p>';
   // Realizamos peticion al backend por medio de Fetch
@@ -23,14 +28,14 @@ function initMenu() {
         if (!img) {
           img = document.createElement("img");
           img.src = dish.img; img.alt = dish.n;
-          frame.insertBefore(img, frame.firstChild);
+          hueco.insertBefore(img, hueco.firstChild);
           imgCache[dish.img] = img;
         }
-        $$(".menu__preview-frame img").forEach(function(im) { im.classList.remove("show"); });
+        $$(".menu__preview-hueco img").forEach(function(im) { im.classList.remove("show"); });
         img.classList.add("show");
-        frame.setAttribute("data-zoom-src", dish.img);
-        frame.setAttribute("data-zoom-name", dish.n);
-        frame.setAttribute("data-zoom-cat", cat.label);
+        hueco.setAttribute("data-zoom-src", dish.img);
+        hueco.setAttribute("data-zoom-name", dish.n);
+        hueco.setAttribute("data-zoom-cat", cat.label);
         */
 
         if (!cat.img) return;
@@ -38,14 +43,14 @@ function initMenu() {
         if (!img) {
           img = document.createElement("img");
           img.src = cat.img; img.alt = cat.label;
-          frame.insertBefore(img, frame.firstChild);
+          hueco.insertBefore(img, hueco.firstChild);
           imgCache[cat.img] = img;
         }
-        $$(".menu__preview-frame img").forEach(function(im) { im.classList.remove("show"); });
+        $$(".menu__preview-hueco img").forEach(function(im) { im.classList.remove("show"); });
         img.classList.add("show");
-        frame.setAttribute("data-zoom-src", cat.img);
-        frame.setAttribute("data-zoom-name", cat.label);
-        frame.setAttribute("data-zoom-cat", cat.label);
+        hueco.setAttribute("data-zoom-src", cat.img);
+        hueco.setAttribute("data-zoom-name", cat.label);
+        hueco.setAttribute("data-zoom-cat", cat.label);
       }
 
       function renderList(catIndex) {

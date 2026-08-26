@@ -1,64 +1,175 @@
 // ── Navegación flotante ───────────────────────────────────────
+//
+// La marca iba en mix-blend-mode: difference para "resolverse sola" sobre
+// cualquier fondo. Sobre la fachada nocturna del hero el resultado era un
+// marrón sucio sobre marrón: el nombre del restaurante era lo menos legible de
+// la portada. Se sustituyó por café fijo con una sombra clara debajo, y la
+// sombra era el parche: sobre verde el nombre seguía sin contrastar y encima
+// arrastraba un halo sucio.
+//
+// Ahora se resuelve por NEGATIVO y sin sombra ninguna: scroll-art.js publica en
+// body[data-tono-actual] el tono de la banda que pasa bajo la marca, y aquí se
+// elige tinta clara sobre fondo oscuro y café sobre fondo claro. Mismo criterio
+// para el botón de menú y para el cursor.
+// El borde de la columna de contenido, no el del viewport.
+//
+// La marca y el botón de menú iban a `var(--pad)`, pero TODO lo demás vive en
+// una medida centrada de --maxw (1320px): en cuanto la ventana pasa de eso, los
+// dos elementos fijos se despegan hacia los bordes y dejan de compartir eje con
+// el título, el rótulo y las secciones. `max()` los devuelve a la columna y, por
+// debajo de 1320px, se resuelve al --pad de siempre.
+:root {
+  --borde-medida: max(var(--pad), calc((100% - var(--maxw)) / 2));
+}
+
 .brand-mark {
   position: fixed;
   top: clamp(1.4rem, 3vw, 2.4rem);
-  left: var(--pad);
+  left: var(--borde-medida);
   z-index: 200;
   font-family: var(--logo);
-  color: var(--accent);
+  color: var(--brand-crema);
   font-size: clamp(1.2rem, 1.5vw, 1.5rem);
   word-spacing: -0.8rem;
   line-height: 1;
-  mix-blend-mode: difference;
+  transition: color 0.5s var(--ease);
 
   span {
     display: block;
     font-family: var(--sans);
-    font-weight: 300;
+    font-weight: 400;
     font-size: 0.5rem;
     letter-spacing: 0.9em;
-    color: var(--white);
+    color: inherit;
     margin-top: 0.35rem;
-    opacity: 0.7;
+    opacity: 0.78;
     word-spacing: 0;
   }
+}
+
+// Los dos negativos. Se listan por tono y no por "claro/oscuro" para que una
+// sección nueva tenga que declarar el suyo y no herede el que no le toca.
+//
+// Van SIN `body` delante a propósito: con el tipo de elemento estas reglas
+// subirían a (0,3,1) y le ganarían al `.nav-toggle:hover .bar` de más abajo,
+// que se queda en (0,3,0). Sin él empatan y decide el orden del archivo, que es
+// lo que se quiere: primero el tono, encima el hover y encima el menú abierto.
+[data-tono-actual="crema"],
+[data-tono-actual="beige"] {
+  .brand-mark { color: var(--brand-cafe); }
+  .nav-toggle .bar { background: var(--brand-cafe); }
+  // Sobre papel el hilo va en café; en crema no existiría.
+  .nav-toggle { --nav-hilo: color-mix(in srgb, var(--brand-cafe) 14%, transparent); }
+}
+
+[data-tono-actual="foto"],
+[data-tono-actual="cafe"],
+[data-tono-actual="vino"],
+[data-tono-actual="verde"] {
+  .brand-mark { color: var(--brand-crema); }
+  .nav-toggle .bar { background: var(--brand-crema); }
+  .nav-toggle { --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent); }
+}
+
+// La copia que vive DENTRO del overlay, encabezando la ficha de contacto. La
+// marca de arriba es fija en z-index 200 y el panel va en 250 con fondo opaco:
+// con el menú abierto quedaba tapada, y `body.nav-open .brand-mark` era código
+// muerto. Subirla por encima del panel no vale —la pondría también sobre el
+// aviso de privacidad, que está en 210—, así que se duplica dentro.
+//
+// En FLUJO y no anclada arriba a la izquierda: ahí sólo repetía la posición que
+// ya ocupa con el menú cerrado. Sobre "Encuéntranos" firma el pie de la columna
+// y el panel deja de tener una esquina hablando por su cuenta.
+.brand-mark--overlay {
+  position: static;
+  display: block;
+  margin-bottom: 1.4rem;
+  font-weight: 400; // KudosKaps tiene UNA sola cara; sin esto sale negrita falsa
+  // El contacto va en line-height 2 y con tracking propio; la marca necesita el
+  // suyo: apretado y sin separación extra, o el wordmark se abre.
+  line-height: 1;
+  letter-spacing: normal;
+}
+
+// Con el overlay abierto la marca queda sobre el verde a pantalla completa,
+// gane lo que gane el tono de debajo. Vale para las dos: (0,2,1) le gana a los
+// negativos por tono, que se quedan en (0,2,0).
+body.nav-open .brand-mark {
+  color: var(--brand-crema);
 }
 
 .nav-toggle {
   position: fixed;
   top: clamp(1.1rem, 3vw, 2rem);
-  right: var(--pad);
+  right: var(--borde-medida);
   z-index: 300;
   width: 60px;
   height: 60px;
   border-radius: 50%;
+  overflow: hidden; // recorta la textura del ::before al círculo
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(20, 22, 24, 0.5);
+  background: color-mix(in srgb, var(--scrim) 34%, transparent);
   border: 1px solid var(--line);
   backdrop-filter: blur(8px);
   transition: background 0.4s, transform 0.4s var(--ease);
 
-  &:hover { background: var(--accent); }
-  &:hover .bar { background: var(--ink); }
+  // Fibra de mantel, como las secciones (ver _italia.scss), pero más apretada:
+  // en 60px de diámetro una trama de paso 4-6px casi no se lee. El hilo va en
+  // --nav-hilo para poder teñirlo por tono unas líneas más abajo — en crema
+  // fijo era invisible sobre las bandas claras y el botón volvía a ser un
+  // disco liso.
+  --nav-hilo: color-mix(in srgb, var(--brand-crema) 16%, transparent);
 
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(45deg, var(--nav-hilo) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(-45deg, var(--nav-hilo) 0 1px, transparent 1px 5px);
+  }
+
+  // Anillo interior: separa la chapa del fondo sin subir el peso del borde, y
+  // es lo que hace que el círculo se lea como una pieza y no como un recorte.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  &:hover { background: var(--accent); }
+  &:hover .bar { background: var(--on-accent); }
+
+  // 2px enteros, no 1.5. A densidad 1 el navegador redondeaba cada barra por su
+  // cuenta según dónde cayera y las tres salían de grosores distintos.
   .bar {
     width: 22px;
-    height: 1.5px;
-    background: var(--beige);
+    height: 2px;
+    border-radius: 2px;
+    background: var(--brand-crema);
     transition: transform 0.4s var(--ease), opacity 0.3s, background 0.3s;
   }
 }
 
 body.nav-open {
-  .nav-toggle .bar:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+  // 8px = 2px de barra + 6px de gap: es lo que separa el centro de cada barra
+  // del centro del botón. Al cambiar el grosor había que rehacer la cuenta o la
+  // X quedaba descuadrada.
+  .nav-toggle .bar:nth-child(1) { transform: translateY(8px) rotate(45deg); }
   .nav-toggle .bar:nth-child(2) { opacity: 0; }
-  .nav-toggle .bar:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+  .nav-toggle .bar:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
   .nav-toggle { background: var(--accent); }
-  .nav-toggle .bar { background: var(--ink); }
+  .nav-toggle .bar { background: var(--on-accent); }
 }
 
 // Overlay fullscreen
@@ -66,7 +177,7 @@ body.nav-open {
   position: fixed;
   inset: 0;
   z-index: 250;
-  background: var(--ink);
+  background: var(--bg);
   display: grid;
   grid-template-columns: 1fr 2fr;
   // Origen del círculo alineado al centro del .nav-toggle
@@ -107,7 +218,7 @@ body.nav-open .nav-overlay {
       font-family: var(--sans);
       font-size: 0.8rem;
       letter-spacing: 0.2em;
-      color: var(--accent);
+      color: var(--accent-text);
       font-weight: 400;
       opacity: 0;
       transition: opacity 0.4s;
@@ -129,6 +240,21 @@ body.nav-open .nav-overlay__links a {
   border-left: 1px solid var(--line);
   overflow: hidden;
 
+  // El velo de la foto va en CAFÉ, no en verde. --scrim sólo se declara en
+  // :root, como mezcla de --verde-deep, así que el overlay lo heredaba ya
+  // resuelto: verde sobre verde, y la fotografía desaparecía dentro de la
+  // columna de enlaces. Se re-tiñe localmente con el mismo recurso que usa el
+  // hero, que tenía exactamente el mismo problema con su portada.
+  // La columna de enlaces conserva su [data-tono="verde"]: aquí sólo cambia
+  // el velo.
+  --scrim: color-mix(in srgb, var(--cafe-deep) 88%, black);
+
+  // Y el fondo de la columna, por el mismo motivo: la foto va al 55% de
+  // opacidad, así que lo que hay DEBAJO la tiñe tanto como el degradado de
+  // encima. Sin esta línea el verde del overlay se colaba por la imagen y la
+  // máscara seguía leyéndose verde aunque el ::after ya fuera café.
+  background: var(--cafe-deep);
+
   img {
     width: 100%;
     height: 100%;
@@ -142,7 +268,7 @@ body.nav-open .nav-overlay__links a {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(120deg, rgba(11, 12, 13, 0.6), transparent 60%);
+    background: linear-gradient(120deg, color-mix(in srgb, var(--scrim) 60%, transparent), transparent 60%);
   }
 }
 
@@ -157,7 +283,7 @@ body.nav-open .nav-overlay__links a {
   line-height: 2;
 
   strong {
-    color: var(--accent);
+    color: var(--accent-text);
     font-weight: 400;
     display: block;
     font-size: 0.66rem;

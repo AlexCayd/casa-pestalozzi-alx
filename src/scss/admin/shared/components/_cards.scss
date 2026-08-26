@@ -168,7 +168,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(204, 163, 82, 0.5),
+    color-mix(in srgb, var(--admin-gold) 50%, transparent),
     transparent
   );
   opacity: 0;
@@ -285,8 +285,8 @@
   }
 
   &--gold {
-    border-color: rgba(204, 163, 82, 0.4);
-    background: rgba(204, 163, 82, 0.07);
+    border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
+    background: color-mix(in srgb, var(--admin-gold) 7%, transparent);
     .admin-stat-card__value { color: var(--admin-gold); }
   }
 

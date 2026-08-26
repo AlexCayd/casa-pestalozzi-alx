@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
+use Services\CataService;
 use Services\HorarioOperacionService;
 use Services\ReservationClientSession;
 use Services\ReservacionService;
@@ -19,7 +20,17 @@ class HomeController
         $proximasExcepcionesOperacion = [];
         $horariosOperacionDisponibles = false;
         $anuncioPublico = null;
+        $catasProximas = [];
         $reservationRequestToken = ReservacionService::generarRequestToken();
+
+        // La agenda de catas se imprime en el servidor: la sección tiene que
+        // leerse aunque el bundle no llegue a cargar. Si la consulta falla, el
+        // parcial cae solo a su estado vacío.
+        try {
+            $catasProximas = CataService::agendaPublica();
+        } catch (\Throwable $e) {
+            error_log('HomeController::index catas - ' . $e->getMessage());
+        }
 
         try {
             $anuncioPublico = ConfiguracionAnuncio::obtenerVisible();

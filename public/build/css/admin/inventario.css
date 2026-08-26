@@ -24,7 +24,7 @@
 /* Reabastecimiento rápido: tarjetas verticales de ingredientes bajo mínimo. */
 .admin-restock {
   margin-bottom: 18px;
-  border-color: rgba(216, 158, 44, 0.4);
+  border-color: color-mix(in srgb, var(--admin-gold) 40%, transparent);
 }
 .admin-restock__grid {
   display: grid;
@@ -104,7 +104,7 @@
   transition: width var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-restock__bar-fill.is-critical {
-  background: var(--admin-danger, #c85a3c);
+  background: var(--admin-danger);
 }
 .admin-restock__form {
   display: flex;

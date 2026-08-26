@@ -272,7 +272,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--<?php echo $mostrarEnlacePreview ? 'has-link' : 'without-link'; ?>"
                     data-announcement-preview
                     data-type="<?php echo $h($tipoPreview); ?>"
-                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? '#9fc2c5'); ?>"
+                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? 'var(--accent)'); ?>"
                     aria-label="Vista previa del anuncio"
                 >
                     <span class="hero-announcement__indicator" aria-hidden="true"></span>
@@ -305,7 +305,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                     class="hero-announcement hero-announcement--<?php echo $h($tipoPreview); ?> hero-announcement--without-link admin-announcement-example"
                     data-announcement-example-banner
                     data-type="<?php echo $h($tipoPreview); ?>"
-                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? '#9fc2c5'); ?>"
+                    style="--announcement-accent: <?php echo $h($configTipoPreview['acento'] ?? 'var(--accent)'); ?>"
                     aria-label="Ejemplo sugerido del anuncio"
                 >
                     <span class="hero-announcement__indicator" aria-hidden="true"></span>

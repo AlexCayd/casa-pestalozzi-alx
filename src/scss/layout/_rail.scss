@@ -1,4 +1,16 @@
 // ── Rail de secciones ─────────────────────────────────────────
+//
+// El rail cuelga del <body>, fuera de todo [data-tono], así que resolvía la capa
+// 3 de :root —paleta clara— y encima iba en mix-blend-mode: difference para
+// "arreglarse solo" contra cualquier fondo. No se arreglaba: sobre el café de
+// Catas el enlace activo daba negro puro sobre marrón (~1.8:1) y sobre la crema
+// de Nosotros se quedaba en ~1.25:1. El rail parecía cuatro rayitas sueltas.
+//
+// Se resuelve por NEGATIVO explícito, igual que la marca y el botón de menú:
+// rail.js publica en body[data-tono-rail] el tono de la banda que cruza la LÍNEA
+// MEDIA del viewport y aquí se elige la tinta. Es atributo aparte de
+// [data-tono-actual] a propósito: la marca vive en los 48px de arriba y el rail
+// en el centro, y a mitad de un cruce están sobre bandas distintas.
 .rail {
   position: fixed;
   right: clamp(1rem, 2vw, 2rem);
@@ -9,7 +21,6 @@
   flex-direction: column;
   gap: 1.1rem;
   align-items: flex-end;
-  mix-blend-mode: difference;
   // El contenedor ocupa el ancho de la etiqueta más larga. Evita que esa
   // zona transparente intercepte controles de la página (p. ej. el botón
   // de más comensales); sólo los enlaces reales deben recibir puntero.
@@ -23,28 +34,53 @@
     font-size: 0.6rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(245, 245, 245, 0.5);
-    transition: color 0.3s;
+    transition: color 0.3s, opacity 0.3s;
+    // Respaldo para el primer pintado, antes de que rail.js publique el tono:
+    // la landing abre sobre el hero, que es fotografía en oscuro.
+    color: color-mix(in srgb, var(--brand-crema) 60%, transparent);
 
     .tick {
       width: 16px;
       height: 1px;
-      background: rgba(245, 245, 245, 0.4);
+      background: color-mix(in srgb, var(--brand-crema) 45%, transparent);
       transition: width 0.4s var(--ease), background 0.3s;
     }
 
+    // Las etiquetas se leen TODAS. Estaban en opacity 0 y sólo aparecía la
+    // activa: con el rail así el visitante veía una columna de rayitas sin
+    // saber que era un índice. En tenue no compiten con la página y de un
+    // vistazo se sabe cuánto queda por delante.
     .rlabel {
-      opacity: 0;
-      transform: translateX(8px);
-      transition: opacity 0.3s, transform 0.3s;
+      opacity: 0.55;
+      transition: opacity 0.3s;
     }
 
     &:hover .rlabel,
-    &.active .rlabel { opacity: 1; transform: translateX(0); }
+    &.active .rlabel { opacity: 1; }
 
-    &.active { color: var(--beige); }
-    &.active .tick { width: 34px; background: var(--accent); }
+    &.active .tick { width: 34px; }
   }
+}
+
+// Los dos negativos, calcados de _nav.scss: por tono y no por "claro/oscuro",
+// para que una sección nueva tenga que declarar el suyo.
+[data-tono-rail="crema"],
+[data-tono-rail="beige"] {
+  .rail a { color: color-mix(in srgb, var(--brand-cafe) 55%, transparent); }
+  .rail a .tick { background: color-mix(in srgb, var(--brand-cafe) 40%, transparent); }
+  .rail a.active { color: var(--brand-cafe); }
+  .rail a.active .tick { background: var(--brand-cafe); }
+}
+
+// Sobre fondo oscuro no se usa el oro: salió de la landing porque sobre crema no
+// contrasta, y un rail que cambia de acento a mitad de página cantaría más que
+// el propio índice. La activa es simplemente la tinta al 100%.
+[data-tono-rail="foto"],
+[data-tono-rail="cafe"],
+[data-tono-rail="vino"],
+[data-tono-rail="verde"] {
+  .rail a.active { color: var(--brand-crema); }
+  .rail a.active .tick { background: var(--brand-crema); }
 }
 
 @media (max-width: 1100px) { .rail { display: none; } }
@@ -61,7 +97,7 @@
   padding: 0.95rem 1.6rem;
   border: 1px solid var(--accent);
   border-radius: 50px;
-  background: rgba(20, 22, 24, 0.55);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
   backdrop-filter: blur(8px);
   font-size: 0.72rem;
   letter-spacing: 0.22em;
@@ -71,7 +107,7 @@
   opacity: 0;
 
   &.show { opacity: 1; }
-  &:hover { background: var(--accent); color: var(--ink); }
+  &:hover { background: var(--accent); color: var(--on-accent); }
 
   .dot {
     width: 6px;
@@ -81,7 +117,7 @@
     animation: pulse 2s infinite;
   }
 
-  &:hover .dot { background: var(--ink); }
+  &:hover .dot { background: var(--on-accent); }
 }
 
 @keyframes pulse {

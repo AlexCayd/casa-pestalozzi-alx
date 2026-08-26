@@ -1127,7 +1127,7 @@
                 }
             });
             preview.classList.add('hero-announcement--' + selectedType);
-            preview.style.setProperty('--announcement-accent', selectedConfig.acento || '#9fc2c5');
+            preview.style.setProperty('--announcement-accent', selectedConfig.acento || 'var(--accent)');
             previewTypeLabel.textContent = selectedConfig.etiqueta || 'Evento';
             if (previewIcon) {
                 previewIcon.innerHTML = selectedConfig.icono || '';
@@ -1146,7 +1146,7 @@
             if (exampleBanner) {
                 exampleBanner.dataset.type = selectedType;
                 exampleBanner.classList.add('hero-announcement--' + selectedType);
-                exampleBanner.style.setProperty('--announcement-accent', selectedConfig.acento || '#9fc2c5');
+                exampleBanner.style.setProperty('--announcement-accent', selectedConfig.acento || 'var(--accent)');
             }
             if (exampleTypeLabel) {
                 exampleTypeLabel.textContent = selectedConfig.etiqueta || 'Evento';

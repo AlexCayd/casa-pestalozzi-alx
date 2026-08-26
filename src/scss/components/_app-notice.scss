@@ -17,7 +17,7 @@
 }
 
 .app-notice {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -27,9 +27,9 @@
   border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
   border-left-width: 4px;
   border-radius: 12px;
-  background: var(--confirmation-surface, var(--admin-surface, #171b17));
-  color: var(--confirmation-text, var(--admin-text, #f4efe6));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  background: var(--confirmation-surface, var(--admin-surface));
+  color: var(--confirmation-text, var(--admin-text));
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--sombra) 42%, transparent);
   opacity: 0;
   pointer-events: auto;
   transform: translateY(-8px);
@@ -40,10 +40,10 @@
     transform: translateY(0);
   }
 
-  &--error   { --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022)); }
-  &--warning { --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400)); }
-  &--success { --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853)); }
-  &--info    { --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff)); }
+  &--error   { --app-notice-accent: var(--c-rojo, var(--admin-c-rojo)); }
+  &--warning { --app-notice-accent: var(--c-ambar, var(--admin-c-ambar)); }
+  &--success { --app-notice-accent: var(--c-verde, var(--admin-c-verde)); }
+  &--info    { --app-notice-accent: var(--c-azul, var(--admin-c-azul)); }
 
   &__text {
     margin: 0;

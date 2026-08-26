@@ -74,6 +74,14 @@
     display: flex;
     align-items: center;
     min-width: 0;
+
+    // El modo inline emite este control con [hidden] —la rejilla de horas ya
+    // está a la vista y el campo de sólo lectura sobra—, pero el `display:flex`
+    // de arriba es una regla de AUTOR y le gana al `[hidden] { display:none }`
+    // de normalize sin importar la especificidad. Resultado: una caja
+    // "Elige una hora" con reloj y chevron flotando encima de la rejilla, con
+    // toda la pinta de un campo que no se puede escribir.
+    &[hidden] { display: none; }
   }
 
   .hour-picker-control__icon,
@@ -144,7 +152,7 @@
     border: 1px solid var(--reservation-picker-border, var(--line));
     border-radius: var(--reservation-picker-radius, 0);
     background: var(--reservation-picker-surface, var(--surface));
-    box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
+    box-shadow: var(--reservation-picker-shadow, 0 20px 60px color-mix(in srgb, var(--sombra) 55%, transparent));
   }
 
   /*
@@ -262,7 +270,7 @@
     &.selected {
       border-color: var(--reservation-picker-selected-border, transparent);
       background: var(--reservation-picker-selected-bg, var(--accent));
-      color: var(--reservation-picker-selected-color, var(--ink));
+      color: var(--reservation-picker-selected-color, var(--on-accent));
     }
 
     &.disabled {

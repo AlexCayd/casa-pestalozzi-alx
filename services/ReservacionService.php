@@ -101,27 +101,11 @@ class ReservacionService
         }
     }
 
-    private static function detalleHorarioPublico(array $efectivo): array
-    {
-        $fecha = (string) ($efectivo['fecha'] ?? '');
-        $habitual = HorarioOperacionService::obtenerHorarioHabitualParaFecha($fecha);
-        $esExcepcion = ($efectivo['origen'] ?? '') === 'excepcion';
-
-        return [
-            'es_excepcion' => $esExcepcion,
-            'etiqueta' => ($efectivo['tipo'] ?? '') === 'cerrado' ? 'Cierre especial' : 'Horario especial',
-            'fecha' => $fecha,
-            'abierto' => (bool) ($efectivo['abierto'] ?? false),
-            'hora_apertura' => !empty($efectivo['hora_apertura'])
-                ? substr((string) $efectivo['hora_apertura'], 0, 5)
-                : null,
-            'hora_cierre' => !empty($efectivo['hora_cierre'])
-                ? substr((string) $efectivo['hora_cierre'], 0, 5)
-                : null,
-            'motivo' => trim((string) ($efectivo['motivo'] ?? '')),
-            'habitual' => $habitual,
-        ];
-    }
+    // detalleHorarioPublico() vivía aquí, privado y sin un solo llamador: lo
+    // que publica el detalle de horario es HorarioReservacionService::resolverFecha(),
+    // que es por donde pasan todas las consultas de disponibilidad. Tener dos
+    // constructores del mismo contrato era justamente lo que dejó a la landing
+    // pintando la tarjeta de horario especial con los campos vacíos.
 
     public static function validarHorarioDisponible(string $fecha, string $hora): array
     {

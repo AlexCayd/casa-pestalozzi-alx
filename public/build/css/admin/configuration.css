@@ -8,15 +8,15 @@
  * Encapsula media queries y preferencias de movimiento del módulo admin.
  */
 .hero-announcement {
-  --announcement-gold: var(--accent, #cca352);
-  --announcement-gold-soft: var(--accent-soft, #e0c184);
-  --announcement-cream: var(--beige, #fff9e4);
+  --announcement-gold: var(--accent);
+  --announcement-gold-soft: var(--accent-soft);
+  --announcement-cream: var(--beige);
   --announcement-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
-  --announcement-accent: #9fc2c5;
-  --announcement-border: rgba(159, 194, 197, 0.52);
+  --announcement-accent: var(--feedback-info-bg);
+  --announcement-border: color-mix(in srgb, var(--feedback-info) 52%, transparent);
   --announcement-border: color-mix(in srgb, var(--announcement-accent) 55%, transparent);
-  --announcement-background: #101112;
-  --announcement-icon-background: rgba(159, 194, 197, 0.12);
+  --announcement-background: var(--surface);
+  --announcement-icon-background: color-mix(in srgb, var(--feedback-info) 12%, transparent);
   --announcement-icon-background: color-mix(in srgb, var(--announcement-accent) 12%, transparent);
   --announcement-link-color: var(--announcement-accent);
   box-sizing: border-box;
@@ -29,15 +29,22 @@
   gap: 0.75rem;
   padding: 0.8rem 0.75rem 0.8rem 0.85rem;
   border: 1px solid var(--announcement-border);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: var(--announcement-background);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 22%, transparent);
   color: var(--announcement-cream);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   overflow: hidden;
+  isolation: isolate;
   opacity: 1;
   transition: opacity 180ms ease, transform 180ms ease;
+}
+.hero-announcement::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--brand-cafe) 4%, transparent) 0 1px, transparent 1px 4px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--brand-cafe) 3%, transparent) 0 1px, transparent 1px 6px);
 }
 .hero-announcement[hidden] {
   display: none !important;
@@ -114,7 +121,7 @@
   line-height: 1.4;
   letter-spacing: 0.04em;
   text-decoration: underline;
-  text-decoration-color: rgba(224, 193, 132, 0.46);
+  text-decoration-color: color-mix(in srgb, var(--accent-soft) 46%, transparent);
   text-underline-offset: 0.25rem;
   transition: color 180ms ease, text-decoration-color 180ms ease;
 }
@@ -144,7 +151,7 @@
   border-radius: 50%;
   appearance: none;
   background: transparent;
-  color: rgba(255, 249, 228, 0.72);
+  color: color-mix(in srgb, var(--txt) 72%, transparent);
   cursor: pointer;
   font-family: var(--announcement-font);
   font-size: 1.2rem;
@@ -152,8 +159,8 @@
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 .hero-announcement__close:hover {
-  border-color: rgba(224, 193, 132, 0.42);
-  background: rgba(224, 193, 132, 0.1);
+  border-color: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 10%, transparent);
   color: var(--announcement-cream);
 }
 .hero-announcement__close:focus-visible {
@@ -192,7 +199,7 @@
   height: 100%;
   padding: 0;
   border: 0;
-  background: rgba(11, 12, 13, 0.72);
+  background: color-mix(in srgb, var(--scrim) 72%, transparent);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   cursor: pointer;
@@ -211,7 +218,7 @@
 }
 .announcement-dialog .hero-announcement {
   width: 100%;
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 26px 60px color-mix(in srgb, var(--sombra) 50%, transparent);
 }
 
 /*
@@ -241,12 +248,17 @@
   opacity: 1;
   transform: translateY(0);
 }
+.announcement-toast.is-gsap {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
 .announcement-toast__panel:focus-visible {
   outline: none;
 }
 .announcement-toast .hero-announcement {
   width: 100%;
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 45%, transparent);
 }
 
 @media (max-width: 520px) {
@@ -954,9 +966,9 @@
 }
 
 .admin-announcement-preview-stage {
-  --preview-bg: #101213;
-  --preview-ink: #ede9df;
-  --preview-ink-soft: rgba(237, 233, 223, 0.28);
+  --preview-bg: var(--surface);
+  --preview-ink: var(--bg);
+  --preview-ink-soft: color-mix(in srgb, var(--admin-text) 28%, transparent);
   display: grid;
   gap: 10px;
   min-width: 0;
@@ -967,9 +979,9 @@
   transition: background var(--admin-t-base) ease;
 }
 .admin-announcement-preview-stage[data-tema=claro] {
-  --preview-bg: #fff9e4;
-  --preview-ink: #0b0c0d;
-  --preview-ink-soft: rgba(11, 12, 13, 0.18);
+  --preview-bg: var(--bg);
+  --preview-ink: var(--surface);
+  --preview-ink-soft: color-mix(in srgb, var(--admin-scrim) 18%, transparent);
 }
 
 .admin-announcement-preview-hero {
@@ -1014,7 +1026,7 @@
 .admin-announcement-preview-stage .hero-announcement {
   width: 100%;
   min-width: 0;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--admin-sombra) 42%, transparent);
 }
 
 /*

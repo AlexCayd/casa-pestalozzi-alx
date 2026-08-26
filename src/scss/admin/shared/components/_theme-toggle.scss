@@ -23,7 +23,7 @@
     transform var(--admin-t-fast) var(--admin-ease-out);
 
   &:hover {
-    border-color: rgba(160, 126, 54, 0.5);
+    border-color: color-mix(in srgb, var(--admin-gold-deep) 50%, transparent);
     color: var(--admin-gold);
     box-shadow: var(--admin-shadow-md);
     transform: translateY(-1px);

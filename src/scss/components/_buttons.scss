@@ -7,7 +7,7 @@
   font-size: 0.74rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--beige);
+  color: var(--txt-strong);
   padding: 1.1rem 2.2rem;
   border: 1px solid var(--accent);
   border-radius: 50px;
@@ -27,7 +27,7 @@
     z-index: 1;
   }
 
-  &:hover { color: var(--ink); }
+  &:hover { color: var(--on-accent); }
   &:hover::before { transform: translateY(0); }
 
   .arrow { transition: transform 0.4s var(--ease); }
@@ -38,7 +38,34 @@
     color: var(--txt-mute);
 
     &::before { background: var(--line-soft); }
-    &:hover { color: var(--beige); }
+    &:hover { color: var(--txt-strong); }
+  }
+
+  // Botón fantasma: el mismo cuerpo que el base pero sin el acento en el borde.
+  // Existe para que dos CTA que van juntos —"Reservar una mesa" y "Ver en PDF"
+  // al pie de la carta— no se lean como dos principales. La clase se usaba en
+  // el marcado desde hacía tiempo sin estar definida en ninguna hoja.
+  &--pdf {
+    border-color: var(--line-soft);
+    color: var(--txt-mute);
+
+    &::before { background: var(--line-soft); }
+    &:hover { color: var(--txt-strong); }
+  }
+
+  // Variante rellena, para el CTA principal de una sección. El relleno ya está
+  // puesto de entrada, así que el barrido de ::before invertiría el botón: se
+  // desactiva y el hover se resuelve oscureciendo el propio acento.
+  &--solid {
+    background: var(--accent);
+    color: var(--on-accent);
+
+    &::before { display: none; }
+
+    &:hover {
+      background: color-mix(in srgb, var(--accent) 82%, var(--txt));
+      color: var(--on-accent);
+    }
   }
 }
 
@@ -49,7 +76,7 @@
   font-size: 0.74rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-text);
   padding-bottom: 0.4rem;
   position: relative;
 

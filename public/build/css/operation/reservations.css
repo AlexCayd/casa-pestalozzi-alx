@@ -11,7 +11,7 @@
   z-index: 2;
   display: block;
   height: 100dvh;
-  background: radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem), var(--operational-shell-background, var(--admin-bg));
+  background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem), var(--operational-shell-background, var(--admin-bg));
 }
 
 .operation-main {
@@ -66,7 +66,7 @@
   border-radius: var(--admin-radius-md, 16px);
   overflow: hidden;
   background: color-mix(in srgb, var(--admin-surface) 96%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--txt) 2.5%, transparent);
 }
 
 .reservation-operation__map.mesas-map {
@@ -187,8 +187,8 @@ html:has(.operation-body.is-assignment-mode) {
     width: min(92vw, 380px);
     max-height: none;
     border-left: 1px solid var(--admin-border);
-    background: color-mix(in srgb, var(--admin-bg) 98%, #000);
-    box-shadow: -22px 0 54px rgba(0, 0, 0, 0.42);
+    background: color-mix(in srgb, var(--admin-bg) 98%, black);
+    box-shadow: -22px 0 54px color-mix(in srgb, var(--sombra) 42%, transparent);
   }
 }
 @media (max-width: 640px) {
@@ -274,11 +274,11 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operation-body[data-operation-module=reservations] {
-  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, #466b75);
+  --operational-shell-background: color-mix(in srgb, var(--admin-bg) 82%, var(--feedback-info-bg));
 }
 
 .operation-shell--reservations {
-  background: radial-gradient(circle at 18% 0%, rgba(204, 163, 82, 0.08), transparent 32rem), var(--operational-shell-background, var(--admin-bg));
+  background: radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 32rem), var(--operational-shell-background, var(--admin-bg));
 }
 
 .operation-shell,
@@ -386,7 +386,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .operational-map-toggle:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 .operational-page.is-map-maximized .operational-map-toggle__expand {
@@ -559,7 +559,7 @@ html:has(.operation-body.is-assignment-mode) {
   height: 9px;
   flex: none;
   border-radius: 50%;
-  background: var(--c-lima, #8ac926);
+  background: var(--c-lima);
   animation: operational-live-pulse 1.6s ease-in-out infinite;
 }
 
@@ -671,7 +671,7 @@ html:has(.operation-body.is-assignment-mode) {
   place-items: center;
   border-radius: 50%;
   background: var(--admin-gold);
-  color: #1b1a17;
+  color: var(--on-accent);
   font-family: var(--operational-font-ui);
   font-size: 14px;
   font-weight: 800;
@@ -733,7 +733,7 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: var(--admin-surface);
-  box-shadow: var(--admin-shadow-md, 0 18px 44px rgba(0, 0, 0, 0.38));
+  box-shadow: var(--admin-shadow-md, 0 18px 44px color-mix(in srgb, var(--sombra) 38%, transparent));
 }
 .operational-user-menu__panel[hidden] {
   display: none !important;
@@ -753,7 +753,7 @@ html:has(.operation-body.is-assignment-mode) {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--admin-danger-text, #f0a79b);
+  color: var(--admin-danger-text);
   font: inherit;
   font-size: var(--operational-text-sm);
   font-weight: var(--operational-weight-semibold);
@@ -761,8 +761,8 @@ html:has(.operation-body.is-assignment-mode) {
   cursor: pointer;
 }
 .operational-user-menu__logout:hover {
-  background: rgba(232, 112, 96, 0.1);
-  color: #e87060;
+  background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
+  color: var(--feedback-danger);
 }
 
 .operational-update {
@@ -818,7 +818,7 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-header a:focus-visible,
 .operational-header button:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 @keyframes operational-live-pulse {
@@ -943,7 +943,7 @@ html:has(.operation-body.is-assignment-mode) {
   --reservation-picker-border: var(--admin-border);
   --reservation-picker-radius: var(--admin-radius-sm, 10px);
   --reservation-picker-surface: var(--admin-surface);
-  --reservation-picker-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
+  --reservation-picker-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 38%, transparent);
   --reservation-picker-z-index: 90;
   --reservation-picker-calendar-padding: 14px;
   --reservation-picker-head-display: grid;
@@ -1077,6 +1077,9 @@ html:has(.operation-body.is-assignment-mode) {
   align-items: center;
   min-width: 0;
 }
+.operational-page .hour-picker-control[hidden] {
+  display: none;
+}
 .operational-page .hour-picker-control__icon,
 .operational-page .hour-picker-control__chevron {
   position: absolute;
@@ -1135,7 +1138,7 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid var(--reservation-picker-border, var(--line));
   border-radius: var(--reservation-picker-radius, 0);
   background: var(--reservation-picker-surface, var(--surface));
-  box-shadow: var(--reservation-picker-shadow, 0 20px 60px rgba(0, 0, 0, 0.55));
+  box-shadow: var(--reservation-picker-shadow, 0 20px 60px color-mix(in srgb, var(--sombra) 55%, transparent));
 }
 .operational-page {
   /*
@@ -1242,7 +1245,7 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-page .cpc-day.selected {
   border-color: var(--reservation-picker-selected-border, transparent);
   background: var(--reservation-picker-selected-bg, var(--accent));
-  color: var(--reservation-picker-selected-color, var(--ink));
+  color: var(--reservation-picker-selected-color, var(--on-accent));
 }
 .operational-page .cpc-day.disabled {
   color: var(--reservation-picker-faint, var(--txt-faint));
@@ -1341,7 +1344,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .operational-page .date-display,
 .operational-page .hour-display {
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--sombra) 16%, transparent);
 }
 .operational-page .date-display:hover:not(:disabled),
 .operational-page .hour-display:hover:not(:disabled) {
@@ -1448,7 +1451,7 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-page .operational-drawer-toggle:focus-visible,
 .operational-page .operational-icon-button:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 .operational-page .operational-drawer-toggle:active:not(:disabled),
 .operational-page .operational-icon-button:active:not(:disabled) {
@@ -1494,7 +1497,7 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid var(--admin-border);
   border-radius: 14px;
   background: var(--admin-surface);
-  box-shadow: 22px 0 54px rgba(0, 0, 0, 0.46);
+  box-shadow: 22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
   overflow: hidden;
   flex-direction: column;
   transform: translateX(calc(-100% - var(--operational-shell-pad)));
@@ -1596,7 +1599,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .operational-drawer__module-link:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring, 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 .operational-drawer__content {
@@ -1629,7 +1632,7 @@ html:has(.operation-body.is-assignment-mode) {
   width: 8px;
 }
 .operational-reservation-list::-webkit-scrollbar-track {
-  background: rgba(245, 245, 245, 0.035);
+  background: color-mix(in srgb, var(--txt) 3.5%, transparent);
   border-radius: 999px;
 }
 .operational-reservation-list::-webkit-scrollbar-thumb {
@@ -1693,7 +1696,7 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: rgba(4, 6, 5, 0.62);
+  background: color-mix(in srgb, var(--scrim) 62%, transparent);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }
@@ -1730,27 +1733,34 @@ html:has(.operation-body.is-assignment-mode) {
   --mesas-map-aspect-ratio: 1.75 / 1;
   --mesas-map-ratio: 1.75;
   --mesas-map-viewport-padding: clamp(12px, 1.2vw, 18px);
-  /* Estados semanticos del mapa: una sola paleta reutilizable. */
-  --map-table-available-bg: rgba(139, 191, 126, 0.14);
-  --map-table-available-text: #9fd3a6;
-  --map-table-available-border: rgba(139, 191, 126, 0.32);
-  --map-table-occupied-bg: rgba(232, 112, 96, 0.14);
-  --map-table-occupied-text: #f0a79b;
-  --map-table-occupied-border: rgba(232, 112, 96, 0.34);
-  --map-table-selected-bg: rgba(224, 193, 132, 0.34);
-  --map-table-selected-text: #f2d89a;
+  /*
+   * Estados semánticos del mapa de mesas. Cada trío (fondo / texto / borde)
+   * se deriva de la paleta funcional mezclada con la superficie activa, igual
+   * que los badges del panel. Antes había dos bloques —uno por tema— con
+   * dieciocho literales entre ambos; con color-mix sobre --admin-surface un
+   * solo bloque sirve para claro y oscuro.
+   */
+  --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 15%, var(--admin-surface));
+  --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 72%, var(--admin-text));
+  --map-table-available-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
+  --map-table-occupied-bg: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+  --map-table-occupied-text: color-mix(in srgb, var(--admin-c-rojo) 68%, var(--admin-text));
+  --map-table-occupied-border: color-mix(in srgb, var(--admin-c-rojo) 40%, transparent);
+  --map-table-selected-bg: color-mix(in srgb, var(--admin-gold) 34%, var(--admin-surface));
+  --map-table-selected-text: color-mix(in srgb, var(--admin-gold) 74%, var(--admin-text));
   --map-table-selected-border: var(--admin-border-soft);
-  --map-table-reservation-bg: rgba(103, 150, 192, 0.18);
-  --map-table-reservation-text: #b5d6f2;
-  --map-table-reservation-border: rgba(103, 150, 192, 0.38);
+  --map-table-reservation-bg: color-mix(in srgb, var(--admin-c-azul) 16%, var(--admin-surface));
+  --map-table-reservation-text: color-mix(in srgb, var(--admin-c-azul) 66%, var(--admin-text));
+  --map-table-reservation-border: color-mix(in srgb, var(--admin-c-azul) 42%, transparent);
   --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
   --map-table-reservation-overdue-text: var(--map-table-reservation-text);
-  --map-table-reservation-overdue-border: rgba(161, 168, 176, 0.62);
-  --map-table-unavailable-bg: rgba(128, 136, 143, 0.12);
+  /* El retraso se marca apagando el borde a neutro, no cambiando el relleno. */
+  --map-table-reservation-overdue-border: color-mix(in srgb, var(--admin-faint) 70%, transparent);
+  --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 12%, var(--admin-surface));
   --map-table-unavailable-text: var(--admin-faint);
   --map-table-unavailable-border: var(--admin-border);
   --map-action-primary-bg: var(--admin-gold);
-  --map-action-primary-text: var(--admin-bg);
+  --map-action-primary-text: var(--admin-ink-on-gold);
   --map-action-primary-border: var(--admin-gold);
   --map-action-cancel-bg: var(--admin-danger-bg);
   --map-action-cancel-text: var(--admin-danger-text);
@@ -1768,44 +1778,6 @@ html:has(.operation-body.is-assignment-mode) {
   --map-reservation-block-border: var(--map-table-reservation-border);
 }
 
-[data-admin-theme=light] .operational-page {
-  --map-table-available-bg: #e3f1e1;
-  --map-table-available-text: #315d3e;
-  --map-table-available-border: #8fbd8b;
-  --map-table-occupied-bg: #f7dfdc;
-  --map-table-occupied-text: #81382f;
-  --map-table-occupied-border: #d69b92;
-  --map-table-selected-bg: #f5e4b5;
-  --map-table-selected-text: #664b16;
-  --map-table-selected-border: var(--admin-border-soft);
-  --map-table-reservation-bg: #e1eef8;
-  --map-table-reservation-text: #31506d;
-  --map-table-reservation-border: #94b9d6;
-  --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
-  --map-table-reservation-overdue-text: var(--map-table-reservation-text);
-  --map-table-reservation-overdue-border: #9299a1;
-  --map-table-unavailable-bg: #ecebe7;
-  --map-table-unavailable-text: rgba(11, 12, 13, 0.48);
-  --map-table-unavailable-border: rgba(11, 12, 13, 0.16);
-  --map-action-primary-bg: var(--admin-gold);
-  --map-action-primary-text: var(--admin-bg);
-  --map-action-primary-border: var(--admin-gold);
-  --map-action-cancel-bg: var(--admin-danger-bg);
-  --map-action-cancel-text: var(--admin-danger-text);
-  --map-action-cancel-border: var(--admin-danger-border);
-  --map-action-utility-bg: var(--admin-surface-soft);
-  --map-action-utility-text: var(--admin-text);
-  --map-action-utility-border: var(--admin-border);
-  --map-selection-mode-border: color-mix(in srgb, var(--admin-gold) 64%, var(--admin-border-soft));
-  --map-selection-mode-overlay: color-mix(in srgb, var(--admin-gold) 6%, transparent);
-  --map-selection-message-bg: color-mix(in srgb, var(--admin-surface-soft) 92%, var(--admin-gold) 8%);
-  --map-selection-message-border: color-mix(in srgb, var(--admin-gold) 58%, var(--admin-border-soft));
-  --map-selection-message-text: var(--admin-text);
-  --map-reservation-warning-border: var(--map-table-reservation-border);
-  --map-reservation-block-bg: var(--map-table-reservation-bg);
-  --map-reservation-block-border: var(--map-table-reservation-border);
-}
-
 .mesas-map {
   display: flex;
   width: 100%;
@@ -1816,8 +1788,8 @@ html:has(.operation-body.is-assignment-mode) {
   flex-direction: column;
   border: 1px solid var(--admin-border);
   border-radius: 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, #fff 3%), var(--admin-surface));
-  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2)), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, white 3%), var(--admin-surface));
+  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent)), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
   overflow: hidden;
   container-name: mesas-map;
   container-type: inline-size;
@@ -1826,7 +1798,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 .mesas-map:hover {
   border-color: var(--admin-border-soft);
-  box-shadow: var(--admin-shadow-md, 0 16px 38px rgba(0, 0, 0, 0.2));
+  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent));
   transform: none;
 }
 
@@ -2186,9 +2158,9 @@ html:has(.operation-body.is-assignment-mode) {
   flex: 0 0 auto;
   border: 1px solid var(--admin-border-soft);
   border-radius: 14px;
-  background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 85%, transparent), transparent 65%), linear-gradient(rgba(204, 163, 82, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(204, 163, 82, 0.045) 1px, transparent 1px), color-mix(in srgb, var(--admin-surface-soft) 92%, #000 8%);
+  background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 85%, transparent), transparent 65%), linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px), color-mix(in srgb, var(--admin-surface-soft) 92%, black 8%);
   background-size: auto, 46px 46px, 46px 46px, auto;
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.025), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: 0 26px 60px color-mix(in srgb, var(--sombra) 32%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--txt) 2.5%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
   container-type: inline-size;
 }
 
@@ -2208,9 +2180,9 @@ html:has(.operation-body.is-assignment-mode) {
   place-items: center;
   border: 1.5px solid var(--admin-border-soft);
   border-radius: 14px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, #fff 5%), var(--admin-surface));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, white 5%), var(--admin-surface));
   color: var(--admin-text);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 30%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -2228,13 +2200,13 @@ html:has(.operation-body.is-assignment-mode) {
   z-index: 2;
   border-color: color-mix(in srgb, var(--admin-gold) 55%, var(--admin-border));
   transform: translate(-50%, -50%) scale(1.045);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(204, 163, 82, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--sombra) 34%, transparent), 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 6%, transparent);
 }
 
 .mesas-map .mesa-pin:focus-visible {
   z-index: 3;
   outline: 0;
-  box-shadow: var(--admin-focus-ring), 0 9px 24px rgba(0, 0, 0, 0.26);
+  box-shadow: var(--admin-focus-ring), 0 9px 24px color-mix(in srgb, var(--sombra) 26%, transparent);
 }
 
 .mesas-map .mesa-pin:disabled {
@@ -2289,14 +2261,14 @@ html:has(.operation-body.is-assignment-mode) {
   line-height: 1.2;
   text-align: center;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--sombra) 35%, transparent);
 }
 
 .mesas-map .mesa-pin--libre {
   border-color: var(--map-table-available-border);
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 6%, transparent);
 }
 
 .mesas-map .mesa-pin--ocupada {
@@ -2304,13 +2276,13 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
   opacity: 0.96;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /* Indicador secundario: la mesa sigue roja, pero pertenece al snapshot que
  * el operador debe resolver durante la reasignación. */
 .mesas-map .mesa-pin--mod-asignada_actualmente {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-gold) 70%, transparent), 0 10px 26px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-gold) 70%, transparent), 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent);
 }
 
 .mesas-map .mesa-pin--ocupada.mesa-pin--mod-asignada_actualmente {
@@ -2322,7 +2294,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
 }
 
 .mesas-map .mesa-pin--no-utilizable,
@@ -2335,7 +2307,7 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-unavailable-bg);
   color: var(--map-table-unavailable-text);
   opacity: 0.94;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--sombra) 20%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
 }
 
 .mesas-map .mesa-pin--tipo-barra {
@@ -2393,7 +2365,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-width: 2.5px;
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-reservation-border) 44%, transparent);
 }
 
 .mesas-map .mesa-pin--seleccionada,
@@ -2403,7 +2375,7 @@ html:has(.operation-body.is-assignment-mode) {
   background: var(--map-table-selected-bg);
   color: var(--map-table-selected-text);
   opacity: 1;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 20px color-mix(in srgb, var(--map-table-selected-bg) 55%, transparent);
   outline: 0;
 }
 
@@ -2412,7 +2384,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: var(--map-table-selected-border);
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 /*
@@ -2425,7 +2397,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: var(--map-reservation-warning-border);
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), 0 0 0 5px color-mix(in srgb, var(--map-table-reservation-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
 .pos-map.is-ticket-selection-mode {
@@ -2452,7 +2424,7 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid var(--map-selection-message-border);
   border-radius: 12px;
   background: var(--map-selection-message-bg);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 18px 44px color-mix(in srgb, var(--sombra) 42%, transparent);
   transform: translateX(-50%);
 }
 .pos-ticket-selection-bar[hidden] {
@@ -2705,7 +2677,7 @@ html:has(.operation-body.is-assignment-mode) {
   font-size: 12px;
 }
 .reservation-operation-capacity em {
-  color: var(--admin-warning-text, #ffd98b);
+  color: var(--admin-warning-text);
   font-size: 10px;
   font-style: normal;
 }
@@ -2733,7 +2705,7 @@ html:has(.operation-body.is-assignment-mode) {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--sombra) 18%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
 }
 
 .operational-selection-context span {
@@ -3068,7 +3040,7 @@ html:has(.operation-body.is-assignment-mode) {
   place-items: center;
   border: 1px solid var(--admin-border);
   border-radius: 999px;
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--admin-gold-soft);
   font-size: var(--operational-text-xs);
   font-weight: var(--operational-weight-semibold);
@@ -3741,7 +3713,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 @media (max-width: 900px) {
   .reservation-operation__panel {
-    background: color-mix(in srgb, var(--admin-bg) 98%, #000);
+    background: color-mix(in srgb, var(--admin-bg) 98%, black);
   }
 }
 @media (max-width: 640px) {
@@ -3763,8 +3735,8 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border-soft));
   border-left-width: 4px;
   border-radius: 14px;
-  background: linear-gradient(105deg, rgba(204, 163, 82, 0.14), transparent 38%), color-mix(in srgb, var(--admin-surface) 97%, transparent);
-  box-shadow: 0 0 0 1px rgba(204, 163, 82, 0.08), 0 18px 42px rgba(0, 0, 0, 0.32);
+  background: linear-gradient(105deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent 38%), color-mix(in srgb, var(--admin-surface) 97%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent), 0 18px 42px color-mix(in srgb, var(--sombra) 32%, transparent);
 }
 
 .reservation-operation-assignment-bar[hidden] {
@@ -3795,7 +3767,7 @@ html:has(.operation-body.is-assignment-mode) {
   flex: 0 0 8px;
   border-radius: 50%;
   background: var(--admin-gold);
-  box-shadow: 0 0 0 4px rgba(204, 163, 82, 0.14);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .reservation-operation-assignment-bar__identity span:focus {
@@ -3804,7 +3776,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 .reservation-operation-assignment-bar__identity span:focus-visible {
   border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(204, 163, 82, 0.34);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .reservation-operation-assignment-bar__identity strong {
@@ -3864,7 +3836,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .reservation-operation-assignment-bar__actions .admin-btn--primary {
-  box-shadow: 0 8px 20px rgba(204, 163, 82, 0.16);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .reservation-operation.assignment-mode .operational-map {
@@ -4196,25 +4168,25 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-global-notice--restricted {
   border-color: color-mix(in srgb, var(--admin-info-text) 62%, var(--admin-border-strong));
   background: color-mix(in srgb, var(--admin-info-text) 18%, var(--admin-surface-strong));
-  color: #dceeff;
+  color: var(--feedback-info);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), 0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
 }
 .operational-global-notice--info .operational-global-notice__icon,
 .operational-global-notice--restricted .operational-global-notice__icon {
   border-color: color-mix(in srgb, var(--admin-info-text) 65%, transparent);
   background: color-mix(in srgb, var(--admin-info-text) 14%, transparent);
-  color: #e8f5ff;
+  color: var(--feedback-info);
 }
 .operational-global-notice--info .operational-global-notice__copy > span,
 .operational-global-notice--info .operational-global-notice__detail p,
 .operational-global-notice--restricted .operational-global-notice__copy > span,
 .operational-global-notice--restricted .operational-global-notice__detail p {
-  color: #c9def0;
+  color: var(--feedback-info);
   opacity: 1;
 }
 .operational-global-notice--info .operational-global-notice__expand:hover,
 .operational-global-notice--restricted .operational-global-notice__expand:hover {
-  background: color-mix(in srgb, #dceeff 16%, transparent);
+  background: color-mix(in srgb, var(--feedback-info-bg) 16%, transparent);
 }
 
 .operational-global-notice--success {
@@ -4372,8 +4344,8 @@ html:has(.operation-body.is-assignment-mode) {
   align-items: center;
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm, 10px);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 88%, #fff 3%), var(--admin-surface-soft));
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 88%, white 3%), var(--admin-surface-soft));
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--sombra) 12%, transparent);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .reservation-admin-select:focus-within {
@@ -4449,13 +4421,13 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
   border: 1px solid var(--admin-border);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--admin-surface) 96%, #fff 2%);
+  background: color-mix(in srgb, var(--admin-surface) 96%, white 2%);
   color: var(--admin-text);
-  box-shadow: var(--admin-shadow-md, 0 24px 70px rgba(0, 0, 0, 0.5));
+  box-shadow: var(--admin-shadow-md, 0 24px 70px color-mix(in srgb, var(--sombra) 50%, transparent));
   overflow: hidden;
 }
 .operation-create-modal::backdrop {
-  background: rgba(4, 6, 5, 0.72);
+  background: color-mix(in srgb, var(--scrim) 72%, transparent);
   backdrop-filter: blur(4px);
 }
 .operation-create-modal[open] {
@@ -4471,7 +4443,7 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 16px;
   padding: 22px 24px 18px;
   border-bottom: 1px solid var(--admin-border-soft);
-  background: color-mix(in srgb, var(--admin-surface) 98%, #fff 2%);
+  background: color-mix(in srgb, var(--admin-surface) 98%, white 2%);
 }
 .operation-create-modal__head h2 {
   margin: 4px 0 0;
@@ -4515,7 +4487,7 @@ html:has(.operation-body.is-assignment-mode) {
   width: 8px;
 }
 .operation-create-modal__body::-webkit-scrollbar-track {
-  background: rgba(245, 245, 245, 0.035);
+  background: color-mix(in srgb, var(--txt) 3.5%, transparent);
 }
 .operation-create-modal__body::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
@@ -4819,7 +4791,7 @@ html:has(.operation-body.is-assignment-mode) {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(7, 9, 8, 0.76);
+  background: color-mix(in srgb, var(--scrim) 76%, transparent);
   opacity: 0;
   transition: opacity 0.18s ease;
 }
@@ -4846,11 +4818,11 @@ html:has(.operation-body.is-assignment-mode) {
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 32px;
-  border: 1px solid rgba(210, 174, 91, 0.42);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   border-radius: 18px;
-  background: var(--confirmation-surface, #171b17);
-  color: var(--confirmation-text, #f4efe6);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  background: var(--confirmation-surface);
+  color: var(--confirmation-text);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
   transform: translateY(0.5rem) scale(0.985);
   transition: transform 0.18s ease;
 }
@@ -4869,9 +4841,9 @@ html:has(.operation-body.is-assignment-mode) {
   height: 44px;
   place-items: center;
   flex: 0 0 44px;
-  border: 1px solid rgba(210, 174, 91, 0.5);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 50%;
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
   font-size: 22px;
   font-weight: 700;
 }
@@ -4881,7 +4853,7 @@ html:has(.operation-body.is-assignment-mode) {
 .confirmation-modal__eyebrow {
   display: block;
   margin-bottom: 6px;
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -4904,14 +4876,14 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__description {
   margin: 8px 0 0;
-  color: rgba(244, 239, 230, 0.84);
+  color: color-mix(in srgb, var(--txt) 84%, transparent);
 }
 .confirmation-modal__close {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(244, 239, 230, 0.24);
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -4936,9 +4908,9 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__summary {
   padding: 16px;
-  border: 1px solid rgba(244, 239, 230, 0.14);
+  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
   border-radius: 12px;
-  background: rgba(244, 239, 230, 0.05);
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
 }
 .confirmation-modal__summary[hidden] {
   display: none;
@@ -4954,15 +4926,15 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__warning {
   padding: 14px 16px;
-  border-left: 4px solid #e2a44d;
-  background: rgba(226, 164, 77, 0.12);
-  color: #f0c47d;
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent-soft);
 }
 .confirmation-modal__warning[hidden] {
   display: none;
 }
 .confirmation-modal__consequence {
-  color: rgba(244, 239, 230, 0.82);
+  color: color-mix(in srgb, var(--txt) 82%, transparent);
 }
 .confirmation-modal__consequence[hidden] {
   display: none;
@@ -4975,7 +4947,7 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 8px;
 }
 .confirmation-modal__reason span {
-  color: rgba(244, 239, 230, 0.82);
+  color: color-mix(in srgb, var(--txt) 82%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -4983,25 +4955,25 @@ html:has(.operation-body.is-assignment-mode) {
   width: 100%;
   min-height: 96px;
   padding: 12px;
-  border: 1px solid rgba(244, 239, 230, 0.24);
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
   border-radius: 9px;
-  background: rgba(244, 239, 230, 0.05);
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
   color: inherit;
   font: inherit;
   resize: vertical;
 }
 .confirmation-modal__reason textarea:focus {
-  outline: 2px solid var(--accent, #d2ae5b);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .confirmation-modal__status {
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
 }
 .confirmation-modal__status[hidden] {
   display: none;
 }
 .confirmation-modal__status.is-error {
-  color: #f0a69a;
+  color: var(--feedback-danger);
 }
 .confirmation-modal__comparison {
   display: grid;
@@ -5013,16 +4985,16 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-bottom: 1px solid rgba(244, 239, 230, 0.12);
+  border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
 }
 .confirmation-modal__comparison-row:last-child {
   border-bottom: 0;
 }
 .confirmation-modal__comparison-row.is-changed {
-  background: rgba(210, 174, 91, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .confirmation-modal__comparison-label {
-  color: var(--accent, #d2ae5b);
+  color: var(--accent-text);
 }
 .confirmation-modal__comparison-cell {
   display: grid;
@@ -5030,7 +5002,7 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 .confirmation-modal__comparison-cell small {
-  color: rgba(244, 239, 230, 0.64);
+  color: color-mix(in srgb, var(--txt) 64%, transparent);
   font-size: 14px;
 }
 .confirmation-modal__actions {
@@ -5039,7 +5011,7 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid rgba(244, 239, 230, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
 }
 .confirmation-modal__button {
   min-height: 46px;
@@ -5057,25 +5029,25 @@ html:has(.operation-body.is-assignment-mode) {
   opacity: 0.55;
 }
 .confirmation-modal__button--secondary {
-  border-color: rgba(244, 239, 230, 0.25);
+  border-color: color-mix(in srgb, var(--txt) 25%, transparent);
   background: transparent;
   color: inherit;
 }
 .confirmation-modal__button--primary {
-  background: var(--accent, #d2ae5b);
-  color: #11140f;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .confirmation-modal--danger .confirmation-modal__icon {
-  border-color: rgba(217, 135, 120, 0.7);
-  color: #f0a69a;
+  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
+  color: var(--feedback-danger);
 }
 .confirmation-modal--danger .confirmation-modal__button--primary {
-  background: #a94c3e;
-  color: #fff9f3;
+  background: var(--feedback-danger);
+  color: var(--txt);
 }
 .confirmation-modal--warning .confirmation-modal__icon {
-  border-color: rgba(226, 164, 77, 0.7);
-  color: #f0c47d;
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  color: var(--accent-soft);
 }
 @media (max-width: 639px) {
   .confirmation-modal {
@@ -5134,7 +5106,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .app-notice {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -5143,9 +5115,9 @@ html:has(.operation-body.is-assignment-mode) {
   border: 1px solid color-mix(in srgb, var(--app-notice-accent) 45%, transparent);
   border-left-width: 4px;
   border-radius: 12px;
-  background: var(--confirmation-surface, var(--admin-surface, #171b17));
-  color: var(--confirmation-text, var(--admin-text, #f4efe6));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+  background: var(--confirmation-surface, var(--admin-surface));
+  color: var(--confirmation-text, var(--admin-text));
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--sombra) 42%, transparent);
   opacity: 0;
   pointer-events: auto;
   transform: translateY(-8px);
@@ -5156,16 +5128,16 @@ html:has(.operation-body.is-assignment-mode) {
   transform: translateY(0);
 }
 .app-notice--error {
-  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo, #e51022));
+  --app-notice-accent: var(--c-rojo, var(--admin-c-rojo));
 }
 .app-notice--warning {
-  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar, #f5b400));
+  --app-notice-accent: var(--c-ambar, var(--admin-c-ambar));
 }
 .app-notice--success {
-  --app-notice-accent: var(--c-verde, var(--admin-c-verde, #34a853));
+  --app-notice-accent: var(--c-verde, var(--admin-c-verde));
 }
 .app-notice--info {
-  --app-notice-accent: var(--c-azul, var(--admin-c-azul, #3a86ff));
+  --app-notice-accent: var(--c-azul, var(--admin-c-azul));
 }
 .app-notice__text {
   margin: 0;

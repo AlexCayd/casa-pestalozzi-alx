@@ -111,15 +111,15 @@
   }
 
   &__flash--exito {
-    border: 1px solid rgba(71, 124, 88, 0.24);
-    background: rgba(71, 124, 88, 0.12);
+    border: 1px solid color-mix(in srgb, var(--admin-c-verde) 24%, transparent);
+    background: color-mix(in srgb, var(--admin-c-verde) 12%, transparent);
     color: var(--admin-success-text);
   }
 
   &__flash--error,
   &__alert {
-    border: 1px solid rgba(173, 68, 54, 0.24);
-    background: rgba(173, 68, 54, 0.1);
+    border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 24%, transparent);
+    background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
     color: var(--admin-danger-text);
   }
 
@@ -173,19 +173,19 @@
   }
 
   &__badge.is-active {
-    border: 1px solid rgba(71, 124, 88, 0.28);
-    background: rgba(71, 124, 88, 0.14);
+    border: 1px solid color-mix(in srgb, var(--admin-c-verde) 28%, transparent);
+    background: color-mix(in srgb, var(--admin-c-verde) 14%, transparent);
     color: var(--admin-success-text);
   }
 
   &__badge.is-inactive {
-    border: 1px solid rgba(169, 75, 63, 0.24);
-    background: rgba(169, 75, 63, 0.1);
+    border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 24%, transparent);
+    background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
     color: var(--admin-danger-text);
   }
 
   &__tag {
-    background: rgba(187, 143, 62, 0.14);
+    background: color-mix(in srgb, var(--admin-gold-deep) 14%, transparent);
     color: var(--admin-gold-deep);
   }
 
@@ -234,7 +234,7 @@
       &:focus {
         border-color: var(--admin-gold);
         outline: 0;
-        box-shadow: 0 0 0 3px rgba(187, 143, 62, 0.15);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
       }
     }
 
@@ -383,7 +383,7 @@
     &:focus {
       border-color: var(--admin-gold);
       outline: 0;
-      box-shadow: 0 0 0 3px rgba(187, 143, 62, 0.15);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
     }
   }
 
@@ -500,8 +500,8 @@
     color 160ms ease;
 
   &:hover {
-    border-color: rgba(160, 126, 54, 0.34);
-    background: rgba(187, 143, 62, 0.1);
+    border-color: color-mix(in srgb, var(--admin-gold-deep) 34%, transparent);
+    background: color-mix(in srgb, var(--admin-gold-deep) 10%, transparent);
     color: var(--admin-text);
   }
 
@@ -581,13 +581,13 @@
   min-width: 38px;
   height: 38px;
   padding: 0;
-  border: 1px solid rgba(160, 126, 54, 0.48);
+  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 48%, transparent);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
   box-shadow:
     var(--admin-shadow-sm),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    inset 0 0 0 1px color-mix(in srgb, var(--admin-text) 12%, transparent);
   cursor: pointer;
   text-decoration: none;
   transition:
@@ -608,9 +608,9 @@
   }
 
   &:hover {
-    border-color: rgba(160, 126, 54, 0.68);
+    border-color: color-mix(in srgb, var(--admin-gold-deep) 68%, transparent);
     background: var(--admin-surface-strong);
-    box-shadow: 0 8px 20px rgba(11, 12, 13, 0.1);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--admin-sombra) 10%, transparent);
   }
 
   &:focus-visible {
@@ -632,18 +632,18 @@
 }
 
 .admin-icon-button--edit {
-  border-color: rgba(160, 126, 54, 0.58);
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 58%, transparent);
   color: var(--admin-gold-deep);
 }
 
 .admin-icon-button--danger {
-  border-color: rgba(169, 75, 63, 0.38);
-  background: rgba(169, 75, 63, 0.1);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
   color: var(--admin-danger-text);
 
   &:hover {
-    border-color: rgba(169, 75, 63, 0.58);
-    background: rgba(169, 75, 63, 0.16);
+    border-color: color-mix(in srgb, var(--admin-c-rojo) 58%, transparent);
+    background: color-mix(in srgb, var(--admin-c-rojo) 16%, transparent);
     color: var(--admin-danger-text);
   }
 }
@@ -663,7 +663,7 @@
   min-width: 0;
   min-height: 38px;
   padding-inline: 12px;
-  border-color: rgba(160, 126, 54, 0.52);
+  border-color: color-mix(in srgb, var(--admin-gold-deep) 52%, transparent);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
   font-size: 12px;
@@ -677,9 +677,9 @@
   min-height: 36px;
   min-width: 58px;
   padding: 0 9px;
-  border: 1px solid rgba(71, 124, 88, 0.38);
+  border: 1px solid color-mix(in srgb, var(--admin-c-verde) 38%, transparent);
   border-radius: 999px;
-  background: rgba(71, 124, 88, 0.16);
+  background: color-mix(in srgb, var(--admin-c-verde) 16%, transparent);
   color: var(--admin-success-text);
   font: inherit;
   font-size: 12px;
@@ -695,8 +695,8 @@
     transform 120ms ease;
 
   &:hover {
-    border-color: rgba(71, 124, 88, 0.56);
-    box-shadow: 0 6px 18px rgba(11, 12, 13, 0.08);
+    border-color: color-mix(in srgb, var(--admin-c-verde) 56%, transparent);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--admin-sombra) 8%, transparent);
   }
 
   &:focus-visible {
@@ -718,12 +718,12 @@
 }
 
 .admin-status-switch.is-off {
-  border-color: rgba(169, 75, 63, 0.38);
-  background: rgba(169, 75, 63, 0.14);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 14%, transparent);
   color: var(--admin-danger-text);
 
   .admin-status-switch__track {
-    background: rgba(169, 75, 63, 0.22);
+    background: color-mix(in srgb, var(--admin-c-rojo) 22%, transparent);
   }
 
   .admin-status-switch__thumb {
@@ -739,7 +739,7 @@
   height: 22px;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(71, 124, 88, 0.2);
+  background: color-mix(in srgb, var(--admin-c-verde) 20%, transparent);
 }
 
 .admin-status-switch__thumb {

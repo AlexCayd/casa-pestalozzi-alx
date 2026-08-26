@@ -22,23 +22,31 @@
      */
     function palette() {
         var dark = document.documentElement.getAttribute('data-admin-theme') === 'dark';
+
+        // Los tonos salen de los tokens --admin-chart-* de _globals.scss, los
+        // mismos que lee analytics/charts.js. Antes este archivo guardaba su
+        // propia copia de la serie y había que acordarse de tocar las dos.
         return {
             dark: dark,
             texto: readToken('--admin-text', dark ? '#ede9df' : '#211f1b'),
             muted: readToken('--admin-muted', dark ? 'rgba(237,233,223,0.58)' : '#766f65'),
             surface: readToken('--admin-surface', dark ? '#15181a' : '#fdfcfb'),
-            tooltipBg: dark ? '#0b0c0d' : '#211f1b',
-            serie: dark
-                ? ['#17A2AD', '#E05A18', '#3A86FF', '#C93DB2', '#34A853']
-                : ['#0895A2', '#CC4E12', '#2A73E8', '#B32F9E', '#2A9247'],
-            ingreso: dark ? '#34A853' : '#2A9247',
-            costo: dark ? '#E05A18' : '#CC4E12',
-            merma: dark ? '#E51022' : '#C40E1D',
+            tooltipBg: readToken('--admin-chart-tooltip', dark ? '#0b0c0d' : '#211f1b'),
+            serie: [
+                readToken('--admin-chart-1', dark ? '#17A2AD' : '#0895A2'),
+                readToken('--admin-chart-2', dark ? '#E05A18' : '#CC4E12'),
+                readToken('--admin-chart-3', dark ? '#3A86FF' : '#2A73E8'),
+                readToken('--admin-chart-4', dark ? '#C93DB2' : '#B32F9E'),
+                readToken('--admin-chart-5', dark ? '#34A853' : '#2A9247')
+            ],
+            ingreso: readToken('--admin-chart-ventas', dark ? '#34A853' : '#2A9247'),
+            costo: readToken('--admin-chart-reservas', dark ? '#E05A18' : '#CC4E12'),
+            merma: readToken('--admin-chart-bajo', dark ? '#E51022' : '#C40E1D'),
             oro: readToken('--admin-gold', '#cca352'),
             // Los gastos fijos van todos del mismo tono: en un Sankey el ancho
             // ya es el dato, y darle a cada categoría su color haría creer que
             // la identidad importa (para eso está la dona de al lado).
-            gasto: dark ? '#8d8577' : '#9a9084'
+            gasto: readToken('--admin-faint', dark ? '#8d8577' : '#9a9084')
         };
     }
 
@@ -185,8 +193,8 @@
                     tooltip: {
                         backgroundColor: pal.tooltipBg,
                         padding: 12,
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
+                        titleColor: pal.texto,
+                        bodyColor: pal.texto,
                         callbacks: {
                             label: function (ctx) {
                                 var texto = ctx.raw.from + ' → ' + ctx.raw.to + ': ' + money(ctx.raw.flow);
@@ -278,8 +286,8 @@
                     tooltip: {
                         backgroundColor: pal.tooltipBg,
                         padding: 12,
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
+                        titleColor: pal.texto,
+                        bodyColor: pal.texto,
                         callbacks: {
                             label: function (ctx) {
                                 var pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) + '%' : '';

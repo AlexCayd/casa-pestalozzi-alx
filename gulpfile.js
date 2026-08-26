@@ -71,6 +71,8 @@ const paths = {
   adminInventarioJs: "src/js/admin/inventario/inventario.js",
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
+  adminCatasJs: "src/js/admin/catas/catas.js",
+  adminCateringJs: "src/js/admin/catering/catering.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
@@ -103,6 +105,34 @@ const paths = {
   chartJs: [
     "node_modules/chart.js/dist/chart.umd.min.js",
     "node_modules/chartjs-chart-sankey/dist/chartjs-chart-sankey.min.js",
+  ],
+  // GSAP + ScrollTrigger + Lenis, la capa de movimiento de la landing y del
+  // panel. Antes llegaban por CDN en tres peticiones bloqueantes; vendorizarlas
+  // deja el sitio funcionando sin red y fija la versión en package.json.
+  // Se piden las compilaciones UMD (exponen window.gsap / ScrollTrigger /
+  // Lenis): el bundle es un concat de ES5 en scope global, no un módulo.
+  // ScrollTrigger se registra sobre el gsap global, así que el orden importa.
+  vendorJs: [
+    "node_modules/gsap/dist/gsap.min.js",
+    "node_modules/gsap/dist/ScrollTrigger.min.js",
+    "node_modules/lenis/dist/lenis.min.js",
+  ],
+  // Sólo el subconjunto 'latin': cubre entero el español (acentos y eñe) y
+  // pesa la mitad que arrastrar también latin-ext.
+  //
+  // De Bodoni se toma la variante 'standard', la que trae los dos ejes (wght y
+  // opsz). El eje óptico es el que permite que UNA familia sirva de display y
+  // de cursiva de acento: un didone a cuerpo de texto necesita serifas más
+  // robustas que a cuerpo de titular.
+  //
+  // La itálica de Crimson no es un extra: .eyebrow__it, .lead y .display em la
+  // piden desde siempre y, sin fichero, el navegador venía inclinando la
+  // redonda por su cuenta.
+  vendorFonts: [
+    "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-normal.woff2",
+    "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-italic.woff2",
+    "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-normal.woff2",
+    "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-italic.woff2",
   ],
 };
 
@@ -239,6 +269,24 @@ function adminUsersJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
+function adminCatasJavascript() {
+  return src(paths.adminCatasJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("catas.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
+function adminCateringJavascript() {
+  return src(paths.adminCateringJs)
+    .pipe(sourcemaps.init())
+    .pipe(concat("catering.js"))
+    .pipe(terser())
+    .pipe(sourcemaps.write("."))
+    .pipe(dest("./public/build/js/admin"));
+}
+
 function adminReservationOperationJavascript() {
   return src(paths.adminReservationOperationJs)
     .pipe(sourcemaps.init())
@@ -275,6 +323,21 @@ function adminConfigurationJavascript() {
 
 function copyChartJs() {
   return src(paths.chartJs).pipe(dest("public/build/js/vendor"));
+}
+
+function copyVendorJs() {
+  return src(paths.vendorJs).pipe(dest("public/build/js/vendor"));
+}
+
+// Las .woff2 de node_modules aterrizan en assets/fonts/ igual que las caras
+// propias del proyecto: es el directorio del que parte copyFonts() y el que
+// resuelven las rutas ../fonts/ de _fonts.scss en las DOS copias del CSS
+// (public/build/css y assets/css). Dejarlas sólo en public/build/fonts
+// rompería la copia de assets.
+function copyVendorFonts() {
+  return src(paths.vendorFonts)
+    .pipe(dest("assets/fonts"))
+    .pipe(dest("public/build/fonts"));
 }
 
 function imagenes() {
@@ -343,6 +406,8 @@ function devWatch(done) {
   watch("src/js/admin/inventario/**/*.js", adminInventarioJavascript);
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
+  watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
+  watch("src/js/admin/catering/**/*.js", adminCateringJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
     ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
@@ -364,6 +429,8 @@ function devWatch(done) {
     adminConfigurationJavascript,
   );
   watch(paths.chartJs, copyChartJs);
+  watch(paths.vendorJs, copyVendorJs);
+  watch(paths.vendorFonts, copyVendorFonts);
   watch(paths.imagenes, imagenes);
   watch(paths.imagenes, versionWebp);
   watch(paths.imagenes, versionAvif);
@@ -386,10 +453,14 @@ exports.adminRecetasJs = adminRecetasJavascript;
 exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminUsersJs = adminUsersJavascript;
+exports.adminCatasJs = adminCatasJavascript;
+exports.adminCateringJs = adminCateringJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
 exports.copyChartJs = copyChartJs;
+exports.copyVendorJs = copyVendorJs;
+exports.copyVendorFonts = copyVendorFonts;
 exports.imagenes = imagenes;
 exports.versionWebp = versionWebp;
 exports.versionAvif = versionAvif;
@@ -412,10 +483,14 @@ exports.dev = parallel(
   adminInventarioJavascript,
   adminReservationListJavascript,
   adminUsersJavascript,
+  adminCatasJavascript,
+  adminCateringJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
   copyChartJs,
+  copyVendorJs,
+  copyVendorFonts,
   copyFonts,
   copyImages,
   devWatch,
@@ -441,12 +516,19 @@ exports.build = series(
   adminInventarioJavascript,
   adminReservationListJavascript,
   adminUsersJavascript,
+  adminCatasJavascript,
+  adminCateringJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
   // Sin esto un build limpio no publica chart.umd ni el plugin de Sankey, que
   // finanzas y analíticas cargan desde /build/js/vendor.
   copyChartJs,
+  // Idem: sin esto la landing se queda sin GSAP/ScrollTrigger/Lenis y sin las
+  // caras de Bodoni y la itálica de Crimson. copyVendorFonts va antes que
+  // copyFonts porque siembra assets/fonts/, de donde parte la otra.
+  copyVendorJs,
+  copyVendorFonts,
   copyFonts,
   copyImages,
 );

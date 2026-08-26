@@ -261,7 +261,7 @@
   transition: border-color var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 
   &:hover {
-    border-color: rgba(160, 126, 54, 0.4);
+    border-color: color-mix(in srgb, var(--admin-gold-deep) 40%, transparent);
   }
 
   &.is-inactive {
@@ -371,7 +371,7 @@
   }
 
   .is-today {
-    background: rgba(95, 125, 86, 0.1);
+    background: color-mix(in srgb, var(--admin-c-verde) 10%, transparent);
   }
 
   .is-today .admin-table__cell-main {

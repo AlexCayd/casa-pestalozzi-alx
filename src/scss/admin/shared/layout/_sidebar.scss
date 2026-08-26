@@ -171,7 +171,7 @@
     background: var(--admin-gold);
     transform: translateY(-50%) scaleY(0);
     transform-origin: center;
-    box-shadow: 0 0 12px rgba(204, 163, 82, 0.55);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--admin-gold) 55%, transparent);
     transition: transform var(--admin-t-base) var(--admin-ease);
   }
 

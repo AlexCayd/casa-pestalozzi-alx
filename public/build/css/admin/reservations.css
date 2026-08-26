@@ -67,8 +67,8 @@
   align-items: center;
   border: 1px solid var(--admin-border-soft);
   border-radius: var(--admin-radius-sm, 10px);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 88%, #fff 3%), var(--admin-surface-soft));
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface-soft) 88%, white 3%), var(--admin-surface-soft));
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--sombra) 12%, transparent);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .reservation-admin-select:focus-within {
@@ -171,7 +171,7 @@
 .admin-filters select:focus {
   border-color: var(--admin-gold);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(187, 143, 62, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
 }
 .admin-filters__search, .admin-filters__group {
   min-width: 0;
@@ -213,15 +213,15 @@
 }
 .admin-reservations .admin-alert--success {
   border-left-color: var(--admin-success);
-  background: rgba(95, 125, 86, 0.08);
+  background: color-mix(in srgb, var(--admin-c-verde) 8%, transparent);
 }
 .admin-reservations .admin-alert--warning {
   border-left-color: var(--admin-warning);
-  background: rgba(204, 163, 82, 0.09);
+  background: color-mix(in srgb, var(--admin-gold) 9%, transparent);
 }
 .admin-reservations .admin-alert--error {
   border-left-color: var(--admin-danger);
-  background: rgba(169, 75, 63, 0.08);
+  background: color-mix(in srgb, var(--admin-c-rojo) 8%, transparent);
 }
 .admin-reservations__metrics {
   margin-bottom: 18px;
@@ -288,18 +288,18 @@
   box-shadow: var(--admin-focus-ring);
 }
 .admin-reservations__metric--pending {
-  border-color: rgba(204, 163, 82, 0.28);
+  border-color: color-mix(in srgb, var(--admin-gold) 28%, transparent);
   background: var(--admin-surface);
 }
 .admin-reservations__metric--pending::before {
-  background: rgba(204, 163, 82, 0.72);
+  background: color-mix(in srgb, var(--admin-gold) 72%, transparent);
 }
 .admin-reservations__metric--needs {
-  border-color: rgba(169, 75, 63, 0.22);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 22%, transparent);
   background: var(--admin-surface);
 }
 .admin-reservations__metric--needs::before {
-  background: rgba(169, 75, 63, 0.58);
+  background: color-mix(in srgb, var(--admin-c-rojo) 58%, transparent);
 }
 .admin-reservations__metric--late {
   border-color: color-mix(in srgb, var(--admin-c-ambar) 34%, transparent);
@@ -526,7 +526,7 @@
 }
 .reservations-table tbody tr:hover {
   background: var(--admin-surface-soft);
-  box-shadow: inset 3px 0 0 rgba(160, 126, 54, 0.18);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--admin-gold-deep) 18%, transparent);
 }
 .reservations-table {
   /*
@@ -689,7 +689,7 @@
   align-items: center;
   justify-content: center;
   padding: 0 7px;
-  border: 1px solid rgba(160, 126, 54, 0.24);
+  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 24%, transparent);
   border-radius: 999px;
   background: var(--admin-surface-soft);
   color: var(--admin-text);
@@ -701,7 +701,7 @@
 }
 
 .reservations-table__chip--more {
-  border-color: rgba(95, 125, 86, 0.22);
+  border-color: color-mix(in srgb, var(--admin-c-verde) 22%, transparent);
   color: var(--admin-sage-deep);
 }
 
@@ -739,27 +739,27 @@
 }
 
 .reservations-table__status--pendiente_verificacion {
-  border: 1px solid rgba(204, 163, 82, 0.32);
-  background: rgba(204, 163, 82, 0.1);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 32%, transparent);
+  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
   color: var(--admin-gold-deep);
 }
 
 .reservations-table__status--confirmada {
-  border: 1px solid rgba(71, 124, 88, 0.28);
-  background: rgba(71, 124, 88, 0.1);
+  border: 1px solid color-mix(in srgb, var(--admin-c-verde) 28%, transparent);
+  background: color-mix(in srgb, var(--admin-c-verde) 10%, transparent);
   color: var(--admin-success-text);
 }
 
 .reservations-table__status--completada {
-  border: 1px solid rgba(67, 111, 148, 0.24);
-  background: rgba(67, 111, 148, 0.08);
+  border: 1px solid color-mix(in srgb, var(--admin-c-azul) 24%, transparent);
+  background: color-mix(in srgb, var(--admin-c-azul) 8%, transparent);
   color: var(--admin-info-text);
 }
 
 .reservations-table__status--cancelada,
 .reservations-table__status--no_show {
-  border: 1px solid rgba(169, 75, 63, 0.24);
-  background: rgba(169, 75, 63, 0.08);
+  border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 24%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 8%, transparent);
   color: var(--admin-danger-text);
 }
 
@@ -1118,7 +1118,7 @@
 }
 .reservation-detail-list a {
   color: var(--admin-text);
-  text-decoration-color: rgba(160, 126, 54, 0.45);
+  text-decoration-color: color-mix(in srgb, var(--admin-gold-deep) 45%, transparent);
   text-underline-offset: 3px;
 }
 
@@ -1152,7 +1152,7 @@
 .reservation-detail-form__fields textarea:focus {
   border-color: var(--admin-gold);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(187, 143, 62, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
 }
 .reservation-detail-form__fields input:disabled,
 .reservation-detail-form__fields select:disabled,
@@ -1242,7 +1242,7 @@
 .reservation-detail-form__optional-section textarea:focus {
   border-color: var(--admin-gold);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(187, 143, 62, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-gold-deep) 15%, transparent);
 }
 .reservation-detail-form__optional-section textarea {
   min-height: 96px;
@@ -1299,24 +1299,24 @@
   display: none;
 }
 .reservation-detail-form__feedback.is-success {
-  border-color: rgba(74, 180, 123, 0.5);
-  background: rgba(74, 180, 123, 0.1);
-  color: #9fe0b8;
+  border-color: color-mix(in srgb, var(--admin-c-verde) 50%, transparent);
+  background: color-mix(in srgb, var(--admin-c-verde) 10%, transparent);
+  color: var(--feedback-ok);
 }
 .reservation-detail-form__feedback.is-warning {
-  border-color: rgba(204, 163, 82, 0.55);
-  background: rgba(204, 163, 82, 0.11);
+  border-color: color-mix(in srgb, var(--admin-gold) 55%, transparent);
+  background: color-mix(in srgb, var(--admin-gold) 11%, transparent);
   color: var(--admin-gold-soft);
 }
 .reservation-detail-form__feedback.is-error {
-  border-color: rgba(221, 91, 91, 0.55);
-  background: rgba(221, 91, 91, 0.1);
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 55%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
   color: var(--admin-danger-text);
 }
 
 .reservation-detail-form [aria-invalid=true] {
   border-color: var(--admin-danger-text);
-  box-shadow: 0 0 0 3px rgba(221, 91, 91, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-c-rojo) 12%, transparent);
 }
 
 .reservation-detail-form__actions {
@@ -1402,10 +1402,10 @@
   min-height: 46px;
   padding: 12px 14px;
   border-radius: var(--admin-radius-sm);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent), var(--admin-surface-soft);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent), var(--admin-surface-soft);
   font-size: 14px;
   line-height: 1.4;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 14%, transparent);
 }
 .reservation-detail-form__fields textarea {
   min-height: 120px;
@@ -1475,8 +1475,8 @@
   overflow: visible;
 }
 .reservation-admin-form-card.is-editing {
-  border-color: rgba(204, 163, 82, 0.46);
-  box-shadow: 0 0 0 1px rgba(204, 163, 82, 0.16), 0 18px 44px rgba(160, 126, 54, 0.12);
+  border-color: color-mix(in srgb, var(--admin-gold) 46%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--admin-gold) 16%, transparent), 0 18px 44px color-mix(in srgb, var(--admin-gold-deep) 12%, transparent);
 }
 
 .reservation-edit-mode {
@@ -1486,10 +1486,10 @@
   align-items: start;
   margin: 0 0 16px;
   padding: 13px 14px;
-  border: 1px solid rgba(204, 163, 82, 0.38);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 38%, transparent);
   border-left-width: 4px;
   border-radius: var(--admin-radius-sm);
-  background: rgba(204, 163, 82, 0.1);
+  background: color-mix(in srgb, var(--admin-gold) 10%, transparent);
   color: var(--admin-text);
 }
 .reservation-edit-mode[hidden] {
@@ -1518,9 +1518,9 @@
   height: 30px;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(204, 163, 82, 0.54);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 54%, transparent);
   border-radius: 50%;
-  background: rgba(204, 163, 82, 0.14);
+  background: color-mix(in srgb, var(--admin-gold) 14%, transparent);
   color: var(--admin-gold-deep);
   font-size: 12px;
   font-weight: 950;
@@ -1565,7 +1565,7 @@
 .reservation-business-confirmation .admin-btn--primary {
   border-color: var(--admin-gold-deep);
   background: var(--admin-gold);
-  color: var(--admin-gold-ink, #1b1a17);
+  color: var(--admin-gold-ink);
 }
 
 .reservation-admin-form-card:has(.reservation-business-confirmation.is-open) {
@@ -1682,9 +1682,9 @@
 .reservation-detail-warning {
   margin: 0;
   padding: 12px 13px;
-  border: 1px solid rgba(204, 163, 82, 0.28);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 28%, transparent);
   border-radius: var(--admin-radius-sm);
-  background: rgba(204, 163, 82, 0.08);
+  background: color-mix(in srgb, var(--admin-gold) 8%, transparent);
   color: var(--admin-gold-deep);
   font-size: 13px;
   font-weight: 850;
@@ -1717,9 +1717,9 @@
 .reservation-detail-actions__hint {
   margin: 0 0 3px;
   padding: 12px 13px;
-  border: 1px solid rgba(204, 163, 82, 0.28);
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 28%, transparent);
   border-radius: var(--admin-radius-sm);
-  background: rgba(204, 163, 82, 0.08);
+  background: color-mix(in srgb, var(--admin-gold) 8%, transparent);
   color: var(--admin-gold-deep);
   font-size: 13px;
   font-weight: 800;
@@ -1972,10 +1972,10 @@
   grid-column: 1/-1;
   margin: 0;
   padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--admin-warning, #d89a2b) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--admin-warning) 55%, transparent);
   border-radius: 9px;
-  color: var(--admin-warning-text, #ffd98b);
-  background: color-mix(in srgb, var(--admin-warning, #d89a2b) 13%, transparent);
+  color: var(--admin-warning-text);
+  background: color-mix(in srgb, var(--admin-warning) 13%, transparent);
   font-size: 12px;
 }
 

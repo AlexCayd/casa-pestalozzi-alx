@@ -49,6 +49,14 @@ class AdminController
             'title' => 'Reservaciones',
             'path' => '/admin/reservaciones'
         ],
+        'catas' => [
+            'title' => 'Catas',
+            'path' => '/admin/catas'
+        ],
+        'catering' => [
+            'title' => 'Catering',
+            'path' => '/admin/catering'
+        ],
         'feedback' => [
             'title' => 'Feedback de clientes',
             'path' => '/admin/feedback'

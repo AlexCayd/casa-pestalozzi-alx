@@ -19,11 +19,15 @@ use Controllers\AdminPrintersController;
 use Controllers\AdminReservacionController;
 use Controllers\ReservacionMantenimientoController;
 use Controllers\ReservacionOperacionController;
+use Controllers\AdminCataController;
+use Controllers\AdminCateringController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
+use Controllers\CataController;
+use Controllers\CateringController;
 use Controllers\FeedbackController;
 use Controllers\PuntoVentaController;
 use Controllers\AreaController;
@@ -51,6 +55,13 @@ $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::clas
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
+
+// Catas y catering: los dos formularios públicos de la landing. Son anónimos a
+// propósito (no pasan por OTP como reservaciones); el abuso lo frenan el token
+// CSRF de la sesión pública, el campo trampa y el tope por contacto del servicio.
+$router->get('/api/catas/proximas', [CataController::class, 'proximas']);
+$router->post('/api/catas/inscribir', [CataController::class, 'inscribir']);
+$router->post('/api/catering/cotizar', [CateringController::class, 'cotizar']);
 
 // Admin
 $router->get('/admin', [AdminController::class, 'index']);
@@ -115,6 +126,22 @@ $router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOp
 $router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
 $router->post('/admin/api/reservaciones/operacion/comentario', [ReservacionOperacionController::class, 'apiUpdateComment']);
 $router->post('/admin/api/reservaciones/operacion/estado', [ReservacionOperacionController::class, 'apiStatus']);
+// Catas: programación de sesiones y control de inscritos.
+$router->get('/admin/catas', [AdminCataController::class, 'index']);
+$router->get('/admin/catas/crear', [AdminCataController::class, 'create']);
+$router->post('/admin/catas/crear', [AdminCataController::class, 'create']);
+$router->get('/admin/catas/editar', [AdminCataController::class, 'edit']);
+$router->post('/admin/catas/editar', [AdminCataController::class, 'edit']);
+$router->get('/admin/catas/detalle', [AdminCataController::class, 'show']);
+$router->post('/admin/catas/eliminar', [AdminCataController::class, 'delete']);
+$router->post('/admin/catas/inscripcion/estado', [AdminCataController::class, 'estadoInscripcion']);
+
+// Catering: bandeja de solicitudes de cotización llegadas desde la landing.
+$router->get('/admin/catering', [AdminCateringController::class, 'index']);
+$router->get('/admin/catering/detalle', [AdminCateringController::class, 'show']);
+$router->post('/admin/catering/estado', [AdminCateringController::class, 'estado']);
+$router->post('/admin/catering/comentario', [AdminCateringController::class, 'comentario']);
+
 $router->get('/admin/feedback', [AdminController::class, 'feedback']);
 $router->post('/admin/feedback/refresh', [AdminController::class, 'feedbackRefresh']);
 $router->get('/admin/api/feedback-areas', [AdminController::class, 'feedbackAreas']);
