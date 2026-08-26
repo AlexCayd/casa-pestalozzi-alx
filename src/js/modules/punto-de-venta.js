@@ -1108,10 +1108,16 @@ function initMapa() {
       else if (['en_curso', 'bloqueo', 'inicio', 'tolerancia'].indexOf(tempEstado) !== -1) {
         cardClasses.push('reserva-card--activa');
       } else if (tempEstado === 'advertencia') cardClasses.push('reserva-card--proxima');
+      if (r.fuera_horario_operacion === true) cardClasses.push('reserva-card--fuera-horario');
 
       var temporalLabel = r.accion_pendiente === 'REGISTRAR_AUSENCIA'
         ? 'Acción pendiente: registrar ausencia'
         : TEMPORAL_LABELS[tempEstado];
+      if (r.fuera_horario_operacion === true) {
+        temporalLabel = temporalLabel
+          ? temporalLabel + ' · Fuera de horario de operación'
+          : 'Fuera de horario de operación';
+      }
       var card = window.OperationalReservationCard.create(r, {
         hora: r.hora.substring(0, 5),
         estado: r.estado,
@@ -2093,8 +2099,6 @@ function initMapa() {
         escHtml(reservaVentanaActual.mensaje || reservaVentanaActual.etiqueta || '') +
         '</small></dd></div>';
       h += '<div><dt>Comensales</dt><dd>' + escHtml(reservaComensales || 0) + '</dd></div>';
-      h += '<div><dt>Contacto</dt><dd class="' + (reserva.contacto ? '' : 'is-empty') + '">' +
-        escHtml(reserva.contacto || 'Sin contacto') + '</dd></div>';
       h += '<div><dt>Mesas</dt><dd class="' + (reservaMesas.length ? '' : 'is-empty') + '">' +
         escHtml(reservaMesas.length ? reservaMesas.join(', ') : 'Sin mesas asignadas') + '</dd></div>';
       h += '</dl>';
@@ -2139,9 +2143,18 @@ function initMapa() {
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-reservation-back">Volver</button>';
       } else if (reservaEstado === 'confirmada') {
         var puedeIniciar = reserva.puede_iniciar_servicio === true;
+        var reservacionProgramada = reserva.reservacion_programada === true
+          || (!puedeIniciar && reserva.ventana_pos === 'futura' && !ausenciaPendiente);
         var mesasBloqueantes = Array.isArray(reserva.mesas_bloqueantes)
           ? reserva.mesas_bloqueantes
           : [];
+        if (reservacionProgramada) {
+          h += '<section class="mmodal-reservation__scheduled" aria-label="Reservación programada">';
+          h += '<strong>Reservación programada</strong>';
+          h += '<p>' + escHtml(reservaHora || '--:--') + ' · ' + escHtml(reserva.nombre || 'Reservación') + '</p>';
+          h += '<span>Todavía no hay acciones disponibles.</span>';
+          h += '</section>';
+        } else {
         var mostrarBloqueo = !puedeIniciar && (
           mesasBloqueantes.length > 0 ||
           Boolean(reserva.bloqueo)
@@ -2196,6 +2209,7 @@ function initMapa() {
         var puedeMarcarAusencia = reserva.puede_registrar_ausencia === true && !reserva.ticket_abierto;
         if (puedeMarcarAusencia) {
           h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Cliente no se presentó</button>';
+        }
         }
       }
       h += '</div>';

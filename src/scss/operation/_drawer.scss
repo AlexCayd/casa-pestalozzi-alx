@@ -266,6 +266,37 @@
   }
 }
 
+.operational-drawer__filters {
+  flex: 0 0 auto;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.operational-drawer__filters .reservation-operation__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+}
+
+.operational-drawer__filters .reservation-operation__filters[data-operation-filters] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.operational-drawer__filters .reservation-operation__filter-actions {
+  display: none;
+}
+
+.operational-drawer__filters .reservation-operation__filter {
+  width: 100%;
+}
+
+.operational-drawer__filters .reservation-operation__assignment-filter select,
+.operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+}
+
 .operational-drawer .reservation-operation-card {
   min-width: 0;
   height: auto;
@@ -351,5 +382,50 @@
 @media (prefers-reduced-motion: reduce) {
   .operational-drawer {
     transition: none;
+  }
+}
+
+// La consulta del drawer es el único filtro: ocupa todo el ancho útil.
+.operational-drawer__filters .reservation-operation__search-filter {
+  order: -1;
+  width: 100%;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter {
+  position: relative;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+  min-height: 44px;
+  padding-inline: 42px 12px !important;
+  line-height: 1.2;
+}
+
+.reservation-operation__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 17px;
+  height: 17px;
+  color: var(--admin-muted);
+  fill: none;
+  pointer-events: none;
+  transform: translateY(-50%);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transform: translateY(-50%);
+}
+
+// El drawer es una herramienta de búsqueda, no una segunda columna de trabajo.
+.operational-page .operational-drawer {
+  width: clamp(320px, 26vw, 350px);
+}
+
+@media (max-width: 700px) {
+  .operational-page .operational-drawer {
+    width: min(92vw, 350px);
   }
 }

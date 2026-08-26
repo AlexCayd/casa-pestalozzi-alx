@@ -23,6 +23,7 @@ class Reservacion extends ActiveRecord {
         'comensales',
         'nota',
         'comentario_admin',
+        'motivo_cancelacion',
         'origen',
         'estado',
         'hold_expires_at',
@@ -40,6 +41,7 @@ class Reservacion extends ActiveRecord {
     public $comensales = 2;
     public $nota;
     public $comentario_admin = null;
+    public $motivo_cancelacion = null;
     public $origen = 'admin';
     public $reemplaza_reservacion_id = null;
     public $request_token = null;
@@ -106,6 +108,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -132,6 +135,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -439,6 +443,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -467,6 +472,7 @@ class Reservacion extends ActiveRecord {
                         r.hora,
                         r.comensales,
                         r.nota,
+                        r.motivo_cancelacion,
                         r.estado,
                         r.hold_expires_at,
                         r.reemplaza_reservacion_id,
@@ -496,6 +502,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.origen,
                     r.estado,
                     r.hold_expires_at,
@@ -522,6 +529,7 @@ class Reservacion extends ActiveRecord {
                     r.comensales,
                     r.nota,
                     r.comentario_admin,
+                    r.motivo_cancelacion,
                     r.estado,
                     r.hold_expires_at,
                     r.reemplaza_reservacion_id,
@@ -567,7 +575,7 @@ class Reservacion extends ActiveRecord {
         }
 
         $query = "SELECT
-                    COUNT(*) AS total,
+                    COALESCE(SUM(estado NOT IN ('pendiente_verificacion', 'expirada')), 0) AS total,
                     COALESCE(SUM(estado = 'pendiente_verificacion'), 0) AS pendientes,
                     COALESCE(SUM(estado = 'confirmada'), 0) AS confirmadas,
                     COALESCE(SUM(estado = 'completada'), 0) AS completadas,
@@ -630,6 +638,15 @@ class Reservacion extends ActiveRecord {
         if ($incluirEstado && in_array($estado, ReservacionConfig::estadosPermitidos(), true)) {
             $estado = self::escaparString($estado);
             $condiciones[] = "r.estado = '{$estado}'";
+        } elseif ($incluirEstado) {
+            // Las retenciones públicas son existencia técnica para holds y
+            // verificación; no son reservaciones operativas del restaurante.
+            // Un filtro explícito de estado sigue permitiendo auditarlas.
+            $condiciones[] = "r.estado NOT IN ('pendiente_verificacion', 'expirada')";
+        } else {
+            // Las métricas calculan el indicador explícito de "Por confirmar"
+            // a partir del mismo conjunto; el total operativo los excluye
+            // abajo sin perder ese dato histórico.
         }
 
         if (in_array($origen, ['landing', 'admin'], true)) {

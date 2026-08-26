@@ -98,6 +98,134 @@
   max-width: none;
 }
 
+.admin-users-access-status-grid {
+  display: grid;
+  grid-column: 1/-1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 22px;
+  align-items: stretch;
+  min-width: 0;
+}
+.admin-users-access-status-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-users-form__field.admin-users-access-status-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 148px;
+  padding: 16px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+}
+.admin-users-form__field.admin-users-access-status-card[hidden] {
+  display: none;
+}
+.admin-users-form__field.admin-users-access-status-card .admin-users-form__hint {
+  margin: 0;
+}
+
+.admin-users-access-card .admin-btn--secondary {
+  border-color: color-mix(in srgb, var(--admin-gold) 48%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-gold) 12%, var(--admin-surface-soft));
+  color: var(--admin-text);
+}
+.admin-users-access-card .admin-btn--secondary:hover {
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface-soft));
+}
+
+.admin-users-access-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 36%, var(--admin-border));
+  border-radius: var(--admin-radius-sm);
+  background: color-mix(in srgb, var(--admin-gold) 10%, var(--admin-surface-soft));
+  color: var(--admin-gold-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-users-access-card__status[hidden] {
+  display: none;
+}
+
+.confirmation-modal--user-nip .confirmation-modal__dialog {
+  width: min(480px, 100vw - 32px);
+}
+.confirmation-modal--user-nip .confirmation-modal__description {
+  max-width: 42ch;
+}
+
+.admin-user-nip-modal__code {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 42%, var(--admin-border));
+  border-radius: var(--admin-radius-md);
+  background: color-mix(in srgb, var(--admin-gold) 8%, var(--admin-surface-soft));
+  text-align: center;
+}
+.admin-user-nip-modal__code strong {
+  color: var(--admin-gold-soft);
+  font-family: var(--admin-font-heading);
+  font-size: clamp(2.25rem, 8vw, 3.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  padding-left: 0.18em;
+}
+
+.admin-user-nip-modal__label {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-user-nip-modal__progress {
+  align-self: stretch;
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--admin-gold) 32%, var(--admin-border));
+  background: color-mix(in srgb, var(--admin-gold) 22%, var(--admin-surface));
+}
+
+.admin-user-nip-modal__progress-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  transform: scaleX(1);
+  transform-origin: left center;
+  border-radius: inherit;
+  background: var(--admin-gold-soft);
+}
+
+.admin-user-nip-modal__progress.is-running .admin-user-nip-modal__progress-bar {
+  transform: scaleX(0);
+  transition: transform var(--nip-modal-duration) linear;
+}
+
+.admin-user-nip-modal__auto-close {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .admin-users-access-status-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .admin-users-form {
   display: grid;
   gap: 28px;

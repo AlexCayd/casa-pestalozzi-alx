@@ -1,68 +1,120 @@
 # Flujos de n8n
 
-Copia versionada de los flujos de n8n que usa Casa Pestalozzi. **La fuente de
-verdad en ejecución es n8n, no este directorio**: n8n guarda los flujos en su
-propia base (`~/.n8n/database.sqlite`, tabla `workflow_entity`) y los mantiene
-cargados en memoria. Estos JSON son el respaldo que viaja con el repo.
+Este directorio contiene copias importables y versionadas de los workflows de
+Casa Pestalozzi. n8n conserva la versión en ejecución en su propia base local;
+por eso cualquier edición hecha en su interfaz debe volver a exportarse al
+repositorio.
 
-| Archivo | Flujo | Qué hace |
+| Archivo | Workflow | Responsabilidad |
 |---|---|---|
-| `sugerencias.json` | Sugerencias | Venta sugerida del POS: recibe el ticket de la mesa que abre el mesero y devuelve productos rankeados con su argumento de venta. |
-| `areas-de-mejora.json` | Areas de mejora | Analiza el feedback de clientes con un modelo y devuelve las áreas de mejora del panel admin. |
+| `reservaciones-comunicaciones.json` | Reservaciones - comunicaciones | Recibe cambios de horario y prepara recordatorios del día anterior; enruta email/teléfono y reporta `delivered` o `failed`. |
+| `sugerencias.json` | Sugerencias | Genera sugerencias del POS. |
+| `areas-de-mejora.json` | Areas de mejora | Procesa feedback para el panel administrativo. |
 
-## Exportar (después de tocar un flujo en el editor)
+## Reservaciones - comunicaciones
+
+Es un único workflow con dos entradas:
+
+- `POST /webhook/reservaciones`: valida `X-N8N-Secret`, responde `202` temprano
+  y procesa `reservation.schedule_change`.
+- `Schedule Trigger`, cada cinco minutos: llama al endpoint interno que prepara
+  los recordatorios habilitados y vencidos para ejecución.
+
+Ambas entradas convergen en `Switch event`, construyen un mensaje con el enlace
+temporal generado por PHP y eligen el canal por `contact_type`. Al finalizar,
+el workflow informa a PHP uno de estos estados:
+
+```json
+{
+  "event": "reservation.schedule_change",
+  "source_id": 1,
+  "attempt": 1,
+  "status": "delivered"
+}
+```
+
+El payload mostrado sólo documenta forma y valores técnicos; no debe guardarse
+como `pinData` ni sustituirse con contactos de clientes.
+
+Endpoints internos de la aplicación:
+
+- `POST /api/integraciones/n8n/reservaciones/recordatorios/preparar`
+- `POST /api/integraciones/n8n/reservaciones/notificacion-resultado`
+
+Los dos exigen `X-N8N-Secret`. El primero sólo entrega PII y el token en memoria
+como parte del lote a procesar; la base de datos conserva exclusivamente el
+hash del token.
+
+## Variables de la aplicación PHP
+
+En `includes/.env`:
+
+```dotenv
+RESERVATION_NOTIFICATION_PROVIDER=development
+N8N_WEBHOOK_RESERVATIONS_URL=http://localhost:5678/webhook/reservaciones
+N8N_SECRET=replace-with-an-independent-long-random-secret
+```
+
+`development` es el modo seguro predeterminado: valida el contrato y simula la
+aceptación sin enviar nada fuera del equipo. Para usar el transporte real hay
+que establecer `RESERVATION_NOTIFICATION_PROVIDER=n8n` después de completar la
+configuración descrita abajo.
+
+## Variables del proceso de n8n
+
+El proceso o contenedor de n8n necesita:
+
+```dotenv
+N8N_SECRET=the-same-independent-secret
+RESERVATION_APP_BASE_URL=http://host-visible-from-n8n
+RESERVATION_EMAIL_FROM=verified-sender
+RESERVATION_PHONE_FROM=provider-sender
+```
+
+`RESERVATION_APP_BASE_URL` debe apuntar a la raíz que n8n puede alcanzar, sin
+slash final. Los remitentes son identificadores del proveedor, no datos de un
+cliente.
+
+## Credenciales pendientes
+
+El JSON no contiene ids, nombres ni secretos de credenciales. Después de
+importar se deben asignar exactamente:
+
+1. Una credencial SMTP al nodo `Enviar email`.
+2. Una credencial Twilio al nodo `Enviar mensaje telefónico`.
+
+Si se adopta otro proveedor para teléfono, se reemplaza sólo ese nodo sin
+cambiar el contrato con PHP. No se debe activar el workflow ni seleccionar el
+provider `n8n` en la aplicación hasta probar ambos canales y ambos callbacks.
+
+## Importar y activar
+
+1. En n8n abre **Workflows → Import from File**.
+2. Selecciona `n8n/reservaciones-comunicaciones.json`.
+3. Configura las variables del proceso y asigna las dos credenciales.
+4. Ejecuta una prueba controlada de email y otra de teléfono.
+5. Comprueba el callback `delivered` y fuerza un error para comprobar `failed`.
+6. Activa el workflow.
+7. Cambia la aplicación a `RESERVATION_NOTIFICATION_PROVIDER=n8n`.
+
+El archivo versionado se entrega inactivo deliberadamente. Una importación sin
+credenciales puede validarse estructuralmente, pero no demuestra entrega real.
+
+## Exportar
+
+Después de editar un workflow en n8n:
 
 ```bash
 node n8n/exportar.js
 ```
 
-Lee la base de n8n en solo lectura y reescribe los JSON. También puedes usar
-**Download** en el editor de n8n; el formato es el mismo.
+El script abre `%USERPROFILE%/.n8n/database.sqlite` en modo sólo lectura y
+reescribe los JSON en el formato de **Import from File**. Después de exportar,
+revisa que `reservaciones-comunicaciones.json` no contenga `credentials`,
+`pinData`, contactos, tokens ni cuerpos de ejecuciones.
 
-## Importar (máquina nueva, o para restaurar)
+## Contratos existentes
 
-En el editor: **Workflows → Import from File**. Después de importar hay que:
-
-1. **Reasignar las credenciales.** No están en el JSON (ver abajo): cada nodo
-   MySQL/OpenAI queda apuntando a un id de credencial que en otra instalación
-   no existe. Hay que volver a elegirlas en cada nodo.
-2. **Activar el workflow.** Se importa inactivo, y sin activarlo la URL de
-   producción del webhook responde 404.
-
-## Las credenciales no están aquí
-
-Los JSON solo llevan la *referencia* a la credencial (su id y su nombre); el
-usuario y la contraseña de MySQL y la API key de OpenAI viven cifrados en la
-base de n8n y nunca salen en la exportación. Por eso este directorio se puede
-versionar sin filtrar secretos — y por eso una importación limpia no funciona
-hasta reasignar credenciales.
-
-## Contrato con la app
-
-El POS llama al webhook de sugerencias en cada apertura de modal. La URL sale
-de `includes/.env`:
-
-```
-N8N_WEBHOOK_SUGERENCIAS_URL=http://localhost:5678/webhook/sugerencias
-N8N_WEBHOOK_AREAS_MEJORA_URL=http://localhost:5678/webhook/areas-mejora
-```
-
-**Lo que manda el POS** (`Services\Sugerencias::contexto()`): `ticket_id`,
-`mesa`, `comensales`, `hora_apertura`, `minutos_abierto`, `max`, `items[]` y
-`excluir[]` (productos que el flujo no debe repetir en esa mesa). Se intenta
-POST y, si el webhook está registrado como GET, se reintenta por query string.
-
-**Lo que espera el POS de vuelta**: la etapa (`etapa_comida` / `etapa_nombre`, o
-el número 1/2/3) y las sugerencias, ya sea como `sugerencias[]` o como
-`sugerencia_principal` + `opciones_respaldo`. De cada una se usa `producto_id`
-(obligatorio, contra la tabla `productos`), `argumento_mesero` y el puntaje.
-El nombre, precio y área se resuelven en la BD, no se confía en el flujo.
-
-> Los nodos de recomendación deben rankear **sobre `productos`**, que es de
-> donde `Services\Sugerencias::resolverProductos()` resuelve el `producto_id`.
-> Antes partían de la tabla `menu`, que tenía su propio `AUTO_INCREMENT`: el id
-> devuelto no correspondía al mismo platillo y la sugerencia salía cambiada o se
-> descartaba en silencio. `menu` ya no existe — se fusionó con `productos`.
-
-Un 200 con cuerpo vacío significa que el flujo reventó antes de llegar a
-"Respond to Webhook": revisa las ejecuciones en n8n.
+El POS sigue usando `N8N_WEBHOOK_SUGERENCIAS_URL` y el panel de feedback usa
+`N8N_WEBHOOK_AREAS_MEJORA_URL`. El workflow de reservaciones no modifica esos
+contratos ni consulta directamente MySQL.

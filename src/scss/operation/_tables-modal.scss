@@ -1,0 +1,290 @@
+.operational-tables-trigger {
+  min-width: 96px;
+  min-height: 44px;
+  gap: 8px;
+  white-space: nowrap;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+}
+
+.operation-tables-modal {
+  width: min(960px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(760px, calc(100dvh - 32px));
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  overflow: hidden;
+
+  &::backdrop {
+    background: rgba(5, 7, 9, 0.72);
+    backdrop-filter: blur(3px);
+  }
+}
+
+.operation-tables-modal__surface {
+  display: grid;
+  max-height: min(760px, calc(100dvh - 32px));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.operation-tables-modal__head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-surface) 92%, var(--admin-gold) 8%);
+
+  h2 {
+    margin: 3px 0 0;
+    color: var(--admin-text);
+    font-family: var(--operational-font-editorial);
+    font-size: clamp(24px, 3vw, 32px);
+    font-weight: 600;
+    line-height: 1.05;
+  }
+
+  p {
+    margin: 8px 0 0;
+    color: var(--admin-muted);
+    font-size: var(--operational-text-sm);
+  }
+}
+
+.operation-tables-modal__eyebrow {
+  color: var(--admin-gold-soft);
+  font-size: var(--operational-text-xs);
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.operation-tables-modal__close {
+  flex: 0 0 44px;
+  padding: 0;
+}
+
+.operation-tables-modal__body {
+  min-height: 0;
+  padding: 22px 24px 26px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--admin-border) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.operation-tables-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 12px;
+}
+
+.operation-tables-card {
+  display: block;
+  min-width: 0;
+  height: 100%;
+  min-height: 150px;
+}
+
+.operation-tables-card:not(:has(> button)) {
+  display: grid;
+  grid-template-rows: minmax(1.25em, auto) minmax(1.25em, auto) minmax(1.25em, auto) minmax(1.25em, auto);
+  align-content: start;
+  gap: 7px;
+}
+
+.operation-tables-card > button,
+.operation-tables-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 150px;
+  padding: 15px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 12px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  text-align: left;
+}
+
+.operation-tables-card > button {
+  display: grid;
+  grid-template-rows: minmax(1.25em, auto) minmax(1.25em, auto) minmax(1.25em, auto) minmax(1.25em, auto);
+  align-content: start;
+  gap: 7px;
+  font: inherit;
+  cursor: default;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.operation-tables-card:has(> button) {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.operation-tables-card > button:not(:disabled) {
+  cursor: pointer;
+}
+
+.operation-tables-card > button:not(:disabled):hover {
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-surface-soft) 88%, var(--admin-gold) 12%);
+  transform: translateY(-1px);
+}
+
+.operation-tables-card > button:focus-visible {
+  outline: 0;
+  border-color: var(--admin-gold);
+  box-shadow: var(--admin-focus-ring);
+}
+
+.operation-tables-card__name,
+.operation-tables-card__state,
+.operation-tables-card__context,
+.operation-tables-card__capacity {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.operation-tables-card__name {
+  color: var(--admin-text);
+  font-size: var(--operational-text-base);
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1.25;
+}
+
+.operation-tables-card__state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+  line-height: 1.25;
+}
+
+.operation-tables-card__state::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--admin-muted);
+  content: "";
+}
+
+.operation-tables-card__context,
+.operation-tables-card__capacity {
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  line-height: 1.35;
+}
+
+.operation-tables-card__capacity {
+  align-self: end;
+  margin-top: auto;
+  color: var(--admin-text);
+  font-weight: var(--operational-weight-medium);
+}
+
+.operation-tables-card--libre .operation-tables-card__state {
+  color: var(--map-table-available-text, var(--admin-success-text));
+}
+
+.operation-tables-card--libre .operation-tables-card__state::before {
+  background: var(--map-table-available-border, var(--admin-success-border));
+}
+
+.operation-tables-card--ocupada .operation-tables-card__state {
+  color: var(--map-table-occupied-text, var(--admin-danger-text));
+}
+
+.operation-tables-card--ocupada .operation-tables-card__state::before {
+  background: var(--map-table-occupied-border, var(--admin-danger-border));
+}
+
+.operation-tables-card--reservacion-proxima .operation-tables-card__state {
+  color: var(--map-table-reservation-text, var(--admin-gold-soft));
+}
+
+.operation-tables-card--reservacion-proxima .operation-tables-card__state::before {
+  background: var(--map-table-reservation-border, var(--admin-gold));
+}
+
+.operation-tables-card--seleccionada {
+  border-color: var(--admin-gold);
+  background: color-mix(in srgb, var(--admin-surface-soft) 86%, var(--admin-gold) 14%);
+}
+
+.operation-tables-card--seleccionada .operation-tables-card__state {
+  color: var(--admin-gold-soft);
+}
+
+.operation-tables-card--seleccionada .operation-tables-card__state::before {
+  background: var(--admin-gold);
+}
+
+.operation-tables-card--no-utilizable .operation-tables-card__state {
+  color: var(--admin-muted);
+}
+
+.operation-tables-card--no-utilizable .operation-tables-card__state::before {
+  background: var(--admin-border);
+}
+
+@media (max-width: 900px) {
+  .operation-tables-modal__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .operation-tables-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+
+  .operation-tables-modal__surface {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .operation-tables-modal__head,
+  .operation-tables-modal__body {
+    padding-inline: 16px;
+  }
+
+  .operation-tables-modal__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .operation-tables-modal__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .operation-tables-card > button {
+    transition: none;
+  }
+}

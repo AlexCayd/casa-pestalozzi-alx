@@ -28,11 +28,10 @@
                 </svg>
                 Volver
             </a>
-            <?php
-                $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? '');
-                $etiquetaCredencial = $rolUsuario === 'admin' ? 'Cambiar contraseña' : 'Cambiar NIP';
-            ?>
-            <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-credencial?id=<?php echo $usuarioId; ?>"><?php echo $etiquetaCredencial; ?></a>
+            <?php $rolUsuario = is_array($usuario) ? ($usuario['rol'] ?? '') : ($usuario->rol ?? ''); ?>
+            <?php if ($rolUsuario === 'admin') : ?>
+                <a class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" href="/admin/usuarios/cambiar-password?id=<?php echo $usuarioId; ?>">Cambiar contraseña</a>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -40,10 +39,26 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del usuario</h3>
-                <p>Actualiza usuario, nombre, rol y estado.</p>
+                <p>Actualiza usuario, nombre, rol y estado. El NIP existente nunca se muestra.</p>
             </div>
         </div>
+
+        <form hidden id="admin-user-regenerate-form" method="POST" action="/admin/usuarios/regenerar-nip" data-user-regenerate-form>
+            <input type="hidden" name="id" value="<?php echo $usuarioId; ?>">
+            <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+        </form>
 
         <?php include __DIR__ . '/form.php'; ?>
     </section>
 </section>
+
+<?php if (is_array($nipFlash ?? null) && !empty($nipFlash['nip'])) : ?>
+    <div
+        hidden
+        data-user-nip-delivery
+        data-nip="<?php echo htmlspecialchars((string) $nipFlash['nip'], ENT_QUOTES, 'UTF-8'); ?>"
+        data-nip-visibility-seconds="<?php echo (int) \Services\UsuarioConfig::NIP_MODAL_VISIBILIDAD_SEGUNDOS; ?>"
+        data-after-url="<?php echo htmlspecialchars((string) ($nipFlash['after_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+        data-flow="<?php echo htmlspecialchars((string) ($nipFlash['flujo'] ?? 'regeneracion'), ENT_QUOTES, 'UTF-8'); ?>"
+    ></div>
+<?php endif; ?>

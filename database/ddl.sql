@@ -29,7 +29,12 @@ DROP TABLE IF EXISTS subrecetas;
 DROP TABLE IF EXISTS ingredientes;
 DROP TABLE IF EXISTS reportes_sistema;
 DROP TABLE IF EXISTS configuracion_pos;
+DROP TABLE IF EXISTS configuracion_reservaciones;
 DROP TABLE IF EXISTS configuracion_anuncio;
+DROP TABLE IF EXISTS buzon_notificaciones;
+DROP TABLE IF EXISTS reservacion_recordatorios;
+DROP TABLE IF EXISTS horario_impacto_reservaciones;
+DROP TABLE IF EXISTS horario_impactos;
 DROP TABLE IF EXISTS excepciones_operacion;
 DROP TABLE IF EXISTS horarios_operacion;
 DROP TABLE IF EXISTS verificaciones_contacto;
@@ -87,28 +92,27 @@ CREATE TABLE IF NOT EXISTS categorias (
   activo TINYINT(1) NOT NULL DEFAULT 1
 );
 
--- Accesos: los tres roles entran por /login, que muestra dos pestanas. Los
--- administradores usan usuario + password alfanumerica (password_hash); el
--- personal de piso (meseros y cocineros) usa un NIP numerico de 4 digitos,
--- unico por usuario y guardado hasheado con bcrypt (nip_hash).
+-- Accesos: los administradores usan usuario + password alfanumerica
+-- (password_hash); el personal de piso usa un NIP numerico de 4 digitos,
+-- guardado hasheado con bcrypt (nip_hash). nip_lookup es un HMAC determinista
+-- que permite localizar el candidato y respaldar la unicidad en la BD.
 --
 -- El rol decide a que vista se entra y que rutas se permiten: waiter al punto
 -- de venta, cook a los tableros de area, admin a todo.
---
--- fecha_nacimiento no es dato de RR.HH.: es el origen del NIP por defecto. Si
--- el admin deja el campo vacio al dar de alta, el NIP se genera como DDMM del
--- cumpleanos. Nullable porque los administradores no usan NIP.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50) NOT NULL UNIQUE,
   nombre        VARCHAR(120) NOT NULL,
-  fecha_nacimiento DATE NULL,
   password_hash VARCHAR(255) NOT NULL,
   nip_hash      VARCHAR(255) NULL,
+  nip_lookup    CHAR(64) NULL,
   rol           ENUM('admin','waiter','cook') NOT NULL DEFAULT 'waiter',
   activo        TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_usuarios_nip_lookup (nip_lookup),
+  CONSTRAINT chk_usuarios_admin_sin_nip
+    CHECK (rol <> 'admin' OR (nip_hash IS NULL AND nip_lookup IS NULL))
 );
 
 -- -------------------------------------------------------
@@ -126,6 +130,7 @@ CREATE TABLE IF NOT EXISTS reservaciones (
   comensales           INT UNSIGNED NOT NULL DEFAULT 2,
   nota                 TEXT,
   comentario_admin     TEXT NULL,
+  motivo_cancelacion   VARCHAR(500) NULL,
   origen               ENUM('landing','admin') NOT NULL,
   request_token        VARCHAR(64) NULL,
   -- Una retención vencida deja de ocupar mesas aun antes del proceso de limpieza.
@@ -729,6 +734,112 @@ CREATE TABLE IF NOT EXISTS excepciones_operacion (
   INDEX idx_excepciones_fecha_activo (fecha, activo)
 );
 
+-- Seguimiento durable de reservaciones que quedan fuera del horario efectivo.
+-- Estas tablas no cambian el estado canónico de `reservaciones` ni duplican PII.
+CREATE TABLE IF NOT EXISTS horario_impactos (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tipo_origen  VARCHAR(40) NOT NULL,
+  origen_id    INT UNSIGNED NULL,
+  estado       ENUM('pendiente', 'resuelto') NOT NULL DEFAULT 'pendiente',
+  dedup_key    CHAR(64) NOT NULL,
+  created_by   INT NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at  DATETIME NULL,
+  CONSTRAINT fk_horario_impactos_usuario
+    FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_horario_impactos_dedup (dedup_key),
+  INDEX idx_horario_impactos_estado_fecha (estado, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
+  id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  impacto_id            INT UNSIGNED NOT NULL,
+  reservacion_id        INT NOT NULL,
+  estado                ENUM(
+                           'pendiente_notificacion',
+                           'notificacion_preparada',
+                           'sin_contacto',
+                           'atendida_manual',
+                           'resuelta_por_cliente'
+                         ) NOT NULL,
+  notification_prepared_at DATETIME NULL,
+  access_token_hash      CHAR(64) NULL,
+  access_expires_at      DATETIME NULL,
+  access_invalidated_at  DATETIME NULL,
+  notification_attempts  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  last_notification_at   DATETIME NULL,
+  notification_delivery_status ENUM('pending', 'accepted', 'delivered', 'failed')
+                           NOT NULL DEFAULT 'pending',
+  notification_delivery_updated_at DATETIME NULL,
+  resolved_by           INT NULL,
+  resolved_at           DATETIME NULL,
+  created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_horario_impacto_reservaciones_impacto
+    FOREIGN KEY (impacto_id) REFERENCES horario_impactos(id) ON DELETE CASCADE,
+  CONSTRAINT fk_horario_impacto_reservaciones_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_horario_impacto_reservaciones_usuario
+    FOREIGN KEY (resolved_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_horario_impacto_reservacion (impacto_id, reservacion_id),
+  INDEX idx_horario_impacto_reservaciones_estado (impacto_id, estado),
+  INDEX idx_horario_impacto_reservaciones_access (access_token_hash, access_expires_at),
+  INDEX idx_horario_impacto_reservaciones_delivery (notification_delivery_status)
+);
+
+-- Recordatorios ordinarios: una fila por raíz/tipo/fecha, sin duplicar PII.
+CREATE TABLE IF NOT EXISTS reservacion_recordatorios (
+  id                              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reservacion_id                  INT NOT NULL,
+  reservacion_raiz_id             INT NOT NULL,
+  tipo                            ENUM('dia_anterior') NOT NULL DEFAULT 'dia_anterior',
+  dedup_key                       VARCHAR(191) NOT NULL,
+  access_token_hash               CHAR(64) NULL,
+  access_expires_at               DATETIME NULL,
+  access_invalidated_at           DATETIME NULL,
+  notification_delivery_status    ENUM('pending', 'accepted', 'delivered', 'failed')
+                                    NOT NULL DEFAULT 'pending',
+  notification_delivery_updated_at DATETIME NULL,
+  created_at                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_reservacion_recordatorios_reservacion
+    FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_reservacion_recordatorios_raiz
+    FOREIGN KEY (reservacion_raiz_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,
+  UNIQUE KEY uq_reservacion_recordatorios_dedup (dedup_key),
+  UNIQUE KEY uq_reservacion_recordatorios_access (access_token_hash),
+  INDEX idx_reservacion_recordatorios_reservacion (reservacion_id),
+  INDEX idx_reservacion_recordatorios_raiz (reservacion_raiz_id),
+  INDEX idx_reservacion_recordatorios_delivery (notification_delivery_status)
+);
+
+-- Buzón administrativo genérico. No almacena PII ni sustituye la autoridad
+-- del módulo fuente; entidad_tipo + entidad_id apunta al caso operativo.
+CREATE TABLE IF NOT EXISTS buzon_notificaciones (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  tipo           VARCHAR(80) NOT NULL,
+  modulo         VARCHAR(60) NOT NULL,
+  entidad_tipo   VARCHAR(80) NOT NULL,
+  entidad_id     INT UNSIGNED NOT NULL,
+  prioridad      ENUM('normal', 'alta') NOT NULL DEFAULT 'normal',
+  requiere_accion TINYINT(1) NOT NULL DEFAULT 1,
+  visible_from   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  leida_at       DATETIME NULL,
+  cerrada_at     DATETIME NULL,
+  cerrada_por    INT NULL,
+  cierre_motivo  VARCHAR(120) NULL,
+  dedup_key      VARCHAR(191) NOT NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_buzon_notificaciones_usuario
+    FOREIGN KEY (cerrada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_buzon_notificaciones_dedup (dedup_key),
+  INDEX idx_buzon_notificaciones_visibles (cerrada_at, visible_from),
+  INDEX idx_buzon_notificaciones_tipo (tipo, cerrada_at),
+  INDEX idx_buzon_notificaciones_accion (cerrada_at, visible_from, requiere_accion),
+  INDEX idx_buzon_notificaciones_entidad (entidad_tipo, entidad_id)
+);
+
 CREATE TABLE IF NOT EXISTS configuracion_anuncio (
   id            TINYINT UNSIGNED NOT NULL,
   mensaje       VARCHAR(255) NOT NULL DEFAULT '',
@@ -773,6 +884,24 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
     REFERENCES usuarios(id)
     ON DELETE SET NULL
 );
+
+-- Comunicaciones de reservaciones. Fila única y desactivada por omisión.
+CREATE TABLE IF NOT EXISTS configuracion_reservaciones (
+  id                                  TINYINT UNSIGNED NOT NULL,
+  recordatorio_dia_anterior_activo    TINYINT(1) NOT NULL DEFAULT 0,
+  hora_recordatorio                   TIME NOT NULL DEFAULT '18:00:00',
+  updated_by                          INT NULL,
+  updated_at                          TIMESTAMP NOT NULL
+                                        DEFAULT CURRENT_TIMESTAMP
+                                        ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_configuracion_reservaciones_usuario
+    FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+INSERT INTO configuracion_reservaciones
+  (id, recordatorio_dia_anterior_activo, hora_recordatorio, updated_by)
+VALUES (1, 0, '18:00:00', NULL);
 
 CREATE TABLE IF NOT EXISTS reportes_sistema (
   id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

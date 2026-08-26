@@ -17,6 +17,7 @@ $ticketFisico = is_array($ticketFisico ?? null) ? $ticketFisico : $ticketAbierto
 $adminCsrfToken = (string)($adminCsrfToken ?? '');
 $returnUrl = (string)($returnUrl ?? '/admin/reservaciones');
 $backUrl = (string)($backUrl ?? '/admin/reservaciones');
+$seguimientoHorario = is_array($seguimientoHorario ?? null) ? $seguimientoHorario : null;
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -102,6 +103,7 @@ $hora = (string)$valor($reservacion, 'hora');
 $comensales = (int)$valor($reservacion, 'comensales', 0);
 $nota = trim((string)$valor($reservacion, 'nota'));
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');
+$motivoCancelacion = trim((string)$valor($reservacion, 'motivo_cancelacion'));
 $estado = (string)$valor($reservacion, 'estado', 'confirmada');
 $createdAt = (string)$valor($reservacion, 'created_at', '');
 $updatedAt = (string)$valor($reservacion, 'updated_at', '');
@@ -120,6 +122,7 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
     'reservation_id' => $id,
     'return_url' => $returnUrl,
 ]);
+$seguimientoActivo = $seguimientoHorario !== null;
 ?>
 
 <section
@@ -127,7 +130,9 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
     data-reservation-detail-root
 >
     <header class="admin-menu__header admin-page__header reservation-detail-header">
-        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
+        <a class="admin-btn admin-btn--secondary admin-btn--icon admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>" aria-label="Volver a reservaciones" title="Volver a reservaciones">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        </a>
         <div class="admin-page__intro">
             <h1 class="admin-page__title"><?php echo $nombre !== '' ? $h($nombre) : 'Detalle de reservacion'; ?></h1>
         </div>
@@ -147,6 +152,31 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
         </div>
     <?php endforeach; ?>
 
+    <?php if ($seguimientoActivo) : ?>
+        <section class="reservation-followup-banner admin-card" data-schedule-impact-banner>
+            <div class="reservation-followup-banner__copy">
+                <span class="reservation-detail-card__label">Cambio de horario</span>
+                <h2>Esta reservación quedó fuera del horario actual</h2>
+                <p>Modifica la fecha u hora, cancélala si corresponde o cierra el seguimiento si la atenderás fuera del sistema.</p>
+            </div>
+            <div class="reservation-followup-banner__actions">
+                <?php if ($editable) : ?>
+                    <button type="button" class="admin-btn admin-btn--primary" data-schedule-impact-edit>Modificar</button>
+                <?php endif; ?>
+                <?php if (!$estadoFinal && in_array($estado, ['confirmada', 'pendiente_verificacion'], true) && !$ticketAbierto) : ?>
+                    <?php $actionButton('cancelada', 'Cancelar', 'admin-btn admin-btn--secondary', true); ?>
+                <?php endif; ?>
+                <button
+                    type="button"
+                    class="admin-btn admin-btn--ghost"
+                    data-schedule-impact-resolve
+                    data-impact-id="<?php echo (int)$seguimientoHorario['impacto_id']; ?>"
+                    data-impact-reservation-id="<?php echo (int)$seguimientoHorario['impacto_reservacion_id']; ?>"
+                >Cerrar seguimiento</button>
+            </div>
+        </section>
+    <?php endif; ?>
+
     <div class="reservation-detail-layout">
         <section class="reservation-detail-main">
             <article class="reservation-detail-card admin-card">
@@ -160,18 +190,6 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
                     <div>
                         <dt>Estado</dt>
                         <dd><?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?></dd>
-                    </div>
-                    <div>
-                        <dt>Origen</dt>
-                        <dd><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing publica'; ?></dd>
-                    </div>
-                    <div>
-                        <dt>Contacto</dt>
-                        <dd><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></dd>
-                    </div>
-                    <div>
-                        <dt>Tipo de contacto</dt>
-                        <dd><?php echo $h($contactoTipo === 'ninguno' ? 'Sin contacto' : ucfirst($contactoTipo)); ?></dd>
                     </div>
                     <?php if (!empty($vigencia['tolerancia_vencida'])) : ?>
                         <div>
@@ -225,6 +243,25 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
                 </dl>
             </article>
 
+            <article class="reservation-detail-card admin-card">
+                <div class="reservation-detail-card__head">
+                    <div>
+                        <span class="reservation-detail-card__label">Cliente</span>
+                        <h3><?php echo $h($nombre !== '' ? $nombre : 'Sin nombre'); ?></h3>
+                    </div>
+                </div>
+                <dl class="reservation-detail-list reservation-detail-list--grid">
+                    <div>
+                        <dt>Contacto</dt>
+                        <dd><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></dd>
+                    </div>
+                    <div>
+                        <dt>Origen</dt>
+                        <dd><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing pública'; ?></dd>
+                    </div>
+                </dl>
+            </article>
+
             <?php
             $modo = 'editar';
             include __DIR__ . '/_form.php';
@@ -234,7 +271,7 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
                 <div class="reservation-detail-card__head">
                     <div>
                         <span class="reservation-detail-card__label">Notas</span>
-                        <h3>Cliente y operacion</h3>
+                        <h3>Notas</h3>
                     </div>
                 </div>
                 <div class="reservation-detail-notes">
@@ -256,6 +293,27 @@ $operationUrl = '/admin/reservaciones/operacion?' . http_build_query([
                     </section>
                 </div>
             </article>
+
+            <?php if ($estado === 'cancelada') : ?>
+                <article class="reservation-detail-card admin-card reservation-cancellation-card">
+                    <div class="reservation-detail-card__head">
+                        <div>
+                            <span class="reservation-detail-card__label">Cancelación</span>
+                            <h3>Motivo y registro</h3>
+                        </div>
+                    </div>
+                    <dl class="reservation-detail-list">
+                        <div>
+                            <dt>Motivo</dt>
+                            <dd><?php echo $motivoCancelacion !== '' ? nl2br($h($motivoCancelacion)) : 'Sin motivo registrado.'; ?></dd>
+                        </div>
+                        <div>
+                            <dt>Cancelada</dt>
+                            <dd><?php echo $stateChangedAt !== '' ? $h($fechaHoraLegible($stateChangedAt)) : 'Sin fecha registrada.'; ?></dd>
+                        </div>
+                    </dl>
+                </article>
+            <?php endif; ?>
 
             <?php if ($ticketFisico) : ?>
                 <article class="reservation-detail-card admin-card">

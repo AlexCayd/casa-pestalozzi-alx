@@ -100,6 +100,7 @@
             alto: numberOrNull(raw.alto != null ? raw.alto : raw.height),
             reservable: reservable,
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
+            reservacionProxima: raw.reservacion_proxima || null,
             seleccionada: selected,
             interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
                 titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
@@ -163,6 +164,30 @@
                 parts.push('seleccionada');
             }
             return parts.join(', ');
+        }
+
+        function visibleTableState(table) {
+            if (table.estadoVisual === 'no-utilizable') {
+                return 'No reservable';
+            }
+            if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
+                return 'Ausencia pendiente';
+            }
+            if (table.modificadores.indexOf('reservacion_advertencia') !== -1
+                || table.estadoVisual === 'reservacion-proxima') {
+                return 'Reserva próxima';
+            }
+            return (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
+                .replace(/^./, function (letter) { return letter.toUpperCase(); });
+        }
+
+        function visibleTableContext(table) {
+            var reservation = table.reservacionProxima || null;
+            var hour = reservation && (reservation.hora || reservation.hora_reservacion)
+                ? String(reservation.hora || reservation.hora_reservacion).slice(0, 5)
+                : '';
+            var capacity = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
+            return [hour, capacity].filter(Boolean).join(' · ');
         }
 
         function dispatch(name, detail) {
@@ -250,6 +275,7 @@
             }
 
             var state = button.querySelector('.operational-map__structured-state');
+            var context = button.querySelector('.operational-map__structured-context');
             button.disabled = !(interactive && table.interactivo);
             button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
@@ -258,8 +284,11 @@
             // --map-table-* que usan los pines del mapa.
             button.setAttribute('data-estado-visual', table.estadoVisual);
             if (state) {
-                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                state.textContent = visibleTableState(table);
+            }
+            if (context) {
+                context.textContent = visibleTableContext(table);
+                context.hidden = !context.textContent;
             }
         }
 
@@ -289,9 +318,14 @@
 
                 var state = document.createElement('span');
                 state.className = 'operational-map__structured-state';
-                state.textContent = (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                    + (table.capacidad > 0 ? ' · capacidad ' + table.capacidad : '');
+                state.textContent = visibleTableState(table);
                 button.appendChild(state);
+
+                var context = document.createElement('span');
+                context.className = 'operational-map__structured-context';
+                context.textContent = visibleTableContext(table);
+                context.hidden = !context.textContent;
+                button.appendChild(context);
 
                 button.addEventListener('click', function () {
                     dispatchTableClick(table);

@@ -64,17 +64,14 @@
             var cancelButton = form.querySelector('[data-form-cancel]') || (externalActions && externalActions.querySelector('[data-form-cancel]'));
             var saveButton = form.querySelector('[data-form-save]') || (externalActions && externalActions.querySelector('[data-form-save]'));
             var editBanner = card.querySelector('[data-edit-mode-banner]');
+            var editBadge = card.querySelector('[data-editing-badge]');
             var dateRoot = form.querySelector('[data-reservation-date-picker]');
             var timeRoot = form.querySelector('[data-reservation-time-picker]');
             var dateInput = form.querySelector('[data-date-input]');
             var timeInput = form.querySelector('[data-time-input]');
             var timeStatus = form.querySelector('[data-time-status]');
             var capacitySummary = form.querySelector('[data-reservation-capacity-summary]');
-            var capacityTotal = form.querySelector('[data-capacity-total]');
-            var capacityCommitted = form.querySelector('[data-capacity-committed]');
-            var capacityDemand = form.querySelector('[data-capacity-demand]');
             var capacityReal = form.querySelector('[data-capacity-real]');
-            var capacityProjected = form.querySelector('[data-capacity-projected]');
             var capacityRequested = form.querySelector('[data-capacity-requested]');
             var capacityWarning = form.querySelector('[data-capacity-warning]');
             var contactSelect = form.querySelector('select[data-contact-type]:not([data-contact-type-locked])');
@@ -128,11 +125,7 @@
                     if (capacityWarning) capacityWarning.hidden = true;
                     return;
                 }
-                if (capacityTotal) capacityTotal.textContent = String(detail.capacidad_fisica_total || detail.capacidad_total || 0);
-                if (capacityCommitted) capacityCommitted.textContent = String(detail.capacidad_fisica_comprometida || 0);
-                if (capacityDemand) capacityDemand.textContent = String(detail.demanda_no_asignada || 0);
                 if (capacityReal) capacityReal.textContent = String(detail.capacidad_real_disponible || detail.capacidad_estimada_horario || 0);
-                if (capacityProjected) capacityProjected.textContent = String(detail.capacidad_proyectada || 0);
                 if (capacityRequested) capacityRequested.textContent = String(formValue(form, 'comensales') || 0);
                 if (capacityWarning) {
                     capacityWarning.textContent = detail.advertencia ||
@@ -145,17 +138,42 @@
                 return form.querySelector('[data-field-error="' + name + '"]');
             }
 
+            function fieldControls(name) {
+                var controls = [];
+                var named = form.elements[name];
+                if (named) {
+                    if (named.length && !named.tagName) {
+                        Array.prototype.forEach.call(named, function (control) {
+                            if (controls.indexOf(control) === -1) controls.push(control);
+                        });
+                    } else {
+                        controls.push(named);
+                    }
+                }
+
+                var visibleControl = name === 'fecha'
+                    ? form.querySelector('[data-date-display]')
+                    : (name === 'hora' ? form.querySelector('[data-time-display]') : null);
+                if (visibleControl && controls.indexOf(visibleControl) === -1) {
+                    controls.push(visibleControl);
+                }
+                return controls;
+            }
+
+            function setFieldInvalid(name, invalid) {
+                fieldControls(name).forEach(function (control) {
+                    control.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+                });
+            }
+
             function setFieldError(name, message) {
                 var target = fieldMessage(name);
-                var control = form.elements[name];
                 message = Array.isArray(message) ? (message[0] || '') : (message || '');
                 if (target) {
                     target.textContent = String(message);
                     target.classList.toggle('show', Boolean(message));
                 }
-                if (control) {
-                    control.setAttribute('aria-invalid', message ? 'true' : 'false');
-                }
+                setFieldInvalid(name, Boolean(message));
             }
 
             function showFeedback(message, type) {
@@ -466,7 +484,8 @@
                     message.setAttribute('data-client-required-error', '1');
                     message.classList.add('show');
                 }
-                control.setAttribute('aria-invalid', 'true');
+                if (control.name) setFieldInvalid(control.name, true);
+                else control.setAttribute('aria-invalid', 'true');
 
                 if (!requiredFocusQueued) {
                     requiredFocusQueued = true;
@@ -582,6 +601,7 @@
                     editButton.hidden = isEditing || !editable;
                     editButton.setAttribute('aria-expanded', isEditing ? 'true' : 'false');
                 }
+                if (editBadge) editBadge.hidden = !isEditing;
                 if (cancelButton) {
                     cancelButton.hidden = mode === 'crear' || !isEditing;
                 }
@@ -761,7 +781,8 @@
                     setFormValue(form, 'confirmar_sobrecapacidad', '0');
                 }
                 if (control && control.required) {
-                    control.removeAttribute('aria-invalid');
+                    if (control.name) setFieldInvalid(control.name, false);
+                    else control.setAttribute('aria-invalid', 'false');
                     var field = control.closest('.reservation-detail-form__field');
                     var message = field ? field.querySelector('.reservation-detail-field-msg') : null;
                     if (message && message.getAttribute('data-client-required-error') === '1') {

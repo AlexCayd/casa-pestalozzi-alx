@@ -6,8 +6,10 @@ use Model\ConfiguracionAnuncio;
 use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
+use Services\AdminCsrfService;
 use Services\HorarioOperacionService;
 use Services\ReservacionErrorCatalog;
+use Services\ReservacionNotificacionConfigService;
 use Services\ReporteSistemaService;
 
 class AdminConfigurationController
@@ -17,6 +19,7 @@ class AdminConfigurationController
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
     private const POS_PATH = '/admin/configuracion/pos';
+    private const RESERVATIONS_PATH = '/admin/configuracion/reservaciones';
 
     public static function index(Router $router): void
     {
@@ -37,6 +40,12 @@ class AdminConfigurationController
                     'descripcion' => 'Configura el aviso que se mostrará en la página principal.',
                     'ruta' => '/admin/configuracion/anuncio',
                     'icono' => '<path d="M4 11v2"/><path d="M6 9v6l10 4V5L6 9Z"/><path d="M9 16l1 4h3"/>',
+                ],
+                [
+                    'titulo' => 'Reservaciones',
+                    'descripcion' => 'Configura recordatorios automáticos y comunicaciones con clientes.',
+                    'ruta' => self::RESERVATIONS_PATH,
+                    'icono' => '<path d="M6 3v3M18 3v3M4 8h16"/><rect x="4" y="5" width="16" height="16" rx="2"/><path d="m9 14 2 2 4-4"/>',
                 ],
                 [
                     'titulo' => 'POS',
@@ -82,7 +91,7 @@ class AdminConfigurationController
         );
 
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=horarios_actualizados');
+            self::redirect(self::urlResultadoHorario('horarios_actualizados', $resultado));
         }
 
         self::renderHours([
@@ -109,7 +118,10 @@ class AdminConfigurationController
             ['superficie' => 'administracion']
         );
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=' . (!empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada'));
+            self::redirect(self::urlResultadoHorario(
+                !empty($resultado['editada']) ? 'excepcion_actualizada' : 'excepcion_creada',
+                $resultado
+            ));
         }
 
         self::renderHours([
@@ -134,13 +146,14 @@ class AdminConfigurationController
             HorarioOperacionService::cambiarEstadoExcepcion(
                 $id ? (int) $id : 0,
                 $activo,
-                self::usuarioAutenticadoId()
+                self::usuarioAutenticadoId(),
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1'
             ),
             ['superficie' => 'administracion']
         );
 
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=estado_actualizado');
+            self::redirect(self::urlResultadoHorario('estado_actualizado', $resultado));
         }
 
         self::renderHours([
@@ -158,11 +171,15 @@ class AdminConfigurationController
 
         $id = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $resultado = ReservacionErrorCatalog::enriquecer(
-            HorarioOperacionService::eliminarExcepcion($id ? (int) $id : 0),
+            HorarioOperacionService::eliminarExcepcion(
+                $id ? (int) $id : 0,
+                (string)($_POST['confirmar_conflictos'] ?? '0') === '1',
+                self::usuarioAutenticadoId()
+            ),
             ['superficie' => 'administracion']
         );
         if ($resultado['ok']) {
-            self::redirect(self::HOURS_PATH . '?resultado=excepcion_eliminada');
+            self::redirect(self::urlResultadoHorario('excepcion_eliminada', $resultado));
         }
 
         self::renderHours([
@@ -238,7 +255,23 @@ class AdminConfigurationController
     {
         $datos = self::entradaApi();
         $id = (int)($datos['id'] ?? $_GET['id'] ?? 0);
-        self::json(HorarioOperacionService::eliminarExcepcion($id));
+        self::json(HorarioOperacionService::eliminarExcepcion(
+            $id,
+            !empty($datos['confirmar_conflictos']),
+            self::usuarioAutenticadoId()
+        ));
+    }
+
+    /** POST /api/configuracion/horarios/excepciones/estado */
+    public static function apiCambiarEstadoExcepcion(Router $router): void
+    {
+        $datos = self::entradaApi();
+        self::json(HorarioOperacionService::cambiarEstadoExcepcion(
+            (int)($datos['id'] ?? 0),
+            !empty($datos['activo']),
+            self::usuarioAutenticadoId(),
+            !empty($datos['confirmar_conflictos'])
+        ));
     }
 
     public static function announcement(Router $router): void
@@ -343,6 +376,53 @@ class AdminConfigurationController
         self::renderPos($configuracion->valoresFormulario(), $alertas);
     }
 
+    public static function reservations(Router $router): void
+    {
+        $alertas = (string)($_GET['resultado'] ?? '') === 'reservaciones_actualizadas'
+            ? ['exito' => ['La configuración de reservaciones se actualizó correctamente.']]
+            : [];
+        try {
+            $configuracion = ReservacionNotificacionConfigService::obtenerOCrear();
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::reservations - configuración no disponible.');
+            $configuracion = ReservacionNotificacionConfigService::obtener();
+            $alertas['error'][] = 'No fue posible cargar la configuración de reservaciones.';
+        }
+        self::renderReservations($configuracion, $alertas);
+    }
+
+    public static function guardarReservaciones(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::RESERVATIONS_PATH);
+        }
+        $entrada = [
+            'recordatorio_dia_anterior_activo' => isset($_POST['recordatorio_dia_anterior_activo'])
+                && is_scalar($_POST['recordatorio_dia_anterior_activo'])
+                && (string)$_POST['recordatorio_dia_anterior_activo'] === '1',
+            'hora_recordatorio' => is_scalar($_POST['hora_recordatorio'] ?? null)
+                ? trim((string)$_POST['hora_recordatorio'])
+                : '',
+        ];
+        if (!AdminCsrfService::validar(isset($_POST['admin_csrf']) ? (string)$_POST['admin_csrf'] : null)) {
+            self::renderReservations($entrada, ['error' => ['La sesión del formulario venció. Recarga la página e intenta de nuevo.']]);
+            return;
+        }
+        try {
+            $resultado = ReservacionNotificacionConfigService::guardar($entrada, self::usuarioAutenticadoId());
+            if (($resultado['ok'] ?? false) === true) {
+                self::redirect(self::RESERVATIONS_PATH . '?resultado=reservaciones_actualizadas');
+            }
+            self::renderReservations(
+                (array)($resultado['configuracion'] ?? $entrada),
+                ['error' => (array)($resultado['errors'] ?? ['La configuración no es válida.'])]
+            );
+        } catch (\Throwable $e) {
+            error_log('AdminConfigurationController::guardarReservaciones - guardado no disponible.');
+            self::renderReservations($entrada, ['error' => ['No fue posible actualizar la configuración. Intenta de nuevo.']]);
+        }
+    }
+
     public static function reports(Router $router): void
     {
         $resultado = (string) ($_GET['resultado'] ?? '');
@@ -416,22 +496,29 @@ class AdminConfigurationController
             'horarioSemanalConErrores' => false,
             'conflictosHorarios' => [],
             'conflictosExcepcion' => [],
+            'adminCsrfToken' => AdminCsrfService::token(),
             'fechaActual' => HorarioOperacionService::fechaActual(),
         ], $data));
     }
 
+    private static function renderReservations(array $configuracion, array $alertas): void
+    {
+        self::render('configuration/reservations', [
+            'title' => 'Reservaciones',
+            'topbarSection' => 'Configuración',
+            'configuracionReservaciones' => $configuracion,
+            'adminCsrfToken' => AdminCsrfService::token(),
+            'alertas' => $alertas,
+        ]);
+    }
+
+    private static function urlResultadoHorario(string $resultado, array $respuesta): string
+    {
+        return self::HOURS_PATH . '?' . http_build_query(['resultado' => $resultado]);
+    }
+
     private static function alertasResultado(string $resultado): array
     {
-        return match ($resultado) {
-            'horarios_actualizados' => ['exito' => ['Los horarios de operación se actualizaron correctamente.']],
-            'excepcion_creada' => ['exito' => ['El cierre u horario especial se guardó correctamente.']],
-            'excepcion_actualizada' => ['exito' => ['La excepción se actualizó correctamente.']],
-            'excepcion_eliminada' => ['exito' => ['La excepción se eliminó correctamente. La fecha volverá a utilizar el horario semanal habitual.']],
-            'estado_actualizado' => ['exito' => ['El estado de la excepción se actualizó correctamente.']],
-            'anuncio_actualizado' => ['exito' => ['El anuncio principal se actualizó correctamente.']],
-            'pos_actualizado' => ['exito' => ['La configuración del POS se actualizó correctamente.']],
-            default => [],
-        };
         $codigos = [
             'horarios_actualizados' => 'HORARIOS_ACTUALIZADOS',
             'excepcion_creada' => 'EXCEPCION_CREADA',
@@ -439,6 +526,7 @@ class AdminConfigurationController
             'excepcion_eliminada' => 'EXCEPCION_ELIMINADA',
             'estado_actualizado' => 'EXCEPCION_ESTADO_ACTUALIZADO',
             'anuncio_actualizado' => 'ANUNCIO_ACTUALIZADO',
+            'pos_actualizado' => 'POS_ACTUALIZADO',
         ];
         $codigo = $codigos[$resultado] ?? null;
         if ($codigo === null || !ReservacionErrorCatalog::has($codigo)) {

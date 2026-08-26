@@ -7,6 +7,7 @@ $operationalDrawerAttributes = is_array($operationalDrawerAttributes ?? null) ? 
 $operationalDrawerDateHtml = (string)($operationalDrawerDateHtml ?? '');
 $operationalDrawerCountHtml = (string)($operationalDrawerCountHtml ?? '0');
 $operationalDrawerSlotHtml = (string)($operationalDrawerSlotHtml ?? 'Reservaciones activas');
+$operationalDrawerFilterHtml = (string)($operationalDrawerFilterHtml ?? '');
 $operationalDrawerListHtml = (string)($operationalDrawerListHtml ?? '');
 $operationalDrawerListId = trim((string)($operationalDrawerListId ?? ''));
 $operationalDrawerListClass = trim((string)($operationalDrawerListClass ?? ''));
@@ -85,6 +86,11 @@ $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$val
         <?php endif; ?>
     </nav>
     <div class="operational-drawer__content">
+        <?php if (trim($operationalDrawerFilterHtml) !== ''): ?>
+            <div class="operational-drawer__filters">
+                <?php echo $operationalDrawerFilterHtml; ?>
+            </div>
+        <?php endif; ?>
         <?php if (trim($operationalDrawerSlotHtml) !== ''): ?>
             <div class="reservation-operation__slot"><?php echo $operationalDrawerSlotHtml; ?></div>
         <?php endif; ?>
@@ -106,4 +112,4 @@ $operationalDrawerH = static fn($value): string => htmlspecialchars((string)$val
     </div>
 </aside>
 <button type="button" class="operational-drawer-backdrop" aria-label="Cerrar reservaciones" data-operational-drawer-backdrop hidden></button>
-<?php unset($operationalDrawerId, $operationalDrawerTitleId, $operationalDrawerClass, $operationalDrawerAttributes, $operationalDrawerDateHtml, $operationalDrawerCountHtml, $operationalDrawerSlotHtml, $operationalDrawerListHtml, $operationalDrawerListId, $operationalDrawerListClass, $operationalDrawerListAttributes, $operationalActiveModule, $operationalMapHref, $operationalReservationsHref, $operationalAdminHref, $operationalDrawerH); ?>
+<?php unset($operationalDrawerId, $operationalDrawerTitleId, $operationalDrawerClass, $operationalDrawerAttributes, $operationalDrawerDateHtml, $operationalDrawerCountHtml, $operationalDrawerSlotHtml, $operationalDrawerFilterHtml, $operationalDrawerListHtml, $operationalDrawerListId, $operationalDrawerListClass, $operationalDrawerListAttributes, $operationalActiveModule, $operationalMapHref, $operationalReservationsHref, $operationalAdminHref, $operationalDrawerH); ?>

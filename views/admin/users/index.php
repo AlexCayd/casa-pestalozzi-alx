@@ -167,6 +167,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                 <td>
                                     <form method="POST" action="/admin/usuarios/<?php echo $activo ? 'deactivate' : 'activate'; ?>">
                                         <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                        <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                         <button
                                             type="submit"
                                             class="admin-status-switch <?php echo $activo ? 'is-on' : 'is-off'; ?>"
@@ -208,6 +209,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                             data-user-delete-form
                                         >
                                             <input type="hidden" name="id" value="<?php echo $id; ?>">
+                                            <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                             <button
                                                 type="button"
                                                 class="admin-icon-button admin-icon-button--danger admin-icon-button--danger-text"

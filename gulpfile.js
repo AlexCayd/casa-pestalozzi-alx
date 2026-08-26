@@ -39,6 +39,7 @@ const paths = {
     "src/js/admin/core/select.js",
     "src/js/admin/core/table-sort.js",
     "src/js/admin/core/table-rows.js",
+    "src/js/admin/buzon.js",
     // El selector de periodo lo comparten analíticas, finanzas e inventario, así
     // que vive aquí y no en el bundle de analíticas.
     "src/js/admin/core/range-picker.js",
@@ -90,6 +91,7 @@ const paths = {
     "src/js/operation/table-state-adapter.js",
     "src/js/operation/map-visual.js",
     "src/js/operation/reservation-card.js",
+    "src/js/operation/reservation-operation-policy.js",
     "src/js/admin/reservations/operation.js",
   ],
   adminConfigurationJs: [

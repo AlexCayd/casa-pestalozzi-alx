@@ -47,7 +47,7 @@ if ($operationalHeaderBackUrl === '') {
 }
 ?>
 <header
-    class="operational-header"
+    class="operational-header<?php echo $operationalView === 'reservations' ? ' operational-header--reservations' : ''; ?>"
     data-operational-header
     data-operational-module="<?php echo $operationalHeaderH($operationalModule); ?>"
 >
@@ -64,9 +64,11 @@ if ($operationalHeaderBackUrl === '') {
         </a>
     </div>
 
-    <div class="operational-header__region operational-header__region--center">
-        <h1 class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></h1>
-    </div>
+    <?php if ($operationalView === 'map'): ?>
+        <div class="operational-header__region operational-header__region--center">
+            <h1 class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></h1>
+        </div>
+    <?php endif; ?>
 
     <div class="operational-header__region operational-header__region--right">
         <?php if ($operationalShowLastUpdate): ?>

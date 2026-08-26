@@ -114,9 +114,9 @@ $cpPickerEscape = static function ($item): string {
         data-date-calendar
     >
         <div class="cpc-head">
-            <button class="cpc-nav cpc-prev"<?php echo $prevId !== '' ? ' id="' . $cpPickerEscape($prevId) . '"' : ''; ?> type="button" aria-label="Mes anterior" data-date-prev>&lt;</button>
+            <button class="cpc-nav cpc-prev"<?php echo $prevId !== '' ? ' id="' . $cpPickerEscape($prevId) . '"' : ''; ?> type="button" aria-label="Mes anterior" title="Mes anterior" data-date-prev><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg></button>
             <span class="cpc-label"<?php echo $labelId !== '' ? ' id="' . $cpPickerEscape($labelId) . '"' : ''; ?> data-date-label></span>
-            <button class="cpc-nav cpc-next"<?php echo $nextId !== '' ? ' id="' . $cpPickerEscape($nextId) . '"' : ''; ?> type="button" aria-label="Mes siguiente" data-date-next>&gt;</button>
+            <button class="cpc-nav cpc-next"<?php echo $nextId !== '' ? ' id="' . $cpPickerEscape($nextId) . '"' : ''; ?> type="button" aria-label="Mes siguiente" title="Mes siguiente" data-date-next><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg></button>
         </div>
         <div class="cpc-weekdays">
             <span>do</span><span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sa</span>

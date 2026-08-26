@@ -493,7 +493,6 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             pattern="[0-9]{6}" maxlength="6" placeholder="000000" data-new-reservation-otp-input aria-describedby="new-reservation-otp-error">
           <span class="field__msg reservation-field__error" id="new-reservation-otp-error" data-new-reservation-otp-error></span>
         </div>
-        <div class="reservation-access__preview" data-new-reservation-preview hidden></div>
         <div class="form__submit reservation-otp__actions">
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
           <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
@@ -522,7 +521,8 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
       </div>
 
       <div class="reservation-access" id="reservation-panel-manage" role="tabpanel"
-        aria-labelledby="reservation-tab-manage" data-reservation-panel="manage" hidden>
+        aria-labelledby="reservation-tab-manage" data-reservation-panel="manage"
+        hidden>
         <div data-contact-access>
           <div class="reservation-access__head">
             <span class="eyebrow">Gestión de reservaciones</span>
@@ -565,7 +565,6 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
                 placeholder="000000" required data-otp-input aria-describedby="reservation-manage-otp-error">
               <span class="field__msg reservation-field__error" id="reservation-manage-otp-error" data-contact-otp-error></span>
             </div>
-            <div class="reservation-access__preview" data-otp-preview hidden></div>
             <div class="form__submit">
               <button type="submit" class="btn-line"><span>Verificar</span><span class="arrow">→</span></button>
               <button type="button" class="reservation-access__link" data-contact-resend>Reenviar código</button>
@@ -649,7 +648,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
       </div>
       <div class="field reservation-field reservation-card__editor-notes">
         <label class="reservation-field__label" data-editor-notes-label>Indicaciones para tu visita</label>
-        <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…"></textarea>
+        <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Celebración, ubicación preferida, accesibilidad u otra indicación para tu visita…"></textarea>
       </div>
       <div class="reservation-card__editor-actions">
         <button type="submit" class="btn-line"><span>Aceptar</span></button>

@@ -39,10 +39,12 @@
         var countSource = page.querySelector('[data-operation-count], #mapa-reserva-count');
         var countTargets = Array.prototype.slice.call(page.querySelectorAll('[data-operational-drawer-count]'));
         var panelClose = page.querySelector('[data-operation-panel-close]');
+        var detailPanel = page.querySelector('[data-operation-panel-shell]');
         var operationRoot = page.querySelector('[data-page="reservation-operation"]');
         var mapToggles = Array.prototype.slice.call(page.querySelectorAll('[data-operational-map-toggle]'));
         var userMenus = Array.prototype.slice.call(page.querySelectorAll('[data-operational-user-menu]'));
         var lastFocus = null;
+        var detailLastFocus = null;
         var mapStateKey = page.getAttribute('data-operational-map-state-key') || 'pos';
         var MAP_MAX_KEY = 'cp-' + mapStateKey + '-map-maximized';
 
@@ -250,6 +252,63 @@
             });
         }
 
+        function detailFocusableElements() {
+            if (!detailPanel) {
+                return [];
+            }
+
+            return Array.prototype.slice.call(detailPanel.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )).filter(function (element) {
+                return !element.hidden && element.offsetParent !== null;
+            });
+        }
+
+        function detailUsesOverlay() {
+            return Boolean(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+        }
+
+        function detailIsOpen() {
+            return Boolean(
+                detailPanel &&
+                detailUsesOverlay() &&
+                !detailPanel.hidden &&
+                detailPanel.getAttribute('aria-hidden') !== 'true' &&
+                operationRoot &&
+                !operationRoot.classList.contains('is-panel-dismissed') &&
+                !operationRoot.classList.contains('is-panel-suppressed')
+            );
+        }
+
+        function syncDetailInert() {
+            if (!operationRoot) {
+                return;
+            }
+
+            var mapSurface = operationRoot.querySelector('.reservation-operation__map');
+            if (mapSurface) {
+                mapSurface.toggleAttribute('inert', detailIsOpen());
+            }
+        }
+
+        function focusDetail() {
+            var focusable = detailFocusableElements();
+            (focusable[0] || detailPanel).focus();
+        }
+
+        function closeDetail() {
+            if (!operationRoot) {
+                return;
+            }
+
+            document.dispatchEvent(new CustomEvent('operational:close-panel'));
+            operationRoot.classList.add('is-panel-dismissed');
+            syncDetailInert();
+            if (detailLastFocus && typeof detailLastFocus.focus === 'function') {
+                detailLastFocus.focus();
+            }
+        }
+
         function setDrawer(open, restoreFocus) {
             if (!drawer) {
                 return;
@@ -274,6 +333,9 @@
                 (focusable[0] || drawer).focus();
             } else if (restoreFocus !== false && lastFocus && typeof lastFocus.focus === 'function') {
                 lastFocus.focus();
+                if (detailIsOpen()) {
+                    focusDetail();
+                }
             }
         }
 
@@ -302,18 +364,27 @@
                 setDrawer(false);
             });
         }
+        if (detailPanel && window.MutationObserver) {
+            new MutationObserver(function () {
+                if (detailIsOpen()) {
+                    syncDetailInert();
+                    if (!detailPanel.contains(document.activeElement)) {
+                        focusDetail();
+                    }
+                } else {
+                    syncDetailInert();
+                }
+            }).observe(detailPanel, { attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
+        }
         if (panelClose && operationRoot) {
             panelClose.addEventListener('click', function () {
-                operationRoot.classList.add('is-panel-dismissed');
-                var drawerToggle = toggles[0];
-                if (drawerToggle) {
-                    drawerToggle.focus();
-                }
+                closeDetail();
             });
         }
 
         page.addEventListener('click', function (event) {
             if (event.target.closest('[data-operation-reservation]')) {
+                detailLastFocus = event.target.closest('[data-operation-reservation]');
                 if (operationRoot) {
                     operationRoot.classList.remove('is-panel-dismissed');
                 }
@@ -334,13 +405,39 @@
                     setUserMenu(openUserMenu, false, true);
                     return;
                 }
+                if (detailIsOpen()) {
+                    event.preventDefault();
+                    closeDetail();
+                    return;
+                }
                 if (page.classList.contains('is-drawer-open')) {
                     event.preventDefault();
                     setDrawer(false);
                     return;
                 }
             }
-            if (event.key !== 'Tab' || !page.classList.contains('is-drawer-open') || !drawer) {
+            if (event.key !== 'Tab' || (!page.classList.contains('is-drawer-open') && !detailIsOpen())) {
+                return;
+            }
+            if (detailIsOpen()) {
+                var detailFocusable = detailFocusableElements();
+                if (!detailFocusable.length) {
+                    event.preventDefault();
+                    focusDetail();
+                    return;
+                }
+                var detailFirst = detailFocusable[0];
+                var detailLast = detailFocusable[detailFocusable.length - 1];
+                if (event.shiftKey && document.activeElement === detailFirst) {
+                    event.preventDefault();
+                    detailLast.focus();
+                } else if (!event.shiftKey && document.activeElement === detailLast) {
+                    event.preventDefault();
+                    detailFirst.focus();
+                }
+                return;
+            }
+            if (!drawer) {
                 return;
             }
             var focusable = focusableElements();

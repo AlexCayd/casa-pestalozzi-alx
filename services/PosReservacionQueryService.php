@@ -36,6 +36,7 @@ final class PosReservacionQueryService
         if (!$ahora instanceof DateTimeImmutable) {
             $ahora = ReservacionConfig::ahora();
         }
+        $horarioEfectivo = HorarioOperacionService::obtenerHorarioEfectivo($fecha);
 
         $incluirInactivas = (bool)($opciones['incluir_inactivas'] ?? false);
         $mesasLeidas = $incluirInactivas
@@ -108,6 +109,7 @@ final class PosReservacionQueryService
                     'conflicto_fisico' => $mesasBloqueantes !== [],
                     'mesas_bloqueantes' => $mesasBloqueantes,
                     'hora_consulta' => $horaEvaluacion,
+                    'horario_efectivo' => $horarioEfectivo,
                     'incluir_contexto_administrativo' => !empty($opciones['incluir_contexto_administrativo']),
                 ]
             );
@@ -213,7 +215,7 @@ final class PosReservacionQueryService
             static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') !== 'reemplazada'
         ));
 
-        return [
+        $respuesta = [
             'ok' => true,
             'codigo' => 'OK',
             'schema_version' => PosReservacionSerializer::SCHEMA_VERSION,
@@ -234,6 +236,10 @@ final class PosReservacionQueryService
             ],
             'actualizado_en' => $ahora->format(DATE_ATOM),
         ];
+
+        return strtolower((string)($opciones['superficie'] ?? 'waiter')) === 'waiter'
+            ? PosReservacionSerializer::sanitizarParaWaiter($respuesta)
+            : $respuesta;
     }
 
     /**

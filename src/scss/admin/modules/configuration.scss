@@ -611,6 +611,54 @@
   line-height: 1.55;
 }
 
+.admin-reservation-settings {
+  display: grid;
+  gap: 18px;
+
+  &__section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.65fr);
+    align-items: start;
+    gap: 20px 28px;
+    padding: 18px;
+    border: 1px solid var(--admin-border-soft);
+    border-radius: var(--admin-radius-md);
+    background: var(--admin-surface-soft);
+
+    h3 {
+      margin: 0 0 6px;
+      color: var(--admin-text);
+      font-size: 15px;
+    }
+
+    p {
+      max-width: 68ch;
+      margin: 0;
+      color: var(--admin-muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .admin-switch {
+      justify-self: end;
+    }
+  }
+
+  &__time {
+    grid-column: 2;
+
+    input {
+      min-height: 44px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+  }
+}
+
 .admin-announcement-template {
   display: grid;
   gap: 11px;
@@ -989,6 +1037,18 @@
 
   .admin-config-preview {
     position: static;
+  }
+
+  .admin-reservation-settings__section {
+    grid-template-columns: minmax(0, 1fr);
+
+    .admin-switch {
+      justify-self: start;
+    }
+  }
+
+  .admin-reservation-settings__time {
+    grid-column: auto;
   }
 
   .admin-config-filters {

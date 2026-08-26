@@ -34,11 +34,13 @@ foreach ($alertas as $tipo => $mensajes) {
 
 <section class="admin-reservations admin-reservation-detail admin-menu admin-page">
     <header class="admin-menu__header admin-page__header reservation-detail-header">
-        <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>">Volver</a>
+        <a class="admin-btn admin-btn--secondary admin-btn--icon admin-menu__button admin-menu__button--light" href="<?php echo $h($backUrl); ?>" aria-label="Volver a reservaciones" title="Volver a reservaciones">
+            <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        </a>
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Reservaciones</span>
-            <h2 class="admin-page__title">Nueva reservacion</h2>
-            <p class="admin-page__subtitle">Registra una reservacion desde el panel administrativo.</p>
+            <h2 class="admin-page__title">Nueva reservación</h2>
+            <p class="admin-page__subtitle">Registra los datos de la visita.</p>
         </div>
     </header>
 

@@ -19,6 +19,7 @@ use Services\ReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\PosReservacionQueryService;
+use Services\PosReservacionSerializer;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
 use Services\StaffCsrfService;
@@ -55,6 +56,7 @@ class PuntoVentaController {
             $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
                 'incluir_inactivas' => false,
                 'calcular_conflictos' => true,
+                'superficie' => Auth::esAdmin() ? 'admin' : 'waiter',
             ]);
             if (!($lectura['ok'] ?? false)) {
                 self::errorJson((string)($lectura['codigo'] ?? 'MAPA_CARGA_FALLIDA'));
@@ -724,13 +726,19 @@ class PuntoVentaController {
     public static function reservaciones(Router $router): void
     {
         $fecha = trim((string)($_GET['fecha'] ?? ReservacionConfig::fechaActual()));
-        self::responder(PuntoVentaReservacionService::listar($fecha));
+        self::responder(PuntoVentaReservacionService::listar(
+            $fecha,
+            Auth::esAdmin() ? 'admin' : 'waiter'
+        ));
     }
 
     /** GET /api/punto-de-venta/mesa-contexto?mesa_id=N */
     public static function mesaContexto(Router $router): void
     {
-        self::responder(PuntoVentaReservacionService::contextoMesa((int)($_GET['mesa_id'] ?? 0)));
+        self::responder(PuntoVentaReservacionService::contextoMesa(
+            (int)($_GET['mesa_id'] ?? 0),
+            Auth::esAdmin() ? 'admin' : 'waiter'
+        ));
     }
 
     /** POST /api/punto-de-venta/reservaciones/comenzar */
@@ -813,6 +821,9 @@ class PuntoVentaController {
     private static function responder(array $resultado): void
     {
         header('Content-Type: application/json; charset=utf-8');
+        if (!Auth::esAdmin()) {
+            $resultado = PosReservacionSerializer::sanitizarParaWaiter($resultado);
+        }
         if (array_key_exists('codigo', $resultado)) {
             $resultado = ReservacionErrorCatalog::enriquecer($resultado, ['superficie' => 'pos']);
         }

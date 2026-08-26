@@ -4,8 +4,8 @@
  * Proveedor controlado de la Etapa 1: nunca realiza llamadas externas.
  *
  * El código existe únicamente durante la petición. La persistencia se limita
- * al hash y el controlador decide, con una doble condición de entorno, si
- * puede devolverlo como vista previa.
+ * al hash y el proveedor real debe entregarlo por el canal elegido; nunca se
+ * devuelve al navegador.
  */
 
 namespace Services;

@@ -41,6 +41,8 @@ class ReservacionConfig
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
     public const MARGEN_MINIMO_SEGURIDAD_MINUTOS = 30;
     public const REFRESCO_ESTADOS_SEGUNDOS = 60;
+    public const SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES = 15;
+    public const SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS = 3;
     public const ESTADO_RETENCION_PENDIENTE = 'pendiente_verificacion';
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',
@@ -279,18 +281,6 @@ class ReservacionConfig
         ], $ahora)['influye_disponibilidad'];
     }
 
-    /**
-     * La vista previa requiere dos controles del servidor: entorno no
-     * productivo y una bandera explícita. Ningún dato del navegador la activa.
-     */
-    public static function otpPreviewEnabled(): bool
-    {
-        $entorno = strtolower(self::env('APP_ENV', 'production'));
-
-        return in_array($entorno, ['development', 'testing'], true)
-            && self::envBool('CONTACT_OTP_PREVIEW', false);
-    }
-
     public static function otpSendEnabled(): bool
     {
         return self::envBool('CONTACT_OTP_SEND_ENABLED', false);
@@ -299,6 +289,29 @@ class ReservacionConfig
     public static function appEnvironment(): string
     {
         return strtolower(self::env('APP_ENV', 'production'));
+    }
+
+    public static function scheduleChangeAccessTtlMinutes(): int
+    {
+        $valor = filter_var(self::env('SCHEDULE_CHANGE_ACCESS_TTL_MINUTES', '60'), FILTER_VALIDATE_INT);
+
+        return $valor !== false ? max(15, min(180, (int)$valor)) : 60;
+    }
+
+    /**
+     * URL pública canónica. En producción debe configurarse explícitamente;
+     * sólo los entornos locales usan un fallback deliberado.
+     */
+    public static function reservationPublicBaseUrl(): string
+    {
+        $configurada = rtrim(self::env('RESERVATION_PUBLIC_BASE_URL', ''), '/');
+        if ($configurada !== '') {
+            return $configurada;
+        }
+
+        return in_array(self::appEnvironment(), ['development', 'testing'], true)
+            ? 'http://localhost'
+            : '';
     }
 
     private static function env(string $key, string $default): string

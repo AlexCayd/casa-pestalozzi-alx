@@ -1303,6 +1303,23 @@
   }
 }
 
+.mmodal-reservation__scheduled {
+  display: grid;
+  gap: .3rem;
+  margin: 0;
+  padding: .7rem .8rem;
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  font-size: .76rem;
+  line-height: 1.4;
+
+  strong { color: var(--txt); font-size: .82rem; }
+  p { margin: 0; color: var(--txt); }
+}
+
 .mmodal-reservation__actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

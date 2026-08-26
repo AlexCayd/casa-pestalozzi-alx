@@ -23,11 +23,15 @@
     };
 
     $rolActual = (string) $valor('rol', 'waiter');
+    $rolOriginal = (string) ($rolOriginal ?? $rolActual);
     $activoActual = (int) $valor('activo', 1);
-    // La sección de seguridad se emite SIEMPRE. Al editar, los campos son
-    // opcionales: antes desaparecía y cambiar la contraseña obligaba a salir a
-    // una pantalla aparte.
     $esEdicion = $modo === 'editar';
+    $esAdmin = $rolActual === 'admin';
+    $requierePassword = $esAdmin && (!$esEdicion || $rolOriginal !== 'admin');
+    $tieneNipPersistido = $esEdicion
+        && $rolOriginal !== 'admin'
+        && trim((string) $valor('nip_hash')) !== ''
+        && trim((string) $valor('nip_lookup')) !== '';
 
     $accesoPorRol = [];
     foreach ($roles as $rolDisponible) {
@@ -40,15 +44,21 @@
 
 <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
-<form class="admin-menu__form admin-users-form" data-users-form method="POST" action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>" data-user-id="<?php echo (int) $valor('id', 0); ?>"
-      <?php /* Si ya tiene NIP, el formulario no debe sugerirle otro: enseñaría
-               uno que no es el suyo y, al guardar, se lo cambiaría sin avisar.
-               Es la misma regla que aplica Usuario::generarNipDesdeNacimiento. */ ?>
-      data-user-has-nip="<?php echo $valor('nip_hash') ? '1' : '0'; ?>">
+<form
+    class="admin-menu__form admin-users-form"
+    data-users-form
+    method="POST"
+    action="<?php echo htmlspecialchars($action, ENT_QUOTES, 'UTF-8'); ?>"
+    data-user-id="<?php echo (int) $valor('id', 0); ?>"
+    data-original-role="<?php echo htmlspecialchars($rolOriginal, ENT_QUOTES, 'UTF-8'); ?>"
+    data-form-mode="<?php echo htmlspecialchars($modo, ENT_QUOTES, 'UTF-8'); ?>"
+    data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
+>
+    <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
     <section class="admin-users-form__section">
         <div class="admin-users-form__section-head">
             <h4>Identidad y acceso</h4>
-            <p>Datos con los que la persona inicia sesión y su nivel de permisos.</p>
+            <p>Define los datos básicos y el alcance operativo de la cuenta.</p>
         </div>
 
         <div class="admin-users-form__grid">
@@ -58,7 +68,7 @@
                     type="text"
                     id="username"
                     name="username"
-                    maxlength="80"
+                    maxlength="20"
                     autocomplete="username"
                     placeholder="ej. mariana_lopez"
                     value="<?php echo htmlspecialchars((string) $valor('username'), ENT_QUOTES, 'UTF-8'); ?>"
@@ -80,166 +90,143 @@
                 >
             </div>
 
-            <div class="admin-users-form__field">
-                <label for="fecha_nacimiento_display">Fecha de nacimiento</label>
-                <?php /*
-                  Campo de texto con máscara en vez de <input type="date">: el
-                  nativo se pinta con el formato del locale del navegador, que
-                  aquí sale mm/dd/yyyy. El hidden conserva Y-m-d, que es lo que
-                  valida el backend.
-                */ ?>
-                <input
-                    type="text"
-                    id="fecha_nacimiento_display"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    maxlength="10"
-                    placeholder="dd/mm/aaaa"
-                    data-birthdate-display
-                >
-                <input
-                    type="hidden"
-                    name="fecha_nacimiento"
-                    value="<?php echo htmlspecialchars((string) $valor('fecha_nacimiento'), ENT_QUOTES, 'UTF-8'); ?>"
-                    data-birthdate-value
-                >
-                <?php /* Sólo el personal de piso usa NIP: al administrador esta
-                         pista no le dice nada. La alterna users-form.js. */ ?>
-                <p class="admin-users-form__hint" data-hint-nip>Con ella se sugiere el NIP: día y mes del cumpleaños.</p>
-            </div>
-
-            <div class="admin-users-form__field" data-user-nip-field>
-                <label for="nip">NIP de acceso</label>
-                <input
-                    type="text"
-                    id="nip"
-                    name="nip"
-                    inputmode="numeric"
-                    pattern="\d{4}"
-                    maxlength="4"
-                    autocomplete="off"
-                    placeholder="<?php echo $modo === 'editar' ? 'Sin cambio' : 'ej. 4821'; ?>"
-                    title="NIP numérico de 4 dígitos"
-                    data-user-nip
-                    aria-describedby="nip-estado"
-                >
-                <?php /* El NIP duplicado se rechaza en el servidor, pero el aviso
-                         llegaba sólo tras enviar y dentro de la lista genérica de
-                         arriba, sin ligarse a este campo: quien lo tecleaba no
-                         sabía que el problema era el NIP hasta releerla. Esta
-                         línea la rellena users-form.js consultando la API. */ ?>
-                <p class="admin-users-form__nip-status" id="nip-estado" role="status" aria-live="polite" data-user-nip-status hidden></p>
-                <p class="admin-users-form__hint admin-users-form__hint--warn">
-                    Un NIP derivado del cumpleaños lo puede adivinar un compañero. Cámbialo cuando importe.
-                </p>
-            </div>
-
             <div class="admin-users-form__field admin-users-form__field--wide">
                 <span class="admin-users-form__field-label">Rol</span>
                 <div class="admin-tabs" role="radiogroup" aria-label="Rol">
                     <?php foreach ($roles as $rol) : ?>
                         <?php $rol = (string) $rol; ?>
                         <label class="admin-tabs__tab">
-                            <input type="radio" name="rol" value="<?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?>"
-                                   data-user-role
-                                   <?php echo $rolActual === $rol ? 'checked' : ''; ?> required>
+                            <input
+                                type="radio"
+                                name="rol"
+                                value="<?php echo htmlspecialchars($rol, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-user-role
+                                <?php echo $rolActual === $rol ? 'checked' : ''; ?>
+                                required
+                            >
                             <span><?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?></span>
                         </label>
                     <?php endforeach; ?>
                 </div>
-                <p class="admin-users-form__hint">El administrador entra con contraseña; meseros y cocineros, con NIP.</p>
-
-                <?php /* Qué abre este rol, en vez de dejarlo a la memoria de
-                         quien da de alta. La fuente es Auth::areasPorRol(),
-                         derivada de la misma guardia que aplica proteger().
-                         users-form.js reemplaza la lista al cambiar de tab. */ ?>
+                <p class="admin-users-form__hint" data-role-credential-hint>
+                    <?php echo $esAdmin
+                        ? 'El administrador entra con usuario y contraseña.'
+                        : 'El NIP se genera automáticamente al crear el usuario.'; ?>
+                </p>
                 <div class="admin-role-access" data-role-access>
                     <span class="admin-role-access__title">Acceso del rol</span>
                     <ul class="admin-role-access__list" data-role-access-list></ul>
                 </div>
             </div>
 
-            <div class="admin-users-form__field">
-                <span class="admin-users-form__field-label">Estado</span>
-                <label class="admin-users-form__toggle">
-                    <input type="checkbox" id="activo" name="activo" value="1" <?php echo $activoActual === 1 ? 'checked' : ''; ?>>
-                    <span class="admin-users-form__toggle-track" aria-hidden="true"><span class="admin-users-form__toggle-thumb"></span></span>
-                    <span class="admin-users-form__toggle-text">Usuario activo</span>
-                </label>
-                <p class="admin-users-form__hint">Los usuarios inactivos no pueden acceder al panel.</p>
+            <div
+                class="admin-users-access-status-grid<?php echo !$esEdicion || $esAdmin ? ' admin-users-access-status-grid--single' : ''; ?>"
+                data-user-access-status-grid
+            >
+                <?php if ($esEdicion) : ?>
+                    <div
+                        class="admin-users-form__field admin-users-access-status-card admin-users-access-card"
+                        data-role-nip-section
+                        data-has-persisted-nip="<?php echo $tieneNipPersistido ? '1' : '0'; ?>"
+                        <?php echo $esAdmin ? 'hidden' : ''; ?>
+                    >
+                        <span class="admin-users-form__field-label">Acceso de piso</span>
+                        <button
+                            type="submit"
+                            form="admin-user-regenerate-form"
+                            class="admin-btn admin-btn--secondary admin-btn--small"
+                            data-user-regenerate
+                            <?php echo !$tieneNipPersistido ? 'hidden' : ''; ?>
+                        >
+                            Regenerar NIP
+                        </button>
+                        <span class="admin-users-access-card__status" data-role-nip-pending <?php echo $tieneNipPersistido ? 'hidden' : ''; ?>>
+                            NIP se generará al guardar
+                        </span>
+                        <p class="admin-users-form__hint" data-role-nip-hint <?php echo !$tieneNipPersistido ? 'hidden' : ''; ?>>
+                            El NIP actual no puede consultarse. Si se extravió, genera uno nuevo.
+                        </p>
+                        <p class="admin-users-form__hint" data-role-nip-pending-description <?php echo $tieneNipPersistido ? 'hidden' : ''; ?>>
+                            El código se generará automáticamente al guardar los cambios.
+                        </p>
+                    </div>
+                <?php endif; ?>
+
+                <div class="admin-users-form__field admin-users-access-status-card admin-users-state-card">
+                    <span class="admin-users-form__field-label">Estado</span>
+                    <label class="admin-users-form__toggle admin-users-access-status-card__control">
+                        <input type="checkbox" id="activo" name="activo" value="1" <?php echo $activoActual === 1 ? 'checked' : ''; ?>>
+                        <span class="admin-users-form__toggle-track" aria-hidden="true"><span class="admin-users-form__toggle-thumb"></span></span>
+                        <span class="admin-users-form__toggle-text">Usuario activo</span>
+                    </label>
+                    <p class="admin-users-form__hint">Los usuarios inactivos conservan su credencial, pero no pueden iniciar sesión.</p>
+                </div>
             </div>
         </div>
     </section>
 
-        <section class="admin-users-form__section" data-user-password-section
-                 <?php echo $esEdicion ? 'data-user-password-optional' : ''; ?>>
-            <?php /* Esta sección sólo se muestra al administrador —el personal
-                     de piso entra con NIP—, así que el título puede nombrar la
-                     credencial en vez del genérico «Seguridad». */ ?>
-            <div class="admin-users-form__section-head">
-                <h4>Contraseña de acceso</h4>
-                <p>
-                    <?php echo $esEdicion
-                        ? 'Deja los campos vacíos para conservar la contraseña actual.'
-                        : 'El administrador entra con usuario y contraseña. Podrá cambiarla más adelante.'; ?>
-                </p>
+    <section
+        class="admin-users-form__section"
+        data-user-password-section
+        <?php echo $esAdmin ? '' : 'hidden'; ?>
+        <?php echo $esEdicion ? 'data-user-password-optional' : ''; ?>
+    >
+        <div class="admin-users-form__section-head">
+            <h4>Contraseña administrativa</h4>
+            <p>
+                <?php echo $esEdicion && !$requierePassword
+                    ? 'Deja los campos vacíos para conservar la contraseña actual.'
+                    : 'Mínimo 8 caracteres, una mayúscula y un número.'; ?>
+            </p>
+        </div>
+
+        <div class="admin-users-form__grid admin-users-form__grid--pair">
+            <div class="admin-users-form__field">
+                <label for="password"><?php echo $esEdicion ? 'Nueva contraseña' : 'Contraseña'; ?></label>
+                <div class="admin-password-field">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        pattern="(?=.*[A-Z])(?=.*\d).{8,}"
+                        title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
+                        aria-describedby="password_help"
+                        data-password-strength
+                        <?php echo $esAdmin ? '' : 'disabled'; ?>
+                        <?php echo $requierePassword ? 'required' : ''; ?>
+                    >
+                    <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password">
+                        <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="admin-password-toggle__icon admin-password-toggle__icon--hide" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-3.1 4.1"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.2-.8"/></svg>
+                    </button>
+                </div>
+                <p class="admin-users-form__hint admin-password-help" id="password_help" data-password-feedback>Mínimo 8 caracteres, una mayúscula y un número.</p>
             </div>
 
-            <div class="admin-users-form__grid admin-users-form__grid--pair">
-                <div class="admin-users-form__field">
-                    <label for="password"><?php echo $esEdicion ? 'Nueva contraseña' : 'Contraseña'; ?></label>
-                    <div class="admin-password-field">
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            autocomplete="new-password"
-                            minlength="8"
-                            pattern="(?=.*[A-Z])(?=.*\d).{8,}"
-                            title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
-                            aria-describedby="password_help"
-                            data-password-strength
-                            <?php echo $esEdicion ? '' : 'required'; ?>
-                        >
-                        <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password">
-                            <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
-                            </svg>
-                            <svg class="admin-password-toggle__icon admin-password-toggle__icon--hide" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-3.1 4.1"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.2-.8"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <p class="admin-users-form__hint admin-password-help" id="password_help" data-password-feedback>
-                        Mínimo 8 caracteres, una mayúscula y un número.
-                    </p>
-                </div>
-
-                <div class="admin-users-form__field">
-                    <label for="password_confirm"><?php echo $esEdicion ? "Confirmar nueva contraseña" : "Confirmar contraseña"; ?></label>
-                    <div class="admin-password-field">
-                        <input
-                            type="password"
-                            id="password_confirm"
-                            name="password_confirm"
-                            autocomplete="new-password"
-                            minlength="8"
-                            pattern="(?=.*[A-Z])(?=.*\d).{8,}"
-                            title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
-                            <?php echo $esEdicion ? '' : 'required'; ?>
-                        >
-                        <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password_confirm">
-                            <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
-                            </svg>
-                            <svg class="admin-password-toggle__icon admin-password-toggle__icon--hide" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-3.1 4.1"/><path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.2-.8"/>
-                            </svg>
-                        </button>
-                    </div>
+            <div class="admin-users-form__field">
+                <label for="password_confirm"><?php echo $esEdicion ? 'Confirmar nueva contraseña' : 'Confirmar contraseña'; ?></label>
+                <div class="admin-password-field">
+                    <input
+                        type="password"
+                        id="password_confirm"
+                        name="password_confirm"
+                        autocomplete="new-password"
+                        minlength="8"
+                        pattern="(?=.*[A-Z])(?=.*\d).{8,}"
+                        title="La contraseña debe tener al menos 8 caracteres, una mayúscula y un número"
+                        <?php echo $esAdmin ? '' : 'disabled'; ?>
+                        <?php echo $requierePassword ? 'required' : ''; ?>
+                    >
+                    <button type="button" class="admin-password-toggle" aria-label="Mostrar contraseña" title="Mostrar contraseña" data-password-toggle data-target="password_confirm">
+                        <svg class="admin-password-toggle__icon admin-password-toggle__icon--show" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="admin-password-toggle__icon admin-password-toggle__icon--hide" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3 3 18 18"/><path d="M10.6 10.6A3 3 0 0 0 12 15a3 3 0 0 0 2.4-1.2"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-3.1 4.1"/><path d="M6.6 6.6C3.6 6.6 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.2-.8"/></svg>
+                    </button>
                 </div>
             </div>
-        </section>
+        </div>
+    </section>
 
     <div class="admin-menu__form-actions admin-users-form__actions">
         <button type="submit" class="admin-btn admin-btn--primary admin-menu__button admin-menu__button--primary" data-admin-magnetic>

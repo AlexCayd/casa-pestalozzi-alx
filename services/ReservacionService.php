@@ -122,7 +122,11 @@ class ReservacionService
         ?int $usuarioId = null
     ): array
     {
-        return ReservacionAdministrativaService::actualizar($reservacionId, $datos, $usuarioId);
+        $resultado = ReservacionAdministrativaService::actualizar($reservacionId, $datos, $usuarioId);
+        if (($resultado['ok'] ?? false) === true) {
+            HorarioOperacionImpactoService::reconciliarReservacion($reservacionId, $usuarioId);
+        }
+        return $resultado;
 
     }
 
@@ -221,7 +225,7 @@ class ReservacionService
         string $motivo = '',
         ?int $meseroId = null
     ): array {
-        return match ($nuevoEstado) {
+        $resultado = match ($nuevoEstado) {
             'confirmada' => self::cambiarEstado($reservacionId, 'confirmada', $usuarioId),
             'en_curso' => PuntoVentaReservacionService::comenzar($reservacionId, $usuarioId, $meseroId),
             'no_show' => PuntoVentaReservacionService::noShow(
@@ -238,6 +242,10 @@ class ReservacionService
             ),
             default => ['ok' => false, 'codigo' => self::ESTADO_INVALIDO],
         };
+        if (($resultado['ok'] ?? false) === true && $nuevoEstado === 'no_show') {
+            HorarioOperacionImpactoService::reconciliarReservacion($reservacionId, $usuarioId);
+        }
+        return $resultado;
     }
 
     public static function cambiarEstado(

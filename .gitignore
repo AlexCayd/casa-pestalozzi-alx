@@ -1,9 +1,12 @@
 .env
 .vscode
 .claude
+.agents/
+.codex/
 .DS_Store
 **/.DS_Store
 vendor
 node_modules
 AGENTS.md
 storage/sessions/
+PRODUCT.md

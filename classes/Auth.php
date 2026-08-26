@@ -9,7 +9,7 @@ use Model\Usuario;
  *
  * Un solo formulario en /login con dos pestañas; el rol guardado en la BD
  * decide qué rutas puede visitar cada quien:
- *   - waiter → /punto-de-venta y las APIs del POS
+ *   - waiter → /punto-de-venta, las APIs del POS y el mapa operativo de reservaciones
  *   - cook   → /area/* y las APIs de los tableros de producción
  *   - admin  → todo, incluido /admin
  * Cada pestaña envía a su propio endpoint (/login y /admin/login), que siguen
@@ -20,6 +20,23 @@ use Model\Usuario;
  * anotarlo aquí.
  */
 class Auth {
+
+    /**
+     * Superficie operativa compartida por administración y piso.
+     * Mantener esta lista explícita evita abrir el resto de /admin/*.
+     */
+    private const RUTAS_MAPA_RESERVACIONES_OPERACION = [
+        '/admin/reservaciones/operacion',
+        '/admin/reservations/operation',
+        '/admin/api/reservaciones/operacion',
+        '/admin/api/reservaciones/operacion/crear',
+        '/admin/api/reservaciones/operacion/disponibilidad',
+        '/admin/api/reservaciones/operacion/asignar-mesas',
+        '/admin/api/reservaciones/operacion/liberar-mesas',
+        '/admin/api/reservaciones/operacion/reasignar',
+        '/admin/api/reservaciones/operacion/comentario',
+        '/admin/api/reservaciones/operacion/estado',
+    ];
 
     /** APIs del punto de venta: meseros y admin. */
     private const APIS_POS = [
@@ -60,6 +77,7 @@ class Auth {
         '/api/configuracion/horarios/semanales',
         '/api/configuracion/horarios/especiales',
         '/api/configuracion/horarios/excepciones',
+        '/api/configuracion/horarios/excepciones/estado',
     ];
 
     public static function start(): void {
@@ -188,7 +206,8 @@ class Auth {
 
     /**
      * Guardia central de rutas: se llama antes de resolver la ruta.
-     * /admin/*                 → solo admin
+     * /admin/*                 → solo admin, salvo el mapa operativo explícito
+     * mapa operativo de reservaciones → waiter y admin
      * /punto-de-venta, APIs POS → waiter y admin
      * /area, /area/*, APIs área → cook y admin
      * El resto (sitio público, /feedback, /api/feedback…) queda libre.
@@ -203,9 +222,10 @@ class Auth {
             return;
         }
 
-        $esAdminUrl = $url === '/admin'
+        $esMapaReservacionesUrl = in_array($url, self::RUTAS_MAPA_RESERVACIONES_OPERACION, true);
+        $esAdminUrl = !$esMapaReservacionesUrl && ($url === '/admin'
             || str_starts_with($url, '/admin/')
-            || in_array($url, self::APIS_ADMIN, true);
+            || in_array($url, self::APIS_ADMIN, true));
         $esPosUrl = $url === '/punto-de-venta'
             || in_array($url, self::APIS_POS, true);
         $esAreaUrl = $url === '/area'
@@ -229,6 +249,7 @@ class Auth {
 
         // El admin entra a todo; para el resto, cada zona exige su rol.
         $permitido = self::esAdmin()
+            || ($esMapaReservacionesUrl && self::esMesero())
             || ($esPosUrl && self::esMesero())
             || ($esAreaUrl && self::esCocinero())
             || ($esPisoUrl && (self::esMesero() || self::esCocinero()));

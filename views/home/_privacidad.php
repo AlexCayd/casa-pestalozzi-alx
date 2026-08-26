@@ -43,20 +43,21 @@ $telefonoTel = (string) ($contactoAviso['telefono_tel'] ?? '+525614818297');
         <li><strong>Un medio de contacto</strong> —correo electrónico o teléfono, el que elijas—,
             para enviarte el código de confirmación y avisarte de cualquier cambio.</li>
         <li><strong>Los detalles de la visita</strong>: fecha, hora y número de comensales.</li>
-        <li><strong>Las indicaciones que escribas</strong>, si nos cuentas de una alergia,
-            una celebración o una necesidad de accesibilidad. Este campo es opcional.</li>
+        <li><strong>Las indicaciones opcionales que escribas</strong>, como una celebración,
+            ubicación preferida, accesibilidad u otra indicación para tu visita.</li>
       </ul>
 
       <h3>Para qué los usamos</h3>
       <p>
         Únicamente para gestionar tu reservación: confirmarla, asignarte mesa,
-        contactarte si surge un imprevisto y tener presente lo que nos pediste
-        considerar. Si después de tu visita compartes una reseña, la usamos para
-        mejorar el servicio.
+        enviarte códigos de verificación, contactarte si surge un imprevisto y
+        tener presente lo que nos pediste considerar. Para estas tareas podemos
+        apoyarnos en proveedores tecnológicos que procesen datos por cuenta del
+        restaurante.
       </p>
       <p>
-        <strong>No vendemos ni compartimos tus datos con terceros</strong> con fines
-        comerciales, y no te enviaremos publicidad que no hayas pedido.
+        <strong>No usamos tus datos con fines comerciales o publicitarios no solicitados</strong>
+        ni te enviaremos publicidad que no hayas pedido.
       </p>
 
       <h3>Cuánto tiempo los conservamos</h3>

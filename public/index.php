@@ -9,6 +9,8 @@ require_once __DIR__ . '/../includes/app.php';
 use MVC\Router;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
+use Controllers\AdminHorarioImpactoController;
+use Controllers\AdminBuzonController;
 use Controllers\AdminAreaController;
 use Controllers\AdminPuntoVentaController;
 use Controllers\AdminMenuController;
@@ -24,6 +26,9 @@ use Controllers\AdminCateringController;
 use Controllers\AdminUsersController;
 use Controllers\AuthController;
 use Controllers\HomeController;
+use Controllers\ScheduleChangeAccessController;
+use Controllers\ReservationManagementAccessController;
+use Controllers\N8nReservationsController;
 use Controllers\MenuController;
 use Controllers\ReservacionController;
 use Controllers\CataController;
@@ -42,6 +47,8 @@ $router = new Router();
 // Home
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/reservaciones', [HomeController::class, 'index']);
+$router->get('/reservaciones/gestionar', [ReservationManagementAccessController::class, 'show']);
+$router->get('/reservaciones/cambio-horario', [ScheduleChangeAccessController::class, 'show']);
 
 // Reservaciones
 $router->get('/api/reservaciones/horarios', [ReservacionController::class, 'horarios']);
@@ -55,6 +62,16 @@ $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::clas
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
+$router->post('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
+$router->get('/api/reservaciones/cambio-horario/disponibilidad', [ScheduleChangeAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/cambio-horario/modificar', [ScheduleChangeAccessController::class, 'modificar']);
+$router->post('/api/reservaciones/cambio-horario/cancelar', [ScheduleChangeAccessController::class, 'cancelar']);
+$router->get('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagementAccessController::class, 'disponibilidad']);
+$router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
+$router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAccessController::class, 'cancelar']);
+$router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
+$router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
 
 // Catas y catering: los dos formularios públicos de la landing. Son anónimos a
 // propósito (no pasan por OTP como reservaciones); el abuso lo frenan el token
@@ -69,6 +86,8 @@ $router->get('/admin/analytics', [AdminController::class, 'analytics']);
 $router->get('/admin/configuracion', [AdminConfigurationController::class, 'index']);
 $router->get('/admin/configuracion/horarios', [AdminConfigurationController::class, 'hours']);
 $router->post('/admin/configuracion/horarios', [AdminConfigurationController::class, 'guardarHorarios']);
+$router->get('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'reservations']);
+$router->post('/admin/configuracion/reservaciones', [AdminConfigurationController::class, 'guardarReservaciones']);
 $router->post('/admin/configuracion/horarios/excepciones/guardar', [AdminConfigurationController::class, 'guardarExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'cambiarEstadoExcepcion']);
 $router->post('/admin/configuracion/horarios/excepciones/eliminar', [AdminConfigurationController::class, 'eliminarExcepcion']);
@@ -76,7 +95,17 @@ $router->get('/api/configuracion/horarios/semanales', [AdminConfigurationControl
 $router->post('/api/configuracion/horarios/semanales', [AdminConfigurationController::class, 'apiGuardarHorarios']);
 $router->post('/api/configuracion/horarios/especiales', [AdminConfigurationController::class, 'apiGuardarEspecial']);
 $router->post('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiGuardarExcepcion']);
+$router->post('/api/configuracion/horarios/excepciones/estado', [AdminConfigurationController::class, 'apiCambiarEstadoExcepcion']);
 $router->delete('/api/configuracion/horarios/excepciones', [AdminConfigurationController::class, 'apiEliminarExcepcion']);
+$router->get('/admin/api/horarios-impactos', [AdminHorarioImpactoController::class, 'show']);
+$router->post('/admin/api/horarios-impactos/preparar', [AdminHorarioImpactoController::class, 'notify']);
+$router->post('/admin/api/horarios-impactos/contacto', [AdminHorarioImpactoController::class, 'addContact']);
+$router->post('/admin/api/horarios-impactos/atender-manual', [AdminHorarioImpactoController::class, 'attendManual']);
+$router->post('/admin/api/horarios-impactos/acceso-prueba', [AdminHorarioImpactoController::class, 'testLink']);
+$router->get('/admin/api/buzon/resumen', [AdminBuzonController::class, 'resumen']);
+$router->post('/admin/api/buzon/sincronizar', [AdminBuzonController::class, 'sincronizar']);
+$router->get('/admin/api/buzon', [AdminBuzonController::class, 'listar']);
+$router->post('/admin/api/buzon/leida', [AdminBuzonController::class, 'marcarLeida']);
 $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'announcement']);
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
@@ -121,6 +150,8 @@ $router->post('/admin/reservaciones/reasignar', [AdminReservacionController::cla
 $router->get('/admin/reservaciones/herramientas-desarrollo', [ReservacionMantenimientoController::class, 'index']);
 $router->post('/admin/reservaciones/herramientas-desarrollo/procesar-vencidas', [ReservacionMantenimientoController::class, 'procesarPendientes']);
 $router->get('/admin/api/reservaciones/operacion', [ReservacionOperacionController::class, 'operationData']);
+$router->post('/admin/api/reservaciones/operacion/crear', [ReservacionOperacionController::class, 'createFromOperation']);
+$router->get('/admin/api/reservaciones/operacion/disponibilidad', [ReservacionOperacionController::class, 'availability']);
 $router->post('/admin/api/reservaciones/operacion/asignar-mesas', [ReservacionOperacionController::class, 'apiAssignTables']);
 $router->post('/admin/api/reservaciones/operacion/liberar-mesas', [ReservacionOperacionController::class, 'apiClearTables']);
 $router->post('/admin/api/reservaciones/operacion/reasignar', [ReservacionOperacionController::class, 'apiReasignarAutomaticamente']);
@@ -239,13 +270,11 @@ $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate
 $router->post('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
 $router->get('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
 $router->post('/admin/usuarios/edit', [AdminUsersController::class, 'userEdit']);
-// Contraseña (admins) o NIP (personal de piso), según el rol del destino.
-$router->get('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
-$router->post('/admin/usuarios/cambiar-credencial', [AdminUsersController::class, 'cambiarCredencial']);
-// La URL anterior solo cambiaba contraseñas; se conserva por marcadores.
-$router->get('/admin/usuarios/change-password', $redir301('/admin/usuarios/cambiar-credencial'));
-// Aviso en vivo mientras se teclea el NIP; la validación que manda sigue en el POST.
-$router->get('/admin/api/usuarios/nip-disponible', [AdminUsersController::class, 'nipDisponible']);
+// Los administradores cambian contraseña; el personal de piso sólo puede
+// recibir un NIP nuevo generado por el sistema desde la ficha del usuario.
+$router->get('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+$router->post('/admin/usuarios/cambiar-password', [AdminUsersController::class, 'cambiarPassword']);
+$router->post('/admin/usuarios/regenerar-nip', [AdminUsersController::class, 'regenerarNip']);
 $router->post('/admin/usuarios/deactivate', [AdminUsersController::class, 'deactivate']);
 $router->post('/admin/usuarios/activate', [AdminUsersController::class, 'activate']);
 $router->post('/admin/usuarios/delete', [AdminUsersController::class, 'delete']);
@@ -292,22 +321,6 @@ $router->post('/login', [AuthController::class, 'login']);
 $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/logout', [AuthController::class, 'logout']);
-
-// Crear Cuenta
-$router->get('/registro', [AuthController::class, 'registro']);
-$router->post('/registro', [AuthController::class, 'registro']);
-
-// Formulario de olvide mi password
-$router->get('/olvide', [AuthController::class, 'olvide']);
-$router->post('/olvide', [AuthController::class, 'olvide']);
-
-// Colocar el nuevo password
-$router->get('/reestablecer', [AuthController::class, 'reestablecer']);
-$router->post('/reestablecer', [AuthController::class, 'reestablecer']);
-
-// Confirmación de Cuenta
-$router->get('/mensaje', [AuthController::class, 'mensaje']);
-$router->get('/confirmar-cuenta', [AuthController::class, 'confirmar']);
 
 // Carta pública: JSON para la landing y PDF para el comensal.
 // /menu/pdf queda fuera de /admin/, así que Auth::proteger lo deja público.

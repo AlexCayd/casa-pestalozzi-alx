@@ -42,6 +42,7 @@ class AdminPuntoVentaController
             $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
                 'incluir_inactivas' => false,
                 'calcular_conflictos' => false,
+                'superficie' => 'admin',
             ]);
 
             if (!($lectura['ok'] ?? false)) {

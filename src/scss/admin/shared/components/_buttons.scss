@@ -129,6 +129,22 @@
     font-size: 12px;
 }
 
+.admin-btn--icon {
+    width: 42px;
+    min-width: 42px;
+    padding-inline: 0;
+
+    .admin-btn__icon {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+    }
+}
+
 // Variante dorada (acento de marca) para acciones destacadas como "Guardar".
 .admin-btn--gold {
     border-color: var(--admin-gold-deep);

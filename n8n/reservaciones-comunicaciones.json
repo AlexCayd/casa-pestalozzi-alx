@@ -1,0 +1,324 @@
+{
+  "name": "Reservaciones - comunicaciones",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reservaciones",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1120, -240],
+      "id": "6f2f9ac1-49af-4b44-9579-1d693cfad701",
+      "name": "Webhook reservaciones",
+      "webhookId": "f079472b-ab82-4726-aa61-f44a0a864791"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || {};\nconst supplied = String(headers['x-n8n-secret'] || headers['X-N8N-Secret'] || '');\nconst expected = String($env.N8N_SECRET || '');\nconst authorized = expected.length > 0 && supplied === expected;\nconst allowedEvents = ['reservation.schedule_change', 'reservation.reminder_next_day'];\nconst notifications = Array.isArray(body.notifications) ? body.notifications : [];\nconst valid = Number(body.schema_version) === 1\n  && allowedEvents.includes(String(body.event || ''))\n  && notifications.length > 0\n  && notifications.every((item) => item && Number(item.source_id) > 0 && Number(item.attempt) > 0 && ['email', 'telefono'].includes(String(item.contact_type || '')) && String(item.contact || '') !== '' && String(item.management_url || '') !== '');\nreturn [{ json: { authorized, valid, accepted: authorized && valid, event: body.event, notifications } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-896, -240],
+      "id": "d1d1366c-8b32-4bd0-80e0-39c8ad59eaf6",
+      "name": "Validar secreto y contrato"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: $json.accepted, accepted: $json.accepted } }}",
+        "options": {
+          "responseCode": "={{ !$json.authorized ? 403 : ($json.valid ? 202 : 422) }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-672, -240],
+      "id": "a7e8d4d7-09e6-4f36-a342-0d647b56054c",
+      "name": "Responder temprano"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1120, 96],
+      "id": "645f28b9-0e37-4f4c-959a-d244217505c4",
+      "name": "Cada cinco minutos"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESERVATION_APP_BASE_URL + '/api/integraciones/n8n/reservaciones/recordatorios/preparar' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.N8N_SECRET }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-896, 96],
+      "id": "eb4bca58-b8fd-4fe3-944e-0333c286edec",
+      "name": "Preparar recordatorios",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json || {};\nif (input.accepted === false || input.authorized === false) return [];\nconst event = String(input.event || '');\nconst notifications = Array.isArray(input.notifications) ? input.notifications : [];\nif (!['reservation.schedule_change', 'reservation.reminder_next_day'].includes(event)) return [];\nreturn notifications\n  .filter((item) => item && Number(item.source_id) > 0 && Number(item.attempt) > 0)\n  .map((item) => ({ json: { ...item, event } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-432, -64],
+      "id": "e95d5d59-8d4f-43f0-a4fb-9da58f183d15",
+      "name": "Normalizar notificaciones"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "id": "413c30c3-50be-4700-8597-d760a542d47e",
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "reservation.schedule_change",
+                    "operator": {"type": "string", "operation": "equals"}
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cambio de horario"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "id": "a25f1752-b1ba-42ad-8acc-02abb02cc6e8",
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "reservation.reminder_next_day",
+                    "operator": {"type": "string", "operation": "equals"}
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Recordatorio"
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-192, -64],
+      "id": "025d136e-d45b-40ba-924b-6d18785d684e",
+      "name": "Switch event"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst reminder = d.event === 'reservation.reminder_next_day';\nconst title = reminder ? 'Tu reservación es mañana' : 'Necesitamos ajustar tu reservación';\nconst intro = reminder ? 'Te esperamos mañana en Casa Pestalozzi.' : 'Un cambio de horario operativo afecta tu reservación.';\nconst details = `${d.reservation_date} a las ${d.reservation_time} · ${d.guests} ${Number(d.guests) === 1 ? 'persona' : 'personas'}`;\nconst action = reminder ? 'Puedes revisar, modificar o cancelar tu reservación aquí:' : 'Elige un nuevo horario o cancela tu reservación aquí:';\nreturn [{ json: { ...d, email_subject: title, email_text: `${intro}\\n\\n${details}\\n\\n${action}\\n${d.management_url}\\n\\nEste acceso vence el ${d.access_expires_at}.`, phone_text: `${title}. ${details}. ${action} ${d.management_url}` } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, -64],
+      "id": "45874679-3eb6-4c97-bd88-339830217ecf",
+      "name": "Construir mensaje"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "id": "e18a0b7e-da82-46fa-b113-50a2c50c49a1",
+                    "leftValue": "={{ $json.contact_type }}",
+                    "rightValue": "email",
+                    "operator": {"type": "string", "operation": "equals"}
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Email"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [
+                  {
+                    "id": "3ec04be1-7381-43f4-8f85-1686a41564e7",
+                    "leftValue": "={{ $json.contact_type }}",
+                    "rightValue": "telefono",
+                    "operator": {"type": "string", "operation": "equals"}
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Teléfono"
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [288, -64],
+      "id": "04805914-104b-462a-9fab-10708754ed62",
+      "name": "Elegir canal"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.RESERVATION_EMAIL_FROM }}",
+        "toEmail": "={{ $json.contact }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.email_text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [544, -176],
+      "id": "22362f60-dacf-474f-b781-8462adc24fed",
+      "name": "Enviar email",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.RESERVATION_PHONE_FROM }}",
+        "to": "={{ $json.contact }}",
+        "message": "={{ $json.phone_text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [544, 48],
+      "id": "b44d42e6-8856-4aa7-8615-9477cf11a3fe",
+      "name": "Enviar mensaje telefónico",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Construir mensaje').item.json; return [{ json: { event: source.event, source_id: source.source_id, attempt: source.attempt, status: 'delivered' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, -240],
+      "id": "5b80d008-0924-4e54-a72c-7012f2abb034",
+      "name": "Email entregado"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Construir mensaje').item.json; return [{ json: { event: source.event, source_id: source.source_id, attempt: source.attempt, status: 'failed' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, -112],
+      "id": "e880edcc-3e35-429c-a001-779e25a0193d",
+      "name": "Email fallido"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Construir mensaje').item.json; return [{ json: { event: source.event, source_id: source.source_id, attempt: source.attempt, status: 'delivered' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 16],
+      "id": "a53d42d4-c302-4f08-ab77-c5f1e5196285",
+      "name": "Teléfono entregado"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Construir mensaje').item.json; return [{ json: { event: source.event, source_id: source.source_id, attempt: source.attempt, status: 'failed' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 144],
+      "id": "05c7c8b8-5f0b-45e3-9d16-e10265d898f2",
+      "name": "Teléfono fallido"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESERVATION_APP_BASE_URL + '/api/integraciones/n8n/reservaciones/notificacion-resultado' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "X-N8N-Secret", "value": "={{ $env.N8N_SECRET }}"},
+            {"name": "Content-Type", "value": "application/json"},
+            {"name": "Accept", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {"timeout": 8000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1056, -48],
+      "id": "1acfeb11-c07a-4689-86cc-2722fa9d2730",
+      "name": "Registrar resultado",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "Webhook reservaciones": {"main": [[{"node": "Validar secreto y contrato", "type": "main", "index": 0}]]},
+    "Validar secreto y contrato": {"main": [[{"node": "Responder temprano", "type": "main", "index": 0}]]},
+    "Responder temprano": {"main": [[{"node": "Normalizar notificaciones", "type": "main", "index": 0}]]},
+    "Cada cinco minutos": {"main": [[{"node": "Preparar recordatorios", "type": "main", "index": 0}]]},
+    "Preparar recordatorios": {"main": [[{"node": "Normalizar notificaciones", "type": "main", "index": 0}]]},
+    "Normalizar notificaciones": {"main": [[{"node": "Switch event", "type": "main", "index": 0}]]},
+    "Switch event": {"main": [[{"node": "Construir mensaje", "type": "main", "index": 0}], [{"node": "Construir mensaje", "type": "main", "index": 0}]]},
+    "Construir mensaje": {"main": [[{"node": "Elegir canal", "type": "main", "index": 0}]]},
+    "Elegir canal": {"main": [[{"node": "Enviar email", "type": "main", "index": 0}], [{"node": "Enviar mensaje telefónico", "type": "main", "index": 0}]]},
+    "Enviar email": {"main": [[{"node": "Email entregado", "type": "main", "index": 0}], [{"node": "Email fallido", "type": "main", "index": 0}]]},
+    "Enviar mensaje telefónico": {"main": [[{"node": "Teléfono entregado", "type": "main", "index": 0}], [{"node": "Teléfono fallido", "type": "main", "index": 0}]]},
+    "Email entregado": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
+    "Email fallido": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
+    "Teléfono entregado": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
+    "Teléfono fallido": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "availableInMCP": false
+  },
+  "meta": {}
+}

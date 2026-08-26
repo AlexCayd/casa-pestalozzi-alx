@@ -700,7 +700,6 @@ class AdminController
         $modules = self::MODULES;
         $styles = [];
         $scripts = [];
-
         foreach ($data as $key => $value) {
             $$key = $value;
         }

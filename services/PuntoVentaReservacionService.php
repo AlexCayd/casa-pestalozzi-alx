@@ -32,7 +32,7 @@ final class PuntoVentaReservacionService
      * Lista sólo reservaciones operativas; los walk-ins viven exclusivamente
      * como tickets y nunca aparecen aquí.
      */
-    public static function listar(string $fecha): array
+    public static function listar(string $fecha, string $superficie = 'waiter'): array
     {
         if (!HorarioReservacionService::fechaValida($fecha)) {
             return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS, 'reservaciones' => []];
@@ -41,6 +41,7 @@ final class PuntoVentaReservacionService
         $lectura = PosReservacionQueryService::paraFecha($fecha, '', [
             'incluir_inactivas' => false,
             'calcular_conflictos' => true,
+            'superficie' => $superficie,
         ]);
         if (!($lectura['ok'] ?? false)) {
             return [
@@ -609,7 +610,7 @@ final class PuntoVentaReservacionService
      * Contexto informativo de una mesa. La mutación posterior vuelve a tomar
      * locks y recalcular todo el estado.
      */
-    public static function contextoMesa(int $mesaId): array
+    public static function contextoMesa(int $mesaId, string $superficie = 'waiter'): array
     {
         if ($mesaId < 1) {
             return ['ok' => false, 'codigo' => self::DATOS_INVALIDOS];
@@ -692,7 +693,7 @@ final class PuntoVentaReservacionService
             ? ReservacionPoliticaPosService::ACCION_CONSULTAR_TICKET
             : (string)($politicaMesa['accion_primaria'] ?? ReservacionPoliticaPosService::ACCION_ABRIR_TICKET);
 
-        return [
+        $respuesta = [
             'ok' => true,
             'codigo' => self::OK,
             'ticket_abierto' => $ticket ? [
@@ -714,6 +715,10 @@ final class PuntoVentaReservacionService
             'liberacion_estimada' => $liberacionEstimada,
             'hora_objetivo_preparacion' => $horaObjetivoPreparacion,
         ];
+
+        return strtolower($superficie) === 'waiter'
+            ? PosReservacionSerializer::sanitizarParaWaiter($respuesta)
+            : $respuesta;
     }
 
     private static function mutarReservacion(int $id, callable $operacion): array

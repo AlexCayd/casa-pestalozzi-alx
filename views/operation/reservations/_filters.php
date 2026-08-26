@@ -1,3 +1,4 @@
+<?php $operationalFilterScope = (string)($operationalFilterScope ?? 'all'); ?>
 <form
     class="reservation-operation__filters"
     method="GET"
@@ -5,16 +6,7 @@
     aria-label="Filtros de operación de reservaciones"
     data-operation-filters
 >
-    <div class="reservation-operation__filter-actions">
-        <button type="submit" class="admin-btn admin-btn--secondary operational-toolbar-icon" data-operation-load aria-label="Actualizar mapa" title="Actualizar mapa">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M20 11a8 8 0 1 0 1 4"></path>
-                <path d="M20 4v7h-7"></path>
-            </svg>
-            <span class="operational-visually-hidden" data-operation-load-label>Actualizar mapa</span>
-        </button>
-    </div>
-
+    <?php if ($operationalFilterScope !== 'drawer'): ?>
     <div class="reservation-operation__filter reservation-operation__date-group" data-operation-date-group>
         <label class="operational-visually-hidden" for="operation-fecha-display">Fecha</label>
         <?php
@@ -81,19 +73,14 @@
         include __DIR__ . '/../../components/reservations/time-picker.php';
         ?>
     </div>
+    <?php endif; ?>
 
-    <div class="reservation-operation__filter reservation-operation__assignment-filter">
-        <label class="operational-visually-hidden" for="operation-asignacion-filtro">Estado de asignacion</label>
-        <select id="operation-asignacion-filtro" data-operation-assignment-filter>
-            <option value="all">Todas</option>
-            <option value="pending">Pendientes de asignar</option>
-            <option value="assigned">Con mesas</option>
-        </select>
-    </div>
-
+    <?php if ($operationalFilterScope !== 'context'): ?>
     <div class="reservation-operation__filter reservation-operation__search-filter">
-        <label class="operational-visually-hidden" for="operation-reservacion-busqueda">Nombre o contacto</label>
-        <input id="operation-reservacion-busqueda" type="search" placeholder="Nombre o contacto" autocomplete="off" data-operation-reservation-search>
+        <label class="operational-visually-hidden" for="operation-reservacion-busqueda"><?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?></label>
+        <svg class="reservation-operation__search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.2"></circle><path d="m16 16 4.5 4.5"></path></svg>
+        <input id="operation-reservacion-busqueda" type="search" placeholder="<?php echo $superficieOperativa === 'admin' ? 'Nombre o contacto' : 'Buscar por nombre'; ?>" autocomplete="off" data-operation-reservation-search>
     </div>
+    <?php endif; ?>
 
 </form>

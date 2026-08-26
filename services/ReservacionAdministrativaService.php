@@ -496,6 +496,10 @@ final class ReservacionAdministrativaService
         if ($id < 1) {
             return ['ok' => false, 'codigo' => ReservacionService::RESERVACION_NO_EXISTE];
         }
+        $motivo = trim($motivo);
+        if (strlen($motivo) > 500) {
+            return ['ok' => false, 'codigo' => ReservacionService::DATOS_INVALIDOS];
+        }
         $db = ActiveRecord::getDB();
         $lockHorario = false;
         $locks = [];
@@ -572,9 +576,17 @@ final class ReservacionAdministrativaService
             if ((string)$fila['estado'] === 'pendiente_verificacion') {
                 VerificacionContacto::invalidarPorReservaciones([$id]);
             }
-            self::ejecutar("UPDATE reservaciones SET estado = 'cancelada', hold_expires_at = NULL, estado_changed_at = NOW() WHERE id = {$id} LIMIT 1");
+            $motivoSql = ActiveRecord::escaparString($motivo);
+            self::ejecutar("UPDATE reservaciones
+                            SET estado = 'cancelada',
+                                hold_expires_at = NULL,
+                                motivo_cancelacion = NULLIF('{$motivoSql}', ''),
+                                estado_changed_at = NOW()
+                            WHERE id = {$id}
+                            LIMIT 1");
             $db->commit();
             $transaccion = false;
+            HorarioOperacionImpactoService::reconciliarReservacion($id, $usuarioId);
             return ['ok' => true, 'codigo' => ReservacionService::CANCELADA, 'idempotente' => false, 'motivo' => trim($motivo)];
         } catch (\Throwable $e) {
             if ($transaccion) {

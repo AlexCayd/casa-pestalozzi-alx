@@ -164,6 +164,7 @@
     justify-self: end;
     gap: 8px;
   }
+
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
@@ -192,4 +193,5 @@
       height: 16px;
     }
   }
+
 }

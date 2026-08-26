@@ -7,6 +7,7 @@
 
 namespace Controllers;
 
+use Classes\Auth;
 use Model\Reservacion;
 use MVC\Router;
 use Services\AsignacionMesasService;
@@ -14,6 +15,7 @@ use Services\AdminCsrfService;
 use Services\HorarioReservacionService;
 use Services\OcupacionMesasService;
 use Services\PosReservacionQueryService;
+use Services\PosReservacionSerializer;
 use Services\PuntoVentaReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
@@ -22,11 +24,13 @@ use Services\ReservacionService;
 
 class ReservacionOperacionController
 {
-    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v23';
-    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v23';
+    private const OPERATION_CSS = '/build/css/operation/reservations.css?v=reservation-operation-v29';
+    private const OPERATION_JS = '/build/js/admin/reservation-operation.js?v=reservation-operation-v30';
 
     public static function operation(Router $router): void
     {
+        $esAdmin = Auth::esAdmin();
+        $esMesero = Auth::esMesero();
         $fechaFueEnviada = array_key_exists('fecha', $_GET);
         $fechaSolicitada = trim((string)($_GET['fecha'] ?? ''));
         $fechaInvalida = $fechaFueEnviada && !HorarioReservacionService::fechaValida($fechaSolicitada);
@@ -124,6 +128,16 @@ class ReservacionOperacionController
             'fechaMinima' => ReservacionConfig::fechaActual(),
             'modoSoloLectura' => $soloLectura,
             'operacionEditable' => $operacionEditable,
+            'puedeCrearAdministrativa' => $esAdmin,
+            'puedeCrearDesdeMapa' => $esAdmin || $esMesero,
+            'puedeCapturarContacto' => $esAdmin,
+            'createReservationAction' => $esAdmin
+                ? '/admin/reservaciones/crear'
+                : '/admin/api/reservaciones/operacion/crear',
+            'availabilityEndpoint' => $esAdmin
+                ? '/admin/api/reservaciones/disponibilidad'
+                : '/admin/api/reservaciones/operacion/disponibilidad',
+            'operationalHeaderBack' => $esAdmin,
             'horaSolicitadaInicial' => $horaSolicitada,
             'initialOperationNotice' => $initialOperationNotice,
             'fechaInvalidaRecibida' => $fechaInvalida ? $fechaSolicitada : '',
@@ -131,8 +145,56 @@ class ReservacionOperacionController
         ]);
     }
 
+    /**
+     * Alta compartida desde el mapa operativo.
+     *
+     * El servicio administrativo conserva la validacion de horario,
+     * capacidad, asignacion, advertencias e idempotencia. El waiter solo
+     * cambia la frontera de contacto: el servidor ignora cualquier valor
+     * manipulado y confirma internamente el alta sin contacto.
+     */
+    public static function createFromOperation(Router $router): void
+    {
+        $_POST = self::normalizarDatosAltaOperativa($_POST, Auth::esMesero());
+
+        AdminReservacionController::store($router);
+    }
+
+    /** @return array<string, mixed> */
+    private static function normalizarDatosAltaOperativa(array $post, bool $esMesero): array
+    {
+        if (!$esMesero) {
+            return $post;
+        }
+
+        $post['contacto_tipo'] = 'ninguno';
+        $post['contacto'] = null;
+        $post['confirmar_sin_contacto'] = '1';
+
+        $confirmaciones = $post['confirmaciones'] ?? [];
+        if (is_string($confirmaciones)) {
+            $confirmaciones = preg_split('/[,|\s]+/', $confirmaciones, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        if (!is_array($confirmaciones)) {
+            $confirmaciones = [];
+        }
+        $confirmaciones[] = 'SIN_CONTACTO';
+        $post['confirmaciones'] = array_values(array_unique(array_map('strval', $confirmaciones)));
+
+        return $post;
+    }
+
+    /** Disponibilidad de horarios para el formulario alojado en el mapa. */
+    public static function availability(): void
+    {
+        AdminReservacionController::disponibilidad();
+    }
+
     public static function operationData(): void
     {
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+
         $fechaFueEnviada = array_key_exists('fecha', $_GET);
         $fechaSolicitada = trim((string)($_GET['fecha'] ?? ''));
         if ($fechaFueEnviada && !HorarioReservacionService::fechaValida($fechaSolicitada)) {
@@ -186,6 +248,7 @@ class ReservacionOperacionController
             'excluir_reservacion_id' => $reservacionExcluida,
             'reservacion_en_edicion_id' => $reservacionExcluida,
             'incluir_contexto_administrativo' => true,
+            'superficie' => Auth::esAdmin() ? 'admin' : 'waiter',
         ]);
         if (!($lectura['ok'] ?? false)) {
             self::jsonResponse([
@@ -292,6 +355,11 @@ class ReservacionOperacionController
             static fn($horario): string => HorarioReservacionService::normalizarHoraCorta((string)$horario),
             HorarioReservacionService::horariosConfiguradosParaMapa($fecha)
         )));
+        $esAdmin = Auth::esAdmin();
+        $estadosEditables = $esAdmin ? ReservacionService::estadosEditables() : ['confirmada'];
+        $transiciones = $esAdmin
+            ? ReservacionService::transiciones()
+            : ['confirmada' => ['en_curso', 'cancelada', 'no_show']];
 
         self::jsonResponse([
             'ok' => true,
@@ -333,8 +401,8 @@ class ReservacionOperacionController
             'ocupacion_por_reservacion' => $ocupacionPorReservacion,
             'config' => [
                 'estado_labels' => ReservacionService::estadoLabels(),
-                'estados_editables' => ReservacionService::estadosEditables(),
-                'transiciones' => ReservacionService::transiciones(),
+                'estados_editables' => $estadosEditables,
+                'transiciones' => $transiciones,
                 'comentario_admin_disponible' => true,
                 'temporal' => $lectura['config']['temporal'],
             ],
@@ -400,6 +468,7 @@ class ReservacionOperacionController
             && (string)($_POST['mesa_ids_actuales_presentes'] ?? '') === '1';
         $resultado = ReservacionMapaAdministrativaService::liberarAsignacion($id, [
             'version_esperada' => (string)($_POST['version_esperada'] ?? ''),
+            'permitir_liberacion_operativa' => Auth::esMesero(),
             'validar_contexto' => true,
             'contexto_completo' => $contextoCompleto,
             'fecha_esperada' => (string)($_POST['fecha'] ?? ''),
@@ -444,6 +513,18 @@ class ReservacionOperacionController
             self::csrfFailure();
         }
         $estado = (string)($_POST['estado'] ?? '');
+
+        // El endpoint conserva el contrato compartido, pero un waiter sólo
+        // puede iniciar servicio, cancelar o registrar no-show desde esta
+        // superficie operativa. Confirmación y demás transiciones quedan en
+        // los flujos administrativos correspondientes.
+        if (Auth::esMesero() && !in_array($estado, ['en_curso', 'cancelada', 'no_show'], true)) {
+            self::jsonResponse([
+                'ok' => false,
+                'codigo' => ReservacionService::ESTADO_INVALIDO,
+            ], 422);
+            return;
+        }
 
         self::jsonResultadoTransicion(
             ReservacionService::ejecutarAccionOperativa(
@@ -710,6 +791,9 @@ class ReservacionOperacionController
     {
         if (array_key_exists('codigo', $data) && $data['codigo'] !== null) {
             $data = ReservacionErrorCatalog::enriquecer($data, ['superficie' => 'mapa']);
+        }
+        if (Auth::esMesero()) {
+            $data = PosReservacionSerializer::sanitizarParaWaiter($data);
         }
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');

@@ -9,7 +9,12 @@ const files = [
   'src/js/admin/reservations/form.js',
   'src/js/admin/reservations/operation.js',
   'src/js/operation/map-visual.js',
-  'src/js/operation/table-state-adapter.js'
+  'src/js/operation/table-state-adapter.js',
+  'src/js/operation/reservation-operation-policy.js',
+  'src/js/modules/form.js',
+  'src/js/modules/reservation-access.js',
+  'src/js/modules/schedule-change-access.js',
+  'src/js/admin/buzon.js'
 ];
 
 function assertContract(condition, message) {
@@ -33,6 +38,7 @@ const form = fs.readFileSync(path.join(root, files[2]), 'utf8');
 const operation = fs.readFileSync(path.join(root, files[3]), 'utf8');
 const mapVisual = fs.readFileSync(path.join(root, files[4]), 'utf8');
 const tableAdapter = fs.readFileSync(path.join(root, files[5]), 'utf8');
+const operationPolicy = fs.readFileSync(path.join(root, files[6]), 'utf8');
 const mapShell = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
 assertContract(!pos.includes('warningsLocalesParaTicket'), 'POS no filtra reservaciones proximas localmente');
@@ -72,6 +78,10 @@ assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
 assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operacion rechaza respuestas de fecha stale');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
+assertContract(operation.includes('var request ='), 'operacion mantiene recursos por request');
+assertContract(operation.includes('window.clearTimeout(request.timeoutId)'), 'request obsoleta limpia sólo su timeout');
+assertContract(operation.includes("cache: 'no-store'"), 'snapshot operativo desactiva cache HTTP');
+assertContract(operation.includes("intent: 'date-change'"), 'cambio de fecha declara su intención');
 assertContract(operation.includes("error.codigo === 'FECHA_FUERA_DE_HORIZONTE'"), 'operacion conserva el codigo de fecha fuera de horizonte');
 assertContract(operation.includes('showTechnicalError(kind, fecha, error)'), 'operacion presenta el error canonico de fecha');
 assertContract(!operation.includes('ventana_operativa'), 'operacion no recalcula ventanas visuales');
@@ -80,7 +90,7 @@ assertContract(operation.includes('currentAssignmentIds'), 'operacion conserva s
 assertContract(operation.includes('candidateSelectionIds'), 'operacion separa seleccion candidata');
 assertContract(!operation.includes('state.mesasSeleccionadas'), 'operacion no reutiliza una coleccion ambigua de mesas');
 assertContract(operation.includes('mesa_ids_actuales[]'), 'operacion envia el snapshot actual al backend');
-assertContract(operation.includes('mesa.ticket_abierto !== true'), 'operacion excluye tickets de la seleccion candidata');
+assertContract(operation.includes('ReservationOperationPolicy.mesaPuedeSerCandidata'), 'operacion delega candidatura en la política temporal');
 assertContract(operation.includes("['CONFLICTO_TICKETS_ABIERTOS', 'CONFLICTO_TICKET_ABIERTO']"), 'operacion no abre confirmacion para un ticket ajeno');
 assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta accesible por mesa');
 assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
@@ -98,8 +108,96 @@ assertContract(modal.includes('canonicalDecisionActions'), 'ConfirmationModal va
 assertContract(modal.includes('textValue(options.mensaje).trim()'), 'ConfirmationModal exige mensaje de decision');
 assertContract(modal.includes('Decisión de reservación sin acciones canónicas'), 'ConfirmationModal registra decisiones sin acciones');
 assertContract(modal.includes('current.decisionActions'), 'ConfirmationModal configura botones desde acciones');
+assertContract(modal.includes('primaryCloses === false') && modal.includes('close(true, { action: \'primary\''), 'ConfirmationModal cierra al completar correctamente');
+assertContract(modal.includes("setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true)") && !modal.includes("settle({ action: 'error'"), 'ConfirmationModal conserva abierto el modal ante rechazo');
+assertContract(pos.includes('reservacion_programada') && pos.includes('Todavía no hay acciones disponibles.'), 'POS presenta reservación propia futura como información');
 
 const vm = require('vm');
+const policyContext = { window: {} };
+vm.runInNewContext(operationPolicy, policyContext, { filename: files[6] });
+const operationPolicyApi = policyContext.window.ReservationOperationPolicy;
+const projectedTicket = {
+  id: 1,
+  reservable: true,
+  utilizable: true,
+  ticket_abierto: true,
+  ticket_bloquea_consulta: false,
+  bloqueada_en_intervalo: false,
+  disponible_para_asignacion: true,
+  estado_visual_mapa: 'libre'
+};
+assertContract(
+  operationPolicyApi.mesaPuedeSerCandidata(projectedTicket) === true,
+  'ticket abierto liberado conserva candidatura manual'
+);
+assertContract(
+  operationPolicyApi.tableModalState(projectedTicket).label === 'Disponible',
+  'resumen muestra disponible para ticket proyectado'
+);
+assertContract(
+  operationPolicyApi.currentAssignmentIsConflict({
+    asignada_actualmente: true,
+    disponible_para_asignacion: true,
+    ticket_abierto: true
+  }) === false,
+  'ticket físico liberado no crea conflicto de reasignación'
+);
+const blockedTicket = Object.assign({}, projectedTicket, {
+  ticket_bloquea_consulta: true,
+  bloqueada_en_intervalo: true,
+  disponible_para_asignacion: false,
+  estado_visual_mapa: 'ocupada'
+});
+assertContract(
+  operationPolicyApi.mesaPuedeSerCandidata(blockedTicket) === false
+    && operationPolicyApi.tableModalState(blockedTicket).label === 'Ocupada',
+  'ticket dentro del bloqueo conserva protección en resumen y selección'
+);
+assertContract(
+  operationPolicyApi.currentAssignmentIsConflict(Object.assign({}, blockedTicket, { asignada_actualmente: true })) === true,
+  'ticket dentro del bloqueo crea conflicto de reasignación'
+);
+const availableCreation = operationPolicyApi.creationAvailability({
+  hasValidDate: true,
+  hasSchedules: true,
+  cargando: false,
+  loadFailure: null,
+  readonly: false,
+  guardando: false
+});
+assertContract(
+  availableCreation.unavailable === false && availableCreation.disabled === false,
+  'alta dinámica se habilita con snapshot editable'
+);
+for (const unavailableState of [
+  { hasSchedules: false },
+  { cargando: true },
+  { loadFailure: { message: 'fallo' } },
+  { readonly: true }
+]) {
+  const state = Object.assign({
+    hasValidDate: true,
+    hasSchedules: true,
+    cargando: false,
+    loadFailure: null,
+    readonly: false,
+    guardando: false
+  }, unavailableState);
+  const result = operationPolicyApi.creationAvailability(state);
+  assertContract(result.unavailable === true && result.disabled === true, 'alta se oculta ante contexto no disponible');
+}
+assertContract(
+  operationPolicyApi.creationAvailability({
+    hasValidDate: true,
+    hasSchedules: true,
+    cargando: false,
+    loadFailure: null,
+    readonly: false,
+    guardando: true
+  }).disabled === true,
+  'alta se deshabilita mientras guarda'
+);
+
 const adapterContext = { window: {} };
 vm.runInNewContext(tableAdapter, adapterContext, { filename: files[4] });
 const adapter = adapterContext.window.MesaEstadoAdapter;

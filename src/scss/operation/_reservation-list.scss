@@ -1,7 +1,7 @@
 .reservation-operation__reservations {
   display: flex;
   min-height: 0;
-  padding: 16px;
+  padding: 20px;
   overflow: hidden;
   flex-direction: column;
 }
@@ -70,9 +70,9 @@
 
   &.is-selected,
   &.reserva-card--selected {
-    border-color: var(--admin-gold);
-    background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-    box-shadow: inset 3px 0 0 var(--admin-gold);
+    border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+    background: var(--admin-surface-soft);
+    box-shadow: none;
   }
 
   &.is-highlighted:not(.is-selected) {
@@ -104,9 +104,15 @@
 }
 
 .operational-drawer .reservation-operation-card.reserva-card--selected {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+  background: var(--admin-surface-soft);
+  box-shadow: none;
+}
+
+@media (max-width: 700px) {
+  .reservation-operation__reservations {
+    padding: 16px;
+  }
 }
 
 .reservation-operation-card__button {

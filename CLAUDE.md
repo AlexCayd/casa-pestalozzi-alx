@@ -59,41 +59,20 @@ llega al POS dentro de `map.js`, que empaqueta varios archivos más (ver
 `paths.adminMapJs`). El panel admin carga **solo** `admin.js`, nunca
 `bundle.min.js`: lo que deba estar disponible en ambos va en las dos listas.
 
-**Librerías de terceros: vendorizadas, nunca por CDN.** `npm i`, un entry en
-`paths`, una tarea `copyXJs()` que copia de `node_modules` a
-`public/build/js/vendor/`, y darla de alta en `devWatch`, `exports.dev` y
-`exports.build`. Hoy pasan por ahí GSAP + ScrollTrigger + Lenis (landing y
-panel), Chart.js + Sankey (analíticas) y las `.woff2` de Bodoni y Crimson
-(`copyVendorFonts`, que además siembra `assets/fonts/`). Sólo queda un CDN:
-three.js, y es opcional —el `<img>` del hero es su respaldo—. `public/build/js/vendor/`
-está en `.gitignore`: se regenera con `npx gulp build`, y quien fija la versión
-es `package.json`. La librería tiene que traer build **UMD/IIFE**: el bundle es
-un concat de ES5 en scope global, un `import` no tendría dónde ir.
-
-⚠️ **El bundle es un concat por orden alfabético de ruta y `src/js/app.js` va
-primero.** Las funciones se izan, pero las constantes de nivel superior
-(`GALLERY` en `gallery.js`, `HERO_VERT`/`HERO_FRAG` en `hero-webgl.js`) sólo
-existen cuando su archivo ya se evaluó. Por eso `boot()` **nunca** puede correr
-en el mismo turno que `app.js`: o espera a `DOMContentLoaded`, o va en
-`setTimeout(boot, 0)`. Un `boot()` síncrono llama a `initGallery()` con
-`GALLERY` en `undefined` y tumba la landing entera. Cualquier archivo nuevo con
-código ejecutable en el nivel superior hereda esta trampa.
-
-> `npm test` corre los suites de `scripts/tests/` (14 PHP + 4 JS, sobre todo de
-> reservaciones y POS). Son la red de seguridad ante cambios transversales.
-> Para lo visual no hay cobertura: `php -l` y recorrido manual.
+> `npm test` está roto: apunta a `scripts/` y `tests/`, que no existen en el repo.
+> Verificar con `php -l` y recorridos manuales.
 
 ## Base de datos
 
 `database/ddl.sql` (estructura, DROP+CREATE completo),
 `database/dml_operativo.sql` (datos mínimos de operación) y
 `database/dml_pruebas.sql` (datos ficticios para desarrollo y QA).
-Credenciales de demo en `database/CREDENCIALES.md`.
+Credenciales de demo en `docs/usuarios/credenciales.md`.
 
-**No hay migraciones incrementales y no se deben crear.** Un cambio de esquema se
-escribe en `ddl.sql` (y su siembra en el DML correspondiente); para aplicarlo se
-vuelve a correr `ddl.sql` y luego `dml_operativo.sql`. `dml_pruebas.sql` es opcional
-y sólo se carga en entornos de desarrollo o QA. El DDL empieza con los
+El esquema nuevo se escribe en `ddl.sql`; las instalaciones existentes usan la
+migración explícita de acceso en `database/migrations/` y la rutina controlada de
+rotación de credenciales. `dml_pruebas.sql` es opcional y sólo se carga en
+entornos de desarrollo o QA. El DDL empieza con los
 `DROP TABLE` en orden inverso de dependencias justo para eso: si agregas una tabla,
 agrega también su `DROP` en el lugar que le toca.
 
@@ -118,9 +97,10 @@ Cosas que cargan peso y no son obvias:
   un campo trampa y un tope de envíos por contacto que **suma las dos tablas**
   (quien inunda una suele probar la otra).
 - `usuarios` tiene dos vías de acceso: `password_hash` (admins, usuario+contraseña)
-  y `nip_hash` (personal de piso, NIP de **4 dígitos**). Ambos bcrypt. Como el NIP
-  está hasheado, buscar por NIP recorre las filas con `password_verify` — es
-  intencional, no un descuido.
+  y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup
+  es un HMAC con `NIP_LOOKUP_SECRET` para resolver la fila directamente;
+  `password_verify` sólo confirma la credencial encontrada. La generación,
+  rotación y migración están documentadas en `docs/usuarios/usuarios.md`.
 
 ## Design system
 

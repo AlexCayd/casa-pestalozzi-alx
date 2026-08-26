@@ -4057,27 +4057,6 @@ body[data-hero=editorial] .hero .hero__velo {
   outline-offset: 4px;
 }
 
-.reservation-access__preview {
-  display: grid;
-  gap: 0.35rem;
-  padding: 1rem;
-  border: 1px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--beige);
-}
-.reservation-access__preview[hidden] {
-  display: none;
-}
-.reservation-access__preview strong {
-  color: var(--accent-text);
-  font-size: 0.68rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-.reservation-access__preview small {
-  color: var(--txt-mute);
-}
-
 .reservation-portal[hidden] {
   display: none;
 }
@@ -4733,6 +4712,15 @@ body[data-hero=editorial] .hero .hero__velo {
   font-weight: var(--reservation-picker-nav-font-weight, 400);
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.reserva .cpc-nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 .reserva .cpc-nav:hover {
   border-color: var(--reservation-picker-nav-hover-border, currentColor);
@@ -7045,6 +7033,819 @@ body[data-hero=editorial] .hero .hero__velo {
     animation: none;
   }
 }
+.schedule-change-page {
+  min-height: 100vh;
+  background: var(--ink-2);
+  color: var(--txt);
+  font-family: var(--sans);
+  cursor: auto;
+  overflow-x: hidden;
+  --schedule-change-status-error: #efaa9a;
+  --schedule-change-status-success: #acd2a2;
+  --schedule-change-control-bg: var(--surface-2);
+  --schedule-change-control-border: var(--line);
+  --schedule-change-control-radius: 10px;
+}
+
+.schedule-change-page.reserva,
+.schedule-change-page.reserva * {
+  cursor: auto;
+}
+
+.schedule-change-header {
+  display: flex;
+  width: min(100% - 2 * var(--pad), var(--maxw));
+  min-height: 82px;
+  align-items: center;
+  gap: 1.2rem;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.schedule-change-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.schedule-change-logo__mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  background: var(--accent);
+  mask: url("/build/images/logo.svg") center/contain no-repeat;
+  -webkit-mask: url("/build/images/logo.svg") center/contain no-repeat;
+}
+
+.schedule-change-header__rule {
+  width: 3rem;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.schedule-change-header__back {
+  margin-left: auto;
+  color: var(--txt-mute);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.schedule-change-header__back:hover {
+  color: var(--accent-soft);
+}
+.schedule-change-header__back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.schedule-change-shell {
+  display: grid;
+  width: min(100% - 2 * var(--pad), 1000px);
+  min-height: calc(100vh - 150px);
+  align-content: start;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vh, 2.5rem) 0 2rem;
+}
+
+.schedule-change-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.45fr);
+  gap: clamp(2rem, 3.5vw, 2.75rem);
+  min-height: clamp(450px, 56vh, 540px);
+  padding: clamp(1.75rem, 3.5vw, 2.5rem);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+
+.schedule-change-context {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: clamp(1.5rem, 4vh, 2.75rem);
+}
+
+.schedule-change-editor {
+  min-width: 0;
+  align-self: start;
+  padding-top: 0.15rem;
+}
+
+.schedule-change-editor__eyebrow {
+  margin: 0 0 1.15rem;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.27em;
+  text-transform: uppercase;
+}
+
+.schedule-change-card__intro {
+  max-width: none;
+}
+
+.schedule-change-eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.27em;
+  text-transform: uppercase;
+}
+
+.schedule-change-card h1 {
+  max-width: none;
+  color: var(--beige);
+  font-size: clamp(2.2rem, 3.2vw, 2.75rem);
+  letter-spacing: -0.03em;
+}
+
+.schedule-change-card--expired > p:not(.schedule-change-eyebrow) {
+  max-width: 48ch;
+  margin-top: 0.9rem;
+  color: var(--txt-mute);
+  font-family: var(--crimson);
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.schedule-change-card--expired {
+  display: block;
+  width: min(100%, 680px);
+  min-height: 0;
+  align-self: center;
+  justify-self: center;
+  padding: clamp(2.25rem, 6vw, 3.75rem);
+}
+
+.schedule-change-card--expired .btn-line {
+  margin-top: 1.2rem;
+}
+
+.schedule-change-current {
+  display: block;
+  width: min(100%, 19rem);
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line-soft);
+  border-left: 1px solid var(--accent);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.schedule-change-current__label {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.schedule-change-current__date {
+  margin: 0;
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: 1.16rem;
+  line-height: 1.25;
+}
+
+.schedule-change-current__details {
+  margin: 0.16rem 0 0.6rem;
+  color: var(--txt-mute);
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.schedule-change-current__name {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.schedule-change-current__name span {
+  color: var(--txt-mute);
+  font-size: 0.62rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.schedule-change-current__name strong {
+  color: var(--beige);
+  font-size: 0.96rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.schedule-change-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "date time" "guests guests" "note note" "action action";
+  gap: 0.8rem 1rem;
+  align-items: start;
+}
+
+.schedule-change-form .reservation-field {
+  min-width: 0;
+}
+
+.schedule-change-form .reservation-field--date {
+  grid-area: date;
+}
+
+.schedule-change-form .reservation-field--guests {
+  grid-area: guests;
+}
+
+.schedule-change-form .reservation-field--time {
+  grid-area: time;
+}
+
+.schedule-change-form .reservation-field:not(.reservation-field--date):not(.reservation-field--time):not(.reservation-field--guests) {
+  grid-area: note;
+}
+
+.schedule-change-form .reservation-field__label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--accent);
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.schedule-change-form .reservation-field__label small {
+  color: var(--txt-faint);
+  font-size: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.schedule-change-page .date-picker-wrap,
+.schedule-change-page .hour-picker-wrap {
+  width: 100%;
+}
+
+.schedule-change-page .reservation-field .date-display,
+.schedule-change-page .reservation-field .hour-display,
+.schedule-change-page.reserva .field .reservation-control--textarea,
+.schedule-change-form .reservation-guests--tabs,
+.schedule-change-form .guests-stepper {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--schedule-change-control-border);
+  border-radius: var(--schedule-change-control-radius);
+  background: var(--schedule-change-control-bg);
+  color: var(--beige);
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.schedule-change-page .reservation-field .date-display:hover,
+.schedule-change-page .reservation-field .hour-display:hover,
+.schedule-change-page.reserva .field .reservation-control--textarea:hover,
+.schedule-change-form .reservation-guests--tabs:hover,
+.schedule-change-form .guests-stepper:hover {
+  border-color: var(--accent-soft);
+}
+
+.schedule-change-page .date-picker-wrap:focus-within .date-display,
+.schedule-change-page .hour-picker-wrap:focus-within .hour-display,
+.schedule-change-page.reserva .field .reservation-control--textarea:focus-visible,
+.schedule-change-form .reservation-guests--tabs:focus-within,
+.schedule-change-form .guests-stepper:focus-within {
+  border-color: var(--accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(204, 163, 82, 0.16);
+}
+
+.schedule-change-page.reserva .field .reservation-control--textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.schedule-change-page .hour-picker-control .hour-display {
+  padding-left: 2.35rem !important;
+  padding-right: 2.2rem !important;
+}
+
+.schedule-change-page .cp-calendar,
+.schedule-change-page .hour-dropdown {
+  width: min(310px, 100vw - 32px);
+  min-width: 0;
+}
+
+.schedule-change-page .date-display,
+.schedule-change-page .hour-display,
+.schedule-change-page button,
+.schedule-change-page a,
+.schedule-change-page.reserva .date-display,
+.schedule-change-page.reserva .hour-display,
+.schedule-change-page.reserva button,
+.schedule-change-page.reserva a {
+  cursor: pointer;
+}
+
+.schedule-change-page textarea,
+.schedule-change-page input[type=text]:not(.date-display):not(.hour-display),
+.schedule-change-page.reserva .reservation-control--textarea,
+.schedule-change-page.reserva input[type=text]:not(.date-display):not(.hour-display) {
+  cursor: text;
+}
+
+.schedule-change-page button:disabled,
+.schedule-change-page .date-display:disabled,
+.schedule-change-page .hour-display:disabled,
+.schedule-change-page.reserva button:disabled,
+.schedule-change-page.reserva .date-display:disabled,
+.schedule-change-page.reserva .hour-picker-wrap.is-disabled .hour-display,
+.schedule-change-page.reserva .hour-display[aria-disabled=true] {
+  cursor: not-allowed;
+}
+
+.schedule-change-page .cpc-nav,
+.schedule-change-page .cpc-day,
+.schedule-change-page .hour-option,
+.schedule-change-page .pill,
+.schedule-change-page .step-btn,
+.schedule-change-page .btn-line {
+  cursor: pointer;
+}
+
+.schedule-change-page .cpc-nav:focus-visible,
+.schedule-change-page .cpc-day:focus-visible,
+.schedule-change-page .hour-option:focus-visible,
+.schedule-change-page .pill:focus-visible,
+.schedule-change-page .step-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.schedule-change-page .step-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.schedule-change-form .reservation-guests--tabs {
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+
+.schedule-change-form .reservation-guests--tabs .pill {
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+
+.schedule-change-form .guests-stepper {
+  display: inline-flex;
+  width: fit-content;
+  min-width: 184px;
+  max-width: 220px;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.45rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.schedule-change-form .guests-stepper .step-btn {
+  width: 42px;
+  height: 42px;
+}
+
+.schedule-change-form .guests-stepper .step-val {
+  min-width: 3ch;
+}
+
+.schedule-change-form .guests-stepper[hidden],
+.schedule-change-form .reservation-guests[hidden] {
+  display: none !important;
+}
+
+.schedule-change-form .reservation-field__help {
+  margin-top: 0.35rem;
+  color: var(--txt-mute);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.schedule-change-retry {
+  width: fit-content;
+  padding: 0.4rem 0;
+  border: 0;
+  color: var(--accent-soft);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.schedule-change-retry[hidden] {
+  display: none;
+}
+.schedule-change-retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.schedule-change-form__action {
+  display: flex;
+  grid-area: action;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 0.15rem;
+}
+
+.schedule-change-status {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  color: var(--txt-mute);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.schedule-change-status.is-error {
+  color: var(--schedule-change-status-error);
+}
+.schedule-change-status.is-success {
+  color: var(--schedule-change-status-success);
+}
+.schedule-change-status.is-pending {
+  color: var(--accent-soft);
+}
+.schedule-change-status:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+.schedule-change-form .schedule-change-status[hidden],
+.schedule-change-form .schedule-change-retry[hidden],
+.schedule-change-success[hidden] {
+  display: none !important;
+}
+
+.schedule-change-submit {
+  width: fit-content;
+  justify-content: center;
+}
+
+.schedule-change-page.reserva .schedule-change-submit {
+  isolation: isolate;
+  background: var(--ink);
+  color: var(--beige);
+  border-color: var(--accent);
+  transition: background 0.25s var(--ease), color 0.25s var(--ease), border-color 0.25s var(--ease), transform 0.15s ease;
+}
+.schedule-change-page.reserva .schedule-change-submit::before {
+  display: none;
+}
+.schedule-change-page.reserva .schedule-change-submit > span {
+  color: inherit;
+}
+.schedule-change-page.reserva .schedule-change-submit:hover:not(:disabled), .schedule-change-page.reserva .schedule-change-submit:focus-visible:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.schedule-change-page.reserva .schedule-change-submit:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 4px;
+}
+.schedule-change-page.reserva .schedule-change-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.schedule-change-page.reserva .schedule-change-submit:disabled {
+  background: var(--surface-2);
+  border-color: var(--line-soft);
+  color: var(--txt-faint);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.schedule-change-success {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0.5rem;
+  align-self: center;
+  grid-column: 1/-1;
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: center;
+  animation: fade-in-up 0.4s var(--ease);
+}
+.schedule-change-success__mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+}
+.schedule-change-success__mark svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.schedule-change-success:focus {
+  outline: 0;
+}
+.schedule-change-success > div {
+  display: grid;
+  justify-items: center;
+}
+.schedule-change-success .schedule-change-eyebrow {
+  margin-bottom: 0.35rem;
+}
+.schedule-change-success h2 {
+  max-width: none;
+  margin: 0;
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+.schedule-change-success__summary {
+  margin-top: 0.45rem;
+  color: var(--beige);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.schedule-change-success__name {
+  margin-top: 0.18rem;
+  color: var(--txt);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.schedule-change-success__copy {
+  max-width: 48ch;
+  margin-top: 0.5rem;
+  color: var(--txt);
+  font-family: var(--crimson);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.schedule-change-success .btn-line {
+  width: fit-content;
+  margin-top: 0.6rem;
+  padding: 0.8rem 1.5rem;
+}
+
+.schedule-change-card:has(> .schedule-change-success) {
+  grid-template-columns: 1fr;
+  min-height: clamp(360px, 50vh, 480px);
+  align-content: center;
+  padding: clamp(2rem, 4vw, 2.75rem);
+}
+
+.schedule-change-card--expired {
+  align-self: center;
+}
+
+.schedule-change-card--summary-only {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  min-height: 390px;
+}
+
+.schedule-change-limited {
+  padding: 1.25rem;
+  border: 1px solid var(--line-soft);
+  border-left-color: var(--accent);
+  background: var(--surface-2);
+}
+.schedule-change-limited h2 {
+  margin: 0;
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: clamp(1.45rem, 2.5vw, 1.8rem);
+  font-weight: 400;
+}
+.schedule-change-limited p {
+  max-width: 48ch;
+  margin: 0.55rem 0 0;
+  color: var(--txt-mute);
+  line-height: 1.55;
+}
+
+.schedule-change-cancel-zone {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.schedule-change-cancel {
+  padding: 0.45rem 0;
+  border: 0;
+  color: var(--txt-mute);
+  font: inherit;
+  font-size: 0.76rem;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: color 0.2s var(--ease), text-decoration-color 0.2s var(--ease);
+}
+.schedule-change-cancel:hover {
+  color: #e3a59d;
+  text-decoration-color: currentColor;
+}
+.schedule-change-cancel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+body.is-management-modal-open {
+  overflow: hidden;
+}
+
+.schedule-change-modal {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.schedule-change-modal[hidden] {
+  display: none;
+}
+.schedule-change-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(8, 8, 7, 0.78);
+  backdrop-filter: blur(5px);
+}
+.schedule-change-modal__dialog {
+  position: relative;
+  width: min(100%, 480px);
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 28px 85px rgba(0, 0, 0, 0.5);
+}
+.schedule-change-modal h2 {
+  margin: 0;
+  color: var(--beige);
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 5vw, 2.25rem);
+  font-weight: 400;
+}
+.schedule-change-modal p {
+  margin: 0.75rem 0 0;
+  color: var(--txt-mute);
+  line-height: 1.55;
+}
+.schedule-change-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.schedule-change-danger {
+  min-height: 46px;
+  padding: 0.72rem 1rem;
+  border: 1px solid #a85d55;
+  background: #733f39;
+  color: #fff4f1;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.schedule-change-danger:hover:not(:disabled) {
+  border-color: #d58a81;
+  background: #8a4942;
+}
+.schedule-change-danger:focus-visible {
+  outline: 2px solid #f0aaa1;
+  outline-offset: 3px;
+}
+.schedule-change-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.schedule-change-footer {
+  width: min(100% - 2 * var(--pad), var(--maxw));
+  padding-bottom: 2rem;
+  margin: 0 auto;
+  color: var(--txt-faint);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-change-success {
+    animation: none;
+  }
+}
+@media (max-width: 640px) {
+  .schedule-change-header {
+    width: calc(100% - 2rem);
+    min-height: 68px;
+  }
+  .schedule-change-logo {
+    font-size: 0.9rem;
+  }
+  .schedule-change-header__rule {
+    width: 2rem;
+  }
+  .schedule-change-header__back {
+    font-size: 0.64rem;
+  }
+  .schedule-change-shell {
+    width: calc(100% - 2rem);
+    padding: 2rem 0 3rem;
+  }
+  .schedule-change-card {
+    min-height: 0;
+    padding: 1.5rem 1rem 1.75rem;
+  }
+  .schedule-change-card h1 {
+    font-size: clamp(2.2rem, 11vw, 2.8rem);
+  }
+  .schedule-change-current {
+    align-items: start;
+    flex-direction: column;
+  }
+  .schedule-change-current p {
+    text-align: left;
+  }
+  .schedule-change-card--expired {
+    padding: 2.25rem 1.25rem;
+  }
+  .schedule-change-modal__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .schedule-change-modal__actions .btn-line,
+  .schedule-change-danger {
+    width: 100%;
+    justify-content: center;
+  }
+  .schedule-change-footer {
+    width: calc(100% - 2rem);
+  }
+}
+@media (max-width: 860px) {
+  .schedule-change-card {
+    display: block;
+    min-height: 0;
+  }
+  .schedule-change-context {
+    gap: 1.5rem;
+  }
+  .schedule-change-editor {
+    margin-top: 1.75rem;
+  }
+  .schedule-change-form {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "date" "guests" "time" "note" "action";
+    gap: 1.5rem;
+  }
+  .schedule-change-form__action {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .schedule-change-form .guests-stepper {
+    width: 100%;
+    max-width: none;
+  }
+  .schedule-change-submit {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .schedule-change-success .btn-line {
+    width: 100%;
+    justify-content: center;
+  }
+}
 .confirmation-modal {
   position: fixed;
   inset: 0;
@@ -8502,6 +9303,10 @@ footer.foot {
   overflow: visible;
 }
 
+.operational-header--reservations {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .operational-header__region {
   display: inline-flex;
   min-width: 0;
@@ -8997,6 +9802,12 @@ footer.foot {
   --operational-context-height: 56px;
   --operational-module-max-width: 1440px;
   --operational-workspace-max-height: 760px;
+  --operational-accent: var(--admin-gold);
+  --operational-accent-soft: var(--admin-gold-soft);
+  --operational-overlay-scrim: rgba(4, 6, 5, 0.68);
+  --operational-info-strong: #dceeff;
+  --operational-info-soft: #c9def0;
+  --operational-info-bright: #e8f5ff;
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -9474,6 +10285,15 @@ footer.foot {
   line-height: 1;
   transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
+.operational-page .cpc-nav svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
 .operational-page .cpc-nav:hover {
   border-color: var(--reservation-picker-nav-hover-border, currentColor);
   background: var(--reservation-picker-hover-bg, transparent);
@@ -9925,6 +10745,37 @@ footer.foot {
   background-clip: padding-box;
 }
 
+.operational-drawer__filters {
+  flex: 0 0 auto;
+  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--admin-border-soft);
+}
+
+.operational-drawer__filters .reservation-operation__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+}
+
+.operational-drawer__filters .reservation-operation__filters[data-operation-filters] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.operational-drawer__filters .reservation-operation__filter-actions {
+  display: none;
+}
+
+.operational-drawer__filters .reservation-operation__filter {
+  width: 100%;
+}
+
+.operational-drawer__filters .reservation-operation__assignment-filter select,
+.operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+}
+
 .operational-drawer .reservation-operation-card {
   min-width: 0;
   height: auto;
@@ -10004,6 +10855,48 @@ footer.foot {
 @media (prefers-reduced-motion: reduce) {
   .operational-drawer {
     transition: none;
+  }
+}
+.operational-drawer__filters .reservation-operation__search-filter {
+  order: -1;
+  width: 100%;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter {
+  position: relative;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter input {
+  width: 100%;
+  min-height: 44px;
+  padding-inline: 42px 12px !important;
+  line-height: 1.2;
+}
+
+.reservation-operation__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 17px;
+  height: 17px;
+  color: var(--admin-muted);
+  fill: none;
+  pointer-events: none;
+  transform: translateY(-50%);
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transform: translateY(-50%);
+}
+
+.operational-page .operational-drawer {
+  width: clamp(320px, 26vw, 350px);
+}
+
+@media (max-width: 700px) {
+  .operational-page .operational-drawer {
+    width: min(92vw, 350px);
   }
 }
 .operational-page {
@@ -10183,6 +11076,61 @@ footer.foot {
   border-color: color-mix(in srgb, var(--admin-gold) 26%, var(--admin-border-soft));
 }
 
+.reservation-operation__map .operational-map__structured {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 20;
+  margin: 0;
+  border-color: color-mix(in srgb, var(--admin-border) 88%, transparent);
+  background: color-mix(in srgb, var(--admin-bg) 92%, transparent);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.reservation-operation__map .operational-map__structured[open] {
+  max-height: min(42%, 260px);
+}
+
+.reservation-operation__map .operational-map__structured-list {
+  display: flex;
+  gap: 8px;
+  padding: 0 10px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+}
+
+.reservation-operation__map .operational-map__structured-list > li {
+  flex: 0 0 160px;
+}
+
+.reservation-operation__map .operational-map__structured-list button {
+  grid-template-rows: auto auto auto;
+  min-height: 84px;
+  overflow: hidden;
+}
+
+.reservation-operation__map .operational-map__structured-list button::before {
+  grid-row: 1/span 3;
+}
+
+.reservation-operation__map .operational-map__structured-context {
+  grid-column: 2;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
+  right: 412px;
+}
+
+@media (max-width: 900px) {
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
+    right: 12px;
+  }
+}
 .operational-map__structured summary {
   display: flex;
   align-items: center;
@@ -10200,12 +11148,11 @@ footer.foot {
 }
 .operational-map__structured summary::before {
   content: "";
-  width: 0;
-  height: 0;
+  width: 0.4rem;
+  height: 0.6rem;
   flex: 0 0 auto;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 6px solid var(--admin-gold);
+  background: var(--admin-gold);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
   transition: transform 160ms ease;
 }
 .operational-map__structured summary:hover {
@@ -10257,7 +11204,7 @@ footer.foot {
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
+  border-left: 1px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
@@ -10314,13 +11261,28 @@ footer.foot {
 
 .operational-map__structured-name {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-map__structured-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -10829,6 +11791,32 @@ footer.foot {
     width: 820px;
     min-width: 820px;
   }
+  .reservation-operation__map .mesas-map__viewport {
+    place-items: stretch;
+    overflow-x: hidden;
+  }
+  .reservation-operation__map .mesas-map__floor {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 320px;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+  .reservation-operation__map.mesas-map .mesa-pin {
+    width: clamp(64px, 19cqw, 76px) !important;
+    min-width: clamp(64px, 19cqw, 76px);
+    height: clamp(48px, 5.5cqw, 56px) !important;
+    min-height: 48px;
+  }
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-barra {
+    width: clamp(88px, 26cqw, 112px) !important;
+    min-width: clamp(88px, 26cqw, 112px);
+  }
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-especial {
+    width: clamp(60px, 18cqw, 76px) !important;
+    min-width: clamp(60px, 18cqw, 76px);
+  }
 }
 @media (max-height: 680px) and (min-width: 901px) {
   .mesas-map__header {
@@ -11058,7 +12046,7 @@ footer.foot {
   min-height: 44px;
   flex: 0 1 auto;
   min-width: 0;
-  grid-template-columns: auto minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px) minmax(150px, 190px) minmax(180px, 230px);
+  grid-template-columns: minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px) minmax(150px, 190px) minmax(180px, 230px);
   align-items: center;
   justify-content: start;
   gap: 10px;
@@ -11067,6 +12055,132 @@ footer.foot {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.reservation-operation__filters[data-operation-filters] {
+  grid-template-columns: minmax(180px, var(--operational-date-control-width)) minmax(132px, 164px);
+}
+
+.reservation-operation-capacity {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.reservation-operation-capacity__primary {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 3px;
+  min-width: max-content;
+  color: var(--admin-text);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
+}
+
+.reservation-operation-capacity__primary > span:first-child {
+  display: inline;
+  color: var(--admin-gold-soft);
+  font-size: 1.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+.reservation-operation-capacity__available {
+  color: var(--admin-text);
+  line-height: 1.15;
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation-capacity__secondary {
+  display: inline-flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reservation-operation-capacity__secondary::first-letter {
+  color: var(--admin-border);
+}
+
+.reservation-operation-capacity {
+  min-height: 36px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.reservation-operation-capacity__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.reservation-operation-capacity__label {
+  color: var(--admin-muted) !important;
+  font-size: 9px !important;
+  font-weight: var(--operational-weight-semibold);
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.reservation-operation-capacity__primary {
+  gap: 7px;
+  line-height: 1.15;
+  font-weight: var(--operational-weight-medium);
+}
+
+.reservation-operation-capacity .reservation-operation-capacity__available {
+  display: inline;
+  color: var(--admin-text);
+  text-align: left;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open] {
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls [data-operation-tables-open]:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.reservation-operation-capacity__secondary {
+  max-width: 15ch;
+}
+
+.reservation-operation-capacity em {
+  display: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls {
+  grid-column: 1;
+}
+
+.operational-context-bar--reservations .operational-context-bar__selection {
+  position: static;
+  z-index: auto;
+  grid-column: 2;
+  width: auto;
+  justify-content: flex-start;
+  transform: none;
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions {
+  grid-column: 3;
 }
 
 .reservation-operation__filter {
@@ -11088,6 +12202,11 @@ footer.foot {
   background: var(--admin-surface);
   color: var(--admin-text);
   font: inherit;
+}
+
+.operational-drawer__filters .reservation-operation__search-filter input {
+  padding-inline: 42px 12px !important;
+  line-height: 1.2;
 }
 
 .reservation-operation__filter-actions {
@@ -11178,7 +12297,7 @@ footer.foot {
     grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
   }
   .reservation-operation__filters {
-    grid-template-columns: auto minmax(140px, 160px) minmax(120px, 140px);
+    grid-template-columns: minmax(140px, 160px) minmax(120px, 140px);
     gap: 10px;
   }
   .operational-selection-context {
@@ -11188,7 +12307,7 @@ footer.foot {
 }
 @media (max-width: 900px) {
   .reservation-operation__filters {
-    grid-template-columns: auto minmax(160px, 1fr) minmax(132px, 160px);
+    grid-template-columns: minmax(160px, 1fr) minmax(132px, 160px);
   }
   .operational-selection-context {
     width: min(180px, 20vw);
@@ -11230,7 +12349,7 @@ footer.foot {
 }
 @media (max-width: 640px) {
   .operational-page {
-    --operational-context-height: 264px;
+    --operational-context-height: 168px;
   }
   .operational-context-bar,
   .operational-context-bar--reservations {
@@ -11282,31 +12401,208 @@ footer.foot {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .reservation-operation__filter-actions {
-    grid-column: 1/-1;
-  }
   .reservation-operation__filters .date-picker-wrap,
   .reservation-operation__filters .hour-picker-wrap,
   .reservation-operation__filters .hour-picker-control {
     width: 100%;
     max-width: none;
   }
-  .reservation-operation__filter-actions .admin-btn {
-    width: 44px;
+  .reservation-operation__filter-actions {
+    display: none;
   }
 }
 @media (max-width: 480px) {
   .operational-page {
-    --operational-context-height: 318px;
+    --operational-context-height: 212px;
   }
   .reservation-operation__filters {
     grid-template-columns: 1fr;
   }
 }
+.operational-context-bar--reservations {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "left center actions";
+  gap: 16px;
+}
+
+.operational-context-bar--reservations .operational-context-bar__controls {
+  display: contents;
+}
+
+.reservation-operation__toolbar-left,
+.reservation-operation__toolbar-center {
+  min-width: 0;
+}
+
+.reservation-operation__toolbar-left {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  grid-area: left;
+  justify-self: start;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.reservation-operation__toolbar-center {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  grid-area: center;
+  justify-self: center;
+}
+
+.reservation-operation__toolbar-center .reservation-operation__filters {
+  justify-content: center;
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions {
+  grid-area: actions;
+  grid-column: auto;
+  justify-self: end;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.operational-context-bar--reservations .operational-context-bar__actions,
+.operational-context-bar--reservations .reservation-operation__toolbar-left,
+.operational-context-bar--reservations .reservation-operation__toolbar-center {
+  grid-row: auto;
+}
+
+.reservation-operation-capacity {
+  display: inline-flex;
+  min-width: max-content;
+  min-height: 36px;
+  align-items: center;
+  gap: 0;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--admin-surface-soft) 66%, transparent);
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.reservation-operation-capacity__primary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  min-width: max-content;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-medium);
+  line-height: 1.2;
+}
+
+.reservation-operation-capacity__primary > span {
+  display: inline;
+  gap: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.reservation-operation-capacity__real {
+  color: var(--admin-gold-soft) !important;
+  font-size: 1.08em;
+  font-weight: var(--operational-weight-semibold);
+}
+
+.reservation-operation-capacity__separator {
+  padding-inline: 3px;
+  color: var(--admin-faint) !important;
+}
+
+.reservation-operation-capacity__of {
+  color: var(--admin-text) !important;
+}
+
+.operational-context-bar--reservations .operational-map-toggle,
+.operational-context-bar--reservations .operational-toolbar-icon {
+  flex: 0 0 44px;
+  border-color: var(--admin-border-soft);
+  background: transparent;
+  color: var(--admin-muted);
+  box-shadow: none;
+}
+
+.operational-context-bar--reservations .operational-map-toggle:hover,
+.operational-context-bar--reservations .operational-toolbar-icon:hover {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+}
+
+.operational-context-bar--reservations .operational-map-toggle:focus-visible,
+.operational-context-bar--reservations .operational-toolbar-icon:focus-visible {
+  color: var(--admin-text);
+}
+
+@media (max-width: 1199px) {
+  .operational-context-bar--reservations {
+    gap: 10px;
+  }
+  .reservation-operation__toolbar-left {
+    gap: 6px;
+  }
+}
+@media (max-width: 900px) and (min-width: 641px) {
+  .operational-context-bar--reservations {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    grid-template-areas: "left actions" "center center";
+    row-gap: 6px;
+  }
+  .reservation-operation__toolbar-left {
+    grid-area: left;
+  }
+  .reservation-operation__toolbar-center {
+    grid-area: center;
+    width: 100%;
+    justify-self: stretch;
+  }
+  .reservation-operation__toolbar-center .reservation-operation__filters {
+    width: 100%;
+    justify-content: center;
+  }
+  .operational-context-bar--reservations .operational-context-bar__actions {
+    grid-area: actions;
+  }
+}
+@media (max-width: 640px) {
+  .operational-context-bar--reservations {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas: "left" "center" "actions";
+    gap: 8px;
+  }
+  .reservation-operation__toolbar-left {
+    width: 100%;
+    justify-self: stretch;
+    flex-wrap: wrap;
+  }
+  .reservation-operation__toolbar-left .reservation-operation-capacity {
+    margin-left: auto;
+  }
+  .reservation-operation__toolbar-center {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .reservation-operation__toolbar-center .reservation-operation__filters {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .operational-context-bar--reservations .operational-context-bar__actions {
+    width: 100%;
+    justify-self: stretch;
+  }
+}
 .reservation-operation__reservations {
   display: flex;
   min-height: 0;
-  padding: 16px;
+  padding: 20px;
   overflow: hidden;
   flex-direction: column;
 }
@@ -11372,9 +12668,9 @@ footer.foot {
   transform: translateY(-1px);
 }
 .reservation-operation-card.is-selected, .reservation-operation-card.reserva-card--selected {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+  background: var(--admin-surface-soft);
+  box-shadow: none;
 }
 .reservation-operation-card.is-highlighted:not(.is-selected) {
   border-color: color-mix(in srgb, var(--admin-gold) 50%, transparent);
@@ -11400,11 +12696,16 @@ footer.foot {
 }
 
 .operational-drawer .reservation-operation-card.reserva-card--selected {
-  border-color: var(--admin-gold);
-  background: color-mix(in srgb, var(--admin-gold) 9%, var(--admin-surface));
-  box-shadow: inset 3px 0 0 var(--admin-gold);
+  border-color: color-mix(in srgb, var(--admin-gold) 72%, var(--admin-border));
+  background: var(--admin-surface-soft);
+  box-shadow: none;
 }
 
+@media (max-width: 700px) {
+  .reservation-operation__reservations {
+    padding: 16px;
+  }
+}
 .reservation-operation-card__button {
   display: grid;
   gap: 8px;
@@ -12984,6 +14285,28 @@ footer.foot {
   margin-top: 0.12rem;
   color: var(--txt-faint);
   font-size: 0.68rem;
+}
+
+.mmodal-reservation__scheduled {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--gold-soft);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--txt-mute);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.mmodal-reservation__scheduled strong {
+  color: var(--txt);
+  font-size: 0.82rem;
+}
+.mmodal-reservation__scheduled p {
+  margin: 0;
+  color: var(--txt);
 }
 
 .mmodal-reservation__actions {

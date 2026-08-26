@@ -7,6 +7,7 @@ $abrirModalExcepcion = !empty($abrirModalExcepcion);
 $horarioSemanalConErrores = !empty($horarioSemanalConErrores);
 $conflictosHorarios = is_array($conflictosHorarios ?? null) ? $conflictosHorarios : [];
 $conflictosExcepcion = is_array($conflictosExcepcion ?? null) ? $conflictosExcepcion : [];
+$adminCsrfToken = (string)($adminCsrfToken ?? '');
 $fechaActual = (string) ($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $valorExcepcion = static fn (string $campo, $predeterminado = '') => $excepcionFormulario[$campo] ?? $predeterminado;
@@ -70,6 +71,7 @@ $horasDelDia = range(0, 23);
             data-initial-dirty="<?php echo $horarioSemanalConErrores ? '1' : '0'; ?>"
             novalidate
         >
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
             <input type="hidden" name="confirmar_conflictos" value="0" data-confirm-schedule-conflicts>
             <div class="admin-schedule" role="group" aria-label="Horario semanal">
                 <?php foreach ($horarios as $index => $horario) : ?>
@@ -142,19 +144,6 @@ $horasDelDia = range(0, 23);
 
             <div class="admin-config-form-actions">
                 <p class="admin-form-status" data-schedule-status aria-live="polite"></p>
-                <?php if ($conflictosHorarios !== []) : ?>
-                    <div class="admin-config-conflict" role="alert">
-                        Este cambio dejaría <?php echo count($conflictosHorarios); ?>
-                        reservación(es) confirmada(s) fuera del nuevo horario.
-                        Las reservaciones no serán canceladas automáticamente.
-                    </div>
-                    <button
-                        type="submit"
-                        class="admin-btn admin-btn--danger-solid"
-                        name="confirmar_conflictos"
-                        value="1"
-                    >Guardar de todas formas</button>
-                <?php endif; ?>
                 <button type="submit" class="admin-btn admin-btn--primary" data-schedule-validate disabled>Guardar horarios</button>
                 <button type="button" class="admin-btn admin-btn--secondary" data-schedule-reset disabled>Descartar cambios</button>
             </div>
@@ -169,6 +158,7 @@ $horasDelDia = range(0, 23);
             </div>
             <button type="button" class="admin-btn admin-btn--primary" data-exception-create data-admin-modal-open="schedule-exception-modal" aria-haspopup="dialog" aria-controls="schedule-exception-modal">Registrar excepción</button>
         </div>
+        <p class="admin-form-status" data-exception-action-status role="status" aria-live="polite"></p>
 
         <?php if (empty($excepciones)) : ?>
             <div class="admin-empty admin-config-empty">
@@ -196,6 +186,7 @@ $horasDelDia = range(0, 23);
                                 <td data-label="Horario"><?php echo $h($excepcion['horario'] ?? '—'); ?></td>
                                 <td data-label="Estado">
                                     <form action="/admin/configuracion/horarios/excepciones/estado" method="post" data-exception-state-form>
+                                        <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
                                         <input type="hidden" name="id" value="<?php echo (int) ($excepcion['id'] ?? 0); ?>">
                                         <input type="hidden" name="activo" value="<?php echo $activo ? '1' : '0'; ?>" data-exception-state-value>
                                         <label class="admin-switch">
@@ -221,8 +212,6 @@ $horasDelDia = range(0, 23);
                                             type="button"
                                             class="admin-btn admin-btn--danger admin-btn--small"
                                             data-exception-delete="<?php echo $datosEdicion; ?>"
-                                            aria-haspopup="dialog"
-                                            aria-controls="schedule-exception-delete-modal"
                                         >Eliminar</button>
                                     </div>
                                 </td>
@@ -247,6 +236,7 @@ $horasDelDia = range(0, 23);
         </div>
 
         <form action="/admin/configuracion/horarios/excepciones/guardar" method="post" class="admin-modal__form" data-exception-form novalidate>
+            <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken); ?>">
             <input type="hidden" name="id" value="<?php echo $h($valorExcepcion('id')); ?>" data-exception-id>
             <input type="hidden" name="confirmar_conflictos" value="0">
             <div class="admin-field">
@@ -333,23 +323,13 @@ $horasDelDia = range(0, 23);
                 <span class="admin-switch__label">Excepción activa</span>
             </label>
             <p class="admin-form-status admin-modal__field--wide" data-exception-status aria-live="polite"></p>
-            <?php if ($conflictosExcepcion !== []) : ?>
-                <div class="admin-config-conflict admin-modal__field--wide" role="alert">
-                    La excepción dejaría <?php echo count($conflictosExcepcion); ?>
-                    reservación(es) fuera del horario. Se conservarán para atención manual.
-                </div>
-            <?php endif; ?>
             <div class="admin-modal__actions admin-modal__field--wide">
                 <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
-                <?php if ($conflictosExcepcion !== []) : ?>
-                    <button type="submit" class="admin-btn admin-btn--danger-solid" name="confirmar_conflictos" value="1">Guardar de todas formas</button>
-                <?php endif; ?>
                 <button type="submit" class="admin-btn admin-btn--primary" data-exception-validate>Guardar excepción</button>
             </div>
         </form>
     </div>
 </div>
-
 <div class="admin-modal" id="schedule-unsaved-modal" data-admin-modal hidden>
     <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
     <div
@@ -377,40 +357,5 @@ $horasDelDia = range(0, 23);
             <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Continuar editando</button>
             <a class="admin-btn admin-btn--danger-solid" href="/admin/configuracion" data-unsaved-leave>Salir sin guardar</a>
         </div>
-    </div>
-</div>
-
-<div class="admin-modal" id="schedule-exception-delete-modal" data-admin-modal hidden>
-    <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
-    <div
-        class="admin-modal__dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="exception-delete-title"
-        aria-describedby="exception-delete-description"
-        tabindex="-1"
-        data-admin-modal-dialog
-    >
-        <div class="admin-modal__head">
-            <div>
-                <span class="admin-modal__eyebrow">Acción destructiva</span>
-                <h2 class="admin-modal__title" id="exception-delete-title">Eliminar excepción</h2>
-            </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
-        </div>
-
-        <p class="admin-modal__text" id="exception-delete-description">
-            Se eliminará <strong data-exception-delete-type></strong> del
-            <strong data-exception-delete-date></strong><span data-exception-delete-reason-wrap hidden>, con motivo “<strong data-exception-delete-reason></strong>”</span>.
-        </p>
-        <p class="admin-modal__text">Al eliminar esta excepción, la fecha volverá a utilizar el horario semanal habitual.</p>
-
-        <form action="/admin/configuracion/horarios/excepciones/eliminar" method="post" data-exception-delete-form>
-            <input type="hidden" name="id" value="" data-exception-delete-id>
-            <div class="admin-modal__actions">
-                <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
-                <button type="submit" class="admin-btn admin-btn--danger-solid" data-exception-delete-submit>Eliminar excepción</button>
-            </div>
-        </form>
     </div>
 </div>

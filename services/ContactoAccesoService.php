@@ -13,7 +13,6 @@ use Model\VerificacionContacto;
 
 class ContactoAccesoService
 {
-    public const OTP_GENERADO = 'OTP_GENERADO';
     public const OTP_SOLICITADO = 'OTP_SOLICITADO';
     public const CONTACTO_VERIFICADO = 'CONTACTO_VERIFICADO';
     public const DATOS_INVALIDOS = ReservacionService::DATOS_INVALIDOS;
@@ -185,15 +184,11 @@ class ContactoAccesoService
             throw new \RuntimeException('El proveedor de notificaciones rechazó la solicitud.');
         }
 
-        $preview = ReservacionConfig::otpPreviewEnabled();
         $respuesta = [
             'ok' => true,
-            'codigo' => $preview ? self::OTP_GENERADO : self::OTP_SOLICITADO,
+            'codigo' => self::OTP_SOLICITADO,
             'expires_at' => $expiresAt->format(DATE_ATOM),
         ];
-        if ($preview) {
-            $respuesta['preview_code'] = $codigo;
-        }
 
         return $respuesta;
     }

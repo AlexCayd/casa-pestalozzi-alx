@@ -24,10 +24,21 @@
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Datos del usuario</h3>
-                <p>Completa usuario, nombre, rol, contraseña y estado.</p>
+            <p>Completa usuario, nombre, rol y estado. La credencial se define según el rol.</p>
             </div>
         </div>
 
         <?php include __DIR__ . '/form.php'; ?>
     </section>
 </section>
+
+<?php if (is_array($nipFlash ?? null) && !empty($nipFlash['nip'])) : ?>
+    <div
+        hidden
+        data-user-nip-delivery
+        data-nip="<?php echo htmlspecialchars((string) $nipFlash['nip'], ENT_QUOTES, 'UTF-8'); ?>"
+        data-nip-visibility-seconds="<?php echo (int) \Services\UsuarioConfig::NIP_MODAL_VISIBILIDAD_SEGUNDOS; ?>"
+        data-after-url="<?php echo htmlspecialchars((string) ($nipFlash['after_url'] ?? '/admin/usuarios'), ENT_QUOTES, 'UTF-8'); ?>"
+        data-flow="<?php echo htmlspecialchars((string) ($nipFlash['flujo'] ?? 'alta'), ENT_QUOTES, 'UTF-8'); ?>"
+    ></div>
+<?php endif; ?>

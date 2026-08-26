@@ -22,6 +22,12 @@ $initialReservacionId = (int)($initialReservacionId ?? 0);
 $initialOperationIntent = (string)($initialOperationIntent ?? '');
 $initialOperationNotice = is_array($initialOperationNotice ?? null) ? $initialOperationNotice : null;
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? false);
+$puedeCrearAdministrativa = (bool)($puedeCrearAdministrativa ?? false);
+$puedeCrearDesdeMapa = (bool)($puedeCrearDesdeMapa ?? $puedeCrearAdministrativa);
+$puedeCapturarContacto = (bool)($puedeCapturarContacto ?? $puedeCrearAdministrativa);
+$createReservationAction = (string)($createReservationAction ?? '/admin/reservaciones/crear');
+$availabilityEndpoint = (string)($availabilityEndpoint ?? '/admin/api/reservaciones/disponibilidad');
+$superficieOperativa = (string)($superficieOperativa ?? ($puedeCrearAdministrativa ? 'admin' : 'waiter'));
 
 $h = static function ($value): string {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -98,22 +104,56 @@ if ($initialOperationNotice !== null) {
     data-initial-requested-hour="<?php echo $h($horaSolicitadaInicial); ?>"
     data-initial-reservation-id="<?php echo $initialReservacionId; ?>"
     data-initial-operation-intent="<?php echo $h($initialOperationIntent); ?>"
+    data-operation-surface="<?php echo $h($superficieOperativa); ?>"
     data-return-url="<?php echo $h($returnUrl); ?>"
     data-comment-enabled="<?php echo $comentarioAdminDisponible ? '1' : '0'; ?>"
     data-admin-csrf="<?php echo $h($adminCsrfToken ?? ''); ?>"
 >
     <?php
+    $operationalContextCapacityHtml =
+        '<div class="reservation-operation-capacity" data-operation-capacity role="status" aria-live="polite" aria-label="0 de 0 lugares disponibles" title="0 de 0 lugares disponibles" hidden>' .
+            '<strong class="reservation-operation-capacity__primary" aria-hidden="true"><span class="reservation-operation-capacity__real" data-operation-capacity-real>0</span><span class="reservation-operation-capacity__separator"> / </span><span class="reservation-operation-capacity__of" data-operation-capacity-of>0</span></strong>' .
+        '</div>';
+
     ob_start();
-    $operationalMapToggleLabel = 'mapa de reservaciones';
-    $operationalMapToggleIconOnly = true;
-    include __DIR__ . '/../partials/map-toggle.php';
-    include __DIR__ . '/_filters.php';
+    ?>
+        <div class="reservation-operation__toolbar-left" data-operation-toolbar-left>
+            <button
+                type="button"
+                class="admin-btn admin-btn--secondary operational-tables-trigger"
+                aria-label="Ver lista de mesas"
+                title="Ver lista de mesas"
+                aria-expanded="false"
+                aria-controls="operation-tables-modal"
+                data-operation-tables-open
+            >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <rect x="5" y="5" width="14" height="10" rx="2"></rect>
+                    <path d="M8 15v4M16 15v4M5 19h14"></path>
+                </svg>
+                <span>Mesas</span>
+            </button>
+            <?php echo $operationalContextCapacityHtml; ?>
+        </div>
+        <div class="reservation-operation__toolbar-center" data-operation-toolbar-center>
+            <?php
+            $operationalFilterScope = 'context';
+            include __DIR__ . '/_filters.php';
+            ?>
+        </div>
+    <?php
     $operationalContextControlsHtml = (string)ob_get_clean();
 
     ob_start();
-    if ($operacionEditable):
+    if ($puedeCrearDesdeMapa):
     ?>
-        <button class="admin-btn admin-btn--gold" type="button" data-operation-create data-create-date="<?php echo $h($fechaInicial); ?>">
+        <button
+            class="admin-btn admin-btn--gold"
+            type="button"
+            data-operation-create
+            data-create-date="<?php echo $h($fechaInicial); ?>"
+            <?php echo !$operacionEditable ? 'hidden disabled aria-disabled="true"' : ''; ?>
+        >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <rect x="3" y="5" width="18" height="16" rx="2"></rect>
                 <path d="M8 3v4M16 3v4M3 10h18M12 13v6M9 16h6"></path>
@@ -124,16 +164,7 @@ if ($initialOperationNotice !== null) {
     endif;
     $operationalContextActionsHtml = (string)ob_get_clean();
     $operationalContextView = 'reservations';
-    $operationalContextSelectionHtml =
-        '<div class="operational-selection-context" role="status" aria-live="polite"><span data-operation-selection-copy>Ninguna reservación seleccionada</span></div>' .
-        '<div class="reservation-operation-capacity" data-operation-capacity hidden>' .
-            '<span>Total físico <strong data-operation-capacity-total>0</strong></span>' .
-            '<span>Comprometida <strong data-operation-capacity-committed>0</strong></span>' .
-            '<span>Demanda sin mesas <strong data-operation-capacity-demand>0</strong></span>' .
-            '<span>Disponible <strong data-operation-capacity-real>0</strong></span>' .
-            '<span>Proyectada <strong data-operation-capacity-projected>0</strong></span>' .
-            '<em data-operation-capacity-warning hidden>Depende de liberación proyectada</em>' .
-        '</div>';
+    $operationalContextSelectionHtml = '';
     $operationalContextIncludeDrawerToggle = false;
     ?>
 
@@ -145,6 +176,10 @@ if ($initialOperationNotice !== null) {
     $operationalDrawerDateHtml = '';
     $operationalDrawerCountHtml = '<span class="mapa-reserva-count" data-operation-count>0</span>';
     $operationalDrawerSlotHtml = '';
+    ob_start();
+    $operationalFilterScope = 'drawer';
+    include __DIR__ . '/_filters.php';
+    $operationalDrawerFilterHtml = (string)ob_get_clean();
     $operationalDrawerListAttributes = ['data-operation-reservations' => true];
     $operationalDrawerListHtml = '<div class="reservation-operation-skeleton"><span></span><span></span><span></span></div>';
     $operationalActiveModule = 'reservations';
@@ -166,29 +201,52 @@ if ($initialOperationNotice !== null) {
                         'canvasMode' => 'operation',
                 'loadingMode' => 'empty',
                 'legendPosition' => 'footer',
-                // Se conserva aquí: es la alternativa accesible al mapa en la
-                // pantalla de escritorio, donde sí sobra alto.
-                'structuredList' => true,
+                // La lista operativa vive en el modal de mesas; el canvas no
+                // reserva altura para una segunda superficie de consulta.
+                'structuredList' => false,
             ];
             include __DIR__ . '/../partials/map.php';
             ?>
 
-        <aside class="reservation-operation__panel" data-operation-panel-shell aria-label="Detalle operativo" aria-hidden="false">
+        <aside class="reservation-operation__panel" data-operation-panel-shell aria-labelledby="operation-detail-title" aria-hidden="false">
                 <div class="reservation-operation__panel-toolbar reservation-operation__header">
-                    <span>Detalle operativo</span>
+                    <span id="operation-detail-title">Detalle operativo</span>
                     <button type="button" class="operational-icon-button reservation-operation__panel-close" aria-label="Cerrar detalle" title="Cerrar detalle" data-operation-panel-close>
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
                     </button>
                 </div>
                 <div class="reservation-operation__panel-content reservation-operation__body" data-operation-panel>
-                    <article class="reservation-operation-panel admin-card">
-                        <h3>Selecciona una reservación</h3>
-                        <p class="reservation-operation-panel__muted">Elige una reservación del menú lateral para consultar sus datos y mesas.</p>
-                    </article>
+                    <article class="reservation-operation-panel admin-card" role="status" aria-live="polite"></article>
                 </div>
         </aside>
         </div>
     </div>
+
+    <dialog
+        class="operation-tables-modal"
+        id="operation-tables-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="operation-tables-modal-title"
+        tabindex="-1"
+        data-operation-tables-modal
+    >
+        <div class="operation-tables-modal__surface">
+            <header class="operation-tables-modal__head">
+                <div>
+                    <span class="operation-tables-modal__eyebrow">Mapa operativo</span>
+                    <h2 id="operation-tables-modal-title">Estado de mesas</h2>
+                    <p data-operation-tables-meta>Consulta actual</p>
+                </div>
+                <button type="button" class="operational-icon-button operation-tables-modal__close" aria-label="Cerrar estado de mesas" title="Cerrar estado de mesas" data-operation-tables-close>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                </button>
+            </header>
+            <div class="operation-tables-modal__body">
+                <div class="operation-tables-modal__grid" data-operation-tables-grid role="list" aria-label="Lista de mesas"></div>
+            </div>
+        </div>
+    </dialog>
 
         <section
             class="reservation-operation-assignment-bar assignment-toolbar"
@@ -215,6 +273,7 @@ if ($initialOperationNotice !== null) {
             </div>
         </section>
 
+    <?php if ($puedeCrearDesdeMapa): ?>
     <?php
     $modalReservacion = new \Model\Reservacion();
     $modalReservacion->fecha = $fechaInicial;
@@ -233,6 +292,9 @@ if ($initialOperationNotice !== null) {
     $returnUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaInicial);
     $formTransport = 'json';
     $formActionsExternal = true;
+    $formAction = $createReservationAction;
+    $mostrarCamposContacto = $puedeCapturarContacto;
+    $disponibilidadEndpoint = $availabilityEndpoint;
     ob_start();
     $modo = $modalFormModo;
     include __DIR__ . '/../../admin/reservations/_form.php';
@@ -257,6 +319,7 @@ if ($initialOperationNotice !== null) {
             <button type="submit" class="admin-btn admin-btn--primary" data-form-save form="crear-reservation-admin-form">Crear reservación</button>
         </div>
     </dialog>
+    <?php endif; ?>
 
     <div data-operation-confirmation-host></div>
 

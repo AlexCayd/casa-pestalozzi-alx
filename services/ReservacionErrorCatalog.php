@@ -50,6 +50,7 @@ final class ReservacionErrorCatalog
         'EXCEPCION_ELIMINADA' => self::TIPO_INFORMACION,
         'EXCEPCION_ESTADO_ACTUALIZADO' => self::TIPO_INFORMACION,
         'ANUNCIO_ACTUALIZADO' => self::TIPO_INFORMACION,
+        'POS_ACTUALIZADO' => self::TIPO_INFORMACION,
         'DISPONIBILIDAD_CONSULTADA' => self::TIPO_INFORMACION,
         'HORARIO_DISPONIBLE' => self::TIPO_INFORMACION,
         'ASIGNACION_GUARDADA' => self::TIPO_INFORMACION,
@@ -213,6 +214,40 @@ final class ReservacionErrorCatalog
         'AMBIENTE_NO_PERMITIDO' => self::TIPO_ERROR,
         'CONFIRMACION_INVALIDA' => self::TIPO_ERROR,
         'RESERVACIONES_AFECTADAS' => self::TIPO_CONFLICTO,
+        'AFECTACION_NO_ENCONTRADA' => self::TIPO_ERROR,
+        'AFECTACION_NO_NOTIFICABLE' => self::TIPO_CONFLICTO,
+        'CONTACTO_NO_EDITABLE' => self::TIPO_ERROR,
+        'AVISO_PREPARADO' => self::TIPO_EXITO,
+        'AVISO_VIGENTE' => self::TIPO_INFORMACION,
+        'AVISO_EN_COOLDOWN' => self::TIPO_ADVERTENCIA,
+        'AVISOS_LIMITE_ALCANZADO' => self::TIPO_ADVERTENCIA,
+        'CONTACTO_AGREGADO' => self::TIPO_EXITO,
+        'AFECTACION_ATENDIDA_MANUALMENTE' => self::TIPO_EXITO,
+        'LINK_PRUEBA_GENERADO' => self::TIPO_INFORMACION,
+        'NO_DISPONIBLE' => self::TIPO_ERROR,
+        'ERROR_SEGUIMIENTO_HORARIO' => self::TIPO_ERROR,
+        'ACCESO_CAMBIO_HORARIO_INVALIDO' => self::TIPO_ERROR,
+        'ACCESO_CAMBIO_HORARIO_EXPIRADO' => self::TIPO_ERROR,
+        'ACCESO_CAMBIO_HORARIO_CONCEDIDO' => self::TIPO_EXITO,
+        'ACCESO_GESTION_EXPIRADO' => self::TIPO_ERROR,
+        'CONFIGURACION_RESERVACIONES_ACTUALIZADA' => self::TIPO_EXITO,
+        'CONFIGURACION_RESERVACIONES_INVALIDA' => self::TIPO_ERROR,
+        'N8N_SECRET_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_EVENTO_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_URL_FALTANTE' => self::TIPO_ERROR,
+        'NOTIFICACION_SECRET_FALTANTE' => self::TIPO_ERROR,
+        'NOTIFICACION_PAYLOAD_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_CONEXION_FALLIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_RESPUESTA_INVALIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_NO_ACEPTADA' => self::TIPO_ERROR,
+        'NOTIFICACION_CONFIGURACION_INVALIDA' => self::TIPO_ERROR,
+        'NOTIFICACION_ACEPTADA' => self::TIPO_EXITO,
+        'NOTIFICACION_ACEPTADA_DESARROLLO' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_SOURCE_NO_ENCONTRADO' => self::TIPO_ERROR,
+        'NOTIFICACION_CALLBACK_STALE' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_IDEMPOTENTE' => self::TIPO_INFORMACION,
+        'NOTIFICACION_CALLBACK_REGISTRADO' => self::TIPO_EXITO,
 
         // Códigos de validación de campos; no se emiten como causa principal.
         'REQUEST_TOKEN_INVALIDO' => self::TIPO_ERROR,
@@ -524,6 +559,96 @@ final class ReservacionErrorCatalog
             'mensaje' => 'El cambio de horario afecta reservaciones existentes.',
             'consecuencia' => 'Confirma la operación después de revisar las reservaciones afectadas.',
             'acciones' => [['id' => 'CONFIRMAR', 'tipo' => 'primary'], ['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'AFECTACION_NO_ENCONTRADA' => [
+            'titulo' => 'Reservación no disponible',
+            'mensaje' => 'La afectación seleccionada ya no está disponible.',
+            'consecuencia' => 'Actualiza el seguimiento antes de continuar.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'AFECTACION_NO_NOTIFICABLE' => [
+            'titulo' => 'Aviso no disponible',
+            'mensaje' => 'Esta reservación no tiene un contacto válido o ya fue atendida.',
+            'consecuencia' => 'Revisa el estado actual de la afectación.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'AVISO_PREPARADO' => [
+            'titulo' => 'Aviso preparado',
+            'mensaje' => 'El aviso quedó preparado y el acceso temporal fue generado.',
+            'consecuencia' => 'La entrega externa se integrará posteriormente mediante n8n.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'AVISO_VIGENTE' => [
+            'titulo' => 'Aviso vigente',
+            'mensaje' => 'Todavía hay un acceso válido para esta reservación.',
+            'consecuencia' => 'Podrás enviar otro aviso cuando termine el acceso actual.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'AVISO_EN_COOLDOWN' => [
+            'titulo' => 'Espera un momento',
+            'mensaje' => 'Aún no puedes enviar otro aviso.',
+            'consecuencia' => 'El siguiente intento estará disponible después del periodo de espera.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'AVISOS_LIMITE_ALCANZADO' => [
+            'titulo' => 'Límite de avisos alcanzado',
+            'mensaje' => 'Esta reservación ya recibió el máximo de avisos.',
+            'consecuencia' => 'Gestiona la reservación desde su detalle administrativo.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'ACCESO_CAMBIO_HORARIO_INVALIDO' => [
+            'titulo' => 'Enlace no válido',
+            'mensaje' => 'Este enlace ya no corresponde a un acceso autorizado.',
+            'consecuencia' => 'Gestiona tu reservación desde el acceso general.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'ACCESO_CAMBIO_HORARIO_EXPIRADO' => [
+            'titulo' => 'Este enlace ha expirado',
+            'mensaje' => 'El acceso temporal para modificar la reservación ya venció.',
+            'consecuencia' => 'Gestiona tu reservación desde el acceso general.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'ACCESO_CAMBIO_HORARIO_CONCEDIDO' => [
+            'titulo' => 'Acceso concedido',
+            'mensaje' => 'El acceso temporal está listo.',
+            'consecuencia' => 'Elige un horario disponible para continuar.',
+            'acciones' => [['id' => 'CONTINUAR', 'tipo' => 'primary']],
+        ],
+        'ACCESO_GESTION_EXPIRADO' => [
+            'titulo' => 'Este enlace ha expirado',
+            'mensaje' => 'El acceso temporal para gestionar la reservación ya no está disponible.',
+            'consecuencia' => 'Gestiona tu reservación desde el acceso general.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'CONFIGURACION_RESERVACIONES_ACTUALIZADA' => [
+            'titulo' => 'Configuración actualizada',
+            'mensaje' => 'La configuración de comunicaciones quedó guardada.',
+            'consecuencia' => 'Los siguientes recordatorios usarán esta configuración.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'CONFIGURACION_RESERVACIONES_INVALIDA' => [
+            'titulo' => 'Revisa la configuración',
+            'mensaje' => 'La hora del recordatorio no es válida.',
+            'consecuencia' => 'Usa una hora con formato de 24 horas antes de guardar.',
+            'acciones' => [['id' => 'CORREGIR', 'tipo' => 'primary']],
+        ],
+        'NOTIFICACION_CALLBACK_INVALIDO' => [
+            'titulo' => 'Resultado no válido',
+            'mensaje' => 'El resultado de entrega no cumple el contrato esperado.',
+            'consecuencia' => 'No se modificó el estado de la comunicación.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'NOTIFICACION_SOURCE_NO_ENCONTRADO' => [
+            'titulo' => 'Comunicación no encontrada',
+            'mensaje' => 'La comunicación indicada ya no existe.',
+            'consecuencia' => 'Actualiza el estado antes de reintentar.',
+            'acciones' => [['id' => 'ACTUALIZAR', 'tipo' => 'primary']],
+        ],
+        'POS_ACTUALIZADO' => [
+            'titulo' => 'Configuración actualizada',
+            'mensaje' => 'La configuración del POS se actualizó correctamente.',
+            'consecuencia' => 'Los cambios ya están disponibles.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'EXCEPCION_NO_ENCONTRADA' => [
             'titulo' => 'Excepción no encontrada',
@@ -1010,6 +1135,16 @@ final class ReservacionErrorCatalog
             $http = 405;
         } elseif ($canonical === 'RESERVACION_NO_ENCONTRADA') {
             $http = 404;
+        } elseif ($canonical === 'AFECTACION_NO_ENCONTRADA') {
+            $http = 404;
+        } elseif ($canonical === 'ACCESO_CAMBIO_HORARIO_INVALIDO') {
+            $http = 403;
+        } elseif (in_array($canonical, ['ACCESO_CAMBIO_HORARIO_EXPIRADO', 'ACCESO_GESTION_EXPIRADO'], true)) {
+            $http = 410;
+        } elseif ($canonical === 'N8N_SECRET_INVALIDO') {
+            $http = 403;
+        } elseif ($canonical === 'NOTIFICACION_SOURCE_NO_ENCONTRADO') {
+            $http = 404;
         } elseif (in_array($canonical, ['RETENCION_EXPIRADA', 'OTP_EXPIRADO'], true)) {
             $http = 410;
         } elseif (in_array($canonical, ['REENVIO_NO_DISPONIBLE', 'OTP_INTENTOS_AGOTADOS'], true)) {
@@ -1031,7 +1166,7 @@ final class ReservacionErrorCatalog
             $http = 409;
         } elseif ($canonical === 'TOLERANCIA_VIGENTE') {
             $http = 422;
-        } elseif (in_array($canonical, ['ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS'], true)) {
+        } elseif (in_array($canonical, ['ERROR_ACTUALIZACION_HORARIOS', 'ERROR_CONSULTA_HORARIOS', 'ERROR_SEGUIMIENTO_HORARIO'], true)) {
             $http = 500;
         } elseif ($canonical === 'ERROR_INTERNO') {
             $http = 500;

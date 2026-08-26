@@ -1,338 +1,274 @@
 /**
- * Formulario de alta y edición de usuarios.
+ * Interacciones del módulo de usuarios.
  *
- * Resuelve tres cosas que el HTML solo no puede:
- *
- * 1. Fecha en dd/mm/aaaa. Un <input type="date"> se pinta con el formato del
- *    locale del navegador, que aquí sale mm/dd/yyyy. Se captura en un campo de
- *    texto con máscara y se mantiene un hidden en Y-m-d, que es lo que el
- *    backend valida (Usuario::validarFechaNacimiento).
- *
- * 2. NIP sugerido desde el cumpleaños. Es la misma regla del servidor
- *    (Usuario::nipDesdeNacimiento: día + mes), pero visible y editable antes de
- *    guardar en vez de aparecer después sin avisar. En cuanto alguien escribe
- *    un NIP a mano deja de autocompletarse.
- *
- * 3. NIP o contraseña, según el rol. Son excluyentes: los administradores
- *    entran con contraseña y el personal de piso con NIP. El servidor ya aplica
- *    esa regla; aquí solo se deja de pedir lo que no aplica, porque un required
- *    sobre un campo irrelevante bloqueaba el envío sin explicar por qué.
+ * El navegador sólo refleja el rol elegido y confirma acciones; nunca genera,
+ * valida disponibilidad ni conserva credenciales de piso.
  */
 (function () {
   "use strict";
 
-  var form = document.querySelector("[data-users-form]");
-  if (!form) {
-    return;
-  }
+  function initUserForm() {
+    var form = document.querySelector("[data-users-form]");
+    if (!form) return;
 
-  var display = form.querySelector("[data-birthdate-display]");
-  var hidden = form.querySelector("[data-birthdate-value]");
-  var nip = form.querySelector("[data-user-nip]");
-  var nipField = form.querySelector("[data-user-nip-field]");
-  var passwordSection = form.querySelector("[data-user-password-section]");
-  var hintNip = form.querySelector("[data-hint-nip]");
-  var accessList = form.querySelector("[data-role-access-list]");
-  var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
+    var passwordSection = form.querySelector("[data-user-password-section]");
+    var roleHint = form.querySelector("[data-role-credential-hint]");
+    var accessList = form.querySelector("[data-role-access-list]");
+    var accessStatusGrid = form.querySelector("[data-user-access-status-grid]");
+    var nipSection = form.querySelector("[data-role-nip-section]");
+    var nipHint = form.querySelector("[data-role-nip-hint]");
+    var nipPendingHint = form.querySelector("[data-role-nip-pending]");
+    var nipPendingDescription = form.querySelector("[data-role-nip-pending-description]");
+    var roles = Array.prototype.slice.call(form.querySelectorAll("[data-user-role]"));
+    var originalRole = form.getAttribute("data-original-role") || "";
+    var mode = form.getAttribute("data-form-mode") || "crear";
+    var hasPersistedNip = form.getAttribute("data-has-persisted-nip") === "1";
 
-  // Un NIP que ya venía escrito (reenvío tras un error de validación) es del
-  // usuario, no nuestro: no se pisa.
-  var nipEditadoAMano = Boolean(nip && nip.value);
-
-  /*
-   * Quien ya tiene NIP no recibe sugerencia del cumpleaños.
-   *
-   * Sin esto, abrir la ficha de alguien con NIP 2345 y cumpleaños el 23/11
-   * rellenaba el campo con 2311: se leía como si ése fuera su NIP —no lo era—
-   * y, al guardar sin tocar nada, el campo viajaba lleno y se lo cambiaba de
-   * verdad, dejándole fuera del sistema. El servidor ya se guarda de esto
-   * (Usuario::generarNipDesdeNacimiento sale si el usuario tiene nip_hash),
-   * pero su guardia no sirve de nada si el campo llega relleno desde aquí.
-   */
-  var yaTieneNip = form.getAttribute("data-user-has-nip") === "1";
-
-  // ── Fecha ────────────────────────────────────────────────────
-  function aISO(texto) {
-    var partes = String(texto || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!partes) {
-      return "";
+    function role() {
+      var selected = roles.filter(function (input) { return input.checked; })[0];
+      return selected ? selected.value : "";
     }
 
-    var dia = Number(partes[1]);
-    var mes = Number(partes[2]);
-    var anio = Number(partes[3]);
-    var fecha = new Date(anio, mes - 1, dia);
-
-    // Round-trip: descarta 31/02 y demás fechas que el constructor "corrige"
-    // en silencio.
-    if (fecha.getDate() !== dia || fecha.getMonth() !== mes - 1 || fecha.getFullYear() !== anio) {
-      return "";
-    }
-    if (fecha > new Date() || anio < 1900) {
-      return "";
+    function escapeHtml(value) {
+      var div = document.createElement("div");
+      div.textContent = String(value == null ? "" : value);
+      return div.innerHTML;
     }
 
-    return partes[3] + "-" + partes[2] + "-" + partes[1];
-  }
-
-  function aTexto(iso) {
-    var partes = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return partes ? partes[3] + "/" + partes[2] + "/" + partes[1] : "";
-  }
-
-  function enmascarar(valor) {
-    var digitos = String(valor || "").replace(/\D/g, "").slice(0, 8);
-
-    if (digitos.length <= 2) {
-      return digitos;
-    }
-    if (digitos.length <= 4) {
-      return digitos.slice(0, 2) + "/" + digitos.slice(2);
-    }
-    return digitos.slice(0, 2) + "/" + digitos.slice(2, 4) + "/" + digitos.slice(4);
-  }
-
-  function nipDesdeFecha(iso) {
-    var partes = String(iso || "").match(/^\d{4}-(\d{2})-(\d{2})$/);
-    // Día + mes, en ese orden: 14/03 → 1403. Como cadena, para conservar el
-    // cero inicial de "0303".
-    return partes ? partes[2] + partes[1] : "";
-  }
-
-  function sincronizarFecha() {
-    var iso = aISO(display.value);
-    hidden.value = iso;
-
-    if (iso && nip && !nipEditadoAMano && !yaTieneNip && rolActual() !== "admin") {
-      nip.value = nipDesdeFecha(iso);
-      // Es el caso que más choca: dos personas nacidas el mismo día y mes
-      // reciben el mismo NIP sugerido sin que nadie lo teclee.
-      comprobarNip();
-    }
-  }
-
-  if (display && hidden) {
-    display.value = aTexto(hidden.value);
-
-    display.addEventListener("input", function () {
-      display.value = enmascarar(display.value);
-      sincronizarFecha();
-    });
-
-    display.addEventListener("blur", sincronizarFecha);
-  }
-
-  // ── NIP repetido: no se puede guardar ────────────────────────
-  //
-  // El servidor lo rechaza igual —y es él quien manda, porque valida dentro de
-  // la transacción—, pero el aviso llegaba tras enviar y metido en la lista de
-  // errores de la cabecera: se corregía la fecha, el nombre y el rol antes de
-  // caer en que el problema era el NIP. Aquí el formulario ni siquiera deja
-  // enviar mientras el NIP esté ocupado.
-  var MENSAJE_OCUPADO = "Ese NIP ya está asignado a otro usuario. Elige uno distinto.";
-  var nipStatus = form.querySelector("[data-user-nip-status]");
-  var usuarioId = form.getAttribute("data-user-id") || "0";
-  var consultaNip = null;
-  var peticionNip = 0;
-
-  // Veredicto del último NIP consultado. `disponible: null` = todavía no se
-  // sabe, que no es lo mismo que "libre": al enviar hay que resolverlo antes.
-  var veredicto = { valor: "", disponible: null };
-
-  function mostrarEstadoNip(texto, estado) {
-    if (nipStatus) {
-      nipStatus.hidden = !texto;
-      nipStatus.textContent = texto || "";
-      nipStatus.className = "admin-users-form__nip-status" +
-        (estado ? " admin-users-form__nip-status--" + estado : "");
-    }
-    if (nip) {
-      nip.setAttribute("aria-invalid", estado === "ocupado" ? "true" : "false");
-      // Lo que de verdad impide guardar: con un customValidity no vacío el
-      // navegador se niega a enviar el formulario y señala el campo.
-      nip.setCustomValidity(estado === "ocupado" ? MENSAJE_OCUPADO : "");
-    }
-  }
-
-  /** Consulta el NIP actual. Devuelve una promesa con true/false/null. */
-  function comprobarNip() {
-    if (!nip || nip.disabled) {
-      return Promise.resolve(null);
+    function renderAccess() {
+      if (!accessList) return;
+      var areas = (window.AdminUserRoleAccess || {})[role()] || [];
+      accessList.innerHTML = areas.map(function (area) {
+        return '<li class="admin-role-access__item"><strong>' +
+          escapeHtml(area.titulo) + '</strong><span>' + escapeHtml(area.detalle) + '</span></li>';
+      }).join("");
     }
 
-    var valor = nip.value.trim();
-    if (!/^\d{4}$/.test(valor)) {
-      // Un NIP a medio escribir no es un error todavía: del formato se encarga
-      // el patrón del campo.
-      veredicto = { valor: valor, disponible: null };
-      mostrarEstadoNip("", "");
-      return Promise.resolve(null);
-    }
+    function applyRole() {
+      var selectedRole = role();
+      var isAdmin = selectedRole === "admin";
+      var isStaff = selectedRole === "waiter" || selectedRole === "cook";
+      var isPromotion = isStaff && mode === "editar" && originalRole === "admin";
+      var showConfiguredNip = isStaff && hasPersistedNip;
+      var showPendingNip = isStaff && mode === "editar" && !hasPersistedNip;
 
-    var propia = ++peticionNip;
-    var url = "/admin/api/usuarios/nip-disponible?nip=" + encodeURIComponent(valor) +
-      "&id=" + encodeURIComponent(usuarioId);
-
-    return fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } })
-      .then(function (respuesta) {
-        return respuesta.ok ? respuesta.json() : null;
-      })
-      .then(function (datos) {
-        // Llegó tarde: ya se tecleó otro NIP y su respuesta manda.
-        if (propia !== peticionNip || !datos || !datos.ok) {
-          return null;
-        }
-        veredicto = { valor: valor, disponible: Boolean(datos.disponible) };
-        if (datos.disponible) {
-          mostrarEstadoNip("NIP disponible.", "libre");
+      if (roleHint) {
+        if (isAdmin) {
+          roleHint.textContent = "El administrador entra con usuario y contraseña.";
+          roleHint.hidden = false;
+        } else if (mode === "editar" && (showPendingNip || showConfiguredNip)) {
+          roleHint.textContent = "";
+          roleHint.hidden = true;
         } else {
-          mostrarEstadoNip(MENSAJE_OCUPADO, "ocupado");
+          roleHint.textContent = "El NIP se genera automáticamente al crear el usuario.";
+          roleHint.hidden = false;
         }
-        return veredicto.disponible;
-      })
-      .catch(function () {
-        // Sin red no se bloquea el guardado: inventar un "ocupado" dejaría al
-        // administrador sin poder trabajar, y el POST lo comprueba igual.
-        veredicto = { valor: valor, disponible: null };
-        mostrarEstadoNip("", "");
-        return null;
-      });
+      }
+
+      if (passwordSection) {
+        var optional = passwordSection.hasAttribute("data-user-password-optional");
+        passwordSection.hidden = !isAdmin;
+        passwordSection.querySelectorAll("input").forEach(function (input) {
+          input.disabled = !isAdmin;
+          input.required = isAdmin && (!optional || isPromotion);
+        });
+      }
+
+      if (accessStatusGrid) {
+        accessStatusGrid.classList.toggle(
+          "admin-users-access-status-grid--single",
+          !(showConfiguredNip || showPendingNip)
+        );
+      }
+
+      if (nipSection) {
+        nipSection.hidden = !(showConfiguredNip || showPendingNip);
+        if (nipHint) nipHint.hidden = !showConfiguredNip;
+        if (nipPendingHint) nipPendingHint.hidden = !showPendingNip;
+        if (nipPendingDescription) nipPendingDescription.hidden = !showPendingNip;
+        var regenerate = nipSection.querySelector("[data-user-regenerate]");
+        if (regenerate) regenerate.hidden = !showConfiguredNip;
+      }
+
+      renderAccess();
+    }
+
+    roles.forEach(function (input) { input.addEventListener("change", applyRole); });
+    applyRole();
   }
 
-  if (nip) {
-    nip.addEventListener("input", function () {
-      nipEditadoAMano = nip.value !== "";
-      mostrarEstadoNip("", "");
+  function associatedForm(button) {
+    if (!button) return null;
+    if (button.form) return button.form;
+    var formId = button.getAttribute("form");
+    if (formId) return document.getElementById(formId);
+    return button.closest("form");
+  }
 
-      if (consultaNip) {
-        window.clearTimeout(consultaNip);
-      }
-      // Cada comprobación recorre los hashes con password_verify: no conviene
-      // lanzarla en cada pulsación.
-      consultaNip = window.setTimeout(comprobarNip, 350);
-    });
+  function initRegenerateConfirmation() {
+    document.querySelectorAll("[data-user-regenerate]").forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        var form = associatedForm(button);
+        if (!form || form.getAttribute("data-regenerate-confirmed") === "1") return;
 
-    /*
-     * Último filtro antes de enviar.
-     *
-     * El customValidity ya frena el caso conocido, pero se puede enviar antes
-     * de que la consulta en vuelo conteste —escribir el cuarto dígito y pulsar
-     * "Guardar" de inmediato—. Si el veredicto no corresponde al valor actual,
-     * se detiene el envío, se resuelve y sólo entonces se reenvía.
-     */
-    form.addEventListener("submit", function (evento) {
-      if (nip.disabled) {
-        return;
-      }
+        event.preventDefault();
+        var submit = function () {
+          form.setAttribute("data-regenerate-confirmed", "1");
+          form.submit();
+        };
 
-      var valor = nip.value.trim();
-      if (!/^\d{4}$/.test(valor) || veredicto.valor === valor) {
-        return;
-      }
-
-      evento.preventDefault();
-      if (consultaNip) {
-        window.clearTimeout(consultaNip);
-      }
-
-      comprobarNip().then(function (disponible) {
-        if (disponible === false) {
-          nip.focus();
-          nip.reportValidity();
+        if (!window.ConfirmationModal) {
+          submit();
           return;
         }
-        // Libre, o sin respuesta del servidor: que decida el POST.
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+
+        window.ConfirmationModal.get().open({
+          variant: "danger",
+          eyebrow: "Credencial de piso",
+          title: "Regenerar NIP",
+          description: "El NIP actual dejará de funcionar inmediatamente.",
+          consequence: "Se generará un código nuevo y sólo podrás consultarlo una vez. Asegúrate de entregárselo a la persona antes de cerrar la confirmación.",
+          secondaryLabel: "Cancelar",
+          primaryLabel: "Regenerar NIP",
+          returnFocus: button,
+          onPrimary: submit
+        });
       });
     });
   }
 
-  // ── Credencial según el rol ──────────────────────────────────
-  function rolActual() {
-    var marcado = roles.filter(function (input) {
-      return input.checked;
-    })[0];
+  function copyWithFallback(value) {
+    return new Promise(function (resolve, reject) {
+      var textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.top = "-1000px";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
 
-    return marcado ? marcado.value : "";
+      var copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+        copied = false;
+      }
+      textarea.remove();
+      if (copied) resolve();
+      else reject(new Error("Clipboard API unavailable"));
+    });
   }
 
-  function aplicarRol() {
-    var esAdmin = rolActual() === "admin";
+  function copyNip(value) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      return navigator.clipboard.writeText(value).catch(function () {
+        return copyWithFallback(value);
+      });
+    }
+    return copyWithFallback(value);
+  }
 
-    if (nipField) {
-      nipField.hidden = esAdmin;
-    }
-    // La fecha de nacimiento se sigue pidiendo al admin, pero deja de hablar de
-    // un NIP que su rol no usa.
-    if (hintNip) {
-      hintNip.hidden = esAdmin;
-    }
-    if (nip) {
-      nip.disabled = esAdmin;
-      if (esAdmin) {
-        nip.value = "";
-        mostrarEstadoNip("", "");
-      } else if (!nipEditadoAMano && !yaTieneNip && hidden && hidden.value) {
-        nip.value = nipDesdeFecha(hidden.value);
-        comprobarNip();
+  function initNipDelivery() {
+    var trigger = document.querySelector("[data-user-nip-delivery]");
+    if (!trigger || !window.ConfirmationModal) return;
+
+    var nip = trigger.getAttribute("data-nip") || "";
+    if (!/^\d{4}$/.test(nip)) return;
+
+    var afterUrl = trigger.getAttribute("data-after-url") || "";
+    var configuredSeconds = Number(trigger.getAttribute("data-nip-visibility-seconds"));
+    var visibilitySeconds = Number.isFinite(configuredSeconds) && configuredSeconds > 0
+      ? Math.floor(configuredSeconds)
+      : 1;
+    var returnFocus = document.querySelector("[data-user-regenerate]");
+    var controller = window.ConfirmationModal.get();
+    var state = {
+      nip: nip,
+      statusTimer: null,
+      timerId: null,
+      finished: false
+    };
+    var customContent = document.createElement("div");
+    customContent.className = "admin-user-nip-modal__code";
+    customContent.innerHTML =
+      '<span class="admin-user-nip-modal__label">Código temporal</span>' +
+      '<strong aria-label="NIP de cuatro dígitos">' + nip + '</strong>' +
+      '<div class="admin-user-nip-modal__progress" aria-hidden="true">' +
+        '<span class="admin-user-nip-modal__progress-bar"></span>' +
+      '</div>' +
+      '<span class="admin-user-nip-modal__auto-close">Se cerrará automáticamente.</span>';
+    var progress = customContent.querySelector(".admin-user-nip-modal__progress");
+
+    function showCopyStatus(message, isError) {
+      if (state.finished) return;
+      controller.setStatus(message, isError);
+      if (state.statusTimer) window.clearTimeout(state.statusTimer);
+      var copyButton = controller.element.querySelector("[data-confirmation-secondary]");
+      if (copyButton) copyButton.textContent = isError ? "Copiar NIP" : "Copiado";
+      if (!isError) {
+        state.statusTimer = window.setTimeout(function () {
+          if (state.finished) return;
+          controller.setStatus("", false);
+          if (copyButton) copyButton.textContent = "Copiar NIP";
+        }, 1400);
       }
     }
 
-    if (passwordSection) {
-      // Al editar la contraseña es opcional (vacío = sin cambio), así que la
-      // sección se muestra pero nunca marca required.
-      var opcional = passwordSection.hasAttribute("data-user-password-optional");
-      passwordSection.hidden = !esAdmin;
-      // Los required tienen que caer con la sección: el navegador se niega a
-      // enviar un formulario con un campo requerido oculto, y ni siquiera
-      // puede enfocarlo para decir dónde está el problema.
-      passwordSection.querySelectorAll("input").forEach(function (input) {
-        input.disabled = !esAdmin;
-        input.required = esAdmin && !opcional;
-      });
+    function finishDelivery() {
+      if (state.finished) return;
+      state.finished = true;
+      if (state.statusTimer) window.clearTimeout(state.statusTimer);
+      if (state.timerId) window.clearTimeout(state.timerId);
+      state.nip = null;
+      trigger.remove();
+      customContent.replaceChildren();
+      controller.close(true);
+      if (afterUrl) window.location.assign(afterUrl);
     }
 
-    pintarAcceso();
+    controller.open({
+      variant: "default",
+      extraClass: "confirmation-modal--user-nip",
+      eyebrow: "Entrega de acceso",
+      title: "NIP generado",
+      description: "Este código sólo se mostrará una vez. Entrégalo a la persona antes de continuar.",
+      customContent: customContent,
+      secondaryLabel: "Copiar NIP",
+      primaryLabel: "Aceptar",
+      secondaryCloses: false,
+      closeBehavior: "non_cancelable",
+      closeHidden: true,
+      initialFocus: "secondary",
+      returnFocus: returnFocus,
+      onSecondary: function () {
+        if (!state.nip) return;
+        copyNip(state.nip).then(function () {
+          showCopyStatus("Copiado", false);
+        }).catch(function () {
+          showCopyStatus("No se pudo copiar el NIP. Inténtalo nuevamente.", true);
+        });
+      },
+      onPrimary: finishDelivery
+    });
+
+    progress.style.setProperty("--nip-modal-duration", visibilitySeconds + "s");
+    state.timerId = window.setTimeout(finishDelivery, visibilitySeconds * 1000);
+    window.requestAnimationFrame(function () {
+      if (!state.finished) progress.classList.add("is-running");
+    });
   }
 
-  // ── Áreas a las que da acceso el rol ─────────────────────────
-  // Los datos los publica la vista desde Auth::areasPorRol(), que deriva de la
-  // misma guardia que aplica proteger(): no se describen permisos de memoria.
-  function pintarAcceso() {
-    if (!accessList) {
-      return;
-    }
-
-    var areas = (window.AdminUserRoleAccess || {})[rolActual()] || [];
-    accessList.innerHTML = areas
-      .map(function (area) {
-        return (
-          '<li class="admin-role-access__item">' +
-          '<strong>' +
-          escapar(area.titulo) +
-          "</strong>" +
-          "<span>" +
-          escapar(area.detalle) +
-          "</span>" +
-          "</li>"
-        );
-      })
-      .join("");
+  function boot() {
+    initUserForm();
+    initRegenerateConfirmation();
+    initNipDelivery();
   }
 
-  function escapar(valor) {
-    var div = document.createElement("div");
-    div.textContent = String(valor == null ? "" : valor);
-    return div.innerHTML;
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
   }
-
-  roles.forEach(function (input) {
-    input.addEventListener("change", aplicarRol);
-  });
-
-  aplicarRol();
 })();

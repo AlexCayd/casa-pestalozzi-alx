@@ -60,6 +60,10 @@
 
     var hoy = parseISO(root.getAttribute("data-today")) || new Date();
     hoy.setHours(0, 0, 0, 0);
+    var allowFuture = root.getAttribute("data-allow-future") === "1";
+    var preserveQuery = root.getAttribute("data-preserve-query") === "1";
+    var startParam = root.getAttribute("data-start-param") || "desde";
+    var endParam = root.getAttribute("data-end-param") || "hasta";
 
     var inicioGuardado = parseISO(root.getAttribute("data-start"));
     var finGuardado = parseISO(root.getAttribute("data-end"));
@@ -87,6 +91,7 @@
     function anclaPara(desde) {
       var base = desde || hoy;
       var a = new Date(base.getFullYear(), base.getMonth(), 1);
+      if (allowFuture) return a;
       var mesHoy = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
       if (a.getTime() >= mesHoy.getTime()) {
         a = new Date(mesHoy.getFullYear(), mesHoy.getMonth() - 1, 1);
@@ -113,7 +118,13 @@
 
     function irA(params) {
       var url = new URL(window.location.href);
-      url.search = "";
+      if (!preserveQuery) {
+        url.search = "";
+      } else {
+        ["rango", "desde", "hasta", "comparar", startParam, endParam].forEach(function (param) {
+          url.searchParams.delete(param);
+        });
+      }
       Object.keys(params).forEach(function (k) {
         if (params[k] !== "" && params[k] != null) url.searchParams.set(k, params[k]);
       });
@@ -161,8 +172,7 @@
         // Cacheado: pintarEstados compara números, no objetos Date.
         btn._t = fecha.getTime();
 
-        // No se permiten fechas futuras: no hay ventas por delante.
-        if (fecha > hoy) {
+        if (!allowFuture && fecha > hoy) {
           btn.classList.add("is-disabled");
           btn.disabled = true;
         }
@@ -186,8 +196,7 @@
       construirMes(gridA, anioA, mesA);
       construirMes(gridB, siguiente.getFullYear(), siguiente.getMonth());
 
-      // El mes derecho nunca pasa del actual: no hay datos futuros.
-      if (nextBtn) {
+      if (nextBtn && !allowFuture) {
         nextBtn.disabled = siguiente.getFullYear() > hoy.getFullYear() ||
           (siguiente.getFullYear() === hoy.getFullYear() && siguiente.getMonth() >= hoy.getMonth());
       }
@@ -280,7 +289,7 @@
       var base = focoIso ? parseISO(focoIso) : (inicio || hoy);
       var destino = new Date(base.getFullYear(), base.getMonth(), base.getDate() + dias);
       destino.setHours(0, 0, 0, 0);
-      if (destino > hoy) destino = new Date(hoy.getTime());
+      if (!allowFuture && destino > hoy) destino = new Date(hoy.getTime());
 
       var iso = toISO(destino);
       if (!celdas[iso]) {
@@ -394,7 +403,10 @@
     if (applyBtn) {
       applyBtn.addEventListener("click", function () {
         if (!inicio || !fin) return;
-        irA({ desde: toISO(inicio), hasta: toISO(fin) });
+        var params = {};
+        params[startParam] = toISO(inicio);
+        params[endParam] = toISO(fin);
+        irA(params);
       });
     }
 
@@ -420,7 +432,12 @@
         var preset = parseInt(root.getAttribute("data-preset"), 10);
         irA(preset > 0
           ? { rango: preset }
-          : { desde: root.getAttribute("data-start"), hasta: root.getAttribute("data-end") });
+          : (function () {
+            var params = {};
+            params[startParam] = root.getAttribute("data-start");
+            params[endParam] = root.getAttribute("data-end");
+            return params;
+          }()));
       });
     }
 

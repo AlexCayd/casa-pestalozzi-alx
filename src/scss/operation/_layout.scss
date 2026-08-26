@@ -71,6 +71,8 @@
 }
 
 .reservation-operation__map.mesas-map {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   padding: 0;
   border: 0;
@@ -89,17 +91,31 @@
 
 .reservation-operation__panel {
   position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border-left: 1px solid var(--admin-border-soft);
+  background: color-mix(in srgb, var(--admin-bg) 94%, transparent);
 }
 
-.reservation-operation.is-panel-dismissed .reservation-operation__content,
-.reservation-operation.is-panel-suppressed .reservation-operation__content {
-  grid-template-columns: minmax(0, 1fr);
+.reservation-operation__panel-content {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--admin-surface) 82%, transparent);
+}
+
+.reservation-operation__panel-toolbar {
+  min-height: 54px;
 }
 
 .reservation-operation.assignment-mode .reservation-operation__workspace {
-  height: max(500px, calc(100dvh - var(--operational-header-height) - var(--operational-context-height) - (var(--operational-shell-gap) * 4) - (var(--operational-shell-pad) * 2)));
-  min-height: 500px;
-  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .reservation-operation.assignment-mode .reservation-operation__content {
@@ -112,9 +128,9 @@
 
 .operation-body.is-assignment-mode,
 .operation-body:has(.reservation-operation.assignment-mode) {
-  height: auto;
-  min-height: 100dvh;
-  overflow: visible;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .operation-shell,
@@ -123,9 +139,9 @@
 .operation-body.is-assignment-mode .operational-module,
 .operation-body:has(.reservation-operation.assignment-mode) .operation-shell,
 .operation-main:has(.reservation-operation.assignment-mode) {
-  height: auto;
-  min-height: calc(100dvh - (var(--operational-shell-pad) * 2));
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .operational-module {
@@ -134,9 +150,9 @@
 
 html.is-assignment-mode,
 html:has(.operation-body.is-assignment-mode) {
-  height: auto;
+  height: 100%;
   min-height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .operation-body.is-assignment-mode .mesas-map__viewport {
@@ -144,9 +160,9 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .reservation-operation.assignment-mode {
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .reservation-operation .admin-card {
@@ -156,8 +172,14 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 @media (min-width: 1600px) {
-  .reservation-operation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__content {
-    grid-template-columns: minmax(0, 1fr) minmax(350px, 390px);
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 370px);
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1199px) {
+  .reservation-operation__content {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 330px);
   }
 }
 
@@ -168,46 +190,74 @@ html:has(.operation-body.is-assignment-mode) {
   }
 
   .reservation-operation__content {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    overflow-y: auto;
+    position: relative;
+    display: block;
+    overflow: hidden;
   }
 
   .reservation-operation__panel {
-    position: relative;
-    inset: auto;
-    z-index: auto;
-    width: auto;
-    max-height: 360px;
-    padding: 0;
-    border-left: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__panel {
     position: fixed;
     inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap)) var(--operational-shell-pad) var(--operational-shell-pad) auto;
     z-index: 60;
     width: min(92vw, 380px);
     max-height: none;
-    border-left: 1px solid var(--admin-border);
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
     background: color-mix(in srgb, var(--admin-bg) 98%, black);
     box-shadow: -22px 0 54px color-mix(in srgb, var(--sombra) 42%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(calc(100% + var(--operational-shell-pad)));
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .reservation-operation__panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .reservation-operation__panel-content {
+    background: color-mix(in srgb, var(--admin-bg) 98%, black);
   }
 }
 
 @media (max-width: 640px) {
-  // El mapa debe conservar una superficie táctil propia antes del detalle;
-  // si el panel ocupa toda la fila, el plano termina con altura cero.
   .reservation-operation__content {
-    grid-template-rows: minmax(320px, 1fr) auto;
+    min-height: 320px;
+  }
+
+  .reservation-operation__panel {
+    inset: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap) + var(--operational-context-height) + var(--operational-shell-gap)) 0 0;
+    width: 100%;
+    border-radius: 14px 14px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reservation-operation__panel {
+    transition: none;
   }
 }
 
 @media (max-width: 700px) {
+  .operation-body:has(.reservation-operation.assignment-mode),
+  .operation-body:has(.reservation-operation.assignment-mode) .operation-shell,
+  .operation-body:has(.reservation-operation.assignment-mode) .operation-main,
+  html:has(.operation-body.is-assignment-mode) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .reservation-operation.assignment-mode {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .reservation-operation.assignment-mode .reservation-operation__workspace {
-    height: max(420px, calc(100dvh - var(--operational-header-height) - 180px));
-    min-height: 420px;
+    flex: 1 1 auto;
   }
 }

@@ -20,6 +20,10 @@ $mesasAsignadas = is_array($mesasAsignadas) ? $mesasAsignadas : iterator_to_arra
 $motivoNoEditable = (string)($motivoNoEditable ?? '');
 $formTransport = (string)($formTransport ?? 'html');
 $formActionsExternal = (bool)($formActionsExternal ?? false);
+$modalForm = $formTransport === 'json';
+$formAction = trim((string)($formAction ?? ''));
+$mostrarCamposContacto = (bool)($mostrarCamposContacto ?? true);
+$disponibilidadEndpoint = (string)($disponibilidadEndpoint ?? '/admin/api/reservaciones/disponibilidad');
 $capacidadWarning = is_array($capacidadWarning ?? null) ? $capacidadWarning : [];
 $mostrarCapacidadWarning = $modo === 'crear'
     && $formTransport === 'html'
@@ -73,8 +77,12 @@ $requestToken = (string)$valor($reservacion, 'request_token');
 $tieneMesas = count($mesasAsignadas) > 0 || (int)$valor($reservacion, 'mesas_count', 0) > 0;
 $iniciarEdicion = $modo === 'crear' || (!empty($errores) && $editable);
 $formDisabled = !$iniciarEdicion;
-$action = $modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar';
+$action = $formAction !== ''
+    ? $formAction
+    : ($modo === 'crear' ? '/admin/reservaciones/crear' : '/admin/reservaciones/actualizar');
 $formId = $modo . '-reservation-admin-form';
+$fieldId = static fn (string $field): string => $formId . '-' . $field;
+$fieldErrorId = static fn (string $field): string => $fieldId($field) . '-error';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
 $autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
 $contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
@@ -88,13 +96,14 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 ?>
 
 <article class="reservation-detail-card admin-card reservation-admin-form-card" data-reservation-form-card>
+    <?php if ($modo === 'editar') : ?>
     <div class="reservation-detail-card__head reservation-admin-form-card__head">
         <div>
-            <span class="reservation-detail-card__label"><?php echo $modo === 'crear' ? 'Alta administrativa' : 'Informacion editable'; ?></span>
-            <h3>Datos de la reservacion</h3>
-            <p><?php echo $modo === 'crear' ? 'Registra la visita y los datos de contacto del cliente.' : 'Actualiza la informacion de la visita sin perder el contexto operativo.'; ?></p>
+            <span class="reservation-detail-card__label">Reservación</span>
+            <h3>Datos de la reservación</h3>
         </div>
-        <?php if ($modo === 'editar' && $editable) : ?>
+        <?php if ($editable) : ?>
+            <span class="admin-badge admin-badge--info" data-editing-badge <?php echo !$iniciarEdicion ? 'hidden' : ''; ?>>Editando</span>
             <button
                 type="button"
                 class="admin-btn admin-btn--secondary"
@@ -105,19 +114,10 @@ $mensajeBloqueo = match ($motivoNoEditable) {
             >Editar</button>
         <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <?php if (!$editable) : ?>
         <p class="reservation-detail-warning"><?php echo $h($mensajeBloqueo); ?></p>
-    <?php endif; ?>
-
-    <?php if ($modo === 'editar') : ?>
-        <div class="reservation-edit-mode" aria-live="polite" data-edit-mode-banner <?php echo $iniciarEdicion ? '' : 'hidden'; ?>>
-            <span class="reservation-edit-mode__icon" aria-hidden="true">E</span>
-            <div>
-                <strong>Modo edicion activo</strong>
-                <p>Estas editando esta reservacion. Los cambios no se aplicaran hasta guardar.</p>
-            </div>
-        </div>
     <?php endif; ?>
 
     <form
@@ -159,13 +159,13 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <div class="reservation-detail-form__grid">
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-visit-title'); ?>">
                 <div class="reservation-detail-form__section-head">
-                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-visit-title'); ?>">Datos de visita</h3>
-                    <p>Define cuándo y para cuántas personas se prepara la visita.</p>
+                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-visit-title'); ?>">Visita</h3>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--visit">
                     <label class="reservation-detail-form__field reservation-detail-form__field--date">
                         <span>Fecha</span>
                         <?php
+                        $error = $errorCampo('fecha');
                         $rootId = $modo . '-reservation-date-picker';
                         $inputId = $modo . '-reservation-date';
                         $displayId = $modo . '-reservation-date-display';
@@ -175,15 +175,17 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         $min = $fechaActual;
                         $enabledWeekdays = $diasActivos;
                         $disabled = $formDisabled;
+                        $displayAriaDescribedby = $fieldErrorId('fecha');
+                        $displayAriaInvalid = $error !== '';
                         include __DIR__ . '/../../components/reservations/date-picker.php';
                         ?>
-                        <?php $error = $errorCampo('fecha'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="fecha"><?php echo $h($error); ?></span>
+                        <span id="<?php echo $h($fieldErrorId('fecha')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="fecha" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
 
                     <label class="reservation-detail-form__field reservation-detail-form__field--time">
                         <span>Hora</span>
                         <?php
+                        $error = $errorCampo('hora');
                         $rootId = $modo . '-reservation-time-picker';
                         $inputId = $modo . '-reservation-time';
                         $displayId = $modo . '-reservation-time-display';
@@ -194,44 +196,29 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         // terminar. Mantener este estado con otro nombre evita
                         // que el include destruya la condición del formulario.
                         $disabled = $formDisabled;
-                        $endpoint = '/admin/api/reservaciones/disponibilidad';
+                        $endpoint = $disponibilidadEndpoint;
+                        $displayAriaDescribedby = $fieldErrorId('hora');
+                        $displayAriaInvalid = $error !== '';
                         include __DIR__ . '/../../components/reservations/time-picker.php';
                         ?>
-                        <?php $error = $errorCampo('hora'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-time-status data-field-error="hora"><?php echo $h($error); ?></span>
+                        <span id="<?php echo $h($fieldErrorId('hora')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-time-status data-field-error="hora" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
 
                     <label class="reservation-detail-form__field reservation-detail-form__field--guests">
                         <span>Comensales</span>
-                        <input type="number" name="comensales" min="1" max="<?php echo $maxComensalesAdmin; ?>" value="<?php echo $comensales; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
                         <?php $error = $errorCampo('comensales'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comensales"><?php echo $h($error); ?></span>
+                        <input id="<?php echo $h($fieldId('comensales')); ?>" type="number" name="comensales" min="1" max="<?php echo $maxComensalesAdmin; ?>" value="<?php echo $comensales; ?>" aria-describedby="<?php echo $h($fieldErrorId('comensales')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
+                        <span id="<?php echo $h($fieldErrorId('comensales')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comensales" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
                 </div>
                 <div class="reservation-capacity-summary" data-reservation-capacity-summary hidden>
                     <div>
-                        <span>Capacidad física total</span>
-                        <strong data-capacity-total>0</strong>
+                        <span>Capacidad para este horario</span>
+                        <strong><span data-capacity-real>0</span> lugares disponibles</strong>
                     </div>
                     <div>
-                        <span>Capacidad comprometida</span>
-                        <strong data-capacity-committed>0</strong>
-                    </div>
-                    <div>
-                        <span>Demanda sin asignar</span>
-                        <strong data-capacity-demand>0</strong>
-                    </div>
-                    <div>
-                        <span>Capacidad disponible</span>
-                        <strong data-capacity-real>0</strong>
-                    </div>
-                    <div>
-                        <span>Comensales solicitados</span>
-                        <strong data-capacity-requested>0</strong>
-                    </div>
-                    <div>
-                        <span>Liberación proyectada</span>
-                        <strong data-capacity-projected>0</strong>
+                        <span>Solicitud</span>
+                        <strong><span data-capacity-requested>0</span> personas</strong>
                     </div>
                     <p class="reservation-capacity-summary__warning" data-capacity-warning hidden></p>
                 </div>
@@ -239,31 +226,35 @@ $mensajeBloqueo = match ($motivoNoEditable) {
 
             <section class="reservation-detail-form__section" aria-labelledby="<?php echo $h($formId . '-client-title'); ?>">
                 <div class="reservation-detail-form__section-head">
-                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-client-title'); ?>">Cliente y contacto</h3>
-                    <p>Usa estos datos para identificar y contactar al cliente.</p>
+                    <h3 class="reservation-detail-form__group-label" id="<?php echo $h($formId . '-client-title'); ?>">Cliente</h3>
                 </div>
                 <div class="reservation-detail-form__fields reservation-detail-form__fields--client">
                     <label class="reservation-detail-form__field reservation-detail-form__field--name">
                         <span>Nombre</span>
-                        <input type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
                         <?php $error = $errorCampo('nombre'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nombre"><?php echo $h($error); ?></span>
+                        <input id="<?php echo $h($fieldId('nombre')); ?>" type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldErrorId('nombre')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
+                        <span id="<?php echo $h($fieldErrorId('nombre')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nombre" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
 
+                    <?php if ($mostrarCamposContacto) : ?>
                     <label class="reservation-detail-form__field reservation-detail-form__field--contact-type">
                         <span>Tipo de contacto</span>
-                        <select name="contacto_tipo" data-reservation-control data-contact-type required <?php echo $formDisabled ? 'disabled' : ''; ?>>
+                        <?php $error = $errorCampo('contacto_tipo'); ?>
+                        <select id="<?php echo $h($fieldId('contacto_tipo')); ?>" name="contacto_tipo" aria-describedby="<?php echo $h($fieldErrorId('contacto_tipo')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control data-contact-type required <?php echo $formDisabled ? 'disabled' : ''; ?>>
                                 <option value="email" <?php echo $contactoTipo === 'email' ? 'selected' : ''; ?>>Correo</option>
                                 <option value="ninguno" <?php echo $contactoTipo === 'ninguno' ? 'selected' : ''; ?>>Sin contacto</option>
                                 <option value="telefono" <?php echo $contactoTipo === 'telefono' ? 'selected' : ''; ?>>Teléfono</option>
                         </select>
-                        <?php $error = $errorCampo('contacto_tipo'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto_tipo"><?php echo $h($error); ?></span>
+                        <span id="<?php echo $h($fieldErrorId('contacto_tipo')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto_tipo" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
+                    <?php endif; ?>
 
+                    <?php if ($mostrarCamposContacto) : ?>
                     <label class="reservation-detail-form__field reservation-detail-form__field--contact">
                         <span data-contact-field-label><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Teléfono' : 'Correo electrónico') : 'Contacto'; ?> <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
+                        <?php $error = $errorCampo('contacto'); ?>
                         <input
+                            id="<?php echo $h($fieldId('contacto')); ?>"
                             type="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
                             name="contacto"
                             value="<?php echo $h($contacto); ?>"
@@ -273,43 +264,45 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                             <?php endif; ?>
                             autocomplete="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
                             inputmode="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
+                            aria-describedby="<?php echo $h($fieldId('contacto') . '-help ' . $fieldErrorId('contacto')); ?>"
+                            aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>"
                             data-reservation-control
                             data-contact-value
                             <?php echo $contactInputDisabled ? 'disabled' : ''; ?>
                         >
-                        <?php $error = $errorCampo('contacto'); ?>
-                        <small class="reservation-detail-form__helper" data-contact-help><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Incluye lada y diez dígitos; el sistema normalizará el prefijo de México.' : 'Escribe un correo electrónico válido.') : ''; ?></small>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto"><?php echo $h($error); ?></span>
+                        <small id="<?php echo $h($fieldId('contacto') . '-help'); ?>" class="reservation-detail-form__helper" data-contact-help><?php echo $modo === 'editar' ? ($contactoTipo === 'telefono' ? 'Incluye lada y diez dígitos; el sistema normalizará el prefijo de México.' : 'Escribe un correo electrónico válido.') : ''; ?></small>
+                        <span id="<?php echo $h($fieldErrorId('contacto')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="contacto" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
+                    <?php endif; ?>
                 </div>
             </section>
         </div>
 
         <?php if ($modo === 'crear' || $comentarioAdminDisponible) : ?>
             <fieldset class="reservation-detail-form__optional-section">
-                <legend>Detalles adicionales</legend>
-                <p class="reservation-detail-form__section-description">Añade indicaciones del cliente o información útil para el equipo.</p>
+                <legend>Detalles</legend>
+                <p class="reservation-detail-form__section-description">Información opcional para el equipo.</p>
                 <?php if ($modo === 'crear') : ?>
                         <label class="reservation-detail-form__field reservation-detail-form__field--note">
                             <span>Nota del cliente <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
-                            <textarea name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
-                            <?php if ($modo === 'crear') : ?>
-                                <small class="reservation-detail-form__helper">Indicaciones proporcionadas por el cliente para su visita.</small>
-                            <?php endif; ?>
                             <?php $error = $errorCampo('nota'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nota"><?php echo $h($error); ?></span>
+                            <textarea id="<?php echo $h($fieldId('nota')); ?>" name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldId('nota') . '-help ' . $fieldErrorId('nota')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
+                            <?php if ($modo === 'crear') : ?>
+                                <small id="<?php echo $h($fieldId('nota') . '-help'); ?>" class="reservation-detail-form__helper"><?php echo $modalForm ? 'Indicaciones para la visita.' : 'Indicaciones proporcionadas por el cliente para su visita.'; ?></small>
+                            <?php endif; ?>
+                        <span id="<?php echo $h($fieldErrorId('nota')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nota" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
                 <?php endif; ?>
 
                 <?php if ($comentarioAdminDisponible) : ?>
                         <label class="reservation-detail-form__field reservation-detail-form__field--internal-comment">
                             <span>Comentario interno <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
-                            <textarea name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
-                            <?php if ($modo === 'crear') : ?>
-                                <small class="reservation-detail-form__helper">Información visible únicamente para el personal.</small>
-                            <?php endif; ?>
                             <?php $error = $errorCampo('comentario_admin'); ?>
-                        <span class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comentario_admin"><?php echo $h($error); ?></span>
+                            <textarea id="<?php echo $h($fieldId('comentario_admin')); ?>" name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h(($modo === 'crear' ? $fieldId('comentario_admin') . '-help ' : '') . $fieldErrorId('comentario_admin')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
+                            <?php if ($modo === 'crear') : ?>
+                                <small id="<?php echo $h($fieldId('comentario_admin') . '-help'); ?>" class="reservation-detail-form__helper"><?php echo $modalForm ? 'Visible sólo para el personal.' : 'Información visible únicamente para el personal.'; ?></small>
+                            <?php endif; ?>
+                        <span id="<?php echo $h($fieldErrorId('comentario_admin')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="comentario_admin" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
                 <?php else : ?>
                     <p class="reservation-operation-inline reservation-operation-inline--warning">Los comentarios internos no estan disponibles en esta instalacion.</p>
@@ -320,13 +313,12 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <?php if ($modo === 'crear' || $modo === 'editar') : ?>
             <fieldset class="reservation-detail-form__assignment-section">
                 <legend>Asignación de mesas</legend>
-                <p class="reservation-detail-form__section-description">El sistema buscara una combinacion de mesas que cubra el numero de comensales.</p>
             <label class="reservation-admin-form__check">
                 <input type="hidden" name="asignar_automaticamente" value="0">
                 <input type="checkbox" name="asignar_automaticamente" value="1" <?php echo $asignarAutomaticamente && !$autoAssignmentDisabled ? 'checked' : ''; ?> <?php echo $autoAssignmentDisabled ? 'disabled' : ''; ?> data-reservation-control data-automatic-assignment data-auto-disabled="<?php echo $autoAssignmentDisabled ? '1' : '0'; ?>">
                 <span class="reservation-admin-form__check-copy">
-                    <span>Asignar mesas automáticamente.</span>
-                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Puedes guardar sin mesas y asignarlas más tarde desde Operación.'; ?></small>
+                    <span>Asignar mesas automáticamente</span>
+                    <small data-assignment-help><?php echo $autoAssignmentDisabled ? 'Para más de 12 personas se requiere asignación manual.' : 'Disponible hasta 12 personas.'; ?></small>
                 </span>
             </label>
             </fieldset>
@@ -335,7 +327,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
         <?php if (!$formActionsExternal) : ?>
             <div class="reservation-detail-form__actions">
                 <?php if ($modo === 'editar') : ?>
-                    <button type="button" class="admin-btn admin-btn--secondary" data-form-cancel <?php echo !$iniciarEdicion ? 'hidden' : ''; ?>>Cancelar edicion</button>
+                    <button type="button" class="admin-btn admin-btn--ghost" data-form-cancel <?php echo !$iniciarEdicion ? 'hidden' : ''; ?>>Cancelar edición</button>
                 <?php endif; ?>
                 <button type="submit" class="admin-btn admin-btn--primary" data-form-save <?php echo (!$editable || !$iniciarEdicion) ? 'hidden disabled' : ''; ?>><?php echo $modo === 'crear' ? 'Crear reservacion' : 'Guardar cambios'; ?></button>
             </div>

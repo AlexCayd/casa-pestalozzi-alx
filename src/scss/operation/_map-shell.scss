@@ -185,6 +185,63 @@
   }
 }
 
+// Bandeja accesible sobre el mapa: abrirla no cambia la geometría del lienzo.
+.reservation-operation__map .operational-map__structured {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 20;
+  margin: 0;
+  border-color: color-mix(in srgb, var(--admin-border) 88%, transparent);
+  background: color-mix(in srgb, var(--admin-bg) 92%, transparent);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.reservation-operation__map .operational-map__structured[open] {
+  max-height: min(42%, 260px);
+}
+
+.reservation-operation__map .operational-map__structured-list {
+  display: flex;
+  gap: 8px;
+  padding: 0 10px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+}
+
+.reservation-operation__map .operational-map__structured-list > li {
+  flex: 0 0 160px;
+}
+
+.reservation-operation__map .operational-map__structured-list button {
+  grid-template-rows: auto auto auto;
+  min-height: 84px;
+  overflow: hidden;
+}
+
+.reservation-operation__map .operational-map__structured-list button::before {
+  grid-row: 1 / span 3;
+}
+
+.reservation-operation__map .operational-map__structured-context {
+  grid-column: 2;
+  color: var(--admin-muted);
+  font-size: var(--operational-text-xs);
+}
+
+.reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
+  right: 412px;
+}
+
+@media (max-width: 900px) {
+  .reservation-operation.has-selected-reservation:not(.is-panel-dismissed):not(.is-panel-suppressed) .operational-map__structured {
+    right: 12px;
+  }
+}
+
 .operational-map__structured summary {
   display: flex;
   align-items: center;
@@ -201,12 +258,11 @@
 
   &::before {
     content: "";
-    width: 0;
-    height: 0;
+    width: 0.4rem;
+    height: 0.6rem;
     flex: 0 0 auto;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 6px solid var(--admin-gold);
+    background: var(--admin-gold);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
     transition: transform 160ms ease;
   }
 
@@ -258,7 +314,7 @@
   min-height: 3.25rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--admin-border-soft);
-  border-left: 3px solid var(--operational-structured-color, var(--admin-border-soft));
+  border-left: 1px solid var(--operational-structured-color, var(--admin-border-soft));
   border-radius: 0.55rem;
   background: var(--admin-surface);
   color: var(--admin-text);
@@ -308,13 +364,28 @@
 
 .operational-map__structured-name {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--operational-weight-semibold);
 }
 
 .operational-map__structured-state {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-map__structured-context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -882,6 +953,39 @@
   .mesas-map__floor {
     width: 820px;
     min-width: 820px;
+  }
+
+  // En la operación móvil el plano se adapta al viewport: el estado completo
+  // sigue visible y no obliga a desplazar horizontalmente para encontrar mesas.
+  .reservation-operation__map .mesas-map__viewport {
+    place-items: stretch;
+    overflow-x: hidden;
+  }
+
+  .reservation-operation__map .mesas-map__floor {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 320px;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin {
+    width: clamp(64px, 19cqw, 76px) !important;
+    min-width: clamp(64px, 19cqw, 76px);
+    height: clamp(48px, 5.5cqw, 56px) !important;
+    min-height: 48px;
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-barra {
+    width: clamp(88px, 26cqw, 112px) !important;
+    min-width: clamp(88px, 26cqw, 112px);
+  }
+
+  .reservation-operation__map.mesas-map .mesa-pin--tipo-especial {
+    width: clamp(60px, 18cqw, 76px) !important;
+    min-width: clamp(60px, 18cqw, 76px);
   }
 }
 

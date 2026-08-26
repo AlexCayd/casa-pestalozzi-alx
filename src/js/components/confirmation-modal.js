@@ -326,6 +326,9 @@
             lastFocused = document.activeElement;
             current.returnFocus = options.returnFocus || options.return_focus || options.focusTarget || options.focus_target || lastFocused;
             root.className = 'confirmation-modal confirmation-modal--' + textValue(options.variant || 'default');
+            if (options.extraClass) {
+                root.classList.add(textValue(options.extraClass));
+            }
             root.hidden = false;
             root.removeAttribute('aria-hidden');
             root.inert = false;
@@ -387,6 +390,16 @@
                     return current.onAction(current.secondaryAction);
                 };
             }
+            if (current && current.secondaryCloses === false) {
+                try {
+                    if (typeof callback === 'function') callback();
+                } catch (error) {
+                    if (window.console && typeof window.console.error === 'function') {
+                        window.console.error(error);
+                    }
+                }
+                return;
+            }
             if (!requestClose(true, { action: 'secondary' })) return;
             try {
                 if (typeof callback === 'function') callback();
@@ -406,6 +419,7 @@
                     return current.onAction(current.primaryAction);
                 };
             }
+            var options = current || {};
             if (current && current.loadingOnPrimary !== false) setLoading(true);
             try {
                 var result = typeof callback === 'function' ? callback() : undefined;
@@ -415,19 +429,27 @@
                 }
                 if (result && typeof result.then === 'function') {
                     result.then(function (value) {
-                        settle({ action: 'primary', value: value });
+                        if (options.primaryCloses === false) {
+                            setLoading(false);
+                            settle({ action: 'primary', value: value });
+                            return;
+                        }
+                        close(true, { action: 'primary', value: value });
                     }).catch(function (error) {
                         setLoading(false);
                         setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
-                        settle({ action: 'error', error: error });
                     });
                     return;
                 }
-                settle({ action: 'primary', value: result });
+                if (options.primaryCloses === false) {
+                    setLoading(false);
+                    settle({ action: 'primary', value: result });
+                    return;
+                }
+                close(true, { action: 'primary', value: result });
             } catch (error) {
                 setLoading(false);
                 setStatus('No fue posible completar la acción. Inténtalo nuevamente.', true);
-                settle({ action: 'error', error: error });
             }
         });
         root.addEventListener('keydown', function (event) {
