@@ -910,8 +910,8 @@ $face-5: var(--c-turquesa);
   &:active { transform: none; }
 }
 
-// ── Panel QR en el modal del mapa ────────────────────────────
-.mmodal-feedback-qr {
+// ── Panel de encuesta en el modal del mapa ───────────────────
+.mmodal-feedback-encuesta {
   padding: 1rem 0 .5rem;
   text-align: center;
 
@@ -922,25 +922,5 @@ $face-5: var(--c-turquesa);
     text-transform: uppercase;
     color: color-mix(in srgb, var(--txt) 60%, transparent);
     margin: 0 0 1.25rem;
-  }
-
-  &__canvas {
-    display: inline-block;
-    // Blanco literal a propósito: es el lienzo del QR y el contraste que
-    // necesita el lector no depende del tema.
-    background: white;
-    border-radius: 10px;
-    padding: .75rem;
-    margin-bottom: 1rem;
-
-    img { display: block; }
-  }
-
-  &__url {
-    font-size: .72rem;
-    color: color-mix(in srgb, var(--txt) 40%, transparent);
-    word-break: break-all;
-    margin: 0 0 1.25rem;
-    font-family: 'Courier New', monospace;
   }
 }

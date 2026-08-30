@@ -451,6 +451,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
   /* Paleta funcional: estados, series de datos y categorías. NO adopta la
      paleta de marca a propósito — verde y vino son indistinguibles bajo
      deuteranopia y estos tonos están validados para daltonismo (CLAUDE.md).
@@ -520,6 +530,13 @@ template {
   --on-accent: var(--verde-deep);
   --vineta: color-mix(in srgb, black 50%, transparent);
   --sombra: black;
+  /* Este bloque NO incluye alias-heredados, así que los roles del diálogo van
+     escritos a mano. Es obligatorio: el modal se monta en el <body>, que aquí
+     es el del POS, y una custom property se resuelve donde se DECLARA — con
+     la declaración sólo en :root, el diálogo heredaría el crema ya computado
+     de la landing y saldría claro sobre una pantalla oscura. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono] {
@@ -539,6 +556,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono=beige] {
@@ -563,6 +590,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono=cafe] {
@@ -593,6 +630,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono=vino] {
@@ -623,6 +670,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono=foto] {
@@ -649,6 +706,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 [data-tono=verde] {
@@ -679,6 +746,16 @@ template {
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 * {
@@ -13823,7 +13900,7 @@ footer.foot {
  * efectivo recibido) y lo que resulta a la derecha (totales y cambio).
  *
  * No se toca .mmodal-cerrar-confirm: la comparten el aviso de cancelación y la
- * pantalla del QR de feedback, que sí quieren una columna centrada.
+ * pantalla de encuesta de feedback, que sí quieren una columna centrada.
  */
 .mmodal-cobro {
   display: grid;
@@ -14086,6 +14163,52 @@ footer.foot {
   letter-spacing: 0.08em;
   color: var(--txt-faint);
   text-transform: uppercase;
+}
+
+.mmodal-header-estado {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-right: 1.5rem;
+}
+
+.mmodal-chip-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--feedback-danger) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
+  color: var(--feedback-danger);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.mmodal-chip-accion svg {
+  display: block;
+}
+.mmodal-chip-accion:hover {
+  background: color-mix(in srgb, var(--feedback-danger) 22%, transparent);
+  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
+}
+.mmodal-chip-accion--bloqueada {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--txt-faint);
+}
+.mmodal-chip-accion--bloqueada:hover {
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--txt) 6%, transparent);
+}
+.mmodal-chip-accion[data-estado=comprobando] {
+  border-color: var(--line-soft);
+  background: transparent;
+  color: var(--txt-faint);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .mmodal-chip {
@@ -17828,34 +17951,17 @@ footer.foot {
   transform: none;
 }
 
-.mmodal-feedback-qr {
+.mmodal-feedback-encuesta {
   padding: 1rem 0 0.5rem;
   text-align: center;
 }
-.mmodal-feedback-qr__title {
+.mmodal-feedback-encuesta__title {
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--txt) 60%, transparent);
   margin: 0 0 1.25rem;
-}
-.mmodal-feedback-qr__canvas {
-  display: inline-block;
-  background: white;
-  border-radius: 10px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-}
-.mmodal-feedback-qr__canvas img {
-  display: block;
-}
-.mmodal-feedback-qr__url {
-  font-size: 0.72rem;
-  color: color-mix(in srgb, var(--txt) 40%, transparent);
-  word-break: break-all;
-  margin: 0 0 1.25rem;
-  font-family: "Courier New", monospace;
 }
 
 .login-page {

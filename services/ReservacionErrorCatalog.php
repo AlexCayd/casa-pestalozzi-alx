@@ -78,6 +78,7 @@ final class ReservacionErrorCatalog
         'TOTAL_TICKET_NO_DISPONIBLE' => self::TIPO_ERROR,
         'TICKET_NO_VALIDO' => self::TIPO_ERROR,
         'TICKET_ITEMS_PENDIENTES' => self::TIPO_CONFLICTO,
+        'TICKET_CON_CONSUMO' => self::TIPO_CONFLICTO,
         'TICKET_CIERRE_FALLIDO' => self::TIPO_ERROR,
         'PAGO_INVALIDO' => self::TIPO_ERROR,
         'PAGO_REQUERIDO' => self::TIPO_ERROR,
@@ -199,6 +200,7 @@ final class ReservacionErrorCatalog
         'TICKET_NO_ENCONTRADO' => self::TIPO_ERROR,
         'TICKET_YA_CERRADO' => self::TIPO_CONFLICTO,
         'TICKET_CERRADO' => self::TIPO_INFORMACION,
+        'MESA_CANCELADA' => self::TIPO_INFORMACION,
         'TICKET_DUPLICADO' => self::TIPO_CONFLICTO,
         'MESAS_TICKET_EN_CONFLICTO' => self::TIPO_CONFLICTO,
         'RESERVACION_YA_EN_CURSO' => self::TIPO_CONFLICTO,
@@ -466,6 +468,12 @@ final class ReservacionErrorCatalog
             'titulo' => 'Ticket cerrado',
             'mensaje' => 'El ticket se cerró correctamente.',
             'consecuencia' => 'La mesa y la reservación quedaron liberadas según su estado operativo.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'MESA_CANCELADA' => [
+            'titulo' => 'Mesa liberada',
+            'mensaje' => 'La mesa quedó libre y no se registró ninguna cuenta.',
+            'consecuencia' => 'El ticket vacío se descartó: no aparece en el corte del día.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'TOLERANCIA_VIGENTE' => [
@@ -885,6 +893,12 @@ final class ReservacionErrorCatalog
         'TICKET_ITEMS_PENDIENTES' => [
             'titulo' => 'Hay productos pendientes',
             'mensaje' => 'Entrega o cancela todos los productos antes de cerrar la cuenta.',
+            'consecuencia' => 'El ticket permanece abierto.',
+            'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
+        ],
+        'TICKET_CON_CONSUMO' => [
+            'titulo' => 'La mesa ya tiene consumo',
+            'mensaje' => 'Esta mesa ya registró productos, así que se cobra con el cierre normal.',
             'consecuencia' => 'El ticket permanece abierto.',
             'acciones' => [['id' => 'ACTUALIZAR_TICKET', 'tipo' => 'primary']],
         ],

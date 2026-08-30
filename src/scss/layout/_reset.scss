@@ -34,6 +34,17 @@
   --white: var(--txt-strong);
   --ink: var(--on-accent);
   --ink-2: var(--bg-alt);
+
+  /* Superficie del diálogo de confirmación y del aviso transitorio.
+     _confirmation-modal.scss y _app-notice.scss las consumían desde el primer
+     día, pero NADIE las declaraba: `background: var(--confirmation-surface)`
+     con la propiedad indefinida es una declaración inválida, así que el
+     diálogo se pintaba transparente y el texto de la página se leía a través
+     de la advertencia. Van dentro del mixin, no sólo en :root, por lo de
+     siempre: una custom property se resuelve donde se DECLARA, y el modal se
+     monta en el <body> del POS, que es [data-modo="oscuro"]. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 :root {
@@ -213,6 +224,14 @@
 
   --vineta: color-mix(in srgb, black 50%, transparent);
   --sombra: black;
+
+  /* Este bloque NO incluye alias-heredados, así que los roles del diálogo van
+     escritos a mano. Es obligatorio: el modal se monta en el <body>, que aquí
+     es el del POS, y una custom property se resuelve donde se DECLARA — con
+     la declaración sólo en :root, el diálogo heredaría el crema ya computado
+     de la landing y saldría claro sobre una pantalla oscura. */
+  --confirmation-surface: var(--surface);
+  --confirmation-text: var(--txt);
 }
 
 // ── Tonos de sección ──────────────────────────────────────────

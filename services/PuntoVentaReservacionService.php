@@ -24,6 +24,7 @@ final class PuntoVentaReservacionService
     public const TOLERANCIA_LLEGADA_VENCIDA = 'TOLERANCIA_LLEGADA_VENCIDA';
     public const REQUIERE_CONFIRMACION = 'REQUIERE_CONFIRMACION';
     public const TICKET_ABIERTO = 'TICKET_ABIERTO';
+    public const TICKET_CON_CONSUMO = 'TICKET_CON_CONSUMO';
     public const REQUIERE_REASIGNACION = 'REQUIERE_REASIGNACION';
     public const SIN_CAPACIDAD = ReservacionAdministrativaService::CAPACIDAD_INSUFICIENTE;
     public const CONFLICTO_CONCURRENTE = AsignacionMesasService::CONFLICTO_CONCURRENTE;
@@ -594,6 +595,121 @@ final class PuntoVentaReservacionService
                 $db->rollback();
             }
             error_log('PuntoVentaReservacionService::cerrarTicket - ' . $e->getMessage());
+            return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
+        } finally {
+            if ($lockFecha !== null) {
+                FechaOperacionLock::liberar($db, $lockFecha);
+            }
+            if ($lockHorario) {
+                HorarioConfigLock::liberar($db);
+            }
+        }
+    }
+
+    /**
+     * Descarta un ticket abierto que nunca registró consumo: el cliente se
+     * sentó y se fue sin pedir nada.
+     *
+     * No cierra el ticket, lo BORRA. Un ticket cerrado en cero seguiría
+     * contando como cuenta del día en el corte de caja, en las analíticas y en
+     * el histórico de la mesa, y arrastraría un token de feedback para una
+     * visita que no existió. La ocupación vive en `ticket_mesas`, que cae sola
+     * por ON DELETE CASCADE, así que borrar la fila libera la mesa.
+     *
+     * La condición es `ticket_items` COMPLETAMENTE vacía, no "sin items
+     * activos": un item cancelado ya movió inventario y dejó rastro en el
+     * tablero del área, y ese rastro no se tira. Ahí el camino es el cierre
+     * normal.
+     *
+     * Si el ticket venía de una reservación, la devuelve a `confirmada` para
+     * deshacer lo que hizo comenzar(). Lo único que no se revierte es
+     * invalidarReemplazosPendientes(): esos reemplazos ya se notificaron.
+     */
+    public static function descartarTicketVacio(int $ticketId, int $usuarioId): array
+    {
+        $db = ActiveRecord::getDB();
+        $lockHorario = false;
+        $lockFecha = null;
+        $transaccion = false;
+        try {
+            $previo = self::fila(
+                "SELECT t.reservacion_id, t.hora_apertura, r.fecha AS reservacion_fecha
+                 FROM tickets t
+                 LEFT JOIN reservaciones r ON r.id = t.reservacion_id
+                 WHERE t.id = {$ticketId}
+                 LIMIT 1"
+            );
+            if (!$previo) {
+                // NO_EXISTE resuelve a "reservación no encontrada": aquí el mesero
+                // pulsó el botón de un ticket, y ese mensaje lo mandaría a buscar
+                // una reservación que nunca existió.
+                return ['ok' => false, 'codigo' => 'TICKET_NO_VALIDO'];
+            }
+            $lockFecha = trim((string)($previo['reservacion_fecha'] ?? ''));
+            if ($lockFecha === '') {
+                $apertura = trim((string)($previo['hora_apertura'] ?? ''));
+                $lockFecha = substr($apertura, 0, 10) ?: ReservacionConfig::fechaActual();
+            }
+            $lockHorario = HorarioConfigLock::adquirir($db);
+            if (!$lockHorario || !FechaOperacionLock::adquirir($db, $lockFecha, 10)) {
+                throw new \RuntimeException('No fue posible bloquear la fecha operativa.');
+            }
+            $db->begin_transaction();
+            $transaccion = true;
+
+            $ticket = self::fila("SELECT * FROM tickets WHERE id = {$ticketId} FOR UPDATE");
+            if (!$ticket) {
+                return self::rollbackResultado($db, $transaccion, 'TICKET_NO_VALIDO');
+            }
+            // Un ticket ya cobrado o ya descartado no se toca: el cierre es el
+            // único camino cuando hubo cuenta.
+            if ($ticket['estado'] !== 'abierto') {
+                return self::rollbackResultado($db, $transaccion, self::ESTADO_INVALIDO);
+            }
+
+            // FOR UPDATE sobre los items: sin él, una comanda enviada desde
+            // otra tablet entre esta cuenta y el DELETE se perdería con el
+            // ticket, y el área seguiría preparando platillos ya borrados.
+            $items = self::fila(
+                "SELECT COUNT(*) AS total FROM ticket_items WHERE ticket_id = {$ticketId} FOR UPDATE"
+            );
+            if ((int)($items['total'] ?? 0) > 0) {
+                return self::rollbackResultado($db, $transaccion, self::TICKET_CON_CONSUMO);
+            }
+
+            $reservacionId = $previo['reservacion_id'] !== null ? (int)$previo['reservacion_id'] : null;
+            if ($reservacionId) {
+                $reservacion = self::fila(
+                    "SELECT * FROM reservaciones WHERE id = {$reservacionId} FOR UPDATE"
+                );
+                if ($reservacion && $reservacion['estado'] === 'en_curso') {
+                    self::actualizarReservacion(
+                        $db,
+                        $reservacionId,
+                        "estado = 'confirmada',
+                         estado_changed_at = NOW()"
+                    );
+                }
+            }
+
+            // ticket_mesas, ticket_items y feedback_tokens caen por CASCADE.
+            if (!$db->query("DELETE FROM tickets WHERE id = {$ticketId}")) {
+                throw new \RuntimeException($db->error);
+            }
+
+            $db->commit();
+            $transaccion = false;
+
+            return [
+                'ok' => true,
+                'codigo' => self::OK,
+                'reservacion_id' => $reservacionId,
+            ];
+        } catch (\Throwable $e) {
+            if ($transaccion) {
+                $db->rollback();
+            }
+            error_log('PuntoVentaReservacionService::descartarTicketVacio - ' . $e->getMessage());
             return ['ok' => false, 'codigo' => self::ERROR_INTERNO];
         } finally {
             if ($lockFecha !== null) {

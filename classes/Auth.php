@@ -43,6 +43,7 @@ class Auth {
         '/api/punto-de-venta',
         '/api/abrir-ticket',
         '/api/cerrar-ticket',
+        '/api/cancelar-mesa',
         '/api/enviar-comanda',
         '/api/entregar-item',
         '/api/actualizar-ticket',

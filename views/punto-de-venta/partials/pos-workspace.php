@@ -10,8 +10,7 @@
  *   1) Tener en el <body> los hooks: class "mapa-page operational-page",
  *      data-page="mapa" y data-operational-page (para shell.js).
  *   2) Cargar los assets: /build/css/app.css, /build/js/bundle.min.js,
- *      /build/js/admin/map.js (que trae punto-de-venta.js) y el CDN de
- *      qrcode-generator.
+ *      /build/js/admin/map.js (que trae punto-de-venta.js).
  *   3) Emitir en línea, ANTES de esos <script src>, las globales
  *      window.CP_MENU, window.CP_AREAS y window.CP_USER. Es un contrato duro:
  *      el JS las lee de forma síncrona al abrir una mesa. Se arman con

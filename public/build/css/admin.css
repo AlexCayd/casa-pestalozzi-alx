@@ -178,6 +178,11 @@ html.lenis body {
   --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-gold-deep) 60%, transparent);
   --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
   --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 35%, transparent);
+  /* Diálogo de confirmación y aviso transitorio: los dos componentes las
+     consumían sin que nadie las declarara, y una custom property indefinida
+     invalida la declaración entera — el modal salía transparente. */
+  --confirmation-surface: var(--admin-surface-strong);
+  --confirmation-text: var(--admin-ink-on-gold);
   /* Texto */
   --admin-text: var(--admin-ink-on-gold);
   --admin-muted: color-mix(in srgb, var(--admin-ink-on-gold) 62%, var(--admin-bg));
@@ -250,6 +255,9 @@ html.lenis body {
   --admin-surface: color-mix(in srgb, var(--admin-brand-verde) 44%, black);
   --admin-surface-soft: color-mix(in srgb, var(--admin-brand-verde) 56%, black);
   --admin-surface-strong: color-mix(in srgb, var(--admin-brand-verde) 68%, black);
+  /* Ver la nota del tema claro: sin estas dos el diálogo no tiene fondo. */
+  --confirmation-surface: color-mix(in srgb, var(--admin-brand-verde) 38%, black);
+  --confirmation-text: var(--admin-brand-crema);
   --admin-scrim: color-mix(in srgb, var(--admin-brand-verde) 82%, black);
   --admin-sombra: black;
   /* Sidebar aún más profundo que el fondo */

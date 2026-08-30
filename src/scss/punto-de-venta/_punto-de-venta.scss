@@ -803,7 +803,7 @@
  * efectivo recibido) y lo que resulta a la derecha (totales y cambio).
  *
  * No se toca .mmodal-cerrar-confirm: la comparten el aviso de cancelación y la
- * pantalla del QR de feedback, que sí quieren una columna centrada.
+ * pantalla de encuesta de feedback, que sí quieren una columna centrada.
  */
 .mmodal-cobro {
   display: grid;
@@ -1089,6 +1089,69 @@
   letter-spacing: .08em;
   color: var(--txt-faint);
   text-transform: uppercase;
+}
+
+// Chip de estado + acciones sobre el ticket, agrupados a la derecha del
+// encabezado para que se lean como una sola unidad.
+//
+// El margen derecho libra a .mesa-modal__close, que es absolute contra el
+// panel (top/right 1.1rem, 28px) y por tanto pisa 1.35rem del área de
+// contenido: sin él, lo último de esta fila se esconde debajo de la ×.
+.mmodal-header-estado {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-shrink: 0;
+  margin-right: 1.5rem;
+}
+
+// Pastilla de acción a juego con .mmodal-chip: mismo radio y misma altura, un
+// icono y nada de texto. Discreta por decisión — descartar la mesa es la
+// salida rara, no la acción principal del modal.
+.mmodal-chip-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--feedback-danger) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
+  color: var(--feedback-danger);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, opacity .15s ease;
+
+  svg { display: block; }
+
+  &:hover {
+    background: color-mix(in srgb, var(--feedback-danger) 22%, transparent);
+    border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
+  }
+
+  // Bloqueada se apaga a la tinta tenue de la casa, pero sigue pulsable: el
+  // click es lo que despliega el motivo. Con `disabled` no habría evento y el
+  // icono no explicaría nada.
+  &--bloqueada {
+    border-color: var(--line);
+    background: transparent;
+    color: var(--txt-faint);
+
+    &:hover {
+      border-color: var(--line-strong);
+      background: color-mix(in srgb, var(--txt) 6%, transparent);
+    }
+  }
+
+  // Mientras se cuenta el consumo no acepta pulsaciones: el estado seguro es
+  // no poder descartar hasta saber si hay comanda.
+  &[data-estado="comprobando"] {
+    border-color: var(--line-soft);
+    background: transparent;
+    color: var(--txt-faint);
+    opacity: .55;
+    pointer-events: none;
+  }
 }
 
 .mmodal-chip {

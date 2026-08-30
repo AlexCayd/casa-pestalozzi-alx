@@ -255,6 +255,7 @@ function initMapa() {
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
     card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    ban:     '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'
   };
 
@@ -1918,7 +1919,22 @@ function initMapa() {
     }
     h += '</div>';
     if (ticket) {
+      // La pastilla de cancelar vive pegada al chip: es una acción sobre el
+      // ticket que el chip anuncia, y ahí no compite con "Cerrar ticket".
+      // Nace deshabilitada y sólo la suelta el conteo real de ticket_items:
+      // el estado seguro es no poder descartar. El porqué de cada estado no
+      // cabe en un icono, así que lo despliega el diálogo de advertencia.
+      //
+      // Va ANTES del chip, no después: .mesa-modal__close es absolute contra
+      // el panel y se come la esquina superior derecha del contenido, así que
+      // lo último de esta fila queda debajo de la × y no se ve.
+      h += '<div class="mmodal-header-estado">';
+      h += '<button type="button" class="mmodal-chip-accion" id="mmodal-cancelar-mesa" ' +
+           'aria-label="Cancelar mesa" title="Comprobando consumo…" ' +
+           'data-estado="comprobando" aria-disabled="true">' +
+           svgIcon('ban', 14) + '</button>';
       h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
+      h += '</div>';
     } else if (reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '">' + reservaChipLabel + '</span>';
     }
@@ -2591,6 +2607,31 @@ function initMapa() {
     }
   }
 
+  // Suelta "Cancelar mesa" sólo con la comanda del ticket completamente
+  // vacía. `total` cuenta TODAS las filas de ticket_items, cancelados
+  // incluidos: el backend exige lo mismo, porque un item cancelado ya movió
+  // inventario y ese rastro no se descarta con el ticket.
+  //
+  // Bloquea con aria-disabled, NO con el atributo disabled: un botón disabled
+  // no despacha eventos, y siendo un icono a secas el mesero se quedaría
+  // mirando una pastilla apagada sin saber por qué. Así sigue pulsable para
+  // desplegar la advertencia que lo explica, y lo destructivo lo guarda el
+  // diálogo (y el backend, que revalida).
+  function actualizarCancelarMesaEstado(total) {
+    var btn = modalContent.querySelector('#mmodal-cancelar-mesa');
+    if (!btn) return;
+    var bloqueada = total > 0;
+    btn.dataset.estado = bloqueada ? 'bloqueada' : 'disponible';
+    btn.setAttribute('aria-disabled', bloqueada ? 'true' : 'false');
+    btn.classList.toggle('mmodal-chip-accion--bloqueada', bloqueada);
+    btn.title = bloqueada
+      ? 'La mesa ya tiene consumo: se cobra con el cierre normal.'
+      : 'Cancelar mesa: libera la mesa sin generar cuenta.';
+    btn.setAttribute('aria-label', bloqueada
+      ? 'Cancelar mesa (no disponible: la mesa ya tiene consumo)'
+      : 'Cancelar mesa');
+  }
+
   // ── Caché de los ítems del ticket ─────────────────────────
   // La misma cuenta se pedía en cada cambio de pestaña y en cada paso del
   // cierre. Se guarda la última respuesta por ticket y se invalida al enviar
@@ -2633,6 +2674,7 @@ function initMapa() {
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
           actualizarCierreEstado(0);
+          actualizarCancelarMesaEstado(0);
           return;
         }
 
@@ -2655,6 +2697,7 @@ function initMapa() {
 
         // No se puede cerrar la cuenta con productos sin entregar.
         actualizarCierreEstado(pendientes);
+        actualizarCancelarMesaEstado(data.items.length);
 
         var html = '';
         for (var slug in byArea) {
@@ -2915,9 +2958,37 @@ function initMapa() {
       })(ticket.id);
     }
 
+    // Botón "Cancelar mesa" del encabezado: descarta un ticket sin consumo.
+    var cancelarMesaBtn = modalContent.querySelector('#mmodal-cancelar-mesa');
+    if (cancelarMesaBtn) {
+      (function(tid, mesaActual) {
+        cancelarMesaBtn.addEventListener('click', function() {
+          if (cancelarMesaBtn.dataset.estado === 'comprobando') return;
+          if (cancelarMesaBtn.dataset.estado === 'bloqueada') {
+            showCancelarMesaBloqueada();
+            return;
+          }
+          showCancelarMesaConfirm(tid, mesaActual);
+        });
+      })(ticket.id, mesa);
+    }
+
     // En desktop las 4 columnas son visibles desde el inicio
     if (window.innerWidth >= 768) {
       renderResumen(ticket.id);
+    } else {
+      // En móvil el resumen no se pinta hasta que el mesero abre su pestaña,
+      // así que el botón del encabezado se quedaría deshabilitado para
+      // siempre. Comparte la caché de renderResumen: no es una petición extra.
+      (function(tid) {
+        cargarTicketItems(tid, false)
+          .then(function(data) {
+            actualizarCancelarMesaEstado(
+              (data && data.ok && data.items) ? data.items.length : 0
+            );
+          })
+          .catch(function() { /* el botón se queda bloqueado, que es lo seguro */ });
+      })(ticket.id);
     }
 
     // Sugerencias: NO se piden al abrir. Abrir la mesa deja exactamente una
@@ -3853,33 +3924,30 @@ function initMapa() {
     validar();
   }
 
-  // ── Pantalla QR de feedback ───────────────────────────────
-  function showFeedbackQR(token, mesaNombre) {
+  // ── Pantalla de encuesta de feedback ──────────────────────
+  function showFeedbackEncuesta(token, mesaNombre) {
     var url = window.location.origin + '/feedback?token=' + token;
     var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(mesaNombre) + '</span>';
     h += '<span class="mmodal-title-cliente">— Ticket cerrado</span>';
     h += '</div></div>';
-    h += '<div class="mmodal-feedback-qr">';
-    h += '<p class="mmodal-feedback-qr__title">Invita al comensal a dejar su reseña</p>';
-    h += '<div class="mmodal-feedback-qr__canvas" id="qr-canvas"></div>';
-    h += '<p class="mmodal-feedback-qr__url">' + escHtml(url) + '</p>';
+    h += '<div class="mmodal-feedback-encuesta">';
+    h += '<p class="mmodal-feedback-encuesta__title">Invita al comensal a dejar su reseña</p>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="qr-cerrar">Cerrar</button>';
+    h += '<button class="mmodal-btn mmodal-btn--primary" id="encuesta-abrir">Pasar a encuesta</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="encuesta-cerrar">Cerrar</button>';
     h += '</div>';
     h += '</div>';
 
     modalContent.innerHTML = h;
 
-    if (typeof qrcode === 'function') {
-      var qr = qrcode(0, 'M');
-      qr.addData(url);
-      qr.make();
-      var qrEl = document.getElementById('qr-canvas');
-      if (qrEl) qrEl.innerHTML = qr.createImgTag(5, 8);
-    }
+    // La encuesta se abre en otra pestaña: el POS conserva el mapa y el modal
+    // detrás, así el mesero entrega la tablet y vuelve sin rehacer el turno.
+    modalContent.querySelector('#encuesta-abrir').addEventListener('click', function() {
+      window.open(url, '_blank', 'noopener');
+    });
 
-    modalContent.querySelector('#qr-cerrar').addEventListener('click', function() {
+    modalContent.querySelector('#encuesta-cerrar').addEventListener('click', function() {
       closeModal({ refresh: false });
       fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
     });
@@ -4461,7 +4529,7 @@ function initMapa() {
     .then(function(result) {
       if (result.commit === true) {
         limpiarCierrePaso(ticketId);
-        showFeedbackQR(result.token, mesa ? mesa.nombre : '');
+        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '');
       } else {
         aviso(result.mensaje);
       }
@@ -4483,7 +4551,7 @@ function initMapa() {
     .then(function(result) {
       if (result.commit === true) {
         limpiarCierrePaso(ticketId);
-        showFeedbackQR(result.token, mesa ? mesa.nombre : '');
+        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '');
       } else {
         aviso(result.mensaje);
         var btn = modalContent.querySelector('#split-confirm');
@@ -4558,6 +4626,83 @@ function initMapa() {
       renderResumen(ticketId);
     })
     .catch(function() { avisoConexion(); });
+  }
+
+  // El caso bloqueado también despliega el diálogo: sin texto al lado de la
+  // pastilla, es el único sitio donde cabe la explicación. Sin botón primario,
+  // porque aquí no hay nada que confirmar.
+  function showCancelarMesaBloqueada() {
+    if (!window.ConfirmationModal) {
+      aviso('La mesa ya tiene consumo: se cobra con el cierre normal.', 'warning');
+      return;
+    }
+    window.ConfirmationModal.get().open({
+      variant: 'warning',
+      eyebrow: 'Mesa con consumo',
+      title: 'No se puede cancelar esta mesa',
+      description: 'Esta mesa ya registró productos, así que no puede liberarse sin cuenta.',
+      warning: 'Cuenta como consumo cualquier producto enviado a producción, ' +
+               'incluidos los que ya se cancelaron: mueven inventario y quedan ' +
+               'en el tablero del área.',
+      consequence: 'Cóbrala con "Cerrar ticket" desde la pestaña Ticket.',
+      secondaryLabel: 'Entendido',
+      primaryHidden: true
+    });
+  }
+
+  function showCancelarMesaConfirm(ticketId, mesa) {
+    var nombreMesa = mesa && mesa.nombre ? mesa.nombre : 'la mesa';
+    if (!window.ConfirmationModal) {
+      apiCancelarMesa(ticketId);
+      return;
+    }
+    window.ConfirmationModal.get().open({
+      variant: 'danger',
+      eyebrow: 'Acción irreversible',
+      title: 'Cancelar mesa',
+      description: '¿Liberar ' + nombreMesa + ' sin registrar consumo?',
+      consequence: 'El ticket se descarta y no queda cuenta en el corte del día. ' +
+                   'Lo que tengas en el Pedido sin enviar también se pierde.',
+      secondaryLabel: 'No, conservar',
+      primaryLabel: 'Sí, cancelar mesa',
+      onPrimary: function() {
+        apiCancelarMesa(ticketId);
+      }
+    });
+  }
+
+  function apiCancelarMesa(ticketId) {
+    var btn = modalContent.querySelector('#mmodal-cancelar-mesa');
+    // 'comprobando' es también el estado "en vuelo": inerte al click y sin
+    // pintarse como bloqueada, que sería mentir sobre el motivo.
+    if (btn) btn.dataset.estado = 'comprobando';
+    postJson('/api/cancelar-mesa', { ticket_id: ticketId })
+    .then(function(result) {
+      if (result && result.ok) {
+        invalidarTicketItems(ticketId);
+        limpiarCierrePaso(ticketId);
+        // El carrito local muere con el ticket: si no se vacía, la siguiente
+        // mesa que se abra en esta sesión hereda los platillos.
+        commandaItems = [];
+        selectedComensal = 0;
+        closeModal({ refresh: false });
+        aviso(
+          (result.mensaje || 'La mesa quedó libre y no se registró ninguna cuenta.'),
+          'success'
+        );
+        fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
+      } else {
+        aviso(result && result.mensaje);
+        // Puede haber llegado una comanda desde otra tablet: repintar el
+        // resumen vuelve a calcular si el botón debe seguir vivo.
+        invalidarTicketItems(ticketId);
+        renderResumen(ticketId);
+      }
+    })
+    .catch(function() {
+      avisoConexion();
+      if (btn) btn.dataset.estado = 'disponible';
+    });
   }
 
   function showCancelItemConfirm(itemId, nombre, ticketId) {

@@ -292,6 +292,7 @@ $router->post('/api/punto-de-venta/reservaciones/cancelar', [PuntoVentaControlle
 $router->post('/api/punto-de-venta/reservaciones/no-show', [PuntoVentaController::class, 'noShowReservacion']);
 $router->post('/api/abrir-ticket',        [PuntoVentaController::class, 'abrirTicket']);
 $router->post('/api/cerrar-ticket',       [PuntoVentaController::class, 'cerrarTicket']);
+$router->post('/api/cancelar-mesa',       [PuntoVentaController::class, 'cancelarMesa']);
 $router->post('/api/enviar-comanda',      [PuntoVentaController::class, 'enviarComanda']);
 $router->get('/api/ticket-items',         [PuntoVentaController::class, 'ticketItems']);
 $router->get('/api/corte-caja',           [PuntoVentaController::class, 'corteCaja']);

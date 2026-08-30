@@ -107,7 +107,6 @@ $usuarioJson = json_encode([
       );
     ?>;
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script src="/build/js/bundle.min.js"></script>
   <script src="/build/js/admin/map.js?v=pos-map-fullwidth-v11"></script>
 </body>

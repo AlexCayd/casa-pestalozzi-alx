@@ -190,6 +190,36 @@ class PuntoVentaController {
         self::responder($resultado);
     }
 
+    /**
+     * POST /api/cancelar-mesa  { ticket_id }
+     *
+     * Libera una mesa cuyo ticket nunca registró consumo. Borra el ticket en
+     * vez de cerrarlo para no dejar cuentas en cero en el corte del día; la
+     * regla de "sin consumo" la decide el servicio dentro de la transacción,
+     * no el POS.
+     */
+    public static function cancelarMesa(Router $router) {
+        $data = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
+        $ticketId = isset($data['ticket_id']) ? (int)$data['ticket_id'] : 0;
+        if (!$ticketId) {
+            self::errorJson('TICKET_NO_VALIDO');
+            return;
+        }
+
+        $resultado = PuntoVentaReservacionService::descartarTicketVacio(
+            $ticketId,
+            (int)($_SESSION['id'] ?? 0)
+        );
+        if (($resultado['ok'] ?? false) === true) {
+            $resultado['codigo'] = 'MESA_CANCELADA';
+            $resultado['id'] = $ticketId;
+        }
+        self::responder($resultado);
+    }
+
     // POST /admin/api/close-ticket
     public static function cerrarTicket(Router $router) {
         header('Content-Type: application/json');
