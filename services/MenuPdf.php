@@ -47,6 +47,9 @@ class MenuPdf
         // Ruta absoluta (con /) a las fuentes del proyecto para los @font-face.
         $projectRoot = realpath(__DIR__ . '/..');
         $fontsDir = str_replace('\\', '/', $projectRoot . '/public/build/fonts');
+        // El logotipo del pie. La plantilla lo reescala y lo tinta, asi que
+        // recibe la ruta y no una imagen ya resuelta.
+        $logoRuta = str_replace('\\', '/', $projectRoot . '/public/build/images/logo.svg');
 
         ob_start();
         $generado = date('d/m/Y H:i');
