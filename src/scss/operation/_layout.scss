@@ -100,11 +100,17 @@
   background: color-mix(in srgb, var(--admin-bg) 94%, transparent);
 }
 
+/* Translúcido SIN desenfoque es lo que se leía como "opacidad mal puesta": el
+   mapa de colores fuertes se transparentaba crudo a través del panel. El 82%
+   se queda —la capa quiere dejar ver que hay algo detrás— pero ahora con el
+   blur que lo convierte en vidrio. */
 .reservation-operation__panel-content {
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  background: color-mix(in srgb, var(--admin-surface) 82%, transparent);
+  background: var(--admin-glass-bg-soft);
+  backdrop-filter: blur(var(--admin-glass-blur-sm)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur-sm)) saturate(var(--admin-glass-sat));
 }
 
 .reservation-operation__panel-toolbar {

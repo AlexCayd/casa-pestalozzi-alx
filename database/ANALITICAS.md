@@ -3,7 +3,7 @@
 > Documentación de las analíticas **implementadas** en la vista
 > `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
 > `views/admin/analytics.php`), con datos de demostración en
-> `database/dml_pruebas.sql` (se carga después de `dml_operativo.sql`). El resto —Niveles 2
+> `database/development.sql` (se carga después de `deploy.sql`). El resto —Niveles 2
 > y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
 > implementada**.
 
@@ -71,7 +71,7 @@ Tablas con valor analítico y la señal que aporta cada una.
 
 > **De dónde salen los datos de cada gráfica.** Todo el seed que existe para que
 > el panel tenga algo que graficar vive en un solo archivo,
-> `database/analiticas-datos-ex.sql`:
+> `database/development.sql` (bloque 2):
 >
 > | Gráfica | Datos |
 > |---|---|
@@ -482,7 +482,7 @@ Requiere migrar antes `Services\HorarioReservacionService` y
 > **Variante ya corregida:** además de las dos tablas, hubo un tiempo **dos
 > semillas** escribiendo sobre `horarios_operacion` — `dml.sql` y el archivo de
 > datos de analítica, con `ON DUPLICATE KEY UPDATE` —, así que el orden de carga
-> decidía el horario del restaurante. `analiticas-datos-ex.sql` ya no toca esa
+> decidía el horario del restaurante. el bloque 2 de `development.sql` ya no toca esa
 > tabla: la fuente es `dml.sql`.
 
 ---

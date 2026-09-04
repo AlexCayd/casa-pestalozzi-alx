@@ -1,7 +1,12 @@
 <?php
 
 /**
- * Módulo de Catas del panel: programación de sesiones y gestión de inscritos.
+ * Módulo de Catas del panel: la agenda que publica la landing.
+ *
+ * Tres pantallas se quedaron en dos. El detalle con la lista de inscritos
+ * desapareció junto con las inscripciones —el lugar se aparta por WhatsApp— y
+ * lo que era una tabla de ocupación es ahora una fila con su fecha y un
+ * interruptor.
  *
  * Sigue el patrón de AdminPrintersController (render que delega en
  * AdminController, validarId, alertas por modelo) y el CSRF de
@@ -16,7 +21,6 @@
 namespace Controllers;
 
 use Model\Cata;
-use Model\CataInscripcion;
 use MVC\Router;
 use Services\AdminCsrfService;
 use Services\CataService;
@@ -32,26 +36,29 @@ class AdminCataController
         'creada' => ['exito', 'Cata creada correctamente'],
         'actualizada' => ['exito', 'Cata actualizada correctamente'],
         'eliminada' => ['exito', 'Cata eliminada correctamente'],
-        'inscripcion-actualizada' => ['exito', 'Inscripción actualizada'],
+        'publicada' => ['exito', 'La cata vuelve a admitir gente'],
+        'despublicada' => ['exito', 'La cata se marcó sin cupo. Sigue anunciada en la landing.'],
         'no-existe' => ['error', 'La cata no existe'],
         'id-invalido' => ['error', 'Identificador no válido'],
         'sesion-expirada' => ['error', 'La sesión expiró. Vuelve a intentarlo.'],
         'error-eliminar' => ['error', 'No se pudo eliminar la cata'],
-        'error-inscripcion' => ['error', 'No se pudo actualizar la inscripción'],
+        'error-disponibilidad' => ['error', 'No se pudo cambiar la disponibilidad'],
     ];
 
     public static function index(Router $router): void
     {
-        $estado = (string)($_GET['estado'] ?? '');
+        // Sólo '1' y '0' filtran; cualquier otra cosa —incluido lo que alguien
+        // escriba a mano en la URL— cae en «todas».
+        $disponibilidad = (string)($_GET['disponible'] ?? '');
+        $disponibilidad = in_array($disponibilidad, ['0', '1'], true) ? $disponibilidad : '';
         $busqueda = (string)($_GET['q'] ?? '');
 
         self::render('catas/index', [
             'title' => 'Catas',
             'topbarSection' => 'Catas',
-            'catas' => CataService::listaAdministrativa($estado, $busqueda),
-            'estadoActivo' => $estado,
+            'catas' => CataService::listaAdministrativa($disponibilidad, $busqueda),
+            'disponibilidadActiva' => $disponibilidad,
             'busqueda' => $busqueda,
-            'estados' => Cata::ESTADOS,
             'alertas' => self::avisos(),
             'adminCsrfToken' => AdminCsrfService::token(),
         ]);
@@ -59,7 +66,7 @@ class AdminCataController
 
     public static function create(Router $router): void
     {
-        self::formulario(new Cata(), 'Nueva cata', 'Crear', 'creada');
+        self::formulario(new Cata(), 'Nueva cata', 'Crear cata', 'creada');
     }
 
     public static function edit(Router $router): void
@@ -73,30 +80,35 @@ class AdminCataController
         // El <input type="time"> no acepta los segundos que devuelve la BD.
         $cata->hora = substr((string)$cata->hora, 0, 5);
 
-        self::formulario($cata, 'Editar cata', 'Actualizar', 'actualizada');
+        self::formulario($cata, 'Editar cata', 'Guardar cambios', 'actualizada');
     }
 
-    /** Detalle con la lista de inscritos y el control de su estado. */
-    public static function show(Router $router): void
+    /**
+     * El interruptor de la lista. Es un POST propio y no una edición completa
+     * para que encender una cata no exija abrir su formulario ni revalidarlo.
+     */
+    public static function disponibilidad(Router $router): void
     {
-        $id = self::validarId($_GET['id'] ?? null);
-        $cata = Cata::find($id);
+        self::exigirPost();
 
-        if (!$cata) {
-            self::redirect(self::RUTA . '?aviso=no-existe');
+        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
+            self::redirect(self::RUTA . '?aviso=sesion-expirada');
         }
 
-        self::render('catas/show', [
-            'title' => $cata->titulo,
-            'topbarSection' => 'Catas / ' . $cata->titulo,
-            'cata' => $cata,
-            'inscripciones' => CataService::inscripcionesDe($id),
-            'lugaresTomados' => CataService::lugaresTomados($id),
-            'lugaresDisponibles' => CataService::lugaresDisponibles($id),
-            'estadosInscripcion' => CataInscripcion::ESTADOS,
-            'adminCsrfToken' => AdminCsrfService::token(),
-            'alertas' => self::avisos(),
-        ]);
+        $id = self::validarId($_POST['id'] ?? null);
+        // El <input type="checkbox"> no viaja cuando está apagado, así que el
+        // valor que manda el formulario es el que se QUIERE dejar, no el actual.
+        $disponible = (string)($_POST['disponible'] ?? '0') === '1';
+
+        $resultado = CataService::cambiarDisponibilidad($id, $disponible);
+
+        if (!$resultado['ok']) {
+            self::redirect(self::RUTA . '?aviso=' . (
+                $resultado['codigo'] === CataService::NO_EXISTE ? 'no-existe' : 'error-disponibilidad'
+            ));
+        }
+
+        self::redirect(self::RUTA . self::filtrosDeVuelta() . 'aviso=' . ($disponible ? 'publicada' : 'despublicada'));
     }
 
     public static function delete(Router $router): void
@@ -113,29 +125,7 @@ class AdminCataController
             self::redirect(self::RUTA . '?aviso=no-existe');
         }
 
-        // Las inscripciones caen con ella por el ON DELETE CASCADE.
         self::redirect(self::RUTA . ($cata->eliminar() ? '?aviso=eliminada' : '?aviso=error-eliminar'));
-    }
-
-    public static function estadoInscripcion(Router $router): void
-    {
-        self::exigirPost();
-
-        $cataId = self::validarId($_POST['cata_id'] ?? null);
-        $destino = self::RUTA . '/detalle?id=' . $cataId;
-
-        if (!AdminCsrfService::validar($_POST['admin_csrf'] ?? null)) {
-            self::redirect($destino . '&aviso=sesion-expirada');
-        }
-
-        $resultado = CataService::cambiarEstadoInscripcion(
-            self::validarId($_POST['inscripcion_id'] ?? null),
-            (string)($_POST['estado'] ?? '')
-        );
-
-        self::redirect($destino . ($resultado['ok']
-            ? '&aviso=inscripcion-actualizada'
-            : '&aviso=error-inscripcion'));
     }
 
     /** Alta y edición comparten formulario, validación y persistencia. */
@@ -167,7 +157,6 @@ class AdminCataController
             'topbarSection' => 'Catas / ' . $titulo,
             'cata' => $cata,
             'accion' => $accion,
-            'estados' => Cata::ESTADOS,
             'alertas' => $alertas,
             'adminCsrfToken' => AdminCsrfService::token(),
         ]);
@@ -180,12 +169,33 @@ class AdminCataController
         $cata->fecha = trim((string)($_POST['fecha'] ?? ''));
         $cata->hora = trim((string)($_POST['hora'] ?? ''));
         $cata->duracion_min = (int)($_POST['duracion_min'] ?? 90);
-        $cata->cupo = (int)($_POST['cupo'] ?? 12);
         $cata->precio = (float)($_POST['precio'] ?? 0);
-        $cata->imagen = trim((string)($_POST['imagen'] ?? '')) ?: null;
+        $cata->disponible = isset($_POST['disponible']) ? 1 : 0;
+    }
 
-        $estado = (string)($_POST['estado'] ?? 'borrador');
-        $cata->estado = in_array($estado, Cata::ESTADOS, true) ? $estado : 'borrador';
+    /**
+     * Devuelve al mismo filtro desde el que se pulsó el interruptor. Sin esto,
+     * apagar una cata mientras se mira «Disponibles» tiraba la lista entera de
+     * vuelta a «Todas» y había que volver a filtrar en cada cambio.
+     *
+     * Cierra siempre en `?…&` o en `?` para que quien llama sólo tenga que
+     * concatenar su `aviso=`.
+     */
+    private static function filtrosDeVuelta(): string
+    {
+        $filtros = [];
+
+        $disponibilidad = (string)($_POST['volver_disponible'] ?? '');
+        if (in_array($disponibilidad, ['0', '1'], true)) {
+            $filtros['disponible'] = $disponibilidad;
+        }
+
+        $busqueda = trim((string)($_POST['volver_q'] ?? ''));
+        if ($busqueda !== '') {
+            $filtros['q'] = $busqueda;
+        }
+
+        return $filtros ? '?' . http_build_query($filtros) . '&' : '?';
     }
 
     /**

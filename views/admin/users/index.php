@@ -121,14 +121,18 @@ $iniciales = static function (string $nombre, string $username): string {
             </p>
         <?php else : ?>
             <div class="admin-table-wrap">
-                <table class="admin-table admin-menu__table">
+                <?php /* Estado y Alta necesitan data-sort-value en la celda: la primera
+                         es un <form> con interruptor, del que table-sort.js sólo leería
+                         el texto del lector de pantalla, y la segunda se pinta d/m/Y,
+                         que alfabetizado ordena por día. Van por 1|0 y por ISO. */ ?>
+                <table class="admin-table admin-menu__table" data-sortable>
                     <thead>
                         <tr>
-                            <th>Usuario</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Alta</th>
-                            <th>Acciones</th>
+                            <th data-sort-type="text">Usuario</th>
+                            <th data-sort-type="text">Rol</th>
+                            <th data-sort-type="number">Estado</th>
+                            <th data-sort-type="text">Alta</th>
+                            <th data-sort-disabled>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -160,11 +164,11 @@ $iniciales = static function (string $nombre, string $username): string {
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="admin-role admin-role--<?php echo $rolClase; ?>">
+                                    <span class="admin-tag admin-role admin-role--<?php echo $rolClase; ?>">
                                         <?php echo htmlspecialchars($roleLabels[$rol] ?? ucfirst($rol), ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
-                                <td>
+                                <td data-sort-value="<?php echo $activo ? '1' : '0'; ?>">
                                     <form method="POST" action="/admin/usuarios/<?php echo $activo ? 'deactivate' : 'activate'; ?>">
                                         <input type="hidden" name="id" value="<?php echo $id; ?>">
                                         <input type="hidden" name="admin_csrf" value="<?php echo htmlspecialchars((string) ($adminCsrfToken ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
@@ -182,7 +186,7 @@ $iniciales = static function (string $nombre, string $username): string {
                                         </button>
                                     </form>
                                 </td>
-                                <td>
+                                <td data-sort-value="<?php echo htmlspecialchars($createdAt !== '' ? date('Y-m-d', strtotime($createdAt)) : '', ENT_QUOTES, 'UTF-8'); ?>">
                                     <span class="admin-table__cell-sub"><?php echo htmlspecialchars($createdLabel, ENT_QUOTES, 'UTF-8'); ?></span>
                                 </td>
                                 <?php $nombreCompleto = $nombre !== '' ? $nombre : $username; ?>
@@ -227,7 +231,6 @@ $iniciales = static function (string $nombre, string $username): string {
                                                     <path d="M10 11v5"/>
                                                     <path d="M14 11v5"/>
                                                 </svg>
-                                                <span>Eliminar</span>
                                             </button>
                                         </form>
                                     </div>

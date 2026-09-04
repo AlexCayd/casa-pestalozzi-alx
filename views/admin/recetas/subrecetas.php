@@ -59,7 +59,12 @@
                                         <a class="admin-icon-button admin-icon-button--edit" href="/admin/recetas/subrecetas/edit?id=<?php echo (int) $sub->id; ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                         </a>
-                                        <form method="POST" action="/admin/recetas/subrecetas/delete" onsubmit="return confirm('¿Eliminar la subreceta &quot;<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/recetas/subrecetas/delete"
+                                              data-confirm-delete
+                                              data-confirm-eyebrow="Eliminar subreceta"
+                                              data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-description="Los platillos que la incluyen perderán ese componente y su costo."
+                                              data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $sub->id; ?>">
                                             <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Eliminar" aria-label="Eliminar <?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>">
                                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>

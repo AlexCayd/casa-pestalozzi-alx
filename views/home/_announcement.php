@@ -102,6 +102,16 @@ $raiz = $esModal ? 'announcement-dialog' : 'announcement-toast';
       <button class="hero-announcement__close" type="button" data-announcement-close aria-label="Cerrar anuncio">
         <span aria-hidden="true">×</span>
       </button>
+      <?php /* Barra de tiempo restante. Sólo la lleva el aviso discreto: es el
+               único que se retira solo, y sin ella la desaparición parece un
+               fallo del sitio. Va aria-hidden porque no aporta nada a quien no
+               ve la pantalla —el texto ya se anunció por role="status"— y
+               porque el temporizador se detiene con el foco dentro. */ ?>
+      <?php if (!$esModal) : ?>
+        <span class="hero-announcement__progress" aria-hidden="true">
+          <span class="hero-announcement__progress-fill" data-announcement-progress></span>
+        </span>
+      <?php endif; ?>
     </aside>
   </div>
 </div>

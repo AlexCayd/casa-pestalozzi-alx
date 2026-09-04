@@ -21,6 +21,17 @@ $metricas = [
     ['label' => 'Cerrados',       'value' => (int) ($ticketStats['cerrados'] ?? 0)],
     ['label' => 'Venta acumulada', 'value' => $money($ticketStats['ventas'] ?? 0), 'accent' => true],
 ];
+
+// Paginación. Los valores los calcula AdminController::tickets(); los de aquí
+// son sólo el respaldo por si la vista se renderiza suelta.
+$totalTickets = (int) ($ticketStats['total'] ?? 0);
+$paginaActual = max(1, (int) ($paginaActual ?? 1));
+$porPagina = max(1, (int) ($porPagina ?? 20));
+$totalPaginas = max(1, (int) ($totalPaginas ?? 1));
+$desde = $totalTickets === 0 ? 0 : (($paginaActual - 1) * $porPagina) + 1;
+$hasta = min($paginaActual * $porPagina, $totalTickets);
+
+$ticketsUrl = static fn (int $page): string => '/admin/tickets?page=' . $page;
 ?>
 <section class="admin-tickets admin-menu admin-page">
     <header class="admin-menu__header admin-page__header">
@@ -48,7 +59,13 @@ $metricas = [
         <div class="admin-menu__panel-head">
             <div>
                 <h3>Tickets recientes</h3>
-                <p>Mostrando los <?php echo min(100, count($ticketRows)); ?> más recientes.</p>
+                <p>
+                    <?php if ($totalTickets === 0) : ?>
+                        Sin tickets registrados.
+                    <?php else : ?>
+                        <?php echo $totalTickets; ?> registros. Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?>, del más reciente al más antiguo.
+                    <?php endif; ?>
+                </p>
             </div>
         </div>
 
@@ -110,6 +127,17 @@ $metricas = [
                     </tbody>
                 </table>
             </div>
+
+            <?php
+            $pagPagina = $paginaActual;
+            $pagTotal = $totalPaginas;
+            $pagUrl = $ticketsUrl;
+            $pagEtiqueta = 'Paginación de tickets';
+            // Sin data-reactive-page: esta vista no tiene el andamiaje de filtros
+            // reactivos (ni bloque $partialOnly ni contenedor de resultados), así
+            // que los enlaces navegan como enlaces.
+            include __DIR__ . '/../partials/_pagination.php';
+            ?>
         <?php endif; ?>
     </section>
 </section>

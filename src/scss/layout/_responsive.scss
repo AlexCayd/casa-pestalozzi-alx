@@ -17,7 +17,7 @@
 @media (max-width: 760px) {
   :root { --pad: 1.3rem; }
 
-  .section { padding: clamp(3.5rem, 9vh, 6rem) var(--pad); }
+  .section { padding: clamp(4.5rem, 11vh, 7.5rem) var(--pad); }
   .brand-mark { font-size: 1.1rem; }
   .nav-toggle { width: 52px; height: 52px; }
 

@@ -50,8 +50,7 @@
 
   &__actions,
   &__row-actions,
-  &__form-actions,
-  &__pagination {
+  &__form-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -161,33 +160,12 @@
     background: var(--admin-surface-soft);
   }
 
-  &__badge,
-  &__tag {
-    display: inline-flex;
-    align-items: center;
-    min-height: 26px;
-    padding: 0 9px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  &__badge.is-active {
-    border: 1px solid color-mix(in srgb, var(--admin-c-verde) 28%, transparent);
-    background: color-mix(in srgb, var(--admin-c-verde) 14%, transparent);
-    color: var(--admin-success-text);
-  }
-
-  &__badge.is-inactive {
-    border: 1px solid color-mix(in srgb, var(--admin-c-rojo) 24%, transparent);
-    background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
-    color: var(--admin-danger-text);
-  }
-
-  &__tag {
-    background: color-mix(in srgb, var(--admin-gold-deep) 14%, transparent);
-    color: var(--admin-gold-deep);
-  }
+  /* `&__badge` y `&__tag` se retiraron. El badge de estado (Activa/Inactiva)
+     pasó a .admin-badge--success/--danger y la etiqueta de categoría a
+     .admin-tag, los dos de _tables.scss: eran una tercera copia del mismo
+     vocabulario, y además __tag pintaba en dorado tanto el ROL como la
+     CONEXIÓN de una impresora, así que "Cuenta" y "Red" se leían como el
+     mismo tipo de dato. */
 
   &__muted,
   &__help {
@@ -202,10 +180,9 @@
     font-size: 14px;
   }
 
-  &__pagination {
-    justify-content: flex-end;
-    margin-top: 18px;
-  }
+  // La paginación se fue a .admin-pagination (_tables.scss) el día que Tickets
+  // pasó a necesitarla: era cromo compartido viviendo en la hoja de un módulo,
+  // y el otro consumidor habría tenido que cargar menu.css entero.
 
   &__form {
     display: grid;
@@ -560,93 +537,19 @@
   }
 }
 
-.admin-table-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  white-space: nowrap;
-
-  form {
-    margin: 0;
-  }
-}
-
-.admin-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 48%, transparent);
-  border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  box-shadow:
-    var(--admin-shadow-sm),
-    inset 0 0 0 1px color-mix(in srgb, var(--admin-text) 12%, transparent);
-  cursor: pointer;
-  text-decoration: none;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease,
-    transform 120ms ease;
-
-  svg {
-    width: 17px;
-    height: 17px;
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2;
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--admin-gold-deep) 68%, transparent);
-    background: var(--admin-surface-strong);
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--admin-sombra) 10%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--admin-gold);
-    outline-offset: 2px;
-  }
-
-  &:active {
-    transform: translateY(1px);
-  }
-
-  &:disabled,
-  &[disabled] {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-}
-
-.admin-icon-button--edit {
-  border-color: color-mix(in srgb, var(--admin-gold-deep) 58%, transparent);
-  color: var(--admin-gold-deep);
-}
-
-.admin-icon-button--danger {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
-  background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
-  color: var(--admin-danger-text);
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--admin-c-rojo) 58%, transparent);
-    background: color-mix(in srgb, var(--admin-c-rojo) 16%, transparent);
-    color: var(--admin-danger-text);
-  }
-}
+/*
+ * .admin-table-actions, .admin-icon-button y sus variantes --edit y --danger
+ * VIVÍAN AQUÍ DUPLICADAS, con otro aspecto que el de _tables.scss: contorno
+ * dorado en vez de relleno sólido. Como menu.css carga DESPUÉS de admin.css y
+ * la especificidad era idéntica, esta copia ganaba — y sólo en los cuatro
+ * módulos que cargan esta hoja (menú, tickets, impresoras y usuarios). El
+ * resultado era que el mismo botón de editar se veía de dos maneras según el
+ * módulo, y que un cambio en la clase compartida no llegaba a la mitad del
+ * panel.
+ *
+ * Se quedan abajo únicamente las variantes que NO existen en el compartido:
+ * --danger-text y --text, que son de este módulo.
+ */
 
 .admin-icon-button--danger-text {
   width: auto;
@@ -808,8 +711,7 @@
       padding: 16px;
     }
 
-    &__form-actions,
-    &__pagination {
+    &__form-actions {
       justify-content: stretch;
     }
 
@@ -840,4 +742,29 @@
   .admin-filters {
     padding: 12px;
   }
+}
+
+/* ── Estaciones de impresión ───────────────────────────────────
+ *
+ * La página de impresoras carga menu.css por la estructura compartida de
+ * tabla y formulario, así que lo suyo vive aquí.
+ *
+ * Los dos roles son una categoría, no un estado, y por eso salen de la serie
+ * categórica de la paleta y no de la familia success/warning/danger: la
+ * impresora de la cuenta y las de comanda son dos cosas distintas, ninguna es
+ * "peor" que la otra. Índigo y turquesa se separan por luminosidad, así que
+ * siguen distinguiéndose bajo deuteranopia.
+ */
+.admin-tag--cuenta { --admin-tag-tono: var(--admin-c-indigo); }
+.admin-tag--comanda { --admin-tag-tono: var(--admin-c-turquesa); }
+
+/* La IP y el puerto bajan a su propia línea: pegados a la etiqueta de conexión
+   se leían como una sola cosa. En mono porque es una dirección, y con el
+   tamaño un punto por debajo del cuerpo — es un dato de configuración, no lo
+   que se busca al recorrer la tabla. */
+.admin-printers__destino {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 12px;
 }

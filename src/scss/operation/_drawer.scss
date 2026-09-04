@@ -105,10 +105,17 @@
   width: clamp(340px, 29vw, 390px);
   min-height: 0;
   padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 14px;
-  background: var(--admin-surface);
-  box-shadow: 22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
+  /* Vidrio y no un plano opaco: el cajón se abre ENCIMA del mapa, y lo que
+     hace que se lea como una capa por delante —y no como un trozo de página
+     recortado— es que el salón se adivine desenfocado detrás. */
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-glass-bg-strong);
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  box-shadow:
+    inset 0 1px 0 var(--admin-glass-edge),
+    22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
   overflow: hidden;
   flex-direction: column;
   transform: translateX(calc(-100% - var(--operational-shell-pad)));
@@ -130,18 +137,20 @@
   border-bottom: 1px solid var(--admin-border-soft);
 }
 
+// El título envuelve en vez de recortarse. Con nowrap + ellipsis, en el cajón
+// a su ancho mínimo (340 px, compartido con la fecha, el contador y el aspa)
+// quedaba en "Reservaciones de…", y un encabezado a medias no dice qué hay
+// debajo. Dos líneas en el peor caso es más barato que esconder la mitad.
 .operational-page .operational-drawer__title {
   min-width: 0;
   flex: 1 1 auto;
   margin: 0;
-  overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .operational-drawer__meta {
@@ -159,20 +168,35 @@
   padding: 0;
 }
 
+/*
+ * Los tres destinos repartían el ancho a partes iguales (`flex: 1 1 0`) dentro
+ * de un cajón de 340-390 px. Restados padding, icono y separación, a cada
+ * etiqueta le quedaban unos 60 px: "Mesas" cabía y las otras dos salían como
+ * "Reservac…" y "Panel de …", que es justo lo que no puede pasar en una
+ * navegación — un destino recortado obliga a adivinar a dónde lleva.
+ *
+ * Ahora cada enlace mide lo que mide su texto y la fila ENVUELVE: "Mesas" y
+ * "Reservaciones" comparten la primera, "Panel de administración" baja a la
+ * segunda y ocupa el ancho. Cuesta una fila de alto —el cajón la tiene— y
+ * ninguna etiqueta se corta en ningún ancho.
+ */
 .operational-drawer__modules {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 12px 0;
   border-bottom: 1px solid var(--admin-border-soft);
-  overflow: hidden;
 }
 
 .operational-drawer__module-link {
   display: flex;
-  min-width: 0;
+  // min-width: max-content, NO 0: es lo que impide que flex encoja el enlace
+  // por debajo de su etiqueta en vez de mandarlo a la fila siguiente.
+  min-width: max-content;
   min-height: 44px;
-  flex: 1 1 0;
+  // Base por contenido y crecimiento para repartir el sobrante de cada fila.
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -199,10 +223,11 @@
     stroke-width: 1.8;
   }
 
+  // Sin recorte: si algún día una etiqueta no cupiera ni en su propia fila,
+  // el sitio de arreglarlo es el texto, no un ellipsis que la esconde.
   span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   &:hover,
@@ -350,7 +375,7 @@
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--scrim) 62%, transparent);
+  background: var(--veil);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }

@@ -22,9 +22,10 @@
   <div class="hero__velo" aria-hidden="true"></div>
   <div class="hero__grano" aria-hidden="true"></div>
 
-  <div class="hero__banda hero__insignia">
-    <span class="eyebrow hero__eyebrow">Cucina Italiana · Del Valle · CDMX</span>
-  </div>
+  <?php /* La banda del rótulo («Cucina Italiana · Del Valle · CDMX») salió de
+           la portada: repetía lo que ya dicen la marca fija de arriba y la
+           firma italiana de debajo del título, y con ella el cartel quedaba
+           cargado por arriba. El hero es ahora dos bandas, no tres. */ ?>
 
   <?php /* El <br /> del título NO es decorativo: splitTitle() envuelve cada
            línea en un .word con white-space: nowrap, así que sin el salto

@@ -609,9 +609,17 @@ class AdminReservacionController
         $asignacion = (string)($_GET['asignacion'] ?? '');
         $origen = (string)($_GET['origen'] ?? '');
 
+        // Ventana por defecto: de hoy a treinta días vista.
+        //
+        // Era [hoy, hoy] —un solo día, la más estrecha del panel, mientras el
+        // resto de los tableros usa treinta vía RangoPeriodo— y ése era el
+        // motivo real de que la pantalla dijera «0 reservaciones» con la base
+        // llena: basta que no haya nadie apuntado para la fecha de hoy. Y una
+        // reservación se consulta HACIA DELANTE, así que la ventana se abre en
+        // esa dirección, no hacia atrás como en analíticas o finanzas.
         if ($fechaInicio === '' && $fechaFin === '') {
             $fechaInicio = $hoy;
-            $fechaFin = $hoy;
+            $fechaFin = self::finDeVentanaPorDefecto($hoy);
         } elseif ($fechaInicio !== '' && $fechaFin === '') {
             $fechaFin = $fechaInicio;
         } elseif ($fechaInicio === '' && $fechaFin !== '') {
@@ -652,16 +660,29 @@ class AdminReservacionController
         ];
     }
 
+    /** Días que abarca la ventana por defecto, contando hoy. */
+    private const VENTANA_POR_DEFECTO_DIAS = 30;
+
+    private static function finDeVentanaPorDefecto(string $hoy): string
+    {
+        $fin = date_create_immutable($hoy);
+
+        return $fin
+            ? $fin->modify('+' . (self::VENTANA_POR_DEFECTO_DIAS - 1) . ' days')->format('Y-m-d')
+            : $hoy;
+    }
+
     private static function hayFiltrosActivos(array $filtros): bool
     {
         $hoy = ReservacionConfig::fechaActual();
+        $finPorDefecto = self::finDeVentanaPorDefecto($hoy);
 
         return (string)($filtros['q'] ?? '') !== ''
             || (string)($filtros['estado'] ?? '') !== ''
             || (string)($filtros['asignacion'] ?? '') !== ''
             || (string)($filtros['origen'] ?? '') !== ''
             || (string)($filtros['fecha_inicio'] ?? '') !== $hoy
-            || (string)($filtros['fecha_fin'] ?? '') !== $hoy;
+            || (string)($filtros['fecha_fin'] ?? '') !== $finPorDefecto;
     }
 
     private static function fechaValida(string $fecha): bool

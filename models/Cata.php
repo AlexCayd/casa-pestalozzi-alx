@@ -3,11 +3,16 @@
 namespace Model;
 
 /**
- * Una cata dirigida: sesión con fecha, cupo y precio.
+ * Una cata dirigida: fecha, duración, precio y un interruptor de cupo.
  *
- * El modelo sólo valida y transporta. El cupo disponible, la publicación y el
- * paso a 'agotada' viven en Services\CataService, porque dependen de las
- * inscripciones y no de la fila.
+ * El modelo sólo valida y transporta. Lo que decide si una cata sale en la
+ * landing —únicamente que no haya ocurrido todavía— vive en
+ * Services\CataService, porque depende del reloj y no de la fila.
+ *
+ * Tuvo cupo numérico, estado de cinco valores y una tabla de inscripciones
+ * colgando. Se retiraron con el formulario público: el lugar se aparta por
+ * WhatsApp, y un contador que no ve esas conversaciones miente en cuanto
+ * alguien llama. Lo que queda es un sí/no que se declara a mano.
  */
 class Cata extends ActiveRecord
 {
@@ -15,13 +20,8 @@ class Cata extends ActiveRecord
 
     protected static $columnasDB = [
         'id', 'titulo', 'descripcion', 'fecha', 'hora', 'duracion_min',
-        'cupo', 'precio', 'imagen', 'estado', 'created_at', 'updated_at'
+        'precio', 'disponible', 'created_at', 'updated_at'
     ];
-
-    public const ESTADOS = ['borrador', 'publicada', 'agotada', 'realizada', 'cancelada'];
-
-    /** Estados en los que la cata sigue aceptando inscripciones. */
-    public const ESTADOS_ABIERTOS = ['publicada'];
 
     public $id;
     public $titulo;
@@ -29,10 +29,12 @@ class Cata extends ActiveRecord
     public $fecha;
     public $hora;
     public $duracion_min = 90;
-    public $cupo = 12;
     public $precio = 0;
-    public $imagen = null;
-    public $estado = 'borrador';
+    /* Nace CON cupo: una cata recién programada admite gente, y se cierra el día
+       que se llena. Nacía apagada cuando el interruptor decidía además si se
+       veía en la landing; ahora eso lo decide el reloj, así que arrancar en 0
+       publicaría toda cata nueva como agotada. */
+    public $disponible = 1;
     public $created_at;
     public $updated_at;
 
@@ -55,11 +57,6 @@ class Cata extends ActiveRecord
             static::setAlerta('error', 'La hora no es válida');
         }
 
-        $cupo = filter_var($this->cupo, FILTER_VALIDATE_INT);
-        if ($cupo === false || $cupo < 1) {
-            static::setAlerta('error', 'El cupo debe ser un número mayor que cero');
-        }
-
         $duracion = filter_var($this->duracion_min, FILTER_VALIDATE_INT);
         if ($duracion === false || $duracion < 1) {
             static::setAlerta('error', 'La duración debe ser un número de minutos mayor que cero');
@@ -69,11 +66,13 @@ class Cata extends ActiveRecord
             static::setAlerta('error', 'El precio no puede ser negativo');
         }
 
-        if (!in_array($this->estado, self::ESTADOS, true)) {
-            static::setAlerta('error', 'El estado de la cata no es válido');
-        }
-
         return static::$alertas;
+    }
+
+    /** ¿Le quedan lugares? No tiene nada que ver con si se publica. */
+    public function estaDisponible(): bool
+    {
+        return (int)$this->disponible === 1;
     }
 
     /** Momento de inicio en la zona del restaurante, para ordenar y comparar. */

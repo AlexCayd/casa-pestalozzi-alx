@@ -74,7 +74,7 @@
   border-bottom: 1px solid var(--admin-border-soft);
 }
 .admin-pnl__row strong {
-  font-family: var(--admin-font-display, "Fraunces", serif);
+  font-family: var(--admin-font-sans);
   font-size: 17px;
   color: var(--admin-text);
   font-weight: 500;
@@ -193,6 +193,59 @@
 .admin-finanzas__sankey {
   position: relative;
   height: clamp(320px, 40vw, 480px);
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-finanzas__note--ayuda {
+  margin-bottom: 10px;
+}
+
+.admin-sankey__cinta,
+.admin-sankey__nodo {
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-sankey__cinta {
+  cursor: pointer;
+}
+
+.admin-sankey__nodo {
+  cursor: pointer;
+}
+.admin-sankey__nodo:focus-visible {
+  outline: none;
+  stroke: var(--admin-accent);
+  stroke-width: 3;
+  paint-order: stroke;
+}
+
+.admin-sankey__rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.admin-sankey__tip {
+  position: absolute;
+  z-index: 5;
+  max-width: 22rem;
+  padding: 8px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-chart-tooltip);
+  color: var(--admin-paper);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: var(--admin-shadow-md);
+}
+.admin-sankey__tip[hidden] {
+  display: none;
 }
 
 .admin-finanzas__add {

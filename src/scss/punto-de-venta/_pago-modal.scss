@@ -1,0 +1,498 @@
+// ── Modal de cobro del punto de venta ────────────────────────
+//
+// Vivía dentro de src/scss/feedback/_feedback.scss, en sus líneas 444-926: 483
+// líneas del modal de pago del POS metidas debajo de la encuesta del comensal,
+// sin más relación entre las dos que el orden en que se escribieron. Tocar el
+// feedback era tocar el cobro, que es la operación que menos puede romperse.
+//
+// Se separa al mover el POS a su propio bundle: aquí es donde pertenece.
+
+// ── Botones de pago en el modal del mapa ─────────────────────
+// minmax(0, 1fr) y no 1fr: con `1fr` la pista no baja de su min-content, y dos
+// botones con "EFECTIVO"/"TARJETA" espaciados sumaban ~360px contra los 352px
+// útiles del .mesa-modal__panel, así que la fila se salía del contenedor.
+.mmodal-pago-btns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin: 1.25rem 0 .75rem;
+
+  @media (max-width: 420px) { grid-template-columns: 1fr; }
+}
+
+.mmodal-pago-btn {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  padding: 1.25rem 1rem;
+  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  color: color-mix(in srgb, var(--txt) 75%, transparent);
+  transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
+
+  &__icon {
+    display: flex;
+    flex: 0 0 auto;
+    line-height: 1;
+  }
+
+  &__label {
+    min-width: 0;
+    font-size: .85rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  &:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent-text);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  &:active { transform: translateY(0); }
+}
+
+.mmodal-pago-badge {
+  display: inline-block;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-text);
+  border-radius: 50px;
+  padding: .1rem .65rem;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+// Estado activo del selector de método (cuenta completa)
+.mmodal-pago-btn--active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-text);
+}
+
+// ── Elegir tipo de cierre: completa vs dividida ──────────────
+.mmodal-cierre-tipo { padding: .5rem 0 0; text-align: center; }
+
+.mmodal-tipo-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+  margin: 1.25rem 0 .75rem;
+
+  @media (max-width: 420px) { grid-template-columns: 1fr; }
+}
+
+.mmodal-tipo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .4rem;
+  padding: 1.4rem 1rem;
+  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+  color: color-mix(in srgb, var(--txt) 80%, transparent);
+  text-align: center;
+  transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
+
+  &__icon  { display: flex; line-height: 1; color: var(--accent-text); }
+  &__title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; }
+  &__desc  { font-size: .72rem; color: color-mix(in srgb, var(--txt) 55%, transparent); line-height: 1.3; }
+
+  &:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    color: var(--accent-text);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  &:active { transform: translateY(0); }
+}
+
+// Aviso bajo el botón "Cerrar ticket" cuando faltan productos por entregar
+.mmodal-cerrar-hint {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--feedback-warn);
+  text-align: center;
+  margin-bottom: .5rem;
+}
+
+// ── Pago dividido por comensal ───────────────────────────────
+.mmodal-split {
+  padding: .75rem 0 0;
+  text-align: center;
+}
+
+// Selector de modo de reparto (partes iguales / cada quien / vacío)
+.mmodal-split-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .4rem;
+  margin: .85rem 0 .25rem;
+}
+
+.mmodal-split-mode {
+  padding: .5rem .35rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--txt) 3%, transparent);
+  color: color-mix(in srgb, var(--txt) 60%, transparent);
+  font-family: var(--sans);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+
+  &:hover {
+    color: color-mix(in srgb, var(--txt) 90%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  &--active {
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+}
+
+.mmodal-split-table {
+  margin: 1rem 0 .75rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 9%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+}
+
+.mmodal-split-row {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr 1.1fr;
+  align-items: center;
+  gap: .5rem;
+  padding: .55rem .75rem;
+
+  & + & { border-top: 1px solid color-mix(in srgb, var(--txt) 6%, transparent); }
+
+  &--head {
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
+    font-size: .58rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--txt) 50%, transparent);
+  }
+}
+
+.mmodal-split-name {
+  font-size: .82rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--txt) 85%, transparent);
+}
+
+.mmodal-split-metodos {
+  display: flex;
+  gap: .4rem;
+}
+
+.mmodal-split-metodo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .3rem .55rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--txt) 3%, transparent);
+  line-height: 1;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--txt) 45%, transparent);
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+
+  &--active {
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+}
+
+.mmodal-split-monto {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .85rem;
+  color: color-mix(in srgb, var(--txt) 60%, transparent);
+}
+
+// ── Propina explícita ────────────────────────────────────────
+// Se elige antes de capturar el efectivo, porque decide cuánto cambio hay que
+// devolver. En cuenta dividida reparte el porcentaje entre los comensales.
+.mmodal-propina {
+  margin: .9rem 0 0;
+
+  &__label {
+    display: block;
+    margin-bottom: .45rem;
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  &__btns {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+  }
+
+  &__btn {
+    min-height: 40px;
+    padding: .45rem .7rem;
+    flex: 1 1 auto;
+    border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--txt) 4%, transparent);
+    color: color-mix(in srgb, var(--txt) 75%, transparent);
+    font-family: inherit;
+    font-size: .78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+
+    &:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+    &.is-on {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 16%, transparent);
+      color: var(--accent-text);
+    }
+  }
+
+  &__monto {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    margin-top: .5rem;
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
+    font-size: .85rem;
+
+    input[hidden] { display: none; }
+  }
+
+  // "Quédese con el cambio": convierte todo el excedente en propina de un
+  // toque, que es como se resuelve en la mesa la mayoría de las veces.
+  &__quedese {
+    width: 100%;
+    margin-top: .5rem;
+    padding: .5rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+    border-radius: 9px;
+    background: none;
+    color: var(--accent-text);
+    font-family: inherit;
+    font-size: .75rem;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  }
+}
+
+// ── Monto recibido ───────────────────────────────────────────
+// Campo grande y solo: es el dato que el mesero teclea con una mano mientras
+// cuenta billetes con la otra.
+.mmodal-recibido {
+  margin-top: .9rem;
+
+  &[hidden] { display: none; }
+
+  &__label {
+    display: block;
+    margin-bottom: .4rem;
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 56px;
+    padding: 0 .9rem;
+    border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--txt) 5%, transparent);
+    color: color-mix(in srgb, var(--txt) 55%, transparent);
+    font-size: 1.2rem;
+
+    &:focus-within { border-color: var(--accent); }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      background: none;
+      color: var(--txt);
+      font-family: inherit;
+      font-size: 1.6rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      outline: none;
+      -moz-appearance: textfield;
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+  }
+}
+
+// El número que el mesero le dice al cliente: se destaca sobre todo lo demás.
+.mmodal-cambio {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: .75rem;
+  padding: .7rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+
+  &[hidden] { display: none; }
+
+  &__label {
+    color: color-mix(in srgb, var(--txt) 72%, transparent);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  &__val {
+    color: var(--accent-text);
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.mmodal-total-row--fuerte {
+  padding-top: .45rem;
+  border-top: 1px solid color-mix(in srgb, var(--txt) 10%, transparent);
+
+  .mmodal-total-label { color: color-mix(in srgb, var(--txt) 85%, transparent); }
+
+  .mmodal-total-amount {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+}
+
+// Rellena el importe exacto de un toque. Sustituye al atajo anterior de dejar
+// el campo vacío: el monto se sigue capturando rápido, pero queda escrito y
+// confirmado antes de cerrar la cuenta.
+.mmodal-monto-exacto {
+  flex-shrink: 0;
+  padding: .42rem .6rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 8px;
+  background: none;
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s;
+
+  &:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+}
+
+.mmodal-split-input {
+  width: 100%;
+  min-width: 0;
+  padding: .42rem .5rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  color: var(--txt);
+  font-size: .9rem;
+  font-weight: 600;
+  text-align: right;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+}
+
+.mmodal-split-status {
+  margin: .5rem 0 .25rem;
+  text-align: left;
+}
+
+// flex con justify-content:flex-end, no text-align:right: el ✓ pasó a ser un
+// SVG con su <span> al lado, y sobre una caja flex el text-align ya no coloca
+// nada. El resultado visible es el mismo, la línea sigue pegada a la derecha.
+.mmodal-split-diff {
+  justify-content: flex-end;
+  margin: .4rem 0 0;
+  font-size: .78rem;
+  font-weight: 700;
+
+  &--ok    { color: var(--feedback-ok); }
+  &--falta { color: var(--feedback-warn); }
+  &--sobra { color: var(--feedback-danger); }
+}
+
+// El `opacity: .35` que vivía aquí se retiró: este archivo carga DESPUÉS de
+// _punto-de-venta.scss, así que pisaba el estado deshabilitado que allí se
+// define —fondo neutro y contorno propio— y devolvía el botón a un fantasma
+// sin forma sobre el cristal del panel. El resto del estado vive allí.
+.mmodal-btn:disabled {
+  cursor: not-allowed;
+
+  &:active { transform: none; }
+}
+
+// ── Panel de encuesta en el modal del mapa ───────────────────
+.mmodal-feedback-encuesta {
+  padding: 1rem 0 .5rem;
+  text-align: center;
+
+  &__title {
+    font-size: .82rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--txt) 60%, transparent);
+    margin: 0 0 1.25rem;
+  }
+}

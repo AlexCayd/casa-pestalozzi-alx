@@ -3,10 +3,14 @@
  * Selector de periodo compartido por los tableros del admin.
  *
  * Espera $rango tal y como lo devuelve Services\RangoPeriodo::resolver().
+ *
+ * La comparación contra el periodo anterior ya no se pregunta: va siempre
+ * encendida. El interruptor que la ofrecía salió del popover, y con él el
+ * parámetro $rangeCompare — los módulos que no leen un periodo previo
+ * simplemente no pintan deltas, sin necesidad de apagar nada aquí.
+ *
  * Parámetros opcionales:
  * - $rangeCaption: rótulo a la izquierda del disparador.
- * - $rangeCompare: false para ocultar el interruptor de comparación en módulos
- *   que todavía no saben leer un periodo previo.
  * - $rangeStartParam / $rangeEndParam: nombres de query para el rango.
  * - $rangeAllowFuture: permite navegar y elegir fechas posteriores a hoy.
  * - $rangeShowPresets: oculta presets cuando sólo interesa un periodo libre.
@@ -17,7 +21,6 @@
  */
 $rango = is_array($rango ?? null) ? $rango : [];
 $rangeCaption = (string) ($rangeCaption ?? 'Periodo');
-$rangeCompare = (bool) ($rangeCompare ?? true);
 $rangeStartParam = (string) ($rangeStartParam ?? 'desde');
 $rangeEndParam = (string) ($rangeEndParam ?? 'hasta');
 $rangeAllowFuture = (bool) ($rangeAllowFuture ?? false);
@@ -106,21 +109,12 @@ foreach (\Services\RangoPeriodo::PRESETS as $dias) {
                 </div>
             </div>
 
-            <?php if ($rangeCompare) : ?>
-                <?php // Comparar contra el periodo inmediatamente anterior de la
-                      // misma duración: es lo que separa "vendimos más" de
-                      // "el periodo era más largo". ?>
-                <label class="admin-range__compare admin-switch">
-                    <input type="checkbox" data-range-compare <?php echo $rangeComparar ? 'checked' : ''; ?>>
-                    <span class="admin-switch__track" aria-hidden="true">
-                        <span class="admin-switch__thumb"></span>
-                    </span>
-                    <span class="admin-range__compare-text">
-                        Comparar con el periodo anterior
-                        <small><?php echo $rangeEscape((string) ($rango['prevLabel'] ?? '')); ?></small>
-                    </span>
-                </label>
-            <?php endif; ?>
+            <?php /* El interruptor de comparación salió del popover: comparar
+                     contra el periodo inmediatamente anterior de la misma
+                     duración es lo que separa "vendimos más" de "el periodo era
+                     más largo", así que no es una opción — está siempre puesto.
+                     Los deltas y el pie "$… en el periodo anterior" de las
+                     tarjetas siguen igual. */ ?>
 
             <div class="admin-range__foot">
                 <span class="admin-range__summary" data-range-summary aria-live="polite"></span>
@@ -134,7 +128,7 @@ foreach (\Services\RangoPeriodo::PRESETS as $dias) {
 </div>
 <?php
 unset(
-    $rangeCaption, $rangeCompare, $rangeStartParam, $rangeEndParam, $rangeAllowFuture,
+    $rangeCaption, $rangeStartParam, $rangeEndParam, $rangeAllowFuture,
     $rangeShowPresets, $rangePreserveQuery, $rangeEscape, $rangeStart, $rangeEnd, $rangePreset,
     $rangeLabel, $rangeComparar, $rangeEsCustom, $rangeMesesCortos, $rangeBonita,
     $rangeResumen, $rangePresets

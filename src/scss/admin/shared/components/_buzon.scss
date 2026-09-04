@@ -9,22 +9,44 @@
   flex: 0 0 40px;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--admin-border);
+  // Sólo la caja. El relleno sólido, la tinta y el hover salen del bloque de
+  // --tono de _topbar.scss, y el atajo `border` no puede usarse aquí: escribe
+  // border-color a currentcolor y, como este archivo carga DESPUÉS de topbar,
+  // ganaría por orden.
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 
   svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
-  &:hover { border-color: var(--admin-gold); color: var(--admin-text); background: var(--admin-surface-strong); }
-  &:focus-visible { outline: 2px solid var(--admin-gold); outline-offset: 3px; }
-  &.is-empty { opacity: .52; box-shadow: none; }
-  &.has-items { opacity: 1; color: var(--admin-gold); }
-  &.has-followup { color: var(--admin-gold); }
-  &.has-high-priority { border-color: var(--admin-danger); color: var(--admin-danger-text); box-shadow: 0 8px 24px rgba(126, 37, 38, .24); }
+
+  // Los ESTADOS ya no cambian el relleno, porque el relleno es el que identifica
+  // al botón: el buzón es azul haya o no mensajes, igual que el de reportar es
+  // ámbar. Lo que dice "hay algo" es el contador, y lo que dice "hay algo
+  // urgente" es el cambio de familia entero a rojo.
+  //
+  // El buzón vacío tampoco se atenúa: sobre un relleno sólido una opacidad baja
+  // se lee como un botón deshabilitado, no como "no hay nada nuevo".
+  &.is-empty,
+  &.has-items,
+  &.has-followup { box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent); }
+
+  // La prioridad alta es la única excepción al azul: cuando hay algo urgente
+  // el color deja de decir "notificaciones" y pasa a decir "atiende esto".
+  &.has-high-priority {
+    --tono: var(--admin-c-rojo);
+
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  }
 }
 
+// El contador vive ENCIMA de un relleno sólido, así que ya no puede ser del
+// color del botón: sobre azul un chip azul desaparece. Se invierte —papel con
+// la cifra en tinta, 18:1— y el aro toma el tono del botón, que es lo que lo
+// separa tanto del relleno como de la barra: un aro del color de la página se
+// perdería contra el fondo casi negro del tema oscuro. Y como el aro es --tono,
+// la variante de prioridad alta lo cambia sola.
 .admin-topbar__inbox-badge {
   position: absolute;
   top: -5px;
@@ -34,12 +56,14 @@
   height: 20px;
   padding: 0 5px;
   place-items: center;
-  border: 2px solid var(--admin-topbar-bg);
+  border: 2px solid var(--tono, var(--admin-bg));
   border-radius: 999px;
-  background: var(--admin-danger);
-  color: #fff;
+  background: var(--admin-paper);
+  color: var(--admin-ink);
+  font-family: var(--admin-font-mono);
   font-size: 10px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -52,7 +76,7 @@
     position: fixed;
     z-index: 180;
     inset: 0;
-    background: rgba(7, 8, 9, .5);
+    background: var(--admin-sidebar-backdrop);
     opacity: 0;
     pointer-events: auto;
     transition: opacity var(--admin-t-base) var(--admin-ease-out);
@@ -71,7 +95,7 @@
     grid-template-rows: auto auto minmax(0, 1fr);
     border-left: 1px solid var(--admin-border);
     background: var(--admin-bg);
-    box-shadow: -24px 0 60px rgba(0, 0, 0, .28);
+    box-shadow: -24px 0 60px color-mix(in srgb, var(--admin-sombra) 34%, transparent);
     pointer-events: auto;
     transform: translateX(102%);
     transition: transform var(--admin-t-base) var(--admin-ease);

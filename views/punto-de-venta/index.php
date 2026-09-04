@@ -36,13 +36,13 @@ $usuarioJson = json_encode([
   <meta name="theme-color" content="#101210">
   <title>Punto de Venta · Casa Pestalozzi</title>
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/build/css/app.css?v=marca-manual-v1">
+  <?php /* Geist locales: el piso funciona sin red. */ ?>
+  <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/build/css/operation.css?v=consola-bn-v1">
 </head>
 
-<body class="mapa-page operational-page" data-modo="oscuro" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
+<body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
   // Selector de fecha; se muestra dentro del cajón de reservaciones.

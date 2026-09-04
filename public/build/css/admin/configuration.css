@@ -167,6 +167,22 @@
   outline: 2px solid var(--announcement-gold-soft);
   outline-offset: 2px;
 }
+.hero-announcement__progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--line-soft) 60%, transparent);
+}
+.hero-announcement__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--announcement-accent);
+  transform: scaleX(1);
+  transform-origin: left center;
+  will-change: transform;
+}
 
 /*
  * Envoltorio de diálogo.

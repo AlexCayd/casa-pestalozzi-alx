@@ -24,3 +24,8 @@
 @use '../../components/confirmation-modal';
 @use '../../components/app-notice';
 @use 'components/placeholders';
+
+// La capa de acabado va la última a propósito: refina el vocabulario ya
+// declarado arriba (canto iluminado, foco de cursor, barrido especular, anillo
+// de foco y scroll) sin tener que editar cada componente.
+@use 'components/finishes';

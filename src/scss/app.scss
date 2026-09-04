@@ -35,9 +35,12 @@
 @use 'components/privacidad';
 @use 'components/lightbox';
 @use 'components/tweaks';
-// El POS reutiliza el estado vacío del sidebar de reservaciones.
-@use 'operation/empty-state';
-@use 'punto-de-venta/punto-de-venta';
-@use 'area/area';
+// El feedback es lo ÚNICO de piso que se queda en el bundle público, y es
+// deliberado: lo abre un comensal en la tablet al terminar de comer, así que
+// pertenece a la marca del restaurante y no al sistema administrativo.
+//
+// El POS, los tableros de área y el login se fueron a
+// operation/app-operation.scss → /build/css/operation.css. Cargaban este
+// bundle entero —la landing completa: hero, galería, lightbox, las 2.692
+// líneas del formulario de reservación— sólo para llegar a su propio SCSS.
 @use 'feedback/feedback';
-@use 'auth/login';

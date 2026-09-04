@@ -6,8 +6,11 @@
   cursor: auto;
   overflow-x: hidden;
 
-  --schedule-change-status-error: #efaa9a;
-  --schedule-change-status-success: #acd2a2;
+  // Salían de un coral y un verde elegidos a mano. Los roles ya existen y son
+  // los que usa el resto de la casa, así que un error aquí se ve igual que en
+  // cualquier otra pantalla.
+  --schedule-change-status-error: var(--feedback-danger);
+  --schedule-change-status-success: var(--feedback-ok);
   --schedule-change-control-bg: var(--surface-2);
   --schedule-change-control-border: var(--line);
   --schedule-change-control-radius: 10px;
@@ -65,7 +68,7 @@
   padding: clamp(1.75rem, 3.5vw, 2.5rem);
   border: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .24);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--sombra) 24%, transparent);
 }
 
 .schedule-change-context { display: grid; min-width: 0; align-content: start; gap: clamp(1.5rem, 4vh, 2.75rem); }
@@ -144,7 +147,7 @@
 .schedule-change-form .guests-stepper:focus-within {
   border-color: var(--accent);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(204, 163, 82, .16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 20%, transparent);
 }
 .schedule-change-page.reserva .field .reservation-control--textarea { min-height: 64px; resize: vertical; line-height: 1.45; }
 .schedule-change-page .hour-picker-control .hour-display { padding-left: 2.35rem !important; padding-right: 2.2rem !important; }
@@ -284,7 +287,7 @@
   text-underline-offset: 4px;
   transition: color .2s var(--ease), text-decoration-color .2s var(--ease);
 
-  &:hover { color: #e3a59d; text-decoration-color: currentColor; }
+  &:hover { color: var(--feedback-danger); text-decoration-color: currentColor; }
   &:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 }
 
@@ -299,14 +302,14 @@ body.is-management-modal-open { overflow: hidden; }
   padding: 1rem;
 
   &[hidden] { display: none; }
-  &__backdrop { position: absolute; inset: 0; border: 0; background: rgba(8, 8, 7, .78); backdrop-filter: blur(5px); }
+  &__backdrop { position: absolute; inset: 0; border: 0; background: color-mix(in srgb, var(--scrim) 78%, transparent); backdrop-filter: blur(5px); }
   &__dialog {
     position: relative;
     width: min(100%, 480px);
     padding: clamp(1.5rem, 5vw, 2.25rem);
     border: 1px solid var(--line);
     background: var(--surface);
-    box-shadow: 0 28px 85px rgba(0, 0, 0, .5);
+    box-shadow: 0 28px 85px color-mix(in srgb, var(--sombra) 50%, transparent);
   }
   h2 { margin: 0; color: var(--beige); font-family: var(--serif); font-size: clamp(1.8rem, 5vw, 2.25rem); font-weight: 400; }
   p { margin: .75rem 0 0; color: var(--txt-mute); line-height: 1.55; }
@@ -316,16 +319,16 @@ body.is-management-modal-open { overflow: hidden; }
 .schedule-change-danger {
   min-height: 46px;
   padding: .72rem 1rem;
-  border: 1px solid #a85d55;
-  background: #733f39;
-  color: #fff4f1;
+  border: 1px solid color-mix(in srgb, var(--c-rojo) 46%, transparent);
+  background: color-mix(in srgb, var(--c-rojo) 72%, var(--txt));
+  color: var(--txt-inverse);
   font: inherit;
   font-size: .82rem;
   font-weight: 700;
   transition: background .2s var(--ease), border-color .2s var(--ease);
 
-  &:hover:not(:disabled) { border-color: #d58a81; background: #8a4942; }
-  &:focus-visible { outline: 2px solid #f0aaa1; outline-offset: 3px; }
+  &:hover:not(:disabled) { border-color: color-mix(in srgb, var(--c-rojo) 62%, transparent); background: color-mix(in srgb, var(--c-rojo) 82%, var(--txt)); }
+  &:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   &:disabled { cursor: not-allowed; opacity: .58; }
 }
 .schedule-change-footer { width: min(100% - 2 * var(--pad), var(--maxw)); padding-bottom: 2rem; margin: 0 auto; color: var(--txt-faint); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }

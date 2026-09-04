@@ -1,0 +1,453 @@
+@use "../../../abstracts/vidrio" as v;
+
+/*
+ * Capa de acabado del panel.
+ *
+ * Va la ÚLTIMA en app-admin.scss y por eso puede refinar el vocabulario ya
+ * definido sin tocar los ocho archivos que lo declaran. Es deliberado: los
+ * componentes siguen siendo suyos —su caja, su layout, sus estados— y aquí sólo
+ * vive lo que hace que el conjunto se sienta caro.
+ *
+ * Regla de la casa para todo lo de este archivo: NADA que dispare layout o paint
+ * durante el scroll o el hover. Sólo `transform`, `opacity` y custom properties,
+ * que el compositor resuelve sin volver a pintar. Un panel de gestión se usa
+ * ocho horas seguidas; un efecto que cueste 3 ms por fotograma se nota en la
+ * batería mucho antes que en el FPS.
+ *
+ * El vidrio de las tarjetas es la excepción negociada a esa regla, y por eso
+ * va con el radio corto (--admin-glass-blur-sm) y con fondo al 88%: en una
+ * rejilla de veinte fichas el desenfoque se compone veinte veces. Si alguna
+ * vez cuesta fotogramas, se retira de .admin-card y se queda en .admin-panel,
+ * que nunca es más de dos por pantalla.
+ *
+ * Seis acabados:
+ *   1 · el canto iluminado que da volumen a una superficie
+ *   2 · el foco de cursor sobre las rejillas de tarjetas
+ *   3 · el barrido especular del botón primario
+ *   4 · el anillo de foco, uno solo para todo
+ *   5 · el scroll de la casa
+ *   6 · la salida de emergencia: sin transparencia ni movimiento
+ */
+
+/* ── 1 · Canto iluminado sobre vidrio ──────────────────────────
+ *
+ * El borde deja de ser `border` y pasa a `box-shadow`, por dos motivos: no
+ * ocupa espacio —así que añadirlo o quitarlo no mueve nada— y permite apilar el
+ * hairline con un highlight interior en el borde superior.
+ *
+ * Ese highlight es todo el truco. Una superficie con una línea clarísima arriba
+ * se lee como si tuviera una luz por encima; sin él es un rectángulo de otro
+ * color. En claro --admin-edge es una sombra tenue en vez de un brillo, porque
+ * sobre blanco un highlight blanco no existe; sobre el vidrio, en cambio, el
+ * canto es lo ÚNICO que separa la lámina del fondo, así que aquí manda
+ * --admin-glass-edge, que sí es un brillo en los dos temas.
+ */
+.admin-body .admin-card,
+.admin-body .admin-panel {
+  @include v.vidrio(tarjeta, var(--admin-glass-bg-soft));
+
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--admin-border),
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-md);
+}
+
+/* La tarjeta de KPI es la misma lámina que .admin-card —de hecho suele vivir
+   dentro de una— y se quedaba fuera del vidrio por no llevar esa clase. En
+   Finanzas son siete seguidas: eran las únicas superficies opacas de la
+   pantalla y rompían la continuidad del conjunto. */
+.admin-body .admin-stat-card {
+  @include v.vidrio(tarjeta, var(--admin-glass-bg-soft));
+
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--admin-border),
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-sm);
+}
+
+/* El diálogo tapa contenido de verdad, no una rejilla, y es uno solo en
+   pantalla: se puede permitir el radio grande de desenfoque y un fondo más
+   opaco. */
+.admin-body .admin-modal__dialog {
+  @include v.vidrio(flotante, var(--admin-glass-bg-strong));
+
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--admin-border),
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-lg);
+}
+
+/* Flotantes sobre el contenido, igual que el diálogo: el popover del periodo y
+   el cajón del buzón se abren ENCIMA de una tabla que se sigue leyendo detrás,
+   que es justo la situación en la que el cristal significa algo. */
+.admin-body .admin-range__pop {
+  @include v.vidrio(flotante, var(--admin-glass-bg-strong));
+
+  /* border: 0 antes del box-shadow, igual que en .admin-card: el hairline pasa
+     a ser una sombra interior, y dejar además el `border` real dibujaría dos
+     filetes de 1px pegados. */
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--admin-border),
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-lg);
+}
+
+/* El cajón sólo cambia de qué está hecho el fondo: conserva su sombra propia
+   —una proyección lateral de 60px que lo despega del contenido— porque
+   sustituirla por la sombra genérica le quitaría el relieve del canto
+   izquierdo, que es lo único que lo separa de la página a pantalla completa. */
+.admin-body .admin-inbox__drawer {
+  @include v.vidrio(flotante, var(--admin-glass-bg-strong));
+}
+
+/* La barra de pestañas: vidrio suave, sólo lo justo para que se despegue del
+   panel sin convertirse en otra tarjeta. Ya tenía una superficie propia
+   (--admin-surface-soft), así que aquí sólo se cambia de qué está hecha.
+
+   .admin-toolbar NO entra: es un flex desnudo sin fondo, y darle cristal le
+   inventaría una superficie que nunca tuvo — una fila de botones pasaría a
+   leerse como un panel. */
+.admin-body .admin-tabs {
+  @include v.vidrio(tarjeta, var(--admin-glass-bg-soft));
+}
+
+.admin-body .admin-card:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--admin-border-strong),
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-lg);
+  /* 2px, no 3: la tarjeta se levanta, no salta. */
+  transform: translateY(-2px);
+}
+
+/* ── 2 · Foco de cursor ────────────────────────────────────────
+ *
+ * El degradado sigue al puntero por la tarjeta. --mx/--my las escribe
+ * motion.js con UN SOLO listener delegado en la rejilla y un rAF por
+ * fotograma: un listener por tarjeta en una pantalla con veinte fichas es
+ * justo lo que convierte un adorno en un problema de rendimiento.
+ *
+ * Reaprovecha el ::before que ya existía para el destello dorado del borde
+ * superior, que en blanco y negro no tenía nada que hacer.
+ */
+.admin-body .admin-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in srgb, var(--admin-accent) 7%, transparent),
+    transparent 62%
+  );
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
+}
+
+.admin-body .admin-card:hover::before {
+  opacity: 1;
+}
+
+/* El contenido tiene que quedar por encima del foco. La tarjeta ya es
+   `position: relative`, así que basta con sacar a los hijos del plano 0. */
+.admin-body .admin-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* En táctil no hay cursor al que seguir, y el hover se queda pegado tras un
+   toque. */
+@media (hover: none) {
+  .admin-body .admin-card::before {
+    display: none;
+  }
+
+  .admin-body .admin-card:hover {
+    transform: none;
+  }
+}
+
+/* ── 3 · Barrido especular ─────────────────────────────────────
+ *
+ * Una banda de luz cruza el botón primario al pasar por encima. Se mueve sólo
+ * con `transform`, así que no repinta: la banda ya está dibujada fuera de la
+ * caja y lo único que cambia es su posición.
+ *
+ * El botón ya trae `overflow: hidden` e `isolation: isolate`, que es lo que
+ * recorta la banda y evita que el z-index se escape del componente.
+ */
+.admin-body .admin-btn--primary::after,
+.admin-body .admin-menu__button--primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent,
+    color-mix(in srgb, var(--admin-on-accent) 22%, transparent),
+    transparent
+  );
+  transform: translateX(0);
+  transition: transform var(--admin-t-slow) var(--admin-ease-out);
+}
+
+.admin-body .admin-btn--primary:hover::after,
+.admin-body .admin-menu__button--primary:hover::after {
+  transform: translateX(360%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-btn--primary::after,
+  .admin-body .admin-menu__button--primary::after {
+    display: none;
+  }
+}
+
+/* Geist a 800 se empasta: su altura de x es alta y los contadores se cierran.
+   550 con el tracking ligeramente abierto es lo que la deja firme sin gritar. */
+.admin-body .admin-btn,
+.admin-body .admin-menu__button {
+  border-radius: 10px;
+  font-weight: 550;
+  letter-spacing: 0.005em;
+}
+
+.admin-body .admin-btn__label,
+.admin-body .admin-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+/* El hover de un botón secundario tiraba del oro; ahora sube un escalón de gris
+   y aprieta el contorno, que es lo que hace en un sistema neutro. */
+.admin-body .admin-btn:hover {
+  border-color: var(--admin-border-strong);
+}
+
+/* ── 4 · Anillo de foco ────────────────────────────────────────
+ *
+ * Uno solo para todo el panel y siempre visible: es tinta sobre papel o papel
+ * sobre tinta, así que no depende de que el componente tenga un fondo concreto.
+ * El doble anillo —halo del color del fondo por dentro, acento por fuera— es lo
+ * que lo mantiene legible también encima de un relleno de acento.
+ */
+.admin-body :focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--admin-bg),
+    0 0 0 4px var(--admin-accent);
+}
+
+/* ── 4b · La transición de tema ────────────────────────────────
+ *
+ * Por defecto el navegador hace un fundido cruzado entre las dos instantáneas.
+ * Aquí estorba: el círculo que abre theme.js quedaría escondido detrás del
+ * fundido. Se apagan las dos animaciones y se apilan las capas —la vieja
+ * quieta debajo, la nueva recortándose encima—, que es lo que hace que el tema
+ * nuevo parezca revelarse desde el botón en vez de disolverse.
+ *
+ * Sin soporte de View Transitions estas reglas simplemente no existen para el
+ * navegador, y theme.js ya cambia el tema en seco.
+ *
+ * OJO CON EL ALCANCE. Desde que el panel también anima la navegación entre
+ * módulos (bloque 4c) estas reglas NO pueden ser globales: apagarían también
+ * el fundido de la página. theme.js marca su transición con el tipo 'tema' y
+ * aquí se filtra por él. En los navegadores sin tipos de transición —que
+ * tampoco hacen la de navegación, porque `@view-transition` llegó después— se
+ * aplican sin filtro, que es como se comportaban antes.
+ */
+@supports not selector(:root:active-view-transition-type(tema)) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  ::view-transition-old(root) { z-index: 1; }
+  ::view-transition-new(root) { z-index: 2; }
+}
+
+:root:active-view-transition-type(tema)::view-transition-old(root),
+:root:active-view-transition-type(tema)::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root:active-view-transition-type(tema)::view-transition-old(root) { z-index: 1; }
+:root:active-view-transition-type(tema)::view-transition-new(root) { z-index: 2; }
+
+/*
+ * Las transiciones se CONGELAN durante el intercambio de tema.
+ *
+ * theme.js pone .admin-theme-switching en <html> antes de arrancar y la quita
+ * al terminar. Sin esto el cambio se trababa siempre en el mismo punto: el
+ * círculo dura 480 ms y .admin-body interpola background y color en 260 ms,
+ * más otras cuarenta transiciones repartidas por los componentes. La
+ * instantánea "nueva" se captura al principio del intercambio, o sea con los
+ * colores a medio camino, así que el círculo revelaba un tema que aún no había
+ * llegado y el DOM real seguía moviéndose por debajo cuando la animación ya
+ * había acabado.
+ *
+ * `!important` y el selector universal son deliberados: hay que ganarle a
+ * cualquier transición declarada en cualquier componente, y es una clase que
+ * vive medio segundo.
+ */
+.admin-theme-switching,
+.admin-theme-switching *,
+.admin-theme-switching *::before,
+.admin-theme-switching *::after {
+  transition: none !important;
+}
+
+/* ── 4c · La transición entre módulos ──────────────────────────
+ *
+ * El panel navega con recarga completa: no hay router de JS y cada módulo es un
+ * documento nuevo. Dos capas, ninguna bloqueante.
+ *
+ * 1) La animación de entrada de .admin-content, que funciona en todos los
+ *    navegadores. Sólo compone `opacity` y `transform` —nada que provoque
+ *    layout— y cuelga de .admin-anim-ready, la clase que el script del layout
+ *    NO pone cuando hay `prefers-reduced-motion`.
+ *
+ * 2) Donde haya soporte, la transición de documento cruzado. Con ella activa la
+ *    animación de entrada de (1) sobra —se duplicaría el fundido—, y por eso se
+ *    anula dentro del @supports.
+ *
+ * NINGÚN elemento lleva `view-transition-name`, y no es un olvido. Nombrar el
+ * topbar y el sidebar para que "se queden quietos" parece lo obvio, pero un
+ * nombre les da grupo propio en TODAS las transiciones del documento, incluida
+ * la del tema: sus instantáneas se apilarían por encima y taparían el círculo
+ * justo mientras se abre. Sin nombres, la raíz funde la página entera, y como
+ * el topbar y el sidebar son idénticos entre módulos, fundir píxeles iguales no
+ * se ve: el efecto es exactamente el que se buscaba, y gratis.
+ */
+.admin-anim-ready .admin-content {
+  animation: admin-page-in 220ms var(--admin-ease-out) both;
+}
+
+@keyframes admin-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@supports (view-transition-name: none) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  /* La transición del navegador ya hace el fundido; el keyframe encima lo
+     duplicaba y el contenido entraba dos veces. */
+  .admin-anim-ready .admin-content { animation: none; }
+
+  /* Sólo la navegación: la del tema entra por el bloque 4b, que le apaga la
+     animación de raíz para dejar paso al círculo. 220 ms es lo que tarda en
+     leerse como un cambio y no como una espera. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: var(--admin-ease-out);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-content { animation: none; }
+
+  @view-transition {
+    navigation: none;
+  }
+}
+
+/* ── 5 · Scroll de la casa ─────────────────────────────────────
+ *
+ * El patrón de CLAUDE.md, aplicado de una vez a todo contenedor con scroll
+ * propio en lugar de repetirlo en cada módulo. Los que además necesitan que
+ * Lenis les suelte la rueda están listados en SCROLLABLES (admin/core/motion.js)
+ * y los marca con [data-lenis-prevent]: eso es JS y no puede resolverse aquí.
+ */
+.admin-body [data-lenis-prevent],
+.admin-body .admin-table-wrap,
+.admin-body .admin-modal__body {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: var(--admin-border-strong);
+  }
+}
+
+/* ── 6 · Sin transparencia ─────────────────────────────────────
+ *
+ * `prefers-reduced-transparency` es una preferencia del sistema, y quien la
+ * activa suele hacerlo por mareo o por baja visión, no por gusto. Aquí no
+ * basta con quitar el blur: un fondo al 68% SIN desenfoque deja el texto
+ * encima de lo que haya debajo, que es peor que el vidrio. Hay que devolver
+ * la superficie a opaca.
+ *
+ * Se escribe con los tokens, no con reglas por componente, para que valga en
+ * los dos temas y en las cinco pantallas de piso a la vez.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .admin-body {
+    --admin-glass-bg: var(--admin-bg);
+    --admin-glass-bg-strong: var(--admin-surface-strong);
+    --admin-glass-bg-soft: var(--admin-surface);
+    --glass-bg: var(--admin-bg);
+    --glass-bg-strong: var(--admin-surface-strong);
+    --glass-bg-soft: var(--admin-surface);
+
+    /* El velo sí sube: sin desenfoque detrás, lo único que aísla el diálogo
+       del fondo es la opacidad del velo. */
+    --admin-veil: color-mix(in srgb, var(--admin-sombra) 82%, transparent);
+  }
+
+  .admin-body :where(
+    .admin-card,
+    .admin-panel,
+    .admin-stat-card,
+    .admin-modal__dialog,
+    .admin-modal__backdrop,
+    .admin-range__pop,
+    .admin-inbox__drawer,
+    .admin-tabs,
+    .admin-topbar,
+    .admin-sidebar,
+    .admin-select__dropdown,
+    .operational-drawer,
+    .operational-header,
+    .mesa-modal__panel,
+    .pos-prefs__dialog
+  ) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -214,29 +214,52 @@
     }
   }
 
-  // Una cata agotada sigue visible —comunica demanda— pero se apaga.
-  //
-  // La atenuación va PIEZA A PIEZA y no con un `opacity: 0.55` sobre la fila
-  // entera: la opacidad del padre arrastra a todos los hijos, así que también
-  // apagaba la chapa de "Agotada" —el único dato por el que esa fila sigue ahí—
-  // y encima se sumaba al `--txt-faint` que la chapa ya tenía. Dos atenuaciones
-  // encadenadas sobre el dato más importante de la fila.
-  &--cerrada {
-    .cata__titulo,
+  // La agenda publica TODO lo que no ha ocurrido, con cupo o sin él. La fila sin
+  // cupo se atenúa y además queda BLOQUEADA: no lleva ningún enlace. Se baja el
+  // cuerpo y el precio, pero NUNCA el título ni el sello, que son justamente lo
+  // que hay que leer para entender por qué no se puede entrar.
+  &--sin-cupo {
     .cata__texto,
     .cata__meta,
-    .cata__precio { color: var(--txt-faint); }
+    .cata__precio {
+      color: var(--txt-faint);
+    }
 
-    .cata__fecha { border-color: var(--line-soft); }
-    .cata__dia,
-    .cata__mes { color: var(--txt-faint); }
+    .cata__fecha {
+      opacity: 0.72;
+    }
 
-    img { filter: grayscale(1); }
-
+    // Sin botón debajo, el desplazamiento del hover prometía una acción que ya
+    // no existe.
     &:hover {
       padding-left: 0;
+
+      .cata__titulo {
+        color: inherit;
+      }
     }
   }
+}
+
+// El sello va dentro del <h3> y en la voz sans de la casa: en serif competiría
+// con el propio título. Hereda el ámbar de advertencia de la paleta funcional,
+// que es el rol correcto —«no puedes entrar aquí»— sin llegar al rojo de error.
+.cata__sello {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.3em 0.7em;
+  transform: translateY(-0.22em);
+  border: 1px solid color-mix(in srgb, var(--c-ambar) 52%, transparent);
+  border-radius: 999px;
+  background: var(--feedback-warn-bg);
+  color: var(--feedback-warn);
+  font-family: var(--sans);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 // Ficha de calendario. El día grande es el ancla visual de cada fila.
@@ -293,14 +316,13 @@
   color: var(--txt-faint);
 }
 
-.cata__cupo {
-  color: var(--accent-text);
-}
-
+// Cuando la cata está sin cupo el precio se queda solo en esta columna: el
+// `justify-content` lo mantiene a la altura del título en vez de pegado arriba.
 .cata__accion {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: center;
   gap: 0.9rem;
   text-align: right;
 }
@@ -324,25 +346,6 @@
   }
 }
 
-// Chapa sólida, no texto tenue. Era `--txt-faint` dentro de una fila ya
-// atenuada: el estado que decide si alguien puede o no inscribirse era lo menos
-// legible de la fila. Misma forma que .reserva__hours-badge, que es el
-// vocabulario de chapa de la casa, y en relleno de acento —beige sobre café en
-// esta sección— para que gane a todo lo que tiene alrededor.
-.cata__agotada {
-  display: inline-block;
-  padding: 0.34rem 0.7rem;
-  border-radius: 3px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--sans);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 // ── Estado vacío ──────────────────────────────────────────────
 .catas__vacio {
   display: flex;
@@ -358,144 +361,6 @@
     font-family: var(--crimson);
     font-size: clamp(1.1rem, 2vw, 1.4rem);
     color: var(--txt-mute);
-  }
-}
-
-// ── Panel de inscripción ──────────────────────────────────────
-//
-// Se abre bajo la agenda en lugar de en un modal: en móvil un diálogo con seis
-// campos obliga a scrollear dentro de una capa, y aquí basta con bajar.
-.catas__panel {
-  margin-top: clamp(2rem, 5vh, 3.5rem);
-
-  &[hidden] {
-    display: none;
-  }
-}
-
-.cata-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.4rem;
-  padding: clamp(1.6rem, 4vw, 2.6rem);
-  border: 1px solid var(--line);
-  background: var(--surface-2);
-}
-
-.cata-form__head {
-  position: relative;
-  padding-right: 2.5rem;
-}
-
-.cata-form__titulo {
-  margin: 0.7rem 0 0;
-  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
-}
-
-.cata-form__cerrar {
-  position: absolute;
-  top: -0.4rem;
-  right: 0;
-  width: 2.2rem;
-  height: 2.2rem;
-  border: 1px solid var(--line);
-  color: var(--txt-mute);
-  font-size: 1.2rem;
-  line-height: 1;
-  transition: color 0.3s, border-color 0.3s;
-
-  &:hover {
-    color: var(--accent-text);
-    border-color: var(--accent);
-  }
-}
-
-.cata-form__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.2rem;
-}
-
-.cata-form__campo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-
-  > span {
-    font-size: 0.64rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--txt-faint);
-  }
-
-  input,
-  select,
-  textarea {
-    width: 100%;
-    padding: 0.7rem 0;
-    border: none;
-    border-bottom: 1px solid var(--line);
-    background: transparent;
-    color: var(--txt);
-    font-family: var(--serif);
-    font-size: 1.05rem;
-    transition: border-color 0.3s;
-
-    &::placeholder {
-      color: var(--txt-faint);
-      font-family: var(--sans);
-      font-size: 0.9rem;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-  }
-
-  textarea {
-    font-family: var(--sans);
-    font-size: 0.92rem;
-    line-height: 1.7;
-    resize: vertical;
-  }
-
-  &--corto {
-    max-width: 8rem;
-  }
-}
-
-// Campo trampa para bots. No usa display:none: algunos rellenadores lo saltan
-// justamente por eso. Se saca de la pantalla y se le quita el foco.
-.cata-form__trampa {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-.cata-form__pie {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.cata-form__aviso {
-  margin: 0;
-  flex: 1;
-  min-width: 12rem;
-  font-size: 0.85rem;
-  color: var(--txt-mute);
-
-  &.is-error {
-    color: var(--feedback-danger);
-  }
-
-  &.is-ok {
-    color: var(--feedback-ok);
   }
 }
 
@@ -520,10 +385,5 @@
 
   .cata__precio {
     align-items: flex-start;
-  }
-
-  .cata-form__pie {
-    flex-direction: column;
-    align-items: stretch;
   }
 }

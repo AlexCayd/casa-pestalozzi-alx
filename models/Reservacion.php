@@ -68,6 +68,10 @@ class Reservacion extends ActiveRecord {
     public $visible_cliente = false;
     public $dentro_tolerancia = false;
     public $influye_disponibilidad = false;
+    /* Alias largo del anterior. Lo devuelve el mismo servicio porque es el
+       nombre con el que hablan MesaEstadoService y la política del POS; si
+       falta aquí, cada fila de la lista administrativa emite un Deprecated. */
+    public $reservacion_influye_en_disponibilidad = false;
     public $visible_operacion = false;
     public $editable = false;
     public $elegible_no_show = false;

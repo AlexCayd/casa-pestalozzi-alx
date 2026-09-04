@@ -1,401 +1,211 @@
+<?php
+/**
+ * Encuesta de salida del comensal.
+ *
+ * Es la ÚNICA pantalla de tablet que pertenece a la marca del restaurante y no
+ * al sistema administrativo: la abre un cliente al terminar de comer, así que
+ * tiene que verse como la landing. Por eso se queda dentro de `app.css` mientras
+ * el POS, las áreas y el login se fueron a `operation.css`.
+ *
+ * Las cinco caras se dibujan UNA sola vez, aquí. Antes la tabla de colores y los
+ * cinco `path` estaban triplicados —en este archivo, en el JS de la página y en
+ * el SCSS— y los tres discrepaban: el PHP pintaba #e53935 donde el CSS decía
+ * --c-rojo (#e51022). Ahora el SVG va en `currentColor` y el color lo pone el
+ * CSS desde la paleta funcional, que es la única fuente.
+ */
+
+$h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
+
+/**
+ * Una escala de cinco caras.
+ *
+ * Line-art de trazo, no discos planos: el dibujo hereda `currentColor`, así que
+ * la misma marca sirve para el paso y para el resumen sin volver a construirla
+ * —el JS clona este nodo en vez de tener su propia copia—.
+ */
+function renderEscala(string $campo): string {
+    $etiquetas = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
+
+    // Ojos y boca. La boca es lo único que cambia de verdad entre caras; las
+    // cejas sólo aparecen en los extremos, que es lo que las hace legibles de
+    // un vistazo a distancia de brazo.
+    $rasgos = [
+        // 1 · Muy malo — cejas caídas hacia dentro, boca invertida
+        '<path d="M27 34 L41 42"/><path d="M73 34 L59 42"/>
+         <circle cx="36" cy="50" r="3.4" fill="currentColor" stroke="none"/>
+         <circle cx="64" cy="50" r="3.4" fill="currentColor" stroke="none"/>
+         <path d="M34 70 Q50 58 66 70"/>',
+        // 2 · Malo
+        '<circle cx="36" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <circle cx="64" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <path d="M35 68 Q50 60 65 68"/>',
+        // 3 · Regular
+        '<circle cx="36" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <circle cx="64" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <path d="M35 65 L65 65"/>',
+        // 4 · Bueno
+        '<circle cx="36" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <circle cx="64" cy="46" r="3.4" fill="currentColor" stroke="none"/>
+         <path d="M35 61 Q50 73 65 61"/>',
+        // 5 · Excelente — cejas alzadas y sonrisa abierta
+        '<path d="M29 40 Q36 33 43 40"/><path d="M57 40 Q64 33 71 40"/>
+         <circle cx="36" cy="50" r="3.4" fill="currentColor" stroke="none"/>
+         <circle cx="64" cy="50" r="3.4" fill="currentColor" stroke="none"/>
+         <path d="M33 60 Q50 76 67 60 Z"/>',
+    ];
+
+    $html = '<input type="hidden" id="fb-val-' . htmlspecialchars($campo, ENT_QUOTES, 'UTF-8') . '" value="">';
+
+    foreach ($etiquetas as $i => $etiqueta) {
+        $valor = $i + 1;
+        $html .= '<button type="button" class="fb-face fb-face--' . $valor . '"'
+              . ' data-valor="' . $valor . '"'
+              . ' aria-pressed="false"'
+              . ' aria-label="' . htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') . '">'
+              . '<span class="fb-face__disc" aria-hidden="true">'
+              . '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3.2"'
+              . ' stroke-linecap="round" stroke-linejoin="round">'
+              . '<circle cx="50" cy="50" r="45" class="fb-face__aro"/>'
+              . $rasgos[$i]
+              . '</svg></span>'
+              . '<span class="fb-face__label">' . htmlspecialchars($etiqueta, ENT_QUOTES, 'UTF-8') . '</span>'
+              . '</button>';
+    }
+
+    return $html;
+}
+
+$yaRespondio = isset($yaRespondio) && $yaRespondio;
+$tokenValue  = isset($token) && $token ? $h($token) : '';
+
+// Los cuatro ejes de la encuesta. El rótulo numerado es el de la landing y el
+// texto italiano es la voz de la casa.
+$pasos = [
+    ['calidad_sabor',      '01', 'Il sapore',    'Calidad y sabor'],
+    ['atencion_mesero',    '02', 'Il servizio',  'Atención del personal'],
+    ['tiempo_espera',      '03', 'Il tempo',     'Tiempo de espera'],
+    ['experiencia_global', '04', "L'esperienza", 'Experiencia global'],
+];
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tu opinión · Casa Pestalozzi</title>
-  <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
-  <link rel="apple-touch-icon" href="/build/images/logo.svg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="/build/css/app.css" />
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg">
+  <link rel="apple-touch-icon" href="/build/images/logo.svg">
+  <?php /* Las mismas caras que precarga la portada: el wordmark y la cursiva de
+           acento son lo primero que se ve, y un salto de cara en el wordmark se
+           nota más que la espera. */ ?>
+  <link rel="preload" href="/build/fonts/KudosKapsOneNF.otf" as="font" type="font/otf" crossorigin>
+  <link rel="preload" href="/build/fonts/crimson-text-latin-400-italic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/build/css/app.css?v=feedback-marca-v1">
 </head>
-<body class="fb-page" data-modo="oscuro">
+<?php /* Sin data-modo="oscuro": esta pantalla es la landing, no el piso. */ ?>
+<body class="fb-page" data-tono="crema" data-page="feedback">
 
   <div class="fb-shell">
 
-    <?php if (isset($yaRespondio) && $yaRespondio): ?>
+    <?php if ($yaRespondio) : ?>
 
-      <!-- ── Ya respondió ───────────────────────────────── -->
-      <div class="fb-card fb-card--done">
-        <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
-        <div class="fb-done-icon">✓</div>
-        <h1 class="fb-done-title">¡Gracias por tu reseña!</h1>
-        <p class="fb-done-sub">Tu opinión ya fue registrada. Nos alegra que hayas visitado Casa Pestalozzi.</p>
-      </div>
+      <section class="fb-card fb-card--done" data-reveal>
+        <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
+        <span class="fb-done-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="24" cy="24" r="21"/><path d="M15 24.5 L21 30.5 L33 18"/>
+          </svg>
+        </span>
+        <h1 class="fb-done-title">Grazie <em class="accent-italic">mille</em></h1>
+        <p class="fb-done-sub">
+          Tu opinión ya quedó registrada. Nos alegra que hayas venido a Casa Pestalozzi.
+        </p>
+        <a class="btn-line" href="/"><span>Volver al sitio</span><span class="arrow">↗</span></a>
+      </section>
 
-    <?php else: ?>
+    <?php else : ?>
 
-      <!-- ── Formulario por pasos ───────────────────────── -->
-      <div class="fb-card" id="fb-form-wrap">
+      <section class="fb-card" id="fb-form-wrap">
 
         <header class="fb-header">
-          <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
+          <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
           <p class="fb-header__sub">Cuéntanos cómo fue tu experiencia</p>
 
+          <?php /* El contador lo escribe el JS. En el marcado va el valor
+                   inicial correcto: decía «1 de 5» con seis pasos. */ ?>
           <div class="fb-progress">
-            <div class="fb-progress__bar">
+            <div class="fb-progress__bar" role="progressbar"
+                 aria-valuemin="1" aria-valuemax="6" aria-valuenow="1"
+                 aria-label="Progreso de la encuesta">
               <div class="fb-progress__fill" id="fb-progress-fill"></div>
             </div>
-            <span class="fb-progress__label" id="fb-progress-label">1 de 5</span>
+            <span class="fb-progress__label" id="fb-progress-label">1 de 6</span>
           </div>
         </header>
 
         <form class="fb-form" id="fb-form" novalidate>
-          <?php $tokenValue = isset($token) && $token ? htmlspecialchars($token) : ''; ?>
-          <input type="hidden" id="fb-token" value="<?php echo $tokenValue; ?>" />
+          <input type="hidden" id="fb-token" value="<?php echo $tokenValue; ?>">
 
-          <!-- Paso 1 -->
-          <div class="fb-step" data-step="0">
-            <p class="fb-step__label">Calidad y sabor</p>
-            <div class="fb-escala" data-campo="calidad_sabor">
-              <?php echo renderEscala('calidad_sabor'); ?>
+          <?php foreach ($pasos as $i => [$campo, $num, $italiano, $titulo]) : ?>
+            <div class="fb-step" data-step="<?php echo $i; ?>">
+              <span class="eyebrow no-rule"><?php echo $h($num . ' — ' . $italiano); ?></span>
+              <h2 class="fb-step__label"><?php echo $h($titulo); ?></h2>
+              <div class="fb-escala" data-campo="<?php echo $h($campo); ?>" role="group"
+                   aria-label="<?php echo $h($titulo); ?>">
+                <?php echo renderEscala($campo); ?>
+              </div>
             </div>
-          </div>
+          <?php endforeach; ?>
 
-          <!-- Paso 2 -->
-          <div class="fb-step" data-step="1">
-            <p class="fb-step__label">Atención del personal</p>
-            <div class="fb-escala" data-campo="atencion_mesero">
-              <?php echo renderEscala('atencion_mesero'); ?>
-            </div>
-          </div>
-
-          <!-- Paso 3 -->
-          <div class="fb-step" data-step="2">
-            <p class="fb-step__label">Tiempo de espera</p>
-            <div class="fb-escala" data-campo="tiempo_espera">
-              <?php echo renderEscala('tiempo_espera'); ?>
-            </div>
-          </div>
-
-          <!-- Paso 4 -->
-          <div class="fb-step" data-step="3">
-            <p class="fb-step__label">Experiencia global</p>
-            <div class="fb-escala" data-campo="experiencia_global">
-              <?php echo renderEscala('experiencia_global'); ?>
-            </div>
-          </div>
-
-          <!-- Paso 5 — pregunta abierta -->
           <div class="fb-step" data-step="4">
-            <p class="fb-step__label">¿Qué podríamos mejorar para que tu próxima experiencia sea mejor?</p>
-            <textarea class="fb-textarea" id="fb-comentario"
-                      placeholder="Tu opinión es muy valiosa para nosotros…" rows="5"></textarea>
+            <span class="eyebrow no-rule">05 — Le parole</span>
+            <h2 class="fb-step__label">¿Qué podríamos mejorar?</h2>
+            <textarea class="fb-textarea" id="fb-comentario" rows="5"
+                      placeholder="Escribe lo que quieras. Lo leemos todo."></textarea>
           </div>
 
-          <!-- Paso 6 — resumen -->
           <div class="fb-step" data-step="5">
-            <p class="fb-step__label">Confirma tu reseña</p>
+            <span class="eyebrow no-rule">06 — Il riepilogo</span>
+            <h2 class="fb-step__label">Confirma tu reseña</h2>
             <div class="fb-resumen" id="fb-resumen"></div>
           </div>
 
-          <!-- Navegación -->
           <div class="fb-nav">
             <button type="button" class="fb-nav__prev" id="fb-prev">← Anterior</button>
             <button type="button" class="fb-nav__next" id="fb-next">Siguiente →</button>
           </div>
 
-          <p class="fb-error" id="fb-error"></p>
-
-          <button type="submit" class="fb-submit" id="fb-submit">
-            <span id="fb-submit-label">Enviar reseña</span>
+          <button type="submit" class="btn-line btn-line--solid fb-submit" id="fb-submit">
+            <span id="fb-submit-label">Enviar reseña</span><span class="arrow">↗</span>
           </button>
         </form>
-      </div>
+      </section>
 
-      <!-- ── Éxito ──────────────────────────────────────── -->
-      <div class="fb-card fb-card--done" id="fb-success" style="display:none">
-        <a href="/" class="fb-brand-mark">CASA PESTALOZZI</a>
-        <div class="fb-done-icon">✓</div>
-        <h1 class="fb-done-title">¡Gracias por tu reseña!</h1>
-        <p class="fb-done-sub">Tu opinión nos ayuda a seguir mejorando. Fue un placer atenderte en Casa Pestalozzi.</p>
-      </div>
+      <section class="fb-card fb-card--done" id="fb-success" hidden>
+        <a href="/" class="fb-brand-mark">Casa Pestalozzi</a>
+        <span class="fb-done-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="24" cy="24" r="21"/><path d="M15 24.5 L21 30.5 L33 18"/>
+          </svg>
+        </span>
+        <h1 class="fb-done-title">Grazie <em class="accent-italic">mille</em></h1>
+        <p class="fb-done-sub">
+          Tu opinión nos ayuda a seguir mejorando. Fue un placer atenderte.
+        </p>
+        <a class="btn-line" href="/"><span>Volver al sitio</span><span class="arrow">↗</span></a>
+      </section>
 
     <?php endif; ?>
 
   </div>
 
-  <script>
-  (function() {
-    var CAMPOS      = ['calidad_sabor', 'atencion_mesero', 'tiempo_espera', 'experiencia_global'];
-    var FACE_LABELS = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
-    var STEP_LABELS = {
-      calidad_sabor:     'Calidad y sabor',
-      atencion_mesero:   'Atención del personal',
-      tiempo_espera:     'Tiempo de espera',
-      experiencia_global:'Experiencia global'
-    };
-    var TOTAL  = 6;
-
-    var form        = document.getElementById('fb-form');
-    var wrap        = document.getElementById('fb-form-wrap');
-    var success     = document.getElementById('fb-success');
-    var errorEl     = document.getElementById('fb-error');
-    var prevBtn     = document.getElementById('fb-prev');
-    var nextBtn     = document.getElementById('fb-next');
-    var submitBtn   = document.getElementById('fb-submit');
-    var submitLbl   = document.getElementById('fb-submit-label');
-    var progressFill = document.getElementById('fb-progress-fill');
-    var progressLbl  = document.getElementById('fb-progress-label');
-    var steps        = document.querySelectorAll('.fb-step');
-
-    if (!form || !steps.length) return;
-
-    var current = 0;
-
-    function showStep(idx) {
-      if (idx === TOTAL - 1) buildSummary();
-      steps.forEach(function(s, i) {
-        s.classList.toggle('fb-step--active', i === idx);
-      });
-      current = idx;
-      updateUI();
-    }
-
-    function updateUI() {
-      // Progreso
-      var pct = (current / (TOTAL - 1)) * 100;
-      if (progressFill) progressFill.style.width = pct + '%';
-      if (progressLbl)  progressLbl.textContent  = (current + 1) + ' de ' + TOTAL;
-
-      // Botones de navegación
-      prevBtn.style.display   = current === 0        ? 'none' : '';
-      nextBtn.style.display   = current === TOTAL - 1 ? 'none' : '';
-      submitBtn.style.display = current === TOTAL - 1 ? ''     : 'none';
-
-      clearError();
-    }
-
-    function currentCampo() {
-      if (current < CAMPOS.length) return CAMPOS[current];
-      return null;
-    }
-
-    function isRatingStepValid() {
-      var campo = currentCampo();
-      if (!campo) return true; // paso de texto libre o resumen
-      var input = document.getElementById('fb-val-' + campo);
-      return input && input.value !== '';
-    }
-
-    var FACE_COLORS = ['#e53935','#F57C00','#F9A825','#43A047','#29B6F6'];
-    var FACE_PATHS  = [
-      '<path d="M27 33 L41 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><path d="M73 33 L59 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><circle cx="36" cy="47" r="5" fill="#1a1a1a"/><circle cx="64" cy="47" r="5" fill="#1a1a1a"/><path d="M33 69 Q50 59 67 69" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><path d="M33 67 Q50 59 67 67" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><line x1="34" y1="64" x2="66" y2="64" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>',
-      '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/><circle cx="64" cy="44" r="5" fill="#1a1a1a"/><path d="M34 60 Q50 74 66 60" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-      '<path d="M29 42 Q36 35 43 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M57 42 Q64 35 71 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M32 60 Q50 78 68 60 Q50 70 32 60Z" fill="#1a1a1a"/>'
-    ];
-
-    function buildSummary() {
-      var html = '';
-      CAMPOS.forEach(function(campo) {
-        var input = document.getElementById('fb-val-' + campo);
-        var val   = input ? parseInt(input.value, 10) : 0;
-
-        html += '<div class="fb-resumen-row" data-campo="' + campo + '">';
-        html += '<div class="fb-resumen-row__label">' + STEP_LABELS[campo] + '</div>';
-        html += '<div class="fb-resumen-row__faces">';
-
-        for (var i = 0; i < 5; i++) {
-          var faceNum  = i + 1;
-          var isActive = (faceNum === val);
-          var cls = 'fb-resumen-face fb-resumen-face--' + faceNum + (isActive ? ' fb-resumen-face--active' : '');
-          html += '<button type="button" class="' + cls + '" data-campo="' + campo + '" data-valor="' + faceNum + '">';
-          html += '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">';
-          html += '<circle cx="50" cy="50" r="48" fill="' + FACE_COLORS[i] + '"/>';
-          html += FACE_PATHS[i];
-          html += '</svg>';
-          html += '<span class="fb-resumen-face__lbl">' + FACE_LABELS[faceNum] + '</span>';
-          html += '</button>';
-        }
-
-        html += '</div></div>';
-      });
-
-      var comentario = (document.getElementById('fb-comentario') || {}).value || '';
-      if (comentario.trim()) {
-        var preview = comentario.length > 60 ? comentario.substring(0, 60) + '…' : comentario;
-        html += '<div class="fb-resumen-comment">' +
-          '<span class="fb-resumen-comment__label">Comentario</span>' +
-          '<span class="fb-resumen-comment__text">' + preview + '</span>' +
-          '</div>';
-      }
-
-      var resumenEl = document.getElementById('fb-resumen');
-      if (!resumenEl) return;
-      resumenEl.innerHTML = html;
-
-      // Caras del resumen son interactivas
-      resumenEl.querySelectorAll('.fb-resumen-face').forEach(function(face) {
-        face.addEventListener('click', function() {
-          var campo = face.dataset.campo;
-          var valor = parseInt(face.dataset.valor, 10);
-
-          // Actualizar visual en el resumen
-          var facesRow = face.closest('.fb-resumen-row__faces');
-          facesRow.querySelectorAll('.fb-resumen-face').forEach(function(f) {
-            f.classList.remove('fb-resumen-face--active');
-          });
-          face.classList.add('fb-resumen-face--active');
-
-          // Actualizar el input oculto
-          var input = document.getElementById('fb-val-' + campo);
-          if (input) input.value = valor;
-
-          // Sincronizar con el paso original
-          var escala = document.querySelector('.fb-escala[data-campo="' + campo + '"]');
-          if (escala) {
-            escala.querySelectorAll('.fb-face').forEach(function(f) {
-              f.classList.remove('fb-face--active');
-            });
-            var orig = escala.querySelector('.fb-face[data-valor="' + valor + '"]');
-            if (orig) orig.classList.add('fb-face--active');
-          }
-        });
-      });
-    }
-
-    // Eventos de caras — selecciona y avanza automáticamente
-    document.querySelectorAll('.fb-escala').forEach(function(escala) {
-      escala.querySelectorAll('.fb-face').forEach(function(face) {
-        face.addEventListener('click', function() {
-          escala.querySelectorAll('.fb-face').forEach(function(f) {
-            f.classList.remove('fb-face--active');
-          });
-          face.classList.add('fb-face--active');
-          var input = document.getElementById('fb-val-' + escala.dataset.campo);
-          if (input) input.value = face.dataset.valor;
-          clearError();
-          // Avanzar al siguiente paso automáticamente si es un paso de ratings
-          if (current < CAMPOS.length && current < TOTAL - 1) {
-            setTimeout(function() { showStep(current + 1); }, 220);
-          }
-        });
-      });
-    });
-
-    // Siguiente
-    nextBtn.addEventListener('click', function() {
-      if (!isRatingStepValid()) {
-        showError('Selecciona una opción para continuar.');
-        return;
-      }
-      if (current < TOTAL - 1) showStep(current + 1);
-    });
-
-    // Anterior
-    prevBtn.addEventListener('click', function() {
-      if (current > 0) showStep(current - 1);
-    });
-
-    // Enviar
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-
-      var payload = { token: document.getElementById('fb-token').value };
-      var valido  = true;
-
-      CAMPOS.forEach(function(campo) {
-        var input = document.getElementById('fb-val-' + campo);
-        var val   = input ? parseInt(input.value, 10) : 0;
-        if (!val || val < 1 || val > 5) valido = false;
-        payload[campo] = val;
-      });
-
-      if (!valido) {
-        showError('Por favor responde todas las preguntas.');
-        return;
-      }
-
-      payload.comentario = (document.getElementById('fb-comentario') || {}).value || '';
-      submitBtn.disabled    = true;
-      submitLbl.textContent = 'Enviando…';
-      clearError();
-
-      fetch('/api/feedback', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload)
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res.ok) {
-          if (wrap)    wrap.style.display    = 'none';
-          if (success) success.style.display = '';
-        } else {
-          showError(res.msg || 'Ocurrió un error. Intenta de nuevo.');
-          submitBtn.disabled    = false;
-          submitLbl.textContent = 'Enviar reseña';
-        }
-      })
-      .catch(function() {
-        showError('Error de conexión. Intenta de nuevo.');
-        submitBtn.disabled    = false;
-        submitLbl.textContent = 'Enviar reseña';
-      });
-    });
-
-    function showError(msg) {
-      if (errorEl) { errorEl.textContent = msg; errorEl.classList.add('fb-error--visible'); }
-    }
-    function clearError() {
-      if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('fb-error--visible'); }
-    }
-
-    // Inicializar
-    showStep(0);
-  })();
-  </script>
-
+  <?php /* El comportamiento vive en src/js/modules/feedback.js, dentro del
+           bundle público. Estaba escrito a mano dentro de esta vista, así que no
+           podía usar AppNotice ni GSAP — los dos viajan aquí. */ ?>
+  <script src="/build/js/vendor/gsap.min.js" defer></script>
+  <script src="/build/js/bundle.min.js?v=feedback-marca-v1" defer></script>
 </body>
 </html>
-
-<?php
-function renderEscala(string $campo): string {
-    $labels = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
-    $colors = ['#e53935', '#F57C00', '#F9A825', '#43A047', '#29B6F6'];
-
-    $faces = [
-        // 1 - Enojado
-        '<path d="M27 33 L41 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
-         <path d="M73 33 L59 41" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
-         <circle cx="36" cy="47" r="5" fill="#1a1a1a"/>
-         <circle cx="64" cy="47" r="5" fill="#1a1a1a"/>
-         <path d="M33 69 Q50 59 67 69" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-
-        // 2 - Triste
-        '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/>
-         <circle cx="64" cy="44" r="5" fill="#1a1a1a"/>
-         <path d="M33 67 Q50 59 67 67" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-
-        // 3 - Neutral
-        '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/>
-         <circle cx="64" cy="44" r="5" fill="#1a1a1a"/>
-         <line x1="34" y1="64" x2="66" y2="64" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>',
-
-        // 4 - Feliz
-        '<circle cx="36" cy="44" r="5" fill="#1a1a1a"/>
-         <circle cx="64" cy="44" r="5" fill="#1a1a1a"/>
-         <path d="M34 60 Q50 74 66 60" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>',
-
-        // 5 - Muy feliz
-        '<path d="M29 42 Q36 35 43 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-         <path d="M57 42 Q64 35 71 42" stroke="#1a1a1a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-         <path d="M32 60 Q50 78 68 60 Q50 70 32 60Z" fill="#1a1a1a"/>',
-    ];
-
-    $html = '<input type="hidden" id="fb-val-' . htmlspecialchars($campo) . '" value="" />';
-    foreach ($labels as $i => $label) {
-        $valor = $i + 1;
-        $html .= '<button type="button" class="fb-face fb-face--' . $valor . '" data-valor="' . $valor . '">';
-        $html .= '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">';
-        $html .= '<circle cx="50" cy="50" r="48" fill="' . $colors[$i] . '"/>';
-        $html .= $faces[$i];
-        $html .= '</svg>';
-        $html .= '<span class="fb-face__label">' . htmlspecialchars($label) . '</span>';
-        $html .= '</button>';
-    }
-    return $html;
-}

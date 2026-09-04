@@ -738,7 +738,34 @@
   to   { opacity: 1; transform: translate(-50%, -50%); }
 }
 
+/*
+ * Escala de vidrio propia del modal del POS.
+ *
+ * Los roles del sistema (--glass-bg-strong al 86 % de opacidad) están
+ * calibrados para un diálogo del panel, que tapa una página de lectura y donde
+ * el cristal es un acabado. Aquí el modal se abre sobre el MAPA DEL SALÓN, y
+ * que el plano se adivine detrás es información: el mesero no pierde de vista
+ * dónde está la mesa que abrió. Por eso el panel baja al 58 %, sube el radio de
+ * desenfoque y el saturate — sin él, negro desenfocado sigue siendo negro y el
+ * cristal no se distingue de un plano opaco.
+ *
+ * Los porcentajes están calibrados a ojo contra el peor caso, que es el modal
+ * abierto sobre una zona llena de mesas: al 58 % el plano se leía DEMASIADO
+ * —los rótulos de los pines competían con "Selecciona platos en el Menú"— y en
+ * el POS la legibilidad del modal manda sobre el efecto. Al 78 % del panel más
+ * el 64 % de las columnas el salón se adivina como manchas de color desenfocado
+ * y ningún texto de detrás llega a leerse.
+ *
+ * Es una escala LOCAL, como --pos-* y --map-*: no toca los roles del sistema,
+ * que siguen valiendo para el resto de los diálogos.
+ */
 .mesa-modal {
+  --pos-glass-panel: color-mix(in srgb, var(--surface) 78%, transparent);
+  --pos-glass-col: color-mix(in srgb, var(--surface-2) 64%, transparent);
+  --pos-glass-blur: 32px;
+  --pos-glass-blur-sm: 14px;
+  --pos-glass-sat: 1.7;
+
   display: none;
   position: fixed;
   inset: 0;
@@ -750,9 +777,11 @@
 .mesa-modal__bd {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--scrim) 70%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--veil);
+  // El velo también satura: es lo que mantiene el color de las mesas vivo
+  // detrás del cristal en vez de dejar una mancha gris uniforme.
+  backdrop-filter: blur(var(--pos-glass-blur)) saturate(var(--pos-glass-sat));
+  -webkit-backdrop-filter: blur(var(--pos-glass-blur)) saturate(var(--pos-glass-sat));
   animation: mm-fade .2s ease forwards;
 }
 
@@ -761,8 +790,22 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
+  /* Dos capas: un barrido de luz que baja desde el canto superior —lo que hace
+     que una lámina translúcida se lea como vidrio y no como un rectángulo
+     medio transparente— y el propio cristal debajo. */
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--txt) 7%, transparent),
+      transparent 38%
+    ),
+    var(--pos-glass-panel);
+  backdrop-filter: blur(var(--pos-glass-blur)) saturate(var(--pos-glass-sat));
+  -webkit-backdrop-filter: blur(var(--pos-glass-blur)) saturate(var(--pos-glass-sat));
+  border-top: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 -1px 0 color-mix(in srgb, var(--sombra) 30%, transparent);
   border-radius: 20px 20px 0 0;
   padding: .5rem 1.5rem calc(1.75rem + env(safe-area-inset-bottom));
   animation: mm-slide .28s cubic-bezier(.25,.46,.45,.94) forwards;
@@ -777,9 +820,15 @@
     transform: translate(-50%, -50%);
     width: min(400px, 90vw);
     border-radius: 16px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--glass-border);
     padding: 1.5rem;
-    box-shadow: 0 32px 80px color-mix(in srgb, var(--sombra) 55%, transparent);
+    /* Flotando en medio de la pantalla el cristal necesita canto por los cuatro
+       lados: el halo exterior lo despega del mapa y la sombra larga le da el
+       aire de lámina suspendida. */
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge),
+      0 0 0 1px color-mix(in srgb, var(--txt) 7%, transparent),
+      0 32px 80px color-mix(in srgb, var(--sombra) 55%, transparent);
     animation: mm-scale .2s cubic-bezier(.25,.46,.45,.94) forwards;
   }
 }
@@ -1175,7 +1224,10 @@
     border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   }
   &--warning {
-    background: color-mix(in srgb, var(--map-table-available-bg) 72%, var(--gold) 8%);
+    /* Los dos porcentajes tienen que sumar 100: en color-mix, si suman menos,
+       el resultado se multiplica por la suma. Con 72+8 el chip salía al 80% de
+       alfa —transparente— sin que nadie lo hubiera pedido. */
+    background: color-mix(in srgb, var(--map-table-available-bg) 92%, var(--gold) 8%);
     color: var(--gold-soft);
     border: 1px dashed var(--map-table-reservation-border);
   }
@@ -1674,7 +1726,26 @@
   z-index: 300;
 }
 
+/*
+ * Los cuatro botones del modal se distinguían sólo por matices de gris: el
+ * primario era el único con relleno y los otros tres eran tintes al 14 % sobre
+ * transparente, que sobre el cristal del panel se quedan por debajo del umbral
+ * en el que un color se lee COMO color. Al lado de "Confirmar y enviar",
+ * "Cerrar ticket" —que es la acción irreversible de la pantalla— pasaba por un
+ * botón apagado más.
+ *
+ * Ahora cada variante lleva su propio color a un nivel visible: relleno sólido
+ * en el primario, tinte al 24 % con borde SÓLIDO del color en el destructivo
+ * (el borde es lo que lo hace inequívocamente rojo sin darle el peso de la
+ * acción principal) y contornos con contraste real en los neutros. El hover del
+ * destructivo escala a relleno macizo: si se va a cerrar la cuenta, que el
+ * último gesto lo diga.
+ */
 .mmodal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
   width: 100%;
   min-height: 44px;
   padding: .9rem 1rem;
@@ -1684,7 +1755,7 @@
   font-weight: 700;
   letter-spacing: .09em;
   text-transform: uppercase;
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   cursor: pointer;
   transition: background .2s, border-color .2s, color .2s, box-shadow .2s, opacity .2s, transform .1s;
   -webkit-tap-highlight-color: transparent;
@@ -1696,11 +1767,36 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 34%, transparent);
   }
 
+  // El icono no hereda el letter-spacing de las versalitas ni se estira: va en
+  // su propia caja para que el par icono+texto quede ópticamente centrado.
+  &__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    letter-spacing: 0;
+  }
+
+  &__text {
+    min-width: 0;
+  }
+
+  // Deshabilitado: no basta con bajar la opacidad —sobre el cristal el botón se
+  // volvía un fantasma sin forma—. Se apaga a un neutro con contorno propio,
+  // que sigue leyéndose como botón y dice que ahora no se puede pulsar.
+  &:disabled {
+    background: color-mix(in srgb, var(--txt) 7%, transparent);
+    border-color: var(--line);
+    color: var(--txt-faint);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   &--primary {
     background: var(--gold);
     color: var(--on-accent);
     border-color: var(--gold-deep, var(--gold));
-    &:hover {
+    &:hover:not(:disabled) {
       background: var(--gold-soft);
       border-color: var(--gold-soft);
       color: var(--on-accent);
@@ -1709,44 +1805,85 @@
       transform: translateY(-1px);
     }
   }
+
   &--danger {
-    background: color-mix(in srgb, var(--feedback-danger) 14%, transparent);
+    background: color-mix(in srgb, var(--c-rojo) 24%, transparent);
     color: var(--feedback-danger);
-    border: 1px solid color-mix(in srgb, var(--feedback-danger) 28%, transparent);
-    &:hover { background: color-mix(in srgb, var(--feedback-danger) 22%, transparent); }
+    border-color: var(--c-rojo);
+    // Papel y no --txt-inverse: sobre el rojo macizo la tinta clara da 5.2:1 y
+    // la oscura 3.7, y aquí lo que se lee es una advertencia.
+    &:hover:not(:disabled) {
+      background: var(--c-rojo);
+      border-color: var(--c-rojo);
+      color: var(--admin-paper);
+      box-shadow: 0 8px 20px color-mix(in srgb, var(--c-rojo) 34%, transparent);
+    }
   }
+
   &--ghost {
-    background: var(--surface-2);
-    color: var(--txt-mute);
-    border: 1px solid var(--line-soft);
-    &:hover { color: var(--txt); border-color: var(--line); background: var(--line); }
+    background: color-mix(in srgb, var(--txt) 6%, transparent);
+    color: var(--txt);
+    border-color: var(--line);
+    &:hover:not(:disabled) { color: var(--txt); border-color: var(--line-strong); background: color-mix(in srgb, var(--txt) 12%, transparent); }
   }
 
   &--secondary {
-    display: inline-flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
-    background: var(--surface-2);
+    background: color-mix(in srgb, var(--txt) 6%, transparent);
     color: var(--txt);
-    border: 1px solid var(--line);
-    &:hover { background: var(--line); border-color: var(--gold-soft); color: var(--txt); }
+    border-color: var(--line);
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--txt) 12%, transparent); border-color: var(--gold-soft); color: var(--txt); }
   }
 
   &--outline {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     background: transparent;
-    color: var(--gold-soft);
-    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    color: var(--accent-text);
+    border-color: color-mix(in srgb, var(--accent) 62%, transparent);
     text-align: center;
     text-decoration: none;
 
-    &:hover {
-      background: color-mix(in srgb, var(--accent) 10%, transparent);
-      border-color: var(--gold-soft);
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--accent) 14%, transparent);
+      border-color: var(--accent);
       color: var(--accent-text);
+    }
+  }
+
+  /*
+   * --release y --pending no tenían NINGUNA regla: el JS las emitía y el CSS no
+   * las conocía, así que "Registrar ausencia" y "Cliente no se presentó" salían
+   * con el fondo y el borde transparentes de .mmodal-btn — texto suelto donde
+   * debía haber un botón.
+   *
+   * Naranja y no rojo: liberar la mesa por una ausencia no destruye la cuenta,
+   * avisa de que la reserva se da por perdida. Es el mismo reparto que en la
+   * barra del panel, donde el rojo está reservado a lo que termina algo.
+   */
+  &--release {
+    background: color-mix(in srgb, var(--c-naranja) 20%, transparent);
+    color: color-mix(in srgb, var(--c-naranja) 70%, var(--txt));
+    border-color: var(--c-naranja);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--c-naranja) 32%, transparent);
+      color: var(--txt);
+    }
+  }
+
+  // Acompaña a --primary cuando la hora de la reserva todavía no llegó: el
+  // botón sigue ahí y sigue siendo el principal, pero se apaga a neutro para
+  // que no invite a pulsarlo antes de tiempo.
+  &--pending {
+    background: color-mix(in srgb, var(--txt) 9%, transparent);
+    color: var(--txt-mute);
+    border-color: var(--line);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--txt) 14%, transparent);
+      border-color: var(--line-strong);
+      color: var(--txt);
+      box-shadow: none;
+      transform: none;
     }
   }
 
@@ -1808,35 +1945,63 @@
 }
 
 // ── Buscador de platillos ─────────────────────────────────────
+/*
+ * La lupa iba en position:absolute sobre el campo, apoyada en que el input
+ * reservara 2rem de padding izquierdo. Ese padding no llegaba —el user agent
+ * de Chrome reescribe la caja interna de input[type="search"]— y la lupa
+ * quedaba encima de la B de "Buscar platillo…" en todos los anchos.
+ *
+ * Ahora la caja del campo es el CONTENEDOR: él lleva el borde, el fondo y el
+ * padding, y el icono es un ítem de flex más. Así la separación la garantiza
+ * el gap, que no depende de que nadie reserve sitio.
+ */
 .mmodal-dish-search {
-  position: relative;
   display: flex;
   align-items: center;
+  gap: .5rem;
   margin-bottom: .6rem;
+  padding: .5rem .6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  transition: border-color .15s;
+
+  &:focus-within { border-color: var(--gold); }
 
   &__icon {
-    position: absolute;
-    left: .6rem;
-    top: 50%;
-    transform: translateY(-50%);
     display: flex;
+    flex: 0 0 auto;
     color: var(--txt-faint);
     pointer-events: none;
   }
 
+  /*
+   * !important, y no es pereza: quien pone aquí el borde, el fondo y los 14 px
+   * de padding es la regla global de campos de _forms.scss,
+   *
+   *   .admin-body input:not([type=checkbox]):not([type=radio])
+   *                    :not([type=range]):not([type=submit]):not([type=button])
+   *
+   * que suma (0,6,1) —cada :not() aporta la especificidad de su argumento— y le
+   * gana a cualquier clase suelta. Era eso lo que anulaba el padding izquierdo
+   * del que dependía la lupa. Igualarla exigiría siete clases; el propio
+   * proyecto ya resuelve el mismo choque con !important en el filtro de
+   * búsqueda del cajón de reservaciones.
+   */
   &__input {
-    width: 100%;
-    padding: .5rem .6rem .5rem 2rem;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    min-width: 0;
+    min-height: 0 !important;
+    flex: 1 1 auto;
+    width: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
     color: var(--txt);
     font-size: .85rem;
     outline: none;
-    transition: border-color .15s;
 
     &::placeholder { color: var(--txt-faint); }
-    &:focus { border-color: var(--gold); }
   }
 }
 
@@ -2350,9 +2515,66 @@
   opacity: .65;
 }
 
+// Ya no es un glifo tipográfico sino un SVG, así que el tamaño lo trae el
+// propio icono y aquí sólo queda su caja y su peso visual. La opacidad sube de
+// .4 a .55: un trazo de 1.9 px tiene mucha menos masa que un carácter y al 40 %
+// sobre el cristal del panel casi no se veía.
 .mmodal-col-empty__icon {
-  font-size: 1.4rem;
-  opacity: .4;
+  display: inline-flex;
+  opacity: .55;
+}
+
+/*
+ * Emparejado icono + texto.
+ *
+ * Todo lo que antes era un emoji seguido de un espacio ("👥 2 com.") es ahora
+ * un SVG y un <span>: el espacio en blanco ya no sirve de separador, así que la
+ * separación la pone el gap y la alineación vertical el flex. Sin esto el icono
+ * se apoya en la línea base y queda un par de píxeles por debajo del texto.
+ */
+.mmodal-meta-item,
+.mmodal-etapa,
+.mmodal-entregar-btn,
+.mmodal-cart-nota-btn,
+.mmodal-sug-swap,
+.mmodal-split-diff,
+.mmodal-llevar-row__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+/*
+ * `[hidden]` gana a la caja flex.
+ *
+ * El `display: none` de `[hidden]` lo pone la hoja del NAVEGADOR, así que
+ * cualquier `display` de autor —incluido el `inline-flex` de arriba— lo pisa.
+ * El chip de etapa nace con el atributo puesto y sólo se lo quita n8n al
+ * responder con la etapa de la comida; sin esta regla se quedaba visible como
+ * una cajita vacía al lado de la hora, en la cabecera de todos los tickets.
+ */
+.mmodal-meta-item[hidden],
+.mmodal-etapa[hidden],
+.mmodal-entregar-btn[hidden],
+.mmodal-cart-nota-btn[hidden],
+.mmodal-sug-swap[hidden],
+.mmodal-split-diff[hidden],
+.mmodal-llevar-row__meta[hidden] {
+  display: none;
+}
+
+.mmodal-llevar-row__sep {
+  opacity: .5;
+}
+
+// Los botones de icono suelto (paso del contador, reordenar columnas, flecha
+// de la fila de "para llevar") centran su SVG en la caja táctil.
+.mmodal-step,
+.mmodal-llevar-row__arrow,
+.mmodal-prefs__orden-btns button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 // ── 3 columnas en tablet/desktop ─────────────────────────────
@@ -2485,15 +2707,24 @@
 
   .mmodal-panel-label { display: block; }
 
-  // Cada columna ocupa toda la altura del grid y se muestra siempre
+  // Cada columna ocupa toda la altura del grid y se muestra siempre.
+  //
+  // Vidrio también aquí, un escalón por encima del panel: cuatro rectángulos
+  // opacos dentro de una lámina translúcida la delataban como fondo pintado y
+  // el efecto se perdía justo donde ocupa más superficie. Con el desenfoque
+  // corto (--pos-glass-blur-sm) el coste es el de una tarjeta, no el de una
+  // capa flotante, que es la misma cuenta que hace el panel con sus dos radios.
   .mmodal-panels > .mmodal-tab-panel {
     display: flex !important;
     height: 100%;
     box-sizing: border-box;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: .9rem .85rem .8rem;
-    background: var(--surface-2);
+    background: var(--pos-glass-col);
+    backdrop-filter: blur(var(--pos-glass-blur-sm));
+    -webkit-backdrop-filter: blur(var(--pos-glass-blur-sm));
+    box-shadow: inset 0 1px 0 var(--glass-edge);
   }
 
   // Dishes sin max-height propio; la columna entera scrollea
@@ -2733,9 +2964,10 @@
 .mmodal-cancel-confirm-overlay {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--scrim) 82%, transparent);
+  background: var(--veil);
   border-radius: inherit;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2891,15 +3123,10 @@
 }
 
 // ── Danger variant del botón modal ────────────────────────────
-.mmodal-btn--danger {
-  border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
-  color: var(--feedback-danger);
-
-  &:hover {
-    background: color-mix(in srgb, var(--feedback-danger) 15%, transparent);
-    border-color: color-mix(in srgb, var(--feedback-danger) 80%, transparent);
-  }
-}
+// El segundo juego de reglas de .mmodal-btn--danger que vivía aquí se retiró:
+// misma especificidad que el de la variante y declarado después, así que
+// ganaba por orden y devolvía el botón al tinte tenue del que se le acaba de
+// sacar. La variante se define en un solo sitio, con .mmodal-btn.
 
 // ── Panel de Sugerencias ──────────────────────────────────────
 #mmodal-panel-sugerencias .mmodal-panel-scroll {
@@ -3048,7 +3275,12 @@
 }
 
 .mmodal-sug-swap {
-  display: block;
+  // inline-flex y no block: el ↻ es ahora un SVG, y en un bloque se quedaba
+  // pegado al texto porque el espacio que los separaba era el del carácter.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
   width: 100%;
   padding: .75rem 1rem;
   font-family: var(--sans);
@@ -3072,17 +3304,29 @@
 }
 
 // Shell operativo compartido (mapa + reservaciones)
+/*
+ * Aquí había diez alias más —`--admin-surface: var(--surface)`,
+ * `--admin-text: var(--txt)`, `--admin-bg`, `--admin-border`, `--admin-muted`,
+ * `--admin-gold`…— que quedaron de cuando el POS vivía sobre los tokens del
+ * sitio público. Al llegar `puente-tokens-publicos` el mapeo pasó a ir en el
+ * sentido contrario (`--surface: var(--admin-surface)`), y las dos direcciones
+ * juntas forman un CICLO.
+ *
+ * Un ciclo entre custom properties no es un empate benigno: la especificación
+ * obliga a que **todas** las propiedades del ciclo computen al valor
+ * inválido-garantizado. En el POS eso dejaba sin valor a `--admin-surface`,
+ * `--admin-text`, `--admin-bg`, `--admin-border`, `--admin-muted` y sus
+ * públicos, y con ellos a todo lo que se mezcla encima: los seis
+ * `--map-table-*` se caían enteros y las mesas se pintaban sin color de
+ * estado —libres, ocupadas y reservadas, todas con el mismo contorno blanco—
+ * aunque el CSS de los pines estuviera bien. No se veía como un error de
+ * cascada porque un `var()` inválido hereda o cae al valor inicial en vez de
+ * romper la regla.
+ *
+ * Los que quedan abajo NO ciclan: van de un token público a uno admin sin
+ * vuelta, y son la paleta de estado propia del mapa.
+ */
 .mapa-page.operational-page {
-  --admin-bg: var(--bg);
-  --admin-surface: var(--surface);
-  --admin-surface-soft: var(--surface-2);
-  --admin-border: var(--line);
-  --admin-border-soft: var(--line-soft);
-  --admin-text: var(--txt);
-  --admin-muted: var(--txt-mute);
-  --admin-faint: var(--txt-faint);
-  --admin-gold: var(--gold);
-  --admin-gold-soft: var(--gold-soft);
   // El mapa se lee solo por color (ya no hay leyenda), así que los estados
   // usan la paleta de la casa y no tonos propios: disponible lima, asignada
   // u ocupada por reserva naranja, ocupada rojo.
@@ -3202,8 +3446,9 @@
   &__bd {
     position: absolute;
     inset: 0;
-    background: color-mix(in srgb, var(--scrim) 70%, transparent);
-    backdrop-filter: blur(2px);
+    background: var(--veil);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
   }
 
   &__dialog {
@@ -3212,10 +3457,14 @@
     flex-direction: column;
     width: min(760px, 94vw);
     max-height: min(86vh, 720px);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--surface-2);
-    box-shadow: 0 30px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge),
+      0 30px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
     overflow: hidden;
   }
 
@@ -3290,10 +3539,37 @@
 .mapa-page .mesas-map__viewport {
   flex: 1 1 auto;
   min-height: 0;
+  // El viewport sigue sin marco: el que se ve es el del suelo, justo debajo.
+  // Enmarcarlo aquí dibujaría una segunda caja —el suelo se centra dentro y
+  // casi nunca lo llena— y el mapa quedaría con doble contorno.
   padding: 0;
   border: 0;
   border-radius: 16px;
   background: transparent;
+}
+
+/*
+ * El marco del salón.
+ *
+ * El suelo traía el borde general de contenedor (--admin-border, 14% de papel)
+ * y con eso el mapa no tenía contorno: sobre el fondo casi negro del piso el
+ * plano se fundía con la página y las mesas parecían sueltas por la pantalla,
+ * sin un dentro y un fuera. El hairline decorativo no basta a la distancia a la
+ * que se mira una tablet de comedor, así que el borde sube al escalón de
+ * CONTROL —--admin-border-strong, el que cumple el 3:1 de la casa para
+ * elementos no textuales— y a 2px, el mismo grosor que ya llevan los pines por
+ * la misma razón.
+ *
+ * El halo exterior es lo que separa el marco del fondo cuando el suelo llega al
+ * borde del viewport; sin él, en el tema claro el contorno se apoyaría sólo en
+ * su propio contraste.
+ */
+.mapa-page .mesas-map__floor {
+  border: 2px solid var(--admin-border-strong);
+  box-shadow:
+    inset 0 0 0 1px var(--admin-glass-edge),
+    0 0 0 4px color-mix(in srgb, var(--admin-sombra) 22%, transparent),
+    0 26px 60px color-mix(in srgb, var(--sombra) 32%, transparent);
 }
 
 // ── Leyenda de estados, debajo del mapa ───────────────────────
@@ -3304,11 +3580,12 @@
   inset-block-start: calc(var(--operational-shell-pad) + var(--operational-header-height) + var(--operational-shell-gap));
 }
 
+// Sólo la métrica: el fondo y el borde los pone _drawer.scss, que aquí ya es
+// vidrio. Repetir `background: var(--admin-surface)` era lo que devolvía el
+// cajón a un plano opaco justo encima del mapa.
 .mapa-page .operational-drawer.mapa-sidebar {
   width: clamp(340px, 29vw, 390px);
   padding: 16px;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-surface);
 }
 
 .mapa-page .operational-drawer__content .mapa-reservas-list {
@@ -3444,7 +3721,10 @@
   background: var(--gold);
   color: var(--on-accent);
 
-  .mmodal-total-label { color: color-mix(in srgb, var(--scrim) 70%, transparent); }
+  /* La fila va sobre un relleno de acento, así que la tinta sale de --on-accent
+     y no del velo: `color: var(--scrim)` pintaba el rótulo con el color de una
+     sombra translúcida y sobre el relleno oscuro del POS desaparecía. */
+  .mmodal-total-label { color: color-mix(in srgb, var(--on-accent) 78%, transparent); }
 
   &__amount {
     font-family: var(--serif);

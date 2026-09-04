@@ -62,7 +62,13 @@ class RangoPeriodo
             ];
         }
 
-        return $rango + self::comparativo($rango['start'], $rango['end'], !empty($query['comparar']));
+        // La comparación va siempre. Era un interruptor en el popover del
+        // selector de periodo y se retiró: comparar contra el periodo
+        // inmediatamente anterior de la misma duración no es un extra, es lo
+        // que da sentido a la cifra. El query `comparar=1` que el picker sigue
+        // enviando ya no decide nada, y sin él —primera carga, enlace pegado,
+        // marcador— el comparativo también se calcula.
+        return $rango + self::comparativo($rango['start'], $rango['end']);
     }
 
     /**
@@ -72,7 +78,7 @@ class RangoPeriodo
      *
      * @return array{comparar: bool, dias: int, prevStart: string, prevEnd: string, prevLabel: string}
      */
-    private static function comparativo(string $start, string $end, bool $comparar): array
+    private static function comparativo(string $start, string $end, bool $comparar = true): array
     {
         $dias = self::dias($start, $end);
         $prevEnd = date('Y-m-d', strtotime($start . ' -1 day'));

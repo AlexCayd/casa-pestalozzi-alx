@@ -14,7 +14,14 @@
  * - $statSub      (string)  contexto bajo la cifra. Opcional.
  * - $statDelta    (?float)  variación en % contra el periodo anterior, o null.
  * - $statPrev     (string)  cifra del periodo anterior, ya formateada. Opcional.
- * - $statTone     (string)  '', 'alert', 'good', 'bad' o 'gold'.
+ * - $statTone     (string)  ESTADO de la cifra: '', 'alert', 'good', 'bad' o
+ *                           'gold'. Tiñe el fondo y el número.
+ * - $statSerie    (string)  IDENTIDAD de la cifra: 'verde', 'naranja', 'rojo',
+ *                           'lima', 'indigo', 'turquesa' o 'azul'. Es un filete
+ *                           lateral y el rótulo teñido, para distinguir siete
+ *                           tarjetas seguidas sin repintarlas. Compatible con
+ *                           $statTone: si la cifra además va mal, el estado se
+ *                           lee encima porque ocupa el fondo y el filete no.
  * - $statInverso  (bool)    true cuando subir es malo (merma, costos): invierte
  *                           el color del badge sin invertir la flecha, que
  *                           sigue describiendo la dirección real.
@@ -29,12 +36,19 @@ $statSub = (string) ($statSub ?? '');
 $statDelta = isset($statDelta) && $statDelta !== null ? (float) $statDelta : null;
 $statPrev = (string) ($statPrev ?? '');
 $statTone = (string) ($statTone ?? '');
+$statSerie = (string) ($statSerie ?? '');
 $statInverso = (bool) ($statInverso ?? false);
 $statLead = (bool) ($statLead ?? false);
 
 $statEscape = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES, 'UTF-8');
 
 $statClases = ['admin-stat-card'];
+// La identidad primero y el estado después: si una tarjeta lleva los dos, el
+// estado tiene que poder pisar lo que la serie deje puesto.
+if ($statSerie !== '') {
+    $statClases[] = 'admin-stat-card--serie';
+    $statClases[] = 'admin-stat-card--serie-' . $statSerie;
+}
 if ($statTone !== '') {
     $statClases[] = 'admin-stat-card--' . $statTone;
 }
@@ -72,7 +86,7 @@ $statBueno = $statInverso ? !$statSube : $statSube;
 </article>
 <?php
 unset(
-    $statLabel, $statValue, $statSub, $statDelta, $statPrev, $statTone,
+    $statLabel, $statValue, $statSub, $statDelta, $statPrev, $statTone, $statSerie,
     $statInverso, $statLead, $statEscape, $statClases, $statSube, $statBueno
 );
 ?>

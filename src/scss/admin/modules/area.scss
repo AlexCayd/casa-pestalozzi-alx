@@ -51,14 +51,37 @@
 }
 
 .admin-area-card {
+  /* Los color-mix de abajo degradan a `transparent` si la vista no inyecta la
+     variable; el acento del panel es el fallback en los seis usos, no sólo en
+     los dos que ya lo tenían. */
+  --area-accent: var(--admin-accent);
+  --area-ink: var(--admin-on-accent);
+
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 18px;
   min-height: 260px;
   padding: 26px;
-  border-left: 4px solid var(--area-accent, var(--admin-gold));
+  overflow: hidden;
   text-decoration: none;
   color: inherit;
+
+  /* Banda superior en vez de filete lateral. La tarjeta es vidrio y la línea
+     de la izquierda quedaba tapada por el canto de luz; arriba, sobre el mismo
+     canto, el color del área es lo primero que se lee de la ficha. Va como
+     pseudoelemento porque el borde real ya lo dibuja el box-shadow interior
+     de _finishes.scss. */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+    z-index: 2;
+    background: var(--area-accent);
+  }
 
   h3 {
     margin-top: 6px;
@@ -80,7 +103,7 @@
     width: 56px;
     height: 56px;
     border-radius: 16px;
-    color: var(--area-accent, var(--admin-gold));
+    color: var(--area-accent);
     background: color-mix(in srgb, var(--area-accent) 16%, transparent);
     border: 1px solid color-mix(in srgb, var(--area-accent) 34%, transparent);
 
@@ -101,7 +124,7 @@
     min-height: 54px;
     padding: 0 20px;
     border-radius: var(--admin-radius-md);
-    background: var(--area-accent, var(--admin-gold));
+    background: var(--area-accent);
     color: var(--area-ink);
     font-size: 15px;
     font-weight: 700;
@@ -133,7 +156,7 @@
 }
 
 .admin-area-card__eyebrow {
-  color: var(--area-accent, var(--admin-sage-deep));
+  color: var(--area-accent);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;

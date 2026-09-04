@@ -297,6 +297,61 @@ class AdminInventarioController
         self::renderForm($ingrediente, $alertas, 'Guardar cambios', 'Editar ingrediente');
     }
 
+    /**
+     * Dónde se usa un ingrediente. Alimenta el diálogo de borrado, que necesita
+     * poder enseñar qué recetas se van a quedar incompletas ANTES de confirmar:
+     * las FK son ON DELETE CASCADE, así que el borrado se lleva las filas de
+     * receta sin avisar.
+     *
+     * Va bajo /admin/api/, así que Auth::proteger() la cierra por prefijo.
+     */
+    public static function uso(Router $router): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'mensaje' => 'Falta el ingrediente.']);
+            return;
+        }
+
+        $ingrediente = Ingrediente::find($id);
+        if (!$ingrediente) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'mensaje' => 'El ingrediente ya no existe.']);
+            return;
+        }
+
+        // Un platillo puede llegar por las dos vías (suelto y dentro de una
+        // subreceta). Se listan sus nombres una sola vez, con la vía anotada.
+        $platillos = [];
+        foreach (Inventario::recetasQueUsan($id) as $fila) {
+            $nombre = $fila['platillo'];
+            if (!isset($platillos[$nombre])) {
+                $platillos[$nombre] = ['nombre' => $nombre, 'subrecetas' => []];
+            }
+            if ($fila['via'] === 'subreceta' && $fila['subreceta'] !== null) {
+                $platillos[$nombre]['subrecetas'][$fila['subreceta']] = true;
+            }
+        }
+
+        $salida = [];
+        foreach ($platillos as $p) {
+            $salida[] = [
+                'nombre' => $p['nombre'],
+                'subrecetas' => array_keys($p['subrecetas']),
+            ];
+        }
+
+        echo json_encode([
+            'ok' => true,
+            'nombre' => (string) $ingrediente->nombre,
+            'platillos' => $salida,
+            'subrecetas' => Inventario::subrecetasQueUsan($id),
+        ]);
+    }
+
     public static function delete(Router $router): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

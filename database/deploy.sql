@@ -47,11 +47,16 @@ INSERT INTO mesas (numero, nombre, tipo, capacidad, pos_x, pos_y, reservable) VA
 -- Áreas de producción
 -- -------------------------------------------------------
 
+-- El color de un área es dato de negocio, no token de diseño (es la excepción
+-- declarada en CLAUDE.md), pero aun así sale de la paleta funcional: son los
+-- mismos cuatro hex que Controllers\AdminAreaController::AREAS y que CP_AREAS
+-- en el POS. Si cambias uno, cambia los tres o el tablero y el panel dejarán
+-- de pintar la misma área del mismo color.
 INSERT INTO areas_produccion (id, nombre, slug, color) VALUES
-(1, 'Barra de Café',    'cafe',   '#7b5e3a'),
-(2, 'Barra de Jugos',   'jugos',  '#e8a920'),
-(3, 'Cocina',           'cocina', '#b03a2e'),
-(4, 'Horno Napolitano', 'horno',  '#1a5276');
+(1, 'Barra de Café',    'cafe',   '#46bdc6'),  -- --c-turquesa
+(2, 'Barra de Jugos',   'jugos',  '#f5b400'),  -- --c-ambar
+(3, 'Cocina',           'cocina', '#e51022'),  -- --c-rojo
+(4, 'Horno Napolitano', 'horno',  '#4267ac');  -- --c-indigo
 
 -- -------------------------------------------------------
 -- Estaciones de impresión (ESC/POS)

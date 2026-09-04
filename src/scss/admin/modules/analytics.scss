@@ -139,9 +139,13 @@
     padding: var(--admin-lead-pad, 20px);
     border: 1px solid var(--admin-border);
     border-radius: var(--admin-radius-md);
-    background:
-      linear-gradient(120deg, color-mix(in srgb, var(--admin-terra) 14%, transparent), transparent 62%),
-      var(--admin-surface);
+    /* El velo terra al 14% era de la identidad anterior: --admin-terra es hoy
+       un alias del acento, así que sobre la tarjeta pintaba una diagonal gris.
+       La jerarquía de la tarjeta principal la dan el canto y la sombra. */
+    background: var(--admin-surface);
+    box-shadow:
+      inset 0 1px 0 var(--admin-glass-edge),
+      var(--admin-shadow-md);
 
     &__main {
       display: flex;
@@ -172,7 +176,7 @@
     // desalinear la línea base.
     &__value {
       color: var(--admin-text);
-      font-family: var(--admin-font-display, "Fraunces", serif);
+      font-family: var(--admin-font-sans);
       font-size: clamp(40px, 4.4vw, 62px);
       font-weight: 600;
       line-height: 1;
@@ -333,7 +337,7 @@
       margin-top: auto;
       padding-top: 14px;
       color: var(--admin-text);
-      font-family: var(--admin-font-display, "Fraunces", serif);
+      font-family: var(--admin-font-sans);
       font-weight: 600;
       font-size: clamp(26px, 2.3vw, 34px);
       line-height: 1.02;
@@ -803,8 +807,10 @@
       cursor: default;
 
       // Sobre fondo saturado el texto claro se pierde en ambos temas.
+      // --admin-on-accent y no --on-accent: el nombre sin prefijo sólo existe
+      // en el puente de las pantallas de piso, y aquí caía a `inherit`.
       &.is-strong {
-        color: var(--on-accent);
+        color: var(--admin-on-accent);
       }
 
       // Abierto y sin vender: el hueco que hay que detectar. Sin relleno y

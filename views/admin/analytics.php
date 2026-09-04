@@ -180,13 +180,22 @@ $hoyIso = date('Y-m-d');
                       // subtítulo del platillo y unidades/margen se apilan en
                       // una sola celda numérica. En un panel a media anchura,
                       // cinco columnas obligaban a scrollear en los dos ejes. ?>
-                <div class="admin-table-wrap admin-nivel1-menu__table">
-                    <table class="admin-table admin-table--compact">
+                <?php /* data-scrollable: este wrap SÍ tiene tope de alto
+                         (max-height: 388px en analytics.scss) y nadie le había
+                         soltado la rueda, así que Lenis se la quedaba y la
+                         tabla no se podía recorrer.
+
+                         Las tres celdas declaran data-sort-value desde
+                         nivel1.js: «Platillo» y «Uds. · Margen» apilan
+                         __cell-main y __cell-sub en el mismo <td>, y
+                         table-sort.js leería los dos concatenados. */ ?>
+                <div class="admin-table-wrap admin-nivel1-menu__table" data-scrollable>
+                    <table class="admin-table admin-table--compact" data-sortable>
                         <thead>
                             <tr>
-                                <th scope="col">Platillo</th>
-                                <th scope="col">Clase</th>
-                                <th scope="col" class="admin-table__num">Uds. · Margen</th>
+                                <th scope="col" data-sort-type="text">Platillo</th>
+                                <th scope="col" data-sort-type="text">Clase</th>
+                                <th scope="col" class="admin-table__num" data-sort-type="number">Uds. · Margen</th>
                             </tr>
                         </thead>
                         <tbody data-n1-menu-table></tbody>

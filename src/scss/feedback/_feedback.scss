@@ -1,926 +1,446 @@
-// ── Formulario de Feedback — Casa Pestalozzi ──────────────────
+@use "../abstracts/vidrio" as v;
 
-// ── Tokens ───────────────────────────────────────────────────
+// ── Encuesta de salida del comensal ──────────────────────────
 //
-// Eran ocho literales que repetían la paleta; ahora son alias de los roles del
-// tema. La página corre con data-modo="oscuro", así que --bg y --surface ya
-// llegan en su versión de piso.
-$fb-bg:      var(--bg);
-$fb-card-bg: var(--surface);
-$fb-border:  var(--line-soft);
-$fb-text:    var(--txt);
-$fb-muted:   var(--txt-mute);
+// La única pantalla de tablet que pertenece a la MARCA y no al sistema
+// administrativo: la abre un cliente al terminar de comer. Por eso es la
+// landing —crema, Bodoni, café de acento, rótulos italianos— y no el blanco y
+// negro del panel.
+//
+// Estaba en [data-modo="oscuro"], heredando el verde profundo y el oro del POS,
+// que es la pantalla del mesero. El comensal veía una interfaz de trabajo.
+//
+// Este archivo llevaba además, en sus líneas 444-926, el modal de cobro del POS.
+// Se separó a punto-de-venta/_pago-modal.scss: no tenían nada en común más que
+// el orden en que se escribieron.
 
-// Escala de caras 1→5. No adopta la paleta de marca: es una serie ordinal que
-// debe distinguirse de un vistazo, y para eso sirve la paleta funcional.
-$face-1: var(--c-rojo);
-$face-2: var(--c-naranja);
-$face-3: var(--c-ambar);
-$face-4: var(--c-verde);
-$face-5: var(--c-turquesa);
-
-// ── Cursor (override global cursor:none del reset) ────────────
-.fb-page,
-.fb-page *,
-.fb-page button,
-.fb-page a,
-.fb-page textarea {
-  cursor: auto;
-}
-.fb-page button  { cursor: pointer; }
-.fb-page textarea { cursor: text; }
-.fb-page button:disabled { cursor: not-allowed; }
-
-// ── Layout base ───────────────────────────────────────────────
+// ── Página ───────────────────────────────────────────────────
+//
+// El cursor propio de la landing no tiene sentido en una tablet táctil, y la
+// viñeta tampoco: aquí no hay fotografía a sangre que enmarcar.
 .fb-page {
   min-height: 100vh;
-  background: $fb-bg;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  // 'Inter' nunca se cargó: _fonts.scss solo declara KudosKaps, Playfair
-  // Display, Crimson Text y Montserrat, así que la página caía a Segoe UI y no
-  // se parecía al resto del sitio.
+  padding: clamp(1.25rem, 4vw, 3rem);
+  // Dos halos muy abiertos detrás de la tarjeta. No son decoración: el vidrio
+  // necesita algo que desenfocar, y sobre un crema plano el blur no tendría
+  // nada que hacer y la lámina se vería igual que un rectángulo opaco.
+  background:
+    radial-gradient(60rem 40rem at 18% -10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    radial-gradient(48rem 36rem at 88% 110%, color-mix(in srgb, var(--brand-verde) 8%, transparent), transparent 70%),
+    var(--bg);
+  color: var(--txt);
   font-family: var(--sans);
+  cursor: auto;
+
+  *,
+  a,
+  button { cursor: auto; }
+
+  a,
+  button,
+  .fb-face { cursor: pointer; }
+
+  &::after { content: none; }
 }
 
 .fb-shell {
   width: 100%;
-  max-width: 540px;
+  // Más ancha que los 540px de antes: en una tablet en horizontal la escala de
+  // cinco caras necesita sitio para que cada una siga siendo tocable.
+  max-width: 720px;
 }
 
-// ── Tarjeta contenedora ───────────────────────────────────────
 .fb-card {
-  background: $fb-card-bg;
-  border: 1px solid $fb-border;
-  border-radius: 16px;
-  padding: 2rem 1.75rem;
-  width: 100%;
+  padding: clamp(1.75rem, 5vw, 3.25rem);
+  border-radius: 14px;
+  @include v.vidrio(flotante, var(--glass-bg-strong));
 
-  &--done {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 3.5rem 2rem;
-    gap: 1rem;
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    0 24px 70px color-mix(in srgb, var(--sombra) 14%, transparent);
+
+  &[hidden] { display: none; }
+}
+
+// ── Marca ────────────────────────────────────────────────────
+//
+// KudosKaps tiene UNA cara de peso 400. Sin declararlo hereda el 600 de h1..h4
+// y el navegador fabrica una negrita falsa que empasta los remates: el wordmark
+// deja de reconocerse (ver CLAUDE.md).
+.fb-brand-mark {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--logo);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 5.5vw, 2.9rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+.fb-header {
+  margin-bottom: clamp(1.75rem, 4vw, 2.5rem);
+  text-align: center;
+
+  &__sub {
+    font-family: var(--crimson);
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--txt-mute);
   }
 }
 
-// ── Logo (replica el wordmark del hero, no el del nav) ───────
-//
-// Copiaba el `.brand-mark` fijo del nav, cuyo `word-spacing: -0.8rem` está
-// calibrado para 1.5rem como mucho. Aquí la fuente sube al doble y ese ajuste
-// negativo descuadraba el interletraje de KudosKaps. El hero (`.hero__title`)
-// es la referencia correcta para un wordmark a este tamaño: tracking positivo
-// y sombra que lo despega del fondo.
-//
-// Lo que NO se copia del nav es `mix-blend-mode: difference`: sobre el
-// var(--surface) de la tarjeta invierte el dorado a un color sucio.
-.fb-brand-mark {
-  display: block;
-  text-align: center;
-  font-family: var(--logo);
-  color: var(--accent-text);
-  font-size: clamp(2rem, 6vw, 3rem);
-  text-decoration: none;
-  margin-bottom: .5rem;
-  letter-spacing: 0.015em;
-  line-height: 1;
-  text-shadow: 0 8px 30px color-mix(in srgb, var(--sombra) 50%, transparent);
-}
-
-// ── Header ────────────────────────────────────────────────────
-.fb-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.fb-header__sub {
-  font-size: .85rem;
-  color: $fb-muted;
-  margin: .35rem 0 0;
-  letter-spacing: .04em;
-}
-
-// ── Progress bar ──────────────────────────────────────────────
+// ── Progreso ─────────────────────────────────────────────────
 .fb-progress {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  margin-top: 1.25rem;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+
+  &__bar {
+    flex: 1;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--line-soft);
+    overflow: hidden;
+  }
+
+  // El relleno toma el color de la última cara elegida (--fb-tono, que escribe
+  // feedback.js) y cae al acento mientras no haya ninguna. Así el progreso deja
+  // de ser sólo "cuánto falta" y dice también cómo va yendo la encuesta.
+  &__fill {
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--fb-tono, var(--accent));
+    transition: width 0.45s var(--ease), background 0.45s var(--ease);
+  }
+
+  &__label {
+    flex: none;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--txt-faint);
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-.fb-progress__bar {
-  flex: 1;
-  height: 4px;
-  background: color-mix(in srgb, var(--txt) 8%, transparent);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.fb-progress__fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 99px;
-  width: 0%;
-  transition: width .35s cubic-bezier(.4,0,.2,1);
-}
-
-.fb-progress__label {
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  color: $fb-muted;
-  white-space: nowrap;
-  min-width: 3.5rem;
-  text-align: right;
-}
-
-// ── Pasos ─────────────────────────────────────────────────────
+// ── Pasos ────────────────────────────────────────────────────
 .fb-step {
   display: none;
 
   &--active { display: block; }
+
+  // El título de cada paso es un heading de la casa: Bodoni, tracking a cero y
+  // tamaño óptico automático. Un didone apretado se empasta.
+  &__label {
+    margin: 0.5rem 0 clamp(1.5rem, 4vw, 2.25rem);
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.45rem, 4vw, 2.1rem);
+    line-height: 1.15;
+    letter-spacing: 0;
+    font-optical-sizing: auto;
+    color: var(--txt-strong);
+    text-wrap: balance;
+  }
 }
 
-.fb-step__label {
-  font-size: 1rem;
-  font-weight: 600;
-  color: $fb-text;
-  margin: 0 0 1.75rem;
-  line-height: 1.4;
-  text-align: center;
-}
-
-// ── Escala de caras ───────────────────────────────────────────
+// ── La escala de cinco caras ─────────────────────────────────
 .fb-escala {
-  display: flex;
-  justify-content: space-between;
-  gap: .5rem;
-  margin-bottom: 2rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: clamp(0.35rem, 1.5vw, 0.9rem);
+  align-items: start;
 }
 
+// Line-art, no discos planos. El SVG hereda `currentColor`, así que el color de
+// cada cara se decide aquí abajo y NO en el PHP ni en el JS: era el mismo valor
+// escrito en tres sitios, y los tres discrepaban.
+//
+// Cada cara lleva su color YA EN REPOSO, y no sólo al elegirla. Con las cinco en
+// gris, decidir exigía leer las cinco etiquetas; en color la escala se recorre
+// de un vistazo —rojo a la izquierda, verde a la derecha— y la etiqueta pasa a
+// confirmar en vez de informar. En reposo el tono va rebajado contra --txt-faint
+// para que el conjunto no grite y la elegida tenga de dónde subir.
+//
+// Los cinco tonos son los de la paleta funcional, que está validada para
+// daltonismo: bajo deuteranopia la escala se sigue leyendo porque además de
+// hue hay un salto de luminosidad de extremo a extremo.
 .fb-face {
-  flex: 1;
+  --cara: var(--txt-faint);
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .5rem;
-  border: none;
-  background: transparent;
-  padding: .5rem .25rem;
-  border-radius: 12px;
-  transition: transform .12s ease;
+  gap: 0.55rem;
+  padding: 0.5rem 0.2rem;
+  border: 0;
+  background: none;
+  color: color-mix(in srgb, var(--cara) 62%, var(--txt-faint));
+  transition: color 0.3s var(--ease), transform 0.3s var(--ease);
 
-  svg {
-    width: clamp(44px, 10vw, 58px);
-    height: clamp(44px, 10vw, 58px);
-    filter: grayscale(55%) brightness(.65);
-    transition: filter .2s ease, transform .15s ease;
+  &--1 { --cara: var(--c-rojo); }
+  &--2 { --cara: var(--c-naranja); }
+  &--3 { --cara: var(--c-ambar); }
+  &--4 { --cara: var(--c-lima); }
+  &--5 { --cara: var(--c-verde); }
+
+  &__disc {
+    display: block;
+    width: clamp(46px, 11vw, 66px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    transition: box-shadow 0.3s var(--ease);
+  }
+
+  svg { width: 100%; height: 100%; display: block; }
+
+  // El aro se atenúa respecto del rostro: da peso a la expresión, que es lo que
+  // se lee de un vistazo, sin que el círculo compita. El relleno tenue le da
+  // cuerpo de ficha sin cerrarla.
+  &__aro {
+    fill: color-mix(in srgb, var(--cara) 9%, transparent);
+    opacity: 0.55;
+    transition: fill 0.3s var(--ease), opacity 0.3s var(--ease);
   }
 
   &__label {
-    font-size: .6rem;
-    font-weight: 700;
-    letter-spacing: .06em;
-    color: color-mix(in srgb, var(--txt) 30%, transparent);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    transition: color .15s ease;
-    white-space: nowrap;
+    line-height: 1.3;
+    text-align: center;
+    color: inherit;
+    transition: color 0.3s var(--ease), font-weight 0.3s var(--ease);
   }
 
-  &:hover svg        { filter: grayscale(10%) brightness(.9); transform: scale(1.1); }
-  &:hover &__label   { color: color-mix(in srgb, var(--txt) 65%, transparent); }
+  &:hover,
+  &:focus-visible {
+    color: var(--cara);
+    transform: translateY(-2px);
 
-  &--active svg      { filter: none; transform: scale(1.18); }
-  &--active &__label { color: color-mix(in srgb, var(--txt) 95%, transparent); }
-
-  // El halo era el hex de la cara con "99" pegado como alfa. Con un token eso
-  // ya no se puede concatenar: la transparencia se pide con color-mix.
-  &--1.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-1} 60%, transparent)); }
-  &--2.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-2} 60%, transparent)); }
-  &--3.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-3} 60%, transparent)); }
-  &--4.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-4} 60%, transparent)); }
-  &--5.fb-face--active svg { filter: drop-shadow(0 0 12px color-mix(in srgb, #{$face-5} 60%, transparent)); }
-}
-
-// ── Navegación Anterior / Siguiente ──────────────────────────
-.fb-nav {
-  display: flex;
-  gap: .75rem;
-  margin: .25rem 0 .75rem;
-}
-
-.fb-nav__prev,
-.fb-nav__next {
-  flex: 1;
-  padding: .8rem 1rem;
-  border-radius: 50px;
-  font-size: .82rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  transition: background .15s ease, border-color .15s ease, transform .1s ease;
-}
-
-.fb-nav__prev {
-  border: 2px solid $fb-border;
-  background: transparent;
-  color: $fb-muted;
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--txt) 20%, transparent);
-    color: $fb-text;
-    transform: translateX(-2px);
+    .fb-face__aro { opacity: 0.85; }
   }
-}
 
-.fb-nav__next {
-  border: 2px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent-text);
+  // Activa. El disco se RELLENA y la cara se invierte: es un cambio de forma,
+  // no sólo de tinte, y por eso no se puede confundir con el hover —que en una
+  // tablet, además, se queda pegado tras el toque anterior.
+  //
+  // El halo va como box-shadow y no como borde: no ocupa caja, así que la
+  // rejilla de cinco no se mueve al elegir.
+  &--active {
+    color: var(--cara);
+    transform: translateY(-4px) scale(1.08);
 
-  &:hover {
-    background: color-mix(in srgb, var(--accent) 22%, transparent);
-    transform: translateX(2px);
+    .fb-face__aro {
+      fill: var(--cara);
+      stroke: var(--cara);
+      opacity: 1;
+    }
+
+    // Los ojos llevan fill="currentColor" como ATRIBUTO en el PHP; la propiedad
+    // CSS gana sobre el atributo de presentación, así que basta con esto para
+    // invertirlos sin tocar el marcado.
+    //
+    // Ojos y trazos van por separado a propósito: `fill` sobre los <path>
+    // rellenaría la boca, que en cuatro de las cinco caras es una curva
+    // ABIERTA y se cerraría formando una lente. Los path sólo cambian stroke;
+    // el fill="none" del <svg> se queda donde está.
+    svg circle:not(.fb-face__aro) { fill: var(--surface); }
+    svg path { stroke: var(--surface); }
+
+    .fb-face__disc {
+      box-shadow:
+        0 0 0 6px color-mix(in srgb, var(--cara) 15%, transparent),
+        0 10px 26px color-mix(in srgb, var(--cara) 28%, transparent);
+    }
+
+    .fb-face__label {
+      color: var(--cara);
+      font-weight: 800;
+    }
   }
 }
 
-// ── Textarea ──────────────────────────────────────────────────
+// El rebote sólo confirma el toque; sin él el salto de escala se lee como que
+// la interfaz dio un tirón.
+@media (prefers-reduced-motion: no-preference) {
+  .fb-face--active .fb-face__disc { animation: fb-pop 0.42s var(--ease); }
+}
+
+@keyframes fb-pop {
+  0% { transform: scale(0.86); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+// ── Comentario libre ─────────────────────────────────────────
 .fb-textarea {
   width: 100%;
-  box-sizing: border-box;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  border: 1px solid $fb-border;
-  border-radius: 10px;
-  color: $fb-text;
-  font-size: .88rem;
-  font-family: inherit;
-  padding: .85rem 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.65;
   resize: vertical;
-  transition: border-color .15s ease;
-  outline: none;
-  margin-bottom: 1.5rem;
 
-  &::placeholder { color: $fb-muted; }
-  &:focus        { border-color: var(--accent); }
-}
+  &::placeholder { color: var(--txt-faint); }
 
-// ── Mensaje de error ──────────────────────────────────────────
-.fb-error {
-  font-size: .8rem;
-  color: var(--feedback-danger);
-  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 25%, transparent);
-  border-radius: 8px;
-  padding: .6rem .9rem;
-  margin-bottom: .75rem;
-  display: none;
-
-  &--visible { display: block; }
-}
-
-// ── Botón de envío ────────────────────────────────────────────
-.fb-submit {
-  display: block;
-  width: 100%;
-  padding: 1rem;
-  margin-top: .5rem;
-  border: none;
-  border-radius: 50px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: .9rem;
-  font-weight: 800;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  transition: background .15s ease, transform .12s ease, box-shadow .15s ease;
-
-  &:hover:not(:disabled) {
-    // El oscurecido va con color-mix y no con color.adjust de Sass: éste último
-    // exige un color literal en tiempo de compilación y volvería a clavar el hex.
-    background: color-mix(in srgb, var(--accent) 88%, black);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 35%, transparent);
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
   }
-
-  &:active:not(:disabled) { transform: translateY(0); }
-  &:disabled { opacity: .55; }
 }
 
-// ── Resumen de respuestas ─────────────────────────────────────
-.fb-resumen {
-  margin-bottom: 1.5rem;
-}
-
+// ── Resumen ──────────────────────────────────────────────────
+//
+// Las escalas de aquí son los MISMOS nodos clonados de los pasos, así que
+// heredan todo lo de arriba; sólo se encogen.
 .fb-resumen-row {
-  padding: .65rem 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--txt) 6%, transparent);
+  padding: 1.15rem 0;
+  border-bottom: 1px solid var(--line-soft);
 
   &__label {
-    font-size: .7rem;
-    font-weight: 600;
-    letter-spacing: .05em;
-    color: color-mix(in srgb, var(--txt) 45%, transparent);
-    text-transform: uppercase;
-    margin-bottom: .45rem;
-  }
-
-  &__faces {
-    display: flex;
-    gap: .25rem;
-    align-items: flex-end;
-  }
-}
-
-.fb-resumen-face {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .2rem;
-  background: transparent;
-  border: none;
-  padding: .35rem .1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background .15s ease;
-
-  &:hover {
-    background: color-mix(in srgb, var(--txt) 4%, transparent);
-    svg { filter: grayscale(20%) brightness(.8); transform: scale(1.08); }
-    .fb-resumen-face__lbl { color: color-mix(in srgb, var(--txt) 50%, transparent); }
-  }
-
-  svg {
-    width: 32px;
-    height: 32px;
-    filter: grayscale(70%) brightness(.45);
-    transition: filter .2s ease, transform .2s ease;
     display: block;
-  }
-
-  &__lbl {
-    font-size: .48rem;
-    font-weight: 700;
-    letter-spacing: .04em;
-    color: color-mix(in srgb, var(--txt) 20%, transparent);
+    margin-bottom: 0.7rem;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    white-space: nowrap;
-    transition: color .2s ease;
+    color: var(--txt-faint);
   }
-
-  &--active {
-    svg { filter: none; transform: scale(1.22); }
-    .fb-resumen-face__lbl { color: color-mix(in srgb, var(--txt) 90%, transparent); }
-
-    &:hover svg { transform: scale(1.28); }
-  }
-
-  &--1.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-1}99); }
-  &--2.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-2}99); }
-  &--3.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-3}99); }
-  &--4.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-4}99); }
-  &--5.fb-resumen-face--active svg { filter: drop-shadow(0 0 8px #{$face-5}99); }
 }
 
-// ── Fila de comentario en el resumen ─────────────────────────
+.fb-escala--resumen {
+  gap: 0.25rem;
+
+  .fb-face__disc { width: clamp(34px, 8vw, 46px); }
+  .fb-face__label { font-size: 0.5rem; }
+}
+
 .fb-resumen-comment {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: .65rem 0;
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.2rem;
+  border-left: 2px solid var(--accent);
+  background: var(--bg);
 
   &__label {
-    font-size: .7rem;
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.6rem;
     font-weight: 600;
-    letter-spacing: .05em;
-    color: color-mix(in srgb, var(--txt) 45%, transparent);
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    flex-shrink: 0;
+    color: var(--txt-faint);
   }
 
   &__text {
-    font-size: .82rem;
-    color: $fb-text;
-    text-align: right;
-    font-style: italic;
-    opacity: .75;
+    font-family: var(--crimson);
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--txt);
+    // Lo escribió el comensal: puede venir sin espacios y desbordar la caja.
+    overflow-wrap: anywhere;
   }
 }
 
-// ── Estado de éxito / ya respondió ───────────────────────────
-.fb-done-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--feedback-ok) 15%, transparent);
-  border: 2px solid var(--feedback-ok);
-  color: var(--feedback-ok);
-  font-size: 1.6rem;
+// ── Navegación y envío ───────────────────────────────────────
+.fb-nav {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: clamp(1.75rem, 4vw, 2.5rem);
+
+  button {
+    border: 0;
+    background: none;
+    padding: 0.5rem 0;
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--txt-mute);
+    transition: color 0.3s var(--ease);
+
+    &:hover { color: var(--accent-text); }
+    &[hidden] { display: none; }
+  }
+
+  // El «Anterior» oculto no debe empujar al «Siguiente» a la izquierda.
+  &__prev[hidden] + &__next { margin-left: auto; }
+  &__next { margin-left: auto; }
+}
+
+.fb-submit {
+  width: 100%;
+  margin-top: 1.25rem;
   justify-content: center;
-  margin-bottom: .5rem;
+
+  &[hidden] { display: none; }
+  &:disabled { opacity: 0.55; }
+}
+
+// ── Pantalla de agradecimiento ───────────────────────────────
+.fb-card--done {
+  text-align: center;
+}
+
+.fb-done-icon {
+  display: block;
+  width: 56px;
+  margin: 1.5rem auto 1.25rem;
+  color: var(--feedback-ok);
+
+  svg { width: 100%; height: 100%; display: block; }
 }
 
 .fb-done-title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: $fb-text;
-  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 5.5vw, 2.8rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+  font-optical-sizing: auto;
+  color: var(--txt-strong);
+
+  // Un heading es una sola voz: la cursiva se separa por PESO, no por familia.
+  em {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-style: italic;
+  }
 }
 
 .fb-done-sub {
-  font-size: .88rem;
-  color: $fb-muted;
-  max-width: 320px;
-  line-height: 1.55;
-  margin: 0;
+  max-width: 42ch;
+  margin: 0.9rem auto 1.75rem;
+  font-family: var(--crimson);
+  font-size: 1.08rem;
+  line-height: 1.6;
+  color: var(--txt-mute);
 }
 
-// ── Botones de pago en el modal del mapa ─────────────────────
-// minmax(0, 1fr) y no 1fr: con `1fr` la pista no baja de su min-content, y dos
-// botones con "EFECTIVO"/"TARJETA" espaciados sumaban ~360px contra los 352px
-// útiles del .mesa-modal__panel, así que la fila se salía del contenedor.
-.mmodal-pago-btns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .75rem;
-  margin: 1.25rem 0 .75rem;
-
-  @media (max-width: 420px) { grid-template-columns: 1fr; }
-}
-
-.mmodal-pago-btn {
-  width: 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: .6rem;
-  padding: 1.25rem 1rem;
-  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  color: color-mix(in srgb, var(--txt) 75%, transparent);
-  transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
-
-  &__icon {
-    display: flex;
-    flex: 0 0 auto;
-    line-height: 1;
-  }
-
-  &__label {
-    min-width: 0;
-    font-size: .85rem;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-
-  &:hover {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    color: var(--accent-text);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-
-  &:active { transform: translateY(0); }
-}
-
-.mmodal-pago-badge {
-  display: inline-block;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  color: var(--accent-text);
-  border-radius: 50px;
-  padding: .1rem .65rem;
-  font-size: .78rem;
-  font-weight: 700;
-  letter-spacing: .06em;
-}
-
-// Estado activo del selector de método (cuenta completa)
-.mmodal-pago-btn--active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent-text);
-}
-
-// ── Elegir tipo de cierre: completa vs dividida ──────────────
-.mmodal-cierre-tipo { padding: .5rem 0 0; text-align: center; }
-
-.mmodal-tipo-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .75rem;
-  margin: 1.25rem 0 .75rem;
-
-  @media (max-width: 420px) { grid-template-columns: 1fr; }
-}
-
-.mmodal-tipo-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .4rem;
-  padding: 1.4rem 1rem;
-  border: 2px solid color-mix(in srgb, var(--txt) 10%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--txt) 4%, transparent);
-  color: color-mix(in srgb, var(--txt) 80%, transparent);
-  text-align: center;
-  transition: border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
-
-  &__icon  { display: flex; line-height: 1; color: var(--accent-text); }
-  &__title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; }
-  &__desc  { font-size: .72rem; color: color-mix(in srgb, var(--txt) 55%, transparent); line-height: 1.3; }
-
-  &:hover {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    color: var(--accent-text);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-  &:active { transform: translateY(0); }
-}
-
-// Aviso bajo el botón "Cerrar ticket" cuando faltan productos por entregar
-.mmodal-cerrar-hint {
-  font-size: .72rem;
-  font-weight: 600;
-  color: var(--feedback-warn);
-  text-align: center;
-  margin-bottom: .5rem;
-}
-
-// ── Pago dividido por comensal ───────────────────────────────
-.mmodal-split {
-  padding: .75rem 0 0;
-  text-align: center;
-}
-
-// Selector de modo de reparto (partes iguales / cada quien / vacío)
-.mmodal-split-modes {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: .4rem;
-  margin: .85rem 0 .25rem;
-}
-
-.mmodal-split-mode {
-  padding: .5rem .35rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 3%, transparent);
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-family: var(--sans);
-  font-size: .66rem;
-  font-weight: 700;
-  letter-spacing: .04em;
-  line-height: 1.2;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color .15s ease, border-color .15s ease, background .15s ease;
-
-  &:hover {
-    color: color-mix(in srgb, var(--txt) 90%, transparent);
-    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  }
-
-  &--active {
-    color: var(--accent-text);
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-}
-
-.mmodal-split-table {
-  margin: 1rem 0 .75rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 9%, transparent);
-  border-radius: 10px;
-  overflow: hidden;
-  text-align: left;
-}
-
-.mmodal-split-row {
-  display: grid;
-  grid-template-columns: 1.1fr .9fr 1.1fr;
-  align-items: center;
-  gap: .5rem;
-  padding: .55rem .75rem;
-
-  & + & { border-top: 1px solid color-mix(in srgb, var(--txt) 6%, transparent); }
-
-  &--head {
-    background: color-mix(in srgb, var(--txt) 4%, transparent);
-    font-size: .58rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    color: color-mix(in srgb, var(--txt) 50%, transparent);
-  }
-}
-
-.mmodal-split-name {
-  font-size: .82rem;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--txt) 85%, transparent);
-}
-
-.mmodal-split-metodos {
-  display: flex;
-  gap: .4rem;
-}
-
-.mmodal-split-metodo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: .3rem .55rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--txt) 3%, transparent);
-  line-height: 1;
-  cursor: pointer;
-  color: color-mix(in srgb, var(--txt) 45%, transparent);
-  transition: color .15s ease, border-color .15s ease, background .15s ease;
-
-  &--active {
-    color: var(--accent-text);
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-}
-
-.mmodal-split-monto {
-  display: flex;
-  align-items: center;
-  gap: .3rem;
-  font-size: .85rem;
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
-}
-
-// ── Propina explícita ────────────────────────────────────────
-// Se elige antes de capturar el efectivo, porque decide cuánto cambio hay que
-// devolver. En cuenta dividida reparte el porcentaje entre los comensales.
-.mmodal-propina {
-  margin: .9rem 0 0;
-
-  &__label {
-    display: block;
-    margin-bottom: .45rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-
-  &__btns {
-    display: flex;
-    gap: .4rem;
-    flex-wrap: wrap;
-  }
-
-  &__btn {
-    min-height: 40px;
-    padding: .45rem .7rem;
-    flex: 1 1 auto;
-    border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
-    border-radius: 9px;
-    background: color-mix(in srgb, var(--txt) 4%, transparent);
-    color: color-mix(in srgb, var(--txt) 75%, transparent);
-    font-family: inherit;
-    font-size: .78rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    cursor: pointer;
-    transition: border-color .15s, background .15s, color .15s;
-
-    &:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-
-    &.is-on {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 16%, transparent);
-      color: var(--accent-text);
-    }
-  }
-
-  &__monto {
-    display: flex;
-    align-items: center;
-    gap: .3rem;
-    margin-top: .5rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .85rem;
-
-    input[hidden] { display: none; }
-  }
-
-  // "Quédese con el cambio": convierte todo el excedente en propina de un
-  // toque, que es como se resuelve en la mesa la mayoría de las veces.
-  &__quedese {
-    width: 100%;
-    margin-top: .5rem;
-    padding: .5rem;
-    border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
-    border-radius: 9px;
-    background: none;
-    color: var(--accent-text);
-    font-family: inherit;
-    font-size: .75rem;
-    font-weight: 700;
-    cursor: pointer;
-
-    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-  }
-}
-
-// ── Monto recibido ───────────────────────────────────────────
-// Campo grande y solo: es el dato que el mesero teclea con una mano mientras
-// cuenta billetes con la otra.
-.mmodal-recibido {
-  margin-top: .9rem;
-
-  &[hidden] { display: none; }
-
-  &__label {
-    display: block;
-    margin-bottom: .4rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-
-  &__field {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    min-height: 56px;
-    padding: 0 .9rem;
-    border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
-    border-radius: 11px;
-    background: color-mix(in srgb, var(--txt) 5%, transparent);
-    color: color-mix(in srgb, var(--txt) 55%, transparent);
-    font-size: 1.2rem;
-
-    &:focus-within { border-color: var(--accent); }
-
-    input {
-      width: 100%;
-      min-width: 0;
-      border: 0;
-      background: none;
-      color: var(--txt);
-      font-family: inherit;
-      font-size: 1.6rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      outline: none;
-      -moz-appearance: textfield;
-
-      &::-webkit-outer-spin-button,
-      &::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-    }
-  }
-}
-
-// El número que el mesero le dice al cliente: se destaca sobre todo lo demás.
-.mmodal-cambio {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: .75rem;
-  padding: .7rem .9rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-
-  &[hidden] { display: none; }
-
-  &__label {
-    color: color-mix(in srgb, var(--txt) 72%, transparent);
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-  }
-
-  &__val {
-    color: var(--accent-text);
-    font-size: 1.5rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-.mmodal-total-row--fuerte {
-  padding-top: .45rem;
-  border-top: 1px solid color-mix(in srgb, var(--txt) 10%, transparent);
-
-  .mmodal-total-label { color: color-mix(in srgb, var(--txt) 85%, transparent); }
-
-  .mmodal-total-amount {
-    font-size: 1.05rem;
-    font-weight: 800;
-  }
-}
-
-// Rellena el importe exacto de un toque. Sustituye al atajo anterior de dejar
-// el campo vacío: el monto se sigue capturando rápido, pero queda escrito y
-// confirmado antes de cerrar la cuenta.
-.mmodal-monto-exacto {
-  flex-shrink: 0;
-  padding: .42rem .6rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: 8px;
-  background: none;
-  color: var(--accent-text);
-  font-family: inherit;
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background .15s;
-
-  &:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-}
-
-.mmodal-split-input {
-  width: 100%;
-  min-width: 0;
-  padding: .42rem .5rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
-  color: var(--txt);
-  font-size: .9rem;
-  font-weight: 600;
-  text-align: right;
-  -moz-appearance: textfield;
-
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-  }
-}
-
-.mmodal-split-status {
-  margin: .5rem 0 .25rem;
-  text-align: left;
-}
-
-.mmodal-split-diff {
-  margin: .4rem 0 0;
-  font-size: .78rem;
-  font-weight: 700;
-  text-align: right;
-
-  &--ok    { color: var(--feedback-ok); }
-  &--falta { color: var(--feedback-warn); }
-  &--sobra { color: var(--feedback-danger); }
-}
-
-.mmodal-btn:disabled {
-  opacity: .35;
-  cursor: not-allowed;
-
-  &:active { transform: none; }
-}
-
-// ── Panel de encuesta en el modal del mapa ───────────────────
-.mmodal-feedback-encuesta {
-  padding: 1rem 0 .5rem;
-  text-align: center;
-
-  &__title {
-    font-size: .82rem;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    margin: 0 0 1.25rem;
-  }
+// ── Móvil ────────────────────────────────────────────────────
+//
+// El archivo no tenía una sola @media: todo salía de clamp(). A 380px las cinco
+// etiquetas de la escala se rompían en tres líneas cada una y la fila se comía
+// la pantalla, así que ahí se ocultan — la cara ya dice lo que hay que saber, y
+// el aria-label sigue diciéndolo para quien use lector.
+@media (max-width: 420px) {
+  .fb-escala { gap: 0.15rem; }
+  .fb-face__label { display: none; }
+  .fb-face__disc { width: clamp(48px, 15vw, 60px); }
 }

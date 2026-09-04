@@ -4,36 +4,89 @@
  * Compone bases, layout y componentes reutilizables sin incluir la landing.
  */
 /*
- * Base visual aislada del panel de administración.
- * Define el sistema de tokens dual (claro/oscuro), superficies premium y
- * la normalización local del módulo admin. El tema se controla con el
- * atributo [data-admin-theme] en <html>; el claro es el valor por defecto.
+ * Sistema de tokens del panel ADMINISTRATIVO.
+ *
+ * Aislado a propósito: `admin.css` nunca carga `app.css` y no comparte un solo
+ * color con la landing. El panel se diseña para poder despegarse como producto
+ * propio, así que su identidad es blanco y negro —dos anclas neutras— y la
+ * paleta de color queda reservada, sin excepciones, a DATOS y ESTADO.
+ *
+ * Esa regla es lo que hace que el conjunto se lea como un sistema: si el cromo
+ * (bordes, rellenos, énfasis) usara color, un badge ámbar dejaría de significar
+ * "advertencia" y pasaría a ser un adorno más.
+ *
+ *   1 · ANCLAS    tinta y papel. Los únicos hex neutros del archivo.
+ *   2 · GRISES    la rampa de 12 pasos, derivada de las dos anclas con
+ *                 color-mix. Se declara POR TEMA, y siempre en el mismo
+ *                 sentido: --admin-gris-0 es el fondo y --admin-gris-11 la
+ *                 tinta más contrastada. Así los roles se escriben una vez.
+ *   3 · ROLES     lo que consume el CSS: superficies, texto, líneas, acento.
+ *
+ * En blanco y negro el ACENTO ES LA TINTA: --admin-accent vale casi-negro en
+ * claro y casi-blanco en oscuro. De ahí que --admin-text y --admin-accent
+ * coincidan, que es justo lo que permite que los alias de abajo funcionen tanto
+ * donde el nombre viejo pintaba texto como donde pintaba un relleno.
+ *
+ * El tema se controla con [data-admin-theme] en <html> y el CLARO es el valor
+ * por defecto (`.admin-body` a secas).
  */
-/* ── Tokens compartidos (independientes del tema) ─────────────── */
+/* ── Alias heredados ───────────────────────────────────────────
+ *
+ * El panel tenía una identidad de marca —verde, vino y oro— y 336 reglas
+ * consumen todavía esos nombres. Cada alias apunta al ROL que el nombre viejo
+ * representaba de verdad, comprobado uso por uso, no por lo que sugiere el
+ * nombre:
+ *
+ *   · --admin-terra NO era el color de peligro: es el relleno de
+ *     .admin-btn--primary (components/_buttons.scss). Va al acento.
+ *   · --admin-ink-on-gold es literalmente "la tinta encima del acento" en sus
+ *     nueve usos (botones, formularios, acción primaria del mapa). Va a
+ *     --admin-on-accent.
+ *   · --admin-text-inverse es lo mismo en sus diez usos: texto sobre un relleno
+ *     de acento. Iba a un crema FIJO, así que en tema oscuro pintaba claro
+ *     sobre claro; al colgarlo de --admin-on-accent se arregla solo.
+ *   · --admin-sage-deep se usaba a la vez como texto fuerte (seis sitios) y
+ *     como fondo de la insignia del topbar (uno). En blanco y negro las dos
+ *     cosas son el mismo valor, así que deja de ser un conflicto.
+ *
+ * Van en un mixin y se incluyen DENTRO de cada bloque de tema, no sueltos: una
+ * custom property que referencia a otra se resuelve en el elemento donde se
+ * DECLARA. Es la lección que ya costó cara en la landing (ver el mixin gemelo
+ * en src/scss/layout/_reset.scss). */
+/* ── Puente hacia los nombres públicos ─────────────────────────
+ *
+ * Las pantallas de piso —POS (3.541 líneas), tableros de área (550), login
+ * (458) y los catorce parciales de operación (6.720)— se escribieron contra los
+ * roles del sitio público: --txt, --accent, --line, --surface, --gold… Unos
+ * cuarenta nombres, repartidos por más de once mil líneas.
+ *
+ * Reescribir esas hojas para que pidieran --admin-* era el trabajo obvio y el
+ * equivocado: mucho riesgo sobre las pantallas que no pueden romperse en
+ * servicio, a cambio de nada que se vea. Aquí se declara el mapeo una sola vez
+ * y las once mil líneas se re-tiñen sin tocarse.
+ *
+ * Es la misma jugada del mixin de arriba, sólo que cruzando de un sistema al
+ * otro. Y por el mismo motivo va en un mixin que se incluye en un ámbito
+ * concreto: una custom property que referencia a otra se resuelve donde se
+ * DECLARA.
+ *
+ * Lo que NO entra aquí: --pos-*, --map-*, --mesas-map-*, --operational-* y
+ * --area-accent. Son escalas locales que esas mismas hojas definen para sí,
+ * no roles del sistema, y ya se derivan de lo que se puentea abajo.
+ */
+/* ── Tokens independientes del tema ───────────────────────────── */
 .admin-body {
-  /* ═══ Capa 1 · MARCA ═════════════════════════════════════════
-     Los cuatro colores del manual. Son los únicos hex de marca del panel;
-     todo lo demás se deriva de ellos con color-mix. El panel repite la capa
-     en lugar de leer la del sitio público porque está aislado a propósito:
-     `admin.css` nunca carga `app.css`. */
-  --admin-brand-verde: #225036;
-  --admin-brand-vino: #4b1915;
-  --admin-brand-oro: #d2ab67;
-  --admin-brand-crema: #f5f1e8;
-  /* ═══ Capa 2 · ESCALAS ═══════════════════════════════════════ */
-  --admin-gold: var(--admin-brand-oro);
-  --admin-gold-soft: color-mix(in srgb, var(--admin-brand-oro) 55%, var(--admin-brand-crema));
-  --admin-gold-deep: color-mix(in srgb, var(--admin-brand-oro) 52%, var(--admin-brand-vino));
-  /* Tinta para texto sobre dorado. Fija en ambos temas: el dorado no cambia,
-     así que su contraparte legible tampoco. */
-  --admin-ink-on-gold: color-mix(in srgb, var(--admin-brand-verde) 72%, black);
-  --admin-sage: var(--admin-brand-verde);
-  --admin-sage-deep: color-mix(in srgb, var(--admin-brand-verde) 72%, black);
-  --admin-terra: var(--admin-brand-vino);
-  --admin-terra-deep: color-mix(in srgb, var(--admin-brand-vino) 76%, black);
-  /* Paleta de acento de marca. La base del panel sigue siendo negro +
-     dorado; estos tokens cubren todo lo que no lo es (estados, series de
-     gráficas, tipos de anuncio). Consumirlos por variable. Ver CLAUDE.md. */
+  /* ═══ Capa 1 · ANCLAS ══════════════════════════════════════════
+     Ni #000 ni #fff. El negro puro sobre una pantalla grande vibra en los
+     bordes y el blanco puro quema; un par ligeramente cálido y desaturado es
+     lo que da el acabado de papel impreso en vez de "tema oscuro por defecto".
+     Toda la rampa de grises sale de mezclar estos dos. */
+  --admin-ink: #0b0b0c;
+  --admin-paper: #fbfbfa;
+  /* ═══ Paleta funcional ═════════════════════════════════════════
+     Validada para daltonismo (ver CLAUDE.md y el skill dataviz). NO se usa para
+     cromo: sólo estado, series de gráfica y categorías. Consumirla por variable,
+     nunca repitiendo el hex. */
   --admin-c-ambar: #f5b400;
   --admin-c-naranja: #fc6722;
   --admin-c-rojo: #e51022;
@@ -42,11 +95,12 @@
   --admin-c-indigo: #4267ac;
   --admin-c-rosa: #ea075a;
   --admin-c-magenta: #aa2296;
+  --admin-c-purpura: #6a4c93;
   --admin-c-turquesa: #46bdc6;
   --admin-c-verde: #34a853;
-  /* Derivados de la paleta. Se generan con color-mix sobre la superficie
-     activa, así que un único bloque sirve para claro y oscuro: el fondo suave
-     de un badge ámbar es legible en ambos temas sin duplicar valores. */
+  /* Derivados de la paleta. Se mezclan sobre la superficie activa, así que un
+     único bloque sirve a los dos temas: el fondo suave de un badge ámbar es
+     legible en claro y en oscuro sin duplicar valores. */
   --admin-c-ambar-bg: color-mix(in srgb, var(--admin-c-ambar) 14%, var(--admin-surface));
   --admin-c-ambar-border: color-mix(in srgb, var(--admin-c-ambar) 42%, transparent);
   --admin-c-naranja-bg: color-mix(in srgb, var(--admin-c-naranja) 14%, var(--admin-surface));
@@ -63,6 +117,8 @@
   --admin-c-rosa-border: color-mix(in srgb, var(--admin-c-rosa) 42%, transparent);
   --admin-c-magenta-bg: color-mix(in srgb, var(--admin-c-magenta) 15%, var(--admin-surface));
   --admin-c-magenta-border: color-mix(in srgb, var(--admin-c-magenta) 44%, transparent);
+  --admin-c-purpura-bg: color-mix(in srgb, var(--admin-c-purpura) 16%, var(--admin-surface));
+  --admin-c-purpura-border: color-mix(in srgb, var(--admin-c-purpura) 44%, transparent);
   --admin-c-turquesa-bg: color-mix(in srgb, var(--admin-c-turquesa) 14%, var(--admin-surface));
   --admin-c-turquesa-border: color-mix(in srgb, var(--admin-c-turquesa) 42%, transparent);
   --admin-c-verde-bg: color-mix(in srgb, var(--admin-c-verde) 14%, var(--admin-surface));
@@ -81,26 +137,37 @@
   --admin-radius-lg: 20px;
   /* Layout */
   --admin-header-height: 88px;
-  --admin-sidebar-width: 280px;
+  /* 296 y no 280: con el cuerpo del enlace a 14px, "Estaciones de impresión"
+     —la etiqueta más larga del menú— se quedaba a un pelo del recorte por
+     ellipsis. Los 16px extra le dan el margen para caber entera. */
+  --admin-sidebar-width: 296px;
   --admin-sidebar-collapsed-width: 88px;
   --admin-layout-transition: 180ms ease;
-  /* Movimiento premium */
+  /* Movimiento */
   --admin-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --admin-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --admin-t-fast: 140ms;
   --admin-t-base: 260ms;
   --admin-t-slow: 480ms;
   --admin-glow:
-    0 0 0 1px color-mix(in srgb, var(--admin-gold) 35%, transparent),
-    0 0 22px color-mix(in srgb, var(--admin-gold) 18%, transparent);
-  --admin-focus-ring: 0 0 0 3px color-mix(in srgb, var(--admin-gold) 30%, transparent);
-  /* Serie de las gráficas. Vive aquí para que charts.js la lea con readToken()
-     en vez de guardar su propia copia en JS. NO adopta la paleta de marca:
-     verde y vino son indistinguibles bajo deuteranopia, y estos pasos están
-     validados (ver CLAUDE.md y el skill dataviz). Se declaran con valores
-     literales, no con color-mix, porque getComputedStyle devuelve la función
-     sin resolver y Chart.js no sabe interpretarla. */
+    0 0 0 1px color-mix(in srgb, var(--admin-accent) 26%, transparent),
+    0 0 22px color-mix(in srgb, var(--admin-accent) 12%, transparent);
+  --admin-focus-ring: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 28%, transparent);
   --admin-chart-grid: color-mix(in srgb, var(--admin-muted) 40%, transparent);
+  /* Los nombres públicos del vidrio, también dentro del panel. El mixin
+     `vidrio()` es uno solo para los dos árboles y pide --glass-*; el puente
+     sólo los reparte a las cuatro pantallas de piso, así que sin esto el
+     desenfoque de una tarjeta del panel quedaba sin radio.
+     Resuelven bien en los dos temas porque ambos declaran sobre .admin-body,
+     que es el MISMO elemento: no es el caso de la trampa de herencia. */
+  --glass-blur: var(--admin-glass-blur);
+  --glass-blur-sm: var(--admin-glass-blur-sm);
+  --glass-sat: var(--admin-glass-sat);
+  --glass-bg: var(--admin-glass-bg);
+  --glass-bg-strong: var(--admin-glass-bg-strong);
+  --glass-bg-soft: var(--admin-glass-bg-soft);
+  --glass-border: var(--admin-glass-border);
+  --glass-edge: var(--admin-glass-edge);
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -113,13 +180,502 @@
   transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out);
 }
 
-/*
- * Reglas que pide Lenis y que el layout nunca cargó: se sirve lenis.min.js
- * desde CDN pero no su hoja de estilos.
+/* ── TEMA CLARO (por defecto) ──────────────────────────────────
  *
- * La tercera es la que arregla un síntoma concreto: sin `overscroll-behavior:
- * contain`, al llegar al final de una tabla o de un modal la rueda encadenaba
- * con la página de detrás y ésta se movía sola.
+ * `.admin-body` a secas vale claro: sin atributo, sin JS y sin esperar a que
+ * corra el script del layout, la primera pintura ya es la correcta.
+ *
+ * Los porcentajes de la rampa NO están elegidos a ojo. Cada rol de texto y de
+ * línea se fijó calculando su contraste real contra --admin-bg, y por eso los
+ * números del bloque claro y los del oscuro no coinciden: la misma mezcla da
+ * ratios distintos sobre papel que sobre tinta.
+ */
+.admin-body,
+[data-admin-theme=light] .admin-body {
+  /* ═══ Capa 2 · GRISES ══════════════════════════════════════════
+     Densos abajo —las superficies tienen que separarse de a poco— y abiertos
+     arriba, donde vive el texto y hacen falta saltos grandes. */
+  --admin-gris-0: var(--admin-paper);
+  --admin-gris-1: color-mix(in srgb, var(--admin-ink) 3%, var(--admin-paper));
+  --admin-gris-2: color-mix(in srgb, var(--admin-ink) 6%, var(--admin-paper));
+  --admin-gris-3: color-mix(in srgb, var(--admin-ink) 10%, var(--admin-paper));
+  --admin-gris-4: color-mix(in srgb, var(--admin-ink) 15%, var(--admin-paper));
+  --admin-gris-5: color-mix(in srgb, var(--admin-ink) 22%, var(--admin-paper));
+  --admin-gris-6: color-mix(in srgb, var(--admin-ink) 30%, var(--admin-paper));
+  --admin-gris-7: color-mix(in srgb, var(--admin-ink) 46%, var(--admin-paper));
+  --admin-gris-8: color-mix(in srgb, var(--admin-ink) 60%, var(--admin-paper));
+  --admin-gris-9: color-mix(in srgb, var(--admin-ink) 72%, var(--admin-paper));
+  --admin-gris-10: color-mix(in srgb, var(--admin-ink) 86%, var(--admin-paper));
+  --admin-gris-11: var(--admin-ink);
+  /* ═══ Capa 3 · ROLES ═══════════════════════════════════════════ */
+  /* La página es papel y las tarjetas son blanco puro: la elevación se lee por
+     el salto de luz, no por una sombra pesada. Es al revés que en oscuro, donde
+     lo elevado es lo que más se aclara. */
+  --admin-bg: var(--admin-gris-1);
+  --admin-surface: #ffffff;
+  --admin-surface-soft: var(--admin-gris-2);
+  --admin-surface-strong: #ffffff;
+  /* El velo es oscuro en los dos temas: sobre una imagen el texto va en claro. */
+  --admin-scrim: color-mix(in srgb, var(--admin-ink) 88%, transparent);
+  --admin-sombra: var(--admin-ink);
+  /* Texto. --admin-faint es el más tenue que la casa admite y está fijado al
+     mínimo que cumple AA (4.5:1) sobre --admin-bg, con un punto de holgura:
+     al 57% daba 4.63:1, justo en la raya. Bajarlo rompe el contraste y además
+     arrastra a --admin-estado-cancelado. */
+  --admin-text: var(--admin-gris-11);
+  --admin-muted: color-mix(in srgb, var(--admin-ink) 72%, var(--admin-bg));
+  --admin-faint: color-mix(in srgb, var(--admin-ink) 61%, var(--admin-bg));
+  /* Líneas. Una escala de cuatro escalones, no sinónimos. El reparto importa:
+     el 3:1 de WCAG para elementos no textuales aplica al borde que COMUNICA
+     algo —el contorno de un campo, un control, un estado activo—, no al que
+     agrupa. Poner los 116 usos de --admin-border en 3:1 dejaba el panel entero
+     recuadrado en gris medio; dejar los campos en el 9% de --admin-border-soft,
+     que es lo que había, los dejaba sin contorno perceptible.
+       · --admin-border-soft   separador decorativo entre filas y bloques;
+       · --admin-border        contorno general de contenedor (tarjetas);
+       · --admin-border-strong contorno de CONTROL, cumple el 3:1 (46% → 3.2:1);
+       · --admin-line-strong   jerarquía y estado activo. */
+  --admin-border: color-mix(in srgb, var(--admin-ink) 17%, transparent);
+  --admin-border-soft: color-mix(in srgb, var(--admin-ink) 9%, transparent);
+  --admin-border-strong: color-mix(in srgb, var(--admin-ink) 46%, transparent);
+  --admin-line: var(--admin-border-soft);
+  --admin-line-strong: color-mix(in srgb, var(--admin-ink) 66%, transparent);
+  /* El acento es la tinta. --admin-on-accent es lo que va ENCIMA de un relleno
+     de acento; en claro ese relleno es casi negro, así que la tinta es papel. */
+  --admin-accent: var(--admin-gris-11);
+  --admin-accent-soft: var(--admin-gris-9);
+  --admin-accent-deep: var(--admin-ink);
+  --admin-on-accent: var(--admin-paper);
+  /* El canto iluminado de una superficie. En claro es una sombra interior
+     tenue, no un brillo: sobre blanco un highlight blanco no existe. */
+  --admin-edge: color-mix(in srgb, var(--admin-ink) 5%, transparent);
+  /* Sidebar */
+  --admin-sidebar: var(--admin-gris-0);
+  --admin-sidebar-soft: var(--admin-gris-2);
+  --admin-sidebar-border: color-mix(in srgb, var(--admin-ink) 9%, transparent);
+  --admin-sidebar-text: var(--admin-gris-11);
+  /* Los enlaces salían de --admin-muted, que es el rol del texto SECUNDARIO.
+     Pero la navegación no es texto secundario: es la lista de sitios a los que
+     se puede ir, y con catorce entradas a 13px en gris medio había que
+     acercarse para leer cuál era cuál. --admin-gris-10 da 13.6:1 sobre el papel
+     del sidebar y deja el escalón que falta (gris-11) para hover y activo. */
+  --admin-sidebar-link: var(--admin-gris-10);
+  --admin-sidebar-link-hover: var(--admin-gris-11);
+  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-ink) 7%, transparent);
+  --admin-sidebar-active-bg: var(--admin-gris-11);
+  --admin-sidebar-active-text: var(--admin-paper);
+  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-ink) 6%, transparent);
+  --admin-sidebar-mark-active-text: var(--admin-paper);
+  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-ink) 22%, transparent);
+  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-ink) 38%, transparent);
+  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 10%, transparent);
+  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 32%, transparent);
+  /* Cristal / topbar */
+  --admin-topbar-bg: var(--admin-glass-bg);
+  --admin-topbar-border: var(--admin-glass-border);
+  --admin-table-head: var(--admin-muted);
+  /* Vidrio. Dos radios de desenfoque porque el coste no es el mismo: una capa
+     flotante hay una o dos a la vez y puede permitirse un blur grande; las
+     tarjetas son veinte en una rejilla y van al radio corto.
+       · -bg        capas flotantes (topbar, cajón, dropdown)
+       · -bg-strong diálogos, que tapan de verdad
+       · -bg-soft   tarjetas y paneles, casi opacas
+     Sobre papel el vidrio es una lámina translúcida, no un espejo: el
+     saturate se queda bajo o el fondo blanco vira a gris sucio. */
+  --admin-glass-blur: 20px;
+  --admin-glass-blur-sm: 10px;
+  --admin-glass-sat: 1.4;
+  --admin-glass-bg: color-mix(in srgb, var(--admin-bg) 72%, transparent);
+  --admin-glass-bg-strong: color-mix(in srgb, var(--admin-surface-strong) 86%, transparent);
+  --admin-glass-bg-soft: color-mix(in srgb, var(--admin-surface) 88%, transparent);
+  --admin-glass-border: color-mix(in srgb, var(--admin-ink) 8%, transparent);
+  --admin-glass-edge: color-mix(in srgb, var(--admin-paper) 70%, transparent);
+  /* Velo de fondo, en un solo sitio. Antes cada backdrop mezclaba --admin-scrim
+     con transparent, pero --admin-scrim YA trae alfa: las dos opacidades se
+     multiplicaban y un velo escrito al 70% se pintaba al 61%. */
+  --admin-veil: color-mix(in srgb, var(--admin-ink) 52%, transparent);
+  /* Sombras: cortas y de poca opacidad. Una sombra larga sobre papel se lee
+     como suciedad; lo que separa una tarjeta aquí es el hairline. */
+  --admin-shadow-sm: 0 1px 2px color-mix(in srgb, var(--admin-sombra) 5%, transparent);
+  --admin-shadow-md: 0 8px 24px color-mix(in srgb, var(--admin-sombra) 7%, transparent);
+  --admin-shadow-lg: 0 24px 64px color-mix(in srgb, var(--admin-sombra) 11%, transparent);
+  --admin-btn-secondary-bg: var(--admin-gris-1);
+  /* Grano de película. Se mantiene bajo en claro: sobre papel un grano marcado
+     ensucia en vez de dar textura. */
+  --admin-grain: 0.035;
+  --admin-grain-blend: multiply;
+  /* Serie de las gráficas. Valores LITERALES y no color-mix: getComputedStyle
+     devuelve la función sin resolver y Chart.js no sabe interpretarla. Un paso
+     más oscuras para contrastar sobre la superficie clara. */
+  --admin-chart-1: #0895a2;
+  --admin-chart-2: #cc4e12;
+  --admin-chart-3: #2a73e8;
+  --admin-chart-4: #b32f9e;
+  --admin-chart-5: #2a9247;
+  --admin-chart-ventas: #2a9247;
+  --admin-chart-reservas: #cc4e12;
+  --admin-chart-bajo: #c40e1d;
+  --admin-chart-tooltip: #0b0b0c;
+  /* Cuadrantes de la matriz de ingeniería de menú (Nivel 1). */
+  --admin-n1-estrella: #3f8f4f;
+  --admin-n1-vaca: #c98a1f;
+  --admin-n1-incognita: #2f6db3;
+  --admin-n1-perro: #c1462e;
+  /* Estados base: directo a la paleta. */
+  --admin-success: var(--admin-c-verde);
+  --admin-warning: var(--admin-c-ambar);
+  --admin-danger: var(--admin-c-rojo);
+  --admin-info: var(--admin-c-azul);
+  /* Tríos de estado (badges, alertas). Sobre fondo claro los textos se oscurecen
+     mezclando con la tinta para conservar el contraste. El neutro es el único
+     que NO lleva color: un estado sin significado es gris, no dorado. */
+  --admin-neutral-text: var(--admin-muted);
+  --admin-neutral-bg: color-mix(in srgb, var(--admin-ink) 6%, transparent);
+  --admin-neutral-border: color-mix(in srgb, var(--admin-ink) 18%, transparent);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 58%, var(--admin-ink));
+  --admin-success-bg: var(--admin-c-verde-bg);
+  --admin-success-border: var(--admin-c-verde-border);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 46%, var(--admin-ink));
+  --admin-warning-bg: var(--admin-c-ambar-bg);
+  --admin-warning-border: var(--admin-c-ambar-border);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 64%, var(--admin-ink));
+  --admin-danger-bg: var(--admin-c-rojo-bg);
+  --admin-danger-border: var(--admin-c-rojo-border);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 58%, var(--admin-ink));
+  --admin-info-bg: var(--admin-c-azul-bg);
+  --admin-info-border: var(--admin-c-azul-border);
+  --admin-gold: var(--admin-accent);
+  --admin-gold-soft: var(--admin-accent-soft);
+  --admin-gold-deep: var(--admin-accent-deep);
+  --admin-ink-on-gold: var(--admin-on-accent);
+  --admin-terra: var(--admin-accent);
+  --admin-terra-deep: var(--admin-accent-deep);
+  --admin-sage: var(--admin-gris-9);
+  --admin-sage-deep: var(--admin-accent);
+  --admin-text-inverse: var(--admin-on-accent);
+  --admin-muted-inverse: var(--admin-gris-4);
+  /* Diálogo de confirmación y aviso transitorio: los dos componentes vienen del
+     árbol público y consumen estos nombres sin declararlos. Una custom property
+     indefinida invalida la declaración entera, y el modal salía transparente. */
+  --confirmation-surface: var(--admin-surface-strong);
+  --confirmation-text: var(--admin-text);
+}
+
+/* ── TEMA OSCURO ───────────────────────────────────────────────
+ *
+ * La rampa se invierte: --admin-gris-0 sigue siendo el fondo y --admin-gris-11
+ * la tinta, sólo que ahora el fondo es la tinta y la tinta es el papel. Por eso
+ * los roles de arriba y los de abajo se escriben igual y sólo cambian los
+ * porcentajes, que están recalculados contra el fondo nuevo.
+ */
+[data-admin-theme=dark] .admin-body {
+  --admin-gris-0: var(--admin-ink);
+  --admin-gris-1: color-mix(in srgb, var(--admin-paper) 4%, var(--admin-ink));
+  --admin-gris-2: color-mix(in srgb, var(--admin-paper) 7%, var(--admin-ink));
+  --admin-gris-3: color-mix(in srgb, var(--admin-paper) 11%, var(--admin-ink));
+  --admin-gris-4: color-mix(in srgb, var(--admin-paper) 16%, var(--admin-ink));
+  --admin-gris-5: color-mix(in srgb, var(--admin-paper) 23%, var(--admin-ink));
+  --admin-gris-6: color-mix(in srgb, var(--admin-paper) 32%, var(--admin-ink));
+  --admin-gris-7: color-mix(in srgb, var(--admin-paper) 42%, var(--admin-ink));
+  --admin-gris-8: color-mix(in srgb, var(--admin-paper) 54%, var(--admin-ink));
+  --admin-gris-9: color-mix(in srgb, var(--admin-paper) 68%, var(--admin-ink));
+  --admin-gris-10: color-mix(in srgb, var(--admin-paper) 84%, var(--admin-ink));
+  --admin-gris-11: var(--admin-paper);
+  /* Aquí la elevación sube con la luz: el fondo es lo más hundido y cada
+     superficie se aclara un paso. */
+  --admin-bg: var(--admin-gris-0);
+  --admin-surface: var(--admin-gris-2);
+  --admin-surface-soft: var(--admin-gris-3);
+  --admin-surface-strong: var(--admin-gris-4);
+  --admin-scrim: color-mix(in srgb, var(--admin-ink) 88%, transparent);
+  --admin-sombra: #000000;
+  /* --admin-faint al 50% da 5.19:1 sobre este fondo; el mínimo AA estaba en el
+     46%. Nótese que NO es el mismo porcentaje que en claro (61%) — el fondo con
+     el que se mezcla es otro. */
+  --admin-text: var(--admin-gris-11);
+  --admin-muted: color-mix(in srgb, var(--admin-paper) 64%, var(--admin-bg));
+  --admin-faint: color-mix(in srgb, var(--admin-paper) 50%, var(--admin-bg));
+  /* Mismo reparto que en claro, con los porcentajes del fondo oscuro: el 38%
+     es el que da 3.5:1, así que ése es el escalón de control. */
+  --admin-border: color-mix(in srgb, var(--admin-paper) 14%, transparent);
+  --admin-border-soft: color-mix(in srgb, var(--admin-paper) 8%, transparent);
+  --admin-border-strong: color-mix(in srgb, var(--admin-paper) 38%, transparent);
+  --admin-line: var(--admin-border-soft);
+  --admin-line-strong: color-mix(in srgb, var(--admin-paper) 58%, transparent);
+  /* El acento se invierte con todo lo demás: relleno claro, tinta oscura. */
+  --admin-accent: var(--admin-gris-11);
+  --admin-accent-soft: var(--admin-gris-9);
+  --admin-accent-deep: var(--admin-paper);
+  --admin-on-accent: var(--admin-ink);
+  /* En oscuro el canto SÍ es un brillo: es lo que hace que una superficie
+     parezca tener una luz encima en vez de ser un rectángulo más claro. */
+  --admin-edge: color-mix(in srgb, var(--admin-paper) 8%, transparent);
+  /* Sidebar más hundido que el fondo. */
+  --admin-sidebar: #000000;
+  --admin-sidebar-soft: var(--admin-gris-1);
+  --admin-sidebar-border: color-mix(in srgb, var(--admin-paper) 7%, transparent);
+  --admin-sidebar-text: var(--admin-gris-11);
+  /* Mismo razonamiento que en claro, con el porcentaje del fondo nuevo: sobre
+     el negro del sidebar oscuro, gris-10 da 14.2:1. */
+  --admin-sidebar-link: var(--admin-gris-10);
+  --admin-sidebar-link-hover: var(--admin-paper);
+  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-paper) 10%, transparent);
+  --admin-sidebar-active-bg: var(--admin-paper);
+  --admin-sidebar-active-text: var(--admin-ink);
+  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-paper) 8%, transparent);
+  --admin-sidebar-mark-active-text: var(--admin-ink);
+  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-paper) 20%, transparent);
+  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-paper) 36%, transparent);
+  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 60%, transparent);
+  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 62%, transparent);
+  --admin-topbar-bg: var(--admin-glass-bg);
+  --admin-topbar-border: var(--admin-glass-border);
+  --admin-table-head: var(--admin-muted);
+  /* Vidrio. Sobre fondo oscuro el desenfoque solo no separa nada —negro
+     borroso sigue siendo negro—, así que aquí el trabajo lo hace el canto de
+     luz y el saturate sube: es lo que da el matiz de cristal en vez de un
+     rectángulo gris. */
+  --admin-glass-blur: 22px;
+  --admin-glass-blur-sm: 12px;
+  --admin-glass-sat: 1.6;
+  --admin-glass-bg: color-mix(in srgb, var(--admin-bg) 68%, transparent);
+  --admin-glass-bg-strong: color-mix(in srgb, var(--admin-surface-strong) 84%, transparent);
+  --admin-glass-bg-soft: color-mix(in srgb, var(--admin-surface) 86%, transparent);
+  --admin-glass-border: color-mix(in srgb, var(--admin-paper) 12%, transparent);
+  --admin-glass-edge: color-mix(in srgb, var(--admin-paper) 14%, transparent);
+  --admin-veil: color-mix(in srgb, #000000 72%, transparent);
+  --admin-shadow-sm: 0 1px 2px color-mix(in srgb, var(--admin-sombra) 40%, transparent);
+  --admin-shadow-md: 0 12px 32px color-mix(in srgb, var(--admin-sombra) 50%, transparent);
+  --admin-shadow-lg: 0 28px 72px color-mix(in srgb, var(--admin-sombra) 62%, transparent);
+  --admin-btn-secondary-bg: var(--admin-gris-3);
+  /* El grano sube en oscuro: es donde de verdad rompe el banding de los
+     degradados y da la textura de emulsión. */
+  --admin-grain: 0.07;
+  --admin-grain-blend: overlay;
+  /* Serie ajustada a la superficie oscura. Literales, los lee Chart.js. */
+  --admin-chart-1: #17a2ad;
+  --admin-chart-2: #e05a18;
+  --admin-chart-3: #3a86ff;
+  --admin-chart-4: #c93db2;
+  --admin-chart-5: #34a853;
+  --admin-chart-ventas: #34a853;
+  --admin-chart-reservas: #e05a18;
+  --admin-chart-bajo: #e51022;
+  --admin-chart-tooltip: #19191a;
+  --admin-n1-estrella: #6cc24a;
+  --admin-n1-vaca: #f2b134;
+  --admin-n1-incognita: #5aa9e6;
+  --admin-n1-perro: #f2673f;
+  --admin-success: var(--admin-c-verde);
+  --admin-warning: var(--admin-c-ambar);
+  --admin-danger: var(--admin-c-rojo);
+  --admin-info: var(--admin-c-azul);
+  /* Mismos colores de paleta, aclarados con papel para levantar el contraste
+     sobre la superficie oscura. */
+  --admin-neutral-text: var(--admin-muted);
+  --admin-neutral-bg: color-mix(in srgb, var(--admin-paper) 7%, transparent);
+  --admin-neutral-border: color-mix(in srgb, var(--admin-paper) 20%, transparent);
+  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 58%, var(--admin-paper));
+  --admin-success-bg: var(--admin-c-verde-bg);
+  --admin-success-border: var(--admin-c-verde-border);
+  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 80%, var(--admin-paper));
+  --admin-warning-bg: var(--admin-c-ambar-bg);
+  --admin-warning-border: var(--admin-c-ambar-border);
+  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 54%, var(--admin-paper));
+  --admin-danger-bg: var(--admin-c-rojo-bg);
+  --admin-danger-border: var(--admin-c-rojo-border);
+  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 62%, var(--admin-paper));
+  --admin-info-bg: var(--admin-c-azul-bg);
+  --admin-info-border: var(--admin-c-azul-border);
+  --admin-gold: var(--admin-accent);
+  --admin-gold-soft: var(--admin-accent-soft);
+  --admin-gold-deep: var(--admin-accent-deep);
+  --admin-ink-on-gold: var(--admin-on-accent);
+  --admin-terra: var(--admin-accent);
+  --admin-terra-deep: var(--admin-accent-deep);
+  --admin-sage: var(--admin-gris-9);
+  --admin-sage-deep: var(--admin-accent);
+  --admin-text-inverse: var(--admin-on-accent);
+  --admin-muted-inverse: var(--admin-gris-4);
+  /* Diálogo de confirmación y aviso transitorio: los dos componentes vienen del
+     árbol público y consumen estos nombres sin declararlos. Una custom property
+     indefinida invalida la declaración entera, y el modal salía transparente. */
+  --confirmation-surface: var(--admin-surface-strong);
+  --confirmation-text: var(--admin-text);
+}
+
+/* ── Las pantallas de piso ─────────────────────────────────────
+ *
+ * POS, tableros de área, login y operación de reservaciones. Todas llevan ya
+ * `.admin-body`, así que tienen los tokens del panel; lo que este bloque añade
+ * son los NOMBRES públicos que su SCSS pide (ver el mixin de arriba).
+ *
+ * Va después de los dos bloques de tema y sobre el mismo elemento, así que
+ * resuelve contra los valores del tema activo.
+ */
+.mapa-page,
+.area-page,
+.login-page,
+.operational-page {
+  /* Superficies */
+  --bg: var(--admin-bg);
+  --bg-alt: var(--admin-surface-soft);
+  --surface: var(--admin-surface);
+  --surface-2: var(--admin-surface-soft);
+  /* Texto. --text y --muted son los alias viejos del árbol público. */
+  --txt: var(--admin-text);
+  --txt-mute: var(--admin-muted);
+  --txt-faint: var(--admin-faint);
+  --txt-inverse: var(--admin-on-accent);
+  --text: var(--admin-text);
+  --muted: var(--admin-muted);
+  /* Líneas: el mismo reparto de cuatro escalones que el resto del panel. */
+  --line: var(--admin-border);
+  --line-soft: var(--admin-border-soft);
+  --line-strong: var(--admin-line-strong);
+  /* Acento. En el piso el acento era el ORO; ahora es la tinta del panel, igual
+     que en el resto del sistema administrativo. --gold-* y --beige/--ink son
+     los alias heredados que consume el SCSS del POS. */
+  --accent: var(--admin-accent);
+  --accent-soft: var(--admin-accent-soft);
+  --accent-deep: var(--admin-accent-deep);
+  --accent-text: var(--admin-accent);
+  --on-accent: var(--admin-on-accent);
+  --gold: var(--admin-accent);
+  --gold-soft: var(--admin-accent-soft);
+  --gold-deep: var(--admin-accent-deep);
+  --beige: var(--admin-text);
+  --ink: var(--admin-on-accent);
+  --focus: var(--admin-accent);
+  /* Velo y sombra */
+  --scrim: var(--admin-scrim);
+  --veil: var(--admin-veil);
+  --sombra: var(--admin-sombra);
+  --vineta: transparent;
+  /* Vidrio: el mismo juego con el nombre público, para que el mixin `vidrio()`
+     funcione igual en las dos hojas sin recibir argumentos. */
+  --glass-blur: var(--admin-glass-blur);
+  --glass-blur-sm: var(--admin-glass-blur-sm);
+  --glass-sat: var(--admin-glass-sat);
+  --glass-bg: var(--admin-glass-bg);
+  --glass-bg-strong: var(--admin-glass-bg-strong);
+  --glass-bg-soft: var(--admin-glass-bg-soft);
+  --glass-border: var(--admin-glass-border);
+  --glass-edge: var(--admin-glass-edge);
+  /* Movimiento */
+  --ease: var(--admin-ease);
+  --ease-out: var(--admin-ease-out);
+  /* Tipografía: aquí no hay serif ni cursiva de acento, así que las cuatro
+     familias del sitio público resuelven a la sans del panel. La mono no tiene
+     nombre público equivalente; quien la quiera pide --admin-font-mono. */
+  --sans: var(--admin-font-sans);
+  --serif: var(--admin-font-sans);
+  --crimson: var(--admin-font-sans);
+  --logo: var(--admin-logo);
+  /* Paleta funcional: los mismos hex, con el nombre que espera cada hoja. */
+  --c-ambar: var(--admin-c-ambar);
+  --c-naranja: var(--admin-c-naranja);
+  --c-rojo: var(--admin-c-rojo);
+  --c-azul: var(--admin-c-azul);
+  --c-lima: var(--admin-c-lima);
+  --c-indigo: var(--admin-c-indigo);
+  --c-rosa: var(--admin-c-rosa);
+  --c-magenta: var(--admin-c-magenta);
+  --c-turquesa: var(--admin-c-turquesa);
+  --c-verde: var(--admin-c-verde);
+  /* Familias de retroalimentación */
+  --feedback-ok: var(--admin-success-text);
+  --feedback-ok-bg: var(--admin-success-bg);
+  --feedback-warn: var(--admin-warning-text);
+  --feedback-warn-bg: var(--admin-warning-bg);
+  --feedback-danger: var(--admin-danger-text);
+  --feedback-danger-bg: var(--admin-danger-bg);
+  --feedback-info: var(--admin-info-text);
+  --feedback-info-bg: var(--admin-info-bg);
+  /* Estados de un platillo: el POS y los tableros de área tienen que hablar del
+     mismo color, y ahora los dos leen los del panel. */
+  --estado-enviado: var(--admin-estado-enviado);
+  --estado-preparacion: var(--admin-estado-preparacion);
+  --estado-listo: var(--admin-estado-listo);
+  --estado-entregado: var(--admin-estado-entregado);
+  --estado-cancelado: var(--admin-estado-cancelado);
+  /* Métrica del sitio público que alguna hoja de piso todavía consume. */
+  --pad: clamp(1.5rem, 5vw, 7rem);
+  --maxw: 1320px;
+}
+
+/* El grano y la viñeta se apagan en el piso. En el panel son textura sobre una
+   página que se lee; sobre el mapa de mesas son dos capas fijas a z-index 1 que
+   se cruzan con pines, arrastres y modales, y en una tablet de turno completo
+   no aportan nada que compense el riesgo. */
+.mapa-page::before,
+.mapa-page::after,
+.area-page::before,
+.area-page::after,
+.operational-page::before,
+.operational-page::after {
+  content: none;
+}
+
+/* color-scheme: hace que selects nativos, scrollbars y date pickers nativos se
+   pinten acordes al tema. Va en <html>, que es donde está el atributo. */
+[data-admin-theme=light] {
+  color-scheme: light;
+}
+
+[data-admin-theme=dark] {
+  color-scheme: dark;
+}
+
+/* Sin atributo el tema es claro, y el navegador tiene que saberlo antes de que
+   corra ningún script: si no, pinta los controles nativos en oscuro cuando el
+   sistema operativo lo está. */
+html:not([data-admin-theme]) {
+  color-scheme: light;
+}
+
+/* ── Grano de película + viñeta ────────────────────────────────
+ *
+ * Una capa fija, sin repintados: no se anima, no responde al scroll y no
+ * intercepta el puntero. El ruido es un feTurbulence embebido como data URI —
+ * un solo mosaico de 140px que el navegador tesela— y encima va la viñeta.
+ *
+ * Es lo que quita el aspecto de "div con background-color": sobre una
+ * superficie plana grande, un 3-7% de ruido rompe el banding de los degradados
+ * y da textura de papel en claro y de emulsión en oscuro.
+ */
+.admin-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--admin-grain, 0);
+  mix-blend-mode: var(--admin-grain-blend, overlay);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 140px 140px;
+  transition: opacity var(--admin-t-slow) var(--admin-ease-out);
+}
+
+/* La viñeta va aparte del grano: son dos capas con mezclas distintas y
+   juntarlas obligaría a elegir una sola. */
+.admin-body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(120% 120% at 50% 0%, transparent 58%, color-mix(in srgb, var(--admin-sombra) 26%, transparent) 100%);
+}
+
+/*
+ * Reglas que pide Lenis y que el layout nunca cargó: se vendoriza lenis.min.js
+ * pero no su hoja de estilos.
+ *
+ * La tercera arregla un síntoma concreto: sin `overscroll-behavior: contain`, al
+ * llegar al final de una tabla o de un modal la rueda encadenaba con la página
+ * de detrás y ésta se movía sola.
  */
 html.lenis,
 html.lenis body {
@@ -138,218 +694,7 @@ html.lenis body {
   overflow: hidden;
 }
 
-/* color-scheme: hace que selects nativos, scrollbars y date pickers
-   se pinten acordes al tema activo (clave para el modo oscuro). */
-[data-admin-theme=light] {
-  color-scheme: light;
-}
-
-[data-admin-theme=dark] {
-  color-scheme: dark;
-}
-
-/* ── Tema claro ────────────────────────────────────────────────── */
-[data-admin-theme=light] .admin-body {
-  /* Superficies */
-  --admin-bg: var(--admin-brand-crema);
-  --admin-surface: color-mix(in srgb, var(--admin-brand-crema) 45%, white);
-  --admin-surface-soft: color-mix(in srgb, var(--admin-brand-crema) 70%, white);
-  --admin-surface-strong: white;
-  /* Velo sobre foto y sombra proyectada. El velo es oscuro en los dos temas:
-     sobre una imagen el texto siempre va en claro. */
-  --admin-scrim: color-mix(in srgb, var(--admin-brand-verde) 82%, black);
-  --admin-sombra: color-mix(in srgb, var(--admin-brand-verde) 55%, black);
-  /*
-   * Sidebar: en claro también va en claro. Antes quedaba fijo en tinta
-   * profunda y el interruptor de tema no lo tocaba.
-   */
-  --admin-sidebar: color-mix(in srgb, var(--admin-brand-crema) 40%, white);
-  --admin-sidebar-soft: var(--admin-brand-crema);
-  --admin-sidebar-border: color-mix(in srgb, var(--admin-ink-on-gold) 12%, transparent);
-  --admin-sidebar-text: var(--admin-ink-on-gold);
-  --admin-sidebar-link: color-mix(in srgb, var(--admin-ink-on-gold) 68%, transparent);
-  --admin-sidebar-link-hover: var(--admin-ink-on-gold);
-  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-ink-on-gold) 6%, transparent);
-  --admin-sidebar-active-bg: color-mix(in srgb, var(--admin-gold) 22%, transparent);
-  --admin-sidebar-active-text: var(--admin-ink-on-gold);
-  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-ink-on-gold) 6%, transparent);
-  --admin-sidebar-mark-active-text: var(--admin-ink-on-gold);
-  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-gold-deep) 40%, transparent);
-  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-gold-deep) 60%, transparent);
-  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 18%, transparent);
-  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 35%, transparent);
-  /* Diálogo de confirmación y aviso transitorio: los dos componentes las
-     consumían sin que nadie las declarara, y una custom property indefinida
-     invalida la declaración entera — el modal salía transparente. */
-  --confirmation-surface: var(--admin-surface-strong);
-  --confirmation-text: var(--admin-ink-on-gold);
-  /* Texto */
-  --admin-text: var(--admin-ink-on-gold);
-  --admin-muted: color-mix(in srgb, var(--admin-ink-on-gold) 62%, var(--admin-bg));
-  --admin-faint: color-mix(in srgb, var(--admin-ink-on-gold) 42%, var(--admin-bg));
-  --admin-text-inverse: var(--admin-brand-crema);
-  --admin-muted-inverse: color-mix(in srgb, var(--admin-brand-crema) 62%, var(--admin-scrim));
-  /* Bordes */
-  --admin-border: color-mix(in srgb, var(--admin-gold) 34%, transparent);
-  --admin-border-soft: color-mix(in srgb, var(--admin-ink-on-gold) 10%, transparent);
-  --admin-line: var(--admin-border-soft);
-  /* Serie categórica y magnitudes, un paso más oscuras para contrastar sobre
-     la superficie clara. Valores literales: los lee Chart.js. */
-  --admin-chart-1: #0895a2;
-  --admin-chart-2: #cc4e12;
-  --admin-chart-3: #2a73e8;
-  --admin-chart-4: #b32f9e;
-  --admin-chart-5: #2a9247;
-  --admin-chart-ventas: #2a9247;
-  --admin-chart-reservas: #cc4e12;
-  --admin-chart-bajo: #c40e1d;
-  --admin-chart-tooltip: #211f1b;
-  /* Cuadrantes de la matriz de ingeniería de menú (Nivel 1). */
-  --admin-n1-estrella: #3f8f4f;
-  --admin-n1-vaca: #c98a1f;
-  --admin-n1-incognita: #2f6db3;
-  --admin-n1-perro: #c1462e;
-  /* Estados base: directo a la paleta, sin tonos paralelos. */
-  --admin-success: var(--admin-c-verde);
-  --admin-warning: var(--admin-c-ambar);
-  --admin-danger: var(--admin-c-rojo);
-  --admin-info: var(--admin-c-azul);
-  /* Superficies elevadas / cristal */
-  --admin-topbar-bg: color-mix(in srgb, var(--admin-surface) 72%, transparent);
-  --admin-topbar-border: color-mix(in srgb, var(--admin-ink-on-gold) 8%, transparent);
-  --admin-table-head: color-mix(in srgb, var(--admin-ink-on-gold) 54%, var(--admin-bg));
-  /* Sombras */
-  --admin-shadow-sm: 0 1px 0 color-mix(in srgb, var(--admin-sombra) 5%, transparent);
-  --admin-shadow-md: 0 18px 44px color-mix(in srgb, var(--admin-sombra) 9%, transparent);
-  --admin-shadow-lg: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 16%, transparent);
-  /* Botones dependientes de superficie */
-  --admin-btn-secondary-bg: color-mix(in srgb, var(--admin-brand-crema) 30%, white);
-  /* Grano/viñeta cinematográfica (apagado en claro) */
-  --admin-grain: 0;
-  /* Trios de estado (badges/status/alertas). Se derivan de la paleta de marca
-     en lugar de tener tonos propios: así un "listo" del panel es el mismo
-     verde que el del POS y el de las gráficas. Sobre fondo claro los textos
-     se oscurecen mezclando con la tinta para conservar el contraste. */
-  --admin-neutral-text: var(--admin-gold-deep);
-  --admin-neutral-bg: color-mix(in srgb, var(--admin-gold) 14%, transparent);
-  --admin-neutral-border: color-mix(in srgb, var(--admin-gold-deep) 26%, transparent);
-  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, var(--admin-ink-on-gold));
-  --admin-success-bg: var(--admin-c-verde-bg);
-  --admin-success-border: var(--admin-c-verde-border);
-  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 52%, var(--admin-ink-on-gold));
-  --admin-warning-bg: var(--admin-c-ambar-bg);
-  --admin-warning-border: var(--admin-c-ambar-border);
-  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 68%, var(--admin-ink-on-gold));
-  --admin-danger-bg: var(--admin-c-rojo-bg);
-  --admin-danger-border: var(--admin-c-rojo-border);
-  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 62%, var(--admin-ink-on-gold));
-  --admin-info-bg: var(--admin-c-azul-bg);
-  --admin-info-border: var(--admin-c-azul-border);
-}
-
-/* ── Tema oscuro cinematográfico (por defecto; paridad con mapa/áreas/landing) ─ */
-.admin-body,
-[data-admin-theme=dark] .admin-body {
-  /* Superficies: verde de marca hundido hacia el negro, no gris neutro. */
-  --admin-bg: color-mix(in srgb, var(--admin-brand-verde) 34%, black);
-  --admin-surface: color-mix(in srgb, var(--admin-brand-verde) 44%, black);
-  --admin-surface-soft: color-mix(in srgb, var(--admin-brand-verde) 56%, black);
-  --admin-surface-strong: color-mix(in srgb, var(--admin-brand-verde) 68%, black);
-  /* Ver la nota del tema claro: sin estas dos el diálogo no tiene fondo. */
-  --confirmation-surface: color-mix(in srgb, var(--admin-brand-verde) 38%, black);
-  --confirmation-text: var(--admin-brand-crema);
-  --admin-scrim: color-mix(in srgb, var(--admin-brand-verde) 82%, black);
-  --admin-sombra: black;
-  /* Sidebar aún más profundo que el fondo */
-  --admin-sidebar: color-mix(in srgb, var(--admin-brand-verde) 22%, black);
-  --admin-sidebar-soft: var(--admin-bg);
-  --admin-sidebar-border: transparent;
-  --admin-sidebar-text: var(--admin-brand-crema);
-  --admin-sidebar-link: color-mix(in srgb, var(--admin-brand-crema) 78%, transparent);
-  --admin-sidebar-link-hover: white;
-  --admin-sidebar-hover-bg: color-mix(in srgb, var(--admin-brand-crema) 10%, transparent);
-  --admin-sidebar-active-bg: color-mix(in srgb, var(--admin-gold) 18%, transparent);
-  --admin-sidebar-active-text: white;
-  --admin-sidebar-mark-bg: color-mix(in srgb, var(--admin-brand-crema) 8%, transparent);
-  --admin-sidebar-mark-active-text: var(--admin-ink-on-gold);
-  --admin-sidebar-scroll: color-mix(in srgb, var(--admin-gold) 32%, transparent);
-  --admin-sidebar-scroll-hover: color-mix(in srgb, var(--admin-gold) 50%, transparent);
-  --admin-sidebar-shadow: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 28%, transparent);
-  --admin-sidebar-backdrop: color-mix(in srgb, var(--admin-sombra) 50%, transparent);
-  /* Texto */
-  --admin-text: var(--admin-brand-crema);
-  --admin-muted: color-mix(in srgb, var(--admin-brand-crema) 58%, var(--admin-bg));
-  --admin-faint: color-mix(in srgb, var(--admin-brand-crema) 34%, var(--admin-bg));
-  --admin-text-inverse: var(--admin-brand-crema);
-  --admin-muted-inverse: color-mix(in srgb, var(--admin-brand-crema) 58%, var(--admin-scrim));
-  /* Bordes: hairline dorado sobre oscuro */
-  --admin-border: color-mix(in srgb, var(--admin-gold) 24%, transparent);
-  --admin-border-soft: color-mix(in srgb, var(--admin-brand-crema) 8%, transparent);
-  --admin-line: var(--admin-border-soft);
-  /* Serie categórica ajustada a la superficie oscura. Valores literales
-     porque los lee Chart.js con getComputedStyle. */
-  --admin-chart-1: #17a2ad;
-  --admin-chart-2: #e05a18;
-  --admin-chart-3: #3a86ff;
-  --admin-chart-4: #c93db2;
-  --admin-chart-5: #34a853;
-  --admin-chart-ventas: #34a853;
-  --admin-chart-reservas: #e05a18;
-  --admin-chart-bajo: #e51022;
-  --admin-chart-tooltip: #0b0c0d;
-  /* Cuadrantes de la matriz de ingeniería de menú (Nivel 1). */
-  --admin-n1-estrella: #6cc24a;
-  --admin-n1-vaca: #f2b134;
-  --admin-n1-incognita: #5aa9e6;
-  --admin-n1-perro: #f2673f;
-  /* Estados base: misma paleta que en claro. */
-  --admin-success: var(--admin-c-verde);
-  --admin-warning: var(--admin-c-ambar);
-  --admin-danger: var(--admin-c-rojo);
-  --admin-info: var(--admin-c-azul);
-  /* Cristal / topbar translúcido */
-  --admin-topbar-bg: color-mix(in srgb, var(--admin-bg) 66%, transparent);
-  --admin-topbar-border: color-mix(in srgb, var(--admin-gold) 16%, transparent);
-  --admin-table-head: color-mix(in srgb, var(--admin-brand-crema) 50%, var(--admin-bg));
-  /* Sombras más profundas y frías */
-  --admin-shadow-sm: 0 1px 0 color-mix(in srgb, var(--admin-sombra) 40%, transparent);
-  --admin-shadow-md: 0 20px 50px color-mix(in srgb, var(--admin-sombra) 45%, transparent);
-  --admin-shadow-lg: 0 30px 80px color-mix(in srgb, var(--admin-sombra) 55%, transparent);
-  --admin-btn-secondary-bg: color-mix(in srgb, var(--admin-gold) 8%, transparent);
-  /* Grano/viñeta encendido */
-  --admin-grain: 1;
-  /* Trios de estado (texto claro sobre tintes). Mismos colores de paleta que
-     en claro, aclarados con blanco para levantar el contraste sobre la superficie. */
-  --admin-neutral-text: var(--admin-gold-soft);
-  --admin-neutral-bg: color-mix(in srgb, var(--admin-gold) 14%, transparent);
-  --admin-neutral-border: color-mix(in srgb, var(--admin-gold) 30%, transparent);
-  --admin-success-text: color-mix(in srgb, var(--admin-c-verde) 62%, white);
-  --admin-success-bg: var(--admin-c-verde-bg);
-  --admin-success-border: var(--admin-c-verde-border);
-  --admin-warning-text: color-mix(in srgb, var(--admin-c-ambar) 82%, white);
-  --admin-warning-bg: var(--admin-c-ambar-bg);
-  --admin-warning-border: var(--admin-c-ambar-border);
-  --admin-danger-text: color-mix(in srgb, var(--admin-c-rojo) 56%, white);
-  --admin-danger-bg: var(--admin-c-rojo-bg);
-  --admin-danger-border: var(--admin-c-rojo-border);
-  --admin-info-text: color-mix(in srgb, var(--admin-c-azul) 66%, white);
-  --admin-info-bg: var(--admin-c-azul-bg);
-  --admin-info-border: var(--admin-c-azul-border);
-}
-
-/* ── Viñeta + grano (solo tema oscuro, vía --admin-grain) ──────── */
-.admin-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: var(--admin-grain, 0);
-  background: radial-gradient(120% 120% at 50% 0%, transparent 58%, color-mix(in srgb, var(--admin-sombra) 50%, transparent) 100%);
-  mix-blend-mode: multiply;
-  transition: opacity var(--admin-t-slow) var(--admin-ease-out);
-}
-
+/* ── Reset local ───────────────────────────────────────────────── */
 .admin-body,
 .admin-body *,
 .admin-body *::before,
@@ -379,16 +724,34 @@ html.lenis body {
 }
 
 .admin-body ::selection {
-  background: var(--admin-gold);
-  color: var(--admin-ink-on-gold);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
 }
 
 /*
- * Tipografía exclusiva del panel de administración.
- * Pareja editorial distintiva: Fraunces (títulos, con carácter) + Space Grotesk
- * (UI/cuerpo, geométrica moderna). Cargadas por Google Fonts en el layout.
- * KudosKaps (local) se reserva para el logotipo de marca.
+ * Tipografía del sistema ADMINISTRATIVO.
+ *
+ * No comparte una sola cara con la landing, y es deliberado: el panel se diseña
+ * para poder despegarse como producto propio, así que tiene su propia voz. Era
+ * Fraunces + Space Grotesk por Google Fonts; ahora es Geist + Geist Mono,
+ * vendorizadas desde node_modules por `gulp copyVendorFonts` igual que Bodoni y
+ * Crimson en el sitio público. Cero peticiones a red.
+ *
+ * La pareja es sans + mono, sin serif. La jerarquía NO la hace un cambio de
+ * familia sino el contraste entre las dos:
+ *
+ *   · el rótulo va en mono, versalitas y tracking abierto;
+ *   · el titular debajo va en sans, grande y con el tracking cerrado.
+ *
+ * Es el gesto que separa un panel editorial de uno genérico, y de paso la mono
+ * hace el trabajo que de verdad importa en una herramienta de gestión: alinear
+ * cifras. Todo número que se compare en vertical —una columna de tabla, un KPI,
+ * un importe— va en mono con numerales tabulares.
  */
+/* KudosKaps: la ÚNICA huella de marca que queda en el panel, y sólo para el
+   logotipo. Tiene una sola cara de peso 400 y hay que declararlo en cada
+   consumidor: si hereda el 600 de un heading, el navegador fabrica una negrita
+   falsa dilatando los trazos y el wordmark deja de reconocerse (ver CLAUDE.md). */
 @font-face {
   font-family: "KudosKaps";
   src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
@@ -396,45 +759,109 @@ html.lenis body {
   font-style: normal;
   font-display: swap;
 }
+/* Las dos caras variables cubren 100-900 en un solo fichero. El subconjunto
+   'latin' basta para el español —acentos y eñe viven en U+00C0-U+00FF— y pesa
+   la mitad que arrastrar también latin-ext.
+
+   La itálica no es un extra ni un eje de la variable: `font-style` es un eje
+   aparte y modules/analytics.scss pide italic. Sin fichero, el navegador
+   inclinaría la redonda por su cuenta. */
+@font-face {
+  font-family: "Geist Variable";
+  src: url("/build/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Variable";
+  src: url("/build/fonts/geist-latin-wght-italic.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono Variable";
+  src: url("/build/fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono Variable";
+  src: url("/build/fonts/geist-mono-latin-wght-italic.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
 .admin-body {
-  --admin-font-body:
-    "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+  /* ── Los dos tokens reales ─────────────────────────────────── */
+  --admin-font-sans:
+    "Geist Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  --admin-font-heading: "Fraunces", "Playfair Display", Georgia, serif;
-  --admin-font-accent: "Fraunces", Georgia, serif;
-  --admin-logo: "KudosKaps", "Fraunces", serif;
+  --admin-font-mono:
+    "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Mono",
+    "Consolas", monospace;
+  --admin-logo: "KudosKaps", "Geist Variable", sans-serif;
+  /* ── Alias heredados ───────────────────────────────────────── *
+   * El sistema ya no tiene serif, pero cuatro archivos siguen pidiendo estos
+   * nombres. Apuntan todos a la sans para no reescribirlos uno a uno.
+   *
+   * --admin-font-display es el caso raro: NADIE lo definió nunca. Se consumía
+   * en analytics, finanzas y _cards con un fallback `"Fraunces", serif` que era
+   * lo que de verdad se pintaba. Ahora resuelve, y por eso esas tres pantallas
+   * cambian de cara aunque no se toque su SCSS. */
+  --admin-font-body: var(--admin-font-sans);
+  --admin-font-heading: var(--admin-font-sans);
+  --admin-font-accent: var(--admin-font-sans);
+  --admin-font-display: var(--admin-font-sans);
   font-family: var(--admin-font-body);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
-  letter-spacing: -0.005em;
+  /* Geist va bien apretada en cuerpo de texto, pero no tanto como una grotesca
+     clásica: su altura de x es alta y a -0.02em los contadores se cierran. */
+  letter-spacing: -0.006em;
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
 }
 
+/* ── Titulares ─────────────────────────────────────────────────
+ *
+ * El tracking se cierra a medida que crece el cuerpo, que es justo lo contrario
+ * de lo que pedía Bodoni en la landing: un didone tiene astas finísimas y se
+ * empasta al apretarlo, mientras que una grotesca a cuerpo de cartel se abre
+ * sola y hay que recogerla. Por eso los dos sistemas no comparten esta escala.
+ */
 .admin-body h1,
 .admin-body h2,
 .admin-body h3,
 .admin-body h4 {
   font-family: var(--admin-font-heading);
-  font-weight: 500;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: var(--admin-text);
+  text-wrap: balance;
 }
 
 .admin-body h1 {
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -0.038em;
 }
 
 .admin-body h2 {
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-size: clamp(1.55rem, 3vw, 2.2rem);
 }
 
 .admin-body h3 {
-  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: -0.024em;
 }
 
 .admin-body h4 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.018em;
 }
 
 .admin-body p {
@@ -449,6 +876,63 @@ html.lenis body {
 .admin-body small {
   font-size: 0.875rem;
   line-height: 1.4;
+}
+
+/* ── El rótulo ─────────────────────────────────────────────────
+ *
+ * La mitad mono del par. Va sobre el titular de cada módulo y es lo que da la
+ * jerarquía sin necesitar una segunda familia de texto. El tracking abierto no
+ * es decorativo: en versalitas, sin él, las letras se tocan.
+ *
+ * `.admin-page__eyebrow` es la clase que ya usan las vistas; `.admin-eyebrow` se
+ * añade como nombre corto para lo nuevo. */
+.admin-body .admin-eyebrow,
+.admin-body .admin-page__eyebrow {
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+/* ── Cifras ────────────────────────────────────────────────────
+ *
+ * Todo número que se lea en columna va en mono y tabular. `tabular-nums` fija el
+ * ancho de cada dígito, así que las unidades caen en la misma vertical de fila a
+ * fila y una cantidad que cambia —un contador, un total que se recalcula— no
+ * mueve lo que tiene al lado.
+ *
+ * `.admin-num` es la clase explícita; el resto son los sitios donde el número es
+ * el contenido y no hacía falta ir a marcarlo a mano en 54 vistas. */
+.admin-body .admin-num,
+.admin-body .admin-table td,
+.admin-body .admin-table th,
+.admin-body .admin-stat__value,
+.admin-body .admin-badge--count,
+.admin-body time,
+.admin-body code,
+.admin-body kbd {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.admin-body .admin-num,
+.admin-body .admin-stat__value,
+.admin-body code,
+.admin-body kbd {
+  font-family: var(--admin-font-mono);
+}
+
+/* Las celdas de tabla conservan la sans para el texto: sólo se les fija el
+   tabular. Una tabla entera en mono se lee como un volcado de terminal, y aquí
+   la mayoría de columnas son nombres, no cifras. La columna que sí es numérica
+   se marca con .admin-num en su celda. */
+.admin-body .admin-table td.admin-num,
+.admin-body .admin-table th.admin-num {
+  font-family: var(--admin-font-mono);
+  font-weight: 500;
 }
 
 /*
@@ -652,12 +1136,18 @@ html.lenis body {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 44px;
   padding: 4px 10px;
   border-radius: 8px;
   color: var(--admin-sidebar-link);
-  font-size: 13px;
-  letter-spacing: 0.005em;
+  /* 14/500 y no 13/400. Con catorce entradas el sidebar es una lista larga que
+     se recorre de un vistazo, no un párrafo: el peso medio le da cuerpo al
+     trazo sin llegar a la negrita, que está reservada al módulo activo. El
+     tracking baja a 0 porque a este cuerpo el aire de más separaba las
+     palabras de "Estaciones de impresión" antes de que se leyera la frase. */
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-decoration: none;
   transition: background var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
   /* Marcador dorado que crece desde el centro */
@@ -764,7 +1254,14 @@ html.lenis body {
     visibility: hidden;
     transform: translateX(-100%);
     transition: transform 180ms ease, visibility 180ms ease;
-    box-shadow: var(--admin-sidebar-shadow);
+    /* Vidrio SÓLO aquí. En escritorio el sidebar es una columna de la rejilla
+       y no tiene nada detrás que desenfocar: el blur costaría por nada. En
+       este breakpoint sí es un cajón que se abre encima del contenido, que es
+       cuando el cristal significa algo. */
+    background: var(--admin-glass-bg-strong);
+    backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    box-shadow: inset -1px 0 0 var(--admin-glass-edge), var(--admin-sidebar-shadow);
   }
   .admin-sidebar__brand {
     min-width: 0;
@@ -838,10 +1335,14 @@ html.lenis body {
   gap: 16px;
   min-height: 56px;
   padding: 7px 24px;
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  /* El blur salía de un literal; ahora viene del token, igual que el del
+     cajón, los modales y las tarjetas. Es lo que hace que las capas del panel
+     tengan todas el mismo cristal en vez de cinco radios distintos. */
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
   background: var(--admin-topbar-bg);
   border-bottom: 1px solid var(--admin-topbar-border);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
   transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
 }
 
@@ -857,6 +1358,70 @@ html.lenis body {
 }
 
 /*
+ * Color por función en los botones de la barra.
+ *
+ * Los dos DISPARADORES DE AVISO —notificaciones y reportar un problema— van en
+ * relleno SÓLIDO de su color funcional. Empezaron siendo neutros, luego un
+ * tinte al 12% sobre --admin-surface, y ninguna de las dos versiones resolvía
+ * lo que tenían que resolver: sobre el fondo casi negro del tema oscuro un 12%
+ * de ámbar es indistinguible de gris, así que los dos círculos volvían a
+ * leerse como "dos botones iguales" y había que apuntarles para saber cuál era
+ * cuál. Sólidos, el azul dice buzón y el ámbar dice incidencia desde el otro
+ * lado de la pantalla.
+ *
+ * La cuenta que lo permite: son DOS botones, no cuatro. Salir se queda en
+ * tinte a propósito —terminar la sesión no debe ser lo más ruidoso del panel—
+ * y el conmutador de tema conserva su relleno neutro. Ver CLAUDE.md.
+ *
+ * --tono es el color funcional; --tono-tinta, lo que se lee encima. Se
+ * declaran por botón y el resto de las reglas es común.
+ */
+.admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox) {
+  --tono: var(--admin-muted);
+  --tono-tinta: var(--admin-paper);
+  border-color: color-mix(in srgb, var(--tono) 80%, var(--admin-ink));
+  background: var(--tono);
+  color: var(--tono-tinta);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
+}
+.admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox):hover {
+  /* El hover oscurece el propio relleno en vez de cambiar de familia: sobre
+     un sólido, aclarar lo lava y saltar de tono lo convierte en otro botón. */
+  border-color: color-mix(in srgb, var(--tono) 62%, var(--admin-ink));
+  background: color-mix(in srgb, var(--tono) 84%, var(--admin-ink));
+  color: var(--tono-tinta);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--tono) 40%, transparent);
+}
+
+/* Ámbar y no rojo: reportar un problema AVISA, no destruye nada. El rojo de
+   esta barra está reservado a la acción que termina la sesión.
+   Sobre ámbar la tinta es la del papel invertida: #f5b400 tiene luminancia
+   0.52, así que un icono claro encima no llegaría ni a 2:1. */
+.admin-topbar__support {
+  --tono: var(--admin-c-ambar);
+  --tono-tinta: var(--admin-ink);
+}
+
+.admin-topbar__inbox {
+  --tono: var(--admin-c-azul);
+}
+
+/* Salir conserva el tinte derivado: es la única acción destructiva de la barra
+   y no compite con los dos avisos por atención. */
+.admin-topbar__logout {
+  --tono: var(--admin-c-rojo);
+  border-color: color-mix(in srgb, var(--tono) 26%, var(--admin-border));
+  background: color-mix(in srgb, var(--tono) 12%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 70%, var(--admin-text));
+}
+.admin-topbar__logout:hover {
+  border-color: color-mix(in srgb, var(--tono) 55%, transparent);
+  background: color-mix(in srgb, var(--tono) 22%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--tono) 22%, transparent);
+}
+
+/*
  * Los tres botones de la barra (reportar, tema, salir) medían 36 / 40 / 38px
  * con iconos de 17 / 18 / 17 y tres juegos distintos de borde y fondo, porque
  * se definieron en archivos separados. Aquí quedan al mismo tamaño; el tema
@@ -869,12 +1434,18 @@ html.lenis body {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--admin-border);
+  /* Grosor y estilo por separado, NUNCA el atajo `border`: el color del borde,
+     el relleno y la tinta los pone el bloque de --tono de arriba, y `border:
+     1px solid` reescribiría border-color a currentcolor desde una regla
+     posterior de la misma especificidad. Es lo que dejaba el botón en gris
+     mientras el bloque de color parecía estar aplicándose. */
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
-  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+  /* El hover lo pone el patrón de --tono de arriba y el foco el anillo único
+     de _finishes.scss, así que aquí sólo queda la caja. */
+  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-topbar__support svg {
   width: 18px;
@@ -884,15 +1455,6 @@ html.lenis body {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-.admin-topbar__support:hover {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
-  background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
-  color: var(--admin-danger-text);
-}
-.admin-topbar__support:focus-visible {
-  outline: 2px solid var(--admin-gold);
-  outline-offset: 2px;
 }
 
 .admin-topbar__module {
@@ -940,12 +1502,11 @@ html.lenis body {
   width: 40px;
   height: 40px;
   place-items: center;
-  border: 1px solid var(--admin-border);
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
-  transition: color var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out);
+  transition: color var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out);
 }
 .admin-topbar__logout svg {
   width: 18px;
@@ -955,10 +1516,6 @@ html.lenis body {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.admin-topbar__logout:hover {
-  color: var(--admin-danger-text);
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
 }
 
 @media (max-width: 768px) {
@@ -1070,7 +1627,11 @@ html.lenis body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, var(--admin-terra), var(--admin-terra-deep));
+  /* Relleno sólido, no una rampa: --admin-terra y --admin-terra-deep son
+     alias del acento, y en blanco y negro un degradado entre casi-negro y
+     negro es una banda sucia. El relieve del botón lo pone el barrido
+     especular de _finishes.scss. */
+  background: var(--admin-accent-deep);
   transform: translateY(101%);
   transition: transform var(--admin-t-slow) var(--admin-ease);
 }
@@ -1114,6 +1675,53 @@ html.lenis body {
   background: var(--admin-danger-bg);
   color: var(--admin-danger-text);
   filter: brightness(1.05);
+}
+
+/* ── Botones tintados de cabecera ──────────────────────────────
+ *
+ * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú,
+ * «Subrecetas» e «Inventario» en Recetas. Eran todos --secondary, es decir
+ * cuatro cajas idénticas donde sólo cambiaba la palabra, y para elegir había
+ * que leerlas una por una. El tono les da forma reconocible.
+ *
+ * Mismo patrón que los botones de acción del topbar: un TINTE derivado con
+ * color-mix sobre --admin-surface, nunca un relleno sólido. El relleno sólido
+ * sigue siendo exclusivo de --primary, que es lo que mantiene una sola acción
+ * principal por pantalla. Ver la excepción anotada en CLAUDE.md.
+ *
+ * El color se pasa en --tono; sin él, el botón se comporta como un secundario
+ * neutro en vez de romperse.
+ */
+.admin-btn--tinted {
+  --tono: var(--admin-muted);
+  border-color: color-mix(in srgb, var(--tono) 30%, var(--admin-border));
+  background: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+}
+.admin-btn--tinted:hover {
+  border-color: color-mix(in srgb, var(--tono) 58%, transparent);
+  background: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+}
+
+.admin-btn--tinted-ambar {
+  --tono: var(--admin-c-ambar);
+}
+
+.admin-btn--tinted-azul {
+  --tono: var(--admin-c-azul);
+}
+
+.admin-btn--tinted-verde {
+  --tono: var(--admin-c-verde);
+}
+
+.admin-btn--tinted-indigo {
+  --tono: var(--admin-c-indigo);
+}
+
+.admin-btn--tinted-turquesa {
+  --tono: var(--admin-c-turquesa);
 }
 
 .admin-btn--small,
@@ -1190,6 +1798,15 @@ html.lenis body {
 .admin-body .admin-btn--ghost {
   background-color: transparent;
   color: var(--admin-muted);
+}
+
+.admin-body .admin-btn--tinted {
+  background-color: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+}
+.admin-body .admin-btn--tinted:hover {
+  background-color: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
 }
 
 .admin-body .admin-btn--danger,
@@ -1408,25 +2025,15 @@ html.lenis body {
   transition: border-color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease-out), background var(--admin-t-base) var(--admin-ease-out);
 }
 
-/* Sheen dorado sutil en el borde superior */
-.admin-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--admin-gold) 50%, transparent), transparent);
-  opacity: 0;
-  transition: opacity var(--admin-t-base) var(--admin-ease-out);
-}
-
+/* El sheen dorado del borde superior se retiró. Era de la identidad anterior
+   y ya no llegaba a pintarse: _finishes.scss reaprovecha este mismo ::before
+   para el foco de cursor, con un selector más específico (.admin-body
+   .admin-card::before). Aquí sólo quedaba código muerto que hacía creer que
+   había dos efectos. El canto de luz lo pone ahora --admin-glass-edge. */
 .admin-card:hover {
   border-color: var(--admin-border);
   box-shadow: var(--admin-shadow-lg);
   transform: translateY(-3px);
-}
-
-.admin-card:hover::before {
-  opacity: 1;
 }
 
 .admin-empty {
@@ -1467,7 +2074,7 @@ html.lenis body {
 }
 .admin-stat-card__value {
   color: var(--admin-text);
-  font-family: var(--admin-font-display, "Fraunces", serif);
+  font-family: var(--admin-font-sans);
   font-size: clamp(24px, 2.2vw, 30px);
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
@@ -1530,6 +2137,64 @@ html.lenis body {
 }
 .admin-stat-card--gold .admin-stat-card__value {
   color: var(--admin-gold);
+}
+.admin-stat-card {
+  /*
+   * ── Tonos de identidad ──────────────────────────────────────
+   *
+   * Los cuatro de arriba dicen si una cifra es BUENA o MALA. Estos dicen QUÉ
+   * cifra es: en Finanzas hay siete tarjetas y sólo tres llevaban tono, así
+   * que las otras cuatro —ingresos, costo de insumos, gastos fijos y
+   * rotación— eran cajas idénticas entre las que había que leer el rótulo
+   * para orientarse.
+   *
+   * Dos diferencias con los tonos de estado, y las dos importan:
+   *
+   *  · El color va en un FILETE lateral y en el rótulo, no en el fondo ni en
+   *    la cifra. Siete fondos de color seguidos serían un arcoíris, y teñir el
+   *    número rompería la lectura en columna: la cifra va en tinta normal,
+   *    tabular, para poder compararla con la de al lado.
+   *  · Un tono de estado GANA a uno de identidad, porque «la utilidad es
+   *    negativa» importa más que «esto es la utilidad». Por eso los de estado
+   *    se declaran antes y estos no tocan `background` ni `__value`: puestos
+   *    juntos en el marcado, no se pisan.
+   */
+}
+.admin-stat-card--serie {
+  --tono: var(--admin-muted);
+  position: relative;
+  overflow: hidden;
+}
+.admin-stat-card--serie::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--tono);
+}
+.admin-stat-card--serie .admin-stat-card__label {
+  color: color-mix(in srgb, var(--tono) 76%, var(--admin-text));
+}
+.admin-stat-card--serie-verde {
+  --tono: var(--admin-c-verde);
+}
+.admin-stat-card--serie-naranja {
+  --tono: var(--admin-c-naranja);
+}
+.admin-stat-card--serie-rojo {
+  --tono: var(--admin-c-rojo);
+}
+.admin-stat-card--serie-lima {
+  --tono: var(--admin-c-lima);
+}
+.admin-stat-card--serie-indigo {
+  --tono: var(--admin-c-indigo);
+}
+.admin-stat-card--serie-turquesa {
+  --tono: var(--admin-c-turquesa);
+}
+.admin-stat-card--serie-azul {
+  --tono: var(--admin-c-azul);
 }
 .admin-stat-card {
   /*
@@ -1818,6 +2483,150 @@ html.lenis body {
   color: var(--admin-info-text);
 }
 
+/* Variante de contorno, combinable con cualquiera de las familias de arriba.
+ *
+ * Nació para el «Falta receta» de Recetas: en su versión rellena era una
+ * pastilla ámbar sólida que gritaba más que el «Activo» de la columna de al
+ * lado, cuando lo que dice es una tarea pendiente, no una alarma. Vacía el
+ * fondo y deja el color en la tinta y el filete; el peso baja un escalón
+ * porque sin relleno detrás el 800 se empasta.
+ *
+ * Va DESPUÉS de las familias para ganarles el `background` por orden de
+ * cascada, ya que todas tienen la misma especificidad.
+ */
+.admin-badge--outline {
+  background: transparent;
+  font-weight: 700;
+}
+
+/* ── Color por categoría ───────────────────────────────────────
+ *
+ * La tabla `categorias` no tiene columna de color, así que el tono se deriva en
+ * la vista con `id % 10` y llega como modificador. No hace falta esquema nuevo
+ * y la categoría conserva su color entre pantallas mientras no cambie de id.
+ *
+ * Esto NO contradice la regla de que la paleta funcional no toca el cromo: aquí
+ * la identidad de la categoría ES el dato, igual que en las series de una dona.
+ * Lo que el color no puede hacer es teñir bordes de tarjeta o tipografía.
+ *
+ * Tinte al 14% y tinta al 78% sobre el texto: suficiente para distinguir diez
+ * categorías de un vistazo, insuficiente para competir con un badge de estado.
+ */
+.admin-badge--cat-0 {
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-ambar) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-ambar) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-1 {
+  border-color: color-mix(in srgb, var(--admin-c-azul) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-azul) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-azul) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-2 {
+  border-color: color-mix(in srgb, var(--admin-c-verde) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-verde) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-verde) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-3 {
+  border-color: color-mix(in srgb, var(--admin-c-magenta) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-magenta) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-magenta) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-4 {
+  border-color: color-mix(in srgb, var(--admin-c-naranja) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-naranja) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-naranja) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-5 {
+  border-color: color-mix(in srgb, var(--admin-c-indigo) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-indigo) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-indigo) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-6 {
+  border-color: color-mix(in srgb, var(--admin-c-turquesa) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-turquesa) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-turquesa) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-7 {
+  border-color: color-mix(in srgb, var(--admin-c-lima) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-lima) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-lima) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-8 {
+  border-color: color-mix(in srgb, var(--admin-c-rosa) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rosa) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-rosa) 78%, var(--admin-text));
+}
+
+.admin-badge--cat-9 {
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  background: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-c-rojo) 78%, var(--admin-text));
+}
+
+/* Contenido sólo para lector de pantalla. Estaba reescrito a mano en siete
+   módulos con tres variantes del mismo recorte; aquí queda una vez, en el
+   bundle que carga siempre el panel. Se usa para las alternativas textuales de
+   lo que se dibuja (la tabla que acompaña al Sankey, por ejemplo). */
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+/* Etiqueta de CATEGORÍA en una celda. No es un badge: un badge dice estado
+   —activo, vencido, con error— y por eso tira de la familia success/warning/
+   danger. Esto dice a qué grupo pertenece la fila, que es otra cosa y no tiene
+   escala de gravedad.
+     · el tinte es tenue (10% de fondo, 72% de tinta): en una columna angosta
+       tres píldoras saturadas compiten con el dato que hay al lado;
+     · el color entra por --admin-tag-tono, así que añadir una categoría es una
+       línea y no un bloque;
+     · sin punto y con ancho mínimo, para que la columna no baile entre una
+       etiqueta corta y una larga.
+   Nació en el módulo de usuarios como .admin-role. Vive aquí porque lo pedían
+   también las impresoras, donde ROL y CONEXIÓN compartían el mismo dorado y se
+   leían como la misma clase de dato. */
+.admin-tag {
+  --admin-tag-tono: var(--admin-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--admin-tag-tono) 26%, transparent);
+  border-radius: var(--admin-radius-sm);
+  background: color-mix(in srgb, var(--admin-tag-tono) 10%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-tag-tono) 72%, var(--admin-text));
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Neutra: el dato es técnico y no una categoría que se busque de un vistazo
+   (el tipo de conexión de una impresora). Se queda sin tinte a propósito, para
+   que el color de la fila lo tenga sólo lo que sí se busca. */
+.admin-tag--neutral {
+  --admin-tag-tono: var(--admin-muted);
+  background: var(--admin-surface-soft);
+}
+
 .admin-table-actions {
   display: inline-flex;
   align-items: center;
@@ -1885,20 +2694,56 @@ html.lenis body {
   box-shadow: none;
 }
 
+/* ── Paginación ────────────────────────────────────────────────
+ *
+ * Vivía en menu.scss como .admin-menu__pagination, y Tickets tendría que haber
+ * cargado la hoja de Menú entera para conseguirla. Aquí, en el bundle que el
+ * panel carga siempre, la sirve el partial views/admin/partials/_pagination.php.
+ */
+.admin-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.admin-pagination__gap {
+  padding-inline: 2px;
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .admin-pagination {
+    justify-content: center;
+  }
+}
 /* Editar y eliminar van en color solido: se leen como acciones, no como bordes.
-   El verde y el rojo salen de la paleta, oscurecidos lo justo para que el
-   blanco del icono conserve contraste. */
+   El ámbar y el rojo salen de la paleta, oscurecidos lo justo para que el
+   icono conserve contraste.
+
+   EDITAR ES ÁMBAR, no verde. El verde de la paleta significa éxito y
+   disponibilidad —es el del stock sano y el del platillo activo, que aparecen
+   en la misma fila—, así que un botón verde al lado decía «esto está bien» en
+   vez de «modifica esto». El ámbar es el tono de «vas a cambiar algo», un
+   escalón por debajo del rojo que destruye. Se cambia aquí y vale para los
+   cinco módulos que usan la clase: menú, recetas, inventario, catas e
+   impresoras. */
 .admin-icon-button--edit {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
-  background: var(--admin-c-verde);
-  color: var(--admin-text-inverse);
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 72%, black);
+  background: var(--admin-c-ambar);
+  color: var(--admin-ink);
   box-shadow: var(--admin-shadow-sm);
 }
 .admin-icon-button--edit:hover {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
-  background: color-mix(in srgb, var(--admin-c-verde) 86%, white);
-  color: var(--admin-text-inverse);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-verde) 35%, transparent);
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 72%, black);
+  background: color-mix(in srgb, var(--admin-c-ambar) 86%, white);
+  color: var(--admin-ink);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-ambar) 35%, transparent);
 }
 
 .admin-icon-button--danger {
@@ -1946,6 +2791,47 @@ html.lenis body {
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Los icon-button que son enlaces ──────────────────────────
+ *
+ * `.admin-body a { background-color: transparent }` vive en el reset del panel
+ * y tiene especificidad (0,2,0); las variantes de arriba, (0,1,0). Además usa
+ * `background-color`, que gana al componente de color del atajo `background`
+ * pase lo que pase con el orden.
+ *
+ * Resultado: en una barra de acciones el botón de ELIMINAR se pintaba (es un
+ * <button>, dentro de su formulario) y el de EDITAR no (es un <a> al
+ * formulario de edición). Los dos con el mismo relleno declarado y sólo uno
+ * visible. Era un fallo latente desde que existe la clase: mientras --edit fue
+ * un contorno sin relleno nadie lo notó, y saltó al pasarlo a sólido.
+ *
+ * Es el mismo remedio, y por el mismo motivo, que el bloque `.admin-body
+ * .admin-btn--*` de _buttons.scss.
+ */
+.admin-body .admin-icon-button {
+  background-color: var(--admin-surface-soft);
+}
+
+.admin-body .admin-icon-button--edit {
+  background-color: var(--admin-c-ambar);
+}
+.admin-body .admin-icon-button--edit:hover {
+  background-color: color-mix(in srgb, var(--admin-c-ambar) 86%, white);
+}
+
+.admin-body .admin-icon-button--danger {
+  background-color: var(--admin-c-rojo);
+}
+.admin-body .admin-icon-button--danger:hover {
+  background-color: color-mix(in srgb, var(--admin-c-rojo) 88%, white);
+}
+
+.admin-body .admin-icon-button--warn {
+  background-color: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
+}
+.admin-body .admin-icon-button--warn:hover {
+  background-color: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
 }
 
 /* Icono dentro de un botón (reutilizable). */
@@ -2101,9 +2987,13 @@ html.lenis body {
   width: 100%;
   min-height: 46px;
   padding: 12px 14px;
-  border: 1px solid var(--admin-border-soft);
+  border: 1px solid var(--admin-border-strong);
   border-radius: var(--admin-radius-sm);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent), var(--admin-surface-soft);
+  /* El velo de 1.5% que había arriba era un degradado que no se veía. El
+     hundido de un campo se dice con el canto de luz en el borde superior,
+     que es el mismo recurso que da volumen a las tarjetas. */
+  background: var(--admin-surface-soft);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
   color: var(--admin-text);
   font: inherit;
   font-size: 14px;
@@ -2129,9 +3019,9 @@ html.lenis body {
 .admin-body textarea:focus,
 .admin-body textarea:focus-visible {
   outline: none;
-  border-color: var(--admin-gold);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent), var(--admin-surface);
-  box-shadow: var(--admin-focus-ring);
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-focus-ring);
 }
 .admin-body ::placeholder {
   color: var(--admin-faint);
@@ -2200,7 +3090,7 @@ html.lenis body {
   width: 100%;
   min-height: 44px;
   padding: 11px 13px;
-  border: 1px solid var(--admin-border-soft);
+  border: 1px solid var(--admin-border-strong);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
@@ -2557,7 +3447,7 @@ html.lenis body {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid var(--admin-border-soft);
+  border: 1px solid var(--admin-border-strong);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface-soft);
   color: var(--admin-text);
@@ -3300,9 +4190,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: var(--admin-surface);
   color: var(--admin-text);
 }
+.admin-range__preset {
+  /*
+   * --admin-on-accent, NO --on-accent. Es el mismo error que ya estaba
+   * anotado abajo en `.is-edge`, sin corregir aquí: el nombre sin prefijo
+   * sólo existe dentro del mixin puente-tokens-publicos, que se aplica a las
+   * cuatro pantallas de piso y nunca a .admin-body. Como declaración
+   * inválida caía a `inherit` —o sea, al gris del preset en reposo— y encima
+   * de un relleno de acento, que en claro es casi negro, el nombre del
+   * periodo activo desaparecía: la píldora salía negra y vacía.
+   */
+}
 .admin-range__preset.is-active {
   background: var(--admin-gold);
-  color: var(--on-accent);
+  color: var(--admin-on-accent);
 }
 .admin-range__cal {
   display: flex;
@@ -3381,6 +4282,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .admin-range__day {
   position: relative;
+  /*
+   * isolation + z-index: -1 en el ::before, y esto es lo que hacía ILEGIBLE
+   * el rango seleccionado.
+   *
+   * La banda del tramo es un pseudo-elemento absoluto dentro del propio
+   * botón, y el número del día es un NODO DE TEXTO suelto
+   * (`btn.textContent = d` en range-picker.js), no un elemento. Con el
+   * ::before en `z-index: 0` se pintaba en la capa de descendientes
+   * posicionados, o sea por encima del texto de su padre: los días del rango
+   * salían como barras macizas sin número. La regla `> * { position:
+   * relative }` de al lado pretendía levantar el contenido, pero no había
+   * ningún hijo que levantar.
+   *
+   * `isolation: isolate` convierte el botón en contexto de apilamiento para
+   * que el -1 se quede dentro y no se hunda detrás del popover.
+   */
+  isolation: isolate;
   display: grid;
   min-height: 34px;
   place-items: center;
@@ -3397,11 +4315,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   content: "";
   position: absolute;
   inset: 2px -1px;
-  z-index: 0;
+  z-index: -1;
   border-radius: 0;
-}
-.admin-range__day > *, .admin-range__day:not(.is-empty) {
-  position: relative;
 }
 .admin-range__day.is-empty {
   cursor: default;
@@ -3418,11 +4333,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border-radius: 8px;
   background: var(--admin-surface-soft);
 }
+.admin-range__day.is-inside {
+  color: var(--admin-text);
+}
 .admin-range__day.is-inside::before {
-  background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
+  background: color-mix(in srgb, var(--admin-gold) 16%, var(--admin-surface));
 }
 .admin-range__day.is-edge {
-  color: var(--on-accent);
+  color: var(--admin-on-accent);
   font-weight: 800;
   z-index: 1;
 }
@@ -3440,26 +4358,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-range__day.is-single::before {
   border-radius: 8px;
   inset: 2px;
-}
-.admin-range__compare {
-  width: 100%;
-  margin-top: 10px;
-  padding-top: 10px;
-  align-items: flex-start;
-  border-top: 1px solid var(--admin-border-soft);
-}
-.admin-range__compare-text {
-  display: grid;
-  gap: 2px;
-  color: var(--admin-text);
-  font-size: 13px;
-  font-weight: 800;
-}
-.admin-range__compare-text small {
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 .admin-range__foot {
   display: flex;
@@ -3529,9 +4427,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 46px;
   padding: 12px 14px;
-  border: 1px solid var(--admin-border-soft);
+  border: 1px solid var(--admin-border-strong);
   border-radius: var(--admin-radius-sm);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent), var(--admin-surface-soft);
+  /* Mismo canto que el resto de los campos: el trigger tiene que leerse como
+     un control más del formulario, no como un botón. */
+  background: var(--admin-surface-soft);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
   color: var(--admin-text);
   font: inherit;
   font-size: 15.5px;
@@ -3550,9 +4451,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .admin-select.is-open .admin-select__trigger {
-  border-color: var(--admin-gold);
-  box-shadow: var(--admin-focus-ring);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent), var(--admin-surface);
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-focus-ring);
 }
 
 .admin-select.is-disabled {
@@ -3588,13 +4489,18 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin: 0;
   padding: 6px;
   list-style: none;
-  border: 1px solid var(--admin-border);
+  /* Vidrio: el desplegable se porta al <body> y flota sobre la tarjeta, así
+     que es exactamente la clase de capa donde el desenfoque significa algo.
+     Fondo -strong porque tiene que ser legible sobre lo que sea que tape. */
+  border: 1px solid var(--admin-glass-border);
   border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
-  box-shadow: var(--admin-shadow-lg);
+  background: var(--admin-glass-bg-strong);
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-lg);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--admin-gold) 40%, transparent) transparent;
+  scrollbar-color: var(--admin-border-strong) transparent;
 }
 .admin-select__list[hidden] {
   display: none;
@@ -3668,23 +4574,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
-  border: 1px solid var(--admin-border);
+  /* El único botón de la barra con relleno SÓLIDO, y a propósito: es tinta
+     sobre papel en claro y papel sobre tinta en oscuro, así que el propio
+     botón enseña el tema al que va a cambiar. Los otros tres son tintes
+     porque dicen categoría; éste dice resultado. */
+  border: 1px solid var(--admin-accent);
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-text);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
   cursor: pointer;
   overflow: hidden;
   transition: background var(--admin-t-base) var(--admin-ease-out), border-color var(--admin-t-base) var(--admin-ease-out), color var(--admin-t-base) var(--admin-ease-out), box-shadow var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-fast) var(--admin-ease-out);
 }
 .admin-theme-toggle:hover {
-  border-color: color-mix(in srgb, var(--admin-gold-deep) 50%, transparent);
-  color: var(--admin-gold);
+  background: var(--admin-accent-deep);
+  border-color: var(--admin-accent-deep);
   box-shadow: var(--admin-shadow-md);
   transform: translateY(-1px);
-}
-.admin-theme-toggle:focus-visible {
-  outline: none;
-  box-shadow: var(--admin-glow);
 }
 .admin-theme-toggle svg {
   position: absolute;
@@ -3768,7 +4674,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-modal__backdrop {
   position: absolute;
   inset: -24px;
-  background: color-mix(in srgb, var(--admin-scrim) 62%, transparent);
+  background: var(--admin-veil);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   opacity: 0;
@@ -3981,10 +4887,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 0 0 40px;
   place-items: center;
   padding: 0;
-  border: 1px solid var(--admin-border);
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 }
@@ -3997,30 +4902,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke-linejoin: round;
   stroke-width: 1.7;
 }
-.admin-topbar__inbox:hover {
-  border-color: var(--admin-gold);
-  color: var(--admin-text);
-  background: var(--admin-surface-strong);
-}
-.admin-topbar__inbox:focus-visible {
-  outline: 2px solid var(--admin-gold);
-  outline-offset: 3px;
-}
-.admin-topbar__inbox.is-empty {
-  opacity: 0.52;
-  box-shadow: none;
-}
-.admin-topbar__inbox.has-items {
-  opacity: 1;
-  color: var(--admin-gold);
-}
-.admin-topbar__inbox.has-followup {
-  color: var(--admin-gold);
+.admin-topbar__inbox.is-empty, .admin-topbar__inbox.has-items, .admin-topbar__inbox.has-followup {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
 }
 .admin-topbar__inbox.has-high-priority {
-  border-color: var(--admin-danger);
-  color: var(--admin-danger-text);
-  box-shadow: 0 8px 24px rgba(126, 37, 38, 0.24);
+  --tono: var(--admin-c-rojo);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
 }
 
 .admin-topbar__inbox-badge {
@@ -4032,12 +4919,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 20px;
   padding: 0 5px;
   place-items: center;
-  border: 2px solid var(--admin-topbar-bg);
+  border: 2px solid var(--tono, var(--admin-bg));
   border-radius: 999px;
-  background: var(--admin-danger);
-  color: #fff;
+  background: var(--admin-paper);
+  color: var(--admin-ink);
+  font-family: var(--admin-font-mono);
   font-size: 10px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -4050,7 +4939,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   position: fixed;
   z-index: 180;
   inset: 0;
-  background: rgba(7, 8, 9, 0.5);
+  background: var(--admin-sidebar-backdrop);
   opacity: 0;
   pointer-events: auto;
   transition: opacity var(--admin-t-base) var(--admin-ease-out);
@@ -4072,7 +4961,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   grid-template-rows: auto auto minmax(0, 1fr);
   border-left: 1px solid var(--admin-border);
   background: var(--admin-bg);
-  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.28);
+  box-shadow: -24px 0 60px color-mix(in srgb, var(--admin-sombra) 34%, transparent);
   pointer-events: auto;
   transform: translateX(102%);
   transition: transform var(--admin-t-base) var(--admin-ease);
@@ -4695,6 +5584,56 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .confirmation-modal__custom[hidden] {
   display: none;
 }
+.confirmation-modal {
+  /* ── Confirmación por escrito ────────────────────────────────
+   *
+   * El freno de los borrados que arrastran otras filas por CASCADE. Va dentro
+   * de la ranura custom, así que hereda sus tokens; los colores salen de los
+   * roles del ámbito, que es lo que hace que el mismo diálogo funcione en la
+   * landing y en el panel sin duplicar reglas.
+   */
+}
+.confirmation-modal__require {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.confirmation-modal__require-label {
+  color: color-mix(in srgb, var(--txt) 88%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.confirmation-modal__require-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--txt-strong);
+  font: inherit;
+  font-size: 14px;
+}
+.confirmation-modal__require-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.confirmation-modal__require-hint {
+  margin: 0;
+  color: var(--txt-faint);
+  font-size: 12px;
+}
+.confirmation-modal {
+  /* En cuanto coincide, el filete y la pista pasan a verde: es la señal de que
+     el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
+}
+.confirmation-modal__require.is-valid .confirmation-modal__require-input {
+  border-color: var(--feedback-ok);
+}
+.confirmation-modal__require.is-valid .confirmation-modal__require-hint {
+  color: var(--feedback-ok);
+}
 .confirmation-modal__reason {
   display: grid;
   gap: 8px;
@@ -4970,4 +5909,516 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--accent-deep);
   font-size: 13px;
   font-weight: 700;
+}
+
+/*
+ * Vidrio: la única forma de pedir una superficie translúcida en el proyecto.
+ *
+ * Vive fuera de los dos árboles porque lo consumen los dos: el panel desde
+ * `admin/shared/components/_finishes.scss` y la encuesta de feedback desde
+ * `feedback/_feedback.scss`. Los tokens --glass-* se llaman igual en ambos
+ * (`_globals.scss` para el panel, `_reset.scss` para la marca), así que el
+ * mixin no necesita saber en cuál está.
+ *
+ * Antes había 24 `backdrop-filter` sueltos con radios entre 2px y 20px
+ * elegidos uno a uno. El radio no es decoración: por debajo de ~8px el
+ * desenfoque no separa nada y sólo cuesta, y por encima de ~24px el fondo se
+ * vuelve una mancha y deja de leerse como cristal.
+ *
+ * IMPORTANTE: `backdrop-filter` crea un bloque contenedor para los
+ * descendientes `position: fixed`. Un modal fijo DENTRO de un elemento con
+ * vidrio se posicionaría respecto a él, no al viewport. Por eso los modales
+ * del panel cuelgan del layout y no de la tarjeta que los dispara.
+ */
+/* $nivel: flotante (topbar, cajón, diálogo) | tarjeta (rejillas)
+ * $fondo: qué token de fondo usar; los tres viven en la capa de tokens. */
+/*
+ * El canto de luz. Una lámina de cristal se reconoce por el borde superior
+ * iluminado, no por el desenfoque: sin él, una superficie translúcida es un
+ * rectángulo de otro color. Se apila como box-shadow para no ocupar caja.
+ */
+/*
+ * Capa de acabado del panel.
+ *
+ * Va la ÚLTIMA en app-admin.scss y por eso puede refinar el vocabulario ya
+ * definido sin tocar los ocho archivos que lo declaran. Es deliberado: los
+ * componentes siguen siendo suyos —su caja, su layout, sus estados— y aquí sólo
+ * vive lo que hace que el conjunto se sienta caro.
+ *
+ * Regla de la casa para todo lo de este archivo: NADA que dispare layout o paint
+ * durante el scroll o el hover. Sólo `transform`, `opacity` y custom properties,
+ * que el compositor resuelve sin volver a pintar. Un panel de gestión se usa
+ * ocho horas seguidas; un efecto que cueste 3 ms por fotograma se nota en la
+ * batería mucho antes que en el FPS.
+ *
+ * El vidrio de las tarjetas es la excepción negociada a esa regla, y por eso
+ * va con el radio corto (--admin-glass-blur-sm) y con fondo al 88%: en una
+ * rejilla de veinte fichas el desenfoque se compone veinte veces. Si alguna
+ * vez cuesta fotogramas, se retira de .admin-card y se queda en .admin-panel,
+ * que nunca es más de dos por pantalla.
+ *
+ * Seis acabados:
+ *   1 · el canto iluminado que da volumen a una superficie
+ *   2 · el foco de cursor sobre las rejillas de tarjetas
+ *   3 · el barrido especular del botón primario
+ *   4 · el anillo de foco, uno solo para todo
+ *   5 · el scroll de la casa
+ *   6 · la salida de emergencia: sin transparencia ni movimiento
+ */
+/* ── 1 · Canto iluminado sobre vidrio ──────────────────────────
+ *
+ * El borde deja de ser `border` y pasa a `box-shadow`, por dos motivos: no
+ * ocupa espacio —así que añadirlo o quitarlo no mueve nada— y permite apilar el
+ * hairline con un highlight interior en el borde superior.
+ *
+ * Ese highlight es todo el truco. Una superficie con una línea clarísima arriba
+ * se lee como si tuviera una luz por encima; sin él es un rectángulo de otro
+ * color. En claro --admin-edge es una sombra tenue en vez de un brillo, porque
+ * sobre blanco un highlight blanco no existe; sobre el vidrio, en cambio, el
+ * canto es lo ÚNICO que separa la lámina del fondo, así que aquí manda
+ * --admin-glass-edge, que sí es un brillo en los dos temas.
+ */
+.admin-body .admin-card,
+.admin-body .admin-panel {
+  background: var(--admin-glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-card,
+  .admin-body .admin-panel {
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+  }
+}
+.admin-body .admin-card,
+.admin-body .admin-panel {
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--admin-border), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-md);
+}
+
+/* La tarjeta de KPI es la misma lámina que .admin-card —de hecho suele vivir
+   dentro de una— y se quedaba fuera del vidrio por no llevar esa clase. En
+   Finanzas son siete seguidas: eran las únicas superficies opacas de la
+   pantalla y rompían la continuidad del conjunto. */
+.admin-body .admin-stat-card {
+  background: var(--admin-glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-stat-card {
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+  }
+}
+.admin-body .admin-stat-card {
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--admin-border), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-sm);
+}
+
+/* El diálogo tapa contenido de verdad, no una rejilla, y es uno solo en
+   pantalla: se puede permitir el radio grande de desenfoque y un fondo más
+   opaco. */
+.admin-body .admin-modal__dialog {
+  background: var(--admin-glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-modal__dialog {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  }
+}
+.admin-body .admin-modal__dialog {
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--admin-border), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-lg);
+}
+
+/* Flotantes sobre el contenido, igual que el diálogo: el popover del periodo y
+   el cajón del buzón se abren ENCIMA de una tabla que se sigue leyendo detrás,
+   que es justo la situación en la que el cristal significa algo. */
+.admin-body .admin-range__pop {
+  background: var(--admin-glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-range__pop {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  }
+}
+.admin-body .admin-range__pop {
+  /* border: 0 antes del box-shadow, igual que en .admin-card: el hairline pasa
+     a ser una sombra interior, y dejar además el `border` real dibujaría dos
+     filetes de 1px pegados. */
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--admin-border), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-lg);
+}
+
+/* El cajón sólo cambia de qué está hecho el fondo: conserva su sombra propia
+   —una proyección lateral de 60px que lo despega del contenido— porque
+   sustituirla por la sombra genérica le quitaría el relieve del canto
+   izquierdo, que es lo único que lo separa de la página a pantalla completa. */
+.admin-body .admin-inbox__drawer {
+  background: var(--admin-glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-inbox__drawer {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  }
+}
+
+/* La barra de pestañas: vidrio suave, sólo lo justo para que se despegue del
+   panel sin convertirse en otra tarjeta. Ya tenía una superficie propia
+   (--admin-surface-soft), así que aquí sólo se cambia de qué está hecha.
+
+   .admin-toolbar NO entra: es un flex desnudo sin fondo, y darle cristal le
+   inventaría una superficie que nunca tuvo — una fila de botones pasaría a
+   leerse como un panel. */
+.admin-body .admin-tabs {
+  background: var(--admin-glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .admin-body .admin-tabs {
+    backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+  }
+}
+
+.admin-body .admin-card:hover {
+  box-shadow: inset 0 0 0 1px var(--admin-border-strong), inset 0 1px 0 var(--admin-glass-edge), var(--admin-shadow-lg);
+  /* 2px, no 3: la tarjeta se levanta, no salta. */
+  transform: translateY(-2px);
+}
+
+/* ── 2 · Foco de cursor ────────────────────────────────────────
+ *
+ * El degradado sigue al puntero por la tarjeta. --mx/--my las escribe
+ * motion.js con UN SOLO listener delegado en la rejilla y un rAF por
+ * fotograma: un listener por tarjeta en una pantalla con veinte fichas es
+ * justo lo que convierte un adorno en un problema de rendimiento.
+ *
+ * Reaprovecha el ::before que ya existía para el destello dorado del borde
+ * superior, que en blanco y negro no tenía nada que hacer.
+ */
+.admin-body .admin-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--admin-accent) 7%, transparent), transparent 62%);
+  transition: opacity var(--admin-t-base) var(--admin-ease-out);
+}
+
+.admin-body .admin-card:hover::before {
+  opacity: 1;
+}
+
+/* El contenido tiene que quedar por encima del foco. La tarjeta ya es
+   `position: relative`, así que basta con sacar a los hijos del plano 0. */
+.admin-body .admin-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* En táctil no hay cursor al que seguir, y el hover se queda pegado tras un
+   toque. */
+@media (hover: none) {
+  .admin-body .admin-card::before {
+    display: none;
+  }
+  .admin-body .admin-card:hover {
+    transform: none;
+  }
+}
+/* ── 3 · Barrido especular ─────────────────────────────────────
+ *
+ * Una banda de luz cruza el botón primario al pasar por encima. Se mueve sólo
+ * con `transform`, así que no repinta: la banda ya está dibujada fuera de la
+ * caja y lo único que cambia es su posición.
+ *
+ * El botón ya trae `overflow: hidden` e `isolation: isolate`, que es lo que
+ * recorta la banda y evita que el z-index se escape del componente.
+ */
+.admin-body .admin-btn--primary::after,
+.admin-body .admin-menu__button--primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60%;
+  width: 45%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--admin-on-accent) 22%, transparent), transparent);
+  transform: translateX(0);
+  transition: transform var(--admin-t-slow) var(--admin-ease-out);
+}
+
+.admin-body .admin-btn--primary:hover::after,
+.admin-body .admin-menu__button--primary:hover::after {
+  transform: translateX(360%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-body .admin-btn--primary::after,
+  .admin-body .admin-menu__button--primary::after {
+    display: none;
+  }
+}
+/* Geist a 800 se empasta: su altura de x es alta y los contadores se cierran.
+   550 con el tracking ligeramente abierto es lo que la deja firme sin gritar. */
+.admin-body .admin-btn,
+.admin-body .admin-menu__button {
+  border-radius: 10px;
+  font-weight: 550;
+  letter-spacing: 0.005em;
+}
+
+.admin-body .admin-btn__label,
+.admin-body .admin-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+/* El hover de un botón secundario tiraba del oro; ahora sube un escalón de gris
+   y aprieta el contorno, que es lo que hace en un sistema neutro. */
+.admin-body .admin-btn:hover {
+  border-color: var(--admin-border-strong);
+}
+
+/* ── 4 · Anillo de foco ────────────────────────────────────────
+ *
+ * Uno solo para todo el panel y siempre visible: es tinta sobre papel o papel
+ * sobre tinta, así que no depende de que el componente tenga un fondo concreto.
+ * El doble anillo —halo del color del fondo por dentro, acento por fuera— es lo
+ * que lo mantiene legible también encima de un relleno de acento.
+ */
+.admin-body :focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--admin-bg), 0 0 0 4px var(--admin-accent);
+}
+
+/* ── 4b · La transición de tema ────────────────────────────────
+ *
+ * Por defecto el navegador hace un fundido cruzado entre las dos instantáneas.
+ * Aquí estorba: el círculo que abre theme.js quedaría escondido detrás del
+ * fundido. Se apagan las dos animaciones y se apilan las capas —la vieja
+ * quieta debajo, la nueva recortándose encima—, que es lo que hace que el tema
+ * nuevo parezca revelarse desde el botón en vez de disolverse.
+ *
+ * Sin soporte de View Transitions estas reglas simplemente no existen para el
+ * navegador, y theme.js ya cambia el tema en seco.
+ *
+ * OJO CON EL ALCANCE. Desde que el panel también anima la navegación entre
+ * módulos (bloque 4c) estas reglas NO pueden ser globales: apagarían también
+ * el fundido de la página. theme.js marca su transición con el tipo 'tema' y
+ * aquí se filtra por él. En los navegadores sin tipos de transición —que
+ * tampoco hacen la de navegación, porque `@view-transition` llegó después— se
+ * aplican sin filtro, que es como se comportaban antes.
+ */
+@supports not selector(:root:active-view-transition-type(tema)) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-old(root) {
+    z-index: 1;
+  }
+  ::view-transition-new(root) {
+    z-index: 2;
+  }
+}
+:root:active-view-transition-type(tema)::view-transition-old(root),
+:root:active-view-transition-type(tema)::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root:active-view-transition-type(tema)::view-transition-old(root) {
+  z-index: 1;
+}
+
+:root:active-view-transition-type(tema)::view-transition-new(root) {
+  z-index: 2;
+}
+
+/*
+ * Las transiciones se CONGELAN durante el intercambio de tema.
+ *
+ * theme.js pone .admin-theme-switching en <html> antes de arrancar y la quita
+ * al terminar. Sin esto el cambio se trababa siempre en el mismo punto: el
+ * círculo dura 480 ms y .admin-body interpola background y color en 260 ms,
+ * más otras cuarenta transiciones repartidas por los componentes. La
+ * instantánea "nueva" se captura al principio del intercambio, o sea con los
+ * colores a medio camino, así que el círculo revelaba un tema que aún no había
+ * llegado y el DOM real seguía moviéndose por debajo cuando la animación ya
+ * había acabado.
+ *
+ * `!important` y el selector universal son deliberados: hay que ganarle a
+ * cualquier transición declarada en cualquier componente, y es una clase que
+ * vive medio segundo.
+ */
+.admin-theme-switching,
+.admin-theme-switching *,
+.admin-theme-switching *::before,
+.admin-theme-switching *::after {
+  transition: none !important;
+}
+
+/* ── 4c · La transición entre módulos ──────────────────────────
+ *
+ * El panel navega con recarga completa: no hay router de JS y cada módulo es un
+ * documento nuevo. Dos capas, ninguna bloqueante.
+ *
+ * 1) La animación de entrada de .admin-content, que funciona en todos los
+ *    navegadores. Sólo compone `opacity` y `transform` —nada que provoque
+ *    layout— y cuelga de .admin-anim-ready, la clase que el script del layout
+ *    NO pone cuando hay `prefers-reduced-motion`.
+ *
+ * 2) Donde haya soporte, la transición de documento cruzado. Con ella activa la
+ *    animación de entrada de (1) sobra —se duplicaría el fundido—, y por eso se
+ *    anula dentro del @supports.
+ *
+ * NINGÚN elemento lleva `view-transition-name`, y no es un olvido. Nombrar el
+ * topbar y el sidebar para que "se queden quietos" parece lo obvio, pero un
+ * nombre les da grupo propio en TODAS las transiciones del documento, incluida
+ * la del tema: sus instantáneas se apilarían por encima y taparían el círculo
+ * justo mientras se abre. Sin nombres, la raíz funde la página entera, y como
+ * el topbar y el sidebar son idénticos entre módulos, fundir píxeles iguales no
+ * se ve: el efecto es exactamente el que se buscaba, y gratis.
+ */
+.admin-anim-ready .admin-content {
+  animation: admin-page-in 220ms var(--admin-ease-out) both;
+}
+
+@keyframes admin-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@supports (view-transition-name: none) {
+  @view-transition {
+    navigation: auto;
+  }
+  /* La transición del navegador ya hace el fundido; el keyframe encima lo
+     duplicaba y el contenido entraba dos veces. */
+  .admin-anim-ready .admin-content {
+    animation: none;
+  }
+  /* Sólo la navegación: la del tema entra por el bloque 4b, que le apaga la
+     animación de raíz para dejar paso al círculo. 220 ms es lo que tarda en
+     leerse como un cambio y no como una espera. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+    animation-timing-function: var(--admin-ease-out);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-content {
+    animation: none;
+  }
+  @view-transition {
+    navigation: none;
+  }
+}
+/* ── 5 · Scroll de la casa ─────────────────────────────────────
+ *
+ * El patrón de CLAUDE.md, aplicado de una vez a todo contenedor con scroll
+ * propio en lugar de repetirlo en cada módulo. Los que además necesitan que
+ * Lenis les suelte la rueda están listados en SCROLLABLES (admin/core/motion.js)
+ * y los marca con [data-lenis-prevent]: eso es JS y no puede resolverse aquí.
+ */
+.admin-body [data-lenis-prevent],
+.admin-body .admin-table-wrap,
+.admin-body .admin-modal__body {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border-strong) transparent;
+}
+.admin-body [data-lenis-prevent]::-webkit-scrollbar,
+.admin-body .admin-table-wrap::-webkit-scrollbar,
+.admin-body .admin-modal__body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-body [data-lenis-prevent]::-webkit-scrollbar-track,
+.admin-body .admin-table-wrap::-webkit-scrollbar-track,
+.admin-body .admin-modal__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-body [data-lenis-prevent]::-webkit-scrollbar-thumb,
+.admin-body .admin-table-wrap::-webkit-scrollbar-thumb,
+.admin-body .admin-modal__body::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--admin-border-strong);
+}
+
+/* ── 6 · Sin transparencia ─────────────────────────────────────
+ *
+ * `prefers-reduced-transparency` es una preferencia del sistema, y quien la
+ * activa suele hacerlo por mareo o por baja visión, no por gusto. Aquí no
+ * basta con quitar el blur: un fondo al 68% SIN desenfoque deja el texto
+ * encima de lo que haya debajo, que es peor que el vidrio. Hay que devolver
+ * la superficie a opaca.
+ *
+ * Se escribe con los tokens, no con reglas por componente, para que valga en
+ * los dos temas y en las cinco pantallas de piso a la vez.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .admin-body {
+    --admin-glass-bg: var(--admin-bg);
+    --admin-glass-bg-strong: var(--admin-surface-strong);
+    --admin-glass-bg-soft: var(--admin-surface);
+    --glass-bg: var(--admin-bg);
+    --glass-bg-strong: var(--admin-surface-strong);
+    --glass-bg-soft: var(--admin-surface);
+    /* El velo sí sube: sin desenfoque detrás, lo único que aísla el diálogo
+       del fondo es la opacidad del velo. */
+    --admin-veil: color-mix(in srgb, var(--admin-sombra) 82%, transparent);
+  }
+  .admin-body :where(.admin-card,
+  .admin-panel,
+  .admin-stat-card,
+  .admin-modal__dialog,
+  .admin-modal__backdrop,
+  .admin-range__pop,
+  .admin-inbox__drawer,
+  .admin-tabs,
+  .admin-topbar,
+  .admin-sidebar,
+  .admin-select__dropdown,
+  .operational-drawer,
+  .operational-header,
+  .mesa-modal__panel,
+  .pos-prefs__dialog) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

@@ -26,11 +26,20 @@
                 // localStorage puede no estar disponible en contextos restringidos.
             }
 
-            // Tema (oscuro por defecto) aplicado antes de pintar para evitar FOUC.
-            var theme = 'dark';
+            // Tema aplicado antes de pintar para evitar FOUC. El CLARO es el
+            // valor por defecto del panel; el oscuro se queda para las pantallas
+            // de piso, que son turnos completos en tablet.
+            //
+            // Sin nada guardado se consulta la preferencia del sistema, que
+            // antes no se miraba nunca: quien tiene el equipo en oscuro entra en
+            // oscuro la primera vez, y a partir de ahí manda su elección.
+            var theme = 'light';
             try {
-                if (window.localStorage.getItem('cp-admin-theme') === 'light') {
-                    theme = 'light';
+                var guardado = window.localStorage.getItem('cp-admin-theme');
+                if (guardado === 'dark' || guardado === 'light') {
+                    theme = guardado;
+                } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
                 }
             } catch (error) {}
             root.setAttribute('data-admin-theme', theme);
@@ -43,12 +52,14 @@
             } catch (error) {}
         })();
     </script>
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/build/css/admin.css?v=marca-manual-inbox-v1">
+    <?php /*
+        Geist y Geist Mono son locales (gulp copyVendorFonts). Antes llegaban por
+        Google Fonts en una petición bloqueante; se precargan las dos redondas,
+        que son las que se ven en la primera pintura — las itálicas no.
+    */ ?>
+    <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/build/css/admin.css?v=pulido-v2">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">
     <?php endforeach; ?>
@@ -75,10 +86,19 @@
     <?php include_once __DIR__ . '/partials/_buzon.php'; ?>
     <?php include_once __DIR__ . '/partials/_problem-report-modal.php'; ?>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js" defer></script>
-    <script src="/build/js/admin.js?v=inbox-recomposition-v1" defer></script>
+    <?php /*
+        Vendorizados en /build/js/vendor por `gulp copyVendorJs`, igual que en la
+        landing. Venían por CDN en tres peticiones bloqueantes, y además el
+        Lenis del CDN estaba fijado en 1.0.42 —paquete @studio-freight,
+        deprecado— mientras package.json ya traía el 1.3.26 que usa la landing:
+        las dos mitades del proyecto corrían versiones distintas.
+
+        El orden no es opcional: ScrollTrigger se registra sobre el gsap global.
+    */ ?>
+    <script src="/build/js/vendor/gsap.min.js" defer></script>
+    <script src="/build/js/vendor/ScrollTrigger.min.js" defer></script>
+    <script src="/build/js/vendor/lenis.min.js" defer></script>
+    <script src="/build/js/admin.js?v=pulido-v2" defer></script>
     <?php foreach ($scripts ?? [] as $script): ?>
         <script src="<?php echo htmlspecialchars($script, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
     <?php endforeach; ?>

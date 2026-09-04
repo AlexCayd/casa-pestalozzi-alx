@@ -21,6 +21,10 @@ const paths = {
   adminScss: "src/scss/admin/shared/app-admin.scss",
   adminModulesScss: "src/scss/admin/modules/*.scss",
   operationScss: "src/scss/operation/reservations.scss",
+  // POS, tableros de área y login. Salen del bundle público —cargaban la
+  // landing entera para llegar a su propio SCSS— y estrenan salida con el
+  // sistema administrativo dentro.
+  operationAppScss: "src/scss/operation/app-operation.scss",
   js: [
     "src/js/**/*.js",
     "!src/js/admin/**/*.js",
@@ -73,7 +77,6 @@ const paths = {
   adminReservationListJs: "src/js/admin/reservations/lista.js",
   adminUsersJs: "src/js/admin/users/users-form.js",
   adminCatasJs: "src/js/admin/catas/catas.js",
-  adminCateringJs: "src/js/admin/catering/catering.js",
   adminReservationFormJs: [
     "src/js/components/confirmation-modal.js",
     "src/js/components/reservation-form-state.js",
@@ -100,14 +103,18 @@ const paths = {
     "src/js/admin/configuration/configuration.js",
   ],
   imagenes: "src/img/**/*",
-  adminFinanzasJs: "src/js/admin/finanzas/finanzas.js",
-  // Chart.js y el plugin de Sankey viajan juntos a /vendor: el plugin se
-  // registra sobre el Chart global, así que el orden de carga en la vista
-  // (primero chart.umd, luego el sankey) no es opcional.
-  chartJs: [
-    "node_modules/chart.js/dist/chart.umd.min.js",
-    "node_modules/chartjs-chart-sankey/dist/chartjs-chart-sankey.min.js",
+  // sankey.js va PRIMERO: define window.AdminSankey, que finanzas.js consume
+  // al arrancar. Es un concat en scope global, no un módulo, así que el orden
+  // es el que resuelve la dependencia.
+  adminFinanzasJs: [
+    "src/js/admin/finanzas/sankey.js",
+    "src/js/admin/finanzas/finanzas.js",
   ],
+  // Chart.js, para la dona del reparto del gasto. El plugin
+  // chartjs-chart-sankey se retiró: pintaba las etiquetas de nodo dentro del
+  // canvas sin medirlas y las de la última columna se cortaban contra el
+  // borde. La descomposición del ingreso la dibuja ahora sankey.js en SVG.
+  chartJs: ["node_modules/chart.js/dist/chart.umd.min.js"],
   // GSAP + ScrollTrigger + Lenis, la capa de movimiento de la landing y del
   // panel. Antes llegaban por CDN en tres peticiones bloqueantes; vendorizarlas
   // deja el sitio funcionando sin red y fija la versión en package.json.
@@ -130,11 +137,27 @@ const paths = {
   // La itálica de Crimson no es un extra: .eyebrow__it, .lead y .display em la
   // piden desde siempre y, sin fichero, el navegador venía inclinando la
   // redonda por su cuenta.
+  //
+  // Geist y Geist Mono son la voz del sistema ADMINISTRATIVO, que no comparte
+  // tipografía con la landing: el panel se diseña para poder despegarse como
+  // producto propio. Llegaban por Google Fonts (Fraunces + Space Grotesk) en
+  // dos peticiones bloqueantes; vendorizarlas deja el panel funcionando sin red
+  // y fija la versión aquí, igual que las caras del sitio público.
+  //
+  // Van las CUATRO caras y no sólo las redondas: los dos ficheros son
+  // variables (eje wght 100-900), pero el estilo no es un eje — hay una regla
+  // que pide `font-style: italic` (modules/analytics.scss) y sin fichero el
+  // navegador inclinaría la redonda por su cuenta. La casa no admite caras
+  // sintéticas (ver CLAUDE.md).
   vendorFonts: [
     "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-normal.woff2",
     "node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-standard-italic.woff2",
     "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-normal.woff2",
     "node_modules/@fontsource/crimson-text/files/crimson-text-latin-400-italic.woff2",
+    "node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2",
+    "node_modules/@fontsource-variable/geist/files/geist-latin-wght-italic.woff2",
+    "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2",
+    "node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-italic.woff2",
   ],
 };
 
@@ -280,15 +303,6 @@ function adminCatasJavascript() {
     .pipe(dest("./public/build/js/admin"));
 }
 
-function adminCateringJavascript() {
-  return src(paths.adminCateringJs)
-    .pipe(sourcemaps.init())
-    .pipe(concat("catering.js"))
-    .pipe(terser())
-    .pipe(sourcemaps.write("."))
-    .pipe(dest("./public/build/js/admin"));
-}
-
 function adminReservationOperationJavascript() {
   return src(paths.adminReservationOperationJs)
     .pipe(sourcemaps.init())
@@ -302,6 +316,13 @@ function operationCss() {
   return src(paths.operationScss)
     .pipe(sass({ outputStyle: "expanded" }))
     .pipe(dest("public/build/css/operation"));
+}
+
+function operationAppCss() {
+  return src(paths.operationAppScss)
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(rename("operation.css"))
+    .pipe(dest("public/build/css"));
 }
 
 function adminReservationFormJavascript() {
@@ -380,9 +401,20 @@ function copyImages() {
 
 function devWatch(done) {
   watch(paths.scss, css);
-  watch("src/scss/admin/shared/**/*.scss", adminCss);
+  // admin/shared es la base de los DOS bundles administrativos.
+  watch("src/scss/admin/shared/**/*.scss", parallel(adminCss, operationAppCss));
   watch("src/scss/admin/modules/**/*.scss", adminModuleCss);
-  watch("src/scss/operation/**/*.scss", operationCss);
+  // El árbol de operación alimenta DOS salidas: reservations.css y el bundle
+  // nuevo del piso, que además cuelga de admin/shared.
+  watch("src/scss/operation/**/*.scss", parallel(operationCss, operationAppCss));
+  watch(
+    [
+      "src/scss/punto-de-venta/**/*.scss",
+      "src/scss/area/**/*.scss",
+      "src/scss/auth/**/*.scss",
+    ],
+    operationAppCss,
+  );
   watch(paths.js, javascript);
   watch(
     [
@@ -409,7 +441,6 @@ function devWatch(done) {
   watch("src/js/admin/reservations/lista.js", adminReservationListJavascript);
   watch("src/js/admin/users/**/*.js", adminUsersJavascript);
   watch("src/js/admin/catas/**/*.js", adminCatasJavascript);
-  watch("src/js/admin/catering/**/*.js", adminCateringJavascript);
   watch("src/js/admin/reservations/form.js", adminReservationFormJavascript);
   watch(
     ["src/js/admin/reservations/operation.js", "src/js/operation/*.js"],
@@ -445,6 +476,7 @@ exports.css = css;
 exports.adminCss = adminCss;
 exports.adminModuleCss = adminModuleCss;
 exports.operationCss = operationCss;
+exports.operationAppCss = operationAppCss;
 exports.js = javascript;
 exports.adminJs = adminJavascript;
 exports.adminAnalyticsJs = adminAnalyticsJavascript;
@@ -456,7 +488,6 @@ exports.adminInventarioJs = adminInventarioJavascript;
 exports.adminReservationListJs = adminReservationListJavascript;
 exports.adminUsersJs = adminUsersJavascript;
 exports.adminCatasJs = adminCatasJavascript;
-exports.adminCateringJs = adminCateringJavascript;
 exports.adminReservationFormJs = adminReservationFormJavascript;
 exports.adminReservationOperationJs = adminReservationOperationJavascript;
 exports.adminConfigurationJs = adminConfigurationJavascript;
@@ -473,11 +504,16 @@ exports.dev = parallel(
   adminCss,
   adminModuleCss,
   operationCss,
+  operationAppCss,
   imagenes,
   versionWebp,
   versionAvif,
   javascript,
   adminJavascript,
+  // Estaba sólo en `build`: un `gulp dev` limpio nunca generaba map.js, así que
+  // el POS arrancaba con el bundle de la sesión anterior —o sin ninguno— hasta
+  // que alguien tocaba punto-de-venta.js y saltaba el watch.
+  adminMapJavascript,
   adminAnalyticsJavascript,
   adminAreaJavascript,
   adminFinanzasJavascript,
@@ -486,7 +522,6 @@ exports.dev = parallel(
   adminReservationListJavascript,
   adminUsersJavascript,
   adminCatasJavascript,
-  adminCateringJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
@@ -505,6 +540,7 @@ exports.build = series(
   adminCss,
   adminModuleCss,
   operationCss,
+  operationAppCss,
   imagenes,
   versionWebp,
   versionAvif,
@@ -519,12 +555,11 @@ exports.build = series(
   adminReservationListJavascript,
   adminUsersJavascript,
   adminCatasJavascript,
-  adminCateringJavascript,
   adminReservationFormJavascript,
   adminReservationOperationJavascript,
   adminConfigurationJavascript,
-  // Sin esto un build limpio no publica chart.umd ni el plugin de Sankey, que
-  // finanzas y analíticas cargan desde /build/js/vendor.
+  // Sin esto un build limpio no publica chart.umd, que finanzas y analíticas
+  // cargan desde /build/js/vendor.
   copyChartJs,
   // Idem: sin esto la landing se queda sin GSAP/ScrollTrigger/Lenis y sin las
   // caras de Bodoni y la itálica de Crimson. copyVendorFonts va antes que

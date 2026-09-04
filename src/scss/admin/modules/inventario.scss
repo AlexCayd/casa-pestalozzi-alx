@@ -376,3 +376,49 @@
     margin-left: 8px;
   }
 }
+
+/* ── Uso de un ingrediente en el diálogo de borrado ────────────
+ *
+ * Lo pinta inventario.js dentro de la ranura custom del ConfirmationModal, con
+ * lo que devuelve /admin/api/inventario/uso. El diálogo es el componente
+ * compartido de la casa y vive fuera del panel, así que estas reglas usan los
+ * roles públicos (--txt, --line…), que son los que resuelven ahí dentro.
+ */
+.admin-inventario__uso {
+  display: grid;
+  gap: 6px;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--txt) 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
+.admin-inventario__uso-titulo {
+  margin: 0;
+  color: var(--txt-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-inventario__uso-lista {
+  margin: 0;
+  padding-left: 18px;
+  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  font-size: 13px;
+  line-height: 1.6;
+
+  /* La vía —"vía Salsa de la casa"— es el dato secundario: dice dónde hay que
+     ir a editarlo, no qué se rompe. */
+  span {
+    color: var(--txt-faint);
+    font-size: 12px;
+  }
+}
+
+.admin-inventario__uso-aviso {
+  margin: 0;
+  color: var(--txt-faint);
+  font-size: 13px;
+}

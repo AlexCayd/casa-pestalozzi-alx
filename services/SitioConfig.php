@@ -57,6 +57,49 @@ class SitioConfig
         return self::env('SITIO_INSTAGRAM', 'https://www.instagram.com/casapestalozzi');
     }
 
+    /**
+     * Ocasiones de catering, con la frase que cada una escribe en WhatsApp.
+     *
+     * Vivían en Model\CateringSolicitud, que existía por el formulario de
+     * cotización del panel. Ese flujo entero se fue a WhatsApp —no hay tabla, ni
+     * bandeja, ni estados que mover a mano— y el catálogo se quedó sin modelo al
+     * que pertenecer: es un dato público de la casa, como el teléfono, y va con
+     * el número al que escribe.
+     *
+     * La frase NO se arma concatenando "Quiero cotizar un " + el nombre: el
+     * artículo cambia con cada ocasión —"un coffee break", "una boda", "unos XV
+     * años"— y en español no hay forma de deducirlo del texto. Van juntos en la
+     * misma constante para que dar de alta una ocasión obligue a escribir su
+     * frase.
+     */
+    public const OCASIONES_EVENTO = [
+        // Corporativo
+        'Coffee break'               => 'Hola! Quiero cotizar un coffee break',
+        'Desayuno de trabajo'        => 'Hola! Quiero cotizar un desayuno de trabajo',
+        'Junta ejecutiva'            => 'Hola! Quiero cotizar una junta ejecutiva',
+        'Evento empresarial'         => 'Hola! Quiero cotizar un evento empresarial',
+        'Posada de oficina'          => 'Hola! Quiero cotizar una posada de oficina',
+        'Comida de fin de año'       => 'Hola! Quiero cotizar una comida de fin de año',
+        // Celebraciones sociales
+        'XV años'                    => 'Hola! Quiero cotizar unos XV años',
+        'Graduación'                 => 'Hola! Quiero cotizar una graduación',
+        'Cumpleaños'                 => 'Hola! Quiero cotizar un cumpleaños',
+        'Bautizo o primera comunión' => 'Hola! Quiero cotizar un bautizo o primera comunión',
+        'Baby shower'                => 'Hola! Quiero cotizar un baby shower',
+        // Bodas y ceremonias
+        'Boda'                       => 'Hola! Quiero cotizar una boda',
+        'Aniversario'                => 'Hola! Quiero cotizar un aniversario',
+        'Pedida de mano'             => 'Hola! Quiero cotizar una pedida de mano',
+        'Despedida de soltera'       => 'Hola! Quiero cotizar una despedida de soltera',
+        // Institucional y cultural
+        'Inauguración'               => 'Hola! Quiero cotizar una inauguración',
+        'Presentación de producto'   => 'Hola! Quiero cotizar una presentación de producto',
+        'Cena privada'               => 'Hola! Quiero cotizar una cena privada',
+    ];
+
+    /** Frase de arranque para quien no reconoce su celebración en la rejilla. */
+    public const MENSAJE_EVENTO_GENERICO = 'Hola! Quiero cotizar un evento en Casa Pestalozzi';
+
     /** WhatsApp de eventos y catering. */
     public static function whatsappEventos(): string
     {

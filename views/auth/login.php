@@ -26,7 +26,7 @@
   };
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-admin-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -34,17 +34,18 @@
   <link rel="icon" type="image/svg+xml" href="/build/images/logo.svg" />
   <link rel="apple-touch-icon" href="/build/images/logo.svg" />
   <meta name="robots" content="noindex, nofollow" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="/build/css/app.css" />
+  <?php /* Geist locales: el piso funciona sin red. */ ?>
+  <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/build/css/operation.css?v=consola-bn-v1">
 </head>
-<body class="login-page" data-page="login" data-modo="oscuro">
+<body class="admin-body login-page" data-page="login">
 
   <main class="login-shell">
     <div class="login-aside" aria-hidden="true">
       <div class="login-aside__overlay"></div>
       <div class="login-aside__content">
-        <span class="eyebrow">Acceso del Personal</span>
+        <span class="admin-eyebrow">Acceso del Personal</span>
         <p class="login-aside__quote">Cocina mediterránea con corazón mexicano.</p>
         <span class="login-aside__sign">Casa Pestalozzi</span>
       </div>
@@ -112,9 +113,8 @@
               <button type="button" class="login-pad__key login-pad__key--aux" data-action="back" aria-label="Borrar último dígito">⌫</button>
             </div>
 
-            <button type="submit" class="btn-line login-submit" id="login-nip-submit" disabled>
+            <button type="submit" class="admin-btn admin-btn--primary login-submit" id="login-nip-submit" disabled>
               <span>Entrar</span>
-              <span class="arrow">↗</span>
             </button>
           </form>
 
@@ -156,9 +156,8 @@
               </span>
             </div>
 
-            <button type="submit" class="btn-line login-submit">
+            <button type="submit" class="admin-btn admin-btn--primary login-submit">
               <span>Entrar</span>
-              <span class="arrow">↗</span>
             </button>
           </form>
         </div>

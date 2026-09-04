@@ -47,15 +47,14 @@ $operationalContentHtml = (string)$content;
     <meta name="theme-color" content="#101210">
     <title>Casa Pestalozzi - <?php echo $h($title); ?></title>
     <script>document.documentElement.setAttribute('data-admin-theme', 'dark');</script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/build/css/admin.css?v=marca-manual-v1">
+    <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/build/css/admin.css?v=consola-bn-v1">
     <?php foreach ($styles as $stylesheet): ?>
         <link rel="stylesheet" href="<?php echo $h($stylesheet); ?>">
     <?php endforeach; ?>
 </head>
-<body class="admin-body operation-body operational-page" data-modo="oscuro" data-operational-page data-operation-module="reservations" data-operational-map-state-key="reservations">
+<body class="admin-body operation-body operational-page" data-operational-page data-operation-module="reservations" data-operational-map-state-key="reservations">
     <?php include __DIR__ . '/partials/shell.php'; ?>
 
     <div

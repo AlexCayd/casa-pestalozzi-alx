@@ -77,6 +77,55 @@
         }, 1800);
     }
 
+    /**
+     * Foco de cursor sobre las tarjetas.
+     *
+     * Publica en cada .admin-card la posición del puntero como --mx/--my, que
+     * _finishes.scss consume en un radial-gradient.
+     *
+     * Un SOLO listener, en el document y en fase de captura, en vez de uno por
+     * tarjeta: una pantalla de analíticas tiene veinte fichas, y veinte
+     * listeners de pointermove es exactamente lo que convierte un adorno en un
+     * problema. Se escribe dentro de un requestAnimationFrame porque
+     * getBoundingClientRect fuerza reflow: leer en el manejador y escribir
+     * después, una vez por fotograma, evita la sincronía forzada.
+     *
+     * No se toca nada si el puntero no está sobre una tarjeta.
+     */
+    function initSpotlight() {
+        if (isTouch || reduce) {
+            return;
+        }
+
+        var ultimo = null;
+        var enCola = false;
+
+        function pintar() {
+            enCola = false;
+            if (!ultimo) {
+                return;
+            }
+            var r = ultimo.card.getBoundingClientRect();
+            ultimo.card.style.setProperty('--mx', (ultimo.x - r.left) + 'px');
+            ultimo.card.style.setProperty('--my', (ultimo.y - r.top) + 'px');
+        }
+
+        document.addEventListener('pointermove', function (event) {
+            var card = event.target.closest && event.target.closest('.admin-card');
+            if (!card) {
+                return;
+            }
+            // Sólo se guarda la última posición: entre dos fotogramas llegan
+            // varios pointermove y pintar todos no se vería.
+            ultimo = { card: card, x: event.clientX, y: event.clientY };
+            if (enCola) {
+                return;
+            }
+            enCola = true;
+            requestAnimationFrame(pintar);
+        }, { passive: true, capture: true });
+    }
+
     function initMagnetic() {
         if (isTouch || reduce || !window.gsap) {
             return;
@@ -364,6 +413,7 @@
             return;
         }
         initReveals();
+        initSpotlight();
         initMagnetic();
         initSmoothScroll();
     }

@@ -159,30 +159,16 @@
     background var(--admin-t-base) var(--admin-ease-out);
 }
 
-/* Sheen dorado sutil en el borde superior */
-.admin-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--admin-gold) 50%, transparent),
-    transparent
-  );
-  opacity: 0;
-  transition: opacity var(--admin-t-base) var(--admin-ease-out);
-}
+/* El sheen dorado del borde superior se retiró. Era de la identidad anterior
+   y ya no llegaba a pintarse: _finishes.scss reaprovecha este mismo ::before
+   para el foco de cursor, con un selector más específico (.admin-body
+   .admin-card::before). Aquí sólo quedaba código muerto que hacía creer que
+   había dos efectos. El canto de luz lo pone ahora --admin-glass-edge. */
 
 .admin-card:hover {
   border-color: var(--admin-border);
   box-shadow: var(--admin-shadow-lg);
   transform: translateY(-3px);
-}
-
-.admin-card:hover::before {
-  opacity: 1;
 }
 
 .admin-empty {
@@ -229,7 +215,7 @@
   // y clamp + overflow-wrap para que una cifra larga encoja en vez de desbordar.
   &__value {
     color: var(--admin-text);
-    font-family: var(--admin-font-display, "Fraunces", serif);
+    font-family: var(--admin-font-sans);
     font-size: clamp(24px, 2.2vw, 30px);
     font-variant-numeric: tabular-nums;
     line-height: 1.05;
@@ -289,6 +275,51 @@
     background: color-mix(in srgb, var(--admin-gold) 7%, transparent);
     .admin-stat-card__value { color: var(--admin-gold); }
   }
+
+  /*
+   * ── Tonos de identidad ──────────────────────────────────────
+   *
+   * Los cuatro de arriba dicen si una cifra es BUENA o MALA. Estos dicen QUÉ
+   * cifra es: en Finanzas hay siete tarjetas y sólo tres llevaban tono, así
+   * que las otras cuatro —ingresos, costo de insumos, gastos fijos y
+   * rotación— eran cajas idénticas entre las que había que leer el rótulo
+   * para orientarse.
+   *
+   * Dos diferencias con los tonos de estado, y las dos importan:
+   *
+   *  · El color va en un FILETE lateral y en el rótulo, no en el fondo ni en
+   *    la cifra. Siete fondos de color seguidos serían un arcoíris, y teñir el
+   *    número rompería la lectura en columna: la cifra va en tinta normal,
+   *    tabular, para poder compararla con la de al lado.
+   *  · Un tono de estado GANA a uno de identidad, porque «la utilidad es
+   *    negativa» importa más que «esto es la utilidad». Por eso los de estado
+   *    se declaran antes y estos no tocan `background` ni `__value`: puestos
+   *    juntos en el marcado, no se pisan.
+   */
+  &--serie {
+    --tono: var(--admin-muted);
+
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--tono);
+    }
+
+    .admin-stat-card__label { color: color-mix(in srgb, var(--tono) 76%, var(--admin-text)); }
+  }
+
+  &--serie-verde { --tono: var(--admin-c-verde); }
+  &--serie-naranja { --tono: var(--admin-c-naranja); }
+  &--serie-rojo { --tono: var(--admin-c-rojo); }
+  &--serie-lima { --tono: var(--admin-c-lima); }
+  &--serie-indigo { --tono: var(--admin-c-indigo); }
+  &--serie-turquesa { --tono: var(--admin-c-turquesa); }
+  &--serie-azul { --tono: var(--admin-c-azul); }
 
   /*
    * Tarjeta destacada: la cifra que responde «¿cómo vamos?». Ocupa dos celdas

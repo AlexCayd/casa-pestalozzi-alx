@@ -4,7 +4,15 @@ namespace Services;
 
 final class AnuncioConfig
 {
-    public const DURACION_VISIBLE_MS = 8000;
+    /*
+     * Lo que tarda el aviso discreto en retirarse solo, y lo que dibuja su barra
+     * de progreso. Cinco segundos: el aviso cabe en una o dos frases y quien
+     * llega a la portada viene a otra cosa. La barra existe para que la retirada
+     * no parezca un fallo — sin ella el aviso desaparece sin avisar— y se
+     * detiene mientras el puntero o el foco están encima, así que quien lo esté
+     * leyendo no lo pierde.
+     */
+    public const DURACION_VISIBLE_MS = 5000;
 
     public const TIPO_PREDETERMINADO = 'evento';
 
@@ -34,7 +42,8 @@ final class AnuncioConfig
      * va a venir", y el resultado era que la portada se abría bloqueada: nadie
      * llega a un restaurante por primera vez y agradece que lo primero sea un
      * diálogo que hay que cerrar. El aviso se lee igual en la esquina, se retira
-     * solo a los ocho segundos y espera si el visitante pasa por encima.
+     * solo al agotarse DURACION_VISIBLE_MS y espera si el visitante pasa por
+     * encima.
      *
      * PRESENTACION_MODAL se conserva —el modelo y el panel la consultan, y la
      * vista previa del admin la nombra— pero ya no la usa ningún tipo. Si algún

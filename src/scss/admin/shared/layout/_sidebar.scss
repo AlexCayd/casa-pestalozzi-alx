@@ -147,12 +147,18 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 44px;
   padding: 4px 10px;
   border-radius: 8px;
   color: var(--admin-sidebar-link);
-  font-size: 13px;
-  letter-spacing: 0.005em;
+  /* 14/500 y no 13/400. Con catorce entradas el sidebar es una lista larga que
+     se recorre de un vistazo, no un párrafo: el peso medio le da cuerpo al
+     trazo sin llegar a la negrita, que está reservada al módulo activo. El
+     tracking baja a 0 porque a este cuerpo el aire de más separaba las
+     palabras de "Estaciones de impresión" antes de que se leyera la frase. */
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-decoration: none;
   transition:
     background var(--admin-t-base) var(--admin-ease-out),
@@ -275,7 +281,17 @@
     transition:
       transform 180ms ease,
       visibility 180ms ease;
-    box-shadow: var(--admin-sidebar-shadow);
+
+    /* Vidrio SÓLO aquí. En escritorio el sidebar es una columna de la rejilla
+       y no tiene nada detrás que desenfocar: el blur costaría por nada. En
+       este breakpoint sí es un cajón que se abre encima del contenido, que es
+       cuando el cristal significa algo. */
+    background: var(--admin-glass-bg-strong);
+    backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+    box-shadow:
+      inset -1px 0 0 var(--admin-glass-edge),
+      var(--admin-sidebar-shadow);
   }
 
   .admin-sidebar__brand {

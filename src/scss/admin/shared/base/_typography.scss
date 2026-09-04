@@ -1,9 +1,28 @@
 /*
- * Tipografía exclusiva del panel de administración.
- * Pareja editorial distintiva: Fraunces (títulos, con carácter) + Space Grotesk
- * (UI/cuerpo, geométrica moderna). Cargadas por Google Fonts en el layout.
- * KudosKaps (local) se reserva para el logotipo de marca.
+ * Tipografía del sistema ADMINISTRATIVO.
+ *
+ * No comparte una sola cara con la landing, y es deliberado: el panel se diseña
+ * para poder despegarse como producto propio, así que tiene su propia voz. Era
+ * Fraunces + Space Grotesk por Google Fonts; ahora es Geist + Geist Mono,
+ * vendorizadas desde node_modules por `gulp copyVendorFonts` igual que Bodoni y
+ * Crimson en el sitio público. Cero peticiones a red.
+ *
+ * La pareja es sans + mono, sin serif. La jerarquía NO la hace un cambio de
+ * familia sino el contraste entre las dos:
+ *
+ *   · el rótulo va en mono, versalitas y tracking abierto;
+ *   · el titular debajo va en sans, grande y con el tracking cerrado.
+ *
+ * Es el gesto que separa un panel editorial de uno genérico, y de paso la mono
+ * hace el trabajo que de verdad importa en una herramienta de gestión: alinear
+ * cifras. Todo número que se compare en vertical —una columna de tabla, un KPI,
+ * un importe— va en mono con numerales tabulares.
  */
+
+/* KudosKaps: la ÚNICA huella de marca que queda en el panel, y sólo para el
+   logotipo. Tiene una sola cara de peso 400 y hay que declararlo en cada
+   consumidor: si hereda el 600 de un heading, el navegador fabrica una negrita
+   falsa dilatando los trazos y el wordmark deja de reconocerse (ver CLAUDE.md). */
 @font-face {
   font-family: "KudosKaps";
   src: url("/build/fonts/KudosKapsOneNF.otf") format("opentype");
@@ -12,45 +31,115 @@
   font-display: swap;
 }
 
+/* Las dos caras variables cubren 100-900 en un solo fichero. El subconjunto
+   'latin' basta para el español —acentos y eñe viven en U+00C0-U+00FF— y pesa
+   la mitad que arrastrar también latin-ext.
+
+   La itálica no es un extra ni un eje de la variable: `font-style` es un eje
+   aparte y modules/analytics.scss pide italic. Sin fichero, el navegador
+   inclinaría la redonda por su cuenta. */
+@font-face {
+  font-family: "Geist Variable";
+  src: url("/build/fonts/geist-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Variable";
+  src: url("/build/fonts/geist-latin-wght-italic.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono Variable";
+  src: url("/build/fonts/geist-mono-latin-wght-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono Variable";
+  src: url("/build/fonts/geist-mono-latin-wght-italic.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 .admin-body {
-  --admin-font-body:
-    "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+  /* ── Los dos tokens reales ─────────────────────────────────── */
+  --admin-font-sans:
+    "Geist Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  --admin-font-heading: "Fraunces", "Playfair Display", Georgia, serif;
-  --admin-font-accent: "Fraunces", Georgia, serif;
-  --admin-logo: "KudosKaps", "Fraunces", serif;
+  --admin-font-mono:
+    "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Mono",
+    "Consolas", monospace;
+  --admin-logo: "KudosKaps", "Geist Variable", sans-serif;
+
+  /* ── Alias heredados ───────────────────────────────────────── *
+   * El sistema ya no tiene serif, pero cuatro archivos siguen pidiendo estos
+   * nombres. Apuntan todos a la sans para no reescribirlos uno a uno.
+   *
+   * --admin-font-display es el caso raro: NADIE lo definió nunca. Se consumía
+   * en analytics, finanzas y _cards con un fallback `"Fraunces", serif` que era
+   * lo que de verdad se pintaba. Ahora resuelve, y por eso esas tres pantallas
+   * cambian de cara aunque no se toque su SCSS. */
+  --admin-font-body: var(--admin-font-sans);
+  --admin-font-heading: var(--admin-font-sans);
+  --admin-font-accent: var(--admin-font-sans);
+  --admin-font-display: var(--admin-font-sans);
+
   font-family: var(--admin-font-body);
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
-  letter-spacing: -0.005em;
+  /* Geist va bien apretada en cuerpo de texto, pero no tanto como una grotesca
+     clásica: su altura de x es alta y a -0.02em los contadores se cierran. */
+  letter-spacing: -0.006em;
+  font-synthesis-weight: none;
+  font-synthesis-style: none;
 }
 
+/* ── Titulares ─────────────────────────────────────────────────
+ *
+ * El tracking se cierra a medida que crece el cuerpo, que es justo lo contrario
+ * de lo que pedía Bodoni en la landing: un didone tiene astas finísimas y se
+ * empasta al apretarlo, mientras que una grotesca a cuerpo de cartel se abre
+ * sola y hay que recogerla. Por eso los dos sistemas no comparten esta escala.
+ */
 .admin-body h1,
 .admin-body h2,
 .admin-body h3,
 .admin-body h4 {
   font-family: var(--admin-font-heading);
-  font-weight: 500;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: var(--admin-text);
+  text-wrap: balance;
 }
 
 .admin-body h1 {
-  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -0.038em;
 }
 
 .admin-body h2 {
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-size: clamp(1.55rem, 3vw, 2.2rem);
 }
 
 .admin-body h3 {
-  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  letter-spacing: -0.024em;
 }
 
 .admin-body h4 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  letter-spacing: -0.018em;
 }
 
 .admin-body p {
@@ -65,4 +154,61 @@
 .admin-body small {
   font-size: 0.875rem;
   line-height: 1.4;
+}
+
+/* ── El rótulo ─────────────────────────────────────────────────
+ *
+ * La mitad mono del par. Va sobre el titular de cada módulo y es lo que da la
+ * jerarquía sin necesitar una segunda familia de texto. El tracking abierto no
+ * es decorativo: en versalitas, sin él, las letras se tocan.
+ *
+ * `.admin-page__eyebrow` es la clase que ya usan las vistas; `.admin-eyebrow` se
+ * añade como nombre corto para lo nuevo. */
+.admin-body .admin-eyebrow,
+.admin-body .admin-page__eyebrow {
+  font-family: var(--admin-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+/* ── Cifras ────────────────────────────────────────────────────
+ *
+ * Todo número que se lea en columna va en mono y tabular. `tabular-nums` fija el
+ * ancho de cada dígito, así que las unidades caen en la misma vertical de fila a
+ * fila y una cantidad que cambia —un contador, un total que se recalcula— no
+ * mueve lo que tiene al lado.
+ *
+ * `.admin-num` es la clase explícita; el resto son los sitios donde el número es
+ * el contenido y no hacía falta ir a marcarlo a mano en 54 vistas. */
+.admin-body .admin-num,
+.admin-body .admin-table td,
+.admin-body .admin-table th,
+.admin-body .admin-stat__value,
+.admin-body .admin-badge--count,
+.admin-body time,
+.admin-body code,
+.admin-body kbd {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.admin-body .admin-num,
+.admin-body .admin-stat__value,
+.admin-body code,
+.admin-body kbd {
+  font-family: var(--admin-font-mono);
+}
+
+/* Las celdas de tabla conservan la sans para el texto: sólo se les fija el
+   tabular. Una tabla entera en mono se lee como un volcado de terminal, y aquí
+   la mayoría de columnas son nombres, no cifras. La columna que sí es numérica
+   se marca con .admin-num en su celda. */
+.admin-body .admin-table td.admin-num,
+.admin-body .admin-table th.admin-num {
+  font-family: var(--admin-font-mono);
+  font-weight: 500;
 }

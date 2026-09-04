@@ -3,20 +3,33 @@
  * Catas dirigidas.
  *
  * Sustituye a la antigua sección de Maridaje, que eran tres tarjetas fijas sin
- * ninguna acción. Ahora es la agenda real de las próximas catas —viene de BD, y
- * por eso se imprime en el servidor y funciona sin JS— con su formulario de
- * inscripción.
+ * ninguna acción. Ahora es la agenda real de las próximas catas: viene de BD y
+ * se imprime en el servidor, así que funciona sin JS.
  *
- * Va en tono vino: es la sección más oscura de la página y queda encajada entre
- * Panadería (crema) y Catering (verde) para que las tres se distingan de golpe.
+ * Tuvo un formulario de inscripción con cupo, y el lugar se apartaba aquí. Se
+ * retiró entero —tabla incluida— y ahora cada cata abre WhatsApp con la fecha
+ * ya escrita: quien apartaba lugar por teléfono no entraba en el contador, así
+ * que el «quedan tres lugares» de la portada era falso la mitad del tiempo.
+ *
+ * Se publica la agenda COMPLETA de lo que no ha ocurrido todavía. Una cata sin
+ * cupo no desaparece: se pinta marcada y cambia de invitación —en vez de
+ * apartar lugar, se pide aviso si se libera uno—. Saber que la próxima se llenó
+ * dice bastante más que no ver nada, y deja la conversación abierta. Lo único
+ * que sale de la portada es lo que ya pasó.
+ *
+ * Va en tono café: queda encajada entre Panadería (crema) y Catering (verde)
+ * para que las tres se distingan de golpe.
  */
 
+use Services\ReservacionConfig;
+
 $catasProximas = is_array($catasProximas ?? null) ? $catasProximas : [];
-$csrfCatas = (string)($reservationCsrfToken ?? '');
 
 $h = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 
 $mesesCata = [1 => 'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+$mesesLargos = [1 => 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 ?>
 <section class="section catas" id="catas" data-tono="cafe" data-screen-label="Catas">
@@ -118,8 +131,9 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
     <?php if (empty($catasProximas)) : ?>
       <?php /* Estado vacío: sin catas publicadas la sección no desaparece, invita a avisar. */ ?>
       <div class="catas__vacio" data-reveal>
-        <p>No hay catas con fecha abierta en este momento.</p>
-        <a class="btn-line" href="https://wa.me/525614818297" target="_blank" rel="noopener" data-magnetic>
+        <p>Todavía no hay ninguna cata programada.</p>
+        <a class="btn-line" data-magnetic target="_blank" rel="noopener"
+           href="<?php echo $h(ReservacionConfig::whatsappUrl('Hola! Avísenme cuándo es la próxima cata dirigida.')); ?>">
           <span>Avísame de la próxima</span><span class="arrow">↗</span>
         </a>
       </div>
@@ -128,17 +142,27 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
         <?php foreach ($catasProximas as $cata) : ?>
           <?php
           $inicio = $cata['inicio'] ?? null;
-          $disponibles = (int)$cata['lugares_disponibles'];
-          $abierta = (bool)$cata['abierta'];
+          $hayCupo = !empty($cata['disponible']);
+          // El mensaje lleva la fecha en letra: quien lo recibe del otro lado
+          // sabe de qué sesión se habla sin abrir la agenda.
+          $cuando = $inicio
+            ? ' del ' . (int)$inicio->format('j') . ' de ' . $mesesLargos[(int)$inicio->format('n')]
+            : '';
+          $mensajeCata = 'Hola! Quiero apartar lugar en la cata «' . $cata['titulo'] . '»' . $cuando . '.';
           ?>
-          <li class="cata <?php echo $abierta ? '' : 'cata--cerrada'; ?>" data-reveal>
+          <li class="cata<?php echo $hayCupo ? '' : ' cata--sin-cupo'; ?>" data-reveal>
             <div class="cata__fecha" aria-hidden="true">
               <span class="cata__dia"><?php echo $inicio ? $inicio->format('d') : '--'; ?></span>
               <span class="cata__mes"><?php echo $inicio ? $h($mesesCata[(int)$inicio->format('n')]) : ''; ?></span>
             </div>
 
             <div class="cata__cuerpo">
-              <h3 class="cata__titulo"><?php echo $h($cata['titulo']); ?></h3>
+              <h3 class="cata__titulo">
+                <?php echo $h($cata['titulo']); ?>
+                <?php if (!$hayCupo) : ?>
+                  <span class="cata__sello">Sin cupo</span>
+                <?php endif; ?>
+              </h3>
               <?php if (!empty($cata['descripcion'])) : ?>
                 <p class="cata__texto"><?php echo $h($cata['descripcion']); ?></p>
               <?php endif; ?>
@@ -147,13 +171,6 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
                   <li><?php echo $h($diasCata[(int)$inicio->format('w')] . ' · ' . $inicio->format('H:i') . ' h'); ?></li>
                 <?php endif; ?>
                 <li><?php echo (int)$cata['duracion_min']; ?> min</li>
-                <li class="cata__cupo">
-                  <?php if ($disponibles > 0) : ?>
-                    <?php echo $disponibles; ?> <?php echo $disponibles === 1 ? 'lugar' : 'lugares'; ?>
-                  <?php else : ?>
-                    Sin lugares
-                  <?php endif; ?>
-                </li>
               </ul>
             </div>
 
@@ -162,89 +179,21 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
                 <?php echo $h('$' . number_format((float)$cata['precio'], 0)); ?>
                 <small>por persona</small>
               </span>
-              <?php if ($abierta) : ?>
-                <button class="btn-line" type="button" data-magnetic
-                        data-cata-inscribir
-                        data-cata-id="<?php echo (int)$cata['id']; ?>"
-                        data-cata-titulo="<?php echo $h($cata['titulo']); ?>"
-                        data-cata-max="<?php echo $disponibles; ?>">
-                  <span>Inscribirme a Cata</span><span class="arrow">↗</span>
-                </button>
-              <?php else : ?>
-                <span class="cata__agotada">Agotada</span>
+              <?php /* Sin cupo no se ofrece nada: la cata queda bloqueada. El
+                       sello del titular y el atenuado de .cata--sin-cupo ya lo
+                       dicen, y un segundo botón sólo invitaba a escribir por
+                       algo que no se puede dar. */ ?>
+              <?php if ($hayCupo) : ?>
+                <a class="btn-line" data-magnetic
+                   target="_blank" rel="noopener"
+                   href="<?php echo $h(ReservacionConfig::whatsappUrl($mensajeCata)); ?>">
+                  <span>Apartar lugar</span><span class="arrow">↗</span>
+                </a>
               <?php endif; ?>
             </div>
           </li>
         <?php endforeach; ?>
       </ol>
-
-      <?php /*
-        Panel de inscripción: uno solo para toda la agenda. Se despliega bajo el
-        botón que lo abrió y guarda la cata elegida en un hidden. Un panel por
-        cata multiplicaría el marcado sin ganar nada.
-      */ ?>
-      <div class="catas__panel" id="cataPanel" data-cata-panel hidden>
-        <form class="cata-form" data-cata-form novalidate>
-          <input type="hidden" name="csrf_token" value="<?php echo $h($csrfCatas); ?>">
-          <input type="hidden" name="cata_id" value="" data-cata-form-id>
-
-          <div class="cata-form__head">
-            <span class="eyebrow no-rule">Inscripción</span>
-            <h3 class="cata-form__titulo" data-cata-form-titulo>Reserva tu lugar</h3>
-            <button class="cata-form__cerrar" type="button" data-cata-cerrar aria-label="Cerrar inscripción">×</button>
-          </div>
-
-          <div class="cata-form__grid">
-            <label class="cata-form__campo">
-              <span>Nombre</span>
-              <input type="text" name="nombre" maxlength="100" required autocomplete="name">
-            </label>
-
-            <label class="cata-form__campo">
-              <span>¿Cómo te contactamos?</span>
-              <select name="contacto_tipo" data-cata-contacto-tipo>
-                <option value="email">Correo electrónico</option>
-                <option value="telefono">Teléfono</option>
-              </select>
-            </label>
-
-            <label class="cata-form__campo">
-              <span data-cata-contacto-label>Correo electrónico</span>
-              <input type="text" name="contacto" maxlength="150" required
-                     autocomplete="email" data-cata-contacto
-                     placeholder="tu@correo.com">
-            </label>
-
-            <label class="cata-form__campo cata-form__campo--corto">
-              <span>Personas</span>
-              <input type="number" name="personas" min="1" max="10" value="2" required data-cata-personas>
-            </label>
-          </div>
-
-          <label class="cata-form__campo">
-            <span>Nota (opcional)</span>
-            <textarea name="nota" rows="2" maxlength="500"
-                      placeholder="Alergias, celebración, algo que debamos saber…"></textarea>
-          </label>
-
-          <?php /*
-            Campo trampa: invisible para una persona, irresistible para un bot.
-            El servidor descarta el envío si llega con algo escrito.
-          */ ?>
-          <div class="cata-form__trampa" aria-hidden="true">
-            <label>No llenar este campo
-              <input type="text" name="sitio_web" tabindex="-1" autocomplete="off">
-            </label>
-          </div>
-
-          <div class="cata-form__pie">
-            <p class="cata-form__aviso" data-cata-aviso role="status"></p>
-            <button class="btn-line btn-line--solid" type="submit" data-cata-enviar>
-              <span>Confirmar inscripción</span><span class="arrow">↗</span>
-            </button>
-          </div>
-        </form>
-      </div>
     <?php endif; ?>
 
   </div>
@@ -253,4 +202,4 @@ $diasCata = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S
 // Los parciales de la home se incluyen una sola vez, pero se limpian las
 // variables locales por la misma razón que views/components: si mañana esta
 // sección se reutiliza, no debe heredar el estado del include anterior.
-unset($catasProximas, $csrfCatas, $h, $mesesCata, $diasCata);
+unset($catasProximas, $h, $mesesCata, $mesesLargos, $diasCata, $cata, $inicio, $cuando, $mensajeCata, $hayCupo);

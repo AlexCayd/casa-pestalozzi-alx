@@ -231,6 +231,111 @@
   color: var(--admin-info-text);
 }
 
+/* Variante de contorno, combinable con cualquiera de las familias de arriba.
+ *
+ * Nació para el «Falta receta» de Recetas: en su versión rellena era una
+ * pastilla ámbar sólida que gritaba más que el «Activo» de la columna de al
+ * lado, cuando lo que dice es una tarea pendiente, no una alarma. Vacía el
+ * fondo y deja el color en la tinta y el filete; el peso baja un escalón
+ * porque sin relleno detrás el 800 se empasta.
+ *
+ * Va DESPUÉS de las familias para ganarles el `background` por orden de
+ * cascada, ya que todas tienen la misma especificidad.
+ */
+.admin-badge--outline {
+  background: transparent;
+  font-weight: 700;
+}
+
+/* ── Color por categoría ───────────────────────────────────────
+ *
+ * La tabla `categorias` no tiene columna de color, así que el tono se deriva en
+ * la vista con `id % 10` y llega como modificador. No hace falta esquema nuevo
+ * y la categoría conserva su color entre pantallas mientras no cambie de id.
+ *
+ * Esto NO contradice la regla de que la paleta funcional no toca el cromo: aquí
+ * la identidad de la categoría ES el dato, igual que en las series de una dona.
+ * Lo que el color no puede hacer es teñir bordes de tarjeta o tipografía.
+ *
+ * Tinte al 14% y tinta al 78% sobre el texto: suficiente para distinguir diez
+ * categorías de un vistazo, insuficiente para competir con un badge de estado.
+ */
+@each $indice, $tono in (
+  0: --admin-c-ambar,
+  1: --admin-c-azul,
+  2: --admin-c-verde,
+  3: --admin-c-magenta,
+  4: --admin-c-naranja,
+  5: --admin-c-indigo,
+  6: --admin-c-turquesa,
+  7: --admin-c-lima,
+  8: --admin-c-rosa,
+  9: --admin-c-rojo
+) {
+  .admin-badge--cat-#{$indice} {
+    border-color: color-mix(in srgb, var(#{$tono}) 38%, transparent);
+    background: color-mix(in srgb, var(#{$tono}) 14%, var(--admin-surface));
+    color: color-mix(in srgb, var(#{$tono}) 78%, var(--admin-text));
+  }
+}
+
+/* Contenido sólo para lector de pantalla. Estaba reescrito a mano en siete
+   módulos con tres variantes del mismo recorte; aquí queda una vez, en el
+   bundle que carga siempre el panel. Se usa para las alternativas textuales de
+   lo que se dibuja (la tabla que acompaña al Sankey, por ejemplo). */
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+/* Etiqueta de CATEGORÍA en una celda. No es un badge: un badge dice estado
+   —activo, vencido, con error— y por eso tira de la familia success/warning/
+   danger. Esto dice a qué grupo pertenece la fila, que es otra cosa y no tiene
+   escala de gravedad.
+     · el tinte es tenue (10% de fondo, 72% de tinta): en una columna angosta
+       tres píldoras saturadas compiten con el dato que hay al lado;
+     · el color entra por --admin-tag-tono, así que añadir una categoría es una
+       línea y no un bloque;
+     · sin punto y con ancho mínimo, para que la columna no baile entre una
+       etiqueta corta y una larga.
+   Nació en el módulo de usuarios como .admin-role. Vive aquí porque lo pedían
+   también las impresoras, donde ROL y CONEXIÓN compartían el mismo dorado y se
+   leían como la misma clase de dato. */
+.admin-tag {
+  --admin-tag-tono: var(--admin-muted);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--admin-tag-tono) 26%, transparent);
+  border-radius: var(--admin-radius-sm);
+  background: color-mix(in srgb, var(--admin-tag-tono) 10%, var(--admin-surface));
+  color: color-mix(in srgb, var(--admin-tag-tono) 72%, var(--admin-text));
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Neutra: el dato es técnico y no una categoría que se busque de un vistazo
+   (el tipo de conexión de una impresora). Se queda sin tinte a propósito, para
+   que el color de la fila lo tenga sólo lo que sí se busca. */
+.admin-tag--neutral {
+  --admin-tag-tono: var(--admin-muted);
+
+  background: var(--admin-surface-soft);
+}
+
 .admin-table-actions {
   display: inline-flex;
   align-items: center;
@@ -316,20 +421,57 @@
   }
 }
 
+/* ── Paginación ────────────────────────────────────────────────
+ *
+ * Vivía en menu.scss como .admin-menu__pagination, y Tickets tendría que haber
+ * cargado la hoja de Menú entera para conseguirla. Aquí, en el bundle que el
+ * panel carga siempre, la sirve el partial views/admin/partials/_pagination.php.
+ */
+.admin-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.admin-pagination__gap {
+  padding-inline: 2px;
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .admin-pagination {
+    justify-content: center;
+  }
+}
+
 /* Editar y eliminar van en color solido: se leen como acciones, no como bordes.
-   El verde y el rojo salen de la paleta, oscurecidos lo justo para que el
-   blanco del icono conserve contraste. */
+   El ámbar y el rojo salen de la paleta, oscurecidos lo justo para que el
+   icono conserve contraste.
+
+   EDITAR ES ÁMBAR, no verde. El verde de la paleta significa éxito y
+   disponibilidad —es el del stock sano y el del platillo activo, que aparecen
+   en la misma fila—, así que un botón verde al lado decía «esto está bien» en
+   vez de «modifica esto». El ámbar es el tono de «vas a cambiar algo», un
+   escalón por debajo del rojo que destruye. Se cambia aquí y vale para los
+   cinco módulos que usan la clase: menú, recetas, inventario, catas e
+   impresoras. */
 .admin-icon-button--edit {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
-  background: var(--admin-c-verde);
-  color: var(--admin-text-inverse);
+  border-color: color-mix(in srgb, var(--admin-c-ambar) 72%, black);
+  background: var(--admin-c-ambar);
+  color: var(--admin-ink);
   box-shadow: var(--admin-shadow-sm);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--admin-c-verde) 76%, black);
-    background: color-mix(in srgb, var(--admin-c-verde) 86%, white);
-    color: var(--admin-text-inverse);
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-verde) 35%, transparent);
+    border-color: color-mix(in srgb, var(--admin-c-ambar) 72%, black);
+    background: color-mix(in srgb, var(--admin-c-ambar) 86%, white);
+    color: var(--admin-ink);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--admin-c-ambar) 35%, transparent);
   }
 }
 
@@ -380,6 +522,50 @@
   font-size: 11px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Los icon-button que son enlaces ──────────────────────────
+ *
+ * `.admin-body a { background-color: transparent }` vive en el reset del panel
+ * y tiene especificidad (0,2,0); las variantes de arriba, (0,1,0). Además usa
+ * `background-color`, que gana al componente de color del atajo `background`
+ * pase lo que pase con el orden.
+ *
+ * Resultado: en una barra de acciones el botón de ELIMINAR se pintaba (es un
+ * <button>, dentro de su formulario) y el de EDITAR no (es un <a> al
+ * formulario de edición). Los dos con el mismo relleno declarado y sólo uno
+ * visible. Era un fallo latente desde que existe la clase: mientras --edit fue
+ * un contorno sin relleno nadie lo notó, y saltó al pasarlo a sólido.
+ *
+ * Es el mismo remedio, y por el mismo motivo, que el bloque `.admin-body
+ * .admin-btn--*` de _buttons.scss.
+ */
+.admin-body .admin-icon-button {
+  background-color: var(--admin-surface-soft);
+}
+
+.admin-body .admin-icon-button--edit {
+  background-color: var(--admin-c-ambar);
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--admin-c-ambar) 86%, white);
+  }
+}
+
+.admin-body .admin-icon-button--danger {
+  background-color: var(--admin-c-rojo);
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--admin-c-rojo) 88%, white);
+  }
+}
+
+.admin-body .admin-icon-button--warn {
+  background-color: color-mix(in srgb, var(--admin-c-ambar) 18%, transparent);
+
+  &:hover {
+    background-color: color-mix(in srgb, var(--admin-c-ambar) 30%, transparent);
+  }
 }
 
 /* Icono dentro de un botón (reutilizable). */

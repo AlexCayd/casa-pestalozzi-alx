@@ -24,12 +24,15 @@ function initAnnouncementDismiss() {
   var storageKey = 'cp-announcement-hidden:' + announcementId + ':' + announcementVersion;
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var esModal = dialogo.getAttribute('data-announcement-presentacion') !== 'discreto';
-  var duracion = parseInt(dialogo.getAttribute('data-announcement-duracion'), 10) || 8000;
+  var duracion = parseInt(dialogo.getAttribute('data-announcement-duracion'), 10) || 5000;
+  var barra = dialogo.querySelector('[data-announcement-progress]');
   var overflowPrevio = '';
   var ultimoFoco = null;
   var abierto = false;
   var lenisDetenido = false;
-  var temporizador = null;
+  var cuadro = null;
+  var transcurrido = 0;
+  var marca = 0;
 
   function recordarCierre() {
     try {
@@ -60,17 +63,51 @@ function initAnnouncementDismiss() {
     }
   }
 
-  // ── Retirada automática del aviso discreto ──────────────────
+  /* ── Retirada automática del aviso discreto ──────────────────
+     La cuenta atrás la lleva un bucle de rAF y no un setTimeout porque hay que
+     DIBUJARLA: la barra de tiempo restante es lo que convierte la desaparición
+     en algo anunciado en vez de en un parpadeo.
+
+     Se contabiliza lo transcurrido en cada pausa en lugar de reiniciar el
+     reloj: quien pasa el puntero por encima a mitad de la cuenta y lo retira
+     recupera lo que le quedaba, no los cinco segundos completos. Reiniciar
+     haría que el aviso durase indefinidamente al mover el ratón por encima. */
+  function ahora() {
+    return window.performance && window.performance.now
+      ? window.performance.now()
+      : Date.now();
+  }
+
+  function pintarRestante(fraccion) {
+    if (barra) barra.style.transform = 'scaleX(' + fraccion + ')';
+  }
+
   function detenerCuentaAtras() {
-    if (temporizador) {
-      window.clearTimeout(temporizador);
-      temporizador = null;
-    }
+    if (cuadro === null) return;
+    window.cancelAnimationFrame(cuadro);
+    cuadro = null;
+    transcurrido += ahora() - marca;
   }
 
   function arrancarCuentaAtras() {
-    detenerCuentaAtras();
-    temporizador = window.setTimeout(cerrar, duracion);
+    if (cuadro !== null || !abierto) return;
+    marca = ahora();
+    cuadro = window.requestAnimationFrame(paso);
+  }
+
+  function paso() {
+    var gastado = transcurrido + (ahora() - marca);
+    var restante = duracion - gastado;
+
+    if (restante <= 0) {
+      cuadro = null;
+      pintarRestante(0);
+      cerrar();
+      return;
+    }
+
+    pintarRestante(restante / duracion);
+    cuadro = window.requestAnimationFrame(paso);
   }
 
   function cerrar() {

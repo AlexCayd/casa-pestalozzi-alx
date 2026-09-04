@@ -11,8 +11,6 @@ $sidebarIcons = [
     'reservations' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/>',
     // Copa de vino: catas dirigidas.
     'catas' => '<path d="M7 3h10l-.8 6a4.2 4.2 0 0 1-8.4 0Z"/><path d="M12 15v6"/><path d="M8.5 21h7"/>',
-    // Campana de servicio: catering.
-    'catering' => '<path d="M3 17h18"/><path d="M4.5 17a7.5 7.5 0 0 1 15 0"/><path d="M12 6.5V5"/><circle cx="12" cy="4" r="1"/><path d="M2.5 20.5h19"/>',
     'feedback' => '<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"/><path d="m12 7 1.2 2.5 2.8.4-2 2 .5 2.7L12 15.4 9.5 16.6l.5-2.7-2-2 2.8-.4Z"/>',
     'tables' => '<rect x="5" y="5" width="14" height="10" rx="2"/><path d="M8 15v4"/><path d="M16 15v4"/><path d="M5 19h14"/>',
     'products' => '<path d="M6 3v8a4 4 0 0 0 8 0V3"/><path d="M10 3v18"/><path d="M18 3v18"/>',

@@ -28,7 +28,7 @@
     // bordes fuera del viewport, el halo queda recortado y no se ve.
     // El desbordamiento no genera scroll: el ancestro es position: fixed.
     inset: -24px;
-    background: color-mix(in srgb, var(--admin-scrim) 62%, transparent);
+    background: var(--admin-veil);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     opacity: 0;

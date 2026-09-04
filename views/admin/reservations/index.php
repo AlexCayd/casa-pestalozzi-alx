@@ -84,7 +84,13 @@ $metricCards = [
     [
         'label' => 'En el periodo',
         'value' => $metricas['total'] ?? 0,
-        'detalle' => 'Con los filtros actuales',
+        // «Todos los estados», no «con los filtros actuales»: la franja se
+        // calcula a propósito SIN el filtro de estado (Reservacion::metricasAdmin
+        // pasa $incluirEstado = false) para que cada tarjeta siga siendo un
+        // atajo utilizable. Si se estrechara al filtro activo, pulsar «Por
+        // confirmar» estando en «no show» daría cero. La etiqueta decía lo
+        // contrario y hacía que el número pareciera discrepar de la tabla.
+        'detalle' => 'Todos los estados del periodo',
         'url' => $urlFiltro(['estado' => '', 'asignacion' => '']),
     ],
     [
@@ -124,6 +130,33 @@ $metricCards = [
 $etiquetaAsignacion = ['con_mesa' => 'Con mesa', 'sin_mesa' => 'Sin mesas asignadas'];
 $etiquetaOrigen = ['admin' => 'Administrativa', 'landing' => 'Landing pública'];
 $chipsFiltro = [];
+
+/*
+ * El periodo va SIEMPRE, y va primero.
+ *
+ * Era el único filtro sin chip, y justamente el que puede vaciar la tabla: con
+ * la ventana por defecto en un solo día la pantalla decía «0 reservaciones» sin
+ * nada visible que explicara por qué. Cuando coincide con la ventana por
+ * defecto el chip es informativo (no lleva enlace de quitar); en cuanto el
+ * usuario lo mueve, se vuelve removible como los demás.
+ */
+$rangoInicio = (string)($filtros['fecha_inicio'] ?? '');
+$rangoFin = (string)($filtros['fecha_fin'] ?? '');
+$diaBonito = static function (string $iso): string {
+    $ts = strtotime($iso);
+    return $ts ? date('d/m/Y', $ts) : $iso;
+};
+$finPorDefecto = date('Y-m-d', strtotime($fechaDefault . ' +29 days'));
+$rangoEsPorDefecto = $rangoInicio === $fechaDefault && $rangoFin === $finPorDefecto;
+if ($rangoInicio !== '' && $rangoFin !== '') {
+    $chipsFiltro[] = [
+        'label' => $rangoInicio === $rangoFin
+            ? 'Periodo: ' . $diaBonito($rangoInicio)
+            : 'Periodo: ' . $diaBonito($rangoInicio) . ' – ' . $diaBonito($rangoFin),
+        'url' => $rangoEsPorDefecto ? '' : $urlFiltro(['fecha_inicio' => '', 'fecha_fin' => '']),
+    ];
+}
+
 if (($filtros['q'] ?? '') !== '') {
     $chipsFiltro[] = ['label' => 'Busca «' . $filtros['q'] . '»', 'url' => $urlFiltro(['q' => ''])];
 }
@@ -239,7 +272,6 @@ foreach ($alertas as $tipo => $mensajes) {
         <div class="admin-filters__range">
             <?php
             $rangeCaption = 'Periodo';
-            $rangeCompare = false;
             $rangeStartParam = 'fecha_inicio';
             $rangeEndParam = 'fecha_fin';
             $rangeAllowFuture = true;
@@ -303,11 +335,21 @@ foreach ($alertas as $tipo => $mensajes) {
         <div class="admin-reservations__chips" aria-label="Filtros aplicados">
             <span class="admin-reservations__chips-label">Filtrando por</span>
             <?php foreach ($chipsFiltro as $chip) : ?>
-                <a class="admin-reservations__chip" href="<?php echo $h($chip['url']); ?>">
-                    <span><?php echo $h($chip['label']); ?></span>
-                    <span class="admin-reservations__chip-x" aria-hidden="true">×</span>
-                    <span class="admin-visually-hidden">Quitar este filtro</span>
-                </a>
+                <?php /* Sin URL el chip es informativo, no removible: es el caso
+                         del periodo cuando aún es la ventana por defecto. Se
+                         pinta como <span> para no ofrecer una × que no quita
+                         nada. */ ?>
+                <?php if (($chip['url'] ?? '') !== '') : ?>
+                    <a class="admin-reservations__chip" href="<?php echo $h($chip['url']); ?>">
+                        <span><?php echo $h($chip['label']); ?></span>
+                        <span class="admin-reservations__chip-x" aria-hidden="true">×</span>
+                        <span class="admin-visually-hidden">Quitar este filtro</span>
+                    </a>
+                <?php else : ?>
+                    <span class="admin-reservations__chip admin-reservations__chip--fijo">
+                        <span><?php echo $h($chip['label']); ?></span>
+                    </span>
+                <?php endif; ?>
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
@@ -386,7 +428,12 @@ foreach ($alertas as $tipo => $mensajes) {
                 <?php endif; ?>
             </div>
         <?php else : ?>
-            <div class="reservations-table-wrapper" data-reservations-panel="lista" data-lenis-prevent>
+            <?php /* data-scrollable, no data-lenis-prevent: .reservations-table-wrapper
+                     es `overflow-x: auto` sin tope de alto, así que retener la
+                     rueda dejaba la página clavada sobre el listado. La agenda
+                     de más abajo sí tiene scroll vertical propio y conserva su
+                     marca escrita a mano. */ ?>
+            <div class="reservations-table-wrapper" data-reservations-panel="lista" data-scrollable>
                 <table class="reservations-table">
                     <caption class="admin-visually-hidden">Reservaciones encontradas en el periodo seleccionado</caption>
                     <thead>

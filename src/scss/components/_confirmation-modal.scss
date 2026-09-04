@@ -172,6 +172,56 @@
     &[hidden] { display: none; }
   }
 
+  /* ── Confirmación por escrito ────────────────────────────────
+   *
+   * El freno de los borrados que arrastran otras filas por CASCADE. Va dentro
+   * de la ranura custom, así que hereda sus tokens; los colores salen de los
+   * roles del ámbito, que es lo que hace que el mismo diálogo funcione en la
+   * landing y en el panel sin duplicar reglas.
+   */
+  &__require {
+    display: grid;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  &__require-label {
+    color: color-mix(in srgb, var(--txt) 88%, transparent);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &__require-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--txt-strong);
+    font: inherit;
+    font-size: 14px;
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+  }
+
+  &__require-hint {
+    margin: 0;
+    color: var(--txt-faint);
+    font-size: 12px;
+  }
+
+  /* En cuanto coincide, el filete y la pista pasan a verde: es la señal de que
+     el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
+  &__require.is-valid {
+    .confirmation-modal__require-input { border-color: var(--feedback-ok); }
+    .confirmation-modal__require-hint { color: var(--feedback-ok); }
+  }
+
   &__reason {
     display: grid;
     gap: 8px;

@@ -1,0 +1,53 @@
+/*
+ * Vidrio: la única forma de pedir una superficie translúcida en el proyecto.
+ *
+ * Vive fuera de los dos árboles porque lo consumen los dos: el panel desde
+ * `admin/shared/components/_finishes.scss` y la encuesta de feedback desde
+ * `feedback/_feedback.scss`. Los tokens --glass-* se llaman igual en ambos
+ * (`_globals.scss` para el panel, `_reset.scss` para la marca), así que el
+ * mixin no necesita saber en cuál está.
+ *
+ * Antes había 24 `backdrop-filter` sueltos con radios entre 2px y 20px
+ * elegidos uno a uno. El radio no es decoración: por debajo de ~8px el
+ * desenfoque no separa nada y sólo cuesta, y por encima de ~24px el fondo se
+ * vuelve una mancha y deja de leerse como cristal.
+ *
+ * IMPORTANTE: `backdrop-filter` crea un bloque contenedor para los
+ * descendientes `position: fixed`. Un modal fijo DENTRO de un elemento con
+ * vidrio se posicionaría respecto a él, no al viewport. Por eso los modales
+ * del panel cuelgan del layout y no de la tarjeta que los dispara.
+ */
+
+/* $nivel: flotante (topbar, cajón, diálogo) | tarjeta (rejillas)
+ * $fondo: qué token de fondo usar; los tres viven en la capa de tokens. */
+@mixin vidrio($nivel: flotante, $fondo: var(--glass-bg)) {
+  background: $fondo;
+  border: 1px solid var(--glass-border);
+
+  /* Sin soporte, el fondo translúcido dejaría el texto sobre lo que haya
+     detrás. La regla sólo existe si el navegador puede desenfocar. */
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    @if $nivel == tarjeta {
+      backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm)) saturate(var(--glass-sat));
+    } @else {
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    }
+  }
+}
+
+/*
+ * El canto de luz. Una lámina de cristal se reconoce por el borde superior
+ * iluminado, no por el desenfoque: sin él, una superficie translúcida es un
+ * rectángulo de otro color. Se apila como box-shadow para no ocupar caja.
+ */
+@mixin canto($sombra: none) {
+  @if $sombra == none {
+    box-shadow: inset 0 1px 0 var(--glass-edge);
+  } @else {
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge),
+      #{$sombra};
+  }
+}

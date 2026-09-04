@@ -621,7 +621,9 @@
   padding: 1rem 1.2rem;
   border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--text);
+  // --text no existe en el árbol público (el rol es --txt), así que esta
+  // declaración se invalidaba y el resumen heredaba el color del padre.
+  color: var(--txt);
   letter-spacing: 0.02em;
 }
 

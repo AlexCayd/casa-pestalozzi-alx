@@ -15,7 +15,7 @@
   overflow: hidden;
 
   &::backdrop {
-    background: color-mix(in srgb, var(--scrim) 72%, transparent);
+    background: var(--veil);
     backdrop-filter: blur(4px);
   }
 

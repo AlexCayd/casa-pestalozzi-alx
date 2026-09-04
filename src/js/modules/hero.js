@@ -36,14 +36,13 @@ function heroIntro() {
     return;
   }
 
-  // El hero dejó de tener un .hero__inner: ahora son tres bandas hermanas
-  // (insignia / centro / pie), así que la intro busca dentro de #hero.
+  // El hero dejó de tener un .hero__inner: ahora son dos bandas hermanas
+  // (centro / pie), así que la intro busca dentro de #hero.
   var entra = $$("#hero [data-reveal]");
 
   var tl = gsap.timeline({ delay: 0.25 });
   gsap.set(chars, { yPercent: 115, opacity: 0 });
   tl.to(chars, { yPercent: 0, opacity: 1, duration: 1.1, stagger: 0.045, ease: "power4.out" });
-  tl.from(".hero__eyebrow", { opacity: 0, y: 20, duration: 0.8 }, 0.2);
   tl.to(entra, { opacity: 1, y: 0, duration: 0.9, stagger: 0.12, ease: "power3.out" }, "-=0.7");
 
   // El velo arranca cerrado y se abre con el título: es lo que convierte la

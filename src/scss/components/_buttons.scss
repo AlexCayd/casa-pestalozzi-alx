@@ -56,9 +56,18 @@
   // Variante rellena, para el CTA principal de una sección. El relleno ya está
   // puesto de entrada, así que el barrido de ::before invertiría el botón: se
   // desactiva y el hover se resuelve oscureciendo el propio acento.
+  //
+  // El peso y el tracking NO son los del botón base. La tinta ya cumplía de
+  // sobra (verde profundo sobre beige, en el hero), pero a 0.74rem con 0.24em
+  // de tracking la Montserrat de 300 que hereda del body deja un trazo tan fino
+  // que el texto se lee gris sobre el relleno claro: el problema era de masa,
+  // no de contraste de color. Se compensa con cuerpo y con las letras algo más
+  // juntas, que es lo que devuelve la palabra a bloque legible.
   &--solid {
     background: var(--accent);
     color: var(--on-accent);
+    font-weight: 600;
+    letter-spacing: 0.18em;
 
     &::before { display: none; }
 

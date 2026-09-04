@@ -12,34 +12,45 @@ class AdminAreaController
     // Colores alineados con areas_produccion (BD) y CP_AREAS (POS): son la
     // fuente de verdad del color de cada área, para que tabs, tarjetas y la
     // línea vertical del tablero coincidan.
+    //
+    // Los cuatro salen de la paleta funcional de CLAUDE.md, que está validada
+    // para daltonismo. Antes eran hex de fantasía (café, mostaza, ladrillo,
+    // azul marino) que no existían en ningún otro sitio del sistema.
+    //
+    // Tres conservan la mnemotecnia —jugos amarillo, cocina rojo, horno azul
+    // profundo— y el café pasa a turquesa: la paleta no tiene un marrón, y de
+    // los tonos que quedaban libres el turquesa es el que más se separa de los
+    // otros tres bajo deuteranopia (ámbar y rojo comparten hue percibido, así
+    // que la cuarta área tenía que irse al lado frío, y frente al índigo del
+    // horno se distingue por luminosidad).
     private const AREAS = [
         'cafe' => [
             'id' => 1,
             'nombre' => 'Barra de Café',
             'label' => 'Café',
             'path' => '/area/cafe',
-            'color' => '#7b5e3a',
+            'color' => '#46bdc6', // --c-turquesa
         ],
         'jugos' => [
             'id' => 2,
             'nombre' => 'Barra de Jugos',
             'label' => 'Jugos',
             'path' => '/area/jugos',
-            'color' => '#e8a920',
+            'color' => '#f5b400', // --c-ambar
         ],
         'cocina' => [
             'id' => 3,
             'nombre' => 'Cocina',
             'label' => 'Cocina',
             'path' => '/area/cocina',
-            'color' => '#b03a2e',
+            'color' => '#e51022', // --c-rojo
         ],
         'horno' => [
             'id' => 4,
             'nombre' => 'Horno Napolitano',
             'label' => 'Horno',
             'path' => '/area/horno',
-            'color' => '#1a5276',
+            'color' => '#4267ac', // --c-indigo
         ],
     ];
 

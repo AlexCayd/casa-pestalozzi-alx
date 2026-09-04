@@ -194,6 +194,8 @@
         var current = null;
         var bodyScrollLocked = false;
         var resolveOpen = null;
+        // Campo de confirmación por escrito del diálogo abierto, si lo pidió.
+        var campoRequerido = null;
 
         title.id = 'confirmation-modal-title-' + id;
         description.id = 'confirmation-modal-description-' + id;
@@ -267,6 +269,9 @@
 
         function resolveInitialFocus(options) {
             if (options.initialFocus instanceof HTMLElement) return options.initialFocus;
+            // Con confirmación por escrito el foco va al campo: es lo único que
+            // el usuario puede hacer, y el principal está deshabilitado.
+            if (campoRequerido) return campoRequerido;
             if (options.initialFocus === 'dialog') return dialog;
             if (options.initialFocus === 'primary') return primary;
             if (options.initialFocus === 'secondary') return secondary;
@@ -313,6 +318,79 @@
             return null;
         }
 
+        /**
+         * Confirmación por escrito: `requireText` deja el botón principal
+         * deshabilitado hasta que el usuario teclea exactamente ese texto.
+         *
+         * Vive en el componente y no en el módulo que lo pide porque el freno
+         * sirve a cualquier borrado que arrastre otras filas por CASCADE, y así
+         * el siguiente no vuelve a escribirlo. Se monta en la ranura custom, que
+         * ya existía vacía.
+         *
+         * La comparación normaliza espacios y mayúsculas: se busca que el
+         * usuario LEA lo que va a borrar, no que reproduzca los acentos.
+         */
+        function montarConfirmacionEscrita(texto) {
+            campoRequerido = null;
+            var esperado = textValue(texto).trim();
+            if (!esperado) return;
+
+            var campo = document.createElement('div');
+            campo.className = 'confirmation-modal__require';
+
+            var etiqueta = document.createElement('label');
+            etiqueta.className = 'confirmation-modal__require-label';
+            etiqueta.textContent = 'Escribe «' + esperado + '» para confirmar';
+            etiqueta.setAttribute('for', 'confirmation-require-input');
+
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'confirmation-require-input';
+            input.className = 'confirmation-modal__require-input';
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            input.setAttribute('aria-describedby', 'confirmation-require-hint');
+
+            var pista = document.createElement('p');
+            pista.className = 'confirmation-modal__require-hint';
+            pista.id = 'confirmation-require-hint';
+            pista.textContent = 'El nombre no coincide todavía.';
+
+            campo.appendChild(etiqueta);
+            campo.appendChild(input);
+            campo.appendChild(pista);
+            custom.appendChild(campo);
+
+            function normalizar(valor) {
+                return String(valor == null ? '' : valor).trim().toLocaleLowerCase('es');
+            }
+
+            var objetivo = normalizar(esperado);
+
+            function revisar() {
+                var coincide = normalizar(input.value) === objetivo;
+                primary.disabled = !coincide;
+                primary.setAttribute('data-disabled', coincide ? '0' : '1');
+                campo.classList.toggle('is-valid', coincide);
+                pista.textContent = coincide
+                    ? 'Coincide. Ya puedes eliminar.'
+                    : 'El nombre no coincide todavía.';
+            }
+
+            campoRequerido = input;
+            input.addEventListener('input', revisar);
+            // Enter dentro del campo confirma si ya coincide, en vez de no hacer
+            // nada: es el gesto natural después de terminar de escribir.
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter' && !primary.disabled) {
+                    event.preventDefault();
+                    primary.click();
+                }
+            });
+
+            revisar();
+        }
+
         function open(options) {
             options = options || {};
             if (!root.hidden) {
@@ -357,6 +435,9 @@
             primary.setAttribute('data-disabled', options.primaryDisabled ? '1' : '0');
             secondary.disabled = Boolean(options.secondaryDisabled);
             primary.disabled = Boolean(options.primaryDisabled);
+            // Después de fijar el estado de los botones: el campo deshabilita el
+            // principal y lo haría en balde si luego se reescribiera.
+            montarConfirmacionEscrita(options.requireText || options.require_text);
             closeButton.hidden = options.closeHidden === true;
             bloquearScrollDocumento();
             bodyScrollLocked = true;

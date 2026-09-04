@@ -99,11 +99,17 @@
   background: color-mix(in srgb, var(--admin-bg) 94%, transparent);
 }
 
+/* Translúcido SIN desenfoque es lo que se leía como "opacidad mal puesta": el
+   mapa de colores fuertes se transparentaba crudo a través del panel. El 82%
+   se queda —la capa quiere dejar ver que hay algo detrás— pero ahora con el
+   blur que lo convierte en vidrio. */
 .reservation-operation__panel-content {
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  background: color-mix(in srgb, var(--admin-surface) 82%, transparent);
+  background: var(--admin-glass-bg-soft);
+  backdrop-filter: blur(var(--admin-glass-blur-sm)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur-sm)) saturate(var(--admin-glass-sat));
 }
 
 .reservation-operation__panel-toolbar {
@@ -307,10 +313,10 @@ html:has(.operation-body.is-assignment-mode) {
   --operational-workspace-max-height: 760px;
   --operational-accent: var(--admin-gold);
   --operational-accent-soft: var(--admin-gold-soft);
-  --operational-overlay-scrim: rgba(4, 6, 5, 0.68);
-  --operational-info-strong: #dceeff;
-  --operational-info-soft: #c9def0;
-  --operational-info-bright: #e8f5ff;
+  --operational-overlay-scrim: color-mix(in srgb, var(--admin-scrim) 68%, transparent);
+  --operational-info-strong: color-mix(in srgb, var(--admin-c-azul) 22%, var(--admin-text));
+  --operational-info-soft: color-mix(in srgb, var(--admin-c-azul) 30%, var(--admin-muted));
+  --operational-info-bright: color-mix(in srgb, var(--admin-c-azul) 14%, var(--admin-text));
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -1559,10 +1565,15 @@ html:has(.operation-body.is-assignment-mode) {
   width: clamp(340px, 29vw, 390px);
   min-height: 0;
   padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 14px;
-  background: var(--admin-surface);
-  box-shadow: 22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
+  /* Vidrio y no un plano opaco: el cajón se abre ENCIMA del mapa, y lo que
+     hace que se lea como una capa por delante —y no como un trozo de página
+     recortado— es que el salón se adivine desenfocado detrás. */
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-glass-bg-strong);
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), 22px 0 54px color-mix(in srgb, var(--sombra) 46%, transparent);
   overflow: hidden;
   flex-direction: column;
   transform: translateX(calc(-100% - var(--operational-shell-pad)));
@@ -1588,14 +1599,12 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
   flex: 1 1 auto;
   margin: 0;
-  overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .operational-drawer__meta {
@@ -1613,20 +1622,32 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
 }
 
+/*
+ * Los tres destinos repartían el ancho a partes iguales (`flex: 1 1 0`) dentro
+ * de un cajón de 340-390 px. Restados padding, icono y separación, a cada
+ * etiqueta le quedaban unos 60 px: "Mesas" cabía y las otras dos salían como
+ * "Reservac…" y "Panel de …", que es justo lo que no puede pasar en una
+ * navegación — un destino recortado obliga a adivinar a dónde lleva.
+ *
+ * Ahora cada enlace mide lo que mide su texto y la fila ENVUELVE: "Mesas" y
+ * "Reservaciones" comparten la primera, "Panel de administración" baja a la
+ * segunda y ocupa el ancho. Cuesta una fila de alto —el cajón la tiene— y
+ * ninguna etiqueta se corta en ningún ancho.
+ */
 .operational-drawer__modules {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 12px 0;
   border-bottom: 1px solid var(--admin-border-soft);
-  overflow: hidden;
 }
 
 .operational-drawer__module-link {
   display: flex;
-  min-width: 0;
+  min-width: max-content;
   min-height: 44px;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -1653,9 +1674,8 @@ html:has(.operation-body.is-assignment-mode) {
   stroke-width: 1.8;
 }
 .operational-drawer__module-link span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 .operational-drawer__module-link:hover, .operational-drawer__module-link.is-active {
   border-color: var(--admin-border);
@@ -1792,7 +1812,7 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--scrim) 62%, transparent);
+  background: var(--veil);
   backdrop-filter: blur(2px);
   cursor: pointer;
 }
@@ -1877,26 +1897,51 @@ html:has(.operation-body.is-assignment-mode) {
    * que los badges del panel. Antes había dos bloques —uno por tema— con
    * dieciocho literales entre ambos; con color-mix sobre --admin-surface un
    * solo bloque sirve para claro y oscuro.
+   *
+   * Los porcentajes NO son los de un badge, y por eso se subieron. Un badge
+   * vive sobre la superficie de una tarjeta; un pin de mesa vive sobre el
+   * suelo del salón, que en el POS es casi negro. Ahí un borde al 42% de un
+   * color sobre transparente se queda muy por debajo del 3:1 que la casa pide
+   * para elementos no textuales, y a un metro de distancia —que es como se
+   * mira una tablet de piso— las mesas literalmente no tenían contorno.
+   *
+   * Los BORDES se mezclan con --admin-text y no con `transparent`, y esa es la
+   * parte que no es obvia: subir el porcentaje sobre transparente no arregla
+   * el rojo. --admin-c-rojo es un color oscuro (luminancia 0.15), así que sobre un
+   * suelo oscuro se queda en 2.4:1 por mucho que se sature — medido. Mezclado
+   * con la tinta del tema, en cambio, el mismo token se aclara en oscuro y se
+   * oscurece en claro, y los tres estados pasan de 3:1 en los dos temas
+   * (rojo 3.68 / 6.17, verde 5.93 / 4.15, azul 5.38 / 4.64).
+   *
+   * El TEXTO baja al 50%, que parece poco pero es lo que hay que hacer: la
+   * etiqueta va sobre el relleno de su propio color, así que cuanto más
+   * saturada, menos se separa del fondo sobre el que está. Al 88% el nombre de
+   * la mesa se quedaba en 2.99:1 sobre el verde y en 3.26 sobre el rojo. Al
+   * 50% los seis casos pasan de 4.5:1 (el peor, 4.67) y la etiqueta conserva
+   * el tinte: el estado ya lo dicen el relleno y el borde, el trabajo del
+   * texto es leerse.
    */
-  --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 15%, var(--admin-surface));
-  --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 72%, var(--admin-text));
-  --map-table-available-border: color-mix(in srgb, var(--admin-c-verde) 42%, transparent);
-  --map-table-occupied-bg: color-mix(in srgb, var(--admin-c-rojo) 14%, var(--admin-surface));
-  --map-table-occupied-text: color-mix(in srgb, var(--admin-c-rojo) 68%, var(--admin-text));
-  --map-table-occupied-border: color-mix(in srgb, var(--admin-c-rojo) 40%, transparent);
+  --map-table-available-bg: color-mix(in srgb, var(--admin-c-verde) 24%, var(--admin-surface));
+  --map-table-available-text: color-mix(in srgb, var(--admin-c-verde) 50%, var(--admin-text));
+  --map-table-available-border: color-mix(in srgb, var(--admin-c-verde) 75%, var(--admin-text));
+  --map-table-occupied-bg: color-mix(in srgb, var(--admin-c-rojo) 22%, var(--admin-surface));
+  --map-table-occupied-text: color-mix(in srgb, var(--admin-c-rojo) 50%, var(--admin-text));
+  --map-table-occupied-border: color-mix(in srgb, var(--admin-c-rojo) 75%, var(--admin-text));
   --map-table-selected-bg: color-mix(in srgb, var(--admin-gold) 34%, var(--admin-surface));
-  --map-table-selected-text: color-mix(in srgb, var(--admin-gold) 74%, var(--admin-text));
-  --map-table-selected-border: var(--admin-border-soft);
-  --map-table-reservation-bg: color-mix(in srgb, var(--admin-c-azul) 16%, var(--admin-surface));
-  --map-table-reservation-text: color-mix(in srgb, var(--admin-c-azul) 66%, var(--admin-text));
-  --map-table-reservation-border: color-mix(in srgb, var(--admin-c-azul) 42%, transparent);
+  --map-table-selected-text: color-mix(in srgb, var(--admin-gold) 50%, var(--admin-text));
+  --map-table-selected-border: var(--admin-line-strong);
+  --map-table-reservation-bg: color-mix(in srgb, var(--admin-c-azul) 24%, var(--admin-surface));
+  --map-table-reservation-text: color-mix(in srgb, var(--admin-c-azul) 50%, var(--admin-text));
+  --map-table-reservation-border: color-mix(in srgb, var(--admin-c-azul) 75%, var(--admin-text));
   --map-table-reservation-overdue-bg: var(--map-table-reservation-bg);
   --map-table-reservation-overdue-text: var(--map-table-reservation-text);
   /* El retraso se marca apagando el borde a neutro, no cambiando el relleno. */
-  --map-table-reservation-overdue-border: color-mix(in srgb, var(--admin-faint) 70%, transparent);
-  --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 12%, var(--admin-surface));
-  --map-table-unavailable-text: var(--admin-faint);
-  --map-table-unavailable-border: var(--admin-border);
+  --map-table-reservation-overdue-border: var(--admin-line-strong);
+  /* La mesa inutilizable se dice con color y contorno, NO bajando el alfa: un
+     chip ya oscuro al 94% sobre un suelo oscuro simplemente desaparece. */
+  --map-table-unavailable-bg: color-mix(in srgb, var(--admin-faint) 18%, var(--admin-surface));
+  --map-table-unavailable-text: var(--admin-muted);
+  --map-table-unavailable-border: var(--admin-border-strong);
   --map-action-primary-bg: var(--admin-gold);
   --map-action-primary-text: var(--admin-ink-on-gold);
   --map-action-primary-border: var(--admin-gold);
@@ -1925,9 +1970,12 @@ html:has(.operation-body.is-assignment-mode) {
   padding: 11px;
   flex-direction: column;
   border: 1px solid var(--admin-border);
-  border-radius: 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 92%, white 3%), var(--admin-surface));
-  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent)), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
+  border-radius: var(--admin-radius-md);
+  /* El degradado se fue: sus dos paradas sumaban 95%, así que la tarjeta
+     salía 5% transparente sin quererlo, y sobre el fondo del panel la rampa
+     no se distinguía de un plano. */
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--sombra) 20%, transparent)), inset 0 1px 0 var(--admin-glass-edge);
   overflow: hidden;
   container-name: mesas-map;
   container-type: inline-size;
@@ -2049,9 +2097,9 @@ html:has(.operation-body.is-assignment-mode) {
   left: 12px;
   z-index: 20;
   margin: 0;
-  border-color: color-mix(in srgb, var(--admin-border) 88%, transparent);
-  background: color-mix(in srgb, var(--admin-bg) 92%, transparent);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  border-color: var(--admin-glass-border);
+  background: var(--admin-glass-bg-strong);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), 0 16px 34px color-mix(in srgb, var(--admin-sombra) 28%, transparent);
   backdrop-filter: blur(10px);
 }
 
@@ -2207,7 +2255,9 @@ html:has(.operation-body.is-assignment-mode) {
 .operational-map__structured-list button:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--admin-gold) 45%, var(--admin-border-soft));
   border-left-color: var(--operational-structured-color, var(--admin-gold));
-  background: color-mix(in srgb, var(--admin-surface) 88%, var(--admin-gold) 6%);
+  /* 94+6, no 88+6: en color-mix los porcentajes que no llegan a 100
+     multiplican el alfa del resultado. */
+  background: color-mix(in srgb, var(--admin-surface) 94%, var(--admin-gold) 6%);
   transform: translateY(-1px);
 }
 
@@ -2363,11 +2413,15 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 0;
   aspect-ratio: var(--mesas-map-aspect-ratio);
   flex: 0 0 auto;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 14px;
-  background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 85%, transparent), transparent 65%), linear-gradient(color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 4.5%, transparent) 1px, transparent 1px), color-mix(in srgb, var(--admin-surface-soft) 92%, black 8%);
+  /* El suelo tiene que ser un PLANO, no el mismo valor que la página: en el POS
+     el contenedor del mapa es transparente, así que si el suelo no sube un
+     escalón las mesas flotan sobre la nada y no hay contra qué medir su
+     contorno. La rejilla de 46px sube también: al 4.5% no se veía. */
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: radial-gradient(140% 120% at 50% 0%, color-mix(in srgb, var(--admin-surface) 60%, transparent), transparent 65%), linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px), var(--admin-surface-soft);
   background-size: auto, 46px 46px, 46px 46px, auto;
-  box-shadow: 0 26px 60px color-mix(in srgb, var(--sombra) 32%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--txt) 2.5%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
+  box-shadow: inset 0 0 0 1px var(--admin-border-soft), inset 0 1px 0 var(--admin-glass-edge), 0 26px 60px color-mix(in srgb, var(--sombra) 32%, transparent);
   container-type: inline-size;
 }
 
@@ -2385,11 +2439,14 @@ html:has(.operation-body.is-assignment-mode) {
   min-height: 52px;
   padding: clamp(8px, 1cqw, 11px);
   place-items: center;
-  border: 1.5px solid var(--admin-border-soft);
+  /* 2px y --admin-border-strong: el hairline de --admin-border-soft es el
+     contorno de un separador decorativo, no el de un control que hay que
+     acertar con el dedo sobre un plano oscuro. */
+  border: 2px solid var(--admin-border-strong);
   border-radius: 14px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-surface) 94%, white 5%), var(--admin-surface));
+  background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 30%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 30%, transparent), inset 0 1px 0 var(--admin-glass-edge);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);
@@ -2468,22 +2525,23 @@ html:has(.operation-body.is-assignment-mode) {
   line-height: 1.2;
   text-align: center;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px color-mix(in srgb, var(--sombra) 35%, transparent);
+  /* Sin sombra de rescate: era lo que sostenía la etiqueta cuando su color no
+     contrastaba con el relleno. Ahora contrasta (4.67:1 en el peor caso), y en
+     tema claro una sombra oscura bajo un texto oscuro sólo emborrona. */
 }
 
 .mesas-map .mesa-pin--libre {
   border-color: var(--map-table-available-border);
   background: var(--map-table-available-bg);
   color: var(--map-table-available-text);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 6%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 var(--admin-glass-edge);
 }
 
 .mesas-map .mesa-pin--ocupada {
   border-color: var(--map-table-occupied-border);
   background: var(--map-table-occupied-bg);
   color: var(--map-table-occupied-text);
-  opacity: 0.96;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), 0 0 0 1px color-mix(in srgb, var(--map-table-occupied-border) 70%, transparent), inset 0 1px 0 var(--admin-glass-edge);
 }
 
 /* Indicador secundario: la mesa sigue roja, pero pertenece al snapshot que
@@ -2501,7 +2559,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: var(--map-table-reservation-border);
   background: var(--map-table-reservation-bg);
   color: var(--map-table-reservation-text);
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 5%, transparent);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--sombra) 26%, transparent), inset 0 1px 0 var(--admin-glass-edge);
 }
 
 .mesas-map .mesa-pin--no-utilizable,
@@ -2513,8 +2571,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-style: solid;
   background: var(--map-table-unavailable-bg);
   color: var(--map-table-unavailable-text);
-  opacity: 0.94;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--sombra) 20%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 3%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--sombra) 20%, transparent), inset 0 1px 0 var(--admin-glass-edge);
 }
 
 .mesas-map .mesa-pin--tipo-barra {
@@ -2902,7 +2959,7 @@ html:has(.operation-body.is-assignment-mode) {
 .reservation-operation-capacity span {
   display: grid;
   gap: 1px;
-  color: var(--admin-text-muted);
+  color: var(--admin-muted);
   text-align: center;
 }
 .reservation-operation-capacity strong {
@@ -4885,7 +4942,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .reservation-operation__secondary-inline:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring);
 }
 
 .reservation-operation__assignment .reservation-operation-panel__assignment-start {
@@ -5122,7 +5179,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .reservation-operation__detail-inline-action:focus-visible {
   outline: 0;
-  box-shadow: var(--admin-focus-ring, 0 0 0 3px rgba(204, 163, 82, 0.3));
+  box-shadow: var(--admin-focus-ring);
 }
 
 .reservation-operation__detail-inline-action .admin-btn__icon,
@@ -5243,11 +5300,11 @@ html:has(.operation-body.is-assignment-mode) {
   border-radius: 16px;
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--admin-sombra) 48%, transparent);
   overflow: hidden;
 }
 .operation-tables-modal::backdrop {
-  background: rgba(5, 7, 9, 0.72);
+  background: var(--admin-veil);
   backdrop-filter: blur(3px);
 }
 
@@ -6196,7 +6253,7 @@ html:has(.operation-body.is-assignment-mode) {
   overflow: hidden;
 }
 .operation-create-modal::backdrop {
-  background: color-mix(in srgb, var(--scrim) 72%, transparent);
+  background: var(--veil);
   backdrop-filter: blur(4px);
 }
 .operation-create-modal[open] {
@@ -6888,6 +6945,56 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__custom[hidden] {
   display: none;
+}
+.confirmation-modal {
+  /* ── Confirmación por escrito ────────────────────────────────
+   *
+   * El freno de los borrados que arrastran otras filas por CASCADE. Va dentro
+   * de la ranura custom, así que hereda sus tokens; los colores salen de los
+   * roles del ámbito, que es lo que hace que el mismo diálogo funcione en la
+   * landing y en el panel sin duplicar reglas.
+   */
+}
+.confirmation-modal__require {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.confirmation-modal__require-label {
+  color: color-mix(in srgb, var(--txt) 88%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.confirmation-modal__require-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--txt-strong);
+  font: inherit;
+  font-size: 14px;
+}
+.confirmation-modal__require-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.confirmation-modal__require-hint {
+  margin: 0;
+  color: var(--txt-faint);
+  font-size: 12px;
+}
+.confirmation-modal {
+  /* En cuanto coincide, el filete y la pista pasan a verde: es la señal de que
+     el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
+}
+.confirmation-modal__require.is-valid .confirmation-modal__require-input {
+  border-color: var(--feedback-ok);
+}
+.confirmation-modal__require.is-valid .confirmation-modal__require-hint {
+  color: var(--feedback-ok);
 }
 .confirmation-modal__reason {
   display: grid;

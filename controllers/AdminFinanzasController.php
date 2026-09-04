@@ -20,8 +20,10 @@ class AdminFinanzasController
     private const PATH = '/admin/finanzas';
     private const CSS = '/build/css/admin/finanzas.css';
     private const JS = '/build/js/admin/finanzas.js';
+    // Chart.js sigue haciendo falta para la dona del reparto del gasto. El
+    // plugin chartjs-chart-sankey se retiró: la descomposición del ingreso la
+    // dibuja src/js/admin/finanzas/sankey.js en SVG, dentro del propio bundle.
     private const CHART_JS = '/build/js/vendor/chart.umd.min.js';
-    private const SANKEY_JS = '/build/js/vendor/chartjs-chart-sankey.min.js';
 
     public static function index(Router $router): void
     {
@@ -441,7 +443,7 @@ class AdminFinanzasController
         AdminController::render($view, array_merge([
             'activeModule' => 'finanzas',
             'styles' => [self::CSS],
-            'scripts' => [self::CHART_JS, self::SANKEY_JS, self::JS],
+            'scripts' => [self::CHART_JS, self::JS],
         ], $data));
     }
 

@@ -63,8 +63,8 @@
             <p class="admin-page__subtitle">Los platillos de la carta pública, el PDF y el punto de venta salen todos de aquí. La receta de cada uno se compone en Recetas.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
-            <a class="admin-btn admin-btn--secondary" href="/admin/menu/categorias">Categorías</a>
-            <a class="admin-btn admin-btn--secondary" href="/admin/menu/pdf" target="_blank" rel="noopener">Generar PDF</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="/admin/menu/categorias">Categorías</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf" target="_blank" rel="noopener">Generar PDF</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create" title="Nuevo platillo">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
@@ -172,17 +172,22 @@
                 <?php echo $filtrosActivos ? 'No se encontraron resultados con los filtros aplicados.' : 'No hay platillos registrados.'; ?>
             </p>
         <?php else : ?>
+            <?php /* El orden es de CLIENTE y ordena la página visible, no los 78
+                     platillos: el listado viene paginado de diez en diez y el
+                     orden de fondo lo sigue fijando el SQL (categoría, nombre).
+                     Visibilidad es un formulario y Acciones no es un dato, así
+                     que ninguna de las dos ordena. */ ?>
             <div class="admin-table-wrap">
-                <table class="admin-table admin-menu__table admin-menu__table--items">
+                <table class="admin-table admin-menu__table admin-menu__table--items" data-sortable>
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Precio</th>
-                            <th>Categoría</th>
-                            <th>Área</th>
-                            <th>Visibilidad</th>
-                            <th>Acciones</th>
+                            <th data-sort-type="text">Nombre</th>
+                            <th data-sort-type="text">Descripción</th>
+                            <th data-sort-type="number">Precio</th>
+                            <th data-sort-type="text">Categoría</th>
+                            <th data-sort-type="text">Área</th>
+                            <th data-sort-disabled>Visibilidad</th>
+                            <th data-sort-disabled>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -202,7 +207,10 @@
                                     <span class="admin-table__cell-main">$<?php echo number_format((float) $platillo->precio, 2); ?></span>
                                 </td>
                                 <td>
-                                    <span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($categoriasMap[(int) $platillo->categoria_id] ?? '#' . $platillo->categoria_id); ?></span>
+                                    <?php /* El tono se deriva del id, no se guarda: `categorias` no tiene
+                                            columna de color y así cada categoría conserva el suyo entre
+                                            pantallas sin tocar el esquema. */ ?>
+                                    <span class="admin-badge admin-badge--cat-<?php echo (int) $platillo->categoria_id % 10; ?>"><?php echo htmlspecialchars($categoriasMap[(int) $platillo->categoria_id] ?? '#' . $platillo->categoria_id); ?></span>
                                 </td>
                                 <td>
                                     <span class="admin-table__cell-sub"><?php echo htmlspecialchars($areasMap[(int) $platillo->area_id] ?? '—'); ?></span>
@@ -238,7 +246,12 @@
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <form method="POST" action="/admin/menu/delete" onsubmit="return confirm('Eliminar el platillo &quot;<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/menu/delete"
+                                              data-confirm-delete
+                                              data-confirm-eyebrow="Eliminar platillo"
+                                              data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-description="Saldrá de la carta pública, del PDF y del punto de venta."
+                                              data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">
                                             <button
                                                 type="submit"
@@ -263,29 +276,14 @@
                 </table>
             </div>
 
-            <?php if ($totalPaginas > 1) : ?>
-                <nav class="admin-menu__pagination" aria-label="Paginación de platillos">
-                    <?php if ($paginaActual > 1) : ?>
-                        <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page>Anterior</a>
-                    <?php else : ?>
-                        <span class="admin-btn admin-btn--disabled admin-btn--small">Anterior</span>
-                    <?php endif; ?>
-
-                    <?php for ($i = 1; $i <= $totalPaginas; $i++) : ?>
-                        <?php if ($i === $paginaActual) : ?>
-                            <span class="admin-btn admin-btn--primary admin-btn--small"><?php echo $i; ?></span>
-                        <?php else : ?>
-                            <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo htmlspecialchars($buildItemsUrl($i), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page><?php echo $i; ?></a>
-                        <?php endif; ?>
-                    <?php endfor; ?>
-
-                    <?php if ($paginaActual < $totalPaginas) : ?>
-                        <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo htmlspecialchars($buildItemsUrl($paginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" data-reactive-page>Siguiente</a>
-                    <?php else : ?>
-                        <span class="admin-btn admin-btn--disabled admin-btn--small">Siguiente</span>
-                    <?php endif; ?>
-                </nav>
-            <?php endif; ?>
+            <?php
+            $pagPagina = $paginaActual;
+            $pagTotal = $totalPaginas;
+            $pagUrl = $buildItemsUrl;
+            $pagEtiqueta = 'Paginación de platillos';
+            $pagReactiva = true;
+            include __DIR__ . '/../partials/_pagination.php';
+            ?>
         <?php endif; ?>
     </section>
 <?php if (!$partialOnly) : ?>

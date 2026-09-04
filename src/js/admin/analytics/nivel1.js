@@ -89,6 +89,18 @@
         }
     }
 
+    /**
+     * Escapa un valor que va DENTRO de un atributo entre comillas dobles.
+     *
+     * El nombre de un platillo llega de la base y basta una comilla —«Ensalada
+     * "Casa"»— para cerrar el atributo antes de tiempo y descuadrar la fila.
+     */
+    function attr(valor) {
+        return String(valor == null ? '' : valor)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;');
+    }
+
     // ── §3.1 Ingeniería de menú ──────────────────────────────────────────
     function renderMenu(pal) {
         var menu = data.ingenieria || {};
@@ -112,18 +124,38 @@
 
         var tbody = document.querySelector('[data-n1-menu-table]');
         if (tbody) {
+            /*
+             * data-sort-value en las tres celdas, y no es opcional.
+             *
+             * table-sort.js cae a textContent cuando no lo encuentra, y aquí dos
+             * de las tres columnas apilan __cell-main y __cell-sub dentro del
+             * MISMO <td>: leería "$189.5054 uds · 72.9%" y ordenaría por una
+             * cifra que no existe. Se declara el dato crudo — el nombre sin
+             * categoría pegada y el margen como número — para que ordene por lo
+             * que la columna dice.
+             */
             tbody.innerHTML = items.map(function (it) {
                 return '<tr>' +
-                    '<td><span class="admin-table__cell-main">' + it.nombre + '</span>' +
+                    '<td data-sort-value="' + attr(it.nombre) + '">' +
+                        '<span class="admin-table__cell-main">' + it.nombre + '</span>' +
                         '<span class="admin-table__cell-sub">' + it.categoria + '</span></td>' +
-                    '<td><span class="admin-nivel1-badge admin-nivel1-badge--' + it.clase + '">' +
+                    '<td data-sort-value="' + attr(it.claseLabel) + '">' +
+                        '<span class="admin-nivel1-badge admin-nivel1-badge--' + it.clase + '">' +
                         CLASES[it.clase].emoji + ' ' + it.claseLabel + '</span></td>' +
-                    '<td class="admin-table__num">' +
+                    '<td class="admin-table__num" data-sort-value="' + attr(it.margen) + '">' +
                         '<span class="admin-table__cell-main">' + money2(it.margen) + '</span>' +
                         '<span class="admin-table__cell-sub">' + it.unidades + ' uds · ' + it.margenPct + '%</span>' +
                     '</td>' +
                     '</tr>';
             }).join('');
+
+            // La tabla se pinta después del DOMContentLoaded que auto-arranca el
+            // ordenador, así que hay que engancharla a mano. initTable es
+            // idempotente y, si ya estaba enganchada, re-aplica el orden vigente
+            // sobre las filas nuevas.
+            if (window.AdminTableSort) {
+                window.AdminTableSort.initTable(tbody.closest('table'));
+            }
         }
 
         // Scatter: un dataset por clase (popularidad % en X, margen $ en Y).

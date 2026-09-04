@@ -1,10 +1,10 @@
 // ── Hero ──────────────────────────────────────────────────────
 //
 // Alto exacto de una pantalla: el hero es un cartel, no una sección con
-// scroll propio. Por eso la caja es una rejilla de tres bandas (insignia /
-// título / pie) y no un bloque centrado — con `align-items:center` el pie se
-// despegaba del borde inferior en pantallas altas y se comía la señal de
-// "aquí sigue habiendo página".
+// scroll propio. Por eso la caja es una rejilla de dos bandas (título / pie) y
+// no un bloque centrado — con `align-items:center` el pie se despegaba del
+// borde inferior en pantallas altas y se comía la señal de "aquí sigue
+// habiendo página".
 .hero {
   position: relative;
   height: 100vh;
@@ -12,17 +12,20 @@
   // por debajo de esto el título y el pie se pisan, así que se deja crecer.
   min-height: 620px;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  // El aire entre las tres bandas. Estaba en 2rem de tope y las dos llamadas
+  // Dos filas desde que salió la banda del rótulo. Con tres, la primera se
+  // quedaba en altura cero pero el `gap` seguía contando y el bloque del
+  // nombre bajaba un renglón entero.
+  grid-template-rows: 1fr auto;
+  // El aire entre las bandas. Estaba en 2rem de tope y las dos llamadas
   // quedaban a un dedo del filete del pie: se leían como parte de la ficha de
   // la casa en vez de como el remate del bloque del nombre.
   gap: clamp(1.6rem, 4vh, 3.2rem);
   align-content: stretch;
   overflow: hidden;
-  // El aire de arriba tiene que dejar pasar la marca fija —que termina hacia
-  // los 72px— y además separarse de ella: las dos piezas dicen "Del Valle" y
-  // pegadas se leían como un solo bloque de cuatro líneas.
-  padding: clamp(8rem, 17vh, 11rem) var(--pad) clamp(1.6rem, 4vh, 2.8rem);
+  // El aire de arriba tiene que dejar pasar la marca fija, que termina hacia
+  // los 72px. Sin el rótulo debajo ya no hay dos piezas que separar, así que
+  // basta con librar la marca y dar respiro: el tope baja de 11rem a 8.5rem.
+  padding: clamp(6.5rem, 13vh, 8.5rem) var(--pad) clamp(1.6rem, 4vh, 2.8rem);
   isolation: isolate;
 
   // El velo de la portada tiraba a verde porque --scrim se mezcla sobre
@@ -133,19 +136,9 @@
   margin: 0 auto;
 }
 
-.hero__insignia {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.hero__eyebrow {
-  display: inline-flex;
-  flex-wrap: wrap;
-  row-gap: 0.4rem;
-}
+// .hero__insignia y .hero__eyebrow salieron con la banda del rótulo. El
+// `.eyebrow` global de _reset.scss sigue en pie: lo consumen el resto de las
+// secciones de la landing y el panel.
 
 // ── Título ────────────────────────────────────────────────────
 //
@@ -328,13 +321,11 @@
 
 // ── Responsive ────────────────────────────────────────────────
 //
-// Ventanas panorámicas y bajas: el cartel sigue siendo de tres bandas, pero el
-// aire entre ellas se aprieta antes de que el bloque central desborde su fila.
+// Ventanas panorámicas y bajas: el aire se aprieta antes de que el bloque
+// central desborde su fila.
 @media (max-height: 860px) and (min-width: 901px) {
-  // Se aprieta el aire INTERIOR, no el de arriba: éste es el que separa el
-  // rótulo de la marca fija, y recortarlo aquí era exactamente lo que devolvía
-  // las dos piezas pegadas en las ventanas de portátil.
-  .hero { padding-top: clamp(7.5rem, 16vh, 10rem); }
+  // Sigue habiendo que librar la marca fija, así que el recorte es moderado.
+  .hero { padding-top: clamp(6rem, 12vh, 7.5rem); }
   .hero__centro { gap: 0.45rem; }
   // Se aprieta, pero no hasta devolver los botones al filete: en portátil este
   // override era justo el que anulaba el aire nuevo del bloque de arriba.
@@ -342,9 +333,8 @@
   .hero__meta .mi i { font-size: 1rem; }
 }
 
-// Por debajo de la tablet el hero deja de ser un cartel de tres bandas: los
-// rótulos italianos del pie se retiran antes de que empiecen a pisarse entre
-// ellos.
+// Por debajo de la tablet los rótulos italianos del pie se retiran antes de
+// que empiecen a pisarse entre ellos.
 @media (max-width: 900px) {
   .hero { gap: clamp(0.8rem, 2vh, 1.4rem); }
   .hero__pie { flex-direction: column; align-items: flex-start; gap: 1.2rem; }
@@ -366,7 +356,6 @@
 // que ninguna de las otras dos llegaba a aplicarse nunca. Se cuelgan del body,
 // que es quien realmente cambia.
 body[data-hero="minimal"] .hero {
-  .hero__insignia { justify-content: center; }
   .hero__centro { align-items: center; text-align: center; }
   .hero__firma::before { display: none; }
   .hero__pie { justify-content: center; }

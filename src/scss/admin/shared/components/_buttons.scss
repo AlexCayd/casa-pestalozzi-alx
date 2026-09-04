@@ -74,7 +74,11 @@
         position: absolute;
         inset: 0;
         z-index: -1;
-        background: linear-gradient(180deg, var(--admin-terra), var(--admin-terra-deep));
+        /* Relleno sólido, no una rampa: --admin-terra y --admin-terra-deep son
+           alias del acento, y en blanco y negro un degradado entre casi-negro y
+           negro es una banda sucia. El relieve del botón lo pone el barrido
+           especular de _finishes.scss. */
+        background: var(--admin-accent-deep);
         transform: translateY(101%);
         transition: transform var(--admin-t-slow) var(--admin-ease);
     }
@@ -121,6 +125,41 @@
         filter: brightness(1.05);
     }
 }
+
+/* ── Botones tintados de cabecera ──────────────────────────────
+ *
+ * Para las barras de acciones de módulo: «Categorías» y «Generar PDF» en Menú,
+ * «Subrecetas» e «Inventario» en Recetas. Eran todos --secondary, es decir
+ * cuatro cajas idénticas donde sólo cambiaba la palabra, y para elegir había
+ * que leerlas una por una. El tono les da forma reconocible.
+ *
+ * Mismo patrón que los botones de acción del topbar: un TINTE derivado con
+ * color-mix sobre --admin-surface, nunca un relleno sólido. El relleno sólido
+ * sigue siendo exclusivo de --primary, que es lo que mantiene una sola acción
+ * principal por pantalla. Ver la excepción anotada en CLAUDE.md.
+ *
+ * El color se pasa en --tono; sin él, el botón se comporta como un secundario
+ * neutro en vez de romperse.
+ */
+.admin-btn--tinted {
+    --tono: var(--admin-muted);
+
+    border-color: color-mix(in srgb, var(--tono) 30%, var(--admin-border));
+    background: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
+    color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+
+    &:hover {
+        border-color: color-mix(in srgb, var(--tono) 58%, transparent);
+        background: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
+        color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+    }
+}
+
+.admin-btn--tinted-ambar { --tono: var(--admin-c-ambar); }
+.admin-btn--tinted-azul { --tono: var(--admin-c-azul); }
+.admin-btn--tinted-verde { --tono: var(--admin-c-verde); }
+.admin-btn--tinted-indigo { --tono: var(--admin-c-indigo); }
+.admin-btn--tinted-turquesa { --tono: var(--admin-c-turquesa); }
 
 .admin-btn--small,
 .admin-menu__button--small {
@@ -202,6 +241,18 @@
 .admin-body .admin-btn--ghost {
     background-color: transparent;
     color: var(--admin-muted);
+}
+
+// Por lo mismo que --gold: sin este override, `.admin-body .admin-btn` (0,2,0)
+// le gana a `.admin-btn--tinted` (0,1,0) y el tinte no llega a verse.
+.admin-body .admin-btn--tinted {
+    background-color: color-mix(in srgb, var(--tono) 11%, var(--admin-surface));
+    color: color-mix(in srgb, var(--tono) 72%, var(--admin-text));
+
+    &:hover {
+        background-color: color-mix(in srgb, var(--tono) 20%, var(--admin-surface));
+        color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+    }
 }
 
 .admin-body .admin-btn--danger,

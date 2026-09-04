@@ -27,11 +27,12 @@
   width: 100%;
   min-height: 46px;
   padding: 12px 14px;
-  border: 1px solid var(--admin-border-soft);
+  border: 1px solid var(--admin-border-strong);
   border-radius: var(--admin-radius-sm);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent),
-    var(--admin-surface-soft);
+  /* Mismo canto que el resto de los campos: el trigger tiene que leerse como
+     un control más del formulario, no como un botón. */
+  background: var(--admin-surface-soft);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
   color: var(--admin-text);
   font: inherit;
   font-size: 15.5px;
@@ -55,11 +56,11 @@
 }
 
 .admin-select.is-open .admin-select__trigger {
-  border-color: var(--admin-gold);
-  box-shadow: var(--admin-focus-ring);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent),
-    var(--admin-surface);
+  border-color: var(--admin-accent);
+  background: var(--admin-surface);
+  box-shadow:
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-focus-ring);
 }
 
 .admin-select.is-disabled {
@@ -95,13 +96,20 @@
   margin: 0;
   padding: 6px;
   list-style: none;
-  border: 1px solid var(--admin-border);
+  /* Vidrio: el desplegable se porta al <body> y flota sobre la tarjeta, así
+     que es exactamente la clase de capa donde el desenfoque significa algo.
+     Fondo -strong porque tiene que ser legible sobre lo que sea que tape. */
+  border: 1px solid var(--admin-glass-border);
   border-radius: var(--admin-radius-sm);
-  background: var(--admin-surface);
-  box-shadow: var(--admin-shadow-lg);
+  background: var(--admin-glass-bg-strong);
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  box-shadow:
+    inset 0 1px 0 var(--admin-glass-edge),
+    var(--admin-shadow-lg);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--admin-gold) 40%, transparent) transparent;
+  scrollbar-color: var(--admin-border-strong) transparent;
 
   &[hidden] {
     display: none;

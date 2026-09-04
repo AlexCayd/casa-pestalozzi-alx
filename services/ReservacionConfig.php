@@ -174,9 +174,16 @@ class ReservacionConfig
         return self::normalizarWhatsapp(self::env('RESERVAS_WHATSAPP', self::telefonoTel()));
     }
 
-    public static function whatsappUrl(): string
+    /**
+     * `$mensaje` deja la conversación empezada. Lo usa la agenda de catas, donde
+     * el visitante tendría que escribir a qué fecha se apunta y con el enlace ya
+     * llega dicho; sin él, el comportamiento es el de siempre.
+     */
+    public static function whatsappUrl(string $mensaje = ''): string
     {
-        return 'https://wa.me/' . self::whatsappNumero();
+        $url = 'https://wa.me/' . self::whatsappNumero();
+
+        return $mensaje === '' ? $url : $url . '?text=' . rawurlencode($mensaje);
     }
 
     public static function contactoPublico(): array

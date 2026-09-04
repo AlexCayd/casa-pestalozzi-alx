@@ -291,6 +291,113 @@ class Inventario
         return $totales;
     }
 
+    /**
+     * Platillos y subrecetas que consumen un ingrediente.
+     *
+     * Es la consulta INVERSA, y hasta ahora no existía: todo el módulo recorre
+     * la relación en el sentido producto → ingredientes (explotarReceta, el
+     * COGS, el compositor de recetas), nunca al revés. Hace falta para poder
+     * decir, antes de borrar, qué se va a llevar por delante.
+     *
+     * Son dos vías y por eso es un UNION:
+     *  · directa   — producto_componentes con tipo 'ingrediente' apuntando al id.
+     *  · indirecta — el ingrediente está en una subreceta, y esa subreceta la
+     *                consume un platillo. Aquí lo interesante es el nombre de la
+     *                subreceta, porque es donde el usuario tendrá que ir a
+     *                editarlo.
+     *
+     * `ref_id` no lleva FK (es polimórfico: apunta a ingredientes.id o a
+     * subrecetas.id según `tipo`), así que el filtro por tipo NO es opcional —
+     * sin él se colarían subrecetas cuyo id coincida con el del ingrediente.
+     *
+     * @return array<int, array{platillo: string, via: string, subreceta: ?string}>
+     */
+    public static function recetasQueUsan(int $ingredienteId): array
+    {
+        $ingredienteId = max(0, $ingredienteId);
+        if ($ingredienteId === 0) {
+            return [];
+        }
+
+        $db = Ingrediente::getDB();
+        if (!$db) {
+            return [];
+        }
+
+        $sql = "
+            SELECT p.nombre AS platillo, 'directa' AS via, NULL AS subreceta
+              FROM producto_componentes pc
+              JOIN productos p ON p.id = pc.producto_id
+             WHERE pc.tipo = 'ingrediente' AND pc.ref_id = {$ingredienteId}
+
+            UNION
+
+            SELECT p.nombre AS platillo, 'subreceta' AS via, s.nombre AS subreceta
+              FROM subreceta_ingredientes si
+              JOIN subrecetas s ON s.id = si.subreceta_id
+              JOIN producto_componentes pc
+                ON pc.tipo = 'subreceta' AND pc.ref_id = si.subreceta_id
+              JOIN productos p ON p.id = pc.producto_id
+             WHERE si.ingrediente_id = {$ingredienteId}
+
+             ORDER BY platillo ASC
+        ";
+
+        $resultado = $db->query($sql);
+        if (!$resultado) {
+            return [];
+        }
+
+        $filas = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $filas[] = [
+                'platillo' => (string) $fila['platillo'],
+                'via' => (string) $fila['via'],
+                'subreceta' => $fila['subreceta'] !== null ? (string) $fila['subreceta'] : null,
+            ];
+        }
+        $resultado->free();
+
+        return $filas;
+    }
+
+    /**
+     * Subrecetas que contienen el ingrediente, aunque ningún platillo las use.
+     * Se pierden igual al borrar y no aparecen en recetasQueUsan(), que sólo
+     * llega a las que están montadas en algún platillo.
+     */
+    public static function subrecetasQueUsan(int $ingredienteId): array
+    {
+        $ingredienteId = max(0, $ingredienteId);
+        if ($ingredienteId === 0) {
+            return [];
+        }
+
+        $db = Ingrediente::getDB();
+        if (!$db) {
+            return [];
+        }
+
+        $resultado = $db->query(
+            "SELECT s.nombre
+               FROM subreceta_ingredientes si
+               JOIN subrecetas s ON s.id = si.subreceta_id
+              WHERE si.ingrediente_id = {$ingredienteId}
+              ORDER BY s.nombre ASC"
+        );
+        if (!$resultado) {
+            return [];
+        }
+
+        $nombres = [];
+        while ($fila = $resultado->fetch_assoc()) {
+            $nombres[] = (string) $fila['nombre'];
+        }
+        $resultado->free();
+
+        return $nombres;
+    }
+
     /** Formatea un float para SQL con punto decimal (independiente del locale). */
     private static function num(float $valor): string
     {

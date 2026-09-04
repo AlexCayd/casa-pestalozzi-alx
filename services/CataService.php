@@ -1,43 +1,42 @@
 <?php
 
 /**
- * Ciclo de vida de las catas dirigidas y de sus inscripciones.
+ * Agenda de catas dirigidas.
  *
- * Concentra las tres reglas que no caben en el modelo porque dependen de más de
- * una fila: cuántos lugares quedan, si una cata sigue admitiendo gente, y el
- * paso automático a 'agotada'.
+ * Lo que queda del servicio son dos listas —la pública y la del panel— y el
+ * guardado. Antes concentraba el ciclo de vida de las inscripciones: cuántos
+ * lugares quedaban, si una cata seguía admitiendo gente y el paso automático a
+ * 'agotada'. Ese flujo se fue entero a WhatsApp, así que aquí ya no hay nada
+ * que CONTAR: el cupo no se lleva, se declara.
+ *
+ * `catas.disponible` significa exactamente eso y sólo eso: si quedan lugares.
+ * No decide la visibilidad —la agenda pública publica todo lo que no ha
+ * ocurrido— y por eso apagar el interruptor NO retira la cata de la portada:
+ * la deja marcada como sin cupo.
  */
 
 namespace Services;
 
 use Model\ActiveRecord;
 use Model\Cata;
-use Model\CataInscripcion;
 
 class CataService
 {
     public const OK = 'OK';
     public const NO_EXISTE = 'NO_EXISTE';
-    public const CERRADA = 'CERRADA';
-    public const SIN_CUPO = 'SIN_CUPO';
     public const DATOS_INVALIDOS = 'DATOS_INVALIDOS';
-    public const DEMASIADOS_ENVIOS = 'DEMASIADOS_ENVIOS';
     public const ERROR_GUARDADO = 'ERROR_GUARDADO';
 
     /**
-     * Ventana y tope del freno de reenvíos. Los endpoints públicos de catas no
-     * pasan por OTP como los de reservaciones, así que este contador es lo
-     * único que separa un formulario abierto de un buzón de spam.
-     */
-    private const ENVIOS_MAX_POR_VENTANA = 3;
-    private const ENVIOS_VENTANA_MINUTOS = 60;
-
-    /**
-     * Agenda pública: catas publicadas o agotadas que aún no han ocurrido.
+     * Agenda pública: TODAS las catas programadas que aún no han ocurrido.
      *
-     * Las agotadas se incluyen a propósito — saber que la próxima cata se llenó
-     * dice más que no ver nada—, y cada fila llega con sus lugares restantes ya
-     * calculados para que la vista no consulte por su cuenta.
+     * El único filtro es el reloj. `disponible` ya no decide si una cata se
+     * publica —sólo si le quedan lugares—, así que una cata sin cupo sigue en la
+     * portada, marcada: saber que la próxima se llenó dice bastante más que no
+     * ver nada, y deja abierta la conversación por si se libera un sitio.
+     *
+     * Cuando no queda ninguna, la sección cae a su estado vacío, que ya invita a
+     * preguntar por la siguiente.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -46,278 +45,98 @@ class CataService
         $limite = max(1, min(24, $limite));
         $ahora = ReservacionConfig::ahora()->format('Y-m-d H:i:s');
 
-        $sql = "SELECT c.*,
-                       COALESCE(SUM(i.personas), 0) AS lugares_tomados
-                FROM catas c
-                LEFT JOIN cata_inscripciones i
-                       ON i.cata_id = c.id
-                      AND i.estado IN (" . self::listaEstadosQueOcupan() . ")
-                WHERE c.estado IN ('publicada', 'agotada')
-                  AND TIMESTAMP(c.fecha, c.hora) >= '" . ActiveRecord::escaparString($ahora) . "'
-                GROUP BY c.id
-                ORDER BY c.fecha ASC, c.hora ASC
+        $sql = "SELECT *
+                FROM catas
+                WHERE TIMESTAMP(fecha, hora) >= '" . ActiveRecord::escaparString($ahora) . "'
+                ORDER BY fecha ASC, hora ASC
                 LIMIT {$limite}";
 
         return array_map([self::class, 'decorarFila'], self::filas($sql));
     }
 
     /**
-     * Lugares que quedan libres. Nunca baja de cero: si el admin recorta el
-     * cupo por debajo de lo ya inscrito, el sobrecupo se resuelve a mano y la
-     * agenda pública se limita a dejar de ofrecer lugares.
-     */
-    public static function lugaresDisponibles(int $cataId): int
-    {
-        $cata = Cata::find($cataId);
-        if (!$cata) {
-            return 0;
-        }
-
-        return max(0, (int)$cata->cupo - self::lugaresTomados($cataId));
-    }
-
-    public static function lugaresTomados(int $cataId): int
-    {
-        $sql = "SELECT COALESCE(SUM(personas), 0) AS tomados
-                FROM cata_inscripciones
-                WHERE cata_id = " . (int)$cataId . "
-                  AND estado IN (" . self::listaEstadosQueOcupan() . ")";
-
-        $filas = self::filas($sql);
-        return (int)($filas[0]['tomados'] ?? 0);
-    }
-
-    /**
-     * Alta pública de una inscripción.
+     * Listado del panel. Trae también las pasadas y las que no tienen cupo: es
+     * la mesa de trabajo de quien programa.
      *
-     * @param array<string, mixed> $datos
-     * @return array{ok: bool, codigo: string, mensaje: string, inscripcion?: CataInscripcion, disponibles?: int}
-     */
-    public static function inscribir(array $datos): array
-    {
-        $cataId = (int)($datos['cata_id'] ?? 0);
-        $cata = $cataId > 0 ? Cata::find($cataId) : null;
-
-        if (!$cata) {
-            return self::error(self::NO_EXISTE, 'La cata seleccionada ya no está disponible.');
-        }
-
-        if (!self::admiteInscripciones($cata)) {
-            return self::error(self::CERRADA, 'Las inscripciones para esta cata están cerradas.');
-        }
-
-        $inscripcion = new CataInscripcion();
-        $inscripcion->cata_id = $cataId;
-        $inscripcion->nombre = trim((string)($datos['nombre'] ?? ''));
-        $inscripcion->contacto_tipo = (string)($datos['contacto_tipo'] ?? '');
-        $inscripcion->contacto = (string)($datos['contacto'] ?? '');
-        $inscripcion->personas = $datos['personas'] ?? 1;
-        $nota = trim((string)($datos['nota'] ?? ''));
-        $inscripcion->nota = $nota === '' ? null : $nota;
-        $inscripcion->estado = 'pendiente';
-
-        $alertas = $inscripcion->validar();
-        if (!empty($alertas)) {
-            return self::error(self::DATOS_INVALIDOS, self::primerMensaje($alertas));
-        }
-
-        // A partir de aquí el contacto ya validó, así que normalizar no lanza.
-        $inscripcion->contacto = ContactoService::normalizar(
-            $inscripcion->contacto_tipo,
-            (string)$inscripcion->contacto
-        );
-        $inscripcion->personas = (int)$inscripcion->personas;
-
-        if (self::excedeEnvios($inscripcion->contacto_tipo, $inscripcion->contacto)) {
-            return self::error(
-                self::DEMASIADOS_ENVIOS,
-                'Ya registramos varias solicitudes con este contacto. Escríbenos si necesitas ayuda.'
-            );
-        }
-
-        $db = ActiveRecord::getDB();
-
-        try {
-            $db->begin_transaction();
-
-            // El cupo se vuelve a leer dentro de la transacción y con la fila de
-            // la cata bloqueada: sin esto, dos personas que envían el formulario
-            // a la vez pueden pasar las dos por el mismo último lugar.
-            $bloqueo = self::filas("SELECT cupo FROM catas WHERE id = {$cataId} FOR UPDATE");
-            $cupo = (int)($bloqueo[0]['cupo'] ?? 0);
-            $disponibles = max(0, $cupo - self::lugaresTomados($cataId));
-
-            if ($inscripcion->personas > $disponibles) {
-                $db->rollback();
-                return array_merge(
-                    self::error(self::SIN_CUPO, $disponibles > 0
-                        ? "Sólo quedan {$disponibles} lugares en esta cata."
-                        : 'Esta cata acaba de llenarse.'),
-                    ['disponibles' => $disponibles]
-                );
-            }
-
-            $stmt = $db->prepare(
-                'INSERT INTO cata_inscripciones
-                    (cata_id, nombre, contacto_tipo, contacto, personas, nota, estado)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
-            );
-            if (!$stmt) {
-                throw new \RuntimeException($db->error);
-            }
-
-            $stmt->bind_param(
-                'isssiss',
-                $inscripcion->cata_id,
-                $inscripcion->nombre,
-                $inscripcion->contacto_tipo,
-                $inscripcion->contacto,
-                $inscripcion->personas,
-                $inscripcion->nota,
-                $inscripcion->estado
-            );
-
-            if (!$stmt->execute()) {
-                $error = $stmt->error;
-                $stmt->close();
-                throw new \RuntimeException($error);
-            }
-
-            $inscripcion->id = (int)$db->insert_id;
-            $stmt->close();
-            $db->commit();
-        } catch (\Throwable $e) {
-            self::rollbackSeguro($db);
-            error_log('CataService::inscribir - ' . $e->getMessage());
-            return self::error(self::ERROR_GUARDADO, 'No pudimos registrar tu inscripción. Inténtalo de nuevo.');
-        }
-
-        // Fuera de la transacción: que el cierre por cupo lleno falle no debe
-        // tirar una inscripción ya confirmada.
-        self::sincronizarCupo($cataId);
-
-        return [
-            'ok' => true,
-            'codigo' => self::OK,
-            'mensaje' => 'Listo, tu lugar quedó apartado. Te confirmamos por ' .
-                ($inscripcion->contacto_tipo === 'email' ? 'correo' : 'teléfono') . '.',
-            'inscripcion' => $inscripcion,
-            'disponibles' => self::lugaresDisponibles($cataId),
-        ];
-    }
-
-    /**
-     * Ajusta el estado de la cata al cupo real. Va en las dos direcciones: si se
-     * cancela una inscripción de una cata agotada, vuelve a publicarse sola.
-     */
-    public static function sincronizarCupo(int $cataId): void
-    {
-        $cata = Cata::find($cataId);
-        if (!$cata || !in_array($cata->estado, ['publicada', 'agotada'], true)) {
-            return;
-        }
-
-        $lleno = self::lugaresTomados($cataId) >= (int)$cata->cupo;
-        $nuevo = $lleno ? 'agotada' : 'publicada';
-
-        if ($nuevo !== $cata->estado) {
-            ActiveRecord::ejecutarSQL(
-                "UPDATE catas SET estado = '" . ActiveRecord::escaparString($nuevo) . "'
-                 WHERE id = " . (int)$cataId . " LIMIT 1"
-            );
-        }
-    }
-
-    public static function admiteInscripciones(Cata $cata): bool
-    {
-        if (!in_array($cata->estado, Cata::ESTADOS_ABIERTOS, true)) {
-            return false;
-        }
-
-        $inicio = $cata->inicio();
-        return $inicio !== null && $inicio > ReservacionConfig::ahora();
-    }
-
-    /**
-     * Listado del panel, con los lugares ya contados. `$estado` vacío trae todo.
+     * `$disponibilidad` acepta '1' (con cupo), '0' (sin cupo) o cadena vacía
+     * para todas.
      *
      * @return array<int, array<string, mixed>>
      */
-    public static function listaAdministrativa(string $estado = '', string $busqueda = ''): array
+    public static function listaAdministrativa(string $disponibilidad = '', string $busqueda = ''): array
     {
         $condiciones = [];
 
-        if ($estado !== '' && in_array($estado, Cata::ESTADOS, true)) {
-            $condiciones[] = "c.estado = '" . ActiveRecord::escaparString($estado) . "'";
+        if ($disponibilidad === '1' || $disponibilidad === '0') {
+            $condiciones[] = 'disponible = ' . (int)$disponibilidad;
         }
 
         $busqueda = trim($busqueda);
         if ($busqueda !== '') {
             $like = ActiveRecord::escaparString($busqueda);
             $like = str_replace(['%', '_'], ['\\%', '\\_'], $like);
-            $condiciones[] = "c.titulo LIKE '%{$like}%'";
+            $condiciones[] = "titulo LIKE '%{$like}%'";
         }
 
         $where = $condiciones ? 'WHERE ' . implode(' AND ', $condiciones) : '';
 
-        $sql = "SELECT c.*,
-                       COALESCE(SUM(i.personas), 0) AS lugares_tomados,
-                       COUNT(DISTINCT i.id) AS inscripciones
-                FROM catas c
-                LEFT JOIN cata_inscripciones i
-                       ON i.cata_id = c.id
-                      AND i.estado IN (" . self::listaEstadosQueOcupan() . ")
+        // El «ahora» sale de ReservacionConfig y no de NOW(): la zona horaria del
+        // restaurante y la del servidor de base de datos no tienen por qué
+        // coincidir, y aquí decide qué cata es futura.
+        $ahora = ActiveRecord::escaparString(ReservacionConfig::ahora()->format('Y-m-d H:i:s'));
+
+        // Las próximas primero y en orden de llegada; las pasadas al fondo y de
+        // la más reciente hacia atrás. La lista se abre para trabajar sobre lo
+        // que viene, no para consultar el archivo.
+        $sql = "SELECT *
+                FROM catas
                 {$where}
-                GROUP BY c.id
-                ORDER BY c.fecha DESC, c.hora DESC";
+                ORDER BY (TIMESTAMP(fecha, hora) >= '{$ahora}') DESC,
+                         CASE WHEN TIMESTAMP(fecha, hora) >= '{$ahora}'
+                              THEN TIMESTAMP(fecha, hora) END ASC,
+                         TIMESTAMP(fecha, hora) DESC";
 
         return array_map([self::class, 'decorarFila'], self::filas($sql));
     }
 
-    /** @return array<int, array<string, mixed>> */
-    public static function inscripcionesDe(int $cataId): array
-    {
-        $sql = "SELECT * FROM cata_inscripciones
-                WHERE cata_id = " . (int)$cataId . "
-                ORDER BY created_at DESC, id DESC";
-
-        return self::filas($sql);
-    }
-
     /**
-     * @return array{ok: bool, codigo: string, mensaje: string}
+     * Abre o cierra el cupo de una cata. Es la única mutación que el panel hace
+     * fuera del formulario, y por eso vive suelta: se dispara desde la lista.
+     *
+     * No toca la visibilidad: la cata sigue en la portada en los dos casos.
+     *
+     * @return array{ok: bool, codigo: string, mensaje: string, disponible?: bool}
      */
-    public static function cambiarEstadoInscripcion(int $inscripcionId, string $estado): array
+    public static function cambiarDisponibilidad(int $cataId, bool $disponible): array
     {
-        if (!in_array($estado, CataInscripcion::ESTADOS, true)) {
-            return self::error(self::DATOS_INVALIDOS, 'El estado indicado no es válido.');
-        }
-
-        $inscripcion = CataInscripcion::find($inscripcionId);
-        if (!$inscripcion) {
-            return self::error(self::NO_EXISTE, 'La inscripción no existe.');
+        $cata = Cata::find($cataId);
+        if (!$cata) {
+            return self::error(self::NO_EXISTE, 'La cata no existe.');
         }
 
         $ok = ActiveRecord::ejecutarSQL(
-            "UPDATE cata_inscripciones
-             SET estado = '" . ActiveRecord::escaparString($estado) . "'
-             WHERE id = " . (int)$inscripcionId . " LIMIT 1"
+            'UPDATE catas SET disponible = ' . ($disponible ? 1 : 0) .
+            ' WHERE id = ' . (int)$cataId . ' LIMIT 1'
         );
 
         if (!$ok) {
-            return self::error(self::ERROR_GUARDADO, 'No se pudo actualizar la inscripción.');
+            return self::error(self::ERROR_GUARDADO, 'No se pudo cambiar el cupo.');
         }
 
-        // Cancelar libera lugar y puede reabrir una cata agotada.
-        self::sincronizarCupo((int)$inscripcion->cata_id);
-
-        return ['ok' => true, 'codigo' => self::OK, 'mensaje' => 'Inscripción actualizada.'];
+        return [
+            'ok' => true,
+            'codigo' => self::OK,
+            'mensaje' => $disponible
+                ? 'La cata vuelve a admitir gente.'
+                : 'La cata se marcó sin cupo. Sigue anunciada en la landing.',
+            'disponible' => $disponible,
+        ];
     }
 
     /**
-     * Alta o edición desde el panel. Se usa SQL preparado porque `descripcion` e
-     * `imagen` son nulables y el crear()/actualizar() genérico de ActiveRecord
-     * entrecomilla todos los valores, convirtiendo el NULL en cadena vacía.
+     * Alta o edición desde el panel. Se usa SQL preparado porque `descripcion`
+     * es nulable y el crear()/actualizar() genérico de ActiveRecord entrecomilla
+     * todos los valores, convirtiendo el NULL en cadena vacía.
      *
      * @return array{ok: bool, codigo: string, mensaje: string, cata?: Cata}
      */
@@ -330,18 +149,17 @@ class CataService
 
         $db = ActiveRecord::getDB();
         $descripcion = self::nuloSiVacio($cata->descripcion);
-        $imagen = self::nuloSiVacio($cata->imagen);
         $hora = Cata::horaCompleta((string)$cata->hora);
         $duracion = (int)$cata->duracion_min;
-        $cupo = (int)$cata->cupo;
         $precio = (float)$cata->precio;
+        $disponible = $cata->estaDisponible() ? 1 : 0;
 
         try {
             if ($cata->id) {
                 $stmt = $db->prepare(
                     'UPDATE catas
-                        SET titulo = ?, descripcion = ?, fecha = ?, hora = ?, duracion_min = ?,
-                            cupo = ?, precio = ?, imagen = ?, estado = ?
+                        SET titulo = ?, descripcion = ?, fecha = ?, hora = ?,
+                            duracion_min = ?, precio = ?, disponible = ?
                       WHERE id = ? LIMIT 1'
                 );
                 if (!$stmt) {
@@ -349,38 +167,34 @@ class CataService
                 }
                 $id = (int)$cata->id;
                 $stmt->bind_param(
-                    'ssssiidssi',
+                    'ssssidii',
                     $cata->titulo,
                     $descripcion,
                     $cata->fecha,
                     $hora,
                     $duracion,
-                    $cupo,
                     $precio,
-                    $imagen,
-                    $cata->estado,
+                    $disponible,
                     $id
                 );
             } else {
                 $stmt = $db->prepare(
                     'INSERT INTO catas
-                        (titulo, descripcion, fecha, hora, duracion_min, cupo, precio, imagen, estado)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                        (titulo, descripcion, fecha, hora, duracion_min, precio, disponible)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)'
                 );
                 if (!$stmt) {
                     throw new \RuntimeException($db->error);
                 }
                 $stmt->bind_param(
-                    'ssssiidss',
+                    'ssssidi',
                     $cata->titulo,
                     $descripcion,
                     $cata->fecha,
                     $hora,
                     $duracion,
-                    $cupo,
                     $precio,
-                    $imagen,
-                    $cata->estado
+                    $disponible
                 );
             }
 
@@ -399,25 +213,18 @@ class CataService
             return self::error(self::ERROR_GUARDADO, 'No se pudo guardar la cata.');
         }
 
-        self::sincronizarCupo((int)$cata->id);
-
         return ['ok' => true, 'codigo' => self::OK, 'mensaje' => 'Cata guardada correctamente.', 'cata' => $cata];
     }
 
     /**
-     * Añade a la fila lo que la vista necesita y no está en la tabla: lugares
-     * restantes, si sigue abierta y las piezas de la fecha ya formateadas.
+     * Añade a la fila lo que la vista necesita y no está en la tabla: la fecha
+     * ya montada como objeto y si la sesión sigue por delante.
      *
      * @param array<string, mixed> $fila
      * @return array<string, mixed>
      */
     private static function decorarFila(array $fila): array
     {
-        $cupo = (int)($fila['cupo'] ?? 0);
-        $tomados = (int)($fila['lugares_tomados'] ?? 0);
-        $fila['lugares_tomados'] = $tomados;
-        $fila['lugares_disponibles'] = max(0, $cupo - $tomados);
-
         $inicio = \DateTimeImmutable::createFromFormat(
             '!Y-m-d H:i:s',
             (string)($fila['fecha'] ?? '') . ' ' . Cata::horaCompleta((string)($fila['hora'] ?? '')),
@@ -426,46 +233,9 @@ class CataService
 
         $fila['inicio'] = $inicio ?: null;
         $fila['es_futura'] = $inicio ? $inicio > ReservacionConfig::ahora() : false;
-        $fila['abierta'] = $fila['es_futura']
-            && $fila['estado'] === 'publicada'
-            && $fila['lugares_disponibles'] > 0;
+        $fila['disponible'] = (int)($fila['disponible'] ?? 0) === 1;
 
         return $fila;
-    }
-
-    /**
-     * Cuenta los envíos recientes del mismo contacto. Mira las dos tablas
-     * públicas: quien inunda el formulario de catas suele probar también el de
-     * catering, y un freno por tabla no lo detendría.
-     */
-    private static function excedeEnvios(string $tipo, string $contacto): bool
-    {
-        $desde = ReservacionConfig::ahora()
-            ->modify('-' . self::ENVIOS_VENTANA_MINUTOS . ' minutes')
-            ->format('Y-m-d H:i:s');
-
-        $tipoSql = ActiveRecord::escaparString($tipo);
-        $contactoSql = ActiveRecord::escaparString($contacto);
-        $desdeSql = ActiveRecord::escaparString($desde);
-
-        $sql = "SELECT
-                  (SELECT COUNT(*) FROM cata_inscripciones
-                    WHERE contacto_tipo = '{$tipoSql}' AND contacto = '{$contactoSql}'
-                      AND created_at >= '{$desdeSql}')
-                + (SELECT COUNT(*) FROM catering_solicitudes
-                    WHERE contacto_tipo = '{$tipoSql}' AND contacto = '{$contactoSql}'
-                      AND created_at >= '{$desdeSql}') AS envios";
-
-        $filas = self::filas($sql);
-        return (int)($filas[0]['envios'] ?? 0) >= self::ENVIOS_MAX_POR_VENTANA;
-    }
-
-    private static function listaEstadosQueOcupan(): string
-    {
-        return implode(', ', array_map(
-            static fn (string $estado): string => "'" . ActiveRecord::escaparString($estado) . "'",
-            CataInscripcion::ESTADOS_QUE_OCUPAN
-        ));
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -508,14 +278,5 @@ class CataService
     private static function error(string $codigo, string $mensaje): array
     {
         return ['ok' => false, 'codigo' => $codigo, 'mensaje' => $mensaje];
-    }
-
-    private static function rollbackSeguro(\mysqli $db): void
-    {
-        try {
-            $db->rollback();
-        } catch (\Throwable $e) {
-            error_log('CataService::rollback - ' . $e->getMessage());
-        }
     }
 }

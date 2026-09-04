@@ -1,15 +1,48 @@
 // ── Módulo Catas del panel ────────────────────────────────────
 //
 // Todo el color sale de los tokens --admin-*: este archivo no declara ni un
-// hex. Lo propio del módulo es la ficha de fecha, la barra de ocupación y la
-// rejilla del formulario.
+// hex.
+//
+// La agenda volvió a ser una TABLA. Fue lista de fichas agrupadas por mes
+// durante una temporada, con cinco datos por ficha y las acciones escondidas
+// hasta el hover; se simplificó a cuatro columnas —fecha, cata, cupo,
+// acciones— y el resto de los campos se consulta en el formulario de edición,
+// que es donde se cambian. Con eso el módulo pasó a apoyarse en .admin-table y
+// aquí quedó sólo lo que la tabla compartida no puede saber: el corte entre lo
+// que sigue en portada y lo que ya pasó.
+//
+// Lo que se retiró con las fichas: `.admin-cata` y sus nueve subclases, el
+// encabezado de mes pegajoso —que necesitaba tres niveles de especificidad
+// para ganarle a `_finishes.scss`— y las dos media queries que lo recolocaban.
 
 .admin-catas {
-  &__filtros {
+  // .admin-panel y .admin-card NO traen relleno: lo pone cada módulo, y este
+  // no lo hacía — el contenido iba pegado al borde de la tarjeta. Un único
+  // valor para las tres tarjetas de la página (agenda y los dos bloques del
+  // formulario), porque la ficha de la lista lo necesita para alinear su
+  // costado con el de las cabeceras.
+  --admin-catas-pad: clamp(1.15rem, 2.4vw, 1.75rem);
+
+  // La topbar es sticky con 56px de alto mínimo y 7px de relleno arriba y
+  // abajo: 70. Los encabezados de mes se paran justo debajo.
+  --admin-catas-sticky: 70px;
+
+  // Descendiente y no hijo directo: en el formulario los bloques cuelgan del
+  // <form>, no de la sección.
+  .admin-panel {
+    padding: var(--admin-catas-pad);
+  }
+
+  // ── Buscador ────────────────────────────────────────────────
+  //
+  // Sólo aparece cuando la agenda pasa de doce catas (lo decide la vista). Con
+  // cuatro filas en pantalla, un buscador y dos botones ocupaban más alto que
+  // la mitad de la lista que decían filtrar.
+  &__barra {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
     margin-bottom: 1.5rem;
   }
@@ -18,10 +51,18 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
+  }
 
-    .admin-field__label {
-      margin: 0;
-    }
+  // El rótulo del buscador existe para el lector de pantalla; en pantalla lo
+  // dice el placeholder, y una etiqueta más aquí competiría con la lista.
+  &__buscador-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   &__input,
@@ -39,7 +80,7 @@
 
     &:focus {
       outline: none;
-      border-color: var(--admin-gold);
+      border-color: var(--admin-accent);
       box-shadow: var(--admin-focus-ring);
     }
   }
@@ -50,112 +91,115 @@
     line-height: 1.6;
   }
 
-  // Dentro de una celda de tabla el control compite con el texto: se encoge.
-  &__input--compacto {
-    width: auto;
-    min-width: 9rem;
-    padding: 0.35rem 0.55rem;
-    font-size: 0.82rem;
+  // ── Panel de la agenda ──────────────────────────────────────
+  //
+  // La lista llega hasta los bordes del panel: cada ficha repone el relleno por
+  // su lado, así que sus separadores cruzan la tarjeta entera en vez de quedar
+  // flotando con un margen a cada extremo. Se anula sólo el relleno lateral; el
+  // de arriba y el de abajo siguen siendo los de la tarjeta.
+  &__panel {
+    padding-right: 0;
+    padding-left: 0;
+    // El sticky de los meses necesita que la tarjeta NO recorte: con el
+    // overflow:hidden que traen las admin-card, el encabezado se quedaría
+    // clavado en el borde en vez de acompañar el scroll.
+    overflow: visible;
   }
 
-  &__panel-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
+  &__panel-head,
+  &__form-head {
     margin-bottom: 1.25rem;
 
     h3 {
-      margin: 0 0 0.25rem;
+      margin: 0 0 0.3rem;
       font-size: 1.05rem;
     }
 
     p {
       margin: 0;
+      max-width: 62ch;
       color: var(--admin-muted);
       font-size: 0.85rem;
+      line-height: 1.6;
     }
   }
 
-  // Ficha de calendario: el día grande es lo que se busca al escanear la lista.
-  &__fecha {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 3.1rem;
-    padding: 0.35rem 0.5rem;
-    border: 1px solid var(--admin-border);
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-surface-soft);
-    line-height: 1.1;
+  // Cabecera y estado vacío viven dentro del panel a sangre: se les devuelve a
+  // mano el costado que el panel soltó.
+  &__panel-head {
+    padding: 0 var(--admin-catas-pad);
   }
 
-  &__dia {
-    font-size: 1.35rem;
-    font-weight: 600;
+  .admin-empty {
+    margin: 0 var(--admin-catas-pad);
+  }
+
+  // ── Tabla de la agenda ──────────────────────────────────────
+  //
+  // Casi todo lo pone .admin-table de _tables.scss. Lo propio son tres cosas:
+  // el ancho mínimo, la fila que marca el corte con lo ya ocurrido y el
+  // apagado de esas filas pasadas.
+
+  &__tabla {
+    min-width: 620px;
+  }
+
+  // El enlace ocupa la celda entera para que el objetivo de clic sea la fila
+  // y no las letras del título.
+  &__enlace {
+    display: block;
     color: var(--admin-text);
-  }
+    font-weight: 700;
+    text-decoration: none;
 
-  &__mes {
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    color: var(--admin-gold-deep);
-  }
-
-  &__cupo {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    min-width: 8rem;
-  }
-
-  &__cupo-cifra {
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  &__barra {
-    display: block;
-    width: 100%;
-    height: 5px;
-    border-radius: 99px;
-    background: color-mix(in srgb, var(--admin-faint) 26%, transparent);
-    overflow: hidden;
-  }
-
-  &__barra-fill {
-    display: block;
-    height: 100%;
-    border-radius: 99px;
-    background: var(--admin-gold);
-    transition: width var(--admin-t-base) var(--admin-ease-out);
-  }
-
-  &__acciones {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem;
-
-    form {
-      margin: 0;
+    &:hover {
+      color: var(--admin-accent);
+      text-decoration: underline;
     }
   }
 
-  &__estado-form {
+  // Corte entre lo que viene y lo que ya pasó. Es una fila del <tbody>, no un
+  // encabezado: lo que separa no son dos grupos cualesquiera sino lo que está
+  // en la portada de lo que ya salió de ella, y eso se dice una sola vez.
+  &__corte td {
+    padding-top: 1.4rem;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  // Las catas pasadas se apagan pieza a pieza y NO con `opacity` sobre la
+  // fila: bajar la opacidad del <tr> arrastraría también el interruptor y los
+  // botones, que siguen siendo accionables —una cata que ya ocurrió se puede
+  // seguir editando o borrando—.
+  &__fila--pasada {
+    .admin-table__cell-main,
+    .admin-catas__enlace {
+      color: var(--admin-muted);
+      font-weight: 600;
+    }
+
+    .admin-table__cell-sub {
+      color: var(--admin-faint);
+    }
+  }
+
+  // El interruptor de cupo, ahora dentro de una celda.
+  .admin-cata__switch-form {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     margin: 0;
   }
 
-  &__muted {
-    color: var(--admin-faint);
-  }
-
   // ── Formulario ──────────────────────────────────────────────
+  //
+  // Los bloques son tarjetas propias y se separan entre sí, no con un margen
+  // sobre el siguiente: así el último no arrastra un hueco muerto contra los
+  // botones, que van sueltos al pie.
   &__form {
     display: flex;
     flex-direction: column;
@@ -168,71 +212,76 @@
     gap: 1.25rem;
   }
 
+  // Campo con unidad pegada: el sufijo «min» y el prefijo «$» viven dentro del
+  // borde del control, no como texto suelto al lado. Es lo que evita tener que
+  // repetirlos en la etiqueta y deja los cuatro campos de la rejilla del mismo
+  // alto.
+  &__unidad {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.85rem;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius-sm);
+    background: var(--admin-surface-soft);
+    transition: border-color var(--admin-t-fast) var(--admin-ease-out),
+      box-shadow var(--admin-t-fast) var(--admin-ease-out);
+
+    // El foco lo pinta el envoltorio: el input de dentro pierde su propio
+    // borde para no dibujar una caja dentro de otra.
+    &:focus-within {
+      border-color: var(--admin-accent);
+      box-shadow: var(--admin-focus-ring);
+    }
+
+    // Duración y precio son cifras que se comparan de un campo a otro, así que
+    // van en mono con tabular-nums, como manda la tipografía del panel.
+    .admin-catas__input {
+      padding-right: 0;
+      padding-left: 0;
+      border: 0;
+      background: transparent;
+      font-family: var(--admin-font-mono);
+      font-variant-numeric: tabular-nums;
+
+      &:focus {
+        box-shadow: none;
+      }
+    }
+  }
+
+  &__unidad-prefijo,
+  &__unidad-sufijo {
+    flex: 0 0 auto;
+    color: var(--admin-muted);
+    font-family: var(--admin-font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  &__publicacion {
+    .admin-switch {
+      margin-top: 0.25rem;
+    }
+  }
+
   &__form-actions {
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
   }
-
-  // ── Detalle ─────────────────────────────────────────────────
-  &__resumen {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  &__stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1.25rem;
-  }
-
-  &__stat-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--admin-muted);
-  }
-
-  &__stat-valor {
-    font-size: 1.6rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  &__descripcion {
-    margin-bottom: 1.5rem;
-
-    h3 {
-      margin: 0 0 0.6rem;
-      font-size: 1.05rem;
-    }
-
-    p {
-      margin: 0;
-      color: var(--admin-muted);
-      line-height: 1.7;
-    }
-  }
 }
-
 @media (max-width: 720px) {
-  .admin-catas {
-    &__filtros {
-      flex-direction: column;
-      align-items: stretch;
-    }
+  .admin-catas__barra {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-    &__buscador {
-      flex-wrap: wrap;
-    }
+  .admin-catas__buscador {
+    flex-wrap: wrap;
+  }
 
-    &__acciones {
-      flex-direction: column;
-      align-items: stretch;
-    }
+  .admin-catas__buscador .admin-catas__input {
+    flex: 1 1 12rem;
   }
 }

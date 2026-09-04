@@ -53,8 +53,13 @@
     // que además lleva la flecha y la cifra del periodo anterior.
 
     // Descomposición para el Sankey: de dónde viene el dinero y en qué se va.
-    // Los flujos negativos no se representan: un Sankey sólo entiende caudales,
-    // así que una utilidad neta en rojo se anota aparte en vez de dibujarse.
+    //
+    // Un Sankey sólo entiende caudales positivos, así que la utilidad NETA
+    // negativa no se puede dibujar como tal. Antes se omitía el tramo y se
+    // explicaba con una nota al pie: el diagrama quedaba con la utilidad bruta
+    // repartiéndose en gastos y un hueco sin explicar. Ahora ese hueco se dibuja
+    // como lo que es —un «Faltante», el dinero que hizo falta y no había— y se
+    // pinta en rojo. Es el mismo dato, pero visible donde se está mirando.
     $sankey = [];
     if ($ingresos > 0) {
         if ($cogs > 0) {
@@ -76,6 +81,12 @@
             }
             if ($utilidadNeta > 0) {
                 $sankey[] = ['from' => 'Utilidad bruta', 'to' => 'Utilidad neta', 'flow' => round($utilidadNeta, 2)];
+            } elseif ($utilidadNeta < 0) {
+                $sankey[] = [
+                    'from' => 'Utilidad bruta',
+                    'to' => 'Faltante',
+                    'flow' => round(abs($utilidadNeta), 2),
+                ];
             }
         }
     }
@@ -139,6 +150,7 @@
             $statSub = $tickets . ' tickets · prom. ' . $money($ticketPromedio);
             $statDelta = $deltaIngresos ?? null;
             $statPrev = $comparando ? $money($previoCifras['ingresos']) : '';
+            $statSerie = 'verde';
             include __DIR__ . '/../partials/_stat-card.php';
 
             $statLabel = 'Costo de insumos';
@@ -146,6 +158,7 @@
             $statSub = 'Según recetas vendidas';
             $statDelta = $deltaCogs ?? null;
             $statPrev = $comparando ? $money($previoCifras['cogs']) : '';
+            $statSerie = 'naranja';
             // Que el costo suba no es una buena noticia aunque suba la venta.
             $statInverso = true;
             include __DIR__ . '/../partials/_stat-card.php';
@@ -156,6 +169,7 @@
                 . ($ingresos > 0 ? ' · ' . number_format(($merma / $ingresos) * 100, 1) . '% del ingreso' : '');
             $statDelta = $deltaMerma ?? null;
             $statPrev = $comparando ? $money($previoCifras['merma']) : '';
+            $statSerie = 'rojo';
             $statTone = $merma > 0 ? 'bad' : '';
             $statInverso = true;
             include __DIR__ . '/../partials/_stat-card.php';
@@ -165,7 +179,7 @@
             $statSub = 'Margen ' . number_format($margenBruto, 1) . '%';
             $statDelta = $deltaUtilidadBruta ?? null;
             $statPrev = $comparando ? $money($previoCifras['utilidadBruta']) : '';
-            $statTone = 'gold';
+            $statSerie = 'lima';
             include __DIR__ . '/../partials/_stat-card.php';
 
             // Sin comparativo a propósito: gastos_fijos no guarda fecha, así que
@@ -173,6 +187,7 @@
             $statLabel = 'Gastos fijos';
             $statValue = $money($totalGastos);
             $statSub = 'Montos mensuales prorrateados al periodo · no se comparan entre periodos';
+            $statSerie = 'indigo';
             include __DIR__ . '/../partials/_stat-card.php';
 
             // Denominador puntual: no hay histórico de stock del que sacar un
@@ -183,6 +198,7 @@
             $statSub = $rotacion === null
                 ? 'Sin inventario valorizado'
                 : number_format((float) $diasInventario, 0) . ' días de inventario · insumos vendidos y mermados sobre existencias de hoy (' . $money($inventarioValor) . ')';
+            $statSerie = 'turquesa';
             include __DIR__ . '/../partials/_stat-card.php';
         ?>
     </div>
@@ -248,13 +264,37 @@
         <?php if (empty($sankey)) : ?>
             <p class="admin-empty">Sin ingresos en el periodo para descomponer.</p>
         <?php else : ?>
-            <div class="admin-finanzas__sankey"><canvas id="flujoFinancieroChart"></canvas></div>
+            <p class="admin-finanzas__note admin-finanzas__note--ayuda">
+                Pasa por encima de un nodo para seguir su cadena; pulsa para aislarla.
+            </p>
+            <div class="admin-finanzas__sankey" id="flujoFinanciero"></div>
+
             <?php if ($utilidadNeta < 0) : ?>
                 <p class="admin-finanzas__note">
                     La utilidad neta es negativa (<?php echo $money($utilidadNeta); ?>): los gastos fijos
-                    superan a la utilidad bruta, así que el diagrama no dibuja ese tramo.
+                    superan a la utilidad bruta. El diagrama lo dibuja como «Faltante».
                 </p>
             <?php endif; ?>
+
+            <?php /* Alternativa accesible al SVG. Los nodos son enfocables y se
+                     anuncian con su monto, pero un diagrama de caudales no se
+                     recorre bien sólo con el foco: la tabla dice los mismos
+                     pares origen → destino en orden de lectura. */ ?>
+            <table class="admin-visually-hidden">
+                <caption>Descomposición del ingreso del periodo</caption>
+                <thead>
+                    <tr><th scope="col">De</th><th scope="col">A</th><th scope="col">Monto</th></tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($sankey as $flujo) : ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($flujo['from'], ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td><?php echo htmlspecialchars($flujo['to'], ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td><?php echo $money($flujo['flow']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         <?php endif; ?>
     </section>
 

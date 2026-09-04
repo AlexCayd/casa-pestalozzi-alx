@@ -256,13 +256,49 @@ function initMapa() {
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
     card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
     ban:     '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
-    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>'
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+
+    /*
+     * El resto sustituye a los emojis y a los glifos sueltos que hacían de
+     * icono en el modal (✨ 🍽 🕐 👥 ⚠ ☰ ◎ ◌ ↻ ✎ ✓ → ← ↑ ↓ −). Un emoji lo
+     * pinta la fuente del sistema: no hereda currentColor, cambia de forma
+     * entre Windows, Android y iOS —y la tablet del piso no es siempre la
+     * misma— y se sale de la caja tipográfica del resto de la interfaz. Estos
+     * son trazo de 1.9 sobre la misma retícula de 24 que los de arriba.
+     */
+    sparkles: '<path d="M12 3.2 13.5 8 18 9.5 13.5 11 12 15.8 10.5 11 6 9.5 10.5 8Z"/><path d="M18.5 15.5 19.2 17.8 21.5 18.5 19.2 19.2 18.5 21.5 17.8 19.2 15.5 18.5 17.8 17.8Z"/>',
+    dish:     '<path d="M3.5 17h17"/><path d="M5 17a7 7 0 0 1 14 0"/><path d="M12 6.5v3.5"/><circle cx="12" cy="5" r="1.2"/><path d="M2.5 20.5h19"/>',
+    alert:    '<path d="M10.3 3.9 2.4 17.6A1.8 1.8 0 0 0 4 20.4h16a1.8 1.8 0 0 0 1.6-2.8L13.7 3.9a1.8 1.8 0 0 0-3.4 0Z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/>',
+    clock:    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 1.9"/>',
+    list:     '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>',
+    ticket:   '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/>',
+    idle:     '<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3.2"/>',
+    refresh:  '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4.5V10h-5.5"/>',
+    pencil:   '<path d="M4 20h4.2L19.4 8.8a2.1 2.1 0 0 0-3-3L5.2 17Z"/><path d="M14.5 6.5 17.5 9.5"/>',
+    check:    '<path d="m5 12.8 4.6 4.4L19 6.8"/>',
+    right:    '<path d="M4 12h15.5"/><path d="m13.5 6 6 6-6 6"/>',
+    left:     '<path d="M20 12H4.5"/><path d="m10.5 6-6 6 6 6"/>',
+    up:       '<path d="M12 19.5V5"/><path d="m6 11 6-6 6 6"/>',
+    down:     '<path d="M12 4.5V19"/><path d="m6 13 6 6 6-6"/>',
+    minus:    '<path d="M5.5 12h13"/>',
+    plus:     '<path d="M5.5 12h13"/><path d="M12 5.5v13"/>'
   };
 
   function svgIcon(name, size) {
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" ' +
            'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' +
            'aria-hidden="true">' + (SVG_PATHS[name] || '') + '</svg>';
+  }
+
+  /**
+   * Etiqueta de botón con icono a la izquierda (o a la derecha con `after`).
+   * El texto va en su propio <span> para que .mmodal-btn pueda alinearlos como
+   * caja flex sin que el SVG herede el letter-spacing de las versalitas.
+   */
+  function btnLabel(icono, texto, after) {
+    var svg = '<span class="mmodal-btn__icon">' + svgIcon(icono, 16) + '</span>';
+    var txt = '<span class="mmodal-btn__text">' + escHtml(texto) + '</span>';
+    return after ? txt + svg : svg + txt;
   }
 
   // El mesero de la sesión, si es de los asignables (la API solo lista los de
@@ -374,9 +410,10 @@ function initMapa() {
   }
 
   // ── Sugerencias de venta (flujo de n8n) ───────────────────
+  // `icono` es el NOMBRE de un icono de SVG_PATHS, no un caracter.
   function sugEstadoHtml(texto, icono) {
     return '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' +
-           (icono || '✨') + '</span><span>' + escHtml(texto) + '</span></div>';
+           svgIcon(icono || 'sparkles', 26) + '</span><span>' + escHtml(texto) + '</span></div>';
   }
 
   function sugListEl() {
@@ -397,7 +434,7 @@ function initMapa() {
     var label = ETAPA_LABELS[etapa];
     if (!label) { el.hidden = true; return; }
 
-    el.textContent = '🍽 ' + label;
+    el.innerHTML   = svgIcon('dish', 14) + '<span>' + escHtml(label) + '</span>';
     el.className   = 'mmodal-etapa mmodal-etapa--' + etapa.toLowerCase();
     el.hidden      = false;
   }
@@ -471,7 +508,7 @@ function initMapa() {
         if (silencioso) return;
         var errEl = sugListEl();
         if (errEl) {
-          errEl.innerHTML = sugAccionHtml(result.mensaje || '', '⚠', 'Reintentar');
+          errEl.innerHTML = sugAccionHtml(result.mensaje || '', 'alert', 'Reintentar');
           bindSugMore();
         }
         return;
@@ -508,7 +545,7 @@ function initMapa() {
       if (!sugTicket || sugTicket.id !== ticket.id || silencioso) return;
       var errEl = sugListEl();
       if (errEl) {
-        errEl.innerHTML = sugAccionHtml('No pudimos obtener sugerencias', '⚠', 'Reintentar');
+        errEl.innerHTML = sugAccionHtml('No pudimos obtener sugerencias', 'alert', 'Reintentar');
         bindSugMore();
       }
     });
@@ -562,7 +599,7 @@ function initMapa() {
     if (!SUGERENCIAS.length) {
       list.innerHTML = sugAccionHtml(
         vacioTexto || 'Ya viste todas las sugerencias de esta etapa',
-        '✨',
+        'sparkles',
         'Obtener más sugerencias'
       );
       bindSugMore();
@@ -1329,7 +1366,7 @@ function initMapa() {
     h += '<span class="mmodal-title">Corte de caja</span>';
     h += '</div></div>';
     h += '<div class="mmodal-caja"><div class="mmodal-col-empty">';
-    h += '<span class="mmodal-col-empty__icon">⚠</span>';
+    h += '<span class="mmodal-col-empty__icon">' + svgIcon('alert', 26) + '</span>';
     h += '<span>No se pudo cargar el corte de caja.</span></div>';
     h += '<div class="mmodal-cerrar-confirm__btns"><button class="mmodal-btn mmodal-btn--ghost" id="caja-cerrar">Cerrar</button></div>';
     h += '</div>';
@@ -1417,7 +1454,7 @@ function initMapa() {
     }
 
     if (!res.tickets) {
-      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◌</span><span>Aún no hay ventas cerradas hoy.</span></div>';
+      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('idle', 26) + '</span><span>Aún no hay ventas cerradas hoy.</span></div>';
     }
 
     h += '<div class="mmodal-cerrar-confirm__btns"><button class="mmodal-btn mmodal-btn--ghost" id="caja-cerrar">Cerrar</button></div>';
@@ -1471,15 +1508,18 @@ function initMapa() {
       h += '<div class="mmodal-llevar-row" data-tid="' + t.id + '">';
       h += '<div class="mmodal-llevar-row__info">';
       h += '<span class="mmodal-llevar-row__nombre">' + nombreLabel + '</span>';
-      h += '<span class="mmodal-llevar-row__meta">🕐 ' + horaAp + ' &nbsp;·&nbsp; 👥 ' + t.comensales + '</span>';
+      h += '<span class="mmodal-llevar-row__meta">' + svgIcon('clock', 13) + '<span>' + escHtml(horaAp) + '</span>' +
+           '<span class="mmodal-llevar-row__sep" aria-hidden="true">·</span>' +
+           svgIcon('users', 13) + '<span>' + t.comensales + '</span></span>';
       h += '</div>';
-      h += '<span class="mmodal-llevar-row__arrow">→</span>';
+      h += '<span class="mmodal-llevar-row__arrow">' + svgIcon('right', 15) + '</span>';
       h += '</div>';
     }
     h += '</div>';
 
     h += '<div class="mmodal-actions">';
-    h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llevar-nuevo">+ Nuevo pedido</button>';
+    h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llevar-nuevo">' +
+         btnLabel('plus', 'Nuevo pedido') + '</button>';
     h += '</div>';
     return h;
   }
@@ -1808,9 +1848,9 @@ function initMapa() {
              '<span>' + POS_PANELES[clave].label + '</span>' +
              '<span class="mmodal-prefs__orden-btns">' +
                '<button type="button" data-mover="' + clave + '" data-dir="-1" aria-label="Subir"' +
-                 (i === 0 ? ' disabled' : '') + '>↑</button>' +
+                 (i === 0 ? ' disabled' : '') + '>' + svgIcon('up', 14) + '</button>' +
                '<button type="button" data-mover="' + clave + '" data-dir="1" aria-label="Bajar"' +
-                 (i === p.orden.length - 1 ? ' disabled' : '') + '>↓</button>' +
+                 (i === p.orden.length - 1 ? ' disabled' : '') + '>' + svgIcon('down', 14) + '</button>' +
              '</span>' +
            '</div>';
     }
@@ -1954,8 +1994,8 @@ function initMapa() {
       if (ticket.nombre) {
         h += '<span>Cliente: ' + escHtml(ticket.nombre) + '</span>';
       }
-      h += '<span>👥 ' + ticket.comensales + ' com.</span>';
-      h += '<span>🕐 ' + horaAp + '</span>';
+      h += '<span class="mmodal-meta-item">' + svgIcon('users', 14) + '<span>' + ticket.comensales + ' com.</span></span>';
+      h += '<span class="mmodal-meta-item">' + svgIcon('clock', 14) + '<span>' + escHtml(horaAp) + '</span></span>';
       // La etapa la detecta n8n; se llena cuando responden las sugerencias.
       h += '<span class="mmodal-etapa" id="mmodal-etapa" hidden></span>';
       h += '</div>';
@@ -2043,7 +2083,7 @@ function initMapa() {
       h += '<div class="mmodal-panel-label">Pedido</div>';
       h += '<div class="mmodal-panel-scroll">';
       h += '<div class="mmodal-cart" id="mmodal-cart">';
-      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">☰</span>' +
+      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('list', 26) + '</span>' +
            '<span>Selecciona platos en el Menú</span></div>';
       h += '</div>';
       h += '</div>'; // fin panel-scroll
@@ -2053,7 +2093,7 @@ function initMapa() {
       h += '<span class="mmodal-total-amount" id="mmodal-total-val">$0</span>';
       h += '</div>';
       h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-enviar" disabled>';
-      h += 'Confirmar y enviar (0) →';
+      h += btnLabel('right', 'Confirmar y enviar (0)', true);
       h += '</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-cart
@@ -2063,7 +2103,7 @@ function initMapa() {
       h += '<div class="mmodal-panel-label">Estado del ticket</div>';
       h += '<div class="mmodal-panel-scroll">';
       h += '<div id="mmodal-resumen-content">';
-      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span>' +
+      h += '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('ticket', 26) + '</span>' +
            '<span>Sin comandas enviadas aún</span></div>';
       h += '</div>';
       h += '</div>'; // fin panel-scroll
@@ -2079,7 +2119,7 @@ function initMapa() {
       h += '<div class="mmodal-panel-scroll" id="mmodal-sug-list">';
       // Estado ocioso: no se pide nada hasta que el mesero lo pida (ver
       // prepararSugerencias). El botón lo enlaza bindSugMore.
-      h += sugAccionHtml('Recomienda algo a esta mesa', '✨', 'Buscar sugerencias');
+      h += sugAccionHtml('Recomienda algo a esta mesa', 'sparkles', 'Buscar sugerencias');
       h += '</div>'; // fin panel-scroll
       h += '</div>'; // fin panel-sugerencias
 
@@ -2243,9 +2283,9 @@ function initMapa() {
       h += '<div class="mmodal-stepper-wrap">';
       h += '<div class="mmodal-label">Comensales</div>';
       h += '<div class="mmodal-stepper">';
-      h += '<button class="mmodal-step" id="mmodal-dec">−</button>';
+      h += '<button class="mmodal-step" id="mmodal-dec" aria-label="Quitar comensal">' + svgIcon('minus', 22) + '</button>';
       h += '<span class="mmodal-step-val" id="mmodal-cval">' + defaultCom + '</span>';
-      h += '<button class="mmodal-step" id="mmodal-inc">+</button>';
+      h += '<button class="mmodal-step" id="mmodal-inc" aria-label="Sumar comensal">' + svgIcon('plus', 22) + '</button>';
       h += '</div>';
       h += '</div>';
       h += '<div class="mmodal-actions">';
@@ -2409,7 +2449,7 @@ function initMapa() {
     }
     h += '</div>';
     h += '<div class="mmodal-sug-footer">';
-    h += '<button class="mmodal-sug-swap" data-swap="' + idx + '">↻ Otra sugerencia</button>';
+    h += '<button class="mmodal-sug-swap" data-swap="' + idx + '">' + svgIcon('refresh', 14) + '<span>Otra sugerencia</span></button>';
     h += '</div>';
     h += '</div>';
     return h;
@@ -2514,7 +2554,7 @@ function initMapa() {
           '<span class="mmodal-cart-name">' + escHtml(item.n) + '</span>' +
           '<span class="mmodal-cart-comensal">' + comLabel + '</span>' +
           '<div class="mmodal-cart-controls">' +
-            '<button data-idx="' + idx + '" data-op="dec">−</button>' +
+            '<button data-idx="' + idx + '" data-op="dec" aria-label="Quitar uno">' + svgIcon('minus', 14) + '</button>' +
             '<span>' + item.qty + '</span>' +
             '<button data-idx="' + idx + '" data-op="inc">+</button>' +
           '</div>' +
@@ -2524,7 +2564,8 @@ function initMapa() {
         var noteToggle = document.createElement('button');
         noteToggle.className = 'mmodal-cart-nota-btn' + (item.nota ? ' mmodal-cart-nota-btn--active' : '');
         noteToggle.type = 'button';
-        noteToggle.textContent = item.nota ? '✎ Nota ✓' : '✎ Nota';
+        noteToggle.innerHTML = svgIcon('pencil', 13) + '<span>Nota</span>' +
+        (item.nota ? svgIcon('check', 13) : '');
         row.appendChild(noteToggle);
 
         var noteWrap = document.createElement('div');
@@ -2541,7 +2582,8 @@ function initMapa() {
           toggle.addEventListener('click', function() {
             var open = noteWrap.style.display !== 'none';
             noteWrap.style.display = open ? 'none' : 'block';
-            toggle.textContent = !open ? '✎ Nota ↑' : (commandaItems[capturedIdx].nota ? '✎ Nota ✓' : '✎ Nota');
+            toggle.innerHTML = svgIcon('pencil', 13) + '<span>Nota</span>' +
+          (!open ? svgIcon('up', 13) : (commandaItems[capturedIdx].nota ? svgIcon('check', 13) : ''));
           });
         })(idx, noteTA, noteToggle);
         noteWrap.appendChild(noteTA);
@@ -2581,7 +2623,7 @@ function initMapa() {
       amount += commandaItems[i].p * commandaItems[i].qty;
     }
     if (btn) {
-      btn.textContent = 'Confirmar y enviar (' + total + ') →';
+      btn.innerHTML = btnLabel('right', 'Confirmar y enviar (' + total + ')', true);
       btn.disabled    = (total === 0);
     }
     if (badge) { badge.textContent = total; badge.style.display = total > 0 ? 'inline' : 'none'; }
@@ -2670,7 +2712,7 @@ function initMapa() {
     cargarTicketItems(ticketId, false)
       .then(function(data) {
         if (!data.ok || !data.items || !data.items.length) {
-          resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">◎</span><span>Sin comandas enviadas aún</span></div>';
+          resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('ticket', 26) + '</span><span>Sin comandas enviadas aún</span></div>';
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
           actualizarCierreEstado(0);
@@ -2716,14 +2758,14 @@ function initMapa() {
                             : row.estado === 'en_preparacion' ? 'var(--estado-preparacion)'
                             : 'var(--estado-enviado)';
             var statusLabel = row.estado === 'cancelado'      ? 'Cancelado'
-                            : row.estado === 'entregado'      ? 'Entregado ✓'
+                            : row.estado === 'entregado'      ? 'Entregado'
                             : row.estado === 'listo'          ? 'Listo'
                             : row.estado === 'en_preparacion' ? 'En preparación' : 'Enviado';
             var com = row.comensal !== null ? 'C.' + row.comensal : 'Gral';
             // Entregable en cualquier estado vivo: el mesero puede llevarse el
             // plato aunque el tablero de área vaya un paso atrás.
             var entBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
-              ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">✓ Entregar</button>'
+              ? '<button class="mmodal-entregar-btn" data-id="' + row.id + '">' + svgIcon('check', 13) + '<span>Entregar</span></button>'
               : '';
             var cancelBtn = (row.estado !== 'entregado' && row.estado !== 'cancelado')
               ? '<button class="mmodal-cancel-btn" data-id="' + row.id +
@@ -3180,7 +3222,7 @@ function initMapa() {
     h += '</button>';
     h += '</div>';
     h += '<div class="mmodal-cerrar-confirm__btns" style="margin-top:0">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-ticket">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="cc-volver-ticket">' + btnLabel('left', 'Volver') + '</button>';
     h += '</div>';
     h += '</div>';
 
@@ -3318,7 +3360,7 @@ function initMapa() {
     h += '</div>';
 
     h += '<div class="mmodal-cerrar-confirm__btns mmodal-cobro__acciones">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="pc-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="pc-volver">' + btnLabel('left', 'Volver') + '</button>';
     h += '<button class="mmodal-btn mmodal-btn--danger" id="pc-confirm">Cerrar ticket</button>';
     h += '</div>';
     h += '</div>';
@@ -3751,7 +3793,7 @@ function initMapa() {
     h += '</div>';
 
     h += '<div class="mmodal-cerrar-confirm__btns mmodal-cobro__acciones">';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="split-volver">← Volver</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="split-volver">' + btnLabel('left', 'Volver') + '</button>';
     h += '<button class="mmodal-btn mmodal-btn--danger" id="split-confirm" disabled>Cerrar ticket</button>';
     h += '</div>';
     h += '</div>';
@@ -3815,13 +3857,13 @@ function initMapa() {
 
       if (diffEl) {
         if (diff < -1) {
-          diffEl.textContent = 'Faltan $' + fmt(-diff) + ' por asignar';
+          diffEl.innerHTML   = svgIcon('alert', 13) + '<span>Faltan $' + fmt(-diff) + ' por asignar</span>';
           diffEl.className   = 'mmodal-split-diff mmodal-split-diff--falta';
         } else if (propina > 0) {
-          diffEl.textContent = '✓ Incluye $' + fmt(propina) + ' de propina';
+          diffEl.innerHTML   = svgIcon('check', 13) + '<span>Incluye $' + fmt(propina) + ' de propina</span>';
           diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
         } else {
-          diffEl.textContent = '✓ Los montos cubren el total';
+          diffEl.innerHTML   = svgIcon('check', 13) + '<span>Los montos cubren el total</span>';
           diffEl.className   = 'mmodal-split-diff mmodal-split-diff--ok';
         }
       }
@@ -4848,7 +4890,7 @@ function initMapa() {
           if (!silent) {
             reservasList.innerHTML =
               '<div class="mapa-empty-state mapa-empty-state--error">' +
-                '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+                '<span class="mapa-empty-icon" aria-hidden="true">' + svgIcon('alert', 24) + '</span>' +
                 '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
                 '<span class="mapa-empty-hint">' + (data.hint || data.error || 'Error de servidor') + '</span>' +
               '</div>';
@@ -4884,7 +4926,7 @@ function initMapa() {
         if (!silent) {
           reservasList.innerHTML =
             '<div class="mapa-empty-state mapa-empty-state--error">' +
-              '<span class="mapa-empty-icon" aria-hidden="true">⚠</span>' +
+              '<span class="mapa-empty-icon" aria-hidden="true">' + svgIcon('alert', 24) + '</span>' +
               '<span class="mapa-empty-title">No se pudieron cargar las reservaciones</span>' +
               '<span class="mapa-empty-hint">Revisa la conexión e inténtalo de nuevo.</span>' +
             '</div>';

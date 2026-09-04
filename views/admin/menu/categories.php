@@ -101,7 +101,12 @@
                                                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                                             </svg>
                                         </a>
-                                        <form method="POST" action="/admin/menu/categorias/delete" onsubmit="return confirm('Eliminar la categoría &quot;<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>&quot;?');">
+                                        <form method="POST" action="/admin/menu/categorias/delete"
+                                              data-confirm-delete
+                                              data-confirm-eyebrow="Eliminar categoría"
+                                              data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-description="Los platillos que la usan quedarán sin categoría."
+                                              data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $cat->id; ?>">
                                             <button
                                                 type="submit"

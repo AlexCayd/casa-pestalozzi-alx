@@ -87,7 +87,7 @@
   border-bottom: 1px solid var(--admin-border-soft);
 
   strong {
-    font-family: var(--admin-font-display, "Fraunces", serif);
+    font-family: var(--admin-font-sans);
     font-size: 17px;
     color: var(--admin-text);
     font-weight: 500;
@@ -199,6 +199,11 @@
 }
 
 // ── Descomposición del ingreso (Sankey) ───────────────────────
+//
+// Ya no es un canvas de Chart.js: lo dibuja src/js/admin/finanzas/sankey.js en
+// SVG. El JS mide el contenedor para repartir columnas y para decidir de qué
+// lado de cada nodo cabe su etiqueta, así que el alto de aquí abajo es una
+// entrada del cálculo y no sólo una caja.
 .admin-finanzas__sankey-panel {
   margin-bottom: 20px;
 }
@@ -208,6 +213,71 @@
 .admin-finanzas__sankey {
   position: relative;
   height: clamp(320px, 40vw, 480px);
+  // El SVG se calcula contra el ancho disponible, pero con etiquetas muy
+  // largas en un panel estrecho el módulo impone un mínimo y desborda. Que
+  // desborde a un scroll es preferible a que apile los nodos.
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-finanzas__note--ayuda {
+  margin-bottom: 10px;
+}
+
+// El caudal y el nodo cambian de opacidad al resaltar la cadena. Sólo opacity:
+// es lo que el compositor resuelve sin repintar, que es la regla de la casa
+// para todo lo que se mueve con el cursor.
+.admin-sankey__cinta,
+.admin-sankey__nodo {
+  transition: opacity var(--admin-t-fast) var(--admin-ease-out);
+}
+
+.admin-sankey__cinta {
+  cursor: pointer;
+}
+
+.admin-sankey__nodo {
+  cursor: pointer;
+
+  // El anillo de foco del panel es un box-shadow, y en SVG box-shadow no pinta
+  // nada: aquí el foco se dibuja con el trazo del propio rectángulo.
+  &:focus-visible {
+    outline: none;
+    stroke: var(--admin-accent);
+    stroke-width: 3;
+    paint-order: stroke;
+  }
+}
+
+.admin-sankey__rotulo {
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+// Tooltip propio. El <title> nativo del SVG tarda casi un segundo en aparecer,
+// no se puede estilar y en tema oscuro sale con el cromo del sistema.
+.admin-sankey__tip {
+  position: absolute;
+  z-index: 5;
+  max-width: 22rem;
+  padding: 8px 11px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-chart-tooltip);
+  color: var(--admin-paper);
+  font-family: var(--admin-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: var(--admin-shadow-md);
+
+  &[hidden] {
+    display: none;
+  }
 }
 
 // ── Formularios de gastos ─────────────────────────────────────

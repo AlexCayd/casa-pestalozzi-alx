@@ -233,7 +233,12 @@
                 </span>
             </div>
         <?php else : ?>
-            <div class="admin-table-wrap" data-lenis-prevent>
+            <?php /* data-scrollable, no data-lenis-prevent: este wrap sólo
+                     desplaza en horizontal, así que reteniendo la rueda no
+                     movía nada y la página se plantaba encima de la tabla.
+                     Con la marca de inventario, motion.js decide en cada rueda
+                     si de verdad desborda en vertical. */ ?>
+            <div class="admin-table-wrap" data-scrollable>
                 <table class="admin-table admin-merma__table">
                     <thead>
                         <tr>
@@ -278,7 +283,7 @@
         <?php if (empty($ingredientes)) : ?>
             <p class="admin-empty">No hay ingredientes registrados. Crea el primero para comenzar a controlar el inventario.</p>
         <?php else : ?>
-            <div class="admin-table-wrap" data-lenis-prevent>
+            <div class="admin-table-wrap" data-scrollable>
                 <table class="admin-table">
                     <thead>
                         <tr>
@@ -306,7 +311,12 @@
                                         <span class="admin-table__cell-sub">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><span class="admin-badge admin-badge--neutral"><?php echo htmlspecialchars($ing->unidad); ?></span></td>
+                                <?php /* La unidad en texto llano, no en badge: no es un estado, es una
+                                        etiqueta fija. Cada fila llevaba seis colores —unidad, semáforo,
+                                        Guardar dorado, merma ámbar, editar verde y borrar rojo— y con
+                                        todo teñido el único que importa, el semáforo de stock, dejaba
+                                        de destacar. */ ?>
+                                <td><span class="admin-table__cell-sub"><?php echo htmlspecialchars($ing->unidad); ?></span></td>
                                 <td>
                                     <span class="admin-badge admin-badge--<?php echo $neg ? 'danger' : ($bajo ? 'warning' : 'success'); ?>">
                                         <?php echo rtrim(rtrim(number_format($stock, 3, '.', ''), '0'), '.'); ?>
@@ -318,32 +328,34 @@
                                     <form class="admin-inline-form" method="POST" action="/admin/inventario/ajustar">
                                         <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">
                                         <input type="number" name="stock" step="0.001" value="<?php echo htmlspecialchars($fmt($stock)); ?>" aria-label="Nuevo stock de <?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>">
-                                        <button type="submit" class="admin-btn admin-btn--gold admin-inventario__save" title="Fijar stock">
+                                        <?php /* Secundario y no dorado: fijar el stock es rutina de
+                                                conteo, no la acción principal de la pantalla. En
+                                                dorado, 34 filas competían con el «Nuevo ingrediente»
+                                                de la cabecera. */ ?>
+                                        <button type="submit" class="admin-btn admin-btn--secondary admin-inventario__save" title="Fijar stock">
                                             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>
                                             Guardar
                                         </button>
                                     </form>
                                 </td>
                                 <td>
+                                    <?php /* Dos acciones, no tres. «Registrar merma» salió de la fila:
+                                            el panel de arriba ya tiene el formulario completo, con su
+                                            motivo y su detalle, y aquí sólo duplicaba el acceso a
+                                            costa de meter un tercer color en cada renglón. */ ?>
                                     <div class="admin-table-actions">
-                                        <?php /* Los data-* del disparador rellenan el modal: uno solo
-                                                 para toda la tabla en vez de un formulario por fila. */ ?>
-                                        <button type="button" class="admin-icon-button admin-icon-button--warn"
-                                                data-merma-open
-                                                data-admin-modal-open="inventario-merma-modal"
-                                                data-id="<?php echo (int) $ing->id; ?>"
-                                                data-nombre="<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"
-                                                data-unidad="<?php echo htmlspecialchars($ing->unidad, ENT_QUOTES); ?>"
-                                                data-stock="<?php echo htmlspecialchars($fmt($stock), ENT_QUOTES); ?>"
-                                                title="Registrar merma" aria-label="Registrar merma de <?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"
-                                                aria-haspopup="dialog" aria-controls="inventario-merma-modal">
-                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M12 10v6"/></svg>
-                                        </button>
                                         <a class="admin-icon-button admin-icon-button--edit" href="/admin/inventario/edit?id=<?php echo (int) $ing->id; ?>" title="Editar" aria-label="Editar <?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>">
                                             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                         </a>
+                                        <?php /* data-ingrediente-delete lo intercepta inventario.js para
+                                                pedir al servidor en qué recetas entra el ingrediente y
+                                                exigir que se escriba el nombre. Sin JS, el formulario
+                                                envía igual: los data-confirm-* son el respaldo. */ ?>
                                         <form method="POST" action="/admin/inventario/delete"
                                               data-confirm-delete
+                                              data-ingrediente-delete
+                                              data-ingrediente-id="<?php echo (int) $ing->id; ?>"
+                                              data-ingrediente-nombre="<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"
                                               data-confirm-eyebrow="Eliminar ingrediente"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>»?"
                                               data-confirm-description="Se borrará del inventario y de las recetas que lo usan."
@@ -364,60 +376,10 @@
     </section>
 </section>
 
+
 <?php /*
-  Un solo modal para toda la tabla: el disparador de cada fila lo rellena desde
-  sus data-*. Con un formulario por renglón la página cargaba 34 diálogos que
-  nadie iba a abrir.
+  El modal «Registrar merma» se retiró: lo abría únicamente el botón de cada
+  fila de Existencias, y ese botón salió de la tabla. El formulario del panel
+  de arriba hace lo mismo y además deja elegir el ingrediente, así que el
+  diálogo era una segunda copia del mismo alta.
 */ ?>
-<div class="admin-modal" id="inventario-merma-modal" data-admin-modal hidden>
-    <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
-    <?php /* --wide: el <select> de motivos no cabe en media columna de los
-             440px del diálogo por omisión y "Faltante de inventario" se
-             recortaba a la mitad. */ ?>
-    <div class="admin-modal__dialog admin-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="merma-modal-title" tabindex="-1" data-admin-modal-dialog>
-        <div class="admin-modal__head">
-            <div>
-                <span class="admin-modal__eyebrow">Inventario</span>
-                <h2 class="admin-modal__title" id="merma-modal-title">Registrar merma</h2>
-                <p class="admin-modal__text">
-                    Anota lo que se tiró de <strong data-merma-nombre>este ingrediente</strong>.
-                    Se descuenta del stock y se cuenta como costo del periodo.
-                </p>
-            </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
-        </div>
-
-        <form class="admin-modal__form" method="POST" action="/admin/inventario/merma" data-merma-form>
-            <input type="hidden" name="id" value="" data-merma-id>
-
-            <label class="admin-field">
-                <span class="admin-field__label">Cantidad</span>
-                <input type="number" name="cantidad" step="0.001" min="0.001" required
-                       autocomplete="off" placeholder="0" data-merma-cantidad>
-                <span class="admin-field__hint">
-                    En existencia: <span data-merma-stock>—</span> <span data-merma-unidad></span>
-                </span>
-            </label>
-
-            <label class="admin-field">
-                <span class="admin-field__label">Motivo</span>
-                <select name="motivo" required data-merma-motivo>
-                    <?php foreach ($motivosMerma as $clave => $etiqueta) : ?>
-                        <option value="<?php echo htmlspecialchars($clave, ENT_QUOTES); ?>"><?php echo htmlspecialchars($etiqueta); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-
-            <label class="admin-field admin-modal__field--wide">
-                <span class="admin-field__label">Detalle <small>(opcional)</small></span>
-                <input type="text" name="nota" maxlength="255" autocomplete="off"
-                       placeholder="Ej. se rompió la cadena de frío el sábado">
-            </label>
-
-            <div class="admin-modal__actions admin-modal__field--wide">
-                <button type="button" class="admin-btn admin-btn--secondary" data-admin-modal-close>Cancelar</button>
-                <button type="submit" class="admin-btn admin-btn--primary">Registrar merma</button>
-            </div>
-        </form>
-    </div>
-</div>

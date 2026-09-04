@@ -1,7 +1,7 @@
 /*
  * Módulo de Punto de Venta en el admin.
- * Publica la tarjeta que lanza el POS y el listado de mesas con su estado.
- * Depende de admin.css (tokens, .admin-card, .admin-table, .admin-badge).
+ * Publica la tarjeta que lanza el POS y nada más.
+ * Depende de admin.css (tokens, .admin-card, .admin-btn).
  */
 .admin-map--launch {
   display: grid;
@@ -51,61 +51,5 @@
   svg {
     width: 16px;
     height: 16px;
-  }
-}
-
-// ── Lista estructurada de mesas ──────────────────────────────
-// Antes vivía dentro del mapa del POS, donde le quitaba alto al lienzo en la
-// tablet. Aquí es una tabla de consulta y el estado se lee de un vistazo.
-.admin-pos-tables {
-  min-width: 0;
-  padding: 20px;
-
-  > header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-
-    h3 {
-      margin: 5px 0 0;
-      font-size: 20px;
-    }
-
-    > span {
-      color: var(--admin-muted);
-      font-size: 12px;
-      overflow-wrap: anywhere;
-    }
-  }
-
-  // La tabla cabe entera: el scroll vertical es el único que aporta.
-  .admin-table-wrap {
-    max-height: 460px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--admin-gold) 38%, transparent);
-    }
-  }
-
-  // Las columnas numéricas y de estado no necesitan el ancho de la de nombre.
-  .admin-table th:not(:first-child),
-  .admin-table td:not(:first-child) {
-    width: 1%;
-    white-space: nowrap;
   }
 }

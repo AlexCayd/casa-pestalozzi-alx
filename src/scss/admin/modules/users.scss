@@ -28,10 +28,12 @@
     flex: 0 0 auto;
     border-radius: 50%;
     border: 1px solid var(--admin-border);
-    background:
-      radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--admin-gold) 28%, transparent), transparent 70%),
-      var(--admin-surface-soft);
-    color: var(--admin-gold);
+    /* Sólido: el radial dorado era de la identidad anterior y sobre el gris
+       del panel se leía como una mancha. El avatar ya se distingue por las
+       iniciales, que es lo que identifica a la persona. */
+    background: var(--admin-surface-soft);
+    box-shadow: inset 0 1px 0 var(--admin-glass-edge);
+    color: var(--admin-muted);
     font-family: var(--admin-font-heading);
     font-size: 15px;
     font-weight: 600;
@@ -65,34 +67,20 @@
      columna angosta competían con los datos. Queda un tinte tenue por rol —
      siguen siendo tres alcances distintos (todo / punto de venta / tableros)
      y conviene distinguirlos— y un ancho fijo para que la columna no baile
-     entre "Mesero" y "Administrador". */
+     entre "Mesero" y "Administrador".
+
+     La caja y el mecanismo del tinte se fueron a .admin-tag en _tables.scss, y
+     el marcado compone las dos clases (`admin-tag admin-role admin-role--x`)
+     como hace .admin-btn. No se puede @extend: users.scss es un entry point
+     propio y .admin-tag vive en admin.css, otra compilación.
+     Aquí quedan el ancho mínimo, que es propio de esta columna, y los tonos. */
   .admin-role {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-width: 118px;
-    min-height: 26px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: var(--admin-radius-sm);
-    background: var(--admin-neutral-bg);
-    color: var(--admin-neutral-text);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
   }
 
-  .admin-role--admin  { --admin-role-tono: var(--admin-c-magenta); }
-  .admin-role--waiter { --admin-role-tono: var(--admin-c-azul); }
-  .admin-role--cook   { --admin-role-tono: var(--admin-c-naranja); }
-
-  .admin-role--admin,
-  .admin-role--waiter,
-  .admin-role--cook {
-    background: color-mix(in srgb, var(--admin-role-tono) 10%, var(--admin-surface));
-    color: color-mix(in srgb, var(--admin-role-tono) 72%, var(--admin-text));
-  }
+  .admin-role--admin  { --admin-tag-tono: var(--admin-c-magenta); }
+  .admin-role--waiter { --admin-tag-tono: var(--admin-c-azul); }
+  .admin-role--cook   { --admin-tag-tono: var(--admin-c-naranja); }
 
   // ── Tabla con más aire ──────────────────────────────────────
   .admin-table {
@@ -291,22 +279,32 @@
   }
 
   /*
-   * Columnas por ancho disponible, no un número fijo: a pantalla completa dos
-   * columnas dejaban campos de 700px para escribir un usuario de 20 caracteres.
-   * El tope de tres evita que en un monitor ancho la fila se vuelva ilegible.
+   * DOS columnas, no tres.
+   *
+   * Con tres, el formulario sólo tenía dos campos que ocupar en la primera
+   * fila —Usuario y Nombre completo— y la tercera columna quedaba vacía: los
+   * campos se veían encogidos contra un hueco, que es exactamente la sensación
+   * de "no ocupan todo el ancho". A dos columnas la fila se completa, cada
+   * campo gana la mitad del panel y el bloque de Rol pasa a fila entera, que es
+   * donde el control segmentado de tres opciones y la lista «Acceso del rol»
+   * se leen sin partirse.
+   *
+   * El auto-fit de abajo sigue mandando por debajo de 1100px: en tablet la
+   * rejilla decide sola cuántas caben.
    */
   &__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 18px 22px;
 
     @media (min-width: 1100px) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  // Contraseña y su confirmación son dos campos, no tres: en la rejilla de
-  // tres columnas quedaban encogidos con un hueco al lado.
+  // Contraseña y su confirmación ya caen en dos columnas por la regla de
+  // arriba; el modificador se conserva porque el marcado lo declara y porque
+  // fija el par aunque la rejilla base cambie.
   &__grid--pair {
     @media (min-width: 1100px) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -327,11 +325,13 @@
       grid-column: 1 / -1;
     }
 
-    // El campo de Rol lleva las pestañas más la lista «Acceso del rol»:
-    // en una sola columna la lista se parte en renglones de una palabra.
+    // El campo de Rol lleva las pestañas más la lista «Acceso del rol»: en una
+    // sola columna la lista se parte en renglones de una palabra. Con la
+    // rejilla a dos columnas, `span 2` es ya la fila entera — que es
+    // justamente lo que necesita un segmentado de tres opciones.
     &--wide {
       @media (min-width: 780px) {
-        grid-column: span 2;
+        grid-column: 1 / -1;
       }
     }
 

@@ -194,8 +194,36 @@
     }
   }
 
-  // La barra de progreso se retiró junto con la cuenta atrás: el anuncio ya no
-  // se cierra solo, así que no hay tiempo restante que dibujar.
+  // ── Tiempo restante ─────────────────────────────────────────
+  //
+  // Sólo la emite el aviso discreto, que es el único que se retira solo. Se
+  // apoya en el borde inferior de la tarjeta —el `overflow: hidden` de arriba
+  // la recorta contra el radio— y no ocupa una fila de la rejilla: si empujara
+  // el contenido, la tarjeta mediría distinto en la vista previa del panel,
+  // donde no hay cuenta atrás y la barra no existe.
+  //
+  // El carril va en la línea decorativa y el relleno en el acento: es un dato
+  // de estado, no un adorno, y tiene que verse contra el fondo de la tarjeta
+  // sin competir con el filete de tipo de la izquierda.
+  &__progress {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: color-mix(in srgb, var(--line-soft) 60%, transparent);
+  }
+
+  &__progress-fill {
+    display: block;
+    height: 100%;
+    background: var(--announcement-accent);
+    // El JS escribe scaleX() cuadro a cuadro: escalar no reflow, y el origen a
+    // la izquierda hace que la barra se vacíe hacia el lado por el que se lee.
+    transform: scaleX(1);
+    transform-origin: left center;
+    will-change: transform;
+  }
 }
 
 /*

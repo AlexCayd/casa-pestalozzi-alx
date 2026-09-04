@@ -105,17 +105,6 @@
       window.location.assign(url.toString());
     }
 
-    /**
-     * El interruptor de comparación viaja en cada navegación: el rango y el
-     * "comparar con el periodo anterior" son una sola decisión del usuario y
-     * perder uno al cambiar el otro obliga a volver a marcarlo.
-     */
-    function comparaActiva() {
-      var check = root.querySelector("[data-range-compare]");
-      if (check) return check.checked;
-      return root.getAttribute("data-compare") === "1";
-    }
-
     function irA(params) {
       var url = new URL(window.location.href);
       if (!preserveQuery) {
@@ -128,7 +117,11 @@
       Object.keys(params).forEach(function (k) {
         if (params[k] !== "" && params[k] != null) url.searchParams.set(k, params[k]);
       });
-      if (comparaActiva()) url.searchParams.set("comparar", "1");
+      // La comparación contra el periodo anterior ya no es una opción: viaja
+      // siempre. Era un interruptor dentro del popover y comparar contra el
+      // periodo inmediatamente anterior de la misma duración no es un extra —
+      // es lo que separa "vendimos más" de "el periodo era más largo".
+      url.searchParams.set("comparar", "1");
       navegar(url);
     }
 
@@ -423,23 +416,6 @@
         irA({ rango: val });
       });
     });
-
-    // Marcar/desmarcar la comparación recarga de inmediato: es un cambio de
-    // datos, no un ajuste que espere al botón Aplicar.
-    var compareCheck = root.querySelector("[data-range-compare]");
-    if (compareCheck) {
-      compareCheck.addEventListener("change", function () {
-        var preset = parseInt(root.getAttribute("data-preset"), 10);
-        irA(preset > 0
-          ? { rango: preset }
-          : (function () {
-            var params = {};
-            params[startParam] = root.getAttribute("data-start");
-            params[endParam] = root.getAttribute("data-end");
-            return params;
-          }()));
-      });
-    }
 
     document.addEventListener("click", function (event) {
       if (!pop.hidden && !root.contains(event.target)) cerrar();

@@ -26,11 +26,11 @@
   border-radius: 16px;
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--admin-sombra) 48%, transparent);
   overflow: hidden;
 
   &::backdrop {
-    background: rgba(5, 7, 9, 0.72);
+    background: var(--admin-veil);
     backdrop-filter: blur(3px);
   }
 }

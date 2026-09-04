@@ -79,7 +79,7 @@ Separación de responsabilidades:
 | `controllers/AdminPrintersController.php` | CRUD `/admin/printers` + prueba. |
 | `controllers/MapaController.php` | Dispara comanda (`enviarComanda`) y cuenta (`cerrarTicket`). |
 | `views/admin/printers/{index,form}.php` | UI de administración de impresoras. |
-| `database/ddl.sql` · `database/dml_operativo.sql` · `database/dml_pruebas.sql` | Esquema (tabla `impresoras`) y datos de siembra. |
+| `database/ddl.sql` · `database/deploy.sql` · `database/development.sql` | Esquema (tabla `impresoras`) y datos de siembra. |
 
 ---
 
@@ -104,13 +104,13 @@ CREATE TABLE impresoras (
 ### Esquema (DDL) y datos (DML)
 
 La base se define en tres archivos: `database/ddl.sql` (estructura),
-`database/dml_operativo.sql` (datos mínimos de operación) y
-`database/dml_pruebas.sql` (datos ficticios). La tabla `impresoras` — con sus columnas
+`database/deploy.sql` (datos mínimos de operación) y
+`database/development.sql` (datos ficticios). La tabla `impresoras` — con sus columnas
 `conexion` (`red` / `windows`) y `dispositivo` — se crea directamente en el
 `CREATE TABLE` del DDL, sin `ALTER TABLE` posteriores.
 
 > **Al desplegar en una máquina nueva**, ejecuta primero `database/ddl.sql` y luego
-> `database/dml_operativo.sql`. Carga `database/dml_pruebas.sql` sólo en desarrollo
+> `database/deploy.sql`. Carga `database/development.sql` sólo en desarrollo
 > o QA. Sin la columna `conexion` el formulario y `conectar()` fallan.
 
 ### Campos según el tipo de conexión

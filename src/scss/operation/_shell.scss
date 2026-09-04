@@ -62,10 +62,13 @@
   --operational-workspace-max-height: 760px;
   --operational-accent: var(--admin-gold);
   --operational-accent-soft: var(--admin-gold-soft);
-  --operational-overlay-scrim: rgba(4, 6, 5, 0.68);
-  --operational-info-strong: #dceeff;
-  --operational-info-soft: #c9def0;
-  --operational-info-bright: #e8f5ff;
+  // Los cuatro salían de un azul frío elegido a mano. Ahora derivan del
+  // sistema: el velo, del scrim; los tres tonos de información, del azul de
+  // la paleta funcional, que es su rol («información»).
+  --operational-overlay-scrim: color-mix(in srgb, var(--admin-scrim) 68%, transparent);
+  --operational-info-strong: color-mix(in srgb, var(--admin-c-azul) 22%, var(--admin-text));
+  --operational-info-soft: color-mix(in srgb, var(--admin-c-azul) 30%, var(--admin-muted));
+  --operational-info-bright: color-mix(in srgb, var(--admin-c-azul) 14%, var(--admin-text));
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-base);
   font-weight: var(--operational-weight-regular);

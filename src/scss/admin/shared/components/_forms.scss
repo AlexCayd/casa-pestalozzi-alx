@@ -16,11 +16,13 @@
     width: 100%;
     min-height: 46px;
     padding: 12px 14px;
-    border: 1px solid var(--admin-border-soft);
+    border: 1px solid var(--admin-border-strong);
     border-radius: var(--admin-radius-sm);
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 1.5%, transparent), transparent),
-      var(--admin-surface-soft);
+    /* El velo de 1.5% que había arriba era un degradado que no se veía. El
+       hundido de un campo se dice con el canto de luz en el borde superior,
+       que es el mismo recurso que da volumen a las tarjetas. */
+    background: var(--admin-surface-soft);
+    box-shadow: inset 0 1px 0 var(--admin-glass-edge);
     color: var(--admin-text);
     font: inherit;
     font-size: 14px;
@@ -54,11 +56,11 @@
   textarea:focus,
   textarea:focus-visible {
     outline: none;
-    border-color: var(--admin-gold);
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--admin-text) 2%, transparent), transparent),
-      var(--admin-surface);
-    box-shadow: var(--admin-focus-ring);
+    border-color: var(--admin-accent);
+    background: var(--admin-surface);
+    box-shadow:
+      inset 0 1px 0 var(--admin-glass-edge),
+      var(--admin-focus-ring);
   }
 
   ::placeholder {
@@ -133,7 +135,7 @@
     width: 100%;
     min-height: 44px;
     padding: 11px 13px;
-    border: 1px solid var(--admin-border-soft);
+    border: 1px solid var(--admin-border-strong);
     border-radius: var(--admin-radius-sm);
     background: var(--admin-surface-soft);
     color: var(--admin-text);
@@ -544,7 +546,7 @@
     width: 100%;
     min-height: 46px;
     padding: 10px 12px;
-    border: 1px solid var(--admin-border-soft);
+    border: 1px solid var(--admin-border-strong);
     border-radius: var(--admin-radius-sm);
     background: var(--admin-surface-soft);
     color: var(--admin-text);

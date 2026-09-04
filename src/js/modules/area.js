@@ -1,5 +1,40 @@
 /* ── KDS — Área de Producción · Casa Pestalozzi ─────────────── */
 
+/**
+ * En tablet un toque accidental no debe sacar del turno. El header operativo
+ * marca su formulario con [data-confirm-logout], pero el manejador vivía en
+ * punto-de-venta.js, que el tablero no carga: aquí se repite para las dos
+ * pantallas de área, que sí reciben ConfirmationModal dentro de bundle.min.js.
+ */
+function initAreaLogoutConfirm() {
+  var form = document.querySelector('[data-confirm-logout]');
+  if (!form || form.dataset.areaLogoutBound === '1') return;
+  form.dataset.areaLogoutBound = '1';
+
+  form.addEventListener('submit', function(event) {
+    if (form.dataset.logoutConfirmed === '1') return;
+    event.preventDefault();
+    if (!window.ConfirmationModal) {
+      form.dataset.logoutConfirmed = '1';
+      form.submit();
+      return;
+    }
+    window.ConfirmationModal.get().open({
+      variant: 'warning',
+      eyebrow: 'Sesión',
+      title: '¿Cerrar sesión?',
+      description: 'Saldrás del tablero y volverás a la pantalla de acceso.',
+      consequence: 'Las comandas en curso siguen en el tablero para el resto del equipo.',
+      secondaryLabel: 'Seguir aquí',
+      primaryLabel: 'Cerrar sesión',
+      onPrimary: function() {
+        form.dataset.logoutConfirmed = '1';
+        form.submit();
+      }
+    });
+  });
+}
+
 function initArea() {
   if (!window.CP_AREA) return;
   if (initArea._done) return;
@@ -79,12 +114,18 @@ function initArea() {
 
         var now = new Date();
         if (refreshInfo) {
+          // data-status lo lee el indicador compartido del header operativo
+          // (_header.scss) para teñir el punto; sin él se quedaría en verde
+          // aunque el tablero llevara minutos sin poder consultar.
+          refreshInfo.setAttribute('data-status', 'ok');
           refreshInfo.textContent = 'Actualizado ' +
             now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
         }
       })
       .catch(function() {
-        if (refreshInfo) refreshInfo.textContent = 'Error al cargar';
+        if (!refreshInfo) return;
+        refreshInfo.setAttribute('data-status', 'error');
+        refreshInfo.textContent = 'Sin conexión';
       });
   }
 
@@ -305,7 +346,12 @@ function initArea() {
 
 (function() {
   function tryInitArea() {
-    if (document.body && document.body.dataset.page === 'area') initArea();
+    if (!document.body) return;
+    var page = document.body.dataset.page;
+    // La confirmación de salida vale para el tablero y para el selector de
+    // estación: las dos llevan el header operativo con su formulario.
+    if (page === 'area' || page === 'area-seleccion') initAreaLogoutConfirm();
+    if (page === 'area') initArea();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', tryInitArea);

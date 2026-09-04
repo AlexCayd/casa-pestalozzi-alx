@@ -13,8 +13,8 @@
             <p class="admin-page__subtitle">Define qué ingredientes y subrecetas consume cada platillo. Al venderse, su receta descuenta el inventario automáticamente. Los datos del platillo (nombre, precio, categoría) se editan en Menú.</p>
         </div>
         <div class="admin-actions">
-            <a class="admin-btn admin-btn--secondary" href="/admin/recetas/subrecetas">Subrecetas</a>
-            <a class="admin-btn admin-btn--secondary" href="/admin/inventario">Inventario</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-azul" href="/admin/recetas/subrecetas">Subrecetas</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-verde" href="/admin/inventario">Inventario</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                 <span>Nuevo platillo</span>
@@ -53,7 +53,7 @@
                             <th data-sort-type="text">Platillo</th>
                             <th data-sort-type="text">Categoría</th>
                             <th data-sort-type="number">Precio</th>
-                            <th data-sort-type="text">Receta</th>
+                            <th data-sort-type="number">Receta</th>
                             <th data-sort-type="text">Estado</th>
                             <th data-sort-disabled>Acciones</th>
                         </tr>
@@ -66,11 +66,16 @@
                                 <td><span class="admin-table__cell-main"><?php echo htmlspecialchars($prod->nombre); ?></span></td>
                                 <td><span class="admin-table__cell-sub"><?php echo htmlspecialchars($catNombre); ?></span></td>
                                 <td><span class="admin-table__cell-main">$<?php echo number_format((float) $prod->precio, 2); ?></span></td>
-                                <td>
+                                <td data-sort-value="<?php echo $n; ?>">
+                                    <?php /* Los dos en contorno: es la misma columna diciendo lo mismo
+                                            —cuántos ingredientes hay—, y en versión rellena el ámbar de
+                                            «Falta receta» gritaba más que el estado de la fila. El orden
+                                            va por el conteo, no por el texto: así «Falta receta» cae
+                                            entero a un extremo en vez de alfabetizarse por la F. */ ?>
                                     <?php if ($n > 0) : ?>
-                                        <span class="admin-badge admin-badge--success"><?php echo $n; ?> ingrediente<?php echo $n === 1 ? '' : 's'; ?></span>
+                                        <span class="admin-badge admin-badge--success admin-badge--outline"><?php echo $n; ?> ingrediente<?php echo $n === 1 ? '' : 's'; ?></span>
                                     <?php else : ?>
-                                        <span class="admin-badge admin-badge--warning">Falta receta</span>
+                                        <span class="admin-badge admin-badge--warning admin-badge--outline">Falta receta</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

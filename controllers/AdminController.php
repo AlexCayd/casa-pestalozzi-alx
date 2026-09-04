@@ -53,10 +53,6 @@ class AdminController
             'title' => 'Catas',
             'path' => '/admin/catas'
         ],
-        'catering' => [
-            'title' => 'Catering',
-            'path' => '/admin/catering'
-        ],
         'feedback' => [
             'title' => 'Feedback de clientes',
             'path' => '/admin/feedback'
@@ -627,12 +623,62 @@ class AdminController
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
+    /** Tickets por página en el histórico. */
+    private const TICKETS_POR_PAGINA = 20;
+
     public static function tickets(Router $router): void
     {
         $rows = [];
         $stats = ['total' => 0, 'abiertos' => 0, 'cerrados' => 0, 'cancelados' => 0, 'ventas' => 0.0];
+        $paginaActual = 1;
+        $totalPaginas = 1;
 
         try {
+            /*
+             * Las métricas van en SU PROPIA consulta, agregada sobre la tabla
+             * entera.
+             *
+             * Antes se calculaban en PHP recorriendo las filas traídas, que eran
+             * las 100 más recientes: ya entonces mentían en cuanto había más de
+             * cien tickets, y paginando de veinte en veinte pasarían a describir
+             * únicamente la página que se está mirando. La franja de arriba dice
+             * "cuántos tickets llevamos", no "cuántos hay en pantalla".
+             */
+            $resumen = \Model\Ticket::ejecutarSQL(
+                "SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(t.estado = 'abierto'), 0) AS abiertos,
+                    COALESCE(SUM(t.estado = 'cerrado'), 0) AS cerrados,
+                    COALESCE(SUM(t.estado = 'cancelado'), 0) AS cancelados,
+                    COALESCE((
+                        SELECT SUM(ti.precio * ti.cantidad)
+                          FROM ticket_items ti
+                          JOIN tickets tc ON tc.id = ti.ticket_id
+                         WHERE tc.estado = 'cerrado' AND ti.estado <> 'cancelado'
+                    ), 0) AS ventas
+                   FROM tickets t"
+            );
+
+            if ($resumen && ($fila = $resumen->fetch_assoc())) {
+                $stats = [
+                    'total' => (int) $fila['total'],
+                    'abiertos' => (int) $fila['abiertos'],
+                    'cerrados' => (int) $fila['cerrados'],
+                    'cancelados' => (int) $fila['cancelados'],
+                    'ventas' => (float) $fila['ventas'],
+                ];
+            }
+
+            $totalPaginas = max(1, (int) ceil($stats['total'] / self::TICKETS_POR_PAGINA));
+
+            $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!$paginaActual || $paginaActual > $totalPaginas) {
+                $paginaActual = 1;
+            }
+
+            $offset = ($paginaActual - 1) * self::TICKETS_POR_PAGINA;
+            $limite = self::TICKETS_POR_PAGINA;
+
             $result = \Model\Ticket::ejecutarSQL(
                 "SELECT t.id, t.nombre, t.comensales, t.estado, t.metodo_pago, t.propina, t.hora_apertura,
                         m.numero AS mesa_numero, m.nombre AS mesa_nombre,
@@ -644,23 +690,12 @@ class AdminController
                    LEFT JOIN ticket_items ti ON ti.ticket_id = t.id AND ti.estado <> 'cancelado'
                   GROUP BY t.id
                   ORDER BY t.hora_apertura DESC
-                  LIMIT 100"
+                  LIMIT {$limite} OFFSET {$offset}"
             );
 
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
                     $rows[] = $row;
-                    $stats['total']++;
-                    $estado = $row['estado'] ?? 'abierto';
-
-                    if ($estado === 'abierto') {
-                        $stats['abiertos']++;
-                    } elseif ($estado === 'cerrado') {
-                        $stats['cerrados']++;
-                        $stats['ventas'] += (float) $row['total'];
-                    } elseif ($estado === 'cancelado') {
-                        $stats['cancelados']++;
-                    }
                 }
             }
         } catch (\Throwable $e) {
@@ -672,6 +707,9 @@ class AdminController
             'title' => 'Tickets',
             'ticketRows' => $rows,
             'ticketStats' => $stats,
+            'paginaActual' => $paginaActual,
+            'totalPaginas' => $totalPaginas,
+            'porPagina' => self::TICKETS_POR_PAGINA,
             'styles' => ['/build/css/admin/menu.css'],
             'scripts' => []
         ]);

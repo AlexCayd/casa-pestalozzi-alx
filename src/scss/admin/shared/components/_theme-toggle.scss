@@ -9,10 +9,14 @@
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
-  border: 1px solid var(--admin-border);
+  /* El único botón de la barra con relleno SÓLIDO, y a propósito: es tinta
+     sobre papel en claro y papel sobre tinta en oscuro, así que el propio
+     botón enseña el tema al que va a cambiar. Los otros tres son tintes
+     porque dicen categoría; éste dice resultado. */
+  border: 1px solid var(--admin-accent);
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-text);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -23,15 +27,10 @@
     transform var(--admin-t-fast) var(--admin-ease-out);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--admin-gold-deep) 50%, transparent);
-    color: var(--admin-gold);
+    background: var(--admin-accent-deep);
+    border-color: var(--admin-accent-deep);
     box-shadow: var(--admin-shadow-md);
     transform: translateY(-1px);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--admin-glow);
   }
 
   svg {

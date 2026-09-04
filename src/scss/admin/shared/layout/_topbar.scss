@@ -15,10 +15,14 @@
   gap: 16px;
   min-height: 56px;
   padding: 7px 24px;
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  /* El blur salía de un literal; ahora viene del token, igual que el del
+     cajón, los modales y las tarjetas. Es lo que hace que las capas del panel
+     tengan todas el mismo cristal en vez de cinco radios distintos. */
+  backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
+  -webkit-backdrop-filter: blur(var(--admin-glass-blur)) saturate(var(--admin-glass-sat));
   background: var(--admin-topbar-bg);
   border-bottom: 1px solid var(--admin-topbar-border);
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge);
   transition:
     background var(--admin-t-base) var(--admin-ease-out),
     border-color var(--admin-t-base) var(--admin-ease-out);
@@ -35,6 +39,72 @@
   min-width: 0;
 }
 
+/*
+ * Color por función en los botones de la barra.
+ *
+ * Los dos DISPARADORES DE AVISO —notificaciones y reportar un problema— van en
+ * relleno SÓLIDO de su color funcional. Empezaron siendo neutros, luego un
+ * tinte al 12% sobre --admin-surface, y ninguna de las dos versiones resolvía
+ * lo que tenían que resolver: sobre el fondo casi negro del tema oscuro un 12%
+ * de ámbar es indistinguible de gris, así que los dos círculos volvían a
+ * leerse como "dos botones iguales" y había que apuntarles para saber cuál era
+ * cuál. Sólidos, el azul dice buzón y el ámbar dice incidencia desde el otro
+ * lado de la pantalla.
+ *
+ * La cuenta que lo permite: son DOS botones, no cuatro. Salir se queda en
+ * tinte a propósito —terminar la sesión no debe ser lo más ruidoso del panel—
+ * y el conmutador de tema conserva su relleno neutro. Ver CLAUDE.md.
+ *
+ * --tono es el color funcional; --tono-tinta, lo que se lee encima. Se
+ * declaran por botón y el resto de las reglas es común.
+ */
+.admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox) {
+  --tono: var(--admin-muted);
+  --tono-tinta: var(--admin-paper);
+
+  border-color: color-mix(in srgb, var(--tono) 80%, var(--admin-ink));
+  background: var(--tono);
+  color: var(--tono-tinta);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
+
+  &:hover {
+    /* El hover oscurece el propio relleno en vez de cambiar de familia: sobre
+       un sólido, aclarar lo lava y saltar de tono lo convierte en otro botón. */
+    border-color: color-mix(in srgb, var(--tono) 62%, var(--admin-ink));
+    background: color-mix(in srgb, var(--tono) 84%, var(--admin-ink));
+    color: var(--tono-tinta);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--tono) 40%, transparent);
+  }
+}
+
+/* Ámbar y no rojo: reportar un problema AVISA, no destruye nada. El rojo de
+   esta barra está reservado a la acción que termina la sesión.
+   Sobre ámbar la tinta es la del papel invertida: #f5b400 tiene luminancia
+   0.52, así que un icono claro encima no llegaría ni a 2:1. */
+.admin-topbar__support {
+  --tono: var(--admin-c-ambar);
+  --tono-tinta: var(--admin-ink);
+}
+
+.admin-topbar__inbox { --tono: var(--admin-c-azul); }
+
+/* Salir conserva el tinte derivado: es la única acción destructiva de la barra
+   y no compite con los dos avisos por atención. */
+.admin-topbar__logout {
+  --tono: var(--admin-c-rojo);
+
+  border-color: color-mix(in srgb, var(--tono) 26%, var(--admin-border));
+  background: color-mix(in srgb, var(--tono) 12%, var(--admin-surface));
+  color: color-mix(in srgb, var(--tono) 70%, var(--admin-text));
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--tono) 55%, transparent);
+    background: color-mix(in srgb, var(--tono) 22%, var(--admin-surface));
+    color: color-mix(in srgb, var(--tono) 88%, var(--admin-text));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--tono) 22%, transparent);
+  }
+}
+
 // Botón-icono redondo (antes tenía el texto "Reportar un problema").
 /*
  * Los tres botones de la barra (reportar, tema, salir) medían 36 / 40 / 38px
@@ -49,12 +119,22 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--admin-border);
+  /* Grosor y estilo por separado, NUNCA el atajo `border`: el color del borde,
+     el relleno y la tinta los pone el bloque de --tono de arriba, y `border:
+     1px solid` reescribiría border-color a currentcolor desde una regla
+     posterior de la misma especificidad. Es lo que dejaba el botón en gris
+     mientras el bloque de color parecía estar aplicándose. */
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
-  transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+  /* El hover lo pone el patrón de --tono de arriba y el foco el anillo único
+     de _finishes.scss, así que aquí sólo queda la caja. */
+  transition:
+    color var(--admin-t-fast) var(--admin-ease-out),
+    border-color var(--admin-t-fast) var(--admin-ease-out),
+    background var(--admin-t-fast) var(--admin-ease-out),
+    box-shadow var(--admin-t-fast) var(--admin-ease-out);
 
   svg {
     width: 18px;
@@ -64,17 +144,6 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
-  }
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
-    background: color-mix(in srgb, var(--admin-c-rojo) 10%, transparent);
-    color: var(--admin-danger-text);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--admin-gold);
-    outline-offset: 2px;
   }
 }
 
@@ -124,14 +193,16 @@
   width: 40px;
   height: 40px;
   place-items: center;
-  border: 1px solid var(--admin-border);
+  // Igual que en support: aquí sólo la caja; el color va en el bloque de --tono.
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
-  background: var(--admin-surface);
-  color: var(--admin-muted);
   cursor: pointer;
   transition:
     color var(--admin-t-base) var(--admin-ease-out),
-    border-color var(--admin-t-base) var(--admin-ease-out);
+    border-color var(--admin-t-base) var(--admin-ease-out),
+    background var(--admin-t-base) var(--admin-ease-out),
+    box-shadow var(--admin-t-base) var(--admin-ease-out);
 
   svg {
     width: 18px;
@@ -141,11 +212,6 @@
     stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  &:hover {
-    color: var(--admin-danger-text);
-    border-color: color-mix(in srgb, var(--admin-c-rojo) 50%, transparent);
   }
 }
 

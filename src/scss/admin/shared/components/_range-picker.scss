@@ -159,9 +159,18 @@
       color: var(--admin-text);
     }
 
+    /*
+     * --admin-on-accent, NO --on-accent. Es el mismo error que ya estaba
+     * anotado abajo en `.is-edge`, sin corregir aquí: el nombre sin prefijo
+     * sólo existe dentro del mixin puente-tokens-publicos, que se aplica a las
+     * cuatro pantallas de piso y nunca a .admin-body. Como declaración
+     * inválida caía a `inherit` —o sea, al gris del preset en reposo— y encima
+     * de un relleno de acento, que en claro es casi negro, el nombre del
+     * periodo activo desaparecía: la píldora salía negra y vacía.
+     */
     &.is-active {
       background: var(--admin-gold);
-      color: var(--on-accent);
+      color: var(--admin-on-accent);
     }
   }
 
@@ -252,6 +261,23 @@
    */
   &__day {
     position: relative;
+    /*
+     * isolation + z-index: -1 en el ::before, y esto es lo que hacía ILEGIBLE
+     * el rango seleccionado.
+     *
+     * La banda del tramo es un pseudo-elemento absoluto dentro del propio
+     * botón, y el número del día es un NODO DE TEXTO suelto
+     * (`btn.textContent = d` en range-picker.js), no un elemento. Con el
+     * ::before en `z-index: 0` se pintaba en la capa de descendientes
+     * posicionados, o sea por encima del texto de su padre: los días del rango
+     * salían como barras macizas sin número. La regla `> * { position:
+     * relative }` de al lado pretendía levantar el contenido, pero no había
+     * ningún hijo que levantar.
+     *
+     * `isolation: isolate` convierte el botón en contexto de apilamiento para
+     * que el -1 se quede dentro y no se hunda detrás del popover.
+     */
+    isolation: isolate;
     display: grid;
     min-height: 34px;
     place-items: center;
@@ -268,13 +294,8 @@
       content: "";
       position: absolute;
       inset: 2px -1px;
-      z-index: 0;
+      z-index: -1;
       border-radius: 0;
-    }
-
-    > * ,
-    &:not(.is-empty) {
-      position: relative;
     }
 
     &.is-empty {
@@ -296,12 +317,27 @@
       background: var(--admin-surface-soft);
     }
 
-    &.is-inside::before {
-      background: color-mix(in srgb, var(--admin-gold) 18%, transparent);
+    // La banda de los días interiores se mezcla contra la SUPERFICIE, no con
+    // transparente: --admin-gold es el acento, y el acento en oscuro es
+    // casi-blanco, así que un 18% sobre transparente daba una banda clarísima
+    // con la tinta casi-blanca encima. Mezclado contra --admin-surface la banda
+    // se queda del lado del fondo en los dos temas y el número se lee.
+    &.is-inside {
+      color: var(--admin-text);
     }
 
+    &.is-inside::before {
+      background: color-mix(in srgb, var(--admin-gold) 16%, var(--admin-surface));
+    }
+
+    // --admin-on-accent, NO --on-accent: el nombre sin prefijo sólo existe
+    // dentro del mixin puente-tokens-publicos, que se aplica a las cuatro
+    // pantallas de piso y nunca a .admin-body. Aquí era una declaración
+    // inválida que caía a `inherit` — es decir, a --admin-text — y en oscuro
+    // eso pinta casi-blanco sobre un relleno que también es casi-blanco: el
+    // rango seleccionado quedaba ilegible.
     &.is-edge {
-      color: var(--on-accent);
+      color: var(--admin-on-accent);
       font-weight: 800;
       z-index: 1;
     }
@@ -326,30 +362,8 @@
     }
   }
 
-  // Comparación contra el periodo previo: encima del pie porque cambia los
-  // datos que se van a leer, no la forma de aplicarlos.
-  &__compare {
-    width: 100%;
-    margin-top: 10px;
-    padding-top: 10px;
-    align-items: flex-start;
-    border-top: 1px solid var(--admin-border-soft);
-  }
-
-  &__compare-text {
-    display: grid;
-    gap: 2px;
-    color: var(--admin-text);
-    font-size: 13px;
-    font-weight: 800;
-
-    small {
-      color: var(--admin-muted);
-      font-size: 11px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-  }
+  // &__compare y &__compare-text salieron con el interruptor de comparación:
+  // ahora va siempre encendida y no hay control que pintar.
 
   &__foot {
     display: flex;

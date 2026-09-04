@@ -1,55 +1,18 @@
 /**
- * Inventario: alta de merma desde la tabla de existencias.
+ * Inventario: validación del alta de merma y borrado seguro de ingredientes.
  *
- * El modal es uno solo para toda la tabla; cada botón de fila lo rellena con
- * sus data-*. La apertura y el cierre los maneja initAdminModals() de admin.js
- * (alterna [hidden] y .is-open); aquí solo se copian los datos del ingrediente.
+ * El modal de merma por fila se retiró junto con el botón que lo abría; queda
+ * el formulario del panel, que además deja elegir el ingrediente. Aquí sólo se
+ * valida su cantidad.
  */
 (function () {
-    function init() {
-        var form = document.querySelector('[data-merma-form]');
+    function initMerma() {
+        var form = document.querySelector('.admin-merma__form');
         if (!form) {
             return;
         }
 
-        var idInput = form.querySelector('[data-merma-id]');
-        var cantidad = form.querySelector('[data-merma-cantidad]');
-        var modal = form.closest('[data-admin-modal]');
-        var nombre = modal ? modal.querySelector('[data-merma-nombre]') : null;
-        var stock = modal ? modal.querySelector('[data-merma-stock]') : null;
-        var unidad = modal ? modal.querySelector('[data-merma-unidad]') : null;
-
-        document.addEventListener('click', function (event) {
-            var boton = event.target.closest('[data-merma-open]');
-            if (!boton) {
-                return;
-            }
-
-            idInput.value = boton.getAttribute('data-id') || '';
-            if (nombre) {
-                nombre.textContent = boton.getAttribute('data-nombre') || 'este ingrediente';
-            }
-            if (stock) {
-                stock.textContent = boton.getAttribute('data-stock') || '—';
-            }
-            if (unidad) {
-                unidad.textContent = boton.getAttribute('data-unidad') || '';
-            }
-
-            // La cantidad no se hereda de la merma anterior: cada registro es
-            // un hecho distinto y arrastrarla invita a guardar el número de otro
-            // ingrediente sin darse cuenta.
-            form.reset();
-            idInput.value = boton.getAttribute('data-id') || '';
-
-            // El modal se abre en el mismo clic vía data-admin-modal-open; el
-            // foco se pide después para no pelearse con esa transición.
-            window.requestAnimationFrame(function () {
-                if (cantidad) {
-                    cantidad.focus();
-                }
-            });
-        });
+        var cantidad = form.querySelector('#merma-cantidad');
 
         form.addEventListener('submit', function (event) {
             var valor = parseFloat(cantidad ? cantidad.value : '');
@@ -138,9 +101,147 @@
         renumerar();
     }
 
+    /**
+     * Borrado de un ingrediente: enseña a qué recetas afecta y exige escribir
+     * el nombre.
+     *
+     * Las FK de producto_componentes y subreceta_ingredientes son ON DELETE
+     * CASCADE, así que borrar un ingrediente vacía en silencio la receta de
+     * todos los platillos que lo llevan. El diálogo genérico lo decía de
+     * palabra ("y de las recetas que lo usan") sin decir CUÁLES, que es lo
+     * único que permite decidir.
+     *
+     * Se engancha en CAPTURA sobre el document, no sobre el formulario. Es
+     * deliberado: admin.js ya tiene un listener de submit en cada
+     * [data-confirm-delete], y en el elemento destino los listeners corren en
+     * orden de registro, así que desde el formulario no habría forma de
+     * adelantarse. Capturando en document se corre antes y se detiene la
+     * propagación. La ventaja de hacerlo así, y no quitándole el atributo al
+     * formulario, es que si este archivo no llega a cargar el diálogo genérico
+     * de admin.js sigue pidiendo confirmación: nunca se borra sin preguntar.
+     */
+    function initBorradoIngrediente() {
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!form || !form.matches || !form.matches('[data-ingrediente-delete]')) {
+                return;
+            }
+            if (form.dataset.deleteConfirmed === '1') {
+                return;
+            }
+            if (!window.ConfirmationModal || !window.fetch) {
+                return; // Que lo atienda el diálogo genérico de admin.js.
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            var id = form.getAttribute('data-ingrediente-id') || '';
+            var nombreIng = form.getAttribute('data-ingrediente-nombre') || 'este ingrediente';
+            var modal = window.ConfirmationModal.get();
+
+            fetch('/admin/api/inventario/uso?id=' + encodeURIComponent(id), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .catch(function () { return null; })
+                .then(function (datos) {
+                    abrirDialogo(form, nombreIng, modal, datos);
+                });
+        }, true);
+    }
+
+    /** Lista de platillos y subrecetas afectados, para la ranura custom. */
+    function resumenDeUso(datos) {
+        if (!datos || !datos.ok) {
+            // La consulta falló: no se calla el diálogo, se avisa de que no se
+            // pudo comprobar. Callar sugeriría que no afecta a nada.
+            var aviso = document.createElement('p');
+            aviso.className = 'admin-inventario__uso-aviso';
+            aviso.textContent = 'No se pudo comprobar en qué recetas se usa. Revisa antes de continuar.';
+            return aviso;
+        }
+
+        var platillos = datos.platillos || [];
+        var subrecetas = datos.subrecetas || [];
+
+        if (!platillos.length && !subrecetas.length) {
+            var libre = document.createElement('p');
+            libre.className = 'admin-inventario__uso-aviso';
+            libre.textContent = 'No aparece en ninguna receta ni subreceta.';
+            return libre;
+        }
+
+        var caja = document.createElement('div');
+        caja.className = 'admin-inventario__uso';
+
+        if (platillos.length) {
+            var titulo = document.createElement('p');
+            titulo.className = 'admin-inventario__uso-titulo';
+            titulo.textContent = platillos.length === 1
+                ? 'Se quedará sin este ingrediente 1 platillo:'
+                : 'Se quedarán sin este ingrediente ' + platillos.length + ' platillos:';
+            caja.appendChild(titulo);
+
+            var lista = document.createElement('ul');
+            lista.className = 'admin-inventario__uso-lista';
+            platillos.forEach(function (p) {
+                var li = document.createElement('li');
+                li.textContent = p.nombre;
+                if (p.subrecetas && p.subrecetas.length) {
+                    var via = document.createElement('span');
+                    via.textContent = ' vía ' + p.subrecetas.join(', ');
+                    li.appendChild(via);
+                }
+                lista.appendChild(li);
+            });
+            caja.appendChild(lista);
+        }
+
+        if (subrecetas.length) {
+            var tituloSub = document.createElement('p');
+            tituloSub.className = 'admin-inventario__uso-titulo';
+            tituloSub.textContent = subrecetas.length === 1
+                ? 'Y 1 subreceta:'
+                : 'Y ' + subrecetas.length + ' subrecetas:';
+            caja.appendChild(tituloSub);
+
+            var listaSub = document.createElement('ul');
+            listaSub.className = 'admin-inventario__uso-lista';
+            subrecetas.forEach(function (nombre) {
+                var li = document.createElement('li');
+                li.textContent = nombre;
+                listaSub.appendChild(li);
+            });
+            caja.appendChild(listaSub);
+        }
+
+        return caja;
+    }
+
+    function abrirDialogo(form, nombreIng, modal, datos) {
+        modal.open({
+            variant: 'danger',
+            eyebrow: 'Eliminar ingrediente',
+            title: '¿Eliminar «' + nombreIng + '»?',
+            description: 'Se borrará del inventario y de las recetas que lo usan.',
+            consequence: 'También se pierde su bitácora de movimientos. Esta acción no se puede deshacer.',
+            customContent: resumenDeUso(datos),
+            requireText: nombreIng,
+            secondaryLabel: 'Cancelar',
+            primaryLabel: 'Eliminar',
+            onPrimary: function () {
+                form.dataset.deleteConfirmed = '1';
+                form.submit();
+            }
+        });
+    }
+
     function boot() {
-        init();
+        initMerma();
         initProveedores();
+        initBorradoIngrediente();
     }
 
     if (document.readyState === 'loading') {

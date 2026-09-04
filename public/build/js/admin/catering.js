@@ -1,2 +1,0 @@
-!function(){"use strict";function e(){var e=document.querySelectorAll("[data-catering-estado]");e.length&&Array.prototype.forEach.call(e,(function(e){e.dataset.valorPrevio=e.value,e.addEventListener("change",(function(){if(e.value!==e.dataset.valorPrevio){var t=e.closest("form");t&&(e.disabled=!0,t.submit())}}))}))}"loading"===document.readyState?document.addEventListener("DOMContentLoaded",e):e()}();
-//# sourceMappingURL=catering.js.map

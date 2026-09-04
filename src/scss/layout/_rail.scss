@@ -11,6 +11,19 @@
 // MEDIA del viewport y aquí se elige la tinta. Es atributo aparte de
 // [data-tono-actual] a propósito: la marca vive en los 48px de arriba y el rail
 // en el centro, y a mitad de un cruce están sobre bandas distintas.
+// El rail se resolvía con DOS atenuadores encadenados y por eso se perdía:
+// el color del enlace ya era translúcido (crema al 60% o café al 55%) y encima
+// la etiqueta llevaba opacity .55. Los alfas se multiplican, así que lo que se
+// pintaba de verdad era un 0.30-0.33 — del orden de 1.5:1 contra el fondo,
+// cuando un texto necesita 4.5:1. Es el mismo error que _reset.scss documenta
+// haber corregido en --txt-faint.
+//
+// Y había un segundo agujero: la rama oscura sólo estilizaba `.active`. Los
+// enlaces inactivos caían al respaldo pensado para el hero, así que sobre café
+// y sobre verde no contrastaban con nada.
+//
+// Ahora hay TRES roles por banda y se declaran en los SEIS tonos. La jerarquía
+// la lleva el color, nunca una segunda opacidad.
 .rail {
   position: fixed;
   right: clamp(1rem, 2vw, 2rem);
@@ -26,6 +39,14 @@
   // de más comensales); sólo los enlaces reales deben recibir puntero.
   pointer-events: none;
 
+  // Respaldo para el primer pintado, antes de que rail.js publique el tono: la
+  // landing abre sobre el hero, que es fotografía en oscuro. Si un [data-tono]
+  // nuevo se olvida de declarar los suyos, hereda éstos — que es lo correcto
+  // sobre una banda oscura y lo que hay que revisar sobre una clara.
+  --rail-ink: var(--brand-crema);
+  --rail-mute: color-mix(in srgb, var(--brand-crema) 82%, transparent);
+  --rail-halo: none;
+
   a {
     pointer-events: auto;
     display: flex;
@@ -34,53 +55,74 @@
     font-size: 0.6rem;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    transition: color 0.3s, opacity 0.3s;
-    // Respaldo para el primer pintado, antes de que rail.js publique el tono:
-    // la landing abre sobre el hero, que es fotografía en oscuro.
-    color: color-mix(in srgb, var(--brand-crema) 60%, transparent);
+    color: var(--rail-mute);
+    text-shadow: var(--rail-halo);
+    transition: color 0.3s;
 
     .tick {
       width: 16px;
       height: 1px;
-      background: color-mix(in srgb, var(--brand-crema) 45%, transparent);
+      background: var(--rail-mute);
       transition: width 0.4s var(--ease), background 0.3s;
     }
 
     // Las etiquetas se leen TODAS. Estaban en opacity 0 y sólo aparecía la
     // activa: con el rail así el visitante veía una columna de rayitas sin
-    // saber que era un índice. En tenue no compiten con la página y de un
-    // vistazo se sabe cuánto queda por delante.
+    // saber que era un índice. Ahora se distinguen por tinta, no por opacidad.
     .rlabel {
-      opacity: 0.55;
-      transition: opacity 0.3s;
+      transition: color 0.3s;
     }
 
-    &:hover .rlabel,
-    &.active .rlabel { opacity: 1; }
+    &:hover,
+    &.active {
+      color: var(--rail-ink);
+    }
+
+    &:hover .tick,
+    &.active .tick {
+      background: var(--rail-ink);
+    }
 
     &.active .tick { width: 34px; }
   }
 }
 
-// Los dos negativos, calcados de _nav.scss: por tono y no por "claro/oscuro",
-// para que una sección nueva tenga que declarar el suyo.
+// Los negativos van por TONO y no por "claro/oscuro", igual que en _nav.scss:
+// una sección nueva tiene que declarar el suyo. Los porcentajes están
+// calculados contra el --bg de cada banda, no elegidos a ojo: el mismo valor da
+// ratios distintos sobre crema que sobre verde.
 [data-tono-rail="crema"],
 [data-tono-rail="beige"] {
-  .rail a { color: color-mix(in srgb, var(--brand-cafe) 55%, transparent); }
-  .rail a .tick { background: color-mix(in srgb, var(--brand-cafe) 40%, transparent); }
-  .rail a.active { color: var(--brand-cafe); }
-  .rail a.active .tick { background: var(--brand-cafe); }
+  .rail {
+    --rail-ink: var(--brand-cafe);
+    --rail-mute: color-mix(in srgb, var(--brand-cafe) 78%, transparent);
+  }
 }
 
 // Sobre fondo oscuro no se usa el oro: salió de la landing porque sobre crema no
 // contrasta, y un rail que cambia de acento a mitad de página cantaría más que
-// el propio índice. La activa es simplemente la tinta al 100%.
-[data-tono-rail="foto"],
+// el propio índice. La tinta es simplemente la crema.
 [data-tono-rail="cafe"],
 [data-tono-rail="vino"],
 [data-tono-rail="verde"] {
-  .rail a.active { color: var(--brand-crema); }
-  .rail a.active .tick { background: var(--brand-crema); }
+  .rail {
+    --rail-ink: var(--brand-crema);
+    --rail-mute: color-mix(in srgb, var(--brand-crema) 76%, transparent);
+  }
+}
+
+// La fotografía es el único caso que NO se puede calcular: debajo hay una imagen
+// arbitraria y su luminancia cambia con el encuadre. Se resuelve como el anillo
+// de foco sobre [data-tono="foto"] — con un halo de --scrim detrás de la letra,
+// que es lo único que garantiza el contraste contra algo que no controlamos.
+[data-tono-rail="foto"] {
+  .rail {
+    --rail-ink: var(--brand-crema);
+    --rail-mute: color-mix(in srgb, var(--brand-crema) 88%, transparent);
+    --rail-halo:
+      0 1px 3px var(--scrim),
+      0 0 10px color-mix(in srgb, var(--scrim) 70%, transparent);
+  }
 }
 
 @media (max-width: 1100px) { .rail { display: none; } }

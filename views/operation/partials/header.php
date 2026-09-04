@@ -17,6 +17,9 @@ $operationalHeaderBackUrl = (string)($operationalHeaderBackUrl ?? '');
 $operationalHeaderBack = (bool)($operationalHeaderBack ?? true);
 $operationalDrawerId = (string)($operationalDrawerId ?? 'operational-reservations-drawer');
 $operationalHeaderDrawerToggleHtml = (string)($operationalHeaderDrawerToggleHtml ?? '');
+// Los tableros de área lo apagan: no tienen cajón que abrir, y un hamburguesa
+// que no despliega nada es peor que no tenerlo.
+$operationalHeaderDrawerToggle = (bool)($operationalHeaderDrawerToggle ?? true);
 $operationalHeaderActionsHtml = (string)($operationalHeaderActionsHtml ?? '');
 $operationalUsuarioNombre = trim((string)($operationalUsuarioNombre ?? ''));
 $operationalUsuarioRol = (string)($operationalUsuarioRol ?? 'Usuario');
@@ -27,7 +30,7 @@ $operationalUserMenu = (bool)($operationalUserMenu ?? true);
 $operationalHeaderUserMenuId = 'operational-user-menu-' . preg_replace('/[^a-z0-9_-]+/i', '-', $operationalModule);
 $operationalHeaderH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 
-if ($operationalHeaderDrawerToggleHtml === '') {
+if ($operationalHeaderDrawerToggleHtml === '' && $operationalHeaderDrawerToggle) {
     ob_start();
     $operationalDrawerInitialCount = '0';
     include __DIR__ . '/drawer-toggle.php';
@@ -160,4 +163,4 @@ if ($operationalHeaderBackUrl === '') {
         <?php endif; ?>
     </div>
 </header>
-<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial, $operationalShowLastUpdate, $operationalUserMenu); ?>
+<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderDrawerToggle, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial, $operationalShowLastUpdate, $operationalUserMenu); ?>
