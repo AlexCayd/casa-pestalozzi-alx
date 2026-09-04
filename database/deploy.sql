@@ -194,9 +194,12 @@ DROP TEMPORARY TABLE productos_semilla;
 -- Sustituye al par 'productos' + 'menu', que guardaban lo mismo por duplicado:
 -- borrar un platillo de la carta no lo quitaba del punto de venta.
 --
--- Todo lo que está activo se vende Y se publica en la carta. Las bebidas de las
--- categorías 9 y 10 van sin descripción: en la carta se imprimen solo con
--- nombre y precio.
+-- Todo lo que está activo se vende Y se publica en la carta, y todo lleva
+-- descripción: las bebidas de las categorías 9 y 10 también. Antes se sembraban
+-- sin ella y la carta las imprimía con nombre y precio a secas, lo que dejaba
+-- las dos últimas secciones del menú visiblemente más pobres que el resto —en
+-- el PDF, media hoja de renglones sueltos— justo donde el comensal decide el
+-- acompañamiento.
 --
 -- El INSERT de arriba ya dio de alta todos los platillos con su precio y área;
 -- este solo aporta la descripción, así que choca a propósito contra el UNIQUE
@@ -416,10 +419,56 @@ INSERT INTO productos (nombre, descripcion, categoria_id, precio, area_id) VALUE
  8, 320.00, 3),
 ('Papas a la Francesa con Parmesano',
  'Papas a la francesa con queso parmesano rallado.',
- 8, 160.00, 3)
+ 8, 160.00, 3),
+
+-- Café & Bebidas (categoria_id = 9) — salen de la Barra de Café (area_id = 1)
+('Café Americano',
+ 'Espresso doble alargado con agua caliente.',
+ 9, 65.00, 1),
+('Cappuccino',
+ 'Espresso, leche vaporizada y espuma de leche en partes iguales.',
+ 9, 75.00, 1),
+('Latte',
+ 'Espresso con leche vaporizada y una capa fina de espuma.',
+ 9, 80.00, 1),
+('Café de Olla',
+ 'Café de grano infusionado con piloncillo y canela.',
+ 9, 65.00, 1),
+('Té / Infusión',
+ 'Selección de tés negros, verdes e infusiones de hierbas.',
+ 9, 65.00, 1),
+('Chocolate Caliente',
+ 'Chocolate de mesa batido con leche caliente.',
+ 9, 80.00, 1),
+('Agua Fresca',
+ 'Agua fresca del día, preparada con fruta de temporada.',
+ 9, 60.00, 1),
+('Refresco',
+ 'Refresco embotellado. Consulta los sabores disponibles.',
+ 9, 55.00, 1),
+
+-- Jugos & Smoothies (categoria_id = 10) — salen de la Barra de Jugos (area_id = 2)
+('Jugo de Naranja',
+ 'Naranja exprimida al momento, sin azúcar añadida.',
+ 10, 85.00, 2),
+('Jugo Verde',
+ 'Espinaca, apio, pepino, piña y jugo de naranja.',
+ 10, 95.00, 2),
+('Limonada Natural',
+ 'Limón exprimido al momento, con agua natural o mineral.',
+ 10, 75.00, 2),
+('Smoothie de Fresa',
+ 'Fresa, yogurt natural y un toque de miel.',
+ 10, 100.00, 2),
+('Agua de Coco',
+ 'Agua de coco natural, servida bien fría.',
+ 10, 90.00, 2)
 ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 
--- Las bebidas se sembraron sin descripción a propósito, pero `descripcion` no
--- puede quedar vacía para la carta ni el PDF: se rellena con el nombre.
+-- Red de seguridad, ya sin destinatario conocido: con las bebidas descritas
+-- arriba, el catálogo sembrado no deja ninguna fila sin descripción. Se queda
+-- porque `productos.descripcion` es NULL-able (acepta catálogos históricos) y
+-- ni la carta ni el PDF deben publicar una fila muda; si algún día entra un
+-- producto sin texto, al menos sale con su nombre y no con un hueco.
 UPDATE productos SET descripcion = CONCAT(nombre, '.')
 WHERE descripcion IS NULL OR descripcion = '';
