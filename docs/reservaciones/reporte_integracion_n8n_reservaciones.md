@@ -1,3 +1,10 @@
+> **Estado posterior / documento histórico**
+> Este documento corresponde al cierre técnico original. Las referencias a Twilio
+> describen ese estado histórico. La implementación actual utiliza Meta WhatsApp
+> Business Cloud API e incorpora `reservation.confirmed`. La referencia vigente
+> de mantenimiento es [n8n](n8n.md). Las rutas/migraciones mencionadas en el cuerpo
+> pueden no existir en main; no constituyen instrucciones actuales de instalación.
+
 # Reporte de integración de comunicaciones de reservaciones con n8n
 
 ## Identificación y estado

@@ -113,36 +113,14 @@ Las observaciones de una reservación son operativas: pueden incluir celebració
 
 ## Comunicaciones y gestión por acceso temporal
 
-Las comunicaciones operativas de reservaciones usan dos eventos:
-`reservation.schedule_change` y `reservation.reminder_next_day`. PHP conserva
-la elegibilidad, deduplicación, token, vigencia, capacidad y acciones de
-dominio; n8n sólo transporta el mensaje y devuelve `delivered` o `failed`.
+Las comunicaciones usan `reservation.confirmed`, `reservation.schedule_change` y
+`reservation.reminder_next_day`. PHP/MySQL conservan las reglas y los estados de
+dominio; n8n transporta por email o WhatsApp Business Cloud API. Confirmaciones
+y cambios de horario son automáticos; el recordatorio es exclusivamente D-1,
+configurable activo/hora (defaults: apagado, 18:00). Los fallos de transporte no
+revierten reservaciones. La gestión temporal reutiliza las políticas públicas.
 
-La configuración del recordatorio vive en
-`/admin/configuracion/reservaciones`. Es una fila única de base de datos,
-desactivada y con hora `18:00` por omisión. El proceso programado consulta cada
-cinco minutos, pero prepara todas las reservaciones elegibles de mañana desde
-la hora configurada: una caída temporal no limita la recuperación a una
-ventana de cinco minutos.
-
-El acceso temporal canónico es `/reservaciones/gestionar`. La URL intercambia
-el token plano por una sesión limitada a `source_type + source_id +
-reservation_id`; la base sólo almacena SHA-256. Las rutas anteriores de
-`/reservaciones/cambio-horario` son aliases, no una segunda implementación.
-
-Desde este acceso se puede modificar mediante el reemplazo canónico o cancelar
-mediante la cancelación canónica, siempre con CSRF y revalidación transaccional.
-Un recordatorio para más de 12 personas no permite modificación pública, pero
-mantiene la cancelación mientras la política temporal lo permita. El éxito
-invalida la fuente exacta; sólo un `schedule_change` resuelve además la
-afectación y cierra su seguimiento de buzón.
-
-Los estados `pending`, `accepted`, `delivered` y `failed` describen únicamente
-el transporte. `delivered` no confirma, cancela ni resuelve una reservación. Un
-fallo invalida el acceso y, para afectaciones, vuelve accionable el buzón.
-
-La referencia normativa completa está en [Arquitectura de comunicaciones de
-reservaciones con n8n](arquitectura_notificaciones_reservaciones_n8n.md).
+La referencia completa de arquitectura, operación y mantenimiento es [n8n](n8n.md).
 
 ## Referencias vigentes
 

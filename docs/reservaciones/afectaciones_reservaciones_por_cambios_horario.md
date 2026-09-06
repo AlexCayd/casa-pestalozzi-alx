@@ -176,6 +176,8 @@ Varios motivos de una misma reservación se agrupan en una sola fila y un solo d
 
 ## Transporte externo y n8n
 
+El canal teléfono utiliza n8n → WhatsApp Business Cloud API de Meta; email conserva SMTP. La configuración y operación vigentes están en [n8n](n8n.md).
+
 La entrega externa usa el evento `reservation.schedule_change` y el provider
 seleccionado por `RESERVATION_NOTIFICATION_PROVIDER`. El OTP continúa separado.
 
@@ -201,8 +203,8 @@ de n8n no revierte el cambio de horario ni deja una transacción abierta.
 
 - `pending`: el aviso quedó preparado y el buzón sigue accionable;
 - `accepted`: n8n respondió 202 y el buzón pasa a espera;
-- `delivered`: el canal confirmó entrega, pero la afectación sigue pendiente de
-  respuesta;
+- `delivered`: el nodo de transporte terminó exitosamente y se registró su callback;
+  no confirma lectura ni entrega mediante receipts Meta. La afectación sigue pendiente;
 - `failed`: el acceso se invalida y el buzón vuelve a requerir acción.
 
 Un `pending` o `accepted` sin callback durante más de cinco minutos se

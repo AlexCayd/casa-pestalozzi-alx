@@ -84,6 +84,16 @@ communicationsAssert(($timeout['codigo'] ?? '') === 'NOTIFICACION_CONEXION_FALLI
 $provider = new N8nOperationalNotificationProvider($client);
 communicationsAssert(($provider->sendReservationsEvent('reservation.schedule_change', [['source_id' => 1]])['accepted'] ?? false) === true, 'provider n8n delega el batch');
 communicationsAssert(($provider->sendReservationsEvent('evento.desconocido', [['source_id' => 1]])['codigo'] ?? '') === 'NOTIFICACION_EVENTO_INVALIDO', 'provider rechaza evento desconocido');
+foreach (['reservation.confirmed', 'reservation.schedule_change', 'reservation.reminder_next_day'] as $event) {
+    $contractClient = new N8nNotificationClient('http://n8n.invalid', 'fixture-secret',
+        static function (string $url, string $secret, string $json) use ($event): array {
+            $body = json_decode($json, true);
+            communicationsAssert($body['schema_version'] === 1 && $body['event'] === $event, 'contrato v1 y evento preservados');
+            return ['status' => 202, 'body' => '{"ok":true,"accepted":true}', 'error' => ''];
+        });
+    communicationsAssert((new N8nOperationalNotificationProvider($contractClient))->sendReservationsEvent($event, [['source_id' => 1]])['accepted'], 'evento aceptado');
+}
+communicationsAssert(!ReservationNotificationResultService::registrar('reservation.confirmed', 1, 2, 'delivered')['ok'], 'confirmación exige attempt 1');
 $development = new DevelopmentOperationalNotificationProvider();
 communicationsAssert(($development->sendReservationsEvent('reservation.reminder_next_day', [
     ['source_id' => 1],
@@ -122,7 +132,7 @@ foreach ([
     communicationsAssert(ReservacionErrorCatalog::has($code), "catálogo contiene {$code}");
 }
 
-$migration = file_get_contents($root . '/database/migrations/2026_08_22_reservaciones_comunicaciones_n8n.sql');
+$upgrade = file_get_contents($root . '/docs/reservaciones/n8n.md');
 $ddl = file_get_contents($root . '/database/ddl.sql');
 $routes = file_get_contents($root . '/public/index.php');
 $management = file_get_contents($root . '/services/ReservationManagementAccessService.php');
@@ -130,13 +140,13 @@ $managementSession = file_get_contents($root . '/services/ReservationManagementA
 $publicView = file_get_contents($root . '/views/reservaciones/gestionar.php');
 $workflowRaw = file_get_contents($root . '/n8n/reservaciones-comunicaciones.json');
 $workflow = json_decode((string)$workflowRaw, true);
-communicationsAssert(is_string($migration) && is_string($ddl), 'esquema de comunicaciones legible');
+communicationsAssert(is_string($ddl) && is_string($upgrade), 'esquema de comunicaciones legible');
 foreach (['configuracion_reservaciones', 'reservacion_recordatorios', 'notification_delivery_status', 'notification_delivery_updated_at'] as $fragment) {
-    communicationsAssert(str_contains($migration, $fragment) && str_contains($ddl, $fragment), "esquema contiene {$fragment}");
+    communicationsAssert(str_contains($ddl, $fragment), "esquema contiene {$fragment}");
 }
-communicationsAssert(str_contains($migration, "VALUES (1, 0, '18:00:00', NULL)"), 'migración crea singleton desactivado');
-communicationsAssert(str_contains($migration, 'UNIQUE KEY uq_reservacion_recordatorios_dedup'), 'deduplicación respaldada por índice único');
-communicationsAssert(str_contains($migration, "ENUM('pending', 'accepted', 'delivered', 'failed')"), 'estado de transporte explícito');
+communicationsAssert(str_contains($ddl, "(1, 0, '18:00:00', NULL)"), 'esquema crea singleton desactivado');
+communicationsAssert(str_contains($ddl, 'UNIQUE KEY uq_reservacion_recordatorios_dedup'), 'deduplicación respaldada por índice único');
+communicationsAssert(str_contains($ddl, "ENUM('pending', 'accepted', 'delivered', 'failed')"), 'estado de transporte explícito');
 
 foreach ([
     '/reservaciones/gestionar',
@@ -166,4 +176,15 @@ communicationsAssert(!str_contains((string)$workflowRaw, '"pinData"'), 'workflow
 communicationsAssert(!preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', (string)$workflowRaw), 'workflow no contiene correos de ejemplo');
 communicationsAssert(!preg_match('/"(?:from|to|phone|telefono)"\s*:\s*"\+?\d{10,}"/i', (string)$workflowRaw), 'workflow no contiene teléfonos de ejemplo');
 
+communicationsAssert(str_contains($ddl, "ENUM('dia_anterior', 'confirmacion')"), 'ENUM admite confirmaciones');
+communicationsAssert(str_contains($upgrade, 'ALTER TABLE reservacion_recordatorios'), 'actualización documentada sin migración ficticia');
+communicationsAssert(str_contains($workflowRaw, 'reservation.confirmed'), 'workflow confirma reservaciones');
+communicationsAssert(str_contains($workflowRaw, 'n8n-nodes-base.whatsApp') && str_contains($workflowRaw, 'sendTemplate'), 'WhatsApp usa template nativo');
+communicationsAssert(stripos($workflowRaw, 'twilio') === false && !str_contains($workflowRaw, 'RESERVATION_PHONE_FROM'), 'sin transporte anterior');
+communicationsAssert(!preg_match('/"(?:tokens|executions|access_token)"\s*:/', $workflowRaw), 'sin secretos ni ejecuciones');
+foreach ($workflow['nodes'] as $node) {
+    if ($node['type'] === 'n8n-nodes-base.scheduleTrigger') {
+        communicationsAssert($node['parameters']['rule']['interval'][0]['minutesInterval'] === 5, 'scheduler cada cinco minutos');
+    }
+}
 fwrite(STDOUT, "Reservaciones: contrato de comunicaciones y n8n OK\n");
