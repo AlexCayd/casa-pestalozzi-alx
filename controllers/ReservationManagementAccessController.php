@@ -7,6 +7,7 @@ use Services\DisponibilidadReservacionService;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
 use Services\ReservationManagementAccessService;
+use Services\ReservationNotificationDispatcher;
 use Services\ReservationManagementAccessSession;
 
 /** Superficie pública única para gestionar una reservación por acceso temporal. */
@@ -64,6 +65,9 @@ final class ReservationManagementAccessController
             return;
         }
         $resultado = ReservacionPublicaService::crearReemplazoConAccesoTemporal($datos, $contexto);
+        if (($resultado['ok'] ?? false) && isset($resultado['reservation']['id'])) {
+            ReservationNotificationDispatcher::dispatchConfirmation((int)$resultado['reservation']['id']);
+        }
         if (($resultado['ok'] ?? false) === true) {
             ReservationManagementAccessSession::limpiar();
         }

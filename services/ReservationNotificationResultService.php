@@ -9,16 +9,17 @@ final class ReservationNotificationResultService
 {
     public static function registrar(string $event, int $sourceId, int $attempt, string $status): array
     {
-        if (!in_array($event, ['reservation.schedule_change', 'reservation.reminder_next_day'], true)
+        if (!in_array($event, ['reservation.confirmed', 'reservation.schedule_change', 'reservation.reminder_next_day'], true)
             || !in_array($status, ['delivered', 'failed'], true)
             || $sourceId < 1
             || $attempt < 1
+            || ($event === 'reservation.confirmed' && $attempt !== 1)
         ) {
             return ['ok' => false, 'codigo' => 'NOTIFICACION_CALLBACK_INVALIDO'];
         }
         return $event === 'reservation.schedule_change'
             ? self::scheduleChange($sourceId, $attempt, $status)
-            : self::reminder($sourceId, $attempt, $status);
+            : self::reminder($sourceId, $attempt, $status, $event === 'reservation.confirmed' ? 'confirmacion' : 'dia_anterior');
     }
 
     private static function scheduleChange(int $sourceId, int $attempt, string $status): array
@@ -83,7 +84,7 @@ final class ReservationNotificationResultService
         }
     }
 
-    private static function reminder(int $sourceId, int $attempt, string $status): array
+    private static function reminder(int $sourceId, int $attempt, string $status, string $tipo): array
     {
         if ($attempt !== 1) {
             return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_STALE', 'stale' => true];
@@ -92,14 +93,14 @@ final class ReservationNotificationResultService
         $db->begin_transaction();
         try {
             $stmt = $db->prepare(
-                'SELECT id, notification_delivery_status
+                'SELECT id, tipo, notification_delivery_status
                  FROM reservacion_recordatorios WHERE id = ? LIMIT 1 FOR UPDATE'
             );
             $stmt->bind_param('i', $sourceId);
             $stmt->execute();
             $fila = $stmt->get_result()->fetch_assoc() ?: null;
             $stmt->close();
-            if (!$fila) {
+            if (!$fila || $fila['tipo'] !== $tipo) {
                 $db->rollback();
                 return ['ok' => false, 'codigo' => 'NOTIFICACION_SOURCE_NO_ENCONTRADO'];
             }

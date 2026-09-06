@@ -7,6 +7,46 @@ final class ReservationNotificationDispatcher
 {
     public const EVENT_SCHEDULE_CHANGE = 'reservation.schedule_change';
 
+    /** El llamador ya terminó su operación de dominio y liberó sus locks. */
+    public static function dispatchConfirmation(
+        int $reservacionId,
+        ?OperationalNotificationProvider $provider = null
+    ): array {
+        try {
+            $notification = ReservationConfirmationService::preparar($reservacionId);
+            if ($notification === null) {
+                return ['ok' => true, 'accepted' => false, 'attempted' => false];
+            }
+            $sourceId = (int)$notification['source_id'];
+            try {
+                $provider = $provider ?? OperationalNotificationProviderFactory::crear();
+                $envio = $provider->sendReservationsEvent(ReservationConfirmationService::EVENT, [$notification]);
+            } catch (\Throwable $e) {
+                $envio = ['ok' => false, 'accepted' => false];
+            }
+            if (($envio['accepted'] ?? false) === true) {
+                // Un callback rápido puede haber finalizado antes de este UPDATE.
+                $stmt = \Model\ActiveRecord::getDB()->prepare(
+                    "UPDATE reservacion_recordatorios
+                     SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
+                     WHERE id = ? AND tipo = 'confirmacion' AND notification_delivery_status = 'pending'"
+                );
+                $stmt->bind_param('i', $sourceId);
+                $stmt->execute();
+                $stmt->close();
+            } else {
+                ReservationNotificationResultService::registrar(
+                    ReservationConfirmationService::EVENT, $sourceId, 1, 'failed'
+                );
+            }
+            return array_merge($envio, ['attempted' => true, 'source_id' => $sourceId, 'attempt' => 1]);
+        } catch (\Throwable $e) {
+            // La comunicación nunca convierte un commit de dominio exitoso en error.
+            error_log('ReservationNotificationDispatcher::dispatchConfirmation - fallo redactado.');
+            return ['ok' => false, 'accepted' => false];
+        }
+    }
+
     public static function dispatchScheduleChange(
         int $impactoId,
         ?OperationalNotificationProvider $provider = null

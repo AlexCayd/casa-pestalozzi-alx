@@ -2,7 +2,7 @@
 
 namespace Model;
 
-/** Registro sin PII de un recordatorio operativo preparado. */
+/** Registro sin PII de un recordatorio (dia_anterior) o confirmación (confirmacion) preparados. */
 final class ReservacionRecordatorio extends ActiveRecord
 {
     protected static $tabla = 'reservacion_recordatorios';

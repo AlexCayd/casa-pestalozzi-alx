@@ -8,7 +8,7 @@ $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES | 
     <header class="admin-page__header">
         <div class="admin-page__intro">
             <span class="admin-page__eyebrow">Configuración</span>
-            <h1 class="admin-page__title">Reservaciones</h1>
+            <h1 class="admin-page__title">Mensajes de reservaciones</h1>
             <p class="admin-page__subtitle">Configura recordatorios automáticos y comunicaciones con clientes.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
@@ -24,13 +24,27 @@ $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES | 
     <section class="admin-panel admin-card admin-config-panel" aria-labelledby="reservation-reminders-title">
         <div class="admin-config-panel__head">
             <div>
-                <h2 id="reservation-reminders-title">Recordatorios de reservaciones</h2>
-                <p>Define si el restaurante contactará automáticamente a quienes tienen una reservación al día siguiente.</p>
+                <h2 id="reservation-reminders-title">Comunicaciones con clientes</h2>
+                <p>Las confirmaciones y los cambios de horario se notifican automáticamente. Elige si también se envía un recordatorio el día anterior.</p>
             </div>
         </div>
 
         <form class="admin-reservation-settings" method="POST" action="/admin/configuracion/reservaciones" data-reservation-settings>
             <input type="hidden" name="admin_csrf" value="<?php echo $h($adminCsrfToken ?? ''); ?>">
+
+            <div class="admin-reservation-settings__section">
+                <div>
+                    <h3>Confirmación de reservación</h3>
+                    <p>Se envía automáticamente cuando una reservación queda confirmada y tiene un contacto válido.</p>
+                </div>
+            </div>
+
+            <div class="admin-reservation-settings__section">
+                <div>
+                    <h3>Cambios de horario</h3>
+                    <p>Se notifica automáticamente cuando un cambio en el horario de operación afecta una reservación.</p>
+                </div>
+            </div>
 
             <div class="admin-reservation-settings__section">
                 <div>

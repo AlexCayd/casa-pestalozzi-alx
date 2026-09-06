@@ -18,6 +18,7 @@ use Services\ReservationManagementAccessService;
 use Services\ReservationNotificationDispatcher;
 use Services\ReservationNotificationResultService;
 use Services\ReservationReminderService;
+use Services\ReservationConfirmationService;
 
 function communicationsDbAssert(bool $condition, string $message): void
 {
@@ -362,10 +363,107 @@ try {
     $disabledBatch = ReservationReminderService::preparar();
     communicationsDbAssert(($disabledBatch['due'] ?? true) === false && ($disabledBatch['notifications'] ?? []) === [], 'configuración deshabilitada preparó mensajes');
 
+    // Confirmaciones comparten persistencia, nunca la dedup de recordatorios.
+    $captureProvider = new class implements OperationalNotificationProvider {
+        public array $notifications = [];
+        public bool $fail = false;
+        public function sendReservationsEvent(string $event, array $notifications): array
+        {
+            $observer = new mysqli($_ENV['DB_HOST'], $_ENV['DB_USER'], $_ENV['DB_PASS'], $_ENV['DB_NAME']);
+            try {
+                $id = (int)$notifications[0]['source_id'];
+                communicationsDbAssert((bool)$observer->query("SELECT id FROM reservacion_recordatorios WHERE id = {$id}")->fetch_assoc(), 'provider recibió intento no confirmado');
+                $observer->query('SET innodb_lock_wait_timeout = 1');
+                $observer->begin_transaction();
+                $observer->query("SELECT id FROM reservacion_recordatorios WHERE id = {$id} FOR UPDATE");
+                $observer->rollback();
+                communicationsDbAssert(\Services\HorarioConfigLock::adquirir($observer, 0), 'lock global activo en provider');
+                \Services\HorarioConfigLock::liberar($observer);
+                communicationsDbAssert(\Services\FechaOperacionLock::adquirir($observer, $notifications[0]['reservation_date'], 0), 'lock fecha activo en provider');
+                \Services\FechaOperacionLock::liberar($observer, $notifications[0]['reservation_date']);
+            } finally {
+                $observer->close();
+            }
+            communicationsDbAssert($event === ReservationConfirmationService::EVENT, 'evento de confirmación incorrecto');
+            $this->notifications = array_merge($this->notifications, $notifications);
+            return ['ok' => !$this->fail, 'accepted' => !$this->fail];
+        }
+    };
+    foreach (['email' => 'confirmation.fixture@example.test', 'telefono' => '+525500000002'] as $type => $contact) {
+        $id = insertCommunicationReservation($db, 'FIXTURE confirmación', $type, $contact, 4);
+        $reservationIds[] = $id;
+        $dispatch = ReservationNotificationDispatcher::dispatchConfirmation($id, $captureProvider);
+        communicationsDbAssert($dispatch['accepted'] ?? false, 'confirmación no aceptada para ' . $type);
+        $notification = end($captureProvider->notifications);
+        $token = tokenFromManagementUrl($notification['management_url']);
+        $context = ReservationManagementAccessService::validarToken($token['token']);
+        communicationsDbAssert(($context['source_type'] ?? '') === 'confirmation', 'token no resuelve confirmation');
+        communicationsDbAssert($context['can_modify'] && $context['can_cancel'], 'permisos canónicos de confirmación');
+        $db->begin_transaction();
+        communicationsDbAssert(ReservationManagementAccessService::accesoValidoEnTransaccion($db, $context, 'modify'), 'confirmation no revalida modificación');
+        communicationsDbAssert(ReservationManagementAccessService::accesoValidoEnTransaccion($db, $context, 'cancel'), 'confirmation no revalida cancelación');
+        communicationsDbAssert(ReservationManagementAccessService::finalizarEnTransaccion($db, $context), 'confirmation no finaliza fuente');
+        $db->rollback();
+
+        $source = (int)$dispatch['source_id'];
+        $row = $db->query("SELECT * FROM reservacion_recordatorios WHERE id = {$source}")->fetch_assoc();
+        communicationsDbAssert($row['tipo'] === 'confirmacion' && $row['dedup_key'] === 'confirmacion|' . $id, 'tipo/dedup de confirmación');
+        communicationsDbAssert($row['notification_delivery_status'] === 'accepted' && $row['access_token_hash'] === $token['hash'], 'accepted y hash persistidos');
+        $count = count($captureProvider->notifications);
+        ReservationNotificationDispatcher::dispatchConfirmation($id, $captureProvider);
+        communicationsDbAssert(count($captureProvider->notifications) === $count, 'retry reenvió confirmación');
+        communicationsDbAssert((int)$db->query("SELECT COUNT(*) AS n FROM reservacion_recordatorios WHERE dedup_key = 'confirmacion|{$id}'")->fetch_assoc()['n'] === 1, 'dedup creó segunda fila');
+        communicationsDbAssert(!ReservationNotificationResultService::registrar('reservation.reminder_next_day', $source, 1, 'delivered')['ok'], 'callback aceptó tipo de otro evento');
+        communicationsDbAssert(ReservationNotificationResultService::registrar('reservation.confirmed', $source, 1, 'delivered')['ok'], 'callback de confirmación');
+        communicationsDbAssert(ReservationNotificationResultService::registrar('reservation.confirmed', $source, 1, 'failed')['idempotente'] ?? false, 'callback terminal repetido cambió estado');
+        communicationsDbAssert($db->query("SELECT notification_delivery_status AS s FROM reservacion_recordatorios WHERE id = {$source}")->fetch_assoc()['s'] === 'delivered', 'delivered no persistido');
+    }
+    communicationsDbAssert(!ReservationNotificationResultService::registrar('reservation.confirmed', 2147483647, 1, 'delivered')['ok'], 'callback aceptó source inexistente');
+    communicationsDbAssert(ReservationManagementAccessService::validarToken(str_repeat('a', 64)) === null, 'token desconocido aceptado');
+    foreach ([[$noContactId, null], [$cancelledId, null]] as [$id, $expected]) {
+        communicationsDbAssert(ReservationConfirmationService::preparar($id) === $expected, 'confirmación de estado/contacto excluido');
+    }
+    $invalidId = insertCommunicationReservation($db, 'FIXTURE contacto inválido', 'email', 'invalid', 2);
+    $reservationIds[] = $invalidId;
+    communicationsDbAssert(ReservationConfirmationService::preparar($invalidId) === null, 'contacto inválido preparado');
+    $largeConfirmation = ReservationConfirmationService::preparar($largeId);
+    communicationsDbAssert(is_array($largeConfirmation), 'confirmación de grupo no preparada');
+    $largeConfirmationToken = tokenFromManagementUrl($largeConfirmation['management_url']);
+    $largeConfirmationContext = ReservationManagementAccessService::validarToken($largeConfirmationToken['token']);
+    communicationsDbAssert(!$largeConfirmationContext['can_modify'] && $largeConfirmationContext['can_cancel'], 'confirmación grupo >12');
+    $source = (int)$largeConfirmation['source_id'];
+    communicationsDbAssert($db->query("SELECT notification_delivery_status AS s FROM reservacion_recordatorios WHERE id = {$source}")->fetch_assoc()['s'] === 'pending', 'preparación inicia pending');
+    $db->query("UPDATE reservacion_recordatorios SET access_expires_at = '2037-01-14 17:59:00' WHERE id = {$source}");
+    communicationsDbAssert(ReservationManagementAccessService::validarToken($largeConfirmationToken['token']) === null, 'confirmation expirado aceptado');
+    communicationsDbAssert(ReservationNotificationResultService::registrar('reservation.confirmed', $source, 1, 'failed')['ok'], 'failed de confirmación');
+
+    $failedId = insertCommunicationReservation($db, 'FIXTURE fallo externo', 'email', 'failed.fixture@example.test', 2);
+    $reservationIds[] = $failedId;
+    $captureProvider->fail = true;
+    $failure = ReservationNotificationDispatcher::dispatchConfirmation($failedId, $captureProvider);
+    communicationsDbAssert(!($failure['accepted'] ?? true), 'provider failed aceptado');
+    $source = (int)$failure['source_id'];
+    $row = $db->query("SELECT notification_delivery_status, access_invalidated_at FROM reservacion_recordatorios WHERE id = {$source}")->fetch_assoc();
+    communicationsDbAssert($row['notification_delivery_status'] === 'failed' && $row['access_invalidated_at'] !== null, 'fallo no invalidó acceso');
+    communicationsDbAssert($db->query("SELECT estado FROM reservaciones WHERE id = {$failedId}")->fetch_assoc()['estado'] === 'confirmada', 'fallo externo alteró dominio');
+
+    foreach (['pending', 'accepted'] as $status) {
+        $id = insertCommunicationReservation($db, 'FIXTURE reconciliación', 'email', 'stale.fixture@example.test', 2);
+        $reservationIds[] = $id;
+        $prepared = ReservationConfirmationService::preparar($id);
+        $source = (int)$prepared['source_id'];
+        $db->query("UPDATE reservacion_recordatorios SET notification_delivery_status = '{$status}', notification_delivery_updated_at = DATE_SUB(NOW(), INTERVAL 6 MINUTE) WHERE id = {$source}");
+        $off = ReservationReminderService::preparar();
+        communicationsDbAssert(!$off['due'] && $off['notifications'] === [], 'D-1 apagado preparó lote');
+        $row = $db->query("SELECT notification_delivery_status, access_invalidated_at FROM reservacion_recordatorios WHERE id = {$source}")->fetch_assoc();
+        communicationsDbAssert($row['notification_delivery_status'] === 'failed' && $row['access_invalidated_at'] !== null, 'reconciliación apagada omitió confirmación');
+    }
+
     echo json_encode([
         'ok' => true,
         'configuracion' => 'persistida_y_recargada',
         'recordatorios_preparados' => $total,
+        'confirmaciones' => ['contactos' => true, 'dedup' => true, 'post_commit' => true, 'fallos' => true, 'reconciliacion_apagada' => true],
         'deduplicacion_raiz' => true,
         'modificacion' => true,
         'cancelacion' => ['exitosa' => true, 'idempotente' => true],

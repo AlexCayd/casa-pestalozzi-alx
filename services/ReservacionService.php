@@ -53,7 +53,11 @@ class ReservacionService
 
     public static function crearAdministrativa(array $post, ?int $usuarioId = null): array
     {
-        return ReservacionAdministrativaService::crear($post, $usuarioId);
+        $resultado = ReservacionAdministrativaService::crear($post, $usuarioId);
+        if (($resultado['ok'] ?? false) === true) {
+            ReservationNotificationDispatcher::dispatchConfirmation((int)($resultado['id'] ?? 0));
+        }
+        return $resultado;
     }
 
     public static function obtenerHorariosDisponiblesParaFecha(string $fecha, bool $permitirHistorica = false): array
@@ -321,6 +325,9 @@ class ReservacionService
             );
             $db->commit();
 
+            if ($nuevoEstado === 'confirmada') {
+                ReservationNotificationDispatcher::dispatchConfirmation($reservacionId);
+            }
             return ['ok' => true, 'codigo' => self::codigoEstado($nuevoEstado)];
         } catch (\Throwable $e) {
             try {

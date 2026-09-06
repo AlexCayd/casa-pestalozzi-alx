@@ -13,7 +13,7 @@ final class N8nOperationalNotificationProvider implements OperationalNotificatio
 
     public function sendReservationsEvent(string $event, array $notifications): array
     {
-        if (!in_array($event, ['reservation.schedule_change', 'reservation.reminder_next_day'], true)
+        if (!in_array($event, ['reservation.confirmed', 'reservation.schedule_change', 'reservation.reminder_next_day'], true)
             || $notifications === []
         ) {
             return ['ok' => false, 'accepted' => false, 'codigo' => 'NOTIFICACION_EVENTO_INVALIDO'];

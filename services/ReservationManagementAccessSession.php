@@ -39,7 +39,7 @@ final class ReservationManagementAccessSession
         $reservationId = filter_var($contexto['reservation_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $expiresAt = filter_var($contexto['expires_at'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         $csrf = (string)($contexto['csrf_token'] ?? '');
-        if (!in_array($sourceType, ['schedule_change', 'reminder_next_day'], true)
+        if (!in_array($sourceType, ['schedule_change', 'reminder_next_day', 'confirmation'], true)
             || !$sourceId
             || !$reservationId
             || !$expiresAt

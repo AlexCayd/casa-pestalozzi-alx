@@ -14,6 +14,7 @@ use MVC\Router;
 use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
 use Services\ReservationClientSession;
+use Services\ReservationNotificationDispatcher;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
@@ -61,6 +62,9 @@ class ReservacionController
                 (string)($entrada['contacto'] ?? ''),
                 (string)($entrada['codigo'] ?? '')
             );
+        if (($respuesta['ok'] ?? false) && isset($respuesta['reservation']['id'])) {
+            ReservationNotificationDispatcher::dispatchConfirmation((int)$respuesta['reservation']['id']);
+        }
         self::json($respuesta, self::status($respuesta));
     }
 
@@ -270,6 +274,9 @@ class ReservacionController
                 'ok' => false,
                 'codigo' => ReservacionPublicaService::CONTACTO_NO_COINCIDE,
             ];
+        if (($respuesta['ok'] ?? false) && isset($respuesta['reservation']['id'])) {
+            ReservationNotificationDispatcher::dispatchConfirmation((int)$respuesta['reservation']['id']);
+        }
         self::json($respuesta, self::status($respuesta, 201));
     }
 
@@ -312,6 +319,9 @@ class ReservacionController
             return;
         }
         $respuesta = ReservacionPublicaService::confirmarReemplazo($entrada, $sesion);
+        if (($respuesta['ok'] ?? false) && isset($respuesta['reservation']['id'])) {
+            ReservationNotificationDispatcher::dispatchConfirmation((int)$respuesta['reservation']['id']);
+        }
         self::json($respuesta, self::status($respuesta));
     }
 

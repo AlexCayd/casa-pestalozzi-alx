@@ -700,6 +700,7 @@ final class ReservacionPublicaService
         if ($id < 1 || $sourceId < 1 || !in_array($sourceType, [
             ReservationManagementAccessService::SOURCE_SCHEDULE_CHANGE,
             ReservationManagementAccessService::SOURCE_REMINDER_NEXT_DAY,
+            ReservationManagementAccessService::SOURCE_CONFIRMATION,
         ], true) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) || $hora === '') {
             return self::datosInvalidos('HORARIO_NO_DISPONIBLE');
         }

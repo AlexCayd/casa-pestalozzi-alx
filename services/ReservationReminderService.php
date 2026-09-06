@@ -17,6 +17,7 @@ final class ReservationReminderService
     public static function preparar(?DateTimeImmutable $ahora = null): array
     {
         $ahora = $ahora ?? ReservacionConfig::ahora();
+        self::reconciliarPendientesAntiguos();
         $configuracion = ReservacionNotificacionConfigService::obtener();
         if (empty($configuracion['recordatorio_dia_anterior_activo'])) {
             return ['ok' => true, 'due' => false, 'notifications' => []];
@@ -29,7 +30,6 @@ final class ReservationReminderService
             return ['ok' => true, 'due' => false, 'notifications' => []];
         }
 
-        self::reconciliarPendientesAntiguos();
         $fechaObjetivo = $ahora->modify('+1 day')->format('Y-m-d');
         $notifications = [];
         foreach (self::candidatos($fechaObjetivo) as $reservacionId) {

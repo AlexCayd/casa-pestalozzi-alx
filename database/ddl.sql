@@ -742,7 +742,7 @@ CREATE TABLE IF NOT EXISTS reservacion_recordatorios (
   id                              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   reservacion_id                  INT NOT NULL,
   reservacion_raiz_id             INT NOT NULL,
-  tipo                            ENUM('dia_anterior') NOT NULL DEFAULT 'dia_anterior',
+  tipo                            ENUM('dia_anterior', 'confirmacion') NOT NULL DEFAULT 'dia_anterior',
   dedup_key                       VARCHAR(191) NOT NULL,
   access_token_hash               CHAR(64) NULL,
   access_expires_at               DATETIME NULL,

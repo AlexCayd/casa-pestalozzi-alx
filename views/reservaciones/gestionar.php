@@ -5,6 +5,7 @@ $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES | 
 $formulario = is_array($formulario ?? null) ? $formulario : null;
 $sourceType = (string)($formulario['source_type'] ?? 'schedule_change');
 $isReminder = $sourceType === 'reminder_next_day';
+$isStandardManagement = in_array($sourceType, ['reminder_next_day', 'confirmation'], true);
 $canModify = !empty($formulario['can_modify']);
 $canCancel = !empty($formulario['can_cancel']);
 $fechaObjeto = DateTimeImmutable::createFromFormat('!Y-m-d', (string)($formulario['fecha'] ?? ''), ReservacionConfig::timezone());
@@ -13,7 +14,7 @@ $fechaCorta = $fechaObjeto
     ? $fechaObjeto->format('j') . ' ' . ($mesesCortos[(int)$fechaObjeto->format('n')] ?? $fechaObjeto->format('m')) . ' ' . $fechaObjeto->format('Y')
     : (string)($formulario['fecha'] ?? '');
 $personasActuales = (int)($formulario['comensales'] ?? 0);
-$pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario';
+$pageTitle = $isStandardManagement ? 'Gestiona tu reservación' : 'Elige un nuevo horario';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -56,8 +57,8 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
             >
                 <div class="schedule-change-context">
                     <div class="schedule-change-card__intro">
-                        <p class="schedule-change-eyebrow"><?php echo $isReminder ? 'Tu reservación es mañana' : 'Cambio de horario'; ?></p>
-                        <h1 id="reservation-management-title"><?php echo $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'; ?></h1>
+                        <p class="schedule-change-eyebrow"><?php echo $sourceType === 'confirmation' ? 'Reservación confirmada' : ($isReminder ? 'Tu reservación es mañana' : 'Cambio de horario'); ?></p>
+                        <h1 id="reservation-management-title"><?php echo $isStandardManagement ? 'Gestiona tu reservación' : 'Elige un nuevo horario'; ?></h1>
                     </div>
 
                     <div class="schedule-change-current" aria-label="Resumen de reservación">
@@ -73,7 +74,7 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
 
                 <div class="schedule-change-editor">
                     <?php if ($canModify) : ?>
-                        <p class="schedule-change-editor__eyebrow"><?php echo $isReminder ? 'Modificar reservación' : 'Nueva visita'; ?></p>
+                        <p class="schedule-change-editor__eyebrow"><?php echo $isStandardManagement ? 'Modificar reservación' : 'Nueva visita'; ?></p>
                         <form class="schedule-change-form" data-schedule-change-form data-max-guests="<?php echo (int)ReservacionConfig::MAX_COMENSALES_PUBLICO; ?>" novalidate>
                             <div class="field reservation-field reservation-field--date">
                                 <span class="reservation-field__label">Fecha</span>
@@ -144,11 +145,11 @@ $pageTitle = $isReminder ? 'Gestiona tu reservación' : 'Elige un nuevo horario'
                             <div class="schedule-change-form__action">
                                 <p class="schedule-change-status" data-change-status role="status" aria-live="polite"></p>
                                 <button class="btn-line schedule-change-submit" type="submit" data-change-submit>
-                                    <?php echo $isReminder ? 'Modificar reservación' : 'Confirmar nuevo horario'; ?> <span aria-hidden="true">→</span>
+                                    <?php echo $isStandardManagement ? 'Modificar reservación' : 'Confirmar nuevo horario'; ?> <span aria-hidden="true">→</span>
                                 </button>
                             </div>
                         </form>
-                    <?php elseif ($isReminder && $personasActuales > ReservacionConfig::MAX_COMENSALES_PUBLICO) : ?>
+                    <?php elseif ($isStandardManagement && $personasActuales > ReservacionConfig::MAX_COMENSALES_PUBLICO) : ?>
                         <div class="schedule-change-limited" role="note">
                             <h2>La modificación requiere atención personal</h2>
                             <p>Para cambiar el horario de un grupo de más de 12 personas, contáctanos.</p>

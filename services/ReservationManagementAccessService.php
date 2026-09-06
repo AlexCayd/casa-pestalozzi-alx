@@ -4,10 +4,11 @@ namespace Services;
 
 use Model\ActiveRecord;
 
-/** Resuelve y revalida accesos de afectaciones y recordatorios. */
+/** Resuelve y revalida accesos de afectaciones, recordatorios y confirmaciones. */
 final class ReservationManagementAccessService
 {
     public const SOURCE_SCHEDULE_CHANGE = 'schedule_change';
+    public const SOURCE_CONFIRMATION = 'confirmation';
     public const SOURCE_REMINDER_NEXT_DAY = 'reminder_next_day';
 
     /** @return array<string,mixed>|null */
@@ -22,8 +23,14 @@ final class ReservationManagementAccessService
         if ($fila !== null) {
             return self::contextoValido($fila, self::SOURCE_SCHEDULE_CHANGE);
         }
-        $fila = self::filaReminderPorHash($hash);
-        return $fila !== null ? self::contextoValido($fila, self::SOURCE_REMINDER_NEXT_DAY) : null;
+        $fila = self::filaRecordatorioPorHash($hash);
+        if ($fila === null) {
+            return null;
+        }
+        $sourceType = $fila['source_tipo'] === 'confirmacion'
+            ? self::SOURCE_CONFIRMATION
+            : self::SOURCE_REMINDER_NEXT_DAY;
+        return self::contextoValido($fila, $sourceType);
     }
 
     public static function intercambiarToken(string $token): bool
@@ -50,7 +57,7 @@ final class ReservationManagementAccessService
         }
         $fila = $sesion['source_type'] === self::SOURCE_SCHEDULE_CHANGE
             ? self::filaSchedulePorIds((int)$sesion['source_id'], (int)$sesion['reservation_id'])
-            : self::filaReminderPorIds((int)$sesion['source_id'], (int)$sesion['reservation_id']);
+            : self::filaRecordatorioPorIds((int)$sesion['source_id'], (int)$sesion['reservation_id']);
         $contexto = $fila ? self::contextoValido($fila, (string)$sesion['source_type']) : null;
         if (!$contexto) {
             ReservationManagementAccessSession::limpiar();
@@ -103,12 +110,13 @@ final class ReservationManagementAccessService
                    AND ir.access_invalidated_at IS NULL AND ir.access_expires_at > NOW()
                  LIMIT 1 FOR UPDATE"
             );
-        } elseif ($sourceType === self::SOURCE_REMINDER_NEXT_DAY) {
+        } elseif (in_array($sourceType, [self::SOURCE_REMINDER_NEXT_DAY, self::SOURCE_CONFIRMATION], true)) {
+            $tipo = $sourceType === self::SOURCE_CONFIRMATION ? 'confirmacion' : 'dia_anterior';
             $stmt = $db->prepare(
                 "SELECT r.estado, r.fecha, r.hora, r.comensales
                  FROM reservacion_recordatorios rr
                  JOIN reservaciones r ON r.id = rr.reservacion_id
-                 WHERE rr.id = ? AND rr.reservacion_id = ? AND rr.tipo = 'dia_anterior'
+                 WHERE rr.id = ? AND rr.reservacion_id = ? AND rr.tipo = '{$tipo}'
                    AND rr.access_invalidated_at IS NULL AND rr.access_expires_at > NOW()
                  LIMIT 1 FOR UPDATE"
             );
@@ -123,7 +131,7 @@ final class ReservationManagementAccessService
             return false;
         }
         if ($accion === 'modify') {
-            return ($sourceType !== self::SOURCE_REMINDER_NEXT_DAY
+            return ($sourceType === self::SOURCE_SCHEDULE_CHANGE
                     || (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO)
                 && ReservacionPublicaService::puedeModificarPublicamente($fila);
         }
@@ -138,7 +146,7 @@ final class ReservationManagementAccessService
         if ($sourceType === self::SOURCE_SCHEDULE_CHANGE) {
             return HorarioOperacionImpactoService::resolverAccesoTemporalEnTransaccion($db, $sourceId);
         }
-        if ($sourceType !== self::SOURCE_REMINDER_NEXT_DAY || $sourceId < 1) {
+        if (!in_array($sourceType, [self::SOURCE_REMINDER_NEXT_DAY, self::SOURCE_CONFIRMATION], true) || $sourceId < 1) {
             return false;
         }
         $stmt = $db->prepare(
@@ -174,13 +182,16 @@ final class ReservationManagementAccessService
         if ($sourceType === self::SOURCE_REMINDER_NEXT_DAY && (string)($fila['source_tipo'] ?? '') !== 'dia_anterior') {
             return null;
         }
+        if ($sourceType === self::SOURCE_CONFIRMATION && (string)($fila['source_tipo'] ?? '') !== 'confirmacion') {
+            return null;
+        }
         $base = [
             'estado' => (string)$fila['reservacion_estado'],
             'fecha' => (string)$fila['fecha'],
             'hora' => (string)$fila['hora'],
         ];
         $canModify = ReservacionPublicaService::puedeModificarPublicamente($base)
-            && ($sourceType !== self::SOURCE_REMINDER_NEXT_DAY
+            && ($sourceType === self::SOURCE_SCHEDULE_CHANGE
                 || (int)$fila['comensales'] <= ReservacionConfig::MAX_COMENSALES_PUBLICO);
         $canCancel = ReservacionPublicaService::puedeCancelarPublicamente($base);
         if (!$canModify && !$canCancel) {
@@ -229,17 +240,17 @@ final class ReservationManagementAccessService
         return $fila;
     }
 
-    private static function filaReminderPorHash(string $hash): ?array
+    private static function filaRecordatorioPorHash(string $hash): ?array
     {
-        return self::filaReminder('rr.access_token_hash = ?', 's', [$hash]);
+        return self::filaRecordatorio('rr.access_token_hash = ?', 's', [$hash]);
     }
 
-    private static function filaReminderPorIds(int $sourceId, int $reservationId): ?array
+    private static function filaRecordatorioPorIds(int $sourceId, int $reservationId): ?array
     {
-        return self::filaReminder('rr.id = ? AND rr.reservacion_id = ?', 'ii', [$sourceId, $reservationId]);
+        return self::filaRecordatorio('rr.id = ? AND rr.reservacion_id = ?', 'ii', [$sourceId, $reservationId]);
     }
 
-    private static function filaReminder(string $where, string $types, array $params): ?array
+    private static function filaRecordatorio(string $where, string $types, array $params): ?array
     {
         $stmt = ActiveRecord::getDB()->prepare(
             "SELECT rr.id AS source_id, rr.reservacion_id AS reservation_id, rr.tipo AS source_tipo,
