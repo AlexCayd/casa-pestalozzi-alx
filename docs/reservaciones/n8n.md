@@ -188,6 +188,7 @@ Smoke real pendiente de credenciales: (A) landing → OTP → confirmar → mens
 | Síntoma | Comprobación / acción |
 |---|---|
 | 403 N8N_SECRET | Comparar secreto de PHP/n8n y header, sin imprimirlo en logs |
+| Normalizar produce 0 | Revisar primero `Validar secreto y contrato`: `authorized` y `valid` deben ser `true`; si `authorized` es `false`, alinear `X-N8N-Secret` con `$env.N8N_SECRET` sin desactivar la validación |
 | 422 contrato inválido | schema_version=1, evento permitido, fuente, intento y campos mínimos |
 | Timeout PHP → n8n | URL, red, workflow activo y respuesta temprana; reconciliar, no reenviar a ciegas |
 | Token Meta expirado | Renovar en credencial n8n y probar con destinatario autorizado |

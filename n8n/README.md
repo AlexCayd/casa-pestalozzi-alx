@@ -18,7 +18,9 @@ manualmente SMTP a Enviar email y WhatsApp Business Cloud API a Enviar WhatsApp.
 Configurar variables, número TEST y templates; probar ambos canales y callbacks
 antes de activar. La guía completa es [n8n de reservaciones](../docs/reservaciones/n8n.md).
 
-Para exportar: `node n8n/exportar.js`. Revisar siempre el diff: no versionar
+Para comparar la instancia local: `node n8n/exportar.js`. El comando es de
+sólo lectura y no escribe si detecta diferencias; revisar el diff y repetir con
+`node n8n/exportar.js --write` para confirmar la actualización. No versionar
 credentials, pinData, tokens, contactos ni ejecuciones. La exportación sin
 credenciales es estructural y no demuestra transporte real.
 
