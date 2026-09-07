@@ -1913,6 +1913,16 @@ function initForm() {
         otpInput.focus();
         return;
       }
+      if (
+        data.codigo !== "RESERVACION_CONFIRMADA"
+        || !data.reservation
+        || !data.reservation.id
+      ) {
+        setOtpError("El código verificó tu contacto, pero no confirmó esta reservación.");
+        otpMessage.textContent = "Vuelve a iniciar la solicitud para confirmar la reservación.";
+        otpInput.focus();
+        return;
+      }
       sessionVerified = true;
       showConfirmation(data);
     }).catch(function() {

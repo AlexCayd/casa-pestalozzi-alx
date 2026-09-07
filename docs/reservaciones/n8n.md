@@ -197,6 +197,7 @@ Smoke real pendiente de credenciales: (A) landing → OTP → confirmar → mens
 | Template no aprobado | Revisar estado en Meta; esperar aprobación antes de activar |
 | Callback fallido | URL PHP accesible, secreto y source/attempt; timeout de cinco minutos invalida acceso |
 | Provider incorrecto | development simula; seleccionar n8n únicamente al completar pruebas |
+| Landing muestra confirmación sin fila `confirmacion` | Verificar que la petición OTP lleve `request_token` y que la respuesta sea `RESERVACION_CONFIRMADA` con `reservation.id`; `CONTACTO_VERIFICADO` sólo valida el contacto. Recargar el bundle versionado y comprobar el ENUM runtime |
 | No llega recordatorio | Activo, hora y zona, mañana, confirmada, contacto, afectación y dedup raíz/fecha |
 | No sale segunda confirmación | Es intencional: dedup por id incluye intentos fallidos |
 

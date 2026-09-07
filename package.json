@@ -10,7 +10,7 @@
     "test:js": "node scripts/tests/run-reservaciones-workflow.cjs && node scripts/tests/run-reservaciones-js-syntax.cjs && node scripts/tests/run-reservaciones-pos-warning-flow.cjs && node scripts/tests/run-pos-modal-refresh-flow.cjs && node scripts/tests/run-pos-open-ticket-contract.cjs && node --check src/js/modules/schedule-change-access.js && node --check src/js/admin/buzon.js",
     "audit:reservaciones": "php scripts/auditar-errores-reservaciones.php",
     "test": "npm run test:php && npm run test:js",
-    "test:runtime": "php scripts/tests/run-reservaciones-reasignacion-db.php && php scripts/tests/run-punto-venta-cierre-db.php && php scripts/tests/run-reservaciones-comunicaciones-db.php"
+    "test:runtime": "php scripts/tests/run-reservaciones-reasignacion-db.php && php scripts/tests/run-punto-venta-cierre-db.php && php scripts/tests/run-reservaciones-comunicaciones-db.php && php scripts/tests/run-reservaciones-landing-confirmation.php"
   },
   "author": "",
   "license": "ISC",

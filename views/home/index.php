@@ -193,7 +193,7 @@ if ($schemaHorarios !== []) {
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <!-- App bundle (compilado por Gulp desde src/js/) -->
-  <script defer src="/build/js/bundle.min.js?v=diseno-v3"></script>
+  <script defer src="/build/js/bundle.min.js?v=diseno-v4"></script>
 
 </body>
 </html>
