@@ -32,6 +32,23 @@ class TicketPrinter {
      */
     private static ?string $ultimoError = null;
 
+    /**
+     * Segundos que se espera a que la impresora acepte la conexión TCP.
+     *
+     * Sin este límite, NetworkPrintConnector llama a fsockopen() sin timeout y
+     * PHP cae en default_socket_timeout (60 s por omisión). Medido contra una
+     * impresora apagada, cada intento tardaba 21 s en rendirse —el timeout de
+     * TCP del sistema— y la impresión ocurre DENTRO de /api/enviar-comanda,
+     * una vez por área y en serie: el mesero se quedaba 21 s por área mirando
+     * un botón que no respondía, volvía a tocarlo y el pedido entraba
+     * duplicado al tablero de producción.
+     *
+     * 2 s es holgado: en la LAN del restaurante una impresora encendida
+     * contesta en milisegundos. Si no contestó en dos segundos, no va a
+     * imprimir, y el pedido —que ya está guardado— no tiene por qué esperarla.
+     */
+    private const TIMEOUT_CONEXION = 2;
+
     /** Devuelve (y no consume) el detalle del último fallo, o null si no hubo. */
     public static function ultimoError(): ?string {
         return self::$ultimoError;
@@ -203,7 +220,11 @@ class TicketPrinter {
             case 'windows':
                 return new WindowsPrintConnector((string)$impresora->dispositivo);
             default:
-                return new NetworkPrintConnector($impresora->host, (int)$impresora->puerto);
+                return new NetworkPrintConnector(
+                    $impresora->host,
+                    (int)$impresora->puerto,
+                    self::TIMEOUT_CONEXION
+                );
         }
     }
 }
