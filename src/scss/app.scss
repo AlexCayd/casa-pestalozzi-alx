@@ -15,6 +15,10 @@
 @use 'components/cursor';
 @use 'components/buttons';
 @use 'components/announcement';
+// Encabezado de marca (views/templates/header-casa-pestalozzi.php). Va en
+// shared/ porque el parcial PHP sirve a cualquier vista; el bundle que lo
+// necesite lo declara igual que aquí.
+@use 'shared/header-casa-pestalozzi';
 // Vocabulario italiano compartido (insegna, arco, filete). Va antes de las
 // secciones: varias lo consumen.
 @use 'components/italia';

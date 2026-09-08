@@ -1,0 +1,70 @@
+// ── Encabezado de marca ───────────────────────────────────────
+//
+// Pareja de views/templates/header-casa-pestalozzi.php. Vive en shared/ y no
+// en components/ porque el parcial PHP puede incluirse desde cualquier vista,
+// y los bundles del piso y del panel no comparten tokens con el público: cada
+// propiedad de color y de fuente lleva su respaldo dentro del `var()` para que
+// la marca se vea igual la cargue quien la cargue.
+//
+// Aquí NO hay `text-transform`. El nombre llega ya en versales desde el
+// marcado; ver la cabecera del parcial.
+
+.hcp-header {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+  color: inherit; // se tiñe con el tono de la sección que lo contiene
+}
+
+.hcp-header__nombre {
+  margin: 0;
+  font-family: var(--logo, var(--admin-logo, "KudosKaps", "Bodoni Moda", serif));
+  // KudosKaps tiene UNA sola cara, de peso 400. Sin esta línea los headings
+  // heredan su negrita, el navegador la fabrica dilatando el trazo y el
+  // wordmark se empasta.
+  font-weight: 400;
+  font-size: var(--hcp-header-size, clamp(1.2rem, 1.5vw, 1.5rem));
+  letter-spacing: normal;
+  line-height: 1;
+  // La cara mete un espacio enorme entre palabras: sin compensarlo
+  // "CASA PESTALOZZI" se lee como dos logos sueltos.
+  word-spacing: -0.62em;
+}
+
+.hcp-header__enlace {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.5s var(--ease, cubic-bezier(0.16, 1, 0.3, 1));
+
+  &:hover,
+  &:focus-visible {
+    color: var(--accent-text, var(--admin-gold, currentColor));
+  }
+}
+
+.hcp-header__palabra {
+  display: inline;
+}
+
+// Apilado: cada palabra en su renglón. El espacio entre ellas deja de existir,
+// así que el word-spacing negativo tampoco tiene nada que compensar.
+.hcp-header--apilado {
+  .hcp-header__nombre {
+    word-spacing: normal;
+  }
+
+  .hcp-header__palabra {
+    display: block;
+  }
+}
+
+.hcp-header__subtitulo {
+  margin-top: 0.35rem;
+  font-family: var(--sans, var(--admin-font, "Montserrat", sans-serif));
+  font-weight: 400;
+  font-size: 0.5rem;
+  letter-spacing: 0.9em;
+  word-spacing: normal;
+  opacity: 0.78;
+  color: inherit;
+}
