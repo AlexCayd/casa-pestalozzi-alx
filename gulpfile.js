@@ -404,6 +404,9 @@ function devWatch(done) {
   // admin/shared es la base de los DOS bundles administrativos.
   watch("src/scss/admin/shared/**/*.scss", parallel(adminCss, operationAppCss));
   watch("src/scss/admin/modules/**/*.scss", adminModuleCss);
+  // shared/ es lo que comparten el árbol público y el del piso: el wordmark de
+  // marca entra en app.css y en operation.css a la vez.
+  watch("src/scss/shared/**/*.scss", parallel(css, operationAppCss));
   // El árbol de operación alimenta DOS salidas: reservations.css y el bundle
   // nuevo del piso, que además cuelga de admin/shared.
   watch("src/scss/operation/**/*.scss", parallel(operationCss, operationAppCss));

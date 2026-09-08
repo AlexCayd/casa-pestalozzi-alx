@@ -34,6 +34,11 @@
 @use '../components/confirmation-modal';
 @use '../components/app-notice';
 
+// El wordmark de la marca (views/templates/header-casa-pestalozzi.php). Vive
+// en shared/ porque el parcial sirve a cualquier vista; cada bundle que lo
+// pinte lo declara, como aquí para el login.
+@use '../shared/header-casa-pestalozzi';
+
 // ── Pantallas de piso ────────────────────────────────────────
 @use 'empty-state';
 @use '../punto-de-venta/punto-de-venta';

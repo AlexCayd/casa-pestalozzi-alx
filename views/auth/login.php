@@ -53,7 +53,14 @@
 
     <section class="login-panel">
       <div class="login-card">
-        <a class="login-brand" href="/">Casa Pestalozzi</a>
+        <?php /* Wordmark compartido. Nivel <p> a propósito: el <h1> de esta
+                 pantalla es el título de la pestaña activa, y no puede haber
+                 dos. El resto son los valores por omisión del componente
+                 (contenedor <header>, enlace a la portada). */ ?>
+        <?php
+        $hcpClase = 'login-brand';
+        include __DIR__ . '/../templates/header-casa-pestalozzi.php';
+        ?>
 
         <div class="login-tabs" role="tablist" aria-label="Tipo de acceso">
           <button type="button"

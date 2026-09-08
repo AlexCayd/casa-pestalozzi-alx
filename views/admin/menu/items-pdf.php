@@ -234,7 +234,27 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             margin-bottom: -46px;
             border-bottom: 3px solid <?php echo $paleta['v_accent']; ?>;
         }
-        .pdf-header h1 {
+        /* Rotulo de la pieza, encima del wordmark. Antes iba dentro del <h1>
+           ("MENU - CASA PESTALOZZI"), y el nombre de la casa no admite
+           companyia dentro de su propia caja: el componente imprime el
+           wordmark y nada mas. De paso el acento vuelve —"MENU" ya no lo
+           dibuja KudosKaps, que no define la U acentuada, sino Montserrat. */
+        .pdf-header__rotulo {
+            font-family: "Montserrat", sans-serif;
+            font-weight: bold;
+            color: <?php echo $paleta['v_accent']; ?>;
+            font-size: 10px;
+            letter-spacing: 4px;
+            margin-bottom: 9px;
+        }
+
+        /* Wordmark: views/templates/header-casa-pestalozzi.php.
+           El componente pone el marcado y las clases; el estilo se rehace aqui
+           porque Dompdf no lee custom properties ni carga app.css, asi que su
+           SCSS compartido no llega al papel. Lo que SI viaja con el componente
+           —y es lo que importa— es el nombre escrito en caja alta real. */
+        .pdf-header .hcp-header { display: block; }
+        .pdf-header .hcp-header__nombre {
             font-family: "KudosKaps", "Playfair Display", serif;
             /* KudosKaps solo existe en peso normal; sin esto el <h1> pide bold
                por defecto y Dompdf sustituye por una serif (Times-Bold). */
@@ -246,6 +266,14 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             font-size: 30px;
             letter-spacing: 1px;
         }
+        /* La cara mete un espacio enorme entre palabras: sin apretarlo,
+           "CASA PESTALOZZI" se lee como dos logos sueltos. Es el mismo ajuste
+           que hace .brand-mark en la landing, pero NO con word-spacing: el
+           componente emite cada palabra en su <span>, asi que el espacio queda
+           entre dos elementos y ahi Dompdf no lo aplica (probado: el rotulo
+           sale identico con y sin la propiedad). Sobre el margen negativo del
+           segundo <span> si tiene efecto. */
+        .pdf-header .hcp-header__palabra + .hcp-header__palabra { margin-left: -12px; }
         .pdf-header .sub {
             font-family: "Montserrat", sans-serif;
             font-weight: 300;
@@ -414,8 +442,13 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
             margin-top: 2px;
         }
 
+        /* El margin-bottom negativo de la banda cancela el espaciador del
+           <thead>, y sin platillos no hay tabla que lo ponga: el aviso subia
+           46px y se imprimia ENCIMA del verde, ilegible. Se los devuelve el
+           padding superior de aqui — el unico caso donde el aviso es todo el
+           contenido de la hoja. */
         .empty {
-            padding: 30px;
+            padding: 76px 30px 30px;
             text-align: center;
             color: <?php echo $paleta['txt_faint']; ?>;
             font-style: italic;
@@ -427,11 +460,18 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
              deja sangrar de canto a canto. Tambien se imprime cuando no hay
              platillos — una hoja con la marca y un aviso, no un aviso suelto. */ ?>
     <div class="pdf-header">
-        <!-- Va escrito en mayusculas AQUI, no con text-transform: el rotulo es
-             un wordmark y su caja alta es parte del texto, no un estilo que una
-             hoja pueda quitar. Sin acento en "MENU": la fuente KudosKaps no
-             define la U acentuada y cambiaria de tipografia. -->
-        <h1>MENU — CASA PESTALOZZI</h1>
+        <p class="pdf-header__rotulo">MENÚ</p>
+        <?php /* El nombre de la casa lo pone el componente compartido, que lo
+                 escribe en caja alta real en el marcado y no con
+                 text-transform. En papel eso pesa mas que en pantalla: la caja
+                 alta es lo que KudosKaps sabe dibujar, y ademas es el texto que
+                 se copia del PDF. Sin enlace: aqui no hay donde ir. */ ?>
+        <?php
+        $hcpNivel = 'h1';
+        $hcpEtiqueta = 'div';
+        $hcpHref = '';
+        include __DIR__ . '/../../templates/header-casa-pestalozzi.php';
+        ?>
         <p class="sub">Cocina Mediterránea con corazón mexicano</p>
     </div>
     <div class="page">

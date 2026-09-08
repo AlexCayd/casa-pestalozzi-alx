@@ -104,15 +104,29 @@
   scrollbar-width: thin;
 }
 
+// Wordmark compartido: shared/_header-casa-pestalozzi + su parcial PHP. Aquí
+// sólo queda lo que es de ESTA tarjeta —el cuerpo y el hueco bajo el rótulo—;
+// la cara, el peso 400 obligado de KudosKaps y el word-spacing negativo los
+// trae el componente.
 .login-brand {
-  display: inline-block;
-  font-family: var(--logo);
+  // 1.28rem y no los 1.45rem de antes: el componente escribe el nombre en caja
+  // alta REAL, y KudosKaps dibujaba las minúsculas del rótulo anterior como
+  // versalitas —15 % más estrechas y más bajas—. Al mismo cuerpo, el wordmark
+  // crecía de 229 a 270 px. Es la misma corrección, y en la misma proporción,
+  // que ya hizo el PDF del menú al adoptar el componente.
+  --hcp-header-size: 1.28rem;
   color: var(--accent-text);
-  font-size: 1.45rem;
-  letter-spacing: 0.02em;
-  word-spacing: -0.62em;
-  margin-bottom: clamp(0.8rem, 2.4vh, 1.6rem);
-  text-decoration: none;
+  // El componente aprieta la caja del nombre a `line-height: 1`; el ancla
+  // anterior heredaba el interlineado del cuerpo y dejaba medio renglón de
+  // aire bajo el rótulo. Se devuelve al margen para que las pestañas —y con
+  // ellas los dos formularios— no suban.
+  margin-bottom: calc(clamp(0.8rem, 2.4vh, 1.6rem) + 0.45rem);
+
+  // El componente deja el tracking en normal; la tarjeta lo abre un punto,
+  // que es el ancho con el que está calibrado el resto del bloque.
+  .hcp-header__nombre {
+    letter-spacing: 0.02em;
+  }
 }
 
 // Un solo acceso con dos pestañas: NIP para piso, contraseña para el panel.
@@ -430,7 +444,8 @@
 // esta compactación es el único mecanismo que hace caber el NIP: se recorta lo
 // accesorio y se preservan los objetivos táctiles de las teclas.
 @media (max-height: 900px) {
-  .login-brand { margin-bottom: 0.7rem; }
+  // El sumando es el medio renglón que el componente ya no pone (ver arriba).
+  .login-brand { margin-bottom: calc(0.7rem + 0.45rem); }
 
   .login-tabs { margin-bottom: 0.8rem; }
 
