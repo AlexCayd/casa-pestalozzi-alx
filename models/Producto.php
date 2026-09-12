@@ -181,6 +181,119 @@ class Producto extends ActiveRecord {
         return true;
     }
 
+    /**
+     * Listado paginado de /admin/recetas.
+     *
+     * No reutiliza buscarAdmin() porque la pregunta no es la misma. En Menú se
+     * busca un platillo por su nombre; en Recetas la pregunta que nadie más
+     * puede responder es «¿qué platillos llevan cilantro?», y para eso hay que
+     * mirar dentro de la receta. De ahí el JOIN con categorias y el EXISTS
+     * sobre producto_componentes.
+     *
+     * El orden es el de todos(): lo activo primero, luego por categoría y
+     * nombre. Paginar no cambia el criterio, sólo recorta la ventana.
+     */
+    public static function buscarRecetas(array $filtros = [], ?int $limite = null, int $offset = 0): array
+    {
+        $condiciones = self::condicionesRecetas($filtros);
+        $query = "SELECT p.* FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id";
+
+        if (!empty($condiciones)) {
+            $query .= " WHERE " . implode(' AND ', $condiciones);
+        }
+
+        $query .= " ORDER BY p.activo DESC, p.categoria_id ASC, p.nombre ASC";
+
+        if ($limite !== null) {
+            $limite = max(1, (int) $limite);
+            $offset = max(0, (int) $offset);
+            $query .= " LIMIT {$limite} OFFSET {$offset}";
+        }
+
+        return self::consultarSQL($query);
+    }
+
+    /** Total de platillos que casan con el filtro; alimenta la paginación. */
+    public static function totalRecetas(array $filtros = []): int
+    {
+        $condiciones = self::condicionesRecetas($filtros);
+        $query = "SELECT COUNT(*) FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id";
+
+        if (!empty($condiciones)) {
+            $query .= " WHERE " . implode(' AND ', $condiciones);
+        }
+
+        $resultado = self::$db->query($query);
+
+        if (!$resultado) {
+            return 0;
+        }
+
+        $total = $resultado->fetch_array();
+        $resultado->free();
+
+        return (int) array_shift($total);
+    }
+
+    /**
+     * Búsqueda por términos sueltos, no por cadena literal.
+     *
+     * El texto se parte en palabras y cada una tiene que aparecer en ALGÚN
+     * sitio del platillo —su nombre, su categoría o el nombre de un
+     * ingrediente o subreceta de su receta—, sin importar el orden. Es lo que
+     * hace que «pollo ensalada» encuentre «Ensalada de pollo» y que «cilantro»
+     * devuelva los cuatro platillos que lo consumen aunque ninguno lo lleve en
+     * el nombre.
+     *
+     * Las palabras se cruzan con AND y los campos con OR: dos términos afinan
+     * el resultado en vez de ampliarlo, que es lo que la gente espera al
+     * seguir escribiendo.
+     *
+     * Mayúsculas y acentos los resuelve la colación de la columna (utf8mb4
+     * *_ci, insensible a caja y a acentos), igual que el resto de los LIKE del
+     * proyecto: «jamon» encuentra «Jamón» sin normalizar nada aquí.
+     */
+    private static function condicionesRecetas(array $filtros): array
+    {
+        $condiciones = [];
+        $q = trim((string) ($filtros['q'] ?? ''));
+        $estado = (string) ($filtros['estado'] ?? '');
+
+        if ($q !== '') {
+            // Tope de términos: cada uno añade un EXISTS al plan, y a partir de
+            // cinco palabras el filtro ya no afina nada que el usuario pueda
+            // leer. El recorte de longitud lo hace el controlador.
+            $terminos = array_slice(preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5);
+
+            foreach ($terminos as $termino) {
+                $t = self::escaparLike($termino);
+                $condiciones[] = "(
+                    p.nombre LIKE '%{$t}%' ESCAPE '\\\\'
+                    OR c.nombre LIKE '%{$t}%' ESCAPE '\\\\'
+                    OR EXISTS (
+                        SELECT 1 FROM producto_componentes pc
+                          LEFT JOIN ingredientes i ON i.id = pc.ref_id AND pc.tipo = 'ingrediente'
+                          LEFT JOIN subrecetas   s ON s.id = pc.ref_id AND pc.tipo = 'subreceta'
+                         WHERE pc.producto_id = p.id
+                           AND (i.nombre LIKE '%{$t}%' ESCAPE '\\\\'
+                                OR s.nombre LIKE '%{$t}%' ESCAPE '\\\\')
+                    )
+                )";
+            }
+        }
+
+        // El estado de la receta es el filtro propio de este módulo: la tarjeta
+        // «Sin receta» de arriba dice cuántos faltan y esto es lo que lleva
+        // directo a ellos.
+        if ($estado === 'sin') {
+            $condiciones[] = "NOT EXISTS (SELECT 1 FROM producto_componentes pc WHERE pc.producto_id = p.id)";
+        } elseif ($estado === 'con') {
+            $condiciones[] = "EXISTS (SELECT 1 FROM producto_componentes pc WHERE pc.producto_id = p.id)";
+        }
+
+        return $condiciones;
+    }
+
     private static function condicionesAdmin(array $filtros): array
     {
         $condiciones = [];

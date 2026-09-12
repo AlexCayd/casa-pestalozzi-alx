@@ -355,6 +355,59 @@
      indefinida invalida la declaración entera, y el modal salía transparente. */
   --confirmation-surface: var(--admin-surface-strong);
   --confirmation-text: var(--admin-text);
+  /* El resto del vocabulario del diálogo. Faltaba entero, y el que más se
+     notaba era el velo: `_confirmation-modal.scss` lo pintaba con --scrim, un
+     nombre que sólo existe dentro de `puente-tokens-publicos` —las cuatro
+     pantallas de PISO—, nunca en `.admin-body`. Indefinido, la declaración se
+     invalida y el fondo queda transparente: el diálogo de borrado se abría con
+     el módulo entero a brillo pleno detrás, sin nada que dijera que la página
+     estaba bloqueada.
+
+     La salida NO es puentear los nombres públicos hacia el panel. Sería
+     revivir la confusión que documenta CLAUDE.md —usar --accent o --on-accent
+     dentro del panel es un error, no un atajo— y, peor, haría que otras
+     declaraciones inválidas repartidas por los componentes empezaran a
+     aplicarse en silencio. El diálogo recibe roles PROPIOS y cada sistema los
+     resuelve con su paleta. */
+  --confirmation-scrim: var(--admin-scrim);
+  --confirmation-accent: var(--admin-accent);
+  --confirmation-accent-soft: var(--admin-accent-soft);
+  --confirmation-accent-text: var(--admin-accent);
+  --confirmation-on-accent: var(--admin-on-accent);
+  --confirmation-strong: var(--admin-text);
+  --confirmation-faint: var(--admin-faint);
+  --confirmation-field-bg: var(--admin-surface-soft);
+  --confirmation-shadow: var(--admin-sombra);
+  /* Sin serif: el panel tiene una sola voz y es Geist (ver CLAUDE.md). El
+     componente pedía var(--serif, Georgia, serif) y aquí caía al respaldo, así
+     que el titular del diálogo salía en Georgia — la única serif del panel, y
+     nadie la había elegido. */
+  --confirmation-heading-font: var(--admin-font-sans);
+  /* Y la voz del panel, que no es sólo la familia: rótulo en mono con el
+     tracking abierto y titular en sans apretada (ver «Tipografía del panel»
+     en CLAUDE.md). Sin esto el diálogo llevaba el rótulo de la landing —sans
+     pesada a 14 px—, el más ruidoso de todo el panel. Son opcionales en el
+     componente: la landing no los declara y se queda con su respaldo. */
+  --confirmation-label-font: var(--admin-font-mono);
+  --confirmation-label-size: 11px;
+  --confirmation-label-weight: 600;
+  --confirmation-label-tracking: 0.14em;
+  --confirmation-heading-tracking: -0.03em;
+  /* Éxito y peligro, el otro caso del mismo fallo: --feedback-ok y
+     --feedback-danger sólo viven dentro de `puente-tokens-publicos`. En el
+     panel el relleno del botón destructivo era una declaración inválida, así
+     que "Eliminar" salía sin fondo —texto suelto donde debía haber un botón
+     rojo— y el icono de advertencia, del color heredado.
+
+     --confirmation-danger es el rojo PLENO del relleno y --confirmation-danger-text
+     el rojo mezclado que se lee como texto sobre el fondo del tema. Confundirlos
+     es lo que apaga el botón. */
+  --confirmation-ok: var(--admin-success-text);
+  --confirmation-danger: var(--admin-c-rojo);
+  --confirmation-danger-text: var(--admin-danger-text);
+  /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
+     --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
+  --confirmation-on-danger: var(--admin-paper);
 }
 
 /* ── TEMA OSCURO ───────────────────────────────────────────────
@@ -498,6 +551,59 @@
      indefinida invalida la declaración entera, y el modal salía transparente. */
   --confirmation-surface: var(--admin-surface-strong);
   --confirmation-text: var(--admin-text);
+  /* El resto del vocabulario del diálogo. Faltaba entero, y el que más se
+     notaba era el velo: `_confirmation-modal.scss` lo pintaba con --scrim, un
+     nombre que sólo existe dentro de `puente-tokens-publicos` —las cuatro
+     pantallas de PISO—, nunca en `.admin-body`. Indefinido, la declaración se
+     invalida y el fondo queda transparente: el diálogo de borrado se abría con
+     el módulo entero a brillo pleno detrás, sin nada que dijera que la página
+     estaba bloqueada.
+
+     La salida NO es puentear los nombres públicos hacia el panel. Sería
+     revivir la confusión que documenta CLAUDE.md —usar --accent o --on-accent
+     dentro del panel es un error, no un atajo— y, peor, haría que otras
+     declaraciones inválidas repartidas por los componentes empezaran a
+     aplicarse en silencio. El diálogo recibe roles PROPIOS y cada sistema los
+     resuelve con su paleta. */
+  --confirmation-scrim: var(--admin-scrim);
+  --confirmation-accent: var(--admin-accent);
+  --confirmation-accent-soft: var(--admin-accent-soft);
+  --confirmation-accent-text: var(--admin-accent);
+  --confirmation-on-accent: var(--admin-on-accent);
+  --confirmation-strong: var(--admin-text);
+  --confirmation-faint: var(--admin-faint);
+  --confirmation-field-bg: var(--admin-surface-soft);
+  --confirmation-shadow: var(--admin-sombra);
+  /* Sin serif: el panel tiene una sola voz y es Geist (ver CLAUDE.md). El
+     componente pedía var(--serif, Georgia, serif) y aquí caía al respaldo, así
+     que el titular del diálogo salía en Georgia — la única serif del panel, y
+     nadie la había elegido. */
+  --confirmation-heading-font: var(--admin-font-sans);
+  /* Y la voz del panel, que no es sólo la familia: rótulo en mono con el
+     tracking abierto y titular en sans apretada (ver «Tipografía del panel»
+     en CLAUDE.md). Sin esto el diálogo llevaba el rótulo de la landing —sans
+     pesada a 14 px—, el más ruidoso de todo el panel. Son opcionales en el
+     componente: la landing no los declara y se queda con su respaldo. */
+  --confirmation-label-font: var(--admin-font-mono);
+  --confirmation-label-size: 11px;
+  --confirmation-label-weight: 600;
+  --confirmation-label-tracking: 0.14em;
+  --confirmation-heading-tracking: -0.03em;
+  /* Éxito y peligro, el otro caso del mismo fallo: --feedback-ok y
+     --feedback-danger sólo viven dentro de `puente-tokens-publicos`. En el
+     panel el relleno del botón destructivo era una declaración inválida, así
+     que "Eliminar" salía sin fondo —texto suelto donde debía haber un botón
+     rojo— y el icono de advertencia, del color heredado.
+
+     --confirmation-danger es el rojo PLENO del relleno y --confirmation-danger-text
+     el rojo mezclado que se lee como texto sobre el fondo del tema. Confundirlos
+     es lo que apaga el botón. */
+  --confirmation-ok: var(--admin-success-text);
+  --confirmation-danger: var(--admin-c-rojo);
+  --confirmation-danger-text: var(--admin-danger-text);
+  /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
+     --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
+  --confirmation-on-danger: var(--admin-paper);
 }
 
 /* ── Las pantallas de piso ─────────────────────────────────────
@@ -1224,8 +1330,16 @@ html.lenis body {
   border-radius: 8px;
   background: var(--admin-sidebar-hover-bg);
   color: var(--admin-sidebar-link-hover);
-  font-size: 24px;
   line-height: 1;
+  align-items: center;
+  justify-content: center;
+}
+.admin-sidebar__close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .admin-menu-toggle {
@@ -1252,7 +1366,7 @@ html.lenis body {
 
 @media (max-width: 992px) {
   .admin-sidebar__close {
-    display: block;
+    display: flex;
   }
 }
 /*
@@ -1821,6 +1935,7 @@ html.lenis body {
   display: inline-flex;
   min-height: 26px;
   align-items: center;
+  gap: 4px;
   padding: 0 9px;
   border: 1px solid var(--admin-neutral-border);
   border-radius: 999px;
@@ -1830,6 +1945,12 @@ html.lenis body {
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+}
+.admin-badge svg {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
 }
 
 .admin-badge--neutral {
@@ -2350,6 +2471,56 @@ html.lenis body {
 .admin-status--cancelado {
   border-color: color-mix(in srgb, currentColor 42%, transparent);
   background: color-mix(in srgb, currentColor 14%, var(--admin-surface));
+}
+
+/* ── Estrellas de calificación ──────────────────────────────────
+ *
+ * La fila de cinco de Feedback de clientes. Eran los glifos ★ y ☆ repetidos con
+ * str_repeat() y SIN una sola regla de CSS: los pintaba la fuente del sistema,
+ * así que el color lo decidía la plataforma —en algunas salen a color, y ahí el
+ * amarillo del emoji entraba en un panel que es blanco y negro— y la estrella
+ * VACÍA ni siquiera existe en todas las caras, de modo que en ciertos equipos la
+ * mitad de la fila eran rectángulos vacíos.
+ *
+ * Ahora las cinco son el mismo trazo SVG y lo que las distingue es el relleno,
+ * que es lo que hace que la fila se lea como UNA escala en vez de como dos
+ * símbolos distintos alternados.
+ *
+ * El color es el ámbar de la paleta funcional y no el acento del panel: aquí la
+ * calificación ES el dato, igual que en las series de una gráfica, así que entra
+ * en la excepción declarada de la regla de color (ver CLAUDE.md).
+ */
+.admin-fb__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+.admin-fb__stars--empty {
+  color: var(--admin-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.admin-fb__star {
+  flex: 0 0 auto;
+  /* Apagada: sólo el contorno, y en la línea de CONTROL (--admin-border-strong,
+     el escalón que cumple el 3:1 de WCAG para elementos no textuales). Iba en
+     --admin-border, que es contorno de contenedor y sobre papel se queda en
+     1.3:1: las estrellas vacías desaparecían y con ellas la escala, que es lo
+     que convierte «tres rellenas» en «tres de cinco». */
+  fill: none;
+  stroke: var(--admin-border-strong);
+  stroke-width: 1.6;
+  /* Encendida: relleno ámbar con el CONTORNO oscurecido. El ámbar de la paleta
+     tiene luminancia 0.52 y sobre papel no llega a 2:1, así que la silueta de
+     la estrella se perdía en el tema claro justo donde el dato es la silueta.
+     El contorno en --admin-warning-text (el mismo ámbar rebajado con tinta) la
+     recorta a 6.5:1 sin cambiar el color que se percibe. */
+}
+.admin-fb__star.is-on {
+  fill: var(--admin-c-ambar);
+  stroke: var(--admin-warning-text);
 }
 
 /*
@@ -2925,6 +3096,155 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: not-allowed;
 }
 
+/* ── Pills de opción ────────────────────────────────────────────
+ *
+ * Un grupo de opciones excluyentes con todo el catálogo a la vista, para los
+ * casos en los que un <select> escondía dos o tres alternativas que cabían de
+ * sobra en pantalla. Sustituye al desplegable, no lo acompaña: quien tenga
+ * veinte opciones sigue queriendo un select.
+ *
+ * El control es un <input type="radio"> REAL, no un botón con estado en JS.
+ * Eso conserva el envío del formulario, la navegación con flechas dentro del
+ * grupo, el required nativo y el estado tras un POST fallido sin una línea de
+ * script. El radio se oculta visualmente pero NO con display:none —eso lo
+ * sacaría del foco de teclado—: se recorta a un píxel dentro de la pill, así
+ * que el anillo de foco se puede pintar sobre la caja con :has().
+ */
+.admin-pills {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-pills__legend {
+  padding: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-pills__group {
+  display: flex;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-pill {
+  position: relative;
+  display: flex;
+  min-width: 150px;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-pill:hover {
+  border-color: var(--admin-border);
+}
+.admin-pill {
+  /* La marca de selección la dibuja la propia pill, no el radio: así el punto
+     hereda los tokens del panel en vez del accent-color del sistema, que en
+     tema oscuro sale del color de acento del SO.
+
+     Va en el ::before de la ETIQUETA, que es una fila flex, y no en el del
+     cuerpo: el cuerpo es una columna (título sobre explicación), y ahí el
+     `order: -1` que llevaba no la ponía a la izquierda del texto sino ENCIMA,
+     como un renglón suelto con un círculo. */
+}
+.admin-pill::before {
+  display: block;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin-top: 2px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 50%;
+  content: "";
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-pill {
+  /* El radio, recortado pero presente. `clip-path` en vez de display:none o
+     visibility:hidden: las dos últimas lo sacan del recorrido de tabulación y
+     el grupo dejaría de ser navegable con el teclado. */
+}
+.admin-pill input[type=radio] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-pill__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-pill__title {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.admin-pill__hint {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* El punto y el borde marcados. Se escribe con :has() sobre la etiqueta porque
+   la marca es el ::before de la propia etiqueta, que es el PADRE del radio: el
+   combinador de hermanos no llega hacia arriba. */
+.admin-pill:has(input[type=radio]:checked) {
+  border-color: var(--admin-accent);
+  background: color-mix(in srgb, var(--admin-accent) 8%, var(--admin-surface));
+}
+.admin-pill:has(input[type=radio]:checked)::before {
+  border-color: var(--admin-accent);
+  box-shadow: inset 0 0 0 4px var(--admin-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-pill,
+  .admin-pill::before {
+    transition: none;
+  }
+}
+.admin-pill:has(input[type=radio]:focus-visible) {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+/* Respaldo para los motores sin :has(). Sin él, en un navegador antiguo las
+   opciones se verían todas iguales y no habría forma de saber cuál está
+   elegida — el grupo dejaría de funcionar, no sólo de verse bien. */
+@supports not selector(:has(*)) {
+  .admin-pill input[type=radio] {
+    position: static;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    margin-top: 2px;
+    overflow: visible;
+    clip-path: none;
+    accent-color: var(--admin-accent);
+  }
+  .admin-pill::before {
+    display: none;
+  }
+}
 /*
  * Select custom del panel admin (mejora progresiva de <select>).
  * El <select> nativo queda oculto (envía el valor); el trigger + la lista
@@ -3338,50 +3658,133 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     transform: none !important;
   }
 }
+/*
+ * Diálogo de confirmación de la casa. Lo comparten los CUATRO bundles: la
+ * landing, el panel, el piso y la operación de reservaciones.
+ *
+ * Por eso no consume un solo rol del sitio público ni un solo --admin-*: sólo
+ * los --confirmation-*, que cada ámbito declara con su propia paleta
+ * (alias-heredados en layout/_reset.scss, alias-admin-heredados en
+ * admin/shared/base/_globals.scss). Antes pedía --scrim, --accent, --txt y
+ * --serif a secas, que existen en la landing y en las cuatro pantallas de piso
+ * pero NO en `.admin-body`: ahí las declaraciones se invalidaban y el velo del
+ * panel salía transparente —se borraba con el módulo a brillo pleno detrás— y
+ * el titular caía a Georgia, la única serif que el panel no quiere.
+ *
+ * Al añadir una regla con color o tipografía aquí, el token nuevo se declara en
+ * los DOS mixins. Un nombre que sólo exista en uno vuelve a romper el otro sin
+ * ruido: un var() inválido hereda o cae al valor inicial, no rompe la regla.
+ *
+ * La excepción son los ajustes de VOZ del rótulo y el titular
+ * (--confirmation-label-*, --confirmation-heading-tracking): llevan su valor de
+ * respaldo escrito en el var(), que es el de la landing, y sólo el panel los
+ * declara —para hablar en su mono de rótulos y su sans apretada—. Olvidarlos
+ * no deja nada transparente: deja el diálogo con la voz de la landing.
+ */
 .confirmation-modal {
+  /* Curvas y tiempos en un solo sitio: entrada y salida tienen que ser
+     simétricas o el cierre se siente más lento que la apertura aunque duren lo
+     mismo. La de entrada es la de desaceleración de la casa; la de salida
+     acorta, porque un diálogo que ya decidiste no tiene nada que anunciar. */
+  --confirmation-in: 260ms;
+  --confirmation-out: 170ms;
+  --confirmation-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --confirmation-ease-out: cubic-bezier(0.4, 0, 1, 1);
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--scrim) 76%, transparent);
-  opacity: 0;
-  transition: opacity 0.18s ease;
 }
 .confirmation-modal[hidden] {
   display: none;
 }
-.confirmation-modal.is-open {
-  opacity: 1;
+.confirmation-modal {
+  /* El velo desenfoca además de atenuar, y el desenfoque es lo que hace el
+     trabajo: sobre el tema oscuro del panel una capa negra al 76 % es casi
+     indistinguible del fondo, así que la página seguía leyéndose como
+     interactiva detrás del diálogo. El `saturate` no es adorno — sin él, un
+     fondo oscuro desenfocado sigue siendo una mancha gris y el velo no se
+     distingue de un rectángulo opaco (la misma cuenta que .mesa-modal__bd).
+
+     Va en el __backdrop y no en la raíz: el backdrop-filter crea contexto de
+     apilamiento, y sobre el contenedor arrastraría al propio diálogo dentro
+     del desenfoque.
+
+     Y el fundido va AQUÍ, no en la raíz, por la misma razón vista desde el otro
+     lado: un ancestro con `opacity` menor que 1 es raíz de backdrop, así que
+     mientras la raíz fundía el desenfoque no veía la página —sólo lo que había
+     dentro del propio modal— y aparecía de golpe al llegar a 1, al final de la
+     entrada. Con la opacidad en el mismo elemento que filtra, el velo y su
+     desenfoque entran juntos. */
 }
 .confirmation-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
-  background: transparent;
+  background: color-mix(in srgb, var(--confirmation-scrim) 76%, transparent);
   cursor: default;
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  opacity: 0;
+  transition: opacity var(--confirmation-out) var(--confirmation-ease-out);
+}
+.confirmation-modal.is-open .confirmation-modal__backdrop {
+  opacity: 1;
+  transition: opacity var(--confirmation-in) ease-out;
 }
 .confirmation-modal__dialog {
   position: relative;
   z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: clamp(620px, 72vw, 840px);
+  /* 600 px dejan unos 65 caracteres por línea a 16 px, que es la medida de
+     lectura de una pregunta y sus consecuencias. Estaba en clamp(620px,
+     72vw, 840px) para todos los casos, y un «¿Eliminar este gasto?» se abría
+     a 840 px con la descripción en una sola línea de lado a lado. El ancho
+     grande lo pide sólo la comparación de tres columnas (abajo). */
+  width: 600px;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 32px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 42%, transparent);
   border-radius: 18px;
   background: var(--confirmation-surface);
   color: var(--confirmation-text);
-  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
-  transform: translateY(0.5rem) scale(0.985);
-  transition: transform 0.18s ease;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--confirmation-shadow) 50%, transparent);
+  /* Sube desde abajo y crece: el gesto dice "esto viene a primer plano".
+     Sólo transform y opacity, que es lo que el compositor resuelve sin
+     repintar (la regla de _finishes.scss). */
+  transform: translateY(14px) scale(0.97);
+  opacity: 0;
+  transition: transform var(--confirmation-out) var(--confirmation-ease-out), opacity var(--confirmation-out) var(--confirmation-ease-out);
 }
 .confirmation-modal.is-open .confirmation-modal__dialog {
   transform: translateY(0) scale(1);
+  opacity: 1;
+  transition: transform var(--confirmation-in) var(--confirmation-ease), opacity var(--confirmation-in) ease-out;
+}
+@media (min-width: 640px) {
+  .confirmation-modal:has(.confirmation-modal__comparison) .confirmation-modal__dialog {
+    width: clamp(620px, 72vw, 840px);
+  }
+}
+.confirmation-modal {
+  /* Con movimiento reducido queda el fundido y nada más: el velo y el
+     desenfoque se conservan porque no son movimiento, son jerarquía —dicen que
+     la página de detrás está bloqueada—. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-out) ease;
+  }
+  .confirmation-modal.is-open .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-in) ease;
+  }
 }
 .confirmation-modal__header {
   display: grid;
@@ -3395,11 +3798,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 44px;
   place-items: center;
   flex: 0 0 44px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 50%, transparent);
   border-radius: 50%;
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
   font-size: 22px;
   font-weight: 700;
+}
+.confirmation-modal__icon svg {
+  stroke-width: 2;
 }
 .confirmation-modal__heading {
   min-width: 0;
@@ -3407,21 +3813,24 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .confirmation-modal__eyebrow {
   display: block;
   margin-bottom: 6px;
-  color: var(--accent-text);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--confirmation-accent-text);
+  font-family: var(--confirmation-label-font, inherit);
+  font-size: var(--confirmation-label-size, 14px);
+  font-weight: var(--confirmation-label-weight, 700);
+  letter-spacing: var(--confirmation-label-tracking, 0.08em);
   line-height: 1.45;
   text-transform: uppercase;
 }
 .confirmation-modal__title {
   margin: 0;
   color: inherit;
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--confirmation-heading-font);
   font-size: clamp(24px, 2.5vw, 30px);
   font-weight: 500;
+  letter-spacing: var(--confirmation-heading-tracking, normal);
   line-height: 1.2;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 .confirmation-modal__description, .confirmation-modal__warning, .confirmation-modal__consequence, .confirmation-modal__summary, .confirmation-modal__custom, .confirmation-modal__status {
   font-size: 16px;
@@ -3430,14 +3839,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__description {
   margin: 8px 0 0;
-  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 84%, transparent);
 }
 .confirmation-modal__close {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 24%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -3445,6 +3854,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
+}
+.confirmation-modal__close svg {
+  stroke-width: 2;
 }
 .confirmation-modal__close:disabled {
   cursor: wait;
@@ -3462,9 +3874,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__summary {
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
 }
 .confirmation-modal__summary[hidden] {
   display: none;
@@ -3480,15 +3892,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__warning {
   padding: 14px 16px;
-  border-left: 4px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent-soft);
+  border-left: 4px solid var(--confirmation-accent);
+  background: color-mix(in srgb, var(--confirmation-accent) 12%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 .confirmation-modal__warning[hidden] {
   display: none;
 }
 .confirmation-modal__consequence {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
 }
 .confirmation-modal__consequence[hidden] {
   display: none;
@@ -3511,7 +3923,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin-top: 4px;
 }
 .confirmation-modal__require-label {
-  color: color-mix(in srgb, var(--txt) 88%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 88%, transparent);
   font-size: 13px;
   font-weight: 700;
 }
@@ -3519,21 +3931,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  /* 42% y no 24%: es el contorno de un CONTROL, y el 24% se queda en 1.9:1
+     contra la superficie del diálogo —por debajo del 3:1 que WCAG pide a un
+     elemento no textual—. Es además el único campo del diálogo, así que
+     tiene que encontrarse solo. */
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 10px;
-  background: var(--surface);
-  color: var(--txt-strong);
+  background: var(--confirmation-field-bg);
+  color: var(--confirmation-strong);
   font: inherit;
   font-size: 14px;
 }
 .confirmation-modal__require-input:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: var(--confirmation-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--confirmation-accent) 28%, transparent);
 }
 .confirmation-modal__require-hint {
   margin: 0;
-  color: var(--txt-faint);
+  color: var(--confirmation-faint);
   font-size: 12px;
 }
 .confirmation-modal {
@@ -3541,17 +3957,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
      el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-input {
-  border-color: var(--feedback-ok);
+  border-color: var(--confirmation-ok);
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-hint {
-  color: var(--feedback-ok);
+  color: var(--confirmation-ok);
 }
 .confirmation-modal__reason {
   display: grid;
   gap: 8px;
 }
 .confirmation-modal__reason span {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -3559,25 +3975,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 96px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
   color: inherit;
   font: inherit;
   resize: vertical;
 }
 .confirmation-modal__reason textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--confirmation-accent);
   outline-offset: 2px;
 }
 .confirmation-modal__status {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__status[hidden] {
   display: none;
 }
 .confirmation-modal__status.is-error {
-  color: var(--feedback-danger);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal__comparison {
   display: grid;
@@ -3589,16 +4005,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__comparison-row:last-child {
   border-bottom: 0;
 }
 .confirmation-modal__comparison-row.is-changed {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--confirmation-accent) 10%, transparent);
 }
 .confirmation-modal__comparison-label {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__comparison-cell {
   display: grid;
@@ -3606,7 +4022,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
 }
 .confirmation-modal__comparison-cell small {
-  color: color-mix(in srgb, var(--txt) 64%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 64%, transparent);
   font-size: 14px;
 }
 .confirmation-modal__actions {
@@ -3615,7 +4031,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__button {
   min-height: 46px;
@@ -3633,25 +4049,32 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.55;
 }
 .confirmation-modal__button--secondary {
-  border-color: color-mix(in srgb, var(--txt) 25%, transparent);
+  border-color: color-mix(in srgb, var(--confirmation-text) 25%, transparent);
   background: transparent;
   color: inherit;
 }
 .confirmation-modal__button--primary {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--confirmation-accent);
+  color: var(--confirmation-on-accent);
+}
+.confirmation-modal {
+  /* El destructivo. --confirmation-danger es el ROJO PLENO del relleno y
+     --confirmation-danger-text el rojo legible como texto sobre el fondo del
+     modo activo: son dos valores distintos y confundirlos es lo que dejaba el
+     botón ilegible. La tinta de encima se declara aparte porque el rojo de la
+     paleta funcional no admite texto oscuro. */
 }
 .confirmation-modal--danger .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
-  color: var(--feedback-danger);
+  border-color: color-mix(in srgb, var(--confirmation-danger-text) 70%, transparent);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal--danger .confirmation-modal__button--primary {
-  background: var(--feedback-danger);
-  color: var(--txt);
+  background: var(--confirmation-danger);
+  color: var(--confirmation-on-danger);
 }
 .confirmation-modal--warning .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
-  color: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--confirmation-accent) 70%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 @media (max-width: 639px) {
   .confirmation-modal {
@@ -3930,6 +4353,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.operational-header--bare {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .operational-header__region {
   display: inline-flex;
   min-width: 0;
@@ -3960,6 +4387,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--admin-gold);
   font-family: var(--logo, var(--operational-font-brand));
   font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+  font-weight: 400;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -3986,6 +4414,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .operational-header__module {
   max-width: min(34vw, 360px);
+  margin: 0;
   overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
@@ -3994,6 +4423,66 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.operational-header--bare .operational-header__module {
+  max-width: none;
+  font-size: clamp(20px, 2.4vw, 28px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: var(--operational-weight-bold);
+}
+
+/*
+ * La hora del tablero: reloj, no volcado de terminal.
+ *
+ * Iba en monoespaciada dentro de una píldora con borde, y el string que emite
+ * `es-MX` es «09:31 p. m.» —once caracteres—: en mono eso es una losa de texto
+ * de consola en la esquina de la barra. Un reloj no se compara en vertical con
+ * nada, así que la regla mono/tabular de la casa no le obliga.
+ *
+ * Va en la sans, grande y LIGERA, haciendo contrapeso al nombre de la estación
+ * en negrita al otro extremo: mismo tamaño, peso opuesto. Es lenguaje de reloj
+ * de estación, no de consola. La cara es real —Geist declara 100-900—, que la
+ * casa no admite sintéticas.
+ *
+ * `tabular-nums` se conserva por otra razón que la de siempre: sin ella el
+ * ancho cambia cada minuto y la barra tiembla en una pantalla que nadie mira de
+ * frente pero todo el mundo tiene en la periferia.
+ *
+ * La píldora se va con los demás contenedores del tablero: la hora y su punto
+ * viven sueltos en la barra, que ya es el contenedor.
+ */
+.area-page .operational-update {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: color-mix(in srgb, var(--admin-text) 84%, var(--admin-bg));
+}
+.area-page .operational-update .operational-update__text {
+  font-family: var(--admin-font-sans);
+  font-size: clamp(22px, 2.1vw, 28px);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-regular);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.area-page .operational-update {
+  /*
+   * Sin punto de estado.
+   *
+   * Era un piloto verde permanente que sólo informaba cuando se ponía rojo, o
+   * sea nunca: en una barra de tres elementos, un indicador que pasa el turno
+   * entero diciendo «todo bien» es ruido. La caída de conexión se sigue viendo
+   * —y mejor— porque el propio reloj se sustituye por «Sin conexión» y se pinta
+   * en rojo, que a este cuerpo es imposible de pasar por alto.
+   */
+}
+.area-page .operational-update .operational-update__dot {
+  display: none;
 }
 
 .operational-header__last-update {
@@ -4399,9 +4888,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .operational-page {
-  --operational-font-brand: "KudosKaps", sans-serif;
-  --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;
-  --operational-font-ui: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Las tres caras del piso salen del sistema administrativo, no de una lista
+     de nombres propios. Aquí se pedían "Fraunces" y "Space Grotesk", que se
+     retiraron cuando el panel adoptó Geist (gulpfile.js, vendorFonts): sin
+     fichero, el navegador caía al respaldo y pintaba TODO el cromo operativo
+     en Georgia y en Segoe UI. Era una serif que nadie había elegido y una sans
+     distinta en cada sistema operativo, justo en las pantallas que se ven un
+     turno entero.
+
+     La editorial y la de interfaz son la misma cara a propósito: en el piso no
+     hay voz editorial que defender —eso es de la landing—, y la jerarquía la
+     hacen el peso y el tamaño. Quien necesite cifras comparables en vertical
+     pide --admin-font-mono, como en el resto del panel. */
+  --operational-font-brand: var(--admin-logo);
+  --operational-font-editorial: var(--admin-font-sans);
+  --operational-font-ui: var(--admin-font-sans);
   --operational-text-xs: 12px;
   --operational-text-sm: 13px;
   --operational-text-base: 14px;
@@ -5298,7 +5799,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   min-width: max-content;
   min-height: 44px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -7874,8 +8375,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .reserva-card__hora {
-  font-family: var(--serif);
-  font-size: 1rem;
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
   color: var(--accent-text);
   min-width: 40px;
   line-height: 1.2;
@@ -8155,13 +8657,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-shrink: 0;
 }
 
+/* Reloj en marcha: mono y cifras de ancho fijo.
+ *
+ * Pedía --serif, que ya no es una serif sino la sans del panel, y en una cara
+ * proporcional el 1 es más estrecho que el resto: el reloj se encogía y se
+ * ensanchaba solo al pasar cada minuto, arrastrando lo que tiene al lado. Es
+ * el caso de manual de la regla de la casa —timestamps en mono con
+ * tabular-nums— y la única razón de que hubiera un `min-width` aquí. */
 .pdv-current-time {
-  font-family: var(--serif);
-  font-size: 1.25rem;
+  font-family: var(--admin-font-mono);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
   color: var(--accent-text);
   min-width: 52px;
   text-align: right;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .pdv-canvas {
@@ -8330,6 +8840,36 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mesa-modal__panel {
+  /*
+   * La esquina del encabezado se mide UNA vez y desde aquí.
+   *
+   * El tamaño lo consumen los tres controles (chip de estado, cancelar y
+   * cerrar), el hueco lo separa, y el «inset» es lo que alinea la × —que es
+   * absolute contra este panel— con la fila del encabezado: vale el relleno
+   * de contenido del panel, que en móvil sale de `.5rem` + el tirador y en
+   * escritorio del `1.5rem` a secas. Coinciden, así que es un solo valor y no
+   * hacen falta dos medias queries para colocarla.
+   *
+   * Son DOS huecos y no uno, a propósito:
+   *
+   * - `--mmodal-corner-gap` es el interno del grupo (chip de estado + cancelar
+   *   mesa), que sí son una unidad: el chip anuncia el ticket y el botón actúa
+   *   sobre él.
+   * - `--mmodal-corner-sep` es lo que separa ese grupo de la ×, que NO es del
+   *   grupo: cierra el modal. Con los dos huecos iguales, un círculo rojo
+   *   destructivo y un círculo neutro de descarte quedaban a 6px, del mismo
+   *   tamaño y de la misma receta — la pareja más confundible del modal, en la
+   *   esquina que más se pulsa y en una tablet. Separado, se leen como «un
+   *   grupo» + «salir». Además deja fuera de la × el área pulsable de 44px de
+   *   cancelar, que con 6px de hueco invadía un par de píxeles de su costado
+   *   izquierdo y se los robaba (gana por orden de pintado: es un positioned
+   *   posterior en el árbol).
+   */
+  --mmodal-corner-size: 28px;
+  --mmodal-corner-icon: 14px;
+  --mmodal-corner-gap: .4rem;
+  --mmodal-corner-sep: .85rem;
+  --mmodal-corner-inset: 1.5rem;
   position: absolute;
   left: 0;
   right: 0;
@@ -8371,8 +8911,21 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .mesa-modal__panel:has(.mmodal-reserva-preview) {
     width: min(620px, 100vw - 24px);
   }
+  /*
+   * El cobro apilaba método, propina, totales, recibido y cambio en una sola
+   * columna de 352px útiles: en la tablet del POS había que desplazar el modal
+   * entero para ver el cambio a devolver, con el cliente esperando. A dos
+   * columnas cabe de una vez.
+   *
+   * A 860 px seguía sin caber en ALTO: el panel hereda `max-height: 88vh` y
+   * `overflow-y: auto`, así que el encabezado —quién paga y cuánto— se salía
+   * por arriba en cuanto se abría el reparto del excedente. Más ancho es más
+   * bajo: las dos columnas respiran y el cobro entra entero. El `overflow` se
+   * conserva de red para pantallas cortas, pero ya no es el modo normal.
+   */
   .mesa-modal__panel:has(.mmodal-cobro) {
-    width: min(860px, 100vw - 24px);
+    width: min(1040px, 100vw - 32px);
+    max-height: min(92vh, 760px);
   }
 }
 /*
@@ -8385,8 +8938,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-cobro {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
-  padding: 1rem 0 0;
+  gap: 0.75rem;
+  padding: 0.5rem 0 0;
+  /*
+   * La ranura de encabezado la conserva SÓLO la cuenta dividida.
+   *
+   * El cobro de cuenta completa la dejó de emitir: describía con dos párrafos
+   * una pantalla que se explica con dos botones y un campo, y era además lo
+   * primero que el scroll se comía. El reparto por comensal sí la necesita —
+   * "Partes iguales / Cada quien su cuenta / Vacío" no se entiende sin la
+   * línea de arriba—, así que la regla se queda.
+   */
 }
 .mmodal-cobro__head {
   text-align: center;
@@ -8426,7 +8988,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * "Otro". Aquí se ve cuánto sobró y se parte donde toque.
  */
 .mmodal-excedente {
-  margin-top: 0.75rem;
+  margin-top: 0.6rem;
   padding: 0.7rem 0.8rem;
   border: 1px dashed var(--line);
   border-radius: 10px;
@@ -8481,8 +9043,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-excedente__monto[hidden] {
   display: none;
 }
-.mmodal-excedente__monto input {
-  width: 6.5rem;
+.mmodal-excedente__monto {
+  /*
+   * Aquí vivía `input { width: 6.5rem }`, que nunca se aplicó: (0,2,1) contra
+   * los (0,6,1) de la regla global de campos de _forms.scss, así que el input
+   * salía al 100% y reventaba el `space-between`. Y el «$» iba dentro de un
+   * <span> plano —no un contenedor flex—, así que se alineaba por LÍNEA BASE
+   * con una caja de 46 px y quedaba flotando cerca de su borde superior.
+   * Las dos cosas las resuelve .mmodal-money-field--sm, que el marcado ya
+   * lleva: el ancho lo decide la caja y el «$» es hijo directo de su flex.
+   */
+}
+.mmodal-excedente__monto .mmodal-money-field {
+  flex: 0 0 auto;
+  width: 8rem;
 }
 
 .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) {
@@ -8496,6 +9070,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-direction: column;
   padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
   border-radius: 16px;
+  --mmodal-corner-inset: .75rem;
 }
 
 .mesa-modal__panel:has(.mmodal-cancel-confirm--operation) #mesa-modal-content {
@@ -8540,40 +9115,99 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 
+/*
+ * La × comparte eje con el chip de estado y con «cancelar mesa».
+ *
+ * Es `absolute` contra el panel porque en el marcado es hermana de
+ * #mesa-modal-content —que se reescribe entero en cada apertura— y no puede
+ * vivir dentro del encabezado. La alineación no se deja a ojo por eso: su caja
+ * y la del botón de cancelar salen del mismo `--mmodal-corner-size`, y
+ * `--mmodal-corner-inset` la planta exactamente sobre la primera fila del
+ * encabezado, que declara esa misma altura mínima. Los tres centros caen en la
+ * misma horizontal en los dos breakpoints con un solo par de valores.
+ */
 .mesa-modal__close {
+  --mmodal-corner-tono: var(--txt-mute);
   position: absolute;
-  top: 1.1rem;
-  right: 1.1rem;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--surface-2);
-  border: 1px solid var(--line-soft);
-  color: var(--txt-mute);
-  font-size: 0.75rem;
+  top: var(--mmodal-corner-inset);
+  right: var(--mmodal-corner-inset);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  /* Mismo cuerpo que el «prohibido» de al lado, y no dos menos como estuvo:
+     el aspa va de 6 a 18 del viewBox y el círculo del ban tiene r=9, así que a
+     14px el trazo del aspa mide ~9.9px de diagonal contra los 10.5px de
+     diámetro del círculo — que es lo que los iguala ópticamente. A 12px el
+     aspa se quedaba en 8.5px y se leía como el botón pequeño de la pareja.
+     El trazo es el 1.9 de svgIcon(), no un 2 propio. */
+}
+.mesa-modal__close svg {
+  display: block;
+  width: var(--mmodal-corner-icon);
+  height: var(--mmodal-corner-icon);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+.mesa-modal__close {
+  /* 28px es el DIBUJO, no el área pulsable. Esto es la esquina más usada del
+     modal y se pulsa con el pulgar sobre una tablet: los 44px de la casa se
+     consiguen con la misma pastilla fantasma que lleva «cancelar mesa».
+     Anclada por la IZQUIERDA (`left: 0`), así que crece hacia el canto del
+     panel —donde hay 24px de relleno libre— y nunca hacia el botón rojo: dos
+     áreas de 44px a 6px de distancia se solapan, y la de cancelar gana por
+     orden de pintado. */
+}
+.mesa-modal__close::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+  content: "";
 }
 .mesa-modal__close:hover {
-  background: var(--line);
+  background: color-mix(in srgb, var(--mmodal-corner-tono) 24%, transparent);
+  border-color: color-mix(in srgb, var(--mmodal-corner-tono) 68%, transparent);
   color: var(--txt);
 }
 
+/*
+ * UNA fila flex, y todo lo que la ocupa se mide desde ella.
+ *
+ * Tres cosas que antes cada consumidor resolvía por su cuenta y que ahora
+ * decide el contenedor:
+ *
+ * - `min-height` igual a la caja de los controles de esquina. Sin ella la
+ *   altura de la fila la marcaba el interlineado del título, que es más bajo
+ *   que los 28px del chip, así que un encabezado sin chip —el corte de caja,
+ *   los pedidos para llevar— dejaba la × colgando por encima de su propia
+ *   fila. Con la altura fijada, el `top` de la × cae siempre en su centro.
+ * - La ranura de la ×. Es absolute contra el panel y aterriza DENTRO de esta
+ *   caja, así que el hueco se reserva aquí en el relleno y no con un margen
+ *   distinto en cada grupo de la derecha (había dos, `calc(28px + .4rem)` en
+ *   el de estado y `1.9rem` en el del cobro, que no eran la misma medida).
+ *   Va con `--mmodal-corner-sep` y no con el hueco interno del grupo: ver el
+ *   bloque de tokens de .mesa-modal__panel.
+ * - El título encoge. Iba a `flex-shrink: 0`, así que un nombre largo de
+ *   reservación empujaba el chip y la acción fuera de la caja.
+ */
 .mmodal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-height: var(--mmodal-corner-size);
   margin-bottom: 0.85rem;
   padding-bottom: 0.75rem;
+  padding-inline-end: calc(var(--mmodal-corner-size) + var(--mmodal-corner-sep));
   border-bottom: 1px solid var(--line-soft);
 }
 
 .mmodal-header-id {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
@@ -8586,19 +9220,71 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   letter-spacing: 0.08em;
 }
 
+/* Recorta igual que el título, y por la misma razón: es el otro texto libre de
+ * la fila. Sin `nowrap` un nombre de cliente largo no empujaba —el título ya
+ * encoge— pero SÍ partía en dos renglones, y con eso el encabezado crecía de
+ * alto y la × se quedaba alineada con la primera línea en vez de con la fila. */
 .mmodal-title-cliente {
+  min-width: 0;
+  overflow: hidden;
   color: var(--gold-soft);
   font-family: var(--serif);
   font-size: 0.9rem;
   font-style: italic;
   opacity: 0.85;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/*
+ * ⚠ `--serif` aquí NO es una serif: en el piso lo resuelve
+ * `puente-tokens-publicos`, que lo mapea a `--admin-font-sans` (Geist). El
+ * token es el correcto —el componente lo comparten landing y piso— pero
+ * conviene saber qué se pinta de verdad al elegir peso y cuerpo.
+ *
+ * Peso y cuerpo declarados, y no heredados: el <span> no declaraba ninguno, así
+ * que salía a 400 y 18.4 px justo al lado del importe del cobro (mono, 800,
+ * 20 px). El título del modal parecía el pie de la cifra en vez de decir de qué
+ * mesa se está hablando. A 600/20 px el par sans/mono es el que describe
+ * CLAUDE.md: la jerarquía la hace el contraste de familia y peso, no el tamaño.
+ */
+/* Y encoge con puntos suspensivos en vez de empujar.
+ *
+ * Iba a `flex-shrink: 0`, así que un título largo —«Mesas 3, 4 y 5»— conservaba
+ * su ancho de contenido y lo que salía de la caja era el grupo de la derecha:
+ * el chip de estado y la acción se iban fuera del panel, que es justo lo que
+ * no puede perderse. El nombre completo de una reservación se lee entero en el
+ * cuerpo del modal; el chip, sólo aquí. */
 .mmodal-title {
-  font-family: var(--serif);
-  font-size: 1.15rem;
+  min-width: 0;
+  overflow: hidden;
   color: var(--txt);
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mmodal-header-aside {
+  display: flex;
   flex-shrink: 0;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.mmodal-header-aside__label {
+  color: color-mix(in srgb, var(--txt) 58%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mmodal-header-aside__val {
+  color: var(--txt);
+  font-family: var(--admin-font-mono);
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .mmodal-cerrar-confirm {
@@ -8648,40 +9334,89 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-header-estado {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--mmodal-corner-gap);
   flex-shrink: 0;
-  margin-right: 1.5rem;
+}
+
+/*
+ * LA ESQUINA DEL MODAL ES UNA SOLA RECETA.
+ *
+ * Los tres controles —chip de estado, cancelar mesa y cerrar— compartían la
+ * altura pero nada más: el chip iba en tinte al 18% con filete al 30%, el de
+ * cancelar en tinte al 12% con filete al 34%, y el de cerrar ni siquiera usaba
+ * tinte, sino un relleno SÓLIDO de --surface-2 con un filete neutro. Tres
+ * lenguajes distintos en cuarenta píxeles, y dos parejas de porcentajes que no
+ * respondían a ninguna razón.
+ *
+ * Ahora la receta es una y el único que cambia es el hue, que es lo que de
+ * verdad los distingue: verde el estado, rojo la acción destructiva, neutro el
+ * cierre. --mmodal-corner-tono es lo que cada uno declara.
+ */
+/*
+ * La CAJA también es parte de la receta, no sólo el color.
+ *
+ * Cada uno declaraba la suya —el de cerrar `width` y `display: flex`, el de
+ * cancelar `width` + `flex: 0 0 28px` e `inline-flex`— con el mismo 28 escrito
+ * dos veces. Dos literales que hay que acordarse de cambiar a la vez son dos
+ * tamaños distintos esperando a pasar; ahora los dos miden
+ * `--mmodal-corner-size` y no hay forma de que se separen.
+ */
+/* ⚠️ Este bloque se emite AQUÍ, y .mesa-modal__close está doscientas líneas más
+ * arriba: el `@extend` no copia declaraciones al consumidor, añade su selector
+ * a ESTA regla. Con la misma especificidad (una clase), lo que se escriba aquí
+ * GANA a lo que el propio `.mesa-modal__close` declare arriba. Hoy no chocan,
+ * pero añadir `position` a la receta le quitaría a la × su `absolute` y la
+ * devolvería al flujo. Si un día hace falta una propiedad que el consumidor ya
+ * declara, va en el consumidor, no aquí. */
+.mmodal-chip-accion, .mesa-modal__close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--mmodal-corner-size);
+  height: var(--mmodal-corner-size);
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
+  color: var(--mmodal-corner-tono);
 }
 
 .mmodal-chip-accion {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.55rem;
-  height: 1.55rem;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--feedback-danger) 34%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--feedback-danger) 12%, transparent);
-  color: var(--feedback-danger);
+  --mmodal-corner-tono: var(--feedback-danger);
+  position: relative;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 .mmodal-chip-accion svg {
   display: block;
+  width: var(--mmodal-corner-icon);
+  height: var(--mmodal-corner-icon);
+}
+.mmodal-chip-accion {
+  /* El círculo mide lo que sus vecinos de la esquina, pero esto es una tablet
+     y lo que hay dentro es la acción destructiva del modal: el área pulsable
+     se extiende a los 44 px de la casa sin tocar el dibujo. Anclada por la
+     DERECHA, así que crece sobre el chip de estado —que no es pulsable y no
+     pierde nada— y no sobre la ×, que está a `--mmodal-corner-sep` y cierra el
+     modal: en el solape ganaría ésta por orden de pintado, y el pulgar que
+     buscaba salir abriría el descarte de la mesa. */
+}
+.mmodal-chip-accion::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+  content: "";
 }
 .mmodal-chip-accion:hover {
-  background: color-mix(in srgb, var(--feedback-danger) 22%, transparent);
-  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
+  background: color-mix(in srgb, var(--mmodal-corner-tono) 24%, transparent);
+  border-color: color-mix(in srgb, var(--mmodal-corner-tono) 68%, transparent);
 }
 .mmodal-chip-accion--bloqueada {
-  border-color: var(--line);
-  background: transparent;
-  color: var(--txt-faint);
-}
-.mmodal-chip-accion--bloqueada:hover {
-  border-color: var(--line-strong);
-  background: color-mix(in srgb, var(--txt) 6%, transparent);
+  --mmodal-corner-tono: var(--txt-faint);
 }
 .mmodal-chip-accion[data-estado=comprobando] {
   border-color: var(--line-soft);
@@ -8691,13 +9426,23 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   pointer-events: none;
 }
 
+/* `inline-flex` con altura fija, no `inline-block` con padding.
+ *
+ * Con la altura saliendo del interlineado de un texto de .62rem, el chip medía
+ * unos 22px y sus vecinos de la esquina 25 y 28: tres alturas distintas en fila
+ * y ninguna centrada con las otras. Los tres controles de la esquina superior
+ * derecha del modal —chip de estado, cancelar mesa y cerrar— comparten ahora
+ * una sola altura —`--mmodal-corner-size`— y un solo eje. */
 .mmodal-chip {
-  display: inline-block;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: var(--mmodal-corner-size);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.2rem 0.65rem;
+  padding: 0 0.7rem;
   border-radius: 999px;
   margin: 0;
 }
@@ -8730,9 +9475,10 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   border: 1px solid var(--map-table-reservation-overdue-border);
 }
 .mmodal-chip--ticket {
-  background: color-mix(in srgb, var(--feedback-ok) 18%, transparent);
-  color: var(--feedback-ok);
-  border: 1px solid color-mix(in srgb, var(--feedback-ok) 30%, transparent);
+  --mmodal-corner-tono: var(--feedback-ok);
+  border: 1px solid color-mix(in srgb, var(--mmodal-corner-tono) 32%, transparent);
+  background: color-mix(in srgb, var(--mmodal-corner-tono) 14%, transparent);
+  color: var(--mmodal-corner-tono);
 }
 
 .mmodal-info {
@@ -9264,12 +10010,29 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .mmodal-btn__text {
   min-width: 0;
 }
-.mmodal-btn:disabled {
-  background: color-mix(in srgb, var(--txt) 7%, transparent);
+.mmodal-btn {
+  /*
+   * Deshabilitado: UNA sola declaración, y va aquí.
+   *
+   * No basta con bajar la opacidad —sobre el cristal el botón se volvía un
+   * fantasma sin forma—. Se apaga a un neutro macizo con contorno propio: sigue
+   * leyéndose como botón y no se parece a ninguna variante viva, que es la
+   * condición para que el destructivo no pase por apagado.
+   *
+   * El archivo tenía otras dos reglas de deshabilitado más abajo, una de ellas
+   * con `opacity: .42`, que ganaban por orden y devolvían el botón al fantasma
+   * —el mismo error que ya se había corregido en _pago-modal.scss—. Se
+   * fundieron aquí. Al tocar esto, comprobar que sigue habiendo una sola.
+   */
+}
+.mmodal-btn:disabled, .mmodal-btn[aria-disabled=true] {
+  background: color-mix(in srgb, var(--txt) 9%, transparent);
   border-color: var(--line);
   color: var(--txt-faint);
   box-shadow: none;
   cursor: not-allowed;
+  pointer-events: none;
+  opacity: 1;
   transform: none;
 }
 .mmodal-btn--primary {
@@ -9285,16 +10048,40 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 1;
   transform: translateY(-1px);
 }
+.mmodal-btn {
+  /*
+   * Destructivo: relleno MACIZO desde el reposo, no un tinte.
+   *
+   * Era un tinte al 24 % con borde rojo, y en piso se leía como un botón
+   * apagado: sobre el cristal oscuro del modal un fondo al 24 % queda a un paso
+   * del gris del estado deshabilitado, que es lo peor que le puede pasar a la
+   * única acción irreversible de la pantalla —"Cerrar ticket" nace bloqueado y
+   * se habilita al enviar la primera comanda, así que los dos estados se ven
+   * uno detrás del otro en la misma esquina—. Ahora el vivo es rojo pleno y el
+   * apagado es gris neutro: no se parecen en nada.
+   *
+   * No compite con --primary por ser el segundo relleno de la caja: en los tres
+   * sitios donde aparece (panel de estado, confirmación de cobro y cuenta
+   * dividida) es la acción principal y el que tiene al lado es un --ghost.
+   *
+   * El rojo se oscurece un 12 % con la tinta del sistema: `--c-rojo` puro
+   * contra papel da 4.6:1 y esto lo sube a 5.6:1, que es el margen que quiere
+   * un rótulo de 12 px en versalitas. Papel y no --on-accent: en el piso
+   * --on-accent es la tinta que va sobre el acento del panel (casi negro sobre
+   * blanco), y aquí abajo hay rojo.
+   */
+}
 .mmodal-btn--danger {
-  background: color-mix(in srgb, var(--c-rojo) 24%, transparent);
-  color: var(--feedback-danger);
-  border-color: var(--c-rojo);
+  background: color-mix(in srgb, var(--c-rojo) 88%, var(--admin-ink));
+  border-color: color-mix(in srgb, var(--c-rojo) 88%, var(--admin-ink));
+  color: var(--admin-paper);
 }
 .mmodal-btn--danger:hover:not(:disabled) {
   background: var(--c-rojo);
   border-color: var(--c-rojo);
   color: var(--admin-paper);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--c-rojo) 34%, transparent);
+  transform: translateY(-1px);
 }
 .mmodal-btn--ghost {
   background: color-mix(in srgb, var(--txt) 6%, transparent);
@@ -9339,6 +10126,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
    * Naranja y no rojo: liberar la mesa por una ausencia no destruye la cuenta,
    * avisa de que la reserva se da por perdida. Es el mismo reparto que en la
    * barra del panel, donde el rojo está reservado a lo que termina algo.
+   *
+   * ⚠ Había un SEGUNDO bloque `&--release` cien líneas más abajo, en este mismo
+   * archivo, que lo repintaba en rojo transparente y le bajaba la caja a 38 px
+   * —por debajo del objetivo táctil de 44—. Ganaba por orden, así que el
+   * naranja que documenta CLAUDE.md no se veía en ninguna parte y la ausencia
+   * se leía igual que un cierre de cuenta. Es la tercera vez que una variante
+   * de este componente se pierde por un bloque repetido: hay UNA definición por
+   * variante, y va aquí.
    */
 }
 .mmodal-btn--release {
@@ -9350,46 +10145,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: color-mix(in srgb, var(--c-naranja) 32%, transparent);
   color: var(--txt);
 }
-.mmodal-btn--pending {
-  background: color-mix(in srgb, var(--txt) 9%, transparent);
-  color: var(--txt-mute);
-  border-color: var(--line);
+.mmodal-btn {
+  /*
+   * Acompaña a --primary cuando la hora de la reserva todavía no llegó. El JS
+   * lo emite SIEMPRE junto al atributo `disabled`, así que el color lo pone la
+   * regla de deshabilitado de arriba —que gana por especificidad— y aquí sólo
+   * queda lo que distingue "todavía no" de "no puedes": el contorno
+   * discontinuo. Sin el `:disabled` en el selector no llegaría a aplicarse.
+   */
 }
-.mmodal-btn--pending:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--txt) 14%, transparent);
-  border-color: var(--line-strong);
-  color: var(--txt);
-  box-shadow: none;
-  transform: none;
-}
-.mmodal-btn--release {
-  min-height: 38px;
-  padding-block: 0.65rem;
-  background: transparent;
-  border-color: color-mix(in srgb, var(--feedback-danger) 28%, transparent);
-  color: var(--feedback-danger);
-}
-.mmodal-btn--release:hover {
-  background: color-mix(in srgb, var(--feedback-danger) 10%, transparent);
-  border-color: color-mix(in srgb, var(--feedback-danger) 50%, transparent);
-}
-.mmodal-btn:disabled, .mmodal-btn[aria-disabled=true] {
-  cursor: not-allowed;
-  opacity: 0.42;
-  pointer-events: none;
-  transform: none;
-}
-.mmodal-btn--pending {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
-.mmodal-btn--pending span {
-  color: var(--txt-faint);
-  font-size: 0.58rem;
-  letter-spacing: 0.04em;
-}
-.mmodal-btn:disabled {
-  transform: none;
+.mmodal-btn--pending:disabled {
+  border-style: dashed;
 }
 
 .mmodal-ticket-meta {
@@ -9669,9 +10435,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-faint);
 }
 
+/* Importe: mono con cifras de ancho fijo.
+ *
+ * Desde que el piso adoptó Geist, --serif y --sans son la MISMA cara, así que
+ * los importes se pintaban con la tipografía del texto corriente y sin más
+ * jerarquía que el cuerpo. En el sistema administrativo la jerarquía la hace
+ * el par mono/sans, y el dinero es justo lo que va en mono: aquí el total
+ * cambia con cada platillo que se añade, y con cifras proporcionales saltaba
+ * de ancho a cada pulsación. */
 .mmodal-total-amount {
-  font-family: var(--serif);
-  font-size: 1.25rem;
+  font-family: var(--admin-font-mono);
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   color: var(--accent-text);
 }
 
@@ -10952,10 +11728,40 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   padding: 16px;
 }
 
+/*
+ * El cajón tiene UN scroller, y es su contenido.
+ *
+ * Lo era la lista, y no funcionaba: `.operational-drawer__content` es
+ * `overflow: hidden` y una columna flex, así que ante el calendario en flujo
+ * —que no puede encoger— el algoritmo aplastaba primero la lista hasta cero y
+ * después recortaba lo que sobraba contra el borde del cajón. Resultado: la
+ * última semana del mes cortada por la mitad, sin barra por ninguna parte y sin
+ * manera de llegar a esos días. Ahora desborda el contenido entero y la lista
+ * sigue el flujo debajo del calendario.
+ */
+.mapa-page .operational-drawer__content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border-strong) transparent;
+}
+.mapa-page .operational-drawer__content::-webkit-scrollbar {
+  width: 8px;
+}
+.mapa-page .operational-drawer__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mapa-page .operational-drawer__content::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--admin-border-strong);
+}
+
 .mapa-page .operational-drawer__content .mapa-reservas-list {
   min-height: 0;
   padding: 0 3px 0 0;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .mapa-page :where(.operational-drawer-toggle, .operational-icon-button) svg {
@@ -10994,15 +11800,36 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mapa-page .pos-drawer-date .date-display {
-  padding-inline-end: var(--reservation-picker-date-padding-start, 42px);
   text-align: center;
 }
 
+/*
+ * El calendario del cajón va EN FLUJO, no colgando del campo.
+ *
+ * Como desplegable absoluto se anclaba a `top: calc(100% + 8px)` dentro de
+ * `.operational-drawer__content`, que es `overflow: hidden`: la última semana
+ * del mes quedaba cortada contra el borde inferior del cajón —el 27 al 30 se
+ * veían a medias— y no había forma de llegar a esos días. El recorte lateral ya
+ * se había resuelto igualando el ancho al del campo; éste es el otro eje, y no
+ * se arregla con anchos.
+ *
+ * Portarlo al <body> con position:fixed —lo que hace core/select.js— resolvería
+ * el recorte, pero aquí no hace falta: en el POS el calendario está abierto
+ * todo el tiempo y no tapa nada, así que empujar la lista de reservaciones hacia
+ * abajo es más honesto que flotarle encima. La lista ya tiene su propio scroll y
+ * absorbe la diferencia.
+ */
 .mapa-page .pos-drawer-date .cp-calendar {
-  right: auto;
-  left: 0;
+  position: static;
   width: 100%;
+  min-width: 0;
   max-width: none;
+  margin-top: 8px;
+  box-shadow: none;
+}
+
+.mapa-page .operational-drawer__content > .reservation-operation__slot {
+  flex: 0 0 auto;
 }
 
 .mapa-page.is-map-maximized .pos-legend {
@@ -11047,9 +11874,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-faint);
   font-weight: 700;
 }
+.mmodal-caja-kpi {
+  /* Cuatro KPIs en dos columnas: las cifras de una misma columna se comparan
+     en vertical, así que van en mono y tabulares. Es además lo que las pone de
+     acuerdo con el ranking que tienen justo debajo, que ya se escribía así. */
+}
 .mmodal-caja-kpi__value {
-  font-family: var(--serif);
-  font-size: 1.35rem;
+  font-family: var(--admin-font-mono);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   color: var(--txt);
   line-height: 1;
 }
@@ -11077,8 +11911,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: color-mix(in srgb, var(--on-accent) 78%, transparent);
 }
 .mmodal-caja-total__amount {
-  font-family: var(--serif);
-  font-size: 1.5rem;
+  font-family: var(--admin-font-mono);
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
@@ -11168,6 +12003,116 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 0.78rem;
   color: var(--txt-faint);
   white-space: nowrap;
+}
+
+/* ── Ranking de los más pedidos ─────────────────────────────────
+ *
+ * Es la misma caja que .mmodal-caja-list —comparte borde, radio y separadores—
+ * pero cada fila tiene tres pisos en vez de uno: nombre y cantidad arriba, la
+ * barra de proporción en medio y el importe debajo. Con una sola línea, el
+ * primero y el quinto se leían igual de importantes.
+ */
+.mmodal-caja-list--ranking {
+  padding: 0;
+}
+
+.mmodal-caja-rank {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.6rem 0.7rem;
+}
+.mmodal-caja-rank + .mmodal-caja-rank {
+  border-top: 1px solid var(--line-soft);
+}
+.mmodal-caja-rank {
+  /* La posición es el dato que ordena, así que va en mono y con cifras de ancho
+     fijo: los cinco números caen en la misma vertical y la columna se lee como
+     una escalera y no como cinco cifras sueltas. */
+}
+.mmodal-caja-rank__pos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin-top: 0.05rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-text);
+  font-family: var(--admin-font-mono);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.mmodal-caja-rank {
+  /* El primer puesto es el único que se marca: si los cinco llevaran énfasis,
+     ninguno lo tendría. */
+}
+.mmodal-caja-rank:first-child .mmodal-caja-rank__pos {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.mmodal-caja-rank__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+.mmodal-caja-rank__top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.mmodal-caja-rank__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--txt);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mmodal-caja-rank__qty {
+  flex-shrink: 0;
+  color: var(--txt);
+  font-family: var(--admin-font-mono);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  /* La "×" como pseudo-elemento y no dentro del texto: así la cifra queda
+     sola en la caja de ancho fijo y las cinco alinean por la derecha. */
+}
+.mmodal-caja-rank__qty::after {
+  margin-left: 0.1em;
+  color: var(--txt-faint);
+  content: "×";
+  font-weight: 400;
+}
+.mmodal-caja-rank__bar {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--txt) 10%, transparent);
+}
+.mmodal-caja-rank__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.mmodal-caja-rank:not(:first-child) .mmodal-caja-rank__bar span {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.mmodal-caja-rank__val {
+  color: var(--txt-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .mmodal-pago-btns {
@@ -11405,7 +12350,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .mmodal-propina {
-  margin: 0.9rem 0 0;
+  margin: 0.7rem 0 0;
 }
 .mmodal-propina__label {
   display: block;
@@ -11444,13 +12389,27 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent-text);
 }
+.mmodal-propina {
+  /*
+   * ⚠ El `&[hidden]` NO es decorativo: es el arreglo del «$» huérfano.
+   *
+   * `[hidden] { display: none }` lo declara la hoja del agente de usuario con
+   * especificidad (0,1,0); esta clase declaraba `display: flex` con (0,2,0) y le
+   * ganaba. Así que `mostrarPropinaInput(false)` escondía el input —que sí
+   * tenía su propia regla `input[hidden]`— y dejaba el «$» solo, colgando bajo
+   * las pastillas de porcentaje con «20%» activo. Es el patrón que ya usan
+   * .mmodal-recibido, .mmodal-excedente y .mmodal-excedente__monto; faltaba
+   * justo aquí, que es donde se veía.
+   *
+   * La caja la pone .mmodal-money-field, que el elemento lleva en el marcado.
+   */
+}
 .mmodal-propina__monto {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+  width: 8rem;
   margin-top: 0.5rem;
-  color: color-mix(in srgb, var(--txt) 60%, transparent);
-  font-size: 0.85rem;
+}
+.mmodal-propina__monto[hidden] {
+  display: none;
 }
 .mmodal-propina__monto input[hidden] {
   display: none;
@@ -11472,8 +12431,91 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
+/* ── Campo de dinero: UNA definición para los tres ───────────────
+ *
+ * El cobro tiene tres campos con prefijo «$» —monto recibido, propina «Otro» y
+ * el reparto del excedente— y llegaron a comportarse de tres maneras distintas,
+ * porque sólo el primero peleaba contra la regla global de campos.
+ *
+ * ⚠ !important, y por la razón de siempre en esta casa: quien pone el borde, el
+ * fondo, los 12/14 px de padding, los 46 px de alto y —lo que de verdad se
+ * veía— un `font-size: 14px` es la regla global de _forms.scss,
+ *
+ *   .admin-body input:not([type=checkbox]):not([type=radio])
+ *                    :not([type=range]):not([type=submit]):not([type=button])
+ *
+ * que suma (0,6,1) y le gana a cualquier clase suelta. Los otros dos campos no
+ * la peleaban: se quedaban con la caja del panel dentro de la caja decorada y
+ * el «$» a un lado, suelto. Es el mismo choque que documenta CLAUDE.md para la
+ * lupa de «Buscar platillo», y se resuelve igual y en un solo sitio: la caja la
+ * pone el CONTENEDOR y el input va desnudo dentro del flex.
+ */
+.mmodal-money-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 56px;
+  padding: 0 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  color: color-mix(in srgb, var(--txt) 55%, transparent);
+  font-size: 1.2rem;
+}
+.mmodal-money-field[hidden] {
+  display: none;
+}
+.mmodal-money-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.mmodal-money-field input {
+  width: 100% !important;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--txt);
+  font-family: var(--admin-font-mono);
+  font-size: 1.6rem !important;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.mmodal-money-field input::-webkit-outer-spin-button, .mmodal-money-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.mmodal-money-field {
+  /*
+   * Los dos campos secundarios: misma caja, menos peso. No son el dato que el
+   * mesero teclea contando billetes, son un ajuste sobre una cifra ya
+   * calculada. La distinción la hacen la caja (56 → 44) y sobre todo la cifra
+   * (1.6rem → 1.05rem); no hace falta bajar de los 44 px que esta casa fija
+   * como objetivo táctil mínimo del piso — se tocan en tablet, de pie.
+   *
+   * El 1.05rem tampoco es libre: es el primer escalón por encima de los 16 px
+   * a los que Safari de iOS deja de hacer zoom al enfocar un campo. Bajarlo a
+   * 1rem para "afinar" reintroduce ese zoom en mitad del cobro.
+   */
+}
+.mmodal-money-field--sm {
+  min-height: 44px;
+  padding: 0 0.7rem;
+  border-radius: 9px;
+  font-size: 0.95rem;
+}
+.mmodal-money-field--sm input {
+  font-size: 1.05rem !important;
+  text-align: right;
+}
+
 .mmodal-recibido {
-  margin-top: 0.9rem;
+  margin-top: 0.7rem;
 }
 .mmodal-recibido[hidden] {
   display: none;
@@ -11486,38 +12528,6 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-.mmodal-recibido__field {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 56px;
-  padding: 0 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
-  color: color-mix(in srgb, var(--txt) 55%, transparent);
-  font-size: 1.2rem;
-}
-.mmodal-recibido__field:focus-within {
-  border-color: var(--accent);
-}
-.mmodal-recibido__field input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: none;
-  color: var(--txt);
-  font-family: inherit;
-  font-size: 1.6rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  outline: none;
-  -moz-appearance: textfield;
-}
-.mmodal-recibido__field input::-webkit-outer-spin-button, .mmodal-recibido__field input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
 }
 
 .mmodal-cambio {
@@ -11543,7 +12553,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .mmodal-cambio__val {
   color: var(--accent-text);
-  font-size: 1.5rem;
+  font-family: var(--admin-font-mono);
+  font-size: 1.4rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -11678,40 +12689,88 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
   min-height: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--operational-shell-gap);
+  gap: 16px;
 }
 
+/* ── Columna ───────────────────────────────────────────────────
+ *
+ * Una banda con superficie CONSTANTE, no un degradado que se apaga.
+ *
+ * El degradado que había se veía bien con las columnas llenas, pero por debajo
+ * de la última comanda las tres se disolvían en el mismo negro del tablero y
+ * dejaba de verse dónde acababa una y empezaba la siguiente — que es justo lo
+ * que un tablero de tres estados no se puede permitir. La división la hacen
+ * ahora tres cosas, ninguna de ellas un borde: el hueco de 16px, una superficie
+ * que nunca baja al fondo, y el filete de ESTADO que corona cada banda.
+ */
 .area-col {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  padding: 11px;
-  border: 1px solid var(--admin-border);
-  border-top: 3px solid var(--area-accent, var(--admin-border-strong));
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
-  box-shadow: var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--admin-sombra) 20%, transparent)), inset 0 1px 0 var(--admin-glass-edge);
+  padding: 14px 0 0;
+  border: 0;
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-surface-soft);
   overflow: hidden;
   font-family: var(--operational-font-ui);
 }
 
+/*
+ * EL ÚNICO COLOR DEL TABLERO: el de la estación.
+ *
+ * Corona las tres bandas por igual —el mismo color en las tres, no uno por
+ * estado—. Un tablero de cocina es una pantalla fija que se mira el turno
+ * entero, y lo que le da identidad es la estación a la que pertenece, no un
+ * arcoíris de tres hues repartidos por columna: el estado de cada banda ya lo
+ * dice su rótulo, en palabras y a dos centímetros del contador.
+ *
+ * `areas_produccion.color` llega por --area-accent desde la vista (es dato de
+ * negocio, no un token), y el respaldo cubre el caso de que un área se quede
+ * sin color en base.
+ */
+.area-col::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--area-accent, var(--admin-border-strong));
+  pointer-events: none;
+}
+
 .area-col-head {
   display: grid;
-  min-height: 40px;
+  min-height: 44px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-  padding: 0 2px 10px;
+  margin-bottom: 10px;
+  padding: 0 16px;
 }
 
+/*
+ * LA REGLA TIPOGRÁFICA DEL TABLERO, en una línea:
+ * mono para las CIFRAS, sans para las PALABRAS. Sin excepciones.
+ *
+ * El rótulo estuvo en mono con versalitas y tracking abierto, y ése era el
+ * origen de la sensación de «demasiadas tipografías»: la mono aparecía en
+ * palabras (rótulo) y en números (contador, cantidad, antigüedad) sin que
+ * hubiera manera de saber qué la convocaba. Ahora la convoca una sola cosa —que
+ * sea un número— y la pantalla se lee con dos voces en vez de con cuatro.
+ *
+ * Mono: contador, ×N y la antigüedad. Sans: todo lo demás.
+ * Pesos: 700 para cifras y nombres fuertes, 600 para el platillo, 400 para lo
+ * secundario. Tres, y ninguno más.
+ */
 .area-col-label {
   min-width: 0;
   overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-ui);
-  font-size: var(--operational-text-subtitle);
+  font-size: 15px;
   font-weight: var(--operational-weight-semibold);
   letter-spacing: 0;
   line-height: 1.1;
@@ -11721,46 +12780,38 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .area-col-count {
   display: grid;
-  min-width: 30px;
-  height: 26px;
-  padding: 0 8px;
+  min-width: 46px;
+  height: 34px;
+  padding: 0 10px;
   place-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-muted);
+  border: 0;
+  border-radius: 10px;
+  background: var(--admin-surface-strong);
+  color: var(--admin-text);
   font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-sm);
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
   line-height: 1;
 }
 
-.area-col--enviados .area-col-count {
-  border-color: var(--admin-border-strong);
+/*
+ * El contador es NEUTRO en las tres columnas.
+ *
+ * Estuvo con un color por estado —neutro, ámbar, verde— y era un color de más:
+ * la columna ya dice en qué estado estás con su rótulo, que está justo al lado
+ * y en palabras. Repetirlo en color no añadía información y sí obligaba a
+ * meter dos hues más en una pantalla que sólo debe llevar uno.
+ */
+.area-col-count {
   background: var(--admin-surface-strong);
   color: var(--admin-text);
-}
-
-.area-col--prep .area-col-count {
-  border-color: var(--admin-estado-preparacion);
-  background: var(--admin-estado-preparacion);
-  color: var(--admin-ink);
-}
-
-.area-col--listo .area-col-count {
-  border-color: var(--admin-estado-listo);
-  background: var(--admin-estado-listo);
-  color: var(--admin-ink);
 }
 
 .area-col-items {
   min-height: 0;
   flex: 1 1 0;
-  padding: 8px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--admin-bg) 64%, var(--admin-surface-soft));
+  padding: 2px 14px 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -11779,6 +12830,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background-color: var(--admin-border-strong);
 }
 
+/*
+ * Lo que dice «esto desplaza» ahora que no hay borde: la lista se DISUELVE por
+ * abajo en vez de cortarse a hueso contra un canto. Misma idea que el degradado
+ * de la columna, aplicada al contenido.
+ *
+ * Los 20px de la máscara son exactamente los 20 de padding-bottom: con la lista
+ * al final del recorrido lo único difuminado es el relleno, nunca el botón de
+ * la última comanda. Si se toca uno, hay que tocar el otro. --admin-ink se usa sólo por ser opaco —a una máscara únicamente
+ * le importa el alfa—, así que no hay un color literal suelto en el archivo.
+ *
+ * Contrapartida asumida: la máscara difumina también los últimos 18px del pulgar
+ * de la barra. Sobre 8px de ancho y a metro y medio, no se ve.
+ */
+@supports (mask-image: linear-gradient(black, transparent)) {
+  .area-col-items {
+    -webkit-mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
+  }
+}
 .area-empty {
   display: flex;
   height: 100%;
@@ -11793,30 +12863,51 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: center;
 }
 .area-empty__icon {
-  font-size: 22px;
+  display: inline-flex;
   line-height: 1;
 }
 
+/*
+ * La losa elevada. Es el ÚNICO objeto de la pantalla que sigue siendo una caja,
+ * y por eso ya no necesita contorno: --admin-surface-strong (16% papel) sobre un
+ * plano al 4% es un salto de luz real, mientras que antes la comanda y su
+ * columna eran las dos --admin-surface —el mismo color exacto— y el borde de 1px
+ * era literalmente lo único que las separaba.
+ *
+ * Arriba el canto de luz, abajo sombra de verdad: así se eleva algo en oscuro. Y
+ * se autocorrige a lo largo de la columna — arriba el plano está claro y lo que
+ * lee es la sombra; abajo el plano es casi negro y lo que lee es la cara.
+ */
 .area-card {
   margin-bottom: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--admin-border);
-  border-left: 4px solid var(--admin-border-strong);
-  border-radius: 12px;
-  background: var(--admin-surface);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--admin-sombra) 24%, transparent), inset 0 1px 0 var(--admin-glass-edge);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  padding: 10px 12px;
+  /*
+   * Sin filete lateral.
+   *
+   * Codificaba la antigüedad (neutro → ámbar → rojo) y en la práctica pintaba
+   * una franja de color en CADA comanda del tablero: en cuanto el servicio se
+   * acumula, todas las tarjetas la llevan y deja de señalar la que va tarde
+   * —que era justo su trabajo—. La antigüedad se sigue diciendo donde siempre
+   * se leyó, que es la hora de la cabecera, y ahí no compite con nada ni añade
+   * una figura a la tarjeta.
+   */
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--admin-paper) 3%, var(--admin-surface-strong)), var(--admin-surface-strong));
+  box-shadow: inset 0 1px 0 var(--admin-glass-edge), 0 2px 4px color-mix(in srgb, var(--admin-sombra) 55%, transparent), 0 12px 24px -10px color-mix(in srgb, var(--admin-sombra) 85%, transparent);
+  transition: box-shadow 160ms ease;
 }
 .area-card:last-child {
   margin-bottom: 0;
 }
-.area-card--alerta {
-  border-left-color: var(--admin-c-ambar);
-}
-.area-card--urgente {
-  border-color: color-mix(in srgb, var(--admin-c-rojo) 45%, var(--admin-border));
-  border-left-color: var(--admin-c-rojo);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--admin-c-rojo) 20%, transparent), inset 0 1px 0 var(--admin-glass-edge);
+.area-card {
+  /*
+   * `--alerta` y `--urgente` ya no pintan la TARJETA: sólo marcan la hora de su
+   * cabecera (ver .area-card__time). La clase se conserva en el JS y aquí
+   * porque es el único gancho que tiene ese estado, pero el relleno, el borde y
+   * la sombra de una comanda son idénticos lleve el tiempo que lleve — lo que
+   * cambia es una línea de texto, que es donde el tiempo se lee.
+   */
 }
 
 .area-card__head {
@@ -11824,17 +12915,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--admin-border-soft);
+  margin-bottom: 8px;
 }
 
 .area-card__mesa {
   min-width: 0;
   overflow: hidden;
   color: var(--admin-text);
-  font-size: var(--operational-text-section);
+  font-size: 20px;
   font-weight: var(--operational-weight-bold);
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -11849,17 +12939,28 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .area-card__time {
   flex-shrink: 0;
   color: var(--admin-muted);
-  font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-xs);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
   font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
+  /*
+   * ⚠ `-text` y no el token pleno, que es la distinción que CLAUDE.md avisa:
+   * `--admin-c-rojo` es el rojo de un RELLENO y sobre la cara de la comanda da
+   * 2.74:1 como texto —por debajo del 4.5 de AA, y encima en el único dato que
+   * dice que una comanda lleva parada veinte minutos—. `--admin-danger-text` es
+   * el mismo rojo hecho legible sobre el fondo del modo activo: 4.88:1.
+   *
+   * El filete izquierdo consume EL MISMO token (ver .area-card--urgente), así
+   * que los dos extremos de la tarjeta dicen la antigüedad con el mismo color
+   * exacto en vez de con dos rojos parecidos.
+   */
 }
 .area-card--alerta .area-card__time {
-  color: var(--admin-c-ambar);
+  color: var(--admin-warning-text);
 }
 .area-card--urgente .area-card__time {
-  color: var(--admin-c-rojo);
-  font-weight: var(--operational-weight-bold);
+  color: var(--admin-danger-text);
 }
 
 .area-card__items {
@@ -11867,63 +12968,97 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex-direction: column;
 }
 
+/*
+ * El platillo, en UNA fila.
+ *
+ * Antes era una columna: texto arriba, botones debajo. Esa segunda fila de
+ * 48 px era más de la mitad de los ~92 px que costaba cada platillo, así que la
+ * columna enseñaba tres o cuatro y el resto había que buscarlo desplazando —con
+ * la comanda en la mano—. En rejilla de cuatro celdas el botón comparte altura
+ * con el nombre en vez de sumarla: el platillo baja a ~53 px sin que el nombre
+ * pierda cuerpo ni el botón baje del objetivo táctil de la casa.
+ */
 .area-card__item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--admin-border-soft);
 }
 .area-card__item:last-child {
   border-bottom: none;
 }
 
-.area-card__item-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.area-card__item-btns,
+.area-card__badge--entregado {
+  grid-column: 4;
 }
 
 .area-card__item-btns {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .area-card__qty {
-  min-width: 30px;
+  min-width: 34px;
   flex-shrink: 0;
   color: var(--admin-text);
   font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-section);
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
+  line-height: 1;
 }
 
-.area-card__name-wrap {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
+/*
+ * DOS líneas, no puntos suspensivos.
+ *
+ * Con `nowrap` + ellipsis, a 1366 px al nombre le quedaban unos 142 px —16
+ * caracteres— una vez descontados cantidad, chip, botones y separaciones:
+ * «Enchiladas suizas de pollo» salía «Enchiladas sui…». En un tablero de
+ * producción el nombre del platillo es lo único que NO puede recortarse.
+ *
+ * Y es gratis en altura: dos líneas a 16px/1.2 son 38.4px y la fila ya mide 44
+ * por el botón.
+ */
 .area-card__name {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--admin-text);
   font-size: var(--operational-text-subtitle);
   font-weight: var(--operational-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
+/*
+ * La nota se distingue por FORMA, no por color.
+ *
+ * Iba en ámbar —filete y fondo—, y ése era el tercer significado del ámbar en
+ * la misma pantalla: banda «En preparación», comanda de 5 a 10 minutos, y nota.
+ * Tres cosas sin relación con un mismo color es exactamente lo que impide
+ * aprender un código.
+ *
+ * Sigue siendo lo que el cocinero no puede pasar por alto, y lo sigue siendo
+ * sin hue: es el ÚNICO elemento hundido de la tarjeta —todo lo demás está al
+ * nivel de la cara o por encima—, ocupa el ancho completo y va en tinta plena
+ * justo debajo del platillo al que pertenece. Único por forma, que es más
+ * robusto que único por color en una pantalla que ya tiene tres colores
+ * diciendo otras cosas.
+ */
 .area-card__nota {
-  margin: 6px 0 2px;
+  grid-column: 1/-1;
+  margin: 2px 0 4px;
   padding: 6px 10px;
-  border-left: 3px solid var(--admin-c-ambar);
-  border-radius: 4px;
-  background: var(--admin-c-ambar-bg);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--admin-ink) 46%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 60%, transparent);
   color: var(--admin-text);
   font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
   line-height: 1.35;
   white-space: normal;
   word-break: break-word;
@@ -11947,29 +13082,60 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.62;
 }
 
+/*
+ * «Entregado» deja de ser azul, y con ello se va el cuarto color del tablero.
+ *
+ * El azul era --admin-estado-entregado, que es el token con el que el POS pinta
+ * ese estado; aquí sólo servía para meter un color más en una pantalla que ya
+ * tenía ámbar, verde y rojo diciendo cosas distintas. Y no hacía falta: la fila
+ * entregada ya va atenuada al 62%, que es la señal de «esto ya no es trabajo».
+ * El sello se queda en tinta apagada sobre nada, sin relleno ni contorno: no es
+ * un botón, no se pulsa, y en la columna de Listos lo único que tiene que hacer
+ * es distinguirse de lo que sí está esperando a que lo recojan.
+ */
 .area-card__badge--entregado {
-  display: flex;
-  min-height: 48px;
-  flex: 1;
+  display: inline-flex;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
-  padding: 12px 16px;
-  border: 1px solid var(--admin-estado-entregado);
-  border-radius: 10px;
-  background: var(--admin-c-azul-bg);
-  color: var(--admin-estado-entregado);
+  gap: 6px;
+  padding: 0 12px;
+  /*
+   * ⚠ Tinta PLENA, aunque el sello sea lo más callado de la fila.
+   *
+   * La fila entregada lleva `opacity: 0.62` en el padre, y esa opacidad compone
+   * TODO lo de dentro contra la cara de la tarjeta: en `--admin-muted` el sello
+   * caía a 2.99:1, por debajo de AA. Con `--admin-text` aterriza en 5.86:1 ya
+   * atenuado. Quien apaga esta fila es la opacidad, no el color del texto —
+   * apagar las dos cosas es apagarla dos veces.
+   */
+  color: var(--admin-text);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-sm);
-  font-weight: var(--operational-weight-bold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
 }
 
+/*
+ * 44 px, el mínimo de la casa para el piso (.operational-map-action en el POS).
+ *
+ * Estuvo en 48 «porque se pulsa con guantes», y en una fila propia bajo el
+ * texto esos cuatro píxeles no costaban nada. Ahora el botón comparte fila con
+ * el nombre, así que su altura ES la altura del platillo: cada píxel de más se
+ * multiplica por cada platillo de la columna. 44 sigue cumpliendo el objetivo
+ * táctil y el botón ganó ancho de sobra al perder la etiqueta larga.
+ *
+ * `flex: 0 0 auto`, no `flex: 1`: en una celda de rejilla dimensionada por su
+ * contenido, estirarlos sólo servía para separarlos del platillo que accionan.
+ */
 .area-card__btn {
-  min-height: 48px;
-  flex: 1;
-  padding: 12px 16px;
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 10px;
   font-family: var(--operational-font-ui);
@@ -11994,8 +13160,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.45;
 }
 .area-card__btn--back {
-  flex: 0 0 auto;
-  padding: 12px 14px;
+  width: 44px;
+  padding: 0;
   border-color: var(--admin-border);
   background: var(--admin-surface-soft);
   color: var(--admin-muted);
@@ -12006,21 +13172,36 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   background: var(--admin-surface-strong);
   color: var(--admin-text);
 }
-.area-card__btn--prep {
-  border-color: var(--admin-estado-preparacion);
-  background: var(--admin-estado-preparacion);
-  color: var(--admin-ink);
+.area-card__btn {
+  /*
+   * ⚠ LOS DOS BOTONES DE AVANCE SON EL MISMO BOTÓN. Aquí estaba la confusión.
+   *
+   * Iban en relleno del estado DESTINO: ámbar el de «→ Prep», verde el de
+   * «✓ Listo». El problema es que el tablero usa esos dos colores a la vez para
+   * decir en qué ESTADO está una columna, así que el ámbar significaba dos
+   * cosas distintas en la misma pantalla —«esta banda es En preparación» en el
+   * contador de la columna 2, y «pulsa para mandar a preparación» en un botón
+   * de la columna 1— y encima nunca coincidían de columna. Verde y ámbar
+   * aparecían juntos en una banda cuyo contador era de un tercer color.
+   *
+   * Ahora el color de estado vive SÓLO en la cabecera de la banda, y el botón
+   * es el relleno primario del sistema —casi blanco sobre casi negro— idéntico
+   * en las tres columnas. Es el mismo verbo en los dos sitios («avanza esto»),
+   * así que tiene que ser el mismo botón; a dónde avanza ya lo dicen la palabra
+   * de dentro y la banda en la que estás.
+   *
+   * Consecuencia asumida: el KDS deja de pintar sus botones con los tokens
+   * --admin-estado-* del POS. A cambio, el tablero pasa de cinco significados
+   * de color a dos: ESTADO (cabecera de banda) y ANTIGÜEDAD (filete).
+   */
 }
-.area-card__btn--prep:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--admin-estado-preparacion) 84%, var(--admin-ink));
+.area-card__btn--prep, .area-card__btn--listo {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
 }
-.area-card__btn--listo {
-  border-color: var(--admin-estado-listo);
-  background: var(--admin-estado-listo);
-  color: var(--admin-ink);
-}
-.area-card__btn--listo:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--admin-estado-listo) 84%, var(--admin-ink));
+.area-card__btn--prep:hover:not(:disabled), .area-card__btn--listo:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--admin-accent) 88%, var(--admin-on-accent));
 }
 .area-card__btn--loading {
   opacity: 0.55;
@@ -12047,6 +13228,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   .area-col-items {
     overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 }
 /* ── Selección de estación ────────────────────────────────────
@@ -12236,24 +13419,84 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   overflow: hidden;
 }
 
+/*
+ * La tarjeta lleva su propia escala de espaciado.
+ *
+ * Antes cada pieza declaraba su hueco con un clamp() distinto —uno bajo el
+ * wordmark, otro bajo las pestañas, otro bajo el subtítulo, otro entre campos—
+ * y los cuatro crecían a ritmos que no tenían nada que ver entre sí: a según
+ * qué alturas de ventana el bloque se descompensaba. Dos pasos, y todo lo
+ * demás sale de ellos: --md separa piezas de un mismo bloque (los campos de un
+ * formulario) y --lg separa bloques (wordmark, pestañas, titular, formulario).
+ * El par titular/subtítulo se queda fuera de la escala a propósito: es una
+ * sola unidad de lectura y su hueco no debe crecer con la ventana.
+ *
+ * Había un tercer paso, --login-gap-sm, que no lo consumía nadie: se declaraba
+ * aquí y se volvía a declarar en la media query de pantallas bajas.
+ */
 .login-card {
+  --login-gap-md: clamp(0.95rem, 2.4vh, 1.45rem);
+  --login-gap-lg: clamp(1.35rem, 3.4vh, 2.1rem);
+  display: flex;
   width: 100%;
   max-width: 420px;
   max-height: 100%;
-  display: flex;
   flex-direction: column;
+  text-align: center;
 }
 
-#login-tab-admin {
+/*
+ * Los dos paneles se APILAN en la misma celda.
+ *
+ * Eran hermanos en columna, así que la tarjeta medía lo que midiera el panel
+ * visible: al pasar de NIP (teclado de doce teclas) a contraseña (dos campos)
+ * el bloque entero se encogía de golpe y las pestañas daban un salto hacia
+ * arriba de más de 200 px. Apilados, la altura la fija el más alto —el del
+ * NIP— y el conmutador queda quieto, que es lo único que el usuario está
+ * mirando cuando lo pulsa.
+ *
+ * Es también lo que hace posible la transición: dos paneles en la misma celda
+ * pueden fundirse el uno sobre el otro; en columna sólo podían aparecer y
+ * desaparecer.
+ */
+.login-card__panels {
+  display: grid;
+  min-height: 0;
+  /* La celda la mide el panel del NIP, que es el más alto, así que el de
+     contraseña —dos campos y un botón— se quedaba pegado arriba con un palmo
+     de vacío debajo: la tarjeta no salta, pero la pestaña corta parecía a
+     medio cargar. Centrado, las dos ocupan ópticamente el mismo bloque.
+
+     `safe` no es adorno: en una ventana baja el contenido desborda esta caja y
+     un centrado normal deja la parte de arriba fuera y sin manera de
+     desplazarse hasta ella. Con `safe` vuelve a alinear arriba justo cuando
+     eso pasaría, y el navegador que no lo entienda descarta la declaración
+     entera y se queda en el comportamiento de siempre. */
+  align-items: safe center;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+  /* Los 4 px de aire son para el anillo de foco, y el margen negativo los
+     devuelve: el anillo del panel es un box-shadow de 4 px (_finishes.scss) y
+     un contenedor con overflow recorta también el desbordamiento de tinta. Las
+     teclas del pad y el botón de entrar llegan al borde de esta caja, así que
+     sin la reserva el anillo salía cortado por los lados justo en la pantalla
+     donde más se navega con teclado físico. */
+  padding: 4px;
+  margin: -4px;
+}
+
+.login-tabpanel {
+  grid-area: 1/1;
+  min-width: 0;
 }
 
 .login-brand {
-  --hcp-header-size: 1.28rem;
+  --hcp-header-size: clamp(1.7rem, 4.2vh, 2.15rem);
   color: var(--accent-text);
-  margin-bottom: calc(clamp(0.8rem, 2.4vh, 1.6rem) + 0.45rem);
+  margin-bottom: calc(var(--login-gap-lg) + 0.45rem);
+  align-items: center;
+  text-align: center;
 }
 .login-brand .hcp-header__nombre {
   letter-spacing: 0.02em;
@@ -12262,7 +13505,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .login-tabs {
   display: flex;
   gap: 0.35rem;
-  margin-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  margin-bottom: var(--login-gap-lg);
   padding: 0.28rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -12296,10 +13539,67 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   outline-offset: 2px;
 }
 
+/*
+ * Cambio de pestaña: fundido cruzado, no un corte.
+ *
+ * Los dos paneles ocupan la misma celda de .login-card__panels, así que el que
+ * sale y el que entra conviven durante la transición. El que no está activo se
+ * saca del recorrido de foco con `visibility` —no basta con opacity: un campo
+ * invisible al 0 % sigue siendo tabulable, y el usuario acabaría escribiendo la
+ * contraseña en el NIP sin ver dónde—.
+ *
+ * `visibility` es de las pocas propiedades discretas que SÍ se interpolan: pasa
+ * a `hidden` al final de la transición de salida, así que el panel se mantiene
+ * visible mientras se desvanece y sólo entonces desaparece.
+ *
+ * El [hidden] de PHP sigue mandando en el primer render: hasta que el JS
+ * arranca, la pestaña correcta está puesta sin depender de una clase.
+ */
+.login-tabpanel {
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease), visibility 0s linear 0.22s;
+}
+.login-tabpanel.is-active {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+/*
+ * Aquí vivía una regla de respaldo, `.login-tabpanel:not([hidden]):not(.is-active)`,
+ * que devolvía el panel a opacidad 1 "por si el JS aún no ha repartido las
+ * clases". Se retira, y no es una simplificación: era lo que impedía ver la
+ * transición.
+ *
+ * El panel que SALE está exactamente en ese estado durante los 220 ms del
+ * fundido —sin `.is-active` (se la acaba de quitar el JS) y todavía sin
+ * `[hidden]` (se lo pone el temporizador al final)—, así que la regla ganaba
+ * por especificidad (0,3,0 contra 0,1,0), lo clavaba a opacidad 1 y lo hacía
+ * desaparecer de golpe al terminar. El resultado no era un corte: era un corte
+ * con 220 ms de espera delante.
+ *
+ * El respaldo no hace falta: PHP ya emite `is-active` en el panel que sirve
+ * (views/auth/login.php), así que la pestaña correcta se ve sin que corra una
+ * línea de JS.
+ */
 .login-tabpanel[hidden] {
   display: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .login-tabpanel {
+    transform: none;
+    transition: opacity 0.22s var(--ease), visibility 0s linear 0.22s;
+  }
+  .login-tabpanel.is-active {
+    transform: none;
+  }
+}
 .login-title {
   font-family: var(--serif);
   font-size: clamp(1.8rem, 3.4vw, 2.5rem);
@@ -12312,12 +13612,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-mute);
   font-size: 0.95rem;
   line-height: 1.55;
-  margin-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  margin-bottom: var(--login-gap-lg);
 }
 
 .login-form {
   display: grid;
-  gap: clamp(0.7rem, 2vh, 1rem);
+  gap: var(--login-gap-md);
+  text-align: left;
 }
 
 .login-field {
@@ -12539,6 +13840,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--txt-mute);
   font-size: 1.05rem;
 }
+.login-pad__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-pad__key svg {
+  width: 22px;
+  height: 22px;
+}
 
 .login-submit {
   justify-content: center;
@@ -12567,11 +13877,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 @media (max-height: 900px) {
-  .login-brand {
-    margin-bottom: 1.15rem;
+  .login-card {
+    --login-gap-md: 0.6rem;
+    --login-gap-lg: 0.8rem;
   }
-  .login-tabs {
-    margin-bottom: 0.8rem;
+  .login-brand {
+    --hcp-header-size: clamp(1.35rem, 3.4vh, 1.7rem);
+    margin-bottom: 1.15rem;
   }
   .login-title {
     font-size: clamp(1.4rem, 2.6vw, 1.85rem);

@@ -36,6 +36,11 @@ const paths = {
     // que sus confirmaciones y avisos deben viajar aquí.
     "src/js/components/confirmation-modal.js",
     "src/js/components/toast.js",
+    // El catálogo de iconos va PRIMERO: define window.AdminIcons, que consumen
+    // buzon.js y los bundles de módulo (analytics, reservaciones). El bundle es
+    // un concat en scope global, así que el orden es lo que resuelve la
+    // dependencia — igual que con sankey.js y finanzas.js.
+    "src/js/admin/core/icons.js",
     "src/js/admin/admin.js",
     "src/js/admin/core/theme.js",
     "src/js/admin/core/motion.js",

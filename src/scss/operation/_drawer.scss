@@ -195,8 +195,15 @@
   // por debajo de su etiqueta en vez de mandarlo a la fila siguiente.
   min-width: max-content;
   min-height: 44px;
-  // Base por contenido y crecimiento para repartir el sobrante de cada fila.
-  flex: 1 1 auto;
+  // Base CERO y crecimiento a partes iguales, no `1 1 auto`.
+  //
+  // Con base por contenido, el ancho de cada destino lo decidía el largo de su
+  // etiqueta: "Reservaciones" salía notablemente más ancho que "Mesas" y los
+  // dos mapas —que son hermanos, y el mesero alterna entre ellos todo el
+  // turno— pesaban distinto sin que la diferencia significara nada. Con base 0
+  // se reparten la fila en partes iguales y el `min-width: max-content` de
+  // arriba sigue mandando a la fila siguiente lo que no quepa.
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   gap: 10px;

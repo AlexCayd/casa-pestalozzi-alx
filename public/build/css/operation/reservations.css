@@ -285,9 +285,21 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operational-page {
-  --operational-font-brand: "KudosKaps", sans-serif;
-  --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;
-  --operational-font-ui: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Las tres caras del piso salen del sistema administrativo, no de una lista
+     de nombres propios. Aquí se pedían "Fraunces" y "Space Grotesk", que se
+     retiraron cuando el panel adoptó Geist (gulpfile.js, vendorFonts): sin
+     fichero, el navegador caía al respaldo y pintaba TODO el cromo operativo
+     en Georgia y en Segoe UI. Era una serif que nadie había elegido y una sans
+     distinta en cada sistema operativo, justo en las pantallas que se ven un
+     turno entero.
+
+     La editorial y la de interfaz son la misma cara a propósito: en el piso no
+     hay voz editorial que defender —eso es de la landing—, y la jerarquía la
+     hacen el peso y el tamaño. Quien necesite cifras comparables en vertical
+     pide --admin-font-mono, como en el resto del panel. */
+  --operational-font-brand: var(--admin-logo);
+  --operational-font-editorial: var(--admin-font-sans);
+  --operational-font-ui: var(--admin-font-sans);
   --operational-text-xs: 12px;
   --operational-text-sm: 13px;
   --operational-text-base: 14px;
@@ -545,6 +557,10 @@ html:has(.operation-body.is-assignment-mode) {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.operational-header--bare {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .operational-header__region {
   display: inline-flex;
   min-width: 0;
@@ -575,6 +591,7 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--admin-gold);
   font-family: var(--logo, var(--operational-font-brand));
   font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+  font-weight: 400;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -601,6 +618,7 @@ html:has(.operation-body.is-assignment-mode) {
 
 .operational-header__module {
   max-width: min(34vw, 360px);
+  margin: 0;
   overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
@@ -609,6 +627,66 @@ html:has(.operation-body.is-assignment-mode) {
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.operational-header--bare .operational-header__module {
+  max-width: none;
+  font-size: clamp(20px, 2.4vw, 28px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: var(--operational-weight-bold);
+}
+
+/*
+ * La hora del tablero: reloj, no volcado de terminal.
+ *
+ * Iba en monoespaciada dentro de una píldora con borde, y el string que emite
+ * `es-MX` es «09:31 p. m.» —once caracteres—: en mono eso es una losa de texto
+ * de consola en la esquina de la barra. Un reloj no se compara en vertical con
+ * nada, así que la regla mono/tabular de la casa no le obliga.
+ *
+ * Va en la sans, grande y LIGERA, haciendo contrapeso al nombre de la estación
+ * en negrita al otro extremo: mismo tamaño, peso opuesto. Es lenguaje de reloj
+ * de estación, no de consola. La cara es real —Geist declara 100-900—, que la
+ * casa no admite sintéticas.
+ *
+ * `tabular-nums` se conserva por otra razón que la de siempre: sin ella el
+ * ancho cambia cada minuto y la barra tiembla en una pantalla que nadie mira de
+ * frente pero todo el mundo tiene en la periferia.
+ *
+ * La píldora se va con los demás contenedores del tablero: la hora y su punto
+ * viven sueltos en la barra, que ya es el contenedor.
+ */
+.area-page .operational-update {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  color: color-mix(in srgb, var(--admin-text) 84%, var(--admin-bg));
+}
+.area-page .operational-update .operational-update__text {
+  font-family: var(--admin-font-sans);
+  font-size: clamp(22px, 2.1vw, 28px);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-regular);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.area-page .operational-update {
+  /*
+   * Sin punto de estado.
+   *
+   * Era un piloto verde permanente que sólo informaba cuando se ponía rojo, o
+   * sea nunca: en una barra de tres elementos, un indicador que pasa el turno
+   * entero diciendo «todo bien» es ruido. La caída de conexión se sigue viendo
+   * —y mejor— porque el propio reloj se sustituye por «Sin conexión» y se pinta
+   * en rojo, que a este cuerpo es imposible de pasar por alto.
+   */
+}
+.area-page .operational-update .operational-update__dot {
+  display: none;
 }
 
 .operational-header__last-update {
@@ -1647,7 +1725,7 @@ html:has(.operation-body.is-assignment-mode) {
   display: flex;
   min-width: max-content;
   min-height: 44px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-items: center;
   justify-content: center;
   gap: 10px;
@@ -5849,7 +5927,7 @@ html:has(.operation-body.is-assignment-mode) {
   color: var(--admin-muted);
   font-size: var(--operational-text-xs);
   line-height: 1.45;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.38), var(--admin-shadow-md);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--admin-sombra) 38%, transparent), var(--admin-shadow-md);
   pointer-events: auto;
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
@@ -5911,6 +5989,15 @@ html:has(.operation-body.is-assignment-mode) {
   cursor: pointer;
   font: inherit;
   font-size: 20px;
+}
+.operational-global-notice__close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.operational-global-notice__close {
   line-height: 1;
 }
 .operational-global-notice__close:hover {
@@ -5930,6 +6017,13 @@ html:has(.operation-body.is-assignment-mode) {
   border-radius: 50%;
   color: var(--admin-muted);
   font-weight: var(--operational-weight-bold);
+}
+.operational-global-notice__icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .operational-global-notice__copy {
@@ -5967,7 +6061,7 @@ html:has(.operation-body.is-assignment-mode) {
 }
 
 .operational-global-notice.is-expanded {
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.44), var(--admin-shadow-md);
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--admin-sombra) 44%, transparent), var(--admin-shadow-md);
 }
 .operational-global-notice.is-expanded .operational-global-notice__detail {
   max-height: 180px;
@@ -5995,7 +6089,7 @@ html:has(.operation-body.is-assignment-mode) {
   border-color: color-mix(in srgb, var(--admin-info-text) 62%, var(--admin-border-strong));
   background: color-mix(in srgb, var(--admin-info-text) 18%, var(--admin-surface-strong));
   color: var(--feedback-info);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), 0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--admin-sombra) 42%, transparent), 0 0 0 1px color-mix(in srgb, var(--admin-info-text) 18%, transparent);
 }
 .operational-global-notice--info .operational-global-notice__icon,
 .operational-global-notice--restricted .operational-global-notice__icon {
@@ -6788,50 +6882,133 @@ html:has(.operation-body.is-assignment-mode) {
     gap: 20px;
   }
 }
+/*
+ * Diálogo de confirmación de la casa. Lo comparten los CUATRO bundles: la
+ * landing, el panel, el piso y la operación de reservaciones.
+ *
+ * Por eso no consume un solo rol del sitio público ni un solo --admin-*: sólo
+ * los --confirmation-*, que cada ámbito declara con su propia paleta
+ * (alias-heredados en layout/_reset.scss, alias-admin-heredados en
+ * admin/shared/base/_globals.scss). Antes pedía --scrim, --accent, --txt y
+ * --serif a secas, que existen en la landing y en las cuatro pantallas de piso
+ * pero NO en `.admin-body`: ahí las declaraciones se invalidaban y el velo del
+ * panel salía transparente —se borraba con el módulo a brillo pleno detrás— y
+ * el titular caía a Georgia, la única serif que el panel no quiere.
+ *
+ * Al añadir una regla con color o tipografía aquí, el token nuevo se declara en
+ * los DOS mixins. Un nombre que sólo exista en uno vuelve a romper el otro sin
+ * ruido: un var() inválido hereda o cae al valor inicial, no rompe la regla.
+ *
+ * La excepción son los ajustes de VOZ del rótulo y el titular
+ * (--confirmation-label-*, --confirmation-heading-tracking): llevan su valor de
+ * respaldo escrito en el var(), que es el de la landing, y sólo el panel los
+ * declara —para hablar en su mono de rótulos y su sans apretada—. Olvidarlos
+ * no deja nada transparente: deja el diálogo con la voz de la landing.
+ */
 .confirmation-modal {
+  /* Curvas y tiempos en un solo sitio: entrada y salida tienen que ser
+     simétricas o el cierre se siente más lento que la apertura aunque duren lo
+     mismo. La de entrada es la de desaceleración de la casa; la de salida
+     acorta, porque un diálogo que ya decidiste no tiene nada que anunciar. */
+  --confirmation-in: 260ms;
+  --confirmation-out: 170ms;
+  --confirmation-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --confirmation-ease-out: cubic-bezier(0.4, 0, 1, 1);
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--scrim) 76%, transparent);
-  opacity: 0;
-  transition: opacity 0.18s ease;
 }
 .confirmation-modal[hidden] {
   display: none;
 }
-.confirmation-modal.is-open {
-  opacity: 1;
+.confirmation-modal {
+  /* El velo desenfoca además de atenuar, y el desenfoque es lo que hace el
+     trabajo: sobre el tema oscuro del panel una capa negra al 76 % es casi
+     indistinguible del fondo, así que la página seguía leyéndose como
+     interactiva detrás del diálogo. El `saturate` no es adorno — sin él, un
+     fondo oscuro desenfocado sigue siendo una mancha gris y el velo no se
+     distingue de un rectángulo opaco (la misma cuenta que .mesa-modal__bd).
+
+     Va en el __backdrop y no en la raíz: el backdrop-filter crea contexto de
+     apilamiento, y sobre el contenedor arrastraría al propio diálogo dentro
+     del desenfoque.
+
+     Y el fundido va AQUÍ, no en la raíz, por la misma razón vista desde el otro
+     lado: un ancestro con `opacity` menor que 1 es raíz de backdrop, así que
+     mientras la raíz fundía el desenfoque no veía la página —sólo lo que había
+     dentro del propio modal— y aparecía de golpe al llegar a 1, al final de la
+     entrada. Con la opacidad en el mismo elemento que filtra, el velo y su
+     desenfoque entran juntos. */
 }
 .confirmation-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
-  background: transparent;
+  background: color-mix(in srgb, var(--confirmation-scrim) 76%, transparent);
   cursor: default;
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  opacity: 0;
+  transition: opacity var(--confirmation-out) var(--confirmation-ease-out);
+}
+.confirmation-modal.is-open .confirmation-modal__backdrop {
+  opacity: 1;
+  transition: opacity var(--confirmation-in) ease-out;
 }
 .confirmation-modal__dialog {
   position: relative;
   z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: clamp(620px, 72vw, 840px);
+  /* 600 px dejan unos 65 caracteres por línea a 16 px, que es la medida de
+     lectura de una pregunta y sus consecuencias. Estaba en clamp(620px,
+     72vw, 840px) para todos los casos, y un «¿Eliminar este gasto?» se abría
+     a 840 px con la descripción en una sola línea de lado a lado. El ancho
+     grande lo pide sólo la comparación de tres columnas (abajo). */
+  width: 600px;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 32px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 42%, transparent);
   border-radius: 18px;
   background: var(--confirmation-surface);
   color: var(--confirmation-text);
-  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
-  transform: translateY(0.5rem) scale(0.985);
-  transition: transform 0.18s ease;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--confirmation-shadow) 50%, transparent);
+  /* Sube desde abajo y crece: el gesto dice "esto viene a primer plano".
+     Sólo transform y opacity, que es lo que el compositor resuelve sin
+     repintar (la regla de _finishes.scss). */
+  transform: translateY(14px) scale(0.97);
+  opacity: 0;
+  transition: transform var(--confirmation-out) var(--confirmation-ease-out), opacity var(--confirmation-out) var(--confirmation-ease-out);
 }
 .confirmation-modal.is-open .confirmation-modal__dialog {
   transform: translateY(0) scale(1);
+  opacity: 1;
+  transition: transform var(--confirmation-in) var(--confirmation-ease), opacity var(--confirmation-in) ease-out;
+}
+@media (min-width: 640px) {
+  .confirmation-modal:has(.confirmation-modal__comparison) .confirmation-modal__dialog {
+    width: clamp(620px, 72vw, 840px);
+  }
+}
+.confirmation-modal {
+  /* Con movimiento reducido queda el fundido y nada más: el velo y el
+     desenfoque se conservan porque no son movimiento, son jerarquía —dicen que
+     la página de detrás está bloqueada—. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-out) ease;
+  }
+  .confirmation-modal.is-open .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-in) ease;
+  }
 }
 .confirmation-modal__header {
   display: grid;
@@ -6845,11 +7022,14 @@ html:has(.operation-body.is-assignment-mode) {
   height: 44px;
   place-items: center;
   flex: 0 0 44px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 50%, transparent);
   border-radius: 50%;
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
   font-size: 22px;
   font-weight: 700;
+}
+.confirmation-modal__icon svg {
+  stroke-width: 2;
 }
 .confirmation-modal__heading {
   min-width: 0;
@@ -6857,21 +7037,24 @@ html:has(.operation-body.is-assignment-mode) {
 .confirmation-modal__eyebrow {
   display: block;
   margin-bottom: 6px;
-  color: var(--accent-text);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--confirmation-accent-text);
+  font-family: var(--confirmation-label-font, inherit);
+  font-size: var(--confirmation-label-size, 14px);
+  font-weight: var(--confirmation-label-weight, 700);
+  letter-spacing: var(--confirmation-label-tracking, 0.08em);
   line-height: 1.45;
   text-transform: uppercase;
 }
 .confirmation-modal__title {
   margin: 0;
   color: inherit;
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--confirmation-heading-font);
   font-size: clamp(24px, 2.5vw, 30px);
   font-weight: 500;
+  letter-spacing: var(--confirmation-heading-tracking, normal);
   line-height: 1.2;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 .confirmation-modal__description, .confirmation-modal__warning, .confirmation-modal__consequence, .confirmation-modal__summary, .confirmation-modal__custom, .confirmation-modal__status {
   font-size: 16px;
@@ -6880,14 +7063,14 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__description {
   margin: 8px 0 0;
-  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 84%, transparent);
 }
 .confirmation-modal__close {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 24%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -6895,6 +7078,9 @@ html:has(.operation-body.is-assignment-mode) {
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
+}
+.confirmation-modal__close svg {
+  stroke-width: 2;
 }
 .confirmation-modal__close:disabled {
   cursor: wait;
@@ -6912,9 +7098,9 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__summary {
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
 }
 .confirmation-modal__summary[hidden] {
   display: none;
@@ -6930,15 +7116,15 @@ html:has(.operation-body.is-assignment-mode) {
 }
 .confirmation-modal__warning {
   padding: 14px 16px;
-  border-left: 4px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent-soft);
+  border-left: 4px solid var(--confirmation-accent);
+  background: color-mix(in srgb, var(--confirmation-accent) 12%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 .confirmation-modal__warning[hidden] {
   display: none;
 }
 .confirmation-modal__consequence {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
 }
 .confirmation-modal__consequence[hidden] {
   display: none;
@@ -6961,7 +7147,7 @@ html:has(.operation-body.is-assignment-mode) {
   margin-top: 4px;
 }
 .confirmation-modal__require-label {
-  color: color-mix(in srgb, var(--txt) 88%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 88%, transparent);
   font-size: 13px;
   font-weight: 700;
 }
@@ -6969,21 +7155,25 @@ html:has(.operation-body.is-assignment-mode) {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  /* 42% y no 24%: es el contorno de un CONTROL, y el 24% se queda en 1.9:1
+     contra la superficie del diálogo —por debajo del 3:1 que WCAG pide a un
+     elemento no textual—. Es además el único campo del diálogo, así que
+     tiene que encontrarse solo. */
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 10px;
-  background: var(--surface);
-  color: var(--txt-strong);
+  background: var(--confirmation-field-bg);
+  color: var(--confirmation-strong);
   font: inherit;
   font-size: 14px;
 }
 .confirmation-modal__require-input:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: var(--confirmation-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--confirmation-accent) 28%, transparent);
 }
 .confirmation-modal__require-hint {
   margin: 0;
-  color: var(--txt-faint);
+  color: var(--confirmation-faint);
   font-size: 12px;
 }
 .confirmation-modal {
@@ -6991,17 +7181,17 @@ html:has(.operation-body.is-assignment-mode) {
      el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-input {
-  border-color: var(--feedback-ok);
+  border-color: var(--confirmation-ok);
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-hint {
-  color: var(--feedback-ok);
+  color: var(--confirmation-ok);
 }
 .confirmation-modal__reason {
   display: grid;
   gap: 8px;
 }
 .confirmation-modal__reason span {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -7009,25 +7199,25 @@ html:has(.operation-body.is-assignment-mode) {
   width: 100%;
   min-height: 96px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
   color: inherit;
   font: inherit;
   resize: vertical;
 }
 .confirmation-modal__reason textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--confirmation-accent);
   outline-offset: 2px;
 }
 .confirmation-modal__status {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__status[hidden] {
   display: none;
 }
 .confirmation-modal__status.is-error {
-  color: var(--feedback-danger);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal__comparison {
   display: grid;
@@ -7039,16 +7229,16 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__comparison-row:last-child {
   border-bottom: 0;
 }
 .confirmation-modal__comparison-row.is-changed {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--confirmation-accent) 10%, transparent);
 }
 .confirmation-modal__comparison-label {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__comparison-cell {
   display: grid;
@@ -7056,7 +7246,7 @@ html:has(.operation-body.is-assignment-mode) {
   min-width: 0;
 }
 .confirmation-modal__comparison-cell small {
-  color: color-mix(in srgb, var(--txt) 64%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 64%, transparent);
   font-size: 14px;
 }
 .confirmation-modal__actions {
@@ -7065,7 +7255,7 @@ html:has(.operation-body.is-assignment-mode) {
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__button {
   min-height: 46px;
@@ -7083,25 +7273,32 @@ html:has(.operation-body.is-assignment-mode) {
   opacity: 0.55;
 }
 .confirmation-modal__button--secondary {
-  border-color: color-mix(in srgb, var(--txt) 25%, transparent);
+  border-color: color-mix(in srgb, var(--confirmation-text) 25%, transparent);
   background: transparent;
   color: inherit;
 }
 .confirmation-modal__button--primary {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--confirmation-accent);
+  color: var(--confirmation-on-accent);
+}
+.confirmation-modal {
+  /* El destructivo. --confirmation-danger es el ROJO PLENO del relleno y
+     --confirmation-danger-text el rojo legible como texto sobre el fondo del
+     modo activo: son dos valores distintos y confundirlos es lo que dejaba el
+     botón ilegible. La tinta de encima se declara aparte porque el rojo de la
+     paleta funcional no admite texto oscuro. */
 }
 .confirmation-modal--danger .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
-  color: var(--feedback-danger);
+  border-color: color-mix(in srgb, var(--confirmation-danger-text) 70%, transparent);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal--danger .confirmation-modal__button--primary {
-  background: var(--feedback-danger);
-  color: var(--txt);
+  background: var(--confirmation-danger);
+  color: var(--confirmation-on-danger);
 }
 .confirmation-modal--warning .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
-  color: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--confirmation-accent) 70%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 @media (max-width: 639px) {
   .confirmation-modal {

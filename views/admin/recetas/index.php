@@ -1,10 +1,51 @@
 <?php
+    /**
+     * Listado de platillos con su receta.
+     *
+     * Paginado y con buscador reactivo, igual que Menú: el bloque de
+     * resultados se intercambia con src/js/admin/core/reactive-filters.js y
+     * sin JS el formulario navega como un GET normal. Por eso el archivo se
+     * parte en dos con $partialOnly — lo que está fuera del envoltorio
+     * (cabecera, métricas y filtros) no se reemplaza en cada búsqueda.
+     */
     $productos = isset($productos) && is_iterable($productos) ? $productos : [];
     $conteosReceta = is_array($conteosReceta ?? null) ? $conteosReceta : [];
     $categoriasMap = is_array($categoriasMap ?? null) ? $categoriasMap : [];
     $totalProductos = (int) ($totalProductos ?? 0);
     $conReceta = (int) ($conReceta ?? 0);
+    $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'estado' => 'todas'];
+    $filtrosActivos = (bool) ($filtrosActivos ?? false);
+    $partialOnly = (bool) ($partialOnly ?? false);
+    $totalFiltrado = (int) ($totalFiltrado ?? count($productos));
+    $paginaActual = (int) ($paginaActual ?? 1);
+    $porPagina = (int) ($porPagina ?? max(1, $totalFiltrado));
+    $totalPaginas = (int) ($totalPaginas ?? 1);
+    $desde = $totalFiltrado === 0 ? 0 : (($paginaActual - 1) * $porPagina) + 1;
+    $hasta = min($paginaActual * $porPagina, $totalFiltrado);
+
+    $buildRecetasUrl = static function (int $page) use ($filtros): string {
+        $params = [];
+
+        foreach ($filtros as $clave => $valor) {
+            if ((string) $valor !== '') {
+                $params[$clave] = $valor;
+            }
+        }
+
+        $params['page'] = $page;
+
+        return '/admin/recetas?' . http_build_query($params);
+    };
+
+    $estadoActual = (string) ($filtros['estado'] ?? 'todas');
+    $opcionesEstado = [
+        'todas' => 'Todas',
+        'sin'   => 'Sin receta',
+        'con'   => 'Con receta',
+    ];
 ?>
+
+<?php if (!$partialOnly) : ?>
 <section class="admin-recetas admin-page">
     <header class="admin-page__header">
         <div class="admin-page__intro">
@@ -24,6 +65,8 @@
 
     <?php include __DIR__ . '/../partials/alertas.php'; ?>
 
+    <?php /* Las dos cifras son del CATÁLOGO, no de la página ni del filtro:
+             salen de su propia consulta en el controlador. */ ?>
     <div class="admin-stat-strip">
         <div class="admin-stat-card">
             <span class="admin-stat-card__label">Platillos</span>
@@ -35,17 +78,99 @@
         </div>
     </div>
 
+    <form
+        class="admin-filters admin-recetas__filters"
+        method="GET"
+        action="/admin/recetas"
+        aria-label="Filtros de recetas"
+        data-reactive-filters
+        data-reactive-target="#recetas-results"
+        data-reactive-loading="#recetas-results-loading"
+        data-reactive-error="#recetas-results-error"
+        data-reactive-debounce="350"
+    >
+        <?php /*
+          El buscador mira DENTRO de la receta, no sólo en el nombre: escribir
+          «cilantro» devuelve los platillos que lo consumen aunque ninguno lo
+          lleve en el título. Es la pregunta que sólo este módulo puede
+          responder, y por eso la ayuda lo dice en vez de dejarlo a que alguien
+          lo descubra. Los términos se cruzan con AND, así que seguir
+          escribiendo afina.
+        */ ?>
+        <div class="admin-filters__search admin-field">
+            <label class="admin-field__label" for="recetas-q">Buscar platillo, categoría o ingrediente</label>
+            <input
+                id="recetas-q"
+                type="search"
+                name="q"
+                data-reactive-control
+                data-reactive-default=""
+                value="<?php echo htmlspecialchars((string) ($filtros['q'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                placeholder="pollo ensalada, cilantro, salsa verde…"
+                aria-describedby="recetas-q-hint"
+            >
+            <p class="admin-field__hint" id="recetas-q-hint">Busca por palabras sueltas y en cualquier orden; también dentro de los ingredientes y subrecetas de cada receta.</p>
+        </div>
+
+        <fieldset class="admin-pills admin-recetas__estado">
+            <legend class="admin-pills__legend">Estado de la receta</legend>
+            <div class="admin-pills__group">
+                <?php foreach ($opcionesEstado as $valor => $titulo) : ?>
+                    <label class="admin-pill">
+                        <input
+                            type="radio"
+                            name="estado"
+                            value="<?php echo $valor; ?>"
+                            data-reactive-control
+                            data-reactive-default="todas"
+                            <?php echo $estadoActual === $valor ? 'checked' : ''; ?>
+                        >
+                        <span class="admin-pill__body">
+                            <span class="admin-pill__title"><?php echo $titulo; ?></span>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
+
+        <div class="admin-filters__actions">
+            <button type="submit" class="admin-btn admin-btn--primary" data-reactive-submit>Buscar</button>
+        </div>
+    </form>
+
+    <div class="admin-reactive-results-shell">
+        <div id="recetas-results" class="admin-reactive-results" data-reactive-results aria-live="polite" aria-busy="false">
+<?php endif; ?>
     <section class="admin-panel admin-card">
         <div class="admin-panel-head">
             <div>
                 <h3>Platillos del menú</h3>
-                <p><?php echo $conReceta; ?> de <?php echo $totalProductos; ?> tienen receta asignada.</p>
+                <?php /* La segunda frase sólo cuando dice algo que la primera no:
+                         sin filtro y en una sola página, «Mostrando 1-78 de 78
+                         platillos» repite el mismo 78 que acaba de salir dos
+                         palabras antes. */ ?>
+                <p>
+                    <?php echo $conReceta; ?> de <?php echo $totalProductos; ?> tienen receta asignada.
+                    <?php if ($totalFiltrado > 0 && ($filtrosActivos || $totalPaginas > 1)) : ?>
+                        Mostrando <?php echo $desde; ?>-<?php echo $hasta; ?> de <?php echo $totalFiltrado; ?><?php echo $filtrosActivos ? ' resultados.' : ' platillos.'; ?>
+                    <?php endif; ?>
+                </p>
             </div>
         </div>
 
         <?php if (empty($productos)) : ?>
-            <p class="admin-empty">No hay platillos registrados. Crea el primero en Menú y vuelve aquí a definir su receta.</p>
+            <p class="admin-empty">
+                <?php if ($filtrosActivos) : ?>
+                    Ningún platillo coincide con la búsqueda. Prueba con menos palabras: el filtro exige que todas aparezcan.
+                <?php else : ?>
+                    No hay platillos registrados. Crea el primero en Menú y vuelve aquí a definir su receta.
+                <?php endif; ?>
+            </p>
         <?php else : ?>
+            <?php /* El orden de las cabeceras es de CLIENTE y reordena la página
+                     visible, no el catálogo entero: el listado viene paginado de
+                     diez en diez y el orden de fondo lo fija el SQL (activo,
+                     categoría, nombre). */ ?>
             <div class="admin-table-wrap">
                 <table class="admin-table" data-sortable>
                     <thead>
@@ -93,6 +218,21 @@
                     </tbody>
                 </table>
             </div>
+
+            <?php
+            $pagPagina = $paginaActual;
+            $pagTotal = $totalPaginas;
+            $pagUrl = $buildRecetasUrl;
+            $pagEtiqueta = 'Paginación de recetas';
+            $pagReactiva = true;
+            include __DIR__ . '/../partials/_pagination.php';
+            ?>
         <?php endif; ?>
     </section>
+<?php if (!$partialOnly) : ?>
+        </div>
+        <div class="admin-reactive-loading" id="recetas-results-loading" role="status" hidden>Actualizando resultados</div>
+        <div class="admin-reactive-error" id="recetas-results-error" role="alert" hidden>No se pudieron cargar los resultados.</div>
+    </div>
 </section>
+<?php endif; ?>

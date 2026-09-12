@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../partials/_icons.php';
+
 $reportes = is_array($reportes ?? null) ? $reportes : [];
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 $statusLabels = [
@@ -91,7 +93,7 @@ $statusLabels = [
                                            href="<?php echo $h($reporte['ruta_origen']); ?>"
                                            target="_blank" rel="noopener"
                                            title="Abrir <?php echo $h($reporte['ruta_origen']); ?> en una pestaña nueva">
-                                            Abrir pantalla ↗
+                                            <span>Abrir pantalla</span><?php echo admin_icon('externo', 13, 'admin-btn__icon'); ?>
                                         </a>
                                     <?php endif; ?>
                                 </div>
@@ -117,7 +119,7 @@ $statusLabels = [
                 <span class="admin-modal__eyebrow" data-detail-folio>Reporte</span>
                 <h2 class="admin-modal__title" id="report-detail-title" data-detail-title>Detalle del reporte</h2>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
         <dl class="admin-report-detail">
             <div class="admin-report-detail__wide"><dt>Descripción</dt><dd data-detail-description></dd></div>
@@ -128,7 +130,7 @@ $statusLabels = [
                 <dd>
                     <span data-detail-route></span>
                     <a class="admin-btn admin-btn--ghost admin-btn--small admin-report-detail__open"
-                       data-detail-route-link target="_blank" rel="noopener" hidden>Abrir pantalla ↗</a>
+                       data-detail-route-link target="_blank" rel="noopener" hidden><span>Abrir pantalla</span><?php echo admin_icon('externo', 13, 'admin-btn__icon'); ?></a>
                 </dd>
             </div>
             <div><dt>Fecha</dt><dd data-detail-date></dd></div>

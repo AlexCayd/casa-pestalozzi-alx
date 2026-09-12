@@ -5,6 +5,8 @@
  * Métricas, gráficas y resumen operativo con datos REALES de la BD
  * ($analytics, construido en AdminController::construirAnalytics).
  */
+require_once __DIR__ . '/partials/_icons.php';
+
 $analytics = is_array($analytics ?? null) ? $analytics : ['metrics' => [], 'tickets' => [], 'payments' => [], 'charts' => []];
 $rango = is_array($rango ?? null) ? $rango : ['start' => date('Y-m-d', strtotime('-29 days')), 'end' => date('Y-m-d'), 'preset' => 30, 'label' => 'Últimos 30 días'];
 $rangoPreset = (int) ($rango['preset'] ?? 0);
@@ -331,7 +333,7 @@ $hoyIso = date('Y-m-d');
                     <strong>cuánto deja</strong>. Del cruce sale la acción.
                 </p>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <section class="admin-n1-guide">
@@ -340,7 +342,7 @@ $hoyIso = date('Y-m-d');
                      esto para decidir, no para estudiar la matriz. */ ?>
             <div class="admin-n1-guide__grid">
                 <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--estrella">⭐ Estrella</span>
+                    <span class="admin-nivel1-badge admin-nivel1-badge--estrella"><?php echo admin_icon('cuadrante-estrella', 14); ?>Estrella</span>
                     <p class="admin-n1-guide__action">Protégelo.</p>
                     <p class="admin-n1-guide__meaning">
                         Se vende mucho y deja mucho. No le muevas receta ni precio, dale el mejor
@@ -348,7 +350,7 @@ $hoyIso = date('Y-m-d');
                     </p>
                 </article>
                 <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--vaca">🐎 Vaca</span>
+                    <span class="admin-nivel1-badge admin-nivel1-badge--vaca"><?php echo admin_icon('cuadrante-vaca', 14); ?>Vaca</span>
                     <p class="admin-n1-guide__action">Bájale el costo.</p>
                     <p class="admin-n1-guide__meaning">
                         Se vende mucho pero deja poco. Trae gente, así que no lo quites: renegocia
@@ -356,7 +358,7 @@ $hoyIso = date('Y-m-d');
                     </p>
                 </article>
                 <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--incognita">❓ Incógnita</span>
+                    <span class="admin-nivel1-badge admin-nivel1-badge--incognita"><?php echo admin_icon('cuadrante-incognita', 14); ?>Incógnita</span>
                     <p class="admin-n1-guide__action">Dale visibilidad.</p>
                     <p class="admin-n1-guide__meaning">
                         Deja mucho pero casi nadie lo pide. Es la mayor oportunidad: muévelo en la
@@ -364,7 +366,7 @@ $hoyIso = date('Y-m-d');
                     </p>
                 </article>
                 <article class="admin-n1-guide__card">
-                    <span class="admin-nivel1-badge admin-nivel1-badge--perro">🐕 Perro</span>
+                    <span class="admin-nivel1-badge admin-nivel1-badge--perro"><?php echo admin_icon('cuadrante-perro', 14); ?>Perro</span>
                     <p class="admin-n1-guide__action">Considera retirarlo.</p>
                     <p class="admin-n1-guide__meaning">
                         Ni se vende ni deja margen. Antes de quitarlo, revisa si comparte insumos
@@ -442,7 +444,7 @@ $hoyIso = date('Y-m-d');
                     (columnas), y su color indica qué tan fuerte rinde esa combinación.
                 </p>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <section class="admin-n1-guide">
@@ -618,7 +620,7 @@ $hoyIso = date('Y-m-d');
                     guiar la venta sugerida y decidir qué conviene tener listo al mismo tiempo.
                 </p>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <section class="admin-n1-guide">

@@ -992,10 +992,24 @@
   white-space: nowrap;
 }
 
-// Paleta por clase (chips + badges comparten los tonos de marca).
+/* El icono de cuadrante (admin_icon / AdminIcons). Sin grosor declarado el SVG
+   caía al `stroke-width: 1` por omisión, y a 14 px la rejilla quedaba en
+   medio píxel: se veía la celda rellena flotando sin el marco que le da
+   sentido. */
+.admin-nivel1-chip svg,
+.admin-nivel1-badge svg {
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+
+/* Paleta por clase: la MISMA familia que el punto de la clase en el mapa de
+   dispersión (--admin-n1-*), porque aquí la identidad del dato es el color.
+   Vaca iba en el trío «gold» heredado, que en el panel blanco y negro resuelve
+   a un gris oscuro de fondo con la tinta encima —negro sobre gris 9, ilegible
+   en los dos temas— y no se parecía en nada al ámbar de sus puntos. */
 @each $clase, $bordecolor, $textcolor, $bgcolor in
   ("estrella", var(--admin-success-border), var(--admin-success-text), var(--admin-success-bg)),
-  ("vaca",     var(--admin-gold),           var(--admin-gold-deep),    var(--admin-gold-soft)),
+  ("vaca",     var(--admin-warning-border), var(--admin-warning-text), var(--admin-warning-bg)),
   ("incognita",var(--admin-info-border),    var(--admin-info-text),    var(--admin-info-bg)),
   ("perro",    var(--admin-danger-border),  var(--admin-danger-text),  var(--admin-danger-bg))
 {
@@ -1030,7 +1044,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 10px;
   background: var(--admin-surface);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--admin-sombra) 28%, transparent);
   color: var(--admin-text);
   font-size: 12px;
   line-height: 1.45;

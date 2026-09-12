@@ -238,7 +238,7 @@
 // Se elige antes de capturar el efectivo, porque decide cuánto cambio hay que
 // devolver. En cuenta dividida reparte el porcentaje entre los comensales.
 .mmodal-propina {
-  margin: .9rem 0 0;
+  margin: .7rem 0 0;
 
   &__label {
     display: block;
@@ -280,13 +280,30 @@
     }
   }
 
+  /*
+   * ⚠ El `&[hidden]` NO es decorativo: es el arreglo del «$» huérfano.
+   *
+   * `[hidden] { display: none }` lo declara la hoja del agente de usuario con
+   * especificidad (0,1,0); esta clase declaraba `display: flex` con (0,2,0) y le
+   * ganaba. Así que `mostrarPropinaInput(false)` escondía el input —que sí
+   * tenía su propia regla `input[hidden]`— y dejaba el «$» solo, colgando bajo
+   * las pastillas de porcentaje con «20%» activo. Es el patrón que ya usan
+   * .mmodal-recibido, .mmodal-excedente y .mmodal-excedente__monto; faltaba
+   * justo aquí, que es donde se veía.
+   *
+   * La caja la pone .mmodal-money-field, que el elemento lleva en el marcado.
+   */
   &__monto {
-    display: flex;
-    align-items: center;
-    gap: .3rem;
+    // Ancho medido, no el de la columna. Como `.mmodal-money-field` es un flex
+    // de nivel bloque, sin esto ocupaba los ~515 px de la columna izquierda: el
+    // «$» pegado al canto izquierdo y la cifra —alineada a la derecha— al otro
+    // extremo, con medio palmo de vacío en medio. Dejó de estar huérfano para
+    // quedar exiliado. Es el mismo ancho que el gemelo del excedente, porque
+    // son el mismo rol.
+    width: 8rem;
     margin-top: .5rem;
-    color: color-mix(in srgb, var(--txt) 60%, transparent);
-    font-size: .85rem;
+
+    &[hidden] { display: none; }
 
     input[hidden] { display: none; }
   }
@@ -310,11 +327,100 @@
   }
 }
 
+/* ── Campo de dinero: UNA definición para los tres ───────────────
+ *
+ * El cobro tiene tres campos con prefijo «$» —monto recibido, propina «Otro» y
+ * el reparto del excedente— y llegaron a comportarse de tres maneras distintas,
+ * porque sólo el primero peleaba contra la regla global de campos.
+ *
+ * ⚠ !important, y por la razón de siempre en esta casa: quien pone el borde, el
+ * fondo, los 12/14 px de padding, los 46 px de alto y —lo que de verdad se
+ * veía— un `font-size: 14px` es la regla global de _forms.scss,
+ *
+ *   .admin-body input:not([type=checkbox]):not([type=radio])
+ *                    :not([type=range]):not([type=submit]):not([type=button])
+ *
+ * que suma (0,6,1) y le gana a cualquier clase suelta. Los otros dos campos no
+ * la peleaban: se quedaban con la caja del panel dentro de la caja decorada y
+ * el «$» a un lado, suelto. Es el mismo choque que documenta CLAUDE.md para la
+ * lupa de «Buscar platillo», y se resuelve igual y en un solo sitio: la caja la
+ * pone el CONTENEDOR y el input va desnudo dentro del flex.
+ */
+.mmodal-money-field {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 56px;
+  padding: 0 .9rem;
+  border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  color: color-mix(in srgb, var(--txt) 55%, transparent);
+  font-size: 1.2rem;
+
+  &[hidden] { display: none; }
+
+  // El anillo de foco vive en el CONTENEDOR: el input de dentro renuncia al
+  // suyo (ver abajo), así que sin esto teclear el monto no se señalaba más
+  // que con un cambio de color de borde de 1 px.
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  input {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    color: var(--txt);
+    font-family: var(--admin-font-mono);
+    font-size: 1.6rem !important;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    outline: none;
+    -moz-appearance: textfield;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+
+  /*
+   * Los dos campos secundarios: misma caja, menos peso. No son el dato que el
+   * mesero teclea contando billetes, son un ajuste sobre una cifra ya
+   * calculada. La distinción la hacen la caja (56 → 44) y sobre todo la cifra
+   * (1.6rem → 1.05rem); no hace falta bajar de los 44 px que esta casa fija
+   * como objetivo táctil mínimo del piso — se tocan en tablet, de pie.
+   *
+   * El 1.05rem tampoco es libre: es el primer escalón por encima de los 16 px
+   * a los que Safari de iOS deja de hacer zoom al enfocar un campo. Bajarlo a
+   * 1rem para "afinar" reintroduce ese zoom en mitad del cobro.
+   */
+  &--sm {
+    min-height: 44px;
+    padding: 0 .7rem;
+    border-radius: 9px;
+    font-size: .95rem;
+
+    input {
+      font-size: 1.05rem !important;
+      text-align: right;
+    }
+  }
+}
+
 // ── Monto recibido ───────────────────────────────────────────
 // Campo grande y solo: es el dato que el mesero teclea con una mano mientras
-// cuenta billetes con la otra.
+// cuenta billetes con la otra. La caja la define .mmodal-money-field.
 .mmodal-recibido {
-  margin-top: .9rem;
+  margin-top: .7rem;
 
   &[hidden] { display: none; }
 
@@ -326,41 +432,6 @@
     font-weight: 700;
     letter-spacing: .08em;
     text-transform: uppercase;
-  }
-
-  &__field {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    min-height: 56px;
-    padding: 0 .9rem;
-    border: 1px solid color-mix(in srgb, var(--txt) 16%, transparent);
-    border-radius: 11px;
-    background: color-mix(in srgb, var(--txt) 5%, transparent);
-    color: color-mix(in srgb, var(--txt) 55%, transparent);
-    font-size: 1.2rem;
-
-    &:focus-within { border-color: var(--accent); }
-
-    input {
-      width: 100%;
-      min-width: 0;
-      border: 0;
-      background: none;
-      color: var(--txt);
-      font-family: inherit;
-      font-size: 1.6rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      outline: none;
-      -moz-appearance: textfield;
-
-      &::-webkit-outer-spin-button,
-      &::-webkit-inner-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-      }
-    }
   }
 }
 
@@ -386,9 +457,12 @@
     text-transform: uppercase;
   }
 
+  // Mono, como el monto recibido que tiene justo encima y como los totales:
+  // en el cobro, todo lo que es dinero se escribe con la misma voz.
   &__val {
     color: var(--accent-text);
-    font-size: 1.5rem;
+    font-family: var(--admin-font-mono);
+    font-size: 1.4rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }

@@ -63,6 +63,7 @@
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar subreceta"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($sub->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Los platillos que la incluyen perderán ese componente y su costo."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $sub->id; ?>">

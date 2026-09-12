@@ -229,10 +229,32 @@
          * decenas de eventos y cada uno reconstruye el diagrama entero.
          */
         var pendiente = null;
-        window.addEventListener('resize', function () {
+        function redibujar() {
             clearTimeout(pendiente);
             pendiente = setTimeout(renderAll, 180);
-        });
+        }
+        window.addEventListener('resize', redibujar);
+
+        /*
+         * Y un ResizeObserver sobre el propio contenedor, porque `resize` no
+         * cubre el caso más frecuente: plegar el sidebar del panel cambia el
+         * ancho disponible sin que la VENTANA cambie de tamaño, así que el
+         * diagrama se quedaba dibujado contra la medida vieja —encogido en la
+         * mitad izquierda, o cortado— hasta la siguiente recarga.
+         *
+         * La primera notificación llega al observar, y esa sobra: renderAll()
+         * acaba de correr. Se descarta para no dibujarlo dos veces al cargar.
+         */
+        var contenedorSankey = document.getElementById('flujoFinanciero');
+        if (contenedorSankey && typeof window.ResizeObserver === 'function') {
+            var anchoPrevio = contenedorSankey.clientWidth;
+            new window.ResizeObserver(function () {
+                var anchoActual = contenedorSankey.clientWidth;
+                if (anchoActual === anchoPrevio) return;
+                anchoPrevio = anchoActual;
+                redibujar();
+            }).observe(contenedorSankey);
+        }
     }
 
     if (document.readyState === 'loading') {

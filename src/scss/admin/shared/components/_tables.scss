@@ -190,6 +190,10 @@
   display: inline-flex;
   min-height: 26px;
   align-items: center;
+  // El hueco entre un icono y su texto. Antes lo ponía el espacio del propio
+  // carácter cuando el icono era un glifo (▲ ▼); al pasar a SVG ese espacio
+  // deja de existir y la flecha se pega a la cifra.
+  gap: 4px;
   padding: 0 9px;
   border: 1px solid var(--admin-neutral-border);
   border-radius: 999px;
@@ -199,6 +203,14 @@
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+
+  // El icono no debe encogerse ni arrastrar la línea base del texto.
+  svg {
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+  }
 }
 
 .admin-badge--neutral {

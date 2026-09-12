@@ -105,6 +105,7 @@
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar categoría"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Los platillos que la usan quedarán sin categoría."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $cat->id; ?>">

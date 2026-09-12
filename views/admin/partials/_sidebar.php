@@ -3,26 +3,24 @@
  * Navegacion lateral compartida por los modulos de administracion.
  * Renderiza las rutas disponibles y senala el modulo activo.
  */
-$sidebarIcons = [
-    'analytics' => '<path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 3-4 3 2 4-6"/>',
-    'menu' => '<path d="M5 4.5h8a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H5z"/><path d="M16 7.5h3v12a2 2 0 0 0-2-2h-1"/><path d="M8 8h4"/><path d="M8 11h4"/><path d="M8 14h3"/>',
-    'pdv' => '<path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>',
-    'area' => '<path d="M4 7h16"/><path d="M7 7v10a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V7"/><path d="M9 3v4"/><path d="M15 3v4"/><path d="M9 12h6"/>',
-    'reservations' => '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/>',
-    // Copa de vino: catas dirigidas.
-    'catas' => '<path d="M7 3h10l-.8 6a4.2 4.2 0 0 1-8.4 0Z"/><path d="M12 15v6"/><path d="M8.5 21h7"/>',
-    'feedback' => '<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z"/><path d="m12 7 1.2 2.5 2.8.4-2 2 .5 2.7L12 15.4 9.5 16.6l.5-2.7-2-2 2.8-.4Z"/>',
-    'tables' => '<rect x="5" y="5" width="14" height="10" rx="2"/><path d="M8 15v4"/><path d="M16 15v4"/><path d="M5 19h14"/>',
-    'products' => '<path d="M6 3v8a4 4 0 0 0 8 0V3"/><path d="M10 3v18"/><path d="M18 3v18"/>',
-    'productos' => '<path d="M6 3v8a4 4 0 0 0 8 0V3"/><path d="M10 3v18"/><path d="M18 3v18"/>',
-    'inventario' => '<path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
-    'finanzas' => '<path d="M3 3v18h18"/><path d="M7 15l3-4 3 2 4-6"/><circle cx="7" cy="15" r="0.6"/>',
-    'categories' => '<path d="M20 12 12 20 4 12l8-8 8 8Z"/><path d="M12 8h.01"/>',
-    'tickets' => '<path d="M6 3h12v18l-2-1-2 1-2-1-2 1-2-1-2 1V3Z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>',
-    'printers' => '<path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/>',
-    'users' => '<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a3 3 0 0 0-2-2.8"/>',
-    'configuration' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
-];
+// El catálogo de iconos vive en _icons.php: lo comparten el sidebar, el topbar
+// y las vistas de módulo. Aquí tenía su propia copia, y era la razón de que
+// existieran dos juegos del mismo dibujo en el proyecto.
+require_once __DIR__ . '/_icons.php';
+
+// 'productos' era un alias local de 'products'. Se resuelve aquí y no en el
+// catálogo: es una clave de menú de este sidebar, no un icono distinto.
+$sidebarIconoModulo = static function (string $clave): string {
+    if ($clave === 'productos') {
+        $clave = 'products';
+    }
+    $icono = admin_icon($clave, 24);
+
+    // El respaldo lo pone el sidebar y no el helper: una entrada de navegación
+    // sin icono descuadra la fila entera, mientras que un botón suelto sin él
+    // simplemente se queda sin adorno.
+    return $icono !== '' ? $icono : admin_icon('analytics', 24);
+};
 ?>
 <aside class="admin-sidebar" id="admin-sidebar" aria-label="Navegación de administración" data-admin-sidebar data-lenis-prevent>
     <div class="admin-sidebar__header">
@@ -33,11 +31,14 @@ $sidebarIcons = [
             </span>
         </a>
 
+        <?php /* SVG y no la "x" literal que había: una equis de texto hereda la
+                 caja tipográfica —se apoya en la línea base y queda descentrada
+                 en el botón— y cambia de forma con la fuente. */ ?>
         <button
             class="admin-sidebar__close"
             type="button"
-            aria-label="Cerrar navegacion"
-            data-admin-sidebar-close>x</button>
+            aria-label="Cerrar navegación"
+            data-admin-sidebar-close><?php echo admin_icon('cerrar', 18); ?></button>
     </div>
 
     <nav class="admin-sidebar__nav">
@@ -47,9 +48,7 @@ $sidebarIcons = [
                 href="<?php echo $module['path']; ?>"
                 title="<?php echo htmlspecialchars($module['title'], ENT_QUOTES, 'UTF-8'); ?>">
                 <span class="admin-sidebar__link-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                        <?php echo $sidebarIcons[$moduleKey] ?? $sidebarIcons['analytics']; ?>
-                    </svg>
+                    <?php echo $sidebarIconoModulo((string) $moduleKey); ?>
                 </span>
                 <span class="admin-sidebar__link-text">
                     <?php echo $module['title']; ?>

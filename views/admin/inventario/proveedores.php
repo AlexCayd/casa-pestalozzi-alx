@@ -67,6 +67,7 @@
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar proveedor"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($proveedor->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($proveedor->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Se perderán sus precios asignados a <?php echo (int) $surtidos; ?> insumo(s)."
                                               data-confirm-consequence="El histórico de precios se conserva, pero deja de decir quién los surtió. Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $proveedor->id; ?>">

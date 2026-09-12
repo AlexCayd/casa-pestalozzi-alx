@@ -16,12 +16,25 @@ $noticeMessage = $noticeMessage !== ''
     ? $noticeMessage
     : 'Revisa el contexto mostrado y continúa con una opción disponible.';
 $noticeHidden = (bool)($notice['hidden'] ?? ($noticeTitle === ''));
-$noticeIcon = match ($noticeType) {
-    'success' => '✓',
-    'warning', 'error' => '!',
-    'restricted' => '×',
-    default => 'i',
-};
+
+/*
+ * El icono, en SVG y desde el catálogo compartido.
+ *
+ * Eran cuatro caracteres —✓ ! × i— que la fuente del sistema pintaba a su
+ * manera: distinto tamaño y grosor en cada plataforma y sin heredar el color
+ * del aviso, así que los cuatro tipos no se leían como un mismo juego.
+ *
+ * El mapa tiene que coincidir con el de operation.js (función que repinta el
+ * aviso al vuelo): si divergen, el primer render y el siguiente enseñarían
+ * iconos distintos para el mismo estado.
+ */
+require_once __DIR__ . '/../../admin/partials/_icons.php';
+$noticeIcon = admin_icon(match ($noticeType) {
+    'success' => 'check',
+    'warning', 'error' => 'alerta',
+    'restricted' => 'cerrar',
+    default => 'info',
+}, 16);
 $noticeH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>
 <article
@@ -31,7 +44,9 @@ $noticeH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUO
     <?php echo $noticeHidden ? 'hidden' : ''; ?>
 >
     <div class="operational-global-notice__head">
-        <span class="operational-global-notice__icon" aria-hidden="true" data-operation-global-notice-icon><?php echo $noticeH($noticeIcon); ?></span>
+        <?php /* Sin escapar: es marcado SVG que arma admin_icon() a partir de
+                 un catálogo cerrado, no texto de usuario. */ ?>
+        <span class="operational-global-notice__icon" aria-hidden="true" data-operation-global-notice-icon><?php echo $noticeIcon; ?></span>
         <span class="operational-global-notice__copy">
             <strong data-operation-global-notice-title><?php echo $noticeH($noticeTitle); ?></strong>
             <span data-operation-global-notice-summary><?php echo $noticeH($noticeSummary); ?></span>
@@ -49,7 +64,8 @@ $noticeH = static fn($value): string => htmlspecialchars((string)$value, ENT_QUO
                 class="operational-global-notice__close"
                 aria-label="Cerrar aviso"
                 data-operation-global-notice-close
-            >&times;</button>
+            ><?php /* Misma aspa que el icono del aviso: el catálogo ya está
+                      requerido arriba. */ ?><?php echo admin_icon('cerrar', 16); ?></button>
         </span>
     </div>
     <div

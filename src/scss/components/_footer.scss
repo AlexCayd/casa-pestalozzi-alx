@@ -129,11 +129,16 @@ footer.foot {
 // las horas quedaban a distintas sangrías y la columna no se podía barrer en
 // vertical. Marca el día de hoy y las excepciones de la semana, exactamente las
 // mismas que la tabla de la sección de reservación.
+// REJILLA de dos columnas, igual que la tabla de la sección de reserva
+// (_reserva.scss). Con flex y `space-between`, el eje de la derecha lo sostenía
+// el número de hijos, así que la fila excepcional —con tres— tenía que envolver
+// y recolocar el horario con `margin-left: auto`. Dos celdas fijas ponen los
+// siete horarios en la misma vertical sin depender de cuántas piezas haya.
 .foot__col--horario .foot__horario {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 0 1rem;
   padding: 0.35rem 0;
   font-size: 0.8rem;
   color: var(--txt-mute);
@@ -146,7 +151,11 @@ footer.foot {
     font-weight: 400;
   }
 
-  small {
+  // Acotado al <b>, que es donde vive la chapa "Hoy". Suelto alcanzaba también
+  // al <small> del horario habitual —que llegó después— y lo pintaba en
+  // versalitas de acento: la línea que dice "esto NO aplica" se veía igual de
+  // señalada que la que sí rige.
+  b small {
     font-size: 0.55rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -170,6 +179,29 @@ footer.foot {
   &.is-excepcion b::after {
     content: "•";
     color: var(--accent-text);
+  }
+
+  /* El habitual baja a su PROPIO renglón —la segunda fila de la rejilla, a lo
+     ancho— en vez de ir detrás en la misma línea. Compartiendo renglón eran dos
+     horarios seguidos separados por un espacio, y la única pista de cuál
+     mandaba era un tachado de 1 px a 0,7 rem: en un pie, a esa escala, no se
+     ve. Cuesta catorce píxeles en una de las siete filas. */
+  &-habitual {
+    grid-column: 1 / -1;
+    color: var(--txt-faint);
+    font-size: 0.66rem;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    text-align: right;
+    white-space: nowrap;
+
+    // El tachado va SÓLO sobre la cifra: el rótulo "Habitual:" tiene que
+    // leerse limpio, porque es él quien dice en palabras lo que el tachado
+    // dice en pintura —y un lector de pantalla no anuncia line-through—.
+    s {
+      text-decoration-color: currentColor;
+      text-decoration-thickness: 1px;
+    }
   }
 }
 

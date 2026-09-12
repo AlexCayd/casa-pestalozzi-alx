@@ -63,6 +63,18 @@
             return diff < 0 || Number.isNaN(diff) ? 0 : diff;
         }
 
+        /**
+         * Icono del catálogo del panel. AdminIcons viaja en admin.js, que el
+         * layout carga antes que cualquier bundle de módulo; si aun así faltara,
+         * devuelve cadena vacía —un hueco se ve, un icono equivocado dura años—.
+         */
+        function icono(nombre, tamano) {
+            if (!window.AdminIcons || typeof window.AdminIcons.get !== 'function') {
+                return '';
+            }
+            return window.AdminIcons.get(nombre, tamano);
+        }
+
         function setRefresh(text, mode) {
             if (!refreshInfo) {
                 return;
@@ -76,9 +88,38 @@
             return '<div class="admin-area-empty"><span>' + escHtml(text) + '</span></div>';
         }
 
+        /**
+         * La antigüedad en palabras de cocina. Los minutos a pelo dejan de ser
+         * una duración en cuanto pasan de la hora: "hace 11575 min" no lo
+         * convierte nadie mentalmente. Pasado medio día lo útil ya no es cuánto
+         * lleva sino a qué hora entró.
+         */
+        function antiguedadTexto(minutes, timestamp) {
+            if (minutes === 0) {
+                return 'ahora';
+            }
+            if (minutes < 60) {
+                return 'hace ' + minutes + ' min';
+            }
+            if (minutes < 720) {
+                var horas = Math.floor(minutes / 60);
+                var resto = minutes % 60;
+                return 'hace ' + horas + ' h' + (resto ? ' ' + resto + ' min' : '');
+            }
+            var date = new Date(String(timestamp).replace(' ', 'T'));
+            return 'desde ' + date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        /*
+         * La firma incluye el MINUTO transcurrido, no sólo el estado: con
+         * `id:estado` renderBoard salía temprano mientras nada cambiara de
+         * columna, así que "hace 2 min" seguía diciendo dos minutos media hora
+         * después y el filete nunca cruzaba a ámbar ni a rojo. Repinta una vez
+         * por minuto; el scroll se conserva (ver renderBoard).
+         */
         function signatureOf(list) {
             return list.map(function (item) {
-                return item.id + ':' + item.estado;
+                return item.id + ':' + item.estado + ':' + minutesSince(item.created_at);
             }).join('|');
         }
 
@@ -186,9 +227,21 @@
                 }
             });
 
+            /*
+             * El scroll de las tres columnas se guarda y se repone: reemplazar
+             * el innerHTML destruye los nodos y con ellos el scrollTop, así que
+             * quien había bajado a ver comandas viejas volvía al tope en cuanto
+             * alguien tocaba cualquier botón —la firma cubre TODOS los ítems—.
+             */
+            var scrollPrevio = [listEnv.scrollTop, listPrep.scrollTop, listListo.scrollTop];
+
             listEnv.innerHTML = envCards.length ? envCards.join('') : emptyState('Sin pedidos');
             listPrep.innerHTML = prepCards.length ? prepCards.join('') : emptyState('Sin pedidos');
             listListo.innerHTML = listoCards.length ? listoCards.join('') : emptyState('Sin pedidos');
+
+            listEnv.scrollTop = scrollPrevio[0];
+            listPrep.scrollTop = scrollPrevio[1];
+            listListo.scrollTop = scrollPrevio[2];
 
             if (countEnv) {
                 countEnv.textContent = envCount;
@@ -222,7 +275,7 @@
             var clientText = group.ticket_nombre
                 ? '<span class="admin-area-card-kds__client"> - ' + escHtml(group.ticket_nombre) + '</span>'
                 : '';
-            var timeText = minutes === 0 ? 'ahora' : 'hace ' + minutes + ' min';
+            var timeText = antiguedadTexto(minutes, (pendiente || itemList[0]).created_at);
             var html = '';
 
             html += '<article class="admin-area-card-kds' + urgencyClass + '">';
@@ -233,39 +286,57 @@
             html += '<div class="admin-area-card-kds__items">';
 
             itemList.forEach(function (item) {
-                var comensalLabel = item.comensal !== null ? 'C.' + item.comensal : 'GL';
+                // El chip sólo sale cuando hay comensal: «GL» se emitía en
+                // todas las filas para decir «global», que es el caso por
+                // defecto, y ese ancho se lo quitaba al nombre del platillo.
+                var comensalHtml = item.comensal !== null
+                    ? '<span class="admin-area-card-kds__com">C.' + escHtml(item.comensal) + '</span>'
+                    : '';
                 // La columna de Listos es mixta: el estado se decide por ítem,
                 // no por columna. Lo entregado ya no admite ninguna acción.
                 var entregado = item.estado === 'entregado';
                 var hasBack = !entregado && (colType === 'prep' || colType === 'listo');
                 var hasForward = !entregado && (colType === 'enviado' || colType === 'prep');
 
+                /*
+                 * El platillo es UNA fila: xN · nombre · comensal · acción.
+                 *
+                 * Los botones iban debajo del texto y esa segunda fila era la
+                 * mitad de lo que costaba cada platillo, así que la columna
+                 * enseñaba tres o cuatro. Al lado del nombre el botón deja de
+                 * sumar altura y sólo manda el objetivo táctil. Es el mismo
+                 * cambio que en el tablero de piso (src/js/modules/area.js):
+                 * los dos tableros muestran las mismas comandas y no pueden
+                 * separarse en cómo las presentan.
+                 */
                 html += '<div class="admin-area-card-kds__item' +
                     (entregado ? ' admin-area-card-kds__item--entregado' : '') + '">';
-                html += '<div class="admin-area-card-kds__item-info">';
                 html += '<span class="admin-area-card-kds__qty">x' + escHtml(item.cantidad) + '</span>';
                 html += '<span class="admin-area-card-kds__name">' + escHtml(item.nombre) + '</span>';
-                html += '<span class="admin-area-card-kds__com">' + escHtml(comensalLabel) + '</span>';
-                html += '</div>';
+                html += comensalHtml;
 
                 if (entregado) {
-                    html += '<div class="admin-area-card-kds__actions">';
-                    html += '<span class="admin-area-card-kds__badge admin-area-card-kds__badge--entregado">Entregado</span>';
-                    html += '</div>';
+                    html += '<span class="admin-area-card-kds__badge admin-area-card-kds__badge--entregado">' +
+                        icono('check', 14) + '<span>Entregado</span></span>';
                 } else if (hasBack || hasForward) {
                     html += '<div class="admin-area-card-kds__actions">';
 
                     if (hasBack) {
+                        // Sin etiqueta: "Devolver" es la acción rara de la fila
+                        // y gastaba el ancho que necesita el nombre del platillo.
                         html += '<button class="admin-area-card-kds__btn admin-area-card-kds__btn--back" data-id="' +
-                            escHtml(item.id) + '" data-dir="back">Devolver</button>';
+                            escHtml(item.id) + '" data-dir="back" aria-label="Devolver" title="Devolver">' +
+                            icono('flecha-izquierda', 16) + '</button>';
                     }
 
                     if (colType === 'enviado') {
                         html += '<button class="admin-area-card-kds__btn admin-area-card-kds__btn--prep" data-id="' +
-                            escHtml(item.id) + '" data-dir="fwd">Prep</button>';
+                            escHtml(item.id) + '" data-dir="fwd">' +
+                            icono('flecha-derecha', 15) + '<span>Prep</span></button>';
                     } else if (colType === 'prep') {
                         html += '<button class="admin-area-card-kds__btn admin-area-card-kds__btn--listo" data-id="' +
-                            escHtml(item.id) + '" data-dir="fwd">Listo</button>';
+                            escHtml(item.id) + '" data-dir="fwd">' +
+                            icono('check', 15) + '<span>Listo</span></button>';
                     }
 
                     html += '</div>';

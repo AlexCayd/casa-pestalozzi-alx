@@ -291,8 +291,22 @@
     border-radius: 8px;
     background: var(--admin-sidebar-hover-bg);
     color: var(--admin-sidebar-link-hover);
-    font-size: 24px;
     line-height: 1;
+
+    // El contenido pasó de ser la letra "x" a un SVG, así que el centrado deja
+    // de venir de la caja de texto. `display` lo decide el bloque de móvil, que
+    // es donde el botón existe; aquí sólo se prepara el centrado para cuando se
+    // encienda.
+    align-items: center;
+    justify-content: center;
+
+    svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+    }
 }
 
 .admin-menu-toggle {
@@ -322,7 +336,8 @@
 }
 
 @include mixins.down(vars.$breakpoint-drawer) {
+    // flex y no block: el icono se centra con el align/justify declarados arriba.
     .admin-sidebar__close {
-        display: block;
+        display: flex;
     }
 }

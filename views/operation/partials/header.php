@@ -8,6 +8,17 @@
 $operationalView = (string)($operationalView ?? 'reservations');
 $operationalModule = (string)($operationalModule ?? $operationalView);
 $operationalModuleTitle = (string)($operationalModuleTitle ?? ($operationalView === 'map' ? 'Mapa de mesas' : 'Mapa de reservaciones'));
+// El tablero de área lo apaga: es una pantalla fija en la cocina, y ahí el
+// wordmark no informa de nada —quien la mira ya sabe en qué restaurante está—
+// mientras que el nombre de la estación sí. Sin marca, el título pasa a la
+// izquierda y ocupa el sitio que ella dejó, que es el más legible de la barra.
+$operationalHeaderBrand = (bool)($operationalHeaderBrand ?? true);
+// Destino opcional del título. El tablero lo usa para devolver al admin al
+// panel sin gastar un botón: el rótulo que ya está en pantalla hace de enlace.
+$operationalHeaderModuleHref = (string)($operationalHeaderModuleHref ?? '');
+// Con el chip apagado queda sólo el botón de salida. En una estación
+// compartida el nombre de quien inició sesión no es dato de trabajo.
+$operationalHeaderUserChip = (bool)($operationalHeaderUserChip ?? true);
 $operationalDate = (string)($operationalDate ?? date('Y-m-d'));
 $operationalHour = (string)($operationalHour ?? '');
 $operationalBrandHref = (string)($operationalBrandHref ?? '/punto-de-venta');
@@ -50,24 +61,36 @@ if ($operationalHeaderBackUrl === '') {
 }
 ?>
 <header
-    class="operational-header<?php echo $operationalView === 'reservations' ? ' operational-header--reservations' : ''; ?>"
+    class="operational-header<?php echo $operationalView === 'reservations' ? ' operational-header--reservations' : ''; ?><?php echo $operationalHeaderBrand ? '' : ' operational-header--bare'; ?>"
     data-operational-header
     data-operational-module="<?php echo $operationalHeaderH($operationalModule); ?>"
 >
     <div class="operational-header__region operational-header__region--left">
         <?php echo $operationalHeaderDrawerToggleHtml; ?>
-        <a
-            class="operational-header__brand"
-            href="<?php echo $operationalHeaderH($operationalBrandHref); ?>"
-            title="CASA PESTALOZZI"
-            aria-label="CASA PESTALOZZI"
-        >
-            <span class="operational-header__brand-name">CASA PESTALOZZI</span>
-            <span class="operational-header__brand-meta">Del Valle · México</span>
-        </a>
+        <?php if ($operationalHeaderBrand): ?>
+            <a
+                class="operational-header__brand"
+                href="<?php echo $operationalHeaderH($operationalBrandHref); ?>"
+                title="CASA PESTALOZZI"
+                aria-label="CASA PESTALOZZI"
+            >
+                <span class="operational-header__brand-name">CASA PESTALOZZI</span>
+                <span class="operational-header__brand-meta">Del Valle · México</span>
+            </a>
+        <?php else: ?>
+            <?php // Sin marca el título ocupa su sitio: es el único rótulo que
+                  // queda y el que se lee desde el otro lado de la cocina. ?>
+            <h1 class="operational-header__module">
+                <?php if ($operationalHeaderModuleHref !== ''): ?>
+                    <a href="<?php echo $operationalHeaderH($operationalHeaderModuleHref); ?>"><?php echo $operationalHeaderH($operationalModuleTitle); ?></a>
+                <?php else: ?>
+                    <?php echo $operationalHeaderH($operationalModuleTitle); ?>
+                <?php endif; ?>
+            </h1>
+        <?php endif; ?>
     </div>
 
-    <?php if ($operationalView === 'map'): ?>
+    <?php if ($operationalView === 'map' && $operationalHeaderBrand): ?>
         <div class="operational-header__region operational-header__region--center">
             <h1 class="operational-header__module"><?php echo $operationalHeaderH($operationalModuleTitle); ?></h1>
         </div>
@@ -142,14 +165,16 @@ if ($operationalHeaderBackUrl === '') {
                 </div>
             </div>
         <?php elseif ($operationalUsuarioNombre !== ''): ?>
-            <?php /* Chip informativo: la cuenta se ve, pero salir es un toque, no dos. */ ?>
-            <div class="operational-header__user operational-header__user--static">
-                <span class="operational-header__user-avatar" aria-hidden="true"><?php echo $operationalHeaderH($operationalHeaderInitial); ?></span>
-                <span class="operational-header__user-info">
-                    <span class="operational-header__user-name"><?php echo $operationalHeaderH($operationalUsuarioNombre); ?></span>
-                    <span class="operational-header__user-role"><?php echo $operationalHeaderH($operationalUsuarioRol); ?></span>
-                </span>
-            </div>
+            <?php if ($operationalHeaderUserChip): ?>
+                <?php /* Chip informativo: la cuenta se ve, pero salir es un toque, no dos. */ ?>
+                <div class="operational-header__user operational-header__user--static">
+                    <span class="operational-header__user-avatar" aria-hidden="true"><?php echo $operationalHeaderH($operationalHeaderInitial); ?></span>
+                    <span class="operational-header__user-info">
+                        <span class="operational-header__user-name"><?php echo $operationalHeaderH($operationalUsuarioNombre); ?></span>
+                        <span class="operational-header__user-role"><?php echo $operationalHeaderH($operationalUsuarioRol); ?></span>
+                    </span>
+                </div>
+            <?php endif; ?>
             <form class="operational-header__logout-form" method="POST" action="/logout" data-operational-logout-form data-confirm-logout>
                 <button
                     type="submit"
@@ -163,4 +188,4 @@ if ($operationalHeaderBackUrl === '') {
         <?php endif; ?>
     </div>
 </header>
-<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderDrawerToggle, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial, $operationalShowLastUpdate, $operationalUserMenu); ?>
+<?php unset($operationalView, $operationalModule, $operationalModuleTitle, $operationalDate, $operationalHour, $operationalBrandHref, $operationalHeaderBackUrl, $operationalHeaderDrawerToggleHtml, $operationalHeaderDrawerToggle, $operationalHeaderActionsHtml, $operationalUsuarioNombre, $operationalUsuarioRol, $operationalHeaderUserMenuId, $operationalHeaderH, $operationalHeaderInitial, $operationalShowLastUpdate, $operationalUserMenu, $operationalHeaderBrand, $operationalHeaderModuleHref, $operationalHeaderUserChip); ?>

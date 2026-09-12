@@ -34,9 +34,21 @@
 }
 
 .operational-page {
-  --operational-font-brand: "KudosKaps", sans-serif;
-  --operational-font-editorial: "Fraunces", "Playfair Display", Georgia, serif;
-  --operational-font-ui: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Las tres caras del piso salen del sistema administrativo, no de una lista
+     de nombres propios. Aquí se pedían "Fraunces" y "Space Grotesk", que se
+     retiraron cuando el panel adoptó Geist (gulpfile.js, vendorFonts): sin
+     fichero, el navegador caía al respaldo y pintaba TODO el cromo operativo
+     en Georgia y en Segoe UI. Era una serif que nadie había elegido y una sans
+     distinta en cada sistema operativo, justo en las pantallas que se ven un
+     turno entero.
+
+     La editorial y la de interfaz son la misma cara a propósito: en el piso no
+     hay voz editorial que defender —eso es de la landing—, y la jerarquía la
+     hacen el peso y el tamaño. Quien necesite cifras comparables en vertical
+     pide --admin-font-mono, como en el resto del panel. */
+  --operational-font-brand: var(--admin-logo);
+  --operational-font-editorial: var(--admin-font-sans);
+  --operational-font-ui: var(--admin-font-sans);
   --operational-text-xs: 12px;
   --operational-text-sm: 13px;
   --operational-text-base: 14px;

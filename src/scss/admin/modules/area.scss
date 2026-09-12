@@ -243,20 +243,18 @@
   }
 }
 
-/* Un color por estado, tomado de los tokens --admin-estado-*, para que la
-   columna del KDS y el chip del POS digan lo mismo. */
-.admin-area-col--enviados .admin-area-col__head { --area-col-tono: var(--admin-estado-enviado); }
-.admin-area-col--prep .admin-area-col__head     { --area-col-tono: var(--admin-estado-preparacion); }
-.admin-area-col--listo .admin-area-col__head    { --area-col-tono: var(--admin-estado-listo); }
-
-.admin-area-col--enviados .admin-area-col__head,
-.admin-area-col--prep .admin-area-col__head,
-.admin-area-col--listo .admin-area-col__head {
-  background: color-mix(in srgb, var(--area-col-tono) 12%, var(--admin-surface));
+/* Las tres cabeceras van IGUAL, sin color por estado.
+ *
+ * Tuvieron uno cada una (--admin-estado-*), y era un color de más: el rótulo de
+ * la columna ya dice en qué estado estás, en palabras y justo al lado del
+ * contador. Mismo criterio que el tablero de piso (src/scss/area/_area.scss),
+ * donde el único color es el de la estación. */
+.admin-area-col__head {
+  background: var(--admin-surface-soft);
 
   strong {
-    border: 1px solid color-mix(in srgb, var(--area-col-tono) 46%, transparent);
-    background: color-mix(in srgb, var(--area-col-tono) 20%, var(--admin-surface));
+    border: 0;
+    background: var(--admin-surface-strong);
     color: var(--admin-text);
   }
 }
@@ -296,20 +294,15 @@
 }
 
 .admin-area-card-kds {
-  margin-bottom: 12px;
-  padding: 14px;
+  margin-bottom: 8px;
+  padding: 10px 11px;
   border: 1px solid var(--admin-border-soft);
-  border-left: 4px solid color-mix(in srgb, var(--admin-scrim) 12%, transparent);
   border-radius: var(--admin-radius-sm);
   background: var(--admin-surface);
 
-  &--alerta {
-    border-left-color: var(--admin-c-ambar);
-  }
-
-  &--urgente {
-    border-left-color: var(--admin-c-rojo);
-  }
+  /* Sin filete de antigüedad: acababa pintado en cada comanda del tablero en
+     cuanto el servicio se acumulaba, y entonces dejaba de señalar la que iba
+     tarde. El tiempo se lee en la hora de la cabecera, que sí enrojece. */
 }
 
 .admin-area-card-kds__head {
@@ -317,8 +310,8 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--admin-border-soft);
 }
 
@@ -355,26 +348,30 @@
 
 .admin-area-card-kds__items {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
+/*
+ * El platillo, en UNA fila: xN · nombre · comensal · acción.
+ *
+ * Los botones se apilaban bajo el texto, y esa segunda fila era la mitad de lo
+ * que costaba cada platillo: la columna enseñaba tres o cuatro. En rejilla de
+ * cuatro celdas el botón comparte altura con el nombre en vez de sumarla. Mismo
+ * cambio que en el tablero de piso (src/scss/area/_area.scss): los dos enseñan
+ * las mismas comandas y no pueden separarse en cómo las presentan.
+ */
 .admin-area-card-kds__item {
   display: grid;
-  gap: 8px;
-  padding-bottom: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding-bottom: 5px;
   border-bottom: 1px solid var(--admin-border-soft);
 
   &:last-child {
     padding-bottom: 0;
     border-bottom: 0;
   }
-}
-
-.admin-area-card-kds__item-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
 }
 
 .admin-area-card-kds__qty {
@@ -385,15 +382,20 @@
   font-weight: 900;
 }
 
+// DOS líneas, no puntos suspensivos: dentro de `repeat(3, minmax(0,1fr))` el
+// nombre se quedaba en muy pocos caracteres y en un tablero de producción es
+// lo único que no puede recortarse. No cuesta altura: la fila ya mide 40px por
+// el botón. Mismo criterio que en el tablero de piso (src/scss/area/_area.scss).
 .admin-area-card-kds__name {
+  display: -webkit-box;
   min-width: 0;
-  flex: 1;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--admin-text);
   font-size: 14px;
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .admin-area-card-kds__com {
@@ -407,9 +409,16 @@
   font-weight: 900;
 }
 
+// Columna 4 SIEMPRE: el chip de comensal es condicional, y con colocación
+// implícita la acción caía en la 3 en unas filas y en la 4 en otras.
+.admin-area-card-kds__actions,
+.admin-area-card-kds__badge--entregado {
+  grid-column: 4;
+}
+
 .admin-area-card-kds__actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 // Entregado por el mesero: se queda en la columna de Listos, atenuado y sin
@@ -418,26 +427,39 @@
   opacity: 0.58;
 }
 
+// `inline-flex` + gap: ocupa la celda de la acción que ese platillo ya no
+// tiene, y el ✓ pasó a ser un SVG —el espacio que lo separaba del texto era el
+// del carácter y deja de existir.
+// Sin azul: era el cuarto color de un tablero que ya decía tres cosas distintas
+// con ámbar, verde y rojo. La fila entregada ya va atenuada, que es la señal de
+// «esto ya no es trabajo»; el sello sólo tiene que distinguirse de lo que sí
+// espera a que lo recojan, y para eso basta la tinta apagada.
 .admin-area-card-kds__badge--entregado {
-  flex: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   min-height: 40px;
   padding: 0 10px;
-  border: 1px solid var(--admin-estado-entregado);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--admin-c-azul) 12%, transparent);
-  color: var(--admin-estado-entregado);
+  // Tinta plena: la fila lleva `opacity: 0.58` en el padre y eso compone el
+  // texto contra la tarjeta. En --admin-muted el sello caía por debajo de AA;
+  // quien apaga esta fila es la opacidad, no el color.
+  color: var(--admin-text);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
 }
 
+// `flex: 0 0 auto`, no `flex: 1`: en una celda dimensionada por su contenido,
+// estirarlos sólo servía para separarlos del platillo que accionan.
 .admin-area-card-kds__btn {
-  flex: 1;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 40px;
-  padding: 0 10px;
+  padding: 0 11px;
   border-radius: 8px;
   border: 1px solid var(--admin-border-soft);
   background: var(--admin-surface);
@@ -467,22 +489,30 @@
   }
 }
 
+// Cuadrado y sin etiqueta: "Devolver" es la acción rara de la fila y no puede
+// competir por el ancho con el nombre del platillo, que es lo que se lee.
 .admin-area-card-kds__btn--back {
-  flex: 0 0 auto;
+  width: 40px;
+  padding: 0;
   background: var(--admin-surface-soft);
   color: var(--admin-muted);
 }
 
-.admin-area-card-kds__btn--prep {
-  border-color: color-mix(in srgb, var(--admin-estado-preparacion) 55%, transparent);
-  background: color-mix(in srgb, var(--admin-estado-preparacion) 20%, var(--admin-surface));
-  color: var(--admin-text);
-}
-
+/*
+ * Los dos botones de avance son EL MISMO BOTÓN, igual que en el tablero de piso
+ * (src/scss/area/_area.scss, donde está el razonamiento largo).
+ *
+ * Iban teñidos con el estado DESTINO, y el tablero usa esos mismos dos colores
+ * para decir en qué estado está cada columna: el ámbar significaba «esta banda
+ * es En preparación» en una columna y «manda esto a preparación» en otra. El
+ * color se queda en la cabecera de la banda; el botón es el primario del
+ * sistema, idéntico en las tres, porque el verbo es el mismo.
+ */
+.admin-area-card-kds__btn--prep,
 .admin-area-card-kds__btn--listo {
-  border-color: color-mix(in srgb, var(--admin-estado-listo) 55%, transparent);
-  background: color-mix(in srgb, var(--admin-estado-listo) 20%, var(--admin-surface));
-  color: var(--admin-text);
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
 }
 
 .admin-area-card-kds__btn.is-loading {
@@ -526,13 +556,14 @@
     padding: 18px;
   }
 
-  .admin-area-card-kds__head,
-  .admin-area-card-kds__actions {
+  // Sólo la cabecera. `.admin-area-card-kds__actions` apilaba aquí sus botones
+  // en columna —tenía sentido cuando eran una barra bajo el texto— y ahora que
+  // viven en una celda de la rejilla del platillo deshacía en móvil justo la
+  // densidad que la fila única acaba de ganar. El `flex-basis: auto` del botón
+  // de devolver se fue con ello: ya no es un ítem flex que estirar, es un
+  // cuadrado de 40px.
+  .admin-area-card-kds__head {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .admin-area-card-kds__btn--back {
-    flex-basis: auto;
   }
 }

@@ -90,18 +90,84 @@
   overflow: hidden;
 }
 
+/*
+ * La tarjeta lleva su propia escala de espaciado.
+ *
+ * Antes cada pieza declaraba su hueco con un clamp() distinto —uno bajo el
+ * wordmark, otro bajo las pestañas, otro bajo el subtítulo, otro entre campos—
+ * y los cuatro crecían a ritmos que no tenían nada que ver entre sí: a según
+ * qué alturas de ventana el bloque se descompensaba. Dos pasos, y todo lo
+ * demás sale de ellos: --md separa piezas de un mismo bloque (los campos de un
+ * formulario) y --lg separa bloques (wordmark, pestañas, titular, formulario).
+ * El par titular/subtítulo se queda fuera de la escala a propósito: es una
+ * sola unidad de lectura y su hueco no debe crecer con la ventana.
+ *
+ * Había un tercer paso, --login-gap-sm, que no lo consumía nadie: se declaraba
+ * aquí y se volvía a declarar en la media query de pantallas bajas.
+ */
 .login-card {
+  --login-gap-md: clamp(0.95rem, 2.4vh, 1.45rem);
+  --login-gap-lg: clamp(1.35rem, 3.4vh, 2.1rem);
+
+  display: flex;
   width: 100%;
   max-width: 420px;
   max-height: 100%;
-  display: flex;
   flex-direction: column;
+  // Un solo eje: el wordmark, las pestañas y el titular comparten centro. En
+  // una tarjeta de 420 px con el rótulo a la izquierda y el teclado numérico
+  // centrado había dos alineaciones compitiendo.
+  text-align: center;
 }
 
-#login-tab-admin {
+/*
+ * Los dos paneles se APILAN en la misma celda.
+ *
+ * Eran hermanos en columna, así que la tarjeta medía lo que midiera el panel
+ * visible: al pasar de NIP (teclado de doce teclas) a contraseña (dos campos)
+ * el bloque entero se encogía de golpe y las pestañas daban un salto hacia
+ * arriba de más de 200 px. Apilados, la altura la fija el más alto —el del
+ * NIP— y el conmutador queda quieto, que es lo único que el usuario está
+ * mirando cuando lo pulsa.
+ *
+ * Es también lo que hace posible la transición: dos paneles en la misma celda
+ * pueden fundirse el uno sobre el otro; en columna sólo podían aparecer y
+ * desaparecer.
+ */
+.login-card__panels {
+  display: grid;
+  min-height: 0;
+  /* La celda la mide el panel del NIP, que es el más alto, así que el de
+     contraseña —dos campos y un botón— se quedaba pegado arriba con un palmo
+     de vacío debajo: la tarjeta no salta, pero la pestaña corta parecía a
+     medio cargar. Centrado, las dos ocupan ópticamente el mismo bloque.
+
+     `safe` no es adorno: en una ventana baja el contenido desborda esta caja y
+     un centrado normal deja la parte de arriba fuera y sin manera de
+     desplazarse hasta ella. Con `safe` vuelve a alinear arriba justo cuando
+     eso pasaría, y el navegador que no lo entienda descarta la declaración
+     entera y se queda en el comportamiento de siempre. */
+  align-items: safe center;
+  // La altura la fija el panel más alto (el del NIP), y en una ventana baja eso
+  // puede pasarse de la tarjeta. El scroll vive aquí y no en un panel concreto:
+  // antes lo declaraba #login-tab-admin, que era justo el que NO lo necesitaba.
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
+
+  /* Los 4 px de aire son para el anillo de foco, y el margen negativo los
+     devuelve: el anillo del panel es un box-shadow de 4 px (_finishes.scss) y
+     un contenedor con overflow recorta también el desbordamiento de tinta. Las
+     teclas del pad y el botón de entrar llegan al borde de esta caja, así que
+     sin la reserva el anillo salía cortado por los lados justo en la pantalla
+     donde más se navega con teclado físico. */
+  padding: 4px;
+  margin: -4px;
+}
+
+.login-tabpanel {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
 
 // Wordmark compartido: shared/_header-casa-pestalozzi + su parcial PHP. Aquí
@@ -109,18 +175,30 @@
 // la cara, el peso 400 obligado de KudosKaps y el word-spacing negativo los
 // trae el componente.
 .login-brand {
-  // 1.28rem y no los 1.45rem de antes: el componente escribe el nombre en caja
-  // alta REAL, y KudosKaps dibujaba las minúsculas del rótulo anterior como
-  // versalitas —15 % más estrechas y más bajas—. Al mismo cuerpo, el wordmark
-  // crecía de 229 a 270 px. Es la misma corrección, y en la misma proporción,
-  // que ya hizo el PDF del menú al adoptar el componente.
-  --hcp-header-size: 1.28rem;
+  // El wordmark es lo primero que se ve y lo único de marca en toda la
+  // pantalla: a 1.28rem quedaba del tamaño de una etiqueta de campo y la
+  // tarjeta empezaba sin ancla. Va al cuerpo de un titular.
+  //
+  // El número no se puede comparar con el de otras pantallas: el componente
+  // escribe el nombre en caja alta REAL, mientras que KudosKaps dibujaba las
+  // minúsculas del rótulo anterior como versalitas —15 % más estrechas y más
+  // bajas—, así que al mismo cuerpo declarado el wordmark sale bastante mayor.
+  --hcp-header-size: clamp(1.7rem, 4.2vh, 2.15rem);
   color: var(--accent-text);
   // El componente aprieta la caja del nombre a `line-height: 1`; el ancla
   // anterior heredaba el interlineado del cuerpo y dejaba medio renglón de
   // aire bajo el rótulo. Se devuelve al margen para que las pestañas —y con
   // ellas los dos formularios— no suban.
-  margin-bottom: calc(clamp(0.8rem, 2.4vh, 1.6rem) + 0.45rem);
+  margin-bottom: calc(var(--login-gap-lg) + 0.45rem);
+
+  // Centrado. Esta clase se aplica AL PROPIO .hcp-header (el parcial la
+  // concatena en su contenedor), así que no hay un padre intermedio que
+  // centrar: el componente es un `inline-flex` en columna, de modo que el
+  // `text-align: center` de .login-card centra la caja y `align-items` centra
+  // lo que lleva dentro. Cambiarlo a `display: block` rompería el apilado del
+  // subtítulo, que es cosa del flex.
+  align-items: center;
+  text-align: center;
 
   // El componente deja el tracking en normal; la tarjeta lo abre un punto,
   // que es el ancho con el que está calibrado el resto del bloque.
@@ -135,7 +213,7 @@
 .login-tabs {
   display: flex;
   gap: 0.35rem;
-  margin-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  margin-bottom: var(--login-gap-lg);
   padding: 0.28rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -172,8 +250,79 @@
   }
 }
 
+/*
+ * Cambio de pestaña: fundido cruzado, no un corte.
+ *
+ * Los dos paneles ocupan la misma celda de .login-card__panels, así que el que
+ * sale y el que entra conviven durante la transición. El que no está activo se
+ * saca del recorrido de foco con `visibility` —no basta con opacity: un campo
+ * invisible al 0 % sigue siendo tabulable, y el usuario acabaría escribiendo la
+ * contraseña en el NIP sin ver dónde—.
+ *
+ * `visibility` es de las pocas propiedades discretas que SÍ se interpolan: pasa
+ * a `hidden` al final de la transición de salida, así que el panel se mantiene
+ * visible mientras se desvanece y sólo entonces desaparece.
+ *
+ * El [hidden] de PHP sigue mandando en el primer render: hasta que el JS
+ * arranca, la pestaña correcta está puesta sin depender de una clase.
+ */
+.login-tabpanel {
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  // Mientras se desvanece sigue ocupando la celda ENCIMA del que entra —los
+  // dos están en grid-area 1/1 y el de administración va después en el
+  // marcado—, así que sin esto los primeros 220 ms de la pestaña del NIP se
+  // los come un panel invisible: el primer toque sobre el 1 o el 2 no llegaba
+  // a la tecla. La visibility saca del foco; los punteros los saca esto.
+  pointer-events: none;
+  transition:
+    opacity 0.22s var(--ease),
+    transform 0.22s var(--ease),
+    visibility 0s linear 0.22s;
+
+  &.is-active {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+}
+
+/*
+ * Aquí vivía una regla de respaldo, `.login-tabpanel:not([hidden]):not(.is-active)`,
+ * que devolvía el panel a opacidad 1 "por si el JS aún no ha repartido las
+ * clases". Se retira, y no es una simplificación: era lo que impedía ver la
+ * transición.
+ *
+ * El panel que SALE está exactamente en ese estado durante los 220 ms del
+ * fundido —sin `.is-active` (se la acaba de quitar el JS) y todavía sin
+ * `[hidden]` (se lo pone el temporizador al final)—, así que la regla ganaba
+ * por especificidad (0,3,0 contra 0,1,0), lo clavaba a opacidad 1 y lo hacía
+ * desaparecer de golpe al terminar. El resultado no era un corte: era un corte
+ * con 220 ms de espera delante.
+ *
+ * El respaldo no hace falta: PHP ya emite `is-active` en el panel que sirve
+ * (views/auth/login.php), así que la pestaña correcta se ve sin que corra una
+ * línea de JS.
+ */
+
 .login-tabpanel[hidden] {
   display: none;
+}
+
+// Con movimiento reducido, sólo el fundido: el desplazamiento de 6 px es lo
+// único prescindible del gesto.
+@media (prefers-reduced-motion: reduce) {
+  .login-tabpanel {
+    transform: none;
+    transition:
+      opacity 0.22s var(--ease),
+      visibility 0s linear 0.22s;
+  }
+
+  .login-tabpanel.is-active { transform: none; }
 }
 
 .login-title {
@@ -188,13 +337,17 @@
   color: var(--txt-mute);
   font-size: 0.95rem;
   line-height: 1.55;
-  margin-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  margin-bottom: var(--login-gap-lg);
 }
 
 // ── Campos ────────────────────────────────────────────────────
 .login-form {
   display: grid;
-  gap: clamp(0.7rem, 2vh, 1rem);
+  gap: var(--login-gap-md);
+  // Los campos vuelven a la izquierda: el centrado es para la cabecera —marca,
+  // pestañas y titular—, no para las etiquetas de un formulario, que se leen en
+  // columna y necesitan un margen común por donde entrar.
+  text-align: left;
 }
 
 .login-field {
@@ -411,6 +564,18 @@
     color: var(--txt-mute);
     font-size: 1.05rem;
   }
+
+  // La tecla de borrado lleva SVG en vez del glifo ⌫. El botón era una caja de
+  // texto, así que el icono necesita su propio centrado: sin esto se apoya en
+  // la línea base y queda descolgado hacia abajo respecto de las cifras.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
 }
 
 // ── Botón enviar ──────────────────────────────────────────────
@@ -444,10 +609,20 @@
 // esta compactación es el único mecanismo que hace caber el NIP: se recorta lo
 // accesorio y se preservan los objetivos táctiles de las teclas.
 @media (max-height: 900px) {
-  // El sumando es el medio renglón que el componente ya no pone (ver arriba).
-  .login-brand { margin-bottom: calc(0.7rem + 0.45rem); }
+  // Se recorta la escala entera de la tarjeta en vez de ir pieza por pieza: las
+  // tres medidas guardan su proporción y no hay que acordarse de añadir aquí
+  // cada hueco nuevo.
+  .login-card {
+    --login-gap-md: 0.6rem;
+    --login-gap-lg: 0.8rem;
+  }
 
-  .login-tabs { margin-bottom: 0.8rem; }
+  // El wordmark también cede: es lo que más alto ocupa después del teclado.
+  .login-brand {
+    --hcp-header-size: clamp(1.35rem, 3.4vh, 1.7rem);
+    // El sumando es el medio renglón que el componente ya no pone (ver arriba).
+    margin-bottom: calc(0.7rem + 0.45rem);
+  }
 
   .login-title {
     font-size: clamp(1.4rem, 2.6vw, 1.85rem);

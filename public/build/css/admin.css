@@ -359,6 +359,59 @@
      indefinida invalida la declaración entera, y el modal salía transparente. */
   --confirmation-surface: var(--admin-surface-strong);
   --confirmation-text: var(--admin-text);
+  /* El resto del vocabulario del diálogo. Faltaba entero, y el que más se
+     notaba era el velo: `_confirmation-modal.scss` lo pintaba con --scrim, un
+     nombre que sólo existe dentro de `puente-tokens-publicos` —las cuatro
+     pantallas de PISO—, nunca en `.admin-body`. Indefinido, la declaración se
+     invalida y el fondo queda transparente: el diálogo de borrado se abría con
+     el módulo entero a brillo pleno detrás, sin nada que dijera que la página
+     estaba bloqueada.
+
+     La salida NO es puentear los nombres públicos hacia el panel. Sería
+     revivir la confusión que documenta CLAUDE.md —usar --accent o --on-accent
+     dentro del panel es un error, no un atajo— y, peor, haría que otras
+     declaraciones inválidas repartidas por los componentes empezaran a
+     aplicarse en silencio. El diálogo recibe roles PROPIOS y cada sistema los
+     resuelve con su paleta. */
+  --confirmation-scrim: var(--admin-scrim);
+  --confirmation-accent: var(--admin-accent);
+  --confirmation-accent-soft: var(--admin-accent-soft);
+  --confirmation-accent-text: var(--admin-accent);
+  --confirmation-on-accent: var(--admin-on-accent);
+  --confirmation-strong: var(--admin-text);
+  --confirmation-faint: var(--admin-faint);
+  --confirmation-field-bg: var(--admin-surface-soft);
+  --confirmation-shadow: var(--admin-sombra);
+  /* Sin serif: el panel tiene una sola voz y es Geist (ver CLAUDE.md). El
+     componente pedía var(--serif, Georgia, serif) y aquí caía al respaldo, así
+     que el titular del diálogo salía en Georgia — la única serif del panel, y
+     nadie la había elegido. */
+  --confirmation-heading-font: var(--admin-font-sans);
+  /* Y la voz del panel, que no es sólo la familia: rótulo en mono con el
+     tracking abierto y titular en sans apretada (ver «Tipografía del panel»
+     en CLAUDE.md). Sin esto el diálogo llevaba el rótulo de la landing —sans
+     pesada a 14 px—, el más ruidoso de todo el panel. Son opcionales en el
+     componente: la landing no los declara y se queda con su respaldo. */
+  --confirmation-label-font: var(--admin-font-mono);
+  --confirmation-label-size: 11px;
+  --confirmation-label-weight: 600;
+  --confirmation-label-tracking: 0.14em;
+  --confirmation-heading-tracking: -0.03em;
+  /* Éxito y peligro, el otro caso del mismo fallo: --feedback-ok y
+     --feedback-danger sólo viven dentro de `puente-tokens-publicos`. En el
+     panel el relleno del botón destructivo era una declaración inválida, así
+     que "Eliminar" salía sin fondo —texto suelto donde debía haber un botón
+     rojo— y el icono de advertencia, del color heredado.
+
+     --confirmation-danger es el rojo PLENO del relleno y --confirmation-danger-text
+     el rojo mezclado que se lee como texto sobre el fondo del tema. Confundirlos
+     es lo que apaga el botón. */
+  --confirmation-ok: var(--admin-success-text);
+  --confirmation-danger: var(--admin-c-rojo);
+  --confirmation-danger-text: var(--admin-danger-text);
+  /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
+     --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
+  --confirmation-on-danger: var(--admin-paper);
 }
 
 /* ── TEMA OSCURO ───────────────────────────────────────────────
@@ -502,6 +555,59 @@
      indefinida invalida la declaración entera, y el modal salía transparente. */
   --confirmation-surface: var(--admin-surface-strong);
   --confirmation-text: var(--admin-text);
+  /* El resto del vocabulario del diálogo. Faltaba entero, y el que más se
+     notaba era el velo: `_confirmation-modal.scss` lo pintaba con --scrim, un
+     nombre que sólo existe dentro de `puente-tokens-publicos` —las cuatro
+     pantallas de PISO—, nunca en `.admin-body`. Indefinido, la declaración se
+     invalida y el fondo queda transparente: el diálogo de borrado se abría con
+     el módulo entero a brillo pleno detrás, sin nada que dijera que la página
+     estaba bloqueada.
+
+     La salida NO es puentear los nombres públicos hacia el panel. Sería
+     revivir la confusión que documenta CLAUDE.md —usar --accent o --on-accent
+     dentro del panel es un error, no un atajo— y, peor, haría que otras
+     declaraciones inválidas repartidas por los componentes empezaran a
+     aplicarse en silencio. El diálogo recibe roles PROPIOS y cada sistema los
+     resuelve con su paleta. */
+  --confirmation-scrim: var(--admin-scrim);
+  --confirmation-accent: var(--admin-accent);
+  --confirmation-accent-soft: var(--admin-accent-soft);
+  --confirmation-accent-text: var(--admin-accent);
+  --confirmation-on-accent: var(--admin-on-accent);
+  --confirmation-strong: var(--admin-text);
+  --confirmation-faint: var(--admin-faint);
+  --confirmation-field-bg: var(--admin-surface-soft);
+  --confirmation-shadow: var(--admin-sombra);
+  /* Sin serif: el panel tiene una sola voz y es Geist (ver CLAUDE.md). El
+     componente pedía var(--serif, Georgia, serif) y aquí caía al respaldo, así
+     que el titular del diálogo salía en Georgia — la única serif del panel, y
+     nadie la había elegido. */
+  --confirmation-heading-font: var(--admin-font-sans);
+  /* Y la voz del panel, que no es sólo la familia: rótulo en mono con el
+     tracking abierto y titular en sans apretada (ver «Tipografía del panel»
+     en CLAUDE.md). Sin esto el diálogo llevaba el rótulo de la landing —sans
+     pesada a 14 px—, el más ruidoso de todo el panel. Son opcionales en el
+     componente: la landing no los declara y se queda con su respaldo. */
+  --confirmation-label-font: var(--admin-font-mono);
+  --confirmation-label-size: 11px;
+  --confirmation-label-weight: 600;
+  --confirmation-label-tracking: 0.14em;
+  --confirmation-heading-tracking: -0.03em;
+  /* Éxito y peligro, el otro caso del mismo fallo: --feedback-ok y
+     --feedback-danger sólo viven dentro de `puente-tokens-publicos`. En el
+     panel el relleno del botón destructivo era una declaración inválida, así
+     que "Eliminar" salía sin fondo —texto suelto donde debía haber un botón
+     rojo— y el icono de advertencia, del color heredado.
+
+     --confirmation-danger es el rojo PLENO del relleno y --confirmation-danger-text
+     el rojo mezclado que se lee como texto sobre el fondo del tema. Confundirlos
+     es lo que apaga el botón. */
+  --confirmation-ok: var(--admin-success-text);
+  --confirmation-danger: var(--admin-c-rojo);
+  --confirmation-danger-text: var(--admin-danger-text);
+  /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
+     --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
+  --confirmation-on-danger: var(--admin-paper);
 }
 
 /* ── Las pantallas de piso ─────────────────────────────────────
@@ -1379,10 +1485,23 @@ html.lenis body {
 .admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox) {
   --tono: var(--admin-muted);
   --tono-tinta: var(--admin-paper);
+  /* El relieve del icono va en sentido CONTRARIO a su tinta. Un trazo claro se
+     levanta con sombra oscura debajo; uno oscuro se hunde con un canto claro
+     debajo, como la letra de imprenta. Con la misma sombra de tinta para los
+     dos, el icono negro sobre ámbar salía con un segundo trazo corrido un
+     píxel: más grueso y más sucio, no más recortado. */
+  --tono-relieve: color-mix(in srgb, var(--admin-ink) 26%, transparent);
   border-color: color-mix(in srgb, var(--tono) 80%, var(--admin-ink));
   background: var(--tono);
   color: var(--tono-tinta);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
+  /* Tres capas y cada una hace una cosa distinta:
+     · el canto iluminado del borde superior interior, que es lo que da el
+       relieve de pieza moldeada en vez de círculo plano de color;
+     · una sombra corta y cerrada que asienta el botón sobre la barra;
+     · el halo largo del propio tono, que ya estaba.
+     El canto va en el papel y no en blanco puro: sobre el ámbar, un blanco
+     absoluto se ve como un arañazo. */
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-paper) 34%, transparent), 0 1px 2px color-mix(in srgb, var(--admin-ink) 22%, transparent), 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
 }
 .admin-topbar__actions :where(.admin-topbar__support, .admin-topbar__inbox):hover {
   /* El hover oscurece el propio relleno en vez de cambiar de familia: sobre
@@ -1390,7 +1509,7 @@ html.lenis body {
   border-color: color-mix(in srgb, var(--tono) 62%, var(--admin-ink));
   background: color-mix(in srgb, var(--tono) 84%, var(--admin-ink));
   color: var(--tono-tinta);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--tono) 40%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-paper) 40%, transparent), 0 2px 4px color-mix(in srgb, var(--admin-ink) 26%, transparent), 0 8px 22px color-mix(in srgb, var(--tono) 40%, transparent);
 }
 
 /* Ámbar y no rojo: reportar un problema AVISA, no destruye nada. El rojo de
@@ -1400,6 +1519,7 @@ html.lenis body {
 .admin-topbar__support {
   --tono: var(--admin-c-ambar);
   --tono-tinta: var(--admin-ink);
+  --tono-relieve: color-mix(in srgb, var(--admin-paper) 45%, transparent);
 }
 
 .admin-topbar__inbox {
@@ -1446,6 +1566,12 @@ html.lenis body {
   /* El hover lo pone el patrón de --tono de arriba y el foco el anillo único
      de _finishes.scss, así que aquí sólo queda la caja. */
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
+  /* El trazo sube de 1.8 a 2.15. A 18px de caja, 1.8 daba un dibujo demasiado
+     fino para el peso que tienen estos botones —dos son los únicos con relleno
+     de color de todo el panel— y de lejos se leían como grises. El relieve es
+     de un píxel y sin desenfoque apreciable a propósito: sobre un relleno
+     sólido, un drop-shadow marcado emborrona el trazo en vez de recortarlo. El
+     color lo decide --tono-relieve, arriba. */
 }
 .admin-topbar__support svg {
   width: 18px;
@@ -1454,7 +1580,8 @@ html.lenis body {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.8;
+  stroke-width: 2.15;
+  filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
 }
 
 .admin-topbar__module {
@@ -1513,7 +1640,7 @@ html.lenis body {
   height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2.15;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1554,6 +1681,7 @@ html.lenis body {
   .admin-theme-toggle svg {
     width: 16px;
     height: 16px;
+    stroke-width: 2;
   }
 }
 /*
@@ -1845,8 +1973,16 @@ html.lenis body {
   border-radius: 8px;
   background: var(--admin-sidebar-hover-bg);
   color: var(--admin-sidebar-link-hover);
-  font-size: 24px;
   line-height: 1;
+  align-items: center;
+  justify-content: center;
+}
+.admin-sidebar__close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .admin-menu-toggle {
@@ -1873,7 +2009,7 @@ html.lenis body {
 
 @media (max-width: 992px) {
   .admin-sidebar__close {
-    display: block;
+    display: flex;
   }
 }
 /*
@@ -2442,6 +2578,7 @@ html.lenis body {
   display: inline-flex;
   min-height: 26px;
   align-items: center;
+  gap: 4px;
   padding: 0 9px;
   border: 1px solid var(--admin-neutral-border);
   border-radius: 999px;
@@ -2451,6 +2588,12 @@ html.lenis body {
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
+}
+.admin-badge svg {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
 }
 
 .admin-badge--neutral {
@@ -2971,6 +3114,56 @@ html.lenis body {
 .admin-status--cancelado {
   border-color: color-mix(in srgb, currentColor 42%, transparent);
   background: color-mix(in srgb, currentColor 14%, var(--admin-surface));
+}
+
+/* ── Estrellas de calificación ──────────────────────────────────
+ *
+ * La fila de cinco de Feedback de clientes. Eran los glifos ★ y ☆ repetidos con
+ * str_repeat() y SIN una sola regla de CSS: los pintaba la fuente del sistema,
+ * así que el color lo decidía la plataforma —en algunas salen a color, y ahí el
+ * amarillo del emoji entraba en un panel que es blanco y negro— y la estrella
+ * VACÍA ni siquiera existe en todas las caras, de modo que en ciertos equipos la
+ * mitad de la fila eran rectángulos vacíos.
+ *
+ * Ahora las cinco son el mismo trazo SVG y lo que las distingue es el relleno,
+ * que es lo que hace que la fila se lea como UNA escala en vez de como dos
+ * símbolos distintos alternados.
+ *
+ * El color es el ámbar de la paleta funcional y no el acento del panel: aquí la
+ * calificación ES el dato, igual que en las series de una gráfica, así que entra
+ * en la excepción declarada de la regla de color (ver CLAUDE.md).
+ */
+.admin-fb__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+.admin-fb__stars--empty {
+  color: var(--admin-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.admin-fb__star {
+  flex: 0 0 auto;
+  /* Apagada: sólo el contorno, y en la línea de CONTROL (--admin-border-strong,
+     el escalón que cumple el 3:1 de WCAG para elementos no textuales). Iba en
+     --admin-border, que es contorno de contenedor y sobre papel se queda en
+     1.3:1: las estrellas vacías desaparecían y con ellas la escala, que es lo
+     que convierte «tres rellenas» en «tres de cinco». */
+  fill: none;
+  stroke: var(--admin-border-strong);
+  stroke-width: 1.6;
+  /* Encendida: relleno ámbar con el CONTORNO oscurecido. El ámbar de la paleta
+     tiene luminancia 0.52 y sobre papel no llega a 2:1, así que la silueta de
+     la estrella se perdía en el tema claro justo donde el dato es la silueta.
+     El contorno en --admin-warning-text (el mismo ámbar rebajado con tinta) la
+     recorta a 6.5:1 sin cambiar el color que se percibe. */
+}
+.admin-fb__star.is-on {
+  fill: var(--admin-c-ambar);
+  stroke: var(--admin-warning-text);
 }
 
 /*
@@ -3546,6 +3739,155 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   cursor: not-allowed;
 }
 
+/* ── Pills de opción ────────────────────────────────────────────
+ *
+ * Un grupo de opciones excluyentes con todo el catálogo a la vista, para los
+ * casos en los que un <select> escondía dos o tres alternativas que cabían de
+ * sobra en pantalla. Sustituye al desplegable, no lo acompaña: quien tenga
+ * veinte opciones sigue queriendo un select.
+ *
+ * El control es un <input type="radio"> REAL, no un botón con estado en JS.
+ * Eso conserva el envío del formulario, la navegación con flechas dentro del
+ * grupo, el required nativo y el estado tras un POST fallido sin una línea de
+ * script. El radio se oculta visualmente pero NO con display:none —eso lo
+ * sacaría del foco de teclado—: se recorta a un píxel dentro de la pill, así
+ * que el anillo de foco se puede pintar sobre la caja con :has().
+ */
+.admin-pills {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-pills__legend {
+  padding: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-pills__group {
+  display: flex;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-pill {
+  position: relative;
+  display: flex;
+  min-width: 150px;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--admin-border-soft);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  cursor: pointer;
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-pill:hover {
+  border-color: var(--admin-border);
+}
+.admin-pill {
+  /* La marca de selección la dibuja la propia pill, no el radio: así el punto
+     hereda los tokens del panel en vez del accent-color del sistema, que en
+     tema oscuro sale del color de acento del SO.
+
+     Va en el ::before de la ETIQUETA, que es una fila flex, y no en el del
+     cuerpo: el cuerpo es una columna (título sobre explicación), y ahí el
+     `order: -1` que llevaba no la ponía a la izquierda del texto sino ENCIMA,
+     como un renglón suelto con un círculo. */
+}
+.admin-pill::before {
+  display: block;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  margin-top: 2px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 50%;
+  content: "";
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
+}
+.admin-pill {
+  /* El radio, recortado pero presente. `clip-path` en vez de display:none o
+     visibility:hidden: las dos últimas lo sacan del recorrido de tabulación y
+     el grupo dejaría de ser navegable con el teclado. */
+}
+.admin-pill input[type=radio] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin-pill__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-pill__title {
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.admin-pill__hint {
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* El punto y el borde marcados. Se escribe con :has() sobre la etiqueta porque
+   la marca es el ::before de la propia etiqueta, que es el PADRE del radio: el
+   combinador de hermanos no llega hacia arriba. */
+.admin-pill:has(input[type=radio]:checked) {
+  border-color: var(--admin-accent);
+  background: color-mix(in srgb, var(--admin-accent) 8%, var(--admin-surface));
+}
+.admin-pill:has(input[type=radio]:checked)::before {
+  border-color: var(--admin-accent);
+  box-shadow: inset 0 0 0 4px var(--admin-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-pill,
+  .admin-pill::before {
+    transition: none;
+  }
+}
+.admin-pill:has(input[type=radio]:focus-visible) {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+/* Respaldo para los motores sin :has(). Sin él, en un navegador antiguo las
+   opciones se verían todas iguales y no habría forma de saber cuál está
+   elegida — el grupo dejaría de funcionar, no sólo de verse bien. */
+@supports not selector(:has(*)) {
+  .admin-pill input[type=radio] {
+    position: static;
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    margin-top: 2px;
+    overflow: visible;
+    clip-path: none;
+    accent-color: var(--admin-accent);
+  }
+  .admin-pill::before {
+    display: none;
+  }
+}
 /*
  * Adaptación administrativa de los selectores reutilizados en reservaciones.
  * Mantiene el mismo componente del frontend con tokens y densidad del panel.
@@ -4598,7 +4940,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 2.15;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: opacity var(--admin-t-base) var(--admin-ease-out), transform var(--admin-t-base) var(--admin-ease);
@@ -4900,7 +5242,8 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.7;
+  stroke-width: 2.15;
+  filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
 }
 .admin-topbar__inbox.is-empty, .admin-topbar__inbox.has-items, .admin-topbar__inbox.has-followup {
   box-shadow: 0 4px 14px color-mix(in srgb, var(--tono) 26%, transparent);
@@ -5406,6 +5749,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   .admin-topbar__inbox svg {
     width: 16px;
     height: 16px;
+    stroke-width: 2;
   }
   .admin-inbox__drawer {
     width: min(100vw, 480px);
@@ -5426,50 +5770,133 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     min-width: 132px;
   }
 }
+/*
+ * Diálogo de confirmación de la casa. Lo comparten los CUATRO bundles: la
+ * landing, el panel, el piso y la operación de reservaciones.
+ *
+ * Por eso no consume un solo rol del sitio público ni un solo --admin-*: sólo
+ * los --confirmation-*, que cada ámbito declara con su propia paleta
+ * (alias-heredados en layout/_reset.scss, alias-admin-heredados en
+ * admin/shared/base/_globals.scss). Antes pedía --scrim, --accent, --txt y
+ * --serif a secas, que existen en la landing y en las cuatro pantallas de piso
+ * pero NO en `.admin-body`: ahí las declaraciones se invalidaban y el velo del
+ * panel salía transparente —se borraba con el módulo a brillo pleno detrás— y
+ * el titular caía a Georgia, la única serif que el panel no quiere.
+ *
+ * Al añadir una regla con color o tipografía aquí, el token nuevo se declara en
+ * los DOS mixins. Un nombre que sólo exista en uno vuelve a romper el otro sin
+ * ruido: un var() inválido hereda o cae al valor inicial, no rompe la regla.
+ *
+ * La excepción son los ajustes de VOZ del rótulo y el titular
+ * (--confirmation-label-*, --confirmation-heading-tracking): llevan su valor de
+ * respaldo escrito en el var(), que es el de la landing, y sólo el panel los
+ * declara —para hablar en su mono de rótulos y su sans apretada—. Olvidarlos
+ * no deja nada transparente: deja el diálogo con la voz de la landing.
+ */
 .confirmation-modal {
+  /* Curvas y tiempos en un solo sitio: entrada y salida tienen que ser
+     simétricas o el cierre se siente más lento que la apertura aunque duren lo
+     mismo. La de entrada es la de desaceleración de la casa; la de salida
+     acorta, porque un diálogo que ya decidiste no tiene nada que anunciar. */
+  --confirmation-in: 260ms;
+  --confirmation-out: 170ms;
+  --confirmation-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --confirmation-ease-out: cubic-bezier(0.4, 0, 1, 1);
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--scrim) 76%, transparent);
-  opacity: 0;
-  transition: opacity 0.18s ease;
 }
 .confirmation-modal[hidden] {
   display: none;
 }
-.confirmation-modal.is-open {
-  opacity: 1;
+.confirmation-modal {
+  /* El velo desenfoca además de atenuar, y el desenfoque es lo que hace el
+     trabajo: sobre el tema oscuro del panel una capa negra al 76 % es casi
+     indistinguible del fondo, así que la página seguía leyéndose como
+     interactiva detrás del diálogo. El `saturate` no es adorno — sin él, un
+     fondo oscuro desenfocado sigue siendo una mancha gris y el velo no se
+     distingue de un rectángulo opaco (la misma cuenta que .mesa-modal__bd).
+
+     Va en el __backdrop y no en la raíz: el backdrop-filter crea contexto de
+     apilamiento, y sobre el contenedor arrastraría al propio diálogo dentro
+     del desenfoque.
+
+     Y el fundido va AQUÍ, no en la raíz, por la misma razón vista desde el otro
+     lado: un ancestro con `opacity` menor que 1 es raíz de backdrop, así que
+     mientras la raíz fundía el desenfoque no veía la página —sólo lo que había
+     dentro del propio modal— y aparecía de golpe al llegar a 1, al final de la
+     entrada. Con la opacidad en el mismo elemento que filtra, el velo y su
+     desenfoque entran juntos. */
 }
 .confirmation-modal__backdrop {
   position: absolute;
   inset: 0;
   border: 0;
-  background: transparent;
+  background: color-mix(in srgb, var(--confirmation-scrim) 76%, transparent);
   cursor: default;
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  opacity: 0;
+  transition: opacity var(--confirmation-out) var(--confirmation-ease-out);
+}
+.confirmation-modal.is-open .confirmation-modal__backdrop {
+  opacity: 1;
+  transition: opacity var(--confirmation-in) ease-out;
 }
 .confirmation-modal__dialog {
   position: relative;
   z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: clamp(620px, 72vw, 840px);
+  /* 600 px dejan unos 65 caracteres por línea a 16 px, que es la medida de
+     lectura de una pregunta y sus consecuencias. Estaba en clamp(620px,
+     72vw, 840px) para todos los casos, y un «¿Eliminar este gasto?» se abría
+     a 840 px con la descripción en una sola línea de lado a lado. El ancho
+     grande lo pide sólo la comparación de tres columnas (abajo). */
+  width: 600px;
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 32px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 42%, transparent);
   border-radius: 18px;
   background: var(--confirmation-surface);
   color: var(--confirmation-text);
-  box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
-  transform: translateY(0.5rem) scale(0.985);
-  transition: transform 0.18s ease;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--confirmation-shadow) 50%, transparent);
+  /* Sube desde abajo y crece: el gesto dice "esto viene a primer plano".
+     Sólo transform y opacity, que es lo que el compositor resuelve sin
+     repintar (la regla de _finishes.scss). */
+  transform: translateY(14px) scale(0.97);
+  opacity: 0;
+  transition: transform var(--confirmation-out) var(--confirmation-ease-out), opacity var(--confirmation-out) var(--confirmation-ease-out);
 }
 .confirmation-modal.is-open .confirmation-modal__dialog {
   transform: translateY(0) scale(1);
+  opacity: 1;
+  transition: transform var(--confirmation-in) var(--confirmation-ease), opacity var(--confirmation-in) ease-out;
+}
+@media (min-width: 640px) {
+  .confirmation-modal:has(.confirmation-modal__comparison) .confirmation-modal__dialog {
+    width: clamp(620px, 72vw, 840px);
+  }
+}
+.confirmation-modal {
+  /* Con movimiento reducido queda el fundido y nada más: el velo y el
+     desenfoque se conservan porque no son movimiento, son jerarquía —dicen que
+     la página de detrás está bloqueada—. */
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-out) ease;
+  }
+  .confirmation-modal.is-open .confirmation-modal__dialog {
+    transform: none;
+    transition: opacity var(--confirmation-in) ease;
+  }
 }
 .confirmation-modal__header {
   display: grid;
@@ -5483,11 +5910,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 44px;
   place-items: center;
   flex: 0 0 44px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-accent) 50%, transparent);
   border-radius: 50%;
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
   font-size: 22px;
   font-weight: 700;
+}
+.confirmation-modal__icon svg {
+  stroke-width: 2;
 }
 .confirmation-modal__heading {
   min-width: 0;
@@ -5495,21 +5925,24 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .confirmation-modal__eyebrow {
   display: block;
   margin-bottom: 6px;
-  color: var(--accent-text);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--confirmation-accent-text);
+  font-family: var(--confirmation-label-font, inherit);
+  font-size: var(--confirmation-label-size, 14px);
+  font-weight: var(--confirmation-label-weight, 700);
+  letter-spacing: var(--confirmation-label-tracking, 0.08em);
   line-height: 1.45;
   text-transform: uppercase;
 }
 .confirmation-modal__title {
   margin: 0;
   color: inherit;
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--confirmation-heading-font);
   font-size: clamp(24px, 2.5vw, 30px);
   font-weight: 500;
+  letter-spacing: var(--confirmation-heading-tracking, normal);
   line-height: 1.2;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 .confirmation-modal__description, .confirmation-modal__warning, .confirmation-modal__consequence, .confirmation-modal__summary, .confirmation-modal__custom, .confirmation-modal__status {
   font-size: 16px;
@@ -5518,14 +5951,14 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__description {
   margin: 8px 0 0;
-  color: color-mix(in srgb, var(--txt) 84%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 84%, transparent);
 }
 .confirmation-modal__close {
   display: grid;
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 24%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -5533,6 +5966,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
+}
+.confirmation-modal__close svg {
+  stroke-width: 2;
 }
 .confirmation-modal__close:disabled {
   cursor: wait;
@@ -5550,9 +5986,9 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__summary {
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
 }
 .confirmation-modal__summary[hidden] {
   display: none;
@@ -5568,15 +6004,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 .confirmation-modal__warning {
   padding: 14px 16px;
-  border-left: 4px solid var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent-soft);
+  border-left: 4px solid var(--confirmation-accent);
+  background: color-mix(in srgb, var(--confirmation-accent) 12%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 .confirmation-modal__warning[hidden] {
   display: none;
 }
 .confirmation-modal__consequence {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
 }
 .confirmation-modal__consequence[hidden] {
   display: none;
@@ -5599,7 +6035,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   margin-top: 4px;
 }
 .confirmation-modal__require-label {
-  color: color-mix(in srgb, var(--txt) 88%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 88%, transparent);
   font-size: 13px;
   font-weight: 700;
 }
@@ -5607,21 +6043,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  /* 42% y no 24%: es el contorno de un CONTROL, y el 24% se queda en 1.9:1
+     contra la superficie del diálogo —por debajo del 3:1 que WCAG pide a un
+     elemento no textual—. Es además el único campo del diálogo, así que
+     tiene que encontrarse solo. */
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 10px;
-  background: var(--surface);
-  color: var(--txt-strong);
+  background: var(--confirmation-field-bg);
+  color: var(--confirmation-strong);
   font: inherit;
   font-size: 14px;
 }
 .confirmation-modal__require-input:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: var(--confirmation-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--confirmation-accent) 28%, transparent);
 }
 .confirmation-modal__require-hint {
   margin: 0;
-  color: var(--txt-faint);
+  color: var(--confirmation-faint);
   font-size: 12px;
 }
 .confirmation-modal {
@@ -5629,17 +6069,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
      el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-input {
-  border-color: var(--feedback-ok);
+  border-color: var(--confirmation-ok);
 }
 .confirmation-modal__require.is-valid .confirmation-modal__require-hint {
-  color: var(--feedback-ok);
+  color: var(--confirmation-ok);
 }
 .confirmation-modal__reason {
   display: grid;
   gap: 8px;
 }
 .confirmation-modal__reason span {
-  color: color-mix(in srgb, var(--txt) 82%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
   font-size: 14px;
   font-weight: 700;
 }
@@ -5647,25 +6087,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   width: 100%;
   min-height: 96px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--txt) 5%, transparent);
+  background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
   color: inherit;
   font: inherit;
   resize: vertical;
 }
 .confirmation-modal__reason textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--confirmation-accent);
   outline-offset: 2px;
 }
 .confirmation-modal__status {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__status[hidden] {
   display: none;
 }
 .confirmation-modal__status.is-error {
-  color: var(--feedback-danger);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal__comparison {
   display: grid;
@@ -5677,16 +6117,16 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   align-items: start;
   padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__comparison-row:last-child {
   border-bottom: 0;
 }
 .confirmation-modal__comparison-row.is-changed {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--confirmation-accent) 10%, transparent);
 }
 .confirmation-modal__comparison-label {
-  color: var(--accent-text);
+  color: var(--confirmation-accent-text);
 }
 .confirmation-modal__comparison-cell {
   display: grid;
@@ -5694,7 +6134,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   min-width: 0;
 }
 .confirmation-modal__comparison-cell small {
-  color: color-mix(in srgb, var(--txt) 64%, transparent);
+  color: color-mix(in srgb, var(--confirmation-text) 64%, transparent);
   font-size: 14px;
 }
 .confirmation-modal__actions {
@@ -5703,7 +6143,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 }
 .confirmation-modal__button {
   min-height: 46px;
@@ -5721,25 +6161,32 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   opacity: 0.55;
 }
 .confirmation-modal__button--secondary {
-  border-color: color-mix(in srgb, var(--txt) 25%, transparent);
+  border-color: color-mix(in srgb, var(--confirmation-text) 25%, transparent);
   background: transparent;
   color: inherit;
 }
 .confirmation-modal__button--primary {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--confirmation-accent);
+  color: var(--confirmation-on-accent);
+}
+.confirmation-modal {
+  /* El destructivo. --confirmation-danger es el ROJO PLENO del relleno y
+     --confirmation-danger-text el rojo legible como texto sobre el fondo del
+     modo activo: son dos valores distintos y confundirlos es lo que dejaba el
+     botón ilegible. La tinta de encima se declara aparte porque el rojo de la
+     paleta funcional no admite texto oscuro. */
 }
 .confirmation-modal--danger .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent);
-  color: var(--feedback-danger);
+  border-color: color-mix(in srgb, var(--confirmation-danger-text) 70%, transparent);
+  color: var(--confirmation-danger-text);
 }
 .confirmation-modal--danger .confirmation-modal__button--primary {
-  background: var(--feedback-danger);
-  color: var(--txt);
+  background: var(--confirmation-danger);
+  color: var(--confirmation-on-danger);
 }
 .confirmation-modal--warning .confirmation-modal__icon {
-  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
-  color: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--confirmation-accent) 70%, transparent);
+  color: var(--confirmation-accent-soft);
 }
 @media (max-width: 639px) {
   .confirmation-modal {

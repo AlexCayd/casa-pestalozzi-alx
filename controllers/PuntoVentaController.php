@@ -928,7 +928,15 @@ class PuntoVentaController {
                 }
             }
 
-            // Top platillos del día por unidades vendidas.
+            // Ranking de los cinco platillos más pedidos del día, por unidades.
+            //
+            // Cinco y no seis: es un ranking que se lee de un vistazo en la
+            // tablet, y el sexto puesto no cambia ninguna decisión del turno.
+            //
+            // El criterio es el mismo que el resto del corte —tickets CERRADOS
+            // del día— para que las cifras de este modal cuadren entre sí: si
+            // contara también las mesas abiertas, el ranking hablaría de un
+            // universo distinto al de "Ventas del día" que tiene justo encima.
             $top = [];
             $resTop = Ticket::ejecutarSQL(
                 "SELECT ti.nombre,
@@ -940,7 +948,7 @@ class PuntoVentaController {
                         AND ti.estado <> 'cancelado'
                   GROUP BY ti.nombre
                   ORDER BY unidades DESC, importe DESC
-                  LIMIT 6"
+                  LIMIT 5"
             );
             if ($resTop) {
                 while ($row = $resTop->fetch_assoc()) {

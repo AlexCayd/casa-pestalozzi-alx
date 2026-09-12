@@ -223,6 +223,19 @@ function initMapa() {
       .replace(/"/g, '&quot;');
   }
 
+  /*
+   * ¿El nombre de la mesa ya contiene su número?
+   *
+   * El caso normal es "Mesa 9" con numero 9, donde escribir "#9" al lado repite
+   * el dato. Se compara contra el número como PALABRA (\b) y no con indexOf:
+   * "Mesa 1" no debe dar por dicho el 12, ni "Salón 20" el 2.
+   */
+  function nombreIncluyeNumero(nombre, numero) {
+    var n = String(numero == null ? '' : numero).trim();
+    if (!n) return false;
+    return new RegExp('(^|\\D)' + n + '(\\D|$)').test(String(nombre == null ? '' : nombre));
+  }
+
   function modalFocusables() {
     return modal ? Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')) : [];
   }
@@ -1422,17 +1435,42 @@ function initMapa() {
     h += '</div>';
     h += '</div>';
 
-    // Top platillos
+    /*
+     * Ranking de los cinco más pedidos.
+     *
+     * Era una lista suelta de seis filas donde la cantidad iba delante como un
+     * dato más. Un ranking necesita dos cosas que ahí faltaban: la POSICIÓN, que
+     * es lo que convierte una lista en un orden, y la proporción entre el
+     * primero y el resto — sin ella "12×" y "9×" se leen como iguales.
+     *
+     * La barra se calcula contra el primer puesto, no contra el total del día:
+     * la pregunta del corte es "qué se pidió más", no "qué porcentaje del menú
+     * representa cada plato".
+     */
     if (data.top && data.top.length) {
+      var maxUnidades = 0;
+      for (var m = 0; m < data.top.length; m++) {
+        var u = Number(data.top[m].unidades) || 0;
+        if (u > maxUnidades) maxUnidades = u;
+      }
+
       h += '<div class="mmodal-caja-section">';
-      h += '<p class="mmodal-section-label">Más vendidos</p>';
-      h += '<div class="mmodal-caja-list">';
+      h += '<p class="mmodal-section-label">Más pedidos del día</p>';
+      h += '<div class="mmodal-caja-list mmodal-caja-list--ranking">';
       for (var i = 0; i < data.top.length; i++) {
         var t = data.top[i];
-        h += '<div class="mmodal-caja-list__row">';
-        h += '<span class="mmodal-caja-list__qty">' + (t.unidades || 0) + '×</span>';
-        h += '<span class="mmodal-caja-list__name">' + escHtml(t.nombre || '') + '</span>';
-        h += '<span class="mmodal-caja-list__val">' + money(t.importe) + '</span>';
+        var unidades = Number(t.unidades) || 0;
+        var pct = maxUnidades > 0 ? Math.round((unidades / maxUnidades) * 100) : 0;
+        h += '<div class="mmodal-caja-rank">';
+        h += '<span class="mmodal-caja-rank__pos">' + (i + 1) + '</span>';
+        h += '<div class="mmodal-caja-rank__body">';
+        h += '<div class="mmodal-caja-rank__top">';
+        h += '<span class="mmodal-caja-rank__name">' + escHtml(t.nombre || '') + '</span>';
+        h += '<span class="mmodal-caja-rank__qty">' + unidades + '</span>';
+        h += '</div>';
+        h += '<div class="mmodal-caja-rank__bar"><span style="width:' + pct + '%"></span></div>';
+        h += '<span class="mmodal-caja-rank__val">' + money(t.importe) + '</span>';
+        h += '</div>';
         h += '</div>';
       }
       h += '</div></div>';
@@ -1954,7 +1992,16 @@ function initMapa() {
     // El encabezado identifica la mesa una sola vez y mantiene el estado cerca.
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(reservaDisplayName || mesa.nombre) + '</span>';
-    if (!reserva && mesa.numero) {
+    /*
+     * El número SÓLO si el nombre no lo dice ya.
+     *
+     * `mesa.nombre` es "Mesa 9" y al lado se pintaba "#9": la misma cifra dos
+     * veces, y la segunda con el aire de ser otra cosa —un folio, un ticket—.
+     * El nombre de la mesa es su identidad completa; el número suelto sólo
+     * aporta cuando alguien la ha renombrado ("Terraza", "Barra 2") y hace
+     * falta saber contra qué fila del mapa se está trabajando.
+     */
+    if (!reserva && mesa.numero && !nombreIncluyeNumero(mesa.nombre, mesa.numero)) {
       h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
     h += '</div>';
@@ -1962,18 +2009,23 @@ function initMapa() {
       // La pastilla de cancelar vive pegada al chip: es una acción sobre el
       // ticket que el chip anuncia, y ahí no compite con "Cerrar ticket".
       // Nace deshabilitada y sólo la suelta el conteo real de ticket_items:
-      // el estado seguro es no poder descartar. El porqué de cada estado no
-      // cabe en un icono, así que lo despliega el diálogo de advertencia.
+      // el estado seguro es no poder descartar.
       //
-      // Va ANTES del chip, no después: .mesa-modal__close es absolute contra
-      // el panel y se come la esquina superior derecha del contenido, así que
-      // lo último de esta fila queda debajo de la × y no se ve.
+      // Va DESPUÉS del chip, en el extremo derecho de la fila. Estaba antes
+      // porque .mesa-modal__close es absolute contra el panel y se comía la
+      // esquina, dejando lo último de la fila debajo de la ×; el margen
+      // derecho de .mmodal-header-estado ya libra ese hueco, así que el orden
+      // puede ser el que dice la jerarquía: primero el estado del ticket, que
+      // es información, y al final la acción, donde la mano la busca.
+      //
+      // A partir de la primera comanda desaparece (ver
+      // actualizarCancelarMesaEstado): con consumo, la mesa se cobra.
       h += '<div class="mmodal-header-estado">';
+      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
       h += '<button type="button" class="mmodal-chip-accion" id="mmodal-cancelar-mesa" ' +
            'aria-label="Cancelar mesa" title="Comprobando consumo…" ' +
            'data-estado="comprobando" aria-disabled="true">' +
            svgIcon('ban', 14) + '</button>';
-      h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
       h += '</div>';
     } else if (reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '">' + reservaChipLabel + '</span>';
@@ -2108,7 +2160,10 @@ function initMapa() {
       h += '</div>';
       h += '</div>'; // fin panel-scroll
       h += '<div class="mmodal-panel-actions">';
-      h += '<div class="mmodal-cerrar-hint" id="mmodal-cerrar-hint" hidden></div>';
+      // role="status": un botón deshabilitado no recibe foco, así que quien
+      // navega con lector nunca llegaría a la explicación de por qué no puede
+      // cerrar. Como región viva, el motivo se anuncia solo al cambiar.
+      h += '<div class="mmodal-cerrar-hint" id="mmodal-cerrar-hint" role="status" hidden></div>';
       h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar">Cerrar ticket</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-resumen
@@ -2631,47 +2686,66 @@ function initMapa() {
     if (totalVal) totalVal.textContent = '$' + amount;
   }
 
-  // Habilita/deshabilita "Cerrar ticket" según cuántos productos falten por
-  // entregar. La regla también se valida en el backend al cerrar.
-  function actualizarCierreEstado(pendientes) {
+  /*
+   * Habilita/deshabilita "Cerrar ticket".
+   *
+   * Dos frenos, y el segundo faltaba: además de que no queden productos sin
+   * entregar, tiene que haberse enviado ALGO. Un ticket recién abierto tiene
+   * cero pendientes, así que con la cuenta antigua el botón nacía habilitado y
+   * ofrecía cobrar una mesa en la que no se ha pedido nada — que es justo el
+   * camino al ticket vacío que luego hay que descartar a mano.
+   *
+   * La regla se revalida en el backend al cerrar; esto es la señal en pantalla.
+   */
+  function actualizarCierreEstado(pendientes, total) {
     var btn  = modalContent.querySelector('#mmodal-cerrar');
     var hint = modalContent.querySelector('#mmodal-cerrar-hint');
     if (!btn) return;
-    if (pendientes > 0) {
-      btn.disabled = true;
-      if (hint) {
-        hint.textContent = 'Falta entregar ' + pendientes + ' producto' + (pendientes === 1 ? '' : 's');
-        hint.hidden = false;
-      }
-    } else {
-      btn.disabled = false;
-      if (hint) hint.hidden = true;
+
+    var sinComandas = !total;
+    var mensaje = '';
+    if (sinComandas) {
+      mensaje = 'Envía al menos un platillo a la comanda';
+    } else if (pendientes > 0) {
+      mensaje = 'Falta entregar ' + pendientes + ' producto' + (pendientes === 1 ? '' : 's');
+    }
+
+    btn.disabled = mensaje !== '';
+    if (hint) {
+      // Sólo se escribe cuando cambia: el estado se recalcula en cada refresco
+      // del ticket y reescribir el mismo texto en una región viva la hace
+      // repetirse en voz cada pocos segundos.
+      if (hint.textContent !== mensaje) hint.textContent = mensaje;
+      hint.hidden = mensaje === '';
     }
   }
 
-  // Suelta "Cancelar mesa" sólo con la comanda del ticket completamente
-  // vacía. `total` cuenta TODAS las filas de ticket_items, cancelados
-  // incluidos: el backend exige lo mismo, porque un item cancelado ya movió
-  // inventario y ese rastro no se descarta con el ticket.
-  //
-  // Bloquea con aria-disabled, NO con el atributo disabled: un botón disabled
-  // no despacha eventos, y siendo un icono a secas el mesero se quedaría
-  // mirando una pastilla apagada sin saber por qué. Así sigue pulsable para
-  // desplegar la advertencia que lo explica, y lo destructivo lo guarda el
-  // diálogo (y el backend, que revalida).
+  /*
+   * "Cancelar mesa" sólo existe mientras la comanda esté vacía.
+   *
+   * `total` cuenta TODAS las filas de ticket_items, cancelados incluidos: el
+   * backend exige lo mismo, porque un item cancelado ya movió inventario y ese
+   * rastro no se descarta con el ticket.
+   *
+   * Antes se quedaba en pantalla bloqueada con aria-disabled, para poder
+   * explicar al pulsarla por qué no se podía. Se retira del todo: en cuanto hay
+   * consumo, cancelar deja de ser una opción —la mesa se cobra— y una pastilla
+   * apagada que nunca va a volver a servir es ruido en la esquina más cara del
+   * modal, justo al lado del chip de estado. Lo que sí queda es el camino real,
+   * que es cerrar el ticket.
+   *
+   * Se oculta con [hidden] y no con una clase: así sale también del recorrido
+   * de tabulación y de modalFocusables(), que filtra por :not([hidden]).
+   */
   function actualizarCancelarMesaEstado(total) {
     var btn = modalContent.querySelector('#mmodal-cancelar-mesa');
     if (!btn) return;
-    var bloqueada = total > 0;
-    btn.dataset.estado = bloqueada ? 'bloqueada' : 'disponible';
-    btn.setAttribute('aria-disabled', bloqueada ? 'true' : 'false');
-    btn.classList.toggle('mmodal-chip-accion--bloqueada', bloqueada);
-    btn.title = bloqueada
-      ? 'La mesa ya tiene consumo: se cobra con el cierre normal.'
-      : 'Cancelar mesa: libera la mesa sin generar cuenta.';
-    btn.setAttribute('aria-label', bloqueada
-      ? 'Cancelar mesa (no disponible: la mesa ya tiene consumo)'
-      : 'Cancelar mesa');
+    var conConsumo = total > 0;
+    btn.hidden = conConsumo;
+    btn.dataset.estado = conConsumo ? 'bloqueada' : 'disponible';
+    btn.setAttribute('aria-disabled', conConsumo ? 'true' : 'false');
+    btn.title = 'Cancelar mesa: libera la mesa sin generar cuenta.';
+    btn.setAttribute('aria-label', 'Cancelar mesa');
   }
 
   // ── Caché de los ítems del ticket ─────────────────────────
@@ -2715,7 +2789,9 @@ function initMapa() {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('ticket', 26) + '</span><span>Sin comandas enviadas aún</span></div>';
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
-          actualizarCierreEstado(0);
+          // Sin ítems: ni se puede cerrar (no hay nada que cobrar) ni tiene
+          // sentido esconder "Cancelar mesa", que es la salida de este estado.
+          actualizarCierreEstado(0, 0);
           actualizarCancelarMesaEstado(0);
           return;
         }
@@ -2738,7 +2814,7 @@ function initMapa() {
         }
 
         // No se puede cerrar la cuenta con productos sin entregar.
-        actualizarCierreEstado(pendientes);
+        actualizarCierreEstado(pendientes, data.items.length);
         actualizarCancelarMesaEstado(data.items.length);
 
         var html = '';
@@ -3025,9 +3101,18 @@ function initMapa() {
       (function(tid) {
         cargarTicketItems(tid, false)
           .then(function(data) {
-            actualizarCancelarMesaEstado(
-              (data && data.ok && data.items) ? data.items.length : 0
-            );
+            var total = (data && data.ok && data.items) ? data.items.length : 0;
+            actualizarCancelarMesaEstado(total);
+            // "Cerrar ticket" vive en la pestaña del resumen, que en móvil aún
+            // no se ha pintado; se deja en su estado seguro —deshabilitado
+            // mientras no haya comandas— sin esperar a que el mesero la abra.
+            var pendientes = 0;
+            if (data && data.ok && data.items) {
+              data.items.forEach(function(item) {
+                if (item.estado !== 'cancelado' && item.estado !== 'entregado') pendientes++;
+              });
+            }
+            actualizarCierreEstado(pendientes, total);
           })
           .catch(function() { /* el botón se queda bloqueado, que es lo seguro */ });
       })(ticket.id);
@@ -3187,14 +3272,27 @@ function initMapa() {
     try { localStorage.removeItem(cierrePasoKey(ticketId)); } catch (e) {}
   }
 
-  // ── Confirmación estilizada de cierre ────────────────────
-  function buildCerrarHeader(mesa, ticket) {
+  /**
+   * Encabezado del cierre.
+   *
+   * `asideHtml` es la ranura derecha, y el cobro la usa para el importe: es el
+   * número que el mesero le dice al cliente, así que va arriba del todo y no
+   * enterrado en la columna de totales. Antes el cobro gastaba tres líneas
+   * —mesa, «Cobro de la cuenta» y «Elige el método, la propina y captura lo
+   * recibido»— para describir una pantalla que se explica sola con dos botones
+   * y un campo; y ese párrafo era además lo primero que el scroll se comía.
+   */
+  function buildCerrarHeader(mesa, ticket, asideHtml) {
     var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
     h += '<span class="mmodal-title">' + escHtml(mesa.nombre) + '</span>';
     if (ticket.nombre) {
       h += '<span class="mmodal-title-cliente">— ' + escHtml(ticket.nombre) + '</span>';
     }
-    h += '</div></div>';
+    h += '</div>';
+    if (asideHtml) {
+      h += '<div class="mmodal-header-aside">' + asideHtml + '</div>';
+    }
+    h += '</div>';
     return h;
   }
 
@@ -3282,12 +3380,10 @@ function initMapa() {
     // 'propina' (quedárselo todo) o 'parcial' (partirlo a mano).
     var destinoExcedente = 'cambio';
 
-    var h = buildCerrarHeader(mesa, ticket);
+    var h = buildCerrarHeader(mesa, ticket,
+      '<span class="mmodal-header-aside__label">A cobrar</span>' +
+      '<strong class="mmodal-header-aside__val" id="pc-cobrar-head">$' + fmt(totalCents) + '</strong>');
     h += '<div class="mmodal-cobro">';
-    h += '<div class="mmodal-cobro__head">';
-    h += '<p class="mmodal-cerrar-confirm__msg">Cobro de la cuenta</p>';
-    h += '<p class="mmodal-cerrar-confirm__sub" style="margin-top:2px">Elige el método, la propina y captura lo recibido.</p>';
-    h += '</div>';
 
     // Columna izquierda: lo que se decide (método y propina).
     h += '<div class="mmodal-cobro__col">';
@@ -3308,14 +3404,18 @@ function initMapa() {
     }
     h += '<button type="button" class="mmodal-propina__btn" data-pct="custom">Otro</button>';
     h += '</div>';
-    h += '<span class="mmodal-propina__monto" id="pc-propina-monto" hidden>$<input type="number" ' +
-         'class="mmodal-split-input" id="pc-propina-input" min="0" step="0.01" inputmode="decimal" ' +
-         'placeholder="0" hidden></span>';
+    h += '<span class="mmodal-propina__monto mmodal-money-field mmodal-money-field--sm" id="pc-propina-monto" hidden>' +
+         // aria-label y no un <label>: el "$" de al lado es aria-hidden y el
+         // campo quedaría anunciado como "cuadro de número, en blanco". El
+         // gemelo del excedente sí va dentro de un <label> con su texto.
+         '<span aria-hidden="true">$</span><input type="number" ' +
+         'id="pc-propina-input" min="0" step="0.01" inputmode="decimal" ' +
+         'aria-label="Monto de propina" placeholder="0" hidden></span>';
     h += '</div>';
 
     h += '<div class="mmodal-recibido" id="pc-recibido-wrap">';
     h += '<label class="mmodal-recibido__label" for="pc-recibido">Monto recibido</label>';
-    h += '<div class="mmodal-recibido__field"><span aria-hidden="true">$</span>';
+    h += '<div class="mmodal-money-field"><span aria-hidden="true">$</span>';
     h += '<input type="number" id="pc-recibido" min="0" step="0.01" inputmode="decimal" placeholder="' + fmt(totalCents) + '"></div>';
     h += '</div>';
     h += '</div>';
@@ -3348,7 +3448,8 @@ function initMapa() {
     h += '</div>';
     h += '<label class="mmodal-excedente__monto" id="pc-excedente-monto" hidden>';
     h += '<span>Propina</span>';
-    h += '<span>$<input type="number" class="mmodal-split-input" id="pc-excedente-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
+    h += '<span class="mmodal-money-field mmodal-money-field--sm"><span aria-hidden="true">$</span>' +
+         '<input type="number" id="pc-excedente-input" min="0" step="0.01" inputmode="decimal" placeholder="0"></span>';
     h += '</label>';
     h += '</div>';
 
@@ -3379,6 +3480,10 @@ function initMapa() {
     var excedenteMonto = modalContent.querySelector('#pc-excedente-monto');
     var excedenteInput = modalContent.querySelector('#pc-excedente-input');
     var cobrarEl     = modalContent.querySelector('#pc-cobrar');
+    // El mismo importe, repetido en el encabezado: ahí es lo que el mesero le
+    // dice al cliente, y en la columna de totales es el renglón que cierra la
+    // suma. Se mueven juntos, nunca uno sin el otro.
+    var cobrarHeadEl = modalContent.querySelector('#pc-cobrar-head');
     var recibidoWrap = modalContent.querySelector('#pc-recibido-wrap');
     var recibidoEl   = modalContent.querySelector('#pc-recibido');
     var cambioWrap   = modalContent.querySelector('#pc-cambio-wrap');
@@ -3448,6 +3553,7 @@ function initMapa() {
       var aCobrar = totalCents + propinaCents;
 
       cobrarEl.textContent = '$' + fmt(aCobrar);
+      if (cobrarHeadEl) cobrarHeadEl.textContent = '$' + fmt(aCobrar);
       propinaRow.hidden = propinaCents <= 0;
       propinaVal.textContent = '$' + fmt(propinaCents);
       recibidoWrap.hidden = !esEfectivo;

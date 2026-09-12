@@ -37,7 +37,7 @@
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=consola-bn-v1">
+  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
 </head>
 <body class="admin-body login-page" data-page="login">
 
@@ -81,8 +81,13 @@
           </button>
         </div>
 
+        <?php /* Los dos paneles se apilan en la misma celda para que la tarjeta
+                 no cambie de altura al conmutar y el fundido cruzado sea
+                 posible (ver .login-card__panels). */ ?>
+        <div class="login-card__panels">
+
         <!-- ── Personal de piso: NIP de 4 dígitos ─────────────── -->
-        <div class="login-tabpanel" id="login-tab-nip" role="tabpanel"
+        <div class="login-tabpanel<?php echo $tabActiva === 'nip' ? ' is-active' : ''; ?>" id="login-tab-nip" role="tabpanel"
              aria-labelledby="login-tab-btn-nip"
              <?php echo $tabActiva === 'nip' ? '' : 'hidden'; ?>>
           <?php /* Sin eyebrow: la pestaña activa ya dice de qué acceso se trata. */ ?>
@@ -117,7 +122,13 @@
               <button type="button" class="login-pad__key" data-key="9">9</button>
               <button type="button" class="login-pad__key login-pad__key--aux" data-action="clear" aria-label="Borrar todo">C</button>
               <button type="button" class="login-pad__key" data-key="0">0</button>
-              <button type="button" class="login-pad__key login-pad__key--aux" data-action="back" aria-label="Borrar último dígito">⌫</button>
+              <?php /* SVG y no el glifo ⌫: lo dibuja la fuente del sistema, así
+                       que no hereda currentColor, cambia de forma entre Windows,
+                       Android e iOS —y la tablet del piso no es siempre la
+                       misma— y se sale de la caja tipográfica de la tecla. */ ?>
+              <button type="button" class="login-pad__key login-pad__key--aux" data-action="back" aria-label="Borrar último dígito">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6H9.5a2 2 0 0 0-1.5.7L3 12l5 5.3a2 2 0 0 0 1.5.7H20a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1Z"/><path d="M12.5 9.5 17 14"/><path d="M17 9.5 12.5 14"/></svg>
+              </button>
             </div>
 
             <button type="submit" class="admin-btn admin-btn--primary login-submit" id="login-nip-submit" disabled>
@@ -129,7 +140,7 @@
         </div>
 
         <!-- ── Administración: usuario + contraseña ───────────── -->
-        <div class="login-tabpanel" id="login-tab-admin" role="tabpanel"
+        <div class="login-tabpanel<?php echo $tabActiva === 'admin' ? ' is-active' : ''; ?>" id="login-tab-admin" role="tabpanel"
              aria-labelledby="login-tab-btn-admin"
              <?php echo $tabActiva === 'admin' ? '' : 'hidden'; ?>>
           <h1 class="login-title">Inicia sesión</h1>
@@ -168,6 +179,8 @@
             </button>
           </form>
         </div>
+
+        </div><?php /* fin .login-card__panels */ ?>
       </div>
     </section>
   </main>
@@ -178,7 +191,30 @@
       var tabs    = document.querySelectorAll('[data-login-tab]');
       var vieneDePost = <?php echo $_SERVER['REQUEST_METHOD'] === 'POST' ? 'true' : 'false'; ?>;
 
+      // Duración del fundido cruzado entre paneles. Tiene que ir a la par de la
+      // transición de .login-tabpanel en src/scss/auth/_login.scss.
+      var FUNDIDO = 220;
+      var ocultarPendiente = null;
+
       function activar(clave, enfocar) {
+        /*
+         * El [hidden] se quita YA y se pone TARDE.
+         *
+         * `display:none` cancela cualquier transición, así que si el panel que
+         * sale recibiera [hidden] en la misma vuelta, desaparecería de golpe y
+         * el fundido no se vería nunca. Se le deja el `hidden` para el final;
+         * mientras tanto lo saca del foco la `visibility` del CSS.
+         *
+         * El temporizador se cancela en cada cambio: dos pulsaciones seguidas
+         * dejarían al primero puesto sobre el panel que acaba de entrar.
+         */
+        if (ocultarPendiente) {
+          clearTimeout(ocultarPendiente);
+          ocultarPendiente = null;
+        }
+
+        var salientes = [];
+
         for (var i = 0; i < tabs.length; i++) {
           var boton  = tabs[i];
           var activa = boton.dataset.loginTab === clave;
@@ -186,7 +222,32 @@
 
           boton.classList.toggle('is-active', activa);
           boton.setAttribute('aria-selected', activa ? 'true' : 'false');
-          if (panel) panel.hidden = !activa;
+
+          if (!panel) continue;
+          if (activa) {
+            panel.hidden = false;
+            // Una vuelta de reflow antes de marcarlo activo: sin ella, quitar
+            // [hidden] y añadir la clase en el mismo cuadro hace que el
+            // navegador no tenga estado inicial que interpolar y el panel
+            // aparezca de golpe.
+            void panel.offsetWidth;
+            panel.classList.add('is-active');
+          } else {
+            panel.classList.remove('is-active');
+            salientes.push(panel);
+          }
+        }
+
+        if (salientes.length) {
+          ocultarPendiente = setTimeout(function () {
+            for (var j = 0; j < salientes.length; j++) {
+              // Puede haber vuelto a activarse mientras se desvanecía.
+              if (!salientes[j].classList.contains('is-active')) {
+                salientes[j].hidden = true;
+              }
+            }
+            ocultarPendiente = null;
+          }, FUNDIDO);
         }
 
         try { sessionStorage.setItem(TAB_KEY, clave); } catch (e) {}
@@ -261,14 +322,20 @@
       // Devolver el foco al campo oculto mantiene vivo el teclado físico, pero
       // solo con la pestaña del NIP visible: si no, le robaría el foco a los
       // campos de la pestaña de administrador.
+      //
+      // Se pregunta por la CLASE y no por [hidden]: el atributo se pone al
+      // final del fundido (ver activar()), así que durante 220 ms el panel del
+      // NIP sigue sin `hidden` aunque ya esté saliendo. En esa ventana, el
+      // primer clic sobre el campo de usuario le devolvía el foco al NIP y la
+      // contraseña se empezaba a escribir en ninguna parte.
       document.addEventListener('click', function (e) {
-        if (panel.hidden) return;
+        if (!panel.classList.contains('is-active')) return;
         if (e.target.closest('[data-login-tab]')) return;
         input.focus();
       });
 
       pintar();
-      if (!panel.hidden) input.focus();
+      if (panel.classList.contains('is-active')) input.focus();
     })();
 
     // ── Mostrar/ocultar contraseña ──────────────────────────

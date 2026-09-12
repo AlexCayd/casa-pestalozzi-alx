@@ -1643,11 +1643,18 @@
   // viernes hay que ir buscando cada hora en un sitio distinto. En dos columnas
   // los siete horarios caen en la misma vertical y la tabla se recorre de un
   // vistazo, que es para lo que está.
+  // REJILLA de dos columnas, no flex con `space-between`.
+  //
+  // Con flex, el eje de la derecha lo sostenía el número de hijos: dos filas
+  // normales repartían bien, y la excepcional —que traía un tercero— tenía que
+  // renunciar al reparto, envolver y recolocar el horario con `margin-left:
+  // auto`. En cuanto la chapa no cabía, la cifra se iba a un segundo renglón y
+  // esa fila perdía la vertical que comparten las otras seis. Dos celdas fijas
+  // no dependen de cuánto mide la chapa: la columna del horario está donde está.
   .row {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: 0.8rem;
     min-height: 62px;
     margin-bottom: 0.5rem;
@@ -1666,9 +1673,13 @@
     }
   }
 
+  // El día lleva dentro su «Hoy» y, cuando la hay, la chapa de excepción.
+  // Envuelve por su cuenta sin arrastrar al horario, que vive en la otra celda.
   &-day {
-    align-items: baseline;
-    gap: 0.55rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.55rem;
     font-size: 0.92rem;
   }
 
@@ -1699,8 +1710,10 @@
   &-today { color: var(--accent-text); }
 
   // ── Excepciones sobre la propia tabla ──────────────────────────
-  // La fila excepcional apila cuatro piezas en vez de dos: día, chapa, horario
-  // y motivo, todas centradas como el resto de las fichas.
+  // La fila excepcional NO cambia de geometría: sigue siendo día a la izquierda
+  // y horario a la derecha, como las otras seis. Lo único que la distingue es
+  // el fondo, el filete, la chapa dentro del día y el segundo renglón del
+  // horario. Antes reordenaba, envolvía y recolocaba, y por eso desalineaba.
   //
   // El color sale de la MARCA, no de la paleta funcional: un horario distinto
   // no es un fallo, es información, y el naranja y el rojo que había antes eran
@@ -1713,22 +1726,34 @@
   .row.is-exception {
     --reserva-exception-color: var(--brand-verde);
 
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 0.35rem 0.7rem;
-    padding-block: 0.9rem;
     background: color-mix(in srgb, var(--reserva-exception-color) 12%, var(--reservation-surface));
     box-shadow: inset 3px 0 0 var(--reserva-exception-color);
     color: var(--txt-strong);
 
-    // Orden explícito: día · chapa · horario, y el motivo en su propia línea.
-    // La fila normal reparte con `space-between`, que con un tercer elemento
-    // dejaba el horario flotando a media caja; `margin-left: auto` es lo que lo
-    // devuelve al borde derecho, en la misma vertical que los otros seis.
-    .reserva__hours-day { order: 1; }
-    .reserva__hours-badge { order: 2; }
-    .reserva__hours-value { order: 3; margin-left: auto; }
-    .reserva__hours-reason { order: 4; flex: 1 1 100%; }
+    /* En la fila excepcional el valor lleva DOS renglones —el horario que rige
+       hoy y, debajo, el habitual tachado—, así que deja de ser una caja en
+       línea. Alineados a la derecha para que las dos cifras compartan el mismo
+       eje que las de las otras seis filas. */
+    .reserva__hours-value {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.15rem;
+    }
+
+    /* ⚠ `--txt-faint` NO vale en esta fila, y es el caso que CLAUDE.md avisa:
+       ese token está calculado al mínimo AA contra `--bg`, y aquí el fondo es
+       otro —la marca al 12 %, o al 18 % si además es hoy—. Medido sobre los
+       cuatro fondos que esta fila puede tener, `--txt-faint` daba 3.98, 3.91,
+       3.64 y 3.52:1, los cuatro por debajo del 4.5 que pide AA; y a 0.66rem no
+       hay exención de texto grande. Peor aún, el que menos cumplía era la
+       excepción DE HOY, que es justo la fila que más gente mira.
+
+       La tinta se deriva ahora del color de la propia excepción, así que sigue
+       a las dos variantes sin duplicar la regla: 5.26 / 4.84 / 7.93 / 7.18:1. */
+    .reserva__hours-usual {
+      color: color-mix(in srgb, var(--reserva-exception-color) 90%, transparent);
+    }
 
     &.today {
       background: color-mix(in srgb, var(--reserva-exception-color) 18%, var(--reservation-surface));
@@ -1742,26 +1767,63 @@
     font-weight: 700;
   }
 
+  /* El horario habitual del día, bajo el excepcional.
+   *
+   * Va en la SANS y no en la serif del valor: es la manera de que las dos
+   * líneas no se lean como dos horarios en pie de igualdad. Más pequeño, en
+   * --txt-faint —el texto más tenue que la casa admite, que está fijado al
+   * mínimo AA y no se puede bajar más— y tachado.
+   *
+   * El tachado es el que dice "esto no aplica"; el rótulo "Habitual:" lo dice
+   * también en palabras, porque `text-decoration: line-through` no se anuncia
+   * en voz y sin él la línea sonaría a un segundo horario vigente. */
+  &-usual {
+    color: var(--txt-faint);
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    s {
+      // El tachado en la misma tinta que el texto: un line-through heredado del
+      // color del enlace o del acento convertiría la nota en un adorno.
+      text-decoration-color: currentColor;
+      text-decoration-thickness: 1px;
+    }
+
+    // Dentro de la nota el separador ya no compite con nada: recupera el cuerpo
+    // del texto para que "13:00–22:00" se lea como un rango y no como dos
+    // cifras separadas por un pelo.
+    .reserva__hours-sep {
+      padding-inline: 0.15em;
+      font-size: 1em;
+    }
+  }
+
   // Chapa sólida, no texto suelto: en una tabla de siete filas una línea de
   // versalitas del mismo peso que el resto no señala nada.
+  // 0.66rem y no 0.58: a 16 px de raíz aquello eran 9.3 px, el texto más
+  // pequeño de la landing, y es el único elemento que dice que la excepción
+  // cae en una FECHA concreta dentro de una tabla titulada «Horario habitual».
+  // El mismo paso que `.reserva__hours-usual`, con el que comparte fila.
   &-badge {
-    align-self: center;
     flex: 0 0 auto;
-    padding: 0.18rem 0.5rem;
+    padding: 0.16rem 0.45rem;
     border-radius: 3px;
     background: var(--reserva-exception-color, var(--brand-verde));
     color: var(--bg);
-    font-size: 0.58rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
-  &-reason {
-    color: var(--reservation-text-secondary);
-    font-size: 0.72rem;
-    line-height: 1.4;
-  }
+  // `.reserva__hours-reason` se retiró con el marcado: esta tabla contesta a
+  // qué hora abren y lo hace comparando siete filas de un vistazo. El motivo
+  // de la excepción era prosa dentro de esa comparación.
 }
 
 .reserva__form-wrap {

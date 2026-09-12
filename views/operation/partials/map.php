@@ -68,7 +68,7 @@ $mapShowHeader = $mapShowHeading || $mapToolbarActionsHtml !== '' || $mapLegendP
             data-map-context="<?php echo $mapEscape($mapContext); ?>"
         >
             <?php if ($mapLoadingMode === 'empty'): ?>
-                <div class="mapa-empty-state" role="status" aria-live="polite"><span class="mapa-empty-icon" aria-hidden="true">o</span><span>Cargando mapa</span></div>
+                <div class="mapa-empty-state" role="status" aria-live="polite"><span class="mapa-empty-icon" aria-hidden="true"><span class="mapa-empty-spinner"></span></span><span>Cargando mapa</span></div>
             <?php endif; ?>
         </div>
 

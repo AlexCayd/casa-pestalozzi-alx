@@ -23,6 +23,12 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+// Sin wordmark no hay tres regiones que centrar: el título vive en la izquierda
+// y las acciones en la derecha. Es la barra del tablero de producción.
+.operational-header--bare {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .operational-header__region {
   display: inline-flex;
   min-width: 0;
@@ -53,6 +59,11 @@
   color: var(--admin-gold);
   font-family: var(--logo, var(--operational-font-brand));
   font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+  // KudosKaps tiene UNA sola cara, de peso 400. Sin declararlo, cualquier
+  // regla que suba el peso de este enlace haría que el navegador fabricara una
+  // negrita falsa dilatando los trazos, y sobre una display de alto contraste
+  // eso empasta los remates (ver CLAUDE.md).
+  font-weight: 400;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -79,6 +90,7 @@
 
 .operational-header__module {
   max-width: min(34vw, 360px);
+  margin: 0;
   overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-editorial);
@@ -87,6 +99,80 @@
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// En la barra sin marca el título es el único rótulo, así que sube de cuerpo:
+// se lee desde el otro lado de la cocina, que es donde se mira este tablero.
+.operational-header--bare .operational-header__module {
+  max-width: none;
+  font-size: clamp(20px, 2.4vw, 28px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+
+  // El título es la única voz sans grande del tablero y hace pareja con los
+  // rótulos mono en versalitas de las columnas: la jerarquía documentada del
+  // panel —rótulo en mono abierto, titular en sans apretada— repartida por la
+  // pantalla en vez de apilada dentro de un bloque.
+  letter-spacing: -0.025em;
+  font-weight: var(--operational-weight-bold);
+}
+
+/*
+ * La hora del tablero: reloj, no volcado de terminal.
+ *
+ * Iba en monoespaciada dentro de una píldora con borde, y el string que emite
+ * `es-MX` es «09:31 p. m.» —once caracteres—: en mono eso es una losa de texto
+ * de consola en la esquina de la barra. Un reloj no se compara en vertical con
+ * nada, así que la regla mono/tabular de la casa no le obliga.
+ *
+ * Va en la sans, grande y LIGERA, haciendo contrapeso al nombre de la estación
+ * en negrita al otro extremo: mismo tamaño, peso opuesto. Es lenguaje de reloj
+ * de estación, no de consola. La cara es real —Geist declara 100-900—, que la
+ * casa no admite sintéticas.
+ *
+ * `tabular-nums` se conserva por otra razón que la de siempre: sin ella el
+ * ancho cambia cada minuto y la barra tiembla en una pantalla que nadie mira de
+ * frente pero todo el mundo tiene en la periferia.
+ *
+ * La píldora se va con los demás contenedores del tablero: la hora y su punto
+ * viven sueltos en la barra, que ya es el contenedor.
+ */
+.area-page .operational-update {
+  min-height: 44px;
+  gap: 10px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: none;
+  // El color se declara AQUÍ, en el padre, y no en el hijo: las reglas
+  // [data-status="error"|"loading"] pintan el hijo, y una declaración propia
+  // siempre gana a un valor heredado. Escrito sobre .operational-update__text
+  // dentro de este bloque sumaría (0,3,0) y dejaría «Sin conexión» del color de
+  // la hora normal — que es el único mensaje que no puede pasar inadvertido.
+  color: color-mix(in srgb, var(--admin-text) 84%, var(--admin-bg));
+
+  .operational-update__text {
+    font-family: var(--admin-font-sans);
+    font-size: clamp(22px, 2.1vw, 28px);
+    font-variant-numeric: tabular-nums;
+    // 400 y no la fina de 300: el tablero se queda con TRES pesos —400, 600 y
+    // 700— y ninguno más. La fina era un cuarto que sólo usaba este reloj.
+    font-weight: var(--operational-weight-regular);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  /*
+   * Sin punto de estado.
+   *
+   * Era un piloto verde permanente que sólo informaba cuando se ponía rojo, o
+   * sea nunca: en una barra de tres elementos, un indicador que pasa el turno
+   * entero diciendo «todo bien» es ruido. La caída de conexión se sigue viendo
+   * —y mejor— porque el propio reloj se sustituye por «Sin conexión» y se pinta
+   * en rojo, que a este cuerpo es imposible de pasar por alto.
+   */
+  .operational-update__dot {
+    display: none;
+  }
 }
 
 .operational-header__last-update {
