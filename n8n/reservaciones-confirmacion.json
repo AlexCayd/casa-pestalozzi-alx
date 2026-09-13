@@ -1,0 +1,163 @@
+{
+  "name": "Reservaciones - Confirmación",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reservaciones/confirmacion",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-900, 0],
+      "id": "cf000001-0000-4000-8000-000000000001",
+      "name": "Webhook confirmación",
+      "webhookId": "cf100001-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || {};\nconst supplied = String(headers['x-n8n-secret'] || headers['X-N8N-Secret'] || '');\nconst expected = String($env.N8N_SECRET || '');\nconst authorized = expected.length > 0 && supplied === expected;\nconst positive = (value) => Number.isInteger(Number(value)) && Number(value) > 0;\nconst contact = body.contact || {};\nconst recipient = body.recipient || {};\nconst reservation = body.reservation;\nconst data = body.data || {};\nconst email = typeof contact.value === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contact.value);\nconst whatsapp = typeof contact.value === 'string' && /^\\+52\\d{10}$/.test(contact.value);\nconst validContact = contact.type === 'email' ? email : contact.type === 'whatsapp' ? whatsapp : false;\nconst validReservation = positive(body.reservation_id) && reservation && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(reservation.date || '')) && /^\\d{2}:\\d{2}$/.test(String(reservation.time || '')) && positive(reservation.guests);\nconst validContactAccess = body.reservation_id === null && reservation === null && data.purpose === 'contact_access';\nconst valid = Number(body.schema_version) === 1 && body.event === 'reservation.confirmation' && positive(body.source_id) && Number(body.attempt) === 1 && validContact && typeof recipient.name === 'string' && recipient.name.trim() !== '' && /^\\d{6}$/.test(String(data.confirmation_code || '')) && (validReservation || validContactAccess);\nreturn { json: { authorized, valid, accepted: authorized && valid, notification: authorized && valid ? body : null } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 0],
+      "id": "cf000001-0000-4000-8000-000000000002",
+      "name": "Validar secreto y contrato"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: $json.accepted, accepted: $json.accepted } }}",
+        "options": {
+          "responseCode": "={{ !$json.authorized ? 403 : ($json.valid ? 202 : 422) }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-460, 0],
+      "id": "cf000001-0000-4000-8000-000000000003",
+      "name": "Responder 202"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if (!$json.accepted || !$json.notification) return [];\nconst n = $json.notification;\nconst code = String(n.data.confirmation_code);\nreturn { json: { ...n, email_subject: 'Código de confirmación de reservación', email_text: `Hola ${n.recipient.name},\\n\\nTu código de confirmación de Casa Pestalozzi es: ${code}\\n\\nVence el ${n.data.expires_at}.`, whatsapp_template: 'reservation_confirmation_code', whatsapp_components: { component: [{ type: 'body', bodyParameters: { parameter: [{ type: 'text', text: code }] } }] } } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 0],
+      "id": "cf000001-0000-4000-8000-000000000004",
+      "name": "Preparar confirmación"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [{"id": "cf-email", "leftValue": "={{ $json.contact.type }}", "rightValue": "email", "operator": {"type": "string", "operation": "equals"}}],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "email"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3},
+                "conditions": [{"id": "cf-whatsapp", "leftValue": "={{ $json.contact.type }}", "rightValue": "whatsapp", "operator": {"type": "string", "operation": "equals"}}],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "whatsapp"
+            }
+          ]
+        },
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [0, 0],
+      "id": "cf000001-0000-4000-8000-000000000005",
+      "name": "Switch channel"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst data = n.data || {};\nif (contact.type !== 'email') return [];\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'email', to: String(contact.value || ''), subject: String(n.email_subject || ''), message: String(n.email_text || ''), purpose: String(data.purpose || '') } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, -140],
+      "id": "cf000001-0000-4000-8000-000000000008",
+      "name": "Normalizar Email"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst data = n.data || {};\nif (contact.type !== 'whatsapp') return [];\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'whatsapp', to: String(contact.value || ''), template: String(n.whatsapp_template || ''), components: n.whatsapp_components || {}, purpose: String(data.purpose || '') } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 140],
+      "id": "cf000001-0000-4000-8000-000000000009",
+      "name": "Normalizar WhatsApp"
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.RESERVATION_EMAIL_FROM }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [260, -100],
+      "id": "cf000001-0000-4000-8000-000000000006",
+      "name": "Enviar Email",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendTemplate",
+        "phoneNumberId": "={{ $env.RESERVATION_WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.to }}",
+        "template": "={{ $json.template + '|' + ($env.RESERVATION_WHATSAPP_TEMPLATE_LANGUAGE || 'es_MX') }}",
+        "components": "={{ $json.components }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [260, 100],
+      "id": "cf000001-0000-4000-8000-000000000007",
+      "name": "Enviar WhatsApp",
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "connections": {
+    "Webhook confirmación": {"main": [[{"node": "Validar secreto y contrato", "type": "main", "index": 0}]]},
+    "Validar secreto y contrato": {"main": [[{"node": "Responder 202", "type": "main", "index": 0}]]},
+    "Responder 202": {"main": [[{"node": "Preparar confirmación", "type": "main", "index": 0}]]},
+    "Preparar confirmación": {"main": [[{"node": "Switch channel", "type": "main", "index": 0}]]},
+    "Switch channel": {"main": [[{"node": "Normalizar Email", "type": "main", "index": 0}], [{"node": "Normalizar WhatsApp", "type": "main", "index": 0}]]},
+    "Normalizar Email": {"main": [[{"node": "Enviar Email", "type": "main", "index": 0}]]},
+    "Normalizar WhatsApp": {"main": [[{"node": "Enviar WhatsApp", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false,
+    "availableInMCP": false
+  },
+  "versionId": "cf000001-0000-4000-8000-000000000099",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
