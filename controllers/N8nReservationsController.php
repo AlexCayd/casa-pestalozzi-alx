@@ -3,8 +3,9 @@
 namespace Controllers;
 
 use MVC\Router;
-use Services\ReservationNotificationResultService;
-use Services\ReservationReminderService;
+use Services\Notifications\NotificationConfig;
+use Services\Reservations\Notifications\ReservationNotificationResultService;
+use Services\Reservations\Notifications\ReservationReminderService;
 
 /** Endpoints machine-to-machine autenticados para el workflow de reservaciones. */
 final class N8nReservationsController
@@ -41,6 +42,7 @@ final class N8nReservationsController
             trim((string)($datos['event'] ?? '')),
             (int)($datos['source_id'] ?? 0),
             (int)($datos['attempt'] ?? 0),
+            trim((string)($datos['channel'] ?? '')),
             trim((string)($datos['status'] ?? ''))
         );
         $status = ($resultado['ok'] ?? false)
@@ -51,10 +53,9 @@ final class N8nReservationsController
 
     private static function secretValido(): bool
     {
-        $esperado = $_ENV['N8N_SECRET'] ?? getenv('N8N_SECRET');
+        $esperado = NotificationConfig::n8nSecret();
         $recibido = $_SERVER['HTTP_X_N8N_SECRET'] ?? '';
-        return is_string($esperado)
-            && trim($esperado) !== ''
+        return trim($esperado) !== ''
             && is_string($recibido)
             && trim($recibido) !== ''
             && hash_equals(trim($esperado), trim($recibido));

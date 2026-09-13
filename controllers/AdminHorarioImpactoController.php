@@ -6,6 +6,7 @@ use MVC\Router;
 use Services\AdminCsrfService;
 use Services\HorarioOperacionImpactoService;
 use Services\ReservacionErrorCatalog;
+use Services\Reservations\Notifications\ScheduleChangeNotificationService;
 
 /** Endpoints administrativos del seguimiento de cambios de horario. */
 final class AdminHorarioImpactoController
@@ -27,10 +28,9 @@ final class AdminHorarioImpactoController
         }
 
         $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::prepararAviso(
+        self::json(ScheduleChangeNotificationService::resendManually(
             (int)($datos['impacto_id'] ?? 0),
-            (int)($datos['impacto_reservacion_id'] ?? 0),
-            self::usuarioId()
+            (int)($datos['impacto_reservacion_id'] ?? 0)
         ));
     }
 
@@ -42,7 +42,7 @@ final class AdminHorarioImpactoController
         }
 
         $datos = self::entrada();
-        self::json(HorarioOperacionImpactoService::agregarContacto(
+        self::json(ScheduleChangeNotificationService::addContact(
             (int)($datos['impacto_id'] ?? 0),
             (int)($datos['impacto_reservacion_id'] ?? 0),
             trim((string)($datos['tipo'] ?? '')),

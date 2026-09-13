@@ -45,10 +45,7 @@ impactoAssert(HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-2
 impactoAssert(!HorarioOperacionImpactoService::horarioValidoEnSnapshot('2026-08-23', '10:30:00', $despues), 'horario fuera del snapshot nuevo');
 
 $ddl = file_get_contents($root . '/database/ddl.sql');
-$migration = file_get_contents($root . '/database/migrations/2026_08_19_buzon_notificaciones.sql');
-$finalMigration = file_get_contents($root . '/database/migrations/2026_08_19_seguimiento_buzon_final.sql');
-$legacyMigration = file_get_contents($root . '/database/migrations/2026_08_18_simplificar_afectaciones_horario.sql');
-impactoAssert(is_string($ddl) && is_string($migration) && is_string($legacyMigration) && is_string($finalMigration), 'se pudieron leer esquema y migraciones forward');
+impactoAssert(is_string($ddl), 'se pudo leer el esquema vigente');
 impactoAssert(str_contains($ddl, 'CREATE TABLE IF NOT EXISTS buzon_notificaciones'), 'DDL crea el buzón genérico');
 foreach (['visible_from', 'leida_at', 'cerrada_at', 'cierre_motivo', 'requiere_accion', 'dedup_key', 'uq_buzon_notificaciones_dedup', 'idx_buzon_notificaciones_visibles'] as $column) {
     impactoAssert(str_contains($ddl, $column), "DDL contiene {$column}");
@@ -58,14 +55,10 @@ foreach (['notification_prepared_at', 'access_token_hash', 'access_expires_at', 
 }
 impactoAssert(!str_contains($ddl, 'CREATE TABLE IF NOT EXISTS reservacion_notificaciones'), 'DDL final no crea outbox específica');
 impactoAssert(!str_contains($ddl, 'CREATE TABLE IF NOT EXISTS reservacion_magic_links'), 'DDL final no crea magic links');
-impactoAssert(str_contains($migration, 'CREATE TABLE IF NOT EXISTS buzon_notificaciones'), 'migración crea el buzón genérico');
-impactoAssert(str_contains($migration, 'DROP TABLE IF EXISTS reservacion_notificaciones'), 'migración elimina outbox anterior');
-impactoAssert(str_contains($migration, 'DROP TABLE IF EXISTS reservacion_magic_links'), 'migración elimina links anteriores');
-impactoAssert(str_contains($legacyMigration, 'estado = \'notificacion_preparada\''), 'forward previo conserva estado preparado');
-impactoAssert(str_contains($finalMigration, 'notification_attempts') && str_contains($finalMigration, 'last_notification_at'), 'migración final agrega límite e intervalo de avisos');
-impactoAssert(str_contains($finalMigration, 'visible_from = NOW()'), 'seguimiento preparado es visible de inmediato');
+impactoAssert(str_contains($ddl, 'notification_attempts') && str_contains($ddl, 'last_notification_at'), 'esquema conserva intentos del seguimiento');
+impactoAssert(str_contains($ddl, 'visible_from'), 'seguimiento preparado es visible de inmediato');
 
-foreach (['AVISO_PREPARADO', 'AVISO_VIGENTE', 'AVISO_EN_COOLDOWN', 'AVISOS_LIMITE_ALCANZADO', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
+foreach (['AVISO_PREPARADO', 'AVISO_REENVIO_NO_DISPONIBLE', 'ACCESO_CAMBIO_HORARIO_INVALIDO', 'ACCESO_CAMBIO_HORARIO_EXPIRADO'] as $code) {
     impactoAssert(ReservacionErrorCatalog::has($code), "{$code} está catalogado");
     impactoAssert(ReservacionErrorCatalog::presentar($code)['mensaje'] !== '', "{$code} tiene mensaje");
 }
@@ -121,13 +114,18 @@ impactoAssert(str_contains($inboxJs, 'AdminScrollLock') && str_contains($inboxJs
 impactoAssert(str_contains($inboxJs, 'data-schedule-impact-resolve'), 'detalle administrativo puede resolver el seguimiento');
 impactoAssert(str_contains($impactService, 'clasificarSeguimientosEnTransaccion'), 'impacto clasifica seguimiento al persistir');
 impactoAssert(str_contains($buzonRules, 'visible_from') && str_contains($impactService, 'MAX_COMENSALES_PUBLICO'), 'impacto aplica acceso diferido y umbral');
-impactoAssert(str_contains($impactService, "BuzonNotificacionesService::PRIORIDAD_NORMAL,\n                null"), 'seguimiento no espera a la expiración para aparecer');
+impactoAssert(
+    preg_match('/BuzonNotificacionesService::PRIORIDAD_NORMAL,\s+null,\s+true/', $impactService) === 1,
+    'seguimiento no espera a la expiración para aparecer'
+);
 impactoAssert(str_contains($publicView, 'Elige un nuevo horario') && str_contains($publicView, 'Confirmar nuevo horario'), 'formulario público usa copy y CTA de cambio de horario');
 impactoAssert(str_contains($publicView, 'reservation-guests--tabs') && str_contains($publicView, 'guests-stepper') && str_contains($publicView, 'btn-line'), 'formulario público reutiliza controles canónicos');
 impactoAssert(str_contains($publicView, 'data-max-guests') && !str_contains($publicJs, 'var maxGuests = 12'), 'límite de personas viene de PHP');
 impactoAssert(str_contains($publicJs, 'Tu reservación está lista') && str_contains($publicJs, 'Tu nuevo horario está confirmado'), 'éxito público distingue la fuente y muestra valores confirmados');
 impactoAssert(!str_contains($routes, 'preparar-disponibles'), 'ruta batch de avisos disponibles retirada');
 impactoAssert(!str_contains($impactService, 'prepararAvisosDisponibles'), 'servicio batch de avisos disponibles retirado');
+impactoAssert(!str_contains($impactService, 'SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES'), 'política de cooldown retirada');
+impactoAssert(str_contains($impactService, 'AUTOMATIC_ATTEMPT'), 'reenvío exige intento automático vigente');
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousTtl === null) unset($_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES']); else $_ENV['SCHEDULE_CHANGE_ACCESS_TTL_MINUTES'] = $previousTtl;

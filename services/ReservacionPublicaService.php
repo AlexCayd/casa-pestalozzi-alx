@@ -18,6 +18,7 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
+use Services\Reservations\Notifications\ReservationConfirmationService;
 
 final class ReservacionPublicaService
 {
@@ -128,7 +129,7 @@ final class ReservacionPublicaService
             return self::limiteAlcanzado();
         }
 
-        return self::conLocks($datos['tipo'], $datos['contacto'], [$datos['fecha']], function (\mysqli $db) use ($datos): array {
+        $resultado = self::conLocks($datos['tipo'], $datos['contacto'], [$datos['fecha']], function (\mysqli $db) use ($datos): array {
             $transaccion = false;
             try {
                 if (!$db->begin_transaction()) {
@@ -225,6 +226,8 @@ final class ReservacionPublicaService
                 return self::errorInterno();
             }
         });
+
+        return ReservationConfirmationService::finalize($resultado);
     }
 
     /** @return array<string, mixed> */
@@ -351,7 +354,7 @@ final class ReservacionPublicaService
             return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
-        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
+        $resultado = self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
             $transaccion = false;
             try {
                 $db->begin_transaction();
@@ -394,6 +397,8 @@ final class ReservacionPublicaService
                 return self::errorInterno();
             }
         });
+
+        return ReservationConfirmationService::finalize($resultado);
     }
 
     /** Crea directamente usando exclusivamente la identidad de sesión. */
@@ -1736,7 +1741,11 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return ['otp_expires_at' => $otp['expires_at'] ?? null];
+        return [
+            'otp_expires_at' => $otp['expires_at'] ?? null,
+            '_notification_payload' => $otp['_notification_payload'] ?? null,
+            '_confirmation_code' => $otp['_confirmation_code'] ?? null,
+        ];
     }
 
     private static function fechaAtom(string $fecha): string
