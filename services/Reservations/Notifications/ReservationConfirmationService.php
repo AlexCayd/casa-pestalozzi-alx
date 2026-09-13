@@ -76,7 +76,11 @@ final class ReservationConfirmationService
                 return $response;
             }
 
-            $delivery = ($client ?? new N8nClient(NotificationConfig::n8nBaseUrl(), NotificationConfig::n8nSecret()))->post(self::WEBHOOK_PATH, $payload);
+            $delivery = ($client ?? new N8nClient(NotificationConfig::n8nBaseUrl(), NotificationConfig::n8nSecret()))
+                ->post(self::WEBHOOK_PATH, $payload, 200, 25);
+            if (($delivery['channel'] ?? null) !== ($payload['contact']['type'] ?? null)) {
+                $delivery['accepted'] = false;
+            }
         } catch (\Throwable) {
             error_log('ReservationConfirmationService::finalize - configuración inválida redactada.');
             $delivery = [
@@ -97,6 +101,10 @@ final class ReservationConfirmationService
         if (!($delivery['accepted'] ?? false)) {
             $response['ok'] = false;
             $response['codigo'] = 'OTP_ENVIO_FALLIDO';
+        } else {
+            $response['codigo'] = 'CODIGO_CONFIRMACION_ENVIADO';
+            $response['channel'] = $delivery['channel'];
+            $response['contexto']['canal'] = $delivery['channel'] === 'whatsapp' ? 'WhatsApp' : 'correo electrónico';
         }
 
         return $response;

@@ -117,7 +117,7 @@ try {
         'fixture-secret',
         static function (string $url, string $secret, string $json) use (&$confirmationPayload): array {
             $confirmationPayload = json_decode($json, true);
-            return ['status' => 202, 'body' => '{"ok":true,"accepted":true}'];
+            return ['status' => 200, 'body' => '{"ok":true,"accepted":true,"channel":"email"}'];
         }
     );
     $externalConfirmation = ContactoAccesoService::solicitarCodigo(
@@ -125,7 +125,7 @@ try {
         $standaloneContacts[0],
         $confirmationClient
     );
-    communicationsDbAssert(($externalConfirmation['ok'] ?? false) === true, 'confirmación test no aceptó HTTP 202');
+    communicationsDbAssert(($externalConfirmation['ok'] ?? false) === true, 'confirmación test no aceptó respuesta síncrona');
     communicationsDbAssert(($externalConfirmation['notification_delivery_status'] ?? '') === 'accepted', 'confirmación test no quedó accepted');
     communicationsDbAssert(!array_key_exists('development_confirmation_code', $externalConfirmation), 'test expuso el código development');
     communicationsDbAssert(

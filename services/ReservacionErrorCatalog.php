@@ -57,6 +57,7 @@ final class ReservacionErrorCatalog
         'CONTACTO_VERIFICADO' => self::TIPO_INFORMACION,
         'OTP_GENERADO' => self::TIPO_INFORMACION,
         'OTP_SOLICITADO' => self::TIPO_INFORMACION,
+        'CODIGO_CONFIRMACION_ENVIADO' => self::TIPO_INFORMACION,
         'GESTION_SALIDA' => self::TIPO_INFORMACION,
 
         // Seguridad, sesión y entrada.
@@ -106,6 +107,7 @@ final class ReservacionErrorCatalog
         'OTP_INCORRECTO' => self::TIPO_ERROR,
         'OTP_EXPIRADO' => self::TIPO_ERROR,
         'OTP_INTENTOS_AGOTADOS' => self::TIPO_CONFLICTO,
+        'OTP_ENVIO_FALLIDO' => self::TIPO_ERROR,
         'VERIFICACION_NO_ENCONTRADA' => self::TIPO_ERROR,
 
         // Horarios y operación.
@@ -220,9 +222,7 @@ final class ReservacionErrorCatalog
         'AFECTACION_NO_NOTIFICABLE' => self::TIPO_CONFLICTO,
         'CONTACTO_NO_EDITABLE' => self::TIPO_ERROR,
         'AVISO_PREPARADO' => self::TIPO_EXITO,
-        'AVISO_VIGENTE' => self::TIPO_INFORMACION,
-        'AVISO_EN_COOLDOWN' => self::TIPO_ADVERTENCIA,
-        'AVISOS_LIMITE_ALCANZADO' => self::TIPO_ADVERTENCIA,
+        'AVISO_REENVIO_NO_DISPONIBLE' => self::TIPO_CONFLICTO,
         'CONTACTO_AGREGADO' => self::TIPO_EXITO,
         'AFECTACION_ATENDIDA_MANUALMENTE' => self::TIPO_EXITO,
         'LINK_PRUEBA_GENERADO' => self::TIPO_INFORMACION,
@@ -235,7 +235,7 @@ final class ReservacionErrorCatalog
         'CONFIGURACION_RESERVACIONES_ACTUALIZADA' => self::TIPO_EXITO,
         'CONFIGURACION_RESERVACIONES_INVALIDA' => self::TIPO_ERROR,
         'N8N_SECRET_INVALIDO' => self::TIPO_ERROR,
-        'NOTIFICACION_EVENTO_INVALIDO' => self::TIPO_ERROR,
+        'NOTIFICACION_RUTA_INVALIDA' => self::TIPO_ERROR,
         'NOTIFICACION_URL_FALTANTE' => self::TIPO_ERROR,
         'NOTIFICACION_SECRET_FALTANTE' => self::TIPO_ERROR,
         'NOTIFICACION_PAYLOAD_INVALIDO' => self::TIPO_ERROR,
@@ -244,7 +244,7 @@ final class ReservacionErrorCatalog
         'NOTIFICACION_NO_ACEPTADA' => self::TIPO_ERROR,
         'NOTIFICACION_CONFIGURACION_INVALIDA' => self::TIPO_ERROR,
         'NOTIFICACION_ACEPTADA' => self::TIPO_EXITO,
-        'NOTIFICACION_ACEPTADA_DESARROLLO' => self::TIPO_INFORMACION,
+        'NOTIFICACION_PREPARADA_DESARROLLO' => self::TIPO_INFORMACION,
         'NOTIFICACION_CALLBACK_INVALIDO' => self::TIPO_ERROR,
         'NOTIFICACION_SOURCE_NO_ENCONTRADO' => self::TIPO_ERROR,
         'NOTIFICACION_CALLBACK_STALE' => self::TIPO_INFORMACION,
@@ -355,6 +355,12 @@ final class ReservacionErrorCatalog
             'titulo' => 'Límite de intentos alcanzado',
             'mensaje' => 'Solicita un código nuevo para continuar.',
             'consecuencia' => 'El código actual ya no puede utilizarse.',
+            'acciones' => [['id' => 'SOLICITAR_CODIGO', 'tipo' => 'primary']],
+        ],
+        'OTP_ENVIO_FALLIDO' => [
+            'titulo' => 'No pudimos enviar el código',
+            'mensaje' => 'No pudimos enviar el código. Puedes volver a intentarlo cuando termine la espera.',
+            'consecuencia' => 'La reservación pendiente se conserva para que puedas solicitar otro código.',
             'acciones' => [['id' => 'SOLICITAR_CODIGO', 'tipo' => 'primary']],
         ],
         'VERIFICACION_NO_ENCONTRADA' => [
@@ -583,25 +589,13 @@ final class ReservacionErrorCatalog
         'AVISO_PREPARADO' => [
             'titulo' => 'Aviso preparado',
             'mensaje' => 'El aviso quedó preparado y el acceso temporal fue generado.',
-            'consecuencia' => 'La entrega externa se integrará posteriormente mediante n8n.',
+            'consecuencia' => 'El estado de transporte se actualizará sin resolver la afectación.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
-        'AVISO_VIGENTE' => [
-            'titulo' => 'Aviso vigente',
-            'mensaje' => 'Todavía hay un acceso válido para esta reservación.',
-            'consecuencia' => 'Podrás enviar otro aviso cuando termine el acceso actual.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'AVISO_EN_COOLDOWN' => [
-            'titulo' => 'Espera un momento',
-            'mensaje' => 'Aún no puedes enviar otro aviso.',
-            'consecuencia' => 'El siguiente intento estará disponible después del periodo de espera.',
-            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
-        ],
-        'AVISOS_LIMITE_ALCANZADO' => [
-            'titulo' => 'Límite de avisos alcanzado',
-            'mensaje' => 'Esta reservación ya recibió el máximo de avisos.',
-            'consecuencia' => 'Gestiona la reservación desde su detalle administrativo.',
+        'AVISO_REENVIO_NO_DISPONIBLE' => [
+            'titulo' => 'Reenvío no disponible',
+            'mensaje' => 'El segundo intento ya se utilizó o el primero todavía sigue vigente.',
+            'consecuencia' => 'Continúa la gestión desde el detalle de la reservación.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'ACCESO_CAMBIO_HORARIO_INVALIDO' => [
@@ -798,6 +792,11 @@ final class ReservacionErrorCatalog
             'titulo' => 'Código enviado',
             'mensaje' => 'Si el contacto es válido, recibirás un código.',
             'consecuencia' => 'La verificación queda pendiente.',
+            'acciones' => [['id' => 'VERIFICAR_CODIGO', 'tipo' => 'primary']],
+        ],
+        'CODIGO_CONFIRMACION_ENVIADO' => [
+            'titulo' => 'Código enviado',
+            'mensaje' => 'Código enviado por {canal}.',
             'acciones' => [['id' => 'VERIFICAR_CODIGO', 'tipo' => 'primary']],
         ],
         'RESERVACION_CONFIRMADA' => [

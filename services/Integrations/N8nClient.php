@@ -21,7 +21,7 @@ final class N8nClient
     }
 
     /** @return array{ok:bool,accepted:bool,codigo:string,http_status?:int} */
-    public function post(string $path, array $payload): array
+    public function post(string $path, array $payload, int $expectedStatus = 202, int $timeoutSeconds = 8): array
     {
         $path = '/' . ltrim(trim($path), '/');
         if (preg_match('#^/webhook/[a-zA-Z0-9_/-]+$#', $path) !== 1
@@ -44,7 +44,7 @@ final class N8nClient
         try {
             $response = $this->transport
                 ? ($this->transport)($url, $this->secret, $json)
-                : $this->curl($url, $json);
+                : $this->curl($url, $json, $timeoutSeconds);
         } catch (\Throwable) {
             error_log('N8nClient::post - fallo de conexión redactado.');
             return self::failure('NOTIFICACION_CONEXION_FALLIDA');
@@ -61,7 +61,7 @@ final class N8nClient
             return self::failure('NOTIFICACION_RESPUESTA_INVALIDA', $status);
         }
 
-        $accepted = $status === 202
+        $accepted = $status === $expectedStatus
             && ($body['ok'] ?? false) === true
             && ($body['accepted'] ?? false) === true;
 
@@ -70,11 +70,12 @@ final class N8nClient
             'accepted' => $accepted,
             'codigo' => $accepted ? 'NOTIFICACION_ACEPTADA' : 'NOTIFICACION_NO_ACEPTADA',
             'http_status' => $status,
+            'channel' => is_string($body['channel'] ?? null) ? $body['channel'] : null,
         ];
     }
 
     /** @return array{status:int,body:string,error:string} */
-    private function curl(string $url, string $json): array
+    private function curl(string $url, string $json, int $timeoutSeconds): array
     {
         if (!function_exists('curl_init')) {
             return ['status' => 0, 'body' => '', 'error' => 'curl_unavailable'];
@@ -84,7 +85,7 @@ final class N8nClient
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_TIMEOUT => max(1, min(30, $timeoutSeconds)),
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'Accept: application/json',
