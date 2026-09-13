@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -17,6 +18,8 @@ function load(filename) {
   assert.equal(raw.includes('"credentials"'), false, `${filename}: credentials`);
   assert.equal(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(raw), false, `${filename}: PII email`);
   assert.equal(/\+52\d{10}/.test(raw), false, `${filename}: PII WhatsApp`);
+  assert.equal(new Set(workflow.nodes.map((item) => item.id)).size, workflow.nodes.length, `${filename}: ids de nodo únicos`);
+  assert.equal(new Set(workflow.nodes.map((item) => item.name)).size, workflow.nodes.length, `${filename}: nombres de nodo únicos`);
   for (const item of workflow.nodes) {
     assert.match(item.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i, `${filename}: id de nodo importable`);
     if (item.webhookId) {
@@ -37,13 +40,14 @@ function runCode(code, json, env = {}) {
   return Function('$json', '$env', code)(json, env);
 }
 
-function basePayload(event, channel, attempt = 1) {
+function basePayload(event, channel, attempt = 1, whatsappMode = 'text') {
   return {
     schema_version: 1,
     event,
     source_id: 17,
     reservation_id: 23,
     attempt,
+    transport: { whatsapp_mode: whatsappMode },
     contact: {
       type: channel,
       value: channel === 'email' ? 'fixture@example.test' : '+525500000001',
@@ -85,6 +89,41 @@ function jsonReferences(parameters) {
     .sort();
 }
 
+function phpContractMode(environment) {
+  const autoload = path.join(root, 'vendor', 'autoload.php').replaceAll('\\', '/').replaceAll("'", "\\'");
+  const code = [
+    `require '${autoload}';`,
+    `$_ENV['APP_ENV'] = '${environment}';`,
+    "$payload = \\Services\\Reservations\\Notifications\\ReservationNotificationContract::build('reservation.reminder', 1, 2, 1, 'email', 'fixture@example.test', 'Fixture', '2037-01-15', '18:00', 2, []);",
+    "echo json_encode($payload['transport']);",
+  ].join(' ');
+  return JSON.parse(execFileSync('php', ['-r', code], { encoding: 'utf8' }));
+}
+
+function expectedWhatsAppText(input) {
+  const name = String(input.recipient?.name || 'Cliente');
+  const data = input.data || {};
+  if (input.event === 'reservation.confirmation') {
+    const code = String(data.confirmation_code || '');
+    const expiry = data.expires_at ? `\n\nVence el ${data.expires_at}.` : '';
+    return data.purpose === 'contact_access'
+      ? `Hola ${name},\n\nTu código de acceso a Mis reservaciones es: ${code}.\n\nÚsalo para consultar y gestionar tus reservaciones.${expiry}`
+      : `Hola ${name},\n\nTu código de confirmación de Casa Pestalozzi es: ${code}.\n\nÚsalo para confirmar tu reservación.${expiry}`;
+  }
+  if (input.event === 'reservation.reminder') {
+    const reservation = input.reservation || {};
+    const guests = Number(reservation.guests || 0);
+    const people = guests === 1 ? 'persona' : 'personas';
+    const management = data.management_url ? `\n\nPuedes revisar, modificar o cancelar tu reservación aquí:\n${data.management_url}` : '';
+    const expiry = data.access_expires_at ? `\n\nEste acceso vence el ${data.access_expires_at}.` : '';
+    return `Hola ${name},\n\nTe recordamos tu reservación en Casa Pestalozzi para el ${reservation.date} a las ${reservation.time}, para ${guests} ${people}.${management}${expiry}`;
+  }
+  const reservation = input.reservation || {};
+  const management = data.management_url ? `\n\nElige otro horario o cancela tu reservación aquí:\n${data.management_url}` : '';
+  const expiry = data.access_expires_at ? `\n\nEste acceso vence el ${data.access_expires_at}.` : '';
+  return `Hola ${name},\n\nUn cambio en nuestro horario afecta tu reservación del ${reservation.date} a las ${reservation.time}.${management}${expiry}`;
+}
+
 function assertChannelRouting(workflow, input, channel, label) {
   const switchNode = node(workflow, 'Switch channel');
   const rules = switchNode.parameters.rules.values;
@@ -106,9 +145,25 @@ function assertChannelRouting(workflow, input, channel, label) {
   assert.equal(connections[0][0].node, 'Normalizar Email', `${label}: rama Email`);
   assert.equal(connections[1][0].node, 'Normalizar WhatsApp', `${label}: rama WhatsApp`);
   assert.equal(workflow.connections['Normalizar Email'].main[0][0].node, 'Enviar Email', `${label}: Email llega a SMTP`);
-  assert.equal(workflow.connections['Normalizar WhatsApp'].main[0][0].node, 'Enviar WhatsApp', `${label}: WhatsApp llega a WhatsApp`);
-  assert.equal(reachableNodes(workflow, 'Normalizar Email').has('Enviar WhatsApp'), false, `${label}: rama Email no alcanza WhatsApp`);
+  assert.equal(workflow.connections['Normalizar WhatsApp'].main[0][0].node, 'Resolver modo WhatsApp', `${label}: WhatsApp llega al selector de modo`);
+  assert.equal(reachableNodes(workflow, 'Normalizar Email').has('Enviar WhatsApp Text'), false, `${label}: rama Email no alcanza WhatsApp Text`);
+  assert.equal(reachableNodes(workflow, 'Normalizar Email').has('Enviar WhatsApp Template'), false, `${label}: rama Email no alcanza WhatsApp Template`);
   assert.equal(reachableNodes(workflow, 'Normalizar WhatsApp').has('Enviar Email'), false, `${label}: rama WhatsApp no alcanza SMTP`);
+
+  const modeSwitch = node(workflow, 'Resolver modo WhatsApp');
+  const modeRules = modeSwitch.parameters.rules.values;
+  assert.equal(modeRules.length, 2, `${label}: selector WhatsApp tiene dos modos`);
+  assert.equal(modeRules[0].outputKey, 'text', `${label}: salida text canónica`);
+  assert.equal(modeRules[1].outputKey, 'template', `${label}: salida template canónica`);
+  assert.equal(modeRules[0].conditions.conditions[0].leftValue, '={{ $json.mode }}', `${label}: selector usa mode`);
+  assert.equal(modeRules[1].conditions.conditions[0].leftValue, '={{ $json.mode }}', `${label}: selector usa mode`);
+  assert.equal(modeRules[0].conditions.conditions[0].rightValue, 'text', `${label}: regla text`);
+  assert.equal(modeRules[1].conditions.conditions[0].rightValue, 'template', `${label}: regla template`);
+  assert.deepEqual(jsonReferences(modeSwitch.parameters), ['mode'], `${label}: selector sólo depende de mode`);
+  assert.ok(String(modeSwitch.notes || '').includes('transport.whatsapp_mode'), `${label}: selector documenta el origen del modo`);
+  const modeConnections = workflow.connections['Resolver modo WhatsApp'].main;
+  assert.equal(modeConnections[0][0].node, 'Enviar WhatsApp Text', `${label}: mode=text llega a Send`);
+  assert.equal(modeConnections[1][0].node, 'Enviar WhatsApp Template', `${label}: mode=template llega a Send Template`);
 
   const metadata = {
     schema_version: input.schema_version,
@@ -133,7 +188,9 @@ function assertChannelRouting(workflow, input, channel, label) {
     : {
       ...metadata,
       channel: 'whatsapp',
+      mode: input.transport.whatsapp_mode,
       to: input.contact.value,
+      text: expectedWhatsAppText(input),
       template: input.whatsapp_template,
       components: input.whatsapp_components,
       purpose: input.data.purpose,
@@ -142,6 +199,7 @@ function assertChannelRouting(workflow, input, channel, label) {
   assertOnlyKeys(normalized.json, Object.keys(expected), `${label}: contrato ${channel} cerrado`);
   assert.equal(normalizerCode.includes('...n'), false, `${label}: normalizador no propaga el payload común`);
   assert.equal(normalizerCode.includes('...$json'), false, `${label}: normalizador no propaga $json`);
+  assert.equal(normalizerCode.includes('$env'), false, `${label}: normalizador no depende de variables de entorno n8n`);
   if (channel === 'email') {
     assert.equal(normalizerCode.includes('whatsapp_template'), false, `${label}: Email no depende del template WhatsApp`);
     assert.equal(normalizerCode.includes('whatsapp_components'), false, `${label}: Email no depende de componentes WhatsApp`);
@@ -160,39 +218,62 @@ function assertChannelRouting(workflow, input, channel, label) {
   assert.equal(emailParameters.subject, '={{ $json.subject }}', `${label}: SMTP subject aislado`);
   assert.equal(emailParameters.text, '={{ $json.message }}', `${label}: SMTP body aislado`);
   assert.deepEqual(jsonReferences(emailParameters), ['message', 'subject', 'to'], `${label}: SMTP sólo consume contrato Email`);
-  const whatsappParameters = node(workflow, 'Enviar WhatsApp').parameters;
-  assert.equal(whatsappParameters.resource, 'message', `${label}: recurso WhatsApp existente`);
-  assert.equal(whatsappParameters.operation, 'sendTemplate', `${label}: conserva envío por template`);
-  assert.equal(whatsappParameters.recipientPhoneNumber, '={{ $json.to }}', `${label}: WhatsApp recipient aislado`);
-  assert.equal(whatsappParameters.components, '={{ $json.components }}', `${label}: WhatsApp components aislados`);
-  assert.deepEqual(jsonReferences(whatsappParameters), ['components', 'template', 'to'], `${label}: WhatsApp sólo consume su contrato`);
-  assert.ok(!JSON.stringify(whatsappParameters).includes('email_subject'), `${label}: WhatsApp no usa asunto Email`);
-  assert.ok(!JSON.stringify(whatsappParameters).includes('email_text'), `${label}: WhatsApp no usa texto Email`);
+  const whatsappTextParameters = node(workflow, 'Enviar WhatsApp Text').parameters;
+  assert.equal(whatsappTextParameters.resource, 'message', `${label}: recurso WhatsApp Text`);
+  assert.equal(whatsappTextParameters.operation, 'send', `${label}: TEST usa Message Send`);
+  assert.equal(whatsappTextParameters.recipientPhoneNumber, '={{ $json.to }}', `${label}: Text recipient aislado`);
+  assert.equal(whatsappTextParameters.textBody, '={{ $json.text }}', `${label}: Text body aislado`);
+  assert.deepEqual(jsonReferences(whatsappTextParameters), ['text', 'to'], `${label}: Send Text sólo consume to/text`);
+  assert.equal(JSON.stringify(whatsappTextParameters).includes('template'), false, `${label}: Send Text no consume template`);
+  assert.equal(JSON.stringify(whatsappTextParameters).includes('components'), false, `${label}: Send Text no consume components`);
+  assert.equal(JSON.stringify(whatsappTextParameters).includes('email_text'), false, `${label}: Send Text no consume Email`);
+
+  const whatsappTemplateParameters = node(workflow, 'Enviar WhatsApp Template').parameters;
+  assert.equal(whatsappTemplateParameters.resource, 'message', `${label}: recurso WhatsApp Template`);
+  assert.equal(whatsappTemplateParameters.operation, 'sendTemplate', `${label}: producción conserva Send Template`);
+  assert.equal(whatsappTemplateParameters.recipientPhoneNumber, '={{ $json.to }}', `${label}: Template recipient aislado`);
+  assert.equal(whatsappTemplateParameters.components, '={{ $json.components }}', `${label}: Template components aislados`);
+  assert.deepEqual(jsonReferences(whatsappTemplateParameters), ['components', 'template', 'to'], `${label}: Send Template sólo consume to/template/components`);
+  assert.equal(JSON.stringify(whatsappTemplateParameters).includes('$json.text'), false, `${label}: Send Template no consume text`);
+  assert.equal(JSON.stringify(whatsappTemplateParameters).includes('email_text'), false, `${label}: Send Template no consume Email`);
+
+  if (channel === 'whatsapp') {
+    const expectedTarget = input.transport.whatsapp_mode === 'text'
+      ? 'Enviar WhatsApp Text'
+      : 'Enviar WhatsApp Template';
+    const modeIndex = input.transport.whatsapp_mode === 'text' ? 0 : 1;
+    assert.equal(modeConnections[modeIndex][0].node, expectedTarget, `${label}: modo seleccionado llega al transporte correcto`);
+  }
 }
 
 const workflows = new Map(definitions.map(([filename]) => [filename, load(filename)]));
+assert.deepEqual(phpContractMode('development'), { whatsapp_mode: 'text' }, 'PHP development prepara modo text sin transportar');
+assert.deepEqual(phpContractMode('test'), { whatsapp_mode: 'text' }, 'PHP TEST selecciona WhatsApp Text');
+assert.deepEqual(phpContractMode('production'), { whatsapp_mode: 'template' }, 'PHP production selecciona WhatsApp Template');
 for (const workflow of workflows.values()) {
   node(workflow, 'Switch channel');
   node(workflow, 'Normalizar Email');
   node(workflow, 'Normalizar WhatsApp');
+  node(workflow, 'Resolver modo WhatsApp');
   assert.equal(node(workflow, 'Enviar Email').type, 'n8n-nodes-base.emailSend');
-  assert.equal(node(workflow, 'Enviar WhatsApp').type, 'n8n-nodes-base.whatsApp');
+  assert.equal(node(workflow, 'Enviar WhatsApp Text').type, 'n8n-nodes-base.whatsApp');
+  assert.equal(node(workflow, 'Enviar WhatsApp Template').type, 'n8n-nodes-base.whatsApp');
 }
 
 const confirmation = workflows.get('reservaciones-confirmacion.json');
 assert.equal(confirmation.nodes.filter((item) => item.type === 'n8n-nodes-base.webhook').length, 1);
 const confirmationValidator = node(confirmation, 'Validar secreto y contrato').parameters.jsCode;
-for (const channel of ['email', 'whatsapp']) {
-  const payload = basePayload('reservation.confirmation', channel);
+for (const [channel, mode] of [['email', 'text'], ['whatsapp', 'text'], ['whatsapp', 'template']]) {
+  const payload = basePayload('reservation.confirmation', channel, 1, mode);
   const result = runCode(confirmationValidator, {
     headers: { 'x-n8n-secret': 'fixture-secret' },
     body: payload,
   }, { N8N_SECRET: 'fixture-secret' });
-  assert.equal(result.json.accepted, true, `confirmación ${channel}`);
+  assert.equal(result.json.accepted, true, `confirmación ${channel} ${mode}`);
   const prepared = runCode(node(confirmation, 'Preparar confirmación').parameters.jsCode, result.json);
   assert.equal(typeof prepared.json.email_subject, 'string');
   assert.equal(typeof prepared.json.whatsapp_template, 'string');
-  assertChannelRouting(confirmation, prepared.json, channel, `confirmación ${channel}`);
+  assertChannelRouting(confirmation, prepared.json, channel, `confirmación ${channel} ${mode}`);
 }
 const confirmationForbidden = runCode(confirmationValidator, {
   headers: { 'x-n8n-secret': 'wrong' },
@@ -205,31 +286,43 @@ assert.equal(runCode(confirmationValidator, {
   headers: { 'x-n8n-secret': 'fixture-secret' },
   body: confirmationInvalid,
 }, { N8N_SECRET: 'fixture-secret' }).json.valid, false, 'confirmación 422');
-const contactAccess = basePayload('reservation.confirmation', 'whatsapp');
-contactAccess.reservation_id = null;
-contactAccess.reservation = null;
-contactAccess.data = { purpose: 'contact_access', confirmation_code: '123456', expires_at: '2037-01-14T18:05:00-06:00' };
+for (const mode of ['text', 'template']) {
+  const contactAccess = basePayload('reservation.confirmation', 'whatsapp', 1, mode);
+  contactAccess.reservation_id = null;
+  contactAccess.reservation = null;
+  contactAccess.data = { purpose: 'contact_access', confirmation_code: '123456', expires_at: '2037-01-14T18:05:00-06:00' };
+  const result = runCode(confirmationValidator, {
+    headers: { 'x-n8n-secret': 'fixture-secret' },
+    body: contactAccess,
+  }, { N8N_SECRET: 'fixture-secret' });
+  assert.equal(result.json.accepted, true, `confirmación contact_access ${mode}`);
+  const prepared = runCode(node(confirmation, 'Preparar confirmación').parameters.jsCode, result.json);
+  assertChannelRouting(confirmation, prepared.json, 'whatsapp', `contact_access whatsapp ${mode}`);
+  const normalized = runCode(node(confirmation, 'Normalizar WhatsApp').parameters.jsCode, prepared.json);
+  assert.ok(normalized.json.text.includes('Mis reservaciones'), `contact_access ${mode}: texto funcional propio`);
+}
+const confirmationInvalidMode = basePayload('reservation.confirmation', 'whatsapp', 1, 'invalid');
 assert.equal(runCode(confirmationValidator, {
   headers: { 'x-n8n-secret': 'fixture-secret' },
-  body: contactAccess,
-}, { N8N_SECRET: 'fixture-secret' }).json.accepted, true, 'confirmación contact_access');
+  body: confirmationInvalidMode,
+}, { N8N_SECRET: 'fixture-secret' }).json.valid, false, 'confirmación rechaza modo WhatsApp inválido');
 
 const reminder = workflows.get('reservaciones-recordatorio.json');
 assert.equal(reminder.nodes.filter((item) => item.type === 'n8n-nodes-base.scheduleTrigger').length, 1);
 const reminderValidator = node(reminder, 'Validar candidatos').parameters.jsCode;
-for (const channel of ['email', 'whatsapp']) {
-  const payload = basePayload('reservation.reminder', channel);
+for (const [channel, mode] of [['email', 'text'], ['whatsapp', 'text'], ['whatsapp', 'template']]) {
+  const payload = basePayload('reservation.reminder', channel, 1, mode);
   const candidates = runCode(reminderValidator, {
     ok: true,
     due: true,
     event: 'reservation.reminder',
     notifications: [payload],
   });
-  assert.equal(candidates.length, 1, `recordatorio ${channel}`);
+  assert.equal(candidates.length, 1, `recordatorio ${channel} ${mode}`);
   const prepared = runCode(node(reminder, 'Preparar recordatorio').parameters.jsCode, candidates[0].json);
   assert.equal(typeof prepared.json.email_subject, 'string');
   assert.equal(typeof prepared.json.whatsapp_template, 'string');
-  assertChannelRouting(reminder, prepared.json, channel, `recordatorio ${channel}`);
+  assertChannelRouting(reminder, prepared.json, channel, `recordatorio ${channel} ${mode}`);
 }
 const invalidReminder = basePayload('reservation.reminder', 'email');
 invalidReminder.contact.value = 'invalid';
@@ -239,22 +332,29 @@ assert.equal(runCode(reminderValidator, {
   event: 'reservation.reminder',
   notifications: [invalidReminder],
 }).length, 0, 'recordatorio defensivo');
+const invalidReminderMode = basePayload('reservation.reminder', 'whatsapp', 1, 'invalid');
+assert.equal(runCode(reminderValidator, {
+  ok: true,
+  due: true,
+  event: 'reservation.reminder',
+  notifications: [invalidReminderMode],
+}).length, 0, 'recordatorio rechaza modo WhatsApp inválido');
 
 const schedule = workflows.get('reservaciones-cambio-horario.json');
 assert.equal(schedule.nodes.filter((item) => item.type === 'n8n-nodes-base.webhook').length, 1);
 const scheduleValidator = node(schedule, 'Validar secreto y contrato').parameters.jsCode;
-for (const channel of ['email', 'whatsapp']) {
+for (const [channel, mode] of [['email', 'text'], ['whatsapp', 'text'], ['whatsapp', 'template']]) {
   for (const attempt of [1, 2]) {
-    const payload = basePayload('reservation.schedule_change', channel, attempt);
+    const payload = basePayload('reservation.schedule_change', channel, attempt, mode);
     const result = runCode(scheduleValidator, {
       headers: { 'x-n8n-secret': 'fixture-secret' },
       body: payload,
     }, { N8N_SECRET: 'fixture-secret' });
-    assert.equal(result.json.accepted, true, `cambio horario ${channel} attempt ${attempt}`);
+    assert.equal(result.json.accepted, true, `cambio horario ${channel} ${mode} attempt ${attempt}`);
     const prepared = runCode(node(schedule, 'Preparar cambio de horario').parameters.jsCode, result.json);
     assert.equal(typeof prepared.json.email_subject, 'string');
     assert.equal(typeof prepared.json.whatsapp_template, 'string');
-    assertChannelRouting(schedule, prepared.json, channel, `cambio horario ${channel} attempt ${attempt}`);
+    assertChannelRouting(schedule, prepared.json, channel, `cambio horario ${channel} ${mode} attempt ${attempt}`);
   }
 }
 const attemptThree = basePayload('reservation.schedule_change', 'email', 3);
@@ -262,8 +362,18 @@ assert.equal(runCode(scheduleValidator, {
   headers: { 'x-n8n-secret': 'fixture-secret' },
   body: attemptThree,
 }, { N8N_SECRET: 'fixture-secret' }).json.valid, false, 'attempt 3 bloqueado');
+const invalidScheduleMode = basePayload('reservation.schedule_change', 'whatsapp', 1, 'invalid');
+assert.equal(runCode(scheduleValidator, {
+  headers: { 'x-n8n-secret': 'fixture-secret' },
+  body: invalidScheduleMode,
+}, { N8N_SECRET: 'fixture-secret' }).json.valid, false, 'cambio horario rechaza modo WhatsApp inválido');
 
 for (const workflow of [reminder, schedule]) {
+  for (const transport of ['Enviar WhatsApp Text', 'Enviar WhatsApp Template']) {
+    const connections = workflow.connections[transport].main;
+    assert.equal(connections[0][0].node, 'WhatsApp delivered', `${workflow.name}: ${transport} conserva callback delivered`);
+    assert.equal(connections[1][0].node, 'WhatsApp failed', `${workflow.name}: ${transport} conserva callback failed`);
+  }
   for (const channel of ['Email', 'WhatsApp']) {
     for (const status of ['delivered', 'failed']) {
       const code = node(workflow, `${channel} ${status}`).parameters.jsCode;
@@ -273,4 +383,4 @@ for (const workflow of [reminder, schedule]) {
   }
 }
 
-process.stdout.write('Workflows de reservaciones: seis canales, callbacks y validación defensiva OK\n');
+process.stdout.write('Workflows de reservaciones: Email, WhatsApp Text/Template, callbacks y validación defensiva OK\n');

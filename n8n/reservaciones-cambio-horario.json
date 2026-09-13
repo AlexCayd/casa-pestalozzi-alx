@@ -13,7 +13,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || {};\nconst supplied = String(headers['x-n8n-secret'] || headers['X-N8N-Secret'] || '');\nconst expected = String($env.N8N_SECRET || '');\nconst authorized = expected.length > 0 && supplied === expected;\nconst positive = (value) => Number.isInteger(Number(value)) && Number(value) > 0;\nconst c = body.contact || {};\nconst r = body.reservation || {};\nconst d = body.data || {};\nconst validContact = c.type === 'email' ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(c.value || '')) : c.type === 'whatsapp' ? /^\\+52\\d{10}$/.test(String(c.value || '')) : false;\nconst valid = Number(body.schema_version) === 1 && body.event === 'reservation.schedule_change' && positive(body.source_id) && positive(body.reservation_id) && [1, 2].includes(Number(body.attempt)) && validContact && body.recipient && String(body.recipient.name || '').trim() !== '' && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(r.date || '')) && /^\\d{2}:\\d{2}$/.test(String(r.time || '')) && positive(r.guests) && /^https?:\\/\\/[^\\s]+$/i.test(String(d.management_url || '')) && !Number.isNaN(Date.parse(String(d.access_expires_at || '')));\nreturn { json: { authorized, valid, accepted: authorized && valid, notification: authorized && valid ? body : null } };"
+        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || {};\nconst supplied = String(headers['x-n8n-secret'] || headers['X-N8N-Secret'] || '');\nconst expected = String($env.N8N_SECRET || '');\nconst authorized = expected.length > 0 && supplied === expected;\nconst positive = (value) => Number.isInteger(Number(value)) && Number(value) > 0;\nconst c = body.contact || {};\nconst r = body.reservation || {};\nconst d = body.data || {};\nconst t = body.transport || {};\nconst validContact = c.type === 'email' ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(c.value || '')) : c.type === 'whatsapp' ? /^\\+52\\d{10}$/.test(String(c.value || '')) : false;\nconst validMode = ['text', 'template'].includes(String(t.whatsapp_mode || ''));\nconst valid = Number(body.schema_version) === 1 && body.event === 'reservation.schedule_change' && positive(body.source_id) && positive(body.reservation_id) && [1, 2].includes(Number(body.attempt)) && validContact && validMode && body.recipient && String(body.recipient.name || '').trim() !== '' && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(r.date || '')) && /^\\d{2}:\\d{2}$/.test(String(r.time || '')) && positive(r.guests) && /^https?:\\/\\/[^\\s]+$/i.test(String(d.management_url || '')) && !Number.isNaN(Date.parse(String(d.access_expires_at || '')));\nreturn { json: { authorized, valid, accepted: authorized && valid, notification: authorized && valid ? body : null } };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -64,12 +64,28 @@
       "name": "Normalizar Email"
     },
     {
-      "parameters": {"mode": "runOnceForEachItem", "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst data = n.data || {};\nif (contact.type !== 'whatsapp') return [];\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'whatsapp', to: String(contact.value || ''), template: String(n.whatsapp_template || ''), components: n.whatsapp_components || {}, purpose: String(data.purpose || '') } };"},
+      "parameters": {"mode": "runOnceForEachItem", "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst recipient = n.recipient || {};\nconst reservation = n.reservation || {};\nconst data = n.data || {};\nconst transport = n.transport || {};\nif (contact.type !== 'whatsapp') return [];\nconst mode = String(transport.whatsapp_mode || '');\nif (!['text', 'template'].includes(mode)) return [];\nconst name = String(recipient.name || 'Cliente');\nconst management = data.management_url ? `\\n\\nElige otro horario o cancela tu reservación aquí:\\n${data.management_url}` : '';\nconst expiry = data.access_expires_at ? `\\n\\nEste acceso vence el ${data.access_expires_at}.` : '';\nconst text = `Hola ${name},\\n\\nUn cambio en nuestro horario afecta tu reservación del ${reservation.date} a las ${reservation.time}.${management}${expiry}`;\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'whatsapp', mode, to: String(contact.value || ''), text, template: String(n.whatsapp_template || ''), components: n.whatsapp_components || {}, purpose: String(data.purpose || '') } };"},
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [220, 140],
       "id": "b2000001-0000-4000-8000-000000000014",
       "name": "Normalizar WhatsApp"
+    },
+    {
+      "parameters": {
+        "rules": {"values": [
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-wa-text", "leftValue": "={{ $json.mode }}", "rightValue": "text", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "text"},
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-wa-template", "leftValue": "={{ $json.mode }}", "rightValue": "template", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "template"}
+        ]},
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [460, 140],
+      "id": "b2000001-0000-4000-8000-000000000016",
+      "name": "Resolver modo WhatsApp",
+      "notes": "El modo llega desde PHP en transport.whatsapp_mode: test usa text y production usa template."
     },
     {
       "parameters": {"fromEmail": "={{ $env.RESERVATION_EMAIL_FROM }}", "toEmail": "={{ $json.to }}", "subject": "={{ $json.subject }}", "emailFormat": "text", "text": "={{ $json.message }}", "options": {}},
@@ -81,12 +97,21 @@
       "onError": "continueErrorOutput"
     },
     {
+      "parameters": {"resource": "message", "operation": "send", "phoneNumberId": "={{ $env.RESERVATION_WHATSAPP_PHONE_NUMBER_ID }}", "recipientPhoneNumber": "={{ $json.to }}", "textBody": "={{ $json.text }}", "additionalFields": {}},
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [700, 60],
+      "id": "b2000001-0000-4000-8000-000000000015",
+      "name": "Enviar WhatsApp Text",
+      "onError": "continueErrorOutput"
+    },
+    {
       "parameters": {"resource": "message", "operation": "sendTemplate", "phoneNumberId": "={{ $env.RESERVATION_WHATSAPP_PHONE_NUMBER_ID }}", "recipientPhoneNumber": "={{ $json.to }}", "template": "={{ $json.template + '|' + ($env.RESERVATION_WHATSAPP_TEMPLATE_LANGUAGE || 'es_MX') }}", "components": "={{ $json.components }}"},
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1.1,
-      "position": [220, 120],
+      "position": [700, 220],
       "id": "b2000001-0000-4000-8000-000000000007",
-      "name": "Enviar WhatsApp",
+      "name": "Enviar WhatsApp Template",
       "onError": "continueErrorOutput"
     },
     {
@@ -140,9 +165,11 @@
     "Preparar cambio de horario": {"main": [[{"node": "Switch channel", "type": "main", "index": 0}]]},
     "Switch channel": {"main": [[{"node": "Normalizar Email", "type": "main", "index": 0}], [{"node": "Normalizar WhatsApp", "type": "main", "index": 0}]]},
     "Normalizar Email": {"main": [[{"node": "Enviar Email", "type": "main", "index": 0}]]},
-    "Normalizar WhatsApp": {"main": [[{"node": "Enviar WhatsApp", "type": "main", "index": 0}]]},
+    "Normalizar WhatsApp": {"main": [[{"node": "Resolver modo WhatsApp", "type": "main", "index": 0}]]},
+    "Resolver modo WhatsApp": {"main": [[{"node": "Enviar WhatsApp Text", "type": "main", "index": 0}], [{"node": "Enviar WhatsApp Template", "type": "main", "index": 0}]]},
     "Enviar Email": {"main": [[{"node": "Email delivered", "type": "main", "index": 0}], [{"node": "Email failed", "type": "main", "index": 0}]]},
-    "Enviar WhatsApp": {"main": [[{"node": "WhatsApp delivered", "type": "main", "index": 0}], [{"node": "WhatsApp failed", "type": "main", "index": 0}]]},
+    "Enviar WhatsApp Text": {"main": [[{"node": "WhatsApp delivered", "type": "main", "index": 0}], [{"node": "WhatsApp failed", "type": "main", "index": 0}]]},
+    "Enviar WhatsApp Template": {"main": [[{"node": "WhatsApp delivered", "type": "main", "index": 0}], [{"node": "WhatsApp failed", "type": "main", "index": 0}]]},
     "Email delivered": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
     "Email failed": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
     "WhatsApp delivered": {"main": [[{"node": "Registrar resultado", "type": "main", "index": 0}]]},
