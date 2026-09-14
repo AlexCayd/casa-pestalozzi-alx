@@ -78,4 +78,20 @@ OTP anterior inválido, refresh/nueva sesión, dos procesos concurrentes y visib
 post-commit desde otra conexión. PASS. Runner crea/elimina sólo una BD temporal;
 la BD configurada en includes/.env no recibe migraciones.
 Riesgo: aplicar migración una vez durante ventana coordinada antes del nuevo código.
-Commit: commit que introduce esta sección; consultar historial de este archivo.
+Commit: `1d19b91`.
+
+## Etapa 4 — UX de reenvío
+
+Objetivo: presentar el cupo y cooldown que decide PHP. Causa: el botón anterior
+no reflejaba el estado persistente. Archivos: componente reservation-resend,
+form.js, reservation-access.js, vista _reserva.php, bundles y test de UI.
+Decisiones: contador por fecha límite, bloqueo inmediato de doble clic, fallo
+cerrado ante respuestas incompletas y consulta de estado sin reenviar al volver
+a capturar el contacto tras refresh. No se guarda contacto ni OTP en storage.
+La skill impeccable orientó anuncios accesibles sólo por transición y mensajes
+neutros cuando no existe evidencia de aceptación; no se rediseñó la interfaz.
+Tests: simulador JS de contador/cupo/concurrencia/limpieza PASS; build JS PASS.
+Navegador sobre base desechable: primer envío muestra 2 reenvíos y contador;
+primer reenvío muestra 1 y reinicia contador. Transporte development simulado.
+Resultado: interfaz conectada al backend; límites y concurrencia cubiertos en DB.
+Riesgo: no sustituye ensayo con SMTP/Meta reales. Commit: el de esta sección.

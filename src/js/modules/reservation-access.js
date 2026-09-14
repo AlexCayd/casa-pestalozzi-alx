@@ -36,6 +36,8 @@ function initReservationAccess() {
   var otpInput = root.querySelector("[data-otp-input]");
   var otpError = root.querySelector("[data-contact-otp-error]");
   var message = root.querySelector("[data-contact-message]");
+  var developmentCode = root.querySelector("[data-contact-development-code]");
+  var developmentCodeValue = root.querySelector("[data-contact-development-code-value]");
   var portal = root.querySelector("[data-reservation-portal]");
   var list = root.querySelector("[data-reservation-list]");
   var summary = root.querySelector("[data-reservation-summary]");
@@ -47,6 +49,19 @@ function initReservationAccess() {
   var editorTemplate = document.querySelector("[data-reservation-editor-template]");
   var contactValues = { email: "", telefono: "" };
   var activeContactType = "email";
+  var requestingCode = false;
+  var resendControl = window.ReservationResend.create({
+    button: root.querySelector("[data-contact-resend]"),
+    remaining: root.querySelector("[data-contact-resend-remaining]"),
+    announcement: root.querySelector("[data-contact-resend-status]")
+  });
+
+  function codeRequest(endpoint) {
+    return jsonRequest(endpoint, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
+    });
+  }
 
   function csrfTokenValue() {
     return csrfToken ? csrfToken.getAttribute("data-reservation-csrf") || "" : "";
@@ -217,6 +232,13 @@ function initReservationAccess() {
     message.classList.toggle("is-error", Boolean(error));
   }
 
+  function setDevelopmentCode(data) {
+    if (!developmentCode || !developmentCodeValue) return;
+    var code = String((data && data.development_confirmation_code) || "");
+    developmentCode.hidden = !/^\d{6}$/.test(code);
+    developmentCodeValue.textContent = developmentCode.hidden ? "" : code;
+  }
+
   function setOtpError(text) {
     if (!otpError || !otpInput) return;
     var hasError = Boolean(text);
@@ -259,6 +281,7 @@ function initReservationAccess() {
 
   requestForm.addEventListener("submit", function(event) {
     event.preventDefault();
+    if (requestingCode) return;
     setMessage("");
 
     currentIdentity = {
@@ -271,26 +294,35 @@ function initReservationAccess() {
       return;
     }
 
-    jsonRequest("/api/reservaciones/contacto/codigo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
+    requestingCode = true;
+    requestForm.querySelectorAll("input, button").forEach(function(control) { control.disabled = true; });
+    codeRequest("/api/reservaciones/contacto/estado").then(function(state) {
+      // Un refresh no genera otro OTP: recupera el ciclo existente desde PHP.
+      if (state.ok && state.expires_at) return state;
+      return window.ReservationResend.withRecovery(function() {
+        return codeRequest("/api/reservaciones/contacto/codigo");
+      }, function() { return codeRequest("/api/reservaciones/contacto/estado"); });
     }).then(function(data) {
-      if (!data.ok) {
+      if (!window.ReservationResend.needsVerification(data)) {
         setMessage(data.mensaje || "No fue posible solicitar el código.", true);
         return;
       }
 
       verifyForm.hidden = false;
+      resendControl.update(data);
+      setDevelopmentCode(data);
       requestForm.querySelectorAll("input, button").forEach(function(control) {
         control.disabled = true;
       });
       if (contactMasked) contactMasked.textContent = maskContact(currentIdentity.contacto, currentIdentity.tipo);
       otpInput.value = "";
-      setMessage(data.mensaje || "Código solicitado.");
+      setMessage(window.ReservationResend.message(data), !data.ok);
       otpInput.focus();
     }).catch(function() {
       setMessage("No fue posible solicitar el código.", true);
+    }).finally(function() {
+      requestingCode = false;
+      if (verifyForm.hidden) requestForm.querySelectorAll("input, button").forEach(function(control) { control.disabled = false; });
     });
   });
 
@@ -330,6 +362,7 @@ function initReservationAccess() {
         return;
       }
       setOtpError("");
+      resendControl.reset();
       loadReservations();
     }).catch(function() {
       setOtpError("No fue posible verificar el código.");
@@ -342,11 +375,14 @@ function initReservationAccess() {
   });
 
   root.querySelector("[data-contact-restart]").addEventListener("click", function() {
+    if (resendControl.isBusy()) return;
+    resendControl.reset();
     currentIdentity = null;
     requestForm.querySelectorAll("input, button").forEach(function(control) {
       control.disabled = false;
     });
     verifyForm.hidden = true;
+    setDevelopmentCode(null);
     otpInput.value = "";
     setOtpError("");
     setMessage("");
@@ -356,17 +392,14 @@ function initReservationAccess() {
   root.querySelector("[data-contact-resend]").addEventListener("click", function() {
     if (!currentIdentity) return;
     setMessage("");
-    jsonRequest("/api/reservaciones/contacto/codigo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, currentIdentity, { csrf_token: csrfTokenValue() }))
-    }).then(function(data) {
-      if (!data.ok) {
-        setMessage(data.mensaje || "No fue posible reenviar el código.", true);
-        return;
-      }
-      setMessage(data.mensaje || "Enviamos un código nuevo.");
-    }).catch(function() {
+    resendControl.run(function() {
+      return window.ReservationResend.withRecovery(function() {
+        return codeRequest("/api/reservaciones/contacto/codigo");
+      }, function() { return codeRequest("/api/reservaciones/contacto/estado"); });
+    }, function(data) {
+      setDevelopmentCode(data);
+      setMessage(window.ReservationResend.message(data), !data.ok);
+    }, function() {
       setMessage("No fue posible reenviar el código.", true);
     });
   });
