@@ -114,9 +114,9 @@ Las observaciones de una reservación son operativas: pueden incluir celebració
 ## Comunicaciones y gestión por acceso temporal
 
 Las comunicaciones operativas de reservaciones usan dos eventos:
-`reservation.schedule_change` y `reservation.reminder_next_day`. PHP conserva
+`reservation.schedule_change` y `reservation.reminder`. PHP conserva
 la elegibilidad, deduplicación, token, vigencia, capacidad y acciones de
-dominio; n8n sólo transporta el mensaje y devuelve `delivered` o `failed`.
+dominio; n8n sólo transporta el mensaje y devuelve `accepted` o `failed`.
 
 La configuración del recordatorio vive en
 `/admin/configuracion/reservaciones`. Es una fila única de base de datos,
@@ -137,12 +137,12 @@ mantiene la cancelación mientras la política temporal lo permita. El éxito
 invalida la fuente exacta; sólo un `schedule_change` resuelve además la
 afectación y cierra su seguimiento de buzón.
 
-Los estados `pending`, `accepted`, `delivered` y `failed` describen únicamente
-el transporte. `delivered` no confirma, cancela ni resuelve una reservación. Un
+Los estados `pending`, `accepted` y `failed` describen únicamente
+el transporte. `accepted` acredita aceptación del proveedor, no entrega ni lectura,
+y no confirma, cancela ni resuelve una reservación. Un
 fallo invalida el acceso y, para afectaciones, vuelve accionable el buzón.
 
-La referencia normativa completa está en [Arquitectura de comunicaciones de
-reservaciones con n8n](arquitectura_notificaciones_reservaciones_n8n.md).
+La referencia normativa completa está en [Notificaciones de reservaciones](notificaciones.md).
 
 ## Referencias vigentes
 

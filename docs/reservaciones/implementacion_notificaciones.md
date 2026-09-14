@@ -218,3 +218,18 @@ Tests: guardia no-legacy, 25 suites PHP y 7 comandos JS PASS; búsqueda global
 clasificada. Resultado: no hay legacy runtime del módulo. Riesgo: reimportar un
 export antiguo rompería el contrato; usar sólo los tres JSON actuales.
 Commit: el de esta sección. Archivos retirados recuperables desde Git/baseline.
+
+Commit etapa 11: `811596d`.
+
+## Etapa 12 — Documentación vigente
+
+Objetivo: una jerarquía sin contradicciones. Causa: fuentes anteriores permitían
+subworkflow, 202 OTP y delivered. Archivos: arquitectura.md, config.md,
+notificaciones.md, reservaciones.md, privacidad.md, banner de migracion_services
+y test de enlaces. n8n/README/deploy y afectaciones se alinearon en etapas 6/8.
+Decisiones: fuente funcional única; plan general conservado como histórico,
+no retirado por afectar otras áreas. Se documentan ciclos, secretos, estados,
+claim incierto, migraciones una sola vez y límites operativos; no se afirma E2E real.
+Tests: enlaces relativos del conjunto normativo y búsqueda de referencias antiguas.
+Resultado: documentación coincide con código y exports. Riesgo: operador debe
+validar infraestructura/credenciales antes de activar. Commit: el de esta sección.
