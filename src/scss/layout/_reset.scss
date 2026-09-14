@@ -46,6 +46,46 @@
   --confirmation-surface: var(--surface);
   --confirmation-text: var(--txt);
 
+  /* El resto del vocabulario del diálogo, por la MISMA razón y con una vuelta
+     de tuerca. Los dos de arriba faltaban en todas partes; éstos existen aquí
+     —son roles del sitio público— pero NO en `.admin-body`, que es donde el
+     panel monta el mismo componente. Ahí `--scrim`, `--accent` o `--on-accent`
+     no están declarados, así que `background: color-mix(… var(--scrim) …)` era
+     una declaración inválida y el velo salía TRANSPARENTE: se borraba un gasto
+     fijo con el módulo entero a brillo pleno detrás.
+
+     Se resuelve dando al diálogo roles propios en vez de puentear los nombres
+     públicos hacia el panel: meter `--accent` o `--on-accent` en `.admin-body`
+     reviviría justo la confusión que CLAUDE.md prohíbe, y haría que empezaran
+     a aplicarse en silencio declaraciones inválidas de otros componentes. */
+  --confirmation-scrim: var(--scrim);
+  --confirmation-accent: var(--accent);
+  --confirmation-accent-soft: var(--accent-soft);
+  --confirmation-accent-text: var(--accent-text);
+  --confirmation-on-accent: var(--on-accent);
+  --confirmation-strong: var(--txt-strong);
+  --confirmation-faint: var(--txt-faint);
+  --confirmation-field-bg: var(--surface);
+  --confirmation-shadow: var(--sombra);
+  /* En la landing el titular del diálogo SÍ va en la serif de la casa: el
+     componente aparece sobre páginas compuestas en Bodoni. El panel lo
+     redeclara a su sans, que es su única voz. */
+  --confirmation-heading-font: var(--serif, Georgia, serif);
+
+  /* Éxito y peligro. Igual que arriba: --feedback-ok y --feedback-danger están
+     declarados en el árbol público y dentro de `puente-tokens-publicos`, pero
+     NO en `.admin-body`, así que en el panel el botón destructivo se quedaba
+     literalmente sin relleno rojo y el icono sin color.
+
+     --confirmation-danger es el rojo PLENO del relleno; --confirmation-danger-text
+     el rojo legible como TEXTO sobre el fondo del modo activo. No son el mismo
+     valor, y usar el segundo como relleno es lo que deja un botón apagado. */
+  --confirmation-ok: var(--feedback-ok);
+  --confirmation-danger: var(--c-rojo);
+  --confirmation-danger-text: var(--feedback-danger);
+  /* El rojo de la paleta funcional no admite texto oscuro encima. */
+  --confirmation-on-danger: var(--brand-crema);
+
   @include tokens-vidrio;
 }
 
@@ -264,6 +304,20 @@
      de la landing y saldría claro sobre una pantalla oscura. */
   --confirmation-surface: var(--surface);
   --confirmation-text: var(--txt);
+  --confirmation-scrim: var(--scrim);
+  --confirmation-accent: var(--accent);
+  --confirmation-accent-soft: var(--accent-soft);
+  --confirmation-accent-text: var(--accent-text);
+  --confirmation-on-accent: var(--on-accent);
+  --confirmation-strong: var(--txt-strong);
+  --confirmation-faint: var(--txt-faint);
+  --confirmation-field-bg: var(--surface);
+  --confirmation-shadow: var(--sombra);
+  --confirmation-heading-font: var(--serif, Georgia, serif);
+  --confirmation-ok: var(--feedback-ok);
+  --confirmation-danger: var(--c-rojo);
+  --confirmation-danger-text: var(--feedback-danger);
+  --confirmation-on-danger: var(--brand-crema);
 }
 
 // ── Tonos de sección ──────────────────────────────────────────

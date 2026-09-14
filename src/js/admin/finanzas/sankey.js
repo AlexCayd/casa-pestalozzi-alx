@@ -30,6 +30,25 @@
     var HUECO_NODO = 22;
     var MARGEN_Y = 14;
     var GAP_ETIQUETA = 10;
+    /*
+     * EL ALTO LO DECIDE EL DIAGRAMA, NO LA HOJA DE ESTILOS.
+     *
+     * Estaba al revés: el contenedor traía `height: clamp(380px, 40vw, 480px)`
+     * y el dibujo se repartía dentro. Con eso, el alto de la caja no tenía nada
+     * que ver con lo que hay que dibujar —cinco nodos o nueve ocupaban lo
+     * mismo— y cualquier desajuste entre la caja y el viewBox se pagaba en
+     * banda vacía: el SVG sale a `width: 100%` con `preserveAspectRatio ...
+     * meet`, así que si las dos proporciones no coinciden el dibujo se reescala
+     * para caber y se centra, dejando el hueco arriba y abajo.
+     *
+     * Ahora el alto sale de la columna más poblada —que es la que de verdad
+     * necesita aire— y al final se ajusta a la extensión real de lo dibujado
+     * (ver «ceñir»). El contenedor recibe esa medida en píxeles, así que caja y
+     * viewBox miden lo mismo por construcción y no queda hueco que explicar.
+     */
+    var BANDA_NODO = 58;
+    var ALTO_MINIMO = 320;
+    var ALTO_MAXIMO = 520;
     // Un caudal por debajo de esto deja de ser señalable con el ratón. Se
     // dibuja más grueso de lo que le tocaría: miente sobre la magnitud, pero
     // la alternativa es un gasto que no se puede consultar.
@@ -139,8 +158,7 @@
         var colorDe = opts.color || function () { return 'currentColor'; };
 
         var ancho = contenedor.clientWidth || 900;
-        var alto = contenedor.clientHeight || 380;
-        if (ancho < 80 || alto < 80) return;
+        if (ancho < 80) return;
 
         var nombres = [];
         flujos.forEach(function (f) {
@@ -156,9 +174,27 @@
         var maxCol = 0;
         nombres.forEach(function (n) { if (col[n] > maxCol) maxCol = col[n]; });
 
+        // Nodos agrupados por columna. Se necesita aquí arriba porque de la
+        // columna más poblada sale el alto del lienzo.
+        var porColumna = {};
+        nombres.forEach(function (n) {
+            (porColumna[col[n]] = porColumna[col[n]] || []).push(n);
+        });
+
+        var maxNodos = 0;
+        Object.keys(porColumna).forEach(function (c) {
+            if (porColumna[c].length > maxNodos) maxNodos = porColumna[c].length;
+        });
+
+        // Una banda por nodo más su hueco, entre un suelo y un techo: cuatro
+        // nodos no necesitan lo mismo que nueve, y por encima del techo lo que
+        // crece es el blanco entre cintas, no la información.
+        var alto = 2 * MARGEN_Y + maxNodos * BANDA_NODO + (maxNodos - 1) * HUECO_NODO;
+        if (alto < ALTO_MINIMO) alto = ALTO_MINIMO;
+        if (alto > ALTO_MAXIMO) alto = ALTO_MAXIMO;
+
         var svg = crear('svg', {
             width: '100%',
-            height: '100%',
             viewBox: '0 0 ' + ancho + ' ' + alto,
             preserveAspectRatio: 'xMidYMid meet',
             role: 'img',
@@ -177,6 +213,11 @@
         var regla = crear('text', { x: -9999, y: -9999 });
         regla.setAttribute('font-size', '12');
         regla.setAttribute('font-weight', '700');
+        // Con la MISMA clase que los rótulos: son Geist Mono (finanzas.scss) y
+        // la regla, sin ella, medía en la sans heredada, que es más estrecha:
+        // cada etiqueta salía más larga de lo calculado y el paso entre
+        // columnas se quedaba corto justo donde escriben dos a la vez.
+        regla.classList.add('admin-sankey__rotulo');
         svg.appendChild(regla);
         function medir(texto) {
             regla.textContent = texto;
@@ -188,22 +229,28 @@
             etiqueta[n] = n + ' · ' + moneda(cifra[n]);
         });
 
-        // Las etiquetas de la primera columna van a la derecha del nodo y las
-        // de la última a la izquierda; las de en medio, a la derecha salvo que
-        // no quepan. Con eso el diagrama nunca desborda el contenedor.
-        var anchoIzq = 0;
-        var anchoDer = 0;
-        nombres.forEach(function (n) {
-            var w = medir(etiqueta[n]);
-            if (col[n] === maxCol) {
-                if (w > anchoDer) anchoDer = w;
-            } else if (col[n] === 0) {
-                if (w > anchoIzq) anchoIzq = w;
-            }
-        });
+        // Las etiquetas de la última columna van a la izquierda del nodo; las
+        // demás, a la derecha. Se miden todas una vez: el paso entre columnas
+        // sale de ellas (ver pasoMinimo).
+        var anchoRotulo = {};
+        nombres.forEach(function (n) { anchoRotulo[n] = medir(etiqueta[n]); });
 
         var padIzq = 4;
-        var padDer = anchoDer + GAP_ETIQUETA + 4;
+        /*
+         * A la derecha sólo hace falta el respiro del canto.
+         *
+         * Aquí se reservaba `anchoDer + GAP_ETIQUETA + 4`, el ancho completo de
+         * la etiqueta más larga de la última columna — unos 200 px que NADIE
+         * ocupaba: esa columna escribe hacia DENTRO (`alaIzquierda`, más abajo),
+         * que es justo el arreglo por el que se abandonó chartjs-chart-sankey.
+         * El diagrama se quedaba encogido contra el borde izquierdo con una
+         * franja vacía a la derecha del ancho de "Utilidad neta · $36,570".
+         *
+         * Lo que sí hay que comprobar es que la etiqueta de la última columna,
+         * al escribirse hacia la izquierda, no invada el nodo anterior: eso es
+         * un mínimo para el ÚLTIMO paso entre columnas, no un margen exterior.
+         */
+        var padDer = 6;
         var util = ancho - padIzq - padDer - ANCHO_NODO;
         // Con etiquetas larguísimas y un panel estrecho el espacio útil se
         // puede quedar en nada; ahí manda un mínimo y el SVG desborda a un
@@ -213,14 +260,12 @@
 
         // ── Posición vertical ───────────────────────────────────────
         //
+        // Va ANTES que la horizontal porque el paso entre columnas depende de
+        // ella: dos etiquetas sólo chocan si comparten altura.
+        //
         // Por columna: se reparte el alto disponible en proporción al caudal.
         // El orden dentro de la columna es por magnitud descendente, que es lo
         // que evita que los caudales se crucen y el diagrama parezca un nudo.
-        var porColumna = {};
-        nombres.forEach(function (n) {
-            (porColumna[col[n]] = porColumna[col[n]] || []).push(n);
-        });
-
         var escala = Infinity;
         Object.keys(porColumna).forEach(function (c) {
             var lista = porColumna[c];
@@ -242,7 +287,6 @@
             lista.forEach(function (n) {
                 var h = Math.max(valor[n] * escala, GROSOR_MINIMO);
                 caja[n] = {
-                    x: padIzq + col[n] * pasoX,
                     y: y,
                     h: h,
                     // Cursores para ir apilando los caudales que entran y los
@@ -252,6 +296,126 @@
                 };
                 y += h + HUECO_NODO;
             });
+        });
+
+        /*
+         * Ceñir el lienzo a lo dibujado.
+         *
+         * El reparto de arriba centra cada columna por su cuenta, y el redondeo
+         * al GROSOR_MINIMO de un caudal diminuto —la merma suele serlo— hace que
+         * una columna acabe midiendo algo más o algo menos que las otras. El
+         * resultado es una franja muerta arriba y abajo, o un nodo asomando por
+         * el canto.
+         *
+         * Aquí se mide la extensión REAL de los nodos, se sube el dibujo al
+         * margen superior y el alto pasa a ser el que ocupa: el contenedor no
+         * puede tener más hueco que el diagrama porque los dos son la misma
+         * medida. Hay que hacerlo antes de dibujar las cintas, que arrancan de
+         * los cursores `salida` y `entrada`.
+         */
+        var arriba = Infinity;
+        var abajo = -Infinity;
+        nombres.forEach(function (n) {
+            if (!caja[n]) return;
+            if (caja[n].y < arriba) arriba = caja[n].y;
+            if (caja[n].y + caja[n].h > abajo) abajo = caja[n].y + caja[n].h;
+        });
+        if (isFinite(arriba) && isFinite(abajo)) {
+            var desplazar = MARGEN_Y - arriba;
+            nombres.forEach(function (n) {
+                if (!caja[n]) return;
+                caja[n].y += desplazar;
+                caja[n].salida += desplazar;
+                caja[n].entrada += desplazar;
+            });
+            alto = Math.round(abajo - arriba + 2 * MARGEN_Y);
+        }
+
+        /*
+         * El paso mínimo entre columnas, calculado choque por choque.
+         *
+         * Recuperar el margen derecho dejó a la vista lo que ese margen
+         * escondía: en el hueco entre las dos últimas columnas escriben DOS
+         * etiquetas —la penúltima hacia la derecha, la última hacia la
+         * izquierda—, y en un panel estrecho «Costo de insumos · $123,456»
+         * podía montarse sobre «Utilidad neta · $36,570». Reservar la suma de las dos
+         * más largas siempre obligaría a hacer scroll aunque no coincidieran en
+         * altura, así que se comprueba sólo lo que de verdad comparte franja:
+         * etiqueta contra etiqueta, y etiqueta contra el nodo de enfrente.
+         */
+        var MEDIA_ETIQUETA = 9;
+        var SEPARACION = 12;
+        function franjaEtiqueta(n) {
+            var centro = caja[n].y + caja[n].h / 2;
+            return [centro - MEDIA_ETIQUETA, centro + MEDIA_ETIQUETA];
+        }
+        function solapan(a, b) { return a[0] < b[1] && b[0] < a[1]; }
+        var pasoMinimo = 0;
+        for (var k = 0; k < maxCol; k++) {
+            (porColumna[k] || []).forEach(function (a) {
+                // La columna k escribe a la derecha salvo que sea la última,
+                // y aquí nunca lo es.
+                var fa = franjaEtiqueta(a);
+                (porColumna[k + 1] || []).forEach(function (b) {
+                    var nodoB = [caja[b].y, caja[b].y + caja[b].h];
+                    var bIzquierda = k + 1 === maxCol;
+                    var necesario = 0;
+                    if (solapan(fa, nodoB)) {
+                        necesario = ANCHO_NODO + GAP_ETIQUETA + anchoRotulo[a] + 6;
+                    }
+                    if (bIzquierda && solapan(fa, franjaEtiqueta(b))) {
+                        necesario = Math.max(necesario,
+                            ANCHO_NODO + 2 * GAP_ETIQUETA + anchoRotulo[a] + anchoRotulo[b] + SEPARACION);
+                    }
+                    if (bIzquierda && solapan(franjaEtiqueta(b), [caja[a].y, caja[a].y + caja[a].h])) {
+                        necesario = Math.max(necesario, ANCHO_NODO + GAP_ETIQUETA + anchoRotulo[b] + 6);
+                    }
+                    if (necesario > pasoMinimo) pasoMinimo = necesario;
+                });
+            });
+        }
+
+        // Si no cabe, se ensancha el lienzo y el contenedor lo resuelve con su
+        // scroll horizontal — que para eso está.
+        if (maxCol > 0 && pasoX < pasoMinimo) {
+            pasoX = pasoMinimo;
+            util = pasoX * maxCol;
+            ancho = padIzq + util + ANCHO_NODO + padDer;
+            /*
+             * El lienzo crece más allá del contenedor, así que el ancho pasa a
+             * ser un número de píxeles y deja de ser `100%`.
+             *
+             * Es la diferencia entre desbordar y encoger: con `width:100%` un
+             * viewBox más ancho que la caja NO produce scroll —el
+             * `preserveAspectRatio ... meet` reescala el dibujo entero para que
+             * quepa y lo centra, dejando dos bandas vacías arriba y abajo—. Ése
+             * era el hueco muerto bajo el diagrama. En píxeles, el SVG sale de
+             * la caja y el scroll horizontal del contenedor hace su trabajo.
+             */
+            svg.setAttribute('width', ancho);
+            svg.style.width = ancho + 'px';
+            svg.style.flex = '0 0 auto';
+        }
+
+        /*
+         * La medida definitiva, en los tres sitios a la vez: viewBox, caja del
+         * SVG y caja del contenedor. Escrita en píxeles y no en porcentaje, que
+         * es lo que garantiza que la proporción del viewBox sea exactamente la
+         * de la caja: mientras no coincidan, `meet` reescala y centra el dibujo,
+         * y la diferencia sale en forma de banda vacía.
+         */
+        svg.setAttribute('viewBox', '0 0 ' + ancho + ' ' + alto);
+        svg.setAttribute('height', alto);
+        svg.style.height = alto + 'px';
+        svg.style.display = 'block';
+        // El contenedor NO lleva alto propio: lo toma de este SVG. Fijárselo
+        // desde aquí volvería a abrir la puerta al desajuste —cuando el lienzo
+        // desborda a la derecha, la barra de scroll se lleva unos píxeles de la
+        // caja y el diagrama acabaría recortado por abajo.
+
+        // ── Posición horizontal ─────────────────────────────────────
+        nombres.forEach(function (n) {
+            caja[n].x = padIzq + col[n] * pasoX;
         });
 
         // ── Degradados ──────────────────────────────────────────────
@@ -371,7 +535,19 @@
             // cursor, o se saldría del panel.
             var volteado = x > caja.width - tip.offsetWidth - 24;
             tip.style.left = (volteado ? x - tip.offsetWidth - 14 : x + 14) + 'px';
-            tip.style.top = (y + 14) + 'px';
+            /*
+             * Y lo mismo en vertical, que antes no hacía falta.
+             *
+             * El contenedor ciñe ahora el alto al dibujo y recorta con
+             * `overflow-y: hidden`, así que ya no hay banda muerta debajo donde
+             * el globo pudiera asomar: al señalar una cinta del tercio inferior
+             * salía cortado a media línea. Se voltea por encima del cursor
+             * cuando no cabe debajo.
+             */
+            var arribaDelCursor = y + 14 + tip.offsetHeight > caja.height;
+            tip.style.top = (arribaDelCursor
+                ? Math.max(0, y - tip.offsetHeight - 14)
+                : y + 14) + 'px';
         }
 
         function ocultarTip() { tip.hidden = true; }

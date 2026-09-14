@@ -11,13 +11,28 @@
     var charts = {};
     var data = null;
 
-    // Clases de la matriz: color, etiqueta y emoji.
+    /*
+     * Clases de la matriz de Kasavana-Smith: etiqueta e icono.
+     *
+     * Los cuatro emojis que había (⭐ 🐎 ❓ 🐕) los pintaba la fuente del
+     * sistema, así que no heredaban el color del chip —seguían en su paleta
+     * aunque el tema cambiara—, cambiaban de forma entre plataformas y se
+     * salían de la caja tipográfica del badge. Ahora salen del catálogo común
+     * (core/icons.js), que viaja en admin.js y carga antes que este bundle.
+     */
     var CLASES = {
-        estrella:  { label: 'Estrella',  emoji: '⭐' },
-        vaca:      { label: 'Vaca',      emoji: '🐎' },
-        incognita: { label: 'Incógnita', emoji: '❓' },
-        perro:     { label: 'Perro',     emoji: '🐕' }
+        estrella:  { label: 'Estrella',  icono: 'cuadrante-estrella' },
+        vaca:      { label: 'Vaca',      icono: 'cuadrante-vaca' },
+        incognita: { label: 'Incógnita', icono: 'cuadrante-incognita' },
+        perro:     { label: 'Perro',     icono: 'cuadrante-perro' }
     };
+
+    // El catálogo llega en admin.js. Si por lo que sea no estuviera, la
+    // etiqueta se pinta sola: preferible un chip sin icono que un chip roto.
+    function iconoClase(clave, tamano) {
+        if (!window.AdminIcons) return '';
+        return window.AdminIcons.get(CLASES[clave] ? CLASES[clave].icono : '', tamano || 14);
+    }
 
     function money(n) {
         return new Intl.NumberFormat('es-MX', {
@@ -111,7 +126,7 @@
         if (summaryEl) {
             summaryEl.innerHTML = Object.keys(CLASES).map(function (k) {
                 return '<span class="admin-nivel1-chip admin-nivel1-chip--' + k + '">' +
-                    CLASES[k].emoji + ' ' + CLASES[k].label +
+                    iconoClase(k, 14) + CLASES[k].label +
                     '<strong>' + (resumen[k] || 0) + '</strong></span>';
             }).join('');
         }
@@ -141,7 +156,7 @@
                         '<span class="admin-table__cell-sub">' + it.categoria + '</span></td>' +
                     '<td data-sort-value="' + attr(it.claseLabel) + '">' +
                         '<span class="admin-nivel1-badge admin-nivel1-badge--' + it.clase + '">' +
-                        CLASES[it.clase].emoji + ' ' + it.claseLabel + '</span></td>' +
+                        iconoClase(it.clase, 14) + it.claseLabel + '</span></td>' +
                     '<td class="admin-table__num" data-sort-value="' + attr(it.margen) + '">' +
                         '<span class="admin-table__cell-main">' + money2(it.margen) + '</span>' +
                         '<span class="admin-table__cell-sub">' + it.unidades + ' uds · ' + it.margenPct + '%</span>' +
@@ -166,7 +181,7 @@
         });
         var datasets = Object.keys(CLASES).map(function (k) {
             return {
-                label: CLASES[k].emoji + ' ' + CLASES[k].label,
+                label: CLASES[k].label,
                 data: byClass[k],
                 backgroundColor: pal[k],
                 pointRadius: 5,

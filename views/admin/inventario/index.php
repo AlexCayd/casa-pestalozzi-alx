@@ -358,6 +358,7 @@
                                               data-ingrediente-nombre="<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"
                                               data-confirm-eyebrow="Eliminar ingrediente"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($ing->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Se borrará del inventario y de las recetas que lo usan."
                                               data-confirm-consequence="También se pierde su bitácora de movimientos. Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $ing->id; ?>">

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../partials/_icons.php';
 $pendientes = is_array($pendientes ?? null) ? $pendientes : [];
 $resultadoPendientes = is_array($resultadoPendientes ?? null) ? $resultadoPendientes : null;
 ?>
@@ -41,7 +42,7 @@ $resultadoPendientes = is_array($resultadoPendientes ?? null) ? $resultadoPendie
         <div class="admin-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="process-expired-title" data-admin-modal-dialog>
             <div class="admin-modal__head">
                 <div><span class="admin-modal__eyebrow">Confirmación</span><h2 id="process-expired-title" class="admin-modal__title">Procesar <?php echo (int)($pendientes['total'] ?? 0); ?> pendientes</h2></div>
-                <button type="button" class="admin-modal__close" data-admin-modal-close>&times;</button>
+                <button type="button" class="admin-modal__close" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
             </div>
             <p class="admin-modal__text">Solo se procesarán retenciones vencidas; las pendientes vigentes no cambiarán.</p>
             <form method="POST" action="/admin/reservaciones/herramientas-desarrollo/procesar-vencidas">

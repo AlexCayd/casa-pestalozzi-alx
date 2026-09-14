@@ -19,7 +19,23 @@
   cursor: pointer;
   transition: color var(--admin-t-fast) var(--admin-ease-out), border-color var(--admin-t-fast) var(--admin-ease-out), background var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out), opacity var(--admin-t-fast) var(--admin-ease-out);
 
-  svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+  // 2.15 como los otros dos botones de la barra. Aquí estaba en 1.7 y los de
+  // reportar y salir en 1.8: tres círculos idénticos con el dibujo de uno
+  // ligeramente más fino que el de los demás, sin que la diferencia
+  // significara nada. El drop-shadow, igual que en support: el fondo es
+  // sólido, así que recorta el trazo en vez de emborronarlo.
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.15;
+    // El color del relieve lo decide --tono-relieve en _topbar.scss: aquí la
+    // tinta es papel, así que la sombra es oscura.
+    filter: drop-shadow(0 1px 0.5px var(--tono-relieve));
+  }
 
   // Los ESTADOS ya no cambian el relleno, porque el relleno es el que identifica
   // al botón: el buzón es azul haya o no mensajes, igual que el de reportar es
@@ -150,7 +166,8 @@
 }
 
 @include mixins.down(vars.$breakpoint-mobile) {
-  .admin-topbar__inbox { width: 34px; height: 34px; flex-basis: 34px; svg { width: 16px; height: 16px; } }
+  // stroke-width 2 en la caja pequeña, igual que los otros dos (ver _topbar).
+  .admin-topbar__inbox { width: 34px; height: 34px; flex-basis: 34px; svg { width: 16px; height: 16px; stroke-width: 2; } }
   .admin-inbox__drawer { width: min(100vw, 480px); }
   .admin-inbox__header { padding: 20px 16px 17px; }
   .admin-inbox__close { top: 16px; right: 16px; }

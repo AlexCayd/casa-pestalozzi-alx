@@ -73,6 +73,58 @@
     max-width: 720px;
   }
 
+  /* Los formularios largos ocupan el ancho del panel y reparten en dos
+     columnas. 720px es la medida correcta para un formulario de dos o tres
+     campos —una columna de lectura cómoda—, pero con ocho campos y tres grupos
+     de opciones se convierte en una tira vertical con la mitad derecha del
+     módulo vacía. Es un modificador y no un cambio del valor base porque
+     .admin-menu__panel--form lo comparten cinco vistas y las otras cuatro sí
+     son formularios cortos. */
+  &__panel--wide {
+    max-width: none;
+  }
+
+  &__panel--wide &__form {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    align-items: start;
+    gap: 14px 18px;
+  }
+
+  /* Cada campo es su propia celda de la rejilla: sin este envoltorio, la
+     etiqueta y su input caen en columnas distintas y el formulario se lee en
+     zigzag. */
+  &__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+
+    // Lo que no se parte en dos: el nombre, los grupos de opciones, el check y
+    // la fila de botones.
+    &--full { grid-column: 1 / -1; }
+  }
+
+  // El bloque de campos de conexión es a su vez una rejilla de dos columnas
+  // (host y puerto), y ocupa la fila entera del formulario.
+  &__panel--wide &__conexion {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px 18px;
+
+    // Mismo motivo que el `[hidden]` de siempre: este bloque declara su
+    // `display` y el script del formulario lo oculta con el atributo.
+    &[hidden] { display: none; }
+  }
+
+  // El check comparte fila con el ancho y se alinea con su CAMPO, no con su
+  // rótulo: abajo y a la altura del input.
+  &__panel--wide &__check {
+    align-self: end;
+    min-height: 46px;
+    margin: 0;
+  }
+
   &__panel-head {
     display: flex;
     align-items: flex-start;
@@ -188,7 +240,14 @@
     display: grid;
     gap: 12px;
 
-    label {
+    // Las pills también son <label>, y sin la exclusión heredaban el rótulo de
+    // campo entero: versalitas, tracking y gris. El texto de cada opción —y su
+    // explicación— salía en mayúsculas, que es como gritar la ayuda.
+    //
+    // Dentro de :where() para no subir la especificidad: un :not() a secas la
+    // lleva a (0,2,1) y le gana a `.admin-menu__check label`, que va después y
+    // depende de empatar para devolver el texto del checkbox a su caja normal.
+    label:where(:not(.admin-pill)) {
       color: var(--admin-muted);
       font-size: 12px;
       font-weight: 700;
@@ -196,7 +255,11 @@
       text-transform: uppercase;
     }
 
-    input,
+    // Los radios quedan fuera: son el control de las pills, que dibujan su
+    // propia caja. Sin la exclusión heredaban el `min-height: 44px`, el padding
+    // y el borde de un campo de texto y cada opción salía como un rectángulo
+    // gigante en vez de un punto.
+    input:not([type="radio"]),
     select,
     textarea {
       width: 100%;

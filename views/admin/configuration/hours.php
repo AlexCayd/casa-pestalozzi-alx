@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../partials/_icons.php';
 $horarios = is_array($horarios ?? null) ? $horarios : [];
 $excepciones = is_array($excepciones ?? null) ? $excepciones : [];
 $alertas = is_array($alertas ?? null) ? $alertas : [];
@@ -240,7 +241,7 @@ $horasDelDia = range(0, 23);
                 <span class="admin-modal__eyebrow">Horario especial</span>
                 <h2 class="admin-modal__title" id="exception-modal-title">Registrar excepción</h2>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <form action="/admin/configuracion/horarios/excepciones/guardar" method="post" class="admin-modal__form" data-exception-form novalidate>
@@ -354,7 +355,7 @@ $horasDelDia = range(0, 23);
                 <span class="admin-modal__eyebrow">Cambios pendientes</span>
                 <h2 class="admin-modal__title" id="schedule-unsaved-title">Salir sin guardar</h2>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <p class="admin-modal__text" id="schedule-unsaved-description">

@@ -65,6 +65,51 @@
 .admin-menu__panel--form {
   max-width: 720px;
 }
+.admin-menu {
+  /* Los formularios largos ocupan el ancho del panel y reparten en dos
+     columnas. 720px es la medida correcta para un formulario de dos o tres
+     campos —una columna de lectura cómoda—, pero con ocho campos y tres grupos
+     de opciones se convierte en una tira vertical con la mitad derecha del
+     módulo vacía. Es un modificador y no un cambio del valor base porque
+     .admin-menu__panel--form lo comparten cinco vistas y las otras cuatro sí
+     son formularios cortos. */
+}
+.admin-menu__panel--wide {
+  max-width: none;
+}
+.admin-menu__panel--wide .admin-menu__form {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+  gap: 14px 18px;
+}
+.admin-menu {
+  /* Cada campo es su propia celda de la rejilla: sin este envoltorio, la
+     etiqueta y su input caen en columnas distintas y el formulario se lee en
+     zigzag. */
+}
+.admin-menu__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-menu__field--full {
+  grid-column: 1/-1;
+}
+.admin-menu__panel--wide .admin-menu__conexion {
+  display: grid;
+  grid-column: 1/-1;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+}
+.admin-menu__panel--wide .admin-menu__conexion[hidden] {
+  display: none;
+}
+.admin-menu__panel--wide .admin-menu__check {
+  align-self: end;
+  min-height: 46px;
+  margin: 0;
+}
 .admin-menu__panel-head {
   display: flex;
   align-items: flex-start;
@@ -158,14 +203,14 @@
   display: grid;
   gap: 12px;
 }
-.admin-menu__form label {
+.admin-menu__form label:where(:not(.admin-pill)) {
   color: var(--admin-muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.admin-menu__form input,
+.admin-menu__form input:not([type=radio]),
 .admin-menu__form select,
 .admin-menu__form textarea {
   width: 100%;
@@ -177,7 +222,7 @@
   color: var(--admin-text);
   font: inherit;
 }
-.admin-menu__form input:focus,
+.admin-menu__form input:not([type=radio]):focus,
 .admin-menu__form select:focus,
 .admin-menu__form textarea:focus {
   border-color: var(--admin-gold);

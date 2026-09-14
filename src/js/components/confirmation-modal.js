@@ -197,6 +197,87 @@
         // Campo de confirmación por escrito del diálogo abierto, si lo pidió.
         var campoRequerido = null;
 
+        /*
+         * Salida animada.
+         *
+         * `close()` quitaba `.is-open` y ponía `[hidden]` en la misma vuelta, y
+         * `display:none` cancela cualquier transición en curso: el diálogo
+         * desaparecía de golpe por mucho que el SCSS declarara una salida. Ahora
+         * el ocultado real se aplaza hasta que termina.
+         *
+         * `generacion` es el seguro. Entre el cierre y el fin de la animación
+         * cabe una apertura nueva —`open()` llama a `close()` cuando ya hay un
+         * diálogo en pantalla—, y el temporizador viejo dejaría `[hidden]`
+         * puesto sobre el diálogo recién abierto: una llamada que no hace nada
+         * visible y un modal que no aparece. Cada apertura y cada cierre suben
+         * el contador; el diferido sólo actúa si sigue siendo el suyo.
+         */
+        var generacion = 0;
+        var salidaPendiente = null;
+        var cerrando = false;
+
+        function cancelarSalida() {
+            if (salidaPendiente) {
+                window.clearTimeout(salidaPendiente);
+                salidaPendiente = null;
+            }
+            cerrando = false;
+        }
+
+        function ocultarRoot() {
+            root.hidden = true;
+            root.setAttribute('aria-hidden', 'true');
+            root.inert = true;
+            cerrando = false;
+            salidaPendiente = null;
+        }
+
+        function programarOcultado() {
+            var mia = generacion;
+            // Se lee del CSS para no duplicar el número en dos sitios: quien
+            // ajuste la duración toca el SCSS y esto la sigue. El respaldo cubre
+            // el caso de que la hoja aún no haya pintado.
+            var declarada = 0;
+            try {
+                declarada = parseFloat(
+                    window.getComputedStyle(root).getPropertyValue('--confirmation-out')
+                ) || 0;
+            } catch (error) {
+                declarada = 0;
+            }
+            // El valor viene en ms si trae la unidad; si alguien lo declara en
+            // segundos, parseFloat devuelve un número pequeño.
+            var ms = declarada > 0 ? (declarada < 20 ? declarada * 1000 : declarada) : 180;
+            salidaPendiente = window.setTimeout(function () {
+                if (mia !== generacion) return;
+                ocultarRoot();
+            }, ms + 30);
+        }
+
+        /*
+         * Icono de cabecera y aspa de cierre. En el panel salen del catálogo de
+         * AdminIcons (core/icons.js, que viaja en admin.js): el «!» y el «×»
+         * eran glifos de la fuente, con otro grosor y otra caja que el resto de
+         * iconos del panel. Fuera de él —landing, piso— no hay catálogo y se
+         * quedan los glifos, que es el respaldo de siempre. Un icono que pase
+         * quien abre el diálogo (options.icon) manda sobre los dos.
+         */
+        function pintarIcono(options) {
+            var catalogo = window.AdminIcons && typeof window.AdminIcons.get === 'function'
+                ? window.AdminIcons
+                : null;
+            if (options.icon || !catalogo) {
+                icon.textContent = textValue(options.icon || (options.variant === 'danger' ? '!' : 'i'));
+                return;
+            }
+            var nombre = options.variant === 'danger' || options.variant === 'warning' ? 'alerta' : 'info';
+            icon.innerHTML = catalogo.get(nombre, 20);
+        }
+
+        if (window.AdminIcons && typeof window.AdminIcons.get === 'function') {
+            closeButton.innerHTML = window.AdminIcons.get('cerrar', 18);
+        }
+
         title.id = 'confirmation-modal-title-' + id;
         description.id = 'confirmation-modal-description-' + id;
         dialog.setAttribute('aria-labelledby', title.id);
@@ -235,11 +316,16 @@
         }
 
         function close(restoreFocus, result) {
-            if (root.hidden) return;
+            if (root.hidden || cerrando) return;
+            generacion++;
+            cerrando = true;
             root.classList.remove('is-open', 'is-loading');
-            root.hidden = true;
+            // Fuera del árbol de foco YA —nadie debe tabular a un diálogo que se
+            // está yendo—, pero visible hasta que la transición acabe. El
+            // `[hidden]` real lo pone programarOcultado().
             root.setAttribute('aria-hidden', 'true');
             root.inert = true;
+            programarOcultado();
             dialog.removeAttribute('aria-busy');
             primary.disabled = false;
             secondary.disabled = false;
@@ -261,7 +347,11 @@
         }
 
         function requestClose(restoreFocus, result) {
-            if (root.hidden || root.classList.contains('is-loading')) return false;
+            // `cerrando` cubre la ventana de la animación de salida: ahí el root
+            // todavía no tiene [hidden], así que sin esta guarda la función
+            // devolvía true sin cerrar nada y los manejadores de los botones
+            // —que la usan como permiso— disparaban su callback dos veces.
+            if (root.hidden || cerrando || root.classList.contains('is-loading')) return false;
             if (current && (current.closeBehavior === 'non_cancelable' || current.close_behavior === 'non_cancelable')) return false;
             close(restoreFocus, result || { action: 'cancel' });
             return true;
@@ -396,6 +486,11 @@
             if (!root.hidden) {
                 close(false, { action: 'reopened' });
             }
+            // Invalida el ocultado diferido del cierre anterior y descarta su
+            // temporizador: sin esto, reabrir dentro de la ventana de salida
+            // dejaba el diálogo nuevo con [hidden] puesto.
+            generacion++;
+            cancelarSalida();
             current = Object.assign({}, options);
             current.closeBehavior = options.closeBehavior || options.close_behavior || 'cancelable';
             current.decisionActions = canonicalDecisionActions(options);
@@ -410,7 +505,7 @@
             root.hidden = false;
             root.removeAttribute('aria-hidden');
             root.inert = false;
-            icon.textContent = textValue(options.icon || (options.variant === 'danger' ? '!' : 'i'));
+            pintarIcono(options);
             eyebrow.textContent = textValue(options.eyebrow || 'Confirmación');
             title.textContent = textValue(options.title || 'Confirma esta acción');
             description.textContent = textValue(options.description || 'Revisa el resumen y las consecuencias antes de continuar.');
@@ -442,6 +537,16 @@
             bloquearScrollDocumento();
             bodyScrollLocked = true;
             if (options.loading || options.initial_loading) setLoading(true);
+            // Lectura de layout a propósito: obliga al navegador a calcular el
+            // estado de partida (opacidad 0, desplazado) ANTES de que llegue
+            // .is-open. Un elemento que sale de display:none no tiene estilo
+            // previo desde el que transicionar, y el requestAnimationFrame solo
+            // no basta —su callback corre antes del recálculo de estilos del
+            // mismo fotograma—, así que la entrada se saltaba y el diálogo
+            // aparecía de golpe. Cuando se reabre durante la salida no hace
+            // falta, pero tampoco estorba: la transición se invierte desde
+            // donde iba.
+            void root.offsetWidth;
             window.requestAnimationFrame(function () {
                 root.classList.add('is-open');
                 var preferred = resolveInitialFocus({

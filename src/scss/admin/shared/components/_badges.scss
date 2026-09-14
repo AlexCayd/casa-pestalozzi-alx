@@ -75,3 +75,55 @@
   border-color: color-mix(in srgb, currentColor 42%, transparent);
   background: color-mix(in srgb, currentColor 14%, var(--admin-surface));
 }
+
+/* ── Estrellas de calificación ──────────────────────────────────
+ *
+ * La fila de cinco de Feedback de clientes. Eran los glifos ★ y ☆ repetidos con
+ * str_repeat() y SIN una sola regla de CSS: los pintaba la fuente del sistema,
+ * así que el color lo decidía la plataforma —en algunas salen a color, y ahí el
+ * amarillo del emoji entraba en un panel que es blanco y negro— y la estrella
+ * VACÍA ni siquiera existe en todas las caras, de modo que en ciertos equipos la
+ * mitad de la fila eran rectángulos vacíos.
+ *
+ * Ahora las cinco son el mismo trazo SVG y lo que las distingue es el relleno,
+ * que es lo que hace que la fila se lea como UNA escala en vez de como dos
+ * símbolos distintos alternados.
+ *
+ * El color es el ámbar de la paleta funcional y no el acento del panel: aquí la
+ * calificación ES el dato, igual que en las series de una gráfica, así que entra
+ * en la excepción declarada de la regla de color (ver CLAUDE.md).
+ */
+.admin-fb__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+
+  &--empty {
+    color: var(--admin-faint);
+    font-size: 12px;
+    font-style: italic;
+  }
+}
+
+.admin-fb__star {
+  flex: 0 0 auto;
+  /* Apagada: sólo el contorno, y en la línea de CONTROL (--admin-border-strong,
+     el escalón que cumple el 3:1 de WCAG para elementos no textuales). Iba en
+     --admin-border, que es contorno de contenedor y sobre papel se queda en
+     1.3:1: las estrellas vacías desaparecían y con ellas la escala, que es lo
+     que convierte «tres rellenas» en «tres de cinco». */
+  fill: none;
+  stroke: var(--admin-border-strong);
+  stroke-width: 1.6;
+
+  /* Encendida: relleno ámbar con el CONTORNO oscurecido. El ámbar de la paleta
+     tiene luminancia 0.52 y sobre papel no llega a 2:1, así que la silueta de
+     la estrella se perdía en el tema claro justo donde el dato es la silueta.
+     El contorno en --admin-warning-text (el mismo ámbar rebajado con tinta) la
+     recorta a 6.5:1 sin cambiar el color que se percibe. */
+  &.is-on {
+    fill: var(--admin-c-ambar);
+    stroke: var(--admin-warning-text);
+  }
+}

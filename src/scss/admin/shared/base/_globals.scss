@@ -68,6 +68,61 @@
      indefinida invalida la declaración entera, y el modal salía transparente. */
   --confirmation-surface: var(--admin-surface-strong);
   --confirmation-text: var(--admin-text);
+
+  /* El resto del vocabulario del diálogo. Faltaba entero, y el que más se
+     notaba era el velo: `_confirmation-modal.scss` lo pintaba con --scrim, un
+     nombre que sólo existe dentro de `puente-tokens-publicos` —las cuatro
+     pantallas de PISO—, nunca en `.admin-body`. Indefinido, la declaración se
+     invalida y el fondo queda transparente: el diálogo de borrado se abría con
+     el módulo entero a brillo pleno detrás, sin nada que dijera que la página
+     estaba bloqueada.
+
+     La salida NO es puentear los nombres públicos hacia el panel. Sería
+     revivir la confusión que documenta CLAUDE.md —usar --accent o --on-accent
+     dentro del panel es un error, no un atajo— y, peor, haría que otras
+     declaraciones inválidas repartidas por los componentes empezaran a
+     aplicarse en silencio. El diálogo recibe roles PROPIOS y cada sistema los
+     resuelve con su paleta. */
+  --confirmation-scrim: var(--admin-scrim);
+  --confirmation-accent: var(--admin-accent);
+  --confirmation-accent-soft: var(--admin-accent-soft);
+  --confirmation-accent-text: var(--admin-accent);
+  --confirmation-on-accent: var(--admin-on-accent);
+  --confirmation-strong: var(--admin-text);
+  --confirmation-faint: var(--admin-faint);
+  --confirmation-field-bg: var(--admin-surface-soft);
+  --confirmation-shadow: var(--admin-sombra);
+  /* Sin serif: el panel tiene una sola voz y es Geist (ver CLAUDE.md). El
+     componente pedía var(--serif, Georgia, serif) y aquí caía al respaldo, así
+     que el titular del diálogo salía en Georgia — la única serif del panel, y
+     nadie la había elegido. */
+  --confirmation-heading-font: var(--admin-font-sans);
+  /* Y la voz del panel, que no es sólo la familia: rótulo en mono con el
+     tracking abierto y titular en sans apretada (ver «Tipografía del panel»
+     en CLAUDE.md). Sin esto el diálogo llevaba el rótulo de la landing —sans
+     pesada a 14 px—, el más ruidoso de todo el panel. Son opcionales en el
+     componente: la landing no los declara y se queda con su respaldo. */
+  --confirmation-label-font: var(--admin-font-mono);
+  --confirmation-label-size: 11px;
+  --confirmation-label-weight: 600;
+  --confirmation-label-tracking: 0.14em;
+  --confirmation-heading-tracking: -0.03em;
+
+  /* Éxito y peligro, el otro caso del mismo fallo: --feedback-ok y
+     --feedback-danger sólo viven dentro de `puente-tokens-publicos`. En el
+     panel el relleno del botón destructivo era una declaración inválida, así
+     que "Eliminar" salía sin fondo —texto suelto donde debía haber un botón
+     rojo— y el icono de advertencia, del color heredado.
+
+     --confirmation-danger es el rojo PLENO del relleno y --confirmation-danger-text
+     el rojo mezclado que se lee como texto sobre el fondo del tema. Confundirlos
+     es lo que apaga el botón. */
+  --confirmation-ok: var(--admin-success-text);
+  --confirmation-danger: var(--admin-c-rojo);
+  --confirmation-danger-text: var(--admin-danger-text);
+  /* --admin-c-rojo tiene luminancia baja: la tinta encima va en papel, no en
+     --admin-on-accent, que en tema claro es papel pero en oscuro es tinta. */
+  --confirmation-on-danger: var(--admin-paper);
 }
 
 /* ── Puente hacia los nombres públicos ─────────────────────────

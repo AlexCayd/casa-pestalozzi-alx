@@ -39,7 +39,11 @@
     height: 18px;
     fill: none;
     stroke: currentColor;
-    stroke-width: 1.8;
+    // 2.15, como los otros tres círculos de la barra. Se quedó en 1.8 cuando
+    // subieron ellos, y como la regla móvil de _topbar lo lleva a 2, el
+    // conmutador era el único icono del panel más fino en escritorio que en el
+    // teléfono.
+    stroke-width: 2.15;
     stroke-linecap: round;
     stroke-linejoin: round;
     transition:

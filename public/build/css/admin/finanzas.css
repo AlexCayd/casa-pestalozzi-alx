@@ -190,11 +190,25 @@
   margin-bottom: 20px;
 }
 
+/* AQUÍ NO SE DECLARA ALTO. Lo trae el SVG, en píxeles, y esta caja lo
+   envuelve.
+
+   Estuvo en `clamp(380px, 40vw, 480px)`, que es un alto que no sabe nada de lo
+   que hay que dibujar: cuatro nodos o nueve ocupaban lo mismo. Y como el SVG
+   sale a `width: 100%` con `preserveAspectRatio ... meet`, en cuanto la
+   proporción del viewBox no era la de esta caja el dibujo se reescalaba para
+   caber y se centraba — el hueco sobrante quedaba a la vista arriba y abajo,
+   dentro del panel. El alto lo calcula ahora sankey.js desde la columna más
+   poblada y lo ciñe a la extensión real de los nodos (ver ALTO_MINIMO /
+   ALTO_MAXIMO allí), así que caja y dibujo miden lo mismo por construcción. */
 .admin-finanzas__sankey {
   position: relative;
-  height: clamp(320px, 40vw, 480px);
   overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
+}
+.admin-finanzas__sankey > svg {
+  max-width: none;
 }
 
 .admin-finanzas__note--ayuda {
@@ -313,7 +327,6 @@
 }
 .admin-gasto-card__field--name {
   grid-column: 1/-1;
-  padding-right: 46px;
 }
 .admin-gasto-card__label {
   color: var(--admin-muted);
@@ -329,14 +342,49 @@
 }
 .admin-gasto-card__actions {
   justify-content: flex-end;
+  gap: 8px;
 }
 .admin-gasto-card__actions .admin-btn {
   min-height: 38px;
 }
+.admin-gasto-card {
+  /* La papelera, en la misma fila que Guardar y a su misma altura, pero
+   * deliberadamente MENOS pesada: es la acción irreversible, no la habitual.
+   *
+   * .admin-icon-button--danger es un rojo MACIZO —es el de las barras de
+   * acciones de tabla, donde compite con un botón de editar igual de sólido—, y
+   * aquí ese relleno pesaba más que el propio «Guardar»: en una rejilla de
+   * doce tarjetas lo primero que se veía eran doce cuadrados rojos. Baja a
+   * tinte, y el rojo pleno vuelve en el hover, cuando ya hay intención.
+   *
+   * El selector lleva .admin-body y las dos clases para ganarle a
+   * `.admin-body .admin-icon-button--danger` de _tables.scss, que es (0,2,0) y
+   * vive en otra hoja. */
+}
+.admin-gasto-card__trash {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  margin-right: 2px;
+}
+.admin-gasto-card {
+  /* El formulario de borrado no tiene contenido visible —sólo el input oculto
+     con el id—: su botón vive en la fila de acciones y lo enlaza por form=. */
+}
 .admin-gasto-card__delete {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  display: contents;
+}
+
+.admin-body .admin-gasto-card__trash.admin-icon-button--danger {
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 38%, transparent);
+  background-color: color-mix(in srgb, var(--admin-c-rojo) 10%, var(--admin-surface));
+  color: var(--admin-danger-text);
+  box-shadow: none;
+}
+.admin-body .admin-gasto-card__trash.admin-icon-button--danger:hover, .admin-body .admin-gasto-card__trash.admin-icon-button--danger:focus-visible {
+  border-color: color-mix(in srgb, var(--admin-c-rojo) 78%, var(--admin-ink));
+  background-color: var(--admin-c-rojo);
+  color: var(--admin-paper);
 }
 
 .admin-cortes__filter {

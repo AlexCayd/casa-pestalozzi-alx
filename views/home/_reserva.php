@@ -77,9 +77,24 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             ?>
             <div class="<?php echo $claseFila; ?>" data-day="<?php echo $diaSemana; ?>"
               <?php echo $excepcionDia !== null ? 'data-exception-date="' . s((string)$excepcionDia['fecha']) . '"' : ''; ?>>
+              <?php /*
+                La chapa va DENTRO del nombre del día, no como hermana de la
+                fila. Suelta, la fila excepcional tenía tres hijos donde las
+                otras seis tienen dos: había que renunciar al `space-between`,
+                envolver y devolver el horario a la derecha con `margin-left:
+                auto`, y en la columna estrecha del lino «HORARIO ESPECIAL 16
+                SEP» empujaba la cifra a un segundo renglón. Las siete filas
+                tienen ahora exactamente dos celdas y comparten eje sin trucos.
+              */ ?>
               <span class="reserva__hours-day">
                 <?php echo s($horario['nombre'] ?? ''); ?>
                 <?php if ($esHoy) : ?><small class="reserva__hours-today">Hoy</small><?php endif; ?>
+                <?php if ($excepcionDia !== null) : ?>
+                  <span class="reserva__hours-badge">
+                    <?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?>
+                    <?php echo s($formatoFechaExcepcion((string)$excepcionDia['fecha'])); ?>
+                  </span>
+                <?php endif; ?>
               </span>
               <span class="reserva__hours-value">
                 <?php if ($excepcionDia !== null) : ?>
@@ -96,21 +111,45 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
                       Cerrado
                     <?php endif; ?>
                   </strong>
+                  <?php /*
+                    Y debajo, el horario HABITUAL de ese mismo día.
+                    La excepción sustituía la fila entera, así que quien miraba
+                    el jueves veía "16:00–23:00" sin manera de saber si eso era
+                    más o menos de lo normal —ni de reconocer que la fila estaba
+                    alterada si no leía la chapa—. El dato ya estaba en $horario;
+                    sólo lo descartaba el `if`.
+
+                    Va tachado y en la voz más tenue de la casa: dice "esto es lo
+                    que NO aplica hoy" sin competir con la cifra que sí manda. La
+                    etiqueta la lleva delante para que no dependa del tachado,
+                    que un lector de pantalla no anuncia.
+                  */ ?>
+                  <small class="reserva__hours-usual">
+                    Habitual:
+                    <s>
+                      <?php if (!empty($horario['abierto'])) : ?>
+                        <?php echo s($horario['hora_apertura'] ?? ''); ?><span class="reserva__hours-sep">–</span><?php echo s($horario['hora_cierre'] ?? ''); ?>
+                      <?php else : ?>
+                        Cerrado
+                      <?php endif; ?>
+                    </s>
+                  </small>
                 <?php elseif (!empty($horario['abierto'])) : ?>
                   <?php echo s($horario['hora_apertura'] ?? ''); ?><span class="reserva__hours-sep">–</span><?php echo s($horario['hora_cierre'] ?? ''); ?>
                 <?php else : ?>
                   Cerrado
                 <?php endif; ?>
               </span>
-              <?php if ($excepcionDia !== null) : ?>
-                <span class="reserva__hours-badge">
-                  <?php echo s($esHorarioEspecial ? 'Horario especial' : 'Cierre especial'); ?>
-                  <?php echo s($formatoFechaExcepcion((string)$excepcionDia['fecha'])); ?>
-                </span>
-                <?php if (!empty($excepcionDia['motivo'])) : ?>
-                  <small class="reserva__hours-reason"><?php echo s($excepcionDia['motivo']); ?></small>
-                <?php endif; ?>
-              <?php endif; ?>
+              <?php /*
+                El MOTIVO de la excepción no se publica aquí.
+                Esta tabla contesta una sola pregunta —«¿a qué hora abren?»— y
+                la contesta comparando siete filas de un vistazo; un renglón de
+                prosa («Comida privada, abrimos más tarde») rompía esa lectura
+                para explicar algo que al visitante no le cambia el plan. La
+                chapa dice que el día está alterado y la cifra dice en qué. El
+                pie (views/home/_footer.php) tampoco lo pintaba nunca: ahora las
+                dos tablas dicen lo mismo, que es lo que pide CLAUDE.md.
+              */ ?>
             </div>
           <?php endforeach; ?>
         <?php else : ?>

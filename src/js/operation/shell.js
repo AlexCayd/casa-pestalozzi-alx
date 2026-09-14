@@ -1,6 +1,40 @@
 (function () {
     'use strict';
 
+    /*
+     * "2026-09-09" → "Mié 9 de septiembre".
+     *
+     * Las tablas van escritas y no salen de toLocaleDateString: en la tablet del
+     * piso el idioma del navegador no es una garantía —basta una tablet nueva en
+     * inglés para que el cajón hable en otro idioma que el resto de la
+     * pantalla—, y el formato de la casa (día corto, número, mes en minúscula)
+     * no es ninguno de los presets. Es la misma pareja de tablas que usa
+     * pos-workspace.php para el primer render; si se toca una, se toca la otra.
+     */
+    var DIAS_CORTOS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    var MESES = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+
+    function fechaLegible(iso) {
+        var partes = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '').trim());
+        // Lo que no sea una fecha ISO se devuelve intacto: mejor enseñar el
+        // valor crudo que dejar el rótulo en blanco.
+        if (!partes) {
+            return String(iso || '');
+        }
+        // Mediodía y no medianoche: con la hora en 00:00 un desfase horario
+        // negativo tira la fecha al día anterior y el cajón anunciaría el turno
+        // equivocado. El constructor local con mes 0-indexado evita además el
+        // parseo UTC que hace `new Date('2026-09-09')`.
+        var fecha = new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]), 12);
+        if (isNaN(fecha.getTime())) {
+            return String(iso || '');
+        }
+        return DIAS_CORTOS[fecha.getDay()] + ' ' + fecha.getDate() + ' de ' + MESES[fecha.getMonth()];
+    }
+
     function initOperationalShell() {
         var page = document.querySelector('[data-operational-page]');
         if (!page) {
@@ -229,7 +263,12 @@
             });
             var mapDate = page.querySelector('[data-operational-map-date]');
             if (mapDate && date) {
-                mapDate.textContent = date;
+                // El ISO se guarda en el atributo —es el contrato— y en pantalla
+                // va la versión legible. Antes se escribía el ISO tal cual, así
+                // que el rótulo del cajón nacía formateado desde PHP y volvía a
+                // "2026-09-09" en cuanto el mesero tocaba el calendario.
+                mapDate.setAttribute('data-iso', date);
+                mapDate.textContent = fechaLegible(date);
             }
         }
 

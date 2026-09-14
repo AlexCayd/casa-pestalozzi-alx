@@ -32,7 +32,7 @@ $esAdmin = ($_SESSION['rol'] ?? '') === 'admin';
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=consola-bn-v1">
+  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
 </head>
 <body class="admin-body area-page area-select-page operational-page" data-page="area-seleccion" data-operation-module="area">
 

@@ -40,6 +40,89 @@
   text-transform: uppercase;
 }
 
+/*
+ * Barra de filtros del listado.
+ *
+ * .admin-filters no trae caja propia: cada módulo la arma (menu.scss,
+ * reservations.scss). Aquí son dos controles —el buscador y el estado de la
+ * receta— y el buscador manda, así que es el único que crece.
+ */
+.admin-recetas__filters {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius-md);
+  background: var(--admin-surface);
+}
+.admin-recetas__filters .admin-filters__search {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.admin-recetas__filters .admin-field__label {
+  margin-bottom: 7px;
+}
+.admin-recetas__filters {
+  /*
+   * ⚠ EL CAMPO NO SE RE-ESTILA AQUÍ, y no es un olvido.
+   *
+   * Aquí había un bloque `input:not([type="radio"])` con su propia caja (42px,
+   * 13px, borde suave y anillo de foco). No pintaba NADA: _forms.scss declara
+   * `.admin-body input:not([type=checkbox])…:not([type=button])`, que suma
+   * (0,6,1) —cada `:not()` aporta la especificidad de su argumento— contra los
+   * (0,2,1) de una regla de módulo. Gana el global, pase lo que pase con el
+   * orden de las hojas. Lo que se ve es el campo del sistema: 46px, 14px y el
+   * anillo de foco de la casa, que además es lo que queremos.
+   *
+   * Es la misma trampa que CLAUDE.md documenta para la lupa del POS. Si alguna
+   * vez hace falta de verdad salirse, se iguala con `!important` acotado o se
+   * mueve el borde al CONTENEDOR — no con una clase más.
+   *
+   * Y si vuelve a escribirse una regla por elemento, `:not([type="radio"])`
+   * NO es opcional: los radios de .admin-pill son controles reales recortados
+   * con clip-path (no display:none, que los sacaría del teclado) y una regla
+   * de caja los convierte en rectángulos dentro de cada pastilla.
+   */
+}
+.admin-recetas__filters .admin-field__hint {
+  margin-top: 7px;
+}
+.admin-recetas__filters {
+  /* Con JS el listado se actualiza al teclear, así que el botón sobra — y con
+     él su columna: dejarlo sólo oculto mantenía el hueco del `gap` a la
+     derecha de las pastillas. Sin JS, el bloque entero sigue ahí. */
+}
+.admin-recetas__filters.is-reactive .admin-filters__actions {
+  display: none;
+}
+
+.admin-recetas__estado {
+  flex: 0 0 auto;
+  /*
+   * La pastilla del sistema está medida para un formulario —título, ayuda
+   * debajo y 150px de ancho mínimo— y aquí cada opción son dos palabras. Sin
+   * apretarla, tres opciones excluyentes ocupaban más que el buscador y la
+   * barra se leía como tres tarjetas. Se conserva todo lo demás: el radio
+   * real, el recorrido de teclado y la marca dibujada con :has().
+   */
+}
+.admin-recetas__estado .admin-pill {
+  min-width: 0;
+  min-height: 46px;
+  align-items: center;
+  padding: 9px 13px;
+}
+.admin-recetas__estado .admin-pill::before {
+  margin-top: 0;
+}
+.admin-recetas__estado .admin-pill__title {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .admin-recipe {
   border-color: color-mix(in srgb, var(--admin-gold) 32%, transparent);
   box-shadow: inset 3px 0 0 var(--admin-gold), var(--admin-shadow-sm);

@@ -69,7 +69,15 @@
             var c = cambios[i];
             var sube = c.anterior !== null && c.nuevo > c.anterior;
             var baja = c.anterior !== null && c.nuevo < c.anterior;
-            var flecha = sube ? ' ▲' : (baja ? ' ▼' : '');
+            // ▲ y ▼ eran dos glifos de la fuente del sistema: no heredaban el
+            // color del badge que los envuelve —quedaban en la tinta del
+            // navegador aunque el badge fuera rojo o verde— y su tamaño cambiaba
+            // de plataforma. El SVG hereda currentColor, que aquí es justo el
+            // dato: la dirección del cambio de precio.
+            var flecha = '';
+            if ((sube || baja) && window.AdminIcons) {
+                flecha = window.AdminIcons.get(sube ? 'sube' : 'baja', 11);
+            }
             var tono = sube ? 'danger' : (baja ? 'success' : 'neutral');
 
             h += '<tr>';

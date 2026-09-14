@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../partials/_icons.php';
     $rango = is_array($rango ?? null) ? $rango : [];
     $periodoLabel = (string) ($rango['label'] ?? 'Últimos 30 días');
     $ingresos = (float) ($ingresos ?? 0);
@@ -398,22 +399,44 @@
                                 <span class="admin-switch__label">Activo</span>
                             </label>
                             <div class="admin-gasto-card__actions">
+                                <?php /*
+                                  El botón de borrar vive en la fila de acciones, pero pertenece
+                                  al OTRO formulario: el atributo form= lo enlaza con él. Es lo
+                                  que permite tenerlos lado a lado sin anidar <form>, que el HTML
+                                  no admite.
+
+                                  Antes colgaba en absoluto de la esquina superior derecha de la
+                                  tarjeta, y por eso el campo de nombre llevaba un canalón de
+                                  46 px reservado para librarlo: la tarjeta quedaba descompensada
+                                  —una acción arriba, otra abajo— y el título recortado sin que
+                                  nada explicara por qué.
+
+                                  Va ANTES de Guardar, no después: el extremo derecho de una fila
+                                  de acciones es el sitio de la acción principal en todo el panel
+                                  —y en el propio diálogo de confirmación—, y ahí la papelera era
+                                  lo último que toca el cursor al ir a guardar.
+                                */ ?>
+                                <button type="submit" form="gasto-eliminar-<?php echo (int) $g->id; ?>"
+                                        class="admin-icon-button admin-icon-button--danger admin-gasto-card__trash"
+                                        title="Eliminar" aria-label="Eliminar gasto «<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>»">
+                                    <?php echo admin_icon('basura', 17); ?>
+                                </button>
                                 <button type="submit" class="admin-btn admin-btn--primary admin-btn--small">
-                                    <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>
+                                    <?php echo admin_icon('check', 16, 'admin-btn__icon'); ?>
                                     Guardar
                                 </button>
                             </div>
                         </form>
+                        <?php /* Sin botón dentro: lo dispara el de arriba por form=. */ ?>
                         <form method="POST" action="/admin/finanzas/gasto/eliminar" class="admin-gasto-card__delete"
+                              id="gasto-eliminar-<?php echo (int) $g->id; ?>"
                               data-confirm-delete
                               data-confirm-eyebrow="Eliminar gasto fijo"
                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>»?"
+                              data-confirm-require="<?php echo htmlspecialchars($g->nombre, ENT_QUOTES); ?>"
                               data-confirm-description="Dejará de restarse de la utilidad neta en todos los periodos."
                               data-confirm-consequence="Esta acción no se puede deshacer.">
                             <input type="hidden" name="id" value="<?php echo (int) $g->id; ?>">
-                            <button type="submit" class="admin-icon-button admin-icon-button--danger" title="Eliminar" aria-label="Eliminar gasto">
-                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
-                            </button>
                         </form>
                     </article>
                 <?php endforeach; ?>

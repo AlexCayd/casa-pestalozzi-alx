@@ -7,6 +7,26 @@ $reservaciones = isset($reservaciones) && is_iterable($reservaciones) ? $reserva
 $metricas = is_array($metricas ?? null) ? $metricas : [];
 $filtros = is_array($filtros ?? null) ? $filtros : [];
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
+
+/*
+ * Cada estado, a una familia del vocabulario de badges del panel.
+ *
+ * Antes cada estado tenía su propia clase (.reservations-table__status--*) con
+ * un color escrito a mano y un `max-width: 104px` que recortaba "Pendiente de
+ * verificación" hasta dejarlo ilegible. Reutilizar .admin-badge da los mismos
+ * colores que el resto del panel y quita el tope de ancho.
+ *
+ * Los dos estados TERMINALES van en --outline: cancelada y no-show son cosas
+ * que ya no van a pasar, y con relleno macizo pesaban más en el listado que las
+ * reservas vivas. La clave desconocida cae a 'neutral', que es lo seguro.
+ */
+$estadoBadge = [
+    'pendiente_verificacion' => 'warning',
+    'confirmada' => 'success',
+    'completada' => 'info',
+    'cancelada' => 'danger admin-badge--outline',
+    'no_show' => 'danger admin-badge--outline',
+];
 $filtrosActivos = (bool)($filtrosActivos ?? false);
 $partialOnly = (bool)($partialOnly ?? false);
 $fechaDefault = \Services\ReservacionConfig::fechaActual();
@@ -428,32 +448,35 @@ foreach ($alertas as $tipo => $mensajes) {
                 <?php endif; ?>
             </div>
         <?php else : ?>
-            <?php /* data-scrollable, no data-lenis-prevent: .reservations-table-wrapper
-                     es `overflow-x: auto` sin tope de alto, así que retener la
-                     rueda dejaba la página clavada sobre el listado. La agenda
-                     de más abajo sí tiene scroll vertical propio y conserva su
-                     marca escrita a mano. */ ?>
-            <div class="reservations-table-wrapper" data-reservations-panel="lista" data-scrollable>
-                <table class="reservations-table">
-                    <caption class="admin-visually-hidden">Reservaciones encontradas en el periodo seleccionado</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Cuándo</th>
-                            <th scope="col">Cliente</th>
-                            <th scope="col">Personas</th>
-                            <th scope="col">Mesas</th>
-                            <th scope="col">Estado</th>
-                            <th scope="col"><span class="admin-visually-hidden">Acciones</span></th>
-                        </tr>
-                    </thead>
+            <?php /*
+              Lista de TARJETAS, no una tabla.
+              La tabla tenía seis columnas y `min-width: 960px`, así que en
+              cualquier pantalla por debajo de eso —y el panel se abre a menudo
+              en portátil— el estado y las acciones quedaban fuera de vista tras
+              un scroll horizontal: había que arrastrar para saber si una
+              reservación estaba confirmada. El scroll no era un descuido de
+              padding, era estructural.
+
+              Una reservación no es una fila de datos comparables columna a
+              columna: es una ficha que se lee entera —quién viene, cuándo, con
+              cuántos, en qué mesa— y sobre la que se actúa. En tarjeta cada
+              dato tiene el sitio que le toca por importancia y nada se sale de
+              la caja.
+
+              Se conserva la agrupación por día, que es la que da el ritmo del
+              listado, y el orden cronológico dentro de cada grupo. Al no haber
+              tabla, table-sort.js ya no aplica aquí.
+
+              Sin data-scrollable: la lista fluye en vertical con la página y no
+              tiene scroll propio que marcar.
+            */ ?>
+            <div class="reservations-list" data-reservations-panel="lista">
                     <?php foreach ($porDia as $dia => $delDia) : ?>
-                        <tbody class="reservations-table__day">
-                            <tr class="reservations-table__day-row">
-                                <th class="reservations-table__day-head" colspan="6" scope="colgroup">
-                                    <span><?php echo $h($fechaLegible($dia)); ?></span>
-                                    <small><?php echo count($delDia); ?> <?php echo count($delDia) === 1 ? 'reservación' : 'reservaciones'; ?></small>
-                                </th>
-                            </tr>
+                        <section class="reservations-list__day" aria-labelledby="dia-<?php echo $h($dia); ?>">
+                            <h3 class="reservations-list__day-head" id="dia-<?php echo $h($dia); ?>">
+                                <span><?php echo $h($fechaLegible($dia)); ?></span>
+                                <small><?php echo count($delDia); ?> <?php echo count($delDia) === 1 ? 'reservación' : 'reservaciones'; ?></small>
+                            </h3>
                             <?php foreach ($delDia as $reservacion) : ?>
                                 <?php
                                 $id = (int)$valor($reservacion, 'id', 0);
@@ -479,52 +502,71 @@ foreach ($alertas as $tipo => $mensajes) {
                                     'return_url' => $returnTo,
                                 ]);
                                 ?>
-                                <tr<?php echo $toleranciaVencida ? ' class="is-late"' : ''; ?>>
-                                    <td class="reservations-table__time-cell">
-                                        <span class="reservations-table__time"><?php echo $h($horaLegible($hora)); ?></span>
-                                        <?php if ($toleranciaVencida) : ?>
-                                            <span class="reservations-table__late">Tolerancia vencida</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="reservations-table__customer-cell">
-                                        <div class="reservations-table__customer">
-                                            <strong><?php echo $h($nombre); ?></strong>
-                                            <span><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></span>
-                                        </div>
-                                        <?php /* Origen y nota bajan aquí: eran dos columnas
-                                                 que sólo se leen cuando ya miras el cliente. */ ?>
-                                        <div class="reservations-table__meta">
-                                            <span class="admin-badge admin-badge--<?php echo $origen === 'admin' ? 'info' : 'neutral'; ?>"><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing'; ?></span>
-                                            <?php if ($nota !== '') : ?>
-                                                <span class="reservations-table__note" title="<?php echo $h($nota); ?>"><?php echo $h($nota); ?></span>
+                                <?php
+                                // El filete izquierdo dice el ESTADO de la reserva; la clase
+                                // is-late lo cambia a la familia de aviso. Es el mismo recurso
+                                // con el que el KDS marca la antigüedad de una comanda.
+                                $claseTarjeta = 'reservations-card reservations-card--' . $estado;
+                                if ($toleranciaVencida) {
+                                    $claseTarjeta .= ' is-late';
+                                }
+                                ?>
+                                <article class="<?php echo $h($claseTarjeta); ?>">
+                                    <?php /* Cabecera: cuándo y en qué estado. Son las dos
+                                             preguntas que se hacen a la vez —"¿a qué hora, y
+                                             viene o no?"— así que comparten renglón. */ ?>
+                                    <header class="reservations-card__head">
+                                        <p class="reservations-card__when">
+                                            <time class="reservations-card__time admin-num" datetime="<?php echo $h($fecha . 'T' . $horaLegible($hora)); ?>"><?php echo $h($horaLegible($hora)); ?></time>
+                                            <?php if ($toleranciaVencida) : ?>
+                                                <span class="reservations-card__late">Tolerancia vencida</span>
                                             <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    <td class="reservations-table__guests-cell">
-                                        <span class="reservations-table__guests"><?php echo $h($pluralPersonas($comensales)); ?></span>
-                                    </td>
-                                    <td class="reservations-table__tables-cell">
-                                        <?php if ($tieneMesa) : ?>
-                                            <span class="reservations-table__assignment" title="<?php echo $h($mesasNombres); ?>">
-                                                <?php echo $mesasNombres !== '' ? $h($mesasNombres) : $mesasCount . ' ' . ($mesasCount === 1 ? 'mesa' : 'mesas'); ?>
-                                            </span>
-                                        <?php else : ?>
-                                            <span class="reservations-table__assignment reservations-table__needs-table">Sin mesas</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="reservations-table__status-cell">
-                                        <span class="reservations-table__status reservations-table__status--<?php echo $h($estado); ?>">
+                                        </p>
+                                        <span class="admin-badge admin-badge--<?php echo $h($estadoBadge[$estado] ?? 'neutral'); ?> reservations-card__status">
                                             <?php echo $h($estadoLabels[$estado] ?? ucfirst($estado)); ?>
                                         </span>
-                                    </td>
-                                    <td class="reservations-table__actions-cell">
-                                        <div class="reservations-table__actions">
-                                            <a class="admin-btn admin-btn--secondary" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
+                                    </header>
+
+                                    <?php /* Quién viene. El nombre es lo que se busca al
+                                             recorrer el listado, así que es el único texto de
+                                             la tarjeta a cuerpo de titular. */ ?>
+                                    <div class="reservations-card__customer">
+                                        <strong class="reservations-card__name"><?php echo $h($nombre); ?></strong>
+                                        <span class="reservations-card__contact"><?php echo $contacto !== '' ? $h($contacto) : 'Sin contacto'; ?></span>
+                                    </div>
+
+                                    <?php /* Cuántos y dónde, como pares rótulo/valor: fuera de
+                                             una tabla, un número suelto no dice de qué es. */ ?>
+                                    <dl class="reservations-card__facts">
+                                        <div class="reservations-card__fact">
+                                            <dt>Personas</dt>
+                                            <dd class="admin-num"><?php echo $h($pluralPersonas($comensales)); ?></dd>
+                                        </div>
+                                        <div class="reservations-card__fact<?php echo $tieneMesa ? '' : ' reservations-card__fact--pendiente'; ?>">
+                                            <dt>Mesas</dt>
+                                            <dd<?php echo $tieneMesa && $mesasNombres !== '' ? ' title="' . $h($mesasNombres) . '"' : ''; ?>>
+                                                <?php if ($tieneMesa) : ?>
+                                                    <?php echo $mesasNombres !== '' ? $h($mesasNombres) : $mesasCount . ' ' . ($mesasCount === 1 ? 'mesa' : 'mesas'); ?>
+                                                <?php else : ?>
+                                                    Sin asignar
+                                                <?php endif; ?>
+                                            </dd>
+                                        </div>
+                                    </dl>
+
+                                    <?php if ($nota !== '') : ?>
+                                        <p class="reservations-card__note"><?php echo $h($nota); ?></p>
+                                    <?php endif; ?>
+
+                                    <footer class="reservations-card__foot">
+                                        <span class="admin-badge admin-badge--<?php echo $origen === 'admin' ? 'info' : 'neutral'; ?> admin-badge--outline reservations-card__origin"><?php echo $origen === 'admin' ? 'Administrativa' : 'Landing'; ?></span>
+                                        <div class="reservations-card__actions">
+                                            <a class="admin-btn admin-btn--secondary admin-btn--small" href="<?php echo $h($showUrl); ?>" title="Ver detalle de reservación" aria-label="Ver detalle de <?php echo $h($nombre); ?>, <?php echo $h($fechaLegible($fecha)); ?> a las <?php echo $h($horaLegible($hora)); ?>">Ver</a>
                                             <a
-                                                class="admin-btn admin-btn--ghost reservations-table__operate-action"
+                                                class="admin-btn admin-btn--ghost admin-btn--small reservations-card__operate"
                                                 href="<?php echo $h($operationContextUrl); ?>"
                                                 title="Abrir esta reservación en la vista operativa"
-                                                aria-label="Abrir esta reservación en la vista operativa"
+                                                aria-label="Abrir en la vista operativa la reservación de <?php echo $h($nombre); ?>"
                                             >
                                                 <span>Operar</span>
                                                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -533,12 +575,11 @@ foreach ($alertas as $tipo => $mensajes) {
                                                 </svg>
                                             </a>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </footer>
+                                </article>
                             <?php endforeach; ?>
-                        </tbody>
+                        </section>
                     <?php endforeach; ?>
-                </table>
             </div>
 
             <?php /*

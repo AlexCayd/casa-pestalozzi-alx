@@ -237,7 +237,11 @@
       var link = document.createElement('a');
       link.className = 'admin-btn admin-btn--' + (variant || 'secondary');
       link.href = '/admin/reservaciones/detalle?' + params.toString();
-      link.innerHTML = (label || 'Abrir reservación') + ' <span aria-hidden="true">→</span>';
+      // Flecha en SVG, no el glifo →: el carácter lo dibuja la fuente del
+      // sistema —no hereda currentColor y cambia de grosor según plataforma— y
+      // aquí va dentro de un .admin-btn, que ya reparte con gap.
+      var flecha = window.AdminIcons ? window.AdminIcons.get('flecha-derecha', 14) : '';
+      link.innerHTML = '<span>' + (label || 'Abrir reservación') + '</span>' + flecha;
       return link;
     }
 

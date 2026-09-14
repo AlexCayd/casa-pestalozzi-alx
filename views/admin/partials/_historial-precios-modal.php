@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/_icons.php';
 /**
  * Modal del histórico de precios, compartido por la ficha de ingrediente y la
  * de platillo. Uno solo por página: lo abre cualquier [data-historial-precios]
@@ -15,7 +16,7 @@
                 <h2 class="admin-modal__title" id="historial-precios-title">Cambios de precio</h2>
                 <p class="admin-modal__text" data-historial-subtitulo>—</p>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <?php /* data-scrollable lo registra motion.js para que Lenis le deje la

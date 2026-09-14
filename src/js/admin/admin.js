@@ -204,6 +204,13 @@
                     title: form.dataset.confirmTitle || '¿Eliminar este usuario?',
                     description: form.dataset.confirmDescription || 'Perderá el acceso al sistema de inmediato.',
                     consequence: form.dataset.confirmConsequence || 'Esta acción no se puede deshacer.',
+                    // Confirmación por escrito: el componente deja el botón
+                    // principal deshabilitado hasta que se teclea este texto.
+                    // Va por atributo para que cada vista decida QUÉ nombre hay
+                    // que escribir sin tocar una línea de JS; sin el atributo el
+                    // diálogo se comporta como siempre, así que ningún borrado
+                    // se queda sin confirmación por olvidarse de ponerlo.
+                    requireText: form.dataset.confirmRequire || '',
                     secondaryLabel: 'Cancelar',
                     primaryLabel: form.dataset.confirmPrimary || 'Eliminar',
                     onPrimary: function () {

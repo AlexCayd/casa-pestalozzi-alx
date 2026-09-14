@@ -250,6 +250,7 @@
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar platillo"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($platillo->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Saldrá de la carta pública, del PDF y del punto de venta."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $platillo->id; ?>">

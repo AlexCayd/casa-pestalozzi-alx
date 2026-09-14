@@ -39,7 +39,7 @@ $usuarioJson = json_encode([
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=consola-bn-v1">
+  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
 </head>
 
 <body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
@@ -63,7 +63,17 @@ $usuarioJson = json_encode([
   $displayAriaDescribedby = '';
   $displayAriaInvalid = false;
   $rootClass = 'operational-context-date';
-  $showIcon = true;
+  /*
+   * Sin icono, y no por gusto: `.date-picker__icon` es `position: absolute`
+   * contra `.date-picker-wrap`, y en el cajón del POS el calendario va EN FLUJO
+   * (ver .pos-drawer-date .cp-calendar), así que el envoltorio pasa de medir el
+   * campo —44 px— a medir campo + calendario, unos 370. Su `top: 50%` dejaba de
+   * caer en el centro del campo y aterrizaba dentro de la rejilla de días, con
+   * `pointer-events: none` encima de una celda que entonces no se podía pulsar.
+   * El campo dice la fecha en cristiano y está siempre abierto: el icono no
+   * añadía nada que la pantalla no dijera ya.
+   */
+  $showIcon = false;
   $prevId = 'mapa-cal-prev';
   $nextId = 'mapa-cal-next';
   $labelId = 'mapa-cal-label';

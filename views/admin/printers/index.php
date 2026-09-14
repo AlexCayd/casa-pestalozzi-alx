@@ -111,6 +111,7 @@
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar impresora"
                                               data-confirm-title="¿Eliminar «<?php echo htmlspecialchars($impresora->nombre, ENT_QUOTES); ?>»?"
+                                              data-confirm-require="<?php echo htmlspecialchars($impresora->nombre, ENT_QUOTES); ?>"
                                               data-confirm-description="Las comandas que se enviaban a ella dejarán de imprimirse."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="id" value="<?php echo (int) $impresora->id; ?>">

@@ -235,6 +235,7 @@ $filtrosDeVuelta = static function () use ($disponibilidadActiva, $busqueda, $e)
                                               data-confirm-delete
                                               data-confirm-eyebrow="Eliminar cata"
                                               data-confirm-title="¿Eliminar «<?php echo $e($cata['titulo']); ?>»?"
+                                              data-confirm-require="<?php echo $e($cata['titulo']); ?>"
                                               data-confirm-description="Se borrará de la agenda y dejará de anunciarse en la landing."
                                               data-confirm-consequence="Esta acción no se puede deshacer.">
                                             <input type="hidden" name="admin_csrf" value="<?php echo $e($adminCsrfToken); ?>">

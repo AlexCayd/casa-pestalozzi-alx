@@ -7,9 +7,29 @@
 // los estados de platillo de --admin-estado-*, que son los que el POS pinta
 // sobre las mismas comandas.
 //
-// El color de la estación (areas_produccion.color) llega por --area-accent
-// desde la vista y NO tiñe el cromo: identifica la estación en el filete de
-// cada columna y en la tarjeta del selector, nada más.
+// UN SOLO COLOR EN TODO EL TABLERO: el de la estación.
+//
+// `areas_produccion.color` llega por --area-accent desde la vista —es dato de
+// negocio, no un token— y corona las tres columnas POR IGUAL. No hay color por
+// estado, ni filete de antigüedad en cada comanda, ni sello azul de entregado.
+// El tablero es su estación; lo demás es superficie y tinta.
+//
+// La razón no es sobriedad: es que ninguno de esos colores aportaba. El estado
+// de una banda ya lo dice su rótulo, en palabras y a dos centímetros del
+// contador, así que repetirlo en color era decorar un dato que ya estaba. Y el
+// filete de antigüedad acababa pintado en CADA comanda en cuanto el servicio se
+// acumulaba, con lo que dejaba de señalar la que iba tarde — su único trabajo.
+// La antigüedad se quedó donde siempre se leyó: la hora de la cabecera de la
+// comanda, que enrojece cuando hay que mirarla.
+//
+// La separación entre planos tampoco la hacen bordes, sino LUZ. Antes la
+// columna y la comanda eran las dos --admin-surface —el mismo color exacto—,
+// así que el borde de 1px no era decoración: era lo ÚNICO que las distinguía, y
+// por eso había que repetirlo en cada nivel anidado. Con la comanda en
+// --admin-surface-strong (16% papel) sobre la banda al 11%, el salto se ve solo.
+//
+// Y la tipografía va con la misma economía: mono para las CIFRAS (el contador y
+// el ×N), sans para las PALABRAS, tres pesos (400/600/700) y ninguno más.
 
 .area-page {
   background: var(--admin-bg);
@@ -55,35 +75,64 @@
 // es un café o un azul de negocio— lo dejaría diciendo dos cosas a la vez.
 
 // ── Tablero: tres columnas ────────────────────────────────────
+// El hueco entre bandas es mayor que el del shell a propósito: es lo primero
+// que separa las tres columnas, antes que cualquier superficie o color.
 .area-board {
   display: grid;
   min-width: 0;
   min-height: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--operational-shell-gap);
+  gap: 16px;
 }
 
-// ── Columna ───────────────────────────────────────────────────
-// Cada columna es una tarjeta del sistema, igual que el mapa en el POS: mismo
-// borde, mismo radio y la misma superficie.
+/* ── Columna ───────────────────────────────────────────────────
+ *
+ * Una banda con superficie CONSTANTE, no un degradado que se apaga.
+ *
+ * El degradado que había se veía bien con las columnas llenas, pero por debajo
+ * de la última comanda las tres se disolvían en el mismo negro del tablero y
+ * dejaba de verse dónde acababa una y empezaba la siguiente — que es justo lo
+ * que un tablero de tres estados no se puede permitir. La división la hacen
+ * ahora tres cosas, ninguna de ellas un borde: el hueco de 16px, una superficie
+ * que nunca baja al fondo, y el filete de ESTADO que corona cada banda.
+ */
 .area-col {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  padding: 11px;
-  border: 1px solid var(--admin-border);
-  // El color de la estación tiñe la franja superior de las tres columnas, que
-  // es donde identifica el tablero sin competir con nada: dentro, el color ya
-  // está reservado al estado del platillo.
-  border-top: 3px solid var(--area-accent, var(--admin-border-strong));
-  border-radius: var(--admin-radius-md);
-  background: var(--admin-surface);
-  box-shadow:
-    var(--admin-shadow-md, 0 16px 38px color-mix(in srgb, var(--admin-sombra) 20%, transparent)),
-    inset 0 1px 0 var(--admin-glass-edge);
+  // El relleno lateral lo llevan la cabecera y el scroller, para que el
+  // scroller pueda desbordar hasta el canto y su barra no quede flotando.
+  padding: 14px 0 0;
+  border: 0;
+  border-radius: var(--admin-radius-lg);
+  background: var(--admin-surface-soft);
   overflow: hidden;
   font-family: var(--operational-font-ui);
+}
+
+/*
+ * EL ÚNICO COLOR DEL TABLERO: el de la estación.
+ *
+ * Corona las tres bandas por igual —el mismo color en las tres, no uno por
+ * estado—. Un tablero de cocina es una pantalla fija que se mira el turno
+ * entero, y lo que le da identidad es la estación a la que pertenece, no un
+ * arcoíris de tres hues repartidos por columna: el estado de cada banda ya lo
+ * dice su rótulo, en palabras y a dos centímetros del contador.
+ *
+ * `areas_produccion.color` llega por --area-accent desde la vista (es dato de
+ * negocio, no un token), y el respaldo cubre el caso de que un área se quede
+ * sin color en base.
+ */
+.area-col::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--area-accent, var(--admin-border-strong));
+  pointer-events: none;
 }
 
 // Listos ya no se atenúa con opacity. Bajar el alfa de una columna entera sobre
@@ -91,20 +140,37 @@
 // hecho" es el verde del contador y el filete, no la falta de luz.
 .area-col-head {
   display: grid;
-  min-height: 40px;
+  min-height: 44px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
-  padding: 0 2px 10px;
+  // Sin línea bajo la cabecera: lo que la separa de la lista es el aire y el
+  // salto de plano de la primera comanda, no un cuarto trazo horizontal.
+  margin-bottom: 10px;
+  padding: 0 16px;
 }
 
+/*
+ * LA REGLA TIPOGRÁFICA DEL TABLERO, en una línea:
+ * mono para las CIFRAS, sans para las PALABRAS. Sin excepciones.
+ *
+ * El rótulo estuvo en mono con versalitas y tracking abierto, y ése era el
+ * origen de la sensación de «demasiadas tipografías»: la mono aparecía en
+ * palabras (rótulo) y en números (contador, cantidad, antigüedad) sin que
+ * hubiera manera de saber qué la convocaba. Ahora la convoca una sola cosa —que
+ * sea un número— y la pantalla se lee con dos voces en vez de con cuatro.
+ *
+ * Mono: contador, ×N y la antigüedad. Sans: todo lo demás.
+ * Pesos: 700 para cifras y nombres fuertes, 600 para el platillo, 400 para lo
+ * secundario. Tres, y ninguno más.
+ */
 .area-col-label {
   min-width: 0;
   overflow: hidden;
   color: var(--admin-text);
   font-family: var(--operational-font-ui);
-  font-size: var(--operational-text-subtitle);
+  font-size: 15px;
   font-weight: var(--operational-weight-semibold);
   letter-spacing: 0;
   line-height: 1.1;
@@ -112,18 +178,23 @@
   white-space: nowrap;
 }
 
+// El contador es el ancla de la columna y el dato que se lee desde el otro lado
+// de la cocina. Estaba a 13px dentro de una píldora de 26: MÁS PEQUEÑO que el
+// nombre de un platillo. Sube a 20/34 sin costar alto —la fila ya mide 44— y
+// hereda el canal de color que el filete de estación acaba de desocupar. Radio
+// 10 para igualar el de .area-card__btn: un solo radio de control en el tablero.
 .area-col-count {
   display: grid;
-  min-width: 30px;
-  height: 26px;
-  padding: 0 8px;
+  min-width: 46px;
+  height: 34px;
+  padding: 0 10px;
   place-items: center;
-  border: 1px solid var(--admin-border);
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-muted);
+  border: 0;
+  border-radius: 10px;
+  background: var(--admin-surface-strong);
+  color: var(--admin-text);
   font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-sm);
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
   line-height: 1;
@@ -132,33 +203,27 @@
 // El contador es un relleno sólido del color del estado. Es la única cifra del
 // tablero que se lee a metro y medio, y un tinte al 12% sobre superficie oscura
 // no llega. Tinta oscura encima: ámbar y verde tienen luminancia alta.
-.area-col--enviados .area-col-count {
-  border-color: var(--admin-border-strong);
+/*
+ * El contador es NEUTRO en las tres columnas.
+ *
+ * Estuvo con un color por estado —neutro, ámbar, verde— y era un color de más:
+ * la columna ya dice en qué estado estás con su rótulo, que está justo al lado
+ * y en palabras. Repetirlo en color no añadía información y sí obligaba a
+ * meter dos hues más en una pantalla que sólo debe llevar uno.
+ */
+.area-col-count {
   background: var(--admin-surface-strong);
   color: var(--admin-text);
 }
 
-.area-col--prep .area-col-count {
-  border-color: var(--admin-estado-preparacion);
-  background: var(--admin-estado-preparacion);
-  color: var(--admin-ink);
-}
-
-.area-col--listo .area-col-count {
-  border-color: var(--admin-estado-listo);
-  background: var(--admin-estado-listo);
-  color: var(--admin-ink);
-}
-
-// El plano de la columna: mismo papel que el suelo del mapa de mesas, para que
-// las comandas se apoyen en algo en vez de flotar sobre la tarjeta.
+// Ya no es un contenedor: es sólo la región que desplaza. Sin borde, sin radio
+// y sin fondo propio. Era la caja más difícil de justificar de las tres —
+// dibujaba un marco a 6px del marco de la columna, y dos líneas paralelas tan
+// cerca se leen como un defecto de impresión, no como estructura.
 .area-col-items {
   min-height: 0;
   flex: 1 1 0;
-  padding: 8px;
-  border: 1px solid var(--admin-border-soft);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--admin-bg) 64%, var(--admin-surface-soft));
+  padding: 2px 14px 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -171,6 +236,26 @@
     border-radius: 999px;
     background-clip: padding-box;
     background-color: var(--admin-border-strong);
+  }
+}
+
+/*
+ * Lo que dice «esto desplaza» ahora que no hay borde: la lista se DISUELVE por
+ * abajo en vez de cortarse a hueso contra un canto. Misma idea que el degradado
+ * de la columna, aplicada al contenido.
+ *
+ * Los 20px de la máscara son exactamente los 20 de padding-bottom: con la lista
+ * al final del recorrido lo único difuminado es el relleno, nunca el botón de
+ * la última comanda. Si se toca uno, hay que tocar el otro. --admin-ink se usa sólo por ser opaco —a una máscara únicamente
+ * le importa el alfa—, así que no hay un color literal suelto en el archivo.
+ *
+ * Contrapartida asumida: la máscara difumina también los últimos 18px del pulgar
+ * de la barra. Sobre 8px de ancho y a metro y medio, no se ve.
+ */
+@supports (mask-image: linear-gradient(black, transparent)) {
+  .area-col-items {
+    -webkit-mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to bottom, var(--admin-ink) calc(100% - 20px), transparent);
   }
 }
 
@@ -188,8 +273,10 @@
   font-size: var(--operational-text-sm);
   text-align: center;
 
+  // Ya no es un glifo con su font-size: el icono es un SVG y la caja es flex,
+  // que es lo que lo centra contra el rótulo de debajo.
   &__icon {
-    font-size: 22px;
+    display: inline-flex;
     line-height: 1;
   }
 }
@@ -197,36 +284,52 @@
 // ── Comanda ───────────────────────────────────────────────────
 // El pin del mapa lleva 2px de borde por la misma razón que esta tarjeta: se
 // mira de lejos y se toca con la mano ocupada.
+/*
+ * La losa elevada. Es el ÚNICO objeto de la pantalla que sigue siendo una caja,
+ * y por eso ya no necesita contorno: --admin-surface-strong (16% papel) sobre un
+ * plano al 4% es un salto de luz real, mientras que antes la comanda y su
+ * columna eran las dos --admin-surface —el mismo color exacto— y el borde de 1px
+ * era literalmente lo único que las separaba.
+ *
+ * Arriba el canto de luz, abajo sombra de verdad: así se eleva algo en oscuro. Y
+ * se autocorrige a lo largo de la columna — arriba el plano está claro y lo que
+ * lee es la sombra; abajo el plano es casi negro y lo que lee es la cara.
+ */
 .area-card {
   margin-bottom: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--admin-border);
-  // El filete izquierdo es la ANTIGÜEDAD de la comanda, no la estación: dentro
-  // de una columna todas las tarjetas son de la misma área, así que repetir ahí
-  // su color gastaría el canal más visible en un dato que ya se sabe.
-  border-left: 4px solid var(--admin-border-strong);
-  border-radius: 12px;
-  background: var(--admin-surface);
+  padding: 10px 12px;
+  /*
+   * Sin filete lateral.
+   *
+   * Codificaba la antigüedad (neutro → ámbar → rojo) y en la práctica pintaba
+   * una franja de color en CADA comanda del tablero: en cuanto el servicio se
+   * acumula, todas las tarjetas la llevan y deja de señalar la que va tarde
+   * —que era justo su trabajo—. La antigüedad se sigue diciendo donde siempre
+   * se leyó, que es la hora de la cabecera, y ahí no compite con nada ni añade
+   * una figura a la tarjeta.
+   */
+  border: 0;
+  border-radius: var(--admin-radius-sm);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--admin-paper) 3%, var(--admin-surface-strong)),
+    var(--admin-surface-strong)
+  );
   box-shadow:
-    0 8px 20px color-mix(in srgb, var(--admin-sombra) 24%, transparent),
-    inset 0 1px 0 var(--admin-glass-edge);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+    inset 0 1px 0 var(--admin-glass-edge),
+    0 2px 4px color-mix(in srgb, var(--admin-sombra) 55%, transparent),
+    0 12px 24px -10px color-mix(in srgb, var(--admin-sombra) 85%, transparent);
+  transition: box-shadow 160ms ease;
 
   &:last-child { margin-bottom: 0; }
 
-  // La antigüedad se dice con el filete y con la hora, no con el relleno: una
-  // comanda roja entera dejaría de poder distinguir sus tres platillos.
-  &--alerta {
-    border-left-color: var(--admin-c-ambar);
-  }
-
-  &--urgente {
-    border-color: color-mix(in srgb, var(--admin-c-rojo) 45%, var(--admin-border));
-    border-left-color: var(--admin-c-rojo);
-    box-shadow:
-      0 8px 20px color-mix(in srgb, var(--admin-c-rojo) 20%, transparent),
-      inset 0 1px 0 var(--admin-glass-edge);
-  }
+  /*
+   * `--alerta` y `--urgente` ya no pintan la TARJETA: sólo marcan la hora de su
+   * cabecera (ver .area-card__time). La clase se conserva en el JS y aquí
+   * porque es el único gancho que tiene ese estado, pero el relleno, el borde y
+   * la sombra de una comanda son idénticos lleve el tiempo que lleve — lo que
+   * cambia es una línea de texto, que es donde el tiempo se lee.
+   */
 }
 
 .area-card__head {
@@ -234,17 +337,21 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--admin-border-soft);
+  // Sin línea: era el cuarto trazo horizontal dentro de una tarjeta de ~100px, y
+  // con la mesa a 20px la cabecera ya se separa sola de la primera fila.
+  margin-bottom: 8px;
 }
 
+// 20px. El número de mesa es el token que se escanea para encontrar una comanda
+// concreta y estaba a 15, por DEBAJO del nombre del platillo (16). La jerarquía
+// queda: mesa 20 bold › platillo 16 semibold › rótulo de columna 13 mono.
 .area-card__mesa {
   min-width: 0;
   overflow: hidden;
   color: var(--admin-text);
-  font-size: var(--operational-text-section);
+  font-size: 20px;
   font-weight: var(--operational-weight-bold);
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -256,16 +363,32 @@
   font-weight: var(--operational-weight-regular);
 }
 
+// Sans, no mono: «hace 24 min» son dos palabras y una cifra, y en mono se leía
+// como una marca de tiempo de log. `tabular-nums` se queda porque el número
+// cambia cada minuto y sin él la línea baila. La mono queda reservada a las
+// cifras puras —el contador y el ×N—, que es lo que hace la regla aprendible.
 .area-card__time {
   flex-shrink: 0;
   color: var(--admin-muted);
-  font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-xs);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
   font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
 
-  .area-card--alerta & { color: var(--admin-c-ambar); }
-  .area-card--urgente & { color: var(--admin-c-rojo); font-weight: var(--operational-weight-bold); }
+  /*
+   * ⚠ `-text` y no el token pleno, que es la distinción que CLAUDE.md avisa:
+   * `--admin-c-rojo` es el rojo de un RELLENO y sobre la cara de la comanda da
+   * 2.74:1 como texto —por debajo del 4.5 de AA, y encima en el único dato que
+   * dice que una comanda lleva parada veinte minutos—. `--admin-danger-text` es
+   * el mismo rojo hecho legible sobre el fondo del modo activo: 4.88:1.
+   *
+   * El filete izquierdo consume EL MISMO token (ver .area-card--urgente), así
+   * que los dos extremos de la tarjeta dicen la antigüedad con el mismo color
+   * exacto en vez de con dos rojos parecidos.
+   */
+  .area-card--alerta & { color: var(--admin-warning-text); }
+  .area-card--urgente & { color: var(--admin-danger-text); }
 }
 
 // ── Platillos dentro de la comanda ────────────────────────────
@@ -274,64 +397,108 @@
   flex-direction: column;
 }
 
+/*
+ * El platillo, en UNA fila.
+ *
+ * Antes era una columna: texto arriba, botones debajo. Esa segunda fila de
+ * 48 px era más de la mitad de los ~92 px que costaba cada platillo, así que la
+ * columna enseñaba tres o cuatro y el resto había que buscarlo desplazando —con
+ * la comanda en la mano—. En rejilla de cuatro celdas el botón comparte altura
+ * con el nombre en vez de sumarla: el platillo baja a ~53 px sin que el nombre
+ * pierda cuerpo ni el botón baje del objetivo táctil de la casa.
+ */
 .area-card__item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--admin-border-soft);
 
   &:last-child { border-bottom: none; }
 }
 
-.area-card__item-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+// Columna 4 SIEMPRE, explícita. El chip de comensal sólo aparece cuando lo hay,
+// así que con colocación implícita la acción caía en la 3 en unas filas y en la
+// 4 en otras, y las separaciones de rejilla la dejaban 10 px más adentro. El
+// borde derecho de los botones tiene que ser el mismo en toda la columna: es lo
+// que permite bajar la mano sin mirar.
+.area-card__item-btns,
+.area-card__badge--entregado {
+  grid-column: 4;
 }
 
 .area-card__item-btns {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
+// 20px, por encima del nombre: es el número que decide cuántas porciones se
+// montan y era el elemento más pequeño de la fila. No cuesta altura, porque la
+// altura de la fila ya la fija el botón de 44px.
 .area-card__qty {
-  min-width: 30px;
+  min-width: 34px;
   flex-shrink: 0;
   color: var(--admin-text);
   font-family: var(--admin-font-mono);
-  font-size: var(--operational-text-section);
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: var(--operational-weight-bold);
+  line-height: 1;
 }
 
-.area-card__name-wrap {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
+/*
+ * DOS líneas, no puntos suspensivos.
+ *
+ * Con `nowrap` + ellipsis, a 1366 px al nombre le quedaban unos 142 px —16
+ * caracteres— una vez descontados cantidad, chip, botones y separaciones:
+ * «Enchiladas suizas de pollo» salía «Enchiladas sui…». En un tablero de
+ * producción el nombre del platillo es lo único que NO puede recortarse.
+ *
+ * Y es gratis en altura: dos líneas a 16px/1.2 son 38.4px y la fila ya mide 44
+ * por el botón.
+ */
 .area-card__name {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--admin-text);
   font-size: var(--operational-text-subtitle);
   font-weight: var(--operational-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
 // La nota es lo único de la comanda que el cocinero NO puede pasar por alto:
 // va sobre su propio papel y con filete de aviso, no con el acento del sistema.
+// Es también lo único que sigue bajando de línea ahora que el platillo cabe en
+// una: ocupa las cuatro celdas de la rejilla, debajo del nombre y del botón.
+/*
+ * La nota se distingue por FORMA, no por color.
+ *
+ * Iba en ámbar —filete y fondo—, y ése era el tercer significado del ámbar en
+ * la misma pantalla: banda «En preparación», comanda de 5 a 10 minutos, y nota.
+ * Tres cosas sin relación con un mismo color es exactamente lo que impide
+ * aprender un código.
+ *
+ * Sigue siendo lo que el cocinero no puede pasar por alto, y lo sigue siendo
+ * sin hue: es el ÚNICO elemento hundido de la tarjeta —todo lo demás está al
+ * nivel de la cara o por encima—, ocupa el ancho completo y va en tinta plena
+ * justo debajo del platillo al que pertenece. Único por forma, que es más
+ * robusto que único por color en una pantalla que ya tiene tres colores
+ * diciendo otras cosas.
+ */
 .area-card__nota {
-  margin: 6px 0 2px;
+  grid-column: 1 / -1;
+  margin: 2px 0 4px;
   padding: 6px 10px;
-  border-left: 3px solid var(--admin-c-ambar);
-  border-radius: 4px;
-  background: var(--admin-c-ambar-bg);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--admin-ink) 46%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--admin-sombra) 60%, transparent);
   color: var(--admin-text);
   font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-semibold);
   line-height: 1.35;
   white-space: normal;
   word-break: break-word;
@@ -358,33 +525,63 @@
   opacity: 0.62;
 }
 
+/*
+ * «Entregado» deja de ser azul, y con ello se va el cuarto color del tablero.
+ *
+ * El azul era --admin-estado-entregado, que es el token con el que el POS pinta
+ * ese estado; aquí sólo servía para meter un color más en una pantalla que ya
+ * tenía ámbar, verde y rojo diciendo cosas distintas. Y no hacía falta: la fila
+ * entregada ya va atenuada al 62%, que es la señal de «esto ya no es trabajo».
+ * El sello se queda en tinta apagada sobre nada, sin relleno ni contorno: no es
+ * un botón, no se pulsa, y en la columna de Listos lo único que tiene que hacer
+ * es distinguirse de lo que sí está esperando a que lo recojan.
+ */
 .area-card__badge--entregado {
-  display: flex;
-  min-height: 48px;
-  flex: 1;
+  display: inline-flex;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
-  padding: 12px 16px;
-  border: 1px solid var(--admin-estado-entregado);
-  border-radius: 10px;
-  background: var(--admin-c-azul-bg);
-  color: var(--admin-estado-entregado);
+  gap: 6px;
+  padding: 0 12px;
+  /*
+   * ⚠ Tinta PLENA, aunque el sello sea lo más callado de la fila.
+   *
+   * La fila entregada lleva `opacity: 0.62` en el padre, y esa opacidad compone
+   * TODO lo de dentro contra la cara de la tarjeta: en `--admin-muted` el sello
+   * caía a 2.99:1, por debajo de AA. Con `--admin-text` aterriza en 5.86:1 ya
+   * atenuado. Quien apaga esta fila es la opacidad, no el color del texto —
+   * apagar las dos cosas es apagarla dos veces.
+   */
+  color: var(--admin-text);
   font-family: var(--operational-font-ui);
   font-size: var(--operational-text-sm);
-  font-weight: var(--operational-weight-bold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: var(--operational-weight-semibold);
   white-space: nowrap;
 }
 
 // ── Botones de acción ─────────────────────────────────────────
-// Misma altura de objetivo táctil que en el POS (.operational-map-action): 44px
-// es el mínimo de la casa para el piso, y aquí se sube a 48 porque se pulsa con
-// guantes y sin mirar.
+/*
+ * 44 px, el mínimo de la casa para el piso (.operational-map-action en el POS).
+ *
+ * Estuvo en 48 «porque se pulsa con guantes», y en una fila propia bajo el
+ * texto esos cuatro píxeles no costaban nada. Ahora el botón comparte fila con
+ * el nombre, así que su altura ES la altura del platillo: cada píxel de más se
+ * multiplica por cada platillo de la columna. 44 sigue cumpliendo el objetivo
+ * táctil y el botón ganó ancho de sobra al perder la etiqueta larga.
+ *
+ * `flex: 0 0 auto`, no `flex: 1`: en una celda de rejilla dimensionada por su
+ * contenido, estirarlos sólo servía para separarlos del platillo que accionan.
+ */
 .area-card__btn {
-  min-height: 48px;
-  flex: 1;
-  padding: 12px 16px;
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  // El icono y la palabra se separan con gap: el espacio que los separaba antes
+  // era el del carácter de la flecha, y ese carácter ya no existe.
+  gap: 6px;
+  padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 10px;
   font-family: var(--operational-font-ui);
@@ -409,10 +606,12 @@
     opacity: 0.45;
   }
 
-  // Devolver al estado anterior: utilitario, como --map-action-utility en el POS.
+  // Devolver al estado anterior: utilitario, como --map-action-utility en el
+  // POS. Cuadrado y sin etiqueta —es la acción rara de la fila y no puede
+  // competir por el ancho con el nombre del platillo, que es lo que se lee.
   &--back {
-    flex: 0 0 auto;
-    padding: 12px 14px;
+    width: 44px;
+    padding: 0;
     border-color: var(--admin-border);
     background: var(--admin-surface-soft);
     color: var(--admin-muted);
@@ -425,26 +624,35 @@
     }
   }
 
-  // Enviado → En preparación. Relleno sólido del estado destino, tinta oscura:
-  // el ámbar tiene luminancia 0.52 y no admite texto claro encima.
-  &--prep {
-    border-color: var(--admin-estado-preparacion);
-    background: var(--admin-estado-preparacion);
-    color: var(--admin-ink);
-
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--admin-estado-preparacion) 84%, var(--admin-ink));
-    }
-  }
-
-  // En preparación → Listo.
+  /*
+   * ⚠ LOS DOS BOTONES DE AVANCE SON EL MISMO BOTÓN. Aquí estaba la confusión.
+   *
+   * Iban en relleno del estado DESTINO: ámbar el de «→ Prep», verde el de
+   * «✓ Listo». El problema es que el tablero usa esos dos colores a la vez para
+   * decir en qué ESTADO está una columna, así que el ámbar significaba dos
+   * cosas distintas en la misma pantalla —«esta banda es En preparación» en el
+   * contador de la columna 2, y «pulsa para mandar a preparación» en un botón
+   * de la columna 1— y encima nunca coincidían de columna. Verde y ámbar
+   * aparecían juntos en una banda cuyo contador era de un tercer color.
+   *
+   * Ahora el color de estado vive SÓLO en la cabecera de la banda, y el botón
+   * es el relleno primario del sistema —casi blanco sobre casi negro— idéntico
+   * en las tres columnas. Es el mismo verbo en los dos sitios («avanza esto»),
+   * así que tiene que ser el mismo botón; a dónde avanza ya lo dicen la palabra
+   * de dentro y la banda en la que estás.
+   *
+   * Consecuencia asumida: el KDS deja de pintar sus botones con los tokens
+   * --admin-estado-* del POS. A cambio, el tablero pasa de cinco significados
+   * de color a dos: ESTADO (cabecera de banda) y ANTIGÜEDAD (filete).
+   */
+  &--prep,
   &--listo {
-    border-color: var(--admin-estado-listo);
-    background: var(--admin-estado-listo);
-    color: var(--admin-ink);
+    border-color: var(--admin-accent);
+    background: var(--admin-accent);
+    color: var(--admin-on-accent);
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--admin-estado-listo) 84%, var(--admin-ink));
+      background: color-mix(in srgb, var(--admin-accent) 88%, var(--admin-on-accent));
     }
   }
 
@@ -475,8 +683,12 @@
     min-height: 0;
   }
 
+  // Apiladas en vertical, la máscara difuminaría el final de cada columna
+  // contra la siguiente en vez de contra el tablero.
   .area-col-items {
     overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 }
 

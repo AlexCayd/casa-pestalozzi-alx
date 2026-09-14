@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../partials/_icons.php';
 $anuncio = is_array($anuncio ?? null) ? $anuncio : [];
 $tiposAnuncio = is_array($tiposAnuncio ?? null) ? $tiposAnuncio : \Services\AnuncioConfig::TIPOS;
 $erroresCampos = is_array($erroresCampos ?? null) ? $erroresCampos : [];
@@ -290,7 +291,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                             data-preview-link
                             <?php echo $mostrarEnlacePreview && $enlaceExternoPreview ? 'target="_blank" rel="noopener noreferrer"' : ''; ?>
                             <?php echo $mostrarEnlacePreview ? '' : 'hidden'; ?>
-                        ><span data-preview-link-label><?php echo $h($textoEnlacePreview ?: 'Ver más'); ?></span><span aria-hidden="true"> ↗</span></a>
+                        ><span data-preview-link-label><?php echo $h($textoEnlacePreview ?: 'Ver más'); ?></span><?php echo admin_icon('externo', 12); ?></a>
                     </div>
                     <?php /* Sin barra de progreso: el anuncio ya no se cierra
                              solo, espera a que el comensal lo cierre. */ ?>

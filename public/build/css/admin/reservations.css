@@ -478,6 +478,13 @@
   min-width: 0;
   margin-bottom: 24px;
   padding: 20px;
+  /* `clip` y no el `hidden` que trae .admin-card: los dos recortan igual, pero
+     `hidden` convierte la tarjeta en contenedor de scroll, y un `sticky` se
+     pega al contenedor de scroll más cercano. Con `hidden` la cabecera de día
+     se pegaba a una caja que nunca se desplaza, es decir, no se pegaba nunca.
+     Un navegador sin `clip` descarta la línea y se queda con el `hidden`: la
+     cabecera deja de pegarse y nada más. */
+  overflow: clip;
 }
 
 .reservations-table-card__header {
@@ -502,265 +509,25 @@
   line-height: 1.4;
 }
 
-.reservations-table-wrapper {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.reservations-table {
-  width: 100%;
-  min-width: 960px;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 13px;
-}
-.reservations-table th,
-.reservations-table td {
-  min-width: 0;
-  padding: 13px 9px;
-  border-bottom: 1px solid var(--admin-border-soft);
-  color: var(--admin-text);
-  line-height: 1.35;
-  text-align: left;
-  vertical-align: middle;
-}
-.reservations-table thead th {
-  padding-block: 12px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-muted);
-  font-size: 10.5px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  line-height: 1.15;
-  text-transform: uppercase;
-}
-.reservations-table tbody tr {
-  transition: background 160ms ease, box-shadow 160ms ease;
-}
-.reservations-table tbody tr:hover {
-  background: var(--admin-surface-soft);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--admin-gold-deep) 18%, transparent);
-}
-.reservations-table {
-  /*
-   * Seis columnas: Cuándo · Cliente · Personas · Mesas · Estado · Acciones.
-   * Antes eran nueve con anchos declarados sólo para ocho, así que la última
-   * quedaba sin medida y el text-align:right caía sobre "Nota" en vez de sobre
-   * los botones. Origen y nota bajaron dentro de la celda de cliente.
-   */
-}
-.reservations-table th:nth-child(1),
-.reservations-table td:nth-child(1) {
-  width: 11%;
-}
-.reservations-table th:nth-child(2),
-.reservations-table td:nth-child(2) {
-  width: 34%;
-}
-.reservations-table th:nth-child(3),
-.reservations-table td:nth-child(3) {
-  width: 11%;
-}
-.reservations-table th:nth-child(4),
-.reservations-table td:nth-child(4) {
-  width: 17%;
-}
-.reservations-table th:nth-child(5),
-.reservations-table td:nth-child(5) {
-  width: 13%;
-}
-.reservations-table th:nth-child(6),
-.reservations-table td:nth-child(6) {
-  width: 14%;
-  text-align: right;
-}
-.reservations-table {
-  /* Encabezado de jornada: la fecha se dice una vez por día, no por renglón. */
-}
-.reservations-table__day-head {
-  padding-block: 10px;
-  border-bottom: 1px solid var(--admin-border);
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-.reservations-table__day-head small {
-  margin-left: 10px;
-  color: var(--admin-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.reservations-table__day-row:hover {
-  background: var(--admin-surface-soft);
-  box-shadow: none;
-}
-.reservations-table__meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-.reservations-table__late {
-  display: block;
-  margin-top: 4px;
-  color: var(--admin-warning-text);
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-.reservations-table tbody tr.is-late {
-  box-shadow: inset 3px 0 0 var(--admin-c-ambar);
-}
-
-.reservations-table__date,
-.reservations-table__time,
-.reservations-table__guests {
-  display: inline-flex;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 24px;
-  align-items: center;
-  color: var(--admin-text);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.reservations-table__time {
-  font-variant-numeric: tabular-nums;
-}
-
-.reservations-table__guests {
-  color: var(--admin-muted);
-  font-weight: 700;
-}
-
-.reservations-table__customer,
-.reservations-table__tables,
-.reservations-table__needs-table {
-  display: grid;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.reservations-table__customer {
-  gap: 4px;
-}
-.reservations-table__customer strong {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  color: var(--admin-text);
-  font-size: 13.5px;
-  font-weight: 900;
-  line-height: 1.18;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-.reservations-table__customer span {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  color: var(--admin-muted);
-  font-size: 11.5px;
-  line-height: 1.25;
-}
-
-.reservations-table__assignment {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  color: var(--admin-text);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
-.reservations-table__tables {
-  gap: 7px;
-}
-.reservations-table__tables strong {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--admin-text);
-  font-size: 12.5px;
-  font-weight: 900;
-  line-height: 1.18;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.reservations-table__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  max-width: 100%;
-}
-
-.reservations-table__chip {
-  display: inline-flex;
-  min-height: 22px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 7px;
-  border: 1px solid color-mix(in srgb, var(--admin-gold-deep) 24%, transparent);
-  border-radius: 999px;
-  background: var(--admin-surface-soft);
-  color: var(--admin-text);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.reservations-table__chip--more {
-  border-color: color-mix(in srgb, var(--admin-c-verde) 22%, transparent);
-  color: var(--admin-sage-deep);
-}
-
-.reservations-table__needs-table {
-  gap: 6px;
-}
-.reservations-table__needs-table strong {
-  color: var(--admin-danger-text);
-  font-size: 12.5px;
-  font-weight: 900;
-  line-height: 1.2;
-}
-.reservations-table__needs-table .admin-badge {
-  width: fit-content;
-  min-height: 22px;
-  justify-content: center;
-  padding-inline: 7px;
-  font-size: 10px;
-  text-align: center;
-}
-
+/*
+ * Insignia de estado de una reservación.
+ *
+ * La consumen el detalle (show.php), la operación de reservaciones y la tarjeta
+ * del cajón operativo. El listado del panel ya no: usa .admin-badge, que es el
+ * vocabulario del panel.
+ *
+ * Se quitan el `width: 100%` y el `max-width: 104px` que tenía: con `nowrap`,
+ * ese tope no recortaba con puntos suspensivos —lo hacía a hueso—, así que
+ * "Pendiente de verificación" salía cortado a media palabra. Un badge mide lo
+ * que mide su texto; si hace falta acotarlo, se acota la caja que lo contiene.
+ */
 .reservations-table__status {
   display: inline-flex;
-  width: 100%;
-  max-width: 104px;
+  max-width: 100%;
   min-height: 26px;
   align-items: center;
   justify-content: center;
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 800;
@@ -793,25 +560,291 @@
   color: var(--admin-danger-text);
 }
 
-.reservations-table__note {
-  display: -webkit-box;
-  max-width: 100%;
-  max-height: calc(2.7em + 2px);
+/* ── Listado de reservaciones ───────────────────────────────────
+ *
+ * Sustituye a la tabla de seis columnas, que tenía `min-width: 960px` y por
+ * tanto scroll horizontal permanente en cualquier portátil: el estado y las
+ * acciones —lo único accionable de la fila— quedaban fuera de vista y había
+ * que arrastrar para verlos.
+ *
+ * Las tarjetas se reparten en una rejilla que se adapta sola: tres columnas en
+ * un monitor, dos en un portátil, una en tablet. En ningún caso desborda, que
+ * es la mitad del arreglo; la otra mitad es que la información se ordena por
+ * lo que se pregunta —cuándo, quién, cuántos, dónde, qué hacer— en vez de por
+ * lo que cabía en una columna.
+ */
+.reservations-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 22px;
+  /* Obligatorio, no defensivo: `lista.js` alterna lista y agenda poniendo
+     `[hidden]`, y el `display: none` que eso trae viene de la hoja del
+     NAVEGADOR — cualquier `display` de autor le gana. La envoltura anterior de
+     la tabla no declaraba `display`, así que se ocultaba sola; esta es flex y
+     sin esta regla la lista no se iría nunca al pasar a la agenda. Es el mismo
+     bloque que ya tiene .reservations-agenda, y por lo mismo. */
+}
+.reservations-list[hidden] {
+  display: none;
+}
+
+.reservations-list__day {
+  min-width: 0;
+  /* La cabecera del día es pegajosa: en un rango largo el listado ocupa varias
+     pantallas y sin ella se pierde de vista a qué día pertenece lo que se está
+     leyendo. Era una fila de <thead> y hacía lo mismo. */
+}
+.reservations-list__day-head {
+  position: sticky;
+  /* Por debajo del topbar, que también es sticky (56 px de alto mínimo) y
+     tiene z-index 10: con `top: 0` la cabecera se escondía detrás de él
+     justo en el momento en que tenía que aparecer. */
+  top: 64px;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.reservations-list__day-head small {
+  color: var(--admin-muted);
+  font-family: var(--admin-font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* Las tarjetas del día se reparten en columnas a CUALQUIER ancho. Iba detrás
+   de un `min-width: 1100px`, y entre 700 y 1100 px —un portátil con el sidebar
+   abierto— salía una sola columna de tarjetas de 800 px con el nombre a un
+   lado y los botones al otro, que es la tabla de antes sin encabezados. El
+   `min(100%, …)` es lo que deja caer a una columna en el teléfono sin media
+   query. 300 px es el ancho por debajo del cual el nombre del cliente y la
+   lista de mesas empiezan a partirse en dos líneas. */
+.reservations-list__day {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+  gap: 10px;
+}
+
+.reservations-list__day-head {
+  grid-column: 1/-1;
+}
+
+.reservations-card {
+  /* --estado es el color del filete izquierdo. Se declara por variante abajo y
+     nace neutro, que es lo seguro para un estado que no conozcamos. */
+  --estado: var(--admin-border);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--admin-border-soft);
+  border-left: 3px solid var(--estado);
+  border-radius: var(--admin-radius-sm);
+  background: var(--admin-surface);
+  transition: border-color var(--admin-t-fast) var(--admin-ease-out), box-shadow var(--admin-t-fast) var(--admin-ease-out);
+}
+.reservations-card:hover {
+  border-color: var(--admin-border);
+  border-left-color: var(--estado);
+  box-shadow: var(--admin-shadow-sm, 0 2px 8px color-mix(in srgb, var(--admin-sombra) 18%, transparent));
+}
+.reservations-card--pendiente_verificacion {
+  --estado: var(--admin-c-ambar);
+}
+.reservations-card--confirmada {
+  --estado: var(--admin-c-verde);
+}
+.reservations-card--completada {
+  --estado: var(--admin-c-azul);
+}
+.reservations-card {
+  /* Los dos estados terminales van en la línea neutra y no en rojo: una
+     reservación cancelada no es una alerta que atender, es una fila que ya no
+     va a pasar. El rojo se reserva para lo que pide acción.
+
+     Se retiran de la vista por la CAJA —sin fondo, contorno discontinuo, hora
+     y nombre en gris— y no con `opacity`, que era lo que había: al 72 % se
+     llevaba el texto por delante, y los rótulos en --admin-faint, que ya están
+     en el 4.5:1 justo, bajaban a menos de 3:1. Atenuar no puede costar leer. */
+}
+.reservations-card--cancelada, .reservations-card--no_show {
+  --estado: var(--admin-border);
+  border-style: dashed;
+  border-left-style: solid;
+  background: transparent;
+}
+.reservations-card--cancelada .reservations-card__time,
+.reservations-card--cancelada .reservations-card__name, .reservations-card--no_show .reservations-card__time,
+.reservations-card--no_show .reservations-card__name {
+  color: var(--admin-muted);
+}
+.reservations-card {
+  /* La tolerancia vencida SÍ pide acción, así que gana al estado: es lo único
+     de esta pantalla que le dice al anfitrión que tiene algo que resolver
+     ahora. Misma familia ámbar que la métrica «Tolerancia vencida» de arriba,
+     que es la que le da nombre. */
+}
+.reservations-card.is-late {
+  --estado: var(--admin-c-ambar);
+}
+.reservations-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.reservations-card__when {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+.reservations-card {
+  /* La hora es el dato con el que se recorre el listado, así que es lo más
+     grande de la tarjeta después del nombre, y va en mono con cifras de ancho
+     fijo: en una rejilla de tarjetas las horas caen unas debajo de otras y sin
+     tabular-nums no alinean los dos puntos. */
+}
+.reservations-card__time {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.reservations-card__late {
+  color: var(--admin-warning-text);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.reservations-card__status {
+  flex: 0 0 auto;
+}
+.reservations-card__customer {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.reservations-card__name {
   overflow: hidden;
+  color: var(--admin-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reservations-card__contact {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reservations-card {
+  /* Personas y mesas, como pares rótulo/valor. Fuera de una tabla el
+     encabezado de columna desaparece, y "13" o "Mesa 1, Mesa 2" a secas no
+     dicen de qué son. */
+}
+.reservations-card__facts {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 4px 16px;
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.reservations-card__fact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  /* Rótulo en la voz del panel: mono, versalitas y tracking abierto. A
+     9.5 px en sans pesada no llegaba a leerse como texto. */
+}
+.reservations-card__fact dt {
+  color: var(--admin-faint);
+  font-family: var(--admin-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.reservations-card__fact dd {
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 13px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reservations-card__fact--pendiente dd {
+  color: var(--admin-warning-text);
+  font-weight: 700;
+}
+.reservations-card__note {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
   color: var(--admin-muted);
   font-size: 12px;
   line-height: 1.35;
   overflow-wrap: anywhere;
-  text-overflow: ellipsis;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-
-.reservations-table__muted {
-  color: var(--admin-faint);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
+.reservations-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 9px;
+  border-top: 1px solid var(--admin-border-soft);
+}
+.reservations-card__origin {
+  flex: 0 0 auto;
+}
+.reservations-card__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+.reservations-card__operate .admin-btn__icon {
+  width: 13px;
+  height: 13px;
+}
+.reservations-card {
+  /* En pantalla táctil los 34 px del botón pequeño se quedan cortos para el
+     pulgar: la tarjeta es donde se actúa, no sólo donde se lee. */
+}
+@media (pointer: coarse) {
+  .reservations-card__actions .admin-btn {
+    min-height: 44px;
+  }
 }
 
 /*

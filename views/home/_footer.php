@@ -74,6 +74,28 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
                   <em><?php echo $especialFooter
                     ? s(($excepcionFooter['hora_apertura'] ?? '') . '–' . ($excepcionFooter['hora_cierre'] ?? ''))
                     : 'Cerrado'; ?></em>
+                  <?php /*
+                    El habitual del día, tachado bajo el excepcional. Es el
+                    mismo añadido que la tabla de la sección de reserva y por la
+                    misma razón: la excepción reemplazaba el horario y el
+                    visitante no tenía con qué compararla.
+
+                    Y con el MISMO rótulo en palabras, que es lo que aquí
+                    faltaba: iba sólo tachado, así que las dos cifras se leían
+                    seguidas en el mismo renglón —"16:00–23:00 08:30–22:00"— y
+                    en voz sonaban a dos horarios vigentes, porque
+                    `text-decoration: line-through` no se anuncia. El pie es
+                    además el sitio donde peor se distinguen: aquí no hay chapa
+                    ni motivo que digan que la fila está alterada.
+
+                    Va a mano porque el pie DUPLICA ese bloque —clases propias,
+                    sin chapa ni motivo— y sólo comparte con él el servicio que
+                    resuelve las excepciones. Si algún día se extrae un parcial
+                    común, éste es uno de los dos sitios.
+                  */ ?>
+                  <small class="foot__horario-habitual">Habitual: <s><?php echo !empty($horario['abierto'])
+                    ? s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? ''))
+                    : 'Cerrado'; ?></s></small>
                 <?php elseif (!empty($horario['abierto'])) : ?>
                   <span><?php echo s(($horario['hora_apertura'] ?? '') . '–' . ($horario['hora_cierre'] ?? '')); ?></span>
                 <?php else : ?>

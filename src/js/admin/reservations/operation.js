@@ -274,12 +274,24 @@
             var type = ['info', 'warning', 'success', 'error', 'restricted'].indexOf(options.type) !== -1
                 ? options.type
                 : 'info';
+            /*
+             * Los cinco avisos usan la MISMA familia tipográfica del panel.
+             *
+             * "i" y "!" son letras y se dibujan con la fuente; "✓" y "×" eran
+             * glifos que la fuente del sistema pintaba a su manera —tamaño y
+             * grosor distintos en cada plataforma, y sin heredar el color del
+             * aviso—, así que los cinco no se leían como un juego. Se cambian
+             * por SVG, que sí heredan currentColor y comparten grosor.
+             *
+             * El icono se inyecta como marcado y no como texto: por eso más
+             * abajo va innerHTML en vez de textContent.
+             */
             var icons = {
-                info: 'i',
-                warning: '!',
-                success: '✓',
-                error: '!',
-                restricted: '×'
+                info: 'info',
+                warning: 'alerta',
+                success: 'check',
+                error: 'alerta',
+                restricted: 'cerrar'
             };
 
             window.clearTimeout(noticeTimer);
@@ -287,7 +299,13 @@
             activeNoticeSource = options.source || 'context';
             els.globalNotice.className = 'operational-global-notice operational-global-notice--' + type;
             els.globalNotice.setAttribute('role', type === 'error' ? 'alert' : 'status');
-            if (els.globalNoticeIcon) els.globalNoticeIcon.textContent = icons[type];
+            if (els.globalNoticeIcon) {
+                // Sin el catálogo (admin.js no cargó) queda la caja vacía: el
+                // aviso sigue diciendo lo suyo con su título y su color.
+                els.globalNoticeIcon.innerHTML = window.AdminIcons
+                    ? window.AdminIcons.get(icons[type], 16)
+                    : '';
+            }
             if (els.globalNoticeTitle) els.globalNoticeTitle.textContent = options.title || 'Aviso';
             if (els.globalNoticeSummary) {
                 els.globalNoticeSummary.textContent = options.summary || 'Consulta este aviso operativo.';
@@ -1456,7 +1474,7 @@
             if (!total) {
                 els.reservations.innerHTML =
                     '<div class="mapa-empty-state">' +
-                        '<span class="mapa-empty-icon">o</span>' +
+                        '<span class="mapa-empty-icon" aria-hidden="true"><span class="mapa-empty-spinner"></span></span>' +
                         '<span>No hay reservaciones pendientes de operación.</span>' +
                     '</div>';
                 return;

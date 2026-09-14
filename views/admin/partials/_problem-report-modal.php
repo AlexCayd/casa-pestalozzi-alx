@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/_icons.php'; // admin_icon() para el aspa de cerrar ?>
 <div class="admin-modal" id="admin-problem-modal" data-admin-modal hidden>
     <button class="admin-modal__backdrop" type="button" tabindex="-1" aria-hidden="true" data-admin-modal-close></button>
     <div
@@ -15,7 +16,7 @@
                 <h2 class="admin-modal__title" id="admin-problem-title">Reportar un problema</h2>
                 <p class="admin-modal__text" id="admin-problem-description">Cuéntanos qué ocurrió. La ruta actual se agregará automáticamente sin incluir parámetros.</p>
             </div>
-            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close>&times;</button>
+            <button class="admin-modal__close" type="button" aria-label="Cerrar" data-admin-modal-close><?php echo admin_icon('cerrar', 18); ?></button>
         </div>
 
         <form class="admin-modal__form" data-problem-report-form novalidate>

@@ -1,23 +1,80 @@
+/*
+ * Diálogo de confirmación de la casa. Lo comparten los CUATRO bundles: la
+ * landing, el panel, el piso y la operación de reservaciones.
+ *
+ * Por eso no consume un solo rol del sitio público ni un solo --admin-*: sólo
+ * los --confirmation-*, que cada ámbito declara con su propia paleta
+ * (alias-heredados en layout/_reset.scss, alias-admin-heredados en
+ * admin/shared/base/_globals.scss). Antes pedía --scrim, --accent, --txt y
+ * --serif a secas, que existen en la landing y en las cuatro pantallas de piso
+ * pero NO en `.admin-body`: ahí las declaraciones se invalidaban y el velo del
+ * panel salía transparente —se borraba con el módulo a brillo pleno detrás— y
+ * el titular caía a Georgia, la única serif que el panel no quiere.
+ *
+ * Al añadir una regla con color o tipografía aquí, el token nuevo se declara en
+ * los DOS mixins. Un nombre que sólo exista en uno vuelve a romper el otro sin
+ * ruido: un var() inválido hereda o cae al valor inicial, no rompe la regla.
+ *
+ * La excepción son los ajustes de VOZ del rótulo y el titular
+ * (--confirmation-label-*, --confirmation-heading-tracking): llevan su valor de
+ * respaldo escrito en el var(), que es el de la landing, y sólo el panel los
+ * declara —para hablar en su mono de rótulos y su sans apretada—. Olvidarlos
+ * no deja nada transparente: deja el diálogo con la voz de la landing.
+ */
 .confirmation-modal {
+  /* Curvas y tiempos en un solo sitio: entrada y salida tienen que ser
+     simétricas o el cierre se siente más lento que la apertura aunque duren lo
+     mismo. La de entrada es la de desaceleración de la casa; la de salida
+     acorta, porque un diálogo que ya decidiste no tiene nada que anunciar. */
+  --confirmation-in: 260ms;
+  --confirmation-out: 170ms;
+  --confirmation-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  // La salida ACELERA: el diálogo se va sin frenar al final. Con la misma curva
+  // de desaceleración de la entrada, los 170 ms se gastaban casi enteros en la
+  // cola lenta y el cierre se sentía pegajoso.
+  --confirmation-ease-out: cubic-bezier(0.4, 0, 1, 1);
+
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: color-mix(in srgb, var(--scrim) 76%, transparent);
-  opacity: 0;
-  transition: opacity 0.18s ease;
 
   &[hidden] { display: none; }
-  &.is-open { opacity: 1; }
 
+  /* El velo desenfoca además de atenuar, y el desenfoque es lo que hace el
+     trabajo: sobre el tema oscuro del panel una capa negra al 76 % es casi
+     indistinguible del fondo, así que la página seguía leyéndose como
+     interactiva detrás del diálogo. El `saturate` no es adorno — sin él, un
+     fondo oscuro desenfocado sigue siendo una mancha gris y el velo no se
+     distingue de un rectángulo opaco (la misma cuenta que .mesa-modal__bd).
+
+     Va en el __backdrop y no en la raíz: el backdrop-filter crea contexto de
+     apilamiento, y sobre el contenedor arrastraría al propio diálogo dentro
+     del desenfoque.
+
+     Y el fundido va AQUÍ, no en la raíz, por la misma razón vista desde el otro
+     lado: un ancestro con `opacity` menor que 1 es raíz de backdrop, así que
+     mientras la raíz fundía el desenfoque no veía la página —sólo lo que había
+     dentro del propio modal— y aparecía de golpe al llegar a 1, al final de la
+     entrada. Con la opacidad en el mismo elemento que filtra, el velo y su
+     desenfoque entran juntos. */
   &__backdrop {
     position: absolute;
     inset: 0;
     border: 0;
-    background: transparent;
+    background: color-mix(in srgb, var(--confirmation-scrim) 76%, transparent);
     cursor: default;
+    backdrop-filter: blur(6px) saturate(1.4);
+    -webkit-backdrop-filter: blur(6px) saturate(1.4);
+    opacity: 0;
+    transition: opacity var(--confirmation-out) var(--confirmation-ease-out);
+  }
+
+  &.is-open &__backdrop {
+    opacity: 1;
+    transition: opacity var(--confirmation-in) ease-out;
   }
 
   &__dialog {
@@ -25,21 +82,63 @@
     z-index: 1;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    width: clamp(620px, 72vw, 840px);
+    /* 600 px dejan unos 65 caracteres por línea a 16 px, que es la medida de
+       lectura de una pregunta y sus consecuencias. Estaba en clamp(620px,
+       72vw, 840px) para todos los casos, y un «¿Eliminar este gasto?» se abría
+       a 840 px con la descripción en una sola línea de lado a lado. El ancho
+       grande lo pide sólo la comparación de tres columnas (abajo). */
+    width: 600px;
     max-width: calc(100vw - 48px);
     max-height: calc(100dvh - 32px);
     overflow: hidden;
     padding: 32px;
-    border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+    border: 1px solid color-mix(in srgb, var(--confirmation-accent) 42%, transparent);
     border-radius: 18px;
     background: var(--confirmation-surface);
     color: var(--confirmation-text);
-    box-shadow: 0 24px 80px color-mix(in srgb, var(--sombra) 50%, transparent);
-    transform: translateY(0.5rem) scale(0.985);
-    transition: transform 0.18s ease;
+    box-shadow: 0 24px 80px color-mix(in srgb, var(--confirmation-shadow) 50%, transparent);
+    /* Sube desde abajo y crece: el gesto dice "esto viene a primer plano".
+       Sólo transform y opacity, que es lo que el compositor resuelve sin
+       repintar (la regla de _finishes.scss). */
+    transform: translateY(14px) scale(0.97);
+    opacity: 0;
+    transition:
+      transform var(--confirmation-out) var(--confirmation-ease-out),
+      opacity var(--confirmation-out) var(--confirmation-ease-out);
   }
 
-  &.is-open &__dialog { transform: translateY(0) scale(1); }
+  &.is-open &__dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    transition:
+      transform var(--confirmation-in) var(--confirmation-ease),
+      opacity var(--confirmation-in) ease-out;
+  }
+
+  // Sólo la comparación antes/después necesita el ancho grande: son tres
+  // columnas y a 600 px la del rótulo se come a las otras dos. Acotado a
+  // pantallas anchas porque por debajo de 640 px la comparación ya se apila en
+  // una columna (abajo), y este selector pesa más que el de móvil.
+  @media (min-width: 640px) {
+    &:has(.confirmation-modal__comparison) &__dialog {
+      width: clamp(620px, 72vw, 840px);
+    }
+  }
+
+  /* Con movimiento reducido queda el fundido y nada más: el velo y el
+     desenfoque se conservan porque no son movimiento, son jerarquía —dicen que
+     la página de detrás está bloqueada—. */
+  @media (prefers-reduced-motion: reduce) {
+    &__dialog {
+      transform: none;
+      transition: opacity var(--confirmation-out) ease;
+    }
+
+    &.is-open &__dialog {
+      transform: none;
+      transition: opacity var(--confirmation-in) ease;
+    }
+  }
 
   &__header {
     display: grid;
@@ -54,11 +153,15 @@
     height: 44px;
     place-items: center;
     flex: 0 0 44px;
-    border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--confirmation-accent) 50%, transparent);
     border-radius: 50%;
-    color: var(--accent-text);
+    color: var(--confirmation-accent-text);
     font-size: 22px;
     font-weight: 700;
+
+    // En el panel el glifo se cambia por el SVG de AdminIcons (ver el JS): el
+    // mismo trazo que el resto de sus iconos, y no un «!» de la fuente.
+    svg { stroke-width: 2; }
   }
 
   &__heading { min-width: 0; }
@@ -66,10 +169,11 @@
   &__eyebrow {
     display: block;
     margin-bottom: 6px;
-    color: var(--accent-text);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    color: var(--confirmation-accent-text);
+    font-family: var(--confirmation-label-font, inherit);
+    font-size: var(--confirmation-label-size, 14px);
+    font-weight: var(--confirmation-label-weight, 700);
+    letter-spacing: var(--confirmation-label-tracking, 0.08em);
     line-height: 1.45;
     text-transform: uppercase;
   }
@@ -77,11 +181,13 @@
   &__title {
     margin: 0;
     color: inherit;
-    font-family: var(--serif, Georgia, serif);
+    font-family: var(--confirmation-heading-font);
     font-size: clamp(24px, 2.5vw, 30px);
     font-weight: 500;
+    letter-spacing: var(--confirmation-heading-tracking, normal);
     line-height: 1.2;
     overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   &__description,
@@ -97,7 +203,7 @@
 
   &__description {
     margin: 8px 0 0;
-    color: color-mix(in srgb, var(--txt) 84%, transparent);
+    color: color-mix(in srgb, var(--confirmation-text) 84%, transparent);
   }
 
   &__close {
@@ -105,7 +211,7 @@
     width: 44px;
     height: 44px;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+    border: 1px solid color-mix(in srgb, var(--confirmation-text) 24%, transparent);
     border-radius: 50%;
     background: transparent;
     color: inherit;
@@ -113,6 +219,8 @@
     font-size: 26px;
     line-height: 1;
     cursor: pointer;
+
+    svg { stroke-width: 2; }
 
     &:disabled { cursor: wait; opacity: 0.55; }
   }
@@ -132,9 +240,9 @@
 
   &__summary {
     padding: 16px;
-    border: 1px solid color-mix(in srgb, var(--txt) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--confirmation-text) 14%, transparent);
     border-radius: 12px;
-    background: color-mix(in srgb, var(--txt) 5%, transparent);
+    background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
 
     &[hidden] { display: none; }
   }
@@ -155,15 +263,15 @@
 
   &__warning {
     padding: 14px 16px;
-    border-left: 4px solid var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    color: var(--accent-soft);
+    border-left: 4px solid var(--confirmation-accent);
+    background: color-mix(in srgb, var(--confirmation-accent) 12%, transparent);
+    color: var(--confirmation-accent-soft);
 
     &[hidden] { display: none; }
   }
 
   &__consequence {
-    color: color-mix(in srgb, var(--txt) 82%, transparent);
+    color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
 
     &[hidden] { display: none; }
   }
@@ -186,7 +294,7 @@
   }
 
   &__require-label {
-    color: color-mix(in srgb, var(--txt) 88%, transparent);
+    color: color-mix(in srgb, var(--confirmation-text) 88%, transparent);
     font-size: 13px;
     font-weight: 700;
   }
@@ -195,31 +303,35 @@
     width: 100%;
     min-height: 44px;
     padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+    /* 42% y no 24%: es el contorno de un CONTROL, y el 24% se queda en 1.9:1
+       contra la superficie del diálogo —por debajo del 3:1 que WCAG pide a un
+       elemento no textual—. Es además el único campo del diálogo, así que
+       tiene que encontrarse solo. */
+    border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
     border-radius: 10px;
-    background: var(--surface);
-    color: var(--txt-strong);
+    background: var(--confirmation-field-bg);
+    color: var(--confirmation-strong);
     font: inherit;
     font-size: 14px;
 
     &:focus-visible {
       outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+      border-color: var(--confirmation-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--confirmation-accent) 28%, transparent);
     }
   }
 
   &__require-hint {
     margin: 0;
-    color: var(--txt-faint);
+    color: var(--confirmation-faint);
     font-size: 12px;
   }
 
   /* En cuanto coincide, el filete y la pista pasan a verde: es la señal de que
      el botón ya está disponible, que si no obliga a mirar al pie del diálogo. */
   &__require.is-valid {
-    .confirmation-modal__require-input { border-color: var(--feedback-ok); }
-    .confirmation-modal__require-hint { color: var(--feedback-ok); }
+    .confirmation-modal__require-input { border-color: var(--confirmation-ok); }
+    .confirmation-modal__require-hint { color: var(--confirmation-ok); }
   }
 
   &__reason {
@@ -227,7 +339,7 @@
     gap: 8px;
 
     span {
-      color: color-mix(in srgb, var(--txt) 82%, transparent);
+      color: color-mix(in srgb, var(--confirmation-text) 82%, transparent);
       font-size: 14px;
       font-weight: 700;
     }
@@ -236,22 +348,23 @@
       width: 100%;
       min-height: 96px;
       padding: 12px;
-      border: 1px solid color-mix(in srgb, var(--txt) 24%, transparent);
+      // Mismo 42% que el campo de confirmación escrita, y por lo mismo.
+      border: 1px solid color-mix(in srgb, var(--confirmation-text) 42%, transparent);
       border-radius: 9px;
-      background: color-mix(in srgb, var(--txt) 5%, transparent);
+      background: color-mix(in srgb, var(--confirmation-text) 5%, transparent);
       color: inherit;
       font: inherit;
       resize: vertical;
 
-      &:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+      &:focus { outline: 2px solid var(--confirmation-accent); outline-offset: 2px; }
     }
   }
 
   &__status {
-    color: var(--accent-text);
+    color: var(--confirmation-accent-text);
 
     &[hidden] { display: none; }
-    &.is-error { color: var(--feedback-danger); }
+    &.is-error { color: var(--confirmation-danger-text); }
   }
 
   &__comparison {
@@ -265,20 +378,20 @@
     gap: 12px;
     align-items: start;
     padding: 12px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
 
     &:last-child { border-bottom: 0; }
-    &.is-changed { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+    &.is-changed { background: color-mix(in srgb, var(--confirmation-accent) 10%, transparent); }
   }
 
-  &__comparison-label { color: var(--accent-text); }
+  &__comparison-label { color: var(--confirmation-accent-text); }
 
   &__comparison-cell {
     display: grid;
     gap: 4px;
     min-width: 0;
 
-    small { color: color-mix(in srgb, var(--txt) 64%, transparent); font-size: 14px; }
+    small { color: color-mix(in srgb, var(--confirmation-text) 64%, transparent); font-size: 14px; }
   }
 
   &__actions {
@@ -287,7 +400,7 @@
     gap: 12px;
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid color-mix(in srgb, var(--txt) 12%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--confirmation-text) 12%, transparent);
   }
 
   &__button {
@@ -304,20 +417,33 @@
     &:disabled { cursor: wait; opacity: 0.55; }
 
     &--secondary {
-      border-color: color-mix(in srgb, var(--txt) 25%, transparent);
+      border-color: color-mix(in srgb, var(--confirmation-text) 25%, transparent);
       background: transparent;
       color: inherit;
     }
 
     &--primary {
-      background: var(--accent);
-      color: var(--on-accent);
+      background: var(--confirmation-accent);
+      color: var(--confirmation-on-accent);
     }
   }
 
-  &--danger &__icon { border-color: color-mix(in srgb, var(--feedback-danger) 70%, transparent); color: var(--feedback-danger); }
-  &--danger &__button--primary { background: var(--feedback-danger); color: var(--txt); }
-  &--warning &__icon { border-color: color-mix(in srgb, var(--accent) 70%, transparent); color: var(--accent-soft); }
+  /* El destructivo. --confirmation-danger es el ROJO PLENO del relleno y
+     --confirmation-danger-text el rojo legible como texto sobre el fondo del
+     modo activo: son dos valores distintos y confundirlos es lo que dejaba el
+     botón ilegible. La tinta de encima se declara aparte porque el rojo de la
+     paleta funcional no admite texto oscuro. */
+  &--danger &__icon {
+    border-color: color-mix(in srgb, var(--confirmation-danger-text) 70%, transparent);
+    color: var(--confirmation-danger-text);
+  }
+
+  &--danger &__button--primary {
+    background: var(--confirmation-danger);
+    color: var(--confirmation-on-danger);
+  }
+
+  &--warning &__icon { border-color: color-mix(in srgb, var(--confirmation-accent) 70%, transparent); color: var(--confirmation-accent-soft); }
 
   @media (max-width: 639px) {
     padding: 12px;

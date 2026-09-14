@@ -4,17 +4,41 @@
  * Muestra promedios por criterio y el detalle de las últimas reseñas.
  */
 
+require_once __DIR__ . '/../partials/_icons.php';
+
 /** Devuelve una barra de estrellas para una calificación 1–5. */
 $stars = static function ($value): string {
     if ($value === null) {
         return '<span class="admin-fb__stars admin-fb__stars--empty">Sin datos</span>';
     }
 
+    /*
+     * Cinco estrellas SVG, no ★ y ☆.
+     *
+     * Los dos glifos los dibuja la fuente del sistema: no heredan el color del
+     * panel —la llena salía del color que le diera la plataforma, a veces
+     * incluso a color— y la vacía ni siquiera existe en todas las caras, así
+     * que en algunos equipos se veían cinco rectángulos. Con SVG la llena y la
+     * vacía son el MISMO trazo, distinguidas por relleno, que es lo que hace
+     * que la fila se lea como una escala y no como dos símbolos distintos.
+     */
     $rounded = max(0, min(5, (int) round((float) $value)));
-    $full = str_repeat('★', $rounded);
-    $empty = str_repeat('☆', 5 - $rounded);
+    $estrellas = '';
+    for ($i = 1; $i <= 5; $i++) {
+        $clase = $i <= $rounded ? 'admin-fb__star is-on' : 'admin-fb__star';
+        $estrellas .= admin_icon('estrella', 14, $clase);
+    }
 
-    return '<span class="admin-fb__stars">' . $full . $empty . '</span>';
+    /*
+     * La nota, también en texto para quien no ve el dibujo. Los cinco SVG salen
+     * de admin_icon() con aria-hidden, así que la celda entera se anunciaba
+     * VACÍA en un lector de pantalla: la tabla de opiniones tiene cuatro
+     * columnas que son sólo estrellas, y sin esto no se podía leer ninguna.
+     */
+    $texto = number_format((float) $value, 1) . ' de 5';
+
+    return '<span class="admin-fb__stars">' . $estrellas
+        . '<span class="admin-visually-hidden">' . htmlspecialchars($texto, ENT_QUOTES, 'UTF-8') . '</span></span>';
 };
 
 $criterios = [
@@ -273,13 +297,9 @@ $criterios = [
         font-weight: 600;
     }
 
-    .admin-fb__stars {
-        color: var(--admin-gold);
-        font-size: 15px;
-        letter-spacing: 2px;
-    }
-
-    .admin-fb__stars--empty,
+    /* Las estrellas dejaron de ser caracteres: su color, su tamaño y su
+       separación viven ahora en .admin-fb__star (_badges.scss), que es lo que
+       pinta el SVG. Aquí sólo queda la línea que no es una estrella. */
     .admin-fb__no-comment {
         color: var(--admin-faint);
         font-size: 12px;

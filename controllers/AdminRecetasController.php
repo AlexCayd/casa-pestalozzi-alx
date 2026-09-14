@@ -21,29 +21,103 @@ class AdminRecetasController
     private const PATH = '/admin/recetas';
     private const SUBPATH = '/admin/recetas/subrecetas';
     private const CSS = '/build/css/admin/recetas.css';
+    // Diez por página, como el listado de Menú: son las mismas filas de la
+    // misma tabla y alternar entre los dos módulos con dos ventanas distintas
+    // sólo desorienta.
+    private const POR_PAGINA = 10;
 
     // ── Listado de platillos con su receta ───────────────────
     public static function index(Router $router): void
     {
+        $filtros = self::leerFiltros();
+
         $productos = [];
+        $conteos = [];
+        $catalogo = 0;
+        $total = 0;
+        $totalPaginas = 1;
+        $paginaActual = 1;
+
         try {
-            $productos = Producto::todos();
+            $conteos = self::conteoComponentes();
+
+            /*
+             * Las dos cifras de la cabecera se consultan aparte, y no se
+             * cuentan sobre $productos: con el listado paginado, contar las
+             * filas traídas haría que «Platillos» dijera 10 y «Sin receta»
+             * describiera la página en curso en vez del catálogo. Es la misma
+             * trampa que ya se pagó en Tickets.
+             */
+            $catalogo = Producto::totalRecetas([]);
+
+            $total = Producto::totalRecetas($filtros);
+            $totalPaginas = max(1, (int) ceil($total / self::POR_PAGINA));
+
+            $paginaActual = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if (!$paginaActual || $paginaActual > $totalPaginas) {
+                $paginaActual = 1;
+            }
+
+            $productos = Producto::buscarRecetas(
+                $filtros,
+                self::POR_PAGINA,
+                ($paginaActual - 1) * self::POR_PAGINA
+            );
         } catch (\Throwable $e) {
             Producto::setAlerta('error', 'No se pudo cargar el catálogo. ¿Ya corriste la migración de la BD?');
         }
 
-        $conteos = self::conteoComponentes();
-
-        self::render('recetas/index', [
+        $data = [
             'title' => 'Recetas',
             'topbarSection' => 'Recetas',
             'productos' => $productos,
             'conteosReceta' => $conteos,
             'categoriasMap' => self::categoriasMap(),
-            'totalProductos' => count($productos),
+            'totalProductos' => $catalogo,
             'conReceta' => count(array_filter($conteos)),
+            'filtros' => $filtros,
+            'filtrosActivos' => $filtros['q'] !== '' || $filtros['estado'] !== 'todas',
+            'totalFiltrado' => $total,
+            'paginaActual' => $paginaActual,
+            'totalPaginas' => $totalPaginas,
+            'porPagina' => self::POR_PAGINA,
             'alertas' => Producto::getAlertas(),
-        ]);
+            'partialUrl' => AdminController::filterUrl(self::PATH, array_merge(
+                $filtros,
+                $paginaActual > 1 ? ['page' => $paginaActual] : []
+            )),
+        ];
+
+        if (AdminController::isPartialRequest()) {
+            AdminController::renderPartial('recetas/index', array_merge($data, ['partialOnly' => true]));
+            return;
+        }
+
+        self::render('recetas/index', $data);
+    }
+
+    /**
+     * Filtros del listado.
+     *
+     * `estado` vale «todas» y no cadena vacía cuando no filtra, y eso NO es
+     * ruido en la URL: las pastillas son radios de verdad y el intercambio
+     * reactivo las vuelve a marcar leyendo el parámetro de la URL canónica
+     * (`syncControls` en reactive-filters.js). Un radio con `value=""` nunca
+     * casaría en esa comparación, así que al pulsar «Todas» el grupo se
+     * quedaría sin ninguna opción marcada.
+     */
+    private static function leerFiltros(): array
+    {
+        // 100 caracteres es el mismo tope que usa Menú. Se recorta aquí, antes
+        // de que el modelo parta el texto en términos.
+        $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+
+        $estado = (string) ($_GET['estado'] ?? '');
+        if ($estado !== 'con' && $estado !== 'sin') {
+            $estado = 'todas';
+        }
+
+        return ['q' => $q, 'estado' => $estado];
     }
 
     /**
