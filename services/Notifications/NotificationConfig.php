@@ -57,7 +57,17 @@ final class NotificationConfig
 
     public static function n8nSecret(): string
     {
-        return trim(self::env('N8N_SECRET'));
+        return trim(self::env('N8N_RESERVATIONS_WEBHOOK_SECRET'));
+    }
+
+    public static function n8nCallbackSecret(): string
+    {
+        $secret = trim(self::env('N8N_RESERVATIONS_CALLBACK_SECRET'));
+        // Las dos direcciones no comparten credencial ni la de otros módulos.
+        if ($secret !== '' && hash_equals(self::n8nSecret(), $secret)) {
+            return '';
+        }
+        return $secret;
     }
 
     public static function externalTransportIsConfigured(): bool

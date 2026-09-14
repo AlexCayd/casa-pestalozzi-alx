@@ -95,3 +95,22 @@ Navegador sobre base desechable: primer envío muestra 2 reenvíos y contador;
 primer reenvío muestra 1 y reinicia contador. Transporte development simulado.
 Resultado: interfaz conectada al backend; límites y concurrencia cubiertos en DB.
 Riesgo: no sustituye ensayo con SMTP/Meta reales. Commit: el de esta sección.
+
+Commit etapa 4: `4a020e9`. El segundo reenvío y refresh también se verificaron:
+botón deshabilitado y cero disponibles, sin errores JS observados. Se cerró la
+vista y se eliminó la base desechable; no se enviaron mensajes externos.
+
+## Etapa 5 — Autenticación y configuración de workflows
+
+Objetivo: eliminar secretos en Code y separar direcciones. Causa: autenticación
+manual con acceso al entorno y una clave compartida. Archivos: NotificationConfig,
+N8nReservationsController, configuración PHP de ejemplo, tres JSON y contrato PHP de tests.
+Decisiones: Webhook Header Auth X-N8N-Secret; HTTP Header Auth saliente con
+X-N8N-Callback-Secret; secretos distintos obligatorios. Configuración no secreta
+en Set independiente por workflow, sin $env ni $vars. Exports inactivos sin credenciales.
+Los JSON incluyen ya los contratos coordinados de etapas 2, 7 y 8; el despliegue
+debe tomar el conjunto final, no un commit intermedio.
+Tests: 251 escenarios de grafo/Code, transporte PHP y autenticación ausente,
+incorrecta, cruzada y claves iguales PASS. Resultado: contratos locales aprobados.
+Riesgo: asignar credenciales y probar Header Auth nativo en n8n real sigue pendiente.
+Commit: el de esta sección.

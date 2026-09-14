@@ -27,7 +27,7 @@ function communicationsAssert(bool $condition, string $message): void
 $root = dirname(__DIR__, 2);
 $previousEnvironment = $_ENV['APP_ENV'] ?? null;
 $previousBaseUrl = $_ENV['N8N_BASE_URL'] ?? null;
-$previousSecret = $_ENV['N8N_SECRET'] ?? null;
+$previousSecret = $_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] ?? null;
 
 foreach ([
     'development' => [false, true, true, 'text'],
@@ -152,7 +152,7 @@ $invalidCallback = ReservationNotificationResultService::registrar(
     1,
     1,
     'whatsapp',
-    'delivered'
+    'accepted'
 );
 communicationsAssert(($invalidCallback['codigo'] ?? '') === 'NOTIFICACION_CALLBACK_INVALIDO', 'callback valida evento');
 communicationsAssert(ScheduleChangeNotificationService::MAX_ATTEMPTS === 2, 'no existe attempt 3');
@@ -160,15 +160,27 @@ ini_set('session.save_path', sys_get_temp_dir());
 communicationsAssert(AdminCsrfService::validar('fixture-csrf-invalido') === false, 'admin rechaza CSRF inválido');
 
 $previousMethod = $_SERVER['REQUEST_METHOD'] ?? null;
-$previousHeader = $_SERVER['HTTP_X_N8N_SECRET'] ?? null;
-$_ENV['N8N_SECRET'] = 'fixture-independent-secret';
+$previousHeader = $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] ?? null;
+$previousWebhookSecret = $_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] ?? null;
+$_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = 'fixture-outgoing-secret';
+$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-independent-secret';
+$auth = new ReflectionMethod(N8nReservationsController::class, 'secretValido');
+foreach (['' => false, 'fixture-outgoing-secret' => false, 'fixture-independent-secret' => true] as $header => $valid) {
+    $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = $header;
+    communicationsAssert($auth->invoke(null) === $valid, 'autenticación separa direcciones y rechaza header ausente');
+}
+$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-outgoing-secret';
+$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-outgoing-secret';
+communicationsAssert($auth->invoke(null) === false, 'secretos iguales fallan cerrado');
+if ($previousWebhookSecret === null) unset($_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET']); else $_ENV['N8N_RESERVATIONS_WEBHOOK_SECRET'] = $previousWebhookSecret;
+$_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = 'fixture-independent-secret';
 $_SERVER['REQUEST_METHOD'] = 'POST';
-$_SERVER['HTTP_X_N8N_SECRET'] = 'fixture-wrong-secret';
+$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-wrong-secret';
 ob_start();
 N8nReservationsController::prepararRecordatorios(new Router());
 $wrongSecretOutput = json_decode((string)ob_get_clean(), true);
 communicationsAssert(http_response_code() === 403 && ($wrongSecretOutput['codigo'] ?? '') === 'N8N_SECRET_INVALIDO', 'endpoint rechaza secret incorrecto');
-$_SERVER['HTTP_X_N8N_SECRET'] = 'fixture-independent-secret';
+$_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = 'fixture-independent-secret';
 ob_start();
 N8nReservationsController::notificacionResultado(new Router());
 $invalidPayloadOutput = json_decode((string)ob_get_clean(), true);
@@ -184,7 +196,7 @@ communicationsAssert(is_string($ddl) && is_string($routes), 'esquema y rutas leg
 foreach (['configuracion_reservaciones', 'reservacion_recordatorios', 'notification_delivery_status', 'notification_delivery_updated_at'] as $fragment) {
     communicationsAssert(str_contains($ddl, $fragment), "esquema contiene {$fragment}");
 }
-communicationsAssert(str_contains($ddl, "ENUM('pending', 'accepted', 'delivered', 'failed')"), 'estados de transporte explícitos');
+communicationsAssert(str_contains($ddl, "ENUM('pending', 'accepted', 'failed')"), 'estados de transporte explícitos');
 foreach (['/recordatorios/preparar', '/notificacion-resultado'] as $route) {
     communicationsAssert(str_contains($routes, $route), "ruta registrada {$route}");
 }
@@ -210,7 +222,7 @@ foreach ($expectedWorkflows as $filename => [$name, $trigger, $entry]) {
 }
 $confirmationRaw = file_get_contents($root . '/n8n/reservaciones-confirmacion.json');
 $scheduleRaw = file_get_contents($root . '/n8n/reservaciones-cambio-horario.json');
-communicationsAssert(str_contains((string)$confirmationRaw, 'X-N8N-Secret') && str_contains((string)$confirmationRaw, '202'), 'confirmación autentica y responde 202');
+communicationsAssert(str_contains((string)$confirmationRaw, 'headerAuth') && str_contains((string)$confirmationRaw, 'Responder 200'), 'confirmación autentica y espera proveedor');
 communicationsAssert(str_contains((string)$scheduleRaw, "[1, 2].includes"), 'cambio horario bloquea attempt mayor a 2');
 $exporter = file_get_contents($root . '/n8n/exportar.js');
 foreach (array_keys($expectedWorkflows) as $filename) {
@@ -220,8 +232,8 @@ communicationsAssert(str_contains((string)$exporter, 'delete limpio.credentials'
 
 if ($previousEnvironment === null) unset($_ENV['APP_ENV']); else $_ENV['APP_ENV'] = $previousEnvironment;
 if ($previousBaseUrl === null) unset($_ENV['N8N_BASE_URL']); else $_ENV['N8N_BASE_URL'] = $previousBaseUrl;
-if ($previousSecret === null) unset($_ENV['N8N_SECRET']); else $_ENV['N8N_SECRET'] = $previousSecret;
+if ($previousSecret === null) unset($_ENV['N8N_RESERVATIONS_CALLBACK_SECRET']); else $_ENV['N8N_RESERVATIONS_CALLBACK_SECRET'] = $previousSecret;
 if ($previousMethod === null) unset($_SERVER['REQUEST_METHOD']); else $_SERVER['REQUEST_METHOD'] = $previousMethod;
-if ($previousHeader === null) unset($_SERVER['HTTP_X_N8N_SECRET']); else $_SERVER['HTTP_X_N8N_SECRET'] = $previousHeader;
+if ($previousHeader === null) unset($_SERVER['HTTP_X_N8N_CALLBACK_SECRET']); else $_SERVER['HTTP_X_N8N_CALLBACK_SECRET'] = $previousHeader;
 
 fwrite(STDOUT, "Reservaciones: configuración, contrato y tres workflows n8n OK\n");
