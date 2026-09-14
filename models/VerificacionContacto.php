@@ -26,7 +26,8 @@ class VerificacionContacto extends ActiveRecord
     ): ?array
     {
         $sql = 'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
-                       attempts, used_at, invalidated_at, created_at
+                       attempts, used_at, invalidated_at, created_at, delivery_status,
+                       accepted_at, cycle_id, cycle_expires_at
                 FROM verificaciones_contacto
                 WHERE contacto_tipo = ? AND contacto = ? AND ';
         $sql .= $reservacionId === null
@@ -65,7 +66,8 @@ class VerificacionContacto extends ActiveRecord
     ): ?array {
         $stmt = self::getDB()->prepare(
             'SELECT id, reservacion_id, contacto_tipo, contacto, codigo_hash,
-                    expires_at, attempts, used_at, invalidated_at, created_at
+                    expires_at, attempts, used_at, invalidated_at, created_at,
+                    delivery_status, accepted_at, cycle_id, cycle_expires_at
              FROM verificaciones_contacto
              WHERE contacto_tipo = ?
                AND contacto = ?
@@ -132,32 +134,25 @@ class VerificacionContacto extends ActiveRecord
         string $contacto,
         string $codigoHash,
         string $expiresAt,
-        ?int $reservacionId = null
+        ?int $reservacionId = null,
+        ?string $cycleId = null,
+        ?string $cycleExpiresAt = null,
+        ?string $createdAt = null
     ): int {
-        $sql = $reservacionId === null
-            ? 'INSERT INTO verificaciones_contacto
-                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at, attempts)
-               VALUES (NULL, ?, ?, ?, ?, 0)'
-            : 'INSERT INTO verificaciones_contacto
-                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at, attempts)
-               VALUES (?, ?, ?, ?, ?, 0)';
+        $cycleId ??= bin2hex(random_bytes(16));
+        $cycleExpiresAt ??= $expiresAt;
+        $createdAt ??= \Services\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $sql = "INSERT INTO verificaciones_contacto
+                (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
+                 attempts, delivery_status, cycle_id, cycle_expires_at, created_at)
+                VALUES (?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?)";
         $stmt = self::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('No fue posible preparar el registro del código.');
         }
 
-        if ($reservacionId === null) {
-            $stmt->bind_param('ssss', $tipo, $contacto, $codigoHash, $expiresAt);
-        } else {
-            $stmt->bind_param(
-                'issss',
-                $reservacionId,
-                $tipo,
-                $contacto,
-                $codigoHash,
-                $expiresAt
-            );
-        }
+        $stmt->bind_param('isssssss', $reservacionId, $tipo, $contacto, $codigoHash,
+            $expiresAt, $cycleId, $cycleExpiresAt, $createdAt);
         if (!$stmt->execute()) {
             $mensaje = $stmt->error;
             $stmt->close();
@@ -168,6 +163,49 @@ class VerificacionContacto extends ActiveRecord
         $stmt->close();
 
         return $id;
+    }
+
+    /** Una sola lectura coherente, sin exponer hashes a la política pública. */
+    public static function historialEnvios(string $tipo, string $contacto, ?int $reservacionId): array
+    {
+        $stmt = self::getDB()->prepare(
+            'SELECT id, delivery_status, accepted_at, created_at, expires_at,
+                    used_at, cycle_id, cycle_expires_at
+             FROM verificaciones_contacto
+             WHERE contacto_tipo = ? AND contacto = ? AND reservacion_id <=> ?
+             ORDER BY id DESC'
+        );
+        $stmt->bind_param('ssi', $tipo, $contacto, $reservacionId);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows;
+    }
+
+    /** Transición terminal idempotente; nunca convierte un fallo previo en accepted. */
+    public static function finalizarEnvio(int $id, bool $accepted): void
+    {
+        $status = $accepted ? 'accepted' : 'failed';
+        $now = \Services\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $acceptedAt = $accepted ? $now : null;
+        $stmt = self::getDB()->prepare(
+            "UPDATE verificaciones_contacto
+             SET delivery_status = ?, accepted_at = ?, finalized_at = ?
+             WHERE id = ? AND delivery_status = 'pending'"
+        );
+        $stmt->bind_param('sssi', $status, $acceptedAt, $now, $id);
+        if (!$stmt->execute()) {
+            throw new \RuntimeException('No fue posible persistir el resultado OTP.');
+        }
+        $stmt->close();
+        $stmt = self::getDB()->prepare('SELECT delivery_status FROM verificaciones_contacto WHERE id = ?');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row || $row['delivery_status'] !== $status) {
+            throw new \RuntimeException('Resultado OTP ausente o incompatible.');
+        }
     }
 
     /** Invalida OTP utilizables ligados a retenciones materializadas como vencidas. */

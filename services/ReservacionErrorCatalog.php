@@ -57,6 +57,9 @@ final class ReservacionErrorCatalog
         'CONTACTO_VERIFICADO' => self::TIPO_INFORMACION,
         'OTP_GENERADO' => self::TIPO_INFORMACION,
         'OTP_SOLICITADO' => self::TIPO_INFORMACION,
+        'OTP_ESTADO' => self::TIPO_INFORMACION,
+        'REENVIO_EN_COOLDOWN' => self::TIPO_CONFLICTO,
+        'LIMITE_REENVIOS_ALCANZADO' => self::TIPO_CONFLICTO,
         'CODIGO_CONFIRMACION_ENVIADO' => self::TIPO_INFORMACION,
         'GESTION_SALIDA' => self::TIPO_INFORMACION,
 
@@ -794,6 +797,18 @@ final class ReservacionErrorCatalog
             'consecuencia' => 'La verificación queda pendiente.',
             'acciones' => [['id' => 'VERIFICAR_CODIGO', 'tipo' => 'primary']],
         ],
+        'OTP_ESTADO' => [
+            'titulo' => 'Verifica tu contacto',
+            'mensaje' => 'Consulta el código vigente y las opciones de reenvío.',
+        ],
+        'REENVIO_EN_COOLDOWN' => [
+            'titulo' => 'Espera antes de reenviar',
+            'mensaje' => 'Podrás solicitar otro código cuando termine el contador.',
+        ],
+        'LIMITE_REENVIOS_ALCANZADO' => [
+            'titulo' => 'Límite de reenvíos alcanzado',
+            'mensaje' => 'Ya se aceptaron tres envíos. Puedes verificar el código vigente.',
+        ],
         'CODIGO_CONFIRMACION_ENVIADO' => [
             'titulo' => 'Código enviado',
             'mensaje' => 'Código enviado por {canal}.',
@@ -1216,7 +1231,7 @@ final class ReservacionErrorCatalog
             'EXCEPCION_CREADA', 'EXCEPCION_ACTUALIZADA',
             'EXCEPCION_ELIMINADA', 'EXCEPCION_ESTADO_ACTUALIZADO', 'ANUNCIO_ACTUALIZADO',
             'ASIGNACION_GUARDADA', 'CONTACTO_VERIFICADO', 'OTP_GENERADO',
-            'OTP_SOLICITADO', 'GESTION_SALIDA',
+            'OTP_SOLICITADO', 'CODIGO_CONFIRMACION_ENVIADO', 'GESTION_SALIDA',
         ], true)) {
             $base['commit'] = true;
         }

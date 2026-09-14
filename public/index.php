@@ -56,6 +56,7 @@ $router->post('/api/reservaciones/modificar', [ReservacionController::class, 'mo
 $router->post('/api/reservaciones/confirmar-modificacion', [ReservacionController::class, 'confirmarModificacion']);
 $router->post('/api/reservaciones/cancelar', [ReservacionController::class, 'cancelarPublica']);
 $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::class, 'solicitarCodigo']);
+$router->post('/api/reservaciones/contacto/estado', [ReservacionController::class, 'estadoCodigo']);
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);

@@ -39,3 +39,43 @@ Tests: lint PHP, contratos de comunicaciones/impactos y DB de comunicaciones.
 Resultado y commit: registrados en el historial del commit que introduce esta sección.
 Riesgos pendientes: feedback síncrono OTP, reenvíos, autenticación, recuperación y despliegue
 se resuelven en etapas posteriores. No se alteraron reglas de capacidad/mesas/horarios.
+
+Commit etapa 1: `8073afe`.
+
+## Etapa 2 — Respuesta síncrona
+
+Objetivo: informar aceptación o fallo real del intento. Causa: el 202 anterior
+precedía al proveedor. PHP exige HTTP 200 y el canal esperado, con timeout de
+25 segundos; n8n responde sólo después del nodo SMTP/Meta. El 202 sigue siendo
+únicamente ACK de trabajo para cambio de horario. No hay callback de confirmación.
+
+Archivos: cliente HTTP, servicio de confirmación, catálogo, workflow confirmación
+y pruebas de transporte/DB/workflows. Una falla conserva la retención y el hash.
+Tests: Email/WhatsApp accepted/failed, timeout, 4xx, 5xx, JSON inválido, 202 temprano,
+canal incorrecto; suite DB prueba commit visible antes de HTTP.
+Resultado: tests PHP aprobados; commit PHP `0762a41`. El artefacto n8n se cierra
+junto con autenticación nativa en etapa 5 para mantener un export coherente.
+Riesgo: falta ensayo con proveedores reales; accepted no significa entrega o lectura.
+
+## Etapa 3 — Política de reenvíos
+
+Objetivo: máximo tres aceptaciones por ciclo y cooldown backend de 60 segundos.
+Causa: antes sólo se comparaba created_at, sin acreditar aceptación ni límite.
+Archivos: VerificacionContacto, ConfirmationResendPolicy, ContactoAccesoService,
+ReservationConfirmationService, ReservacionPublicaService, controlador/ruta estado,
+catálogo y migración OTP. accepted_at permite derivar send_count; created_at limita
+todas las solicitudes, incluso fallidas. No se persiste contador redundante ni OTP plano.
+
+Decisiones: ciclo por retención durante todo el hold; acceso de contacto tiene ciclo
+fijo de 15 minutos, que también termina al consumir el código. Reenvíos no renuevan
+el ciclo. La sesión del navegador no controla el cupo. Development simula aceptación
+sin HTTP para ejercer la misma política. Un proceso que muere sin guardar resultado
+deja pending y bloquea reenvíos hasta fin del ciclo: no inventa una aceptación o fallo.
+Las filas históricas sin evidencia quedan legacy hasta expirar su ciclo vivo.
+
+Tests: suite OTP aislada y tres suites DB previas; máximo/cooldown/rechazo, hash,
+OTP anterior inválido, refresh/nueva sesión, dos procesos concurrentes y visibilidad
+post-commit desde otra conexión. PASS. Runner crea/elimina sólo una BD temporal;
+la BD configurada en includes/.env no recibe migraciones.
+Riesgo: aplicar migración una vez durante ventana coordinada antes del nuevo código.
+Commit: commit que introduce esta sección; consultar historial de este archivo.

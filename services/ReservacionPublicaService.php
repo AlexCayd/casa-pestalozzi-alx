@@ -401,6 +401,28 @@ final class ReservacionPublicaService
         return ReservationConfirmationService::finalize($resultado);
     }
 
+    /** Lee metadatos OTP sólo para el contacto propietario del request token. */
+    public static function estadoOtp(array $entrada): array
+    {
+        $token = trim((string)($entrada['request_token'] ?? ''));
+        try {
+            $tipo = trim((string)($entrada['tipo'] ?? ''));
+            $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
+        } catch (\InvalidArgumentException) {
+            return ['ok' => false, 'codigo' => 'DATOS_INVALIDOS'];
+        }
+        $id = null;
+        $extra = [];
+        if ($token !== '') {
+            if (!self::tokenValido($token)) return self::noEncontrada();
+            $row = self::buscarPorToken($token);
+            if (!$row || !self::mismoContacto($row, $tipo, $contacto)) return self::noEncontrada();
+            $id = (int)$row['id'];
+            $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
+        }
+        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
+    }
+
     /** Crea directamente usando exclusivamente la identidad de sesión. */
     public static function crearConfirmada(array $entrada, array $sesion): array
     {
@@ -1424,13 +1446,17 @@ final class ReservacionPublicaService
     {
         if ($retencion) {
             if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['hold_expires_at'])) {
-                return [
+                return array_merge([
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
-                ];
+                ], \Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos(
+                    \Services\Reservations\Notifications\ConfirmationResendPolicy::estado(
+                        (string)$fila['contacto_tipo'], (string)$fila['contacto'], (int)$fila['id']
+                    )
+                ));
             }
             if ((string)$fila['estado'] === 'confirmada') {
                 return self::resultadoReservacion($fila, true);
@@ -1741,11 +1767,11 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return [
+        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos($otp), [
             'otp_expires_at' => $otp['expires_at'] ?? null,
             '_notification_payload' => $otp['_notification_payload'] ?? null,
             '_confirmation_code' => $otp['_confirmation_code'] ?? null,
-        ];
+        ]);
     }
 
     private static function fechaAtom(string $fecha): string

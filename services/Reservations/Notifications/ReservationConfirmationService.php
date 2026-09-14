@@ -4,6 +4,7 @@ namespace Services\Reservations\Notifications;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
+use Model\VerificacionContacto;
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 
@@ -73,7 +74,7 @@ final class ReservationConfirmationService
                 }
                 $response['notification_delivery_status'] = 'pending';
                 $response['external_transport'] = false;
-                return $response;
+                return self::recordResult($response, $payload, true);
             }
 
             $delivery = ($client ?? new N8nClient(NotificationConfig::n8nBaseUrl(), NotificationConfig::n8nSecret()))
@@ -107,7 +108,29 @@ final class ReservationConfirmationService
             $response['contexto']['canal'] = $delivery['channel'] === 'whatsapp' ? 'WhatsApp' : 'correo electrónico';
         }
 
-        return $response;
+        return self::recordResult($response, $payload, ($delivery['accepted'] ?? false) === true);
+    }
+
+    private static function recordResult(array $response, array $payload, bool $accepted): array
+    {
+        // Tests puros de transporte no construyen un desafío persistido.
+        // Todo payload creado por prepare contiene un source_id válido.
+        if (!isset($payload['source_id'])) return $response;
+        try {
+            VerificacionContacto::finalizarEnvio((int)$payload['source_id'], $accepted);
+            $state = ConfirmationResendPolicy::estado(
+                $payload['contact']['type'] === 'whatsapp' ? 'telefono' : 'email',
+                $payload['contact']['value'], $payload['reservation_id']
+            );
+            return array_replace($response, ConfirmationResendPolicy::camposPublicos($state));
+        } catch (\Throwable) {
+            // Si el proveedor aceptó pero la DB falló, conservar pending y bloquear
+            // reenvíos: no inventar un rechazo ni un cupo adicional.
+            error_log('ReservationConfirmationService::recordResult - persistencia pendiente; datos omitidos.');
+            $response['can_send'] = false;
+            $response['next_resend_at'] = null;
+            return $response;
+        }
     }
 
     /** @return array<string,mixed>|null */
