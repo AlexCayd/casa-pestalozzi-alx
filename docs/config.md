@@ -7,11 +7,20 @@ La aplicación admite tres entornos. `APP_ENV` debe ser `development`, `test` o
 
 ```dotenv
 APP_ENV=development
+APP_TIMEZONE=America/Mexico_City
 N8N_BASE_URL=http://localhost:5678
 N8N_RESERVATIONS_WEBHOOK_SECRET=
 N8N_RESERVATIONS_CALLBACK_SECRET=
 RESERVATION_PUBLIC_BASE_URL=http://localhost
 ```
+
+`APP_TIMEZONE` es la zona canónica de la aplicación y debe mantenerse alineada
+con `America/Mexico_City`, la sesión MySQL y `GENERIC_TIMEZONE`/`TZ` de n8n.
+
+Los datos públicos configurables de `SitioConfig` también viven en el ejemplo:
+`SITIO_DIRECCION`, `SITIO_DIRECCION_CORTA`, `SITIO_CORREO`, `SITIO_MAPS_URL`,
+`SITIO_INSTAGRAM` y `SITIO_WHATSAPP_EVENTOS`. Este último es el WhatsApp de
+eventos/catering; `RESERVAS_WHATSAPP` pertenece a reservaciones.
 
 `N8N_BASE_URL` y el secreto de webhook son necesarios para transporte externo
 (`test` o `production`). El secreto de callback independiente autentica preparar,
