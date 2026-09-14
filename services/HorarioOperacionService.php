@@ -6,6 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
+use Services\Reservations\Notifications\ScheduleChangeNotificationService;
 
 class HorarioOperacionService
 {
@@ -930,7 +931,7 @@ class HorarioOperacionService
             return ['attempted' => 0, 'accepted' => 0, 'failed' => 0];
         }
         try {
-            return ReservationNotificationDispatcher::dispatchScheduleChange($impactoId);
+            return ScheduleChangeNotificationService::dispatchAutomatic($impactoId);
         } catch (\Throwable $e) {
             error_log('HorarioOperacionService::dispatchImpactoSeguro - fallo post-commit redactado.');
             return ['attempted' => 0, 'accepted' => 0, 'failed' => 0, 'error' => true];

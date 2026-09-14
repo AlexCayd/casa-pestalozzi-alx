@@ -5,15 +5,19 @@ namespace Services;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
+use Services\Notifications\NotificationConfig;
+use Services\Reservations\Notifications\ReservationNotificationContract;
 
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.
  *
  * La fila afectada conserva dominio, acceso y estado de transporte. El token
- * plano sólo sale de una preparación post-commit hacia el dispatcher.
+ * plano sólo sale de una preparación post-commit hacia el orquestador.
  */
 final class HorarioOperacionImpactoService
 {
+    public const AUTOMATIC_ATTEMPT = 1;
+    public const MANUAL_ATTEMPT = 2;
     public const ESTADO_IMPACTO_PENDIENTE = 'pendiente';
     public const ESTADO_IMPACTO_RESUELTO = 'resuelto';
     public const ESTADO_ITEM_PENDIENTE = 'pendiente_notificacion';
@@ -355,7 +359,6 @@ final class HorarioOperacionImpactoService
         foreach ($filas as &$fila) {
             $fila['requiere_accion'] = self::filaRequiereAccion($fila);
             $fila['puede_mandar_aviso'] = self::puedeMandarAviso($fila);
-            $fila['cooldown_hasta'] = self::cooldownHasta($fila);
         }
         unset($fila);
         $impacto['reservaciones'] = $filas;
@@ -367,26 +370,17 @@ final class HorarioOperacionImpactoService
         return $impacto;
     }
 
-    /** Alias administrativo: prepara y despacha por el provider operativo. */
-    public static function prepararAviso(int $impactoId, int $impactoReservacionId, ?int $adminId): array
-    {
-        $fila = self::obtenerPorItem($impactoReservacionId);
-        if (!$fila || (int)$fila['impacto_id'] !== $impactoId) {
-            return ['ok' => false, 'codigo' => 'AFECTACION_NO_ENCONTRADA'];
-        }
-        return ReservationNotificationDispatcher::dispatchScheduleChangeItem($impactoReservacionId);
-    }
-
     /**
      * Prepara un único intento y devuelve PII/token solamente en memoria al
-     * dispatcher. No realiza llamadas externas ni expone el resultado al admin.
+     * Service orquestador. No realiza llamadas externas ni expone PII al admin.
      */
-    public static function prepararAvisoParaEntrega(int $impactoReservacionId): array
+    public static function prepararAvisoParaEntrega(int $impactoReservacionId, bool $manual = false): array
     {
-        return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId): array {
+        return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $manual): array {
             $stmt = $db->prepare(
                 "SELECT ir.id AS impacto_reservacion_id, ir.impacto_id, ir.reservacion_id,
                         ir.estado, ir.access_expires_at, ir.notification_attempts,
+                        ir.notification_delivery_status,
                         ir.last_notification_at, i.estado AS impacto_estado,
                         r.estado AS reservacion_estado, r.nombre, r.contacto_tipo, r.contacto,
                         r.fecha, r.hora, r.comensales
@@ -405,29 +399,25 @@ final class HorarioOperacionImpactoService
             if ((string)$fila['impacto_estado'] !== self::ESTADO_IMPACTO_PENDIENTE
                 || (string)$fila['reservacion_estado'] !== 'confirmada'
                 || !self::filaTieneContacto($fila)
-                || !in_array((string)$fila['estado'], [self::ESTADO_ITEM_PENDIENTE, self::ESTADO_ITEM_PREPARADO], true)
                 || (int)$fila['comensales'] > ReservacionConfig::MAX_COMENSALES_PUBLICO
             ) {
                 return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
             }
             $ahora = ReservacionConfig::ahora();
             $intentos = (int)($fila['notification_attempts'] ?? 0);
-            if ((string)$fila['estado'] === self::ESTADO_ITEM_PREPARADO) {
-                $expiraActual = $fila['access_expires_at'] !== null
-                    ? new DateTimeImmutable((string)$fila['access_expires_at'], ReservacionConfig::timezone())
-                    : null;
-                if ($expiraActual instanceof DateTimeImmutable && $expiraActual > $ahora) {
-                    return ['ok' => false, 'codigo' => 'AVISO_VIGENTE', 'expires_at' => $expiraActual->format('Y-m-d H:i:s')];
-                }
-                if ($intentos >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS) {
-                    return ['ok' => false, 'codigo' => 'AVISOS_LIMITE_ALCANZADO'];
-                }
-                $ultimoAviso = $fila['last_notification_at'] !== null
-                    ? new DateTimeImmutable((string)$fila['last_notification_at'], ReservacionConfig::timezone())
-                    : null;
-                $cooldownHasta = $ultimoAviso?->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes');
-                if ($cooldownHasta instanceof DateTimeImmutable && $cooldownHasta > $ahora) {
-                    return ['ok' => false, 'codigo' => 'AVISO_EN_COOLDOWN', 'retry_at' => $cooldownHasta->format('Y-m-d H:i:s')];
+            $estado = (string)$fila['estado'];
+            if (!$manual && ($estado !== self::ESTADO_ITEM_PENDIENTE || $intentos !== 0)) {
+                return ['ok' => false, 'codigo' => 'AFECTACION_NO_NOTIFICABLE'];
+            }
+            if ($manual) {
+                $accessExpired = empty($fila['access_expires_at'])
+                    || (string)$fila['access_expires_at'] <= $ahora->format('Y-m-d H:i:s');
+                $deliveryFailed = (string)($fila['notification_delivery_status'] ?? '') === 'failed';
+                if ($estado !== self::ESTADO_ITEM_PREPARADO
+                    || $intentos !== self::AUTOMATIC_ATTEMPT
+                    || (!$accessExpired && !$deliveryFailed)
+                ) {
+                    return ['ok' => false, 'codigo' => 'AVISO_REENVIO_NO_DISPONIBLE'];
                 }
             }
 
@@ -464,19 +454,25 @@ final class HorarioOperacionImpactoService
                 'codigo' => 'AVISO_PREPARADO',
                 'impacto_id' => (int)$fila['impacto_id'],
                 'impacto_reservacion_id' => $impactoReservacionId,
-                'notification' => [
-                    'source_id' => $impactoReservacionId,
-                    'reservation_id' => (int)$fila['reservacion_id'],
-                    'attempt' => $intentos + 1,
-                    'contact_type' => (string)$fila['contacto_tipo'],
-                    'contact' => (string)$fila['contacto'],
-                    'name' => (string)$fila['nombre'],
-                    'reservation_date' => (string)$fila['fecha'],
-                    'reservation_time' => substr((string)$fila['hora'], 0, 5),
-                    'guests' => (int)$fila['comensales'],
-                    'management_url' => $managementUrl,
-                    'access_expires_at' => (new DateTimeImmutable($expira, ReservacionConfig::timezone()))->format(DATE_ATOM),
-                ],
+                'notification' => ReservationNotificationContract::build(
+                    ReservationNotificationContract::EVENT_SCHEDULE_CHANGE,
+                    $impactoReservacionId,
+                    (int)$fila['reservacion_id'],
+                    $intentos + 1,
+                    (string)$fila['contacto_tipo'],
+                    (string)$fila['contacto'],
+                    (string)$fila['nombre'],
+                    (string)$fila['fecha'],
+                    substr((string)$fila['hora'], 0, 5),
+                    (int)$fila['comensales'],
+                    [
+                        'management_url' => $managementUrl,
+                        'access_expires_at' => (new DateTimeImmutable(
+                            $expira,
+                            ReservacionConfig::timezone()
+                        ))->format(DATE_ATOM),
+                    ]
+                ),
             ];
         });
     }
@@ -533,8 +529,6 @@ final class HorarioOperacionImpactoService
         if (!is_array($resultado) || !($resultado['ok'] ?? false)) {
             return is_array($resultado) ? $resultado : ['ok' => false, 'codigo' => 'ERROR_SEGUIMIENTO_HORARIO'];
         }
-        $dispatch = ReservationNotificationDispatcher::dispatchScheduleChangeItem($impactoReservacionId);
-        $resultado['notification_dispatch'] = $dispatch;
         return $resultado;
     }
 
@@ -773,6 +767,7 @@ final class HorarioOperacionImpactoService
              JOIN reservaciones r ON r.id = ir.reservacion_id
              WHERE ir.impacto_id = ? AND i.estado = 'pendiente'
                AND ir.estado = 'pendiente_notificacion'
+               AND ir.notification_attempts = 0
                AND r.estado = 'confirmada'
                AND r.comensales <= ?
                AND r.contacto_tipo IN ('email', 'telefono')
@@ -791,22 +786,22 @@ final class HorarioOperacionImpactoService
         return $ids;
     }
 
-    public static function marcarEntregaAceptada(int $impactoReservacionId, int $attempt): bool
+    public static function marcarTrabajoEncolado(int $impactoReservacionId, int $attempt): bool
     {
         return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $attempt): bool {
             $stmt = $db->prepare(
-                "UPDATE horario_impacto_reservaciones
-                 SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
-                 WHERE id = ? AND notification_attempts = ?
-                   AND notification_delivery_status = 'pending'"
+                "SELECT notification_delivery_status FROM horario_impacto_reservaciones
+                 WHERE id = ? AND notification_attempts = ? FOR UPDATE"
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
-            $actualizada = $stmt->affected_rows === 1;
+            $fila = $stmt->get_result()->fetch_assoc();
             $stmt->close();
-            if (!$actualizada) {
+            if (!$fila) {
                 return false;
             }
+            // Un callback puede llegar antes del retorno HTTP 202: no sobrescribirlo.
+            if ($fila['notification_delivery_status'] !== 'pending') return true;
             BuzonNotificacionesService::establecerRequiereAccionEnTransaccion(
                 $db,
                 ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
@@ -827,7 +822,7 @@ final class HorarioOperacionImpactoService
                      access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
                      access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
                  WHERE id = ? AND notification_attempts = ?
-                   AND notification_delivery_status IN ('pending', 'accepted')"
+                   AND notification_delivery_status = 'pending'"
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
@@ -941,7 +936,6 @@ final class HorarioOperacionImpactoService
         ];
         $resultado['requiere_accion'] = self::filaRequiereAccion($resultado);
         $resultado['puede_mandar_aviso'] = self::puedeMandarAviso($resultado);
-        $resultado['cooldown_hasta'] = self::cooldownHasta($resultado);
         return $resultado;
     }
 
@@ -1024,7 +1018,7 @@ final class HorarioOperacionImpactoService
             return count($filas);
         } catch (\Throwable $e) {
             $db->rollback();
-            error_log('HorarioOperacionImpactoService::reconciliarReservacion - ' . $e->getMessage());
+            error_log('HorarioOperacionImpactoService::reconciliarReservacion - fallo redactado.');
             return 0;
         }
     }
@@ -1052,25 +1046,27 @@ final class HorarioOperacionImpactoService
 
     public static function actualizarSeguimientosVencidosEnTransaccion(\mysqli $db): void
     {
-        $stmt = $db->prepare(
-            "UPDATE horario_impacto_reservaciones ir
-             JOIN buzon_notificaciones bn
-               ON bn.tipo = 'reservacion_horario_afectado'
-              AND bn.entidad_tipo = 'horario_impacto_reservacion'
-              AND bn.entidad_id = ir.id
-             SET ir.notification_delivery_status = 'failed',
-                 ir.notification_delivery_updated_at = NOW(),
-                 ir.access_invalidated_at = COALESCE(ir.access_invalidated_at, NOW()),
-                 ir.access_expires_at = LEAST(COALESCE(ir.access_expires_at, NOW()), NOW()),
-                 bn.requiere_accion = 1, bn.updated_at = NOW()
-             WHERE bn.cerrada_at IS NULL
-               AND ir.notification_delivery_status IN ('pending', 'accepted')
-               AND ir.notification_delivery_updated_at IS NOT NULL
-               AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
-        );
-        if ($stmt) {
-            $stmt->execute();
-            $stmt->close();
+        if (NotificationConfig::usesExternalTransport()) {
+            $stmt = $db->prepare(
+                "UPDATE horario_impacto_reservaciones ir
+                 JOIN buzon_notificaciones bn
+                   ON bn.tipo = 'reservacion_horario_afectado'
+                  AND bn.entidad_tipo = 'horario_impacto_reservacion'
+                  AND bn.entidad_id = ir.id
+                 SET ir.notification_delivery_status = 'failed',
+                     ir.notification_delivery_updated_at = NOW(),
+                     ir.access_invalidated_at = COALESCE(ir.access_invalidated_at, NOW()),
+                     ir.access_expires_at = LEAST(COALESCE(ir.access_expires_at, NOW()), NOW()),
+                     bn.requiere_accion = 1, bn.updated_at = NOW()
+                 WHERE bn.cerrada_at IS NULL
+                   AND ir.notification_delivery_status = 'pending'
+                   AND ir.notification_delivery_updated_at IS NOT NULL
+                   AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
+            );
+            if ($stmt) {
+                $stmt->execute();
+                $stmt->close();
+            }
         }
         $stmt = $db->prepare(
             "UPDATE buzon_notificaciones bn
@@ -1103,7 +1099,7 @@ final class HorarioOperacionImpactoService
         if ((string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO) {
             return true;
         }
-        if (in_array((string)($fila['notification_delivery_status'] ?? 'pending'), ['pending', 'failed'], true)) {
+        if ((string)($fila['notification_delivery_status'] ?? 'pending') === 'failed') {
             return true;
         }
         return $fila['access_expires_at'] === null
@@ -1117,28 +1113,12 @@ final class HorarioOperacionImpactoService
             || (string)($fila['estado'] ?? '') !== self::ESTADO_ITEM_PREPARADO
             || !$fila['access_expires_at']
             || (string)$fila['access_expires_at'] > ReservacionConfig::ahora()->format('Y-m-d H:i:s')
-            || (int)($fila['notification_attempts'] ?? 0) >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS
+            || (int)($fila['notification_attempts'] ?? 0) !== self::AUTOMATIC_ATTEMPT
         ) {
             return false;
         }
-        $cooldown = self::cooldownHasta($fila);
-        return $cooldown === null || $cooldown <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
-    }
-
-    private static function cooldownHasta(array $fila): ?string
-    {
-        if (empty($fila['last_notification_at'])) {
-            return null;
-        }
-        try {
-            return (new DateTimeImmutable(
-                (string)$fila['last_notification_at'],
-                ReservacionConfig::timezone()
-            ))->modify('+' . ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES . ' minutes')
-                ->format('Y-m-d H:i:s');
-        } catch (\Throwable $error) {
-            return null;
-        }
+        return (string)($fila['notification_delivery_status'] ?? '') === 'failed'
+            || (string)$fila['access_expires_at'] <= ReservacionConfig::ahora()->format('Y-m-d H:i:s');
     }
 
     private static function bloquearFilaImpacto(\mysqli $db, int $impactoId, int $impactoReservacionId): ?array
@@ -1199,7 +1179,7 @@ final class HorarioOperacionImpactoService
 
     private static function esEntornoPruebas(): bool
     {
-        return in_array(ReservacionConfig::appEnvironment(), ['development', 'testing'], true);
+        return NotificationConfig::showManagementDebugLinks();
     }
 
     /** @param callable(\mysqli): array|bool $callback */
@@ -1218,7 +1198,7 @@ final class HorarioOperacionImpactoService
             return $resultado;
         } catch (\Throwable $e) {
             $db->rollback();
-            error_log('HorarioOperacionImpactoService - ' . $e->getMessage());
+            error_log('HorarioOperacionImpactoService - fallo redactado.');
             return ['ok' => false, 'codigo' => 'ERROR_SEGUIMIENTO_HORARIO'];
         }
     }

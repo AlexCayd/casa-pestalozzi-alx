@@ -1,4 +1,12 @@
 .env
+.env.*.local
+*.log
+credentials.local.*
+n8n/.n8n/
+n8n/*.sqlite
+n8n/*.sqlite-*
+n8n/execution-data/
+tmp/reservaciones-notificaciones/
 .vscode
 .claude
 .agents/

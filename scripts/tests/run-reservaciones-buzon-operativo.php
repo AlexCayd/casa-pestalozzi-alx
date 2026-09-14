@@ -68,7 +68,7 @@ buzonAssert(str_contains($impactService, 'ESTADOS_ITEM_FINALES') && str_contains
 buzonAssert(str_contains($impactService, 'cerrarTipoEntidadEnTransaccion'), 'fuente usa cierre por entidad');
 buzonAssert(str_contains($critical, 'impacto_reservacion_id') && str_contains($reservationView, 'Esta reservación quedó fuera del horario actual'), 'Gestionar conserva el contexto de la afectación');
 buzonAssert(str_contains($inboxView, 'Por atender') && str_contains($inboxView, 'En espera') && str_contains($inboxView, 'Todas'), 'filtros del buzón usan la jerarquía operativa');
-buzonAssert(str_contains($inboxJs, 'Enviar recordatorio') && str_contains($inboxJs, 'Abrir reservación') && str_contains($inboxJs, 'Registrar que no llegó'), 'acciones del buzón usan copy canónico');
+buzonAssert(str_contains($inboxJs, 'Reenviar aviso') && str_contains($inboxJs, 'Abrir reservación') && str_contains($inboxJs, 'Registrar que no llegó'), 'acciones del buzón usan copy canónico');
 buzonAssert(str_contains($reservationModel, "r.estado NOT IN ('pendiente_verificacion', 'expirada')"), 'listado admin excluye holds por defecto');
 buzonAssert(str_contains($mapService, "'fuera_horario_operacion'") && str_contains($mapService, '&& !$fueraHorarioOperacion'), 'mapa separa seguimiento de proyección');
 buzonAssert(str_contains($posJs, 'Fuera de horario de operación'), 'POS presenta el mismo indicador');

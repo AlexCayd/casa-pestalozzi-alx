@@ -10,6 +10,9 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
+use Services\Integrations\N8nClient;
+use Services\Reservations\Notifications\ReservationConfirmationService;
+use Services\Reservations\Notifications\ConfirmationResendPolicy;
 
 class ContactoAccesoService
 {
@@ -27,7 +30,7 @@ class ContactoAccesoService
     public static function solicitarCodigo(
         string $tipo,
         string $contacto,
-        ?ContactNotificationProvider $provider = null
+        ?N8nClient $client = null
     ): array {
         try {
             $tipo = trim($tipo);
@@ -38,12 +41,15 @@ class ContactoAccesoService
 
         $db = ActiveRecord::getDB();
         $transaccion = false;
+        $locked = false;
         try {
+            $locked = ContactoOperacionLock::adquirir($db, $tipo, $normalizado);
+            if (!$locked) return ['ok' => false, 'codigo' => self::REENVIO_NO_DISPONIBLE];
             if (!$db->begin_transaction()) {
                 throw new \RuntimeException('No fue posible iniciar la transacción OTP.');
             }
             $transaccion = true;
-            $respuesta = self::emitirCodigoEnTransaccion($tipo, $normalizado, null, $provider);
+            $respuesta = self::emitirCodigoEnTransaccion($tipo, $normalizado);
             if (!($respuesta['ok'] ?? false)) {
                 $db->rollback();
                 $transaccion = false;
@@ -53,17 +59,20 @@ class ContactoAccesoService
                 throw new \RuntimeException('No fue posible confirmar el código.');
             }
             $transaccion = false;
-
-            return $respuesta;
+            ContactoOperacionLock::liberar($db, $tipo, $normalizado);
+            $locked = false;
+            return ReservationConfirmationService::finalize($respuesta, $client);
         } catch (\Throwable $e) {
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ContactoAccesoService::solicitarCodigo - ' . $e->getMessage());
+            error_log('ContactoAccesoService::solicitarCodigo - fallo redactado.');
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
             ];
+        } finally {
+            if ($locked) ContactoOperacionLock::liberar($db, $tipo, $normalizado);
         }
     }
 
@@ -122,7 +131,7 @@ class ContactoAccesoService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ContactoAccesoService::verificarCodigo - ' . $e->getMessage());
+            error_log('ContactoAccesoService::verificarCodigo - fallo redactado.');
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
@@ -138,27 +147,15 @@ class ContactoAccesoService
     public static function emitirCodigoEnTransaccion(
         string $tipo,
         string $contactoNormalizado,
-        ?int $reservacionId = null,
-        ?ContactNotificationProvider $provider = null
+        ?int $reservacionId = null
     ): array {
         // Cada propósito tiene su propio espacio OTP. Un código de acceso no
         // puede invalidar ni sustituir el código ligado a una reservación.
-        $reciente = VerificacionContacto::buscarRecienteParaActualizar(
-            $tipo,
-            $contactoNormalizado,
-            $reservacionId
-        );
-        if ($reciente) {
-            $creada = new DateTimeImmutable((string)$reciente['created_at'], ReservacionConfig::timezone());
-            if (
-                (ReservacionConfig::ahora()->getTimestamp() - $creada->getTimestamp())
-                < ReservacionConfig::OTP_RESEND_SECONDS
-            ) {
-                return [
-                    'ok' => false,
-                    'codigo' => self::REENVIO_NO_DISPONIBLE,
-                ];
-            }
+        $policy = ConfirmationResendPolicy::evaluar($tipo, $contactoNormalizado, $reservacionId);
+        if (isset($policy['error'])) return ['ok' => false, 'codigo' => $policy['error']];
+        if ($policy['blocked_code'] !== null) {
+            return ['ok' => false, 'codigo' => $policy['blocked_code']]
+                + ConfirmationResendPolicy::camposPublicos($policy);
         }
 
         VerificacionContacto::invalidarActivas($tipo, $contactoNormalizado, $reservacionId);
@@ -170,19 +167,16 @@ class ContactoAccesoService
 
         $expiresAt = ReservacionConfig::ahora()
             ->modify('+' . ReservacionConfig::OTP_EXPIRATION_MINUTES . ' minutes');
-        VerificacionContacto::crearHash(
+        $verificationId = VerificacionContacto::crearHash(
             $tipo,
             $contactoNormalizado,
             $hash,
             $expiresAt->format('Y-m-d H:i:s'),
-            $reservacionId
+            $reservacionId,
+            $policy['cycle_id'] ?? bin2hex(random_bytes(16)),
+            $policy['cycle_expires_at'],
+            ReservacionConfig::ahora()->format('Y-m-d H:i:s')
         );
-
-        $provider ??= new DevelopmentContactNotificationProvider();
-        $notificacion = $provider->sendOtp($tipo, $contactoNormalizado, $codigo);
-        if (!($notificacion['ok'] ?? false)) {
-            throw new \RuntimeException('El proveedor de notificaciones rechazó la solicitud.');
-        }
 
         $respuesta = [
             'ok' => true,
@@ -190,7 +184,14 @@ class ContactoAccesoService
             'expires_at' => $expiresAt->format(DATE_ATOM),
         ];
 
-        return $respuesta;
+        return array_merge($respuesta, ConfirmationResendPolicy::camposPublicos(ConfirmationResendPolicy::estado($tipo, $contactoNormalizado, $reservacionId)), ReservationConfirmationService::prepare(
+            $verificationId,
+            $reservacionId,
+            $tipo,
+            $contactoNormalizado,
+            $codigo,
+            $expiresAt
+        ));
     }
 
     /**

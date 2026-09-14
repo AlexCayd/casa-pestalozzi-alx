@@ -18,6 +18,7 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
+use Services\Reservations\Notifications\ReservationConfirmationService;
 
 final class ReservacionPublicaService
 {
@@ -128,7 +129,7 @@ final class ReservacionPublicaService
             return self::limiteAlcanzado();
         }
 
-        return self::conLocks($datos['tipo'], $datos['contacto'], [$datos['fecha']], function (\mysqli $db) use ($datos): array {
+        $resultado = self::conLocks($datos['tipo'], $datos['contacto'], [$datos['fecha']], function (\mysqli $db) use ($datos): array {
             $transaccion = false;
             try {
                 if (!$db->begin_transaction()) {
@@ -221,10 +222,12 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });
+
+        return ReservationConfirmationService::finalize($resultado);
     }
 
     /** @return array<string, mixed> */
@@ -331,7 +334,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::confirmarRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::confirmarRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -351,7 +354,7 @@ final class ReservacionPublicaService
             return self::datosInvalidos('REQUEST_TOKEN_INVALIDO');
         }
 
-        return self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
+        $resultado = self::conLocks($tipo, $contacto, [], function (\mysqli $db) use ($tipo, $contacto, $requestToken): array {
             $transaccion = false;
             try {
                 $db->begin_transaction();
@@ -390,10 +393,34 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::reenviarOtpRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::reenviarOtpRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });
+
+        return ReservationConfirmationService::finalize($resultado);
+    }
+
+    /** Lee metadatos OTP sólo para el contacto propietario del request token. */
+    public static function estadoOtp(array $entrada): array
+    {
+        $token = trim((string)($entrada['request_token'] ?? ''));
+        try {
+            $tipo = trim((string)($entrada['tipo'] ?? ''));
+            $contacto = ContactoService::normalizar($tipo, (string)($entrada['contacto'] ?? ''));
+        } catch (\InvalidArgumentException) {
+            return ['ok' => false, 'codigo' => 'DATOS_INVALIDOS'];
+        }
+        $id = null;
+        $extra = [];
+        if ($token !== '') {
+            if (!self::tokenValido($token)) return self::noEncontrada();
+            $row = self::buscarPorToken($token);
+            if (!$row || !self::mismoContacto($row, $tipo, $contacto)) return self::noEncontrada();
+            $id = (int)$row['id'];
+            $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
+        }
+        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
     }
 
     /** Crea directamente usando exclusivamente la identidad de sesión. */
@@ -1419,13 +1446,17 @@ final class ReservacionPublicaService
     {
         if ($retencion) {
             if ((string)$fila['estado'] === 'pendiente_verificacion' && !self::timestampVencido((string)$fila['hold_expires_at'])) {
-                return [
+                return array_merge([
                     'ok' => true,
                     'codigo' => self::RETENCION_CREADA,
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
-                ];
+                ], \Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos(
+                    \Services\Reservations\Notifications\ConfirmationResendPolicy::estado(
+                        (string)$fila['contacto_tipo'], (string)$fila['contacto'], (int)$fila['id']
+                    )
+                ));
             }
             if ((string)$fila['estado'] === 'confirmada') {
                 return self::resultadoReservacion($fila, true);
@@ -1736,7 +1767,11 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return ['otp_expires_at' => $otp['expires_at'] ?? null];
+        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos($otp), [
+            'otp_expires_at' => $otp['expires_at'] ?? null,
+            '_notification_payload' => $otp['_notification_payload'] ?? null,
+            '_confirmation_code' => $otp['_confirmation_code'] ?? null,
+        ]);
     }
 
     private static function fechaAtom(string $fecha): string

@@ -518,13 +518,16 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         </section>
         </div>
       </form>
-      <section class="reservation-access__form reserva__otp-step" data-new-reservation-otp hidden aria-live="polite">
+      <section class="reservation-access__form reserva__otp-step" data-new-reservation-otp hidden>
         <div class="reservation-otp__head">
           <span class="eyebrow no-rule">Confirmación segura</span>
           <h3>Verifica tu contacto</h3>
-          <p class="reservation-otp__contact">Código enviado a <strong data-new-reservation-contact></strong>.</p>
+          <p class="reservation-otp__contact">Contacto por verificar: <strong data-new-reservation-contact></strong>.</p>
           <p class="reservation-otp__explanation">Este código valida tu medio de contacto. La reservación quedará confirmada después de validarlo.</p>
           <p class="reservation-otp__countdown" data-new-reservation-countdown></p>
+          <p class="reservation-access__message" data-new-reservation-development-code hidden>
+            Código de confirmación de desarrollo: <strong data-new-reservation-development-code-value></strong>
+          </p>
         </div>
         <div class="field">
           <label for="new-reservation-otp">Código de seis dígitos</label>
@@ -534,10 +537,12 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
         </div>
         <div class="form__submit reservation-otp__actions">
           <button type="button" class="btn-line" data-new-reservation-verify><span>Confirmar reservación</span><span class="arrow">→</span></button>
-          <button type="button" class="reservation-access__link" data-new-reservation-resend>Reenviar código</button>
+          <button type="button" class="reservation-access__link" data-new-reservation-resend disabled aria-describedby="new-reservation-resend-remaining">Reenviar código</button>
           <?php /* Sin esto, un contacto mal escrito deja al visitante sin salida. */ ?>
           <button type="button" class="reservation-access__link" data-new-reservation-change-contact>Cambiar contacto</button>
         </div>
+        <small class="reservation-access__help" id="new-reservation-resend-remaining" data-new-reservation-resend-remaining></small>
+        <p class="reservation-access__message" data-new-reservation-resend-status role="status" aria-live="polite"></p>
         <p class="reservation-access__message" data-new-reservation-otp-message role="status" aria-live="polite"></p>
       </section>
       <div class="reserva__confirm" id="reservaConfirm" aria-live="polite">
@@ -596,7 +601,10 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               <h4>Verifica tu contacto</h4>
               <p>El código valida el medio que elegiste para acceder a tus reservaciones.</p>
             </div>
-            <p class="reservation-access__masked">Código enviado a <strong data-contact-masked></strong>.</p>
+            <p class="reservation-access__masked">Contacto por verificar: <strong data-contact-masked></strong>.</p>
+            <p class="reservation-access__message" data-contact-development-code hidden>
+              Código de confirmación de desarrollo: <strong data-contact-development-code-value></strong>
+            </p>
             <div class="field">
               <label for="reservation-otp">Código de seis dígitos</label>
               <input id="reservation-otp" name="codigo" type="text" inputmode="numeric"
@@ -606,9 +614,11 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
             </div>
             <div class="form__submit">
               <button type="submit" class="btn-line"><span>Verificar</span><span class="arrow">→</span></button>
-              <button type="button" class="reservation-access__link" data-contact-resend>Reenviar código</button>
+              <button type="button" class="reservation-access__link" data-contact-resend disabled aria-describedby="reservation-contact-resend-remaining">Reenviar código</button>
               <button type="button" class="reservation-access__link" data-contact-restart>Cambiar contacto</button>
             </div>
+            <small class="reservation-access__help" id="reservation-contact-resend-remaining" data-contact-resend-remaining></small>
+            <p class="reservation-access__message" data-contact-resend-status role="status" aria-live="polite"></p>
           </form>
 
           <p class="reservation-access__message" data-contact-message role="status" aria-live="polite"></p>
