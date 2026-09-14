@@ -169,3 +169,18 @@ convierte accepted histórico a pending y delivered histórico a accepted.
 Resultado: estados y UI alineados. Riesgo: pausar/drenar workflows para migrar;
 el timeout de cambio de horario conserva reenvío manual sujeto a revisión del
 resultado incierto. Commit: el de esta sección.
+
+Commit etapa 8: `eacbdc2`.
+
+## Etapa 9 — Frontera del contrato
+
+Objetivo: sólo intención y datos funcionales desde PHP. Causa: el array data
+permitía claves arbitrarias aunque los casos de uso ya enviaban datos mínimos.
+Archivos: ReservationNotificationContract y test notification-boundary.
+Decisión: allowlist por evento y valores textuales; propósito/código/vencimiento
+o enlace/vencimiento. Modo text/template es una indicación de transporte; nombres
+de plantilla, bodyParameters y components se construyen exclusivamente en cada n8n.
+Tests: seis combinaciones evento/canal y rechazo de detalles SMTP/Meta PASS;
+contratos y transporte existentes PASS. Email conserva el mismo contrato.
+Resultado: límite explícito y comprobable. Riesgo: nuevos campos funcionales deben
+agregarse deliberadamente con pruebas en los tres exports. Commit: el de esta sección.

@@ -43,6 +43,18 @@ final class ReservationNotificationContract
         if (!in_array($event, self::EVENTS, true) || $sourceId < 1 || $attempt < 1) {
             throw new \InvalidArgumentException('Evento, fuente o intento de notificación inválido.');
         }
+        // El dominio entrega intención y datos, nunca parámetros internos de Meta/SMTP.
+        $allowedData = $event === self::EVENT_CONFIRMATION
+            ? ['purpose', 'confirmation_code', 'expires_at']
+            : ['management_url', 'access_expires_at'];
+        if (array_diff(array_keys($data), $allowedData) !== []) {
+            throw new \InvalidArgumentException('Datos ajenos al contrato funcional de notificación.');
+        }
+        foreach ($data as $value) {
+            if (!is_string($value)) {
+                throw new \InvalidArgumentException('Formato de datos funcionales inválido.');
+            }
+        }
         if ($reservationId !== null && $reservationId < 1) {
             throw new \InvalidArgumentException('Reservación de notificación inválida.');
         }
