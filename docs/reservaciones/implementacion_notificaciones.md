@@ -184,3 +184,17 @@ Tests: seis combinaciones evento/canal y rechazo de detalles SMTP/Meta PASS;
 contratos y transporte existentes PASS. Email conserva el mismo contrato.
 Resultado: límite explícito y comprobable. Riesgo: nuevos campos funcionales deben
 agregarse deliberadamente con pruebas en los tres exports. Commit: el de esta sección.
+
+Commit etapa 9: `a50e398`.
+
+## Etapa 10 — Aislamiento y paridad
+
+Objetivo: proteger tres workflows independientes. Causa: riesgo de divergencia
+o extracción de transporte compartido. Archivo: test notification-workflows.cjs.
+Decisiones: simulador ejecuta todo Code exportado, expresiones y caminos de grafo
+sin red; bloquea acceso al entorno; verifica nodos propios Email/Text/Template,
+paridad, aislamiento, auth, ausencia de retry de proveedor y respuestas/callbacks.
+Tests: 251 escenarios PASS, incluyendo contratos inválidos sin efectos,
+proveedor aceptado/rechazado, claim duplicado y candidatos múltiples enlazados.
+Resultado: duplicación controlada protegida por tests. Riesgo: el simulador no
+es el motor n8n; importación y credenciales requieren ensayo real. Commit: el de esta sección.
