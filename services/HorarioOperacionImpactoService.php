@@ -786,22 +786,22 @@ final class HorarioOperacionImpactoService
         return $ids;
     }
 
-    public static function marcarEntregaAceptada(int $impactoReservacionId, int $attempt): bool
+    public static function marcarTrabajoEncolado(int $impactoReservacionId, int $attempt): bool
     {
         return self::conTransaccion(function (\mysqli $db) use ($impactoReservacionId, $attempt): bool {
             $stmt = $db->prepare(
-                "UPDATE horario_impacto_reservaciones
-                 SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
-                 WHERE id = ? AND notification_attempts = ?
-                   AND notification_delivery_status = 'pending'"
+                "SELECT notification_delivery_status FROM horario_impacto_reservaciones
+                 WHERE id = ? AND notification_attempts = ? FOR UPDATE"
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
-            $actualizada = $stmt->affected_rows === 1;
+            $fila = $stmt->get_result()->fetch_assoc();
             $stmt->close();
-            if (!$actualizada) {
+            if (!$fila) {
                 return false;
             }
+            // Un callback puede llegar antes del retorno HTTP 202: no sobrescribirlo.
+            if ($fila['notification_delivery_status'] !== 'pending') return true;
             BuzonNotificacionesService::establecerRequiereAccionEnTransaccion(
                 $db,
                 ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
@@ -822,7 +822,7 @@ final class HorarioOperacionImpactoService
                      access_invalidated_at = COALESCE(access_invalidated_at, NOW()),
                      access_expires_at = LEAST(COALESCE(access_expires_at, NOW()), NOW())
                  WHERE id = ? AND notification_attempts = ?
-                   AND notification_delivery_status IN ('pending', 'accepted')"
+                   AND notification_delivery_status = 'pending'"
             );
             $stmt->bind_param('ii', $impactoReservacionId, $attempt);
             $stmt->execute();
@@ -1059,7 +1059,7 @@ final class HorarioOperacionImpactoService
                      ir.access_expires_at = LEAST(COALESCE(ir.access_expires_at, NOW()), NOW()),
                      bn.requiere_accion = 1, bn.updated_at = NOW()
                  WHERE bn.cerrada_at IS NULL
-                   AND ir.notification_delivery_status IN ('pending', 'accepted')
+                   AND ir.notification_delivery_status = 'pending'
                    AND ir.notification_delivery_updated_at IS NOT NULL
                    AND ir.notification_delivery_updated_at <= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
             );

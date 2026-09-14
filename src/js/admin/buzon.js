@@ -356,7 +356,7 @@
           tone = 'info';
         } else if (notification.requiere_accion === false) {
           label = 'Esperando respuesta';
-          copy = (delivery === 'delivered' ? 'Aviso enviado. ' : '')
+          copy = (delivery === 'accepted' ? 'Proveedor aceptó el envío. ' : '')
             + 'El cliente tiene un enlace activo hasta ' + formatTime(notification.access_expires_at) + '.';
           tone = 'info';
         }
@@ -402,12 +402,12 @@
         } else if (schedule.requiere_accion === false) {
           secondaryAction = openAction(schedule);
         } else if (schedule.puede_mandar_aviso) {
-          primaryAction = { kind: 'button', action: 'notify', label: 'Enviar recordatorio', variant: 'primary', attrs: notificationAttrs(schedule) };
+          primaryAction = { kind: 'button', action: 'notify', label: 'Reenviar aviso', variant: 'primary', attrs: notificationAttrs(schedule) };
           secondaryAction = openAction(schedule);
         } else {
-          status = attempts >= 3
-            ? { label: 'Límite de recordatorios alcanzado', copy: 'Abre la reservación para revisar el seguimiento.' }
-            : (schedule.cooldown_hasta ? { label: 'Recordatorio en espera', copy: 'Podrás enviar otro recordatorio a las ' + formatTime(schedule.cooldown_hasta) + '.' } : null);
+          status = attempts >= 2
+            ? { label: 'Reenvío ya utilizado', copy: 'Abre la reservación para continuar la gestión.' }
+            : null;
           primaryAction = openAction(schedule, 'Abrir reservación', 'primary');
         }
         if (schedule.test_link_disponible) {
@@ -520,7 +520,7 @@
         status.textContent = 'Guardando…';
         status.classList.remove('is-error');
         request('/admin/api/horarios-impactos/contacto', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0), tipo: form.elements.tipo.value, contacto: form.elements.contacto.value.trim() } })
-          .then(function () { setView('list'); return refreshAfterAction('Contacto agregado; el recordatorio quedó preparado.'); })
+          .then(function () { setView('list'); return refreshAfterAction('Contacto agregado; el aviso quedó preparado.'); })
           .catch(function (error) { status.textContent = error.message || 'No fue posible guardar el contacto.'; status.classList.add('is-error'); submit.disabled = false; });
       });
       form.querySelector('[data-contact-cancel]').addEventListener('click', function () { openDetail(item); });
@@ -547,8 +547,8 @@
     function sendNotice(item, notification, control) {
       control.disabled = true;
       request('/admin/api/horarios-impactos/preparar', { method: 'POST', body: { impacto_id: Number(notification.impacto_id || 0), impacto_reservacion_id: Number(notification.impacto_reservacion_id || 0) } })
-        .then(function () { setView('list'); return refreshAfterAction('Recordatorio preparado; el cliente puede responder.'); })
-        .catch(function (error) { control.disabled = false; if (summary) summary.textContent = error.message || 'No fue posible preparar el recordatorio.'; });
+        .then(function () { setView('list'); return refreshAfterAction('Aviso preparado; el cliente puede responder.'); })
+        .catch(function (error) { control.disabled = false; if (summary) summary.textContent = error.message || 'No fue posible preparar el aviso.'; });
     }
 
     function copyText(value) {

@@ -146,7 +146,7 @@ try {
         $row = $byReservation[$reservationIds[$key]] ?? [];
         scheduleMatrixAssert(($row['estado'] ?? '') === 'notificacion_preparada', "{$key} no preparó autoservicio");
         scheduleMatrixAssert((int)($row['notification_attempts'] ?? 0) === 1, "{$key} no quedó en attempt 1");
-        scheduleMatrixAssert(($row['notification_delivery_status'] ?? '') === 'accepted', "{$key} no persistió accepted");
+        scheduleMatrixAssert(($row['notification_delivery_status'] ?? '') === 'pending', "{$key} debe esperar el resultado proveedor, no convertir 202 en envío");
         scheduleMatrixAssert((string)($row['access_token_hash'] ?? '') !== '', "{$key} no persistió hash de acceso");
         scheduleMatrixAssert((int)($row['requiere_accion'] ?? 1) === 0, "{$key} no pasó a En espera");
     }
@@ -165,8 +165,8 @@ try {
     echo json_encode([
         'ok' => true,
         'matrix' => [
-            '<=12_email' => 'accepted',
-            '<=12_whatsapp' => 'accepted',
+            '<=12_email' => 'pending',
+            '<=12_whatsapp' => 'pending',
             '<=12_sin_contacto' => 'accionable',
             '>12_con_contacto' => 'administrativo',
             '>12_sin_contacto' => 'administrativo',

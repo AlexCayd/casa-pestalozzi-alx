@@ -104,13 +104,14 @@ final class ScheduleChangeNotificationService
         }
 
         if (($delivery['accepted'] ?? false) === true) {
-            $persisted = HorarioOperacionImpactoService::marcarEntregaAceptada(
+            $persisted = HorarioOperacionImpactoService::marcarTrabajoEncolado(
                 $impactReservationId,
                 $attempt
             );
             return array_merge($delivery, [
                 'ok' => $persisted,
                 'accepted' => $persisted,
+                'accepted_by' => 'n8n',
                 'prepared' => true,
                 'external_transport' => true,
                 'source_id' => $impactReservationId,

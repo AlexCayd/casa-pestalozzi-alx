@@ -152,3 +152,20 @@ Migración desde f274eda y traducción de estados históricos PASS en BD desecha
 Resultado: recuperación segura implementada. Riesgo: resultados inciertos exigen
 evidencia del proveedor y revisión operativa; no existe garantía exactly-once.
 Commit: el de esta sección.
+
+Commit etapa 7: `53ed5f9`.
+
+## Etapa 8 — Semántica de estados
+
+Objetivo: no presentar aceptación como entrega. Causa: delivered significaba
+respuesta del proveedor y accepted significaba 202 de n8n. Archivos: impactos,
+ScheduleChangeNotificationService, AdminBuzonController, buzon.js/bundles,
+documentación de afectaciones y tests DB/buzón. DDL, migración y callbacks quedaron
+coordinados en etapa 7. Decisiones: pending hasta callback, accepted sólo proveedor,
+failed sin alterar estado de reservación. ACK explícito accepted_by=n8n no cambia
+estado persistente. Callback rápido no es sobrescrito; accepted no expira por timeout.
+Tests: contratos buzón/impactos, matriz DB y compilación admin PASS. La migración
+convierte accepted histórico a pending y delivered histórico a accepted.
+Resultado: estados y UI alineados. Riesgo: pausar/drenar workflows para migrar;
+el timeout de cambio de horario conserva reenvío manual sujeto a revisión del
+resultado incierto. Commit: el de esta sección.
