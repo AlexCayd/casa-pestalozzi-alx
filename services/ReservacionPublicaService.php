@@ -222,7 +222,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::crearRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::crearRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -334,7 +334,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::confirmarRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::confirmarRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });
@@ -393,7 +393,7 @@ final class ReservacionPublicaService
                 if ($transaccion) {
                     $db->rollback();
                 }
-                error_log('ReservacionPublicaService::reenviarOtpRetencion - ' . $e->getMessage());
+                error_log('ReservacionPublicaService::reenviarOtpRetencion - fallo redactado.');
                 return self::errorInterno();
             }
         });

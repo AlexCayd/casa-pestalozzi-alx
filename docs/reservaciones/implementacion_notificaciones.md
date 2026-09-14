@@ -233,3 +233,92 @@ claim incierto, migraciones una sola vez y límites operativos; no se afirma E2E
 Tests: enlaces relativos del conjunto normativo y búsqueda de referencias antiguas.
 Resultado: documentación coincide con código y exports. Riesgo: operador debe
 validar infraestructura/credenciales antes de activar. Commit: el de esta sección.
+
+Commit etapa 12: `25e8edc`.
+
+## Etapa 13 — Validación local final; E2E real pendiente (2026-09-14)
+
+Objetivo: verificar regresiones y separar evidencia local de operación real.
+Causa: las suites anteriores no cubrían recuperación, aceptación síncrona y
+conteo persistente; tampoco existía un entorno n8n reproducible disponible aquí.
+Archivos: runner aislado, router de vista temporal, test hold-notifications-db,
+package.json, bundles admin y mensajes de log de flujos OTP/impactos.
+AGENTS.md local recibió los comandos de pruebas; se conserva ignorado por Git.
+
+Decisiones: no migrar la BD real ni tocar n8n vivo. Ejecutar tests con transporte
+simulado, seis suites DB con DDL actual y otra vez desde esquema histórico
+f274eda + migraciones. La nueva prueba de retención usa el caso de uso público
+para crear con fallo, recuperar por idempotencia, consultar propietario y bloquear
+cooldown/cuarto envío; las aceptaciones se simulan después de COMMIT. Retención,
+hash y vencimiento permanecen intactos. La inspección final sustituyó excepciones
+sin filtrar por logs constantes en creación/verificación/reenvío OTP e impactos.
+
+### Evidencia ejecutada
+
+| Validación | Resultado |
+|---|---|
+| test:php | 28 comandos PASS |
+| test:js | 9 comandos PASS |
+| test:notifications | 8 comandos PASS; incluye los dos recorridos DB y repite contratos clave |
+| Total final | 45 ejecuciones de comandos, cero fallos; no son 45 casos únicos |
+| Workflows | 251 escenarios de Code/grafo en memoria, con transporte simulado |
+| DB | 6 suites PASS con DDL actual y 6 PASS tras migraciones; cada runner elimina su BD temporal |
+| PHP lint | 42 archivos existentes afectados/nuevos PASS |
+| Build | js y adminJs PASS; sólo advertencia deprecada de Node sobre fs.Stats |
+| Documentación | 36 enlaces relativos existentes; referencias normativas antiguas corregidas |
+| Git | diff --check sin errores; advertencias LF/CRLF no bloqueantes |
+| Navegador | Email development: 2 → 1 → 0, contador, reenvío bloqueado y refresh conserva cupo; sin errores JS observados |
+
+Se ejecutaron los comandos PHP/Node directamente porque el wrapper npm local
+no encuentra npm-cli.js. No se instalaron dependencias ni se reparó npm fuera de
+alcance. La vista HTTP temporal se cerró y su base fue eliminada. No se guardaron
+capturas con OTP ni se enviaron mensajes externos. Las suites incluyen la
+concurrencia real de dos procesos y visibilidad del OTP desde otra conexión.
+
+La revisión automática rechazó una comprobación opcional de líneas de comando
+de procesos PHP por posible exposición de argumentos sensibles. Se omitió y no
+se eludió esa restricción; el runner pasó a usar archivos temporales para evitar
+el bloqueo de pipes de Windows. Las comprobaciones funcionales no dependieron
+de esa inspección.
+
+### Resultado y límites de cierre
+
+Implementación del repositorio y verificaciones locales aprobadas, con trece
+commits de implementación y sin push. Auth.php conserva el cambio previo fuera
+de estos commits. Las eliminaciones legacy son recuperables desde Git.
+
+**No se declara listo para producción ni se da por pasado el E2E real.** Faltan:
+
+1. Definir host TEST, Docker/Compose/proxy y resolver digests de las dos imágenes.
+2. Aplicar migraciones en TEST e importar los tres exports finales, inactivos.
+3. Configurar Set y credenciales independientes; probar rechazo de autenticación,
+   SMTP, WhatsApp Text y Template aprobado, tiempos y callbacks en el motor real.
+4. Probar reinicio n8n/runner y host, persistencia de credenciales/workflows,
+   backup/restore y rollback con volumen/clave consistentes.
+5. Registrar evidencia del tratamiento operativo de resultados inciertos sin
+   reenvíos ciegos; no hay garantía exactly-once de proveedores.
+
+No se cambia el alcance para instalar o desplegar infraestructura indefinida.
+La receta y lista operativa están en n8n/deploy/README.md. La base real conserva
+su esquema anterior: necesita la ventana coordinada documentada antes de usar
+este código contra ella. Commit etapa 13: commit que introduce esta sección
+(obtener con git log -1 -- docs/reservaciones/implementacion_notificaciones.md).
+
+### Commits por etapa
+
+| Etapa | Commit |
+|---|---|
+| 0 | Baseline f274eda; sin commit de implementación |
+| 1 | 8073afe |
+| 2 | 0762a41 |
+| 3 | 1d19b91 |
+| 4 | 4a020e9 |
+| 5 | 3570af2 |
+| 6 | 0014ce8 |
+| 7 | 53ed5f9 |
+| 8 | eacbdc2 |
+| 9 | a50e398 |
+| 10 | 32f38f5 |
+| 11 | 811596d |
+| 12 | 25e8edc |
+| 13 | Commit de cierre local de este reporte |

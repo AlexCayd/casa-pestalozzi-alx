@@ -1018,7 +1018,7 @@ final class HorarioOperacionImpactoService
             return count($filas);
         } catch (\Throwable $e) {
             $db->rollback();
-            error_log('HorarioOperacionImpactoService::reconciliarReservacion - ' . $e->getMessage());
+            error_log('HorarioOperacionImpactoService::reconciliarReservacion - fallo redactado.');
             return 0;
         }
     }
@@ -1198,7 +1198,7 @@ final class HorarioOperacionImpactoService
             return $resultado;
         } catch (\Throwable $e) {
             $db->rollback();
-            error_log('HorarioOperacionImpactoService - ' . $e->getMessage());
+            error_log('HorarioOperacionImpactoService - fallo redactado.');
             return ['ok' => false, 'codigo' => 'ERROR_SEGUIMIENTO_HORARIO'];
         }
     }

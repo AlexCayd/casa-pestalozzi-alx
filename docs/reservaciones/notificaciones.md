@@ -209,6 +209,9 @@ Configuración. No hay compatibilidad con callbacks delivered del export viejo.
 
 Pruebas locales reproducibles (sin tocar la BD configurada ni enviar mensajes):
 
+`npm run test:notifications` reúne las verificaciones siguientes y la guardia
+no-legacy/documentación. Si npm no está disponible, ejecutar directamente PHP/Node:
+
 ```text
 php scripts/tests/run-notifications-isolated.php
 php scripts/tests/run-notifications-isolated.php --migrations

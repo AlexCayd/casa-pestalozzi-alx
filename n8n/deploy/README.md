@@ -314,7 +314,7 @@ fecha, versiones, resultado y errores redactados, sin secretos ni payloads.
 | Arranque, permisos de secrets, SQLite, healthcheck y registro del runner | No ejecutados: requieren entorno Docker TEST preparado. |
 | Proxy/TLS, SMTP/Meta, Header Auth, callbacks y respuesta síncrona | Contratos corregidos y simulados; falta integración real. No se llamó a la instancia viva. |
 | Reinicio de contenedor/host, recreación, backup/restore y rollback | Procedimientos documentados, no probados en runtime. |
-| Suites de BD PHP | Cinco suites aisladas pasan tanto con DDL actual como migrando desde f274eda; no certifican infraestructura n8n. |
+| Suites de BD PHP | Seis suites aisladas pasan tanto con DDL actual como migrando desde f274eda; no certifican infraestructura n8n. |
 
 Antes de promover, registrar evidencia de: clave idéntica tras reinicio,
 credenciales utilizables sin reingresarlas, mismos tres workflows, timezone

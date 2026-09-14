@@ -131,7 +131,7 @@ class ContactoAccesoService
             if ($transaccion) {
                 $db->rollback();
             }
-            error_log('ContactoAccesoService::verificarCodigo - ' . $e->getMessage());
+            error_log('ContactoAccesoService::verificarCodigo - fallo redactado.');
             return [
                 'ok' => false,
                 'codigo' => self::ERROR_INTERNO,
