@@ -14,7 +14,8 @@ final class ReservationNotificationResultService
         int $sourceId,
         int $attempt,
         string $channel,
-        string $status
+        string $status,
+        bool $retryable = false
     ): array
     {
         if (!in_array($event, [
@@ -22,7 +23,7 @@ final class ReservationNotificationResultService
                 ReservationNotificationContract::EVENT_REMINDER,
             ], true)
             || !in_array($channel, ReservationNotificationContract::CHANNELS, true)
-            || !in_array($status, ['delivered', 'failed'], true)
+            || !in_array($status, ['accepted', 'failed'], true)
             || $sourceId < 1
             || $attempt < 1
         ) {
@@ -30,7 +31,7 @@ final class ReservationNotificationResultService
         }
         return $event === ReservationNotificationContract::EVENT_SCHEDULE_CHANGE
             ? self::scheduleChange($sourceId, $attempt, $channel, $status)
-            : self::reminder($sourceId, $attempt, $channel, $status);
+            : self::reminder($sourceId, $attempt, $channel, $status, $retryable);
     }
 
     private static function scheduleChange(int $sourceId, int $attempt, string $channel, string $status): array
@@ -61,19 +62,26 @@ final class ReservationNotificationResultService
                 $db->commit();
                 return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_STALE', 'stale' => true];
             }
-            if (in_array((string)$fila['notification_delivery_status'], ['delivered', 'failed'], true)) {
+            if (in_array((string)$fila['notification_delivery_status'], ['accepted', 'failed'], true)) {
                 $db->commit();
                 return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_IDEMPOTENTE', 'idempotente' => true];
             }
-            if ($status === 'delivered') {
+            if ($status === 'accepted') {
                 $stmt = $db->prepare(
                     "UPDATE horario_impacto_reservaciones
-                     SET notification_delivery_status = 'delivered', notification_delivery_updated_at = NOW()
+                     SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
                      WHERE id = ?"
                 );
                 $stmt->bind_param('i', $sourceId);
                 $stmt->execute();
                 $stmt->close();
+                BuzonNotificacionesService::establecerRequiereAccionEnTransaccion(
+                    $db,
+                    ReservacionBuzonService::TIPO_HORARIO_AFECTADO,
+                    ReservacionBuzonService::ENTIDAD_IMPACTO_RESERVACION,
+                    $sourceId,
+                    false
+                );
             } else {
                 $stmt = $db->prepare(
                     "UPDATE horario_impacto_reservaciones
@@ -102,16 +110,17 @@ final class ReservationNotificationResultService
         }
     }
 
-    private static function reminder(int $sourceId, int $attempt, string $channel, string $status): array
+    private static function reminder(int $sourceId, int $attempt, string $channel, string $status, bool $retryable): array
     {
-        if ($attempt !== 1) {
+        if ($attempt > ReservationReminderService::MAX_ATTEMPTS) {
             return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_STALE', 'stale' => true];
         }
         $db = ActiveRecord::getDB();
         $db->begin_transaction();
         try {
             $stmt = $db->prepare(
-                "SELECT rr.id, rr.notification_delivery_status, rr.tipo, r.contacto_tipo
+                "SELECT rr.id, rr.notification_delivery_status, rr.tipo, r.contacto_tipo,
+                        rr.notification_attempts, rr.transport_claimed_at
                  FROM reservacion_recordatorios rr
                  JOIN reservaciones r ON r.id = rr.reservacion_id
                  WHERE rr.id = ? AND rr.tipo = 'dia_anterior' LIMIT 1 FOR UPDATE"
@@ -128,14 +137,18 @@ final class ReservationNotificationResultService
                 $db->rollback();
                 return ['ok' => false, 'codigo' => 'NOTIFICACION_CALLBACK_INVALIDO'];
             }
-            if (in_array((string)$fila['notification_delivery_status'], ['delivered', 'failed'], true)) {
+            if ((int)$fila['notification_attempts'] !== $attempt || $fila['transport_claimed_at'] === null) {
+                $db->commit();
+                return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_STALE', 'stale' => true];
+            }
+            if (in_array((string)$fila['notification_delivery_status'], ['accepted', 'failed'], true)) {
                 $db->commit();
                 return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_IDEMPOTENTE', 'idempotente' => true];
             }
-            if ($status === 'delivered') {
+            if ($status === 'accepted') {
                 $stmt = $db->prepare(
                     "UPDATE reservacion_recordatorios
-                     SET notification_delivery_status = 'delivered', notification_delivery_updated_at = NOW()
+                     SET notification_delivery_status = 'accepted', notification_delivery_updated_at = NOW()
                      WHERE id = ?"
                 );
             } else {
@@ -150,6 +163,13 @@ final class ReservationNotificationResultService
             $stmt->bind_param('i', $sourceId);
             $stmt->execute();
             $stmt->close();
+            if ($status === 'failed') {
+                $retry = (int)$retryable;
+                $stmt = $db->prepare('UPDATE reservacion_recordatorios SET retryable = ? WHERE id = ?');
+                $stmt->bind_param('ii', $retry, $sourceId);
+                $stmt->execute();
+                $stmt->close();
+            }
             $db->commit();
             return ['ok' => true, 'codigo' => 'NOTIFICACION_CALLBACK_REGISTRADO'];
         } catch (\Throwable $e) {

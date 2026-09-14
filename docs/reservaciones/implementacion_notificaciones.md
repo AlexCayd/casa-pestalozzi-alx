@@ -130,3 +130,25 @@ ejecutó Docker porque no está instalado, ni se asignó infraestructura definit
 Resultado: receta preparada, no desplegada. Riesgo: faltan digests, arranque,
 credenciales, permisos, reinicio host/contenedor y restore reales en TEST.
 Commit: el de esta sección. No se exportaron secretos ni se modificó n8n vivo.
+
+Commit etapa 6: `0014ce8`.
+
+## Etapa 7 — Recuperación conservadora de recordatorios
+
+Objetivo: recuperar caídas sin duplicar aceptación conocida. Causa: la fila
+deduplicada bloqueaba cualquier recuperación. Archivos: ReminderService,
+ResultService, Contract, ruta claim, DDL/migraciones y tests de recuperación/DB.
+Decisiones: claim atómico obligatorio antes del proveedor; fuente estable por
+raíz/fecha, intento creciente hasta tres, backoff de cinco minutos y token
+rotado en cada recuperación. Prepared sin claim y failed retryable se recuperan.
+Claim sin resultado permanece pendiente de revisión; ausencia de callback no
+demuestra rechazo y no autoriza otro envío. Accepted es terminal. Migración marca
+filas históricas reclamadas para no suponer que nunca se enviaron.
+ResultService y DDL incluyen la semántica accepted de etapa 8 por ser el mismo
+contrato de persistencia. No cambia elegibilidad ni regla de día anterior.
+Tests: cinco suites DB aisladas PASS; caída tras prepare, claim duplicado,
+callback perdido/obsoleto, rechazo/reintento/límite y rotación de token PASS.
+Migración desde f274eda y traducción de estados históricos PASS en BD desechable.
+Resultado: recuperación segura implementada. Riesgo: resultados inciertos exigen
+evidencia del proveedor y revisión operativa; no existe garantía exactly-once.
+Commit: el de esta sección.

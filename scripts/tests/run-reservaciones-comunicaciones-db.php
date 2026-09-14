@@ -196,22 +196,25 @@ try {
     $repeat = ReservationReminderService::preparar();
     communicationsDbAssert(count($repeat['notifications'] ?? []) === 0, 'una segunda ejecución duplicó el recordatorio');
 
-    $delivered = ReservationNotificationResultService::registrar(
+    foreach ($firstBatch['notifications'] ?? [] as $notification) {
+        ReservationReminderService::reclamar((int)$notification['source_id'], (int)$notification['attempt'], $notification['contact']['type']);
+    }
+    $accepted = ReservationNotificationResultService::registrar(
         ReservationNotificationContract::EVENT_REMINDER,
         (int)$firstRow['id'],
         1,
         'email',
-        'delivered'
+        'accepted'
     );
-    communicationsDbAssert(($delivered['ok'] ?? false) === true, 'callback delivered no se registró');
-    $deliveredAgain = ReservationNotificationResultService::registrar(
+    communicationsDbAssert(($accepted['ok'] ?? false) === true, 'callback accepted no se registró');
+    $acceptedAgain = ReservationNotificationResultService::registrar(
         ReservationNotificationContract::EVENT_REMINDER,
         (int)$firstRow['id'],
         1,
         'email',
-        'delivered'
+        'accepted'
     );
-    communicationsDbAssert(($deliveredAgain['codigo'] ?? '') === 'NOTIFICACION_CALLBACK_IDEMPOTENTE', 'callback repetido no fue idempotente');
+    communicationsDbAssert(($acceptedAgain['codigo'] ?? '') === 'NOTIFICACION_CALLBACK_IDEMPOTENTE', 'callback repetido no fue idempotente');
 
     communicationsDbAssert($db->query("UPDATE reservaciones SET estado = 'reemplazada' WHERE id = {$eligibleId}") !== false, 'no se pudo convertir la raíz en reemplazada');
     $replacementId = insertCommunicationReservation(
@@ -351,14 +354,14 @@ try {
     );
     $scheduleDispatch = ScheduleChangeNotificationService::dispatchItem($impactItemId, false, $acceptedClient);
     communicationsDbAssert(($scheduleDispatch['accepted'] ?? false) === true, 'el dispatcher no persistió accepted');
-    $scheduleDelivered = ReservationNotificationResultService::registrar(
+    $scheduleAccepted = ReservationNotificationResultService::registrar(
         'reservation.schedule_change',
         $impactItemId,
         (int)($scheduleDispatch['attempt'] ?? 0),
         'email',
-        'delivered'
+        'accepted'
     );
-    communicationsDbAssert(($scheduleDelivered['ok'] ?? false) === true, 'callback delivered de cambio de horario falló');
+    communicationsDbAssert(($scheduleAccepted['ok'] ?? false) === true, 'callback accepted de cambio de horario falló');
     $scheduleRowResult = $db->query(
         'SELECT estado, notification_delivery_status FROM horario_impacto_reservaciones WHERE id = ' . $impactItemId
     );
@@ -366,8 +369,8 @@ try {
     if ($scheduleRowResult) {
         $scheduleRowResult->free();
     }
-    communicationsDbAssert(($scheduleRow['estado'] ?? '') === 'notificacion_preparada', 'delivered resolvió indebidamente el dominio');
-    communicationsDbAssert(($scheduleRow['notification_delivery_status'] ?? '') === 'delivered', 'delivered no quedó persistido');
+    communicationsDbAssert(($scheduleRow['estado'] ?? '') === 'notificacion_preparada', 'accepted resolvió indebidamente el dominio');
+    communicationsDbAssert(($scheduleRow['notification_delivery_status'] ?? '') === 'accepted', 'accepted no quedó persistido');
 
     $retryReservationId = insertCommunicationReservation(
         $db,
@@ -422,7 +425,7 @@ try {
         $retryImpactItemId,
         1,
         'email',
-        'delivered'
+        'accepted'
     );
     communicationsDbAssert(($staleCallback['codigo'] ?? '') === 'NOTIFICACION_CALLBACK_STALE', 'callback de attempt anterior sobrescribió el vigente');
     $attemptTwoFailed = ReservationNotificationResultService::registrar(
@@ -466,6 +469,7 @@ try {
         "UPDATE reservacion_recordatorios SET access_expires_at = '2037-01-14 17:59:00' WHERE id = " . (int)($largeRow['id'] ?? 0)
     ) !== false, 'no se pudo preparar el caso de expiración');
     communicationsDbAssert(ReservationManagementAccessService::validarToken($largeToken['token']) === null, 'un acceso expirado siguió vigente');
+    ReservationReminderService::reclamar((int)$largeRow['id'], 1, 'whatsapp');
     $failed = ReservationNotificationResultService::registrar(
         ReservationNotificationContract::EVENT_REMINDER,
         (int)($largeRow['id'] ?? 0),
@@ -501,7 +505,7 @@ try {
         'cancelacion' => ['exitosa' => true, 'idempotente' => true],
         'grupo_mayor_12' => ['can_modify' => false, 'can_cancel' => true],
         'expiracion' => true,
-        'callbacks' => ['schedule_delivered' => true, 'reminder_delivered' => true, 'failed' => true, 'idempotente' => true],
+        'callbacks' => ['schedule_accepted' => true, 'reminder_accepted' => true, 'failed' => true, 'idempotente' => true],
         'intentos_cambio_horario' => ['automatico' => 1, 'manual' => 2, 'tercero' => false, 'stale' => true],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } finally {

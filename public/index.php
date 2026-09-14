@@ -69,6 +69,7 @@ $router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagem
 $router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
 $router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAccessController::class, 'cancelar']);
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
+$router->post('/api/integraciones/n8n/reservaciones/recordatorios/reclamar', [N8nReservationsController::class, 'reclamarRecordatorio']);
 $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
 
 // Catas y catering ya no tienen endpoints públicos. Eran los dos únicos

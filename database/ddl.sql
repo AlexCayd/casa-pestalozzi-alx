@@ -724,7 +724,7 @@ CREATE TABLE IF NOT EXISTS horario_impacto_reservaciones (
   access_invalidated_at  DATETIME NULL,
   notification_attempts  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   last_notification_at   DATETIME NULL,
-  notification_delivery_status ENUM('pending', 'accepted', 'delivered', 'failed')
+  notification_delivery_status ENUM('pending', 'accepted', 'failed')
                            NOT NULL DEFAULT 'pending',
   notification_delivery_updated_at DATETIME NULL,
   resolved_by           INT NULL,
@@ -753,10 +753,13 @@ CREATE TABLE IF NOT EXISTS reservacion_recordatorios (
   access_token_hash               CHAR(64) NULL,
   access_expires_at               DATETIME NULL,
   access_invalidated_at           DATETIME NULL,
-  notification_delivery_status    ENUM('pending', 'accepted', 'delivered', 'failed')
+  notification_delivery_status    ENUM('pending', 'accepted', 'failed')
                                     NOT NULL DEFAULT 'pending',
   notification_delivery_updated_at DATETIME NULL,
   created_at                      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  notification_attempts           SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  transport_claimed_at             DATETIME NULL,
+  retryable                       TINYINT(1) NOT NULL DEFAULT 0,
   updated_at                      TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_reservacion_recordatorios_reservacion
     FOREIGN KEY (reservacion_id) REFERENCES reservaciones(id) ON DELETE RESTRICT,

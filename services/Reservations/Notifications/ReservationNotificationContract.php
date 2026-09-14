@@ -50,6 +50,10 @@ final class ReservationNotificationContract
             if (!in_array($attempt, [1, 2], true)) {
                 throw new \InvalidArgumentException('Intento de cambio de horario inválido.');
             }
+        } elseif ($event === self::EVENT_REMINDER) {
+            if ($attempt > ReservationReminderService::MAX_ATTEMPTS) {
+                throw new \InvalidArgumentException('Intento de recordatorio inválido.');
+            }
         } elseif ($attempt !== 1) {
             throw new \InvalidArgumentException('El evento sólo admite el primer intento.');
         }
