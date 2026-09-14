@@ -114,3 +114,19 @@ Tests: 251 escenarios de grafo/Code, transporte PHP y autenticación ausente,
 incorrecta, cruzada y claves iguales PASS. Resultado: contratos locales aprobados.
 Riesgo: asignar credenciales y probar Header Auth nativo en n8n real sigue pendiente.
 Commit: el de esta sección.
+
+Commit etapa 5: `3570af2`.
+
+## Etapa 6 — Despliegue reproducible preparado
+
+Objetivo: persistencia y reinicio sin comandos set. Causa: arranque manual no
+reproducible. Archivos: n8n/README.md y n8n/deploy/{compose.yaml,.env.example,
+.gitignore,README.md}. Decisiones: Linux Compose de instancia única con n8n y
+runner 2.38.7 fijados, secretos por archivo, volumen exclusivo, restart policy,
+zona horaria, healthcheck y red interna; proxy TLS del host como requisito.
+Incluye backup consistente, restore a otro volumen, actualización/rollback y rotación.
+Tests: revisión estática y fuentes oficiales de versión/configuración. No se
+ejecutó Docker porque no está instalado, ni se asignó infraestructura definitiva.
+Resultado: receta preparada, no desplegada. Riesgo: faltan digests, arranque,
+credenciales, permisos, reinicio host/contenedor y restore reales en TEST.
+Commit: el de esta sección. No se exportaron secretos ni se modificó n8n vivo.
