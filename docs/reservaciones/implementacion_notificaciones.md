@@ -198,3 +198,23 @@ Tests: 251 escenarios PASS, incluyendo contratos inválidos sin efectos,
 proveedor aceptado/rechazado, claim duplicado y candidatos múltiples enlazados.
 Resultado: duplicación controlada protegida por tests. Riesgo: el simulador no
 es el motor n8n; importación y credenciales requieren ensayo real. Commit: el de esta sección.
+
+Commit etapa 10: `32f38f5`.
+
+## Etapa 11 — Legacy
+
+Objetivo: retirar únicamente referencias muertas. Causa: coexistían archivos del
+diseño anterior y migración ya iniciada. Archivos: diez clases raíz antiguas,
+FakeContactNotificationProvider, workflow monolítico, tres documentos sustituidos;
+configuración/sesión/mantenimiento y tests de privacidad/UX, exportador y gitignore.
+Las eliminaciones ya estaban en el baseline; se registran tras comprobar uso nulo.
+Decisiones: búsqueda explícita en services/controllers/models/includes/src/scripts/
+n8n/docs/public y package. Clases/variables antiguas sin consumidores activos.
+Factory en arquitectura es convención general; el plan es histórico. Nombres
+de suites run-reservaciones-comunicaciones siguen activos y se conservan por
+compatibilidad de comandos, no representan un workflow. N8N_SECRET de otros
+módulos se conserva. Auth.php queda fuera del alcance y sin incluir en commits.
+Tests: guardia no-legacy, 25 suites PHP y 7 comandos JS PASS; búsqueda global
+clasificada. Resultado: no hay legacy runtime del módulo. Riesgo: reimportar un
+export antiguo rompería el contrato; usar sólo los tres JSON actuales.
+Commit: el de esta sección. Archivos retirados recuperables desde Git/baseline.

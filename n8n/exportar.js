@@ -17,6 +17,11 @@ const path = require('path');
 
 const DB = path.join(process.env.USERPROFILE || process.env.HOME, '.n8n', 'database.sqlite');
 const DESTINO = __dirname;
+const RESERVATION_WORKFLOWS = new Map([
+  ['Reservaciones - Confirmación', 'reservaciones-confirmacion.json'],
+  ['Reservaciones - Recordatorio', 'reservaciones-recordatorio.json'],
+  ['Reservaciones - Cambio de horario', 'reservaciones-cambio-horario.json'],
+]);
 
 // 'Áreas de mejora' -> 'areas-de-mejora'
 function archivoDe(nombre) {
@@ -33,18 +38,41 @@ if (!fs.existsSync(DB)) {
 }
 
 const db = new DatabaseSync(DB, { readOnly: true });
-const flujos = db.prepare('SELECT name, nodes, connections, settings, meta FROM workflow_entity').all();
+const flujos = db.prepare(
+  'SELECT name, nodes, connections, settings, meta, active, versionId FROM workflow_entity'
+).all();
+const reservacionesEncontradas = new Set();
 
 for (const flujo of flujos) {
+  const esReservaciones = flujo.name.startsWith('Reservaciones - ');
+  if (esReservaciones && !RESERVATION_WORKFLOWS.has(flujo.name)) {
+    console.log('omitido workflow de reservaciones obsoleto: ' + flujo.name);
+    continue;
+  }
+  const nodes = JSON.parse(flujo.nodes).map((node) => {
+    const limpio = { ...node };
+    delete limpio.credentials;
+    return limpio;
+  });
   const exportado = {
     name: flujo.name,
-    nodes: JSON.parse(flujo.nodes),
+    nodes,
     connections: JSON.parse(flujo.connections),
     settings: JSON.parse(flujo.settings || '{}'),
+    active: Boolean(flujo.active),
+    versionId: flujo.versionId,
     meta: JSON.parse(flujo.meta || '{}'),
   };
 
-  const archivo = path.join(DESTINO, archivoDe(flujo.name));
+  if (esReservaciones) reservacionesEncontradas.add(flujo.name);
+  const nombreArchivo = RESERVATION_WORKFLOWS.get(flujo.name) || archivoDe(flujo.name);
+  const archivo = path.join(DESTINO, nombreArchivo);
   fs.writeFileSync(archivo, JSON.stringify(exportado, null, 2) + '\n', 'utf8');
   console.log('exportado: ' + path.basename(archivo) + '  (' + exportado.nodes.length + ' nodos)');
+}
+
+const faltantes = [...RESERVATION_WORKFLOWS.keys()].filter((name) => !reservacionesEncontradas.has(name));
+if (faltantes.length) {
+  console.error('Faltan workflows de reservaciones en n8n: ' + faltantes.join(', '));
+  process.exitCode = 1;
 }

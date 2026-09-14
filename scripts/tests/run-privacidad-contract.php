@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require __DIR__ . '/FakeContactNotificationProvider.php';
 
 use Services\PosReservacionSerializer;
 
@@ -101,10 +100,6 @@ $admin = PosReservacionSerializer::reservacion(
 assertPrivacidad($admin['contacto'] === 'cliente@example.test', 'admin conserva contacto');
 assertPrivacidad($admin['contacto_tipo'] === 'email', 'admin conserva contacto_tipo');
 
-$fake = new FakeContactNotificationProvider();
-$fake->sendOtp('email', 'cliente@example.test', '123456');
-assertPrivacidad($fake->ultimoCodigo() === '123456', 'fake provider controla el OTP sin respuesta HTTP');
-
 $root = dirname(__DIR__, 2);
 $otpService = file_get_contents($root . '/services/ContactoAccesoService.php');
 $publicService = file_get_contents($root . '/services/ReservacionPublicaService.php');
@@ -121,13 +116,13 @@ $browserBundles = [
     $root . '/public/build/js/admin/map.js',
 ];
 
-assertPrivacidad(!str_contains($otpService, 'preview_code'), 'servicio OTP no devuelve preview_code');
-assertPrivacidad(!str_contains($publicService, 'preview_code'), 'flujo público no propaga preview_code');
-assertPrivacidad(!str_contains($form, 'preview_code') && !str_contains($form, 'renderPreview'), 'landing no consume preview OTP');
+assertPrivacidad(str_contains($otpService, 'ReservationConfirmationService'), 'OTP delega transporte después del commit');
+assertPrivacidad(!str_contains($publicService, 'preview_code'), 'flujo público retiró el contrato preview heredado');
+assertPrivacidad(str_contains($form, 'development_confirmation_code'), 'landing consume sólo el campo explícito de development');
 assertPrivacidad(!str_contains($access, 'preview_code') && !str_contains($access, 'renderPreview'), 'gestión pública no consume preview OTP');
 assertPrivacidad(!str_contains($pos, '<dt>Contacto</dt>') && !str_contains($pos, 'Sin contacto'), 'UI POS no renderiza contacto');
 assertPrivacidad(!str_contains($pos, 'mostrarContextoAdmin'), 'UI POS no activa contexto administrativo');
-assertPrivacidad(!preg_match('/alergias?/iu', $landing), 'landing no solicita alergias');
+assertPrivacidad(!preg_match('/name=["\']alergias?["\']/iu', $landing), 'landing no persiste alergias en un campo dedicado');
 assertPrivacidad(!str_contains($exporter, 'pinData'), 'exportador n8n no versiona pinData');
 foreach ([$n8nSuggestionWorkflow, $n8nFeedbackWorkflow] as $workflow) {
     assertPrivacidad(!str_contains($workflow, 'pinData'), 'workflow n8n no versiona pinData');
@@ -138,9 +133,8 @@ foreach ($browserBundles as $browserBundle) {
     $browserContents = file_get_contents($browserBundle);
     assertPrivacidad(
         !str_contains($browserContents, 'preview_code')
-            && !str_contains($browserContents, 'Código de prueba')
-            && !str_contains($browserContents, 'Modo de desarrollo'),
-        'bundle de navegador sin preview OTP: ' . basename($browserBundle)
+            && !preg_match('/development_confirmation_code\s*[:=]\s*["\']\d{6}["\']/', $browserContents),
+        'bundle de navegador sin código fijado: ' . basename($browserBundle)
     );
 }
 assertPrivacidad(

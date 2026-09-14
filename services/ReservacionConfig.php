@@ -41,8 +41,6 @@ class ReservacionConfig
     public const MARGEN_PREPARACION_MESA_MINUTOS = 15;
     public const MARGEN_MINIMO_SEGURIDAD_MINUTOS = 30;
     public const REFRESCO_ESTADOS_SEGUNDOS = 60;
-    public const SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES = 15;
-    public const SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS = 3;
     public const ESTADO_RETENCION_PENDIENTE = 'pendiente_verificacion';
     public const ESTADO_LABELS = [
         'pendiente_verificacion' => 'Esperando verificación',
@@ -129,13 +127,13 @@ class ReservacionConfig
     }
 
     /**
-     * Reloj único del módulo. La fecha fija sólo se acepta en testing para que
+     * Reloj único del módulo. La fecha fija sólo se acepta en test para que
      * las suites futuras sean reproducibles sin abrir una vía de configuración
      * temporal en desarrollo o producción.
      */
     public static function ahora(): \DateTimeImmutable
     {
-        if (self::appEnvironment() === 'testing') {
+        if (self::appEnvironment() === 'test') {
             $valor = self::env('RESERVATION_TEST_NOW', '');
             if ($valor !== '') {
                 $fecha = \DateTimeImmutable::createFromFormat(
@@ -288,14 +286,9 @@ class ReservacionConfig
         ], $ahora)['influye_disponibilidad'];
     }
 
-    public static function otpSendEnabled(): bool
-    {
-        return self::envBool('CONTACT_OTP_SEND_ENABLED', false);
-    }
-
     public static function appEnvironment(): string
     {
-        return strtolower(self::env('APP_ENV', 'production'));
+        return \Services\Notifications\NotificationConfig::environment();
     }
 
     public static function scheduleChangeAccessTtlMinutes(): int
@@ -316,7 +309,7 @@ class ReservacionConfig
             return $configurada;
         }
 
-        return in_array(self::appEnvironment(), ['development', 'testing'], true)
+        return in_array(self::appEnvironment(), ['development', 'test'], true)
             ? 'http://localhost'
             : '';
     }

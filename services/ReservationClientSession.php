@@ -25,7 +25,7 @@ class ReservationClientSession
             $environment = ReservacionConfig::appEnvironment();
             $configuredPath = trim((string)ini_get('session.save_path'));
             $usingDedicatedPath = false;
-            if (in_array($environment, ['development', 'testing'], true)) {
+            if (in_array($environment, ['development', 'test'], true)) {
                 $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
                 if ($sessionPath === '') {
                     $sessionPath = str_contains($configuredPath, ';')
