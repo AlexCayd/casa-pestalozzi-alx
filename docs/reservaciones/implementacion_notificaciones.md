@@ -213,7 +213,9 @@ n8n/docs/public y package. Clases/variables antiguas sin consumidores activos.
 Factory en arquitectura es convención general; el plan es histórico. Nombres
 de suites run-reservaciones-comunicaciones siguen activos y se conservan por
 compatibilidad de comandos, no representan un workflow. N8N_SECRET de otros
-módulos se conserva. Auth.php queda fuera del alcance y sin incluir en commits.
+módulos se conserva. Auth.php se mantuvo fuera durante la limpieza inicial y se
+alinea en el cierre porque el entorno válido para NotificationConfig es `test`,
+no `testing`.
 Tests: guardia no-legacy, 25 suites PHP y 7 comandos JS PASS; búsqueda global
 clasificada. Resultado: no hay legacy runtime del módulo. Riesgo: reimportar un
 export antiguo rompería el contrato; usar sólo los tres JSON actuales.
@@ -283,9 +285,10 @@ de esa inspección.
 
 ### Resultado y límites de cierre
 
-Implementación del repositorio y verificaciones locales aprobadas, con trece
-commits de implementación y sin push. Auth.php conserva el cambio previo fuera
-de estos commits. Las eliminaciones legacy son recuperables desde Git.
+Implementación del repositorio y verificaciones locales aprobadas, con los
+commits de implementación registrados. El cierre de integración agrega la
+validación manual TEST/local documentada y alinea Auth.php con el entorno `test`.
+Las eliminaciones legacy son recuperables desde Git.
 
 **No se declara listo para producción ni se da por pasado el E2E real.** Faltan:
 

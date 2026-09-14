@@ -1,8 +1,13 @@
 # n8n: configuración, despliegue y operación
 
 La receta reproducible está preparada, pero **no se desplegó ni modificó la
-instancia existente**. PHP y los tres exports fueron corregidos y probados
-localmente; esto no certifica integración real ni preparación para producción.
+instancia existente**. Los tres exports fueron validados manualmente en TEST/local
+para confirmación, recordatorio D-1 y cambio de horario; esta validación no
+certifica todavía el despliegue Docker ni la preparación para producción.
+
+La prueba manual usó temporalmente un token de Meta. Debe sustituirse por una
+credencial/token estable y gestionado por entorno antes de activar un entorno
+persistente o producción; nunca debe versionarse ni aparecer en exports o logs.
 
 ## Jerarquía y estado de la migración
 
@@ -14,6 +19,19 @@ localmente; esto no certifica integración real ni preparación para producción
 
 La solicitud menciona `docs/reservaciones/afectaciones_cambio_horario.md`, que no
 existe en este checkout; el enlace anterior apunta al archivo disponible.
+
+### Resultado manual de los tres workflows
+
+| Flujo | TEST/local |
+|---|---|
+| Confirmación | PASS |
+| Recordatorio D-1 | PASS |
+| Cambio de horario | PASS |
+
+El resultado cubre los transportes Email, WhatsApp Text y WhatsApp Template,
+los callbacks técnicos `accepted|failed`, la autenticación por Header Auth y la
+deduplicación/claim del recordatorio. La receta Compose, persistencia, reinicio,
+backup/restore y rollback siguen requiriendo un ensayo operativo independiente.
 
 **Condiciones previas a activar la receta:** aplicar las tres migraciones PHP
 en una ventana coordinada, importar el conjunto final de JSON, completar cada

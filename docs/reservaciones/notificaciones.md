@@ -226,8 +226,23 @@ El runner crea una BD con prefijo reservado, carga fixtures y la elimina al sali
 ejecuta las suites sobre el esquema migrado. --browser abre una vista aislada
 development en 127.0.0.1:8087; Enter la cierra y limpia.
 
-La validación local no sustituye E2E real: faltan importar los mismos JSON en
-n8n TEST, asignar credenciales, probar SMTP/Meta y autenticación en ambos sentidos,
-reiniciar contenedores/host, comprobar persistencia, backup/restore y rollback.
+### Validación manual TEST/local
+
+La validación manual de los tres exports en TEST/local quedó registrada como PASS:
+
+- **Confirmación:** Email, WhatsApp Text y Template, con respuesta síncrona posterior
+  a la aceptación técnica del proveedor.
+- **Recordatorio D-1:** preparación, claim, transporte y callback `accepted|failed`,
+  incluyendo la deduplicación y la recuperación prevista.
+- **Cambio de horario:** recepción, transporte y callback autenticado con los mismos
+  estados técnicos.
+
+La prueba usó temporalmente un token de Meta. Antes de activar cualquier entorno
+persistente o producción debe reemplazarse por una credencial/token estable y
+gestionado por entorno; el valor nunca debe entrar en un export, commit o log.
+
+La validación automatizada y manual no sustituyen el E2E operativo completo:
+faltan comprobar persistencia, reinicio de contenedores/host, backup/restore y
+rollback con la receta desplegada.
 La [receta Compose](../../n8n/deploy/README.md) está preparada, no desplegada.
 No declarar producción lista hasta completar y registrar esa evidencia.

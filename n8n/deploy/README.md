@@ -301,18 +301,19 @@ incidente. Este procedimiento no se ejecuta ni automatiza aquí.
 
 ## Validación y límites
 
-Revisión efectuada el 2026-09-13; registrar cualquier repetición futura con
+Revisión efectuada el 2026-09-14; registrar cualquier repetición futura con
 fecha, versiones, resultado y errores redactados, sin secretos ni payloads.
 
 | Validación | Estado en esta etapa |
 |---|---|
 | Baseline `git status`, `git diff --check`, últimos diez commits | Inspeccionados; ya había cambios ajenos, incluido `n8n/README.md`. Sin errores de whitespace; avisos LF/CRLF preexistentes. |
 | `node scripts/tests/run-reservaciones-notification-workflows.cjs` | 251 escenarios de grafo/Code pasan con Header Auth/200/accepted y claim. Es simulación local, no ejecución del motor n8n. |
+| Validación manual TEST/local de confirmación, recordatorio D-1 y cambio de horario | PASS para los tres flujos, incluyendo Email, WhatsApp Text/Template, callbacks `accepted|failed`, Header Auth y claim/deduplicación. |
 | Release exacta y `_FILE` | Verificados en fuentes oficiales y código 2.38.7 enlazados arriba. |
 | YAML, interpolaciones requeridas, enlaces locales y restricciones de receta | Revisión estática local; no equivale a validación por Docker. |
 | `docker compose config --quiet`, pull/manifiestos/digests | No ejecutados: Docker no está disponible en este entorno. |
 | Arranque, permisos de secrets, SQLite, healthcheck y registro del runner | No ejecutados: requieren entorno Docker TEST preparado. |
-| Proxy/TLS, SMTP/Meta, Header Auth, callbacks y respuesta síncrona | Contratos corregidos y simulados; falta integración real. No se llamó a la instancia viva. |
+| Proxy/TLS, SMTP/Meta, Header Auth, callbacks y respuesta síncrona | Flujos manuales TEST/local PASS; proxy/TLS, persistencia Docker e integración con una instancia viva siguen pendientes. El token Meta usado en la prueba fue temporal y debe sustituirse por una credencial estable antes de activar producción. |
 | Reinicio de contenedor/host, recreación, backup/restore y rollback | Procedimientos documentados, no probados en runtime. |
 | Suites de BD PHP | Seis suites aisladas pasan tanto con DDL actual como migrando desde f274eda; no certifican infraestructura n8n. |
 

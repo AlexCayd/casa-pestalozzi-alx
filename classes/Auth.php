@@ -84,7 +84,7 @@ class Auth {
     public static function start(): void {
         if (session_status() === PHP_SESSION_NONE) {
             $environment = (string)(getenv('APP_ENV') ?: ($_ENV['APP_ENV'] ?? ''));
-            if (in_array($environment, ['development', 'testing'], true)) {
+            if (in_array($environment, ['development', 'test'], true)) {
                 $sessionPath = trim((string)(getenv('SESSION_SAVE_PATH') ?: ($_ENV['SESSION_SAVE_PATH'] ?? '')));
                 if ($sessionPath === '') {
                     $sessionPath = sys_get_temp_dir();
