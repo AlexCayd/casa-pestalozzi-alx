@@ -80,7 +80,7 @@ final class ReservacionMantenimientoController
             'activeModule' => 'reservations',
             'title' => 'Herramientas de desarrollo',
             'topbarSection' => 'Reservaciones',
-            'styles' => ['/build/css/admin/reservations.css?v=reservation-tools-v1'],
+            'styles' => ['/build/css/admin/reservations.css'],
             'scripts' => [],
             'fechaActual' => ReservacionConfig::fechaActual(),
             'adminCsrfToken' => AdminCsrfService::token(),

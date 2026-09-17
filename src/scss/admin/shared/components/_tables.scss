@@ -295,8 +295,14 @@
    módulos con tres variantes del mismo recorte; aquí queda una vez, en el
    bundle que carga siempre el panel. Se usa para las alternativas textuales de
    lo que se dibuja (la tabla que acompaña al Sankey, por ejemplo). */
+/* `position: absolute !important` porque es una utilidad y tiene que ganar
+   siempre: `.admin-body .admin-card > * { position: relative }` (0,2,0) le
+   ganaba a esta clase (0,1,0) en cuanto el elemento era hijo directo de una
+   tarjeta. Una <table> además no encoge por debajo de su contenido aunque se
+   le pida `width: 1px`, así que la del Sankey de finanzas volvía al flujo y
+   dejaba una banda vacía de ~250 px bajo el diagrama. */
 .admin-visually-hidden {
-  position: absolute;
+  position: absolute !important;
   width: 1px;
   height: 1px;
   padding: 0;

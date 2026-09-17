@@ -32,6 +32,9 @@
 @use 'components/catering';
 @use 'components/reserva';
 @use 'components/schedule-change-access';
+// Página 404 pública (views/errors/404.php). Como la de arriba: documento
+// suelto de la marca, sin nav ni rail y sin el JS de la landing.
+@use 'components/error-page';
 @use 'components/confirmation-modal';
 @use 'components/app-notice';
 @use 'components/ubicacion';

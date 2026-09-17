@@ -8121,6 +8121,94 @@ body.is-management-modal-open {
     justify-content: center;
   }
 }
+.cp-error-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+}
+
+.cp-error-page,
+.cp-error-page p,
+.cp-error-page span {
+  cursor: auto;
+}
+
+.cp-error-page a {
+  cursor: pointer;
+}
+
+.cp-error-shell {
+  display: grid;
+  place-items: center;
+  padding: clamp(3rem, 8vh, 6rem) var(--pad);
+}
+
+.cp-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 54ch;
+  margin: 0 auto;
+}
+
+.cp-error-brand {
+  margin-bottom: clamp(2rem, 7vh, 3.4rem);
+}
+
+.cp-error-eyebrow {
+  display: block;
+}
+
+.cp-error-title {
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  text-wrap: balance;
+  margin: 1rem 0 0;
+}
+
+.cp-error-copy {
+  max-width: 48ch;
+  margin: 1.4rem 0 0;
+  color: var(--txt-mute);
+  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.cp-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1rem;
+  margin-top: 2.2rem;
+}
+
+.cp-error-cta:hover .arrow {
+  transform: translateX(-4px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cp-error-content > * {
+    animation: cp-error-entra 380ms var(--ease) backwards;
+  }
+  .cp-error-content > *:nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .cp-error-content > *:nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .cp-error-content > *:nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .cp-error-content > *:nth-child(5) {
+    animation-delay: 240ms;
+  }
+}
+@keyframes cp-error-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
 /*
  * Diálogo de confirmación de la casa. Lo comparten los CUATRO bundles: la
  * landing, el panel, el piso y la operación de reservaciones.

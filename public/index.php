@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
+use Controllers\ErrorController;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
@@ -323,6 +324,9 @@ $router->get('/menu',     [MenuController::class, 'index']);
 $router->get('/menu/pdf', [MenuController::class, 'pdf']);
 
 
-
+// Cualquier ruta que no esté en los tres mapas de arriba. Cubre GET, POST y
+// DELETE, y responde 404 de verdad: el router contestaba 200 con una frase en
+// texto plano.
+$router->notFound([ErrorController::class, 'noEncontrado']);
 
 $router->comprobarRutas();

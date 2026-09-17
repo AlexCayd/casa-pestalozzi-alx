@@ -1,0 +1,133 @@
+// ── 404 pública ──────────────────────────────────────────────
+//
+// Pareja de views/errors/404.php. Una sola pantalla centrada.
+//
+// Todo el color y toda la tipografía salen de los roles del [data-tono] que
+// declara el <body>: aquí no hay un solo hex ni un rgba(), como en el resto del
+// árbol fuera de _reset.scss y _globals.scss.
+.cp-error-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+}
+
+// Esta página no carga el cursor JS de la landing, así que restaura los
+// cursores nativos: el reset pone `cursor: none` en el body y en los controles.
+// Misma cura que auth/_login.scss.
+.cp-error-page,
+.cp-error-page p,
+.cp-error-page span {
+  cursor: auto;
+}
+
+.cp-error-page a {
+  cursor: pointer;
+}
+
+.cp-error-shell {
+  display: grid;
+  place-items: center;
+  // El aire de .section —clamp(6.5rem, 15vh, 14rem)— es el de una banda dentro
+  // de un scroll largo. En una pantalla única el reparto lo hace el centrado, y
+  // sólo hace falta el sangrado lateral de la casa.
+  padding: clamp(3rem, 8vh, 6rem) var(--pad);
+}
+
+.cp-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  // Ancho de lectura, y por eso no lleva .wrap: --maxw abriría la caja a más de
+  // 1300 px y dejaría el párrafo en una sola línea larguísima.
+  max-width: 54ch;
+  margin: 0 auto;
+  // Sin `gap`: el reparto va elemento por elemento (abajo). Con un hueco único
+  // el rótulo pesaba lo mismo respecto al titular que el titular respecto al
+  // párrafo, y los cinco bloques se leían como una lista en vez de como una
+  // cabecera con su pie de acciones.
+}
+
+// La marca es la firma de la página, no parte del titular: se separa del grupo
+// para que el rótulo y el h1 se lean juntos.
+.cp-error-brand {
+  margin-bottom: clamp(2rem, 7vh, 3.4rem);
+}
+
+// El .eyebrow global es inline-flex por la rayita del ::before, que aquí apaga
+// .no-rule. En flujo el <span lang="it"> del marcado vuelve a ser texto y no un
+// segundo ítem flex al que el `gap` de 1.1rem le abriría un hueco.
+.cp-error-eyebrow {
+  display: block;
+}
+
+.cp-error-title {
+  // h1 ya trae --serif, el peso 600, line-height .92 y el optical sizing del
+  // reset; lo único que falta es el cuerpo, que el reset NO declara para h1 —
+  // sin esto saldría al 2em del navegador.
+  //
+  // El techo sube de 4.2 a 4.6rem: en esta pantalla el titular es el único
+  // acontecimiento visual, y a 4.2 dentro de una caja de 54ch se quedaba a
+  // medio camino entre titular de sección y cartel.
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  // Con el ancho de la caja, "Esta página se nos perdió" rompe dejando la
+  // cursiva partida entre dos líneas. `balance` reparte las dos líneas y
+  // mantiene entera la locución en itálica; donde no haya soporte, el texto
+  // rompe como ahora.
+  text-wrap: balance;
+  margin: 1rem 0 0;
+}
+
+.cp-error-copy {
+  max-width: 48ch;
+  margin: 1.4rem 0 0;
+  color: var(--txt-mute);
+  font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.cp-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1rem;
+  margin-top: 2.2rem;
+}
+
+// El CTA vuelve al inicio, así que la flecha apunta atrás. El hover de
+// .btn-line —translate(4px, -4px)— está escrito para el ↗ de un enlace que
+// sale de la página y aquí tiraría en el sentido contrario al que dice el
+// glifo. Gana por orden de importación: _buttons.scss va antes que este
+// archivo en app.scss y las dos reglas tienen la misma especificidad.
+.cp-error-cta:hover .arrow {
+  transform: translateX(-4px);
+}
+
+// ── Entrada ───────────────────────────────────────────────────
+//
+// Esta página no carga GSAP, así que el movimiento es CSS puro y vive ENTERO
+// dentro de la consulta: quien pide menos movimiento no recibe ni el estado
+// inicial en opacidad 0, el contenido se pinta quieto y completo. Es la misma
+// razón por la que aquí no hay un solo [data-reveal] — nada de lo que se ve
+// puede depender de que algo llegue a ejecutarse.
+//
+// Escalonado por bloques y no por palabras: 380 ms con la curva de la casa y
+// 60 de retraso entre uno y otro dejan el titular legible antes de medio
+// segundo. Una 404 es una salida, no un espectáculo.
+@media (prefers-reduced-motion: no-preference) {
+  .cp-error-content > * {
+    animation: cp-error-entra 380ms var(--ease) backwards;
+  }
+
+  .cp-error-content > *:nth-child(2) { animation-delay: 60ms; }
+  .cp-error-content > *:nth-child(3) { animation-delay: 120ms; }
+  .cp-error-content > *:nth-child(4) { animation-delay: 180ms; }
+  .cp-error-content > *:nth-child(5) { animation-delay: 240ms; }
+}
+
+@keyframes cp-error-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}

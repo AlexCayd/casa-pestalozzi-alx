@@ -39,6 +39,162 @@
         }
     }
 
+    // ── Horas en rejilla ──────────────────────────────────────
+    //
+    // Compartido por el horario semanal y por la hora del recordatorio de
+    // reservaciones: las dos pantallas eligen una hora con la misma rejilla de
+    // 24 celdas y el mismo «en punto / y media», y vivía entero dentro de
+    // initSchedule(). Sacarlo es lo que evita escribir un segundo popover.
+
+    function normalizeTime(value) {
+        const match = String(value || '').trim().match(/^([01]\d|2[0-3]):([0-5]\d)/);
+        return match ? match[1] + ':' + match[2] : '';
+    }
+
+    /** Minutos desde medianoche, o null si el valor no es una hora. */
+    function minutosDeValor(valor) {
+        const normal = normalizeTime(valor);
+        if (!normal) {
+            return null;
+        }
+        return Number(normal.slice(0, 2)) * 60 + Number(normal.slice(3, 5));
+    }
+
+    /** Bloque horario (0-23) al que pertenecen unos minutos. */
+    function bloqueDeMinutos(minutos) {
+        return minutos === null ? null : Math.floor(minutos / 60);
+    }
+
+    function textoHora(minutos) {
+        const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
+        const mm = String(minutos % 60).padStart(2, '0');
+        return hh + ':' + mm;
+    }
+
+    /*
+     * Elegir el minuto sin diálogo nativo (ver CLAUDE.md): un pequeño popover
+     * anclado al botón con las dos únicas opciones que el negocio usa. Se cierra
+     * al elegir, con Escape o al tocar fuera. Hay uno solo en la página, así que
+     * los dos listeners de documento se registran una vez.
+     */
+    const selectorMinuto = (function () {
+        let abierto = null;
+
+        function cerrar() {
+            if (!abierto) {
+                return;
+            }
+            const anterior = abierto;
+            abierto = null;
+            if (anterior.boton) {
+                anterior.boton.setAttribute('aria-expanded', 'false');
+            }
+            if (anterior.nodo && anterior.nodo.parentNode) {
+                anterior.nodo.parentNode.removeChild(anterior.nodo);
+            }
+        }
+
+        function abrir(boton, hora, alElegir) {
+            // Segundo toque sobre el mismo botón: se entiende como cancelar.
+            if (abierto && abierto.boton === boton) {
+                cerrar();
+                return;
+            }
+            cerrar();
+
+            const enPunto = hora * 60;
+            const yMedia = hora * 60 + 30;
+            const nodo = document.createElement('div');
+            nodo.className = 'admin-schedule__minute-pop';
+            nodo.setAttribute('role', 'group');
+            nodo.setAttribute('aria-label', 'Minuto de la hora ' + textoHora(enPunto));
+            nodo.innerHTML =
+                '<button type="button" class="admin-schedule__minute" data-minutos="' + enPunto + '">' +
+                    '<span class="admin-schedule__minute-hora">' + textoHora(enPunto) + '</span>' +
+                    '<span class="admin-schedule__minute-nombre">En punto</span>' +
+                '</button>' +
+                '<button type="button" class="admin-schedule__minute" data-minutos="' + yMedia + '">' +
+                    '<span class="admin-schedule__minute-hora">' + textoHora(yMedia) + '</span>' +
+                    '<span class="admin-schedule__minute-nombre">Y media</span>' +
+                '</button>';
+
+            nodo.addEventListener('click', function (evento) {
+                const opcion = evento.target.closest('[data-minutos]');
+                if (!opcion) {
+                    return;
+                }
+                const minutos = Number(opcion.dataset.minutos);
+                cerrar();
+                boton.focus();
+                alElegir(minutos);
+            });
+
+            /*
+             * Se cuelga de la rejilla en position:absolute y no como un hijo
+             * más: insertarlo en el flujo le robaría una celda al grid y las 24
+             * horas se recorrerían de sitio cada vez que se abre.
+             */
+            const rejilla = boton.parentNode;
+            rejilla.appendChild(nodo);
+            const maximo = Math.max(0, rejilla.clientWidth - nodo.offsetWidth);
+            nodo.style.left = Math.min(boton.offsetLeft, maximo) + 'px';
+            nodo.style.top = (boton.offsetTop + boton.offsetHeight + 6) + 'px';
+
+            boton.setAttribute('aria-expanded', 'true');
+            abierto = { nodo: nodo, boton: boton };
+
+            const primera = nodo.querySelector('[data-minutos]');
+            if (primera) {
+                primera.focus();
+            }
+        }
+
+        document.addEventListener('keydown', function (evento) {
+            if (evento.key === 'Escape' && abierto) {
+                const boton = abierto.boton;
+                cerrar();
+                if (boton) {
+                    boton.focus();
+                }
+            }
+        });
+
+        document.addEventListener('click', function (evento) {
+            if (!abierto) {
+                return;
+            }
+            if (abierto.nodo.contains(evento.target) || abierto.boton.contains(evento.target)) {
+                return;
+            }
+            cerrar();
+        });
+
+        return { abrir: abrir, cerrar: cerrar };
+    })();
+
+    /**
+     * Pinta una hora suelta en una rejilla de celdas `[data-hour-attr]`: la
+     * celda de su bloque como extremo (y media rellena a la mitad). Es el caso
+     * de un solo valor del rango que pinta syncHourGrid().
+     */
+    function pintarHoraUnica(rejilla, atributo, valor, habilitada) {
+        const minutos = minutosDeValor(valor);
+        const bloque = bloqueDeMinutos(minutos);
+
+        rejilla.querySelectorAll('[' + atributo + ']').forEach(function (btn) {
+            const elegida = Number(btn.getAttribute(atributo)) === bloque;
+            const media = elegida && minutos % 60 !== 0;
+            btn.classList.toggle('is-edge', elegida);
+            btn.classList.toggle('is-half', media);
+            const marca = btn.querySelector('[data-schedule-hour-min]');
+            if (marca) {
+                marca.textContent = media ? ':30' : '';
+            }
+            btn.setAttribute('aria-pressed', elegida ? 'true' : 'false');
+            btn.disabled = !habilitada;
+        });
+    }
+
     function initStaticTimePicker(field) {
         if (!field || !window.createReservationTimePicker) {
             return null;
@@ -131,11 +287,6 @@
         let saving = false;
         let confirmedLeave = false;
         let pendingUrl = '';
-
-        function normalizeTime(value) {
-            const match = String(value || '').trim().match(/^([01]\d|2[0-3]):([0-5]\d)/);
-            return match ? match[1] + ':' + match[2] : '';
-        }
 
         function getScheduleState() {
             return JSON.stringify(Array.from(form.querySelectorAll('[data-schedule-row]')).map(function (row) {
@@ -267,27 +418,10 @@
          * Los inputs ocultos siguen siendo la fuente de verdad: la rejilla los
          * escribe y el resto del formulario (dirty state, validación, guardado
          * por API) no se entera de que cambió la forma de elegir.
+         *
+         * Los helpers de hora y el popover de minuto viven arriba, a nivel de
+         * módulo: los comparte la hora del recordatorio de reservaciones.
          */
-
-        /** Minutos desde medianoche, o null si el valor no es una hora. */
-        function minutosDeValor(valor) {
-            const normal = normalizeTime(valor);
-            if (!normal) {
-                return null;
-            }
-            return Number(normal.slice(0, 2)) * 60 + Number(normal.slice(3, 5));
-        }
-
-        /** Bloque horario (0-23) al que pertenecen unos minutos. */
-        function bloqueDeMinutos(minutos) {
-            return minutos === null ? null : Math.floor(minutos / 60);
-        }
-
-        function textoHora(minutos) {
-            const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
-            const mm = String(minutos % 60).padStart(2, '0');
-            return hh + ':' + mm;
-        }
 
         function syncHourGrid(row) {
             const grid = row.querySelector('[data-schedule-hours]');
@@ -361,112 +495,19 @@
             updateDirtyState();
         }
 
-        /*
-         * Elegir el minuto sin diálogo nativo (ver CLAUDE.md): un pequeño
-         * popover anclado al botón con las dos únicas opciones que el negocio
-         * usa. Se cierra al elegir, con Escape o al tocar fuera.
-         */
-        let popMinutos = null;
-
-        function cerrarPopMinutos() {
-            if (!popMinutos) {
-                return;
-            }
-            const anterior = popMinutos;
-            popMinutos = null;
-            if (anterior.boton) {
-                anterior.boton.setAttribute('aria-expanded', 'false');
-            }
-            if (anterior.nodo && anterior.nodo.parentNode) {
-                anterior.nodo.parentNode.removeChild(anterior.nodo);
-            }
-        }
-
-        function pedirMinuto(row, boton, hora) {
-            // Segundo toque sobre el mismo botón: se entiende como cancelar.
-            if (popMinutos && popMinutos.boton === boton) {
-                cerrarPopMinutos();
-                return;
-            }
-            cerrarPopMinutos();
-
-            const enPunto = hora * 60;
-            const yMedia = hora * 60 + 30;
-            const nodo = document.createElement('div');
-            nodo.className = 'admin-schedule__minute-pop';
-            nodo.setAttribute('role', 'group');
-            nodo.setAttribute('aria-label', 'Minuto de la hora ' + textoHora(enPunto));
-            nodo.innerHTML =
-                '<button type="button" class="admin-schedule__minute" data-minutos="' + enPunto + '">' +
-                    '<span class="admin-schedule__minute-hora">' + textoHora(enPunto) + '</span>' +
-                    '<span class="admin-schedule__minute-nombre">En punto</span>' +
-                '</button>' +
-                '<button type="button" class="admin-schedule__minute" data-minutos="' + yMedia + '">' +
-                    '<span class="admin-schedule__minute-hora">' + textoHora(yMedia) + '</span>' +
-                    '<span class="admin-schedule__minute-nombre">Y media</span>' +
-                '</button>';
-
-            nodo.addEventListener('click', function (evento) {
-                const opcion = evento.target.closest('[data-minutos]');
-                if (!opcion) {
-                    return;
-                }
-                const minutos = Number(opcion.dataset.minutos);
-                cerrarPopMinutos();
-                aplicarMinutos(row, minutos);
-            });
-
-            /*
-             * Se cuelga de la rejilla en position:absolute y no como un hijo
-             * más: insertarlo en el flujo le robaría una celda al grid y las 24
-             * horas se recorrerían de sitio cada vez que se abre.
-             */
-            const rejilla = boton.parentNode;
-            rejilla.appendChild(nodo);
-            const maximo = Math.max(0, rejilla.clientWidth - nodo.offsetWidth);
-            nodo.style.left = Math.min(boton.offsetLeft, maximo) + 'px';
-            nodo.style.top = (boton.offsetTop + boton.offsetHeight + 6) + 'px';
-
-            boton.setAttribute('aria-expanded', 'true');
-            popMinutos = { nodo: nodo, boton: boton };
-
-            const primera = nodo.querySelector('[data-minutos]');
-            if (primera) {
-                primera.focus();
-            }
-        }
-
-        document.addEventListener('keydown', function (evento) {
-            if (evento.key === 'Escape' && popMinutos) {
-                const boton = popMinutos.boton;
-                cerrarPopMinutos();
-                if (boton) {
-                    boton.focus();
-                }
-            }
-        });
-
-        document.addEventListener('click', function (evento) {
-            if (!popMinutos) {
-                return;
-            }
-            if (popMinutos.nodo.contains(evento.target) || popMinutos.boton.contains(evento.target)) {
-                return;
-            }
-            cerrarPopMinutos();
-        });
-
         form.querySelectorAll('[data-schedule-row]').forEach(function (row) {
             const toggle = row.querySelector('[data-schedule-toggle]');
             toggle.addEventListener('change', function () {
-                cerrarPopMinutos();
+                selectorMinuto.cerrar();
                 updateRow(row);
                 syncHourGrid(row);
                 updateDirtyState();
             });
             row.querySelectorAll('[data-schedule-hour]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
-                    pedirMinuto(row, btn, Number(btn.dataset.scheduleHour));
+                    selectorMinuto.abrir(btn, Number(btn.dataset.scheduleHour), function (minutos) {
+                        aplicarMinutos(row, minutos);
+                    });
                 });
             });
             updateRow(row);
@@ -1560,21 +1601,70 @@
     function initReservationSettings() {
         const form = document.querySelector('[data-reservation-settings]');
         if (!form) return;
+        const row = form.querySelector('[data-reminder-row]');
         const enabled = form.querySelector('[data-reminder-enabled]');
         const time = form.querySelector('[data-reminder-time]');
-        const fallback = form.querySelector('[data-reminder-time-fallback]');
-        if (!enabled || !time || !fallback) return;
+        const grid = form.querySelector('[data-reminder-hours]');
+        if (!row || !enabled || !time || !grid) return;
 
+        const switchLabel = row.querySelector('[data-reminder-switch-label]');
+        const summary = row.querySelector('[data-reminder-summary]');
+
+        /*
+         * El hidden no se deshabilita nunca, ni aquí ni en la vista: un control
+         * deshabilitado no viaja en el POST y el backend rechazaría el guardado
+         * con «La hora del recordatorio debe usar el formato HH:MM». Apagar el
+         * recordatorio no es borrar la hora; lo que se apaga son las celdas.
+         */
         function sync() {
-            if (time.value) fallback.value = time.value;
-            time.disabled = !enabled.checked;
-            fallback.disabled = enabled.checked;
-            time.setAttribute('aria-disabled', enabled.checked ? 'false' : 'true');
+            const on = enabled.checked;
+            const hora = normalizeTime(time.value);
+
+            row.classList.toggle('is-closed', !on);
+            if (switchLabel) {
+                switchLabel.textContent = on ? 'Activo' : 'Apagado';
+            }
+            pintarHoraUnica(grid, 'data-reminder-hour', time.value, on);
+
+            if (summary) {
+                if (!hora) {
+                    summary.textContent = 'Elige la hora de envío.';
+                } else if (on) {
+                    summary.textContent = 'Se envía a las ' + hora + ', hora de Casa Pestalozzi.';
+                } else {
+                    summary.textContent = 'Apagado: no se envían recordatorios. Si lo activas, saldrán a las ' + hora + '.';
+                }
+            }
         }
-        enabled.addEventListener('change', sync);
-        time.addEventListener('input', function () {
-            fallback.value = time.value;
+
+        enabled.addEventListener('change', function () {
+            selectorMinuto.cerrar();
+            setFieldError(time, '');
+            sync();
         });
+
+        grid.querySelectorAll('[data-reminder-hour]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                selectorMinuto.abrir(btn, Number(btn.dataset.reminderHour), function (minutos) {
+                    time.value = textoHora(minutos);
+                    setFieldError(time, '');
+                    sync();
+                });
+            });
+        });
+
+        // El hidden está fuera de la validación de restricciones, así que el
+        // guardián va aquí. Con la hora que siembra la vista no debería saltar;
+        // cubre una fila guardada con un valor que ya no es una hora.
+        form.addEventListener('submit', function (event) {
+            if (!enabled.checked) return;
+            if (normalizeTime(time.value)) return;
+            event.preventDefault();
+            setFieldError(time, 'Selecciona la hora de envío.');
+            const primera = grid.querySelector('[data-reminder-hour]');
+            if (primera) primera.focus();
+        });
+
         sync();
     }
 

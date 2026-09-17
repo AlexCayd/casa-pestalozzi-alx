@@ -49,9 +49,10 @@ $operationalContentHtml = (string)$content;
     <script>document.documentElement.setAttribute('data-admin-theme', 'dark');</script>
     <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/build/css/admin.css?v=consola-bn-v1">
+    <?php /* El `?v=` lo pone recursoVersionado() con el mtime (includes/funciones.php). */ ?>
+    <link rel="stylesheet" href="<?php echo $h(recursoVersionado('/build/css/admin.css')); ?>">
     <?php foreach ($styles as $stylesheet): ?>
-        <link rel="stylesheet" href="<?php echo $h($stylesheet); ?>">
+        <link rel="stylesheet" href="<?php echo $h(recursoVersionado($stylesheet)); ?>">
     <?php endforeach; ?>
 </head>
 <body class="admin-body operation-body operational-page" data-operational-page data-operation-module="reservations" data-operational-map-state-key="reservations">
@@ -67,7 +68,7 @@ $operationalContentHtml = (string)$content;
     </div>
 
     <?php foreach ($scripts as $script): ?>
-        <script src="<?php echo $h($script); ?>" defer></script>
+        <script src="<?php echo $h(recursoVersionado($script)); ?>" defer></script>
     <?php endforeach; ?>
 </body>
 </html>
