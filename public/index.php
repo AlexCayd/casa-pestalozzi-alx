@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/app.php';
 
 use MVC\Router;
+use Controllers\ErrorController;
 use Controllers\AdminController;
 use Controllers\AdminConfigurationController;
 use Controllers\AdminHorarioImpactoController;
@@ -56,6 +57,7 @@ $router->post('/api/reservaciones/modificar', [ReservacionController::class, 'mo
 $router->post('/api/reservaciones/confirmar-modificacion', [ReservacionController::class, 'confirmarModificacion']);
 $router->post('/api/reservaciones/cancelar', [ReservacionController::class, 'cancelarPublica']);
 $router->post('/api/reservaciones/contacto/codigo', [ReservacionController::class, 'solicitarCodigo']);
+$router->post('/api/reservaciones/contacto/estado', [ReservacionController::class, 'estadoCodigo']);
 $router->post('/api/reservaciones/contacto/verificar', [ReservacionController::class, 'verificarContacto']);
 $router->get('/api/reservaciones/mis-reservaciones', [ReservacionController::class, 'misReservaciones']);
 $router->post('/api/reservaciones/contacto/logout', [ReservacionController::class, 'logoutContacto']);
@@ -68,6 +70,7 @@ $router->post('/api/reservaciones/gestionar/disponibilidad', [ReservationManagem
 $router->post('/api/reservaciones/gestionar/modificar', [ReservationManagementAccessController::class, 'modificar']);
 $router->post('/api/reservaciones/gestionar/cancelar', [ReservationManagementAccessController::class, 'cancelar']);
 $router->post('/api/integraciones/n8n/reservaciones/recordatorios/preparar', [N8nReservationsController::class, 'prepararRecordatorios']);
+$router->post('/api/integraciones/n8n/reservaciones/recordatorios/reclamar', [N8nReservationsController::class, 'reclamarRecordatorio']);
 $router->post('/api/integraciones/n8n/reservaciones/notificacion-resultado', [N8nReservationsController::class, 'notificacionResultado']);
 
 // Catas y catering ya no tienen endpoints públicos. Eran los dos únicos
@@ -326,6 +329,9 @@ $router->get('/menu/pdf',     [MenuController::class, 'pdf']);
 $router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
 
 
-
+// Cualquier ruta que no esté en los tres mapas de arriba. Cubre GET, POST y
+// DELETE, y responde 404 de verdad: el router contestaba 200 con una frase en
+// texto plano.
+$router->notFound([ErrorController::class, 'noEncontrado']);
 
 $router->comprobarRutas();

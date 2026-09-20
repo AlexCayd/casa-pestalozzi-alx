@@ -55,9 +55,9 @@ if ($fechaDesde > $fechaHasta) {
     exit(2);
 }
 
-$_ENV['APP_ENV'] = 'testing';
-$_SERVER['APP_ENV'] = 'testing';
-putenv('APP_ENV=testing');
+$_ENV['APP_ENV'] = 'test';
+$_SERVER['APP_ENV'] = 'test';
+putenv('APP_ENV=test');
 $_ENV['DB_NAME'] = $database;
 $_SERVER['DB_NAME'] = $database;
 putenv('DB_NAME=' . $database);

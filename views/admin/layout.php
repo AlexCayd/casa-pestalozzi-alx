@@ -59,9 +59,15 @@
     */ ?>
     <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/build/css/admin.css?v=pulido-v2">
+    <?php /*
+        El `?v=` lo pone recursoVersionado() con el mtime del archivo (includes/
+        funciones.php). Antes el bundle compartido se versionaba a mano y los de
+        módulo salían pelados, así que recompilar un SCSS de módulo no llegaba
+        al navegador: seguía sirviendo el suyo de caché.
+    */ ?>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado('/build/css/admin.css'), ENT_QUOTES, 'UTF-8'); ?>">
     <?php foreach ($styles ?? [] as $stylesheet): ?>
-        <link rel="stylesheet" href="<?php echo htmlspecialchars($stylesheet, ENT_QUOTES, 'UTF-8'); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(recursoVersionado($stylesheet), ENT_QUOTES, 'UTF-8'); ?>">
     <?php endforeach; ?>
 </head>
 <body class="admin-body">
@@ -98,9 +104,9 @@
     <script src="/build/js/vendor/gsap.min.js" defer></script>
     <script src="/build/js/vendor/ScrollTrigger.min.js" defer></script>
     <script src="/build/js/vendor/lenis.min.js" defer></script>
-    <script src="/build/js/admin.js?v=pulido-v2" defer></script>
+    <script src="<?php echo htmlspecialchars(recursoVersionado('/build/js/admin.js'), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
     <?php foreach ($scripts ?? [] as $script): ?>
-        <script src="<?php echo htmlspecialchars($script, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+        <script src="<?php echo htmlspecialchars(recursoVersionado($script), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
     <?php endforeach; ?>
 </body>
 </html>

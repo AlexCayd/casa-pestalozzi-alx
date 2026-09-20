@@ -42,17 +42,17 @@ La fila individual conserva `notification_attempts` y `last_notification_at`. No
 
 Agregar contacto guarda el dato mediante `ContactoService` y, si la reservación tiene hasta 12 personas, prepara automáticamente el aviso y el acceso. No existe un segundo paso administrativo para “preparar” después de guardar el contacto.
 
-Si el acceso vence sin modificación del cliente, el caso pasa a `requiere_accion`. Cuando las reglas lo permiten, el detalle ofrece `Enviar recordatorio` como acción principal y `Abrir reservación` como acción secundaria.
+Si el acceso vence sin modificación del cliente, el caso pasa a `requiere_accion`. Cuando las reglas lo permiten, el detalle ofrece `Reenviar aviso` como acción principal y `Abrir reservación` como acción secundaria.
 
-`Enviar recordatorio` sólo puede habilitarse con contacto válido, reservación de hasta 12 personas, afectación todavía pendiente, acceso vencido, menos de tres intentos y cooldown terminado. Durante un acceso vigente no se permite reenviar.
+`Reenviar aviso` sólo puede habilitarse con contacto válido, reservación de hasta 12 personas, afectación todavía pendiente, `attempt 1` vigente y transporte `failed` o acceso vencido. Durante un acceso vigente no se permite reenviar.
 
 Mientras no exista confirmación de entrega de un proveedor externo, la interfaz debe decir `Aviso preparado` o `Esperando respuesta`, nunca `Notificación enviada`.
 
-Las herramientas de desarrollo se conservan en `development` y `testing`. `Copiar enlace de prueba` vive visualmente separado dentro de `Herramientas de desarrollo` y no cuenta como intento de notificación al cliente.
+Las herramientas visuales de prueba se conservan exclusivamente en `development`. `Copiar enlace de prueba` vive visualmente separado dentro de `Herramientas de desarrollo` y no cuenta como intento de notificación al cliente. En `test` se ejercita el transporte externo configurado.
 
 ## Avisos y acceso
 
-Una afectación admite como máximo tres avisos totales, incluido el automático. Cada preparación que cuenta como intento:
+Una afectación admite exactamente dos intentos posibles: `attempt 1` automático y `attempt 2` manual. No existe `attempt 3`. Cada preparación que cuenta como intento:
 
 1. genera un token nuevo;
 2. persiste únicamente su hash;
@@ -63,7 +63,7 @@ Una afectación admite como máximo tres avisos totales, incluido el automático
 
 El TTL predeterminado del acceso es de 60 minutos y se obtiene mediante `ReservacionConfig::scheduleChangeAccessTtlMinutes()`.
 
-El cooldown entre recordatorios es de 15 minutos (`ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_COOLDOWN_MINUTES`). Al llegar a tres intentos se oculta `Enviar recordatorio` y se presenta el estado `Límite de recordatorios alcanzado`. La administración nunca queda bloqueada por ese límite.
+No existe cooldown entre reenvíos. El segundo intento sólo se habilita cuando el primero falló o su acceso venció. Después de `attempt 2` se oculta `Reenviar aviso`; la administración conserva las acciones de dominio aunque ya no pueda generar otro envío.
 
 El token plano sólo puede existir durante la preparación y entrega del acceso. Nunca se guarda en base de datos, logs, HTML persistente ni archivos del repositorio.
 
@@ -114,7 +114,7 @@ POST /admin/api/horarios-impactos/preparar
 impacto_id + impacto_reservacion_id
 ```
 
-Así el estado, cooldown, límite de intentos y acceso temporal siguen siendo propiedades del caso individual.
+Así el estado, el intento vigente y el acceso temporal siguen siendo propiedades del caso individual.
 
 ## Buzón administrativo
 
@@ -142,7 +142,7 @@ Debe existir como máximo una acción primaria operativa por caso. La prioridad 
 
 1. ausencia pendiente: `Registrar que no llegó`; `Abrir reservación` queda como secundaria;
 2. afectación de horario hasta 12 sin contacto: `Agregar contacto`; `Abrir reservación` secundaria;
-3. afectación de horario hasta 12 con acceso vencido y reenvío permitido: `Enviar recordatorio`; `Abrir reservación` secundaria;
+3. afectación de horario hasta 12 con acceso vencido o envío fallido y `attempt 2` disponible: `Reenviar aviso`; `Abrir reservación` secundaria;
 4. afectación de horario hasta 12 esperando respuesta: sin CTA operativa principal; `Abrir reservación` secundaria;
 5. afectación de horario de más de 12 personas: `Abrir reservación` como única acción principal;
 6. reservación próxima sin mesas: `Asignar mesas`; `Abrir reservación` secundaria.
@@ -152,9 +152,9 @@ Si una ausencia pendiente coincide con otros motivos, la ausencia domina la acci
 Las herramientas de desarrollo aparecen en una sección separada y no modifican esta jerarquía.
 
 Cuando existe estado de transporte, el buzón presenta `pending` como `Aviso
-preparado`, `accepted` como `Esperando respuesta`, `delivered` como `Esperando
-respuesta` con `Aviso enviado.` de forma secundaria, y `failed` como `No
-pudimos enviar el aviso.`. La entrega nunca sustituye la resolución del caso.
+preparado`, `accepted` como `Esperando respuesta` con `Proveedor aceptó el envío.`
+de forma secundaria, y `failed` como `No pudimos enviar el aviso.`.
+La aceptación del envío nunca sustituye la resolución del caso.
 
 El resumen distingue `cantidad_accionable`, `cantidad_seguimiento` y `prioridad_maxima_accionable`. El badge del topbar cuenta únicamente `cantidad_accionable`. El icono de seguimiento es discreto y no usa animaciones permanentes.
 
@@ -176,8 +176,9 @@ Varios motivos de una misma reservación se agrupan en una sola fila y un solo d
 
 ## Transporte externo y n8n
 
-La entrega externa usa el evento `reservation.schedule_change` y el provider
-seleccionado por `RESERVATION_NOTIFICATION_PROVIDER`. El OTP continúa separado.
+La entrega externa usa el evento `reservation.schedule_change` y el workflow
+`Reservaciones - Cambio de horario`. La configuración se deriva de `APP_ENV`
+mediante `NotificationConfig`; no existe selección manual de provider.
 
 La aplicación es la autoridad para decidir:
 
@@ -185,34 +186,40 @@ La aplicación es la autoridad para decidir:
 - qué contacto está autorizado;
 - si el caso admite autoservicio;
 - si el acceso sigue vigente;
-- el límite y cooldown de intentos;
+- la política de `attempt 1` automático y `attempt 2` manual;
 - la generación del token;
 - el contenido mínimo que puede salir del sistema.
 
 n8n actúa únicamente como transporte y orquestación del canal externo. No decide estados de reservación, capacidad, mesas, elegibilidad, intentos ni resolución del seguimiento.
 
 El guardado de horarios y la persistencia de impactos confirman la transacción y
-liberan sus locks antes de invocar al dispatcher. Para cada reservación de hasta
-12 personas con contacto válido, el dispatcher genera el acceso, persiste sólo
-su hash y entrega el token plano al provider únicamente en memoria. Una falla
-de n8n no revierte el cambio de horario ni deja una transacción abierta.
+liberan sus locks antes de invocar `ScheduleChangeNotificationService`. Para
+cada reservación de hasta 12 personas con contacto válido, PHP genera el acceso,
+persiste sólo su hash y entrega el token plano a n8n únicamente en memoria. Una
+falla de n8n no revierte el cambio de horario ni deja una transacción abierta.
 
 `notification_delivery_status` es independiente de `estado`:
 
-- `pending`: el aviso quedó preparado y el buzón sigue accionable;
-- `accepted`: n8n respondió 202 y el buzón pasa a espera;
-- `delivered`: el canal confirmó entrega, pero la afectación sigue pendiente de
-  respuesta;
+- `pending`: el aviso quedó preparado y el buzón permanece en espera;
+- `accepted`: el proveedor aceptó la solicitud de envío; no confirma entrega,
+  lectura ni resolución de la afectación;
 - `failed`: el acceso se invalida y el buzón vuelve a requerir acción.
 
-Un `pending` o `accepted` sin callback durante más de cinco minutos se
-reconcilia como `failed`. No se reenvía automáticamente. El reintento manual
-conserva el cooldown y el máximo canónicos.
+El 202 de n8n sólo acusa trabajo y deja `pending`; un callback rápido no puede
+ser sobrescrito por ese ACK. Un `pending` sin callback durante más de cinco minutos se
+reconcilia como `failed`. No se reenvía automáticamente. Si corresponde al
+primer intento, queda disponible el único reenvío manual (`attempt 2`).
+La falta de callback no prueba que el proveedor rechazó el mensaje: antes del
+reenvío manual hay que revisar el resultado incierto. `accepted` no vence por
+falta de otro callback y nunca se transforma en fallo por ese timeout.
 
-La acción administrativa `Enviar recordatorio` utiliza el mismo
-dispatcher/provider que el envío posterior al cambio de horario. `Copiar enlace
-de prueba` no llama n8n, no incrementa intentos ni cambia el estado de entrega,
-y sólo está disponible en development/testing.
+La acción administrativa `Reenviar aviso` utiliza el mismo workflow que el
+envío posterior al cambio de horario. `Copiar enlace de prueba` no llama n8n,
+no incrementa intentos ni cambia el estado de entrega, y sólo está disponible
+en `development`.
+
+Los contratos, canales, callbacks y configuración de transporte se documentan
+únicamente en [Notificaciones de reservaciones](notificaciones.md).
 
 Los exports versionados de n8n no deben contener `pinData`, códigos OTP, tokens de acceso, teléfono, correo ni payloads reales de clientes.
 
@@ -228,4 +235,4 @@ php -l <cada PHP modificado>
 git diff --check
 ```
 
-También deben cubrirse la matriz de cuatro casos, límite y cooldown, invalidación de tokens, cierre por entidad, resolución sin modificar la reservación, modal de confirmación, drawer, listado administrativo, presentación POS y fallas del transporte externo sin rollback del cambio de horario.
+También deben cubrirse la matriz de cuatro casos, `attempt 1` automático, `attempt 2` manual, ausencia de `attempt 3`, invalidación de tokens, cierre por entidad, resolución sin modificar la reservación, modal de confirmación, drawer, listado administrativo, presentación POS y fallas del transporte externo sin rollback del cambio de horario.

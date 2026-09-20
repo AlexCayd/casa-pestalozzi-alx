@@ -120,7 +120,6 @@ final class AdminBuzonController
                 'mensaje_aviso' => $item['mensaje_aviso'] ?? null,
                 'access_expires_at' => $item['access_expires_at'] ?? null,
                 'notification_attempts' => (int)($item['notification_attempts'] ?? 0),
-                'cooldown_hasta' => $item['cooldown_hasta'] ?? null,
             ];
             unset($grupo);
         }
@@ -194,7 +193,7 @@ final class AdminBuzonController
             $estadoEntrega = (string)($fuente['notification_delivery_status'] ?? 'pending');
             $requiereAccion = !$tieneContacto
                 || $esGrupoGrande
-                || in_array($estadoEntrega, ['pending', 'failed'], true)
+                || $estadoEntrega === 'failed'
                 || $expirada;
             if ($esGrupoGrande) {
                 $fuente['etiqueta'] = 'Requiere gestión manual';
@@ -206,7 +205,7 @@ final class AdminBuzonController
                 $fuente['severidad'] = 20;
             } elseif ($estadoEntrega === 'failed') {
                 $fuente['etiqueta'] = 'No pudimos enviar el aviso.';
-                $fuente['descripcion'] = 'El acceso se invalidó. Revisa el contacto antes de enviar un recordatorio.';
+                $fuente['descripcion'] = 'El acceso se invalidó. Revisa el contacto antes de reenviar el aviso.';
                 $fuente['severidad'] = 20;
             } elseif ($estadoEntrega === 'pending') {
                 $fuente['etiqueta'] = 'Aviso preparado';
@@ -224,7 +223,7 @@ final class AdminBuzonController
                 } catch (\Throwable) {
                     $horaExpiracion = substr((string)$fuente['access_expires_at'], 11, 5);
                 }
-                $fuente['descripcion'] = ($estadoEntrega === 'delivered' ? 'Aviso enviado. ' : '')
+                $fuente['descripcion'] = ($estadoEntrega === 'accepted' ? 'Proveedor aceptó el envío. ' : '')
                     . 'El cliente tiene un enlace activo hasta ' . $horaExpiracion . '.';
                 $fuente['severidad'] = 50;
             }
@@ -234,10 +233,8 @@ final class AdminBuzonController
                 && $tieneContacto
                 && (bool)($fuente['puede_mandar_aviso'] ?? false);
             $fuente['mensaje_aviso'] = $fuente['puede_mandar_aviso']
-                ? 'Enviar recordatorio'
-                : ((int)($fuente['notification_attempts'] ?? 0) >= ReservacionConfig::SCHEDULE_CHANGE_NOTIFICATION_MAX_ATTEMPTS
-                    ? 'Se alcanzó el límite de recordatorios.'
-                    : null);
+                ? 'Reenviar aviso'
+                : null;
             return $fuente;
         }
 

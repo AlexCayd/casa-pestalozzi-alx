@@ -23,7 +23,7 @@ final class ReservacionMantenimientoService
     {
         return in_array(
             ReservacionConfig::appEnvironment(),
-            ['development', 'testing'],
+            ['development', 'test'],
             true
         );
     }

@@ -2719,8 +2719,14 @@ html.lenis body {
    módulos con tres variantes del mismo recorte; aquí queda una vez, en el
    bundle que carga siempre el panel. Se usa para las alternativas textuales de
    lo que se dibuja (la tabla que acompaña al Sankey, por ejemplo). */
+/* `position: absolute !important` porque es una utilidad y tiene que ganar
+   siempre: `.admin-body .admin-card > * { position: relative }` (0,2,0) le
+   ganaba a esta clase (0,1,0) en cuanto el elemento era hijo directo de una
+   tarjeta. Una <table> además no encoge por debajo de su contenido aunque se
+   le pida `width: 1px`, así que la del Sankey de finanzas volvía al flujo y
+   dejaba una banda vacía de ~250 px bajo el diagrama. */
 .admin-visually-hidden {
-  position: absolute;
+  position: absolute !important;
   width: 1px;
   height: 1px;
   padding: 0;
@@ -4384,12 +4390,22 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .admin-body .hour-option.sel {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 8%, transparent);
 }
+.admin-body {
+  /*
+   * `!important` acotado, y es la salida documentada: los dos displays son
+   * <input type="text">, así que les cae la regla global de campos de
+   * _forms.scss (`input:not(...)×5`, (0,6,1)), que reescribe borde y sombra.
+   * Esta regla suma (0,4,0) y NO se aplicaba: un campo de fecha u hora con
+   * error sólo lo decía el texto rojo de debajo, con el campo intacto. Igualar
+   * la especificidad exige siete clases.
+   */
+}
 .admin-body .admin-field.has-error .date-display,
 .admin-body .admin-field.has-error .hour-display,
 .admin-body .admin-datetime-field.has-error .date-display,
 .admin-body .admin-datetime-field.has-error .hour-display {
-  border-color: var(--admin-danger);
-  box-shadow: 0 0 0 3px var(--admin-danger-bg);
+  border-color: var(--admin-danger) !important;
+  box-shadow: 0 0 0 3px var(--admin-danger-bg) !important;
 }
 
 /*

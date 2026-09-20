@@ -611,24 +611,43 @@
   line-height: 1.55;
 }
 
+// Sin rejilla ni `gap`: la separación con las acciones la pone el margin-top de
+// .admin-config-form-actions, como en el horario semanal. Con los dos sumados
+// el botón quedaba a 36 px de la fila, el doble que en la pantalla hermana.
 .admin-reservation-settings {
-  display: grid;
-  gap: 18px;
 
-  &__section {
+  /*
+   * La fila es la de un día del horario semanal (.admin-schedule__row): caja,
+   * cabecera con interruptor, rejilla de 24 horas y resumen salen de ahí, igual
+   * que el atenuado del apagado (`.is-closed`, que la vista ya emite en el
+   * primer render). Aquí sólo va lo que esa fila no tiene: un párrafo bajo el
+   * título y más aire, porque es la ÚNICA fila del panel y no una de siete.
+   */
+  // Padding simétrico: el 16 de abajo sólo cuadraba mientras el hueco del error
+  // vacío (ver más abajo) sumaba otros 31 px bajo el resumen.
+  &__row {
+    gap: 16px;
+    padding: 20px;
+  }
+
+  &__intro {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.65fr);
-    align-items: start;
-    gap: 20px 28px;
-    padding: 18px;
-    border: 1px solid var(--admin-border-soft);
-    border-radius: var(--admin-radius-md);
-    background: var(--admin-surface-soft);
+    gap: 4px;
+    min-width: 0;
+    // El interruptor se va a la línea siguiente antes de que el párrafo se
+    // estreche hasta tres renglones.
+    flex: 1 1 32ch;
 
+    // Se repite lo de .admin-schedule__day porque sobre un <h3> no llega: el
+    // reset del panel declara `.admin-body h3` (0,1,1) y gana a la clase suelta
+    // (0,1,0). Con este ancestro empatan y manda el orden — la hoja del módulo
+    // se carga después de admin.css.
     h3 {
-      margin: 0 0 6px;
+      margin: 0;
       color: var(--admin-text);
       font-size: 15px;
+      font-weight: 600;
+      line-height: 1.3;
     }
 
     p {
@@ -638,24 +657,74 @@
       font-size: 12px;
       line-height: 1.55;
     }
+  }
 
-    .admin-switch {
-      justify-self: end;
+  // Las celdas de este bloque se comparan con las del horario de apertura, así
+  // que miden lo mismo; sólo el rótulo necesita separarse de la cabecera.
+  .admin-schedule__picker .admin-field__label {
+    margin-bottom: 2px;
+  }
+
+  /*
+   * El error vacío reserva 18 px de alto más 5 de margen, y dentro del grid del
+   * picker el gap de 8 se suma: 31 px muertos bajo el resumen, que dejaban la
+   * fila con el doble de aire abajo que arriba. Sale del flujo mientras está
+   * vacío en vez de ocultarse: con `display:none` el aria-live dejaría de
+   * anunciar el primer mensaje en algunos lectores.
+   */
+  .admin-schedule__picker .admin-field__error:empty {
+    position: absolute;
+    min-height: 0;
+    margin: 0;
+  }
+
+  /*
+   * Columnas que dividen 24 exacto. El auto-fit de la rejilla compartida
+   * (minmax 40px) dejaba en escritorio 22 celdas arriba y «22 23» huérfanas en
+   * una segunda fila; aquí se elige una sola hora, así que la rejilla se lee
+   * como la jornada: 24 en fila cuando caben, mañana y tarde (12 + 12) cuando
+   * no, y 6 × 4 en el móvil. Se mide contra el picker y no contra el viewport
+   * porque plegar el sidebar cambia su ancho sin que la ventana se entere.
+   * Sin container queries se queda el auto-fit de la rejilla compartida.
+   */
+  @supports (container-type: inline-size) {
+    .admin-schedule__picker {
+      container: recordatorio-horas / inline-size;
+    }
+
+    .admin-schedule__hours {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    @container recordatorio-horas (min-width: 520px) {
+      .admin-schedule__hours {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+    }
+
+    // 24 × 36 px + 23 huecos de 4: a partir de aquí las celdas no bajan de 36.
+    // Sin el hueco de 1 px entre la hora y su «:30», «08:30» cabe en 35 de
+    // contenido; con él se salía un píxel contra el borde.
+    @container recordatorio-horas (min-width: 956px) {
+      .admin-schedule__hours {
+        grid-template-columns: repeat(24, minmax(0, 1fr));
+      }
+
+      .admin-schedule__hour {
+        gap: 0;
+      }
     }
   }
 
-  &__time {
-    grid-column: 2;
-
-    input {
-      min-height: 44px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    input:disabled {
-      cursor: not-allowed;
-      opacity: 0.52;
-    }
+  /*
+   * Relleno pleno también en la media hora. En el horario semanal el medio
+   * relleno dice «este extremo abre o cierra a la mitad» y tiene un rango al
+   * que pegarse; aquí es una hora suelta, y la mitad clara quedaba justo bajo
+   * la primera cifra: tinta de acento sobre un tinte al 30 %, «0» ilegible en
+   * el tema oscuro. El «:30» ya dice la media hora con texto.
+   */
+  .admin-schedule__hour.is-edge.is-half {
+    background: var(--admin-gold);
   }
 }
 
@@ -1039,18 +1108,6 @@
     position: static;
   }
 
-  .admin-reservation-settings__section {
-    grid-template-columns: minmax(0, 1fr);
-
-    .admin-switch {
-      justify-self: start;
-    }
-  }
-
-  .admin-reservation-settings__time {
-    grid-column: auto;
-  }
-
   .admin-config-filters {
     grid-template-columns: minmax(0, 1fr) minmax(160px, 0.6fr);
 
@@ -1146,6 +1203,13 @@
 
   .admin-schedule__row {
     gap: 10px;
+  }
+
+  // El panel ya baja a 16 de padding; con los 20 de la fila anidada la rejilla
+  // perdía 72 px de ancho en un móvil de 390 y las celdas quedaban por debajo
+  // de 44.
+  .admin-reservation-settings__row {
+    padding: 16px;
   }
 
   .admin-announcement-form__wide,

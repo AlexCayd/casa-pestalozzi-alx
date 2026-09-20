@@ -1,0 +1,400 @@
+{
+  "name": "Reservaciones - Cambio de horario",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reservaciones/cambio-horario",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1320,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000001",
+      "name": "Webhook cambio de horario",
+      "webhookId": "b2100001-0000-4000-8000-000000000001",
+      "notes": "Asignar en n8n una credencial Header Auth: nombre X-N8N-Secret, valor del secreto PHP → n8n. Usar un secreto distinto para los HTTP Request n8n → PHP. La autenticación nativa ocurre antes de ejecutar el workflow."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body || {};\nconst positive = (value) => Number.isInteger(Number(value)) && Number(value) > 0;\nconst c = body.contact || {};\nconst r = body.reservation || {};\nconst d = body.data || {};\nconst t = body.transport || {};\nconst validContact = c.type === 'email' ? /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(c.value || '')) : c.type === 'whatsapp' ? /^\\+52\\d{10}$/.test(String(c.value || '')) : false;\nconst validMode = ['text', 'template'].includes(String(t.whatsapp_mode || ''));\nconst valid = Number(body.schema_version) === 1 && body.event === 'reservation.schedule_change' && positive(body.source_id) && positive(body.reservation_id) && [1, 2].includes(Number(body.attempt)) && validContact && validMode && body.recipient && String(body.recipient.name || '').trim() !== '' && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(r.date || '')) && /^\\d{2}:\\d{2}$/.test(String(r.time || '')) && positive(r.guests) && /^https?:\\/\\/[^\\s]+$/i.test(String(d.management_url || '')) && !Number.isNaN(Date.parse(String(d.access_expires_at || '')));\nreturn { json: { valid: Boolean(valid), notification: valid ? body : null } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000002",
+      "name": "Validar contrato"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, accepted: true } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -480,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000003",
+      "name": "Responder 202",
+      "notes": "202 sólo confirma recepción del trabajo por n8n. PHP mantiene el transporte pendiente hasta el callback accepted o failed del proveedor."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if (!$json.valid || !$json.notification) return null;\nconst n = $json.notification;\nconst r = n.reservation;\nconst d = n.data;\nconst values = [n.recipient.name, r.date, r.time, d.management_url];\nreturn { json: { ...n, email_subject: 'Necesitamos ajustar tu reservación', email_text: `Hola ${n.recipient.name},\\n\\nUn cambio en nuestro horario afecta tu reservación del ${r.date} a las ${r.time}.\\n\\nElige otro horario o cancela tu reservación aquí:\\n${d.management_url}\\n\\nEste acceso vence el ${d.access_expires_at}.`, whatsapp_template: 'reservation_schedule_change', whatsapp_components: { component: [{ type: 'body', bodyParameters: { parameter: values.map((value) => ({ type: 'text', text: String(value) })) } }] } } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000004",
+      "name": "Preparar cambio de horario"
+    },
+    {
+      "parameters": {
+        "rules": {"values": [
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-email", "leftValue": "={{ $json.contact.type }}", "rightValue": "email", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "email"},
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-whatsapp", "leftValue": "={{ $json.contact.type }}", "rightValue": "whatsapp", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "whatsapp"}
+        ]},
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-20, 0],
+      "id": "b2000001-0000-4000-8000-000000000005",
+      "name": "Switch channel"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst data = n.data || {};\nif (contact.type !== 'email') return null;\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'email', to: String(contact.value || ''), subject: String(n.email_subject || ''), message: String(n.email_text || ''), purpose: String(data.purpose || '') } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -140
+      ],
+      "id": "b2000001-0000-4000-8000-000000000013",
+      "name": "Normalizar Email"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $json || {};\nconst contact = n.contact || {};\nconst recipient = n.recipient || {};\nconst reservation = n.reservation || {};\nconst data = n.data || {};\nconst transport = n.transport || {};\nif (contact.type !== 'whatsapp') return null;\nconst mode = String(transport.whatsapp_mode || '');\nif (!['text', 'template'].includes(mode)) return null;\nconst name = String(recipient.name || 'Cliente');\nconst management = data.management_url ? `\\n\\nElige otro horario o cancela tu reservación aquí:\\n${data.management_url}` : '';\nconst expiry = data.access_expires_at ? `\\n\\nEste acceso vence el ${data.access_expires_at}.` : '';\nconst text = `Hola ${name},\\n\\nUn cambio en nuestro horario afecta tu reservación del ${reservation.date} a las ${reservation.time}.${management}${expiry}`;\nreturn { json: { schema_version: n.schema_version, event: n.event, source_id: n.source_id, reservation_id: n.reservation_id, attempt: n.attempt, channel: 'whatsapp', mode, to: String(contact.value || ''), text, template: String(n.whatsapp_template || ''), components: n.whatsapp_components || {}, purpose: String(data.purpose || '') } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        140
+      ],
+      "id": "b2000001-0000-4000-8000-000000000014",
+      "name": "Normalizar WhatsApp"
+    },
+    {
+      "parameters": {
+        "rules": {"values": [
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-wa-text", "leftValue": "={{ $json.mode }}", "rightValue": "text", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "text"},
+          {"conditions": {"options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3}, "conditions": [{"id": "sc-wa-template", "leftValue": "={{ $json.mode }}", "rightValue": "template", "operator": {"type": "string", "operation": "equals"}}], "combinator": "and"}, "renameOutput": true, "outputKey": "template"}
+        ]},
+        "looseTypeValidation": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [460, 140],
+      "id": "b2000001-0000-4000-8000-000000000016",
+      "name": "Resolver modo WhatsApp",
+      "notes": "El modo llega desde PHP en transport.whatsapp_mode: test usa text y production usa template."
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Configuración').first().json.RESERVATION_EMAIL_FROM }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        700,
+        -180
+      ],
+      "id": "b2000001-0000-4000-8000-000000000006",
+      "name": "Enviar Email",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $('Configuración').first().json.RESERVATION_WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.to }}",
+        "textBody": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        60
+      ],
+      "id": "b2000001-0000-4000-8000-000000000015",
+      "name": "Enviar WhatsApp Text",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendTemplate",
+        "phoneNumberId": "={{ $('Configuración').first().json.RESERVATION_WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.to }}",
+        "template": "={{ $json.template + '|' + $('Configuración').first().json.RESERVATION_WHATSAPP_TEMPLATE_LANGUAGE }}",
+        "components": "={{ $json.components }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        220
+      ],
+      "id": "b2000001-0000-4000-8000-000000000007",
+      "name": "Enviar WhatsApp Template",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $('Preparar cambio de horario').item.json; return { json: { event: n.event, source_id: n.source_id, attempt: n.attempt, channel: 'email', status: 'accepted' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -240
+      ],
+      "id": "b2000001-0000-4000-8000-000000000008",
+      "name": "Email accepted"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $('Preparar cambio de horario').item.json; return { json: { event: n.event, source_id: n.source_id, attempt: n.attempt, channel: 'email', status: 'failed' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -100
+      ],
+      "id": "b2000001-0000-4000-8000-000000000009",
+      "name": "Email failed"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $('Preparar cambio de horario').item.json; return { json: { event: n.event, source_id: n.source_id, attempt: n.attempt, channel: 'whatsapp', status: 'accepted' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        80
+      ],
+      "id": "b2000001-0000-4000-8000-000000000010",
+      "name": "WhatsApp accepted"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $('Preparar cambio de horario').item.json; return { json: { event: n.event, source_id: n.source_id, attempt: n.attempt, channel: 'whatsapp', status: 'failed' } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        240
+      ],
+      "id": "b2000001-0000-4000-8000-000000000011",
+      "name": "WhatsApp failed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuración').first().json.RESERVATION_APP_BASE_URL.replace(/\\/+$/, '') + '/api/integraciones/n8n/reservaciones/notificacion-resultado' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "timeout": 8000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000012",
+      "name": "Registrar resultado",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Asignar una credencial HTTP Header Auth saliente: nombre X-N8N-Callback-Secret, valor del secreto n8n → PHP. Debe ser distinta de la credencial del Webhook entrante. No incluir el secreto en parámetros ni en el export."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "app-base-url",
+              "name": "RESERVATION_APP_BASE_URL",
+              "value": "https://app.example.invalid",
+              "type": "string"
+            },
+            {
+              "id": "email-from",
+              "name": "RESERVATION_EMAIL_FROM",
+              "value": "REEMPLAZAR_REMITENTE_VERIFICADO",
+              "type": "string"
+            },
+            {
+              "id": "phone-number-id",
+              "name": "RESERVATION_WHATSAPP_PHONE_NUMBER_ID",
+              "value": "REEMPLAZAR_PHONE_NUMBER_ID",
+              "type": "string"
+            },
+            {
+              "id": "template-language",
+              "name": "RESERVATION_WHATSAPP_TEMPLATE_LANGUAGE",
+              "value": "es_MX",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1100,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000020",
+      "name": "Configuración",
+      "notes": "Editar aquí los cuatro valores NO secretos en cada workflow: URL base de PHP sin barra final, remitente verificado, Phone Number ID y lengua del template. Este nodo conserva el body recibido y sobreescribe cualquier configuración enviada por el caller. Asignar SMTP y WhatsApp API en Credentials; Header Auth entrante (PHP → n8n) y saliente (n8n → PHP) deben usar secretos distintos. No guardar secretos aquí."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid-contract",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -480,
+        0
+      ],
+      "id": "b2000001-0000-4000-8000-000000000021",
+      "name": "Contrato válido"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, accepted: false, error: 'INVALID_CONTRACT' } }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -240,
+        320
+      ],
+      "id": "b2000001-0000-4000-8000-000000000022",
+      "name": "Responder 422"
+    }
+  ],
+  "connections": {
+    "Webhook cambio de horario": {"main":[[{"node":"Configuración","type":"main","index":0}]]},
+    "Responder 202": {"main":[[{"node":"Preparar cambio de horario","type":"main","index":0}]]},
+    "Preparar cambio de horario": {"main":[[{"node":"Switch channel","type":"main","index":0}]]},
+    "Switch channel": {"main":[[{"node":"Normalizar Email","type":"main","index":0}],[{"node":"Normalizar WhatsApp","type":"main","index":0}]]},
+    "Normalizar Email": {"main":[[{"node":"Enviar Email","type":"main","index":0}]]},
+    "Normalizar WhatsApp": {"main":[[{"node":"Resolver modo WhatsApp","type":"main","index":0}]]},
+    "Resolver modo WhatsApp": {"main":[[{"node":"Enviar WhatsApp Text","type":"main","index":0}],[{"node":"Enviar WhatsApp Template","type":"main","index":0}]]},
+    "Enviar Email": {"main":[[{"node":"Email accepted","type":"main","index":0}],[{"node":"Email failed","type":"main","index":0}]]},
+    "Enviar WhatsApp Text": {"main":[[{"node":"WhatsApp accepted","type":"main","index":0}],[{"node":"WhatsApp failed","type":"main","index":0}]]},
+    "Enviar WhatsApp Template": {"main":[[{"node":"WhatsApp accepted","type":"main","index":0}],[{"node":"WhatsApp failed","type":"main","index":0}]]},
+    "Email failed": {"main":[[{"node":"Registrar resultado","type":"main","index":0}]]},
+    "WhatsApp failed": {"main":[[{"node":"Registrar resultado","type":"main","index":0}]]},
+    "Configuración": {"main":[[{"node":"Validar contrato","type":"main","index":0}]]},
+    "Validar contrato": {"main":[[{"node":"Contrato válido","type":"main","index":0}]]},
+    "Contrato válido": {"main":[[{"node":"Responder 202","type":"main","index":0}],[{"node":"Responder 422","type":"main","index":0}]]},
+    "Email accepted": {"main":[[{"node":"Registrar resultado","type":"main","index":0}]]},
+    "WhatsApp accepted": {"main":[[{"node":"Registrar resultado","type":"main","index":0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none", "saveManualExecutions": false, "saveExecutionProgress": false, "availableInMCP": false},
+  "versionId": "b2000001-0000-4000-8000-000000000099",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}

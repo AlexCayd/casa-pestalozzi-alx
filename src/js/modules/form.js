@@ -537,8 +537,15 @@ function initForm() {
   var otpError = otpStep && otpStep.querySelector("[data-new-reservation-otp-error]");
   var otpMessage = otpStep && otpStep.querySelector("[data-new-reservation-otp-message]");
   var countdown = otpStep && otpStep.querySelector("[data-new-reservation-countdown]");
+  var developmentCode = otpStep && otpStep.querySelector("[data-new-reservation-development-code]");
+  var developmentCodeValue = otpStep && otpStep.querySelector("[data-new-reservation-development-code-value]");
   var verifyButton = otpStep && otpStep.querySelector("[data-new-reservation-verify]");
   var resendButton = otpStep && otpStep.querySelector("[data-new-reservation-resend]");
+  var resendControl = window.ReservationResend.create({
+    button: resendButton,
+    remaining: otpStep.querySelector("[data-new-reservation-resend-remaining]"),
+    announcement: otpStep.querySelector("[data-new-reservation-resend-status]")
+  });
   var otpChangeContactButton = otpStep && otpStep.querySelector("[data-new-reservation-change-contact]");
   var otpContact = otpStep && otpStep.querySelector("[data-new-reservation-contact]");
   var confirm = document.getElementById("reservaConfirm");
@@ -1664,6 +1671,7 @@ function initForm() {
   }
 
   function showConfirmation(data) {
+    resendControl.reset();
     clearInterval(countdownTimer);
     form.hidden = true;
     otpStep.hidden = true;
@@ -1715,6 +1723,7 @@ function initForm() {
   }
 
   function handleHoldExpired() {
+    resendControl.setBlocked(true);
     if (holdExpiryHandled) return;
     holdExpiryHandled = true;
     clearInterval(countdownTimer);
@@ -1762,15 +1771,24 @@ function initForm() {
     holdExpiresAt = 0;
     activeIdentity = null;
     cameFromContactChange = true;
+    resendControl.reset();
     otpInput.value = "";
     clearOtpError();
     otpMessage.textContent = "";
+    updateDevelopmentCode(null);
     if (countdown) countdown.textContent = "";
     form.hidden = false;
     otpStep.hidden = true;
     setCurrentStep(2);
     if (contactInput) contactInput.focus();
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+  }
+
+  function updateDevelopmentCode(data) {
+    if (!developmentCode || !developmentCodeValue) return;
+    var code = String((data && data.development_confirmation_code) || "");
+    developmentCode.hidden = !/^\d{6}$/.test(code);
+    developmentCodeValue.textContent = developmentCode.hidden ? "" : code;
   }
 
   function showOtp(data, requestPayload) {
@@ -1789,9 +1807,11 @@ function initForm() {
         ? "+52 " + formatPhone(requestPayload.contacto)
         : requestPayload.contacto;
     }
-    otpMessage.textContent = data.mensaje || "";
+    otpMessage.textContent = window.ReservationResend.message(data);
+    resendControl.update(data);
     otpInput.value = "";
     clearOtpError();
+    updateDevelopmentCode(data);
     startCountdown(data.hold_expires_at || data.otp_expires_at);
     otpInput.focus();
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
@@ -1805,7 +1825,7 @@ function initForm() {
       method: "POST",
       body: JSON.stringify(requestPayload)
     }).then(function(data) {
-      if (data.ok && data.codigo === "RETENCION_CREADA") {
+      if (data.request_token && window.ReservationResend.needsVerification(data)) {
         showOtp(data, requestPayload);
         return;
       }
@@ -1924,15 +1944,23 @@ function initForm() {
   resendButton.addEventListener("click", function() {
     if (!activeIdentity) return;
     otpMessage.textContent = "";
-    jsonRequest("/api/reservaciones/contacto/codigo", {
-      method: "POST",
-      body: JSON.stringify(activeIdentity)
-    }).then(function(data) {
-      otpMessage.textContent = data.mensaje || "";
+    resendControl.run(function() {
+      return window.ReservationResend.withRecovery(function() {
+        return jsonRequest("/api/reservaciones/contacto/codigo", {
+          method: "POST", body: JSON.stringify(activeIdentity)
+        });
+      }, function() {
+        return jsonRequest("/api/reservaciones/contacto/estado", {
+          method: "POST", body: JSON.stringify(activeIdentity)
+        });
+      });
+    }, function(data) {
+      otpMessage.textContent = window.ReservationResend.message(data);
+      updateDevelopmentCode(data);
       if (!data.ok && data.codigo === "RETENCION_EXPIRADA") {
         handleHoldExpired();
       }
-    }).catch(function() {
+    }, function() {
       otpMessage.textContent = "No fue posible reenviar el código.";
     });
   });

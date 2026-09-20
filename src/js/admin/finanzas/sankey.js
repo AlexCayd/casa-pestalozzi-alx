@@ -49,6 +49,29 @@
     var BANDA_NODO = 58;
     var ALTO_MINIMO = 320;
     var ALTO_MAXIMO = 520;
+    /*
+     * EL SUELO SE DERIVA DEL ANCHO; el techo y el conteo de nodos, no.
+     *
+     * El alto lo sigue decidiendo el diagrama —una banda por nodo—, pero ese
+     * cálculo no sabe nada de la caja: el panel del Sankey ocupa el ancho
+     * completo del contenido, así que cuatro nodos daban 326 px de alto sobre
+     * 1.300 de ancho. A 4:1 las cintas se comprimen hasta que la merma es una
+     * raya y los degradados no se distinguen, y no por falta de datos: porque
+     * el lienzo es una franja.
+     *
+     * Lo que escala con el ancho es el SUELO —el alto por debajo del cual el
+     * dibujo deja de leerse A ESE ANCHO—, no el resultado. Por encima manda el
+     * conteo de nodos, igual que antes.
+     *
+     * SUELO_MAXIMO tiene que quedar por DEBAJO de ALTO_MAXIMO: el techo se
+     * aplica después del suelo y si no se lo comería.
+     */
+    var PROPORCION_SUELO = 0.36;
+    var SUELO_MAXIMO = 460;
+    // Escalones de 10 px. Un ancho que se mueve unos pocos píxeles —la barra de
+    // desplazamiento de la página apareciendo— no debe mover el alto: el
+    // ResizeObserver escucha el ancho, y un alto que cambia el ancho es un bucle.
+    var ESCALON_SUELO = 10;
     // Un caudal por debajo de esto deja de ser señalable con el ratón. Se
     // dibuja más grueso de lo que le tocaría: miente sobre la magnitud, pero
     // la alternativa es un gasto que no se puede consultar.
@@ -186,11 +209,18 @@
             if (porColumna[c].length > maxNodos) maxNodos = porColumna[c].length;
         });
 
-        // Una banda por nodo más su hueco, entre un suelo y un techo: cuatro
+        // El suelo depende del ancho de la caja: 320 px se leen en un panel
+        // estrecho y son una franja en uno de 1.300. Redondeado al escalón para
+        // que un ancho que baila unos píxeles no mueva el alto.
+        var suelo = Math.round(ancho * PROPORCION_SUELO / ESCALON_SUELO) * ESCALON_SUELO;
+        if (suelo < ALTO_MINIMO) suelo = ALTO_MINIMO;
+        if (suelo > SUELO_MAXIMO) suelo = SUELO_MAXIMO;
+
+        // Una banda por nodo más su hueco, entre ese suelo y un techo: cuatro
         // nodos no necesitan lo mismo que nueve, y por encima del techo lo que
         // crece es el blanco entre cintas, no la información.
         var alto = 2 * MARGEN_Y + maxNodos * BANDA_NODO + (maxNodos - 1) * HUECO_NODO;
-        if (alto < ALTO_MINIMO) alto = ALTO_MINIMO;
+        if (alto < suelo) alto = suelo;
         if (alto > ALTO_MAXIMO) alto = ALTO_MAXIMO;
 
         var svg = crear('svg', {
@@ -312,6 +342,15 @@
          * puede tener más hueco que el diagrama porque los dos son la misma
          * medida. Hay que hacerlo antes de dibujar las cintas, que arrancan de
          * los cursores `salida` y `entrada`.
+         *
+         * ⚠️ AQUÍ NO SE VUELVE A APLICAR EL SUELO, y es deliberado. Ceñir ya lo
+         * conserva: la columna que fija `escala` acaba midiendo exactamente
+         * `alto - 2*MARGEN_Y`, así que se centra en `y = MARGEN_Y` y la cuenta
+         * de abajo devuelve el mismo número; lo único que rompe la igualdad es
+         * el redondeo al GROSOR_MINIMO, que sólo puede AÑADIR altura. Un
+         * `if (alto < suelo)` a estas alturas sacaría todo el alto extra por
+         * abajo —los nodos ya están subidos al margen superior— y dejaría
+         * justo la banda muerta asimétrica que ceñir existe para evitar.
          */
         var arriba = Infinity;
         var abajo = -Infinity;

@@ -22,7 +22,7 @@ El acceso se limita por sesión, rol y propósito. Una vista que no necesita con
 
 ## Verificación de contacto
 
-Los códigos OTP se usan únicamente para comprobar un correo o teléfono. Son de un solo uso, tienen caducidad y están sujetos a límites de intentos. El código en claro no debe quedar en la interfaz, logs, respuestas públicas ni documentación; la aplicación conserva sólo el material necesario para validar el intento y el proveedor externo recibe el código para entregarlo.
+Los códigos OTP se usan únicamente para comprobar un correo o teléfono. Son de un solo uso, tienen caducidad y están sujetos a límites de intentos. El código en claro no debe quedar en logs, persistencia ni documentación. Sólo en `APP_ENV=development` puede viajar en el campo público explícito `development_confirmation_code` para mostrarse como herramienta local; en `test` y `production` no forma parte de la respuesta pública. La aplicación conserva el hash necesario para validar y n8n recibe el código sólo para transportarlo.
 
 ## Proveedores externos
 

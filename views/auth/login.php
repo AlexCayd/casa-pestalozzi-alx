@@ -37,7 +37,7 @@
   <?php /* Geist locales: el piso funciona sin red. */ ?>
   <link rel="preload" href="/build/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/build/fonts/geist-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
+  <link rel="stylesheet" href="<?php echo $h(recursoVersionado('/build/css/operation.css')); ?>">
 </head>
 <body class="admin-body login-page" data-page="login">
 
@@ -62,7 +62,14 @@
         include __DIR__ . '/../templates/header-casa-pestalozzi.php';
         ?>
 
-        <div class="login-tabs" role="tablist" aria-label="Tipo de acceso">
+        <div class="login-tabs" role="tablist" aria-label="Tipo de acceso"
+             data-active="<?php echo $tabActiva === 'admin' ? 'admin' : 'nip'; ?>">
+          <?php /* La píldora es el relleno de la pestaña activa como pieza que
+                   se desliza; es decoración pura —el estado lo dice
+                   aria-selected en cada botón—, y el data-active de arriba lo
+                   emite PHP para que su posición esté pintada antes de que
+                   corra una línea de JS. */ ?>
+          <span class="login-tabs__pill" aria-hidden="true"></span>
           <button type="button"
                   class="login-tab<?php echo $tabActiva === 'nip' ? ' is-active' : ''; ?>"
                   role="tab" id="login-tab-btn-nip"
@@ -92,7 +99,13 @@
              <?php echo $tabActiva === 'nip' ? '' : 'hidden'; ?>>
           <?php /* Sin eyebrow: la pestaña activa ya dice de qué acceso se trata. */ ?>
           <h1 class="login-title">Ingresa tu NIP</h1>
+          <?php /* Con un error en pantalla el subtítulo sobra —el aviso es lo
+                   que hay que leer— y cederle su sitio es lo que deja caber el
+                   aviso sin que el teclado empuje la tarjeta: la pestaña del
+                   NIP no puede desplazarse. */ ?>
+          <?php if (empty($alertas['error'])) : ?>
           <p class="login-sub">Acceso rápido para meseros y cocineros: tu NIP te lleva a tu área de trabajo.</p>
+          <?php endif; ?>
 
           <?php foreach (($alertas['error'] ?? []) as $error) : ?>
             <p class="login-alert" role="alert"><?php echo $iconoAlerta('error'); ?><span><?php echo $h($error); ?></span></p>
@@ -189,32 +202,10 @@
     (function () {
       var TAB_KEY = 'cp-login-tab';
       var tabs    = document.querySelectorAll('[data-login-tab]');
+      var tablist = document.querySelector('.login-tabs');
       var vieneDePost = <?php echo $_SERVER['REQUEST_METHOD'] === 'POST' ? 'true' : 'false'; ?>;
 
-      // Duración del fundido cruzado entre paneles. Tiene que ir a la par de la
-      // transición de .login-tabpanel en src/scss/auth/_login.scss.
-      var FUNDIDO = 220;
-      var ocultarPendiente = null;
-
       function activar(clave, enfocar) {
-        /*
-         * El [hidden] se quita YA y se pone TARDE.
-         *
-         * `display:none` cancela cualquier transición, así que si el panel que
-         * sale recibiera [hidden] en la misma vuelta, desaparecería de golpe y
-         * el fundido no se vería nunca. Se le deja el `hidden` para el final;
-         * mientras tanto lo saca del foco la `visibility` del CSS.
-         *
-         * El temporizador se cancela en cada cambio: dos pulsaciones seguidas
-         * dejarían al primero puesto sobre el panel que acaba de entrar.
-         */
-        if (ocultarPendiente) {
-          clearTimeout(ocultarPendiente);
-          ocultarPendiente = null;
-        }
-
-        var salientes = [];
-
         for (var i = 0; i < tabs.length; i++) {
           var boton  = tabs[i];
           var activa = boton.dataset.loginTab === clave;
@@ -224,31 +215,26 @@
           boton.setAttribute('aria-selected', activa ? 'true' : 'false');
 
           if (!panel) continue;
-          if (activa) {
-            panel.hidden = false;
-            // Una vuelta de reflow antes de marcarlo activo: sin ella, quitar
-            // [hidden] y añadir la clase en el mismo cuadro hace que el
-            // navegador no tenga estado inicial que interpolar y el panel
-            // aparezca de golpe.
-            void panel.offsetWidth;
-            panel.classList.add('is-active');
-          } else {
-            panel.classList.remove('is-active');
-            salientes.push(panel);
-          }
+          /*
+           * El [hidden] sólo describía el estado ANTES de que corriera esto; a
+           * partir de aquí manda la clase, y no se repone nunca.
+           *
+           * Aquí había un vaivén —quitarlo ya, reponerlo con un setTimeout de
+           * 220 ms— para que el `display:none` no cancelara el fundido. Sobra:
+           * `.login-tabpanel[hidden]` ya es `display: block`, porque con `none`
+           * el panel inactivo salía del flujo y la tarjeta pegaba un salto de
+           * ~250 px al reponer el atributo. Sin vaivén se van también el
+           * temporizador, la constante FUNDIDO duplicada a mano contra el SCSS,
+           * el reflow forzado y la guarda de reapertura.
+           *
+           * De sacarlo del foco y del lector se encarga la `visibility` del CSS.
+           */
+          panel.hidden = false;
+          panel.classList.toggle('is-active', activa);
         }
 
-        if (salientes.length) {
-          ocultarPendiente = setTimeout(function () {
-            for (var j = 0; j < salientes.length; j++) {
-              // Puede haber vuelto a activarse mientras se desvanecía.
-              if (!salientes[j].classList.contains('is-active')) {
-                salientes[j].hidden = true;
-              }
-            }
-            ocultarPendiente = null;
-          }, FUNDIDO);
-        }
+        // Mueve la píldora del conmutador.
+        if (tablist) tablist.dataset.active = clave;
 
         try { sessionStorage.setItem(TAB_KEY, clave); } catch (e) {}
 
@@ -323,11 +309,11 @@
       // solo con la pestaña del NIP visible: si no, le robaría el foco a los
       // campos de la pestaña de administrador.
       //
-      // Se pregunta por la CLASE y no por [hidden]: el atributo se pone al
-      // final del fundido (ver activar()), así que durante 220 ms el panel del
-      // NIP sigue sin `hidden` aunque ya esté saliendo. En esa ventana, el
-      // primer clic sobre el campo de usuario le devolvía el foco al NIP y la
-      // contraseña se empezaba a escribir en ninguna parte.
+      // Se pregunta por la CLASE y no por [hidden]: el atributo describe el
+      // estado inicial de PHP y activar() ya no lo repone nunca, así que a
+      // partir del primer cambio de pestaña `hidden` no dice nada de quién está
+      // visible. Con él, el clic sobre el campo de usuario le devolvería el
+      // foco al NIP y la contraseña se empezaría a escribir en ninguna parte.
       document.addEventListener('click', function (e) {
         if (!panel.classList.contains('is-active')) return;
         if (e.target.closest('[data-login-tab]')) return;

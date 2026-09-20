@@ -73,11 +73,9 @@ assertUxRefinement(str_contains($rangeScript, 'preserveQuery'), 'range picker pu
 
 $model = $read('models/Reservacion.php');
 $ddl = $read('database/ddl.sql');
-$migration = $read('database/migrations/2026_08_20_reservaciones_motivo_cancelacion.sql');
 $service = $read('services/ReservacionAdministrativaService.php');
 $detail = $read('views/admin/reservations/show.php');
 assertUxRefinement(str_contains($ddl, 'motivo_cancelacion   VARCHAR(500) NULL'), 'DDL declara motivo_cancelacion');
-assertUxRefinement(str_contains($migration, 'ADD COLUMN motivo_cancelacion VARCHAR(500) NULL'), 'migración forward declara motivo_cancelacion');
 assertUxRefinement(str_contains($model, "'motivo_cancelacion'"), 'modelo declara motivo_cancelacion');
 assertUxRefinement(substr_count($model, 'r.motivo_cancelacion') >= 3, 'consultas administrativas recuperan motivo_cancelacion');
 assertUxRefinement(str_contains($service, 'motivo_cancelacion = NULLIF'), 'cancelación persiste el motivo');

@@ -21,6 +21,15 @@ use Services\ReservacionService;
 
 class ReservacionController
 {
+    public static function estadoCodigo(Router $router): void
+    {
+        if (!self::esPost()) return;
+        $entrada = self::entrada();
+        if (!self::validarCsrfPublico($entrada)) return;
+        $respuesta = ReservacionPublicaService::estadoOtp($entrada);
+        self::json($respuesta, self::status($respuesta));
+    }
+
     public static function solicitarCodigo(Router $router): void
     {
         if (!self::esPost()) {

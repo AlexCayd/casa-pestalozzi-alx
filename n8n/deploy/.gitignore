@@ -1,0 +1,10 @@
+# Defensa local; los datos operativos deben vivir fuera del repositorio.
+.env
+.env.*
+!.env.example
+secrets/
+backups/
+*.sqlite
+*.sqlite-*
+*.tar
+*.tar.gz

@@ -234,11 +234,24 @@
   paint-order: stroke;
 }
 
+/* Halo del color de la lámina alrededor de cada letra (`paint-order: stroke`
+   pinta el trazo DETRÁS del relleno, así que el glifo no engorda hacia dentro).
+
+   Las columnas que no son la última escriben a la derecha del nodo, es decir,
+   ENCIMA de sus propias cintas de salida, y con el lienzo más alto las cintas
+   son más gruesas: «Utilidad bruta · $…» caía entera sobre el cruce de dos
+   degradados al 62 %, tinta oscura sobre verde y rojo apagados. El halo le
+   devuelve su fondo sin mover la geometría: getComputedTextLength ignora el
+   trazo, así que el cálculo de choques de sankey.js no cambia. */
 .admin-sankey__rotulo {
   font-family: var(--admin-font-mono);
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  paint-order: stroke fill;
+  stroke: color-mix(in srgb, var(--admin-surface) 82%, transparent);
+  stroke-width: 3px;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 

@@ -2076,8 +2076,14 @@ html.lenis body {
    módulos con tres variantes del mismo recorte; aquí queda una vez, en el
    bundle que carga siempre el panel. Se usa para las alternativas textuales de
    lo que se dibuja (la tabla que acompaña al Sankey, por ejemplo). */
+/* `position: absolute !important` porque es una utilidad y tiene que ganar
+   siempre: `.admin-body .admin-card > * { position: relative }` (0,2,0) le
+   ganaba a esta clase (0,1,0) en cuanto el elemento era hijo directo de una
+   tarjeta. Una <table> además no encoge por debajo de su contenido aunque se
+   le pida `width: 1px`, así que la del Sankey de finanzas volvía al flujo y
+   dejaba una banda vacía de ~250 px bajo el diagrama. */
 .admin-visually-hidden {
-  position: absolute;
+  position: absolute !important;
   width: 1px;
   height: 1px;
   padding: 0;
@@ -13378,7 +13384,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(1.2rem, 4vw, 3rem);
+  padding: clamp(0.8rem, 2.6vh, 2.5rem) clamp(1.2rem, 4vw, 3rem);
   height: 100%;
   overflow: hidden;
 }
@@ -13398,9 +13404,25 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * Había un tercer paso, --login-gap-sm, que no lo consumía nadie: se declaraba
  * aquí y se volvía a declarar en la media query de pantallas bajas.
  */
+/*
+ * ⚠️ ESTA HOJA PIERDE CONTRA EL PANEL SI NO SE LE DA ESPECIFICIDAD.
+ *
+ * El login lleva `.admin-body`, y _typography / _forms / el reset del panel
+ * declaran `.admin-body p { margin: 0 }`, `.admin-body h1 { font-size }` y
+ * `.admin-body button { margin: 0; font: inherit; text-transform: none }`, que
+ * suman (0,1,1) y ganan a cualquier clase suelta (0,1,0). Durante meses la
+ * escala de huecos de abajo sólo llegó a la marca y a las pestañas: el
+ * subtítulo, el pie, el aviso y el botón de entrar se quedaban a margen 0 —de
+ * ahí el «se ve todo muy junto»— y el titular se pintaba al cuerpo de un h1 del
+ * panel (51 px) en vez del suyo. Por eso esas reglas van con un ancestro
+ * delante (`.login-card .login-sub`): no es anidado por costumbre, es lo que
+ * las hace aplicarse. Comprobar en el CSS compilado, no en este archivo.
+ */
 .login-card {
-  --login-gap-md: clamp(0.95rem, 2.4vh, 1.45rem);
-  --login-gap-lg: clamp(1.35rem, 3.4vh, 2.1rem);
+  --login-gap-md: clamp(0.72rem, 2.1vh, 1.6rem);
+  --login-gap-lg: clamp(1rem, 3.1vh, 2.4rem);
+  --login-fade: 220ms;
+  --login-slide: 260ms;
   display: flex;
   width: 100%;
   max-width: 420px;
@@ -13426,17 +13448,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 .login-card__panels {
   display: grid;
   min-height: 0;
-  /* La celda la mide el panel del NIP, que es el más alto, así que el de
-     contraseña —dos campos y un botón— se quedaba pegado arriba con un palmo
-     de vacío debajo: la tarjeta no salta, pero la pestaña corta parecía a
-     medio cargar. Centrado, las dos ocupan ópticamente el mismo bloque.
+  /* ARRIBA, no centrado. La celda la mide el panel del NIP, así que el de
+     contraseña tiene altura de sobra, y dónde se reparte decide cómo se siente
+     el cambio de pestaña.
 
-     `safe` no es adorno: en una ventana baja el contenido desborda esta caja y
-     un centrado normal deja la parte de arriba fuera y sin manera de
-     desplazarse hasta ella. Con `safe` vuelve a alinear arriba justo cuando
-     eso pasaría, y el navegador que no lo entienda descarta la declaración
-     entera y se queda en el comportamiento de siempre. */
-  align-items: safe center;
+     Estuvo en `safe center`, pero esa regla no tuvo efecto hasta que
+     `.login-tabpanel[hidden]` pasó a `display: block` —antes la celda medía el
+     panel mostrado y no sobraba nada—, así que el centrado nunca se llegó a
+     ver. Al verlo: «Inicia sesión» caía unos 120 px por debajo de donde estaba
+     «Ingresa tu NIP», con un hueco bajo las pestañas que sí se ve —la tarjeta
+     no tiene caja, el vacío de abajo no—, y el fundido cruzado juntaba dos
+     titulares en dos alturas distintas: el ojo tenía que ir a buscar el nuevo.
+     Arriba, los dos titulares ocupan el mismo sitio y el fundido se lee como
+     UNA superficie que cambia de contenido, que es lo que pedía «fluido». */
+  align-items: start;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -13445,9 +13470,15 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
      un contenedor con overflow recorta también el desbordamiento de tinta. Las
      teclas del pad y el botón de entrar llegan al borde de esta caja, así que
      sin la reserva el anillo salía cortado por los lados justo en la pantalla
-     donde más se navega con teclado físico. */
-  padding: 4px;
-  margin: -4px;
+     donde más se navega con teclado físico.
+
+     Abajo son 8 y no 4: el panel que sale baja 6 px (el translateY de
+     .login-tabpanel), y cuando el que sale es el del NIP —el que llena la
+     celda— esos 6 px desbordaban 2 por debajo del relleno. En un contenedor
+     con `overflow-y: auto` eso son dos píxeles de scroll y, en Windows, una
+     barra que aparece al cambiar de pestaña y le roba ancho al formulario. */
+  padding: 4px 4px 8px;
+  margin: -4px -4px -8px;
 }
 
 .login-tabpanel {
@@ -13456,7 +13487,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .login-brand {
-  --hcp-header-size: clamp(1.7rem, 4.2vh, 2.15rem);
+  --hcp-header-size: clamp(1.45rem, 4vh, 2.15rem);
   color: var(--accent-text);
   margin-bottom: calc(var(--login-gap-lg) + 0.45rem);
   align-items: center;
@@ -13467,38 +13498,83 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 .login-tabs {
+  position: relative;
   display: flex;
-  gap: 0.35rem;
+  gap: 0;
   margin-bottom: var(--login-gap-lg);
-  padding: 0.28rem;
+  padding: 0.32rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: color-mix(in srgb, var(--scrim) 55%, transparent);
 }
 
-.login-tab {
+/*
+ * El relleno de la pestaña activa, como pieza que se DESLIZA.
+ *
+ * Estaba en `.login-tab.is-active { background }`, así que al conmutar el fondo
+ * saltaba de una caja a la otra sin nada en medio: el gesto y su resultado no
+ * se tocaban. Sacado a su propio elemento, lo que se mueve es un transform, que
+ * resuelve el compositor.
+ *
+ * Es decoración pura: el estado lo dice `aria-selected` en cada botón, y la
+ * posición inicial la emite PHP en `[data-active]` para que esté pintada antes
+ * de que corra una línea de JS.
+ *
+ * El 50 % de un absoluto se resuelve contra la caja de RELLENO del contenedor,
+ * y con gap 0 cada pestaña mide (100% − 0.64rem)/2 = 50% − 0.32rem: el mismo
+ * ancho. Por eso el translateX(100%) la deja clavada en el canto interior.
+ */
+.login-tabs__pill {
+  position: absolute;
+  z-index: 0;
+  inset: 0.32rem auto 0.32rem 0.32rem;
+  width: calc(50% - 0.32rem);
+  border-radius: 999px;
+  background: var(--gold);
+  transition: transform var(--login-slide) var(--ease);
+}
+
+.login-tabs[data-active=admin] .login-tabs__pill {
+  transform: translateX(100%);
+}
+
+.login-tabs .login-tab {
+  position: relative;
+  z-index: 1;
   flex: 1;
-  padding: 0.6rem 0.9rem;
+  padding: 0.72rem 1rem;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--txt-mute);
   font-family: var(--sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
-  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+  /*
+   * El color va EN PASO con la píldora: misma duración, misma curva, sin
+   * retardo.
+   *
+   * Estuvo con 90 ms de retardo «para cruzar a mitad del deslizamiento», pero
+   * --ease es una expo-out (0.16, 1, 0.3, 1): la píldora ya ha recorrido la
+   * mitad a los ~35 ms. Medido cuadro a cuadro, entre los 40 y los 180 ms la
+   * etiqueta entrante seguía gris sobre el relleno claro y la saliente seguía
+   * en tinta oscura sobre el fondo oscuro — las dos ilegibles a la vez, justo
+   * en el gesto que tenía que sentirse fluido. Con la misma función de tiempo,
+   * a cada cuadro la tinta ha avanzado lo mismo que el relleno que tiene
+   * debajo.
+   */
+  transition: color var(--login-slide) var(--ease);
 }
-.login-tab:hover {
+.login-tabs .login-tab:hover {
   color: var(--txt);
 }
-.login-tab.is-active {
-  background: var(--gold);
+.login-tabs .login-tab.is-active {
   color: var(--on-accent);
 }
-.login-tab:focus-visible {
+.login-tabs .login-tab:focus-visible {
   outline: 2px solid var(--gold-soft);
   outline-offset: 2px;
 }
@@ -13524,7 +13600,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   transform: translateY(6px);
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease), visibility 0s linear 0.22s;
+  transition: opacity var(--login-fade) var(--ease), transform var(--login-fade) var(--ease), visibility 0s linear var(--login-fade);
 }
 .login-tabpanel.is-active {
   opacity: 1;
@@ -13535,44 +13611,53 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 }
 
 /*
- * Aquí vivía una regla de respaldo, `.login-tabpanel:not([hidden]):not(.is-active)`,
- * que devolvía el panel a opacidad 1 "por si el JS aún no ha repartido las
- * clases". Se retira, y no es una simplificación: era lo que impedía ver la
- * transición.
+ * [hidden] ES EL ESTADO PREVIO AL JS, NO UNA SALIDA DEL FLUJO.
  *
- * El panel que SALE está exactamente en ese estado durante los 220 ms del
- * fundido —sin `.is-active` (se la acaba de quitar el JS) y todavía sin
- * `[hidden]` (se lo pone el temporizador al final)—, así que la regla ganaba
- * por especificidad (0,3,0 contra 0,1,0), lo clavaba a opacidad 1 y lo hacía
- * desaparecer de golpe al terminar. El resultado no era un corte: era un corte
- * con 220 ms de espera delante.
+ * Con el `display: none` de la hoja del navegador el panel inactivo no aportaba
+ * nada a la celda del grid, así que la fila medía el panel MOSTRADO y no el más
+ * alto — justo lo contrario de lo que dice el comentario de .login-card__panels.
+ * Al conmutar, la tarjeta pegaba un salto de unos 250 px, y lo pegaba 220 ms
+ * DESPUÉS del clic, cuando el temporizador del JS reponía el atributo: el peor
+ * momento posible, con el fundido recién terminado y el ojo de vuelta en el
+ * bloque. Apilados de verdad, la celda mide siempre lo del NIP y el conmutador
+ * se queda quieto.
  *
- * El respaldo no hace falta: PHP ya emite `is-active` en el panel que sirve
- * (views/auth/login.php), así que la pestaña correcta se ve sin que corra una
- * línea de JS.
+ * Quien saca al panel del recorrido de foco y del árbol de accesibilidad es la
+ * `visibility: hidden` de la regla de arriba, no este atributo.
+ *
+ * Como consecuencia, el JS ya no repone [hidden] y no necesita conocer la
+ * duración del fundido: se fueron el setTimeout, la constante FUNDIDO duplicada
+ * a mano y la guarda de reapertura (views/auth/login.php).
  */
 .login-tabpanel[hidden] {
-  display: none;
+  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .login-card {
+    --login-fade: 120ms;
+  }
   .login-tabpanel {
     transform: none;
-    transition: opacity 0.22s var(--ease), visibility 0s linear 0.22s;
+    transition: opacity var(--login-fade) var(--ease), visibility 0s linear var(--login-fade);
   }
   .login-tabpanel.is-active {
     transform: none;
   }
+  .login-tabs__pill,
+  .login-tabs .login-tab {
+    transition: none;
+  }
 }
-.login-title {
+.login-card .login-title {
   font-family: var(--serif);
-  font-size: clamp(1.8rem, 3.4vw, 2.5rem);
+  font-size: clamp(1.6rem, min(3.4vw, 4.4vh), 2.5rem);
   line-height: 1.05;
   color: var(--txt);
   margin-bottom: 0.5rem;
 }
 
-.login-sub {
+.login-card .login-sub {
   color: var(--txt-mute);
   font-size: 0.95rem;
   line-height: 1.55;
@@ -13587,7 +13672,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 
 .login-field {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .login-field__label {
@@ -13604,33 +13689,36 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: block;
 }
 
+/*
+ * Los campos son los del panel, y aquí sólo se corrige lo que el panel no sabe.
+ *
+ * La regla global de _forms.scss (`.admin-body input:not(...)×5`, (0,6,1)) pone
+ * borde, radio, fondo, foco, padding y un cuerpo de 14 px a todo input. De lo
+ * que se escribía aquí —borde, fondo, radio, foco dorado, padding, cuerpo— sólo
+ * llegaba el alto; el resto era letra muerta y se retira para que nadie la
+ * vuelva a ajustar creyendo que se ve.
+ *
+ * Dos cosas sí hay que ganarlas, y con `!important` acotado porque igualar
+ * (0,6,1) exige siete clases (la salida que ya documenta CLAUDE.md):
+ *   · el cuerpo a 16 px: por debajo, Safari de iPad hace zoom al enfocar, y en
+ *     una pantalla que no se desplaza el zoom no tiene vuelta atrás a mano. Va
+ *     también en el campo oculto del NIP, que recibe el foco en cada tecla.
+ *   · el hueco del ojo: sin `padding-right` la contraseña se escribía por debajo
+ *     del botón de mostrarla.
+ */
 .login-form input[type=text],
 .login-form input[type=password] {
   width: 100%;
-  height: 48px;
-  padding: 0 1rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-  color: var(--txt);
-  font-family: var(--sans);
-  font-size: 1rem;
-  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease), background 0.3s var(--ease);
+  height: 52px;
+  font-size: 1rem !important;
 }
 
 .login-field__control input {
-  padding-right: 3rem;
+  padding-right: 3rem !important;
 }
 
 .login-form input::placeholder {
   color: var(--txt-faint);
-}
-
-.login-form input:focus {
-  outline: none;
-  border-color: var(--gold);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .login-eye {
@@ -13664,46 +13752,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--accent-text);
 }
 
-.login-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0.2rem 0 0.4rem;
-  font-size: 0.85rem;
-}
-
-.login-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--txt-mute);
-  cursor: pointer;
-}
-
-.login-check input {
-  accent-color: var(--gold);
-  width: 15px;
-  height: 15px;
-}
-
-.login-link {
-  color: var(--accent-text);
-  text-decoration: none;
-  transition: color 0.25s var(--ease);
-}
-
-.login-link:hover {
-  color: var(--gold-soft);
-}
-
-.login-alert {
+.login-card .login-alert {
   --login-alert-color: var(--c-rojo);
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.7rem 0.9rem;
-  margin-bottom: 0.9rem;
+  padding: 0.8rem 1rem;
+  margin-bottom: var(--login-gap-md);
   border: 1px solid color-mix(in srgb, var(--login-alert-color) 45%, transparent);
   border-left: 3px solid var(--login-alert-color);
   border-radius: 10px;
@@ -13715,14 +13770,18 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   text-align: left;
   animation: login-alert-in 260ms var(--ease-out) both;
 }
-.login-alert svg {
+.login-card .login-alert svg {
   flex: none;
   width: 18px;
   height: 18px;
   color: var(--login-alert-color);
 }
-.login-alert--aviso {
+.login-card .login-alert--aviso {
   --login-alert-color: var(--c-ambar);
+}
+
+.login-card .login-title + .login-alert {
+  margin-top: var(--login-gap-md);
 }
 
 @keyframes login-alert-in {
@@ -13736,7 +13795,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .login-alert {
+  .login-card .login-alert {
     animation: none;
   }
 }
@@ -13746,6 +13805,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+  font-size: 1rem !important;
 }
 
 .login-form--nip {
@@ -13757,7 +13817,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   display: flex;
   gap: 0.85rem;
   justify-content: center;
-  padding: 0.4rem 0 0.6rem;
+  padding: 0.5rem 0 0.75rem;
 }
 
 .login-nip-dot {
@@ -13814,19 +13874,19 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   height: 22px;
 }
 
-.login-submit {
+.login-form .login-submit {
   justify-content: center;
   width: 100%;
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
   cursor: pointer;
 }
-.login-submit:disabled {
+.login-form .login-submit:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.login-foot {
-  margin-top: clamp(0.9rem, 2.5vh, 1.4rem);
+.login-card .login-foot {
+  margin-top: var(--login-gap-md);
   color: var(--txt-faint);
   font-size: 0.82rem;
   text-align: center;
@@ -13840,30 +13900,17 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
     display: none;
   }
 }
-@media (max-height: 900px) {
-  .login-card {
-    --login-gap-md: 0.6rem;
-    --login-gap-lg: 0.8rem;
-  }
-  .login-brand {
-    --hcp-header-size: clamp(1.35rem, 3.4vh, 1.7rem);
-    margin-bottom: 1.15rem;
-  }
-  .login-title {
-    font-size: clamp(1.4rem, 2.6vw, 1.85rem);
-    margin-bottom: 0.3rem;
-  }
-  .login-sub {
-    font-size: 0.84rem;
-    margin-bottom: 0.8rem;
-  }
-  .login-nip-dots {
-    padding: 0.15rem 0 0.4rem;
-  }
-  .login-foot {
-    margin-top: 0.6rem;
-  }
-}
+/*
+ * UNA escala continua, no dos. Aquí vivía un `@media (max-height: 860px)` que
+ * redeclaraba los huecos, la marca, el titular, los puntos y el padding.
+ *
+ * Con los márgenes aplicándose de verdad (ver el aviso sobre .login-card), ese
+ * corte partía la pantalla en dos: a 861 px la escala ancha dejaba 31 px libres
+ * —la tarjeta a 41 px del borde, el punto MÁS apretado de todo el rango— y un
+ * píxel más abajo la compacta dejaba 122. Todo lo que crece ya va en clamp()
+ * contra vh, así que la curva se ajusta sola sin umbral intermedio. Si se toca
+ * un paso, medir a 1000, 860, 764 y 721 px con el aviso de error puesto.
+ */
 @media (max-height: 720px) {
   .login-form--nip ~ .login-foot {
     display: none;

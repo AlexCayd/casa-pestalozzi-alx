@@ -14,8 +14,8 @@ use Services\ReporteSistemaService;
 
 class AdminConfigurationController
 {
-    private const MODULE_CSS = '/build/css/admin/configuration.css?v=pos-settings-v1';
-    private const MODULE_JS = '/build/js/admin/configuration.js?v=pos-settings-v1';
+    private const MODULE_CSS = '/build/css/admin/configuration.css';
+    private const MODULE_JS = '/build/js/admin/configuration.js';
     private const HOURS_PATH = '/admin/configuracion/horarios';
     private const ANNOUNCEMENT_PATH = '/admin/configuracion/anuncio';
     private const POS_PATH = '/admin/configuracion/pos';

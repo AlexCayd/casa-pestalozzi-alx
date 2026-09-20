@@ -154,12 +154,20 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--admin-gold) 8%, transparent);
   }
 
+  /*
+   * `!important` acotado, y es la salida documentada: los dos displays son
+   * <input type="text">, así que les cae la regla global de campos de
+   * _forms.scss (`input:not(...)×5`, (0,6,1)), que reescribe borde y sombra.
+   * Esta regla suma (0,4,0) y NO se aplicaba: un campo de fecha u hora con
+   * error sólo lo decía el texto rojo de debajo, con el campo intacto. Igualar
+   * la especificidad exige siete clases.
+   */
   .admin-field.has-error,
   .admin-datetime-field.has-error {
     .date-display,
     .hour-display {
-      border-color: var(--admin-danger);
-      box-shadow: 0 0 0 3px var(--admin-danger-bg);
+      border-color: var(--admin-danger) !important;
+      box-shadow: 0 0 0 3px var(--admin-danger-bg) !important;
     }
   }
 }
