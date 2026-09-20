@@ -5,6 +5,12 @@
 @use 'base/globals';
 @use 'base/typography';
 
+// Encabezado de marca (views/templates/header-casa-pestalozzi.php). Igual que
+// en los otros dos bundles: ANTES que sus consumidores —aquí layout/sidebar—,
+// porque quien lo usa le concatena una clase propia al mismo elemento y las dos
+// reglas empatan en especificidad.
+@use '../../shared/header-casa-pestalozzi';
+
 @use 'layout/admin-layout';
 @use 'layout/sidebar';
 @use 'layout/topbar';

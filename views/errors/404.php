@@ -46,6 +46,7 @@
     <div class="cp-error-content">
 
       <?php
+      // ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
       // El <h1> de esta página es el titular, así que la marca va en <p>: una
       // página no emite dos <h1>. El parcial hace unset de sus variables.
       $hcpEtiqueta = 'div';

@@ -813,7 +813,7 @@ html.lenis body {
   padding: 0;
 }
 
-.admin-body main {
+:where(.admin-body main) {
   display: block;
 }
 
@@ -1041,6 +1041,54 @@ html.lenis body {
   font-weight: 500;
 }
 
+.hcp-header {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+  color: inherit;
+}
+
+.hcp-header__nombre {
+  margin: 0;
+  font-family: var(--logo, var(--admin-logo, "KudosKaps", "Bodoni Moda", serif));
+  font-weight: 400;
+  font-size: var(--hcp-header-size, clamp(1.2rem, 1.5vw, 1.5rem));
+  letter-spacing: normal;
+  line-height: 1;
+  word-spacing: -0.62em;
+}
+
+.hcp-header__enlace {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.5s var(--ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.hcp-header__enlace:hover, .hcp-header__enlace:focus-visible {
+  color: var(--accent-text, var(--admin-gold, currentColor));
+}
+
+.hcp-header__palabra {
+  display: inline;
+}
+
+.hcp-header--apilado .hcp-header__nombre {
+  word-spacing: normal;
+}
+.hcp-header--apilado .hcp-header__palabra {
+  display: block;
+}
+
+.hcp-header__subtitulo {
+  margin-top: 0.35rem;
+  font-family: var(--sans, var(--admin-font, "Montserrat", sans-serif));
+  font-weight: 400;
+  font-size: 0.5rem;
+  letter-spacing: 0.9em;
+  word-spacing: normal;
+  opacity: 0.78;
+  color: inherit;
+}
+
 /*
  * Estructura principal del panel de administración.
  * Distribuye navegación y contenido, ajustando paddings según el viewport.
@@ -1175,15 +1223,15 @@ html.lenis body {
   font-weight: normal;
 }
 .admin-sidebar__brand .admin-sidebar__brand-text {
-  display: block;
+  --hcp-header-size: 22px;
   max-width: 210px;
   color: var(--admin-gold) !important;
-  font-family: "KudosKaps", sans-serif;
-  font-size: 22px;
   line-height: 0.98;
-  white-space: normal;
-  overflow-wrap: normal;
   transition: opacity var(--admin-layout-transition), width var(--admin-layout-transition);
+}
+.admin-sidebar__brand .admin-sidebar__brand-text .hcp-header__nombre {
+  letter-spacing: inherit;
+  line-height: inherit;
 }
 
 .admin-sidebar__brand-mark,

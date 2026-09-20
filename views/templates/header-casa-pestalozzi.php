@@ -1,6 +1,14 @@
 <?php
 /**
- * Encabezado de marca: el nombre del restaurante.
+ * ┌───────────────────────────────────────────────────────────────┐
+ * │  COMPONENTE REUTILIZABLE — el wordmark de Casa Pestalozzi.    │
+ * │  No copies este marcado: inclúyelo.                           │
+ * │  Estilos: src/scss/shared/_header-casa-pestalozzi.scss        │
+ * └───────────────────────────────────────────────────────────────┘
+ *
+ * Lo usan la landing (_nav.php dos veces y _footer.php), el login (dos veces),
+ * la barra lateral del panel, la 404 y el PDF del menú. Cada uno le pasa su propia clase por hcpClase y ajusta desde
+ * su hoja; el componente no sabe quién lo incluye.
  *
  * Variables esperadas, todas opcionales:
  * - hcpEtiqueta: elemento contenedor. 'header' (por omisión), 'div' o 'span'.
@@ -11,7 +19,9 @@
  * - hcpDosLineas: bool. Apila CASA sobre PESTALOZZI.
  * - hcpClase: clases extra para el contenedor.
  * - hcpId: id del contenedor.
- * - hcpAtributos: mapa de atributos extra del contenedor ('data-nav' => '', ...).
+ * - hcpAtributos: mapa de atributos extra del contenedor ('data-magnetic' => '', ...).
+ * - hcpEnlaceAtributos: lo mismo para el <a> del nombre. Separado del anterior
+ *   porque un manejador que lea el href tiene que ir en el <a>, no fuera.
  *
  * Uso:
  *   <?php $hcpNivel = 'h1'; $hcpSubtitulo = 'Del Valle · México';
@@ -29,6 +39,7 @@ $hcpDosLineas = (bool)($hcpDosLineas ?? false);
 $hcpClase = trim((string)($hcpClase ?? ''));
 $hcpId = trim((string)($hcpId ?? ''));
 $hcpAtributos = is_array($hcpAtributos ?? null) ? $hcpAtributos : [];
+$hcpEnlaceAtributos = is_array($hcpEnlaceAtributos ?? null) ? $hcpEnlaceAtributos : [];
 
 // Listas cerradas: el nombre del elemento entra sin escapar en el marcado.
 if (!in_array($hcpEtiqueta, $hcpEtiquetasContenedor, true)) {
@@ -50,22 +61,29 @@ if ($hcpClase !== '') {
     $hcpClases .= ' ' . $hcpClase;
 }
 
-$hcpExtra = '';
-foreach ($hcpAtributos as $hcpAtributo => $hcpValor) {
-    $hcpAtributo = trim((string)$hcpAtributo);
-    if ($hcpAtributo === '') {
-        continue;
+$hcpAtributosHtml = static function (array $mapa) use ($hcpEscape) {
+    $html = '';
+    foreach ($mapa as $atributo => $valor) {
+        $atributo = trim((string)$atributo);
+        if ($atributo === '') {
+            continue;
+        }
+        // Un valor vacío emite el atributo pelado (data-nav), como en el resto del marcado.
+        $html .= $valor === '' || $valor === true
+            ? ' ' . $hcpEscape($atributo)
+            : ' ' . $hcpEscape($atributo) . '="' . $hcpEscape($valor) . '"';
     }
-    // Un valor vacío emite el atributo pelado (data-nav), como en el resto del marcado.
-    $hcpExtra .= $hcpValor === '' || $hcpValor === true
-        ? ' ' . $hcpEscape($hcpAtributo)
-        : ' ' . $hcpEscape($hcpAtributo) . '="' . $hcpEscape($hcpValor) . '"';
-}
+
+    return $html;
+};
+
+$hcpExtra = $hcpAtributosHtml($hcpAtributos);
+$hcpEnlaceExtra = $hcpAtributosHtml($hcpEnlaceAtributos);
 ?>
 <<?php echo $hcpEtiqueta; ?> class="<?php echo $hcpEscape($hcpClases); ?>"<?php echo $hcpId !== '' ? ' id="' . $hcpEscape($hcpId) . '"' : ''; ?><?php echo $hcpExtra; ?>>
     <<?php echo $hcpNivel; ?> class="hcp-header__nombre">
         <?php if ($hcpHref !== '') : ?>
-        <a class="hcp-header__enlace" href="<?php echo $hcpEscape($hcpHref); ?>" aria-label="Casa Pestalozzi">
+        <a class="hcp-header__enlace" href="<?php echo $hcpEscape($hcpHref); ?>" aria-label="Casa Pestalozzi"<?php echo $hcpEnlaceExtra; ?>>
         <?php endif; ?>
             <?php /* Dos palabras, dos cajas: apilarlas es cosa de la clase del
                      contenedor y no de un <br>, que quedaría también cuando el
@@ -85,7 +103,8 @@ foreach ($hcpAtributos as $hcpAtributo => $hcpValor) {
 // sin esto el segundo include hereda lo que dejó el primero.
 unset(
     $hcpEtiqueta, $hcpNivel, $hcpHref, $hcpSubtitulo, $hcpDosLineas, $hcpClase,
-    $hcpId, $hcpAtributos, $hcpEtiquetasContenedor, $hcpNiveles, $hcpEscape,
-    $hcpClases, $hcpExtra, $hcpAtributo, $hcpValor
+    $hcpId, $hcpAtributos, $hcpEnlaceAtributos, $hcpEtiquetasContenedor,
+    $hcpNiveles, $hcpEscape, $hcpAtributosHtml, $hcpClases, $hcpExtra,
+    $hcpEnlaceExtra
 );
 ?>

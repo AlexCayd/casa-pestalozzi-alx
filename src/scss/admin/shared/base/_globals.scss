@@ -825,7 +825,14 @@ html.lenis body {
   padding: 0;
 }
 
-.admin-body main {
+// Envuelto en :where() para que NO aporte especificidad. Es un reset heredado
+// de normalize («render main consistently in IE») y un reset debe perder contra
+// cualquier clase. Con (0,1,1) le ganaba a `.login-shell { display: grid }`,
+// que es (0,1,0): el login se quedaba sin sus dos columnas, el panel lateral se
+// apilaba fuera de pantalla y `body { overflow: hidden }` lo ocultaba.
+// Los <main> del piso no se enteran: sus rejillas van en selectores de dos
+// clases (.operational-page .operational-layout) y ya ganaban.
+:where(.admin-body main) {
   display: block;
 }
 

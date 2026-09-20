@@ -1,6 +1,17 @@
 <?php /* Brand + nav-toggle + nav-overlay + rail + FAB */ ?>
 
-<a class="brand-mark" href="#hero" data-magnetic>Casa Pestalozzi<span>Del Valle · México</span></a>
+<?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+         Nivel <p> porque el <h1> de la portada es el título del hero.
+         `data-magnetic` en el contenedor: el imán mueve la caja entera. */ ?>
+<?php
+$hcpEtiqueta = 'div';
+$hcpNivel = 'p';
+$hcpHref = '#hero';
+$hcpSubtitulo = 'Del Valle · México';
+$hcpClase = 'brand-mark';
+$hcpAtributos = ['data-magnetic' => ''];
+include __DIR__ . '/../templates/header-casa-pestalozzi.php';
+?>
 
 <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" data-magnetic>
   <span class="bar"></span><span class="bar"></span><span class="bar"></span>
@@ -32,7 +43,18 @@
         Así que la copia vive dentro, encabezando la ficha de contacto: firma el
         pie de la columna en vez de repetir el sitio que ocupa cerrada.
       */ ?>
-      <a class="brand-mark brand-mark--overlay" href="#hero" data-nav>Casa Pestalozzi<span>Del Valle · México</span></a>
+      <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+               `data-nav` sobre el ENLACE: nav.js lee el href del elemento que lo
+               lleva, y en el contenedor no hay href. */ ?>
+      <?php
+      $hcpEtiqueta = 'div';
+      $hcpNivel = 'p';
+      $hcpHref = '#hero';
+      $hcpSubtitulo = 'Del Valle · México';
+      $hcpClase = 'brand-mark brand-mark--overlay';
+      $hcpEnlaceAtributos = ['data-nav' => ''];
+      include __DIR__ . '/../templates/header-casa-pestalozzi.php';
+      ?>
       <strong>Encuéntranos</strong>
       José Enrique Pestalozzi 1250, CDMX<br />
       56 1481 8297<br />

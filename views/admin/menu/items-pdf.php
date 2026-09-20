@@ -478,7 +478,8 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
              platillos — una hoja con la marca y un aviso, no un aviso suelto. */ ?>
     <div class="pdf-header">
         <p class="pdf-header__rotulo"><?php echo htmlspecialchars($pdfRotulo); ?></p>
-        <?php /* El nombre de la casa lo pone el componente compartido, que lo
+        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+                 El nombre de la casa lo pone el componente compartido, que lo
                  escribe en caja alta real en el marcado y no con
                  text-transform. En papel eso pesa mas que en pantalla: la caja
                  alta es lo que KudosKaps sabe dibujar, y ademas es el texto que

@@ -21,13 +21,12 @@ footer.foot {
 }
 
 .foot__brand {
+  // ═══ COMPONENTE REUTILIZABLE → shared/_header-casa-pestalozzi (+ su parcial PHP)
+  // Aquí sólo el color y el cuerpo. La cara, el peso y el interlineado los trae
+  // el componente. El cuerpo va por `--hcp-header-size`, no por `font-size`.
   .bm {
-    font-family: var(--logo);
+    --hcp-header-size: clamp(2.2rem, 5vw, 3.6rem);
     color: var(--accent-text);
-    font-size: clamp(2.2rem, 5vw, 3.6rem);
-    font-weight: 400;
-    line-height: 1;
-    word-spacing: -0.8rem;
   }
   p {
     font-family: var(--crimson);

@@ -22,28 +22,23 @@
   --borde-medida: max(var(--pad), calc((100% - var(--maxw)) / 2));
 }
 
+// ═══ COMPONENTE REUTILIZABLE → shared/_header-casa-pestalozzi (+ su parcial PHP)
+// Aquí sólo el anclaje y el color. La cara, el cuerpo, el peso y el subtítulo
+// los trae el componente, con los mismos valores que tenía esta clase.
+// El cuerpo se cambia por `--hcp-header-size`, no por `font-size`.
 .brand-mark {
   position: fixed;
   top: clamp(1.4rem, 3vw, 2.4rem);
   left: var(--borde-medida);
   z-index: 200;
-  font-family: var(--logo);
   color: var(--brand-crema);
-  font-size: clamp(1.2rem, 1.5vw, 1.5rem);
-  word-spacing: -0.8rem;
-  line-height: 1;
   transition: color 0.5s var(--ease);
 
-  span {
-    display: block;
-    font-family: var(--sans);
-    font-weight: 400;
-    font-size: 0.5rem;
-    letter-spacing: 0.9em;
+  // El componente tiñe el enlace de --accent-text en hover. Aquí el color lo
+  // decide el negativo por [data-tono-actual], así que se anula.
+  .hcp-header__enlace:hover,
+  .hcp-header__enlace:focus-visible {
     color: inherit;
-    margin-top: 0.35rem;
-    opacity: 0.78;
-    word-spacing: 0;
   }
 }
 
@@ -82,13 +77,11 @@
 // y el panel deja de tener una esquina hablando por su cuenta.
 .brand-mark--overlay {
   position: static;
-  display: block;
+  // `flex` y no `block`: el componente apila nombre y subtítulo con flex, y en
+  // `block` el subtítulo volvería al renglón del nombre. Block-level porque
+  // `inline-flex` heredaría el line-height 2 del contacto como interlineado.
+  display: flex;
   margin-bottom: 1.4rem;
-  font-weight: 400; // KudosKaps tiene UNA sola cara; sin esto sale negrita falsa
-  // El contacto va en line-height 2 y con tracking propio; la marca necesita el
-  // suyo: apretado y sin separación extra, o el wordmark se abre.
-  line-height: 1;
-  letter-spacing: normal;
 }
 
 // Con el overlay abierto la marca queda sobre el verde a pantalla completa,

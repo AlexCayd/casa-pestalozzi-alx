@@ -26,9 +26,19 @@ $sidebarIconoModulo = static function (string $clave): string {
     <div class="admin-sidebar__header">
         <a class="admin-sidebar__brand" href="/admin/analytics" title="Casa Pestalozzi">
             <span class="admin-sidebar__brand-mark" aria-hidden="true">CP</span>
-            <span class="admin-sidebar__brand-text">
-                CASA PESTALOZZI
-            </span>
+            <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+                     Sin enlace: ya vamos dentro del <a> de la marca, y un <a>
+                     dentro de otro es marcado inválido. En dos líneas, que es
+                     como se veía: antes rompía contra un ancho máximo y ahora
+                     lo pide el parcial. */ ?>
+            <?php
+            $hcpEtiqueta = 'span';
+            $hcpNivel = 'span';
+            $hcpHref = '';
+            $hcpClase = 'admin-sidebar__brand-text';
+            $hcpDosLineas = true;
+            include __DIR__ . '/../../templates/header-casa-pestalozzi.php';
+            ?>
         </a>
 
         <?php /* SVG y no la "x" literal que había: una equis de texto hereda la

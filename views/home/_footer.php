@@ -26,7 +26,16 @@ $excepcionesFooter = !empty($horariosOperacionDisponibles)
   <div class="wrap">
     <div class="foot__top">
       <div class="foot__brand">
-        <h3 class="bm">Casa Pestalozzi</h3>
+        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+                 Nivel <h3>: encabeza el masthead del pie, como antes. Sin enlace
+                 —ya estamos en la portada— y sin subtítulo. */ ?>
+        <?php
+        $hcpEtiqueta = 'div';
+        $hcpNivel = 'h3';
+        $hcpHref = '';
+        $hcpClase = 'bm';
+        include __DIR__ . '/../templates/header-casa-pestalozzi.php';
+        ?>
         <p>Cucina italiana, cuore messicano.</p>
         <?php
           $redesClase = 'foot__social';

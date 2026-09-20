@@ -47,16 +47,25 @@
       <div class="login-aside__content">
         <span class="admin-eyebrow">Acceso del Personal</span>
         <p class="login-aside__quote">Cocina mediterránea con corazón mexicano.</p>
-        <span class="login-aside__sign">Casa Pestalozzi</span>
+        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+                 Sin enlace: este panel es aria-hidden, y un <a> dentro quedaría
+                 oculto al lector pero seguiría en el recorrido de tabulación. */ ?>
+        <?php
+        $hcpEtiqueta = 'div';
+        $hcpNivel = 'span';
+        $hcpHref = '';
+        $hcpClase = 'login-aside__sign';
+        include __DIR__ . '/../templates/header-casa-pestalozzi.php';
+        ?>
       </div>
     </div>
 
     <section class="login-panel">
       <div class="login-card">
-        <?php /* Wordmark compartido. Nivel <p> a propósito: el <h1> de esta
-                 pantalla es el título de la pestaña activa, y no puede haber
-                 dos. El resto son los valores por omisión del componente
-                 (contenedor <header>, enlace a la portada). */ ?>
+        <?php /* ═══ COMPONENTE REUTILIZABLE → views/templates/header-casa-pestalozzi.php
+                 Nivel <p> por omisión: el <h1> de esta pantalla es el título de
+                 la pestaña activa. El resto también son valores por omisión
+                 —contenedor <header>, enlace a la portada—. */ ?>
         <?php
         $hcpClase = 'login-brand';
         include __DIR__ . '/../templates/header-casa-pestalozzi.php';

@@ -7,6 +7,13 @@
 // Layout
 @use 'layout/fonts';
 @use 'layout/reset';
+// Encabezado de marca (views/templates/header-casa-pestalozzi.php). En shared/
+// porque el parcial PHP sirve a cualquier vista.
+//
+// ANTES que sus consumidores, layout/nav incluido: quien lo usa le concatena
+// una clase propia al MISMO elemento, así que las dos reglas empatan en (0,1,0)
+// y decide el orden. Al revés, su `color: inherit` gana al color de .brand-mark.
+@use 'shared/header-casa-pestalozzi';
 @use 'layout/nav';
 @use 'layout/rail';
 @use 'layout/responsive';
@@ -15,10 +22,6 @@
 @use 'components/cursor';
 @use 'components/buttons';
 @use 'components/announcement';
-// Encabezado de marca (views/templates/header-casa-pestalozzi.php). Va en
-// shared/ porque el parcial PHP sirve a cualquier vista; el bundle que lo
-// necesite lo declara igual que aquí.
-@use 'shared/header-casa-pestalozzi';
 // Vocabulario italiano compartido (insegna, arco, filete). Va antes de las
 // secciones: varias lo consumen.
 @use 'components/italia';

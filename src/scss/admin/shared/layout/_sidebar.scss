@@ -73,18 +73,25 @@
   font-family: var(--admin-logo);
   font-weight: normal;
 
+  // ═══ COMPONENTE REUTILIZABLE → ../../shared/header-casa-pestalozzi (+ su parcial PHP)
+  // Aquí sólo el color, el cuerpo y el ancho de la caja. La cara la trae el
+  // componente por token: esta regla nombraba "KudosKaps" a pelo, que es lo que
+  // la casa no quiere.
   .admin-sidebar__brand-text {
-    display: block;
+    --hcp-header-size: 22px;
     max-width: 210px;
     color: var(--admin-gold) !important;
-    font-family: "KudosKaps", sans-serif;
-    font-size: 22px;
     line-height: 0.98;
-    white-space: normal;
-    overflow-wrap: normal;
     transition:
       opacity var(--admin-layout-transition),
       width var(--admin-layout-transition);
+
+    // El componente deja el tracking en `normal`; el panel arrastra el -0.006em
+    // de .admin-body, que es lo que tenía este rótulo.
+    .hcp-header__nombre {
+      letter-spacing: inherit;
+      line-height: inherit;
+    }
   }
 }
 
