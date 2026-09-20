@@ -56,6 +56,7 @@ class AdminMenuController
             'platillos' => $platillos,
             'categorias' => $categorias,
             'categoriasMap' => $categoriasMap,
+            'cartas' => CategoriasMenu::CARTAS,
             'areasMap' => self::areasMap(),
             'filtros' => $filtros,
             'categoriaActiva' => (int) ($filtros['categoria'] ?: 0),
@@ -79,10 +80,16 @@ class AdminMenuController
         self::render('menu/index', $data);
     }
 
-    /** PDF de la carta (versión admin; la pública es MenuController::pdf). */
+    /** PDF de la carta de comida (la pública es MenuController::pdf). */
     public static function pdf(Router $router): void
     {
-        MenuPdf::stream();
+        MenuPdf::stream(CategoriasMenu::CARTA_COMIDA);
+    }
+
+    /** PDF de la carta de maridaje (la pública es MenuController::pdfMaridaje). */
+    public static function pdfMaridaje(Router $router): void
+    {
+        MenuPdf::stream(CategoriasMenu::CARTA_MARIDAJE);
     }
 
     public static function create(Router $router): void
@@ -212,6 +219,7 @@ class AdminMenuController
             'title' => 'Categorías del menú',
             'topbarSection' => 'Menú / Categorías',
             'categorias' => CategoriasMenu::ordenadas(),
+            'cartas' => CategoriasMenu::CARTAS,
             'alertas' => CategoriasMenu::getAlertas(),
         ]);
     }
@@ -231,6 +239,9 @@ class AdminMenuController
         $categoria = new CategoriasMenu();
         $categoria->sincronizar($_POST);
         $categoria->activo = 1;
+        // sincronizar() copia lo que venga; normalizar aquí es lo que impide
+        // que un POST a mano meta una categoría en una carta inexistente.
+        $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
 
         $alertas = $categoria->validar();
         $imagen = $_FILES['imagen'] ?? null;
@@ -284,6 +295,7 @@ class AdminMenuController
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $categoria->sincronizar($_POST);
             $categoria->activo = isset($_POST['activo']) ? 1 : 0;
+            $categoria->carta = CategoriasMenu::normalizarCarta($categoria->carta);
             $categoria->img = $imagenActual;
 
             $alertas = $categoria->validar();
@@ -322,6 +334,7 @@ class AdminMenuController
             'title' => 'Editar categoría',
             'topbarSection' => 'Menú / Editar categoría',
             'categoria' => $categoria,
+            'cartas' => CategoriasMenu::CARTAS,
             'alertas' => $alertas,
             'accion' => 'Guardar cambios',
         ]);

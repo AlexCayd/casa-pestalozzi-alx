@@ -2,11 +2,12 @@
 
 namespace Controllers;
 
+use Model\CategoriasMenu;
 use Services\Carta;
 use Services\MenuPdf;
 
 /**
- * Carta pública: el JSON que consume la landing y el PDF descargable.
+ * Carta pública: el JSON que consume la landing y los dos PDF descargables.
  * La fuente es `productos` (ver Services\Carta).
  */
 class MenuController {
@@ -18,8 +19,19 @@ class MenuController {
         exit;
     }
 
-    /** GET /menu/pdf — carta en PDF para el comensal. */
+    /** GET /menu/pdf — carta de comida en PDF para el comensal. */
     public static function pdf($router) {
-        MenuPdf::stream();
+        MenuPdf::stream(CategoriasMenu::CARTA_COMIDA);
+    }
+
+    /**
+     * GET /maridaje/pdf — carta de maridaje (barra) en PDF.
+     *
+     * Ruta propia y no un ?carta= sobre la anterior: es el enlace que la
+     * landing pone en un botón, y un parámetro invita a escribir a mano uno
+     * que no existe. Con dos rutas, lo que no está declarado es 404.
+     */
+    public static function pdfMaridaje($router) {
+        MenuPdf::stream(CategoriasMenu::CARTA_MARIDAJE);
     }
 }

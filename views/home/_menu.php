@@ -45,7 +45,23 @@
 
     <div class="menu__foot" data-reveal>
       <a class="btn-line" href="#reserva" data-magnetic><span>Reservar una mesa</span><span class="arrow">↗</span></a>
-      <a class="btn-line btn-line--pdf" href="/menu/pdf" target="_blank" rel="noopener" data-magnetic><span>Ver en PDF</span><span class="arrow">↓</span></a>
+      <?php /*
+        Las dos cartas de la casa, apiladas: la de comida —lo que pinta la
+        rejilla de arriba— y la de maridaje, que no tiene sección propia en la
+        landing y vive entera en su PDF.
+
+        Van agrupadas y no sueltas en la fila porque son la misma acción
+        —llevarse la carta— sobre dos piezas distintas; sueltas, el pie ofrecía
+        tres destinos del mismo peso y el CTA de reserva dejaba de ser el
+        único principal de la sección.
+
+        El primero deja de llamarse "Ver en PDF" a secas: con dos piezas,
+        esa etiqueta ya no dice cuál de las dos se abre.
+      */ ?>
+      <div class="menu__docs">
+        <a class="btn-line btn-line--pdf" href="/menu/pdf" target="_blank" rel="noopener" data-magnetic><span>Menú en PDF</span><span class="arrow">↓</span></a>
+        <a class="btn-line btn-line--pdf" href="/maridaje/pdf" target="_blank" rel="noopener" data-magnetic><span>Maridaje en PDF</span><span class="arrow">↓</span></a>
+      </div>
     </div>
   </div>
 </section>

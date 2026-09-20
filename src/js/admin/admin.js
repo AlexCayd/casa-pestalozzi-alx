@@ -199,7 +199,11 @@
                 }
 
                 window.ConfirmationModal.get().open({
-                    variant: 'danger',
+                    // Danger por omisión porque el caso original es un borrado,
+                    // pero la vista puede pedir otra: una acción reversible de
+                    // un toque —pausar la impresión— no debe pintarse con el
+                    // rojo de lo que no se puede deshacer.
+                    variant: form.dataset.confirmVariant || 'danger',
                     eyebrow: form.dataset.confirmEyebrow || 'Eliminar usuario',
                     title: form.dataset.confirmTitle || '¿Eliminar este usuario?',
                     description: form.dataset.confirmDescription || 'Perderá el acceso al sistema de inmediato.',

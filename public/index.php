@@ -113,6 +113,7 @@ $router->post('/admin/api/reportes', [AdminConfigurationController::class, 'crea
 // "Productos y recetas". La lista entra directo (ya no hay página de hub).
 $router->get('/admin/menu',                     [AdminMenuController::class, 'index']);
 $router->get('/admin/menu/pdf',                 [AdminMenuController::class, 'pdf']);
+$router->get('/admin/menu/pdf/maridaje',        [AdminMenuController::class, 'pdfMaridaje']);
 $router->get('/admin/menu/create',              [AdminMenuController::class, 'create']);
 $router->post('/admin/menu/create',             [AdminMenuController::class, 'create']);
 $router->get('/admin/menu/edit',                [AdminMenuController::class, 'edit']);
@@ -256,6 +257,7 @@ $router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit'
 $router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
 $router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
 $router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
+$router->post('/admin/printers/service', [AdminPrintersController::class, 'servicio']);
 
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);
@@ -315,10 +317,13 @@ $router->get('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/admin/login', [AuthController::class, 'loginAdmin']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
-// Carta pública: JSON para la landing y PDF para el comensal.
-// /menu/pdf queda fuera de /admin/, así que Auth::proteger lo deja público.
-$router->get('/menu',     [MenuController::class, 'index']);
-$router->get('/menu/pdf', [MenuController::class, 'pdf']);
+// Carta pública: JSON para la landing y los dos PDF para el comensal — la
+// carta de comida y la de maridaje, que son las dos piezas que enlaza la
+// sección de menú.
+// Ninguna cuelga de /admin/, así que Auth::proteger las deja públicas.
+$router->get('/menu',         [MenuController::class, 'index']);
+$router->get('/menu/pdf',     [MenuController::class, 'pdf']);
+$router->get('/maridaje/pdf', [MenuController::class, 'pdfMaridaje']);
 
 
 

@@ -22,12 +22,13 @@ class CategoriaMenuService
         $db = ActiveRecord::getDB();
         try {
             $db->begin_transaction();
-            $stmt = $db->prepare('INSERT INTO categorias (nombre, img, activo) VALUES (?, ?, ?)');
+            $stmt = $db->prepare('INSERT INTO categorias (nombre, carta, img, activo) VALUES (?, ?, ?, ?)');
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }
             $activo = (int)$categoria->activo;
-            $stmt->bind_param('ssi', $categoria->nombre, $categoria->img, $activo);
+            $carta = CategoriasMenu::normalizarCarta($categoria->carta);
+            $stmt->bind_param('sssi', $categoria->nombre, $carta, $categoria->img, $activo);
             self::ejecutar($stmt);
             $id = (int)$db->insert_id;
             $stmt->close();
@@ -39,6 +40,7 @@ class CategoriaMenuService
 
             $db->commit();
             $categoria->id = $id;
+            $categoria->carta = $carta;
             return ['ok' => true, 'codigo' => self::CREADA, 'categoria' => $categoria];
         } catch (\Throwable $e) {
             self::rollbackSeguro($db);
@@ -68,18 +70,20 @@ class CategoriaMenuService
             }
             $imagenAnterior = (string)($fila['img'] ?? '');
 
-            $stmt = $db->prepare('UPDATE categorias SET nombre = ?, img = ?, activo = ? WHERE id = ? LIMIT 1');
+            $stmt = $db->prepare('UPDATE categorias SET nombre = ?, carta = ?, img = ?, activo = ? WHERE id = ? LIMIT 1');
             if (!$stmt) {
                 throw new \RuntimeException($db->error);
             }
             $activo = (int)$categoria->activo;
-            $stmt->bind_param('ssii', $categoria->nombre, $categoria->img, $activo, $id);
+            $carta = CategoriasMenu::normalizarCarta($categoria->carta);
+            $stmt->bind_param('sssii', $categoria->nombre, $carta, $categoria->img, $activo, $id);
             self::ejecutar($stmt);
             $stmt->close();
 
             $guardada = self::buscar($id);
             if (!$guardada
                 || (string)$guardada['nombre'] !== (string)$categoria->nombre
+                || (string)$guardada['carta'] !== $carta
                 || (string)$guardada['img'] !== (string)$categoria->img
                 || (int)$guardada['activo'] !== $activo) {
                 throw new \RuntimeException('El estado persistido no coincide con la categoria solicitada.');
@@ -159,7 +163,7 @@ class CategoriaMenuService
 
     private static function buscar(int $id, bool $forUpdate = false): ?array
     {
-        $sql = 'SELECT id, nombre, img, activo FROM categorias WHERE id = ? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
+        $sql = 'SELECT id, nombre, carta, img, activo FROM categorias WHERE id = ? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : '');
         $stmt = ActiveRecord::getDB()->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException(ActiveRecord::getDB()->error);

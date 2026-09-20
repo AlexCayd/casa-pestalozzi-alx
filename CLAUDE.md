@@ -141,6 +141,21 @@ Cosas que cargan peso y no son obvias:
   solo lectura; no escribir ahí.
 - `productos.nombre` es UNIQUE por dependencia funcional: el descuento de
   inventario, el COGS y el motor de sugerencias unen por nombre, no por id.
+- `categorias.carta` (`comida` | `maridaje`) parte el catálogo en las **dos
+  piezas impresas**: la carta de comida y la de maridaje (barra). Vive en la
+  categoría y no en el producto porque la carta es una decisión de SECCIÓN —
+  «Cocktails» entero es maridaje—, y se administra desde el **mismo módulo de
+  Menú**: pastillas en el alta rápida del tab «+» y en la edición de la
+  categoría, más una columna en el listado. Tres consecuencias:
+  `Carta::publica($carta)` filtra por ella y **por defecto devuelve comida**,
+  así que la sección de menú de la landing y `/menu/pdf` siguen siendo lo que
+  eran; `/maridaje/pdf` (admin: `/admin/menu/pdf/maridaje`) es la otra pieza,
+  y sale de la MISMA plantilla —`items-pdf.php`, que recibe rótulo, bajada,
+  título y aviso de vacío y no sabe cuál imprime—; y `Carta::paraPos()` **no**
+  la mira, porque el mesero cobra la copa y el plato en el mismo ticket.
+  ⚠️ El interruptor de visibilidad del listado de categorías reenvía la fila
+  por campos ocultos: si añades una columna a `categorias`, tiene que viajar
+  ahí también o apagar una categoría la devuelve a su valor por defecto.
 - `ticket_items.estado`: `enviado → en_preparacion → listo → entregado`, más
   `cancelado`. Producción avanza hasta `listo`; `entregado` lo marca el mesero.
 - `ticket_mesas` es la fuente canónica de ocupación física, no `tickets`.

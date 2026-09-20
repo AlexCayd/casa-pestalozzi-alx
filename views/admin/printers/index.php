@@ -1,3 +1,11 @@
+<?php
+/* El servicio de impresión es un interruptor GLOBAL y no tiene nada que ver con
+   `impresoras.activo`: pausarlo no toca ninguna fila de la tabla, así que el
+   rol, el área y el destino de cada estación siguen ahí y reanudar es un solo
+   toque. Está aquí y no en /admin/configuracion porque quien descubre que el
+   papel no sale es quien entra a este módulo. */
+$servicioActivo = !isset($servicioActivo) || $servicioActivo;
+?>
 <section class="admin-menu admin-page">
     <header class="admin-menu__header admin-page__header">
         <div class="admin-page__intro">
@@ -17,6 +25,50 @@
             </div>
         <?php endforeach; ?>
     <?php endforeach; ?>
+
+    <?php /* El botón manda el valor DESTINO, no un «alternar»: un doble toque o
+             un reenvío del navegador dejan el servicio donde dice el botón que
+             se pulsó, en vez de devolverlo al estado anterior. */ ?>
+    <section class="admin-panel admin-card admin-printers__service<?php echo $servicioActivo ? '' : ' is-paused'; ?>"
+             id="printers-service" aria-labelledby="printers-service-title">
+        <div class="admin-printers__service-text">
+            <div class="admin-printers__service-head">
+                <h3 id="printers-service-title">Servicio de impresión</h3>
+                <span class="admin-badge admin-badge--<?php echo $servicioActivo ? 'success' : 'warning'; ?>">
+                    <?php echo $servicioActivo ? 'Activo' : 'Pausado'; ?>
+                </span>
+            </div>
+            <?php if ($servicioActivo) : ?>
+                <p>Cada comanda enviada desde el punto de venta y cada cuenta de cobro se mandan a la impresora que les toca. Si una estación no está encendida o no responde, el envío la espera dos segundos antes de rendirse — y una orden con platillos de varias áreas espera ese tiempo por cada una.</p>
+                <p class="admin-printers__service-hint">Pausa el servicio mientras el hardware no esté conectado: los pedidos se guardan igual y siguen llegando al tablero de producción, pero el punto de venta deja de esperar a las impresoras.</p>
+            <?php else : ?>
+                <p><strong>No se está enviando nada a las impresoras.</strong> Los pedidos se guardan, descuentan inventario y llegan al tablero de producción como siempre; lo único que no ocurre es la impresión en papel, ni de las comandas ni de la cuenta de cobro.</p>
+                <p class="admin-printers__service-hint">Las impresoras de abajo conservan su configuración; ninguna se dio de baja. «Imprimir prueba» sigue funcionando con el servicio pausado: es con lo que se comprueba una estación antes de reanudar.</p>
+            <?php endif; ?>
+        </div>
+
+        <form class="admin-printers__service-form" method="POST" action="/admin/printers/service"
+              <?php if ($servicioActivo) : ?>
+              data-confirm-delete
+              data-confirm-variant="warning"
+              data-confirm-eyebrow="Servicio de impresión"
+              data-confirm-title="¿Pausar la impresión?"
+              data-confirm-description="Las comandas dejarán de salir en papel. El personal de cocina y barra tendrá que trabajar sólo con el tablero de producción."
+              data-confirm-consequence="Se puede reanudar desde aquí en cualquier momento."
+              data-confirm-primary="Pausar impresión"
+              <?php endif; ?>>
+            <input type="hidden" name="activo" value="<?php echo $servicioActivo ? '0' : '1'; ?>">
+            <button type="submit" class="admin-btn admin-btn--tinted admin-btn--tinted-<?php echo $servicioActivo ? 'ambar' : 'verde'; ?>">
+                <?php if ($servicioActivo) : ?>
+                    <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 5v14"/><path d="M14 5v14"/></svg>
+                    Pausar impresión
+                <?php else : ?>
+                    <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 4v16l13-8Z"/></svg>
+                    Reanudar impresión
+                <?php endif; ?>
+            </button>
+        </form>
+    </section>
 
     <section class="admin-menu__panel admin-panel admin-card" id="printers">
         <div class="admin-menu__panel-head">
@@ -81,10 +133,21 @@
                                     <span class="admin-printers__destino admin-num"><?php echo htmlspecialchars($impresora->destino()); ?></span>
                                 </td>
                                 <td class="admin-num"><?php echo (int) $impresora->ancho; ?> col</td>
+                                <?php /* Con el servicio pausado, una impresora activa
+                                         no imprime: dejarla rotulada «Activa» sería la
+                                         mentira que se va a leer cuando alguien venga a
+                                         averiguar por qué no sale el papel. Va en ámbar
+                                         —advertencia, no error— porque la configuración
+                                         de la fila está bien; lo que está apagado es el
+                                         servicio, y el filete se explica arriba. */ ?>
                                 <td>
-                                    <span class="admin-badge admin-badge--<?php echo $impresora->activo ? 'success' : 'danger'; ?>">
-                                        <?php echo $impresora->activo ? 'Activa' : 'Inactiva'; ?>
-                                    </span>
+                                    <?php if ($impresora->activo && !$servicioActivo) : ?>
+                                        <span class="admin-badge admin-badge--warning">Pausada</span>
+                                    <?php else : ?>
+                                        <span class="admin-badge admin-badge--<?php echo $impresora->activo ? 'success' : 'danger'; ?>">
+                                            <?php echo $impresora->activo ? 'Activa' : 'Inactiva'; ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <div class="admin-table-actions">

@@ -11,6 +11,7 @@
     $platillos = isset($platillos) && is_iterable($platillos) ? $platillos : [];
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
     $categoriasMap = $categoriasMap ?? [];
+    $cartas = is_array($cartas ?? null) && $cartas ? $cartas : \Model\CategoriasMenu::CARTAS;
     $areasMap = is_array($areasMap ?? null) ? $areasMap : [];
     $filtros = is_array($filtros ?? null) ? $filtros : ['q' => '', 'categoria' => '', 'visible' => ''];
     $categoriaActiva = (int) ($categoriaActiva ?? 0);
@@ -64,7 +65,10 @@
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--tinted admin-btn--tinted-indigo" href="/admin/menu/categorias">Categorías</a>
-            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf" target="_blank" rel="noopener">Generar PDF</a>
+            <?php /* Dos PDF y dos botones: son las dos piezas impresas de la casa,
+                     y cual sale de cada una lo decide la carta de su categoría. */ ?>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf" target="_blank" rel="noopener">PDF de la carta</a>
+            <a class="admin-btn admin-btn--tinted admin-btn--tinted-turquesa" href="/admin/menu/pdf/maridaje" target="_blank" rel="noopener">PDF de maridaje</a>
             <a class="admin-btn admin-btn--primary admin-create-button" href="/admin/menu/create" title="Nuevo platillo">
                 <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <path d="M12 5v14"/><path d="M5 12h14"/>
@@ -110,6 +114,27 @@
             <input type="text" id="cat-nueva-nombre" name="nombre" maxlength="40" required
                    placeholder="Postres, Coctelería, Menú infantil…">
         </div>
+
+        <?php /* La carta se elige aquí y no después en Categorías: sin este grupo,
+                 toda categoría nacida del tab "+" entraba en la de comida, y una
+                 de barra aparecía en la landing hasta que alguien lo notara.
+
+                 Sin las explicaciones de la pantalla de edición: en una fila de alta
+                 rápida dos renglones por opción pesan más que la decisión. */ ?>
+        <fieldset class="admin-cat-inline__field admin-pills">
+            <legend class="admin-cat-inline__label">Carta</legend>
+            <div class="admin-pills__group">
+                <?php foreach ($cartas as $valor => $carta) : ?>
+                    <label class="admin-pill">
+                        <input type="radio" name="carta" value="<?php echo htmlspecialchars((string) $valor, ENT_QUOTES); ?>"
+                               <?php echo $valor === \Model\CategoriasMenu::CARTA_COMIDA ? 'checked' : ''; ?> required>
+                        <span class="admin-pill__body">
+                            <span class="admin-pill__title"><?php echo htmlspecialchars((string) ($carta['corto'] ?? $valor)); ?></span>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </fieldset>
         <button type="submit" class="admin-btn admin-btn--primary admin-cat-inline__submit">
             <svg class="admin-btn__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M12 5v14"/><path d="M5 12h14"/>

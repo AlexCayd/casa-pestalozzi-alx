@@ -8,6 +8,7 @@
 namespace Controllers;
 
 use Model\Impresora;
+use Model\ConfiguracionPos;
 use Classes\TicketPrinter;
 use MVC\Router;
 
@@ -32,7 +33,57 @@ class AdminPrintersController
             'impresoras' => Impresora::all(),
             'areas' => self::AREAS,
             'alertas' => Impresora::getAlertas(),
+            // Lectura directa y no TicketPrinter::servicioActivo(): esa cachea
+            // el valor por proceso —lo consulta una vez y sirve a las cuatro
+            // áreas de una comanda— y servicio() vuelve aquí en la MISMA
+            // petición, así que la caché devolvería el estado anterior al
+            // interruptor que se acaba de pulsar.
+            'servicioActivo' => ConfiguracionPos::impresionActiva(),
         ]);
+    }
+
+    /**
+     * Enciende o apaga el SERVICIO de impresión, que no es lo mismo que dar de
+     * baja las impresoras: ninguna fila de `impresoras` se toca, así que el
+     * rol, el área y el destino de cada estación siguen intactos y reanudar es
+     * un solo toque.
+     *
+     * Sirve para el caso que motivó el interruptor: las impresoras están dadas
+     * de alta y activas, pero el hardware no está conectado, y cada envío de
+     * comanda pagaba el timeout de conexión por área —dentro de la petición y
+     * en serie— mientras el mesero miraba un botón que no respondía.
+     */
+    public static function servicio(Router $router): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            self::redirect(self::PRINTERS_PATH);
+        }
+
+        // El formulario manda el valor DESTINO, no un "alternar": así dos
+        // envíos seguidos —un doble toque, un reenvío del navegador— dejan el
+        // servicio donde dice el botón que se pulsó y no lo devuelven al estado
+        // anterior.
+        $activar = (string) ($_POST['activo'] ?? '') === '1';
+
+        $configuracion = new ConfiguracionPos([
+            'impresion_activa' => $activar ? 1 : 0,
+            'updated_by' => self::usuarioAutenticadoId(),
+        ]);
+
+        try {
+            if ($configuracion->guardarImpresionActiva()) {
+                Impresora::setAlerta('exito', $activar
+                    ? 'Impresión reanudada. Las comandas y las cuentas vuelven a enviarse a las impresoras.'
+                    : 'Impresión pausada. Los pedidos se siguen guardando y llegan al tablero de producción, pero no se envía nada a las impresoras.');
+            } else {
+                Impresora::setAlerta('error', 'No se pudo cambiar el estado del servicio de impresión');
+            }
+        } catch (\Throwable $e) {
+            error_log('AdminPrintersController::servicio - ' . $e->getMessage());
+            Impresora::setAlerta('error', 'No se pudo cambiar el estado del servicio de impresión. Revisa que la columna `impresion_activa` exista en `configuracion_pos`.');
+        }
+
+        self::index($router);
     }
 
     public static function create(Router $router): void
@@ -266,6 +317,22 @@ class AdminPrintersController
         }
 
         return $id;
+    }
+
+    /** Id del admin en sesión, para dejar rastro de quién movió el interruptor. */
+    private static function usuarioAutenticadoId(): ?int
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return null;
+        }
+
+        $usuarioId = filter_var(
+            $_SESSION['id'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+
+        return $usuarioId ? (int) $usuarioId : null;
     }
 
     private static function redirect(string $url): void

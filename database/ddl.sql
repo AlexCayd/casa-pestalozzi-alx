@@ -87,11 +87,24 @@ CREATE TABLE IF NOT EXISTS areas_produccion (
   color  VARCHAR(10) NOT NULL
 );
 
+-- `carta` parte el catalogo en las DOS piezas impresas que el comensal
+-- recibe: la carta de comida y la de maridaje (barra). No es un filtro de
+-- adorno: decide que categorias entran en cada PDF y cuales pinta la seccion
+-- de menu de la landing, que sigue siendo solo la de comida.
+--
+-- Vive en la categoria y no en el producto porque la carta es una decision
+-- de SECCION: "Cocktails" entero es maridaje, y un platillo no puede estar
+-- en una categoria de comida y salir en la otra pieza.
+--
+-- El punto de venta NO lo mira: el mesero cobra bebida y comida en el mismo
+-- ticket, asi que Carta::paraPos() sigue trayendo las dos.
 CREATE TABLE IF NOT EXISTS categorias (
   id     INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(40) NOT NULL,
+  carta  ENUM('comida','maridaje') NOT NULL DEFAULT 'comida',
   img    VARCHAR(200),
-  activo TINYINT(1) NOT NULL DEFAULT 1
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  KEY idx_categorias_carta (carta, id)
 );
 
 -- Accesos: los administradores usan usuario + password alfanumerica
@@ -822,6 +835,18 @@ CREATE TABLE IF NOT EXISTS configuracion_pos (
   --     los que cada quien usa su propia tablet y la selección manual solo
   --     abre la puerta a asignar tickets a otro por error.
   mesero_editable  TINYINT(1) NOT NULL DEFAULT 1,
+  -- Interruptor del SERVICIO de impresion, independiente de impresoras.activo.
+  -- 1 = las comandas y la cuenta se envian a las impresoras configuradas.
+  -- 0 = no se abre ninguna conexion: TicketPrinter corta antes de construir el
+  --     documento. Existe porque una instalacion puede tener sus cinco
+  --     impresoras dadas de alta y activas sin que el hardware este conectado
+  --     —es el caso de deploy.sql, que las siembra en 192.168.1.5x—, y cada
+  --     envio de comanda pagaba entonces el timeout de conexion por area
+  --     dentro de la peticion. Apagar impresoras.activo una por una tambien lo
+  --     evitaria, pero destruye la configuracion de cada estacion y hay que
+  --     rehacerla al reconectar el hardware; esto es un solo interruptor y no
+  --     toca ninguna fila de impresoras.
+  impresion_activa TINYINT(1) NOT NULL DEFAULT 1,
   updated_by       INT NULL,
   updated_at       TIMESTAMP NOT NULL
                      DEFAULT CURRENT_TIMESTAMP

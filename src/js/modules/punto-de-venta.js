@@ -268,7 +268,6 @@ function initMapa() {
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
     card:    '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
-    ban:     '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
 
     /*
@@ -2006,26 +2005,17 @@ function initMapa() {
     }
     h += '</div>';
     if (ticket) {
-      // La pastilla de cancelar vive pegada al chip: es una acción sobre el
-      // ticket que el chip anuncia, y ahí no compite con "Cerrar ticket".
-      // Nace deshabilitada y sólo la suelta el conteo real de ticket_items:
-      // el estado seguro es no poder descartar.
+      // Sólo el chip: la esquina del encabezado es INFORMACIÓN, no acción.
       //
-      // Va DESPUÉS del chip, en el extremo derecho de la fila. Estaba antes
-      // porque .mesa-modal__close es absolute contra el panel y se comía la
-      // esquina, dejando lo último de la fila debajo de la ×; el margen
-      // derecho de .mmodal-header-estado ya libra ese hueco, así que el orden
-      // puede ser el que dice la jerarquía: primero el estado del ticket, que
-      // es información, y al final la acción, donde la mano la busca.
-      //
-      // A partir de la primera comanda desaparece (ver
-      // actualizarCancelarMesaEstado): con consumo, la mesa se cobra.
+      // Aquí vivía la pastilla de "Cancelar mesa", que aparecía mientras la
+      // comanda estaba vacía y se retiraba en cuanto había consumo. Eran dos
+      // salidas para la misma mesa en dos sitios distintos del modal —una
+      // pastilla en la esquina y un botón al fondo de la pestaña Ticket— y
+      // cuál de las dos estaba viva dependía de un conteo que el mesero no ve.
+      // Ahora la salida es una sola y está donde se la busca: el botón de la
+      // pestaña Ticket (ver actualizarCierreEstado).
       h += '<div class="mmodal-header-estado">';
       h += '<span class="mmodal-chip mmodal-chip--ticket">Ticket abierto</span>';
-      h += '<button type="button" class="mmodal-chip-accion" id="mmodal-cancelar-mesa" ' +
-           'aria-label="Cancelar mesa" title="Comprobando consumo…" ' +
-           'data-estado="comprobando" aria-disabled="true">' +
-           svgIcon('ban', 14) + '</button>';
       h += '</div>';
     } else if (reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '">' + reservaChipLabel + '</span>';
@@ -2164,7 +2154,11 @@ function initMapa() {
       // navega con lector nunca llegaría a la explicación de por qué no puede
       // cerrar. Como región viva, el motivo se anuncia solo al cambiar.
       h += '<div class="mmodal-cerrar-hint" id="mmodal-cerrar-hint" role="status" hidden></div>';
-      h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar">Cerrar ticket</button>';
+      // Nace deshabilitado y con la etiqueta del caso con consumo: hasta que
+      // llega el conteo de ticket_items no se sabe cuál de los dos finales le
+      // toca, y el estado seguro es no poder terminar la mesa. Lo suelta
+      // actualizarCierreEstado, que corre en cuanto responde /api/ticket-items.
+      h += '<button class="mmodal-btn mmodal-btn--danger" id="mmodal-cerrar" data-accion="cobrar" disabled>Cerrar ticket</button>';
       h += '</div>'; // fin panel-actions
       h += '</div>'; // fin panel-resumen
 
@@ -2687,15 +2681,31 @@ function initMapa() {
   }
 
   /*
-   * Habilita/deshabilita "Cerrar ticket".
+   * El ÚNICO botón de salida del modal de ticket.
    *
-   * Dos frenos, y el segundo faltaba: además de que no queden productos sin
-   * entregar, tiene que haberse enviado ALGO. Un ticket recién abierto tiene
-   * cero pendientes, así que con la cuenta antigua el botón nacía habilitado y
-   * ofrecía cobrar una mesa en la que no se ha pedido nada — que es justo el
-   * camino al ticket vacío que luego hay que descartar a mano.
+   * Antes eran dos, y cuál de los dos servía dependía del consumo: "Cerrar
+   * ticket" al fondo de la pestaña Ticket, deshabilitado mientras no hubiera
+   * comandas, y una pastilla de "Cancelar mesa" en la esquina del encabezado
+   * que se retiraba en cuanto las había. Una mesa recién abierta y sin pedido
+   * no se podía cerrar desde el botón que dice cerrar: había que encontrar el
+   * otro, en la otra punta del modal.
    *
-   * La regla se revalida en el backend al cerrar; esto es la señal en pantalla.
+   * Ahora el botón es uno y decide por el mismo dato que antes gobernaba a los
+   * dos —`total`, que cuenta TODAS las filas de ticket_items, cancelados
+   * incluidos, porque un item cancelado ya movió inventario—:
+   *
+   *   con consumo  → "Cerrar ticket" → el flujo de cobro (tipo de cuenta,
+   *                  método de pago), y sigue frenado mientras queden
+   *                  productos sin entregar.
+   *   sin consumo  → "Cerrar mesa"   → la confirmación de descarte, que es la
+   *                  que ya existía y advierte de que no queda cuenta.
+   *
+   * La etiqueta cambia porque la consecuencia cambia: una sola palabra para
+   * dos finales distintos —uno cobra y el otro no— sería la parte del botón
+   * que miente. La intención viaja en `data-accion` para que el manejador no
+   * tenga que volver a contar.
+   *
+   * Las dos reglas se revalidan en el backend; esto es la señal en pantalla.
    */
   function actualizarCierreEstado(pendientes, total) {
     var btn  = modalContent.querySelector('#mmodal-cerrar');
@@ -2704,11 +2714,34 @@ function initMapa() {
 
     var sinComandas = !total;
     var mensaje = '';
-    if (sinComandas) {
-      mensaje = 'Envía al menos un platillo a la comanda';
-    } else if (pendientes > 0) {
+    if (!sinComandas && pendientes > 0) {
       mensaje = 'Falta entregar ' + pendientes + ' producto' + (pendientes === 1 ? '' : 's');
     }
+
+    var accion = sinComandas ? 'cancelar' : 'cobrar';
+    var etiqueta = sinComandas ? 'Cerrar mesa' : 'Cerrar ticket';
+    btn.dataset.accion = accion;
+
+    /*
+     * Mientras hay una petición en vuelo, este cálculo NO toca el botón.
+     *
+     * setActionBusy() lo deshabilita y le pone la etiqueta de progreso; el
+     * resumen se repinta solo cada pocos segundos, así que sin esta guarda un
+     * refresco que cayera en medio devolvía `disabled = false` y la mesa se
+     * podía cerrar dos veces con la primera petición todavía viajando. Antes
+     * no se notaba porque el descarte vivía en otro elemento: ahora comparten
+     * botón y el choque es real.
+     *
+     * `posOriginalLabel` es la marca de "en vuelo" —la escribe setActionBusy al
+     * ocupar el botón y la borra al soltarlo—, así que lo que se actualiza es
+     * esa copia y no el texto visible: al terminar, el botón vuelve con la
+     * etiqueta que le toque AHORA y no con la que tenía al empezar.
+     */
+    if (btn.dataset.posOriginalLabel) {
+      btn.dataset.posOriginalLabel = etiqueta;
+      return;
+    }
+    if (btn.textContent !== etiqueta) btn.textContent = etiqueta;
 
     btn.disabled = mensaje !== '';
     if (hint) {
@@ -2718,34 +2751,6 @@ function initMapa() {
       if (hint.textContent !== mensaje) hint.textContent = mensaje;
       hint.hidden = mensaje === '';
     }
-  }
-
-  /*
-   * "Cancelar mesa" sólo existe mientras la comanda esté vacía.
-   *
-   * `total` cuenta TODAS las filas de ticket_items, cancelados incluidos: el
-   * backend exige lo mismo, porque un item cancelado ya movió inventario y ese
-   * rastro no se descarta con el ticket.
-   *
-   * Antes se quedaba en pantalla bloqueada con aria-disabled, para poder
-   * explicar al pulsarla por qué no se podía. Se retira del todo: en cuanto hay
-   * consumo, cancelar deja de ser una opción —la mesa se cobra— y una pastilla
-   * apagada que nunca va a volver a servir es ruido en la esquina más cara del
-   * modal, justo al lado del chip de estado. Lo que sí queda es el camino real,
-   * que es cerrar el ticket.
-   *
-   * Se oculta con [hidden] y no con una clase: así sale también del recorrido
-   * de tabulación y de modalFocusables(), que filtra por :not([hidden]).
-   */
-  function actualizarCancelarMesaEstado(total) {
-    var btn = modalContent.querySelector('#mmodal-cancelar-mesa');
-    if (!btn) return;
-    var conConsumo = total > 0;
-    btn.hidden = conConsumo;
-    btn.dataset.estado = conConsumo ? 'bloqueada' : 'disponible';
-    btn.setAttribute('aria-disabled', conConsumo ? 'true' : 'false');
-    btn.title = 'Cancelar mesa: libera la mesa sin generar cuenta.';
-    btn.setAttribute('aria-label', 'Cancelar mesa');
   }
 
   // ── Caché de los ítems del ticket ─────────────────────────
@@ -2789,10 +2794,9 @@ function initMapa() {
           resumenEl.innerHTML = '<div class="mmodal-col-empty"><span class="mmodal-col-empty__icon">' + svgIcon('ticket', 26) + '</span><span>Sin comandas enviadas aún</span></div>';
           var badge = modalContent.querySelector('#mmodal-resumen-badge');
           if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
-          // Sin ítems: ni se puede cerrar (no hay nada que cobrar) ni tiene
-          // sentido esconder "Cancelar mesa", que es la salida de este estado.
+          // Sin ítems el botón no se bloquea: pasa a "Cerrar mesa" y libera
+          // la mesa sin cuenta, que es la salida de este estado.
           actualizarCierreEstado(0, 0);
-          actualizarCancelarMesaEstado(0);
           return;
         }
 
@@ -2815,7 +2819,6 @@ function initMapa() {
 
         // No se puede cerrar la cuenta con productos sin entregar.
         actualizarCierreEstado(pendientes, data.items.length);
-        actualizarCancelarMesaEstado(data.items.length);
 
         var html = '';
         for (var slug in byArea) {
@@ -3076,21 +3079,6 @@ function initMapa() {
       })(ticket.id);
     }
 
-    // Botón "Cancelar mesa" del encabezado: descarta un ticket sin consumo.
-    var cancelarMesaBtn = modalContent.querySelector('#mmodal-cancelar-mesa');
-    if (cancelarMesaBtn) {
-      (function(tid, mesaActual) {
-        cancelarMesaBtn.addEventListener('click', function() {
-          if (cancelarMesaBtn.dataset.estado === 'comprobando') return;
-          if (cancelarMesaBtn.dataset.estado === 'bloqueada') {
-            showCancelarMesaBloqueada();
-            return;
-          }
-          showCancelarMesaConfirm(tid, mesaActual);
-        });
-      })(ticket.id, mesa);
-    }
-
     // En desktop las 4 columnas son visibles desde el inicio
     if (window.innerWidth >= 768) {
       renderResumen(ticket.id);
@@ -3102,10 +3090,9 @@ function initMapa() {
         cargarTicketItems(tid, false)
           .then(function(data) {
             var total = (data && data.ok && data.items) ? data.items.length : 0;
-            actualizarCancelarMesaEstado(total);
-            // "Cerrar ticket" vive en la pestaña del resumen, que en móvil aún
-            // no se ha pintado; se deja en su estado seguro —deshabilitado
-            // mientras no haya comandas— sin esperar a que el mesero la abra.
+            // El botón de salida vive en la pestaña del resumen, que en móvil
+            // aún no se ha pintado; se resuelve aquí su etiqueta y su freno sin
+            // esperar a que el mesero la abra.
             var pendientes = 0;
             if (data && data.ok && data.items) {
               data.items.forEach(function(item) {
@@ -3114,7 +3101,7 @@ function initMapa() {
             }
             actualizarCierreEstado(pendientes, total);
           })
-          .catch(function() { /* el botón se queda bloqueado, que es lo seguro */ });
+          .catch(function() { /* el botón se queda como nació: deshabilitado */ });
       })(ticket.id);
     }
 
@@ -3232,9 +3219,17 @@ function initMapa() {
       });
     }
 
+    // El único botón de salida: cobra la mesa o la libera, según lo que
+    // actualizarCierreEstado haya dejado en data-accion. Se lee en el momento
+    // del click y no al enlazar: el mesero puede enviar la primera comanda con
+    // el modal abierto, y entonces la salida pasa de descarte a cobro.
     var cerrarBtn = modalContent.querySelector('#mmodal-cerrar');
     if (cerrarBtn && ticket) {
       cerrarBtn.addEventListener('click', function() {
+        if (cerrarBtn.dataset.accion === 'cancelar') {
+          showCancelarMesaConfirm(ticket.id, mesa);
+          return;
+        }
         showCerrarConfirm(mesa, ticket);
       });
     }
@@ -4776,28 +4771,6 @@ function initMapa() {
     .catch(function() { avisoConexion(); });
   }
 
-  // El caso bloqueado también despliega el diálogo: sin texto al lado de la
-  // pastilla, es el único sitio donde cabe la explicación. Sin botón primario,
-  // porque aquí no hay nada que confirmar.
-  function showCancelarMesaBloqueada() {
-    if (!window.ConfirmationModal) {
-      aviso('La mesa ya tiene consumo: se cobra con el cierre normal.', 'warning');
-      return;
-    }
-    window.ConfirmationModal.get().open({
-      variant: 'warning',
-      eyebrow: 'Mesa con consumo',
-      title: 'No se puede cancelar esta mesa',
-      description: 'Esta mesa ya registró productos, así que no puede liberarse sin cuenta.',
-      warning: 'Cuenta como consumo cualquier producto enviado a producción, ' +
-               'incluidos los que ya se cancelaron: mueven inventario y quedan ' +
-               'en el tablero del área.',
-      consequence: 'Cóbrala con "Cerrar ticket" desde la pestaña Ticket.',
-      secondaryLabel: 'Entendido',
-      primaryHidden: true
-    });
-  }
-
   function showCancelarMesaConfirm(ticketId, mesa) {
     var nombreMesa = mesa && mesa.nombre ? mesa.nombre : 'la mesa';
     if (!window.ConfirmationModal) {
@@ -4820,10 +4793,12 @@ function initMapa() {
   }
 
   function apiCancelarMesa(ticketId) {
-    var btn = modalContent.querySelector('#mmodal-cancelar-mesa');
-    // 'comprobando' es también el estado "en vuelo": inerte al click y sin
-    // pintarse como bloqueada, que sería mentir sobre el motivo.
-    if (btn) btn.dataset.estado = 'comprobando';
+    // El botón en vuelo es el mismo que el del cobro, así que se bloquea con
+    // setActionBusy() como el resto de las acciones del modal: deshabilitado,
+    // aria-busy y etiqueta de progreso. La etiqueta original la guarda él y la
+    // devuelve al soltarlo, que es lo que hace falta si la petición falla.
+    var btn = modalContent.querySelector('#mmodal-cerrar');
+    setActionBusy(btn, true, 'Cerrando mesa…');
     postJson('/api/cancelar-mesa', { ticket_id: ticketId })
     .then(function(result) {
       if (result && result.ok) {
@@ -4841,15 +4816,17 @@ function initMapa() {
         fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
       } else {
         aviso(result && result.mensaje);
-        // Puede haber llegado una comanda desde otra tablet: repintar el
-        // resumen vuelve a calcular si el botón debe seguir vivo.
+        // Puede haber llegado una comanda desde otra tablet, y entonces esta
+        // mesa ya no se descarta sino que se cobra: repintar el resumen vuelve
+        // a calcular la etiqueta y la acción del botón.
+        setActionBusy(btn, false);
         invalidarTicketItems(ticketId);
         renderResumen(ticketId);
       }
     })
     .catch(function() {
       avisoConexion();
-      if (btn) btn.dataset.estado = 'disponible';
+      setActionBusy(btn, false);
     });
   }
 

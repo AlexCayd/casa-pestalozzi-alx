@@ -7,6 +7,15 @@
  *   - $generado:   string con la fecha/hora de generacion (no se muestra)
  *   - $fontsDir:   ruta absoluta (con / ) a public/build/fonts para @font-face
  *   - $logoRuta:   ruta absoluta al logo.svg de la casa, para el pie
+ *   - $pdfRotulo:  rotulo de la banda, en caja alta (MENU / MARIDAJE)
+ *   - $pdfBajada:  la linea bajo el wordmark
+ *   - $pdfVacio:   aviso cuando la carta no tiene ni un registro
+ *   - $pdfTitulo:  <title> del documento
+ *
+ * Los cuatro ultimos son lo UNICO que distingue a las dos piezas que salen
+ * de aqui — la carta de comida y la de maridaje—: mismo papel, misma banda,
+ * mismas dos columnas. Services\MenuPdf los resuelve; la plantilla no sabe
+ * cual esta imprimiendo, y por eso no hay un solo condicional de carta abajo.
  *
  * Diseno: la carta impresa es la landing en papel, no una pantalla de piso.
  * Antes copiaba el modo oscuro (fondo casi negro y dorado de acento), que ya
@@ -24,6 +33,14 @@
  *
  * Margenes uniformes en los 4 lados via .page.
  */
+
+// Respaldos: la plantilla se incluye desde Services\MenuPdf, que siempre los
+// entrega. Se declaran igual para que un include suelto imprima la carta de
+// comida en vez de una banda sin rotulo.
+$pdfRotulo = $pdfRotulo ?? 'MENÚ';
+$pdfBajada = $pdfBajada ?? 'Cocina Mediterránea con corazón mexicano';
+$pdfVacio = $pdfVacio ?? 'No hay platillos registrados en el menú.';
+$pdfTitulo = $pdfTitulo ?? 'menu-casa-pestalozzi';
 
 /**
  * Unico sitio del archivo con hex.
@@ -132,7 +149,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>menu-casa-pestalozzi</title>
+    <title><?php echo htmlspecialchars($pdfTitulo); ?></title>
     <style>
         @font-face {
             font-family: "Playfair Display";
@@ -460,7 +477,7 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
              deja sangrar de canto a canto. Tambien se imprime cuando no hay
              platillos — una hoja con la marca y un aviso, no un aviso suelto. */ ?>
     <div class="pdf-header">
-        <p class="pdf-header__rotulo">MENÚ</p>
+        <p class="pdf-header__rotulo"><?php echo htmlspecialchars($pdfRotulo); ?></p>
         <?php /* El nombre de la casa lo pone el componente compartido, que lo
                  escribe en caja alta real en el marcado y no con
                  text-transform. En papel eso pesa mas que en pantalla: la caja
@@ -472,11 +489,11 @@ $iconoInstagram = 'data:image/svg+xml;base64,' . base64_encode(
         $hcpHref = '';
         include __DIR__ . '/../../templates/header-casa-pestalozzi.php';
         ?>
-        <p class="sub">Cocina Mediterránea con corazón mexicano</p>
+        <p class="sub"><?php echo htmlspecialchars($pdfBajada); ?></p>
     </div>
     <div class="page">
         <?php if (empty($categorias)) : ?>
-            <p class="empty">No hay platillos registrados en el menú.</p>
+            <p class="empty"><?php echo htmlspecialchars($pdfVacio); ?></p>
         <?php else : ?>
             <table class="menu-table">
                 <!-- Espaciador repetido: margen superior en cada hoja -->

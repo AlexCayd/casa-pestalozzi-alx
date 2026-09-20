@@ -76,17 +76,20 @@ INSERT INTO impresoras (id, nombre, area_id, rol, conexion, host, puerto, dispos
 -- Categorías del menú
 -- -------------------------------------------------------
 
-INSERT INTO categorias (id, nombre, img) VALUES
-(1, 'Desayunos',     'build/images/comida-4.webp'),
-(2, 'Entradas',      'build/images/comida-9.webp'),
-(3, 'Sopas & Cremas','build/images/comida-7.webp'),
-(4, 'Pastas',        'build/images/mejor-2.webp'),
-(5, 'Platos Fuertes','build/images/mejor-6.webp'),
-(6, 'Ensaladas',     'build/images/comida-2.webp'),
-(7, 'Pizzas',        'build/images/pizza-3.webp'),
-(8, 'Para Picar',    'build/images/comida-6.webp'),
-(9, 'Café & Bebidas',    'build/images/comida-1.webp'),
-(10, 'Jugos & Smoothies', 'build/images/comida-2.webp');
+-- `carta` dice en cual de las DOS piezas impresas entra la categoria. Estas
+-- diez son la carta de comida, que es ademas lo unico que pinta la seccion
+-- de menu de la landing; las de barra llegan mas abajo marcadas 'maridaje'.
+INSERT INTO categorias (id, nombre, carta, img) VALUES
+(1, 'Desayunos',          'comida', 'build/images/comida-4.webp'),
+(2, 'Entradas',           'comida', 'build/images/comida-9.webp'),
+(3, 'Sopas & Cremas',     'comida', 'build/images/comida-7.webp'),
+(4, 'Pastas',             'comida', 'build/images/mejor-2.webp'),
+(5, 'Platos Fuertes',     'comida', 'build/images/mejor-6.webp'),
+(6, 'Ensaladas',          'comida', 'build/images/comida-2.webp'),
+(7, 'Pizzas',             'comida', 'build/images/pizza-3.webp'),
+(8, 'Para Picar',         'comida', 'build/images/comida-6.webp'),
+(9, 'Café & Bebidas',     'comida', 'build/images/comida-1.webp'),
+(10, 'Jugos & Smoothies', 'comida', 'build/images/comida-2.webp');
 
 -- -------------------------------------------------------
 -- Productos — catálogo único (carta pública + POS)
@@ -472,3 +475,154 @@ ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 -- producto sin texto, al menos sale con su nombre y no con un hueco.
 UPDATE productos SET descripcion = CONCAT(nombre, '.')
 WHERE descripcion IS NULL OR descripcion = '';
+
+-- Casa Pestalozzi — DML operativo: carta de bar "Casa Maridaje"
+--
+-- Ejecutar DESPUÉS de database/deploy.sql. Es aditivo y re-ejecutable
+-- (todos los INSERT resuelven con ON DUPLICATE KEY), así que puede correrse
+-- sobre una base ya sembrada sin duplicar filas ni romper el UNIQUE de nombre.
+--
+-- Aporta: 4 categorías y 29 productos de la carta de bar.
+--
+-- No agrega área de producción ni estación de impresión: la carta de bar se
+-- produce en la Barra de Café (area_id = 1), que ya tiene su comanda sembrada
+-- en el bloque de arriba. Un área propia obligaba a darle color en tres
+-- lugares a la vez — esta tabla, Controllers\AdminAreaController::AREAS y
+-- CP_AREAS en el POS — y, mientras faltaran los otros dos, el tablero y el
+-- panel la pintaban de colores distintos o de ninguno.
+--
+SET NAMES utf8mb4;
+
+START TRANSACTION;
+
+-- -------------------------------------------------------
+-- Categorías del menú — carta de bar
+-- -------------------------------------------------------
+--
+-- Continúan la numeración de deploy.sql (1..10). Las rutas de img reusan
+-- imágenes ya existentes para que la carta no salga con recuadros rotos;
+-- sustituirlas por fotos reales de barra cuando las tengan.
+-- Las cuatro van en `carta = 'maridaje'`: es lo que las saca de la seccion de
+-- menu de la landing y de su PDF, y lo que las mete en el PDF de maridaje que
+-- enlaza el segundo boton de esa misma seccion.
+INSERT INTO categorias (id, nombre, carta, img) VALUES
+(11, 'Tablas de Degustación', 'maridaje', 'build/images/comida-6.webp'),  -- <-- imagen provisional
+(12, 'Cocktails',             'maridaje', 'build/images/comida-1.webp'),  -- <-- imagen provisional
+(13, 'Cervezas',              'maridaje', 'build/images/comida-9.webp'),  -- <-- imagen provisional
+(14, 'Bebidas sin Alcohol',   'maridaje', 'build/images/comida-2.webp')   -- <-- imagen provisional
+ON DUPLICATE KEY UPDATE nombre = VALUES(nombre), carta = VALUES(carta), img = VALUES(img);
+
+-- -------------------------------------------------------
+-- Productos — carta de bar
+-- -------------------------------------------------------
+--
+-- Mismo patrón que el catálogo de deploy.sql: alta directa con descripción,
+-- resolviendo contra el UNIQUE de nombre con ON DUPLICATE KEY para que el
+-- script sea re-ejecutable.
+--
+-- categoria_id: 11 Tablas de Degustación · 12 Cocktails · 13 Cervezas
+--               14 Bebidas sin Alcohol
+-- area_id:      1 Barra de Café
+INSERT INTO productos (nombre, descripcion, categoria_id, precio, area_id) VALUES
+
+-- Tablas de Degustación (categoria_id = 11)
+('Regiones de Escocia',
+ 'Tres whiskies escoceses de 30 ml: Arran 10 (Isle of Arran), GlenAllachie 12 (Speyside) y Ardbeg 10 (Islay).',
+ 11, 450.00, 1),
+('Glenmorangie',
+ 'Tabla Glenmorangie, 30 ml c/u: 14 (Ex-Bourbon & Ex-Port Casks), 15 (Ex-Bourbon & Ex-Sherry Casks) y 16 (Ex-Bourbon & Sweet White Wine Casks).',
+ 11, 380.00, 1),
+('Los Grandes Clásicos',
+ 'Tres clásicos de 30 ml: Cutty Sark (Blended Scotch), Glenfiddich 12 "Original" y Macallan 12 "Double Cask".',
+ 11, 370.00, 1),
+('Clásicos del Tequila',
+ 'Tres tequilas blancos de 30 ml: Tequileño Blanco, Cascahuín Blanco y Siete Leguas Blanco.',
+ 11, 240.00, 1),
+('Cata Tequileño',
+ 'Cata vertical de la casa Tequileño, 30 ml c/u: Blanco, Platinum y Reposado.',
+ 11, 180.00, 1),
+
+-- Cocktails (categoria_id = 12)
+('Gin Cocktails',
+ 'Sabores: frutos rojos, lychee y pepino.',
+ 12, 190.00, 1),
+('Gin Tonic',
+ 'Ginebra, romero y limón eureka.',
+ 12, 190.00, 1),
+('Margaritas',
+ 'Sabores: maracuyá, clásica y frutos rojos.',
+ 12, 190.00, 1),
+('Mezcalitas',
+ 'Sabores: maracuyá, sandía y frutos rojos.',
+ 12, 190.00, 1),
+('Aperol Spritz',
+ 'Aperol, prosecco y naranja.',
+ 12, 190.00, 1),
+('St. Germain Spritz',
+ 'Licor de saúco, limón eureka y prosecco.',
+ 12, 210.00, 1),
+('Pestalozzi Martini',
+ 'Tito''s Vodka, ginebra y vermouth blanco.',
+ 12, 140.00, 1),
+('Pestalozzi Negroni',
+ 'Campari, vermouth rosso y ginebra.',
+ 12, 210.00, 1),
+('Tequila Negroni',
+ 'Campari, vermouth rosso y Tequileño Blanco.',
+ 12, 210.00, 1),
+('Batanga Tequileño',
+ 'Receta auténtica: Tequileño Blanco, Coca-Cola, jugo de limón fresco y sal de mar.',
+ 12, 120.00, 1),
+('Espresso Martini',
+ 'Espresso, Tito''s Vodka y Kahlúa.',
+ 12, 210.00, 1),
+('Coctelería Clásica',
+ 'Cuba Libre, Old Fashioned, Manhattan, Cosmopolitan, Mojito, Bloody Mary, entre otros. Pregunta a nuestro equipo.',
+ 12, 190.00, 1),
+
+-- Cervezas (categoria_id = 13)
+('Modelo Especial',
+ 'México, 4.5% ABV, 355 ml.',
+ 13, 80.00, 1),
+('Victoria',
+ 'México, 4.0% ABV, 355 ml.',
+ 13, 70.00, 1),
+('Estrella Galicia',
+ 'España, 5.5% ABV, 355 ml.',
+ 13, 70.00, 1),
+('1906',
+ 'España, 6.5% ABV, 355 ml.',
+ 13, 80.00, 1),
+('Estrella Galicia de Barril',
+ 'España, 6.5% ABV, 355 ml.',
+ 13, 90.00, 1),
+
+-- Bebidas sin Alcohol (categoria_id = 14)
+('Mocktails',
+ 'Frutos rojos, maracuyá, sandía, entre otros sabores de temporada.',
+ 14, 140.00, 1),
+('Piñada',
+ 'Jugo de piña, leche evaporada y coco.',
+ 14, 140.00, 1),
+('Naranjada/Limonada',
+ 'Preparada con agua mineral o natural.',
+ 14, 85.00, 1),
+('Suero de Limón',
+ 'Jugo de limón, sal y agua mineral Topo Chico. Cambio a Perrier (330 ml) o Agua de Piedra (355 ml) +$15 · Agua de Piedra (650 ml) +$35.',
+ 14, 70.00, 1),
+('Agua Mineral',
+ 'Topo Chico (355 ml). Cambio a Perrier (330 ml) o Agua de Piedra (355 ml) +$15 · Agua de Piedra (650 ml) +$35.',
+ 14, 50.00, 1),
+('Agua Natural',
+ 'Agua de Piedra (355 ml). Presentación de 650 ml +$25.',
+ 14, 45.00, 1),
+('Refrescos de Barra',
+ 'Botella de 355 ml: Coca-Cola, Coca-Cola sin azúcar, Coca-Cola Light, Sprite y Mundet.',
+ 14, 65.00, 1)
+ON DUPLICATE KEY UPDATE
+  descripcion  = VALUES(descripcion),
+  precio       = VALUES(precio),
+  categoria_id = VALUES(categoria_id),
+  area_id      = VALUES(area_id);
+
+COMMIT;

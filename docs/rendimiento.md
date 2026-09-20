@@ -29,6 +29,60 @@ volviera a tocar el botón. **No quita la causa de fondo**: la impresión sigue
 ocurriendo dentro de la petición, y el botón sigue sin defensa contra un doble
 toque. De ahí las dos correcciones que siguen.
 
+### Interruptor del servicio de impresión
+
+También aplicado. `configuracion_pos.impresion_activa` es un interruptor
+**global** de la impresión, y el listado de `/admin/printers` lo enciende y lo
+apaga con un botón (`POST /admin/printers/service`).
+
+Resuelve el caso real de esta instalación, que es el que el anexo describe al
+final: las cinco impresoras están dadas de alta y `deploy.sql` las siembra
+`activo = 1` apuntando a `192.168.1.5x`, pero el hardware no está conectado. Con
+el servicio pausado, `TicketPrinter::imprimirComanda()` y `imprimirCuenta()`
+cortan **en la primera línea**: no se consulta `areas_produccion`, no se busca
+impresora por área, no se construye ningún `Documento` y no se abre ni un
+socket.
+
+Medido contra la impresora de cuenta (`activo = 1`, host inalcanzable):
+
+| `TicketPrinter::imprimirCuenta` | Servicio activo | Servicio pausado |
+|---|---|---|
+| una impresora inalcanzable | 2 057 ms | 42 ms |
+
+Los 42 ms son la consulta de `configuracion_pos`, que se cachea por proceso
+(`TicketPrinter::$servicioActivo`): la segunda llamada de la misma petición
+—las otras tres áreas de una comanda— cuesta 0 ms.
+
+Tres decisiones que no se deducen del código:
+
+- **No toca `impresoras.activo`.** Apagar cada impresora a mano evita igual el
+  socket —`Impresora::comandaPorArea()` filtra por `activo = 1`— pero destruye
+  la configuración de cada estación y hay que rehacerla al reconectar el
+  hardware. El interruptor es uno y no deja rastro en el catálogo.
+- **«Imprimir prueba» sigue funcionando con el servicio pausado.** Es la
+  herramienta con la que se comprueba una estación *antes* de reanudar, y es
+  una acción manual del administrador: nadie espera detrás de ella, al revés
+  que un mesero en el envío de comanda.
+- **La lectura es tolerante.** Si la columna o la tabla no existen,
+  `ConfiguracionPos::impresionActiva()` devuelve `true` y todo se comporta como
+  siempre. El interruptor sólo puede apagar algo que ya funcionaba; un fallo de
+  configuración nunca deja al restaurante sin comandas.
+
+Lo que **no** resuelve: con el servicio encendido y una impresora apagada, el
+costo de 2 s por área sigue dentro de la petición. Eso es la corrección 2, y
+sigue pendiente. El interruptor es la salida para el periodo en que se sabe que
+no hay hardware; no sustituye a sacar la impresión del camino crítico.
+
+Cambio de esquema (el proyecto no tiene migraciones, ver `CLAUDE.md`): la
+columna está en `ddl.sql`, y sobre una base con datos que haya que conservar el
+`ALTER` es
+
+```sql
+ALTER TABLE configuracion_pos
+  ADD COLUMN impresion_activa TINYINT(1) NOT NULL DEFAULT 1
+  AFTER mesero_editable;
+```
+
 ## Corrección 2 · Sacar la impresión del camino crítico
 
 ### El problema

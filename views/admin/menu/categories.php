@@ -1,5 +1,8 @@
 <?php
+    use Model\CategoriasMenu;
+
     $categorias = isset($categorias) && is_iterable($categorias) ? $categorias : [];
+    $cartas = is_array($cartas ?? null) && $cartas ? $cartas : CategoriasMenu::CARTAS;
 ?>
 
 <section class="admin-menu admin-page">
@@ -7,7 +10,7 @@
         <div class="admin-page__intro">
             <span class="admin-menu__eyebrow admin-page__eyebrow">Menú</span>
             <h2 class="admin-page__title">Categorías</h2>
-            <p class="admin-page__subtitle">Administra las categorías visibles del menú público.</p>
+            <p class="admin-page__subtitle">Administra las categorías de las dos cartas: la de comida y la de maridaje.</p>
         </div>
         <div class="admin-menu__actions admin-actions">
             <a class="admin-btn admin-btn--secondary admin-menu__button admin-menu__button--light admin-back-button" href="/admin/menu">
@@ -50,6 +53,7 @@
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>Carta</th>
                             <th>Imagen</th>
                             <th>Visibilidad</th>
                             <th>Acciones</th>
@@ -62,6 +66,16 @@
                                     <span class="admin-table__cell-main"><?php echo htmlspecialchars($cat->nombre); ?></span>
                                 </td>
                                 <td>
+                                    <?php
+                                        $cartaCat = CategoriasMenu::normalizarCarta($cat->carta ?? null);
+                                        $cartaTitulo = (string) ($cartas[$cartaCat]['corto'] ?? $cartaCat);
+                                    ?>
+                                    <?php /* Neutro y en contorno a propósito: la carta es un atributo,
+                                             no un estado. Dos tonos aquí le quitarían significado al
+                                             ámbar de «Sin imagen» de la columna de al lado. */ ?>
+                                    <span class="admin-badge admin-badge--neutral admin-badge--outline"><?php echo htmlspecialchars($cartaTitulo); ?></span>
+                                </td>
+                                <td>
                                     <?php if (!empty($cat->img)) : ?>
                                         <img class="admin-menu__thumb" src="/<?php echo htmlspecialchars(ltrim($cat->img, '/')); ?>"
                                              alt="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>" loading="lazy">
@@ -72,6 +86,10 @@
                                 <td>
                                     <form method="POST" action="/admin/menu/categorias/edit?id=<?php echo (int) $cat->id; ?>">
                                         <input type="hidden" name="nombre" value="<?php echo htmlspecialchars($cat->nombre, ENT_QUOTES); ?>">
+                                        <?php /* Sin este oculto, apagar una categoría la devolvería a la
+                                                 carta de comida: el POST reconstruye la fila entera y lo que
+                                                 no viaja se normaliza al valor por defecto. */ ?>
+                                        <input type="hidden" name="carta" value="<?php echo htmlspecialchars($cartaCat, ENT_QUOTES); ?>">
                                         <?php if (!$cat->activo) : ?>
                                             <input type="hidden" name="activo" value="1">
                                         <?php endif; ?>

@@ -324,3 +324,21 @@
     font-family: var(--crimson);
   }
 }
+
+// Las dos cartas descargables, una sobre otra.
+//
+// Apiladas y no en la fila porque son la misma acción —llevarse la carta—
+// sobre dos piezas distintas: en fila, el pie ofrecía tres destinos del
+// mismo peso y el CTA de reserva dejaba de leerse como el único principal.
+.menu__docs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  // Las dos píldoras al mismo ancho: las etiquetas no miden igual y dos
+  // cantos sin aplomo, uno debajo del otro, se leen como un descuido.
+  align-items: stretch;
+
+  // Estirada, la píldora deja de ceñirse al texto: sin esto la flecha
+  // quedaba pegada a la palabra y el aire sobrante, todo a la derecha.
+  .btn-line { justify-content: space-between; }
+}

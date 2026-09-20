@@ -3,6 +3,7 @@
 namespace Classes;
 
 use Model\Impresora;
+use Model\ConfiguracionPos;
 use Classes\Impresion\Comanda;
 use Classes\Impresion\Cuenta;
 use Classes\Impresion\Prueba;
@@ -49,6 +50,29 @@ class TicketPrinter {
      */
     private const TIMEOUT_CONEXION = 2;
 
+    /**
+     * ¿Está encendido el servicio de impresión?
+     *
+     * Es un interruptor GLOBAL, distinto de `impresoras.activo`: apagarlo deja
+     * las cinco estaciones dadas de alta y configuradas, pero ninguna comanda
+     * ni ninguna cuenta llega a abrir un socket. Existe porque una instalación
+     * puede tener las impresoras en el sistema sin el hardware conectado —el
+     * caso de `deploy.sql`, que las siembra apuntando a 192.168.1.5x— y
+     * entonces cada envío de comanda paga el timeout de conexión por área,
+     * dentro de la petición y en serie.
+     *
+     * Se consulta una vez por proceso: el valor no cambia a media petición y
+     * `imprimirComanda()` recorre varias áreas.
+     */
+    private static ?bool $servicioActivo = null;
+
+    public static function servicioActivo(): bool {
+        if (self::$servicioActivo === null) {
+            self::$servicioActivo = ConfiguracionPos::impresionActiva();
+        }
+        return self::$servicioActivo;
+    }
+
     /** Devuelve (y no consume) el detalle del último fallo, o null si no hubo. */
     public static function ultimoError(): ?string {
         return self::$ultimoError;
@@ -67,6 +91,15 @@ class TicketPrinter {
      * @return array [ area_id => bool ]  true si la comanda de esa área se envió a la impresora.
      */
     public static function imprimirComanda(array $items, array $meta): array {
+        // El corte va aquí arriba, no en enviar(): con el servicio apagado no
+        // se consulta areas_produccion ni se busca impresora por área ni se
+        // construye un solo Documento. El array vacío es el mismo que devuelve
+        // una orden sin platillos, y quien lo recibe ya lo trata como «no hubo
+        // nada que imprimir».
+        if (!self::servicioActivo()) {
+            return [];
+        }
+
         // Encabezado común a todas las comandas del ticket.
         $ticket = [
             'mesa'        => $meta['mesa']        ?? null,
@@ -131,6 +164,13 @@ class TicketPrinter {
      * @return bool true si la cuenta se envió a la impresora.
      */
     public static function imprimirCuenta(array $ticket, array $items, string $metodoPago, bool $separarComensales = false): bool {
+        // Mismo corte que en la comanda, y por la misma razón: la cuenta se
+        // imprime dentro del cierre de ticket, así que un host inalcanzable
+        // retrasa el cobro y el token de feedback.
+        if (!self::servicioActivo()) {
+            return false;
+        }
+
         try {
             $impresora = Impresora::cuenta();
             if (!$impresora) {
@@ -156,8 +196,14 @@ class TicketPrinter {
     }
 
     /**
-     * Envía un ticket de prueba a UNA impresora concreta (sin importar su rol ni
-     * si está activa). Lo usa el CRUD admin para verificar conectividad.
+     * Envía un ticket de prueba a UNA impresora concreta (sin importar su rol,
+     * si está activa, ni si el servicio de impresión está encendido). Lo usa el
+     * CRUD admin para verificar conectividad.
+     *
+     * Que ignore `servicioActivo()` es deliberado: la prueba es precisamente
+     * con lo que se comprueba una estación ANTES de reanudar el servicio, y es
+     * una acción manual del administrador —nadie espera detrás de ella, al
+     * revés que un mesero en el envío de comanda.
      *
      * @param Impresora    $impresora  Impresora destino.
      * @param string|null  $areaNombre Nombre legible del área (opcional, informativo).

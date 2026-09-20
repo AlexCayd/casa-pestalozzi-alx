@@ -9255,6 +9255,20 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * el chip de estado y la acción se iban fuera del panel, que es justo lo que
  * no puede perderse. El nombre completo de una reservación se lee entero en el
  * cuerpo del modal; el chip, sólo aquí. */
+/* El interlineado lo fija la esquina, no la tipografía.
+ *
+ * `.mmodal-header` declara `min-height: var(--mmodal-corner-size)` para que la
+ * × —que es `absolute` contra el panel y aterriza a `--mmodal-corner-inset`—
+ * caiga centrada en la fila. Eso sólo se cumple si NADA de la fila mide más de
+ * 28px, y el título medía 32: con `font-size: 1.25rem` (20px) y el
+ * interlineado heredado de 1.6, su caja de línea salía a 32px, estiraba la fila
+ * y `align-items: center` bajaba el chip 2px. La × se quedaba arriba porque su
+ * posición no depende de la fila, y ésa era la desalineación.
+ *
+ * El valor es el de la esquina y no un número: si un día cambia
+ * `--mmodal-corner-size`, la fila y el título cambian con él. 28/20 = 1.4, de
+ * sobra para una línea de Geist sin cortar descendentes —y no hay segunda
+ * línea, que es lo que impide `white-space: nowrap`. */
 .mmodal-title {
   min-width: 0;
   overflow: hidden;
@@ -9262,6 +9276,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   font-family: var(--serif);
   font-size: 1.25rem;
   font-weight: 600;
+  line-height: var(--mmodal-corner-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -9341,25 +9356,18 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
 /*
  * LA ESQUINA DEL MODAL ES UNA SOLA RECETA.
  *
- * Los tres controles —chip de estado, cancelar mesa y cerrar— compartían la
- * altura pero nada más: el chip iba en tinte al 18% con filete al 30%, el de
- * cancelar en tinte al 12% con filete al 34%, y el de cerrar ni siquiera usaba
- * tinte, sino un relleno SÓLIDO de --surface-2 con un filete neutro. Tres
- * lenguajes distintos en cuarenta píxeles, y dos parejas de porcentajes que no
- * respondían a ninguna razón.
+ * Fueron tres controles —chip de estado, «cancelar mesa» y cerrar— y cada uno
+ * traía su propio tinte: el chip al 18% con filete al 30%, el de cancelar al
+ * 12% con filete al 34%, y el de cerrar ni siquiera usaba tinte sino un relleno
+ * SÓLIDO de --surface-2. Tres lenguajes distintos en cuarenta píxeles.
  *
- * Ahora la receta es una y el único que cambia es el hue, que es lo que de
- * verdad los distingue: verde el estado, rojo la acción destructiva, neutro el
- * cierre. --mmodal-corner-tono es lo que cada uno declara.
- */
-/*
- * La CAJA también es parte de la receta, no sólo el color.
- *
- * Cada uno declaraba la suya —el de cerrar `width` y `display: flex`, el de
- * cancelar `width` + `flex: 0 0 28px` e `inline-flex`— con el mismo 28 escrito
- * dos veces. Dos literales que hay que acordarse de cambiar a la vez son dos
- * tamaños distintos esperando a pasar; ahora los dos miden
- * `--mmodal-corner-size` y no hay forma de que se separen.
+ * Hoy quedan dos —el chip informa, la × cierra el modal— porque «cancelar mesa»
+ * se fundió con «cerrar ticket» en el único botón de salida de la pestaña
+ * Ticket (ver actualizarCierreEstado en punto-de-venta.js). El placeholder
+ * sobrevive a ese recorte: describe la CAJA de la esquina —tamaño, radio y la
+ * fórmula del tinte— y el único que cambia es el hue, que es lo que de verdad
+ * distingue a sus consumidores. --mmodal-corner-tono es lo que cada uno
+ * declara.
  */
 /* ⚠️ Este bloque se emite AQUÍ, y .mesa-modal__close está doscientas líneas más
  * arriba: el `@extend` no copia declaraciones al consumidor, añade su selector
@@ -9368,7 +9376,7 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
  * pero añadir `position` a la receta le quitaría a la × su `absolute` y la
  * devolvería al flujo. Si un día hace falta una propiedad que el consumidor ya
  * declara, va en el consumidor, no aquí. */
-.mmodal-chip-accion, .mesa-modal__close {
+.mesa-modal__close {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -9382,57 +9390,13 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   color: var(--mmodal-corner-tono);
 }
 
-.mmodal-chip-accion {
-  --mmodal-corner-tono: var(--feedback-danger);
-  position: relative;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-}
-.mmodal-chip-accion svg {
-  display: block;
-  width: var(--mmodal-corner-icon);
-  height: var(--mmodal-corner-icon);
-}
-.mmodal-chip-accion {
-  /* El círculo mide lo que sus vecinos de la esquina, pero esto es una tablet
-     y lo que hay dentro es la acción destructiva del modal: el área pulsable
-     se extiende a los 44 px de la casa sin tocar el dibujo. Anclada por la
-     DERECHA, así que crece sobre el chip de estado —que no es pulsable y no
-     pierde nada— y no sobre la ×, que está a `--mmodal-corner-sep` y cierra el
-     modal: en el solape ganaría ésta por orden de pintado, y el pulgar que
-     buscaba salir abriría el descarte de la mesa. */
-}
-.mmodal-chip-accion::after {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  width: 44px;
-  height: 44px;
-  transform: translateY(-50%);
-  content: "";
-}
-.mmodal-chip-accion:hover {
-  background: color-mix(in srgb, var(--mmodal-corner-tono) 24%, transparent);
-  border-color: color-mix(in srgb, var(--mmodal-corner-tono) 68%, transparent);
-}
-.mmodal-chip-accion--bloqueada {
-  --mmodal-corner-tono: var(--txt-faint);
-}
-.mmodal-chip-accion[data-estado=comprobando] {
-  border-color: var(--line-soft);
-  background: transparent;
-  color: var(--txt-faint);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
 /* `inline-flex` con altura fija, no `inline-block` con padding.
  *
  * Con la altura saliendo del interlineado de un texto de .62rem, el chip medía
  * unos 22px y sus vecinos de la esquina 25 y 28: tres alturas distintas en fila
- * y ninguna centrada con las otras. Los tres controles de la esquina superior
- * derecha del modal —chip de estado, cancelar mesa y cerrar— comparten ahora
- * una sola altura —`--mmodal-corner-size`— y un solo eje. */
+ * y ninguna centrada con las otras. Los controles de la esquina superior
+ * derecha del modal —hoy el chip de estado y la ×— comparten una sola altura,
+ * `--mmodal-corner-size`, y un solo eje. */
 .mmodal-chip {
   display: inline-flex;
   flex: 0 0 auto;

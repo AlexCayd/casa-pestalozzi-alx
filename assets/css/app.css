@@ -3282,6 +3282,16 @@ body[data-hero=editorial] .hero .hero__velo {
   font-family: var(--crimson);
 }
 
+.menu__docs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: stretch;
+}
+.menu__docs .btn-line {
+  justify-content: space-between;
+}
+
 .catas {
   position: relative;
 }
