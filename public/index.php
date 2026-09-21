@@ -108,6 +108,7 @@ $router->get('/admin/configuracion/anuncio', [AdminConfigurationController::clas
 $router->post('/admin/configuracion/anuncio', [AdminConfigurationController::class, 'guardarAnuncio']);
 $router->get('/admin/configuracion/pos', [AdminConfigurationController::class, 'pos']);
 $router->post('/admin/configuracion/pos', [AdminConfigurationController::class, 'guardarPos']);
+$router->post('/admin/configuracion/pos/impresion', [AdminConfigurationController::class, 'guardarImpresion']);
 $router->get('/admin/configuracion/reportes', [AdminConfigurationController::class, 'reports']);
 $router->post('/admin/configuracion/reportes/estado', [AdminConfigurationController::class, 'reportStatus']);
 // Envío del modal "Reportar un problema" del panel.
@@ -260,7 +261,6 @@ $router->get('/admin/printers/edit',     [AdminPrintersController::class, 'edit'
 $router->post('/admin/printers/edit',    [AdminPrintersController::class, 'edit']);
 $router->post('/admin/printers/delete',  [AdminPrintersController::class, 'delete']);
 $router->post('/admin/printers/test',    [AdminPrintersController::class, 'test']);
-$router->post('/admin/printers/service', [AdminPrintersController::class, 'servicio']);
 
 $router->get('/admin/usuarios', [AdminUsersController::class, 'index']);
 $router->get('/admin/usuarios/create', [AdminUsersController::class, 'userCreate']);

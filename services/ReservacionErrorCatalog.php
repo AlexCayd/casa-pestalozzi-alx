@@ -51,6 +51,8 @@ final class ReservacionErrorCatalog
         'EXCEPCION_ESTADO_ACTUALIZADO' => self::TIPO_INFORMACION,
         'ANUNCIO_ACTUALIZADO' => self::TIPO_INFORMACION,
         'POS_ACTUALIZADO' => self::TIPO_INFORMACION,
+        'IMPRESION_REANUDADA' => self::TIPO_INFORMACION,
+        'IMPRESION_PAUSADA' => self::TIPO_INFORMACION,
         'DISPONIBILIDAD_CONSULTADA' => self::TIPO_INFORMACION,
         'HORARIO_DISPONIBLE' => self::TIPO_INFORMACION,
         'ASIGNACION_GUARDADA' => self::TIPO_INFORMACION,
@@ -653,6 +655,21 @@ final class ReservacionErrorCatalog
             'titulo' => 'Configuración actualizada',
             'mensaje' => 'La configuración del POS se actualizó correctamente.',
             'consecuencia' => 'Los cambios ya están disponibles.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        // El mensaje dice qué cambia en la operación —si sale papel o no—, no
+        // que "se guardó": es lo que necesita saber quien acaba de mover el
+        // interruptor desde la barra o desde la cocina.
+        'IMPRESION_REANUDADA' => [
+            'titulo' => 'Impresión reanudada',
+            'mensaje' => 'Las comandas y las cuentas vuelven a enviarse a las impresoras.',
+            'consecuencia' => 'Las estaciones activas imprimen desde el próximo envío.',
+            'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
+        ],
+        'IMPRESION_PAUSADA' => [
+            'titulo' => 'Impresión pausada',
+            'mensaje' => 'Los pedidos se siguen guardando y llegan al tablero de producción, pero no se envía nada a las impresoras.',
+            'consecuencia' => 'Ninguna estación se dio de baja: reanudar es un toque.',
             'acciones' => [['id' => 'CERRAR', 'tipo' => 'secondary']],
         ],
         'EXCEPCION_NO_ENCONTRADA' => [

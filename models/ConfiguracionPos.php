@@ -124,8 +124,8 @@ class ConfiguracionPos extends ActiveRecord
     /**
      * Guarda SÓLO el interruptor de impresión. Va aparte de
      * guardarConfiguracion() a propósito: los dos ajustes viven en la misma
-     * fila pero se editan desde módulos distintos —el mesero desde
-     * /admin/configuracion/pos, la impresión desde /admin/printers— y un
+     * fila y hoy se editan incluso en la misma vista
+     * —/admin/configuracion/pos—, pero desde formularios distintos, y un
      * INSERT que nombrara las dos columnas pisaría la ajena con el valor por
      * omisión del objeto en memoria. Cada método nombra únicamente lo suyo.
      */

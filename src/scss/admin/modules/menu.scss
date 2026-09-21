@@ -844,64 +844,47 @@
  * impresión. El rojo aquí haría que un ajuste deliberado se leyera como una
  * avería.
  */
-.admin-printers__service {
+/* Aviso de servicio pausado. Sustituye al panel del interruptor, que se fue a
+   Configuración > POS: aquí ya no se cambia el estado, sólo se advierte de él y
+   se enlaza a donde se cambia.
+
+   Sólo se pinta cuando el servicio está pausado, así que no necesita variante:
+   si está en pantalla, es que hay algo que decir. */
+.admin-printers__paused {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px 24px;
 
-  /* El ritmo vertical del módulo lo pone `.admin-menu__panel`, y este panel no
-     lleva esa clase —no es un panel de listado, es un control—, así que se
-     declara aquí el mismo valor. Sin él quedaba pegado a la tarjeta de la
-     tabla y los dos bordes se leían como una sola caja partida. */
+  /* El ritmo vertical del módulo lo pone `.admin-menu__panel`, y esto no lo es;
+     sin el margen quedaba pegado a la tarjeta de la tabla y los dos bordes se
+     leían como una sola caja partida. */
   margin-bottom: 24px;
 
   /* Filete lateral y no fondo tintado: el color de estado en el panel es de
-     señal, no de cromo (ver CLAUDE.md). Al 100 % porque un filete de 3px que
-     se mezcle con la superficie deja de verse. */
-  &.is-paused {
-    border-left: 3px solid var(--admin-c-ambar);
-  }
+     señal, no de cromo (ver CLAUDE.md). Al 100 % porque un filete de 3px que se
+     mezcle con la superficie deja de verse. */
+  border-left: 3px solid var(--admin-c-ambar);
 
-  &-text {
+  div {
     flex: 1 1 420px;
     min-width: 0;
-
-    p {
-      margin: 0;
-      color: var(--admin-muted);
-      font-size: 13px;
-      line-height: 1.55;
-    }
-
-    p + p {
-      margin-top: 8px;
-    }
   }
 
-  &-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-
-    h3 {
-      margin: 0;
-    }
+  h3 {
+    margin: 0 0 8px;
   }
 
-  /* La pista es el segundo renglón de una misma explicación, así que baja un
-     paso — no a --admin-faint, que es el mínimo de contraste de la casa y aquí
-     no hay nada que justifique gastarlo. */
-  &-hint {
-    font-size: 12px;
+  p {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 13px;
+    line-height: 1.55;
   }
 
-  /* El formulario no aporta caja: sólo evita que el botón se estire al ancho
-     de la columna cuando el panel envuelve en pantallas estrechas. */
-  &-form {
+  /* Que el enlace no se estire al ancho de la columna al envolver. */
+  .admin-btn {
     flex: 0 0 auto;
   }
 }

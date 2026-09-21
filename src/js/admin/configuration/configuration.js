@@ -1668,6 +1668,32 @@
         sync();
     }
 
+    /**
+     * El interruptor del servicio de impresión reutiliza el diálogo genérico de
+     * [data-confirm-delete], pero sólo hay que preguntar cuando se APAGA: al
+     * reanudar no hay nada que advertir.
+     *
+     * Se intercepta en CAPTURA sobre el document y se detiene la propagación,
+     * que es como se hace en esta casa (ver inventario.js). No vale quitarle el
+     * atributo al formulario: admin.js engancha su manejador al arrancar sobre
+     * los que ya lo llevan, y quitarlo después no lo desengancha. La ventaja de
+     * capturar es que si este archivo no llega a cargar el diálogo sigue
+     * saliendo: se pregunta de más, nunca de menos.
+     */
+    function initPrintingSwitch() {
+        const form = document.querySelector('[data-impresion-form]');
+        if (!form) return;
+
+        const input = form.querySelector('[name="impresion_activa"]');
+        if (!input) return;
+
+        document.addEventListener('submit', function (event) {
+            if (event.target !== form) return;
+            // Encendido: se guarda directo, sin diálogo.
+            if (input.checked) event.stopPropagation();
+        }, true);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         if (!document.querySelector('[data-configuration-page]')) {
             return;
@@ -1680,5 +1706,6 @@
         initAnnouncement();
         initReports();
         initReservationSettings();
+        initPrintingSwitch();
     });
 })();
