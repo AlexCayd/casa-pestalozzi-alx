@@ -20,6 +20,7 @@ use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Reservations\Notifications\ReservationConfirmationService;
 use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
 use Services\Scheduling\Locks\HorarioConfigLock;
 
 final class ReservacionPublicaService

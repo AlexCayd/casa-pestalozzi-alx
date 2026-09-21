@@ -10,11 +10,11 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
 use Services\DisponibilidadReservacionService;
-use Services\HorarioOperacionImpactoService;
 use Services\Integrations\N8nClient;
 use Services\ReservacionConfig;
 use Services\ReservacionPublicaService;
 use Services\Reservations\Notifications\ScheduleChangeNotificationService;
+use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
 
 function developmentNotificationsAssert(bool $condition, string $message): void
 {

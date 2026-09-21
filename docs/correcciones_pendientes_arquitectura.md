@@ -137,3 +137,23 @@ El servicio de horario operativo queda acoplado a Availability y puede requerir 
 Esta fase sólo reubica clases y conserva el comportamiento. Extraer o reasignar la normalización de horas cambiaría responsabilidades y requiere una fase de refactor separada.
 
 **Estado:** `pendiente`
+
+### [ARQ-005] Scheduling y ScheduleChanges dependen entre sí
+
+**Error encontrado:**
+`Services\Scheduling\HorarioOperacionService` usa el servicio de impactos de cambios de horario, mientras que `Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService` consulta de vuelta el horario operativo. La relación entre ambos módulos es circular.
+
+**Evidencia:**
+`HorarioOperacionService` llama a `HorarioOperacionImpactoService::evaluarHorarioSemanal()` y `::persistir()`. A su vez, `HorarioOperacionImpactoService` llama a `HorarioOperacionService::estaAbierto()` para reconciliar reservaciones y validar accesos. El movimiento hace explícitas ambas dependencias entre módulos.
+
+**Archivos afectados:**
+- `services/Scheduling/HorarioOperacionService.php`
+- `services/Reservations/ScheduleChanges/HorarioOperacionImpactoService.php`
+
+**Impacto:**
+Scheduling y ScheduleChanges quedan acoplados en ambos sentidos, dificultando probarlos o cambiar sus responsabilidades por separado.
+
+**Fuera de alcance porque:**
+Esta fase sólo reubica el servicio y actualiza namespaces. Romper el ciclo requiere cambiar cómo se entrega o consulta el horario efectivo, lo cual altera contratos entre servicios y corresponde a un refactor posterior.
+
+**Estado:** `pendiente`

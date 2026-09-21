@@ -1,10 +1,13 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations\ScheduleChanges;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
+use Services\ContactoService;
+use Services\ReservacionConfig;
+use Services\ReservationAccessTokenService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;

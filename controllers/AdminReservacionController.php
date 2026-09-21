@@ -17,10 +17,10 @@ use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
 use Services\Reservations\Availability\HorarioReservacionService;
-use Services\HorarioOperacionImpactoService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionService;
+use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
 
 class AdminReservacionController
 {
