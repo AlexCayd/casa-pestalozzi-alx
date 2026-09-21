@@ -7,6 +7,7 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Services\Reservations\Availability\HorarioReservacionService;
 use Services\Scheduling\Locks\HorarioConfigLock;
 
 /**

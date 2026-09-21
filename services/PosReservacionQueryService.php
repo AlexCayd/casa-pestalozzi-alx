@@ -14,6 +14,7 @@ use DateTimeImmutable;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\TicketMesa;
+use Services\Reservations\Availability\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
 
 final class PosReservacionQueryService

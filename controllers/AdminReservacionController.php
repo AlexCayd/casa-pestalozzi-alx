@@ -16,7 +16,7 @@ use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
-use Services\HorarioReservacionService;
+use Services\Reservations\Availability\HorarioReservacionService;
 use Services\HorarioOperacionImpactoService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;

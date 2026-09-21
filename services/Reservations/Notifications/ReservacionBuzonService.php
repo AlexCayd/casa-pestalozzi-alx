@@ -6,11 +6,11 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\TicketMesa;
 use Services\HorarioOperacionImpactoService;
-use Services\HorarioReservacionService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
+use Services\Reservations\Availability\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
 
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */

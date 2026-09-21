@@ -11,6 +11,7 @@
 namespace Services;
 
 use DateTimeImmutable;
+use Services\Reservations\Availability\HorarioReservacionService;
 
 final class TicketTemporalService
 {

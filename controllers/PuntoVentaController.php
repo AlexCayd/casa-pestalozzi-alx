@@ -13,7 +13,7 @@ use Classes\TicketPrinter;
 use Classes\Auth;
 use MVC\Router;
 use Services\Carta;
-use Services\HorarioReservacionService;
+use Services\Reservations\Availability\HorarioReservacionService;
 use Services\Inventario;
 use Services\ReservacionService;
 use Services\ReservacionConfig;

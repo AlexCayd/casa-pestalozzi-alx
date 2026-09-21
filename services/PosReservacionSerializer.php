@@ -3,6 +3,7 @@
 namespace Services;
 
 use DateTimeImmutable;
+use Services\Reservations\Availability\HorarioReservacionService;
 
 /**
  * Produce el contrato operativo compartido por POS y operación.

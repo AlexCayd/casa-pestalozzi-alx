@@ -68,7 +68,7 @@ $contactoTipo = in_array($contactoTipoRegistrado, array_keys($tiposContacto), tr
     ? $contactoTipoRegistrado
     : 'ninguno';
 $fecha = (string)$valor($reservacion, 'fecha', $fechaActual);
-$hora = \Services\HorarioReservacionService::normalizarHoraCorta((string)$valor($reservacion, 'hora'));
+$hora = \Services\Reservations\Availability\HorarioReservacionService::normalizarHoraCorta((string)$valor($reservacion, 'hora'));
 $comensales = max(1, (int)$valor($reservacion, 'comensales', 2));
 $nota = (string)$valor($reservacion, 'nota');
 $comentarioAdmin = (string)$valor($reservacion, 'comentario_admin');

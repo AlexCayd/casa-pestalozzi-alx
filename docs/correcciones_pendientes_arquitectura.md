@@ -117,3 +117,23 @@ La presentación depende directamente de la capa Services, lo que acopla el rend
 Esta fase sólo mueve archivos y actualiza namespaces. Trasladar el cálculo al Controller cambiaría la preparación de datos de la View y corresponde a un refactor separado.
 
 **Estado:** `pendiente`
+
+### [ARQ-004] Scheduling depende de Availability para normalizar horas
+
+**Error encontrado:**
+`Services\Scheduling\HorarioOperacionService` delega la normalización de una hora a `Services\Reservations\Availability\HorarioReservacionService`. Esto crea una dependencia desde Scheduling hacia el módulo de disponibilidad de reservaciones para una operación de normalización temporal.
+
+**Evidencia:**
+`HorarioOperacionService::horaComparable()` llama a `HorarioReservacionService::normalizarHoraSql()`. La referencia permanece después de mover físicamente `HorarioReservacionService` a `services/Reservations/Availability/`.
+
+**Archivos afectados:**
+- `services/Scheduling/HorarioOperacionService.php`
+- `services/Reservations/Availability/HorarioReservacionService.php`
+
+**Impacto:**
+El servicio de horario operativo queda acoplado a Availability y puede requerir cargar el módulo de reservaciones para comparar horas.
+
+**Fuera de alcance porque:**
+Esta fase sólo reubica clases y conserva el comportamiento. Extraer o reasignar la normalización de horas cambiaría responsabilidades y requiere una fase de refactor separada.
+
+**Estado:** `pendiente`
