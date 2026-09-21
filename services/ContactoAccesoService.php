@@ -13,6 +13,7 @@ use Model\VerificacionContacto;
 use Services\Integrations\N8nClient;
 use Services\Reservations\ReservationConfirmationService;
 use Services\Reservations\ConfirmationResendPolicy;
+use Services\Shared\ContactoOperacionLock;
 
 class ContactoAccesoService
 {

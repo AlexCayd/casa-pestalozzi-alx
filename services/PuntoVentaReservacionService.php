@@ -14,6 +14,7 @@ use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Shared\FechaOperacionLock;
 
 final class PuntoVentaReservacionService
 {

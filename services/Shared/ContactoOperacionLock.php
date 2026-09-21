@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Shared;
 
 /**
  * Serializa las mutaciones públicas de una identidad canónica.

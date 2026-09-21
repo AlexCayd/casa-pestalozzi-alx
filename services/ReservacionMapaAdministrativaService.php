@@ -9,6 +9,7 @@ use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Shared\FechaOperacionLock;
 
 /**
  * Fachada administrativa del mapa compartido.

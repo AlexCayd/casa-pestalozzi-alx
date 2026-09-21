@@ -441,7 +441,7 @@ Namespace: Services\Reservations.
 
 ---
 
-## 6.8 Reservations / Locks
+## 6.8 Shared / locks transversales
 
 Mover:
 
@@ -453,10 +453,13 @@ ContactoOperacionLock.php
 a:
 
 ```text
-services/Reservations/
+services/Shared/
 ```
 
-Namespace: Services\Reservations.
+Namespace: Services\Shared.
+
+Estos locks coordinan operaciones de varios dominios; no forman parte de una
+subcarpeta física de Reservations.
 
 ---
 

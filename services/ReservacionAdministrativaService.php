@@ -11,6 +11,7 @@ use Model\VerificacionContacto;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Shared\FechaOperacionLock;
 
 /**
  * Fachada transaccional del backoffice de reservaciones.

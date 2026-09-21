@@ -22,6 +22,8 @@ use Services\Reservations\ReservationConfirmationService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Shared\ContactoOperacionLock;
+use Services\Shared\FechaOperacionLock;
 
 final class ReservacionPublicaService
 {

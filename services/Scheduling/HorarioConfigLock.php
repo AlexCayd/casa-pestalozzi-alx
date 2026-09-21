@@ -2,7 +2,7 @@
 
 namespace Services\Scheduling;
 
-use Services\FechaOperacionLock;
+use Services\Shared\FechaOperacionLock;
 
 /**
  * Serializa cambios de configuración con altas/modificaciones que validan el
