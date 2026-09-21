@@ -12,9 +12,9 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\Reservacion;
 use Model\ReservacionMesa;
-use Services\Reservations\Availability\HorarioReservacionService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
-use Services\Scheduling\Locks\HorarioConfigLock;
+use Services\Reservations\HorarioReservacionService;
+use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioConfigLock;
 
 class ReservacionService
 {

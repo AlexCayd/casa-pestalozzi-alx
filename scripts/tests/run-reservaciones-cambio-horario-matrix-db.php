@@ -10,8 +10,8 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
 use Services\Integrations\N8nClient;
-use Services\Reservations\Notifications\ScheduleChangeNotificationService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
+use Services\Reservations\ScheduleChangeNotificationService;
+use Services\Reservations\HorarioOperacionImpactoService;
 
 function scheduleMatrixAssert(bool $condition, string $message): void
 {

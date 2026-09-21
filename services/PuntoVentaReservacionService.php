@@ -12,8 +12,8 @@ use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
-use Services\Reservations\Availability\HorarioReservacionService;
-use Services\Scheduling\Locks\HorarioConfigLock;
+use Services\Reservations\HorarioReservacionService;
+use Services\Scheduling\HorarioConfigLock;
 
 final class PuntoVentaReservacionService
 {

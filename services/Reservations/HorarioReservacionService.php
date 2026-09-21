@@ -4,7 +4,7 @@
  * Valida fechas, horarios configurados y disponibilidad de reservacion.
  */
 
-namespace Services\Reservations\Availability;
+namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Services\ReservacionConfig;

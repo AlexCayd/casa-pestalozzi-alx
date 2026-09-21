@@ -4,8 +4,8 @@ namespace Controllers;
 
 use MVC\Router;
 use Services\Notifications\NotificationConfig;
-use Services\Reservations\Notifications\ReservationNotificationResultService;
-use Services\Reservations\Notifications\ReservationReminderService;
+use Services\Reservations\ReservationNotificationResultService;
+use Services\Reservations\ReservationReminderService;
 
 /** Endpoints machine-to-machine autenticados para el workflow de reservaciones. */
 final class N8nReservationsController

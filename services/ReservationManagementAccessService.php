@@ -3,7 +3,7 @@
 namespace Services;
 
 use Model\ActiveRecord;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
+use Services\Reservations\HorarioOperacionImpactoService;
 
 /** Resuelve y revalida accesos de afectaciones y recordatorios. */
 final class ReservationManagementAccessService

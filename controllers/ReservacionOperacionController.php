@@ -12,7 +12,7 @@ use Model\Reservacion;
 use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 use Services\OcupacionMesasService;
 use Services\PosReservacionQueryService;
 use Services\PosReservacionSerializer;

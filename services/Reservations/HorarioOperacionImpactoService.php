@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations\ScheduleChanges;
+namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
@@ -11,8 +11,8 @@ use Services\ReservationAccessTokenService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\Reservations\Notifications\ReservationNotificationContract;
-use Services\Reservations\Notifications\ReservacionBuzonService;
+use Services\Reservations\ReservationNotificationContract;
+use Services\Reservations\ReservacionBuzonService;
 
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.

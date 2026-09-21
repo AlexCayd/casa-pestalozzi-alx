@@ -10,7 +10,7 @@ use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\Reservations\Notifications\ReservacionBuzonService;
+use Services\Reservations\ReservacionBuzonService;
 
 function buzonAssert(bool $condition, string $message): void
 {
@@ -21,7 +21,7 @@ function buzonAssert(bool $condition, string $message): void
 }
 
 $root = dirname(__DIR__, 2);
-$service = file_get_contents($root . '/services/Reservations/Notifications/ReservacionBuzonService.php');
+$service = file_get_contents($root . '/services/Reservations/ReservacionBuzonService.php');
 $generic = file_get_contents($root . '/services/Notifications/BuzonNotificacionesService.php');
 $controller = file_get_contents($root . '/controllers/AdminBuzonController.php');
 $critical = file_get_contents($root . '/controllers/AdminReservacionController.php');
@@ -30,7 +30,7 @@ $routes = file_get_contents($root . '/public/index.php');
 $inboxJs = file_get_contents($root . '/src/js/admin/buzon.js');
 $inboxView = file_get_contents($root . '/views/admin/partials/_buzon.php');
 $topbarView = file_get_contents($root . '/views/admin/partials/_topbar.php');
-$impactService = file_get_contents($root . '/services/Reservations/ScheduleChanges/HorarioOperacionImpactoService.php');
+$impactService = file_get_contents($root . '/services/Reservations/HorarioOperacionImpactoService.php');
 $reservationModel = file_get_contents($root . '/models/Reservacion.php');
 $mapService = file_get_contents($root . '/services/ReservacionMapaAdministrativaService.php');
 $posJs = file_get_contents($root . '/src/js/modules/punto-de-venta.js');

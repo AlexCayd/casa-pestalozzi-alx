@@ -15,7 +15,7 @@ no modifica reservaciones y no decide mesas, capacidad, horarios ni resolución.
 
 - `services/Integrations/N8nClient.php`: HTTP JSON, URL, autenticación,
   timeout y aceptación contractual; recibe configuración, no conoce reservaciones.
-- `services/Reservations/Notifications/`: Contract, ConfirmationService,
+- `services/Reservations/`: Contract, ConfirmationService,
   ConfirmationResendPolicy, ReminderService, ScheduleChangeNotificationService
   y NotificationResultService.
 - `services/Notifications/NotificationConfig.php`: única lectura de entorno

@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations\Notifications;
+namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
@@ -9,9 +9,9 @@ use Services\Notifications\BuzonNotificacionesService;
 use Services\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
+use Services\Reservations\HorarioOperacionImpactoService;
 
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */
 final class ReservacionBuzonService

@@ -11,10 +11,10 @@ use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservationAccessTokenService;
-use Services\Reservations\Config\ReservacionNotificacionConfigService;
-use Services\Reservations\Notifications\ReservationNotificationContract;
-use Services\Reservations\Notifications\ReservationNotificationResultService;
-use Services\Reservations\Notifications\ScheduleChangeNotificationService;
+use Services\Reservations\ReservacionNotificacionConfigService;
+use Services\Reservations\ReservationNotificationContract;
+use Services\Reservations\ReservationNotificationResultService;
+use Services\Reservations\ScheduleChangeNotificationService;
 
 function communicationsAssert(bool $condition, string $message): void
 {

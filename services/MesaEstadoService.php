@@ -10,7 +10,7 @@
 namespace Services;
 
 use DateTimeImmutable;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 
 final class MesaEstadoService
 {

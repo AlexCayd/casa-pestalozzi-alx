@@ -3,9 +3,9 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli' || !getenv('CP_NOTIFICATION_TEST_DATABASE')) exit('Usar run-notifications-isolated.php');
 require dirname(__DIR__, 2) . '/includes/app.php';
 use Model\ActiveRecord;
-use Services\Reservations\Notifications\ReservationReminderService as Reminder;
-use Services\Reservations\Notifications\ReservationNotificationResultService as Result;
-use Services\Reservations\Config\ReservacionNotificacionConfigService;
+use Services\Reservations\ReservationReminderService as Reminder;
+use Services\Reservations\ReservationNotificationResultService as Result;
+use Services\Reservations\ReservacionNotificacionConfigService;
 function reminderAssert(bool $ok, string $message): void { if (!$ok) throw new RuntimeException($message); }
 $db = ActiveRecord::getDB();
 $_ENV['APP_ENV'] = 'test'; $_ENV['RESERVATION_TEST_NOW'] = '2037-01-14 18:00:00';

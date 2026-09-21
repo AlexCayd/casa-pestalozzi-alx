@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations\Notifications;
+namespace Services\Reservations;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;

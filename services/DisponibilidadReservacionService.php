@@ -8,7 +8,7 @@ namespace Services;
 
 use DateTimeImmutable;
 use Model\Mesa;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 
 final class DisponibilidadReservacionService
 {

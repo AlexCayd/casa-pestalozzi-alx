@@ -1,10 +1,10 @@
 <?php
 
-namespace Services\Reservations\Notifications;
+namespace Services\Reservations;
 
 use Model\ActiveRecord;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\Reservations\Notifications\ReservacionBuzonService;
+use Services\Reservations\ReservacionBuzonService;
 
 /** Aplica callbacks idempotentes sin mezclar transporte con estados de dominio. */
 final class ReservationNotificationResultService

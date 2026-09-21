@@ -7,10 +7,10 @@ use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
 use Services\ReservacionConfig;
-use Services\Reservations\Availability\HorarioReservacionService;
-use Services\Reservations\Notifications\ScheduleChangeNotificationService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
-use Services\Scheduling\Locks\HorarioConfigLock;
+use Services\Reservations\HorarioReservacionService;
+use Services\Reservations\ScheduleChangeNotificationService;
+use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioConfigLock;
 
 class HorarioOperacionService
 {

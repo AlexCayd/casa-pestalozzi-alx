@@ -8,9 +8,9 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
-use Services\Reservations\Availability\HorarioReservacionService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
-use Services\Scheduling\Locks\HorarioConfigLock;
+use Services\Reservations\HorarioReservacionService;
+use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioConfigLock;
 
 /**
  * Fachada transaccional del backoffice de reservaciones.

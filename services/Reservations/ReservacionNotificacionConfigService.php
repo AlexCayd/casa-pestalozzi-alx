@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations\Config;
+namespace Services\Reservations;
 
 use Model\ConfiguracionReservaciones;
 

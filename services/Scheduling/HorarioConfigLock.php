@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Scheduling\Locks;
+namespace Services\Scheduling;
 
 use Services\FechaOperacionLock;
 

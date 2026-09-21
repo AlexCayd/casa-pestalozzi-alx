@@ -16,11 +16,11 @@ use MVC\Router;
 use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\ReservacionService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
+use Services\Reservations\HorarioOperacionImpactoService;
 
 class AdminReservacionController
 {

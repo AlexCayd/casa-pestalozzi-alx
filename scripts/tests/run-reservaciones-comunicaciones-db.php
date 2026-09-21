@@ -15,11 +15,11 @@ use Services\Integrations\N8nClient;
 use Services\ReservacionPublicaService;
 use Services\ReservationAccessTokenService;
 use Services\ReservationManagementAccessService;
-use Services\Reservations\Config\ReservacionNotificacionConfigService;
-use Services\Reservations\Notifications\ReservationNotificationContract;
-use Services\Reservations\Notifications\ReservationNotificationResultService;
-use Services\Reservations\Notifications\ReservationReminderService;
-use Services\Reservations\Notifications\ScheduleChangeNotificationService;
+use Services\Reservations\ReservacionNotificacionConfigService;
+use Services\Reservations\ReservationNotificationContract;
+use Services\Reservations\ReservationNotificationResultService;
+use Services\Reservations\ReservationReminderService;
+use Services\Reservations\ScheduleChangeNotificationService;
 
 function communicationsDbAssert(bool $condition, string $message): void
 {
@@ -270,7 +270,7 @@ try {
     communicationsDbAssert((int)($modifyContext['source_id'] ?? 0) > 0, 'el contexto perdió source_id');
     communicationsDbAssert((int)($modifyContext['reservation_id'] ?? 0) === $modifyId, 'el contexto perdió reservation_id');
     communicationsDbAssert(in_array((string)($modifyContext['source_type'] ?? ''), ['schedule_change', 'reminder_next_day'], true), 'el contexto perdió source_type');
-    communicationsDbAssert(\Services\Reservations\Availability\HorarioReservacionService::normalizarHoraSql($newTime) !== '', 'el horario elegido no es canónico');
+    communicationsDbAssert(\Services\Reservations\HorarioReservacionService::normalizarHoraSql($newTime) !== '', 'el horario elegido no es canónico');
     $modified = ReservacionPublicaService::crearReemplazoConAccesoTemporal([
         'fecha' => $newDate,
         'hora' => $newTime,

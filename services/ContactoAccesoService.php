@@ -11,8 +11,8 @@ use InvalidArgumentException;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
 use Services\Integrations\N8nClient;
-use Services\Reservations\Notifications\ReservationConfirmationService;
-use Services\Reservations\Notifications\ConfirmationResendPolicy;
+use Services\Reservations\ReservationConfirmationService;
+use Services\Reservations\ConfirmationResendPolicy;
 
 class ContactoAccesoService
 {

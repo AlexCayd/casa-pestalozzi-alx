@@ -8,7 +8,7 @@ use Services\ContactoOperacionLock;
 use Services\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
 use Services\ReservacionPublicaService;
-use Services\Reservations\Notifications\ReservationConfirmationService;
+use Services\Reservations\ReservationConfirmationService;
 function holdAssert(bool $value, string $message): void {
     if (!$value) throw new RuntimeException($message);
 }

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-use Services\Reservations\Notifications\ReservationNotificationContract as Contract;
+use Services\Reservations\ReservationNotificationContract as Contract;
 $_ENV['APP_ENV'] = 'test';
 function boundaryBuild(string $event, string $channel, array $data): array {
     return Contract::build($event, 1, 2, 1, $channel,

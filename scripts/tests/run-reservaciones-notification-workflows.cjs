@@ -105,7 +105,7 @@ function phpContractMode(environment) {
   const code = [
     `require '${autoload}';`,
     `$_ENV['APP_ENV'] = '${environment}';`,
-    "$payload = \\Services\\Reservations\\Notifications\\ReservationNotificationContract::build('reservation.reminder', 1, 2, 1, 'email', 'fixture@example.test', 'Fixture', '2037-01-15', '18:00', 2, []);",
+    "$payload = \\Services\\Reservations\\ReservationNotificationContract::build('reservation.reminder', 1, 2, 1, 'email', 'fixture@example.test', 'Fixture', '2037-01-15', '18:00', 2, []);",
     "echo json_encode($payload['transport']);",
   ].join(' ');
   return JSON.parse(execFileSync('php', ['-r', code], { encoding: 'utf8' }));

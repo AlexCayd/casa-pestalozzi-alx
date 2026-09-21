@@ -14,8 +14,8 @@ $fechaInicial = (string)($filtros['fecha'] ?? $fechaMinima);
 $modoSoloLectura = (bool)($modoSoloLectura ?? false);
 $operacionEditable = (bool)($operacionEditable ?? !$modoSoloLectura);
 $fechaInvalidaRecibida = (string)($fechaInvalidaRecibida ?? '');
-$horaInicial = \Services\Reservations\Availability\HorarioReservacionService::normalizarHoraCorta((string)($filtros['hora'] ?? ''));
-$horaSolicitadaInicial = \Services\Reservations\Availability\HorarioReservacionService::normalizarHoraCorta(
+$horaInicial = \Services\Reservations\HorarioReservacionService::normalizarHoraCorta((string)($filtros['hora'] ?? ''));
+$horaSolicitadaInicial = \Services\Reservations\HorarioReservacionService::normalizarHoraCorta(
     (string)($horaSolicitadaInicial ?? $horaInicial)
 );
 $initialReservacionId = (int)($initialReservacionId ?? 0);

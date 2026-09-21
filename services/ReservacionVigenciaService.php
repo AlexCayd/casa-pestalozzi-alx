@@ -12,7 +12,7 @@ namespace Services;
 
 use DateTimeImmutable;
 use Model\TicketMesa;
-use Services\Reservations\Availability\HorarioReservacionService;
+use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
 
 final class ReservacionVigenciaService

@@ -18,10 +18,10 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
-use Services\Reservations\Notifications\ReservationConfirmationService;
-use Services\Reservations\Availability\HorarioReservacionService;
-use Services\Reservations\ScheduleChanges\HorarioOperacionImpactoService;
-use Services\Scheduling\Locks\HorarioConfigLock;
+use Services\Reservations\ReservationConfirmationService;
+use Services\Reservations\HorarioReservacionService;
+use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioConfigLock;
 
 final class ReservacionPublicaService
 {
@@ -423,7 +423,7 @@ final class ReservacionPublicaService
             $id = (int)$row['id'];
             $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
         }
-        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
+        return array_merge(\Services\Reservations\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
     }
 
     /** Crea directamente usando exclusivamente la identidad de sesión. */
@@ -1455,8 +1455,8 @@ final class ReservacionPublicaService
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
-                ], \Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos(
-                    \Services\Reservations\Notifications\ConfirmationResendPolicy::estado(
+                ], \Services\Reservations\ConfirmationResendPolicy::camposPublicos(
+                    \Services\Reservations\ConfirmationResendPolicy::estado(
                         (string)$fila['contacto_tipo'], (string)$fila['contacto'], (int)$fila['id']
                     )
                 ));
@@ -1770,7 +1770,7 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return array_merge(\Services\Reservations\Notifications\ConfirmationResendPolicy::camposPublicos($otp), [
+        return array_merge(\Services\Reservations\ConfirmationResendPolicy::camposPublicos($otp), [
             'otp_expires_at' => $otp['expires_at'] ?? null,
             '_notification_payload' => $otp['_notification_payload'] ?? null,
             '_confirmation_code' => $otp['_confirmation_code'] ?? null,

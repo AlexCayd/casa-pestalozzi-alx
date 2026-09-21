@@ -3,7 +3,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Integrations\N8nClient;
-use Services\Reservations\Notifications\ReservationConfirmationService;
+use Services\Reservations\ReservationConfirmationService;
 
 $_ENV['APP_ENV'] = 'test';
 foreach (['email', 'whatsapp'] as $channel) {

@@ -476,7 +476,7 @@ ALTER TABLE dias_reservacion
   DROP COLUMN hora_cierre;
 ```
 
-Requiere migrar antes `Services\Reservations\Availability\HorarioReservacionService` y
+Requiere migrar antes `Services\Reservations\HorarioReservacionService` y
 `ReservacionConfig` a leer el horario de `horarios_operacion`.
 
 > **Variante ya corregida:** además de las dos tablas, hubo un tiempo **dos
