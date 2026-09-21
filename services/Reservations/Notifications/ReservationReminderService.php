@@ -6,7 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Services\ContactoService;
 use Services\ReservacionConfig;
-use Services\ReservacionNotificacionConfigService;
+use Services\Reservations\Config\ReservacionNotificacionConfigService;
 use Services\ReservationAccessTokenService;
 
 /** Prepara recordatorios idempotentes del día anterior en transacciones breves. */

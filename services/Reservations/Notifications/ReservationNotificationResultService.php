@@ -3,8 +3,8 @@
 namespace Services\Reservations\Notifications;
 
 use Model\ActiveRecord;
-use Services\BuzonNotificacionesService;
-use Services\ReservacionBuzonService;
+use Services\Notifications\BuzonNotificacionesService;
+use Services\Reservations\Notifications\ReservacionBuzonService;
 
 /** Aplica callbacks idempotentes sin mezclar transporte con estados de dominio. */
 final class ReservationNotificationResultService

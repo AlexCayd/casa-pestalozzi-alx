@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\BuzonNotificacionesService;
 use Services\PosReservacionSerializer;
-use Services\ReservacionBuzonService;
 use Services\ReservacionConfig;
 use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
+use Services\Notifications\BuzonNotificacionesService;
+use Services\Reservations\Notifications\ReservacionBuzonService;
 
 function buzonAssert(bool $condition, string $message): void
 {
@@ -21,8 +21,8 @@ function buzonAssert(bool $condition, string $message): void
 }
 
 $root = dirname(__DIR__, 2);
-$service = file_get_contents($root . '/services/ReservacionBuzonService.php');
-$generic = file_get_contents($root . '/services/BuzonNotificacionesService.php');
+$service = file_get_contents($root . '/services/Reservations/Notifications/ReservacionBuzonService.php');
+$generic = file_get_contents($root . '/services/Notifications/BuzonNotificacionesService.php');
 $controller = file_get_contents($root . '/controllers/AdminBuzonController.php');
 $critical = file_get_contents($root . '/controllers/AdminReservacionController.php');
 $reservationView = file_get_contents($root . '/views/admin/reservations/show.php');

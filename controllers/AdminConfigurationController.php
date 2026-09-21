@@ -9,7 +9,7 @@ use Services\AnuncioConfig;
 use Services\AdminCsrfService;
 use Services\HorarioOperacionService;
 use Services\ReservacionErrorCatalog;
-use Services\ReservacionNotificacionConfigService;
+use Services\Reservations\Config\ReservacionNotificacionConfigService;
 use Services\ReporteSistemaService;
 
 class AdminConfigurationController

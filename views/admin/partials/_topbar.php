@@ -15,7 +15,7 @@ $authIniciales = strtoupper(
 );
 $buzonResumen = ['cantidad' => 0, 'cantidad_accionable' => 0, 'cantidad_seguimiento' => 0, 'prioridad_maxima_accionable' => null];
 try {
-    $buzonResumen = \Services\BuzonNotificacionesService::resumen();
+    $buzonResumen = \Services\Notifications\BuzonNotificacionesService::resumen();
 } catch (Throwable $e) {
     error_log('Buzón administrativo no disponible: ' . $e->getMessage());
 }

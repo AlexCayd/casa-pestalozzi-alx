@@ -1,10 +1,17 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations\Notifications;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\TicketMesa;
+use Services\HorarioOperacionImpactoService;
+use Services\HorarioOperacionService;
+use Services\HorarioReservacionService;
+use Services\Notifications\BuzonNotificacionesService;
+use Services\ReservacionConfig;
+use Services\ReservacionPoliticaPosService;
+use Services\ReservacionVigenciaService;
 
 /** Reglas de reservaciones que alimentan el buzón reutilizable. */
 final class ReservacionBuzonService
