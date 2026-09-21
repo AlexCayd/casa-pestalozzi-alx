@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\PosMesaProjectionPresenter;
+use Services\Pos\PosMesaProjectionPresenter;
 use Services\Reservations\ReservacionConfig;
-use Services\ReservacionPoliticaPosService;
+use Services\Pos\ReservacionPoliticaPosService;
 
 /** @param mixed $condition */
 function assertPosVisualContract($condition, string $message): void

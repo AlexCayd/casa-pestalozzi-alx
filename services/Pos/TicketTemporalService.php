@@ -8,7 +8,7 @@
  * mismo día; nunca libera la fotografía operativa actual.
  */
 
-namespace Services;
+namespace Services\Pos;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;

@@ -8,7 +8,7 @@
  * ocupación física y la serialización canónica para sus consumidores.
  */
 
-namespace Services;
+namespace Services\Pos;
 use Services\Tables\MesaEstadoService;
 use Services\Tables\OcupacionMesasService;
 use Services\Reservations\AsignacionMesasService;

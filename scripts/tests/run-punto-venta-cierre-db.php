@@ -9,7 +9,7 @@ if (PHP_SAPI !== 'cli') {
 require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
-use Services\PuntoVentaReservacionService;
+use Services\Pos\PuntoVentaReservacionService;
 use Services\Reservations\ReservacionErrorCatalog;
 
 function assertDbClosure(bool $condition, string $message): void

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\PosReservacionSerializer;
+use Services\Pos\PosReservacionSerializer;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionMapaAdministrativaService;
-use Services\ReservacionPoliticaPosService;
+use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;

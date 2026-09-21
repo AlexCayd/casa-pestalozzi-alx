@@ -7,7 +7,7 @@ use Model\ActiveRecord;
 use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionConfig;
-use Services\ReservacionPoliticaPosService;
+use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;

@@ -42,6 +42,14 @@ services/
 ├── Notifications/
 │   └── NotificationConfig.php
 │
+├── Pos/
+│   ├── PosMesaProjectionPresenter.php
+│   ├── PosReservacionQueryService.php
+│   ├── PosReservacionSerializer.php
+│   ├── PuntoVentaReservacionService.php
+│   ├── ReservacionPoliticaPosService.php
+│   └── TicketTemporalService.php
+│
 ├── Reservations/
 │   ├── ConfirmationResendPolicy.php
 │   ├── HorarioOperacionImpactoService.php
@@ -522,21 +530,15 @@ Se movieron como una unidad porque se referencian mutuamente. No dividirlas dura
 
 ## 6.11 POS
 
-Mover:
+Migrados directamente a `services/Pos/` y con namespace `Services\Pos`:
 
 ```text
-PuntoVentaReservacionService.php
-PosReservacionQueryService.php
-PosReservacionSerializer.php
-PosMesaProjectionPresenter.php
-ReservacionPoliticaPosService.php
-TicketTemporalService.php
-```
-
-a:
-
-```text
-services/Pos/
+services/Pos/PuntoVentaReservacionService.php
+services/Pos/PosReservacionQueryService.php
+services/Pos/PosReservacionSerializer.php
+services/Pos/PosMesaProjectionPresenter.php
+services/Pos/ReservacionPoliticaPosService.php
+services/Pos/TicketTemporalService.php
 ```
 
 ---
@@ -855,9 +857,9 @@ Se movieron conjuntamente y no se dividieron.
 
 ## Fase 6 — POS y Tables
 
-**Estado:** Tables completado. POS es la siguiente migración de esta fase.
+**Estado:** completada. Tables y POS se migraron consecutivamente en commits separados.
 
-Migrar ambos dominios consecutivamente por su relación funcional, en commits separados.
+Ambos dominios se migraron consecutivamente por su relación funcional, en commits separados.
 
 Validar:
 

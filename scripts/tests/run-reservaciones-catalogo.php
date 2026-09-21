@@ -7,7 +7,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionMapaMesaPresenter;
-use Services\PosReservacionSerializer;
+use Services\Pos\PosReservacionSerializer;
 
 /** @param mixed $condition */
 function assertContract($condition, string $message): void

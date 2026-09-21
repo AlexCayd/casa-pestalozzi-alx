@@ -18,9 +18,9 @@ use Services\Inventario;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\PosReservacionQueryService;
-use Services\PosReservacionSerializer;
-use Services\PuntoVentaReservacionService;
+use Services\Pos\PosReservacionQueryService;
+use Services\Pos\PosReservacionSerializer;
+use Services\Pos\PuntoVentaReservacionService;
 use Services\Sugerencias;
 use Services\StaffCsrfService;
 

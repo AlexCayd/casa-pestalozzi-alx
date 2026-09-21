@@ -744,11 +744,11 @@ class AdminReservacionController
             ReservacionService::CONFIRMAR_SIN_MESA => 'confirmar_sin_mesa',
             ReservacionService::RESERVACION_NO_EXISTE => 'no_existe',
             ReservacionService::ESTADO_INVALIDO => 'estado_invalido',
-            \Services\PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'tolerancia_vigente',
-            \Services\PuntoVentaReservacionService::TICKET_ABIERTO => 'ticket_abierto',
-            \Services\PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'requiere_reasignacion',
-            \Services\PuntoVentaReservacionService::SIN_CAPACIDAD => 'capacidad_insuficiente',
-            \Services\PuntoVentaReservacionService::DATOS_INVALIDOS => 'datos_invalidos',
+            \Services\Pos\PuntoVentaReservacionService::TOLERANCIA_VIGENTE => 'tolerancia_vigente',
+            \Services\Pos\PuntoVentaReservacionService::TICKET_ABIERTO => 'ticket_abierto',
+            \Services\Pos\PuntoVentaReservacionService::REQUIERE_REASIGNACION => 'requiere_reasignacion',
+            \Services\Pos\PuntoVentaReservacionService::SIN_CAPACIDAD => 'capacidad_insuficiente',
+            \Services\Pos\PuntoVentaReservacionService::DATOS_INVALIDOS => 'datos_invalidos',
             default => 'error_interno',
         };
     }

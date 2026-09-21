@@ -4,7 +4,7 @@
  * Orquesta las transiciones transaccionales entre reservaciones, mesas y POS.
  */
 
-namespace Services;
+namespace Services\Pos;
 use Services\Reservations\ReservacionAdministrativaService;
 use Services\Reservations\ReservacionMantenimientoService;
 use Services\Reservations\ReservacionService;

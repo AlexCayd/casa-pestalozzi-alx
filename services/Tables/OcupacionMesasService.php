@@ -18,7 +18,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\TicketMesa;
-use Services\TicketTemporalService;
+use Services\Pos\TicketTemporalService;
 use Services\Reservations\HorarioReservacionService;
 
 final class OcupacionMesasService

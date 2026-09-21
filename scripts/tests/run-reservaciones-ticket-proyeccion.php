@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Tables\MesaEstadoService;
 use Services\Reservations\ReservacionConfig;
-use Services\TicketTemporalService;
+use Services\Pos\TicketTemporalService;
 
 /** @param mixed $condition */
 function assertTicketProjection($condition, string $message): void

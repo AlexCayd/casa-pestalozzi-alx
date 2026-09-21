@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Pos;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionAsignacionVersionService;
 use Services\Reservations\ReservacionConfig;

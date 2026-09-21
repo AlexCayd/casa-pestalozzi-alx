@@ -8,9 +8,9 @@
  */
 
 namespace Services\Tables;
-use Services\PosMesaProjectionPresenter;
-use Services\ReservacionPoliticaPosService;
-use Services\TicketTemporalService;
+use Services\Pos\PosMesaProjectionPresenter;
+use Services\Pos\ReservacionPoliticaPosService;
+use Services\Pos\TicketTemporalService;
 use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\Reservations\ReservacionConfig;
 

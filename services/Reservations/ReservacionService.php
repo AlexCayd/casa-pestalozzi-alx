@@ -7,7 +7,7 @@
 
 namespace Services\Reservations;
 use Services\ContactoService;
-use Services\PuntoVentaReservacionService;
+use Services\Pos\PuntoVentaReservacionService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionVigenciaService;

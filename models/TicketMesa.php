@@ -6,7 +6,7 @@
 
 namespace Model;
 
-use Services\TicketTemporalService;
+use Services\Pos\TicketTemporalService;
 
 class TicketMesa extends ActiveRecord
 {

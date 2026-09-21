@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Pos;
 
 /**
  * Presentación exclusiva del POS.
