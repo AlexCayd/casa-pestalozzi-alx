@@ -1,73 +1,70 @@
-# Plan de migración de Services
-
-> Histórico: conserva el plan original, no describe el estado desplegado ni
-> autoriza reintroducir clases antiguas. Para notificaciones prevalecen
-> [arquitectura](arquitectura.md), [contrato actual](reservaciones/notificaciones.md)
-> y [operación n8n](../n8n/README.md). La integración vigente es
-> Integrations/N8nClient, sin Provider/Factory/Dispatcher; tres workflows aislados.
+# Plan vigente de migración de Services
 
 ## 1. Propósito
 
-Este documento define el plan de migración de la capa `services/` hacia la arquitectura modular establecida para el proyecto **Casa Pestalozzi**.
+Este documento define el plan **vigente** para migrar la capa `services/` hacia la arquitectura modular de Casa Pestalozzi.
 
-La migración tiene como objetivo mejorar la organización, mantenibilidad y escalabilidad del código sin modificar innecesariamente el comportamiento actual del sistema.
+La migración tiene como objetivo mejorar organización, mantenibilidad y claridad de dependencias **sin alterar comportamiento funcional durante los movimientos físicos**.
 
-El principio general será:
+La fuente arquitectónica principal es:
 
-> **Primero reorganizar responsabilidades y namespaces; después refactorizar la lógica interna de las clases que lo requieran.**
+```text
+docs/arquitectura.md
+```
 
-La migración debe realizarse de forma incremental y verificable.
+Para notificaciones de reservaciones continúan siendo normativas:
+
+```text
+docs/reservaciones/notificaciones.md
+docs/reservaciones/afectaciones_reservaciones_por_cambios_horario.md
+n8n/README.md
+```
+
+El principio general es:
+
+> **Primero reorganizar archivos, namespaces y referencias. Después refactorizar responsabilidades internas en cambios separados.**
 
 ---
 
-# 2. Estado actual
+# 2. Estado de partida
 
-Actualmente la carpeta:
+La raíz `services/` todavía contiene Services pertenecientes a diferentes dominios.
+
+Sin embargo, la migración ya comenzó en algunas áreas.
+
+Actualmente existen, entre otras:
 
 ```text
 services/
+├── Integrations/
+│   └── N8nClient.php
+│
+├── Notifications/
+│   └── NotificationConfig.php
+│
+└── Reservations/
+    └── Notifications/
+        ├── ConfirmationResendPolicy.php
+        ├── ReservationConfirmationService.php
+        ├── ReservationNotificationContract.php
+        ├── ReservationNotificationResultService.php
+        ├── ReservationReminderService.php
+        └── ScheduleChangeNotificationService.php
 ```
 
-contiene una cantidad creciente de clases relacionadas con diferentes dominios del sistema.
+Esta estructura se considera correcta y **no debe revertirse**.
 
-Entre ellas existen servicios de:
-
-- Reservaciones.
-- Punto de venta.
-- Mesas.
-- Horarios.
-- Inventario.
-- Menú.
-- Usuarios.
-- Contacto.
-- Notificaciones.
-- Integraciones con n8n.
-- Seguridad.
-- Analíticas.
-- Configuración.
-- Locks y concurrencia.
-- Serialización y presentación.
-
-El principal problema no es únicamente la cantidad de archivos, sino que todas estas responsabilidades conviven en una misma carpeta y namespace.
-
-Esto dificulta:
-
-- Localizar funcionalidades.
-- Identificar el dominio al que pertenece una clase.
-- Definir dónde debe agregarse nueva funcionalidad.
-- Entender dependencias entre componentes.
-- Detectar servicios con demasiadas responsabilidades.
+No deben reintroducirse Provider, Factory o Dispatcher antiguos para notificaciones.
 
 ---
 
 # 3. Arquitectura objetivo
 
-La estructura objetivo será:
-
 ```text
 services/
 ├── Analytics/
 ├── Contact/
+├── Integrations/
 ├── Inventory/
 ├── Menu/
 ├── Notifications/
@@ -80,115 +77,406 @@ services/
 └── Users/
 ```
 
-Algunos módulos podrán contener subcarpetas cuando exista suficiente complejidad.
-
-El principal ejemplo será `Reservations`:
-
-```text
-services/
-└── Reservations/
-    ├── Access/
-    ├── Availability/
-    ├── Config/
-    ├── Locks/
-    ├── Notifications/
-    └── Presentation/
-```
-
-El objetivo final es que la raíz de `services/` contenga **cero o la menor cantidad posible de archivos PHP**.
+El objetivo es que la raíz de `services/` quede vacía o contenga únicamente excepciones explícitamente justificadas.
 
 ---
 
-# 4. Reglas de migración
+# 4. Reglas obligatorias de migración
 
-Durante la migración se deberán cumplir las siguientes reglas.
+## 4.1 Movimiento físico sin cambio funcional
 
-## 4.1 No modificar comportamiento durante un movimiento
-
-Mover una clase debe implicar únicamente:
+Un commit de movimiento debe limitarse a:
 
 ```text
 archivo
 namespace
-imports
+use/imports
 referencias
+tests afectados por namespace/path
 ```
 
-No se deberá aprovechar el mismo cambio para modificar su comportamiento interno, salvo que sea estrictamente necesario para mantener compatibilidad.
+No debe incluir simultáneamente:
 
-Esto permite identificar con mayor facilidad cualquier regresión.
+```text
+cambio de reglas de negocio
+cambio de esquema de BD
+renombrado conceptual masivo
+división de clases
+reescritura de algoritmos
+cambio de contratos HTTP
+cambio de contratos n8n
+```
+
+salvo que sea estrictamente necesario para mantener el sistema funcionando.
 
 ---
 
-## 4.2 Un módulo por responsabilidad funcional
+## 4.2 Un dominio por responsabilidad
 
-Cada Service debe ubicarse según el dominio al que pertenece.
+Cada Service debe ubicarse según la función que realmente ejecuta, no únicamente por su nombre.
 
-Ejemplo:
-
-```text
-DisponibilidadReservacionService
-```
-
-pertenece a:
+La clasificación vigente distingue expresamente:
 
 ```text
-Reservations/Availability/
-```
-
-y no a una carpeta genérica como:
-
-```text
-Shared/
-Utils/
-Helpers/
+Scheduling                → horario operativo del restaurante
+Reservations/Availability → horario reservable y disponibilidad
+Reservations/ScheduleChanges → consecuencias sobre reservaciones de cambios de horario
+Notifications             → configuración transversal de transporte
+Reservations/Notifications → comunicaciones específicas de reservaciones
+Integrations              → adaptadores a sistemas externos
 ```
 
 ---
 
 ## 4.3 No crear nuevos Services en la raíz
 
-A partir del inicio de la migración:
+A partir de esta migración debe evitarse:
 
 ```text
 services/NuevoService.php
 ```
 
-deberá evitarse.
-
-Toda clase nueva debe ubicarse directamente en su módulo correspondiente.
+Toda clase nueva debe ubicarse en el módulo correspondiente.
 
 ---
 
-## 4.4 Mantener namespaces alineados con carpetas
+## 4.4 Namespaces alineados con carpetas
 
-Ejemplo:
-
-```text
-services/Notifications/N8n/N8nNotificationClient.php
-```
-
-debe utilizar:
-
-```php
-namespace Services\Notifications\N8n;
-```
-
-Composer ya utiliza la raíz PSR-4:
+Composer ya utiliza:
 
 ```json
 "Services\\": "./services"
 ```
 
-por lo que las subcarpetas pueden mapearse directamente a subnamespaces.
+Ejemplo:
+
+```text
+services/Users/NipService.php
+```
+
+debe declarar:
+
+```php
+namespace Services\Users;
+```
 
 ---
 
-# 5. Mapeo de Services
+# 5. Registro de correcciones fuera de alcance
 
-## Reservations
+Durante la migración puede aparecer código incorrecto, una dependencia invertida o una violación arquitectónica que no sea necesario corregir para completar la fase.
 
-### Services principales
+Estos hallazgos se registrarán en:
+
+```text
+docs/correcciones_pendientes_arquitectura.md
+```
+
+## Regla de uso
+
+**No es un backlog general.**
+
+Sólo debe añadirse una entrada cuando:
+
+1. exista un error, incumplimiento o riesgo concreto;
+2. pueda indicarse evidencia o reproducción;
+3. tenga archivos afectados identificables;
+4. la corrección quede fuera del alcance de la fase actual;
+5. resolverlo durante el movimiento mezclaría refactor funcional con migración física.
+
+Cada entrada debe incluir como mínimo:
+
+```text
+Error encontrado
+Evidencia
+Archivos afectados
+Impacto
+Por qué queda fuera de alcance
+```
+
+No registrar:
+
+- ideas de mejora;
+- preferencias personales;
+- posibles optimizaciones sin evidencia;
+- nombres que simplemente podrían gustar más;
+- problemas ya incluidos en una fase de este documento;
+- deuda genérica sin impacto concreto.
+
+Si no existe un hallazgo real, **el archivo debe permanecer vacío salvo por su plantilla**.
+
+---
+
+# 6. Mapeo vigente
+
+## 6.1 Users
+
+Mover:
+
+```text
+UsuarioService.php
+NipService.php
+UsuarioConfig.php
+```
+
+a:
+
+```text
+services/Users/
+```
+
+Namespace:
+
+```text
+Services\Users
+```
+
+Durante esta fase no se modificará la lógica de autenticación, generación de NIP o credenciales.
+
+La dependencia existente:
+
+```text
+Model\Usuario → NipService
+```
+
+no debe resolverse incidentalmente durante el movimiento. Debe documentarse en `correcciones_pendientes_arquitectura.md` si continúa vigente tras verificarla y tratarse posteriormente.
+
+---
+
+## 6.2 Notifications e Integrations
+
+Mantener:
+
+```text
+services/Integrations/N8nClient.php
+services/Notifications/NotificationConfig.php
+services/Reservations/Notifications/*
+```
+
+Mover:
+
+```text
+ReservacionNotificacionConfigService.php
+```
+
+a:
+
+```text
+services/Reservations/Config/
+```
+
+Mover:
+
+```text
+ReservacionBuzonService.php
+```
+
+a:
+
+```text
+services/Reservations/Notifications/
+```
+
+Mover:
+
+```text
+BuzonNotificacionesService.php
+```
+
+a:
+
+```text
+services/Notifications/
+```
+
+No modificar contratos n8n ni reintroducir abstracciones antiguas.
+
+---
+
+## 6.3 Scheduling
+
+`Scheduling` significa **horario operativo**, no ejecución de cron jobs.
+
+Mover:
+
+```text
+HorarioOperacionService.php
+```
+
+a:
+
+```text
+services/Scheduling/HorarioOperacionService.php
+```
+
+Mover:
+
+```text
+HorarioConfigLock.php
+```
+
+a:
+
+```text
+services/Scheduling/Locks/HorarioConfigLock.php
+```
+
+No mover a Scheduling reglas específicas de reservaciones.
+
+---
+
+## 6.4 Reservations / Availability
+
+Mover:
+
+```text
+HorarioReservacionService.php
+DisponibilidadReservacionService.php
+CapacidadReservacionesService.php
+AsignacionMesasService.php
+ReservacionVigenciaService.php
+ReservacionAsignacionVersionService.php
+```
+
+a:
+
+```text
+services/Reservations/Availability/
+```
+
+`HorarioReservacionService` pertenece aquí porque contiene reglas como:
+
+- horizonte de reservación;
+- anticipación mínima;
+- generación de intervalos;
+- última reservación antes del cierre;
+- validación temporal específica de una reservación.
+
+---
+
+## 6.5 Reservations / ScheduleChanges
+
+Mover:
+
+```text
+HorarioOperacionImpactoService.php
+```
+
+a:
+
+```text
+services/Reservations/ScheduleChanges/
+```
+
+Este Service no pertenece al dominio puro de Scheduling porque trabaja directamente con:
+
+- reservaciones futuras;
+- impactos persistidos;
+- resolución de afectaciones;
+- seguimiento;
+- acceso temporal;
+- estado de notificación.
+
+`ScheduleChangeNotificationService` permanece en:
+
+```text
+services/Reservations/Notifications/
+```
+
+La relación buscada es:
+
+```text
+Scheduling
+    ↓
+Reservations / ScheduleChanges
+    ↓
+Reservations / Notifications
+```
+
+Debe evitarse crear dependencias circulares entre estos módulos.
+
+---
+
+## 6.6 Reservations / Access
+
+Mover:
+
+```text
+ReservationAccessTokenService.php
+ReservationClientSession.php
+ReservationManagementAccessService.php
+ReservationManagementAccessSession.php
+ScheduleChangeAccessService.php
+ScheduleChangeAccessSession.php
+```
+
+a:
+
+```text
+services/Reservations/Access/
+```
+
+La migración no debe cambiar contratos de sesión, tokens, hashes ni vigencias.
+
+---
+
+## 6.7 Reservations / Config
+
+Mover:
+
+```text
+ReservacionConfig.php
+ReservacionErrorCatalog.php
+ReservacionNotificacionConfigService.php
+```
+
+a:
+
+```text
+services/Reservations/Config/
+```
+
+---
+
+## 6.8 Reservations / Locks
+
+Mover:
+
+```text
+FechaOperacionLock.php
+ContactoOperacionLock.php
+```
+
+a:
+
+```text
+services/Reservations/Locks/
+```
+
+---
+
+## 6.9 Reservations / Presentation
+
+Mover:
+
+```text
+ReservacionMapaAdministrativaService.php
+ReservacionMapaMesaPresenter.php
+```
+
+a:
+
+```text
+services/Reservations/Presentation/
+```
+
+Revisar posteriormente si `ReservacionMapaAdministrativaService` continúa siendo realmente presentación o si mezcla coordinación de dominio. No modificar su comportamiento durante el movimiento.
+
+---
+
+## 6.10 Reservations principales
+
+Mover, una vez estabilizadas sus dependencias:
 
 ```text
 ReservacionService.php
@@ -197,115 +485,19 @@ ReservacionAdministrativaService.php
 ReservacionMantenimientoService.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Reservations/
 ```
 
----
-
-### Availability
-
-```text
-AsignacionMesasService.php
-CapacidadReservacionesService.php
-DisponibilidadReservacionService.php
-ReservacionVigenciaService.php
-ReservacionAsignacionVersionService.php
-```
-
-Destino:
-
-```text
-services/Reservations/Availability/
-```
+No dividir estas clases durante esta fase.
 
 ---
 
-### Access
+## 6.11 POS
 
-```text
-ReservationAccessTokenService.php
-ReservationClientSession.php
-ReservationManagementAccessService.php
-ReservationManagementAccessSession.php
-```
-
-Destino:
-
-```text
-services/Reservations/Access/
-```
-
----
-
-### Notifications
-
-```text
-ReservationNotificationResultService.php
-ReservationReminderService.php
-ReservationConfirmationService.php
-ScheduleChangeNotificationService.php
-ReservacionBuzonService.php
-BuzonNotificacionesService.php
-```
-
-Destino:
-
-```text
-services/Reservations/Notifications/
-```
-
----
-
-### Configuración y errores
-
-```text
-ReservacionConfig.php
-ReservacionErrorCatalog.php
-ReservacionNotificacionConfigService.php
-```
-
-Destino:
-
-```text
-services/Reservations/Config/
-```
-
----
-
-### Locks
-
-```text
-FechaOperacionLock.php
-ContactoOperacionLock.php
-```
-
-Destino:
-
-```text
-services/Reservations/Locks/
-```
-
----
-
-### Presentación
-
-```text
-ReservacionMapaAdministrativaService.php
-ReservacionMapaMesaPresenter.php
-```
-
-Destino:
-
-```text
-services/Reservations/Presentation/
-```
-
----
-
-## POS
+Mover:
 
 ```text
 PuntoVentaReservacionService.php
@@ -316,7 +508,7 @@ ReservacionPoliticaPosService.php
 TicketTemporalService.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Pos/
@@ -324,14 +516,16 @@ services/Pos/
 
 ---
 
-## Tables
+## 6.12 Tables
+
+Mover:
 
 ```text
 MesaEstadoService.php
 OcupacionMesasService.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Tables/
@@ -339,32 +533,47 @@ services/Tables/
 
 ---
 
-## Scheduling
+## 6.13 Security
+
+Mover:
 
 ```text
-HorarioOperacionService.php
-HorarioOperacionImpactoService.php
-HorarioReservacionService.php
-HorarioConfigLock.php
+AdminCsrfService.php
+StaffCsrfService.php
 ```
 
-Destino:
+a:
 
 ```text
-services/Scheduling/
+services/Security/Csrf/
 ```
-
-En caso de crecer:
-
-```text
-services/Scheduling/Locks/
-```
-
-podrá utilizarse para los componentes de concurrencia.
 
 ---
 
-## Menu
+## 6.14 Contact
+
+Mover:
+
+```text
+ContactoService.php
+ContactoAccesoService.php
+```
+
+a:
+
+```text
+services/Contact/
+```
+
+Sólo después de revisar consumidores deberá decidirse si `ContactoAccesoService` es realmente transversal o específico de reservaciones.
+
+No reclasificarlo y cambiar comportamiento en el mismo commit.
+
+---
+
+## 6.15 Menu
+
+Mover:
 
 ```text
 Carta.php
@@ -373,7 +582,7 @@ CategoriaMenuService.php
 CataService.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Menu/
@@ -381,7 +590,9 @@ services/Menu/
 
 ---
 
-## Inventory
+## 6.16 Inventory
+
+Mover:
 
 ```text
 Inventario.php
@@ -389,7 +600,7 @@ Proveedores.php
 HistorialPrecios.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Inventory/
@@ -397,86 +608,9 @@ services/Inventory/
 
 ---
 
-## Users
+## 6.17 Analytics
 
-```text
-UsuarioService.php
-UsuarioConfig.php
-NipService.php
-```
-
-Destino:
-
-```text
-services/Users/
-```
-
----
-
-## Contact
-
-```text
-ContactoService.php
-ContactoAccesoService.php
-```
-
-Destino:
-
-```text
-services/Contact/
-```
-
----
-
-## Notifications
-
-Las integraciones externas generales se separan de los casos de uso específicos
-de reservaciones. La reestructuración de notificaciones elimina los providers y
-la selección manual por entorno; los Services de reservaciones construyen el
-contrato y usan el adaptador n8n únicamente después del commit.
-
-### n8n
-
-```text
-N8nNotificationClient.php
-```
-
-Destino:
-
-```text
-services/Notifications/N8n/
-```
-
-### Configuración
-
-```text
-NotificationConfig.php
-```
-
-Destino:
-
-```text
-services/Notifications/
-```
-
----
-
-## Security
-
-```text
-AdminCsrfService.php
-StaffCsrfService.php
-```
-
-Destino:
-
-```text
-services/Security/Csrf/
-```
-
----
-
-## Analytics
+Mover:
 
 ```text
 Analiticas.php
@@ -484,54 +618,56 @@ AreasMejora.php
 Sugerencias.php
 ```
 
-Destino:
+a:
 
 ```text
 services/Analytics/
 ```
 
+La clasificación debe verificarse por consumidores antes del movimiento.
+
 ---
 
-## Shared
+## 6.18 Shared y configuración general
 
-Los siguientes componentes deberán revisarse antes de clasificarse definitivamente:
+Los siguientes componentes requieren clasificación individual antes de moverse:
 
 ```text
 RangoPeriodo.php
 ReporteSistemaService.php
 SitioConfig.php
 AnuncioConfig.php
-AreasMejora.php
 ```
 
-`Shared/` únicamente debe utilizarse cuando el componente sea realmente transversal a varios módulos.
+No deben enviarse automáticamente a `Shared/`.
 
-Destino tentativo:
-
-```text
-services/Shared/
-```
-
-No debe utilizarse como carpeta por defecto para componentes difíciles de clasificar.
+`Shared/` sólo es válido si se demuestra que el componente es transversal y no tiene un dominio natural.
 
 ---
 
-# 6. Orden de migración
+# 7. Orden de ejecución
 
-La migración se realizará por fases.
+## Fase 0 — Baseline y preparación
 
-## Fase 0 — Preparación
+Antes de mover código:
 
-Antes de mover archivos:
+1. Confirmar working tree limpio.
+2. Partir del `main` actualizado.
+3. Crear rama de refactor.
+4. Ejecutar baseline:
+   ```bash
+   npm test
+   ```
+5. Ejecutar cuando exista BD de pruebas configurada:
+   ```bash
+   npm run test:runtime
+   ```
+6. Registrar el commit/HEAD de partida.
+7. Confirmar PSR-4.
+8. Crear `docs/correcciones_pendientes_arquitectura.md` con su plantilla vacía.
+9. No modificar comportamiento durante esta fase.
 
-1. Crear una rama específica de refactor.
-2. Crear la nueva estructura de directorios.
-3. Verificar configuración PSR-4.
-4. Documentar el estándar arquitectónico.
-5. Evitar nuevos archivos directamente en `services/`.
-6. Confirmar que el proyecto funciona correctamente antes de comenzar.
-
-Resultado esperado:
+Resultado:
 
 ```text
 Baseline funcional conocida.
@@ -539,66 +675,120 @@ Baseline funcional conocida.
 
 ---
 
-# 7. Fase 1 — Notifications
-
-Primero se migrarán los servicios de notificaciones generales.
-
-Orden recomendado:
-
-```text
-Contracts
-↓
-Development
-↓
-N8n
-↓
-Factory
-```
-
-Motivo:
-
-- Grupo relativamente aislado.
-- Responsabilidades claras.
-- Bajo impacto en lógica central.
-- Permite validar el esquema de namespaces antes de modificar dominios críticos.
-
-Después de cada movimiento deben actualizarse:
-
-```text
-namespace
-use
-instanciaciones
-type hints
-factories
-tests
-```
-
----
-
-# 8. Fase 2 — Security
+## Fase 1 — Users
 
 Mover:
 
 ```text
-AdminCsrfService
-StaffCsrfService
+UsuarioService
+NipService
+UsuarioConfig
 ```
 
-a:
+Actualizar:
 
 ```text
-Services\Security\Csrf
+namespace
+imports
+Model\Usuario
+AdminUsersController
+scripts
+tests
+views que usen UsuarioConfig
 ```
 
-Es un cambio pequeño que permite seguir validando el mecanismo de modularización.
+Validar al menos:
+
+```bash
+php scripts/tests/run-usuarios-acceso.php
+npm test
+```
+
+Commit independiente.
 
 ---
 
-# 9. Fase 3 — Reservations periférico
+## Fase 2 — Cierre de Notifications
 
-Antes de tocar los Services principales de reservaciones, migrar los componentes con responsabilidades más delimitadas.
+Mantener la estructura modular ya existente.
 
-Orden:
+Mover únicamente los componentes todavía ubicados en raíz:
+
+```text
+ReservacionNotificacionConfigService
+ReservacionBuzonService
+BuzonNotificacionesService
+```
+
+Validar:
+
+```bash
+npm run test:notifications
+npm test
+```
+
+Cuando exista BD:
+
+```bash
+npm run test:runtime
+```
+
+No alterar workflows n8n.
+
+Commit independiente.
+
+---
+
+## Fase 3 — Frontera Scheduling / Reservations
+
+Mover en cambios controlados:
+
+```text
+HorarioOperacionService
+    → Scheduling/
+
+HorarioConfigLock
+    → Scheduling/Locks/
+
+HorarioReservacionService
+    → Reservations/Availability/
+
+HorarioOperacionImpactoService
+    → Reservations/ScheduleChanges/
+```
+
+Actualizar todas las referencias.
+
+Validar especialmente:
+
+- horarios regulares;
+- excepciones;
+- horario efectivo;
+- disponibilidad;
+- impactos;
+- buzón;
+- cambio de horario;
+- notificaciones;
+- creación pública y administrativa.
+
+Ejecutar:
+
+```bash
+npm test
+npm run test:notifications
+```
+
+y cuando exista BD:
+
+```bash
+npm run test:runtime
+```
+
+---
+
+## Fase 4 — Reservations periférico
+
+Orden recomendado:
 
 ```text
 Access
@@ -607,56 +797,20 @@ Config
 ↓
 Locks
 ↓
-Notifications
-↓
 Presentation
+↓
+resto de Availability
 ```
 
-Ejemplo:
+No mover todavía los Services principales si existen referencias pendientes.
 
-```text
-Services\ReservationAccessTokenService
-```
-
-pasará a:
-
-```text
-Services\Reservations\Access\ReservationAccessTokenService
-```
+Cada subdominio debe poder cerrarse con un commit separado.
 
 ---
 
-# 10. Fase 4 — Reservations / Availability
+## Fase 5 — Reservations principales
 
-Migrar:
-
-```text
-AsignacionMesasService
-CapacidadReservacionesService
-DisponibilidadReservacionService
-ReservacionVigenciaService
-ReservacionAsignacionVersionService
-```
-
-Esta fase requiere mayor validación debido a que la disponibilidad y asignación de mesas son utilizadas por diferentes superficies del sistema.
-
-Se deberá comprobar al menos:
-
-- Consulta de disponibilidad.
-- Capacidad por horario.
-- Asignación automática de mesas.
-- Combinación de mesas.
-- Creación de reservaciones.
-- Modificación.
-- Cancelación.
-- Liberación de mesas.
-- Detección de conflictos.
-
----
-
-# 11. Fase 5 — Reservations principales
-
-Una vez estabilizados sus componentes dependientes, mover:
+Mover:
 
 ```text
 ReservacionService
@@ -665,311 +819,231 @@ ReservacionAdministrativaService
 ReservacionMantenimientoService
 ```
 
-Destino:
+No dividirlos todavía.
 
-```text
-services/Reservations/
-```
-
-En esta etapa **no se dividirán todavía estas clases**, aunque alguna pueda presentar demasiadas responsabilidades.
-
-El objetivo continúa siendo únicamente reorganizar la arquitectura física.
+Validar todos los flujos de reservaciones.
 
 ---
 
-# 12. Fase 6 — POS y Tables
+## Fase 6 — POS y Tables
 
-Migrar:
-
-```text
-Pos/
-Tables/
-```
-
-Estos módulos se realizarán de forma consecutiva debido a su relación directa.
-
-Validaciones principales:
-
-- Apertura de mesa.
-- Estado de mesa.
-- Ticket activo.
-- Agregar productos.
-- Reservaciones desde POS.
-- Cierre de ticket.
-- Cancelación.
-- Liberación de mesas.
-- Proyección del mapa.
-- Serialización de respuestas.
-
----
-
-# 13. Fase 7 — Scheduling
-
-Migrar:
-
-```text
-HorarioOperacionService
-HorarioOperacionImpactoService
-HorarioReservacionService
-HorarioConfigLock
-```
+Migrar ambos dominios de forma consecutiva por su relación funcional.
 
 Validar:
 
-- Horarios regulares.
-- Excepciones.
-- Cambios de horario.
-- Impacto sobre reservaciones existentes.
-- Disponibilidad resultante.
-- Locks de configuración.
+- apertura de ticket;
+- estado de mesa;
+- ticket activo;
+- productos;
+- reservaciones desde POS;
+- cierre;
+- cancelación;
+- liberación;
+- proyección;
+- serialización.
 
 ---
 
-# 14. Fase 8 — Módulos restantes
+## Fase 7 — Security y Contact
 
-Migrar individualmente:
+Mover de forma independiente.
+
+No mezclar cambios de permisos, roles, CSRF o política de contacto con el movimiento físico.
+
+---
+
+## Fase 8 — Menu, Inventory y Analytics
+
+Migrar módulo por módulo.
+
+Cada módulo debe tener commit y validación propios.
+
+---
+
+## Fase 9 — Clasificación residual
+
+Revisar Services que permanezcan en raíz.
+
+Para cada uno:
 
 ```text
-Menu
-Inventory
-Users
-Contact
-Analytics
-Shared
+¿Tiene dominio claro?
+¿Es realmente transversal?
+¿Debe permanecer temporalmente?
 ```
 
-Al ser grupos relativamente independientes, cada módulo debe realizarse como cambio separado siempre que sea posible.
+No utilizar `Shared/` para vaciar artificialmente la raíz.
 
 ---
 
-# 15. Validación técnica por fase
+# 8. Validación técnica obligatoria
 
-Después de cada fase se deberá ejecutar como mínimo:
+Después de cada fase:
 
-## Composer
+## Autoload
 
 ```bash
 composer dump-autoload
 ```
 
----
-
-## PHP syntax
-
-Validar los archivos modificados:
+## Sintaxis PHP
 
 ```bash
 php -l ruta/al/archivo.php
 ```
 
-o realizar validación sobre todos los archivos afectados.
+sobre los archivos modificados o un chequeo equivalente.
+
+## Referencias antiguas
+
+Buscar:
+
+```text
+use Services\ClaseMovida;
+Services\ClaseMovida
+ClaseMovida::
+new ClaseMovida
+```
+
+También revisar:
+
+```text
+scripts
+tests
+views
+controllers
+models
+docs normativos cuando referencien rutas físicas
+```
 
 ---
 
-## Búsqueda de referencias antiguas
+# 9. Suite de pruebas
 
-Buscar imports como:
+La suite disponible incluye:
 
-```php
-use Services\NombreService;
+```bash
+npm test
+npm run test:notifications
+npm run test:runtime
 ```
 
-que deberían haberse actualizado.
+`test:runtime` depende de una BD de pruebas operativa.
 
-También revisar referencias mediante:
+Una fase no debe considerarse cerrada si rompe la suite que funcionaba en el baseline.
 
-```text
-new ClassName
-ClassName::
-type hints
-interfaces
-factories
-callbacks
-```
+Cuando una prueba falle:
+
+1. determinar si es por namespace/path;
+2. corregir únicamente lo necesario para la migración;
+3. si revela un defecto funcional previo y fuera de alcance, documentarlo en `docs/correcciones_pendientes_arquitectura.md`.
+
+No modificar lógica funcional sólo para hacer pasar una prueba sin identificar antes la causa.
 
 ---
 
-# 16. Validación funcional
+# 10. Estrategia de commits
 
-Además de las verificaciones técnicas, después de cada módulo debe realizarse una prueba funcional.
-
-Para servicios de reservaciones:
+Preferir commits como:
 
 ```text
-Crear reservación
-Consultar reservación
-Editar reservación
-Cancelar reservación
-Asignar mesas
-Liberar mesas
+refactor(users): move user services to module
+refactor(reservations): move notification support services
+refactor(scheduling): move operation schedule services
+refactor(reservations): move reservation schedule availability
+refactor(reservations): move schedule change impact service
 ```
 
-Para notificaciones:
-
-```text
-Generar evento
-Enviar a n8n
-Procesar respuesta
-Validar fallback
-```
-
-Para POS:
-
-```text
-Abrir mesa
-Crear ticket
-Agregar producto
-Actualizar ticket
-Cerrar ticket
-```
-
-La funcionalidad antes y después de la migración debe ser equivalente.
-
----
-
-# 17. Estrategia de commits
-
-Los commits deben ser pequeños y representar una modificación arquitectónica específica.
-
-Preferir:
-
-```text
-refactor(services): move n8n notification services
-refactor(services): move notification contracts
-refactor(services): modularize reservation access services
-refactor(services): modularize reservation availability
-```
-
-Evitar commits como:
+Evitar:
 
 ```text
 refactor services
 fix architecture
 move everything
+cleanup
 ```
 
-Esto permitirá revertir una fase sin afectar el resto de la migración.
+Cada commit debe representar una unidad reversible.
 
 ---
 
-# 18. Estrategia de ramas
+# 11. Segunda etapa: refactor interno
 
-La migración completa puede realizarse en una rama:
+La migración física no implica que todas las responsabilidades existentes sean óptimas.
 
-```text
-refactor/services-modular-architecture
-```
+Una vez estabilizados namespaces y estructura, se realizará un segundo pase.
 
-Sin embargo, se recomienda generar cambios independientes por módulo o fase.
-
-Ejemplo:
-
-```text
-refactor/services-notifications
-refactor/services-reservation-access
-refactor/services-reservation-availability
-refactor/services-reservations
-refactor/services-pos
-```
-
-Esto facilita revisión, pruebas y rollback.
-
----
-
-# 19. Segunda etapa: refactor interno
-
-La finalización de la migración física no implica que todos los Services tengan una estructura interna óptima.
-
-Después de estabilizar la arquitectura modular se realizará una revisión específica de complejidad.
-
-Servicios prioritarios:
+Candidatos conocidos para revisión:
 
 ```text
 ReservacionPublicaService
-ReservacionErrorCatalog
-HorarioOperacionImpactoService
-PuntoVentaReservacionService
 ReservacionAdministrativaService
 ReservacionService
-MesaEstadoService
+ReservacionErrorCatalog
 HorarioOperacionService
+HorarioOperacionImpactoService
+PuntoVentaReservacionService
+MesaEstadoService
 AsignacionMesasService
 Analiticas
 ```
 
-El tamaño por sí solo no será criterio suficiente para dividirlos.
-
-Se evaluará:
-
-- Número de responsabilidades.
-- Cantidad de dependencias.
-- Número de casos de uso.
-- Complejidad transaccional.
-- Acoplamiento.
-- Frecuencia de modificación.
-- Reutilización parcial por otros componentes.
-
----
-
-# 20. Criterios para dividir un Service
-
-Un Service deberá considerarse candidato a división cuando presente varias de las siguientes características:
-
-- Múltiples razones independientes para cambiar.
-- Gran cantidad de dependencias.
-- Casos de uso diferentes dentro de una sola clase.
-- Persistencia, validación, notificación y transformación mezcladas.
-- Diferentes consumidores utilizando subconjuntos distintos.
-- Transacciones independientes.
-- Métodos agrupables claramente por responsabilidad.
-
-La división deberá hacerse por comportamiento y no únicamente por cantidad de líneas.
-
----
-
-# 21. Criterios de finalización
-
-La migración de `services/` se considerará completada cuando:
-
-- Todos los Services tengan un módulo definido.
-- La raíz de `services/` esté vacía o prácticamente vacía.
-- Los namespaces reflejen la estructura de carpetas.
-- No existan referencias a namespaces antiguos.
-- Composer genere correctamente el autoload.
-- Los principales flujos funcionales hayan sido validados.
-- Las integraciones externas continúen funcionando.
-- Los nuevos Services sigan obligatoriamente la arquitectura modular.
-
-La estructura esperada será:
+También deberán revisarse dependencias de capa que continúen vigentes, por ejemplo:
 
 ```text
-services/
-├── Analytics/
-├── Contact/
-├── Inventory/
-├── Menu/
-├── Notifications/
-├── Pos/
-├── Reservations/
-├── Scheduling/
-├── Security/
-├── Shared/
-├── Tables/
-└── Users/
+Model → Service
+View → Service
 ```
+
+Sólo deben tratarse después de verificar que realmente continúan existiendo.
+
+No convertir estas observaciones en cambios dentro de los commits de movimiento.
 
 ---
 
-# 22. Principio de migración
+# 12. Criterios para dividir un Service
 
-La estrategia del proyecto será:
+Un Service puede ser candidato a división cuando presente varias de estas condiciones:
+
+- múltiples razones independientes para cambiar;
+- demasiadas dependencias;
+- casos de uso diferentes en la misma clase;
+- persistencia, validación, transporte y presentación mezclados;
+- consumidores que utilizan subconjuntos diferentes;
+- transacciones independientes;
+- grupos claros de métodos por responsabilidad.
+
+La cantidad de líneas no es por sí sola un criterio suficiente.
+
+---
+
+# 13. Criterios de finalización
+
+La migración se considera completada cuando:
+
+- todos los Services tienen un módulo definido;
+- la raíz de `services/` está vacía o contiene sólo excepciones justificadas;
+- los namespaces reflejan carpetas;
+- no quedan referencias a namespaces antiguos;
+- Composer genera correctamente el autoload;
+- las suites relevantes permanecen en verde;
+- las integraciones externas mantienen sus contratos;
+- las nuevas clases siguen la arquitectura modular;
+- `docs/arquitectura.md` coincide con la estructura implementada;
+- las correcciones fuera de alcance están documentadas de forma concreta, no como backlog genérico.
+
+---
+
+# 14. Principio de migración
+
+La secuencia es:
 
 ```text
 Organizar
     ↓
-Estabilizar
-    ↓
 Validar
+    ↓
+Estabilizar
     ↓
 Refactorizar
 ```
@@ -980,6 +1054,6 @@ No:
 Mover + renombrar + dividir + reescribir
 ```
 
-en una misma modificación.
+en el mismo cambio.
 
-Esta separación permitirá evolucionar la arquitectura manteniendo control sobre las regresiones y reduciendo el riesgo sobre funcionalidades críticas del sistema.
+La prioridad es mantener trazabilidad y reducir el riesgo de regresión en reservaciones, horarios, notificaciones, usuarios y POS.

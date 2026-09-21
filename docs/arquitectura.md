@@ -6,15 +6,15 @@ Este documento define la arquitectura y los criterios de organización del proye
 
 El sistema utiliza una arquitectura **MVC modular**, complementada con una capa de **Services** encargada de la lógica de negocio y la coordinación de los distintos casos de uso.
 
-El objetivo de esta arquitectura es mantener una separación clara de responsabilidades, facilitar el mantenimiento y permitir que el sistema continúe creciendo sin concentrar funcionalidad no relacionada dentro de controladores, modelos o servicios demasiado grandes.
+El objetivo es mantener responsabilidades claras, reducir acoplamiento y permitir que el sistema continúe creciendo sin concentrar funcionalidad no relacionada dentro de Controllers, Models o Services demasiado grandes.
 
-> Este documento define el estándar arquitectónico objetivo. Algunas partes existentes del proyecto pueden requerir migración progresiva para cumplir completamente con estas reglas.
+> Este documento define el estándar arquitectónico objetivo. La migración hacia este estándar es progresiva y no debe modificar comportamiento funcional salvo cuando exista una corrección explícitamente autorizada.
 
 ---
 
 # 2. Arquitectura general
 
-El flujo principal de una petición es:
+El flujo principal recomendado es:
 
 ```text
 HTTP Request
@@ -74,7 +74,7 @@ Cada capa tiene una responsabilidad específica y debe evitar asumir responsabil
 
 Además de la separación por capas MVC, el proyecto se organiza por **módulos funcionales**.
 
-Ejemplos de módulos:
+Módulos principales:
 
 ```text
 Reservations
@@ -88,44 +88,37 @@ Contact
 Notifications
 Analytics
 Security
-```
-
-Por lo tanto, las capas pueden dividirse internamente por módulo:
-
-```text
-controllers/
-    Reservations/
-    Pos/
-    Inventory/
-
-models/
-    Reservations/
-    Pos/
-    Inventory/
-
-services/
-    Reservations/
-    Pos/
-    Inventory/
-    Notifications/
-
-views/
-    reservaciones/
-    punto-de-venta/
-    admin/
+Integrations
 ```
 
 No es necesario que todos los módulos existan en todas las capas.
 
-Por ejemplo, `Notifications` puede existir únicamente dentro de `services/` si no requiere controladores, modelos o vistas propios.
+La modularización principal de `services/` será:
+
+```text
+services/
+├── Analytics/
+├── Contact/
+├── Integrations/
+├── Inventory/
+├── Menu/
+├── Notifications/
+├── Pos/
+├── Reservations/
+├── Scheduling/
+├── Security/
+├── Shared/
+├── Tables/
+└── Users/
+```
+
+`Shared/` sólo debe utilizarse para componentes realmente transversales y no como carpeta por defecto para código difícil de clasificar.
 
 ---
 
 # 4. Controllers
 
-Los **Controllers** representan la capa de entrada de la aplicación.
-
-Son responsables de recibir una petición HTTP, validar los datos correspondientes al protocolo HTTP, ejecutar el caso de uso requerido y construir la respuesta.
+Los **Controllers** representan la capa de entrada HTTP de la aplicación.
 
 ## Responsabilidades
 
@@ -140,26 +133,9 @@ Un Controller puede:
 - Construir respuestas HTTP o JSON.
 - Definir códigos de estado HTTP y redirecciones.
 
-Ejemplo conceptual:
-
-```php
-public static function cancelar(): void
-{
-    Auth::requireStaff();
-
-    $request = self::parseRequest();
-
-    $resultado = ReservacionService::cancelar(
-        $request['reservacion_id']
-    );
-
-    self::json($resultado);
-}
-```
-
 ## Un Controller no debe
 
-- Contener reglas de negocio.
+- Contener reglas de negocio complejas.
 - Gestionar transacciones de base de datos.
 - Implementar algoritmos de disponibilidad.
 - Decidir asignaciones de mesas.
@@ -167,11 +143,9 @@ public static function cancelar(): void
 - Ejecutar directamente integraciones externas.
 - Duplicar lógica utilizada por otros controladores.
 
-La regla general es:
+Regla general:
 
 > **Controller = HTTP + coordinación del caso de uso.**
-
-Cuando un Controller comienza a contener lógica que podría ser utilizada desde otro punto del sistema, dicha lógica debe trasladarse a un Service.
 
 ---
 
@@ -179,93 +153,202 @@ Cuando un Controller comienza a contener lógica que podría ser utilizada desde
 
 Los **Services** contienen la lógica de negocio y los casos de uso de la aplicación.
 
-Constituyen la capa principal entre los Controllers y los Models.
-
-Ejemplos:
-
-```text
-crear una reservación
-cancelar una reservación
-determinar disponibilidad
-asignar mesas
-cerrar un ticket
-procesar cambios de horario
-enviar una notificación
-```
-
-## Responsabilidades
-
-Un Service puede:
+Pueden:
 
 - Implementar reglas de negocio.
-- Coordinar varios Models.
+- Coordinar Models.
 - Coordinar otros Services.
 - Gestionar transacciones.
 - Aplicar validaciones de dominio.
 - Ejecutar operaciones atómicas.
-- Implementar políticas del sistema.
+- Implementar políticas.
 - Coordinar integraciones externas mediante adaptadores.
-- Implementar casos de uso reutilizables entre diferentes Controllers.
+- Reutilizar casos de uso entre diferentes Controllers.
 
-Ejemplo:
+Regla general:
 
-```text
-Controller
-    ↓
-ReservacionPublicaService
-    ├── DisponibilidadReservacionService
-    ├── AsignacionMesasService
-    ├── Reservacion
-    └── ReservationConfirmationService
-```
-
-El Controller únicamente solicita la operación.
-
-El Service decide **cómo debe realizarse**.
+> **Service = comportamiento y coordinación de dominio.**
 
 ---
 
-## 5.1 Organización de Services
+## 5.1 Organización por dominio
 
-Los Services deben organizarse primero por **módulo funcional**.
+Los Services deben organizarse primero por **módulo funcional** y después, sólo cuando exista complejidad suficiente, por subdominio.
 
-```text
-services/
-├── Reservations/
-├── Pos/
-├── Tables/
-├── Scheduling/
-├── Inventory/
-├── Menu/
-├── Users/
-├── Contact/
-├── Notifications/
-├── Analytics/
-├── Security/
-└── Shared/
-```
-
-Cuando un módulo crezca lo suficiente puede utilizar subdominios:
+Ejemplo de `Reservations`:
 
 ```text
 services/
 └── Reservations/
-    ├── Availability/
     ├── Access/
+    ├── Availability/
+    ├── Config/
+    ├── Locks/
     ├── Notifications/
     ├── Presentation/
-    └── Locks/
+    └── ScheduleChanges/
 ```
 
 No deben crearse subcarpetas únicamente para contener uno o dos archivos sin una razón arquitectónica clara.
 
 ---
 
-## 5.2 Responsabilidad de los Services
+## 5.2 Frontera entre Scheduling y Reservations
+
+`Scheduling` representa exclusivamente el **horario operativo del restaurante**.
+
+Incluye conceptos como:
+
+```text
+horario semanal
+días abiertos o cerrados
+hora de apertura
+hora de cierre
+excepciones operativas
+horario efectivo para una fecha
+locks de configuración de horario
+```
+
+Estructura esperada:
+
+```text
+services/
+└── Scheduling/
+    ├── HorarioOperacionService.php
+    └── Locks/
+        └── HorarioConfigLock.php
+```
+
+`Scheduling` **no representa ejecución programada de tareas, cron jobs ni recordatorios automáticos**.
+
+La ejecución periódica de recordatorios mediante n8n es infraestructura de notificaciones y no pertenece al dominio `Scheduling`.
+
+Las reglas que convierten un horario operativo en una **ventana reservable** pertenecen a Reservations:
+
+```text
+services/
+└── Reservations/
+    └── Availability/
+        └── HorarioReservacionService.php
+```
+
+Esto incluye:
+
+- horizonte de reservación;
+- anticipación mínima;
+- generación de intervalos reservables;
+- última reservación antes del cierre;
+- validación temporal específica de una reservación.
+
+Los impactos generados cuando un cambio de horario afecta reservaciones existentes también pertenecen a Reservations:
+
+```text
+services/
+└── Reservations/
+    └── ScheduleChanges/
+        └── HorarioOperacionImpactoService.php
+```
+
+La relación conceptual es:
+
+```text
+Scheduling
+    │
+    │ horario efectivo
+    ▼
+Reservations
+    ├── Availability
+    ├── ScheduleChanges
+    └── Notifications
+```
+
+`Scheduling` debe conocer el horario operativo. Las reglas y consecuencias específicas de reservaciones deben mantenerse dentro de `Reservations`.
+
+---
+
+## 5.3 Notifications e Integrations
+
+Debe distinguirse entre:
+
+### Notificaciones generales
+
+```text
+services/
+└── Notifications/
+    └── NotificationConfig.php
+```
+
+Contienen configuración transversal de transporte.
+
+### Notificaciones de reservaciones
+
+```text
+services/
+└── Reservations/
+    └── Notifications/
+```
+
+Contienen los casos de uso y contratos específicos de reservaciones.
+
+Actualmente esta frontera incluye, entre otros:
+
+```text
+ReservationConfirmationService
+ReservationReminderService
+ScheduleChangeNotificationService
+ReservationNotificationContract
+ReservationNotificationResultService
+ConfirmationResendPolicy
+```
+
+### Integraciones externas
+
+```text
+services/
+└── Integrations/
+    └── N8nClient.php
+```
+
+`N8nClient` es un adaptador HTTP. No debe contener reglas de reservaciones, horarios, capacidad, mesas, elegibilidad ni estados de dominio.
+
+No debe reintroducirse una jerarquía Provider/Factory/Dispatcher para la integración actual con n8n mientras exista un único adaptador y no haya una necesidad arquitectónica real.
+
+Todo transporte externo relacionado con reservaciones debe ejecutarse **después del commit y fuera de locks o transacciones**.
+
+---
+
+## 5.4 Users
+
+El dominio de usuarios se organiza en:
+
+```text
+services/
+└── Users/
+    ├── UsuarioService.php
+    ├── NipService.php
+    └── UsuarioConfig.php
+```
+
+Responsabilidades:
+
+- gestión de cuentas internas;
+- reglas de roles;
+- credenciales;
+- generación y validación de NIP;
+- cambios de contraseña;
+- activación y desactivación.
+
+La migración física no debe aprovecharse para cambiar simultáneamente reglas de autenticación o credenciales.
+
+Dependencias inversas existentes, como un Model que utilice directamente un Service, deben registrarse como deuda arquitectónica y corregirse en una etapa posterior separada.
+
+---
+
+## 5.5 Responsabilidad de los Services
 
 Cada Service debe tener una responsabilidad identificable.
 
-Debe evitarse que una misma clase concentre simultáneamente:
+Debe revisarse cuando concentra simultáneamente responsabilidades que pueden evolucionar de forma independiente, por ejemplo:
 
 ```text
 validación
@@ -276,8 +359,6 @@ configuración
 consultas
 presentación
 ```
-
-cuando estas responsabilidades pueden evolucionar independientemente.
 
 El tamaño de una clase por sí solo **no determina** si debe dividirse.
 
@@ -291,69 +372,19 @@ Debe revisarse principalmente cuando:
 
 ---
 
-## 5.3 Services compartidos
-
-`Shared/` debe utilizarse únicamente para componentes realmente transversales.
-
-No debe convertirse en una carpeta alternativa para código difícil de clasificar.
-
-Antes de colocar algo en:
-
-```text
-services/Shared/
-```
-
-debe comprobarse que pertenece realmente a más de un dominio y que no tiene un módulo funcional natural.
-
-Se deben evitar carpetas genéricas como:
-
-```text
-Helpers/
-Utils/
-Misc/
-Managers/
-Common/
-```
-
-salvo que exista una justificación arquitectónica específica.
-
----
-
 # 6. Models
 
-Los **Models** representan principalmente el estado persistente del sistema y el acceso a la base de datos.
+Los **Models** representan principalmente estado persistente y acceso a base de datos.
 
-El proyecto utiliza un patrón basado en `ActiveRecord`, por lo que cada modelo normalmente representa una entidad o tabla.
+El proyecto utiliza ActiveRecord.
 
-Ejemplos:
-
-```text
-Reservacion
-Mesa
-Ticket
-TicketItem
-Producto
-Usuario
-Proveedor
-```
-
-## Responsabilidades
-
-Un Model puede:
+## Un Model puede
 
 - Definir atributos persistentes.
-- Representar registros de base de datos.
+- Representar registros.
 - Crear, actualizar y consultar información.
-- Implementar consultas relacionadas directamente con su entidad.
-- Convertir datos persistentes a una representación utilizada por la aplicación.
-
-Ejemplo conceptual:
-
-```php
-$reservacion = Reservacion::find($id);
-$reservacion->estado = 'cancelada';
-$reservacion->guardar();
-```
+- Implementar consultas directamente relacionadas con su entidad.
+- Convertir datos persistentes a una representación de aplicación.
 
 ## Un Model no debe
 
@@ -362,18 +393,10 @@ $reservacion->guardar();
 - Enviar notificaciones.
 - Conocer Controllers.
 - Coordinar múltiples procesos del sistema.
-- Contener reglas complejas de operación.
 - Administrar casos de uso completos.
+- Depender de Services salvo durante una migración temporal explícitamente documentada.
 
-Una regla como:
-
-> "Una reservación cancelada debe liberar sus mesas, actualizar ocupación y generar una notificación"
-
-no pertenece únicamente al Model `Reservacion`.
-
-Es un **caso de uso**, por lo que debe implementarse mediante un Service.
-
-La regla general es:
+Regla general:
 
 > **Model = datos + persistencia.**
 
@@ -381,66 +404,28 @@ La regla general es:
 
 # 7. Views
 
-Las **Views** son responsables exclusivamente de la presentación de información.
-
-Actualmente pueden organizarse por superficie o módulo:
-
-```text
-views/
-├── admin/
-├── area/
-├── auth/
-├── components/
-├── feedback/
-├── home/
-├── operation/
-├── punto-de-venta/
-├── reservaciones/
-└── templates/
-```
-
-Esta organización debe mantenerse.
-
-## Responsabilidades
+Las Views son responsables exclusivamente de presentación.
 
 Una View puede:
 
 - Mostrar información.
-- Ejecutar condicionales simples de presentación.
+- Ejecutar condicionales simples.
 - Iterar colecciones.
 - Utilizar componentes o partials.
-- Aplicar escape y formato de salida.
+- Aplicar escape y formato.
 - Construir formularios.
 
-Ejemplo:
-
-```php
-<?php foreach ($reservaciones as $reservacion): ?>
-    <tr>
-        <td><?= htmlspecialchars($reservacion->nombre) ?></td>
-    </tr>
-<?php endforeach; ?>
-```
-
-## Una View no debe
+Una View no debe:
 
 - Consultar directamente la base de datos.
-- Instanciar Services.
+- Invocar Services.
 - Ejecutar reglas de negocio.
-- Cambiar estados del sistema.
+- Cambiar estados.
 - Realizar operaciones transaccionales.
 
-Cuando una View crezca demasiado, debe dividirse mediante:
+La información necesaria debe prepararse antes de renderizar la View.
 
-```text
-partials/
-components/
-sections/
-```
-
-La separación debe realizarse por componentes visuales coherentes, no simplemente por número de líneas.
-
-La regla general es:
+Regla general:
 
 > **View = presentación.**
 
@@ -448,7 +433,7 @@ La regla general es:
 
 # 8. Dependencias entre capas
 
-La dirección recomendada de dependencias es:
+Dirección recomendada:
 
 ```text
 Controller
@@ -466,39 +451,27 @@ Controller
 View
 ```
 
-Los Services pueden depender de otros Services cuando sea necesario:
-
-```text
-Service
-    ↓
-Service
-```
-
-siempre que cada uno mantenga una responsabilidad claramente definida.
+Los Services pueden depender de otros Services cuando la dependencia tenga una frontera de dominio clara.
 
 Debe evitarse:
 
 ```text
 Model → Controller
-
 Model → View
-
+Model → Service
 View → Model / Database
-
 View → Service
-
 Service → Controller
-
 Service → View
 ```
 
-La capa inferior no debe depender de la capa HTTP que la ejecuta.
+Una dependencia existente que incumpla esta dirección no debe corregirse incidentalmente durante un simple movimiento de archivos. Debe registrarse y corregirse en un refactor separado.
 
 ---
 
 # 9. Namespaces
 
-Los namespaces deben reflejar la estructura física del proyecto.
+Los namespaces deben reflejar la estructura física.
 
 Ejemplo:
 
@@ -521,15 +494,19 @@ y consumirse mediante:
 use Services\Reservations\Availability\DisponibilidadReservacionService;
 ```
 
-La misma regla debe aplicarse progresivamente a Controllers y Models cuando sean modularizados.
+Composer mantiene:
+
+```json
+"Services\\": "./services"
+```
+
+por lo que las subcarpetas representan directamente subnamespaces.
 
 ---
 
 # 10. Convenciones de nombres
 
-Los nombres deben expresar la responsabilidad de cada clase.
-
-Preferir:
+Preferir nombres que expresen responsabilidad:
 
 ```text
 ReservacionService
@@ -540,7 +517,7 @@ ReservacionMapaMesaPresenter
 HorarioOperacionService
 ```
 
-Evitar nombres ambiguos como:
+Evitar nombres ambiguos:
 
 ```text
 Helper
@@ -551,9 +528,7 @@ GeneralService
 CommonService
 ```
 
-cuando no indiquen claramente la responsabilidad del componente.
-
-Los sufijos también deben representar la función real:
+Sufijos:
 
 ```text
 Service      → lógica de negocio o caso de uso
@@ -561,10 +536,9 @@ Controller   → entrada HTTP
 Model        → entidad persistente
 Serializer   → transformación de datos
 Presenter    → preparación para presentación
-Provider     → implementación intercambiable
-Factory      → construcción o selección de implementaciones
 Config       → configuración
 Lock         → coordinación/concurrencia
+Client       → adaptador a servicio externo
 ```
 
 ---
@@ -576,17 +550,17 @@ Antes de crear una nueva clase debe determinarse:
 ```text
 1. ¿A qué módulo pertenece?
 2. ¿A qué capa pertenece?
-3. ¿Ya existe un componente responsable de esta función?
-4. ¿La nueva funcionalidad pertenece realmente a ese componente?
+3. ¿Ya existe un componente responsable?
+4. ¿La nueva función pertenece realmente a ese componente?
 ```
 
 Ejemplo:
 
 ```text
-Nueva función:
+Función:
 Enviar recordatorio de reservación por Email o WhatsApp
 
-Módulo:
+Dominio:
 Reservations / Notifications
 
 Caso de uso:
@@ -596,54 +570,84 @@ Integración externa:
 Integrations / N8nClient
 ```
 
-De esta forma se evita agregar automáticamente nuevas clases a la raíz de `services/`.
-
-### Notificaciones de reservaciones
-
-La integración HTTP concreta vive en `services/Integrations/N8nClient.php` y
-recibe URL/credencial del llamador, sin reglas de reservación. Los casos de uso
-están en `services/Reservations/Notifications`; `NotificationConfig` centraliza
-el entorno. No se introduce Provider/Factory/Dispatcher para esta única integración.
-`ScheduleChangeNotificationService` coordina el dominio de impactos, que no lo
-llama de vuelta. Todo HTTP ocurre post-commit, fuera de transacciones/locks.
-Los tres workflows tienen transporte propio, sin subworkflow ni runtime compartido
-entre ejecuciones. Ver [fuente funcional](reservaciones/notificaciones.md).
+No deben crearse nuevos Services directamente en la raíz de `services/` salvo una excepción arquitectónica explícitamente documentada.
 
 ---
 
-# 12. Principio de diseño
+# 12. Migración y correcciones fuera de alcance
 
-La arquitectura del proyecto debe priorizar:
+La migración arquitectónica se ejecuta bajo la regla:
 
-**Cohesión alta:**
-las funcionalidades relacionadas permanecen juntas.
+```text
+Mover
+↓
+Actualizar namespace
+↓
+Actualizar imports/referencias
+↓
+Validar
+```
 
-**Acoplamiento bajo:**
-los módulos conocen únicamente las dependencias necesarias.
+No:
 
-**Responsabilidad clara:**
-cada componente tiene una función identificable.
+```text
+Mover + renombrar + dividir + reescribir comportamiento
+```
 
-**Modularidad:**
-el crecimiento ocurre dentro de dominios definidos.
+Si durante la migración se detecta una corrección necesaria pero **fuera del alcance de la fase actual**, debe registrarse únicamente cuando exista un problema real y verificable en:
 
-**Migración incremental:**
-los cambios arquitectónicos deben realizarse progresivamente y sin modificar comportamiento funcional innecesariamente.
+```text
+docs/correcciones_pendientes_arquitectura.md
+```
+
+El archivo no es un backlog general ni una lista de ideas.
+
+Un hallazgo sólo debe registrarse cuando incluya:
+
+- error o incumplimiento concreto;
+- evidencia;
+- archivos afectados;
+- impacto;
+- motivo por el que no se corrige en la fase actual.
+
+No deben registrarse:
+
+- preferencias de estilo;
+- refactors hipotéticos;
+- ideas sin evidencia;
+- tareas ya cubiertas por el plan de migración;
+- observaciones sin impacto real.
+
+Las correcciones registradas se resolverán en cambios separados para no contaminar los commits de migración física.
 
 ---
 
-# 13. Resumen
+# 13. Principios de diseño
 
-La responsabilidad principal de cada capa puede resumirse como:
+La arquitectura prioriza:
 
-| Capa           | Responsabilidad                           |
-| -------------- | ----------------------------------------- |
-| **Controller** | Recibir y responder solicitudes HTTP      |
-| **Service**    | Ejecutar lógica de negocio y casos de uso |
-| **Model**      | Representar y persistir datos             |
-| **View**       | Presentar información                     |
+**Cohesión alta:** funcionalidades relacionadas permanecen juntas.
 
-En forma simplificada:
+**Acoplamiento bajo:** los módulos conocen únicamente dependencias necesarias.
+
+**Responsabilidad clara:** cada componente tiene una función identificable.
+
+**Modularidad:** el crecimiento ocurre dentro de dominios definidos.
+
+**Migración incremental:** los cambios arquitectónicos se realizan progresivamente.
+
+**Cambios verificables:** reorganización y corrección funcional no deben mezclarse sin necesidad.
+
+---
+
+# 14. Resumen
+
+| Capa | Responsabilidad |
+|---|---|
+| Controller | Recibir y responder solicitudes HTTP |
+| Service | Ejecutar lógica de negocio y casos de uso |
+| Model | Representar y persistir datos |
+| View | Presentar información |
 
 ```text
 Controller = entrada
@@ -652,7 +656,7 @@ Model      = datos
 View       = presentación
 ```
 
-La modularización agrega un segundo criterio:
+La modularización agrega:
 
 ```text
 Capa
@@ -662,4 +666,4 @@ Módulo
 Responsabilidad
 ```
 
-Este será el estándar utilizado para la evolución y refactorización progresiva del proyecto Casa Pestalozzi.
+Este documento constituye el estándar arquitectónico para la evolución progresiva de Casa Pestalozzi.
