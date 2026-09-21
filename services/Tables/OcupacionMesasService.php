@@ -8,7 +8,7 @@
  * tickets como efecto secundario.
  */
 
-namespace Services;
+namespace Services\Tables;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;
 use Services\Reservations\ReservacionVigenciaService;
@@ -18,6 +18,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\TicketMesa;
+use Services\TicketTemporalService;
 use Services\Reservations\HorarioReservacionService;
 
 final class OcupacionMesasService

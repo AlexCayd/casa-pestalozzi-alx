@@ -42,21 +42,25 @@ services/
 ├── Notifications/
 │   └── NotificationConfig.php
 │
-└── Reservations/
-    ├── ConfirmationResendPolicy.php
-    ├── HorarioOperacionImpactoService.php
-    ├── HorarioReservacionService.php
-    ├── ReservacionAdministrativaService.php
-    ├── ReservacionMantenimientoService.php
-    ├── ReservacionPublicaService.php
-    ├── ReservacionService.php
-    ├── ReservacionBuzonService.php
-    ├── ReservacionNotificacionConfigService.php
-    ├── ReservationConfirmationService.php
-    ├── ReservationNotificationContract.php
-    ├── ReservationNotificationResultService.php
-    ├── ReservationReminderService.php
-    └── ScheduleChangeNotificationService.php
+├── Reservations/
+│   ├── ConfirmationResendPolicy.php
+│   ├── HorarioOperacionImpactoService.php
+│   ├── HorarioReservacionService.php
+│   ├── ReservacionAdministrativaService.php
+│   ├── ReservacionMantenimientoService.php
+│   ├── ReservacionPublicaService.php
+│   ├── ReservacionService.php
+│   ├── ReservacionBuzonService.php
+│   ├── ReservacionNotificacionConfigService.php
+│   ├── ReservationConfirmationService.php
+│   ├── ReservationNotificationContract.php
+│   ├── ReservationNotificationResultService.php
+│   ├── ReservationReminderService.php
+│   └── ScheduleChangeNotificationService.php
+│
+└── Tables/
+    ├── MesaEstadoService.php
+    └── OcupacionMesasService.php
 ```
 
 Las responsabilidades siguen clasificándose de forma conceptual dentro del dominio; no se crean carpetas físicas internas para esa clasificación.
@@ -539,17 +543,17 @@ services/Pos/
 
 ## 6.12 Tables
 
-Mover:
+Migrados conjuntamente:
 
 ```text
-MesaEstadoService.php
-OcupacionMesasService.php
+services/Tables/MesaEstadoService.php
+services/Tables/OcupacionMesasService.php
 ```
 
-a:
+Namespace de las dos clases:
 
 ```text
-services/Tables/
+Services\Tables
 ```
 
 ---
@@ -851,7 +855,9 @@ Se movieron conjuntamente y no se dividieron.
 
 ## Fase 6 — POS y Tables
 
-Migrar ambos dominios de forma consecutiva por su relación funcional.
+**Estado:** Tables completado. POS es la siguiente migración de esta fase.
+
+Migrar ambos dominios consecutivamente por su relación funcional, en commits separados.
 
 Validar:
 

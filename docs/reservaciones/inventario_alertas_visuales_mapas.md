@@ -134,7 +134,7 @@ Por eso, una reservación fuera de horario cuyo intervalo planificado se traslap
 | Umbrales, zona horaria y duración | `services/Reservations/ReservacionConfig.php` |
 | Vigencia, inicio, tolerancia y elegibilidad de no-show | `services/Reservations/ReservacionVigenciaService.php` |
 | Ventanas POS, prioridad de acción y proyección por hora seleccionada | `services/ReservacionPoliticaPosService.php` |
-| Lectura común, intervalos y payload de mesa | `services/PosReservacionQueryService.php`, `services/PosReservacionSerializer.php`, `services/MesaEstadoService.php` |
+| Lectura común, intervalos y payload de mesa | `services/PosReservacionQueryService.php`, `services/PosReservacionSerializer.php`, `services/Tables/MesaEstadoService.php` |
 | Estado visual POS | `services/PosMesaProjectionPresenter.php` |
 | Estado visual administrativo | `services/Reservations/ReservacionMapaMesaPresenter.php`, `services/Reservations/ReservacionMapaAdministrativaService.php` |
 | API POS | `controllers/PuntoVentaController.php::api()` |

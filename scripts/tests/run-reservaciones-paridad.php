@@ -5,8 +5,8 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Reservations\CapacidadReservacionesService;
-use Services\MesaEstadoService;
-use Services\OcupacionMesasService;
+use Services\Tables\MesaEstadoService;
+use Services\Tables\OcupacionMesasService;
 use Services\Reservations\ReservacionConfig;
 
 /** @param mixed $condition */

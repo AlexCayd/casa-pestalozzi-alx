@@ -7,7 +7,10 @@
  * listo para dibujar. Esto mantiene la misma lectura en POS y reservaciones.
  */
 
-namespace Services;
+namespace Services\Tables;
+use Services\PosMesaProjectionPresenter;
+use Services\ReservacionPoliticaPosService;
+use Services\TicketTemporalService;
 use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\Reservations\ReservacionConfig;
 

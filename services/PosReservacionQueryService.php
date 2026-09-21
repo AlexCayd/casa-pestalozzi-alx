@@ -9,6 +9,8 @@
  */
 
 namespace Services;
+use Services\Tables\MesaEstadoService;
+use Services\Tables\OcupacionMesasService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;
 use Services\Reservations\ReservacionVigenciaService;

@@ -27,7 +27,7 @@ assertStaticContract(ReservacionConfig::BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS
 assertStaticContract(ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS === 15, 'tolerancia de producción permanece en 15');
 
 $fuentes = [
-    'services/MesaEstadoService.php',
+    'services/Tables/MesaEstadoService.php',
     'services/Reservations/ReservacionVigenciaService.php',
     'services/ReservacionPoliticaPosService.php',
     'services/PuntoVentaReservacionService.php',

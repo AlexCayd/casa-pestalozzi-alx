@@ -14,7 +14,7 @@ use Services\Reservations\ReservacionConfig;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
-use Services\OcupacionMesasService;
+use Services\Tables\OcupacionMesasService;
 
 final class CapacidadReservacionesService
 {

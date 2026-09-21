@@ -12,7 +12,7 @@ use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
-use Services\OcupacionMesasService;
+use Services\Tables\OcupacionMesasService;
 use Services\Reservations\ReservacionAdministrativaService;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\HorarioReservacionService;

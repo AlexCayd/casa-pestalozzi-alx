@@ -2,7 +2,7 @@
 
 namespace Services\Reservations;
 use Services\ContactoService;
-use Services\OcupacionMesasService;
+use Services\Tables\OcupacionMesasService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;
 use Services\Reservations\ReservacionConfig;

@@ -9,7 +9,7 @@ use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\Mesa;
-use Services\OcupacionMesasService;
+use Services\Tables\OcupacionMesasService;
 use Services\Reservations\ReservacionPublicaService;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\HorarioReservacionService;
