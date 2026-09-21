@@ -5,7 +5,7 @@ namespace Controllers;
 use Model\ConfiguracionAnuncio;
 use Services\CataService;
 use Services\Scheduling\HorarioOperacionService;
-use Services\ReservationClientSession;
+use Services\Reservations\ReservationClientSession;
 use Services\ReservacionService;
 
 class HomeController

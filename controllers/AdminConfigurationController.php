@@ -8,7 +8,7 @@ use MVC\Router;
 use Services\AnuncioConfig;
 use Services\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionNotificacionConfigService;
 use Services\ReporteSistemaService;
 

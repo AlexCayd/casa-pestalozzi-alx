@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
 
 /** @param mixed $condition */

@@ -9,7 +9,7 @@
  */
 
 use Services\Scheduling\HorarioOperacionService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\SitioConfig;
 
 $hoyFooter = ReservacionConfig::ahora();

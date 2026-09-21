@@ -7,7 +7,7 @@
 
 namespace Model;
 
-    use Services\ReservacionConfig;
+    use Services\Reservations\ReservacionConfig;
     use Services\ContactoService;
     use Services\ReservacionVigenciaService;
 

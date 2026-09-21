@@ -61,7 +61,7 @@ Una afectación admite exactamente dos intentos posibles: `attempt 1` automátic
 5. incrementa `notification_attempts`;
 6. actualiza `last_notification_at`.
 
-El TTL predeterminado del acceso es de 60 minutos y se obtiene mediante `ReservacionConfig::scheduleChangeAccessTtlMinutes()`.
+El TTL predeterminado del acceso es de 60 minutos y se obtiene mediante `Services\Reservations\ReservacionConfig::scheduleChangeAccessTtlMinutes()`.
 
 No existe cooldown entre reenvíos. El segundo intento sólo se habilita cuando el primero falló o su acceso venció. Después de `attempt 2` se oculta `Reenviar aviso`; la administración conserva las acciones de dominio aunque ya no pueda generar otro envío.
 

@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\PosReservacionSerializer;
 use Services\ReservacionAsignacionVersionService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 function assertAssignmentVersion(bool $condition, string $message): void
 {

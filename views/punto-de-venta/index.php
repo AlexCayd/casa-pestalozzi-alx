@@ -1,7 +1,7 @@
 <?php
-$mapFecha = trim((string)($_GET['fecha'] ?? \Services\ReservacionConfig::fechaActual()));
+$mapFecha = trim((string)($_GET['fecha'] ?? \Services\Reservations\ReservacionConfig::fechaActual()));
 if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $mapFecha) !== 1) {
-  $mapFecha = \Services\ReservacionConfig::fechaActual();
+  $mapFecha = \Services\Reservations\ReservacionConfig::fechaActual();
 }
 $mapHora = trim((string)($_GET['hora'] ?? ''));
 if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $mapHora) !== 1) {
@@ -54,7 +54,7 @@ $usuarioJson = json_encode([
   $name = '';
   $value = $mapFecha;
   $min = '';
-  $today = \Services\ReservacionConfig::fechaActual();
+  $today = \Services\Reservations\ReservacionConfig::fechaActual();
   $disabled = false;
   $enabledWeekdays = [];
   $allowPast = true;
@@ -112,7 +112,7 @@ $usuarioJson = json_encode([
     // a entregarlas en cada actualización para evitar valores divergentes.
     window.CP_RESERVATION_OPERATION_CONFIG = <?php
       echo json_encode(
-        \Services\ReservacionConfig::configuracionOperacion(),
+        \Services\Reservations\ReservacionConfig::configuracionOperacion(),
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
       );
     ?>;

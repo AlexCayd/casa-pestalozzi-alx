@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\ReservacionConfig;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
@@ -68,8 +68,8 @@ impactoAssert(ReservacionBuzonService::TIPO_GRUPO_GRANDE === 'reservacion_grupo_
 
 $publicView = file_get_contents($root . '/views/reservaciones/gestionar.php');
 $publicJs = file_get_contents($root . '/src/js/modules/schedule-change-access.js');
-$accessService = file_get_contents($root . '/services/ReservationManagementAccessService.php');
-$accessSession = file_get_contents($root . '/services/ReservationManagementAccessSession.php');
+$accessService = file_get_contents($root . '/services/Reservations/ReservationManagementAccessService.php');
+$accessSession = file_get_contents($root . '/services/Reservations/ReservationManagementAccessSession.php');
 $accessController = file_get_contents($root . '/controllers/ReservationManagementAccessController.php');
 $impactService = file_get_contents($root . '/services/Reservations/HorarioOperacionImpactoService.php');
 $buzonRules = file_get_contents($root . '/services/Reservations/ReservacionBuzonService.php');
@@ -89,7 +89,7 @@ foreach (['createReservationDatePicker', 'createReservationTimePicker', 'request
     impactoAssert(str_contains($publicJs, $fragment), "JS público contiene {$fragment}");
 }
 impactoAssert(str_contains($accessService, 'ReservationAccessTokenService::hash'), 'el acceso sólo compara hashes SHA-256 mediante el servicio común');
-$tokenService = file_get_contents($root . '/services/ReservationAccessTokenService.php');
+$tokenService = file_get_contents($root . '/services/Reservations/ReservationAccessTokenService.php');
 impactoAssert(is_string($tokenService) && str_contains($tokenService, 'bin2hex(random_bytes(32))'), 'el token temporal tiene 32 bytes aleatorios');
 impactoAssert(str_contains($accessService, 'access_invalidated_at') && str_contains($accessService, 'access_expires_at'), 'el acceso revalida vigencia');
 impactoAssert(str_contains($accessService, 'puedeModificarPublicamente'), 'el acceso revalida editabilidad');

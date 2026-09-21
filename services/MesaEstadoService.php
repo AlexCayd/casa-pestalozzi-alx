@@ -8,6 +8,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Services\Reservations\HorarioReservacionService;

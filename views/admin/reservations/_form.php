@@ -10,9 +10,9 @@ $editable = (bool)($editable ?? true);
 $returnUrl = (string)($returnUrl ?? '/admin/reservaciones');
 $backUrl = (string)($backUrl ?? '/admin/reservaciones');
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
-$fechaActual = (string)($fechaActual ?? \Services\ReservacionConfig::fechaActual());
+$fechaActual = (string)($fechaActual ?? \Services\Reservations\ReservacionConfig::fechaActual());
 $diasActivos = is_array($diasActivos ?? null) ? $diasActivos : [];
-$maxComensalesAdmin = (int)($maxComensalesAdmin ?? \Services\ReservacionConfig::MAX_COMENSALES_ADMIN);
+$maxComensalesAdmin = (int)($maxComensalesAdmin ?? \Services\Reservations\ReservacionConfig::MAX_COMENSALES_ADMIN);
 $comentarioAdminDisponible = (bool)($comentarioAdminDisponible ?? true);
 $asignarAutomaticamente = (bool)($asignarAutomaticamente ?? ($modo === 'crear'));
 $mesasAsignadas = isset($mesasAsignadas) && is_iterable($mesasAsignadas) ? $mesasAsignadas : [];
@@ -84,7 +84,7 @@ $formId = $modo . '-reservation-admin-form';
 $fieldId = static fn (string $field): string => $formId . '-' . $field;
 $fieldErrorId = static fn (string $field): string => $fieldId($field) . '-error';
 $adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
-$autoAssignmentDisabled = $comensales > \Services\ReservacionConfig::MAX_COMENSALES_PUBLICO;
+$autoAssignmentDisabled = $comensales > \Services\Reservations\ReservacionConfig::MAX_COMENSALES_PUBLICO;
 $contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
@@ -232,7 +232,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                     <label class="reservation-detail-form__field reservation-detail-form__field--name">
                         <span>Nombre</span>
                         <?php $error = $errorCampo('nombre'); ?>
-                        <input id="<?php echo $h($fieldId('nombre')); ?>" type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldErrorId('nombre')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
+                        <input id="<?php echo $h($fieldId('nombre')); ?>" type="text" name="nombre" value="<?php echo $h($nombre); ?>" maxlength="<?php echo \Services\Reservations\ReservacionConfig::NOMBRE_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldErrorId('nombre')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" required data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>>
                         <span id="<?php echo $h($fieldErrorId('nombre')); ?>" class="reservation-detail-field-msg <?php echo $error !== '' ? 'show' : ''; ?>" data-field-error="nombre" aria-live="polite"><?php echo $h($error); ?></span>
                     </label>
 
@@ -258,7 +258,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                             type="<?php echo $contactoTipo === 'telefono' ? 'tel' : 'email'; ?>"
                             name="contacto"
                             value="<?php echo $h($contacto); ?>"
-                            maxlength="<?php echo \Services\ReservacionConfig::EMAIL_MAX_CARACTERES; ?>"
+                            maxlength="<?php echo \Services\Reservations\ReservacionConfig::EMAIL_MAX_CARACTERES; ?>"
                             <?php if ($modo === 'editar') : ?>
                                 placeholder="<?php echo $contactoTipo === 'telefono' ? '+52 55 1234 5678' : 'cliente@ejemplo.com'; ?>"
                             <?php endif; ?>
@@ -286,7 +286,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <label class="reservation-detail-form__field reservation-detail-form__field--note">
                             <span>Nota del cliente <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
                             <?php $error = $errorCampo('nota'); ?>
-                            <textarea id="<?php echo $h($fieldId('nota')); ?>" name="nota" rows="3" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldId('nota') . '-help ' . $fieldErrorId('nota')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
+                            <textarea id="<?php echo $h($fieldId('nota')); ?>" name="nota" rows="3" maxlength="<?php echo \Services\Reservations\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h($fieldId('nota') . '-help ' . $fieldErrorId('nota')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($nota); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
                                 <small id="<?php echo $h($fieldId('nota') . '-help'); ?>" class="reservation-detail-form__helper"><?php echo $modalForm ? 'Indicaciones para la visita.' : 'Indicaciones proporcionadas por el cliente para su visita.'; ?></small>
                             <?php endif; ?>
@@ -298,7 +298,7 @@ $mensajeBloqueo = match ($motivoNoEditable) {
                         <label class="reservation-detail-form__field reservation-detail-form__field--internal-comment">
                             <span>Comentario interno <small class="reservation-detail-form__optional-label">(Opcional)</small></span>
                             <?php $error = $errorCampo('comentario_admin'); ?>
-                            <textarea id="<?php echo $h($fieldId('comentario_admin')); ?>" name="comentario_admin" rows="3" maxlength="<?php echo \Services\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h(($modo === 'crear' ? $fieldId('comentario_admin') . '-help ' : '') . $fieldErrorId('comentario_admin')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
+                            <textarea id="<?php echo $h($fieldId('comentario_admin')); ?>" name="comentario_admin" rows="3" maxlength="<?php echo \Services\Reservations\ReservacionConfig::COMENTARIO_ADMIN_MAX_CARACTERES; ?>" aria-describedby="<?php echo $h(($modo === 'crear' ? $fieldId('comentario_admin') . '-help ' : '') . $fieldErrorId('comentario_admin')); ?>" aria-invalid="<?php echo $error !== '' ? 'true' : 'false'; ?>" data-reservation-control <?php echo $formDisabled ? 'disabled' : ''; ?>><?php echo $h($comentarioAdmin); ?></textarea>
                             <?php if ($modo === 'crear') : ?>
                                 <small id="<?php echo $h($fieldId('comentario_admin') . '-help'); ?>" class="reservation-detail-form__helper"><?php echo $modalForm ? 'Visible sólo para el personal.' : 'Información visible únicamente para el personal.'; ?></small>
                             <?php endif; ?>

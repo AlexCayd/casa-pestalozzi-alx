@@ -1,5 +1,5 @@
 <?php
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 $buzonCantidad = (int)($buzonCantidadTotal ?? 0);
 $buzonCantidadAccionable = (int)($buzonCantidadAccionable ?? 0);

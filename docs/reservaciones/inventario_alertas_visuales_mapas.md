@@ -4,7 +4,7 @@
 
 Este inventario describe las rutas actuales de POS y del mapa operativo/administrativo. Se revisaron Services, presenters, serializers, controllers, payloads, JavaScript, SCSS, Views y las pruebas contractuales de mapas. No modifica reglas ni presentación.
 
-El baseline de código revisado parte de `e2818e1`. Las ventanas usan `America/Mexico_City` y la configuración presente en `services/ReservacionConfig.php`.
+El baseline de código revisado parte de `e2818e1`. Las ventanas usan `America/Mexico_City` y la configuración presente en `services/Reservations/ReservacionConfig.php`.
 
 ## Flujo de datos
 
@@ -48,7 +48,7 @@ No se encontró un estado base separado llamado “reservación vencida”, “t
 
 ## Reglas temporales
 
-Las cifras salen de `services/ReservacionConfig.php` y las condiciones de `ReservacionVigenciaService` y `ReservacionPoliticaPosService`:
+Las cifras salen de `services/Reservations/ReservacionConfig.php` y las condiciones de `ReservacionVigenciaService` y `ReservacionPoliticaPosService`:
 
 | Tiempo | Regla actual |
 |---|---|
@@ -131,7 +131,7 @@ Por eso, una reservación fuera de horario cuyo intervalo planificado se traslap
 
 | Regla/capa | Fuente actual |
 |---|---|
-| Umbrales, zona horaria y duración | `services/ReservacionConfig.php` |
+| Umbrales, zona horaria y duración | `services/Reservations/ReservacionConfig.php` |
 | Vigencia, inicio, tolerancia y elegibilidad de no-show | `services/ReservacionVigenciaService.php` |
 | Ventanas POS, prioridad de acción y proyección por hora seleccionada | `services/ReservacionPoliticaPosService.php` |
 | Lectura común, intervalos y payload de mesa | `services/PosReservacionQueryService.php`, `services/PosReservacionSerializer.php`, `services/MesaEstadoService.php` |

@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 /** Alias compatible hacia la autorización temporal generalizada. */
 final class ScheduleChangeAccessService

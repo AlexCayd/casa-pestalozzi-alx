@@ -13,9 +13,9 @@ use Model\Reservacion;
 use MVC\Router;
 use Services\ContactoAccesoService;
 use Services\DisponibilidadReservacionService;
-use Services\ReservationClientSession;
-use Services\ReservacionConfig;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservationClientSession;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
 use Services\ReservacionService;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 /**
  * Catálogo único de resultados que cruzan las superficies de reservaciones.

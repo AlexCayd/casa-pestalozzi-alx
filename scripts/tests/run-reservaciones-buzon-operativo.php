@@ -5,7 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\PosReservacionSerializer;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;

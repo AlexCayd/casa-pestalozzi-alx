@@ -3,7 +3,7 @@
  * Muestra el formulario publico de reservaciones y el aviso para grupos grandes.
  */
 
-$contactoReservas = \Services\ReservacionConfig::contactoPublico();
+$contactoReservas = \Services\Reservations\ReservacionConfig::contactoPublico();
 $horariosOperacion = is_array($horariosOperacion ?? null) ? $horariosOperacion : [];
 $proximasExcepcionesOperacion = is_array($proximasExcepcionesOperacion ?? null) ? $proximasExcepcionesOperacion : [];
 $horariosOperacionDisponibles = (bool)($horariosOperacionDisponibles ?? false);
@@ -23,8 +23,8 @@ $mesesCortos = [
 ];
 $hoyReserva = \DateTimeImmutable::createFromFormat(
   '!Y-m-d',
-  \Services\ReservacionConfig::fechaActual(),
-  \Services\ReservacionConfig::timezone()
+  \Services\Reservations\ReservacionConfig::fechaActual(),
+  \Services\Reservations\ReservacionConfig::timezone()
 );
 $hoyDiaSemana = (int)$hoyReserva->format('w');
 
@@ -237,9 +237,9 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
               $calendarId = 'cpCalendar';
               $name = 'fecha';
               $value = '';
-              $min = \Services\ReservacionConfig::fechaActual();
-              $maxDate = \Services\ReservacionConfig::ahora()
-                ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+              $min = \Services\Reservations\ReservacionConfig::fechaActual();
+              $maxDate = \Services\Reservations\ReservacionConfig::ahora()
+                ->modify('+' . \Services\Reservations\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
                 ->format('Y-m-d');
               $disabled = false;
               // Calendario siempre visible: elegir fecha no debería costar un
@@ -450,7 +450,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
                 </div>
               <?php endforeach; ?>
             </div>
-            <textarea id="reservationOccasion" class="reservation-control reservation-control--textarea" name="nota" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…" aria-describedby="occasionError"></textarea>
+            <textarea id="reservationOccasion" class="reservation-control reservation-control--textarea" name="nota" maxlength="<?php echo \Services\Reservations\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Aniversario, alergias, accesibilidad…" aria-describedby="occasionError"></textarea>
             <span class="field__msg reservation-field__error" id="occasionError" data-field-error="nota"></span>
           </div>
           <div class="reservation-stage-actions">
@@ -660,9 +660,9 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
           $calendarId = 'reservationEditorCalendar';
           $name = 'fecha';
           $value = '';
-          $min = \Services\ReservacionConfig::fechaActual();
-          $maxDate = \Services\ReservacionConfig::ahora()
-            ->modify('+' . \Services\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
+          $min = \Services\Reservations\ReservacionConfig::fechaActual();
+          $maxDate = \Services\Reservations\ReservacionConfig::ahora()
+            ->modify('+' . \Services\Reservations\ReservacionConfig::HORIZONTE_MAXIMO_DIAS . ' days')
             ->format('Y-m-d');
           $disabled = false;
           $enabledWeekdays = range(0, 6);
@@ -697,7 +697,7 @@ $formatoFechaExcepcion = static function (string $fechaIso) use ($mesesCortos): 
       </div>
       <div class="field reservation-field reservation-card__editor-notes">
         <label class="reservation-field__label" data-editor-notes-label>Indicaciones para tu visita</label>
-        <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Celebración, ubicación preferida, accesibilidad u otra indicación para tu visita…"></textarea>
+        <textarea class="reservation-control reservation-control--textarea" name="notas" maxlength="<?php echo \Services\Reservations\ReservacionConfig::NOTA_MAX_CARACTERES; ?>" placeholder="Celebración, ubicación preferida, accesibilidad u otra indicación para tu visita…"></textarea>
       </div>
       <div class="reservation-card__editor-actions">
         <button type="submit" class="btn-line"><span>Aceptar</span></button>

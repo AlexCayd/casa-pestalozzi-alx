@@ -4,7 +4,7 @@ namespace Controllers;
 
 use MVC\Router;
 use Services\AdminCsrfService;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Reservations\ScheduleChangeNotificationService;
 

@@ -81,7 +81,7 @@ class Cata extends ActiveRecord
         $inicio = \DateTimeImmutable::createFromFormat(
             '!Y-m-d H:i:s',
             trim((string)$this->fecha) . ' ' . self::horaCompleta((string)$this->hora),
-            new \DateTimeZone(\Services\ReservacionConfig::TIMEZONE)
+            new \DateTimeZone(\Services\Reservations\ReservacionConfig::TIMEZONE)
         );
 
         return $inicio ?: null;

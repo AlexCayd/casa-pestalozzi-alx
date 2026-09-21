@@ -10,7 +10,7 @@ use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
 use Services\Reservations\HorarioOperacionImpactoService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
 

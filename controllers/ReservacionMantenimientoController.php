@@ -5,7 +5,7 @@ namespace Controllers;
 use Classes\Auth;
 use MVC\Router;
 use Services\AdminCsrfService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionMantenimientoService;
 
 final class ReservacionMantenimientoController

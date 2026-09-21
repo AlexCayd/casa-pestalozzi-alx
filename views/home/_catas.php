@@ -21,7 +21,7 @@
  * para que las tres se distingan de golpe.
  */
 
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 $catasProximas = is_array($catasProximas ?? null) ? $catasProximas : [];
 

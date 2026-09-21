@@ -1,6 +1,6 @@
 <?php
 
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionErrorCatalog;
 /**
  * Herramienta diaria de reservaciones; el shell vive en views/operation/layout.php.
  */
@@ -9,7 +9,7 @@ $filtros = is_array($filtros ?? null) ? $filtros : [];
 $estadoLabels = is_array($estadoLabels ?? null) ? $estadoLabels : [];
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];
 $returnUrl = (string)($returnUrl ?? '');
-$fechaMinima = (string)($fechaMinima ?? \Services\ReservacionConfig::fechaActual());
+$fechaMinima = (string)($fechaMinima ?? \Services\Reservations\ReservacionConfig::fechaActual());
 $fechaInicial = (string)($filtros['fecha'] ?? $fechaMinima);
 $modoSoloLectura = (bool)($modoSoloLectura ?? false);
 $operacionEditable = (bool)($operacionEditable ?? !$modoSoloLectura);
@@ -287,7 +287,7 @@ if ($initialOperationNotice !== null) {
     $editable = true;
     $fechaActual = $fechaMinima;
     $diasActivos = range(0, 6);
-    $maxComensalesAdmin = \Services\ReservacionConfig::MAX_COMENSALES_ADMIN;
+    $maxComensalesAdmin = \Services\Reservations\ReservacionConfig::MAX_COMENSALES_ADMIN;
     $asignarAutomaticamente = true;
     $returnUrl = '/admin/reservaciones/operacion?fecha=' . rawurlencode($fechaInicial);
     $formTransport = 'json';

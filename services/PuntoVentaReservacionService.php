@@ -5,6 +5,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;

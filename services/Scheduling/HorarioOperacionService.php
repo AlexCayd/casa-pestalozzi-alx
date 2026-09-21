@@ -6,7 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\ScheduleChangeNotificationService;
 use Services\Reservations\HorarioOperacionImpactoService;

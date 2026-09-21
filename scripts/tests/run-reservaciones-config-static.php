@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 /** @param mixed $condition */
 function assertStaticContract($condition, string $message): void
@@ -15,7 +15,7 @@ function assertStaticContract($condition, string $message): void
     }
 }
 
-$config = file_get_contents(dirname(__DIR__, 2) . '/services/ReservacionConfig.php');
+$config = file_get_contents(dirname(__DIR__, 2) . '/services/Reservations/ReservacionConfig.php');
 assertStaticContract(is_string($config), 'se pudo leer configuración');
 assertStaticContract(str_contains($config, 'BLOQUEO_WALKIN_ANTES_RESERVACION_MINUTOS'), 'existe límite POS canónico');
 assertStaticContract(str_contains($config, 'INICIO_SERVICIO_ANTICIPADO_MINUTOS'), 'existe anticipación de servicio canónica');

@@ -477,7 +477,7 @@ ALTER TABLE dias_reservacion
 ```
 
 Requiere migrar antes `Services\Reservations\HorarioReservacionService` y
-`ReservacionConfig` a leer el horario de `horarios_operacion`.
+`Services\Reservations\ReservacionConfig` a leer el horario de `horarios_operacion`.
 
 > **Variante ya corregida:** además de las dos tablas, hubo un tiempo **dos
 > semillas** escribiendo sobre `horarios_operacion` — `dml.sql` y el archivo de

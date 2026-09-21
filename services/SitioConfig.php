@@ -10,7 +10,7 @@
  * configuración general en la BD (sólo configuracion_anuncio y
  * configuracion_pos) y no se va a crear una para esto: el patrón de la casa
  * para valores de despliegue es variable de entorno con respaldo, igual que
- * Services\ReservacionConfig.
+ * Services\Reservations\ReservacionConfig.
  *
  * El WhatsApp de eventos NO es el mismo número que el de reservaciones: quien
  * cotiza un evento habla con otra persona, así que vive aquí y no en
@@ -18,6 +18,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
 
 class SitioConfig
 {

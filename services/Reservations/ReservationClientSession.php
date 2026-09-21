@@ -7,7 +7,7 @@
  * personal, pero usa exclusivamente el namespace reservation_client.
  */
 
-namespace Services;
+namespace Services\Reservations;
 
 class ReservationClientSession
 {

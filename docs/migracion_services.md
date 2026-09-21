@@ -396,7 +396,7 @@ Debe evitarse crear dependencias circulares entre estos módulos.
 
 ---
 
-## 6.6 Reservations / Access
+## 6.6 Reservations / Access (clasificación conceptual)
 
 Mover:
 
@@ -418,17 +418,18 @@ services/Reservations/
 Namespace: Services\Reservations.
 
 La migración no debe cambiar contratos de sesión, tokens, hashes ni vigencias.
+Access describe una responsabilidad; no es una subcarpeta física. Todas estas
+clases viven directamente en `services/Reservations/`.
 
 ---
 
-## 6.7 Reservations / Config
+## 6.7 Reservations / Config (clasificación conceptual)
 
 Mover:
 
 ```text
 ReservacionConfig.php
 ReservacionErrorCatalog.php
-ReservacionNotificacionConfigService.php
 ```
 
 a:
@@ -438,6 +439,10 @@ services/Reservations/
 ```
 
 Namespace: Services\Reservations.
+
+`ReservacionNotificacionConfigService` ya vive directamente en
+`services/Reservations/` y no forma parte de este movimiento. Config describe
+una responsabilidad; no es una subcarpeta física.
 
 ---
 
@@ -803,14 +808,14 @@ npm run test:runtime
 
 ## Fase 4 — Reservations periférico
 
-Orden recomendado:
+Orden conceptual de los grupos periféricos; no representa subcarpetas físicas:
 
 ```text
-Access
+Access (completado en services/Reservations/)
 ↓
-Config
+Config (completado en services/Reservations/)
 ↓
-Locks
+Locks transversales (completado en services/Shared/)
 ↓
 Presentation
 ↓

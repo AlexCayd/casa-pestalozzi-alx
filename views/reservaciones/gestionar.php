@@ -1,5 +1,5 @@
 <?php
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 $h = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $formulario = is_array($formulario ?? null) ? $formulario : null;

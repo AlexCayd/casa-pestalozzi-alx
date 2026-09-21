@@ -1,6 +1,8 @@
 <?php
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservacionErrorCatalog;
 
 use DateTimeImmutable;
 use Services\Reservations\HorarioReservacionService;

@@ -5,9 +5,10 @@
  * Mantiene valores compartidos fuera de controladores y modelos.
  */
 
-namespace Services;
+namespace Services\Reservations;
 
 use DateTimeZone;
+use Services\ReservacionVigenciaService;
 
 class ReservacionConfig
 {

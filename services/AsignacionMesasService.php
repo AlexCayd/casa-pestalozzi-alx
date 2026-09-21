@@ -6,6 +6,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;
 use Model\Mesa;

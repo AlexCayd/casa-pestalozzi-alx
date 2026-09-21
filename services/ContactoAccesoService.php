@@ -5,6 +5,8 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservationClientSession;
 
 use DateTimeImmutable;
 use InvalidArgumentException;

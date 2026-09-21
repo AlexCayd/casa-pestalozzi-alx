@@ -141,7 +141,7 @@ class VerificacionContacto extends ActiveRecord
     ): int {
         $cycleId ??= bin2hex(random_bytes(16));
         $cycleExpiresAt ??= $expiresAt;
-        $createdAt ??= \Services\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $createdAt ??= \Services\Reservations\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $sql = "INSERT INTO verificaciones_contacto
                 (reservacion_id, contacto_tipo, contacto, codigo_hash, expires_at,
                  attempts, delivery_status, cycle_id, cycle_expires_at, created_at)
@@ -186,7 +186,7 @@ class VerificacionContacto extends ActiveRecord
     public static function finalizarEnvio(int $id, bool $accepted): void
     {
         $status = $accepted ? 'accepted' : 'failed';
-        $now = \Services\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
+        $now = \Services\Reservations\ReservacionConfig::ahora()->format('Y-m-d H:i:s');
         $acceptedAt = $accepted ? $now : null;
         $stmt = self::getDB()->prepare(
             "UPDATE verificaciones_contacto

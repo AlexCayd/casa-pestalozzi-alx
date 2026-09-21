@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionErrorCatalog;
 
 /** @param mixed $condition */
 function auditAssert($condition, string $message): void

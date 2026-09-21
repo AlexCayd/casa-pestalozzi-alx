@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\MesaEstadoService;
 use Services\PosReservacionSerializer;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 /** @param mixed $condition */
 function assertReassignmentCycle($condition, string $message): void

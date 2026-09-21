@@ -17,8 +17,8 @@ use Services\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\DisponibilidadReservacionService;
 use Services\Reservations\HorarioReservacionService;
-use Services\ReservacionConfig;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\ReservacionService;
 use Services\Reservations\HorarioOperacionImpactoService;
 

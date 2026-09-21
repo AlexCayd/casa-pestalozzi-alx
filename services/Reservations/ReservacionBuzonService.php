@@ -6,7 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
 use Services\ReservacionVigenciaService;
 use Services\Reservations\HorarioReservacionService;

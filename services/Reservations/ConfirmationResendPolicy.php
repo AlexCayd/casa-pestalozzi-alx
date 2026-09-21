@@ -6,7 +6,7 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
 use Services\ContactoService;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 /**
  * Fuente única del límite: tres aceptaciones por ciclo, incluidas simulaciones

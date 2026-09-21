@@ -17,8 +17,8 @@ use Services\OcupacionMesasService;
 use Services\PosReservacionQueryService;
 use Services\PosReservacionSerializer;
 use Services\PuntoVentaReservacionService;
-use Services\ReservacionConfig;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionConfig;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionService;
 

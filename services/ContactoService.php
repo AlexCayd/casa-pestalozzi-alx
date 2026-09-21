@@ -9,6 +9,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionConfig;
 
 use InvalidArgumentException;
 

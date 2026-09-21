@@ -179,7 +179,7 @@ Cosas que cargan peso y no son obvias:
   que sumaba las dos tablas. Catering no tiene módulo en el panel: su sección de
   la landing es la rejilla de ocasiones de `SitioConfig::OCASIONES_EVENTO`, cada
   una un enlace con su frase ya escrita. Las catas escriben al WhatsApp del
-  restaurante (`ReservacionConfig::whatsappUrl($mensaje)`); catering, al de
+  restaurante (`Services\Reservations\ReservacionConfig::whatsappUrl($mensaje)`); catering, al de
   eventos (`SitioConfig::whatsappEventosUrl()`), que **es otro número**.
 - `usuarios` tiene dos vías de acceso: `password_hash` (admins, usuario+contraseña)
   y `nip_hash` + `nip_lookup` (personal de piso, NIP de **4 dígitos**). El lookup

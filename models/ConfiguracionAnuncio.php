@@ -4,7 +4,7 @@ namespace Model;
 
 use DateTimeImmutable;
 use Services\AnuncioConfig;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 
 class ConfiguracionAnuncio extends ActiveRecord
 {

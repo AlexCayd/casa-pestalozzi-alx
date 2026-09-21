@@ -11,7 +11,7 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 use Model\ActiveRecord;
 use Services\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
-use Services\ReservacionConfig;
+use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPublicaService;
 use Services\Reservations\ScheduleChangeNotificationService;
 use Services\Reservations\HorarioOperacionImpactoService;

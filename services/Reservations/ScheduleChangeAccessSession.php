@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 /** Alias de compatibilidad; la sesión real es la de gestión compartida. */
 final class ScheduleChangeAccessSession

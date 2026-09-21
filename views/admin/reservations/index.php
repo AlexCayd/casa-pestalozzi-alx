@@ -29,7 +29,7 @@ $estadoBadge = [
 ];
 $filtrosActivos = (bool)($filtrosActivos ?? false);
 $partialOnly = (bool)($partialOnly ?? false);
-$fechaDefault = \Services\ReservacionConfig::fechaActual();
+$fechaDefault = \Services\Reservations\ReservacionConfig::fechaActual();
 $queryString = (string)($queryString ?? '');
 $returnTo = '/admin/reservaciones' . ($queryString !== '' ? '?' . $queryString : '');
 $alertas = isset($alertas) && is_array($alertas) ? $alertas : [];

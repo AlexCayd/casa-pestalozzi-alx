@@ -1,8 +1,9 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 use Model\ActiveRecord;
+use Services\ReservacionPublicaService;
 use Services\Reservations\HorarioOperacionImpactoService;
 
 /** Resuelve y revalida accesos de afectaciones y recordatorios. */

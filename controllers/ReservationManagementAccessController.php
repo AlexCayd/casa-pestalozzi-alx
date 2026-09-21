@@ -4,10 +4,10 @@ namespace Controllers;
 
 use MVC\Router;
 use Services\DisponibilidadReservacionService;
-use Services\ReservacionErrorCatalog;
+use Services\Reservations\ReservacionErrorCatalog;
 use Services\ReservacionPublicaService;
-use Services\ReservationManagementAccessService;
-use Services\ReservationManagementAccessSession;
+use Services\Reservations\ReservationManagementAccessService;
+use Services\Reservations\ReservationManagementAccessSession;
 
 /** Superficie pública única para gestionar una reservación por acceso temporal. */
 final class ReservationManagementAccessController
