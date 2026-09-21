@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\ReservacionAsignacionVersionService;
 use Services\Reservations\ReservacionConfig;

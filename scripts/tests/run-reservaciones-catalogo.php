@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\DisponibilidadReservacionService;
-use Services\ReservacionMapaMesaPresenter;
+use Services\Reservations\ReservacionMapaMesaPresenter;
 use Services\PosReservacionSerializer;
 
 /** @param mixed $condition */

@@ -23,7 +23,7 @@ function readPermissionSource(string $root, string $path): string
 $auth = readPermissionSource($root, 'classes/Auth.php');
 $index = readPermissionSource($root, 'public/index.php');
 $controller = readPermissionSource($root, 'controllers/ReservacionOperacionController.php');
-$mapService = readPermissionSource($root, 'services/ReservacionMapaAdministrativaService.php');
+$mapService = readPermissionSource($root, 'services/Reservations/ReservacionMapaAdministrativaService.php');
 $serializer = readPermissionSource($root, 'services/PosReservacionSerializer.php');
 $operationView = readPermissionSource($root, 'views/operation/reservations/index.php');
 $posWorkspace = readPermissionSource($root, 'views/punto-de-venta/partials/pos-workspace.php');

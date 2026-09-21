@@ -469,22 +469,23 @@ subcarpeta física de Reservations.
 
 ---
 
-## 6.9 Reservations / Presentation
+## 6.9 Reservations / Presentation (clasificación conceptual)
 
-Mover:
+Componentes migrados:
 
 ```text
 ReservacionMapaAdministrativaService.php
 ReservacionMapaMesaPresenter.php
 ```
 
-a:
+Destino físico:
 
 ```text
 services/Reservations/
 ```
 
 Namespace: Services\Reservations.
+Ambas clases viven directamente en services/Reservations/; Presentation no es una subcarpeta.
 
 Revisar posteriormente si `ReservacionMapaAdministrativaService` continúa siendo realmente presentación o si mezcla coordinación de dominio. No modificar su comportamiento durante el movimiento.
 
@@ -818,9 +819,9 @@ Config (completado en services/Reservations/)
 ↓
 Locks transversales (completado en services/Shared/)
 ↓
-Presentation
+Presentation (completado en services/Reservations/)
 ↓
-resto de Availability
+resto de Availability (completado en services/Reservations/)
 ```
 
 No mover todavía los Services principales si existen referencias pendientes.

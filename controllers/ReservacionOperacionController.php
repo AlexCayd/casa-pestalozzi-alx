@@ -19,7 +19,7 @@ use Services\PosReservacionSerializer;
 use Services\PuntoVentaReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\ReservacionMapaAdministrativaService;
+use Services\Reservations\ReservacionMapaAdministrativaService;
 use Services\ReservacionService;
 
 class ReservacionOperacionController

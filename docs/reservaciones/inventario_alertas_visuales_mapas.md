@@ -136,7 +136,7 @@ Por eso, una reservación fuera de horario cuyo intervalo planificado se traslap
 | Ventanas POS, prioridad de acción y proyección por hora seleccionada | `services/ReservacionPoliticaPosService.php` |
 | Lectura común, intervalos y payload de mesa | `services/PosReservacionQueryService.php`, `services/PosReservacionSerializer.php`, `services/MesaEstadoService.php` |
 | Estado visual POS | `services/PosMesaProjectionPresenter.php` |
-| Estado visual administrativo | `services/ReservacionMapaMesaPresenter.php`, `services/ReservacionMapaAdministrativaService.php` |
+| Estado visual administrativo | `services/Reservations/ReservacionMapaMesaPresenter.php`, `services/Reservations/ReservacionMapaAdministrativaService.php` |
 | API POS | `controllers/PuntoVentaController.php::api()` |
 | API mapa operativo | `controllers/ReservacionOperacionController.php` |
 | Adaptación y dibujo de pines | `src/js/operation/table-state-adapter.js`, `src/js/operation/map-visual.js` |

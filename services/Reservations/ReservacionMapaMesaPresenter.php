@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 /**
  * Proyección visual exclusiva del mapa administrativo.

@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\PosReservacionSerializer;
 use Services\Reservations\ReservacionConfig;
-use Services\ReservacionMapaAdministrativaService;
+use Services\Reservations\ReservacionMapaAdministrativaService;
 use Services\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Notifications\BuzonNotificacionesService;
@@ -32,7 +32,7 @@ $inboxView = file_get_contents($root . '/views/admin/partials/_buzon.php');
 $topbarView = file_get_contents($root . '/views/admin/partials/_topbar.php');
 $impactService = file_get_contents($root . '/services/Reservations/HorarioOperacionImpactoService.php');
 $reservationModel = file_get_contents($root . '/models/Reservacion.php');
-$mapService = file_get_contents($root . '/services/ReservacionMapaAdministrativaService.php');
+$mapService = file_get_contents($root . '/services/Reservations/ReservacionMapaAdministrativaService.php');
 $posJs = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 
 foreach ([$service, $generic, $controller, $critical, $reservationView, $routes, $inboxJs, $inboxView, $topbarView, $impactService, $reservationModel, $mapService, $posJs] as $source) {
