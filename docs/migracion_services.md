@@ -46,6 +46,10 @@ services/
     ├── ConfirmationResendPolicy.php
     ├── HorarioOperacionImpactoService.php
     ├── HorarioReservacionService.php
+    ├── ReservacionAdministrativaService.php
+    ├── ReservacionMantenimientoService.php
+    ├── ReservacionPublicaService.php
+    ├── ReservacionService.php
     ├── ReservacionBuzonService.php
     ├── ReservacionNotificacionConfigService.php
     ├── ReservationConfirmationService.php
@@ -493,22 +497,22 @@ Revisar posteriormente si `ReservacionMapaAdministrativaService` continúa siend
 
 ## 6.10 Reservations principales
 
-Mover, una vez estabilizadas sus dependencias:
+Migrados conjuntamente:
 
 ```text
-ReservacionService.php
-ReservacionPublicaService.php
-ReservacionAdministrativaService.php
-ReservacionMantenimientoService.php
+services/Reservations/ReservacionService.php
+services/Reservations/ReservacionPublicaService.php
+services/Reservations/ReservacionAdministrativaService.php
+services/Reservations/ReservacionMantenimientoService.php
 ```
 
-a:
+Namespace de las cuatro clases:
 
 ```text
-services/Reservations/
+Services\Reservations
 ```
 
-No dividir estas clases durante esta fase.
+Se movieron como una unidad porque se referencian mutuamente. No dividirlas durante esta fase.
 
 ---
 
@@ -824,7 +828,7 @@ Presentation (completado en services/Reservations/)
 resto de Availability (completado en services/Reservations/)
 ```
 
-No mover todavía los Services principales si existen referencias pendientes.
+Los Services principales se migraron conjuntamente en la Fase 5.
 
 Cada grupo de responsabilidades puede cerrarse con un commit separado; esto no implica crear carpetas internas.
 
@@ -832,7 +836,7 @@ Cada grupo de responsabilidades puede cerrarse con un commit separado; esto no i
 
 ## Fase 5 — Reservations principales
 
-Mover:
+**Estado:** completada. Las cuatro clases viven directamente en `services/Reservations/` y declaran `Services\Reservations`.
 
 ```text
 ReservacionService
@@ -841,9 +845,7 @@ ReservacionAdministrativaService
 ReservacionMantenimientoService
 ```
 
-No dividirlos todavía.
-
-Validar todos los flujos de reservaciones.
+Se movieron conjuntamente y no se dividieron.
 
 ---
 

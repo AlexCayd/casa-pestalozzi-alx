@@ -12,7 +12,7 @@ use Model\ActiveRecord;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
 use Services\Reservations\ReservacionConfig;
-use Services\ReservacionPublicaService;
+use Services\Reservations\ReservacionPublicaService;
 use Services\Reservations\ScheduleChangeNotificationService;
 use Services\Reservations\HorarioOperacionImpactoService;
 

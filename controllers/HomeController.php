@@ -6,7 +6,7 @@ use Model\ConfiguracionAnuncio;
 use Services\CataService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservationClientSession;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionService;
 
 class HomeController
 {

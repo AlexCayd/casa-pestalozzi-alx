@@ -88,9 +88,9 @@ $autoAssignmentDisabled = $comensales > \Services\Reservations\ReservacionConfig
 $contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
 
 $mensajeBloqueo = match ($motivoNoEditable) {
-    \Services\ReservacionService::RESERVACION_PASADA => 'No se pueden modificar reservaciones de fechas anteriores.',
-    \Services\ReservacionService::RESERVACION_HORARIO_PASADO => 'Esta reservacion ya paso de horario y no puede modificarse.',
-    \Services\ReservacionService::ESTADO_NO_EDITABLE => 'Esta reservacion ya fue finalizada y no puede modificarse.',
+    \Services\Reservations\ReservacionService::RESERVACION_PASADA => 'No se pueden modificar reservaciones de fechas anteriores.',
+    \Services\Reservations\ReservacionService::RESERVACION_HORARIO_PASADO => 'Esta reservacion ya paso de horario y no puede modificarse.',
+    \Services\Reservations\ReservacionService::ESTADO_NO_EDITABLE => 'Esta reservacion ya fue finalizada y no puede modificarse.',
     default => 'Esta reservacion no puede modificarse.',
 };
 ?>

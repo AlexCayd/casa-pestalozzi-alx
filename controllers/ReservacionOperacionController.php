@@ -20,7 +20,7 @@ use Services\PuntoVentaReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionMapaAdministrativaService;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionService;
 
 class ReservacionOperacionController
 {

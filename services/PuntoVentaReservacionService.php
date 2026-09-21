@@ -5,6 +5,9 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionAdministrativaService;
+use Services\Reservations\ReservacionMantenimientoService;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;

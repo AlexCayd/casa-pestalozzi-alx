@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\ReservacionAdministrativaService;
+use Services\Reservations\ReservacionAdministrativaService;
 
 /** @param mixed $condition */
 function assertAdministrativeContract($condition, string $message): void

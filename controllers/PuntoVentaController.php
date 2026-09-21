@@ -15,7 +15,7 @@ use MVC\Router;
 use Services\Carta;
 use Services\Reservations\HorarioReservacionService;
 use Services\Inventario;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\PosReservacionQueryService;

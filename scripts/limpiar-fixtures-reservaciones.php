@@ -65,7 +65,7 @@ putenv('DB_NAME=' . $database);
 require dirname(__DIR__) . '/includes/app.php';
 
 use Model\ActiveRecord;
-use Services\ReservacionMantenimientoService;
+use Services\Reservations\ReservacionMantenimientoService;
 
 $db = ActiveRecord::getDB();
 if (!$db instanceof mysqli || !$db->select_db($database)) {

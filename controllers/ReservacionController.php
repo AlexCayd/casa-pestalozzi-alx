@@ -16,8 +16,8 @@ use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservationClientSession;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\ReservacionPublicaService;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionPublicaService;
+use Services\Reservations\ReservacionService;
 
 class ReservacionController
 {

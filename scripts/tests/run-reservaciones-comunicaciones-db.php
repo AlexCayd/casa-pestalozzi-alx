@@ -12,7 +12,7 @@ use Model\ActiveRecord;
 use Services\ContactoAccesoService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
-use Services\ReservacionPublicaService;
+use Services\Reservations\ReservacionPublicaService;
 use Services\Reservations\ReservationAccessTokenService;
 use Services\Reservations\ReservationManagementAccessService;
 use Services\Reservations\ReservacionNotificacionConfigService;

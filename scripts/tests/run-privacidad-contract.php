@@ -102,7 +102,7 @@ assertPrivacidad($admin['contacto_tipo'] === 'email', 'admin conserva contacto_t
 
 $root = dirname(__DIR__, 2);
 $otpService = file_get_contents($root . '/services/ContactoAccesoService.php');
-$publicService = file_get_contents($root . '/services/ReservacionPublicaService.php');
+$publicService = file_get_contents($root . '/services/Reservations/ReservacionPublicaService.php');
 $landing = file_get_contents($root . '/views/home/_reserva.php');
 $form = file_get_contents($root . '/src/js/modules/form.js');
 $access = file_get_contents($root . '/src/js/modules/reservation-access.js');

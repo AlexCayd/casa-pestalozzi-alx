@@ -19,7 +19,7 @@ use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\HorarioOperacionImpactoService;
 
 class AdminReservacionController

@@ -8,7 +8,9 @@
  * y hace efectivo el límite transaccional de cinco.
  */
 
-namespace Services;
+namespace Services\Reservations;
+use Services\ContactoAccesoService;
+use Services\ContactoService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionConfig;

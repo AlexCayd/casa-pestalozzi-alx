@@ -10,8 +10,8 @@ use Services\Reservations\ReservacionConfig;
 use DateTimeImmutable;
 use Model\Mesa;
 use Services\OcupacionMesasService;
-use Services\ReservacionPublicaService;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionPublicaService;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\HorarioReservacionService;
 
 final class DisponibilidadReservacionService

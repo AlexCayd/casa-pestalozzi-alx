@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;
 

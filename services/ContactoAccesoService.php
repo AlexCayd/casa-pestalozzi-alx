@@ -5,6 +5,7 @@
  */
 
 namespace Services;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservationClientSession;
 

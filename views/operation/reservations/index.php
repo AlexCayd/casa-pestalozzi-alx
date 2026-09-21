@@ -280,7 +280,7 @@ if ($initialOperationNotice !== null) {
     $modalReservacion->hora = '';
     $modalReservacion->comensales = 2;
     $modalReservacion->estado = 'confirmada';
-    $modalReservacion->request_token = \Services\ReservacionService::generarRequestToken();
+    $modalReservacion->request_token = \Services\Reservations\ReservacionService::generarRequestToken();
     $modalFormModo = 'crear';
     $reservacion = $modalReservacion;
     $errores = [];

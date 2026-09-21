@@ -13,8 +13,8 @@ use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Services\OcupacionMesasService;
-use Services\ReservacionAdministrativaService;
-use Services\ReservacionService;
+use Services\Reservations\ReservacionAdministrativaService;
+use Services\Reservations\ReservacionService;
 use Services\Reservations\HorarioReservacionService;
 
 class AsignacionMesasService

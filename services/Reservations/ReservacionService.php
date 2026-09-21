@@ -5,7 +5,9 @@
  * Los controladores solo traducen la peticion y el formato de respuesta.
  */
 
-namespace Services;
+namespace Services\Reservations;
+use Services\ContactoService;
+use Services\PuntoVentaReservacionService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionVigenciaService;

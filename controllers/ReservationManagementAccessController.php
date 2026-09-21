@@ -5,7 +5,7 @@ namespace Controllers;
 use MVC\Router;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\ReservacionPublicaService;
+use Services\Reservations\ReservacionPublicaService;
 use Services\Reservations\ReservationManagementAccessService;
 use Services\Reservations\ReservationManagementAccessSession;
 
