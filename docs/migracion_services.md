@@ -32,7 +32,7 @@ La raíz `services/` todavía contiene Services pertenecientes a diferentes domi
 
 Sin embargo, la migración ya comenzó en algunas áreas.
 
-Actualmente existen, entre otras:
+La migración ya ubicó las comunicaciones específicas de reservaciones dentro de su dominio. Esta etapa aplana esas clases y las demás responsabilidades ya migradas:
 
 ```text
 services/
@@ -43,16 +43,19 @@ services/
 │   └── NotificationConfig.php
 │
 └── Reservations/
-    └── Notifications/
-        ├── ConfirmationResendPolicy.php
-        ├── ReservationConfirmationService.php
-        ├── ReservationNotificationContract.php
-        ├── ReservationNotificationResultService.php
-        ├── ReservationReminderService.php
-        └── ScheduleChangeNotificationService.php
+    ├── ConfirmationResendPolicy.php
+    ├── HorarioOperacionImpactoService.php
+    ├── HorarioReservacionService.php
+    ├── ReservacionBuzonService.php
+    ├── ReservacionNotificacionConfigService.php
+    ├── ReservationConfirmationService.php
+    ├── ReservationNotificationContract.php
+    ├── ReservationNotificationResultService.php
+    ├── ReservationReminderService.php
+    └── ScheduleChangeNotificationService.php
 ```
 
-Esta estructura se considera correcta y **no debe revertirse**.
+Las responsabilidades siguen clasificándose de forma conceptual dentro del dominio; no se crean carpetas físicas internas para esa clasificación.
 
 No deben reintroducirse Provider, Factory o Dispatcher antiguos para notificaciones.
 
@@ -115,16 +118,20 @@ salvo que sea estrictamente necesario para mantener el sistema funcionando.
 
 Cada Service debe ubicarse según la función que realmente ejecuta, no únicamente por su nombre.
 
-La clasificación vigente distingue expresamente:
+La clasificación funcional distingue responsabilidades, no carpetas internas:
 
 ```text
-Scheduling                → horario operativo del restaurante
-Reservations/Availability → horario reservable y disponibilidad
-Reservations/ScheduleChanges → consecuencias sobre reservaciones de cambios de horario
-Notifications             → configuración transversal de transporte
-Reservations/Notifications → comunicaciones específicas de reservaciones
-Integrations              → adaptadores a sistemas externos
+Scheduling → horario operativo del restaurante
+Reservations (availability) → horario reservable y disponibilidad
+Reservations (schedule changes) → consecuencias sobre reservaciones de cambios de horario
+Notifications → configuración transversal de transporte
+Reservations (notifications) → comunicaciones específicas de reservaciones
+Integrations → adaptadores a sistemas externos
 ```
+
+Los módulos de Services utilizan un solo nivel de carpetas. La carpeta identifica el dominio y el nombre de la clase identifica su responsabilidad. No crear subcarpetas internas para Access, Availability, Config, Locks, Notifications, Presentation o ScheduleChanges.
+
+Una segunda profundidad sólo podrá introducirse en el futuro si el crecimiento real del dominio la justifica claramente; no debe anticiparse.
 
 ---
 
@@ -158,6 +165,12 @@ debe declarar:
 
 ```php
 namespace Services\Users;
+```
+
+Todas las clases físicas directamente en services/Reservations/ declaran:
+
+```php
+namespace Services\Reservations;
 ```
 
 ---
@@ -250,43 +263,25 @@ Mantener:
 ```text
 services/Integrations/N8nClient.php
 services/Notifications/NotificationConfig.php
-services/Reservations/Notifications/*
 ```
 
-Mover:
+Las clases de comunicación específicas de reservaciones permanecen bajo services/Reservations/ y usan el namespace Services\Reservations:
 
 ```text
-ReservacionNotificacionConfigService.php
-```
-
-a:
-
-```text
-services/Reservations/Config/
-```
-
-Mover:
-
-```text
+ConfirmationResendPolicy.php
 ReservacionBuzonService.php
+ReservacionNotificacionConfigService.php
+ReservationConfirmationService.php
+ReservationNotificationContract.php
+ReservationNotificationResultService.php
+ReservationReminderService.php
+ScheduleChangeNotificationService.php
 ```
 
-a:
+El buzón transversal permanece en:
 
 ```text
-services/Reservations/Notifications/
-```
-
-Mover:
-
-```text
-BuzonNotificacionesService.php
-```
-
-a:
-
-```text
-services/Notifications/
+services/Notifications/BuzonNotificacionesService.php
 ```
 
 No modificar contratos n8n ni reintroducir abstracciones antiguas.
@@ -318,8 +313,10 @@ HorarioConfigLock.php
 a:
 
 ```text
-services/Scheduling/Locks/HorarioConfigLock.php
+services/Scheduling/HorarioConfigLock.php
 ```
+
+Ambas clases usan namespace Services\Scheduling.
 
 No mover a Scheduling reglas específicas de reservaciones.
 
@@ -341,8 +338,10 @@ ReservacionAsignacionVersionService.php
 a:
 
 ```text
-services/Reservations/Availability/
+services/Reservations/
 ```
+
+Todas estas clases declaran namespace Services\Reservations.
 
 `HorarioReservacionService` pertenece aquí porque contiene reglas como:
 
@@ -365,8 +364,10 @@ HorarioOperacionImpactoService.php
 a:
 
 ```text
-services/Reservations/ScheduleChanges/
+services/Reservations/
 ```
+
+Namespace: Services\Reservations.
 
 Este Service no pertenece al dominio puro de Scheduling porque trabaja directamente con:
 
@@ -377,10 +378,10 @@ Este Service no pertenece al dominio puro de Scheduling porque trabaja directame
 - acceso temporal;
 - estado de notificación.
 
-`ScheduleChangeNotificationService` permanece en:
+`ScheduleChangeNotificationService` permanece en el mismo dominio:
 
 ```text
-services/Reservations/Notifications/
+services/Reservations/ScheduleChangeNotificationService.php
 ```
 
 La relación buscada es:
@@ -388,9 +389,7 @@ La relación buscada es:
 ```text
 Scheduling
     ↓
-Reservations / ScheduleChanges
-    ↓
-Reservations / Notifications
+Reservations
 ```
 
 Debe evitarse crear dependencias circulares entre estos módulos.
@@ -413,8 +412,10 @@ ScheduleChangeAccessSession.php
 a:
 
 ```text
-services/Reservations/Access/
+services/Reservations/
 ```
+
+Namespace: Services\Reservations.
 
 La migración no debe cambiar contratos de sesión, tokens, hashes ni vigencias.
 
@@ -433,8 +434,10 @@ ReservacionNotificacionConfigService.php
 a:
 
 ```text
-services/Reservations/Config/
+services/Reservations/
 ```
+
+Namespace: Services\Reservations.
 
 ---
 
@@ -450,8 +453,10 @@ ContactoOperacionLock.php
 a:
 
 ```text
-services/Reservations/Locks/
+services/Reservations/
 ```
+
+Namespace: Services\Reservations.
 
 ---
 
@@ -467,8 +472,10 @@ ReservacionMapaMesaPresenter.php
 a:
 
 ```text
-services/Reservations/Presentation/
+services/Reservations/
 ```
+
+Namespace: Services\Reservations.
 
 Revisar posteriormente si `ReservacionMapaAdministrativaService` continúa siendo realmente presentación o si mezcla coordinación de dominio. No modificar su comportamiento durante el movimiento.
 
@@ -545,7 +552,7 @@ StaffCsrfService.php
 a:
 
 ```text
-services/Security/Csrf/
+services/Security/
 ```
 
 ---
@@ -710,15 +717,20 @@ Commit independiente.
 
 ## Fase 2 — Cierre de Notifications
 
-Mantener la estructura modular ya existente.
-
-Mover únicamente los componentes todavía ubicados en raíz:
+Mantener las notificaciones transversales en services/Notifications y aplanar en services/Reservations las comunicaciones específicas de reservaciones y su configuración:
 
 ```text
 ReservacionNotificacionConfigService
 ReservacionBuzonService
-BuzonNotificacionesService
+ConfirmationResendPolicy
+ReservationConfirmationService
+ReservationNotificationContract
+ReservationNotificationResultService
+ReservationReminderService
+ScheduleChangeNotificationService
 ```
+
+BuzonNotificacionesService permanece en services/Notifications.
 
 Validar:
 
@@ -745,16 +757,16 @@ Mover en cambios controlados:
 
 ```text
 HorarioOperacionService
-    → Scheduling/
+    → services/Scheduling/HorarioOperacionService.php
 
 HorarioConfigLock
-    → Scheduling/Locks/
+    → services/Scheduling/HorarioConfigLock.php
 
 HorarioReservacionService
-    → Reservations/Availability/
+    → services/Reservations/HorarioReservacionService.php
 
 HorarioOperacionImpactoService
-    → Reservations/ScheduleChanges/
+    → services/Reservations/HorarioOperacionImpactoService.php
 ```
 
 Actualizar todas las referencias.
@@ -804,7 +816,7 @@ resto de Availability
 
 No mover todavía los Services principales si existen referencias pendientes.
 
-Cada subdominio debe poder cerrarse con un commit separado.
+Cada grupo de responsabilidades puede cerrarse con un commit separado; esto no implica crear carpetas internas.
 
 ---
 

@@ -173,23 +173,19 @@ Regla general:
 
 ## 5.1 Organización por dominio
 
-Los Services deben organizarse primero por **módulo funcional** y después, sólo cuando exista complejidad suficiente, por subdominio.
+Los módulos de Services utilizan un solo nivel de carpetas. La carpeta identifica el dominio y el nombre de la clase identifica su responsabilidad.
 
-Ejemplo de `Reservations`:
+Estructura:
 
 ```text
 services/
 └── Reservations/
-    ├── Access/
-    ├── Availability/
-    ├── Config/
-    ├── Locks/
-    ├── Notifications/
-    ├── Presentation/
-    └── ScheduleChanges/
+    └── HorarioReservacionService.php
 ```
 
-No deben crearse subcarpetas únicamente para contener uno o dos archivos sin una razón arquitectónica clara.
+No utilizar subcarpetas internas como `Access`, `Availability`, `Config`, `Locks`, `Notifications`, `Presentation` o `ScheduleChanges` como organización habitual.
+
+Una segunda profundidad sólo podrá introducirse en el futuro si el crecimiento real de un dominio la justifica claramente. No debe anticiparse.
 
 ---
 
@@ -215,8 +211,7 @@ Estructura esperada:
 services/
 └── Scheduling/
     ├── HorarioOperacionService.php
-    └── Locks/
-        └── HorarioConfigLock.php
+    └── HorarioConfigLock.php
 ```
 
 `Scheduling` **no representa ejecución programada de tareas, cron jobs ni recordatorios automáticos**.
@@ -228,8 +223,7 @@ Las reglas que convierten un horario operativo en una **ventana reservable** per
 ```text
 services/
 └── Reservations/
-    └── Availability/
-        └── HorarioReservacionService.php
+    └── HorarioReservacionService.php
 ```
 
 Esto incluye:
@@ -245,8 +239,7 @@ Los impactos generados cuando un cambio de horario afecta reservaciones existent
 ```text
 services/
 └── Reservations/
-    └── ScheduleChanges/
-        └── HorarioOperacionImpactoService.php
+    └── HorarioOperacionImpactoService.php
 ```
 
 La relación conceptual es:
@@ -257,9 +250,6 @@ Scheduling
     │ horario efectivo
     ▼
 Reservations
-    ├── Availability
-    ├── ScheduleChanges
-    └── Notifications
 ```
 
 `Scheduling` debe conocer el horario operativo. Las reglas y consecuencias específicas de reservaciones deben mantenerse dentro de `Reservations`.
@@ -275,7 +265,8 @@ Debe distinguirse entre:
 ```text
 services/
 └── Notifications/
-    └── NotificationConfig.php
+    ├── NotificationConfig.php
+    └── BuzonNotificacionesService.php
 ```
 
 Contienen configuración transversal de transporte.
@@ -285,7 +276,14 @@ Contienen configuración transversal de transporte.
 ```text
 services/
 └── Reservations/
-    └── Notifications/
+    ├── ReservationConfirmationService.php
+    ├── ReservationReminderService.php
+    ├── ScheduleChangeNotificationService.php
+    ├── ReservacionBuzonService.php
+    ├── ReservacionNotificacionConfigService.php
+    ├── ReservationNotificationContract.php
+    ├── ReservationNotificationResultService.php
+    └── ConfirmationResendPolicy.php
 ```
 
 Contienen los casos de uso y contratos específicos de reservaciones.
@@ -478,20 +476,19 @@ Ejemplo:
 ```text
 services/
 └── Reservations/
-    └── Availability/
-        └── DisponibilidadReservacionService.php
+    └── DisponibilidadReservacionService.php
 ```
 
 debe utilizar:
 
 ```php
-namespace Services\Reservations\Availability;
+namespace Services\Reservations;
 ```
 
 y consumirse mediante:
 
 ```php
-use Services\Reservations\Availability\DisponibilidadReservacionService;
+use Services\Reservations\DisponibilidadReservacionService;
 ```
 
 Composer mantiene:
@@ -500,7 +497,7 @@ Composer mantiene:
 "Services\\": "./services"
 ```
 
-por lo que las subcarpetas representan directamente subnamespaces.
+por lo que la carpeta del dominio representa directamente el namespace del módulo.
 
 ---
 
@@ -561,7 +558,7 @@ Función:
 Enviar recordatorio de reservación por Email o WhatsApp
 
 Dominio:
-Reservations / Notifications
+Reservations (comunicaciones de reservaciones)
 
 Caso de uso:
 ReservationReminderService
