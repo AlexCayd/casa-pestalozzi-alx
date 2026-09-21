@@ -3,12 +3,12 @@
  * Pie + lightbox + panel de tweaks.
  *
  * El horario se pinta con las MISMAS excepciones que la sección de reservación
- * (Services\HorarioOperacionService::mapearExcepcionesDeLaSemana): antes el pie
+ * (Services\Scheduling\HorarioOperacionService::mapearExcepcionesDeLaSemana): antes el pie
  * listaba sólo el horario semanal y podía contradecir a la tabla de arriba —una
  * decía "martes 16:00–23:00 por comida privada" y la otra "martes 08:30–22:00"—.
  */
 
-use Services\HorarioOperacionService;
+use Services\Scheduling\HorarioOperacionService;
 use Services\ReservacionConfig;
 use Services\SitioConfig;
 

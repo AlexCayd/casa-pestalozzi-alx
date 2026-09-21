@@ -34,7 +34,7 @@ $hoyDiaSemana = (int)$hoyReserva->format('w');
 // marcar; el resumen "Más adelante" que iba debajo se retiró —era una lista de
 // fechas sueltas sin contexto, y la sección promete el horario de AHORA—.
 $excepcionesPorDia = $horariosOperacionDisponibles
-  ? \Services\HorarioOperacionService::mapearExcepcionesDeLaSemana(
+  ? \Services\Scheduling\HorarioOperacionService::mapearExcepcionesDeLaSemana(
       $proximasExcepcionesOperacion,
       $hoyReserva
     )

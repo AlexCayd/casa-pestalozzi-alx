@@ -1,12 +1,16 @@
 <?php
 
-namespace Services;
+namespace Services\Scheduling;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
+use Services\HorarioOperacionImpactoService;
+use Services\HorarioReservacionService;
+use Services\ReservacionConfig;
 use Services\Reservations\Notifications\ScheduleChangeNotificationService;
+use Services\Scheduling\Locks\HorarioConfigLock;
 
 class HorarioOperacionService
 {

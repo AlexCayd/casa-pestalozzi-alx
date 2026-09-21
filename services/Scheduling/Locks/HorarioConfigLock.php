@@ -1,6 +1,8 @@
 <?php
 
-namespace Services;
+namespace Services\Scheduling\Locks;
+
+use Services\FechaOperacionLock;
 
 /**
  * Serializa cambios de configuración con altas/modificaciones que validan el

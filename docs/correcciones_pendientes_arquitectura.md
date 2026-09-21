@@ -97,3 +97,23 @@ En horas que se traslapan con el intervalo planificado, la lista y el pin pueden
 El inventario solicitado documenta el comportamiento actual sin cambiar reglas del mapa. Corregir el filtro requiere decidir si la exclusión del horario efectivo debe afectar también ocupación y disponibilidad por mesa.
 
 **Estado:** `pendiente`
+
+### [ARQ-003] Las Views invocan directamente HorarioOperacionService
+
+**Error encontrado:**
+Las Views de inicio llaman directamente a métodos estáticos de `HorarioOperacionService` para preparar excepciones semanales. La vista queda acoplada a un Service y ejecuta lógica de preparación fuera del Controller.
+
+**Evidencia:**
+`views/home/_footer.php` importa `Services\Scheduling\HorarioOperacionService` y llama `mapearExcepcionesDeLaSemana()`. `views/home/_reserva.php` hace la misma llamada mediante FQCN. La migración sólo actualizó el namespace para preservar el montaje actual.
+
+**Archivos afectados:**
+- `views/home/_footer.php`
+- `views/home/_reserva.php`
+
+**Impacto:**
+La presentación depende directamente de la capa Services, lo que acopla el renderizado de estas Views al autoload y a la ejecución del servicio.
+
+**Fuera de alcance porque:**
+Esta fase sólo mueve archivos y actualiza namespaces. Trasladar el cálculo al Controller cambiaría la preparación de datos de la View y corresponde a un refactor separado.
+
+**Estado:** `pendiente`

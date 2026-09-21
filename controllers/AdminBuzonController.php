@@ -7,7 +7,7 @@ use Model\TicketMesa;
 use MVC\Router;
 use Services\AdminCsrfService;
 use Services\HorarioOperacionImpactoService;
-use Services\HorarioOperacionService;
+use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\Notifications\ReservacionBuzonService;
 use Services\ReservacionConfig;
