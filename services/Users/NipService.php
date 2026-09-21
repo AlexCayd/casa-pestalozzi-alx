@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Users;
 
 /**
  * Fuente única para las credenciales de cuatro dígitos del personal de piso.

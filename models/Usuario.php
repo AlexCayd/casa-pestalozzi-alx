@@ -2,7 +2,7 @@
 
 namespace Model;
 
-use Services\NipService;
+use Services\Users\NipService;
 
 class Usuario extends ActiveRecord
 {

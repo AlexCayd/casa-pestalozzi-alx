@@ -10,8 +10,8 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/../includes/app.php';
 
-use Services\UsuarioService;
-use Services\NipService;
+use Services\Users\UsuarioService;
+use Services\Users\NipService;
 
 if (!NipService::secretoConfigurado()) {
     fwrite(STDERR, "Falta NIP_LOOKUP_SECRET.\n");

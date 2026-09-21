@@ -11,7 +11,7 @@ use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
 use Services\AdminCsrfService;
-use Services\UsuarioService;
+use Services\Users\UsuarioService;
 
 class AdminUsersController
 {

@@ -4,7 +4,7 @@
 $root = dirname(__DIR__, 2);
 require $root . '/vendor/autoload.php';
 
-use Services\NipService;
+use Services\Users\NipService;
 
 function comprobar(bool $condicion, string $mensaje): void
 {
@@ -43,8 +43,8 @@ $formulario = file_get_contents($root . '/views/admin/users/form.php');
 $javascript = file_get_contents($root . '/src/js/admin/users/users-form.js');
 $estilos = file_get_contents($root . '/src/scss/admin/modules/users.scss');
 $confirmation = file_get_contents($root . '/src/js/components/confirmation-modal.js');
-$configuracion = file_get_contents($root . '/services/UsuarioConfig.php');
-$servicio = file_get_contents($root . '/services/UsuarioService.php');
+$configuracion = file_get_contents($root . '/services/Users/UsuarioConfig.php');
+$servicio = file_get_contents($root . '/services/Users/UsuarioService.php');
 $login = file_get_contents($root . '/models/Usuario.php');
 $controlador = file_get_contents($root . '/controllers/AdminUsersController.php');
 $authController = file_get_contents($root . '/controllers/AuthController.php');

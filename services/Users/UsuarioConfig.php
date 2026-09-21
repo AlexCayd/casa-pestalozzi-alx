@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Users;
 
 final class UsuarioConfig
 {

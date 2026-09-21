@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Users;
 
 use Model\ActiveRecord;
 use Model\Usuario;
