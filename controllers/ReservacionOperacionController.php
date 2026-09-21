@@ -10,7 +10,7 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Reservacion;
 use MVC\Router;
-use Services\AsignacionMesasService;
+use Services\Reservations\AsignacionMesasService;
 use Services\AdminCsrfService;
 use Services\Reservations\HorarioReservacionService;
 use Services\OcupacionMesasService;
@@ -272,7 +272,7 @@ class ReservacionOperacionController
             $reservacionSerializada['alerta_operativa'] = $alerta;
         }
         unset($reservacionSerializada);
-        $reservacionesOperativas = \Services\ReservacionVigenciaService::filtrarPendientesOperacion(
+        $reservacionesOperativas = \Services\Reservations\ReservacionVigenciaService::filtrarPendientesOperacion(
             $reservacionesSerializadas,
             $fecha,
             $horarios
@@ -300,7 +300,7 @@ class ReservacionOperacionController
             $mesasSerializadas,
             $evaluacionOcupacion
         );
-        \Services\CapacidadReservacionesService::registrarEvaluacion(
+        \Services\Reservations\CapacidadReservacionesService::registrarEvaluacion(
             $resumenCapacidad + [
                 'fecha' => $fecha,
                 'hora' => (string)($evaluacionOcupacion['hora'] ?? ''),

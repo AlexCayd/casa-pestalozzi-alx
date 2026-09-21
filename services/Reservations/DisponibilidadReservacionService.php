@@ -4,11 +4,14 @@
  * Orquestador canónico: horario -> intervalo -> ocupación -> asignación.
  */
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\Mesa;
+use Services\OcupacionMesasService;
+use Services\ReservacionPublicaService;
+use Services\ReservacionService;
 use Services\Reservations\HorarioReservacionService;
 
 final class DisponibilidadReservacionService

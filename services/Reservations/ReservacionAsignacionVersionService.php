@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Reservations;
 
 /**
  * Canonicaliza la identidad de una asignación para control de concurrencia.

@@ -8,7 +8,7 @@
  * calculadas y nunca deben guardarse como un estado adicional.
  */
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;

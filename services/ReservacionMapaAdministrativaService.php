@@ -1,6 +1,8 @@
 <?php
 
 namespace Services;
+use Services\Reservations\AsignacionMesasService;
+use Services\Reservations\ReservacionAsignacionVersionService;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;

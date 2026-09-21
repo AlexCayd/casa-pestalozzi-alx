@@ -1,6 +1,7 @@
 <?php
 
 namespace Services;
+use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;

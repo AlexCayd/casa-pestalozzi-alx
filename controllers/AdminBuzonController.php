@@ -12,7 +12,7 @@ use Services\Reservations\ReservacionBuzonService;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
-use Services\ReservacionVigenciaService;
+use Services\Reservations\ReservacionVigenciaService;
 
 /** API ligera del buzón flotante administrativo. */
 final class AdminBuzonController

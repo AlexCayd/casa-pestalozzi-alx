@@ -9,7 +9,7 @@ namespace Model;
 
     use Services\Reservations\ReservacionConfig;
     use Services\ContactoService;
-    use Services\ReservacionVigenciaService;
+    use Services\Reservations\ReservacionVigenciaService;
 
 class Reservacion extends ActiveRecord {
     protected static $tabla = 'reservaciones';

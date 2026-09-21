@@ -8,7 +8,7 @@ use Model\TicketMesa;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionConfig;
 use Services\ReservacionPoliticaPosService;
-use Services\ReservacionVigenciaService;
+use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\HorarioOperacionImpactoService;

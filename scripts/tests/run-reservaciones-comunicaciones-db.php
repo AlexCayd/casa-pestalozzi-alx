@@ -10,7 +10,7 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
 use Services\ContactoAccesoService;
-use Services\DisponibilidadReservacionService;
+use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;
 use Services\ReservacionPublicaService;
 use Services\Reservations\ReservationAccessTokenService;

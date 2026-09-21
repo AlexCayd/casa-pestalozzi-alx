@@ -9,6 +9,8 @@
  */
 
 namespace Services;
+use Services\Reservations\AsignacionMesasService;
+use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservationClientSession;
 use Services\Reservations\ReservationManagementAccessService;

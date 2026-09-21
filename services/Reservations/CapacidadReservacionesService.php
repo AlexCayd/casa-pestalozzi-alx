@@ -8,12 +8,13 @@
  * incluyendo la demanda de reservaciones confirmadas sin mesas.
  */
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Mesa;
+use Services\OcupacionMesasService;
 
 final class CapacidadReservacionesService
 {

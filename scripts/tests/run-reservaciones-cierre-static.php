@@ -16,7 +16,7 @@ $auth = file_get_contents($root . '/classes/Auth.php');
 $controller = file_get_contents($root . '/controllers/PuntoVentaController.php');
 $posRaw = file_get_contents($root . '/src/js/modules/punto-de-venta.js');
 $pos = is_string($posRaw) ? str_replace(["\r\n", "\r"], "\n", $posRaw) : $posRaw;
-$availability = file_get_contents($root . '/services/DisponibilidadReservacionService.php');
+$availability = file_get_contents($root . '/services/Reservations/DisponibilidadReservacionService.php');
 $reservationForm = file_get_contents($root . '/views/admin/reservations/_form.php');
 
 assertClosureContract(is_string($auth), 'se pudo leer la frontera de autorización');

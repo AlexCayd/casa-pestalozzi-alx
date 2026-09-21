@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use Services\AsignacionMesasService;
+use Services\Reservations\AsignacionMesasService;
 use Services\MesaEstadoService;
 use Services\PosReservacionSerializer;
 use Services\Reservations\ReservacionConfig;
@@ -104,7 +104,7 @@ assertReassignmentContract(count($withConflict) === 1, 'la mesa ocupada detecta 
 assertReassignmentContract($withConflict[0]['ticket_id'] === 77, 'el conflicto conserva el ticket que ocupa la mesa');
 assertReassignmentContract($withConflict[0]['mesas_conflicto'] === [4], 'el conflicto identifica la mesa superpuesta');
 
-$assignmentSource = (string)file_get_contents(dirname(__DIR__, 2) . '/services/AsignacionMesasService.php');
+$assignmentSource = (string)file_get_contents(dirname(__DIR__, 2) . '/services/Reservations/AsignacionMesasService.php');
 $controllerSource = (string)file_get_contents(dirname(__DIR__, 2) . '/controllers/ReservacionOperacionController.php');
 assertReassignmentContract(
     strpos($assignmentSource, 'if ($modoMapaAdministrativo || empty($opciones[\'permitir_superposicion_ticket_abierto\']))') !== false,

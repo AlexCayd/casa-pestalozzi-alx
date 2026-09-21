@@ -1,6 +1,8 @@
 <?php
 
 namespace Services;
+use Services\Reservations\AsignacionMesasService;
+use Services\Reservations\CapacidadReservacionesService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 

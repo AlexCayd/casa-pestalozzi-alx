@@ -322,9 +322,9 @@ No mover a Scheduling reglas específicas de reservaciones.
 
 ---
 
-## 6.4 Reservations / Availability
+## 6.4 Reservations / Availability (clasificación conceptual)
 
-Mover:
+Componentes migrados:
 
 ```text
 HorarioReservacionService.php
@@ -335,13 +335,14 @@ ReservacionVigenciaService.php
 ReservacionAsignacionVersionService.php
 ```
 
-a:
+Destino físico:
 
 ```text
 services/Reservations/
 ```
 
-Todas estas clases declaran namespace Services\Reservations.
+Todas estas clases declaran namespace Services\Reservations y viven
+directamente en services/Reservations/; Availability no es una subcarpeta.
 
 `HorarioReservacionService` pertenece aquí porque contiene reglas como:
 

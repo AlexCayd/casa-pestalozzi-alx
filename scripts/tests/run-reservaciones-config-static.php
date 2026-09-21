@@ -28,7 +28,7 @@ assertStaticContract(ReservacionConfig::TOLERANCIA_LLEGADA_MINUTOS === 15, 'tole
 
 $fuentes = [
     'services/MesaEstadoService.php',
-    'services/ReservacionVigenciaService.php',
+    'services/Reservations/ReservacionVigenciaService.php',
     'services/ReservacionPoliticaPosService.php',
     'services/PuntoVentaReservacionService.php',
     'services/PosMesaProjectionPresenter.php',

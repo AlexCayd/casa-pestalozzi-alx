@@ -8,7 +8,7 @@ use Services\PosReservacionSerializer;
 use Services\Reservations\ReservacionConfig;
 use Services\ReservacionMapaAdministrativaService;
 use Services\ReservacionPoliticaPosService;
-use Services\ReservacionVigenciaService;
+use Services\Reservations\ReservacionVigenciaService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
 

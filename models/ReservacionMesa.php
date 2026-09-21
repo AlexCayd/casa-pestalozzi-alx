@@ -7,7 +7,7 @@
 
 namespace Model;
 
-use Services\ReservacionVigenciaService;
+use Services\Reservations\ReservacionVigenciaService;
 
 class ReservacionMesa extends ActiveRecord
 {

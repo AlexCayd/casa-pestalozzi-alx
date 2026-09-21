@@ -12,7 +12,7 @@ namespace Controllers;
 use Model\Reservacion;
 use MVC\Router;
 use Services\ContactoAccesoService;
-use Services\DisponibilidadReservacionService;
+use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservationClientSession;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;

@@ -5,13 +5,16 @@
  * Protege las operaciones con transacciones y bloqueos de registros.
  */
 
-namespace Services;
+namespace Services\Reservations;
 use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
+use Services\OcupacionMesasService;
+use Services\ReservacionAdministrativaService;
+use Services\ReservacionService;
 use Services\Reservations\HorarioReservacionService;
 
 class AsignacionMesasService

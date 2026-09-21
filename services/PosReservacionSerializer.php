@@ -1,6 +1,8 @@
 <?php
 
 namespace Services;
+use Services\Reservations\ReservacionVigenciaService;
+use Services\Reservations\ReservacionAsignacionVersionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 

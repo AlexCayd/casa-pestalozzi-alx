@@ -10,8 +10,8 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
 use Model\ReservacionMesa;
-use Services\AsignacionMesasService;
-use Services\ReservacionAsignacionVersionService;
+use Services\Reservations\AsignacionMesasService;
+use Services\Reservations\ReservacionAsignacionVersionService;
 
 function assertDbReassignment(bool $condition, string $message): void
 {

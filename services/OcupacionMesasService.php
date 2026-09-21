@@ -9,6 +9,9 @@
  */
 
 namespace Services;
+use Services\Reservations\AsignacionMesasService;
+use Services\Reservations\CapacidadReservacionesService;
+use Services\Reservations\ReservacionVigenciaService;
 use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;

@@ -132,7 +132,7 @@ Por eso, una reservación fuera de horario cuyo intervalo planificado se traslap
 | Regla/capa | Fuente actual |
 |---|---|
 | Umbrales, zona horaria y duración | `services/Reservations/ReservacionConfig.php` |
-| Vigencia, inicio, tolerancia y elegibilidad de no-show | `services/ReservacionVigenciaService.php` |
+| Vigencia, inicio, tolerancia y elegibilidad de no-show | `services/Reservations/ReservacionVigenciaService.php` |
 | Ventanas POS, prioridad de acción y proyección por hora seleccionada | `services/ReservacionPoliticaPosService.php` |
 | Lectura común, intervalos y payload de mesa | `services/PosReservacionQueryService.php`, `services/PosReservacionSerializer.php`, `services/MesaEstadoService.php` |
 | Estado visual POS | `services/PosMesaProjectionPresenter.php` |
