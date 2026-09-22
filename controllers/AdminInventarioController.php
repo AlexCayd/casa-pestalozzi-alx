@@ -14,7 +14,7 @@ use MVC\Router;
 use Services\Inventory\HistorialPrecios;
 use Services\Inventory\Inventario;
 use Services\Inventory\Proveedores;
-use Services\RangoPeriodo;
+use Services\Shared\RangoPeriodo;
 
 class AdminInventarioController
 {

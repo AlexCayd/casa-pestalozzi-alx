@@ -10,7 +10,7 @@
  * ya elegido se ven ambos extremos y los días intermedios resaltados.
  *
  * El servidor sigue filtrando: al aplicar se recarga con ?rango=N o
- * ?desde&hasta (más ?comparar=1), que es lo que Services\RangoPeriodo valida.
+ * ?desde&hasta (más ?comparar=1), que es lo que Services\Shared\RangoPeriodo valida.
  *
  * Vive en admin/core porque lo usan analíticas, finanzas e inventario; viaja en
  * admin.js, que todas las pantallas del panel cargan.

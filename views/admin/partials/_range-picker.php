@@ -2,7 +2,7 @@
 /**
  * Selector de periodo compartido por los tableros del admin.
  *
- * Espera $rango tal y como lo devuelve Services\RangoPeriodo::resolver().
+ * Espera $rango tal y como lo devuelve Services\Shared\RangoPeriodo::resolver().
  *
  * La comparación contra el periodo anterior ya no se pregunta: va siempre
  * encendida. El interruptor que la ofrecía salió del popover, y con él el
@@ -44,7 +44,7 @@ $rangeResumen = $rangeBonita($rangeStart) . ' – ' . $rangeBonita($rangeEnd)
     . ' ' . date('Y', strtotime($rangeEnd));
 
 $rangePresets = [];
-foreach (\Services\RangoPeriodo::PRESETS as $dias) {
+foreach (\Services\Shared\RangoPeriodo::PRESETS as $dias) {
     $rangePresets[$dias] = $dias === 365 ? 'Último año' : ('Últimos ' . $dias . ' días');
 }
 ?>

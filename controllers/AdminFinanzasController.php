@@ -13,7 +13,7 @@ use Model\GastoFijo;
 use Model\Producto;
 use MVC\Router;
 use Services\Inventory\Inventario;
-use Services\RangoPeriodo;
+use Services\Shared\RangoPeriodo;
 
 class AdminFinanzasController
 {

@@ -9,7 +9,7 @@ namespace Controllers;
 use MVC\Router;
 use Services\Analytics\Analiticas;
 use Services\Analytics\AreasMejora;
-use Services\RangoPeriodo;
+use Services\Shared\RangoPeriodo;
 
 class AdminController
 {
@@ -112,7 +112,7 @@ class AdminController
 
     /**
      * Resuelve el rango de fechas del dashboard desde $_GET.
-     * La lógica vive en Services\RangoPeriodo porque finanzas e inventario usan
+     * La lógica vive en Services\Shared\RangoPeriodo porque finanzas e inventario usan
      * exactamente el mismo contrato.
      */
     private static function rangoAnalytics(): array

@@ -769,7 +769,7 @@ portarlo al `<body>` con `position: fixed` —lo que hace `core/select.js`—
 revisando el `z-index` contra el modal de mesa, que está en 200.
 
 **El selector de periodo** (`views/admin/partials/_range-picker.php` +
-`core/range-picker.js` + `Services\RangoPeriodo`) lo comparten analíticas,
+`core/range-picker.js` + `Services\Shared\RangoPeriodo`) lo comparten analíticas,
 finanzas, inventario y reservaciones. Dos cosas que no son evidentes:
 
 - La **comparación contra el periodo anterior va siempre encendida**. Era un

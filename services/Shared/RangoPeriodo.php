@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Shared;
 
 /**
  * Rango de fechas compartido por los tableros del admin (analíticas, finanzas e
