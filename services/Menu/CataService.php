@@ -15,7 +15,7 @@
  * la deja marcada como sin cupo.
  */
 
-namespace Services;
+namespace Services\Menu;
 use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;

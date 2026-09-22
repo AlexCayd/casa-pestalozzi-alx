@@ -4,7 +4,7 @@
    1. app.js (este archivo) — define estado compartido + boot()
    2. modules/*.js            — funciones init*, split*, etc.
    window.CP_MENU / CP_AREAS ya no viven aquí: el punto de venta las emite en
-   línea desde la BD (ver Services\Carta y views/punto-de-venta/index.php), y
+   línea desde la BD (ver Services\Menu\Carta y views/punto-de-venta/index.php), y
    la landing pide su carta a /menu.
    boot() se llama en DOMContentLoaded, cuando todo ya está definido.
    ============================================================ */

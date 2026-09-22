@@ -3,7 +3,7 @@
 namespace Controllers;
 
 use Model\ConfiguracionAnuncio;
-use Services\CataService;
+use Services\Menu\CataService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservationClientSession;
 use Services\Reservations\ReservacionService;

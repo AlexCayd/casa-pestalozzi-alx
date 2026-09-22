@@ -3,12 +3,12 @@
 namespace Controllers;
 
 use Model\CategoriasMenu;
-use Services\Carta;
-use Services\MenuPdf;
+use Services\Menu\Carta;
+use Services\Menu\MenuPdf;
 
 /**
  * Carta pública: el JSON que consume la landing y los dos PDF descargables.
- * La fuente es `productos` (ver Services\Carta).
+ * La fuente es `productos` (ver Services\Menu\Carta).
  */
 class MenuController {
 

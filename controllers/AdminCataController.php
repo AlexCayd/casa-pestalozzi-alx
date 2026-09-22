@@ -23,7 +23,7 @@ namespace Controllers;
 use Model\Cata;
 use MVC\Router;
 use Services\Security\AdminCsrfService;
-use Services\CataService;
+use Services\Menu\CataService;
 
 class AdminCataController
 {

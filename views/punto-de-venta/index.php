@@ -89,7 +89,7 @@ $usuarioJson = json_encode([
     /*
      * Menú, áreas e identidad del mesero. Deben ir antes de map.js:
      * punto-de-venta.js los lee de forma síncrona al construir el modal.
-     * CP_MENU/CP_AREAS salen de la BD (Services\Carta); antes vivían escritos
+     * CP_MENU/CP_AREAS salen de la BD (Services\Menu\Carta); antes vivían escritos
      * a mano en src/js/data/menu-data.js, que ya no existe.
      */
     window.CP_MENU  = <?php echo $menuJson ?: '[]'; ?>;

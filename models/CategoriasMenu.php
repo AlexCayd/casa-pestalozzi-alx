@@ -11,7 +11,7 @@ class CategoriasMenu extends ActiveRecord {
      *
      * `carta` es un ENUM en base, así que la lista se escribe aquí una sola vez
      * y de ella salen las pastillas del panel, la validación y el filtro de
-     * Services\Carta. Agregar una tercera pieza es tocar el ENUM del DDL y
+     * Services\Menu\Carta. Agregar una tercera pieza es tocar el ENUM del DDL y
      * este arreglo — nada más.
      */
     public const CARTA_COMIDA   = 'comida';

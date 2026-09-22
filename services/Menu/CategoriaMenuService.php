@@ -2,7 +2,7 @@
 
 /** Coordina persistencia y ciclo de vida de imagenes de categorias. */
 
-namespace Services;
+namespace Services\Menu;
 
 use Classes\ImagenUploader;
 use Model\ActiveRecord;

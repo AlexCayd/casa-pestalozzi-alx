@@ -7,7 +7,7 @@ namespace Model;
  *
  * El modelo sólo valida y transporta. Lo que decide si una cata sale en la
  * landing —únicamente que no haya ocurrido todavía— vive en
- * Services\CataService, porque depende del reloj y no de la fila.
+ * Services\Menu\CataService, porque depende del reloj y no de la fila.
  *
  * Tuvo cupo numérico, estado de cinco valores y una tabla de inscripciones
  * colgando. Se retiraron con el formulario público: el lugar se aparta por

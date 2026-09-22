@@ -17,9 +17,9 @@ use Model\CategoriasMenu;
 use Model\HistorialPrecio;
 use Model\Producto;
 use MVC\Router;
-use Services\CategoriaMenuService;
+use Services\Menu\CategoriaMenuService;
 use Services\HistorialPrecios;
-use Services\MenuPdf;
+use Services\Menu\MenuPdf;
 
 class AdminMenuController
 {

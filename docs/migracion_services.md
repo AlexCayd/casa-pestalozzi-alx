@@ -590,19 +590,13 @@ services/Contact/ContactoAccesoService.php
 
 ## 6.15 Menu
 
-Mover:
+Migrados directamente a `services/Menu/` y con namespace `Services\Menu`:
 
 ```text
-Carta.php
-MenuPdf.php
-CategoriaMenuService.php
-CataService.php
-```
-
-a:
-
-```text
-services/Menu/
+services/Menu/Carta.php
+services/Menu/MenuPdf.php
+services/Menu/CategoriaMenuService.php
+services/Menu/CataService.php
 ```
 
 ---
@@ -640,8 +634,6 @@ a:
 ```text
 services/Analytics/
 ```
-
-La clasificación debe verificarse por consumidores antes del movimiento.
 
 ---
 

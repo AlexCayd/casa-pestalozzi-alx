@@ -14,7 +14,7 @@
  *   3) Emitir en línea, ANTES de esos <script src>, las globales
  *      window.CP_MENU, window.CP_AREAS y window.CP_USER. Es un contrato duro:
  *      el JS las lee de forma síncrona al abrir una mesa. Se arman con
- *      Services\Carta::paraPos() / ::areasPos() (antes venían del archivo
+ *      Services\Menu\Carta::paraPos() / ::areasPos() (antes venían del archivo
  *      escrito a mano src/js/data/menu-data.js, ya eliminado).
  *   4) Definir antes de incluir este partial las variables $h, $mapFecha,
  *      $datePickerHtml, $usuarioNombre y $usuarioRol.

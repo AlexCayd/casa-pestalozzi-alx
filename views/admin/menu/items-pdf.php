@@ -14,7 +14,7 @@
  *
  * Los cuatro ultimos son lo UNICO que distingue a las dos piezas que salen
  * de aqui — la carta de comida y la de maridaje—: mismo papel, misma banda,
- * mismas dos columnas. Services\MenuPdf los resuelve; la plantilla no sabe
+ * mismas dos columnas. Services\Menu\MenuPdf los resuelve; la plantilla no sabe
  * cual esta imprimiendo, y por eso no hay un solo condicional de carta abajo.
  *
  * Diseno: la carta impresa es la landing en papel, no una pantalla de piso.
@@ -34,7 +34,7 @@
  * Margenes uniformes en los 4 lados via .page.
  */
 
-// Respaldos: la plantilla se incluye desde Services\MenuPdf, que siempre los
+// Respaldos: la plantilla se incluye desde Services\Menu\MenuPdf, que siempre los
 // entrega. Se declaran igual para que un include suelto imprima la carta de
 // comida en vez de una banda sin rotulo.
 $pdfRotulo = $pdfRotulo ?? 'MENÚ';
