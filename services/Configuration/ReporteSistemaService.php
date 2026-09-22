@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Configuration;
 
 use Model\ActiveRecord;
 use Model\ReporteSistema;

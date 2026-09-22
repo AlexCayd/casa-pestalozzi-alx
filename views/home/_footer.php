@@ -10,7 +10,7 @@
 
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionConfig;
-use Services\SitioConfig;
+use Services\Configuration\SitioConfig;
 
 $hoyFooter = ReservacionConfig::ahora();
 $hoyDiaFooter = (int)$hoyFooter->format('w');

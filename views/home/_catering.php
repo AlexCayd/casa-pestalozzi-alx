@@ -20,7 +20,7 @@
  * Va en tono verde: entre el café de Catas y el lino de Reservaciones.
  */
 
-use Services\SitioConfig;
+use Services\Configuration\SitioConfig;
 
 $ocasiones = SitioConfig::OCASIONES_EVENTO;
 

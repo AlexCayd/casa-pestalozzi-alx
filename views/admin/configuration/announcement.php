@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../partials/_icons.php';
 $anuncio = is_array($anuncio ?? null) ? $anuncio : [];
-$tiposAnuncio = is_array($tiposAnuncio ?? null) ? $tiposAnuncio : \Services\AnuncioConfig::TIPOS;
+$tiposAnuncio = is_array($tiposAnuncio ?? null) ? $tiposAnuncio : \Services\Configuration\AnuncioConfig::TIPOS;
 $erroresCampos = is_array($erroresCampos ?? null) ? $erroresCampos : [];
 $fechaActual = (string)($fechaActual ?? '');
 $h = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -19,7 +19,7 @@ $isActive = !empty($anuncio['activo']);
 $tiposPermitidos = array_keys($tiposAnuncio);
 $tipoPreview = in_array((string) ($anuncio['tipo'] ?? ''), $tiposPermitidos, true)
     ? (string) $anuncio['tipo']
-    : \Services\AnuncioConfig::TIPO_PREDETERMINADO;
+    : \Services\Configuration\AnuncioConfig::TIPO_PREDETERMINADO;
 $configTipoPreview = $tiposAnuncio[$tipoPreview];
 $tiposJson = htmlspecialchars(
     json_encode($tiposAnuncio, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}',
@@ -106,7 +106,7 @@ $enlaceExternoPreview = preg_match('~^https?://~i', $urlEnlacePreview) === 1;
                              lo redacta no tiene forma de saberlo antes de
                              publicarlo. */ ?>
                     <p class="admin-announcement-type-presentation" data-announcement-presentation>
-                        <?php echo ($configTipoPreview['presentacion'] ?? '') === \Services\AnuncioConfig::PRESENTACION_MODAL
+                        <?php echo ($configTipoPreview['presentacion'] ?? '') === \Services\Configuration\AnuncioConfig::PRESENTACION_MODAL
                             ? 'Se muestra como diálogo centrado y espera a que el visitante lo cierre.'
                             : 'Se muestra como aviso discreto en una esquina y desaparece solo a los 8 segundos.'; ?>
                     </p>

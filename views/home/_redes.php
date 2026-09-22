@@ -3,7 +3,7 @@
  * Directorio de redes sociales.
  *
  * Lo incluyen Ubicación y el pie, así que los iconos viven aquí y no
- * duplicados en las dos vistas. Las URLs salen de Services\SitioConfig; antes
+ * duplicados en las dos vistas. Las URLs salen de Services\Configuration\SitioConfig; antes
  * estaban en el marcado con href="#", es decir, dos enlaces que no llevaban a
  * ninguna parte.
  *
@@ -23,7 +23,7 @@ $redesIconos = [
 ];
 ?>
 <div class="<?php echo s($redesClase); ?>" data-reveal>
-  <?php foreach (\Services\SitioConfig::redes() as $red) : ?>
+  <?php foreach (\Services\Configuration\SitioConfig::redes() as $red) : ?>
     <?php if (!isset($redesIconos[$red['id']])) { continue; } ?>
     <a href="<?php echo s($red['url']); ?>" target="_blank" rel="noopener"
        aria-label="<?php echo s($red['nombre']); ?>" data-magnetic>

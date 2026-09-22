@@ -17,7 +17,7 @@
  * ReservacionConfig.
  */
 
-namespace Services;
+namespace Services\Configuration;
 use Services\Reservations\ReservacionConfig;
 
 class SitioConfig

@@ -16,11 +16,11 @@ if (!isset($anuncioPublico) || !is_object($anuncioPublico)) {
 }
 
 $h = static fn ($valor): string => htmlspecialchars((string) $valor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-$tiposPermitidos = array_keys(\Services\AnuncioConfig::TIPOS);
+$tiposPermitidos = array_keys(\Services\Configuration\AnuncioConfig::TIPOS);
 $tipo = in_array((string) $anuncioPublico->tipo, $tiposPermitidos, true)
   ? (string) $anuncioPublico->tipo
-  : \Services\AnuncioConfig::TIPO_PREDETERMINADO;
-$configTipo = \Services\AnuncioConfig::tipo($tipo);
+  : \Services\Configuration\AnuncioConfig::TIPO_PREDETERMINADO;
+$configTipo = \Services\Configuration\AnuncioConfig::tipo($tipo);
 $mensaje = trim((string) $anuncioPublico->mensaje);
 $textoEnlace = trim((string) ($anuncioPublico->texto_enlace ?? ''));
 $urlEnlace = trim((string) ($anuncioPublico->url_enlace ?? ''));
@@ -38,8 +38,8 @@ if ($versionAnuncio === '') {
     (string) ($anuncioPublico->fecha_fin ?? ''),
   ]));
 }
-$presentacion = \Services\AnuncioConfig::presentacion($tipo);
-$esModal = $presentacion === \Services\AnuncioConfig::PRESENTACION_MODAL;
+$presentacion = \Services\Configuration\AnuncioConfig::presentacion($tipo);
+$esModal = $presentacion === \Services\Configuration\AnuncioConfig::PRESENTACION_MODAL;
 $raiz = $esModal ? 'announcement-dialog' : 'announcement-toast';
 ?>
 <div
@@ -50,7 +50,7 @@ $raiz = $esModal ? 'announcement-dialog' : 'announcement-toast';
   data-announcement-type="<?php echo $h($tipo); ?>"
   data-announcement-presentacion="<?php echo $h($presentacion); ?>"
   <?php if (!$esModal) : ?>
-    data-announcement-duracion="<?php echo (int) \Services\AnuncioConfig::DURACION_VISIBLE_MS; ?>"
+    data-announcement-duracion="<?php echo (int) \Services\Configuration\AnuncioConfig::DURACION_VISIBLE_MS; ?>"
   <?php endif; ?>
   hidden
 >

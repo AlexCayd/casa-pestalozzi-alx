@@ -625,20 +625,29 @@ services/Analytics/Sugerencias.php
 
 ---
 
-## 6.18 Shared y configuración general
+## 6.18 Shared y Configuration
 
-Los siguientes componentes requieren clasificación individual antes de moverse:
+Migrado directamente a `services/Shared/` con namespace `Services\Shared`:
 
 ```text
-RangoPeriodo.php
-ReporteSistemaService.php
-SitioConfig.php
-AnuncioConfig.php
+services/Shared/RangoPeriodo.php
 ```
 
-No deben enviarse automáticamente a `Shared/`.
+Migrados directamente a `services/Configuration/` con namespace `Services\Configuration`:
 
-`Shared/` sólo es válido si se demuestra que el componente es transversal y no tiene un dominio natural.
+```text
+services/Configuration/ReporteSistemaService.php
+services/Configuration/SitioConfig.php
+services/Configuration/AnuncioConfig.php
+```
+
+`RangoPeriodo` es transversal y permanece en `Shared`; los tres componentes de
+configuración general pertenecen a `Configuration`. Todos los dominios mantienen
+un único nivel físico.
+
+**Estado de migración física de Services: completada.** Esta indicación se
+refiere únicamente a la organización física; los hallazgos arquitectónicos
+pendientes continúan fuera de alcance.
 
 ---
 

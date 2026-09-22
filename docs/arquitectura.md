@@ -87,6 +87,7 @@ Users
 Contact
 Notifications
 Analytics
+Configuration
 Security
 Integrations
 ```
@@ -98,6 +99,7 @@ La modularización principal de `services/` será:
 ```text
 services/
 ├── Analytics/
+├── Configuration/
 ├── Contact/
 ├── Integrations/
 ├── Inventory/

@@ -561,7 +561,7 @@ Excepción deliberada: `areas_produccion.color` guarda un hex por área en BD
 (café, jugos, cocina, horno). Son datos del negocio, no tokens de diseño — y aun
 así salen de la paleta funcional.
 
-`Services\AnuncioConfig::TIPOS[*]['acento']` era la otra excepción y dejó de
+`Services\Configuration\AnuncioConfig::TIPOS[*]['acento']` era la otra excepción y dejó de
 serlo: los cuatro tipos van en el café de marca. Cada uno llevaba un color de la
 paleta funcional y sobre la portada el rótulo cantaba — un anuncio no es una
 alerta, y lo que distingue a un tipo de otro es su icono y su etiqueta. En el

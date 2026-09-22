@@ -9,7 +9,7 @@
  * de color por pieza.
  */
 
-use Services\SitioConfig;
+use Services\Configuration\SitioConfig;
 ?>
 <section class="section location" id="ubicacion" data-tono="verde" data-screen-label="Ubicación">
   <div class="wrap loc__grid">
