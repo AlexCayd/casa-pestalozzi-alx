@@ -7,8 +7,8 @@
 namespace Controllers;
 
 use MVC\Router;
-use Services\Analiticas;
-use Services\AreasMejora;
+use Services\Analytics\Analiticas;
+use Services\Analytics\AreasMejora;
 use Services\RangoPeriodo;
 
 class AdminController

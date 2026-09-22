@@ -657,7 +657,7 @@ CREATE TABLE IF NOT EXISTS impresoras (
 --
 -- Para no repetir lo ya ofrecido, el POS excluye lo que la mesa ya pidió
 -- (ticket_items) más lo que lleva visto en la sesión del modal, que manda en
--- cada llamada (ver Services\Sugerencias). Consecuencia asumida: al reabrir
+-- cada llamada (ver Services\Analytics\Sugerencias). Consecuencia asumida: al reabrir
 -- la mesa vuelve a salir la misma sugerencia, y un rechazo no deja rastro —
 -- no hay dónde medir la conversión por producto.
 -- CAMBIOS MODULO DE AJUSTES

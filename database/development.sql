@@ -1170,7 +1170,7 @@ INSERT INTO catas (titulo, descripcion, fecha, hora, duracion_min, precio, dispo
 --                                          ← tickets 200-299 + sus ticket_items
 --     · Reservaciones por día y por estado ← reservaciones 'fx-analytics-res-%'
 --
---   Analíticas diagnósticas (Services\Analiticas, ANALITICAS.md §3)
+--   Analíticas diagnósticas (Services\Analytics\Analiticas, ANALITICAS.md §3)
 --     · §3.1 Ingeniería de menú   ← ingredientes 10-99 + recetas de comida,
 --                                   que son los que dan margen real por platillo
 --     · §3.2 RevPASH              ← tickets 200-299 repartidos por franja y día
@@ -3001,7 +3001,7 @@ SELECT @SEM_INI AS desde,
 
 -- ---------------------------------------------------------------------
 -- Consultas de verificación (descomentar para auditar a mano lo que el panel
--- debería estar mostrando). Reproducen el cálculo de Services\Analiticas.
+-- debería estar mostrando). Reproducen el cálculo de Services\Analytics\Analiticas.
 -- ---------------------------------------------------------------------
 
 -- §3.2 · El mapa de calor, tal cual: RevPASH = ingreso ÷ (44 asientos × 1 día).

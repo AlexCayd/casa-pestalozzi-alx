@@ -615,18 +615,12 @@ services/Inventory/HistorialPrecios.php
 
 ## 6.17 Analytics
 
-Mover:
+Migrados directamente a `services/Analytics/` y con namespace `Services\Analytics`:
 
 ```text
-Analiticas.php
-AreasMejora.php
-Sugerencias.php
-```
-
-a:
-
-```text
-services/Analytics/
+services/Analytics/Analiticas.php
+services/Analytics/AreasMejora.php
+services/Analytics/Sugerencias.php
 ```
 
 ---

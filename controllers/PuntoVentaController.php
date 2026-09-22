@@ -21,7 +21,7 @@ use Services\Reservations\ReservacionErrorCatalog;
 use Services\Pos\PosReservacionQueryService;
 use Services\Pos\PosReservacionSerializer;
 use Services\Pos\PuntoVentaReservacionService;
-use Services\Sugerencias;
+use Services\Analytics\Sugerencias;
 use Services\Security\StaffCsrfService;
 
 class PuntoVentaController {

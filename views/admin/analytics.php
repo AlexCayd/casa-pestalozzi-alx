@@ -135,7 +135,7 @@ $hoyIso = date('Y-m-d');
     </article>
 
     <!-- ================= Analíticas diagnósticas (Nivel 1) ================= -->
-    <!-- Datos en window.AdminAnalyticsMock.nivel1 (Services\Analiticas). -->
+    <!-- Datos en window.AdminAnalyticsMock.nivel1 (Services\Analytics\Analiticas). -->
     <section class="admin-nivel1" data-admin-nivel1 aria-label="Analíticas diagnósticas de Nivel 1">
         <header class="admin-page-header admin-nivel1__intro">
             <div class="admin-page-header__intro">

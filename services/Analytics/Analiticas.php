@@ -16,7 +16,7 @@
  * del dashboard. Cada método degrada a vacío si faltan datos; nunca lanza.
  */
 
-namespace Services;
+namespace Services\Analytics;
 
 use Model\Ticket;
 use Services\Inventory\Inventario;

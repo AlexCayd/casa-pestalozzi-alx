@@ -14,7 +14,7 @@
  * la sesion del modal, que manda en cada llamada.
  */
 
-namespace Services;
+namespace Services\Analytics;
 
 use Model\Ticket;
 use Model\TicketMesa;

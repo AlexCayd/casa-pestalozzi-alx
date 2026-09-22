@@ -9,7 +9,7 @@
  * controlador que recibe (FeedbackController) y el que muestra (AdminController).
  */
 
-namespace Services;
+namespace Services\Analytics;
 
 class AreasMejora
 {

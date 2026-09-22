@@ -12,7 +12,7 @@ namespace Model;
  * database/ddl.sql; 'menu' se conserva ahi solo como compatibilidad de lectura.
  *
  * El borrado del admin es suave (activo = 0) para no romper el JOIN por nombre
- * que hacen ticket_items, Services\Sugerencias y n8n sobre tickets historicos.
+ * que hacen ticket_items, Services\Analytics\Sugerencias y n8n sobre tickets historicos.
  *
  * Lo editan dos pantallas del admin: /admin/menu (la carta) y /admin/recetas
  * (catalogo completo con receta).
@@ -162,7 +162,7 @@ class Producto extends ActiveRecord {
     /**
      * Borrado suave: retira el producto sin borrar la fila. Un DELETE real
      * dejaria huerfanos los ticket_items historicos, que resuelven el producto
-     * por nombre (igual que Services\Sugerencias y el flujo de n8n).
+     * por nombre (igual que Services\Analytics\Sugerencias y el flujo de n8n).
      */
     public function retirar(): bool
     {
@@ -361,7 +361,7 @@ class Producto extends ActiveRecord {
     }
 
     /**
-     * El nombre es UNIQUE en la BD porque ticket_items, Services\Sugerencias y
+     * El nombre es UNIQUE en la BD porque ticket_items, Services\Analytics\Sugerencias y
      * n8n resuelven el producto por nombre. Se comprueba antes de guardar para
      * dar un mensaje util en lugar del error 1062 de MySQL.
      */

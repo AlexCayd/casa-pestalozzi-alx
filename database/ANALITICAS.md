@@ -1,7 +1,7 @@
 # Casa Pestalozzi — Analíticas diagnósticas
 
 > Documentación de las analíticas **implementadas** en la vista
-> `/admin/analytics` (`Services\Analiticas` → `AdminController::analytics` →
+> `/admin/analytics` (`Services\Analytics\Analiticas` → `AdminController::analytics` →
 > `views/admin/analytics.php`), con datos de demostración en
 > `database/development.sql` (se carga después de `deploy.sql`). El resto —Niveles 2
 > y 3, complementarias y la deuda técnica (§4–§7)— sigue siendo **propuesta, no
@@ -287,7 +287,7 @@ columnas.**
 ### D-3 · `ticket_items` se une a `productos` por **nombre**, no por id
 
 **Problema:** `ticket_items` guarda `nombre`, `precio`, `categoria` y `area_id`
-como *snapshot*, sin `producto_id`. Todo el sistema —`Services\Sugerencias`, el
+como *snapshot*, sin `producto_id`. Todo el sistema —`Services\Analytics\Sugerencias`, el
 flujo de n8n, `Services\Inventory\Inventario::aplicarVenta()`— resuelve el producto
 haciendo `JOIN ... ON ti.nombre = p.nombre`.
 

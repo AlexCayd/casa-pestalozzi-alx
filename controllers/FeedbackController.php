@@ -3,7 +3,7 @@ namespace Controllers;
 
 use MVC\Router;
 use Model\Ticket;
-use Services\AreasMejora;
+use Services\Analytics\AreasMejora;
 
 class FeedbackController {
 

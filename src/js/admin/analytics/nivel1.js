@@ -1,6 +1,6 @@
 /**
  * Analíticas diagnósticas de Nivel 1 (ANALITICAS.md §3). Renderiza las tres
- * secciones a partir de window.AdminAnalyticsMock.nivel1 (Services\Analiticas):
+ * secciones a partir de window.AdminAnalyticsMock.nivel1 (Services\Analytics\Analiticas):
  *   §3.1 Ingeniería de menú  — matriz Kasavana-Smith (scatter + tabla).
  *   §3.2 RevPASH             — mapa de calor hora × día (tabla, sin canvas).
  *   §3.4 Reglas de asociación — pares por lift (tabla).
