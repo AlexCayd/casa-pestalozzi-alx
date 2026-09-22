@@ -86,6 +86,7 @@ No deben reintroducirse Provider, Factory o Dispatcher antiguos para notificacio
 ```text
 services/
 ├── Analytics/
+├── Configuration/
 ├── Contact/
 ├── Integrations/
 ├── Inventory/
