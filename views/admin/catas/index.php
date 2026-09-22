@@ -37,7 +37,7 @@
 $catas = $catas ?? [];
 $disponibilidadActiva = (string)($disponibilidadActiva ?? '');
 $busqueda = (string)($busqueda ?? '');
-$adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
+$adminCsrfToken = (string)($adminCsrfToken ?? \Services\Security\AdminCsrfService::token());
 
 $e = static fn ($valor): string => htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 

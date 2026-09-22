@@ -66,6 +66,10 @@ services/
 │   ├── ReservationReminderService.php
 │   └── ScheduleChangeNotificationService.php
 │
+├── Security/
+│   ├── AdminCsrfService.php
+│   └── StaffCsrfService.php
+│
 └── Tables/
     ├── MesaEstadoService.php
     └── OcupacionMesasService.php
@@ -562,17 +566,11 @@ Services\Tables
 
 ## 6.13 Security
 
-Mover:
+Migrados directamente a `services/Security/` y con namespace `Services\Security`:
 
 ```text
-AdminCsrfService.php
-StaffCsrfService.php
-```
-
-a:
-
-```text
-services/Security/
+services/Security/AdminCsrfService.php
+services/Security/StaffCsrfService.php
 ```
 
 ---
@@ -870,9 +868,9 @@ Validar:
 
 ## Fase 7 — Security y Contact
 
-Mover de forma independiente.
+**Estado:** completada en dos commits independientes: Contact y Security.
 
-No mezclar cambios de permisos, roles, CSRF o política de contacto con el movimiento físico.
+Los movimientos no modificaron permisos, roles, CSRF ni política de contacto.
 
 ---
 

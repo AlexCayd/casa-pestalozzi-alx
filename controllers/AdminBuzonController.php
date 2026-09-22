@@ -5,7 +5,7 @@ namespace Controllers;
 use Model\Reservacion;
 use Model\TicketMesa;
 use MVC\Router;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;

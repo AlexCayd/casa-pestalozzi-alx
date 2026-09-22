@@ -13,7 +13,7 @@ if ($buzonPrioridad === 'alta') {
     $buzonEstado .= ' has-high-priority';
 }
 ?>
-<div class="admin-inbox <?php echo htmlspecialchars($buzonEstado, ENT_QUOTES, 'UTF-8'); ?>" data-admin-inbox data-admin-csrf="<?php echo htmlspecialchars((string)\Services\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>" data-inbox-refresh-seconds="<?php echo (int)ReservacionConfig::REFRESCO_ESTADOS_SEGUNDOS; ?>">
+<div class="admin-inbox <?php echo htmlspecialchars($buzonEstado, ENT_QUOTES, 'UTF-8'); ?>" data-admin-inbox data-admin-csrf="<?php echo htmlspecialchars((string)\Services\Security\AdminCsrfService::token(), ENT_QUOTES, 'UTF-8'); ?>" data-inbox-refresh-seconds="<?php echo (int)ReservacionConfig::REFRESCO_ESTADOS_SEGUNDOS; ?>">
     <div class="admin-inbox__backdrop" data-inbox-close hidden></div>
     <aside
         class="admin-inbox__drawer"

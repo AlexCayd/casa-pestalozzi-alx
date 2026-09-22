@@ -11,7 +11,7 @@ use Classes\Auth;
 use Model\Reservacion;
 use MVC\Router;
 use Services\Reservations\AsignacionMesasService;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Tables\OcupacionMesasService;
 use Services\Pos\PosReservacionQueryService;

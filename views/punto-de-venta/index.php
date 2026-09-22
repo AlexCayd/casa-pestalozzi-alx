@@ -42,7 +42,7 @@ $usuarioJson = json_encode([
   <link rel="stylesheet" href="/build/css/operation.css?v=kds-monocromo-v1">
 </head>
 
-<body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\StaffCsrfService::token()) ?>">
+<body class="admin-body mapa-page operational-page" data-page="mapa" data-operational-page data-operation-module="tables" data-operational-map-state-key="pos" data-staff-csrf="<?= $h(\Services\Security\StaffCsrfService::token()) ?>">
   <?php
   // Botón hamburguesa que abre el cajón de reservaciones (va en el header).
   // Selector de fecha; se muestra dentro del cajón de reservaciones.
@@ -96,7 +96,7 @@ $usuarioJson = json_encode([
     window.CP_AREAS = <?php echo $areasJson ?: '{}'; ?>;
     window.CP_USER  = <?php echo $usuarioJson ?: '{"id":0}'; ?>;
     window.CP_STAFF_CSRF_TOKEN = <?php echo json_encode(
-      \Services\StaffCsrfService::token(),
+      \Services\Security\StaffCsrfService::token(),
       JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
     ); ?>;
   </script>

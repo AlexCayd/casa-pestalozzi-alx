@@ -83,7 +83,7 @@ $action = $formAction !== ''
 $formId = $modo . '-reservation-admin-form';
 $fieldId = static fn (string $field): string => $formId . '-' . $field;
 $fieldErrorId = static fn (string $field): string => $fieldId($field) . '-error';
-$adminCsrfToken = (string)($adminCsrfToken ?? \Services\AdminCsrfService::token());
+$adminCsrfToken = (string)($adminCsrfToken ?? \Services\Security\AdminCsrfService::token());
 $autoAssignmentDisabled = $comensales > \Services\Reservations\ReservacionConfig::MAX_COMENSALES_PUBLICO;
 $contactInputDisabled = $formDisabled || $contactoTipo === 'ninguno';
 

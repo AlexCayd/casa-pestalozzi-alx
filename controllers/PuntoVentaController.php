@@ -22,7 +22,7 @@ use Services\Pos\PosReservacionQueryService;
 use Services\Pos\PosReservacionSerializer;
 use Services\Pos\PuntoVentaReservacionService;
 use Services\Sugerencias;
-use Services\StaffCsrfService;
+use Services\Security\StaffCsrfService;
 
 class PuntoVentaController {
 

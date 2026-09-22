@@ -6,7 +6,7 @@ use Model\ConfiguracionAnuncio;
 use Model\ConfiguracionPos;
 use MVC\Router;
 use Services\AnuncioConfig;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionNotificacionConfigService;

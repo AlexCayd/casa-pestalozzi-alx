@@ -10,7 +10,7 @@ namespace Controllers;
 use Classes\Auth;
 use Model\Usuario;
 use MVC\Router;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Users\UsuarioService;
 
 class AdminUsersController

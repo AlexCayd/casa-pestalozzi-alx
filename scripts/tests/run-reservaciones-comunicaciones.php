@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Controllers\N8nReservationsController;
 use MVC\Router;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 use Services\Reservations\ReservacionErrorCatalog;

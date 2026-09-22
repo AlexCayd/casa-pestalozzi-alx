@@ -1,13 +1,13 @@
 <?php
 
-namespace Services;
+namespace Services\Security;
 
 use Classes\Auth;
 
-/** CSRF comun para todas las escrituras del personal autenticado por cookie. */
-final class StaffCsrfService
+/** CSRF de las escrituras del modulo administrativo de reservaciones. */
+final class AdminCsrfService
 {
-    private const SESSION_KEY = '_staff_csrf_token';
+    private const SESSION_KEY = '_admin_reservations_csrf';
 
     public static function token(): string
     {
@@ -26,11 +26,5 @@ final class StaffCsrfService
         $recibido = trim((string)$token);
 
         return $esperado !== '' && $recibido !== '' && hash_equals($esperado, $recibido);
-    }
-
-    public static function validarRequest(array $datos = []): bool
-    {
-        $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($datos['csrf_token'] ?? null);
-        return self::validar(is_string($token) ? $token : null);
     }
 }

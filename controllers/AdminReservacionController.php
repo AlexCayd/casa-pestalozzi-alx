@@ -14,7 +14,7 @@ use Model\TicketMesa;
 use Model\Ticket;
 use MVC\Router;
 use Services\Reservations\AsignacionMesasService;
-use Services\AdminCsrfService;
+use Services\Security\AdminCsrfService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\ReservacionConfig;
