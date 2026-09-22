@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli' || !getenv('CP_NOTIFICATION_TEST_DATABASE')) exit('Usar r
 require dirname(__DIR__, 2) . '/includes/app.php';
 
 use Model\ActiveRecord;
-use Services\ContactoAccesoService;
+use Services\Contact\ContactoAccesoService;
 use Services\Integrations\N8nClient;
 use Services\Reservations\ConfirmationResendPolicy;
 

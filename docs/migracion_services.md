@@ -579,22 +579,14 @@ services/Security/
 
 ## 6.14 Contact
 
-Mover:
+Migrados directamente a `services/Contact/` y con namespace `Services\Contact`:
 
 ```text
-ContactoService.php
-ContactoAccesoService.php
+services/Contact/ContactoService.php
+services/Contact/ContactoAccesoService.php
 ```
 
-a:
-
-```text
-services/Contact/
-```
-
-Sólo después de revisar consumidores deberá decidirse si `ContactoAccesoService` es realmente transversal o específico de reservaciones.
-
-No reclasificarlo y cambiar comportamiento en el mismo commit.
+`ContactoAccesoService` conserva su comportamiento OTP y sus dependencias; este movimiento no reclasifica ni cambia responsabilidades.
 
 ---
 

@@ -5,7 +5,7 @@ namespace Services\Reservations;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
-use Services\ContactoService;
+use Services\Contact\ContactoService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservationAccessTokenService;
 use Services\Scheduling\HorarioOperacionService;

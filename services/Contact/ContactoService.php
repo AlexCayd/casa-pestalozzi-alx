@@ -8,7 +8,7 @@
  * independientes; esta etapa no intenta deducir que pertenecen a una persona.
  */
 
-namespace Services;
+namespace Services\Contact;
 use Services\Reservations\ReservacionConfig;
 
 use InvalidArgumentException;

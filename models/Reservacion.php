@@ -8,7 +8,7 @@
 namespace Model;
 
     use Services\Reservations\ReservacionConfig;
-    use Services\ContactoService;
+    use Services\Contact\ContactoService;
     use Services\Reservations\ReservacionVigenciaService;
 
 class Reservacion extends ActiveRecord {

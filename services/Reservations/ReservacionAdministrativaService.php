@@ -1,7 +1,7 @@
 <?php
 
 namespace Services\Reservations;
-use Services\ContactoService;
+use Services\Contact\ContactoService;
 use Services\Tables\OcupacionMesasService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\CapacidadReservacionesService;

@@ -3,7 +3,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli' || !getenv('CP_NOTIFICATION_TEST_DATABASE')) exit('Usar run-notifications-isolated.php');
 require dirname(__DIR__, 2) . '/includes/app.php';
 use Model\ActiveRecord;
-use Services\ContactoAccesoService;
+use Services\Contact\ContactoAccesoService;
 use Services\Shared\ContactoOperacionLock;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Integrations\N8nClient;

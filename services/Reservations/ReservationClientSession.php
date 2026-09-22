@@ -9,6 +9,8 @@
 
 namespace Services\Reservations;
 
+use Services\Contact\ContactoService;
+
 class ReservationClientSession
 {
     private const SESSION_KEY = 'reservation_client';

@@ -5,7 +5,7 @@ namespace Services\Reservations;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\VerificacionContacto;
-use Services\ContactoService;
+use Services\Contact\ContactoService;
 use Services\Reservations\ReservacionConfig;
 
 /**

@@ -4,7 +4,7 @@
  * Orquesta solicitud, validación y consumo transaccional de códigos OTP.
  */
 
-namespace Services;
+namespace Services\Contact;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservationClientSession;

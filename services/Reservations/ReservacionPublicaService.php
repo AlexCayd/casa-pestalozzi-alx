@@ -9,8 +9,8 @@
  */
 
 namespace Services\Reservations;
-use Services\ContactoAccesoService;
-use Services\ContactoService;
+use Services\Contact\ContactoAccesoService;
+use Services\Contact\ContactoService;
 use Services\Reservations\AsignacionMesasService;
 use Services\Reservations\DisponibilidadReservacionService;
 use Services\Reservations\ReservacionConfig;

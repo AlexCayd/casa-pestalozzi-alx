@@ -2,7 +2,7 @@
 
 namespace Services\Reservations;
 
-use Services\ContactoService;
+use Services\Contact\ContactoService;
 use Services\Notifications\NotificationConfig;
 
 /** Construye el contrato canónico y normalizado que PHP entrega a n8n. */
