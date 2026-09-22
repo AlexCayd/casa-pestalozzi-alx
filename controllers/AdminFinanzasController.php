@@ -12,7 +12,7 @@ namespace Controllers;
 use Model\GastoFijo;
 use Model\Producto;
 use MVC\Router;
-use Services\Inventario;
+use Services\Inventory\Inventario;
 use Services\RangoPeriodo;
 
 class AdminFinanzasController

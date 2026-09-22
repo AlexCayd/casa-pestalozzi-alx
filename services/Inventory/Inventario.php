@@ -8,7 +8,7 @@
  * stock puede quedar negativo.
  */
 
-namespace Services;
+namespace Services\Inventory;
 
 use Model\Ingrediente;
 

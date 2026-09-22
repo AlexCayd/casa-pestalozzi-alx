@@ -5,7 +5,7 @@ namespace Model;
  * Un cambio de precio de venta (productos) o de costo de insumo (ingredientes).
  *
  * Sólo se escribe: nada edita ni borra filas de aquí. Quien registra es
- * Services\HistorialPrecios, que además decide cuándo un guardado es realmente
+ * Services\Inventory\HistorialPrecios, que además decide cuándo un guardado es realmente
  * un cambio de precio.
  */
 class HistorialPrecio extends ActiveRecord {

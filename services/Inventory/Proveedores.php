@@ -1,6 +1,6 @@
 <?php
 
-namespace Services;
+namespace Services\Inventory;
 
 use Model\ActiveRecord;
 use Model\IngredienteProveedor;

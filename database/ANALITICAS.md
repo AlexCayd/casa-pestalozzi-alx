@@ -288,7 +288,7 @@ columnas.**
 
 **Problema:** `ticket_items` guarda `nombre`, `precio`, `categoria` y `area_id`
 como *snapshot*, sin `producto_id`. Todo el sistema —`Services\Sugerencias`, el
-flujo de n8n, `Services\Inventario::aplicarVenta()`— resuelve el producto
+flujo de n8n, `Services\Inventory\Inventario::aplicarVenta()`— resuelve el producto
 haciendo `JOIN ... ON ti.nombre = p.nombre`.
 
 **Costo:**

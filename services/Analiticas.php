@@ -19,6 +19,7 @@
 namespace Services;
 
 use Model\Ticket;
+use Services\Inventory\Inventario;
 
 class Analiticas
 {

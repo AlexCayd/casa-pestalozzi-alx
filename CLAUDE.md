@@ -987,7 +987,7 @@ CASCADE`:
 - `customContent` — un nodo que se monta en la ranura `[data-confirmation-custom]`.
   Es donde va lo que hay que ver antes de decidir. Inventario lo usa para listar
   los platillos y subrecetas que se quedarán sin el ingrediente, pedidos a
-  `GET /admin/api/inventario/uso` (`Services\Inventario::recetasQueUsan()`, la
+  `GET /admin/api/inventario/uso` (`Services\Inventory\Inventario::recetasQueUsan()`, la
   única consulta INVERSA del módulo: todo lo demás va producto → ingredientes).
 - `requireText` — deja el botón principal deshabilitado hasta que se teclea ese
   texto. Compara sin acentos ni mayúsculas: se busca que el usuario LEA lo que

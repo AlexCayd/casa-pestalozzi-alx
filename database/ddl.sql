@@ -482,7 +482,7 @@ CREATE TABLE IF NOT EXISTS movimientos_inventario (
   tipo           ENUM('venta','cancelacion','ajuste','entrada','merma') NOT NULL,
   -- Un valor negativo descuenta; uno positivo repone.
   cantidad       DECIMAL(12,3) NOT NULL,
-  -- Por qué se perdió el producto: clave del catálogo de Services\Inventario.
+  -- Por qué se perdió el producto: clave del catálogo de Services\Inventory\Inventario.
   -- Solo lo llenan las mermas.
   motivo         VARCHAR(40) NULL,
   -- Detalle libre de quien registra la merma.

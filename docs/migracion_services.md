@@ -603,18 +603,12 @@ services/Menu/CataService.php
 
 ## 6.16 Inventory
 
-Mover:
+Migrados directamente a `services/Inventory/` y con namespace `Services\Inventory`:
 
 ```text
-Inventario.php
-Proveedores.php
-HistorialPrecios.php
-```
-
-a:
-
-```text
-services/Inventory/
+services/Inventory/Inventario.php
+services/Inventory/Proveedores.php
+services/Inventory/HistorialPrecios.php
 ```
 
 ---

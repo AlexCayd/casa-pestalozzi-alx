@@ -11,9 +11,9 @@ use Model\Ingrediente;
 use Model\IngredienteProveedor;
 use Model\Proveedor;
 use MVC\Router;
-use Services\HistorialPrecios;
-use Services\Inventario;
-use Services\Proveedores;
+use Services\Inventory\HistorialPrecios;
+use Services\Inventory\Inventario;
+use Services\Inventory\Proveedores;
 use Services\RangoPeriodo;
 
 class AdminInventarioController

@@ -14,7 +14,7 @@ use Classes\Auth;
 use MVC\Router;
 use Services\Menu\Carta;
 use Services\Reservations\HorarioReservacionService;
-use Services\Inventario;
+use Services\Inventory\Inventario;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
