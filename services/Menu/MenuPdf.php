@@ -94,7 +94,7 @@ class MenuPdf
 
         ob_start();
         $generado = date('d/m/Y H:i');
-        include __DIR__ . '/../views/admin/menu/items-pdf.php';
+        include dirname(__DIR__, 2) . '/views/admin/menu/items-pdf.php';
         $html = ob_get_clean();
 
         $options = new \Dompdf\Options();
