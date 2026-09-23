@@ -34,6 +34,26 @@ class TicketPrinter {
     private static ?string $ultimoError = null;
 
     /**
+     * En qué punto falló el último envío: 'sin_conexion' si la impresora ni
+     * siquiera aceptó la conexión (apagada, IP equivocada, fuera de la red) y
+     * 'fallo_envio' si conectó pero el documento no terminó de salir. Es la
+     * diferencia entre «no se detecta» y «no llegó» que lee el piso.
+     */
+    private static ?string $ultimoMotivo = null;
+
+    /**
+     * Documentos que no llegaron a su impresora en la ÚLTIMA llamada a
+     * imprimirComanda() o imprimirCuenta(). Lo consume el controlador para
+     * convertirlos en alertas del POS (ImpresionAlertaService): aquí sólo se
+     * recogen, porque es el controlador quien sabe de qué mesa y de qué mesero
+     * era el pedido. La prueba del CRUD admin no escribe aquí: es una acción
+     * manual con su propia respuesta.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private static array $fallos = [];
+
+    /**
      * Segundos que se espera a que la impresora acepte la conexión TCP.
      *
      * Sin este límite, NetworkPrintConnector llama a fsockopen() sin timeout y
@@ -73,6 +93,20 @@ class TicketPrinter {
         return self::$servicioActivo;
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public static function fallos(): array {
+        return self::$fallos;
+    }
+
+    private static function anotarFallo(string $documento, string $motivo, ?Impresora $impresora, array $extra = []): void {
+        self::$fallos[] = array_merge([
+            'documento' => $documento,
+            'motivo'    => $motivo,
+            'impresora' => $impresora ? (string)$impresora->nombre : null,
+            'detalle'   => $motivo === 'sin_impresora' ? null : self::$ultimoError,
+        ], $extra);
+    }
+
     /** Devuelve (y no consume) el detalle del último fallo, o null si no hubo. */
     public static function ultimoError(): ?string {
         return self::$ultimoError;
@@ -91,6 +125,7 @@ class TicketPrinter {
      * @return array [ area_id => bool ]  true si la comanda de esa área se envió a la impresora.
      */
     public static function imprimirComanda(array $items, array $meta): array {
+        self::$fallos = [];
         // El corte va aquí arriba, no en enviar(): con el servicio apagado no
         // se consulta areas_produccion ni se busca impresora por área ni se
         // construye un solo Documento. El array vacío es el mismo que devuelve
@@ -134,18 +169,31 @@ class TicketPrinter {
         $resultados = [];
         foreach ($itemsPorArea as $areaId => $itemsArea) {
             try {
+                // Se limpia por vuelta: el catch no debe atribuirle el fallo a
+                // la impresora del área anterior.
+                $impresora = null;
+                $areaNombre = $nombresArea[$areaId] ?? ('Área ' . $areaId);
+                $contextoArea = ['area_id' => $areaId, 'area_nombre' => $areaNombre];
                 $impresora = Impresora::comandaPorArea($areaId);
                 if (!$impresora) {
                     error_log("TicketPrinter::imprimirComanda — sin impresora activa para el área {$areaId}");
+                    self::anotarFallo('comanda', 'sin_impresora', null, $contextoArea);
                     $resultados[$areaId] = false;
                     continue;
                 }
 
-                $areaNombre = $nombresArea[$areaId] ?? ('Área ' . $areaId);
                 $doc = new Comanda($ticket, $areaNombre, $itemsArea, (int)$impresora->ancho);
                 $resultados[$areaId] = self::enviar($impresora, $doc);
+                if (!$resultados[$areaId]) {
+                    self::anotarFallo('comanda', self::$ultimoMotivo ?? 'fallo_envio', $impresora, $contextoArea);
+                }
             } catch (\Throwable $e) {
                 error_log("TicketPrinter::imprimirComanda — error en el área {$areaId}: " . $e->getMessage());
+                self::$ultimoError = $e->getMessage();
+                self::anotarFallo('comanda', 'fallo_envio', $impresora, [
+                    'area_id'     => $areaId,
+                    'area_nombre' => $nombresArea[$areaId] ?? null,
+                ]);
                 $resultados[$areaId] = false;
             }
         }
@@ -164,6 +212,7 @@ class TicketPrinter {
      * @return bool true si la cuenta se envió a la impresora.
      */
     public static function imprimirCuenta(array $ticket, array $items, string $metodoPago, bool $separarComensales = false): bool {
+        self::$fallos = [];
         // Mismo corte que en la comanda, y por la misma razón: la cuenta se
         // imprime dentro del cierre de ticket, así que un host inalcanzable
         // retrasa el cobro y el token de feedback.
@@ -171,10 +220,12 @@ class TicketPrinter {
             return false;
         }
 
+        $impresora = null;
         try {
             $impresora = Impresora::cuenta();
             if (!$impresora) {
                 error_log("TicketPrinter::imprimirCuenta — no hay impresora de cuenta activa configurada");
+                self::anotarFallo('cuenta', 'sin_impresora', null);
                 return false;
             }
 
@@ -188,9 +239,15 @@ class TicketPrinter {
             ];
 
             $doc = new Cuenta($datos, $items, (int)$impresora->ancho, $separarComensales);
-            return self::enviar($impresora, $doc);
+            $ok = self::enviar($impresora, $doc);
+            if (!$ok) {
+                self::anotarFallo('cuenta', self::$ultimoMotivo ?? 'fallo_envio', $impresora);
+            }
+            return $ok;
         } catch (\Throwable $e) {
             error_log("TicketPrinter::imprimirCuenta — error: " . $e->getMessage());
+            self::$ultimoError = $e->getMessage();
+            self::anotarFallo('cuenta', 'fallo_envio', $impresora);
             return false;
         }
     }
@@ -230,8 +287,14 @@ class TicketPrinter {
     private static function enviar(Impresora $impresora, Documento $documento): bool {
         $conector = null;
         self::$ultimoError = null;
+        self::$ultimoMotivo = null;
+        // Hasta que el conector existe, un fallo significa que la impresora
+        // no se detectó. NetworkPrintConnector abre el socket en el
+        // constructor, así que una impresora apagada cae aquí.
+        $etapa = 'sin_conexion';
         try {
             $conector = self::conectar($impresora);
+            $etapa = 'fallo_envio';
             $printer  = new Printer($conector);
             try {
                 $documento->imprimir($printer);
@@ -247,6 +310,7 @@ class TicketPrinter {
                 try { $conector->finalize(); } catch (\Throwable $ignored) {}
             }
             self::$ultimoError = $e->getMessage();
+            self::$ultimoMotivo = $etapa;
             error_log(
                 "TicketPrinter — fallo al imprimir en {$impresora->nombre} " .
                 "({$impresora->destino()}): " . $e->getMessage()

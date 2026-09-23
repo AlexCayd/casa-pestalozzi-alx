@@ -640,6 +640,17 @@
   white-space: nowrap;
 }
 
+// Llevar con pedidos abiertos: el rótulo deja de decir «Área operativa» y
+// cuenta los pedidos. Sube a tinta plena y no a un color de estado — la
+// ventanilla nunca está «ocupada», sólo trabajando — y en mono porque es la
+// cifra que el mesero busca al pasar la vista por el mapa.
+.mesas-map .mesa-pin--con-pedidos .mesa-pin__type-label {
+  color: var(--admin-text);
+  font-family: var(--admin-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--operational-weight-semibold);
+}
+
 .mesas-map .mesa-pin--tipo-barra {
   width: clamp(122px, 15cqw, 172px) !important;
   min-width: clamp(122px, 15cqw, 172px);

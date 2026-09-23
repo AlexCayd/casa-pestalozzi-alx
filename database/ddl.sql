@@ -48,6 +48,7 @@ DROP TABLE IF EXISTS reservacion_mesas;
 DROP TABLE IF EXISTS cata_inscripciones;
 DROP TABLE IF EXISTS catas;
 DROP TABLE IF EXISTS catering_solicitudes;
+DROP TABLE IF EXISTS impresion_alertas;
 DROP TABLE IF EXISTS impresoras;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS feedback_tokens;
@@ -641,6 +642,41 @@ CREATE TABLE IF NOT EXISTS impresoras (
   ancho       TINYINT NOT NULL DEFAULT 48,
   activo      TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (area_id) REFERENCES areas_produccion(id)
+);
+
+-- Alertas de impresión para el piso: una fila por documento que NO llegó a su
+-- impresora (comanda de un área o cuenta de caja) con el servicio encendido.
+-- Las lee el POS en su refresco y las ven todas las tablets hasta que alguien
+-- las marca como atendidas. Con el servicio apagado no se escribe ninguna.
+--
+-- Los nombres (mesa, área, impresora) van COPIADOS y no por llave: la alerta
+-- describe lo que pasó en ese momento, y un ticket descartado o una impresora
+-- renombrada después no deben cambiar lo que el mesero leyó.
+CREATE TABLE IF NOT EXISTS impresion_alertas (
+  id               INT AUTO_INCREMENT PRIMARY KEY,
+  documento        ENUM('comanda','cuenta') NOT NULL,
+  -- sin_impresora: no hay impresora activa para ese destino.
+  -- sin_conexion:  la impresora no respondió (apagada, IP, red).
+  -- fallo_envio:   conectó, pero el documento no terminó de salir.
+  motivo           ENUM('sin_impresora','sin_conexion','fallo_envio') NOT NULL,
+  ticket_id        INT NULL,
+  mesa_nombre      VARCHAR(60) NULL,
+  area_id          TINYINT UNSIGNED NULL,
+  area_nombre      VARCHAR(60) NULL,
+  impresora_nombre VARCHAR(60) NULL,
+  -- Mensaje técnico de la excepción. Sólo lo ve un administrador.
+  detalle          VARCHAR(255) NULL,
+  usuario_id       INT NULL,
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atendida_at      DATETIME NULL,
+  atendida_por     INT NULL,
+  CONSTRAINT fk_impresion_alertas_ticket
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+  CONSTRAINT fk_impresion_alertas_usuario
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+  CONSTRAINT fk_impresion_alertas_atendio
+    FOREIGN KEY (atendida_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+  INDEX idx_impresion_alertas_pendientes (atendida_at, created_at)
 );
 
 

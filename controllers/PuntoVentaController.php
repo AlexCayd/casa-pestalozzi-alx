@@ -19,6 +19,7 @@ use Services\ReservacionService;
 use Services\ReservacionConfig;
 use Services\ReservacionErrorCatalog;
 use Services\PosReservacionQueryService;
+use Services\ImpresionAlertaService;
 use Services\PosReservacionSerializer;
 use Services\PuntoVentaReservacionService;
 use Services\Sugerencias;
@@ -102,6 +103,9 @@ class PuntoVentaController {
                     && ($ticket['closed_at'] ?? null) === null
             )),
             'meseros'       => $meserosArr,
+            // Vacío con el servicio de impresión apagado: sin papel esperado
+            // no hay nada que avisar.
+            'alertas_impresion' => ImpresionAlertaService::pendientes(),
             'server_time'   => $lectura['server_time'],
             'timezone'      => $lectura['timezone'],
             // 'temporal' lo calcula PosReservacionQueryService; 'pos' es el
@@ -188,6 +192,37 @@ class PuntoVentaController {
             ]));
         }
         self::responder($resultado);
+    }
+
+    /**
+     * POST /api/impresion/alertas/atender  { ids: [..] } | { todas: true }
+     *
+     * Cualquier mesero puede marcarlas: la alerta es del piso, no de quien
+     * envió la comanda. Devuelve las que siguen pendientes para que la tablet
+     * repinte la bandeja sin esperar al siguiente refresco.
+     */
+    public static function atenderAlertasImpresion(Router $router) {
+        $data = self::entradaJson();
+        if (!self::validarCsrfMutacion($data)) {
+            return;
+        }
+        $todas = !empty($data['todas']);
+        $ids = isset($data['ids']) && is_array($data['ids']) ? $data['ids'] : [];
+        if (!$todas && $ids === []) {
+            self::errorJson('DATOS_INCOMPLETOS');
+            return;
+        }
+
+        $atendidas = ImpresionAlertaService::atender(
+            $todas ? null : $ids,
+            (int)($_SESSION['id'] ?? 0)
+        );
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => true,
+            'atendidas' => $atendidas,
+            'alertas_impresion' => ImpresionAlertaService::pendientes(),
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -404,6 +439,7 @@ class PuntoVentaController {
             $cierre['id'] = $ticketId;
             $cierre['propina'] = $propina;
             $token = (string)$cierre['token'];
+            $cierre['alertas_impresion'] = [];
 
             // Impresión de la cuenta: efecto secundario en su propio try/catch.
             // Un fallo de impresora no debe afectar el cierre ni el token de feedback.
@@ -440,6 +476,11 @@ class PuntoVentaController {
                         'mesa'       => $ticketRow->mesa,
                         'mesero'     => $ticketRow->mesero ?? null,
                     ], $items, $metodoPago, $separar);
+                    $cierre['alertas_impresion'] = ImpresionAlertaService::registrar(TicketPrinter::fallos(), [
+                        'ticket_id'   => $ticketId,
+                        'mesa_nombre' => $ticketRow->mesa,
+                        'usuario_id'  => (int)($_SESSION['id'] ?? 0),
+                    ]);
                 }
             } catch (\Throwable $e) {
                 error_log('cerrarTicket — impresión de cuenta falló: ' . $e->getMessage());
@@ -530,6 +571,7 @@ class PuntoVentaController {
             // Impresión de comandas: efecto secundario. Va en su propio try/catch
             // para que un fallo de impresora NUNCA altere la respuesta del endpoint.
             $printOk = true;
+            $alertasImpresion = [];
             try {
                 $tmeta = Ticket::consultarSQL(
                     "SELECT t.nombre AS cliente, t.hora_apertura,
@@ -553,13 +595,26 @@ class PuntoVentaController {
                     ]);
                     // print_ok sólo es informativo; jamás cambia 'ok'.
                     $printOk = !in_array(false, $resultados, true);
+                    $alertasImpresion = ImpresionAlertaService::registrar(TicketPrinter::fallos(), [
+                        'ticket_id'   => $ticketId,
+                        'mesa_nombre' => $meta->mesa_nombre ?? null,
+                        'usuario_id'  => (int)($_SESSION['id'] ?? 0),
+                    ]);
                 }
             } catch (\Throwable $e) {
                 error_log('enviarComanda — impresión falló: ' . $e->getMessage());
                 $printOk = false;
             }
 
-            echo json_encode(['ok' => true, 'count' => $count, 'print_ok' => $printOk]);
+            // `alertas_impresion` viaja en la respuesta para que quien envió
+            // se entere en ese mismo instante; el resto de tablets la recibe
+            // en su siguiente refresco del mapa.
+            echo json_encode([
+                'ok' => true,
+                'count' => $count,
+                'print_ok' => $printOk,
+                'alertas_impresion' => $alertasImpresion,
+            ], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             error_log('PuntoVentaController::enviarComanda - ' . $e->getMessage());
             self::errorJson('COMANDA_ENVIO_FALLIDO');

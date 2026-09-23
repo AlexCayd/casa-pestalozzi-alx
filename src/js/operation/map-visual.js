@@ -105,6 +105,9 @@
             interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
                 titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
                 ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
+            // Rótulo bajo el nombre de un área operativa. Vacío deja el
+            // genérico; Llevar lo usa para contar sus pedidos abiertos.
+            subtitulo: String(raw.subtitulo || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
             estadoBase: String(raw.estadoBase || raw.estado_base || ''),
             modificadores: normalizeClasses(raw.modificadores),
@@ -373,7 +376,7 @@
             if (!table.reservable) {
                 var typeLabel = document.createElement('span');
                 typeLabel.className = 'mesa-pin__type-label';
-                typeLabel.textContent = 'Área operativa';
+                typeLabel.textContent = table.subtitulo || 'Área operativa';
                 pin.appendChild(typeLabel);
             }
 
@@ -463,6 +466,14 @@
                 table.titulo = String(changes.titulo);
                 pin.title = table.titulo;
                 pin.setAttribute('aria-label', table.titulo);
+            }
+
+            if (changes.subtitulo != null) {
+                table.subtitulo = String(changes.subtitulo);
+                var typeLabelActual = pin.querySelector('.mesa-pin__type-label');
+                if (typeLabelActual) {
+                    typeLabelActual.textContent = table.subtitulo || 'Área operativa';
+                }
             }
 
             applyState(pin, table);
