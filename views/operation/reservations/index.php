@@ -200,6 +200,7 @@ if ($initialOperationNotice !== null) {
                         'ariaLabel' => 'Mapa de reservaciones',
                         'canvasMode' => 'operation',
                 'loadingMode' => 'empty',
+                'helpPosition' => 'header',
                 'legendPosition' => 'footer',
                 // La lista operativa vive en el modal de mesas; el canvas no
                 // reserva altura para una segunda superficie de consulta.

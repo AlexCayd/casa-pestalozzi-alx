@@ -158,6 +158,7 @@ ob_start();
     'canvasId' => 'mapa-canvas',
     'canvasMode' => 'map',
     'loadingMode' => 'overlay',
+    'helpPosition' => 'overlay',
     // Sin leyenda: el color de cada mesa ya dice su estado y la lista de
     // abreviaturas ocupaba más que el propio mapa.
     'legendPosition' => 'none',
