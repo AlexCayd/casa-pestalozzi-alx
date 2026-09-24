@@ -27,6 +27,24 @@ $reservacion = [
 ];
 $mesaHechos = ['utilizable' => true, 'ticket_bloquea_consulta' => false];
 
+$limites = [
+    ['2026-08-08 12:59:59', 'futura', false, false, 'un segundo antes del límite de advertencia sigue siendo futuro'],
+    ['2026-08-08 13:00:00', 'advertencia', true, false, '60 minutos exactos inicia advertencia sin bloquear walk-in'],
+    ['2026-08-08 13:30:00', 'bloqueo', false, true, '30 minutos exactos bloquea walk-in'],
+    ['2026-08-08 14:00:00', 'bloqueo', false, true, 'el inicio exacto conserva el bloqueo canónico'],
+    ['2026-08-08 14:15:00', 'tolerancia', false, true, '15 minutos exactos posteriores al inicio siguen en tolerancia'],
+    ['2026-08-08 14:15:01', 'ausencia_pendiente', false, true, 'después de 15 minutos vence la tolerancia y requiere acción'],
+];
+foreach ($limites as [$marcaTiempo, $ventanaEsperada, $advertenciaEsperada, $bloqueoEsperado, $mensaje]) {
+    $limite = ReservacionPoliticaPosService::evaluar(
+        $reservacion,
+        new DateTimeImmutable($marcaTiempo, ReservacionConfig::timezone())
+    );
+    assertPosAbsenceVisual($limite['ventana_pos'] === $ventanaEsperada, $mensaje . ' (ventana)');
+    assertPosAbsenceVisual($limite['requiere_advertencia_ticket'] === $advertenciaEsperada, $mensaje . ' (advertencia)');
+    assertPosAbsenceVisual($limite['bloqueo_walk_in'] === $bloqueoEsperado, $mensaje . ' (bloqueo)');
+}
+
 $dentroTolerancia = new DateTimeImmutable('2026-08-08 14:15:00', ReservacionConfig::timezone());
 $politicaTolerancia = ReservacionPoliticaPosService::evaluar($reservacion, $dentroTolerancia);
 $visualTolerancia = PosMesaProjectionPresenter::presentar([

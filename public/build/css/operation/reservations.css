@@ -2998,6 +2998,15 @@ html:has(.operation-body.is-assignment-mode) {
   box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
+.mesas-map .mesa-pin--libre.mesa-pin--seleccionada.mesa-pin--mod-reservacion_advertencia {
+  border-color: var(--map-reservation-warning-border);
+  border-style: dashed;
+  border-width: 2px;
+  background: var(--map-table-available-bg);
+  color: var(--map-table-available-text);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
+}
+
 .mesas-map .mesa-pin--reservacion-proxima.mesa-pin--seleccionada {
   border-color: var(--map-table-selected-border);
   background: var(--map-table-reservation-bg);

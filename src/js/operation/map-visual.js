@@ -36,7 +36,9 @@
     }
 
     function normalizeState(value) {
-        var state = String(value || 'libre').toLowerCase();
+        // Un estado ausente no demuestra disponibilidad. El fallback neutral
+        // conserva el contrato seguro aunque la normalización se use sola.
+        var state = String(value || 'no-utilizable').toLowerCase();
         var aliases = {
             disponible: 'libre',
             no_reservable: 'no-utilizable',
@@ -100,7 +102,10 @@
         var legacySelected = state === 'seleccionada';
         if (legacySelected) state = normalizeState(previousState);
         var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
-        var selected = (toBoolean(raw.seleccionada) || legacySelected) && seleccionValida && contractValid;
+        var selected = (toBoolean(raw.seleccionada) || legacySelected)
+            && seleccionValida
+            && contractValid
+            && state !== 'no-utilizable';
         var reservable = toBoolean(raw.reservable);
 
             return {
