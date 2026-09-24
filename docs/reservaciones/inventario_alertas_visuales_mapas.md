@@ -10,7 +10,7 @@ Referencia de la implementación: `2026-09-23`, rama iniciada desde `origin/main
 
 ### Mapa del Punto de Venta
 
-1. `views/punto-de-venta/index.php` incluye `views/punto-de-venta/partials/pos-workspace.php`, que crea el mapa mediante el parcial compartido `views/operation/partials/map.php`. El POS fija `legendPosition = none`.
+1. `views/punto-de-venta/index.php` incluye `views/punto-de-venta/partials/pos-workspace.php`, que crea el mapa mediante el parcial compartido `views/operation/partials/map.php`. POS y Reservaciones fijan `legendPosition = none`.
 2. `PuntoVentaController::api()` llama a `PosReservacionQueryService::paraFecha($fecha, '')`. Al no recibir una hora seleccionada, el lector usa la hora actual del servidor para ese día.
 3. `PosReservacionQueryService` serializa reservaciones y tickets; `ReservacionPoliticaPosService` obtiene ventanas y acciones usando `ReservacionVigenciaService`; `MesaEstadoService` produce `estado_visual_pos`, `modificadores_visual_pos`, hechos de ocupación y etiquetas accesibles.
 4. `PosMesaProjectionPresenter` traduce esos hechos al estado visual del POS. La respuesta JSON contiene `mesas_estado`, las reservaciones confirmadas y tickets abiertos.
@@ -18,7 +18,7 @@ Referencia de la implementación: `2026-09-23`, rama iniciada desde `origin/main
 
 ### Mapa operativo/administrativo de Reservaciones
 
-1. `views/operation/reservations/index.php` usa el mismo parcial de mapa, esta vez con leyenda al pie.
+1. `views/operation/reservations/index.php` usa el mismo parcial con ayuda superpuesta, textos contextuales de Reservaciones y la leyenda permanente oculta.
 2. `ReservacionOperacionController` resuelve la fecha y una hora válida del horario efectivo, y pasa ambas a `PosReservacionQueryService::paraFecha()`.
 3. El lector compartido devuelve `mesas_estado` y reservaciones serializadas para la hora consultada. `ReservacionMapaAdministrativaService::proyectar()` añade flags para las listas operativa y administrativa, incluida `en_proyeccion_mapa`.
 4. `ReservacionMapaMesaPresenter` prepara `estado_visual_mapa`, modificadores, precedencia y etiqueta. El controller devuelve esos estados junto con `reservaciones`, `reservaciones_operativas` y `reservaciones_admin`.
@@ -81,9 +81,9 @@ La selección se aplica después del payload y tiene reglas del consumidor. En P
 
 El SCSS compartido usa verde para disponible, rojo para ocupado/no disponible, azul para reservación próxima, amarillo/oro para selección y neutro para no utilizable. `reservacion_advertencia` añade borde discontinuo azul; `ausencia_pendiente` conserva su marca secundaria, mientras que POS usa un pin azul oscuro cuando el walk-in continúa bloqueado. Los estados temporales siguen siendo condiciones, no clases base persistentes.
 
-La leyenda administrativa usa muestras reales de pines para verde, advertencia discontinua, azul, ausencia pendiente, rojo, selección y neutro. El POS conserva la leyenda oculta y ofrece el mismo vocabulario mediante el botón compacto de ayuda.
+El parcial de leyenda conserva muestras reales de pines para verde, advertencia discontinua, azul, ausencia pendiente, rojo, selección y neutro. POS y Reservaciones ocultan esa franja permanente y ofrecen el vocabulario mediante la ayuda contextual compartida.
 
-El parcial compartido `views/operation/partials/map.php` monta un botón de ayuda y un `<dialog>` por mapa. En POS el botón se superpone a la esquina del área de mapa; en Reservaciones queda junto al encabezado. El diálogo contiene las muestras, diferencias por pantalla y la nota de que los colores no conceden permisos. Su controlador usa apertura nativa, foco inicial, cierre con botón/Escape y restauración del foco.
+El parcial compartido `views/operation/partials/map.php` monta un botón de ayuda y un `<dialog>` por mapa. En ambas superficies el botón se superpone al área del mapa; si coincide con una mesa u otro aviso, se ajusta al espacio libre más cercano. El diálogo contiene las muestras, una descripción del contexto activo y la nota de que los colores no conceden permisos. Su controlador usa apertura nativa, foco inicial, cierre con botón/Escape y restauración del foco.
 
 ## Acciones relacionadas
 
@@ -111,7 +111,7 @@ El parcial compartido `views/operation/partials/map.php` monta un botón de ayud
 
 - POS usa hora actual, presenta acciones de ticket/walk-in y contempla elementos operativos como barra y caja.
 - Reservaciones usa una hora seleccionada, proyecta disponibilidad por intervalo y añade selección de asignación, lista administrativa y contexto fuera de horario.
-- POS oculta la leyenda; Reservaciones la coloca al pie del mapa.
+- Ambas superficies ocultan la leyenda permanente y muestran la nomenclatura desde el modal de ayuda, cuyo subtítulo y descripciones de disponibilidad y ocupación dependen de la superficie activa.
 
 ### Duplicación técnica y diferencias de significado
 

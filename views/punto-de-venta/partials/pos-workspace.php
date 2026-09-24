@@ -150,6 +150,7 @@ ob_start();
   // debe ir vacío o map.php dejaría un aria-labelledby apuntando a la nada.
   $mapVisual = [
     'context' => 'mapa-mesas',
+    'helpContext' => 'pos',
     'sectionClass' => 'mapa-operational-map',
     'titleId' => '',
     'title' => '',

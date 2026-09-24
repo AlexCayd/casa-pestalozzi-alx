@@ -194,18 +194,19 @@ if ($initialOperationNotice !== null) {
             <?php
                     $mapVisual = [
                         'context' => 'operacion-reservaciones',
+                        'helpContext' => 'reservations',
                         'sectionClass' => 'reservation-operation__map',
                         'title' => '',
                         'subtitle' => '',
                         'ariaLabel' => 'Mapa de reservaciones',
                         'canvasMode' => 'operation',
-                'loadingMode' => 'empty',
-                'helpPosition' => 'header',
-                'legendPosition' => 'footer',
-                // La lista operativa vive en el modal de mesas; el canvas no
-                // reserva altura para una segunda superficie de consulta.
-                'structuredList' => false,
-            ];
+                        'loadingMode' => 'empty',
+                        'helpPosition' => 'overlay',
+                        'legendPosition' => 'none',
+                        // La lista operativa vive en el modal de mesas; el canvas no
+                        // reserva altura para una segunda superficie de consulta.
+                        'structuredList' => false,
+                    ];
             include __DIR__ . '/../partials/map.php';
             ?>
 
