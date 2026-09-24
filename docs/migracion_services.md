@@ -1,18 +1,12 @@
-# Plan vigente de migración de Services
+# Registro histórico de la migración de Services
 
 ## 1. Propósito
 
-Este documento define el plan **vigente** para migrar la capa `services/` hacia la arquitectura modular de Casa Pestalozzi.
+Este documento conserva el plan ejecutado, las decisiones y las validaciones de la migración física de `services/`. La migración está completada; este archivo no es una lista vigente de tareas.
 
-La migración tiene como objetivo mejorar organización, mantenibilidad y claridad de dependencias **sin alterar comportamiento funcional durante los movimientos físicos**.
+La fuente vigente para la arquitectura y estructura física es `docs/arquitectura.md`. Las menciones en futuro y los criterios de las fases siguientes se conservan como trazabilidad del plan original.
 
-La fuente arquitectónica principal es:
-
-```text
-docs/arquitectura.md
-```
-
-Para notificaciones de reservaciones continúan siendo normativas:
+Las reglas normativas de reservaciones y notificaciones siguen en:
 
 ```text
 docs/reservaciones/notificaciones.md
@@ -26,13 +20,11 @@ El principio general es:
 
 ---
 
-# 2. Estado de partida
+# 2. Estado de partida histórico
 
-La raíz `services/` todavía contiene Services pertenecientes a diferentes dominios.
+El siguiente árbol es una fotografía del inicio de la migración; no describe el estado actual del repositorio. La organización final está documentada en `docs/arquitectura.md`.
 
-Sin embargo, la migración ya comenzó en algunas áreas.
-
-La migración ya ubicó las comunicaciones específicas de reservaciones dentro de su dominio. Esta etapa aplana esas clases y las demás responsabilidades ya migradas:
+En esa etapa, algunas áreas ya se habían migrado y la raíz aún contenía Services de varios dominios. El árbol se conserva para registrar ese punto de partida:
 
 ```text
 services/
@@ -75,33 +67,15 @@ services/
     └── OcupacionMesasService.php
 ```
 
-Las responsabilidades siguen clasificándose de forma conceptual dentro del dominio; no se crean carpetas físicas internas para esa clasificación.
+Las decisiones de esa etapa mantuvieron las responsabilidades como clasificación conceptual dentro del dominio, sin carpetas físicas internas.
 
-No deben reintroducirse Provider, Factory o Dispatcher antiguos para notificaciones.
+También se decidió no reintroducir Provider, Factory o Dispatcher antiguos para notificaciones.
 
 ---
 
-# 3. Arquitectura objetivo
+# 3. Organización final
 
-```text
-services/
-├── Analytics/
-├── Configuration/
-├── Contact/
-├── Integrations/
-├── Inventory/
-├── Menu/
-├── Notifications/
-├── Pos/
-├── Reservations/
-├── Scheduling/
-├── Security/
-├── Shared/
-├── Tables/
-└── Users/
-```
-
-El objetivo es que la raíz de `services/` quede vacía o contenga únicamente excepciones explícitamente justificadas.
+La migración física concluyó. La estructura vigente de `services/`, sus namespaces y sus reglas de clasificación se mantienen únicamente en `docs/arquitectura.md`; no se duplica aquí el árbol actual.
 
 ---
 
