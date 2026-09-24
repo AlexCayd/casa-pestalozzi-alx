@@ -1,44 +1,22 @@
 # n8n: configuración, despliegue y operación
 
-La receta reproducible está preparada, pero **no se desplegó ni modificó la
-instancia existente**. Los tres exports fueron validados manualmente en TEST/local
-para confirmación, recordatorio D-1 y cambio de horario; esta validación no
-certifica todavía el despliegue Docker ni la preparación para producción.
+Este documento describe la configuración de los workflows de reservaciones y
+su frontera con PHP. Antes de publicar en producción, importa los exports
+sanitizados en TEST, configura credenciales separadas por entorno y completa las
+validaciones de la [receta Compose](deploy/README.md).
 
-La prueba manual usó temporalmente un token de Meta. Debe sustituirse por una
-credencial/token estable y gestionado por entorno antes de activar un entorno
-persistente o producción; nunca debe versionarse ni aparecer en exports o logs.
+## Documentación vigente
 
-## Jerarquía y estado de la migración
+- [Arquitectura](../docs/arquitectura.md).
+- [Configuración de la aplicación](../docs/config.md).
+- [Reglas de reservaciones y cambios de horario](../docs/reservaciones/reservaciones.md).
+- [Contrato de notificaciones](../docs/reservaciones/notificaciones.md).
+- Este documento y la [receta Compose](deploy/README.md) contienen los
+  procedimientos propios de n8n.
 
-- [Arquitectura general](../docs/arquitectura.md).
-- [Contrato funcional de notificaciones](../docs/reservaciones/notificaciones.md).
-- [Afectaciones por cambios de horario](../docs/reservaciones/afectaciones_reservaciones_por_cambios_horario.md).
-- Este README y [la receta operativa](deploy/README.md): configuración y operación n8n.
-- [Migración de Services](../docs/migracion_services.md): antecedente histórico cuando contradiga el contrato vigente.
-
-La solicitud menciona `docs/reservaciones/afectaciones_cambio_horario.md`, que no
-existe en este checkout; el enlace anterior apunta al archivo disponible.
-
-### Resultado manual de los tres workflows
-
-| Flujo | TEST/local |
-|---|---|
-| Confirmación | PASS |
-| Recordatorio D-1 | PASS |
-| Cambio de horario | PASS |
-
-El resultado cubre los transportes Email, WhatsApp Text y WhatsApp Template,
-los callbacks técnicos `accepted|failed`, la autenticación por Header Auth y la
-deduplicación/claim del recordatorio. La receta Compose, persistencia, reinicio,
-backup/restore y rollback siguen requiriendo un ensayo operativo independiente.
-
-**Condiciones previas a activar la receta:** aplicar las tres migraciones PHP
-en una ventana coordinada, importar el conjunto final de JSON, completar cada
-Configuración y asignar las credenciales. Probar primero en TEST con destinatarios
-autorizados. Los exports ya eliminan `$env`, esperan aceptación del proveedor
-para OTP y usan callbacks `accepted|failed`; no relajar el bloqueo de entorno.
-Ver [migración y pruebas](../docs/reservaciones/notificaciones.md#migración-y-validación).
+No incluyas credenciales, `pinData`, contactos, códigos, tokens ni payloads
+reales en exports o logs. Usa destinatarios de prueba y completa la validación
+en TEST antes de habilitar webhooks o scheduler productivos.
 
 ## Tres workflows independientes
 
@@ -168,7 +146,7 @@ del proveedor. `accepted` nunca se recupera reenviando.
 5. Probar Email, WhatsApp Text y Template, fallos y timeouts; verificar `200`
    posterior al proveedor y callbacks `accepted|failed`. Header ausente o erróneo
    debe impedir transporte y escritura. Probar reinicio, restore y rollback
-   según [la lista de validación](deploy/README.md#validación-y-límites).
+   según [la lista de validación](deploy/README.md#validacion-y-limites).
 6. Publicar únicamente después de esos resultados. La publicación registra
    webhooks productivos y habilita el scheduler: usar siempre `/webhook/` desde
    PHP; `/webhook-test/` es temporal para pruebas del editor.

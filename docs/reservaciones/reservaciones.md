@@ -1,153 +1,161 @@
 # Reservaciones
 
-Fuente de verdad vigente para las reglas operativas de reservaciones, asignación de mesas y capacidad. Este documento es normativo: describe el comportamiento que debe observar el sistema, no el historial de cambios ni una implementación particular.
+Fuente normativa de horarios consultados, capacidad, asignación, operación
+administrativa y proyección visual de mesas. Las decisiones de asignación y
+operación las confirma el backend; el mapa presenta hechos, no concede permisos.
 
-## Contexto temporal
+## Contexto temporal y disponibilidad
 
-Toda consulta operativa tiene un contexto compuesto por `fecha` y `hora`. Un cambio de fecha u hora crea un contexto nuevo. Horarios, capacidad, mesas, reservaciones y acciones disponibles deben corresponder a la misma combinación.
+Toda consulta pertenece a una combinación de `fecha + hora`. Al cambiar de
+fecha se descarta la hora anterior si no es válida para el nuevo día y se usa el
+primer horario reservable. Una fecha pasada es de sólo lectura; una fecha actual
+sin horarios futuros no admite nuevas reservaciones.
 
-Al entrar con una hora explícita que pertenece a los horarios válidos, se conserva esa hora. Al cambiar manualmente de fecha no se hereda automáticamente la hora del día anterior: si no existe una hora explícita válida para la nueva fecha, se utiliza el primer horario reservable válido.
-
-El intervalo consultado es semiabierto:
+El intervalo de una reserva es semiabierto:
 
 ```text
 [hora_consulta, hora_consulta + DURACION_RESERVACION_MINUTOS)
 ```
 
-El límite final no pertenece al intervalo. La disponibilidad se calcula para el intervalo completo, no sólo para el instante inicial.
+La disponibilidad y la capacidad se calculan para el intervalo completo y deben
+pertenecer al mismo snapshot de fecha y hora que el mapa. Los hechos
+`ocupada_fisicamente`, `bloqueada_en_intervalo`, `disponible_para_asignacion`,
+`disponible_para_ticket` y `ausencia_pendiente` son distintos. Una señal visual
+no sustituye ninguno de ellos. La capacidad usa capacidad física, mesas no
+reservables, reservas y holds, tickets bloqueantes y demanda sin asignar según
+corresponda al intervalo.
 
-## Horarios y estados
+Un ticket realmente abierto mantiene la ocupación física actual. Su proyección
+puede dejar de bloquear un intervalo futuro después de su liberación estimada;
+eso no declara cerrado el ticket. Para otra fecha, un ticket abierto actual no
+bloquea automáticamente la asignación futura. Holds vigentes y reservas
+confirmadas bloquean cuando se cruzan con el intervalo. Los holds vencidos y
+estados finales no bloquean por sí mismos.
 
-Los horarios válidos provienen de la configuración de reservaciones y de las reglas de la fecha consultada. Una fecha pasada es de sólo lectura. Una fecha actual sin bloques futuros no ofrece alta de nuevas reservaciones; cambiar a una fecha válida debe recalcular el contexto completo.
+La fuente temporal es `ReservacionConfig` y la clasificación de
+`ReservacionVigenciaService` / `ReservacionPoliticaPosService`. Los presenters
+traducen hechos ya resueltos; JavaScript sólo adapta el contrato e interactúa.
 
-Los estados siguientes no son equivalentes:
+## Asignación, capacidad y operación
 
-| Hecho | Significado |
+La asignación automática y manual consumen `disponible_para_asignacion`,
+`bloqueada_en_intervalo` y sus causas para la fecha y hora solicitadas. La
+mutación vuelve a validar en backend; el navegador no es fuente de disponibilidad.
+
+Capacidad operativa y asignación de mesas son decisiones distintas. En
+administración puede pedirse asignación automática hasta 12 personas; grupos
+mayores quedan para asignación manual. Si no hay propuesta automática, se
+desactiva o la capacidad estimada no alcanza, guardar sin mesas requiere una
+advertencia y confirmación explícitas. El límite y las validaciones de la
+landing pública no se amplían por las excepciones administrativas.
+
+`Nueva reservación` requiere fecha y horario válidos, contexto cargado sin error,
+modo editable y permisos. Fecha, hora y mesas se vuelven a validar en el backend
+al crear o modificar.
+
+La creación, asignación y cierre no disparan la sincronización del buzón. La
+sincronización administrativa se hace por su endpoint protegido y presenta
+ausencias pendientes, necesidades de asignación y coordinaciones que requieren
+acción. Una ausencia de prioridad alta requiere registrar el no-show mediante
+la acción de dominio; leer una alerta no la resuelve.
+
+La lista `/admin/reservaciones` excluye por defecto `pendiente_verificacion` y
+`expirada`; un filtro explícito aún permite consultarlas. Las retenciones vigentes
+siguen en los cálculos canónicos de capacidad y disponibilidad.
+
+## Mapas y estados visuales
+
+El POS representa la operación actual. El mapa de Reservaciones representa la
+fecha y hora consultadas. La misma mesa puede verse distinta en esos contextos.
+
+| Hecho o ventana | POS — operación actual | Reservaciones — intervalo consultado |
+| --- | --- | --- |
+| Disponible | Verde cuando el backend permite abrir ticket. | Verde cuando está disponible para el intervalo. |
+| Advertencia `>30` y `≤60` min | Verde con borde azul discontinuo si walk-in sigue permitido. | Indicador secundario; el fondo conserva la disponibilidad real del intervalo. |
+| Próxima `>0` y `≤30` min | Azul sólido; walk-in bloqueado. | Azul cuando la reserva bloquea el intervalo; un conflicto independiente conserva rojo. |
+| Inicio `00:00` | Azul mientras se espera al cliente, si aún no hay ticket. | Rojo si la reserva ocupa el intervalo seleccionado. |
+| Tolerancia `00:00` a `+15:00` inclusive | Azul con señal de tolerancia; el backend decide si se puede iniciar el servicio. | Rojo mientras el intervalo siga bloqueado por la reserva. |
+| Ausencia pendiente, después de `+15:00` | Azul oscuro de reserva bloqueante, con indicador de acción pendiente. No libera la mesa; sólo ofrece no-show si `puede_marcar_no_show` es verdadero. | La disponibilidad del intervalo decide el fondo; la ausencia queda como indicador secundario. No-show elimina sus modificadores y se recalcula cualquier bloqueo restante. |
+| Ticket abierto | Rojo mientras exista ocupación física real. | Rojo sólo si el ticket bloquea el intervalo; una proyección futura puede liberarse sin cerrar el ticket. |
+| No utilizable | Neutro y por encima de otros estados. | Neutro y por encima de otros estados. |
+| Seleccionada | Anillo amarillo superpuesto; conserva el hecho base. | Anillo amarillo superpuesto; conserva el hecho base. |
+
+### Prioridad visual
+
+Un elemento no utilizable permanece neutro. En POS, ticket abierto conserva rojo;
+en Reservaciones, ticket o conflicto que bloquea el intervalo conservan rojo.
+Inicio y tolerancia se muestran según el contexto anterior. Advertencia, ausencia,
+asignación y selección son señales secundarias: no vuelven libre un conflicto.
+La selección es una capa visual y **no garantiza disponibilidad** ni autoriza
+abrir ticket, asignar o reasignar mesa, iniciar servicio ni marcar no-show.
+
+Los estados desconocidos o incompletos no se degradan a disponible: el adaptador
+y el renderer usan `no-utilizable` y bloquean interacción visual.
+
+### POS y proyección administrativa
+
+POS clasifica la hora de operación actual. Reservaciones proyecta sobre la fecha
+y hora elegidas, respetando sus flags de disponibilidad del intervalo. Una
+reserva fuera del horario efectivo puede permanecer en la lista administrativa
+con `fuera_horario_operacion = true` y `en_proyeccion_mapa = false`; esa fila no
+colorea el pin. Un ticket, hold u otro bloqueo independiente sí conserva su
+presentación propia. El POS mantiene un indicador textual fuera de horario.
+
+### Límites temporales
+
+| Diferencia con el inicio | Clasificación |
 | --- | --- |
-| `ocupada_fisicamente` | La mesa tiene una ocupación real, por ejemplo un ticket que sigue abierto. |
-| `bloqueada_en_intervalo` | Algún conflicto impide usar la mesa durante el intervalo consultado. |
-| `disponible_para_asignacion` | La mesa puede asignarse a la reservación para ese intervalo. |
-| `disponible_para_ticket` | La mesa puede recibir un ticket en el contexto operativo correspondiente. |
-| `ausencia_pendiente` | Existe una reservación cuyo tratamiento operativo requiere atención. |
+| `> 60 min` | Futura; POS sin alerta temporal. |
+| `> 30` y `≤ 60 min` | Advertencia. |
+| `≥ 0` y `≤ 30 min` | Bloqueo previo; el inicio exacto se presenta como inicio de servicio. |
+| Desde el inicio hasta `+15 min` inclusive | Tolerancia. |
+| `> +15 min` | Ausencia pendiente cuando sigue confirmada y no hay ticket. |
 
-El color, icono o estado visual del mapa es una representación de estos hechos. No decide por sí mismo la asignabilidad.
+El intervalo planificado dura 90 minutos y no incluye su límite final. Los
+umbrales los define `ReservacionConfig`; no se duplican en JavaScript.
 
-Los estados finales de una reservación no deben volver a influir en la disponibilidad por sí mismos. Una ocupación física que todavía exista mediante un ticket se evalúa de manera independiente a través de la fuente canónica de tickets.
+### Modal de ayuda
 
-## Tickets y proyección temporal
+POS y Reservaciones comparten «Cómo interpretar el mapa de mesas». Explica
+«Estado de las mesas» y «Señales adicionales», con selección como capa y una
+nota breve: los colores orientan y las acciones se validan en la operación.
+Reservaciones no mantiene otra leyenda permanente. El modal contextualiza el
+estado actual en POS y la fecha y hora consultadas en Reservaciones.
 
-Un ticket realmente abierto mantiene `ocupada_fisicamente = true` mientras permanezca abierto. La estimación nunca libera la fotografía física actual.
+## Cambios de horario y afectaciones
 
-Para una consulta futura del día actual, la liberación estimada del ticket es:
+Si una modificación del horario efectivo deja una reserva fuera de operación,
+el sistema conserva la reserva y crea seguimiento por reservación. No cambia
+automáticamente fecha, hora, mesas, comensales ni estado; tampoco cancela ni
+reprograma la reserva. La proyección administrativa conserva la fila para
+seguimiento y la excluye del mapa mediante `en_proyeccion_mapa = false`.
 
-```text
-liberacion_estimada =
-    hora_apertura
-    + DURACION_ESTIMADA_TICKET_MINUTOS
-    + RETRASO_ESTIMADO_TICKET_MINUTOS
-```
+| Caso | Tratamiento |
+| --- | --- |
+| Hasta 12 personas, con contacto | Se prepara un acceso para que el cliente responda; el buzón muestra espera. |
+| Hasta 12, sin contacto | El caso queda accionable; agregar un contacto válido prepara el acceso. |
+| Más de 12 personas | Requiere gestión administrativa; no se crea autoservicio automático. |
 
-Cuando el intervalo consultado comienza en la liberación estimada o después, el ticket ya no bloquea por sí mismo la proyección. Antes de ese límite, sí participa en el bloqueo si se superpone al intervalo. Para una fecha futura distinta al día actual, los tickets abiertos actuales no bloquean la disponibilidad de esa fecha.
+La administración puede abrir la reserva, actualizar contacto, modificar o
+cancelar cuando corresponda, asignar mesas con las reglas canónicas y cerrar el
+seguimiento si la atenderá fuera del sistema. Cerrar seguimiento sólo retira el
+pendiente administrativo; no altera la reservación. Cada reserva afectada se
+gestiona de forma independiente.
 
-La asignación y la capacidad utilizan la proyección temporal canónica del backend. No deben sustituirla por el hecho crudo `ticket_abierto` ni por `ocupada_fisicamente`.
-
-## Reservaciones, holds y asignación
-
-Las reservaciones confirmadas y los holds vigentes bloquean la capacidad cuando se superponen al intervalo consultado. Los holds vencidos, las reservaciones en estados finales y las reservaciones fuera del intervalo consultado no bloquean por sí mismos.
-
-La asignación automática y manual deben consumir `disponible_para_asignacion`, `bloqueada_en_intervalo` y sus causas para la fecha y hora solicitadas. La interfaz puede mostrar advertencias, pero la decisión final pertenece al backend.
-
-Una mesa puede estar físicamente ocupada ahora y ser asignable en una proyección futura si el ticket ya fue liberado para ese intervalo y no existe otro conflicto.
-
-### Asignación administrativa
-
-La creación administrativa separa dos decisiones distintas:
-
-1. **Capacidad operativa:** indica si la demanda cabe en la capacidad estimada del horario.
-2. **Asignación de mesas:** determina si el sistema puede proponer mesas concretas para esa reservación.
-
-Para reservaciones de hasta 12 personas, la administración puede solicitar asignación automática mediante el motor canónico de asignación. La propuesta debe validarse nuevamente en backend antes de persistirse.
-
-Para reservaciones de más de 12 personas no se realiza asignación automática. La reservación puede confirmarse administrativamente y quedar pendiente de asignación manual, siempre dentro del máximo administrativo permitido.
-
-La falta de una propuesta automática no equivale por sí sola a impedir la reservación administrativa. Si no existe asignación automática posible, si se desactiva o si la capacidad operativa estimada resulta insuficiente, la interfaz administrativa debe mostrar una advertencia explícita y requerir confirmación antes de guardar sin mesas. La asignación manual posterior utiliza las mismas reglas canónicas de ocupación y disponibilidad.
-
-La landing pública conserva su límite y validaciones estrictas; las excepciones administrativas no amplían el contrato público.
-
-## Capacidad
-
-La capacidad mostrada debe pertenecer al mismo snapshot de `fecha + hora` que el mapa. El cálculo considera, según corresponda, capacidad física, mesas no reservables, reservaciones, holds, tickets bloqueantes y demanda sin asignar.
-
-No es válido mostrar un mapa de un contexto junto con capacidad de otro. Cualquier refresh efectivo debe volver a obtener o recalcular la capacidad de la combinación consultada.
-
-## Operación y creación
-
-`Nueva reservación` sólo puede habilitarse cuando el contexto vigente tiene una fecha válida, un horario válido, datos cargados sin error, modo editable y permisos suficientes. Los estados de carga o error del contexto anterior no deben impedir la operación de la nueva fecha.
-
-La fecha, hora y asignaciones enviadas al crear o editar una reservación deben validarse nuevamente en backend. Los datos enviados por el navegador no sustituyen las reglas de disponibilidad.
-
-## Seguimiento temporal administrativo
-
-El buzón administrativo sincroniza sus pendientes mediante `POST /admin/api/buzon/sincronizar`, protegido por CSRF. La sincronización consulta en lote las reservaciones del día actual, las reservaciones que ya tienen un aviso temporal abierto y los tickets abiertos; no se ejecuta dentro de alta, edición, asignación o transición de estado.
-
-Los avisos temporales iniciales son:
-
-- `reservacion_ausencia_pendiente`: reservación confirmada del día, sin ticket abierto, cuya tolerancia de llegada venció y puede pasar a no-show;
-- `reservacion_sin_asignacion_proxima`: reservación confirmada de hasta 12 personas, sin ticket ni mesas, dentro de la advertencia, bloqueo o tolerancia canónicos y dentro del horario efectivo.
-
-`reservacion_ausencia_pendiente` es de prioridad alta. `reservacion_sin_asignacion_proxima` es normal entre 60 y 30 minutos antes de la reservación y alta a 30 minutos o menos, incluida la tolerancia. No se crea fuera de esa ventana. La ausencia suprime la notificación de asignación próxima.
-
-El buzón también puede presentar `reservacion_grupo_grande` para una reservación confirmada de más de 12 personas cuando existe una necesidad real de coordinación, como falta de contacto o falta de mesas. El número de comensales por sí solo no debe mantener indefinidamente un pendiente si el caso ya está coordinado.
-
-Leer un aviso sólo registra `leida_at`; resolverlo requiere la acción de dominio correspondiente y un cierre por `tipo + entidad_tipo + entidad_id` con motivo técnico auditable.
-
-Una reservación confirmada que quede fuera del horario efectivo se conserva visible en el contexto operativo con `fuera_horario_operacion = true`. El mapa administrativo la incluye en `reservaciones_admin`, pero la excluye de `en_proyeccion_mapa`; el hecho no modifica estado, capacidad, ocupación, tickets ni asignación. El POS presenta el mismo indicador textual.
-
-El listado normal de `/admin/reservaciones` excluye `pendiente_verificacion` y `expirada`, porque son holds o intentos de verificación pública y no reservaciones operativas. Un filtro explícito de estado puede consultarlas sin eliminarlas. Los holds vigentes siguen participando en capacidad y disponibilidad según las reglas canónicas.
+La elegibilidad, vigencia, intentos y transporte de avisos son parte de
+[Notificaciones de reservaciones](notificaciones.md); esa fuente también define
+qué acredita `accepted` y cómo se tratan fallos o resultados inciertos.
 
 ## Roles operativos
 
-El mapa operativo es una superficie compartida por los roles `admin` y `waiter`. El administrador puede gestionar reservaciones y, cuando corresponde, consultar los datos de contacto necesarios para la operación. El personal de piso puede operar el mapa y las asignaciones de acuerdo con sus permisos; no debe recibir teléfono ni correo de los clientes cuando la tarea no lo requiere.
+El mapa operativo de reservaciones es una superficie compartida por los roles
+`admin` y `waiter`. Cada mutación vuelve a validar los permisos y reglas en
+backend. El manejo de datos personales por rol corresponde a
+[Privacidad](../privacidad/privacidad.md).
 
-Las observaciones de una reservación son operativas: pueden incluir celebración, ubicación solicitada o necesidades de accesibilidad. No deben usarse como canal de marketing ni contener secretos o credenciales.
+## Referencias
 
-## Comunicaciones y gestión por acceso temporal
-
-Las comunicaciones operativas de reservaciones usan dos eventos:
-`reservation.schedule_change` y `reservation.reminder`. PHP conserva
-la elegibilidad, deduplicación, token, vigencia, capacidad y acciones de
-dominio; n8n sólo transporta el mensaje y devuelve `accepted` o `failed`.
-
-La configuración del recordatorio vive en
-`/admin/configuracion/reservaciones`. Es una fila única de base de datos,
-desactivada y con hora `18:00` por omisión. El proceso programado consulta cada
-cinco minutos, pero prepara todas las reservaciones elegibles de mañana desde
-la hora configurada: una caída temporal no limita la recuperación a una
-ventana de cinco minutos.
-
-El acceso temporal canónico es `/reservaciones/gestionar`. La URL intercambia
-el token plano por una sesión limitada a `source_type + source_id +
-reservation_id`; la base sólo almacena SHA-256. Las rutas anteriores de
-`/reservaciones/cambio-horario` son aliases, no una segunda implementación.
-
-Desde este acceso se puede modificar mediante el reemplazo canónico o cancelar
-mediante la cancelación canónica, siempre con CSRF y revalidación transaccional.
-Un recordatorio para más de 12 personas no permite modificación pública, pero
-mantiene la cancelación mientras la política temporal lo permita. El éxito
-invalida la fuente exacta; sólo un `schedule_change` resuelve además la
-afectación y cierra su seguimiento de buzón.
-
-Los estados `pending`, `accepted` y `failed` describen únicamente
-el transporte. `accepted` acredita aceptación del proveedor, no entrega ni lectura,
-y no confirma, cancela ni resuelve una reservación. Un
-fallo invalida el acceso y, para afectaciones, vuelve accionable el buzón.
-
-La referencia normativa completa está en [Notificaciones de reservaciones](notificaciones.md).
-
-## Referencias vigentes
-
-Los cambios de horario que dejan reservaciones fuera del horario efectivo se registran como impactos persistentes y requieren seguimiento administrativo. La referencia normativa completa está en [Afectaciones de reservaciones por cambios de horario](afectaciones_reservaciones_por_cambios_horario.md).
-
+- [Configuración](../config.md)
+- [Operación POS e impresión](../operacion.md)
 - [Usuarios](../usuarios/usuarios.md)
-- [Credenciales de desarrollo](../usuarios/credenciales.md)
 - [Privacidad](../privacidad/privacidad.md)

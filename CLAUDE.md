@@ -117,23 +117,18 @@ con `NIP_LOOKUP_SECRET` y los enseña sólo en la salida de esa ejecución. Casa
 `username`, que es UNIQUE, así que actualiza esas filas en vez de duplicarlas.
 Credenciales de demo en `docs/usuarios/credenciales.md`.
 
-**No hay migraciones.** `database/` son esos tres archivos y nada más:
-`database/migrations/` se retiró junto con los dos últimos parches que
-quedaban, ya recogidos en el DDL (`catas.disponible`, la baja de
-`cata_inscripciones` y `catering_solicitudes`) y en el deploy (los colores de
-`areas_produccion` en la paleta funcional). Un cambio de esquema se escribe en
-`ddl.sql` y el entorno se rehace: es lo mismo que ya pedía el punto de arriba
-—los ids explícitos del bloque 1 no soportan una segunda pasada— y mantener a
-la vez un DDL completo y una cadena de parches sólo servía para que las dos
-versiones del esquema se separaran sin que nadie se enterara.
+Fuentes documentales vigentes: `docs/arquitectura.md`, `docs/config.md`,
+`docs/operacion.md`, `docs/reservaciones/reservaciones.md`,
+`docs/reservaciones/notificaciones.md`, `docs/usuarios/usuarios.md` y
+`docs/privacidad/privacidad.md`. Las reglas de mesas y reservaciones tienen una
+fuente normativa en `docs/reservaciones/reservaciones.md`.
 
-Consecuencia asumida: una instalación con datos que haya que conservar no tiene
-camino de actualización escrito; hay que redactar el `ALTER` a mano contra el
-diff del DDL. Para producción real, ese es el momento de reintroducir
-migraciones como decisión explícita, no de improvisar un directorio.
+El esquema vigente está en `database/ddl.sql`. Los datos mínimos de operación
+están en `database/deploy.sql`; `database/development.sql` es opcional y se usa
+sólo para desarrollo y QA.
 
-El DDL empieza con los `DROP TABLE` en orden inverso de dependencias justo por
-esto: si agregas una tabla, agrega también su `DROP` en el lugar que le toca.
+`ddl.sql` empieza con los `DROP TABLE` en orden inverso de dependencias. Al
+agregar una tabla, añade su `DROP` al bloque correspondiente.
 
 Cosas que cargan peso y no son obvias:
 

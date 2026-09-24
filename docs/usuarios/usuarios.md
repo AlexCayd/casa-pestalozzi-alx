@@ -28,13 +28,16 @@ No se permite retirar el último administrador activo ni dejar usuarios operativ
 
 ## Configuración y despliegue
 
-La configuración sensible se carga desde el entorno. Las migraciones de acceso deben ejecutarse antes de habilitar el flujo nuevo en una instalación existente y los seeds de demostración sólo se usan en desarrollo o QA.
+La configuración sensible se carga desde el entorno según
+[Configuración](../config.md). Los seeds de demostración sólo se usan en
+desarrollo o QA.
 
 Antes de producción se deben reemplazar credenciales de prueba, definir secretos fuera del repositorio, revisar permisos de la base de datos y comprobar que ningún log o export contenga contraseñas o NIP.
 
 ## Reglas de privacidad
 
-El rol no amplía automáticamente el acceso a datos personales. La visibilidad de teléfono y correo se limita al personal autorizado que los necesita para la operación. Para la política completa, consultar [Privacidad](../privacidad/privacidad.md).
+El tratamiento y la visibilidad de datos personales se rigen por la fuente de
+[Privacidad](../privacidad/privacidad.md).
 
 ## Referencias vigentes
 

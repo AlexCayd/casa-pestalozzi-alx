@@ -1,9 +1,9 @@
-# Receta Compose de n8n — etapa 6
+# Receta Compose para n8n
 
 **Preparada, no desplegada.** Estos archivos no cambian la instancia n8n viva.
 Los comandos de operación de este documento son instrucciones para una futura
 ventana de trabajo del operador, no acciones ejecutadas durante esta etapa.
-Leer primero las [condiciones previas del contrato](../README.md#jerarquía-y-estado-de-la-migración).
+Leer primero la [documentación vigente y los contratos](../README.md#documentacion-vigente).
 
 ## Decisiones y versión
 
@@ -301,30 +301,21 @@ incidente. Este procedimiento no se ejecuta ni automatiza aquí.
 
 ## Validación y límites
 
-Revisión efectuada el 2026-09-14; registrar cualquier repetición futura con
-fecha, versiones, resultado y errores redactados, sin secretos ni payloads.
+Antes de publicar en producción, completa y registra para el entorno concreto:
 
-| Validación | Estado en esta etapa |
-|---|---|
-| Baseline `git status`, `git diff --check`, últimos diez commits | Inspeccionados; ya había cambios ajenos, incluido `n8n/README.md`. Sin errores de whitespace; avisos LF/CRLF preexistentes. |
-| `node scripts/tests/run-reservaciones-notification-workflows.cjs` | 251 escenarios de grafo/Code pasan con Header Auth/200/accepted y claim. Es simulación local, no ejecución del motor n8n. |
-| Validación manual TEST/local de confirmación, recordatorio D-1 y cambio de horario | PASS para los tres flujos, incluyendo Email, WhatsApp Text/Template, callbacks `accepted|failed`, Header Auth y claim/deduplicación. |
-| Release exacta y `_FILE` | Verificados en fuentes oficiales y código 2.38.7 enlazados arriba. |
-| YAML, interpolaciones requeridas, enlaces locales y restricciones de receta | Revisión estática local; no equivale a validación por Docker. |
-| `docker compose config --quiet`, pull/manifiestos/digests | No ejecutados: Docker no está disponible en este entorno. |
-| Arranque, permisos de secrets, SQLite, healthcheck y registro del runner | No ejecutados: requieren entorno Docker TEST preparado. |
-| Proxy/TLS, SMTP/Meta, Header Auth, callbacks y respuesta síncrona | Flujos manuales TEST/local PASS; proxy/TLS, persistencia Docker e integración con una instancia viva siguen pendientes. El token Meta usado en la prueba fue temporal y debe sustituirse por una credencial estable antes de activar producción. |
-| Reinicio de contenedor/host, recreación, backup/restore y rollback | Procedimientos documentados, no probados en runtime. |
-| Suites de BD PHP | Seis suites aisladas pasan tanto con DDL actual como migrando desde f274eda; no certifican infraestructura n8n. |
+1. `docker compose config --quiet`, descarga de imágenes y arranque del servicio
+   con permisos de secretos, SQLite y healthcheck correctos.
+2. Reinicio de contenedor y host; comprobar persistencia de workflows y
+   credenciales.
+3. Importación de los tres workflows sanitizados, prueba de rechazo de headers
+   inválidos y ausencia de `$env`/`$vars` en Code.
+4. En TEST, probar Email y WhatsApp, aceptación y fallo, timeout, HTTP 4xx/5xx,
+   JSON inválido, respuesta OTP 200 posterior al proveedor y callbacks
+   `accepted|failed`.
+5. Probar claim/deduplicación, callback obsoleto, recuperación de resultados
+   reintentables, backup, restore en un volumen nuevo y rollback.
+6. Ejecutar `npm run test:notifications` para los contratos locales PHP/Node.
 
-Antes de promover, registrar evidencia de: clave idéntica tras reinicio,
-credenciales utilizables sin reingresarlas, mismos tres workflows, timezone
-correcto, rechazo de headers incorrectos en ambos sentidos, ausencia de `$env`
-y `$vars`, confirmación `200` posterior al proveedor (aceptación y fallo),
-callbacks `accepted|failed`, idempotencia y callbacks obsoletos, recuperación
-sin duplicados y restore sobre volumen nuevo. Probar también caída/timeout,
-`4xx`, `5xx` y JSON inválido. El readiness por sí solo no cierra esta lista.
-
-Los commits locales se registran en el [reporte](../../docs/reservaciones/implementacion_notificaciones.md).
-No se exportaron credenciales. Las condiciones pendientes impiden declarar la
-receta validada para producción.
+Los tests locales y la respuesta de readiness no sustituyen la ejecución de los
+workflows en una instancia TEST con proveedores y credenciales controlados. No
+registrar payloads, contactos, códigos, tokens ni secretos como evidencia.
