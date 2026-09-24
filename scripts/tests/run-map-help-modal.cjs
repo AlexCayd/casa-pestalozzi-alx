@@ -19,13 +19,20 @@ check((view.match(/<dialog\b/g) || []).length === 1, 'el parcial monta un único
 check(view.includes('aria-controls="'), 'el botón apunta a su diálogo');
 check(view.includes('aria-haspopup="dialog"'), 'el botón anuncia el tipo de ventana');
 check(view.includes('aria-labelledby="'), 'el diálogo asocia su título');
-check(view.includes('autofocus'), 'el diálogo define foco inicial');
+check(view.includes('tabindex="-1" data-map-help-initial-focus autofocus') && !/data-map-help-close[^>]*autofocus/.test(view), 'el encabezado recibe el foco inicial sin enfocar el cierre automáticamente');
 check(view.includes('title="Ayuda sobre los estados del mapa"'), 'tooltip y nombre accesible usan el copy acordado');
 check(view.includes('Cómo interpretar el mapa de mesas'), 'el modal usa el título acordado');
 check((view.match(/<li class="map-help-dialog__state">/g) || []).length === 7, 'el modal conserva las siete muestras reales');
+check(view.includes('Estado de las mesas') && view.includes('Señales adicionales'), 'el modal separa estados y señales adicionales');
+const helpGroups = Array.from(view.matchAll(/<section class="map-help-dialog__group"[\s\S]*?<ul class="map-help-dialog__states">([\s\S]*?)<\/ul>[\s\S]*?<\/section>/g));
+check(helpGroups.length === 2, 'el modal organiza los ejemplos en dos grupos');
+check(helpGroups.map((group) => (group[1].match(/<li class="map-help-dialog__state">/g) || []).length).join(',') === '4,3', 'los grupos contienen cuatro estados y tres señales');
+check((view.match(/class="mesa-pin__label">Mesa</g) || []).length === 7 && !/mesa-pin__label">Mesa \d+/.test(view), 'las siete muestras usan la etiqueta uniforme Mesa');
+check(view.includes('Seleccionada</strong><span>La selección es una capa superpuesta y no garantiza disponibilidad.'), 'la selección se explica como capa sin garantizar disponibilidad');
 check(view.includes('mesa-pin--mod-reservacion_advertencia'), 'la muestra de advertencia reutiliza clases reales');
 check(view.includes('mesa-pin--mod-accion_pendiente'), 'la muestra de ausencia incluye su indicador');
-check(view.includes('Los colores orientan. Las acciones disponibles se verifican al realizar la operación.'), 'el modal incluye la nota operativa breve');
+check(view.includes('class="map-help-dialog__note" role="note"') && view.includes('Los colores orientan. Las acciones disponibles se verifican al realizar la operación.'), 'el modal incluye la nota operativa breve en su contenedor');
+check(view.includes('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle>'), 'la nota incluye un icono decorativo de información');
 check(view.includes('Reserva cercana') && view.includes('Ausencia pendiente') && view.includes('No utilizable'), 'el modal usa las etiquetas breves acordadas');
 check(view.includes('mapHelpContext === \'reservations\'') && view.includes('Ticket abierto o intervalo bloqueado.') && view.includes('Ticket abierto.'), 'verde y rojo cambian según el contexto invocador');
 check(view.includes('Consulta el estado actual de las mesas.') && view.includes('Consulta la disponibilidad para la fecha y hora seleccionadas.'), 'el modal define un subtítulo para cada contexto');
@@ -38,6 +45,7 @@ check(styles.includes('font-size: var(--operational-text-base)'), 'el texto desc
 check(controller.includes('function positionHelpButton') && controller.includes('ResizeObserver'), 'el botón se recoloca si los pines o el tamaño del mapa cambian');
 check(styles.includes('width: 44px;') && styles.includes('height: 44px;'), 'los botones de ayuda conservan el área táctil mínima');
 check(styles.includes('grid-template-columns: minmax(0, 1fr);'), 'la ayuda pasa a una columna en móvil');
+check(controller.includes('[data-map-help-initial-focus], [data-map-help-close]'), 'el controlador prioriza el encabezado accesible como foco inicial');
 check(view.includes('map-help-button--overlay') && view.includes('map-help-button--header'), 'el parcial soporta las dos ubicaciones');
 check(styles.includes('.map-help-dialog:not([open])') && styles.includes('display: none'), 'el diálogo cerrado conserva la ocultación nativa');
 
@@ -56,7 +64,7 @@ const dialog = {
     (dialogListeners[type] ||= []).push(listener);
   },
   querySelector(selector) {
-    return selector === '[autofocus], [data-map-help-close]' ? focusTarget : null;
+    return selector === '[data-map-help-initial-focus], [data-map-help-close]' ? focusTarget : null;
   },
   showModal() {
     this.open = true;

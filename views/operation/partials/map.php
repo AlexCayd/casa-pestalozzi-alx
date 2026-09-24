@@ -31,6 +31,8 @@ $mapHelpPosition = in_array($mapHelpPosition, ['header', 'overlay'], true) ? $ma
 $mapHelpIdSuffix = preg_replace('/[^a-z0-9_-]+/i', '-', $mapContext) ?: 'mapa-mesas';
 $mapHelpDialogId = 'map-help-dialog-' . $mapHelpIdSuffix;
 $mapHelpTitleId = $mapHelpDialogId . '-title';
+$mapHelpStateHeadingId = $mapHelpDialogId . '-state-heading';
+$mapHelpSignalsHeadingId = $mapHelpDialogId . '-signals-heading';
 $mapHelpButtonHtml = '<button type="button" class="map-help-button map-help-button--header" data-map-help-open aria-label="Ayuda sobre los estados del mapa" title="Ayuda sobre los estados del mapa" aria-controls="' . $mapEscape($mapHelpDialogId) . '" aria-haspopup="dialog">'
     . '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M9.7 9a2.4 2.4 0 1 1 3.8 1.9c-1 .7-1.5 1.1-1.5 2.6M12 17h.01"></path></svg>'
     . '</button>';
@@ -117,45 +119,58 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
         <div class="map-help-dialog__surface">
             <header class="map-help-dialog__header">
                 <div class="map-help-dialog__heading">
-                    <h2 id="<?php echo $mapEscape($mapHelpTitleId); ?>">Cómo interpretar el mapa de mesas</h2>
+                    <h2 id="<?php echo $mapEscape($mapHelpTitleId); ?>" tabindex="-1" data-map-help-initial-focus autofocus>Cómo interpretar el mapa de mesas</h2>
                     <p class="map-help-dialog__intro"><?php echo $mapEscape($mapHelpSubtitle); ?></p>
                 </div>
-                <button type="button" class="map-help-dialog__close" data-map-help-close aria-label="Cerrar ayuda del mapa" title="Cerrar ayuda del mapa" autofocus>
+                <button type="button" class="map-help-dialog__close" data-map-help-close aria-label="Cerrar ayuda del mapa" title="Cerrar ayuda del mapa">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg>
                 </button>
             </header>
             <div class="map-help-dialog__body">
-                <ul class="map-help-dialog__states" aria-label="Estados del mapa">
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre"><span class="mesa-pin__label">Mesa 4</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Libre</strong><span><?php echo $mapEscape($mapHelpAvailableCopy); ?></span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--mod-reservacion_advertencia"><span class="mesa-pin__label">Mesa 5</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Revisa antes de operar.</span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-reservacion_inminente"><span class="mesa-pin__label">Mesa 6</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa reservada para el cliente.</span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente"><span class="mesa-pin__label">Mesa 7</span><span class="mesa-pin__pending">!</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>Registra que el cliente no llegó.</span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada"><span class="mesa-pin__label">Mesa 8</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Ocupada</strong><span><?php echo $mapEscape($mapHelpOccupiedCopy); ?></span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa 9</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección no elimina restricciones.</span></span>
-                    </li>
-                    <li class="map-help-dialog__state">
-                        <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--no-utilizable"><span class="mesa-pin__label">Mesa 4</span></span></span>
-                        <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa fuera de servicio en este contexto.</span></span>
-                    </li>
-                </ul>
-                <p class="map-help-dialog__note">Los colores orientan. Las acciones disponibles se verifican al realizar la operación.</p>
+                <div class="map-help-dialog__groups">
+                    <section class="map-help-dialog__group" aria-labelledby="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">
+                        <h3 id="<?php echo $mapEscape($mapHelpStateHeadingId); ?>">Estado de las mesas</h3>
+                        <ul class="map-help-dialog__states">
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Disponible</strong><span><?php echo $mapEscape($mapHelpAvailableCopy); ?></span></span>
+                            </li>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Ocupada</strong><span><?php echo $mapEscape($mapHelpOccupiedCopy); ?></span></span>
+                            </li>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-reservacion_inminente"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa reservada para el cliente.</span></span>
+                            </li>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--no-utilizable"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa fuera de servicio en este contexto.</span></span>
+                            </li>
+                        </ul>
+                    </section>
+                    <section class="map-help-dialog__group" aria-labelledby="<?php echo $mapEscape($mapHelpSignalsHeadingId); ?>">
+                        <h3 id="<?php echo $mapEscape($mapHelpSignalsHeadingId); ?>">Señales adicionales</h3>
+                        <ul class="map-help-dialog__states">
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--mod-reservacion_advertencia"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Revisa antes de operar.</span></span>
+                            </li>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>Registra que el cliente no llegó.</span></span>
+                            </li>
+                            <li class="map-help-dialog__state">
+                                <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
+                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección es una capa superpuesta y no garantiza disponibilidad.</span></span>
+                            </li>
+                        </ul>
+                    </section>
+                </div>
+                <div class="map-help-dialog__note" role="note">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>
+                    <p>Los colores orientan. Las acciones disponibles se verifican al realizar la operación.</p>
+                </div>
             </div>
         </div>
     </dialog>

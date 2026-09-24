@@ -181,7 +181,7 @@
         lastTriggerByDialog.set(dialog, trigger);
         dialog.showModal();
 
-        var initialFocus = dialog.querySelector('[autofocus], [data-map-help-close]');
+        var initialFocus = dialog.querySelector('[data-map-help-initial-focus], [data-map-help-close]');
         if (initialFocus && typeof initialFocus.focus === 'function') {
             initialFocus.focus();
         }
