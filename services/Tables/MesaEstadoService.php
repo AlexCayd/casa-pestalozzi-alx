@@ -351,6 +351,8 @@ final class MesaEstadoService
             if (in_array('varias_mesas', $modificadores, true)) {
                 $titulo .= ' Vinculada a varias mesas.';
             }
+            $puedeRegistrarAusencia = $ausenciaPendiente
+                && self::booleano($reservacionAsociada['puede_marcar_no_show'] ?? false);
 
             $estadoVisual = match ($estadoBase) {
                 self::OCUPADA => 'ocupada',
@@ -409,10 +411,10 @@ final class MesaEstadoService
                     'reservacion_id' => $reservacionAsociada['id'] ?? null,
                     'vigente' => true,
                 ] : null,
-                'acciones' => $ausenciaPendiente
+                'acciones' => $puedeRegistrarAusencia
                     ? [['id' => 'REGISTRAR_AUSENCIA', 'tipo' => 'primary']]
                     : [],
-                'accion_pendiente' => $ausenciaPendiente ? 'REGISTRAR_AUSENCIA' : null,
+                'accion_pendiente' => $puedeRegistrarAusencia ? 'REGISTRAR_AUSENCIA' : null,
                 'ticket_abierto' => $ticketAbierto !== null,
                 'ticket' => $ticketAbierto,
                 'walk_in' => $walkIn,
@@ -432,10 +434,8 @@ final class MesaEstadoService
         ?array $reservacionPrincipal = null,
         bool $ticketBloqueaEnConsulta = false
     ): array {
-        // El presenter recibe hechos ya calculados. La asignabilidad por
-        // intervalo no se convierte por sí sola en rojo: a las 12:00 una
-        // reservación de las 13:00 bloquea capacidad, pero el mapa comunica
-        // proximidad con verde y borde azul.
+        // El presenter recibe hechos ya calculados. El modificador de
+        // proximidad acompaña al estado real de disponibilidad del intervalo.
         $resultado = ReservacionMapaMesaPresenter::presentar([
             'utilizable' => $utilizable,
             'bloqueada_en_intervalo' => $bloqueadaEnIntervalo,
@@ -586,9 +586,16 @@ final class MesaEstadoService
         $estado = (string)($detalle['estado_visual'] ?? '');
         $modificadores = array_map('strval', (array)($detalle['modificadores'] ?? []));
         if ($estado === 'ocupada') {
-            $label = self::booleano($hechos['ticket_bloquea_consulta'] ?? false)
-                ? $nombre . ', ocupada por ticket abierto.'
-                : $nombre . ', ocupada.';
+            if (self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
+                $label = $nombre . ', ocupada por ticket abierto.';
+            } else {
+                $causas = self::idsStrings($hechos['causas_bloqueo'] ?? []);
+                $label = in_array('reservacion', $causas, true)
+                    ? $nombre . ', no disponible por reservación en el intervalo seleccionado.'
+                    : (in_array('hold', $causas, true)
+                        ? $nombre . ', no disponible por una retención vigente.'
+                        : $nombre . ', no disponible para el intervalo seleccionado.');
+            }
         } elseif ($estado === 'reservacion-proxima') {
             $label = $nombre . ', reservación próxima.';
         } elseif (in_array('reservacion_advertencia', $modificadores, true)) {
@@ -606,7 +613,7 @@ final class MesaEstadoService
 
         if (self::booleano($hechos['ausencia_pendiente'] ?? false)
             || in_array('ausencia_pendiente', $modificadores, true)) {
-            $label .= ' Acción pendiente: registrar ausencia.';
+            $label .= ' Tolerancia vencida; registra que el cliente no llegó antes de utilizar la mesa.';
         }
 
         return $label;

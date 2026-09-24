@@ -869,9 +869,12 @@ function initMapa() {
   function estadoMesa(mesaId) {
     if (isLlevar(mesaPorId(mesaId))) return 'libre';
     var estado = mesaEstadoPorId(mesaId);
-    if (!estado) return 'libre';
+    if (!estado) return 'zona';
     if (estado.ticket_bloquea_consulta === true) {
       return 'con-ticket';
+    }
+    if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(estado.estado_visual_pos) === -1) {
+      return 'zona';
     }
     if (estado.estado_visual_pos === 'no-utilizable') return 'zona';
     if (estado.estado_visual_pos === 'ocupada') return 'ocupada';
@@ -912,9 +915,9 @@ function initMapa() {
     if (!resumen) return null;
     var reservation = reservacionPorId(resumen.reservacion_id || resumen.id) || resumen;
     var ventana = ventanaReservaDesdeBackend(reservation, mesaId);
-    var accionPendiente = estado.ausencia_pendiente === true
+    var accionPendiente = estado.ausencia_pendiente === true && estado.puede_marcar_no_show === true
       ? 'REGISTRAR_AUSENCIA'
-      : (reservation.accion_pendiente || null);
+      : null;
     var bloqueante = estado.disponible_para_ticket !== true
       && estado.ausencia_pendiente !== true;
     return {
@@ -1010,13 +1013,7 @@ function initMapa() {
         partes.push('Reservaci\u00f3n a las ' + proxima.hora + '. Cliente con ' +
           proxima.minutos_retraso + ' minutos de retraso. Se encuentra dentro del tiempo de tolerancia.');
       } else if (ventana === 'ausencia_pendiente') {
-        if (proxima.accion_pendiente === 'REGISTRAR_AUSENCIA') {
-          partes.push('Acci\u00f3n pendiente: registrar ausencia. La tolerancia de llegada ya venci\u00f3; el cliente lleva ' +
-            proxima.minutos_retraso + ' minutos de retraso.');
-        } else {
-          partes.push('Reservaci\u00f3n con tolerancia vencida. El cliente lleva ' +
-            proxima.minutos_retraso + ' minutos de retraso.');
-        }
+        partes.push('Tolerancia vencida. Registra que el cliente no llegó antes de utilizar la mesa.');
       }
     } else {
       var reservaContextual = reservaParaModal(parseInt(mesa.id, 10));
@@ -1049,7 +1046,9 @@ function initMapa() {
     var ticket = ticketContextual;
     var ticketBloquea = backend.ticket_bloquea_consulta === true;
     var proxima = reservacionProximaMesa(parseInt(mesa.id, 10));
-    var estadoVisualPos = String(backend.estado_visual_pos || (estado === 'zona' ? 'no-utilizable' : 'libre'));
+    var contratoVisualValido = ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(backend.estado_visual_pos) !== -1
+      && Array.isArray(backend.modificadores_visual_pos);
+    var estadoVisualPos = contratoVisualValido ? String(backend.estado_visual_pos) : 'no-utilizable';
     var stateBase = estadoVisualPos === 'ocupada'
       ? 'ocupada'
       : (estadoVisualPos === 'reservacion-proxima' ? 'bloqueada' : (estado === 'zona' ? 'no_reservable' : 'disponible'));
@@ -1082,7 +1081,7 @@ function initMapa() {
       motivo_bloqueo: backend.motivo_bloqueo || (estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null),
       bloqueo: backend.bloqueo || (proxima && proxima.bloqueo) || null,
       titulo: backend.aria_label_pos || tituloMesaMapa(mesa, estado, ticket, proxima, ticketBloquea),
-      estado_visual_pos: estadoVisualPos,
+      estado_visual_pos: contratoVisualValido ? estadoVisualPos : null,
       ticket_abierto: ticket
         ? Object.assign({}, ticket, { bloquea_en_consulta: Boolean(ticketBloquea) })
         : null
@@ -1140,21 +1139,23 @@ function initMapa() {
     var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     var ticketBloquea = backend.ticket_bloquea_consulta === true;
     var ticketable = mesaTicketable(mesa);
-    var seleccionValida = ticketSelectionMode
+    var contratoVisualValido = ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(backend.estado_visual_pos) !== -1
+      && Array.isArray(backend.modificadores_visual_pos);
+    var seleccionValida = contratoVisualValido && (ticketSelectionMode
       ? mesaPuedeSeleccionarse(mesa, estado)
       : mesaReservable(mesa) && !ticketBloquea && !(
         reservaParaModal(parseInt(mesa.id, 10)) || {}
-      ).bloquea_walk_ins;
+      ).bloquea_walk_ins);
     return {
       x: insetPos(mesa.pos_x),
       y: insetPos(mesa.pos_y),
       ancho: mesa.ancho,
       alto: mesa.alto,
-      interactivo: ticketSelectionMode
+      interactivo: contratoVisualValido && (ticketSelectionMode
         ? seleccionValida
-        : ticketable || esCaja(mesa),
+        : ticketable || esCaja(mesa)),
       seleccionValida: seleccionValida,
-      estadoVisual: backend.estado_visual_pos || null,
+      estadoVisual: contratoVisualValido ? backend.estado_visual_pos : null,
       ariaLabel: backend.aria_label_pos || null,
       seleccionActual: selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
       noUtilizable: !mesaTicketable(mesa) && !esCaja(mesa),
@@ -2667,7 +2668,7 @@ function initMapa() {
       var reservaEstado = String(reserva.estado || '');
       var reservaComensales = parseInt(reserva.comensales || reserva.personas || '0', 10);
       var ausenciaPendiente = reservaEstado === 'confirmada'
-        && reserva.accion_pendiente === 'REGISTRAR_AUSENCIA'
+        && (reserva.ausencia_pendiente === true || reserva.accion_pendiente === 'REGISTRAR_AUSENCIA')
         && reserva.ticket_abierto !== true;
       var allowWalkIn = Boolean(modalOptions && modalOptions.allowWalkIn === true
         && reservaEstado === 'confirmada'
@@ -2694,8 +2695,8 @@ function initMapa() {
         var toleranciaHora = String(reserva.tolerancia_hasta || '').match(/(?:T|\s)(\d{2}:\d{2})/);
         var toleranciaHasta = toleranciaHora ? toleranciaHora[1] : '';
         h += '<section class="mmodal-reservation__pending" id="mmodal-reservation-pending" role="alert" aria-live="assertive" aria-labelledby="mmodal-reservation-pending-title">';
-        h += '<strong id="mmodal-reservation-pending-title">Acción pendiente: registrar ausencia</strong>';
-        h += '<p>La tolerancia de llegada de esta reservación ya venció.</p>';
+        h += '<strong id="mmodal-reservation-pending-title">Tolerancia vencida</strong>';
+        h += '<p>Tolerancia vencida. Registra que el cliente no llegó antes de utilizar la mesa.</p>';
         h += '<dl class="mmodal-reservation__pending-facts">';
         h += '<div><dt>Tolerancia</dt><dd>' + toleranciaLabel + (toleranciaHasta ? ' · hasta las ' + escHtml(toleranciaHasta) : '') + '</dd></div>';
         h += '<div><dt>Retraso</dt><dd>' + (parseInt(reserva.minutos_retraso || '0', 10) || 0) + ' minutos</dd></div>';
@@ -2725,7 +2726,11 @@ function initMapa() {
         h += '<button type="button" class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir-reservacion">Abrir ticket de todas formas</button>';
         h += '<div class="mmodal-reservation__action-hint">El servidor volverá a validar la reservación y pedirá confirmación antes de crear el ticket.</div>';
       } else if (reservaEstado === 'confirmada' && ausenciaPendiente) {
-        h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Registrar ausencia</button>';
+        if (reserva.puede_marcar_no_show === true && reserva.accion_pendiente === 'REGISTRAR_AUSENCIA') {
+          h += '<button type="button" class="mmodal-btn mmodal-btn--release" id="mmodal-no-show">Registrar ausencia</button>';
+        } else {
+          h += '<p class="mmodal-reservation__action-hint">El registro de ausencia todavía no está disponible.</p>';
+        }
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-reservation-back">Volver</button>';
       } else if (reservaEstado === 'confirmada') {
         var puedeIniciar = reserva.puede_iniciar_servicio === true;
@@ -5034,45 +5039,6 @@ function initMapa() {
     }, 5000);
   }
 
-  function applyNoShowLocal(reserva) {
-    var reservaId = parseInt(reserva && reserva.id || '0', 10);
-    if (!reservaId) return;
-    reservaciones = reservaciones.map(function(item) {
-      if (parseInt(item.id || '0', 10) !== reservaId) return item;
-      var updated = Object.assign({}, item, {
-        estado: 'no_show',
-        accion_pendiente: null,
-        puede_marcar_no_show: false,
-        puede_iniciar: false,
-        mesa_ids: []
-      });
-      return updated;
-    });
-    mesasEstado = mesasEstado.map(function(item) {
-      var associated = item.reservacion_asociada || item.reservacion || null;
-      var associatedId = parseInt(associated && (associated.id || associated.reservacion_id) || '0', 10);
-      if (associatedId !== reservaId) return item;
-      return Object.assign({}, item, {
-        estado_visual: 'libre',
-        estado_base: 'disponible',
-        estado: 'disponible',
-        bloquea: false,
-        reservacion_asociada: null,
-        reservacion: null,
-        reservacion_proxima: null,
-        modificadores: (item.modificadores || []).filter(function(modifier) {
-          return ['reservacion_proxima', 'reservacion_bloqueante', 'reservacion_inminente', 'reservacion_tolerancia', 'reservacion_vencida', 'accion_pendiente', 'AUSENCIA_PENDIENTE', 'ausencia_pendiente'].indexOf(modifier) === -1;
-        }),
-        accion_pendiente: null,
-        acciones: []
-      });
-    });
-    renderMesas();
-    renderEstados();
-    renderSidebar();
-    actualizarModalReservacionActiva();
-  }
-
   function apiIniciarServicio(reserva, meseroId, button) {
     requestReservationOperation(
       '/api/punto-de-venta/reservaciones/comenzar',
@@ -5094,9 +5060,8 @@ function initMapa() {
         button: button,
         onCommit: function(result) {
           // La mutación ya está confirmada: el overlay debe desaparecer antes
-          // de cualquier consulta secundaria y no depende de que ésta termine.
+          // de consultar el snapshot canónico del servidor.
           closeModal({ refresh: false });
-          applyNoShowLocal(reserva);
           var refresh = silentRefresh();
           if (!refresh || typeof refresh.then !== 'function') return result;
           return refresh.then(function(refreshResult) {

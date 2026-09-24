@@ -32,7 +32,8 @@ final class ReservacionMapaMesaPresenter
         $reservacion = is_array($hechos['reservacion'] ?? null)
             ? $hechos['reservacion']
             : [];
-        if ($reservacion !== [] && $estado !== 'ocupada') {
+        $ticketPrioritario = $estado === 'ocupada';
+        if ($reservacion !== []) {
             $ventana = (string)($reservacion['ventana_mapa'] ?? 'futura');
             $influyeEnConsulta = self::booleano(
                 $reservacion['reservacion_influye_en_consulta']
@@ -45,25 +46,60 @@ final class ReservacionMapaMesaPresenter
                     ?? false
             );
             if ($ventana === 'inicio') {
-                $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';
-                $label = 'reservación iniciada';
-                $precedencia = 'reservacion_inicio';
+                if (!$ticketPrioritario) {
+                    $estado = 'ocupada';
+                    $label = 'reservación iniciada';
+                    $precedencia = 'reservacion_inicio';
+                } else {
+                    $label .= '; reservación iniciada';
+                }
             } elseif ($ventana === 'tolerancia') {
-                $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';
-                $label = 'reservación iniciada';
-                $precedencia = 'reservacion_tolerancia';
+                if (!$ticketPrioritario) {
+                    $estado = 'ocupada';
+                    $label = 'reservación iniciada';
+                    $precedencia = 'reservacion_tolerancia';
+                } else {
+                    $label .= '; reservación dentro de tolerancia';
+                }
             } elseif ($ventana === 'bloqueo') {
-                $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_inminente';
-                $label = 'reservación próxima';
-                $precedencia = 'reservacion_bloqueo';
+                if (!$ticketPrioritario) {
+                    $bloqueada = self::booleano($hechos['bloqueada_en_intervalo'] ?? false);
+                    $causas = (array)($hechos['causas_bloqueo'] ?? []);
+                    $bloqueoPorReservacion = in_array('reservacion', array_map('strval', $causas), true);
+                    if ($bloqueada && (!$bloqueoPorReservacion || self::bloqueoIndependiente($causas))) {
+                        $estado = 'ocupada';
+                        $label = self::etiquetaBloqueo($causas);
+                        $precedencia = 'restriccion_intervalo';
+                    } elseif ($bloqueada) {
+                        $estado = 'reservacion-proxima';
+                        $label = 'reservación próxima';
+                        $precedencia = 'reservacion_bloqueo';
+                    } else {
+                        $label = 'disponible con reservación próxima';
+                        $precedencia = 'reservacion_inminente_disponible';
+                    }
+                } else {
+                    $label .= '; reservación próxima';
+                }
             } elseif ($ventana === 'advertencia') {
                 $modificadores[] = 'reservacion_advertencia';
-                $label = 'reservación cercana';
-                $precedencia = 'reservacion_advertencia';
-            } elseif ($influyeEnConsulta) {
+                if ($ticketPrioritario) {
+                    $label .= '; reservación cercana';
+                } elseif (self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
+                    $estado = 'ocupada';
+                    $label = self::etiquetaBloqueo((array)($hechos['causas_bloqueo'] ?? []));
+                    if ($label === 'no disponible') {
+                        $label = 'no disponible para el intervalo seleccionado';
+                    }
+                    $precedencia = 'restriccion_intervalo';
+                } else {
+                    $label = 'disponible con reservación cercana';
+                    $precedencia = 'reservacion_advertencia';
+                }
+            } elseif ($influyeEnConsulta && !$ticketPrioritario) {
                 $estado = 'ocupada';
                 $modificadores[] = 'reservacion_bloqueante';
                 $label = 'reservación dentro del intervalo planificado';
@@ -71,11 +107,14 @@ final class ReservacionMapaMesaPresenter
             }
         }
 
-        if ($estado === 'libre' && $reservacion === []
+        if ($estado === 'libre'
             && self::booleano($hechos['bloqueada_en_intervalo'] ?? false)) {
             $estado = 'ocupada';
             $label = self::etiquetaBloqueo((array)($hechos['causas_bloqueo'] ?? []));
-            $precedencia = 'ocupacion';
+            if ($label === 'no disponible') {
+                $label = 'no disponible para el intervalo seleccionado';
+            }
+            $precedencia = 'restriccion_intervalo';
         }
 
         if (self::booleano($hechos['asignada_actualmente'] ?? false)) {
@@ -122,6 +161,12 @@ final class ReservacionMapaMesaPresenter
             return 'no disponible por retención';
         }
         return 'no disponible';
+    }
+
+    /** @param array<int, mixed> $causas */
+    private static function bloqueoIndependiente(array $causas): bool
+    {
+        return array_intersect(['ticket', 'hold', 'ocupacion'], array_map('strval', $causas)) !== [];
     }
 
     private static function booleano($valor): bool

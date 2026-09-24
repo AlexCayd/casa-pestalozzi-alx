@@ -44,15 +44,16 @@ $evaluar = static function (string $hora) use ($reservacion): array {
 };
 
 $esperados = [
+    '11:59:59' => ['libre', null, true, false],
     '12:00:00' => ['libre', 'reservacion_advertencia', true, true],
     '12:15:00' => ['libre', 'reservacion_advertencia', true, true],
     '12:29:00' => ['libre', 'reservacion_advertencia', true, true],
     '12:30:00' => ['reservacion-proxima', 'reservacion_inminente', false, false],
-    '12:59:00' => ['reservacion-proxima', 'reservacion_inminente', false, false],
+    '12:59:59' => ['reservacion-proxima', 'reservacion_inminente', false, false],
     '13:00:00' => ['reservacion-proxima', 'reservacion_bloqueante', false, false],
     '13:01:00' => ['reservacion-proxima', 'reservacion_tolerancia', false, false],
     '13:15:00' => ['reservacion-proxima', 'reservacion_tolerancia', false, false],
-    '13:15:01' => ['libre', 'ausencia_pendiente', false, false],
+    '13:15:01' => ['reservacion-proxima', 'ausencia_pendiente', false, false],
 ];
 
 foreach ($esperados as $hora => [$estado, $modificador, $ticketable, $advertencia]) {
@@ -64,7 +65,7 @@ foreach ($esperados as $hora => [$estado, $modificador, $ticketable, $advertenci
         "estado POS {$hora}"
     );
     assertPosVisualContract(
-        in_array($modificador, $visual['modificadores'], true),
+        $modificador === null || in_array($modificador, $visual['modificadores'], true),
         "modificador POS {$hora}"
     );
     assertPosVisualContract(

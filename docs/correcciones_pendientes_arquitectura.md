@@ -82,21 +82,25 @@ Esta fase es un movimiento físico y requiere conservar el login por NIP. Refact
 El mapa administrativo calcula `mesas_estado` con reservaciones confirmadas que se traslapan con la hora consultada, incluso cuando la reservación está marcada `fuera_horario_operacion`. Después, la proyección administrativa la excluye de `en_proyeccion_mapa`. Por tanto, la lista puede decir que la reservación no participa en el mapa mientras el pin de su mesa todavía refleja esa reservación.
 
 **Evidencia:**
-`PosReservacionQueryService::paraFecha()` construye `$reservacionesMapa` filtrando por estado confirmado y `aplica_hora_consultada`, y lo entrega a `MesaEstadoService::normalizarMesas()`. Más tarde, `ReservacionMapaAdministrativaService::proyectar()` establece `en_proyeccion_mapa = false` para una reservación confirmada fuera del horario efectivo. La secuencia se observa en `ReservacionOperacionController`; la prueba `scripts/tests/run-reservaciones-buzon-operativo.php` valida el flag de la fila, pero no el estado del pin para ese caso.
+Antes de esta corrección, `PosReservacionQueryService::paraFecha()` construía `$reservacionesMapa` con reservaciones confirmadas que aplicaban a la hora, sin filtrar `fuera_horario_operacion`. Después, `ReservacionMapaAdministrativaService::proyectar()` las marcaba con `en_proyeccion_mapa = false`.
 
 **Archivos afectados:**
-- `services/PosReservacionQueryService.php`
-- `services/ReservacionMapaAdministrativaService.php`
+- `services/Pos/PosReservacionQueryService.php`
+- `services/Reservations/ReservacionMapaAdministrativaService.php`
 - `controllers/ReservacionOperacionController.php`
+- `services/Tables/MesaEstadoService.php`
 - `scripts/tests/run-reservaciones-buzon-operativo.php`
 
 **Impacto:**
 En horas que se traslapan con el intervalo planificado, la lista y el pin pueden comunicar estados distintos sobre la inclusión de una reservación fuera del horario efectivo.
 
 **Fuera de alcance porque:**
-El inventario solicitado documenta el comportamiento actual sin cambiar reglas del mapa. Corregir el filtro requiere decidir si la exclusión del horario efectivo debe afectar también ocupación y disponibilidad por mesa.
+La proyección visual se clasifica sin quitar la reservación de ocupación, disponibilidad, asignación ni seguimiento. Este cambio no reestructura `MesaEstadoService` ni altera las reglas canónicas de intervalo.
 
-**Estado:** `pendiente`
+**Resolución y evidencia:**
+`PosReservacionQueryService::reservacionesParaProyeccionVisual()` ahora excluye `fuera_horario_operacion` únicamente del presenter administrativo; `ReservacionMapaAdministrativaService::proyectar()` conserva la reservación en la fila administrativa con `en_proyeccion_mapa = false`. La prueba `scripts/tests/run-reservaciones-buzon-operativo.php` verifica en el mismo caso la fila, la ausencia de alertas visuales en el pin y un bloqueo independiente que conserva el rojo y comunica su causa.
+
+**Estado:** `resuelto`
 
 ### [ARQ-003] Las Views invocan directamente HorarioOperacionService
 

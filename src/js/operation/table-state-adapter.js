@@ -9,7 +9,6 @@
     // las advertencias secundarias (por ejemplo, ticket + reservación).
     var VISUAL_PRECEDENCE = [
         'ocupada',
-        'seleccionada',
         'reservacion-proxima',
         'libre',
         'no-utilizable'
@@ -48,7 +47,7 @@
     }
 
     function baseState(value) {
-        var state = String(value || 'disponible').toLowerCase();
+        var state = String(value || '').toLowerCase();
         var aliases = {
             libre: 'disponible',
             disponible: 'disponible',
@@ -60,11 +59,7 @@
             'no-utilizable': 'no_reservable'
         };
 
-        return aliases[state] || 'disponible';
-    }
-
-    function hasModifier(modifiers, name) {
-        return modifiers.indexOf(name) !== -1;
+        return aliases[state] || '';
     }
 
     function normalizeVisualState(value) {
@@ -80,27 +75,27 @@
             'no-utilizable': 'no-utilizable',
             no_utilizable: 'no-utilizable'
         };
-        return aliases[state] || 'libre';
+        return aliases[state] || 'no-utilizable';
     }
 
-    function ticketBloqueaConsulta(raw, options, modifiers) {
-        var ticket = raw.ticket_abierto;
-        if (ticket && typeof ticket === 'object'
-            && Object.prototype.hasOwnProperty.call(ticket, 'bloquea_en_consulta')) {
-            return booleanValue(ticket.bloquea_en_consulta);
-        }
-        if (raw.bloquea_en_consulta != null) {
-            return booleanValue(raw.bloquea_en_consulta);
-        }
-        if (raw.ticket_bloquea_consulta != null) {
-            return booleanValue(raw.ticket_bloquea_consulta);
-        }
-        if (options.ticketAbierto && typeof options.ticketAbierto === 'object'
-            && Object.prototype.hasOwnProperty.call(options.ticketAbierto, 'bloquea_en_consulta')) {
-            return booleanValue(options.ticketAbierto.bloquea_en_consulta);
-        }
-        return Boolean(raw.ticket_abierto || options.ticketAbierto)
-            || hasModifier(modifiers, 'ticket_abierto');
+    function validVisualContract(value, previousState) {
+        var rawState = String(value || '').toLowerCase();
+        var aliases = {
+            disponible: true,
+            libre: true,
+            ocupada: true,
+            'reservacion-proxima': true,
+            proxima: true,
+            bloqueada: true,
+            seleccionada: true,
+            'no-utilizable': true,
+            no_utilizable: true
+        };
+        if (!Object.prototype.hasOwnProperty.call(aliases, rawState)) return false;
+        if (rawState !== 'seleccionada') return true;
+
+        var previous = String(previousState || '').toLowerCase();
+        return Object.prototype.hasOwnProperty.call(aliases, previous) && previous !== 'seleccionada';
     }
 
     function isUnusable(raw, options, state) {
@@ -129,62 +124,51 @@
     }
 
     /**
-     * Resuelve la apariencia sin mezclar estados ni crear etiquetas auxiliares:
-     * seleccion valida, ticket/ocupacion, reservacion proxima, no utilizable
-     * y disponible.
+     * El estado visual llega resuelto desde el backend. Aquí sólo se normaliza;
+     * la selección permanece como capa secundaria de interacción.
      */
     function resolverEstadoVisualMesa(raw, options) {
         raw = raw || {};
         options = options || {};
-        var modifiers = uniqueStrings((raw.modificadores || []).concat(options.modificadores || []));
-        var state = baseState(options.estadoBase || raw.estado_base || raw.estadoBase || raw.estado);
-        var selected = options.seleccionActual != null
-            ? booleanValue(options.seleccionActual)
-            : booleanValue(raw.seleccion_actual);
-        var selectionValid = selectionValidity(raw, options);
-        var hasTicket = ticketBloqueaConsulta(raw, options, modifiers);
-        var hasUpcomingReservation = Boolean(raw.reservacion_proxima || options.reservacionProxima) ||
-            hasModifier(modifiers, 'reservacion_proxima');
-        // `estado_visual_mapa` pertenece a la proyección administrativa. El
-        // adaptador también se comparte con POS, por lo que sólo se consume
-        // cuando la pantalla objetivo lo entrega explícitamente.
-        var explicitVisualState = normalizeVisualState(options.estadoVisual);
-        var hasExplicitVisualState = Boolean(options.estadoVisual);
-        var unusable = isUnusable(raw, options, state);
+        var previousState = options.estadoVisualAnterior
+            || raw.estado_visual_previo
+            || raw.estadoVisualAnterior;
+        var visualValue = options.estadoVisual
+            || raw.estado_visual_pos
+            || raw.estadoVisual
+            || raw.estado_visual;
+        if (!validVisualContract(visualValue, previousState)) return 'no-utilizable';
 
-        // Una mesa no reservable nunca puede quedar seleccionada, aunque el
-        // consumidor haya enviado una intención stale o una opción incompleta.
-        if (unusable) return 'no-utilizable';
-        if (selected && selectionValid && options.seleccionPrioritaria === true) {
-            return 'seleccionada';
+        var explicitVisualState = normalizeVisualState(visualValue);
+        if (explicitVisualState === 'seleccionada') {
+            return normalizeVisualState(previousState);
         }
-
-        // Un ticket abierto conserva la base física roja. La selección se
-        // expresa como modificador/ring, no sustituyendo ese estado.
-        if (hasTicket || state === 'ocupada') return 'ocupada';
-        if (selected && selectionValid) return 'seleccionada';
-        if (hasExplicitVisualState) return explicitVisualState;
-        if (hasUpcomingReservation) return 'reservacion-proxima';
-        return 'libre';
+        return explicitVisualState;
     }
 
     function toMapVisual(raw, options) {
         raw = raw || {};
         options = options || {};
-        var stateBase = String(
-            options.estadoBase || raw.estado_base || raw.estadoBase || 'disponible'
-        );
+        var stateBase = String(options.estadoBase || raw.estado_base || raw.estadoBase || '');
         var modifiers = uniqueStrings(
             (raw.modificadores || []).concat(options.modificadores || [])
         );
         var selected = options.seleccionActual != null
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
+        var visualValue = options.estadoVisual
+            || raw.estado_visual_pos
+            || raw.estadoVisual
+            || raw.estado_visual;
+        var previousState = options.estadoVisualAnterior
+            || raw.estado_visual_previo
+            || raw.estadoVisualAnterior;
+        var contractValid = validVisualContract(visualValue, previousState);
         var noUtilizable = isUnusable(raw, options, stateBase);
         var disponibleParaAsignacion = raw.disponible_para_asignacion == null
             ? null
             : booleanValue(raw.disponible_para_asignacion);
-        var seleccionValida = selectionValidity(raw, options) && !noUtilizable;
+        var seleccionValida = selectionValidity(raw, options) && !noUtilizable && contractValid;
         selected = selected && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
             modifiers.push('seleccion_actual');
@@ -205,8 +189,8 @@
             seleccionada: selected,
             seleccionValida: seleccionValida,
             interactivo: options.interactivo != null
-                ? booleanValue(options.interactivo)
-                : booleanValue(raw.reservable)
+                ? booleanValue(options.interactivo) && contractValid
+                : contractValid && booleanValue(raw.reservable)
                     && (disponibleParaAsignacion === null || disponibleParaAsignacion),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ''),
             ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),

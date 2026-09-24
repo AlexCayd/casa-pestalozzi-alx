@@ -135,11 +135,8 @@ final class PosReservacionQueryService
                 && $mesasBloqueantes === [];
             $reservaciones[] = $reservacionSerializada;
         }
-        $reservacionesMapa = array_values(array_filter(
-            $reservaciones,
-            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
-                && !empty($reservacion['aplica_hora_consultada'])
-        ));
+        $superficie = strtolower(trim((string)($opciones['superficie'] ?? 'pos')));
+        $reservacionesMapa = self::reservacionesParaProyeccionVisual($reservaciones, $superficie);
         $asignacionActualIds = [];
         if ($reservacionEnEdicionId > 0) {
             foreach ($reservaciones as $reservacion) {
@@ -248,6 +245,28 @@ final class PosReservacionQueryService
         return strtolower((string)($opciones['superficie'] ?? 'waiter')) === 'waiter'
             ? PosReservacionSerializer::sanitizarParaWaiter($respuesta)
             : $respuesta;
+    }
+
+    /**
+     * Clasifica las reservaciones que alimentan el presenter de cada mapa.
+     * En el mapa administrativo, las fuera de horario siguen en los cálculos
+     * de ocupación/conflictos y en las listas, pero no alteran por sí solas la
+     * proyección de color. ReservacionMapaAdministrativaService usa el mismo
+     * hecho serializado para marcar `en_proyeccion_mapa`.
+     *
+     * @param array<int, array<string, mixed>> $reservaciones
+     * @return array<int, array<string, mixed>>
+     */
+    public static function reservacionesParaProyeccionVisual(array $reservaciones, string $superficie): array
+    {
+        $mapaAdministrativo = in_array(strtolower(trim($superficie)), ['admin', 'waiter'], true);
+
+        return array_values(array_filter(
+            $reservaciones,
+            static fn(array $reservacion): bool => (string)($reservacion['estado'] ?? '') === 'confirmada'
+                && !empty($reservacion['aplica_hora_consultada'])
+                && (!$mapaAdministrativo || empty($reservacion['fuera_horario_operacion']))
+        ));
     }
 
     /**

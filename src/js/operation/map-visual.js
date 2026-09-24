@@ -51,7 +51,16 @@
         state = aliases[state] || state;
         return ['libre', 'ocupada', 'reservacion-proxima', 'seleccionada', 'no-utilizable'].indexOf(state) !== -1
             ? state
-            : 'libre';
+            : 'no-utilizable';
+    }
+
+    function validVisualState(value, previousState) {
+        var state = String(value || '').toLowerCase();
+        if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(state) !== -1) {
+            return true;
+        }
+        return state === 'seleccionada'
+            && ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(String(previousState || '').toLowerCase()) !== -1;
     }
 
     function normalizeClasses(value) {
@@ -84,9 +93,14 @@
         raw = raw || {};
 
         var id = parseInt(raw.id || '0', 10);
-        var state = normalizeState(raw.estadoVisual || raw.estado_visual || raw.estado);
+        var visualValue = raw.estadoVisual || raw.estado_visual_pos || raw.estado_visual_mapa || raw.estado_visual || raw.estado;
+        var previousState = raw.estadoVisualAnterior || raw.estado_visual_previo;
+        var contractValid = validVisualState(visualValue, previousState);
+        var state = normalizeState(visualValue);
+        var legacySelected = state === 'seleccionada';
+        if (legacySelected) state = normalizeState(previousState);
         var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
-        var selected = (toBoolean(raw.seleccionada) || state === 'seleccionada') && seleccionValida;
+        var selected = (toBoolean(raw.seleccionada) || legacySelected) && seleccionValida && contractValid;
         var reservable = toBoolean(raw.reservable);
 
             return {
@@ -102,7 +116,9 @@
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
             reservacionProxima: raw.reservacion_proxima || null,
             seleccionada: selected,
-            interactivo: raw.interactivo == null ? reservable : toBoolean(raw.interactivo),
+            interactivo: !contractValid ? false : (raw.interactivo == null
+                ? reservable && state !== 'no-utilizable'
+                : toBoolean(raw.interactivo)),
                 titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
                 ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
             // Rótulo bajo el nombre de un área operativa. Vacío deja el
@@ -143,7 +159,8 @@
                 var suppliedLabel = table.ariaLabel;
                 var suppliedLower = suppliedLabel.toLowerCase();
                 if (table.modificadores.indexOf('ausencia_pendiente') !== -1
-                    && suppliedLower.indexOf('ausencia') === -1) {
+                    && suppliedLower.indexOf('ausencia') === -1
+                    && suppliedLower.indexOf('tolerancia vencida') === -1) {
                     suppliedLabel += ' Acción pendiente: registrar ausencia.';
                 }
                 if (table.modificadores.indexOf('reservacion_advertencia') !== -1
@@ -263,6 +280,7 @@
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
             pin.setAttribute('data-disabled', isInteractive ? '0' : '1');
             pin.setAttribute('aria-disabled', isInteractive ? 'false' : 'true');
+            pin.disabled = !isInteractive;
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
         }
@@ -451,6 +469,11 @@
             }
 
             if (changes.estadoVisual != null) {
+                if (!validVisualState(changes.estadoVisual, changes.estadoVisualAnterior)) {
+                    table.interactivo = false;
+                    table.seleccionValida = false;
+                    table.seleccionada = false;
+                }
                 table.estadoVisual = normalizeState(changes.estadoVisual);
             }
             if (changes.seleccionada != null) {

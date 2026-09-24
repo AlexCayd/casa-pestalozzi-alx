@@ -24,7 +24,9 @@ final class PosMesaProjectionPresenter
 
         $ticketAbierto = self::booleano($hechos['ticket_abierto'] ?? false);
         $ocupadaFisicamente = self::booleano($hechos['ocupada_fisicamente'] ?? false);
-        if ($ticketAbierto || $ocupadaFisicamente || self::booleano($hechos['ticket_bloquea_consulta'] ?? false)) {
+        $ticketPrioritario = $ticketAbierto || $ocupadaFisicamente
+            || self::booleano($hechos['ticket_bloquea_consulta'] ?? false);
+        if ($ticketPrioritario) {
             $estado = 'ocupada';
             $modificadores[] = 'ticket_abierto';
             $precedencia = 'ticket';
@@ -34,27 +36,63 @@ final class PosMesaProjectionPresenter
         $reservacion = is_array($hechos['reservacion'] ?? null)
             ? $hechos['reservacion']
             : [];
-        if ($reservacion !== [] && $estado !== 'ocupada') {
+        if ($reservacion !== []) {
             $ventana = (string)($reservacion['ventana_visual_pos'] ?? $reservacion['ventana_pos'] ?? 'futura');
-            if ($ventana === 'inicio') {
-                $estado = 'reservacion-proxima';
+            $ausenciaPendiente = self::booleano($reservacion['ausencia_pendiente'] ?? false);
+            if ($ausenciaPendiente) {
+                $modificadores[] = 'accion_pendiente';
+                if ($ventana === 'advertencia') {
+                    $modificadores[] = 'reservacion_advertencia';
+                } elseif ($ventana === 'bloqueo') {
+                    $modificadores[] = 'reservacion_inminente';
+                }
+                $bloqueaWalkIns = array_key_exists('bloquea_walk_ins', $reservacion)
+                    ? self::booleano($reservacion['bloquea_walk_ins'])
+                    : !self::booleano($reservacion['disponible_para_ticket'] ?? false);
+                if (!$ticketPrioritario && $bloqueaWalkIns) {
+                    $estado = 'reservacion-proxima';
+                    $precedencia = 'ausencia_pendiente';
+                    $ariaLabel = 'Tolerancia vencida. Registra que el cliente no llegó antes de utilizar la mesa.';
+                } elseif (!$ticketPrioritario) {
+                    $ariaLabel = 'Hay una acción pendiente para esta reservación.';
+                } else {
+                    $ariaLabel .= ' Tolerancia vencida; revisa la reservación antes de continuar.';
+                }
+            } elseif ($ventana === 'inicio') {
                 $modificadores[] = 'reservacion_bloqueante';
-                $precedencia = 'reservacion_inicio';
-                $ariaLabel = 'Mesa con reservación iniciada; espera al cliente.';
+                if (!$ticketPrioritario) {
+                    $estado = 'reservacion-proxima';
+                    $precedencia = 'reservacion_inicio';
+                    $ariaLabel = 'Mesa con reservación iniciada; espera al cliente.';
+                } else {
+                    $ariaLabel .= ' Reservación iniciada; espera al cliente.';
+                }
             } elseif ($ventana === 'tolerancia') {
-                $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_tolerancia';
-                $precedencia = 'tolerancia';
-                $ariaLabel = 'Mesa con reservación dentro de tolerancia; espera al cliente.';
+                if (!$ticketPrioritario) {
+                    $estado = 'reservacion-proxima';
+                    $precedencia = 'tolerancia';
+                    $ariaLabel = 'Mesa con reservación dentro de tolerancia; espera al cliente.';
+                } else {
+                    $ariaLabel .= ' Reservación dentro de tolerancia.';
+                }
             } elseif ($ventana === 'bloqueo') {
-                $estado = 'reservacion-proxima';
                 $modificadores[] = 'reservacion_inminente';
-                $precedencia = 'reservacion_bloqueo';
-                $ariaLabel = 'Mesa con reservación próxima.';
+                if (!$ticketPrioritario) {
+                    $estado = 'reservacion-proxima';
+                    $precedencia = 'reservacion_bloqueo';
+                    $ariaLabel = 'Mesa con reservación próxima.';
+                } else {
+                    $ariaLabel .= ' Reservación próxima.';
+                }
             } elseif ($ventana === 'advertencia') {
                 $modificadores[] = 'reservacion_advertencia';
-                $precedencia = 'reservacion_advertencia';
-                $ariaLabel = 'Mesa disponible con reservación próxima.';
+                if (!$ticketPrioritario) {
+                    $precedencia = 'reservacion_advertencia';
+                    $ariaLabel = 'Mesa disponible con reservación próxima.';
+                } else {
+                    $ariaLabel .= ' Reservación cercana.';
+                }
             }
 
         }
@@ -64,7 +102,16 @@ final class PosMesaProjectionPresenter
         }
         if ($reservacion !== [] && self::booleano($reservacion['ausencia_pendiente'] ?? false)) {
             $modificadores[] = 'ausencia_pendiente';
-            $ariaLabel = rtrim($ariaLabel) . ' Acción pendiente: registrar ausencia.';
+        }
+
+        if (!$ticketPrioritario
+            && array_key_exists('puede_abrir_ticket', $hechos)
+            && !self::booleano($hechos['puede_abrir_ticket'])
+            && $estado === 'libre') {
+            $estado = 'ocupada';
+            $modificadores[] = 'restriccion_operativa';
+            $precedencia = 'restriccion_operativa';
+            $ariaLabel = 'Mesa no disponible para abrir un ticket según las reglas operativas.';
         }
 
         return self::resultado(

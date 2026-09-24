@@ -46,10 +46,11 @@ $visualAusencia = PosMesaProjectionPresenter::presentar([
 assertPosAbsenceVisual($politicaAusencia['ausencia_pendiente'] === true, 'despues de tolerancia queda pendiente');
 assertPosAbsenceVisual($politicaAusencia['disponible_para_ticket'] === false, 'ausencia pendiente sigue bloqueando walk-in');
 assertPosAbsenceVisual($politicaAusencia['puede_marcar_no_show'] === true, 'ausencia pendiente permite no-show');
-assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'libre', 'ausencia pendiente no fuerza rojo');
+assertPosAbsenceVisual($visualAusencia['estado_visual'] === 'reservacion-proxima', 'ausencia pendiente bloqueante usa azul oscuro');
 assertPosAbsenceVisual(!in_array('reservacion_bloqueante', $visualAusencia['modificadores'], true), 'ausencia pendiente no agrega bloqueo visual');
-assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualAusencia['modificadores'], true), 'ausencia pendiente agrega indicador gris');
-assertPosAbsenceVisual(str_contains($visualAusencia['aria_label'], 'Acción pendiente: registrar ausencia'), 'aria anuncia la accion pendiente');
+assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualAusencia['modificadores'], true), 'ausencia pendiente agrega indicador secundario');
+assertPosAbsenceVisual(in_array('accion_pendiente', $visualAusencia['modificadores'], true), 'ausencia pendiente muestra la acción pendiente');
+assertPosAbsenceVisual($visualAusencia['aria_label'] === 'Tolerancia vencida. Registra que el cliente no llegó antes de utilizar la mesa.', 'aria explica la restricción y la acción pendiente');
 
 $despuesIntervalo = new DateTimeImmutable('2026-08-08 15:30:00', ReservacionConfig::timezone());
 $politicaDespuesIntervalo = ReservacionPoliticaPosService::evaluar($reservacion, $despuesIntervalo);
@@ -58,8 +59,8 @@ $visualDespuesIntervalo = PosMesaProjectionPresenter::presentar([
     'reservacion' => array_merge($reservacion, $politicaDespuesIntervalo),
 ]);
 assertPosAbsenceVisual($politicaDespuesIntervalo['intervalo_planificado_vigente'] === false, '15:30 termina el intervalo planificado');
-assertPosAbsenceVisual($visualDespuesIntervalo['estado_visual'] === 'libre', 'despues del intervalo recalcula verde');
-assertPosAbsenceVisual(in_array('ausencia_pendiente', $visualDespuesIntervalo['modificadores'], true), 'despues del intervalo conserva gris');
+assertPosAbsenceVisual($visualDespuesIntervalo['estado_visual'] === 'reservacion-proxima', 'ausencia pendiente sigue bloqueando walk-in después del intervalo');
+assertPosAbsenceVisual(in_array('accion_pendiente', $visualDespuesIntervalo['modificadores'], true), 'despues del intervalo conserva la señal pendiente');
 
 $visualRoja = PosMesaProjectionPresenter::presentar([
     'utilizable' => true,
@@ -77,7 +78,7 @@ $visualAzul = PosMesaProjectionPresenter::presentar([
     ]),
 ]);
 assertPosAbsenceVisual($visualAzul['estado_visual'] === 'reservacion-proxima', 'azul conserva el estado base con ausencia');
-assertPosAbsenceVisual($visualAzul['modificadores'] === ['reservacion_inminente', 'ausencia_pendiente'], 'azul compone el indicador gris');
+assertPosAbsenceVisual($visualAzul['modificadores'] === ['accion_pendiente', 'reservacion_inminente', 'ausencia_pendiente'], 'azul compone las alertas secundarias');
 
 $visualAdvertenciaAusencia = PosMesaProjectionPresenter::presentar([
     ...$mesaHechos,
@@ -86,8 +87,17 @@ $visualAdvertenciaAusencia = PosMesaProjectionPresenter::presentar([
         'ausencia_pendiente' => true,
     ]),
 ]);
-assertPosAbsenceVisual($visualAdvertenciaAusencia['estado_visual'] === 'libre', 'advertencia conserva el verde base con ausencia');
-assertPosAbsenceVisual($visualAdvertenciaAusencia['modificadores'] === ['reservacion_advertencia', 'ausencia_pendiente'], 'advertencia y ausencia son composables');
+assertPosAbsenceVisual($visualAdvertenciaAusencia['estado_visual'] === 'reservacion-proxima', 'ausencia bloqueante prevalece sobre advertencia verde');
+assertPosAbsenceVisual(in_array('reservacion_advertencia', $visualAdvertenciaAusencia['modificadores'], true), 'advertencia sigue como condición secundaria');
+assertPosAbsenceVisual(in_array('accion_pendiente', $visualAdvertenciaAusencia['modificadores'], true), 'ausencia y advertencia son composables');
+
+$visualAdvertenciaUtilizable = PosMesaProjectionPresenter::presentar([
+    ...$mesaHechos,
+    'puede_abrir_ticket' => true,
+    'reservacion' => array_merge($reservacion, ['ventana_visual_pos' => 'advertencia']),
+]);
+assertPosAbsenceVisual($visualAdvertenciaUtilizable['estado_visual'] === 'libre', 'advertencia conserva verde si el backend permite el ticket');
+assertPosAbsenceVisual(in_array('reservacion_advertencia', $visualAdvertenciaUtilizable['modificadores'], true), 'verde utiliza borde de advertencia azul');
 
 $visualConTicket = PosMesaProjectionPresenter::presentar([
     'utilizable' => true,

@@ -42,8 +42,11 @@ $inicio = new DateTimeImmutable('2026-08-08 14:00:00', ReservacionConfig::timezo
 $fin = $inicio->modify('+' . ReservacionConfig::DURACION_RESERVACION_MINUTOS . ' minutes');
 
 $consultas = [
-    '13:00:00' => 'libre',
+    '12:59:59' => 'ocupada',
+    '13:00:00' => 'ocupada',
+    '13:29:59' => 'ocupada',
     '13:30:00' => 'reservacion-proxima',
+    '13:59:59' => 'reservacion-proxima',
     '14:00:00' => 'ocupada',
     '14:15:00' => 'ocupada',
     '14:30:00' => 'ocupada',
@@ -77,6 +80,24 @@ foreach ($consultas as $hora => $estadoEsperado) {
         $estado['reservacion_influye_en_consulta'] === ($consulta >= $inicio && $consulta < $fin),
         "hecho temporal {$hora}"
     );
+    if ($hora === '13:00:00' || $hora === '13:29:59') {
+        assertMapaIntervalo(
+            in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
+            'advertencia conserva el fondo real del intervalo y añade borde discontinuo'
+        );
+    }
+    if ($hora === '12:59:59') {
+        assertMapaIntervalo(
+            !in_array('reservacion_advertencia', $estado['modificadores_visual_mapa'], true),
+            'a más de 60 minutos no aparece alerta temporal aunque el intervalo esté bloqueado'
+        );
+    }
+    if ($hora === '13:30:00') {
+        assertMapaIntervalo(
+            in_array('reservacion_inminente', $estado['modificadores_visual_mapa'], true),
+            'a 30 minutos cambia a azul de reservación próxima'
+        );
+    }
 }
 
 fwrite(STDOUT, "Reservaciones: intervalo visual configurable OK\n");

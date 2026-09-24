@@ -14,7 +14,8 @@ const files = [
   'src/js/modules/form.js',
   'src/js/modules/reservation-access.js',
   'src/js/modules/schedule-change-access.js',
-  'src/js/admin/buzon.js'
+  'src/js/admin/buzon.js',
+  'src/js/operation/map-help.js'
 ];
 
 function assertContract(condition, message) {
@@ -208,19 +209,23 @@ const sharedRaw = {
   estado_visual_mapa: 'ocupada'
 };
 assertContract(
-  adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible' }).estadoVisual === 'libre',
-  'POS no hereda estado_visual_mapa administrativo sin opt-in'
+  adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible' }).estadoVisual === 'no-utilizable',
+  'contrato incompleto no se convierte en disponibilidad'
 );
 assertContract(
   adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible', estadoVisual: 'ocupada' }).estadoVisual === 'ocupada',
   'mapa administrativo acepta estado visual explicito'
 );
 assertContract(
-  adapter.paraMapaVisual({ id: 2, reservable: 1, estado_base: 'disponible', ticket_abierto: true }, { estadoBase: 'disponible' }).estadoVisual === 'ocupada',
-  'ticket abierto conserva precedencia roja'
+  adapter.paraMapaVisual({ id: 2, reservable: 1, estado_base: 'disponible', ticket_abierto: true }, { estadoBase: 'disponible' }).estadoVisual === 'no-utilizable',
+  'el adaptador no reconstruye el color a partir del ticket'
 );
 assertContract(
-  adapter.paraMapaVisual({ id: 4, reservable: 1, estado_base: 'ocupada', modificadores: ['ausencia_pendiente'] }, { estadoBase: 'ocupada' }).estadoVisual === 'ocupada',
+  adapter.paraMapaVisual({ id: 2, reservable: 1, estado_base: 'ocupada', ticket_abierto: true }, { estadoBase: 'ocupada', estadoVisual: 'ocupada' }).estadoVisual === 'ocupada',
+  'estado rojo explícito del backend conserva el ticket'
+);
+assertContract(
+  adapter.paraMapaVisual({ id: 4, reservable: 1, estado_base: 'ocupada', modificadores: ['ausencia_pendiente'] }, { estadoBase: 'ocupada', estadoVisual: 'ocupada' }).estadoVisual === 'ocupada',
   'rojo conserva estado base con ausencia'
 );
 assertContract(
@@ -245,9 +250,13 @@ assertContract(operation.includes("'data-disabled': !selectable"), 'reasignació
 assertContract(
   adapter.paraMapaVisual(
     { id: 3, reservable: 1, estado_base: 'ocupada', ticket_abierto: true },
-    { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, seleccionPrioritaria: true, estadoVisual: 'seleccionada' }
-  ).estadoVisual === 'seleccionada',
-  'seleccion valida puede ser amarilla sin borrar el hecho de bloqueo'
+    { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, estadoVisual: 'ocupada' }
+  ).estadoVisual === 'ocupada'
+    && adapter.paraMapaVisual(
+      { id: 3, reservable: 1, estado_base: 'ocupada', ticket_abierto: true },
+      { estadoBase: 'ocupada', seleccionActual: true, seleccionValida: true, estadoVisual: 'ocupada' }
+    ).seleccionada === true,
+  'selección válida conserva el fondo rojo y queda como capa secundaria'
 );
 assertContract(
   adapter.paraMapaVisual(

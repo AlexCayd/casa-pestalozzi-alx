@@ -5,12 +5,14 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Pos\PosReservacionSerializer;
+use Services\Pos\PosReservacionQueryService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionMapaAdministrativaService;
 use Services\Pos\ReservacionPoliticaPosService;
 use Services\Reservations\ReservacionVigenciaService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
+use Services\Tables\MesaEstadoService;
 
 function buzonAssert(bool $condition, string $message): void
 {
@@ -109,10 +111,58 @@ $fuera = PosReservacionSerializer::reservacion(
     $ahora,
     ['horario_efectivo' => ['abierto' => true, 'hora_apertura' => '12:00:00', 'hora_cierre' => '18:00:00']]
 );
+$fuera['mesa_ids'] = [14];
+$fuera['aplica_hora_consultada'] = true;
 buzonAssert($fuera['fuera_horario_operacion'] === true, 'serializer deriva fuera de horario');
-$mapa = ReservacionMapaAdministrativaService::proyectar([$fuera], []);
+$mapa = ReservacionMapaAdministrativaService::proyectar([$fuera], [$fuera]);
 buzonAssert(count($mapa['reservaciones_admin']) === 1, 'mapa admin conserva reservación fuera de horario');
 buzonAssert($mapa['reservaciones_admin'][0]['en_proyeccion_mapa'] === false, 'fuera de horario no entra en proyección del mapa');
+buzonAssert($mapa['reservaciones_admin'][0]['mesa_ids'] === [14], 'fila administrativa conserva la asignación para seguimiento');
+$reservacionesMapa = PosReservacionQueryService::reservacionesParaProyeccionVisual([$fuera], 'admin');
+buzonAssert($reservacionesMapa === [], 'reservación fuera de horario queda fuera del presenter administrativo');
+$mesaMapa = [
+    'id' => 14,
+    'numero' => 14,
+    'nombre' => 'Mesa 14',
+    'tipo' => 'mesa',
+    'capacidad' => 4,
+    'activo' => 1,
+    'reservable' => 1,
+    'pos_x' => 50,
+    'pos_y' => 50,
+];
+$estadoFuera = MesaEstadoService::normalizarMesas(
+    [$mesaMapa],
+    $reservacionesMapa,
+    [],
+    '2026-08-19',
+    $ahora,
+    '13:00:00',
+    [
+        'mesa_ids_bloqueadas' => [],
+        'causas_bloqueo_por_mesa' => [],
+        'mesas' => [],
+        'tickets_por_mesa' => [],
+    ]
+)[0];
+buzonAssert($estadoFuera['estado_visual_mapa'] === 'libre', 'reservación fuera de horario no agrega proximidad al pin');
+buzonAssert($estadoFuera['modificadores_visual_mapa'] === [], 'pin de seguimiento no conserva alertas de la reservación excluida');
+$estadoConflicto = MesaEstadoService::normalizarMesas(
+    [$mesaMapa],
+    $reservacionesMapa,
+    [],
+    '2026-08-19',
+    $ahora,
+    '13:00:00',
+    [
+        'mesa_ids_bloqueadas' => [14],
+        'causas_bloqueo_por_mesa' => [14 => ['hold']],
+        'mesas' => [14 => ['fuente' => 'hold']],
+        'tickets_por_mesa' => [],
+    ]
+)[0];
+buzonAssert($estadoConflicto['estado_visual_mapa'] === 'ocupada', 'restricción independiente conserva rojo aunque la reservación no proyecte');
+buzonAssert(str_contains($estadoConflicto['aria_label_mapa'], 'retención vigente'), 'pin rojo explica la causa independiente');
 
 buzonAssert(ReservacionBuzonService::grupoGrandeVisibleParaBuzon([
     'estado' => 'confirmada', 'comensales' => 13, 'contacto_tipo' => 'ninguno', 'contacto' => '', 'mesas_count' => 0,

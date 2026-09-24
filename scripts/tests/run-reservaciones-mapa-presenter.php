@@ -24,14 +24,23 @@ assertMapContract($available['modificadores'] === [], 'mesa libre no tiene modif
 
 $reservation = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
-    'bloqueada_en_intervalo' => true,
-    'causas_bloqueo' => ['reservacion'],
+    'bloqueada_en_intervalo' => false,
     'reservacion' => ['ventana_mapa' => 'advertencia'],
 ]);
 assertMapContract($reservation['estado_visual'] === 'libre', 'reservacion cercana conserva verde');
 assertMapContract($reservation['modificadores'] === ['reservacion_advertencia'], 'reservacion cercana agrega borde azul');
 assertMapContract($reservation['precedencia'] === 'reservacion_advertencia', 'advertencia usa proyeccion temporal');
 assertMapContract(str_contains($reservation['label'], 'reservaci'), 'advertencia explica la causa de reservacion');
+
+$warningWithIndependentBlock = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['ticket'],
+    'reservacion' => ['ventana_mapa' => 'advertencia'],
+]);
+assertMapContract($warningWithIndependentBlock['estado_visual'] === 'ocupada', 'advertencia conserva rojo si el intervalo tiene otro bloqueo');
+assertMapContract(in_array('reservacion_advertencia', $warningWithIndependentBlock['modificadores'], true), 'rojo conserva la advertencia como condición secundaria');
+assertMapContract(str_contains($warningWithIndependentBlock['label'], 'ticket'), 'rojo explica la causa independiente del bloqueo');
 
 $blockingReservation = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
@@ -55,6 +64,8 @@ assertMapContract(in_array('ausencia_pendiente', $redAbsence['modificadores'], t
 
 $blueAbsence = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['reservacion'],
     'reservacion' => [
         'ventana_mapa' => 'bloqueo',
         'ausencia_pendiente' => true,
@@ -103,9 +114,9 @@ $redAfterTolerance = ReservacionMapaMesaPresenter::presentar([
         'ausencia_pendiente' => true,
     ],
 ]);
-assertMapContract($redAfterTolerance['estado_visual'] === 'libre', 'ausencia pendiente no fuerza rojo');
-assertMapContract(!in_array('reservacion_bloqueante', $redAfterTolerance['modificadores'], true), 'ausencia pendiente no agrega bloqueo');
+assertMapContract($redAfterTolerance['estado_visual'] === 'ocupada', 'la proyección del intervalo bloqueado permanece roja');
 assertMapContract(in_array('ausencia_pendiente', $redAfterTolerance['modificadores'], true), 'ausencia pendiente conserva gris');
+assertMapContract(str_contains($redAfterTolerance['label'], 'no disponible por reservación'), 'el estado rojo conserva la causa de reservación');
 
 $greenAfterInterval = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => true,
@@ -128,6 +139,16 @@ $ticket = ReservacionMapaMesaPresenter::presentar([
 assertMapContract($ticket['estado_visual'] === 'ocupada', 'ticket bloqueante usa rojo');
 assertMapContract($ticket['modificadores'] === [], 'ticket bloqueante no agrega proximidad');
 assertMapContract(str_contains($ticket['label'], 'ticket'), 'ticket conserva la causa para detalle');
+
+$ticketAndUpcoming = ReservacionMapaMesaPresenter::presentar([
+    'utilizable' => true,
+    'ticket_bloquea_consulta' => true,
+    'bloqueada_en_intervalo' => true,
+    'causas_bloqueo' => ['ticket'],
+    'reservacion' => ['ventana_mapa' => 'bloqueo'],
+]);
+assertMapContract($ticketAndUpcoming['estado_visual'] === 'ocupada', 'ticket conserva fondo rojo frente a reservación próxima');
+assertMapContract(in_array('reservacion_inminente', $ticketAndUpcoming['modificadores'], true), 'ticket rojo conserva alerta de proximidad');
 
 $unusable = ReservacionMapaMesaPresenter::presentar([
     'utilizable' => false,

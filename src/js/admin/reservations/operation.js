@@ -1810,11 +1810,10 @@
                 return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
                     seleccionActual: assigned || candidate,
                     seleccionValida: !(assigned || candidate) || selectionVisualValid,
-                    seleccionPrioritaria: selectionVisualValid,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     ariaLabel: mapAriaLabel,
-                    estadoVisual: selectionVisualValid ? 'seleccionada' : mapProjection.estado,
+                    estadoVisual: mapProjection.estado,
                     modificadores: modifiers,
                     clasesEstado: (candidate ? ['reservation-operation-pin--selected'] : [])
                         .concat(assigned ? ['reservation-operation-pin--assigned'] : []),
