@@ -116,6 +116,8 @@ services/
 
 `Shared/` sólo debe utilizarse para componentes realmente transversales y no como carpeta por defecto para código difícil de clasificar.
 
+Las alertas de impresión del punto de venta pertenecen a `services/Pos/` y usan el namespace `Services\Pos`.
+
 ---
 
 # 4. Controllers
@@ -512,6 +514,7 @@ ReservacionService
 DisponibilidadReservacionService
 ScheduleChangeNotificationService
 PosReservacionSerializer
+ImpresionAlertaService
 ReservacionMapaMesaPresenter
 HorarioOperacionService
 ```

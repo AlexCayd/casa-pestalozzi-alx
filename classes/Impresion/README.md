@@ -346,6 +346,16 @@ Los mensajes completos siempre quedan en el `error_log` de PHP con el prefijo
 
 ---
 
+## 10b. Alertas al piso
+
+Con el servicio de impresión encendido, cada documento que no llega a su
+impresora se guarda en `impresion_alertas` (`Services\Pos\ImpresionAlertaService`)
+y aparece en el POS de todas las tablets: un botón ámbar con contador en el
+header, una bandeja para marcarlas como atendidas y un aviso inmediato a quien
+envió la comanda o cobró. `TicketPrinter::fallos()` expone los fallos de la
+última llamada a `imprimirComanda()` / `imprimirCuenta()`; la prueba del CRUD
+admin no genera alertas.
+
 ## 11. Extender el módulo (para desarrolladores)
 
 - **Nuevo documento** (ej. corte de caja): crear una clase en `Classes\Impresion`

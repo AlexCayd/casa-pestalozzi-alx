@@ -96,6 +96,22 @@ $operationalMainAttributes = ['aria-label' => 'Mapa de mesas', 'data-operational
 
 ob_start();
 ?>
+<?php /*
+  Alertas de impresión. Nace oculto: sólo aparece cuando hay una comanda o una
+  cuenta que no llegó a su impresora con el servicio encendido, y desaparece
+  cuando alguien las atiende. Va ANTES del engranaje porque es lo único del
+  header que pide acción.
+*/ ?>
+<button type="button" class="pos-header__print-alerts" id="pos-print-alerts-toggle" hidden
+        aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-print-alerts"
+        aria-label="Alertas de impresión" title="Alertas de impresión">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M6 9V3h12v6"/>
+    <rect x="3" y="9" width="18" height="8" rx="2"/>
+    <path d="M6 14h12v7H6z"/>
+  </svg>
+  <span class="pos-header__print-alerts-count" id="pos-print-alerts-count">0</span>
+</button>
 <button type="button" class="pos-header__prefs" id="pos-prefs-toggle"
         aria-haspopup="dialog" aria-expanded="false" aria-controls="pos-prefs-overlay"
         aria-label="Ajustes de la vista" title="Ajustes de la vista">
@@ -193,6 +209,31 @@ include __DIR__ . '/../../operation/partials/drawer.php';
       <button type="button" class="pos-prefs__close" id="pos-prefs-close" aria-label="Cerrar ajustes">×</button>
     </header>
     <div class="pos-prefs__body mmodal-prefs" id="pos-prefs-panel"></div>
+  </div>
+</div>
+<?php /*
+  Bandeja de alertas de impresión. Reutiliza la caja del overlay de ajustes
+  (.pos-prefs): mismo z-index por encima del modal de mesa, porque la alerta
+  puede llegar con una mesa abierta.
+*/ ?>
+<div class="pos-prefs pos-prefs--alertas" id="pos-print-alerts" hidden aria-hidden="true">
+  <div class="pos-prefs__bd" data-print-alerts-close></div>
+  <div class="pos-prefs__dialog" role="dialog" aria-modal="true" aria-labelledby="pos-print-alerts-title">
+    <header class="pos-prefs__head">
+      <div class="pos-print-alerts__heading">
+        <h3 class="pos-prefs__title" id="pos-print-alerts-title">Alertas de impresión</h3>
+        <p class="pos-print-alerts__sub" id="pos-print-alerts-sub"></p>
+      </div>
+      <button type="button" class="pos-prefs__close" data-print-alerts-close aria-label="Cerrar alertas">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <ul class="pos-prefs__body pos-print-alerts__list" id="pos-print-alerts-list" data-lenis-prevent></ul>
+    <footer class="pos-print-alerts__foot">
+      <button type="button" class="mmodal-btn mmodal-btn--secondary" id="pos-print-alerts-all">
+        Marcar todas como atendidas
+      </button>
+    </footer>
   </div>
 </div>
 <?php

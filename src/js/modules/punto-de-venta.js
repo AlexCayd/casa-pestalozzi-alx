@@ -264,6 +264,7 @@ function initMapa() {
   // ── Iconos SVG en línea (heredan currentColor) ────────────
   var SVG_PATHS = {
     search:  '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
     receipt: '<path d="M5 3h14v18l-2.5-1.6L14 21l-2-1.6L10 21l-2.5-1.6L5 21Z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
     users:   '<path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cash:    '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
@@ -696,6 +697,66 @@ function initMapa() {
     return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Llevar';
   }
 
+  /*
+   * Llevar es una ventanilla, no una mesa: atiende varios pedidos a la vez y
+   * cada uno es un ticket propio sobre la misma fila de `mesas`. Por eso NUNCA
+   * se pinta ocupada —un pin rojo le dice al mesero que ya no cabe otro, que
+   * es justo lo contrario— y lo que se muestra es cuántos pedidos lleva.
+   */
+  function pedidosLlevar(mesa) {
+    return mesa ? ticketsParaMesa(mesa.id) : [];
+  }
+
+  function rotuloPedidosLlevar(total) {
+    if (!total) return '';
+    return total + (total === 1 ? ' pedido' : ' pedidos');
+  }
+
+  function tituloLlevarMapa(mesa, total) {
+    return String(mesa.nombre || 'Llevar') + '. Pedidos para llevar. ' +
+      (total
+        ? rotuloPedidosLlevar(total) + (total === 1 ? ' abierto.' : ' abiertos.')
+        : 'Sin pedidos abiertos.') +
+      ' Disponible para un nuevo pedido.';
+  }
+
+  // El folio del pedido es el id del ticket: es lo único que distingue dos
+  // pedidos sin nombre abiertos en el mismo minuto.
+  function folioPedido(ticket) {
+    return '#' + (ticket && ticket.id ? ticket.id : '');
+  }
+
+  // Minutos desde la apertura contra el reloj OPERATIVO, no el del navegador:
+  // `hora_apertura` es hora de pared del restaurante y la tablet puede estar
+  // en otra zona o con el reloj corrido.
+  function minutosAbierto(ticket) {
+    var m = String(ticket && ticket.hora_apertura || '')
+      .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (!m) return null;
+    var ahora = partesRelojOperativo();
+    var f = ahora.fecha.split('-');
+    var abierto = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    var actual = Date.UTC(+f[0], +f[1] - 1, +f[2], ahora.hora, ahora.minuto);
+    return Math.max(0, Math.round((actual - abierto) / 60000));
+  }
+
+  function antiguedadPedido(ticket) {
+    var min = minutosAbierto(ticket);
+    if (min === null) return '';
+    if (min < 1) return 'recién abierto';
+    if (min < 60) return 'hace ' + min + ' min';
+    return 'hace ' + Math.floor(min / 60) + ' h ' + (min % 60) + ' min';
+  }
+
+  // Hora de pared operativa en el formato de `tickets.hora_apertura`. El
+  // ticket recién abierto se pinta antes de que llegue el refresco, y con
+  // toISOString() salía en UTC: seis horas corrido.
+  function horaAperturaLocal() {
+    var p = partesRelojOperativo();
+    return p.fecha + ' ' + String(p.hora).padStart(2, '0') + ':' +
+      String(p.minuto).padStart(2, '0') + ':00';
+  }
+
   function ticketActual(mesaId) {
     for (var i = 0; i < tickets.length; i++) {
       var t = tickets[i];
@@ -806,6 +867,7 @@ function initMapa() {
 
   // El estado del mapa ya fue decidido por MesaEstadoService en el servidor.
   function estadoMesa(mesaId) {
+    if (isLlevar(mesaPorId(mesaId))) return 'libre';
     var estado = mesaEstadoPorId(mesaId);
     if (!estado) return 'libre';
     if (estado.ticket_bloquea_consulta === true) {
@@ -974,6 +1036,7 @@ function initMapa() {
    * provienen de config y MapaVisual sólo dibuja este resultado.
    */
   function contratoMesaMapa(mesa, estado) {
+    if (isLlevar(mesa)) return contratoLlevarMapa(mesa);
     var ticketLeido = ticketActual(parseInt(mesa.id, 10));
     var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     // El ticket sólo entra al contrato del bloque si el backend lo proyectó
@@ -1027,7 +1090,52 @@ function initMapa() {
     return normalized;
   }
 
+  // El contrato de Llevar no hereda nada del ticket ni del estado físico que
+  // calcula el backend: ninguno de los dos le aplica.
+  function contratoLlevarMapa(mesa) {
+    var total = pedidosLlevar(mesa).length;
+    return Object.assign({}, mesa, {
+      estado_base: 'disponible',
+      modificadores: [],
+      reservacion_proxima: null,
+      minutos_restantes: null,
+      ticket_abierto: null,
+      walk_in: false,
+      seleccion_actual: false,
+      accion_pendiente: null,
+      motivo_bloqueo: null,
+      bloqueo: null,
+      titulo: tituloLlevarMapa(mesa, total),
+      estado_visual_pos: 'libre'
+    });
+  }
+
   function opcionesVisualesMesa(mesa, estado) {
+    if (isLlevar(mesa)) {
+      var totalLlevar = pedidosLlevar(mesa).length;
+      return {
+        x: insetPos(mesa.pos_x),
+        y: insetPos(mesa.pos_y),
+        ancho: mesa.ancho,
+        alto: mesa.alto,
+        interactivo: !ticketSelectionMode,
+        seleccionValida: false,
+        estadoVisual: 'libre',
+        ariaLabel: tituloLlevarMapa(mesa, totalLlevar),
+        seleccionActual: false,
+        noUtilizable: false,
+        clasesEstado: totalLlevar ? ['mesa-pin--con-pedidos'] : [],
+        atributos: {
+          'data-id': mesa.id,
+          'data-numero': mesa.numero == null ? '' : mesa.numero,
+          'data-reservable': mesa.reservable,
+          'data-ticketable': '1',
+          'data-estado': 'libre',
+          'data-ticket-id': '',
+          'data-pedidos': String(totalLlevar)
+        }
+      };
+    }
     var ticket = ticketActual(parseInt(mesa.id, 10));
     var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
     var ticketBloquea = backend.ticket_bloquea_consulta === true;
@@ -1092,10 +1200,16 @@ function initMapa() {
     var estado = ticketable ? estadoMesa(parseInt(mesa.id, 10)) : 'zona';
     var contract = contratoMesaMapa(mesa, estado);
 
-    return window.MesaEstadoAdapter.paraMapaVisual(
+    var visual = window.MesaEstadoAdapter.paraMapaVisual(
       contract,
       opcionesVisualesMesa(mesa, estado)
     );
+    visual.subtitulo = subtituloMesaMapa(mesa);
+    return visual;
+  }
+
+  function subtituloMesaMapa(mesa) {
+    return isLlevar(mesa) ? rotuloPedidosLlevar(pedidosLlevar(mesa).length) : '';
   }
 
   function renderEstados() {
@@ -1114,6 +1228,7 @@ function initMapa() {
         modificadores: visual.modificadores,
         clasesEstado: visual.clasesEstado,
         titulo: visual.titulo,
+        subtitulo: subtituloMesaMapa(mesa),
         atributos: visual.atributos
       });
     }
@@ -1209,12 +1324,17 @@ function initMapa() {
       showCajaModal(mesa);
       return;
     }
+    // Llevar no mira ticket ni reservación: siempre abre su tablero de
+    // pedidos, con o sin pedidos abiertos.
+    if (isLlevar(mesa)) {
+      showLlevarModal(mesa);
+      return;
+    }
     var canOpen = mesaTicketable(mesa) || esCaja(mesa);
     if (!canOpen) return;
     var ticket = ticketActual(mesaId);
     if (ticket) {
-      if (isLlevar(mesa)) showLlevarModal(mesa);
-      else showModal(mesa, 'con-ticket');
+      showModal(mesa, 'con-ticket');
       return;
     }
     var reserva = reservaParaModal(mesaId);
@@ -1230,11 +1350,7 @@ function initMapa() {
       showReservationModal(reserva, { mesa: mesa });
       return;
     }
-    if (isLlevar(mesa)) {
-      showLlevarModal(mesa);
-    } else {
-      showModal(mesa, estadoMesaActual(mesaId));
-    }
+    showModal(mesa, estadoMesaActual(mesaId));
   }
 
   // ── Selección multimesa para apertura de ticket ───────────
@@ -1511,48 +1627,114 @@ function initMapa() {
   }
 
   // ── Modal Llevar ──────────────────────────────────────────
+  //
+  // Tres pantallas dentro del mismo modal, sin cerrarlo nunca entre ellas:
+  // el TABLERO (todos los pedidos abiertos), el ALTA de uno nuevo y el TICKET
+  // de uno concreto —el mismo que el de una mesa—, que lleva encima una tira
+  // para saltar a otro pedido o volver al tablero. Así el mesero lleva varios
+  // pedidos en paralelo como lleva varias mesas, sin pasar por el mapa.
   function showLlevarModal(mesa) {
     if (!modal || !modalContent) return;
     activeReservationModal = null;
-    var llevarTickets = ticketsParaMesa(mesa.id);
-    commandaItems    = [];
-    selectedComensal = 0;
-    if (llevarTickets.length === 0) {
-      modalContent.innerHTML = buildModalContent(mesa, 'libre', null, null);
+    if (pedidosLlevar(mesa).length === 0) {
+      mostrarAltaLlevar(mesa, false);
     } else {
-      modalContent.innerHTML = buildLlevarList(mesa, llevarTickets);
+      mostrarTableroLlevar(mesa);
     }
     openModalShell();
-    if (llevarTickets.length === 0) {
-      bindModalActions(mesa, null, null);
-    } else {
-      bindLlevarList(mesa, llevarTickets);
-    }
+    // Igual que showModal(): detrás del modal no se ve el mapa.
+    stopPolling();
   }
 
-  function buildLlevarList(mesa, llevarTickets) {
+  function limpiarPedidoEnCurso() {
+    commandaItems    = [];
+    selectedComensal = 0;
+    sugTimerStop();
+    sugTicket = null;
+    sugPedidas = false;
+  }
+
+  function mostrarTableroLlevar(mesa) {
+    limpiarPedidoEnCurso();
+    modalContent.innerHTML = buildLlevarList(mesa, pedidosLlevar(mesa));
+    bindLlevarList(mesa);
+    enfocarPrimero();
+  }
+
+  function mostrarAltaLlevar(mesa, conRegreso) {
+    limpiarPedidoEnCurso();
+    modalContent.innerHTML = buildModalContent(mesa, 'libre', null, null, {
+      llevarRegreso: conRegreso === true
+    });
+    bindModalActions(mesa, null, null);
+    enfocarPrimero();
+  }
+
+  function mostrarPedidoLlevar(mesa, ticket) {
+    limpiarPedidoEnCurso();
+    modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
+    bindModalActions(mesa, null, ticket);
+    enfocarPrimero();
+  }
+
+  // Al reescribir el contenido, el foco se queda en un nodo que ya no existe.
+  function enfocarPrimero() {
+    modal.querySelectorAll('button:not([type])').forEach(function(button) {
+      button.type = 'button';
+    });
+    window.requestAnimationFrame(function() {
+      var items = modalFocusables();
+      if (items.length) items[0].focus();
+    });
+  }
+
+  // Saltar de pedido descarta lo que haya en el Pedido sin enviar: se avisa
+  // antes, como al cancelar una mesa.
+  function conPedidoSinEnviar(continuar) {
+    if (!commandaItems.length || !window.ConfirmationModal) {
+      continuar();
+      return;
+    }
+    var n = commandaItems.reduce(function(acc, item) { return acc + (item.qty || 1); }, 0);
+    window.ConfirmationModal.get().open({
+      variant: 'warning',
+      eyebrow: 'Pedido sin enviar',
+      title: '¿Salir de este pedido?',
+      description: 'Tienes ' + n + (n === 1 ? ' platillo' : ' platillos') +
+        ' en el Pedido que todavía no se envía a producción.',
+      consequence: 'Si sales ahora, se pierden. Lo ya enviado no cambia.',
+      secondaryLabel: 'Seguir aquí',
+      primaryLabel: 'Salir sin enviar',
+      onPrimary: continuar
+    });
+  }
+
+  function buildLlevarList(mesa, pedidos) {
     var h = '';
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
-    h += '<span class="mmodal-title">Pedidos para Llevar</span>';
-    h += '<span class="mmodal-llevar-count">' + llevarTickets.length + ' activos</span>';
+    h += '<span class="mmodal-title">Para llevar</span>';
+    h += '<span class="mmodal-llevar-count">' + rotuloPedidosLlevar(pedidos.length) + '</span>';
     h += '</div></div>';
 
-    h += '<div class="mmodal-llevar-list">';
-    for (var i = 0; i < llevarTickets.length; i++) {
-      var t = llevarTickets[i];
+    h += '<ul class="mmodal-llevar-list" aria-label="Pedidos abiertos">';
+    for (var i = 0; i < pedidos.length; i++) {
+      var t = pedidos[i];
       var horaAp = t.hora_apertura ? String(t.hora_apertura).substring(11, 16) : '--:--';
-      var nombreLabel = t.nombre ? escHtml(t.nombre) : '<em style="opacity:.55">Sin nombre</em>';
-      h += '<div class="mmodal-llevar-row" data-tid="' + t.id + '">';
-      h += '<div class="mmodal-llevar-row__info">';
-      h += '<span class="mmodal-llevar-row__nombre">' + nombreLabel + '</span>';
-      h += '<span class="mmodal-llevar-row__meta">' + svgIcon('clock', 13) + '<span>' + escHtml(horaAp) + '</span>' +
+      var antiguedad = antiguedadPedido(t);
+      h += '<li><button type="button" class="mmodal-llevar-row" data-tid="' + t.id + '">';
+      h += '<span class="mmodal-llevar-row__folio">' + escHtml(folioPedido(t)) + '</span>';
+      h += '<span class="mmodal-llevar-row__info">';
+      h += '<span class="mmodal-llevar-row__nombre' + (t.nombre ? '' : ' is-anonimo') + '">' +
+           escHtml(t.nombre || 'Sin nombre') + '</span>';
+      h += '<span class="mmodal-llevar-row__meta">' + svgIcon('clock', 13) +
+           '<span>' + escHtml(horaAp) + (antiguedad ? ' · ' + escHtml(antiguedad) : '') + '</span>' +
            '<span class="mmodal-llevar-row__sep" aria-hidden="true">·</span>' +
            svgIcon('users', 13) + '<span>' + t.comensales + '</span></span>';
-      h += '</div>';
-      h += '<span class="mmodal-llevar-row__arrow">' + svgIcon('right', 15) + '</span>';
-      h += '</div>';
+      h += '</span>';
+      h += '<span class="mmodal-llevar-row__arrow" aria-hidden="true">' + svgIcon('right', 15) + '</span>';
+      h += '</button></li>';
     }
-    h += '</div>';
+    h += '</ul>';
 
     h += '<div class="mmodal-actions">';
     h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-llevar-nuevo">' +
@@ -1561,21 +1743,13 @@ function initMapa() {
     return h;
   }
 
-  function bindLlevarList(mesa, llevarTickets) {
+  function bindLlevarList(mesa) {
     var rows = modalContent.querySelectorAll('.mmodal-llevar-row[data-tid]');
     for (var i = 0; i < rows.length; i++) {
       (function(row) {
         row.addEventListener('click', function() {
-          var tid = parseInt(row.dataset.tid, 10);
-          var ticket = null;
-          for (var j = 0; j < llevarTickets.length; j++) {
-            if (llevarTickets[j].id === tid) { ticket = llevarTickets[j]; break; }
-          }
-          if (!ticket) return;
-          commandaItems    = [];
-          selectedComensal = 0;
-          modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, ticket);
-          bindModalActions(mesa, null, ticket);
+          var ticket = pedidoLlevarPorId(mesa, parseInt(row.dataset.tid, 10));
+          if (ticket) mostrarPedidoLlevar(mesa, ticket);
         });
       })(rows[i]);
     }
@@ -1583,12 +1757,109 @@ function initMapa() {
     var nuevoBtn = modalContent.querySelector('#mmodal-llevar-nuevo');
     if (nuevoBtn) {
       nuevoBtn.addEventListener('click', function() {
-        commandaItems    = [];
-        selectedComensal = 0;
-        modalContent.innerHTML = buildModalContent(mesa, 'libre', null, null);
-        bindModalActions(mesa, null, null);
+        mostrarAltaLlevar(mesa, true);
       });
     }
+  }
+
+  function pedidoLlevarPorId(mesa, ticketId) {
+    var pedidos = pedidosLlevar(mesa);
+    for (var i = 0; i < pedidos.length; i++) {
+      if (Number(pedidos[i].id) === Number(ticketId)) return pedidos[i];
+    }
+    return null;
+  }
+
+  /*
+   * Tira de pedidos dentro del ticket: el tablero, un chip por pedido abierto
+   * y el alta. El actual siempre figura, aunque el refresco que lo trae a
+   * `tickets` aún no haya llegado (es el caso del pedido recién abierto).
+   */
+  function buildLlevarSwitch(mesa, actual) {
+    var pedidos = pedidosLlevar(mesa).slice();
+    if (actual && !pedidoLlevarPorId(mesa, actual.id)) pedidos.push(actual);
+
+    var h = '<nav class="mmodal-llevar-switch" aria-label="Pedidos para llevar">';
+    h += '<button type="button" class="mmodal-llevar-switch__todos" data-llevar-tablero>' +
+         svgIcon('list', 15) + '<span>Pedidos</span>' +
+         '<span class="mmodal-llevar-switch__total">' + pedidos.length + '</span></button>';
+    h += '<div class="mmodal-llevar-switch__track" data-lenis-prevent>';
+    for (var i = 0; i < pedidos.length; i++) {
+      var t = pedidos[i];
+      var activo = actual && Number(t.id) === Number(actual.id);
+      h += '<button type="button" class="mmodal-llevar-chip' + (activo ? ' is-active' : '') + '"' +
+           ' data-llevar-tid="' + t.id + '"' + (activo ? ' aria-current="true"' : '') + '>';
+      h += '<span class="mmodal-llevar-chip__folio">' + escHtml(folioPedido(t)) + '</span>';
+      if (t.nombre) h += '<span class="mmodal-llevar-chip__nombre">' + escHtml(t.nombre) + '</span>';
+      h += '</button>';
+    }
+    h += '</div>';
+    h += '<button type="button" class="mmodal-llevar-chip mmodal-llevar-chip--nuevo" data-llevar-nuevo>' +
+         svgIcon('plus', 14) + '<span>Nuevo</span></button>';
+    h += '</nav>';
+    return h;
+  }
+
+  function bindLlevarSwitch(mesa, actual) {
+    var nav = modalContent.querySelector('.mmodal-llevar-switch');
+    if (!nav) return;
+    var activo = nav.querySelector('.mmodal-llevar-chip.is-active');
+    if (activo && activo.scrollIntoView) activo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+    nav.addEventListener('click', function(event) {
+      var btn = event.target.closest('button');
+      if (!btn || !nav.contains(btn)) return;
+      if (btn.hasAttribute('data-llevar-tablero')) {
+        conPedidoSinEnviar(function() { volverATableroLlevar(mesa); });
+        return;
+      }
+      if (btn.hasAttribute('data-llevar-nuevo')) {
+        conPedidoSinEnviar(function() { mostrarAltaLlevar(mesa, true); });
+        return;
+      }
+      var tid = parseInt(btn.getAttribute('data-llevar-tid') || '0', 10);
+      if (!tid || (actual && Number(actual.id) === tid)) return;
+      var destino = pedidoLlevarPorId(mesa, tid);
+      if (destino) conPedidoSinEnviar(function() { mostrarPedidoLlevar(mesa, destino); });
+    });
+  }
+
+  /*
+   * Vuelta al tablero con datos frescos: otra tablet pudo abrir o cobrar un
+   * pedido mientras éste estaba en pantalla, y con el modal abierto no hay
+   * sondeo. Se pinta con lo que hay y se repinta al llegar el refresco, sólo
+   * si el mesero sigue en el tablero.
+   *
+   * `cerrarSiVacio` es la salida tras cobrar o descartar: si no queda ningún
+   * pedido, el modal se cierra en vez de ofrecer un alta que nadie pidió.
+   */
+  function volverATableroLlevar(mesa, opciones) {
+    opciones = opciones || {};
+    var pintar = function() {
+      if (pedidosLlevar(mesa).length) {
+        mostrarTableroLlevar(mesa);
+      } else if (opciones.cerrarSiVacio) {
+        closeModal({ refresh: false });
+      } else {
+        mostrarAltaLlevar(mesa, false);
+      }
+    };
+    if (!opciones.cerrarSiVacio) pintar();
+    var refresco = fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), true);
+    if (!refresco || typeof refresco.then !== 'function') {
+      if (opciones.cerrarSiVacio) pintar();
+      return;
+    }
+    refresco.then(function(resultado) {
+      if (resultado && (resultado.stale || resultado.refreshFailed)) {
+        if (opciones.cerrarSiVacio) pintar();
+        return;
+      }
+      var enTablero = modalContent.querySelector('.mmodal-llevar-list');
+      if (opciones.cerrarSiVacio || enTablero) pintar();
+    }, function() {
+      if (opciones.cerrarSiVacio) pintar();
+    });
   }
 
   function onCardClick(reservaId, mesaIds) {
@@ -1974,6 +2245,205 @@ function initMapa() {
     if (cl) cl.addEventListener('click', cerrarPrefs);
   }
 
+  // ── Alertas de impresión ──────────────────────────────────
+  //
+  // Cada comanda o cuenta que no llegó a su impresora —con el servicio de
+  // impresión encendido— es una alerta del PISO, no de quien la envió: se ven
+  // en todas las tablets hasta que alguien las marca como atendidas. Llegan
+  // por dos vías: en la respuesta del envío o del cobro (quien la causó se
+  // entera al instante) y en cada refresco del mapa (el resto, en ≤30 s).
+  //
+  // Con el servicio apagado el backend manda la lista vacía y el botón se
+  // oculta solo: sin papel esperado no hay nada que avisar.
+  var alertasImpresion = [];
+  var alertasVistas = {};
+  var alertasSembradas = false;
+  var alertasOverlay = null;
+  var alertasToggle = null;
+  var alertasLista = null;
+  var alertasLastFocus = null;
+
+  function alertasAbierto() {
+    return !!alertasOverlay && !alertasOverlay.hidden;
+  }
+
+  /*
+   * Sustituye la lista con la del servidor. Lo nuevo —ids que esta tablet no
+   * había visto— se anuncia con un aviso; lo que ya estaba al cargar la
+   * pantalla no, porque no es una novedad para nadie y abrir el turno con
+   * una ráfaga de avisos viejos entierra lo que sí importa. Para eso está el
+   * botón con su contador.
+   */
+  function sincronizarAlertasImpresion(lista, opciones) {
+    opciones = opciones || {};
+    lista = Array.isArray(lista) ? lista : [];
+    var nuevas = [];
+    lista.forEach(function(alerta) {
+      if (!alertasVistas[alerta.id]) {
+        alertasVistas[alerta.id] = true;
+        if (alertasSembradas || opciones.propias) nuevas.push(alerta);
+      }
+    });
+    alertasSembradas = true;
+    alertasImpresion = lista;
+    pintarAlertasImpresion();
+    anunciarAlertasImpresion(nuevas);
+  }
+
+  // Las de la respuesta propia se suman a las conocidas sin esperar al
+  // refresco; el siguiente refresco trae la lista canónica y la reemplaza.
+  function recibirAlertasPropias(lista) {
+    if (!Array.isArray(lista) || !lista.length) return;
+    var porId = {};
+    alertasImpresion.forEach(function(a) { porId[a.id] = a; });
+    lista.forEach(function(a) { porId[a.id] = a; });
+    var fusion = Object.keys(porId).map(function(id) { return porId[id]; })
+      .sort(function(a, b) { return b.id - a.id; });
+    sincronizarAlertasImpresion(fusion, { propias: true });
+  }
+
+  function anunciarAlertasImpresion(nuevas) {
+    if (!nuevas.length) return;
+    // Una sola por ráfaga: tres áreas caídas en el mismo envío son un aviso,
+    // no tres que se empujan entre sí fuera del stack.
+    var texto = nuevas.length === 1
+      ? nuevas[0].titulo + '. ' + nuevas[0].mensaje
+      : nuevas.length + ' impresiones no llegaron a su impresora. Revisa las alertas de impresión.';
+    if (window.AppNotice && typeof window.AppNotice.show === 'function') {
+      // Más tiempo que un error normal: quien está tomando un pedido puede no
+      // levantar la vista en ocho segundos, y la alerta no se repite.
+      window.AppNotice.show({ text: texto, variant: 'error', timeout: 14000 });
+    }
+  }
+
+  function pintarAlertasImpresion() {
+    var total = alertasImpresion.length;
+    if (alertasToggle) {
+      alertasToggle.hidden = total === 0;
+      var contador = document.getElementById('pos-print-alerts-count');
+      if (contador) contador.textContent = String(total);
+      var etiqueta = total === 1
+        ? '1 alerta de impresión'
+        : total + ' alertas de impresión';
+      alertasToggle.setAttribute('aria-label', etiqueta);
+      alertasToggle.title = etiqueta;
+    }
+    if (!total && alertasAbierto()) {
+      cerrarAlertasImpresion();
+      return;
+    }
+    if (!alertasLista) return;
+
+    var sub = document.getElementById('pos-print-alerts-sub');
+    if (sub) {
+      sub.textContent = total === 1
+        ? '1 documento no llegó a su impresora'
+        : total + ' documentos no llegaron a su impresora';
+    }
+
+    var h = '';
+    alertasImpresion.forEach(function(a) {
+      var hora = String(a.creada_en || '').substring(11, 16);
+      var hace = antiguedadPedido({ hora_apertura: a.creada_en });
+      h += '<li class="pos-print-alert pos-print-alert--' + escHtml(a.documento) + '" data-alerta-id="' + a.id + '">';
+      h += '<span class="pos-print-alert__icon" aria-hidden="true">' + svgIcon('printer', 18) + '</span>';
+      h += '<div class="pos-print-alert__body">';
+      h += '<p class="pos-print-alert__title">' + escHtml(a.titulo) + '</p>';
+      h += '<p class="pos-print-alert__msg">' + escHtml(a.mensaje) + '</p>';
+      h += '<p class="pos-print-alert__accion">' + escHtml(a.accion) + '</p>';
+      h += '<p class="pos-print-alert__meta">';
+      h += '<span class="pos-print-alert__num">' + escHtml(hora) + '</span>';
+      if (hace) h += '<span>' + escHtml(hace) + '</span>';
+      if (a.ticket_id) h += '<span>Ticket <span class="pos-print-alert__num">#' + a.ticket_id + '</span></span>';
+      h += '</p>';
+      if (a.detalle) {
+        h += '<p class="pos-print-alert__detalle">' + escHtml(a.detalle) + '</p>';
+      }
+      h += '</div>';
+      h += '<button type="button" class="mmodal-btn mmodal-btn--ghost pos-print-alert__done" data-atender="' + a.id + '">' +
+           'Atendida</button>';
+      h += '</li>';
+    });
+    alertasLista.innerHTML = h;
+  }
+
+  function abrirAlertasImpresion() {
+    if (!alertasOverlay || !alertasImpresion.length) return;
+    alertasLastFocus = document.activeElement;
+    pintarAlertasImpresion();
+    alertasOverlay.hidden = false;
+    alertasOverlay.setAttribute('aria-hidden', 'false');
+    if (alertasToggle) alertasToggle.setAttribute('aria-expanded', 'true');
+    window.requestAnimationFrame(function() {
+      var first = alertasOverlay.querySelector('.pos-print-alert__done, #pos-print-alerts-all');
+      if (first) first.focus();
+    });
+  }
+
+  function cerrarAlertasImpresion() {
+    if (!alertasOverlay) return;
+    alertasOverlay.hidden = true;
+    alertasOverlay.setAttribute('aria-hidden', 'true');
+    if (alertasToggle) alertasToggle.setAttribute('aria-expanded', 'false');
+    var restore = alertasLastFocus && document.contains(alertasLastFocus) && !alertasLastFocus.hidden
+      ? alertasLastFocus
+      : null;
+    if (restore) restore.focus();
+    alertasLastFocus = null;
+  }
+
+  function atenderAlertasImpresion(payload, button) {
+    setActionBusy(button, true, 'Guardando…');
+    postJson('/api/impresion/alertas/atender', payload)
+      .then(function(result) {
+        if (result && result.ok) {
+          sincronizarAlertasImpresion(result.alertas_impresion || []);
+          return;
+        }
+        aviso(result && result.mensaje);
+      })
+      .catch(function() { avisoConexion(); })
+      .finally(function() {
+        if (button && document.contains(button)) setActionBusy(button, false);
+      });
+  }
+
+  /** Se enlaza UNA vez: el overlay vive fuera del modal de mesa. */
+  function initAlertasImpresion() {
+    alertasOverlay = document.getElementById('pos-print-alerts');
+    alertasToggle  = document.getElementById('pos-print-alerts-toggle');
+    alertasLista   = document.getElementById('pos-print-alerts-list');
+    if (!alertasOverlay || !alertasToggle || !alertasLista) return;
+
+    alertasToggle.addEventListener('click', function() {
+      if (alertasAbierto()) cerrarAlertasImpresion(); else abrirAlertasImpresion();
+    });
+    alertasOverlay.addEventListener('click', function(event) {
+      if (event.target.closest('[data-print-alerts-close]')) {
+        cerrarAlertasImpresion();
+        return;
+      }
+      var btn = event.target.closest('[data-atender]');
+      if (btn) {
+        atenderAlertasImpresion({ ids: [parseInt(btn.getAttribute('data-atender'), 10)] }, btn);
+      }
+    });
+    alertasOverlay.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        cerrarAlertasImpresion();
+      }
+    });
+    var todas = document.getElementById('pos-print-alerts-all');
+    if (todas) {
+      todas.addEventListener('click', function() {
+        // Se mandan los ids a la vista y no «todas»: una alerta que llegue
+        // mientras el mesero lee no debe marcarse sin que la haya visto.
+        atenderAlertasImpresion({ ids: alertasImpresion.map(function(a) { return a.id; }) }, todas);
+      });
+    }
+  }
+
   function buildModalContent(mesa, estado, reserva, ticket, modalOptions) {
     var h = '';
     var reservaChipLabel = estado === 'bloqueada' ? '¡Próxima a llegar!'
@@ -1989,8 +2459,15 @@ function initMapa() {
     }
 
     // El encabezado identifica la mesa una sola vez y mantiene el estado cerca.
+    // En Llevar lo que se identifica es el PEDIDO: el nombre de la fila de
+    // `mesas` es el mismo para todos y el folio es lo que los distingue.
+    var llevar = isLlevar(mesa);
     h += '<div class="mmodal-header"><div class="mmodal-header-id">';
-    h += '<span class="mmodal-title">' + escHtml(reservaDisplayName || mesa.nombre) + '</span>';
+    h += '<span class="mmodal-title">' +
+         escHtml(llevar ? 'Para llevar' : (reservaDisplayName || mesa.nombre)) + '</span>';
+    if (llevar && ticket) {
+      h += '<span class="mmodal-table-number">' + escHtml(folioPedido(ticket)) + '</span>';
+    }
     /*
      * El número SÓLO si el nombre no lo dice ya.
      *
@@ -2000,7 +2477,7 @@ function initMapa() {
      * aporta cuando alguien la ha renombrado ("Terraza", "Barra 2") y hace
      * falta saber contra qué fila del mapa se está trabajando.
      */
-    if (!reserva && mesa.numero && !nombreIncluyeNumero(mesa.nombre, mesa.numero)) {
+    if (!llevar && !reserva && mesa.numero && !nombreIncluyeNumero(mesa.nombre, mesa.numero)) {
       h += '<span class="mmodal-table-number">#' + escHtml(mesa.numero) + '</span>';
     }
     h += '</div>';
@@ -2019,6 +2496,8 @@ function initMapa() {
       h += '</div>';
     } else if (reserva) {
       h += '<span class="mmodal-chip mmodal-chip--' + reservaChipClass + '">' + reservaChipLabel + '</span>';
+    } else if (llevar) {
+      h += '<span class="mmodal-chip mmodal-chip--ticket">Nuevo pedido</span>';
     }
     h += '</div>';
 
@@ -2046,7 +2525,9 @@ function initMapa() {
         var mesaTicket = mesaPorId(mesaId);
         return mesaTicket ? mesaTicket.nombre : 'Mesa ' + mesaId;
       });
-      if (ticketMesaNames.length) {
+      if (llevar) {
+        h += buildLlevarSwitch(mesa, ticket);
+      } else if (ticketMesaNames.length) {
         h += '<div class="mmodal-ticket-tables">Mesas: ' + escHtml(ticketMesaNames.join(', ')) + '</div>';
       }
 
@@ -2326,7 +2807,9 @@ function initMapa() {
       h += '<div class="mmodal-name-wrap">';
       h += '<div class="mmodal-label">Nombre</div>';
       h += '<input type="text" class="mmodal-name-input" id="mmodal-nombre"';
-      h += ' placeholder="Nombre del comensal" autocomplete="off" maxlength="80">';
+      // En Llevar el nombre es con lo que se entrega la bolsa en la barra.
+      h += ' placeholder="' + (isLlevar(mesa) ? 'Nombre para entregar el pedido' : 'Nombre del comensal') +
+           '" autocomplete="off" maxlength="80">';
       h += '</div>';
       h += '<div data-mesero-slot></div>';
       h += '<div class="mmodal-stepper-wrap">';
@@ -2338,11 +2821,15 @@ function initMapa() {
       h += '</div>';
       h += '</div>';
       h += '<div class="mmodal-actions">';
-      h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir">Abrir ticket</button>';
+      h += '<button class="mmodal-btn mmodal-btn--primary" id="mmodal-abrir">' +
+           (isLlevar(mesa) ? 'Abrir pedido' : 'Abrir ticket') + '</button>';
       // Punto de entrada al modo selección: reemplaza al botón fijo que vivía
       // en el mapa y le comía ancho al salón.
       if (!isLlevar(mesa)) {
         h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-unir-mesas">Unir mesas</button>';
+      } else if (modalOptions && modalOptions.llevarRegreso) {
+        h += '<button type="button" class="mmodal-btn mmodal-btn--ghost" id="mmodal-llevar-volver">' +
+             'Ver pedidos abiertos</button>';
       }
       h += '</div>';
     }
@@ -2719,7 +3206,10 @@ function initMapa() {
     }
 
     var accion = sinComandas ? 'cancelar' : 'cobrar';
-    var etiqueta = sinComandas ? 'Cerrar mesa' : 'Cerrar ticket';
+    var llevar = Boolean(modalContent.querySelector('.mmodal-llevar-switch'));
+    var etiqueta = sinComandas
+      ? (llevar ? 'Descartar pedido' : 'Cerrar mesa')
+      : 'Cerrar ticket';
     btn.dataset.accion = accion;
 
     /*
@@ -3128,6 +3618,14 @@ function initMapa() {
         cval.textContent = parseInt(cval.textContent, 10) + 1;
       });
     }
+
+    var llevarVolverBtn = modalContent.querySelector('#mmodal-llevar-volver');
+    if (llevarVolverBtn) {
+      llevarVolverBtn.addEventListener('click', function() {
+        volverATableroLlevar(mesa);
+      });
+    }
+    if (ticket && isLlevar(mesa)) bindLlevarSwitch(mesa, ticket);
 
     var unirBtn = modalContent.querySelector('#mmodal-unir-mesas');
     if (unirBtn) {
@@ -4068,17 +4566,25 @@ function initMapa() {
   }
 
   // ── Pantalla de encuesta de feedback ──────────────────────
-  function showFeedbackEncuesta(token, mesaNombre) {
+  function showFeedbackEncuesta(token, mesaNombre, mesa, ticketId) {
     var url = window.location.origin + '/feedback?token=' + token;
+    var llevar = isLlevar(mesa);
+    // `tickets` todavía incluye el pedido recién cobrado: el refresco llega
+    // después. Quedan otros si hay más de uno.
+    var quedanPedidos = llevar && pedidosLlevar(mesa).filter(function(t) {
+      return Number(t.id) !== Number(ticketId);
+    }).length > 0;
     var h = '<div class="mmodal-header"><div class="mmodal-header-id">';
-    h += '<span class="mmodal-title">' + escHtml(mesaNombre) + '</span>';
+    h += '<span class="mmodal-title">' +
+         escHtml(llevar ? 'Para llevar ' + folioPedido({ id: ticketId }) : mesaNombre) + '</span>';
     h += '<span class="mmodal-title-cliente">— Ticket cerrado</span>';
     h += '</div></div>';
     h += '<div class="mmodal-feedback-encuesta">';
     h += '<p class="mmodal-feedback-encuesta__title">Invita al comensal a dejar su reseña</p>';
     h += '<div class="mmodal-cerrar-confirm__btns">';
     h += '<button class="mmodal-btn mmodal-btn--primary" id="encuesta-abrir">Pasar a encuesta</button>';
-    h += '<button class="mmodal-btn mmodal-btn--ghost" id="encuesta-cerrar">Cerrar</button>';
+    h += '<button class="mmodal-btn mmodal-btn--ghost" id="encuesta-cerrar">' +
+         (quedanPedidos ? 'Volver a pedidos' : 'Cerrar') + '</button>';
     h += '</div>';
     h += '</div>';
 
@@ -4091,6 +4597,10 @@ function initMapa() {
     });
 
     modalContent.querySelector('#encuesta-cerrar').addEventListener('click', function() {
+      if (llevar) {
+        volverATableroLlevar(mesa, { cerrarSiVacio: true });
+        return;
+      }
       closeModal({ refresh: false });
       fetchData(fechaInput ? fechaInput.value : fechaHoyLocal(), false);
     });
@@ -4625,8 +5135,7 @@ function initMapa() {
         mesa_ids:       [mesa.id],
         comensales:     comensales,
         nombre:         nombre || null,
-        mesero_id:      meseroId || null,
-        allow_multiple: true
+        mesero_id:      meseroId || null
       })
     .then(function(result) {
       if (clasificarResultadoAperturaTicket(result) === 'exito') {
@@ -4638,13 +5147,10 @@ function initMapa() {
           mesa_ids:      [mesa.id],
           nombre:        nombre,
           comensales:    comensales,
-          hora_apertura: new Date().toISOString().replace('T', ' ').substring(0, 19)
+          hora_apertura: horaAperturaLocal()
         };
         silentRefresh();
-        commandaItems    = [];
-        selectedComensal = 0;
-        modalContent.innerHTML = buildModalContent(mesa, 'con-ticket', null, newTicket);
-        bindModalActions(mesa, null, newTicket);
+        mostrarPedidoLlevar(mesa, newTicket);
       } else {
         aviso(result.mensaje);
       }
@@ -4672,7 +5178,8 @@ function initMapa() {
     .then(function(result) {
       if (result.commit === true) {
         limpiarCierrePaso(ticketId);
-        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '');
+        recibirAlertasPropias(result.alertas_impresion);
+        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '', mesa, ticketId);
       } else {
         aviso(result.mensaje);
       }
@@ -4694,7 +5201,8 @@ function initMapa() {
     .then(function(result) {
       if (result.commit === true) {
         limpiarCierrePaso(ticketId);
-        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '');
+        recibirAlertasPropias(result.alertas_impresion);
+        showFeedbackEncuesta(result.token, mesa ? mesa.nombre : '', mesa, ticketId);
       } else {
         aviso(result.mensaje);
         var btn = modalContent.querySelector('#split-confirm');
@@ -4732,6 +5240,7 @@ function initMapa() {
     .then(function(result) {
       if (result.ok) {
         invalidarTicketItems(ticketId);
+        recibirAlertasPropias(result.alertas_impresion);
         // Antes de limpiar el carrito: cerrar el ciclo de lo que se sugirió
         // y pasar la siguiente recomendación.
         avanzarSugerenciasEnviadas(commandaItems);
@@ -4774,7 +5283,22 @@ function initMapa() {
   function showCancelarMesaConfirm(ticketId, mesa) {
     var nombreMesa = mesa && mesa.nombre ? mesa.nombre : 'la mesa';
     if (!window.ConfirmationModal) {
-      apiCancelarMesa(ticketId);
+      apiCancelarMesa(ticketId, mesa);
+      return;
+    }
+    if (isLlevar(mesa)) {
+      window.ConfirmationModal.get().open({
+        variant: 'danger',
+        eyebrow: 'Acción irreversible',
+        title: 'Descartar pedido',
+        description: '¿Descartar el pedido para llevar ' + folioPedido({ id: ticketId }) + ' sin registrar consumo?',
+        consequence: 'No queda cuenta en el corte del día. Los demás pedidos para llevar no cambian.',
+        secondaryLabel: 'No, conservar',
+        primaryLabel: 'Sí, descartar',
+        onPrimary: function() {
+          apiCancelarMesa(ticketId, mesa);
+        }
+      });
       return;
     }
     window.ConfirmationModal.get().open({
@@ -4787,12 +5311,12 @@ function initMapa() {
       secondaryLabel: 'No, conservar',
       primaryLabel: 'Sí, cancelar mesa',
       onPrimary: function() {
-        apiCancelarMesa(ticketId);
+        apiCancelarMesa(ticketId, mesa);
       }
     });
   }
 
-  function apiCancelarMesa(ticketId) {
+  function apiCancelarMesa(ticketId, mesa) {
     // El botón en vuelo es el mismo que el del cobro, así que se bloquea con
     // setActionBusy() como el resto de las acciones del modal: deshabilitado,
     // aria-busy y etiqueta de progreso. La etiqueta original la guarda él y la
@@ -4808,6 +5332,13 @@ function initMapa() {
         // mesa que se abra en esta sesión hereda los platillos.
         commandaItems = [];
         selectedComensal = 0;
+        if (isLlevar(mesa)) {
+          // Un pedido descartado no cierra la ventanilla: se vuelve a los
+          // que siguen abiertos.
+          aviso('Pedido ' + folioPedido({ id: ticketId }) + ' descartado sin registrar cuenta.', 'success');
+          volverATableroLlevar(mesa, { cerrarSiVacio: true });
+          return;
+        }
         closeModal({ refresh: false });
         aviso(
           (result.mensaje || 'La mesa quedó libre y no se registró ninguna cuenta.'),
@@ -4986,6 +5517,7 @@ function initMapa() {
         reservaciones = data.reservaciones  || [];
         tickets       = data.tickets        || [];
         meseros       = data.meseros        || [];
+        sincronizarAlertasImpresion(data.alertas_impresion || []);
         temporalConfig = (data.config && data.config.temporal) || temporalConfig;
         posConfig      = (data.config && data.config.pos)      || posConfig;
         sincronizarRelojOperativo(data.server_time || data.actualizado_en);
@@ -5074,6 +5606,7 @@ function initMapa() {
   // ── Eventos ───────────────────────────────────────────────
   initMapaCalendar();
   initPrefsOverlay();
+  initAlertasImpresion();
   actualizarModoSeleccion();
   initLogoutConfirm();
   if (selectionToggle) selectionToggle.addEventListener('click', confirmarAperturaSeleccion);

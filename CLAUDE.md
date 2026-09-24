@@ -911,6 +911,18 @@ tocado mal:
   ticket vacío que luego hay que descartar a mano. El backend revalida al
   cerrar; esto es la señal en pantalla.
 
+**Llevar es una ventanilla, no una mesa.** Admite varios pedidos abiertos a la
+vez, cada uno un ticket propio sobre la misma fila de `mesas`. Lo decide el
+SERVIDOR (`incluyeMesaLlevar()` en `abrirWalkIn`), no el cliente: antes bastaba
+con mandar `allow_multiple` para abrir un segundo ticket sobre cualquier mesa del
+salón. Tampoco se une a otras mesas. En el mapa nunca se pinta ocupada —un pin
+rojo decía «no cabe otro», lo contrario de la verdad—; su rótulo cuenta los
+pedidos (`subtitulo` de `map-visual.js`). El modal tiene tres pantallas que no
+lo cierran entre sí: tablero de pedidos, alta y el ticket normal con una tira
+encima (`buildLlevarSwitch`) para saltar a otro pedido o volver al tablero.
+Saltar con platillos sin enviar pide confirmación; cobrar o descartar un pedido
+vuelve al tablero si quedan otros. El folio del pedido es el id del ticket.
+
 Y tres cosas de su caja que no se deducen del archivo:
 
 - **Vidrio propio.** `.mesa-modal` declara una escala local (`--pos-glass-panel`,
@@ -1144,6 +1156,28 @@ Y como el ancho lo mide en runtime (`clientWidth`), lleva un `ResizeObserver`
 además del `resize` con debounce: **plegar el sidebar cambia el ancho sin que la
 ventana cambie de tamaño**, y sin el observer el diagrama se quedaba dibujado
 contra la medida vieja hasta la siguiente recarga.
+
+### Alertas de impresión
+
+Cada comanda (por área) o cuenta que no llega a su impresora queda en
+`impresion_alertas` y la ven **todas** las tablets del POS hasta que alguien
+la marca como atendida. Sólo con el servicio encendido
+(`configuracion_pos.impresion_activa`): apagado, `TicketPrinter` corta antes de
+intentar nada y `ImpresionAlertaService::pendientes()` devuelve vacío aunque
+queden filas viejas.
+
+- **Quién detecta**: `TicketPrinter` recoge los fallos de la petición
+  (`fallos()`) con tres motivos: `sin_impresora` (no hay una activa para ese
+  destino), `sin_conexion` (no respondió: el conector de red abre el socket en
+  el constructor) y `fallo_envio` (conectó, pero no terminó). **Quién guarda**:
+  el controlador, porque es quien sabe de qué mesa y de qué mesero era.
+- **Cómo llegan**: en la respuesta de `enviar-comanda` / `cerrar-ticket` (quien
+  la causó se entera al instante) y en `alertas_impresion` del refresco del
+  mapa (el resto, en ≤30 s). Lo que ya estaba al cargar la pantalla no se
+  anuncia: sólo sube el contador del botón ámbar del header.
+- No hay chequeo periódico de impresoras, a propósito: cada impresora caída
+  costaría hasta 2 s de espera (`TIMEOUT_CONEXION`) por chequeo.
+- El `detalle` técnico (IPs, rutas SMB) sólo viaja a un administrador.
 
 ### El corte de caja
 

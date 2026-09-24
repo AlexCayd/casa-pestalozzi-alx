@@ -32,6 +32,24 @@ try {
     if ($db->query('SELECT DATABASE()')->fetch_row()[0] !== $name) throw new RuntimeException('Base aislada no seleccionada.');
     $migrationTest = ($argv[1] ?? '') === '--migrations';
     if ($migrationTest) {
+        $historicalMigrations = [
+            '20260913_otp_resends.sql',
+            '20260913_notification_states.sql',
+            '20260913_reminder_recovery.sql',
+        ];
+        $retiredMigrations = array_values(array_filter(
+            $historicalMigrations,
+            static fn(string $migration): bool => !is_file($root . '/database/migrations/' . $migration)
+        ));
+        if ($retiredMigrations !== []) {
+            // No restaurar ni reconstruir scripts retirados: la validación
+            // continúa desde el DDL vigente en esta BD aislada.
+            echo "Migraciones históricas retiradas; se omite sólo esa etapa y se valida el DDL vigente.\n";
+            array_splice($argv, 1, 1);
+            $migrationTest = false;
+        }
+    }
+    if ($migrationTest) {
         // Baseline explícito y sólo lectura; nunca se usa la BD de la aplicación.
         $legacy = proc_open(['git', 'show', 'f274eda:database/ddl.sql'],
             [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']], $legacyPipes, $root);
@@ -81,7 +99,9 @@ try {
         'run-reservaciones-cambio-horario-matrix-db.php',
     ]);
     foreach ($suites as $suite) {
-        if (!preg_match('/^run-reservaciones-[a-z-]+\.php$/D', $suite) || !is_file(__DIR__ . '/' . $suite)) {
+        $suiteEsValida = preg_match('/^run-reservaciones-[a-z-]+\.php$/D', $suite)
+            || in_array($suite, ['run-pos-print-alerts-db.php', 'run-pos-llevar-multiples-db.php', 'run-punto-venta-cierre-db.php'], true);
+        if (!$suiteEsValida || !is_file(__DIR__ . '/' . $suite)) {
             throw new RuntimeException('Suite no disponible: ' . basename($suite));
         }
         $env = array_merge(getenv(), ['CP_NOTIFICATION_TEST_DATABASE' => $name]);

@@ -365,7 +365,16 @@ final class PuntoVentaReservacionService
             if (!self::meseroActivo($db, $meseroId)) {
                 return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
             }
-            if (empty($datos['allow_multiple'])) {
+            // Llevar no es una mesa física: es la ventanilla de pedidos para
+            // llevar y atiende varios a la vez. La excepción la decide la mesa
+            // y no el cliente — antes bastaba con mandar `allow_multiple` para
+            // abrir un segundo ticket sobre cualquier mesa del salón. Tampoco
+            // se une a otras: un pedido para llevar no ocupa lugar en el piso.
+            $esLlevar = self::incluyeMesaLlevar($db, $mesaIds);
+            if ($esLlevar && count($mesaIds) > 1) {
+                return self::rollbackResultado($db, $transaccion, self::DATOS_INVALIDOS);
+            }
+            if (!$esLlevar) {
                 $conflicto = self::ticketAbiertoEnMesas($db, $mesaIds);
                 if ($conflicto !== null) {
                     return self::rollbackResultado(
@@ -951,6 +960,20 @@ final class PuntoVentaReservacionService
         $resultado->free();
 
         return $invalidas;
+    }
+
+    /**
+     * La ventanilla de Llevar se reconoce por nombre, igual que la Caja en
+     * mesasNoTicketables(): son las dos piezas especiales del mapa.
+     */
+    private static function incluyeMesaLlevar(\mysqli $db, array $mesaIds): bool
+    {
+        $ids = implode(',', array_map('intval', $mesaIds));
+        return self::fila(
+            "SELECT id FROM mesas
+             WHERE id IN ({$ids}) AND tipo = 'especial' AND nombre = 'Llevar'
+             LIMIT 1"
+        ) !== null;
     }
 
     private static function ticketAbiertoEnMesas(\mysqli $db, array $mesaIds): ?array
