@@ -78,8 +78,13 @@ class MenuPdf
             ];
         }
 
+        // La clase vive en services/Menu; la raíz del proyecto está dos niveles arriba.
+        $projectRoot = realpath(dirname(__DIR__, 2));
+        if ($projectRoot === false) {
+            throw new \RuntimeException('No se pudo resolver la raíz del proyecto para generar el PDF.');
+        }
+
         // Ruta absoluta (con /) a las fuentes del proyecto para los @font-face.
-        $projectRoot = realpath(__DIR__ . '/..');
         $fontsDir = str_replace('\\', '/', $projectRoot . '/public/build/fonts');
         // El logotipo del pie. La plantilla lo reescala y lo tinta, asi que
         // recibe la ruta y no una imagen ya resuelta.
@@ -94,7 +99,7 @@ class MenuPdf
 
         ob_start();
         $generado = date('d/m/Y H:i');
-        include dirname(__DIR__, 2) . '/views/admin/menu/items-pdf.php';
+        include $projectRoot . '/views/admin/menu/items-pdf.php';
         $html = ob_get_clean();
 
         $options = new \Dompdf\Options();

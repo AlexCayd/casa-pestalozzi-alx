@@ -11,11 +11,6 @@
 namespace Services\Reservations;
 use Services\Contact\ContactoAccesoService;
 use Services\Contact\ContactoService;
-use Services\Reservations\AsignacionMesasService;
-use Services\Reservations\DisponibilidadReservacionService;
-use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservationClientSession;
-use Services\Reservations\ReservationManagementAccessService;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -25,9 +20,6 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
-use Services\Reservations\ReservationConfirmationService;
-use Services\Reservations\HorarioReservacionService;
-use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Shared\ContactoOperacionLock;
 use Services\Shared\FechaOperacionLock;

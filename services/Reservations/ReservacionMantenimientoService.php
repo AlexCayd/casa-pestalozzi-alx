@@ -1,8 +1,6 @@
 <?php
 
 namespace Services\Reservations;
-use Services\Reservations\ReservacionVigenciaService;
-use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;
 use Model\TicketMesa;

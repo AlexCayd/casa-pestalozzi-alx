@@ -51,7 +51,7 @@ class ReservationClientSession
                 $pathToCheck = str_contains($configuredPath, ';')
                     ? substr($configuredPath, strrpos($configuredPath, ';') + 1)
                     : $configuredPath;
-                $localPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions';
+                $localPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions';
                 $localRequest = in_array((string)($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1'], true)
                     || in_array(strtolower((string)($_SERVER['SERVER_NAME'] ?? '')), ['localhost', '127.0.0.1'], true);
                 if ($localRequest || $configuredPath === '' || !is_dir($pathToCheck) || !is_writable($pathToCheck)) {

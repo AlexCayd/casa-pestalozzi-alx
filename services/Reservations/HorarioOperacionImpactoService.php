@@ -6,13 +6,9 @@ use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
 use Services\Contact\ContactoService;
-use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservationAccessTokenService;
 use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
-use Services\Reservations\ReservationNotificationContract;
-use Services\Reservations\ReservacionBuzonService;
 
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.

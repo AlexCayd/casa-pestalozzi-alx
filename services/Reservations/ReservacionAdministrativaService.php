@@ -3,10 +3,6 @@
 namespace Services\Reservations;
 use Services\Contact\ContactoService;
 use Services\Tables\OcupacionMesasService;
-use Services\Reservations\AsignacionMesasService;
-use Services\Reservations\CapacidadReservacionesService;
-use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservacionErrorCatalog;
 
 use InvalidArgumentException;
 use Model\ActiveRecord;
@@ -14,8 +10,6 @@ use Model\Reservacion;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
-use Services\Reservations\HorarioReservacionService;
-use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Scheduling\HorarioConfigLock;
 use Services\Shared\FechaOperacionLock;
 

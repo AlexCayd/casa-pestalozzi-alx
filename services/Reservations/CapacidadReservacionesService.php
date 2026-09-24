@@ -9,7 +9,6 @@
  */
 
 namespace Services\Reservations;
-use Services\Reservations\ReservacionConfig;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;

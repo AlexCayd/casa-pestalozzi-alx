@@ -4,7 +4,6 @@ namespace Services\Reservations;
 
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
-use Services\Reservations\HorarioOperacionImpactoService;
 
 /** Orquesta los intentos post-commit de avisos por cambio de horario. */
 final class ScheduleChangeNotificationService

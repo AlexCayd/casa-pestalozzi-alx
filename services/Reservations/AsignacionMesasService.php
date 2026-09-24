@@ -6,16 +6,12 @@
  */
 
 namespace Services\Reservations;
-use Services\Reservations\ReservacionConfig;
 
 use Model\ActiveRecord;
 use Model\Mesa;
 use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Services\Tables\OcupacionMesasService;
-use Services\Reservations\ReservacionAdministrativaService;
-use Services\Reservations\ReservacionService;
-use Services\Reservations\HorarioReservacionService;
 
 class AsignacionMesasService
 {

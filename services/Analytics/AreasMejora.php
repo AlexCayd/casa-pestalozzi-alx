@@ -52,7 +52,7 @@ class AreasMejora
     /** Ruta absoluta del archivo JSON donde se persisten las areas. */
     public static function rutaArchivo(): string
     {
-        return dirname(__DIR__) . '/storage/areas_de_mejora.json';
+        return dirname(__DIR__, 2) . '/storage/areas_de_mejora.json';
     }
 
     /**

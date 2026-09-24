@@ -8,7 +8,6 @@
 namespace Services\Reservations;
 
 use DateTimeZone;
-use Services\Reservations\ReservacionVigenciaService;
 
 class ReservacionConfig
 {

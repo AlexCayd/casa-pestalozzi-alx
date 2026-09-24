@@ -5,9 +5,6 @@ namespace Services\Reservations;
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Services\Contact\ContactoService;
-use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservacionNotificacionConfigService;
-use Services\Reservations\ReservationAccessTokenService;
 
 /** Prepara recordatorios idempotentes del día anterior en transacciones breves. */
 final class ReservationReminderService
