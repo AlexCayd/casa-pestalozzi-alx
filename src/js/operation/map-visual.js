@@ -21,6 +21,23 @@
         'no-utilizable': 'no utilizable'
     };
 
+    var UNVERIFIED_CLASS = 'mesa-pin--estado-no-verificado';
+    var VISUAL_STATE_ALIASES = {
+        disponible: 'libre',
+        libre: 'libre',
+        ocupada: 'ocupada',
+        'reservacion-proxima': 'reservacion-proxima',
+        proxima: 'reservacion-proxima',
+        bloqueada: 'reservacion-proxima',
+        seleccionada: 'seleccionada',
+        'no-utilizable': 'no-utilizable',
+        no_utilizable: 'no-utilizable',
+        no_reservable: 'no-utilizable',
+        'no-reservable': 'no-utilizable',
+        zona: 'no-utilizable',
+        'con-ticket': 'ocupada'
+    };
+
     function toBoolean(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
     }
@@ -35,34 +52,74 @@
         return parsed === null ? fallback : Math.max(0, Math.min(100, parsed));
     }
 
-    function normalizeState(value) {
-        // Un estado ausente no demuestra disponibilidad. El fallback neutral
-        // conserva el contrato seguro aunque la normalización se use sola.
-        var state = String(value || 'no-utilizable').toLowerCase();
-        var aliases = {
-            disponible: 'libre',
-            no_reservable: 'no-utilizable',
-            'no-reservable': 'no-utilizable',
-            'no-utilizable': 'no-utilizable',
-            proxima: 'reservacion-proxima',
-            bloqueada: 'reservacion-proxima',
-            'con-ticket': 'ocupada',
-            zona: 'no-utilizable'
-        };
-
-        state = aliases[state] || state;
-        return ['libre', 'ocupada', 'reservacion-proxima', 'seleccionada', 'no-utilizable'].indexOf(state) !== -1
-            ? state
-            : 'no-utilizable';
+    function canonicalState(value) {
+        var state = String(value == null ? '' : value).trim().toLowerCase();
+        return Object.prototype.hasOwnProperty.call(VISUAL_STATE_ALIASES, state)
+            ? VISUAL_STATE_ALIASES[state]
+            : null;
     }
 
-    function validVisualState(value, previousState) {
-        var state = String(value || '').toLowerCase();
-        if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(state) !== -1) {
-            return true;
+    function inspectVisualState(value, previousState) {
+        var state = String(value == null ? '' : value).trim().toLowerCase();
+        if (state === 'seleccionada') {
+            var previous = canonicalState(previousState);
+            if (previous && previous !== 'seleccionada') {
+                return {
+                    valido: true,
+                    estadoVisual: previous,
+                    seleccionHeredada: true
+                };
+            }
+            return {
+                valido: false,
+                estadoVisual: 'no-utilizable',
+                seleccionHeredada: false
+            };
         }
-        return state === 'seleccionada'
-            && ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(String(previousState || '').toLowerCase()) !== -1;
+
+        var normalized = canonicalState(state);
+        return {
+            valido: normalized !== null,
+            estadoVisual: normalized || 'no-utilizable',
+            seleccionHeredada: false
+        };
+    }
+
+    function normalizeState(value) {
+        // Un estado ausente no demuestra disponibilidad. El contrato comparte
+        // el mismo fallback neutral que usan los adaptadores.
+        return inspectVisualState(value).estadoVisual;
+    }
+
+    function validModifierContract(value) {
+        return Array.isArray(value) && value.every(function (modifier) {
+            return typeof modifier === 'string'
+                && /^[a-z0-9_-]+$/i.test(modifier.trim());
+        });
+    }
+
+    function unverifiedFrom(raw) {
+        var contract = inspectVisualState(
+            raw.estadoVisual != null ? raw.estadoVisual
+                : (raw.estado_visual_pos != null ? raw.estado_visual_pos
+                    : (raw.estado_visual_mapa != null ? raw.estado_visual_mapa
+                        : (raw.estado_visual != null ? raw.estado_visual : raw.estado))),
+            raw.estadoVisualAnterior != null ? raw.estadoVisualAnterior : raw.estado_visual_previo
+        );
+        var modifiersValid = true;
+        ['modificadores_visual_pos', 'modificadores_visual_mapa'].forEach(function (field) {
+            if (Object.prototype.hasOwnProperty.call(raw, field)
+                && !validModifierContract(raw[field])) {
+                modifiersValid = false;
+            }
+        });
+        if (Object.prototype.hasOwnProperty.call(raw, 'modificadores')
+            && !validModifierContract(raw.modificadores)) {
+            modifiersValid = false;
+        }
+        return toBoolean(raw.estadoNoVerificado || raw.estado_no_verificado)
+            || !contract.valido
+            || !modifiersValid;
     }
 
     function normalizeClasses(value) {
@@ -97,43 +154,64 @@
         var id = parseInt(raw.id || '0', 10);
         var visualValue = raw.estadoVisual || raw.estado_visual_pos || raw.estado_visual_mapa || raw.estado_visual || raw.estado;
         var previousState = raw.estadoVisualAnterior || raw.estado_visual_previo;
-        var contractValid = validVisualState(visualValue, previousState);
-        var state = normalizeState(visualValue);
-        var legacySelected = state === 'seleccionada';
-        if (legacySelected) state = normalizeState(previousState);
-        var seleccionValida = raw.seleccionValida == null ? true : toBoolean(raw.seleccionValida);
+        var visualContract = inspectVisualState(visualValue, previousState);
+        var estadoNoVerificado = unverifiedFrom(raw);
+        var state = estadoNoVerificado ? 'no-utilizable' : visualContract.estadoVisual;
+        var legacySelected = visualContract.seleccionHeredada;
+        var seleccionValidaSolicitada = raw.seleccionValida == null
+            ? true
+            : toBoolean(raw.seleccionValida);
+        var seleccionValida = seleccionValidaSolicitada && !estadoNoVerificado;
         var selected = (toBoolean(raw.seleccionada) || legacySelected)
             && seleccionValida
-            && contractValid
             && state !== 'no-utilizable';
         var reservable = toBoolean(raw.reservable);
+        var interactivoSolicitado = raw.interactivoSolicitado == null
+            ? (raw.interactivo == null
+                ? reservable && state !== 'no-utilizable'
+                : toBoolean(raw.interactivo))
+            : toBoolean(raw.interactivoSolicitado);
+        var modifiers = normalizeClasses(raw.modificadores);
+        var stateClasses = normalizeClasses(raw.clasesEstado || raw.clases_estado);
+        if (estadoNoVerificado) {
+            modifiers = modifiers.filter(function (modifier) {
+                return modifier !== 'seleccion_actual' && modifier !== 'seleccionada';
+            });
+            stateClasses = stateClasses.filter(function (className) {
+                return !/(^|[-_])(selected|seleccionada|highlight)([-_]|$)/i.test(className);
+            });
+        }
 
-            return {
+        return {
             id: id,
             nombre: String(raw.nombre || ('Mesa ' + id)),
             tipo: String(raw.tipo || 'mesa').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'mesa',
             estadoVisual: state,
+            estadoNoVerificado: estadoNoVerificado,
             x: clampPercent(raw.x != null ? raw.x : raw.pos_x, 50),
             y: clampPercent(raw.y != null ? raw.y : raw.pos_y, 50),
             ancho: numberOrNull(raw.ancho != null ? raw.ancho : raw.width),
             alto: numberOrNull(raw.alto != null ? raw.alto : raw.height),
             reservable: reservable,
+            activo: raw.activo == null ? null : toBoolean(raw.activo),
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
             reservacionProxima: raw.reservacion_proxima || null,
+            motivoBloqueo: String(raw.motivo_bloqueo || raw.motivoBloqueo || ''),
             seleccionada: selected,
-            interactivo: !contractValid ? false : (raw.interactivo == null
-                ? reservable && state !== 'no-utilizable'
-                : toBoolean(raw.interactivo)),
-                titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
-                ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
+            interactivoSolicitado: interactivoSolicitado,
+            interactivo: !estadoNoVerificado && state !== 'no-utilizable' && interactivoSolicitado,
+            independienteDeConsulta: toBoolean(raw.independienteDeConsulta),
+            titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
+            ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
             // Rótulo bajo el nombre de un área operativa. Vacío deja el
             // genérico; Llevar lo usa para contar sus pedidos abiertos.
             subtitulo: String(raw.subtitulo || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
             estadoBase: String(raw.estadoBase || raw.estado_base || ''),
-            modificadores: normalizeClasses(raw.modificadores),
+            modificadores: modifiers,
             seleccionValida: seleccionValida,
-            clasesEstado: normalizeClasses(raw.clasesEstado || raw.clases_estado),
+            seleccionValidaSolicitada: seleccionValidaSolicitada,
+            clasesEstado: stateClasses,
             atributos: normalizeAttributes(raw.atributos)
         };
     }
@@ -158,8 +236,39 @@
         var lastSelectionKey = '';
         var card = canvas.closest('[data-map-component]');
         var structuredList = card ? card.querySelector('[data-map-structured-list]') : null;
+        var queryStatus = card ? card.querySelector('[data-map-query-status]') : null;
+        var validationStatus = card ? card.querySelector('[data-map-validation-status]') : null;
+        var queryBlocksOperations = false;
+
+        function canInteract(table) {
+            return interactive
+                && table.interactivo === true
+                && table.estadoNoVerificado !== true
+                && (!queryBlocksOperations || table.independienteDeConsulta === true);
+        }
+
+        function syncValidationStatus() {
+            if (!validationStatus) return;
+            var invalidTables = tables.filter(function (table) {
+                return table.estadoNoVerificado;
+            });
+            if (!invalidTables.length) {
+                validationStatus.textContent = '';
+                validationStatus.hidden = true;
+                return;
+            }
+            var names = invalidTables.map(function (table) {
+                return table.nombre || table.titulo || 'Elemento del mapa';
+            });
+            validationStatus.textContent = 'Estado no verificado en: ' + names.join(', ')
+                + '. No se puede operar en esos elementos hasta recibir información válida.';
+            validationStatus.hidden = false;
+        }
 
         function accessibleTableLabel(table) {
+            var unverifiedCopy = table.estadoNoVerificado
+                ? ' Estado no verificado. La información del mapa está incompleta; no se puede operar en este elemento hasta recibir información válida.'
+                : '';
             if (table.ariaLabel) {
                 var suppliedLabel = table.ariaLabel;
                 var suppliedLower = suppliedLabel.toLowerCase();
@@ -172,7 +281,9 @@
                     && suppliedLower.indexOf('reservaci') === -1) {
                     suppliedLabel += ' Reservación cercana.';
                 }
-                return suppliedLabel + (table.seleccionada ? ', seleccionada' : '');
+                return suppliedLabel
+                    + unverifiedCopy
+                    + (table.seleccionada ? ', seleccionada' : '');
             }
             var parts = [table.titulo];
             if (table.capacidad > 0) {
@@ -188,12 +299,30 @@
             if (table.seleccionada) {
                 parts.push('seleccionada');
             }
+            if (table.estadoNoVerificado) {
+                parts.push('Estado no verificado. La información del mapa está incompleta; no se puede operar en este elemento hasta recibir información válida');
+            }
             return parts.join(', ');
         }
 
         function visibleTableState(table) {
+            if (table.estadoNoVerificado) {
+                return 'Estado no verificado';
+            }
             if (table.estadoVisual === 'no-utilizable') {
-                return 'No reservable';
+                if (table.tipo === 'zona') {
+                    return 'Elemento representativo';
+                }
+                if (table.activo === false) {
+                    return 'Mesa fuera de servicio';
+                }
+                if (context === 'operacion-reservaciones') {
+                    return 'No asignable en Reservaciones';
+                }
+                if (table.independienteDeConsulta && table.interactivo) {
+                    return 'Elemento operativo';
+                }
+                return 'No disponible para esta operación';
             }
             if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
                 return 'Ausencia pendiente';
@@ -207,6 +336,12 @@
         }
 
         function visibleTableContext(table) {
+            if (table.estadoNoVerificado) {
+                return '';
+            }
+            if (table.estadoVisual === 'no-utilizable' && table.motivoBloqueo) {
+                return table.motivoBloqueo;
+            }
             var reservation = table.reservacionProxima || null;
             var hour = reservation && (reservation.hora || reservation.hora_reservacion)
                 ? String(reservation.hora || reservation.hora_reservacion).slice(0, 5)
@@ -249,7 +384,7 @@
         function applyState(pin, table) {
             // Los modificadores visuales, incluido ausencia_pendiente, nunca
             // determinan la usabilidad; sólo el permiso normalizado lo hace.
-            var isInteractive = table.interactivo === true;
+            var isInteractive = canInteract(table);
             var previousClasses = String(pin.getAttribute('data-state-classes') || '')
                 .split(/\s+/)
                 .filter(Boolean);
@@ -263,6 +398,7 @@
             pin.classList.remove('mesa-pin--highlight');
             pin.classList.remove('reservation-operation-pin--assigned');
             pin.classList.remove('reservation-operation-pin--selected');
+            pin.classList.remove(UNVERIFIED_CLASS);
 
             pin.classList.add('mesa-pin--' + table.estadoVisual);
             var stateClasses = table.clasesEstado.slice();
@@ -275,7 +411,11 @@
             });
             pin.setAttribute('data-state-classes', stateClasses.join(' '));
 
-            if (table.seleccionada) {
+            if (table.estadoNoVerificado) {
+                pin.classList.add(UNVERIFIED_CLASS);
+            }
+
+            if (table.seleccionada && !table.estadoNoVerificado) {
                 pin.classList.add('mesa-pin--seleccionada');
                 pin.classList.add('mesa-pin--highlight');
             }
@@ -283,11 +423,27 @@
             pin.setAttribute('data-estado-visual', table.estadoVisual);
             pin.setAttribute('data-estado-base', table.estadoBase || table.estadoVisual);
             pin.setAttribute('data-modificadores', table.modificadores.join(' '));
+            if (table.estadoNoVerificado) {
+                pin.setAttribute('data-estado-no-verificado', '1');
+            } else {
+                pin.removeAttribute('data-estado-no-verificado');
+            }
             pin.setAttribute('data-disabled', isInteractive ? '0' : '1');
             pin.setAttribute('aria-disabled', isInteractive ? 'false' : 'true');
             pin.disabled = !isInteractive;
             pin.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             pin.setAttribute('aria-label', accessibleTableLabel(table));
+
+            var warningIcon = pin.querySelector('.mesa-pin__verification-warning');
+            if (table.estadoNoVerificado && !warningIcon) {
+                warningIcon = document.createElement('span');
+                warningIcon.className = 'mesa-pin__verification-warning';
+                warningIcon.setAttribute('aria-hidden', 'true');
+                warningIcon.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 3.5 2.7 20h18.6L12 3.5Z"></path><path d="M12 9v4.5M12 17h.01"></path></svg>';
+                pin.appendChild(warningIcon);
+            } else if (!table.estadoNoVerificado && warningIcon) {
+                warningIcon.parentNode.removeChild(warningIcon);
+            }
         }
 
         function syncStructuredTable(table) {
@@ -302,13 +458,18 @@
 
             var state = button.querySelector('.operational-map__structured-state');
             var context = button.querySelector('.operational-map__structured-context');
-            button.disabled = !(interactive && table.interactivo);
+            button.disabled = !canInteract(table);
             button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
             button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
             button.setAttribute('aria-label', accessibleTableLabel(table));
             // El CSS pinta el punto de estado desde aquí, con los mismos tokens
             // --map-table-* que usan los pines del mapa.
             button.setAttribute('data-estado-visual', table.estadoVisual);
+            if (table.estadoNoVerificado) {
+                button.setAttribute('data-estado-no-verificado', '1');
+            } else {
+                button.removeAttribute('data-estado-no-verificado');
+            }
             if (state) {
                 state.textContent = visibleTableState(table);
             }
@@ -332,10 +493,13 @@
                 button.type = 'button';
                 button.setAttribute('data-structured-mesa', String(table.id));
                 button.setAttribute('aria-pressed', table.seleccionada ? 'true' : 'false');
-                button.disabled = !(interactive && table.interactivo);
+                button.disabled = !canInteract(table);
                 button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
                 button.setAttribute('aria-label', accessibleTableLabel(table));
                 button.setAttribute('data-estado-visual', table.estadoVisual);
+                if (table.estadoNoVerificado) {
+                    button.setAttribute('data-estado-no-verificado', '1');
+                }
 
                 var name = document.createElement('span');
                 name.className = 'operational-map__structured-name';
@@ -363,7 +527,7 @@
 
         function createPin(table) {
             var pin = document.createElement('button');
-            var isInteractive = interactive && table.interactivo;
+            var isInteractive = canInteract(table);
 
             pin.type = 'button';
             pin.className = 'mesa-pin mesa-pin--tipo-' + table.tipo;
@@ -431,6 +595,7 @@
             canvas.appendChild(fragment);
             canvas.setAttribute('data-map-ready', '1');
             renderStructuredList();
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
@@ -442,6 +607,7 @@
             if (structuredList) {
                 structuredList.innerHTML = '';
             }
+            syncValidationStatus();
 
             if (message) {
                 var empty = document.createElement('div');
@@ -450,7 +616,7 @@
                 var icon = document.createElement('span');
                 icon.className = 'mapa-empty-icon';
                 icon.setAttribute('aria-hidden', 'true');
-                icon.textContent = 'o';
+                icon.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>';
 
                 var copy = document.createElement('span');
                 copy.textContent = message;
@@ -473,16 +639,11 @@
                 return;
             }
 
-            if (changes.estadoVisual != null) {
-                if (!validVisualState(changes.estadoVisual, changes.estadoVisualAnterior)) {
-                    table.interactivo = false;
-                    table.seleccionValida = false;
-                    table.seleccionada = false;
-                }
-                table.estadoVisual = normalizeState(changes.estadoVisual);
+            if (changes.interactivo != null) {
+                table.interactivoSolicitado = toBoolean(changes.interactivo);
             }
-            if (changes.seleccionada != null) {
-                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida !== false;
+            if (changes.seleccionValida != null) {
+                table.seleccionValidaSolicitada = toBoolean(changes.seleccionValida);
             }
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
@@ -504,8 +665,41 @@
                 }
             }
 
-            applyState(pin, table);
-            syncStructuredTable(table);
+            if (changes.estadoVisual != null || changes.estadoNoVerificado != null) {
+                var stateValue = changes.estadoVisual != null ? changes.estadoVisual : table.estadoVisual;
+                var statePrevious = changes.estadoVisualAnterior != null
+                    ? changes.estadoVisualAnterior
+                    : table.estadoVisual;
+                var visualContract = inspectVisualState(stateValue, statePrevious);
+                var explicitlyClearingError = changes.estadoNoVerificado != null
+                    && !toBoolean(changes.estadoNoVerificado)
+                    && changes.estadoVisual != null;
+                table.estadoNoVerificado = toBoolean(changes.estadoNoVerificado)
+                    || !visualContract.valido
+                    || (table.estadoNoVerificado && !explicitlyClearingError);
+                table.estadoVisual = table.estadoNoVerificado
+                    ? 'no-utilizable'
+                    : visualContract.estadoVisual;
+            }
+            table.interactivo = !table.estadoNoVerificado
+                && table.estadoVisual !== 'no-utilizable'
+                && table.interactivoSolicitado;
+            table.seleccionValida = !table.estadoNoVerificado
+                && table.estadoVisual !== 'no-utilizable'
+                && table.seleccionValidaSolicitada;
+            if (table.estadoNoVerificado) {
+                table.modificadores = table.modificadores.filter(function (modifier) {
+                    return modifier !== 'seleccion_actual' && modifier !== 'seleccionada';
+                });
+                table.clasesEstado = table.clasesEstado.filter(function (className) {
+                    return !/(^|[-_])(selected|seleccionada|highlight)([-_]|$)/i.test(className);
+                });
+            }
+            if (changes.seleccionada != null) {
+                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida;
+            } else if (table.estadoNoVerificado) {
+                table.seleccionada = false;
+            }
 
             if (changes.atributos) {
                 var attributes = normalizeAttributes(changes.atributos);
@@ -514,6 +708,9 @@
                 });
             }
 
+            applyState(pin, table);
+            syncStructuredTable(table);
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
@@ -535,10 +732,37 @@
                 }
             });
 
+            syncValidationStatus();
             emitSelectionIfChanged();
         }
 
+        function setConsultaEstado(message, blockOperations) {
+            message = String(message || '').trim();
+            queryBlocksOperations = Boolean(message && blockOperations === true);
+            if (queryStatus) {
+                queryStatus.textContent = message;
+                queryStatus.hidden = !message;
+            }
+            if (card) {
+                if (queryBlocksOperations) {
+                    card.setAttribute('data-map-stale', '1');
+                } else {
+                    card.removeAttribute('data-map-stale');
+                }
+            }
+            tables.forEach(function (table) {
+                var pin = canvas.querySelector('[data-mapa-mesa="' + table.id + '"]');
+                if (pin) {
+                    applyState(pin, table);
+                }
+                syncStructuredTable(table);
+            });
+        }
+
         function dispatchTableClick(table) {
+            if (!canInteract(table)) {
+                return;
+            }
             dispatch('mapa:mesa-click', {
                 contexto: context,
                 mesaId: table.id,
@@ -603,14 +827,66 @@
             clear: clear,
             actualizarEstado: updateState,
             setSeleccionadas: setSelected,
+            setConsultaEstado: setConsultaEstado,
             normalizarMesa: normalizeTable,
             destroy: destroy
         };
     }
 
+    function validResponseCollection(payload, name) {
+        if (!Array.isArray(payload[name])) return false;
+        if (name !== 'mesas' && name !== 'mesas_estado') return true;
+        return payload[name].every(function (item) {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+            var id = Number(item.id);
+            return Number.isInteger(id) && id > 0;
+        });
+    }
+
+    function validResponseObject(payload, name) {
+        return Object.prototype.hasOwnProperty.call(payload, name)
+            && payload[name] !== null
+            && typeof payload[name] === 'object';
+    }
+
+    function validateMapResponse(payload, expected) {
+        expected = expected || {};
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.ok !== true) {
+            return { valida: false, motivo: 'incompleta' };
+        }
+        if (expected.fecha != null && String(payload.fecha || '') !== String(expected.fecha)) {
+            return { valida: false, motivo: 'contexto' };
+        }
+        var expectedHour = String(expected.hora || '').trim().slice(0, 5);
+        if (expectedHour) {
+            var responseHour = String(payload.hora || payload.hora_sugerida || '').trim().slice(0, 5);
+            if (responseHour !== expectedHour) {
+                return { valida: false, motivo: 'contexto' };
+            }
+        }
+        var collections = Array.isArray(expected.colecciones)
+            ? expected.colecciones
+            : ['mesas', 'mesas_estado'];
+        for (var i = 0; i < collections.length; i += 1) {
+            if (!validResponseCollection(payload, collections[i])) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+        }
+        var objects = Array.isArray(expected.objetos) ? expected.objetos : [];
+        for (var j = 0; j < objects.length; j += 1) {
+            if (!validResponseObject(payload, objects[j])) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+        }
+        return { valida: true, motivo: '' };
+    }
+
     window.MapaVisual = {
         crear: createMapVisual,
         normalizarMesa: normalizeTable,
-        normalizarEstado: normalizeState
+        normalizarEstado: normalizeState,
+        validarEstadoVisual: inspectVisualState,
+        validarModificadoresVisuales: validModifierContract,
+        validarRespuestaMapa: validateMapResponse
     };
 })();

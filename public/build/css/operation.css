@@ -6547,6 +6547,41 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   flex: 1 1 0;
 }
 
+.operational-map__query-notice,
+.operational-map__validation-status {
+  border: 1px solid var(--map-table-unavailable-border);
+  border-radius: 9px;
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  font-family: var(--operational-font-ui);
+  font-size: var(--operational-text-sm);
+  font-weight: var(--operational-weight-medium);
+  line-height: 1.45;
+}
+
+.operational-map__query-notice[hidden],
+.operational-map__validation-status[hidden] {
+  display: none;
+}
+
+.operational-map__query-notice {
+  position: absolute;
+  z-index: 24;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  max-width: 620px;
+  margin-inline: auto;
+  padding: 10px 13px;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--admin-ink) 14%, transparent);
+  pointer-events: none;
+}
+
+.operational-map__validation-status {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+}
+
 .mesas-map__footer {
   display: flex;
   min-width: 0;
@@ -7094,6 +7129,44 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   box-shadow: 0 14px 34px color-mix(in srgb, var(--sombra) 30%, transparent), 0 0 0 3px color-mix(in srgb, var(--map-table-selected-bg) 92%, transparent), inset 0 1px 0 color-mix(in srgb, var(--txt) 4%, transparent);
 }
 
+/* El contrato desconocido domina los estilos compuestos sin borrar señales
+   operativas reales como el marcador de ausencia pendiente. */
+.pos-map .mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
+.reservation-operation__map.mesas-map .mesa-pin.mesa-pin--estado-no-verificado,
+.mesas-map .mesa-pin.mesa-pin--estado-no-verificado {
+  border: 2px dashed var(--map-table-unavailable-border);
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--admin-ink) 18%, transparent);
+  cursor: not-allowed;
+}
+
+.mesas-map .mesa-pin__verification-warning {
+  position: absolute;
+  z-index: 5;
+  top: 3px;
+  left: 3px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid var(--map-table-unavailable-border);
+  border-radius: 50%;
+  background: var(--map-table-unavailable-bg);
+  color: var(--map-table-unavailable-text);
+  pointer-events: none;
+}
+
+.mesas-map .mesa-pin__verification-warning svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .mesas-map__legend .mapa-leyenda-item .mesa-pin {
   position: relative;
   inset: auto;
@@ -7369,6 +7442,28 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   line-height: 1.45;
 }
 
+.map-help-dialog__context-note {
+  margin-top: 18px;
+  padding: 11px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-soft);
+  color: var(--admin-muted);
+  font-size: var(--operational-text-base);
+  line-height: 1.45;
+}
+
+.map-help-dialog__context-note ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 19px;
+}
+
+.map-help-dialog__note {
+  margin-top: 12px;
+}
+
 .map-help-dialog__note svg {
   width: 18px;
   height: 18px;
@@ -7418,6 +7513,12 @@ input:disabled + .admin-switch__track, input:disabled ~ .admin-switch__label {
   }
   .map-help-dialog__note {
     margin-top: 20px;
+  }
+  .map-help-dialog__context-note {
+    margin-top: 16px;
+  }
+  .map-help-dialog__note {
+    margin-top: 10px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

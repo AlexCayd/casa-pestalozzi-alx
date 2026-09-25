@@ -14,12 +14,17 @@ $mapHelpContext = in_array($mapHelpContext, ['pos', 'reservations'], true) ? $ma
 $mapHelpSubtitle = $mapHelpContext === 'reservations'
     ? 'Consulta la disponibilidad para la fecha y hora seleccionadas.'
     : 'Consulta el estado actual de las mesas.';
-$mapHelpAvailableCopy = $mapHelpContext === 'reservations'
-    ? 'Disponible en la fecha y hora elegidas.'
-    : 'Mesa disponible para operar.';
-$mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
-    ? 'Ticket abierto o intervalo bloqueado.'
-    : 'Ticket abierto.';
+$mapHelpContextNotes = $mapHelpContext === 'reservations'
+    ? [
+        'El fondo representa la disponibilidad del intervalo seleccionado; los bordes y los iconos muestran alertas adicionales.',
+        'Una reservación iniciada puede aparecer roja antes de que llegue el cliente.',
+        'La ausencia pendiente puede coexistir con distintos colores de fondo.',
+    ]
+    : [
+        'Entre 60 y 30 minutos antes aparece una advertencia. A partir de 30 minutos antes, se bloquea el walk-in.',
+        'Hasta 15 minutos después del inicio hay tolerancia; después puede quedar una ausencia pendiente.',
+        'En POS, el rojo suele indicar un ticket abierto; también puede reflejar una restricción operativa.',
+    ];
 $mapSectionClass = trim((string)($mapVisual['sectionClass'] ?? ''));
 $mapTitle = (string)($mapVisual['title'] ?? 'Mapa de mesas');
 $mapAriaLabel = (string)($mapVisual['ariaLabel'] ?? ($mapTitle !== '' ? $mapTitle : 'Mapa operativo'));
@@ -85,7 +90,9 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
         </div>
     <?php endif; ?>
 
+    <div class="operational-map__validation-status" data-map-validation-status role="status" aria-live="polite" hidden></div>
     <div class="operational-map__viewport mesas-map__viewport mapa-canvas-wrap operational-map-canvas-wrap">
+        <div class="operational-map__query-notice" data-map-query-status role="status" aria-live="polite" hidden></div>
         <?php if ($mapHelpPosition === 'overlay'): ?>
             <?php echo str_replace('map-help-button--header', 'map-help-button--overlay', $mapHelpButtonHtml); ?>
         <?php endif; ?>
@@ -133,19 +140,19 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                         <ul class="map-help-dialog__states">
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Disponible</strong><span><?php echo $mapEscape($mapHelpAvailableCopy); ?></span></span>
+                                <span class="map-help-dialog__copy"><strong>Disponible</strong><span>Mesa disponible en el contexto mostrado.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--ocupada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Ocupada</strong><span><?php echo $mapEscape($mapHelpOccupiedCopy); ?></span></span>
+                                <span class="map-help-dialog__copy"><strong>Ocupada</strong><span>Existe un ticket o un bloqueo operativo.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-reservacion_inminente"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa reservada para el cliente.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Reservación próxima</strong><span>Mesa comprometida por una reservación.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--no-utilizable"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa fuera de servicio en este contexto.</span></span>
+                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa o elemento no disponible para esta operación.</span></span>
                             </li>
                         </ul>
                     </section>
@@ -154,22 +161,29 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                         <ul class="map-help-dialog__states">
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--mod-reservacion_advertencia"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Revisa antes de operar.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Reserva cercana</strong><span>Hay una reservación próxima. El borde no cambia por sí solo la disponibilidad.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--reservacion-proxima mesa-pin--mod-ausencia_pendiente mesa-pin--mod-accion_pendiente"><span class="mesa-pin__label">Mesa</span><span class="mesa-pin__pending">!</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>Registra que el cliente no llegó.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Ausencia pendiente</strong><span>La tolerancia venció. Revisa la reservación y registra la ausencia cuando esté permitido.</span></span>
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--libre mesa-pin--seleccionada"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección es una capa superpuesta y no garantiza disponibilidad.</span></span>
+                                <span class="map-help-dialog__copy"><strong>Seleccionada</strong><span>La selección es una capa superpuesta; no garantiza disponibilidad ni elimina las restricciones.</span></span>
                             </li>
                         </ul>
                     </section>
                 </div>
+                <div class="map-help-dialog__context-note" role="note">
+                    <ul>
+                        <?php foreach ($mapHelpContextNotes as $mapHelpContextNote): ?>
+                            <li><?php echo $mapEscape($mapHelpContextNote); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
                 <div class="map-help-dialog__note" role="note">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5m0-8h.01"></path></svg>
-                    <p>Los colores orientan. Las acciones disponibles se verifican al realizar la operación.</p>
+                    <p>Los colores orientan; las acciones se verifican al realizar la operación.</p>
                 </div>
             </div>
         </div>

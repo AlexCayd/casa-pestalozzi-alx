@@ -48,6 +48,7 @@
             assignmentInitialCandidateIds: [],
             assignmentInitialVersion: '',
             assignmentDataUpdated: false,
+            assignmentInvalidSelectionRemoved: false,
             assignmentTrigger: null,
             assignmentCancelLabel: 'Cancelar',
             cargando: false,
@@ -387,13 +388,15 @@
                 timeout: 'La consulta tardo demasiado',
                 invalid_json: 'Respuesta no interpretable',
                 consistency: 'Respuesta inconsistente',
+                invalid_response: 'Respuesta incompleta',
                 server: 'Error interno del servidor'
             };
             var messages = {
                 connection: 'No se pudo actualizar la información. Revisa tu conexión antes de volver a consultar.',
                 timeout: 'La solicitud excedió el tiempo de espera. Espera un momento y vuelve a consultar.',
                 invalid_json: 'No fue posible interpretar la respuesta del servidor.',
-                consistency: 'El servidor respondio con datos de otra fecha. La respuesta fue descartada.',
+                consistency: 'El servidor respondió con datos de otra fecha u hora. La respuesta fue descartada.',
+                invalid_response: 'La respuesta del mapa estaba incompleta. Los datos no se pueden usar para asignar mesas.',
                 server: 'El servidor no pudo completar la consulta. Vuelve a consultar cuando el servicio esté disponible.'
             };
             var title = error.titulo || titles[kind] || 'No fue posible actualizar la operacion';
@@ -498,8 +501,19 @@
         }
 
         function mesaPuedeSerCandidata(mesaId) {
+            if (state.loadFailure || !projectionContextMatchesSelection()) {
+                return false;
+            }
             var mesa = tableStateById(mesaId);
+            if (!mesa || mapProjectionFor(mesa).estadoNoVerificado) {
+                return false;
+            }
             return window.ReservationOperationPolicy.mesaPuedeSerCandidata(mesa);
+        }
+
+        function mapaTieneContratoVisualValido(mesaId) {
+            var mesa = tableStateById(mesaId);
+            return Boolean(mesa && !mapProjectionFor(mesa).estadoNoVerificado);
         }
 
         function candidateIdsFromCurrent() {
@@ -638,7 +652,9 @@
             if (els.assignmentRefresh) {
                 var conflictMessage = assignmentConflictMessage();
                 els.assignmentRefresh.textContent = conflictMessage ||
-                    'Los datos se actualizaron. Tu selección local se conserva; vuelve a validar antes de guardar.';
+                    (state.assignmentInvalidSelectionRemoved
+                        ? 'Los datos se actualizaron. Se retiraron de la selección las mesas sin estado visual verificado.'
+                        : 'Los datos se actualizaron. Tu selección local se revalidó con los estados vigentes antes de guardar.');
                 els.assignmentRefresh.hidden = !conflictMessage && !state.assignmentDataUpdated;
             }
             if (els.assignmentCancel) {
@@ -694,6 +710,7 @@
             state.assignmentInitialCandidateIds = Array.from(state.candidateSelectionIds);
             state.assignmentInitialVersion = state.assignmentSnapshot.version;
             state.assignmentDataUpdated = false;
+            state.assignmentInvalidSelectionRemoved = false;
             state.assignmentTrigger = trigger || document.activeElement;
             state.assignmentCancelLabel = options.allowAssignLater ? 'Asignar más tarde' : 'Cancelar';
             state.assignmentMode = true;
@@ -734,6 +751,7 @@
             state.assignmentInitialVersion = '';
             state.assignmentSnapshot = null;
             state.assignmentDataUpdated = false;
+            state.assignmentInvalidSelectionRemoved = false;
             state.assignmentTrigger = null;
             state.assignmentCancelLabel = 'Cancelar';
             hideTableWarning();
@@ -1684,24 +1702,30 @@
         }
 
         function mapProjectionFor(mesaEstado) {
-            var estado = String(mesaEstado.estado_visual_mapa || '').trim();
+            mesaEstado = mesaEstado || {};
+            var validation = window.MapaVisual && window.MapaVisual.validarEstadoVisual
+                ? window.MapaVisual.validarEstadoVisual(mesaEstado.estado_visual_mapa)
+                : { valido: false, estadoVisual: 'no-utilizable' };
+            var modificadoresValidos = window.MapaVisual && window.MapaVisual.validarModificadoresVisuales
+                && window.MapaVisual.validarModificadoresVisuales(mesaEstado.modificadores_visual_mapa);
+            var estado = validation.estadoVisual;
             var modificadores = Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa.slice()
-                : null;
+                : [];
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
-            if (['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].indexOf(estado) === -1
-                || modificadores === null
-                || !ariaLabel) {
-                console.error('[reservaciones] Violacion contractual de proyeccion del mapa.', mesaEstado);
+            if (!validation.valido || !modificadoresValidos || !ariaLabel) {
+                var tableName = String(mesaEstado.nombre || mesaEstado.etiqueta || ('Mesa ' + (mesaEstado.id || ''))).trim();
                 return {
                     estado: 'no-utilizable',
                     modificadores: [],
-                    ariaLabel: 'Mesa no disponible: proyeccion del mapa incompleta.'
+                    estadoNoVerificado: true,
+                    ariaLabel: tableName + ': Estado no verificado. La información visual está incompleta; no se puede asignar hasta recibir información válida.'
                 };
             }
             return {
                 estado: estado,
                 modificadores: modificadores,
+                estadoNoVerificado: false,
                 ariaLabel: ariaLabel
             };
         }
@@ -1710,6 +1734,11 @@
             var reservacion = selectedReservation();
 
             if (!els.map || !window.MesaEstadoAdapter) {
+                return;
+            }
+
+            if (state.loadFailure) {
+                mapVisual.clear('No fue posible actualizar el mapa. La consulta fallida no se puede usar para asignar mesas.');
                 return;
             }
 
@@ -1781,6 +1810,7 @@
                 );
                 var selectable = state.assignmentMode && Boolean(reservacion) &&
                     editable &&
+                    !mapProjection.estadoNoVerificado &&
                     normalized.reservable === true &&
                     normalized.disponible_para_asignacion === true;
                 var selectionVisualValid = candidate && selectable;
@@ -1810,6 +1840,7 @@
                 return window.MesaEstadoAdapter.paraMapaVisual(mapRaw, {
                     seleccionActual: assigned || candidate,
                     seleccionValida: !(assigned || candidate) || selectionVisualValid,
+                    estadoNoVerificado: mapProjection.estadoNoVerificado,
                     interactivo: selectable && !state.guardando,
                     titulo: title,
                     ariaLabel: mapAriaLabel,
@@ -1837,6 +1868,17 @@
 
         function tableModalState(table) {
             var mesaId = parseInt(table.id || '0', 10);
+            var projection = mapProjectionFor(table);
+            if (projection.estadoNoVerificado) {
+                return {
+                    id: mesaId,
+                    label: 'Estado no verificado',
+                    context: 'La información visual está incompleta; no se puede asignar esta mesa.',
+                    visualState: 'no-utilizable',
+                    capacity: parseInt(table.capacidad || '0', 10) || 0,
+                    interactive: false
+                };
+            }
             var selected = state.assignmentMode && (
                 state.currentAssignmentIds.has(mesaId) || state.candidateSelectionIds.has(mesaId)
             );
@@ -2134,10 +2176,8 @@
                         } catch (parseError) {
                             throw { kind: 'invalid_json', httpStatus: response.status };
                         }
-                        if (!response.ok || !data.ok) {
-                            data.httpStatus = response.status;
-                            data.kind = response.status >= 500 ? 'server' : 'business';
-                            throw data;
+                        if (!response.ok || data.ok !== true) {
+                            throw { kind: response.status >= 500 ? 'server' : 'query' };
                         }
                         return data;
                     });
@@ -2147,17 +2187,21 @@
                         window.clearTimeout(request.timeoutId);
                         return;
                     }
-                    if (String(data.fecha || '') !== fecha) {
-                        throw { kind: 'consistency', requestedDate: fecha, responseDate: data.fecha };
-                    }
                     var responseHour = horaCorta(data.hora || data.hora_sugerida || '');
-                    if (queryRequestedHour && responseHour !== queryRequestedHour) {
-                        throw {
-                            kind: 'consistency',
-                            requestedDate: fecha,
-                            requestedHour: queryRequestedHour,
-                            responseHour: responseHour
-                        };
+                    var responseForValidation = Object.assign({}, data, {
+                        horarios_mapa: data.horarios_mapa || data.horarios
+                    });
+                    var responseValidation = window.MapaVisual.validarRespuestaMapa(responseForValidation, {
+                        fecha: fecha,
+                        hora: queryRequestedHour,
+                        colecciones: [
+                            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa',
+                            'ocupacion_fisica', 'alertas_operativas'
+                        ],
+                        objetos: ['ocupacion_por_reservacion', 'capacidad_horario']
+                    });
+                    if (!responseValidation.valida) {
+                        throw { kind: responseValidation.motivo === 'contexto' ? 'consistency' : 'invalid_response' };
                     }
                     window.clearTimeout(request.timeoutId);
                     if (state.activeRequest === request) {
@@ -2173,7 +2217,7 @@
                     state.loadFailure = null;
                     state.modo = data.modo || 'operacion';
                     state.editable = data.editable !== false;
-                    state.horarios = data.horarios_mapa || data.horarios || [];
+                    state.horarios = responseForValidation.horarios_mapa;
                     state.reservaciones = data.reservaciones || [];
                     state.mesas = data.mesas || [];
                     state.mesasEstado = data.mesas_estado || [];
@@ -2217,6 +2261,12 @@
                             ? new Set(localSelectionBeforeRefresh)
                             : new Set();
                         if (preserveAssignment) {
+                            var candidateIdsBeforeValidation = Array.from(state.candidateSelectionIds);
+                            state.candidateSelectionIds = new Set(candidateIdsBeforeValidation.filter(function (mesaId) {
+                                return mapaTieneContratoVisualValido(mesaId);
+                            }));
+                            state.assignmentInvalidSelectionRemoved = state.candidateSelectionIds.size
+                                !== candidateIdsBeforeValidation.length;
                             state.assignmentDataUpdated = true;
                         }
                     } else {
@@ -2359,6 +2409,18 @@
             var reservacion = selectedReservation();
 
             if (!reservacion || !canAssignTables(reservacion) || state.guardando) {
+                return;
+            }
+
+            if (state.loadFailure || !projectionContextMatchesSelection()) {
+                showInlineError('Actualiza la consulta del mapa antes de guardar la asignación.', null);
+                return;
+            }
+            var invalidCandidates = Array.from(state.candidateSelectionIds).filter(function (mesaId) {
+                return !mapaTieneContratoVisualValido(mesaId);
+            });
+            if (invalidCandidates.length) {
+                showInlineError('La selección incluye mesas sin estado visual verificado. Actualiza el mapa antes de guardar.', null);
                 return;
             }
 

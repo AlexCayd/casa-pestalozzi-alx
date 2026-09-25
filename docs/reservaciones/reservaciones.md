@@ -89,8 +89,26 @@ asignación y selección son señales secundarias: no vuelven libre un conflicto
 La selección es una capa visual y **no garantiza disponibilidad** ni autoriza
 abrir ticket, asignar o reasignar mesa, iniciar servicio ni marcar no-show.
 
-Los estados desconocidos o incompletos no se degradan a disponible: el adaptador
-y el renderer usan `no-utilizable` y bloquean interacción visual.
+`no-utilizable` representa una restricción conocida. `estadoNoVerificado` es un
+indicador exclusivo de presentación para el fallback de un contrato visual
+ausente, desconocido o incompleto; conserva el fondo neutro, muestra una señal
+de advertencia y bloquea interacción hasta recibir un estado válido. No añade
+estados de backend. El frontend nunca interpreta un contrato desconocido como
+disponibilidad.
+
+Una respuesta general HTTP fallida, incompleta o de otra fecha u hora se
+descarta y muestra el aviso general de actualización; no convierte todas las
+mesas en elementos no utilizables. Si POS conserva la fotografía anterior,
+la identifica como desactualizada y bloquea las operaciones que dependen de
+esa consulta. POS reconoce el permiso operativo de Barra y de elementos
+especiales activos aunque `reservable = false`; el estado y los tickets siguen
+respetando los hechos de POS disponibles. Caja y Llevar conservan sus acciones
+propias y no heredan la disponibilidad de una mesa ordinaria.
+
+Los fondos expresan el estado de la superficie consultada; bordes e iconos
+pueden añadir advertencias, ausencia pendiente o asignación. POS representa la
+operación actual y Reservaciones la fecha y hora elegidas, por lo que una misma
+señal puede combinarse con fondos diferentes según el contexto.
 
 ### POS y proyección administrativa
 

@@ -77,7 +77,9 @@ assertContract(operation.includes('responseHour'), 'operacion valida la hora de 
 assertContract(!operation.includes('normalized.modificadores_mapa'), 'operacion no usa alias de modificadores del mapa');
 assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 'operacion no reconstruye proximidad visual');
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
-assertContract(operation.includes("String(data.fecha || '') !== fecha"), 'operacion rechaza respuestas de fecha stale');
+assertContract(operation.includes('validarRespuestaMapa(responseForValidation'), 'operacion valida la fecha, hora y estructura del snapshot recibido');
+assertContract(operation.includes('estadoNoVerificado: mapProjection.estadoNoVerificado'), 'el mapa propaga el error individual de proyeccion');
+assertContract(operation.includes('return mapaTieneContratoVisualValido(mesaId)'), 'la seleccion revalidada excluye mesas con contrato visual incompleto');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
 assertContract(operation.includes('var request ='), 'operacion mantiene recursos por request');
 assertContract(operation.includes('window.clearTimeout(request.timeoutId)'), 'request obsoleta limpia sólo su timeout');
@@ -104,7 +106,7 @@ assertContract(!tableAdapter.includes('if (hasPendingAbsence) return'), 'adaptad
 assertContract(mapShell.includes('mesa-pin--mod-ausencia_pendiente::after'), 'CSS compone ausencia con pseudo-elemento gris');
 assertContract(!mapShell.includes('.mesa-pin--libre.mesa-pin--mod-ausencia_pendiente'), 'CSS no fuerza ausencia a verde mediante borde');
 assertContract(tableAdapter.includes('options.estadoVisual'), 'adaptador consume estado visual explicito');
-assertContract(!tableAdapter.includes('raw.estado_visual_mapa'), 'adaptador no filtra proyeccion administrativa al POS');
+assertContract(tableAdapter.includes('raw.estado_visual_mapa'), 'adaptador acepta el nombre común de proyección administrativa');
 assertContract(modal.includes('canonicalDecisionActions'), 'ConfirmationModal valida acciones canonicas');
 assertContract(modal.includes('textValue(options.mensaje).trim()'), 'ConfirmationModal exige mensaje de decision');
 assertContract(modal.includes('Decisión de reservación sin acciones canónicas'), 'ConfirmationModal registra decisiones sin acciones');
@@ -200,7 +202,8 @@ assertContract(
 );
 
 const adapterContext = { window: {} };
-vm.runInNewContext(tableAdapter, adapterContext, { filename: files[4] });
+vm.runInNewContext(mapVisual, adapterContext, { filename: files[4] });
+vm.runInNewContext(tableAdapter, adapterContext, { filename: files[5] });
 const adapter = adapterContext.window.MesaEstadoAdapter;
 const sharedRaw = {
   id: 1,
@@ -209,12 +212,26 @@ const sharedRaw = {
   estado_visual_mapa: 'ocupada'
 };
 assertContract(
-  adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible' }).estadoVisual === 'no-utilizable',
-  'contrato incompleto no se convierte en disponibilidad'
+  adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible' }).estadoVisual === 'ocupada'
+    && adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible' }).estadoNoVerificado === false,
+  'el estado visual de mapa explícito conserva su proyección compartida'
 );
 assertContract(
   adapter.paraMapaVisual(sharedRaw, { estadoBase: 'disponible', estadoVisual: 'ocupada' }).estadoVisual === 'ocupada',
   'mapa administrativo acepta estado visual explicito'
+);
+const incompleteVisual = adapter.paraMapaVisual({
+  id: 8,
+  reservable: 1,
+  estado_visual_mapa: 'libre',
+  modificadores_visual_mapa: null
+}, { interactivo: true, seleccionValida: true, seleccionActual: true });
+assertContract(
+  incompleteVisual.estadoNoVerificado === true
+    && incompleteVisual.estadoVisual === 'no-utilizable'
+    && incompleteVisual.interactivo === false
+    && incompleteVisual.seleccionada === false,
+  'modificadores visuales incompletos no se vuelven disponibles ni interactivos'
 );
 assertContract(
   adapter.paraMapaVisual({ id: 2, reservable: 1, estado_base: 'disponible', ticket_abierto: true }, { estadoBase: 'disponible' }).estadoVisual === 'no-utilizable',

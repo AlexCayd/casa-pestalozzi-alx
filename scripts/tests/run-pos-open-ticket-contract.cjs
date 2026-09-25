@@ -94,4 +94,66 @@ assertContract(
   'respuesta inconsistente conserva proteccion contractual'
 );
 
-console.log('POS: contrato de decision y commit de apertura OK');
+function sourceBetween(startMarker, endMarker) {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+  assertContract(start !== -1 && end > start, `se encuentra ${startMarker}`);
+  return source.slice(start, end).trim();
+}
+
+const specialMapContext = {
+  window: { MapaVisual: { validarModificadoresVisuales: Array.isArray } },
+  isLlevar(mesa) { return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Llevar'; },
+  esCaja(mesa) { return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja'; },
+  pedidosLlevar() { return []; },
+  rotuloPedidosLlevar(total) { return total ? `${total} pedidos` : ''; },
+  tituloLlevarMapa() { return 'Llevar. Disponible para un nuevo pedido.'; },
+  insetPos(value) { return value; },
+  ticketSelectionMode: false,
+  selectedMesaIds: []
+};
+function evaluatePosFunction(startMarker, endMarker, targetContext) {
+  return vm.runInNewContext('(' + sourceBetween(startMarker, endMarker) + ')', targetContext);
+}
+specialMapContext.mesaReservable = evaluatePosFunction('function mesaReservable(mesa)', '\n  function mesaTicketable', specialMapContext);
+specialMapContext.mesaTicketable = evaluatePosFunction('function mesaTicketable(mesa)', '\n  // La "Caja"', specialMapContext);
+specialMapContext.esCaja = evaluatePosFunction('function esCaja(mesa)', '\n  function esElementoPosOperativoNoReservable', specialMapContext);
+specialMapContext.esElementoPosOperativoNoReservable = evaluatePosFunction('function esElementoPosOperativoNoReservable', '\n  function estadoVisualPosMesa', specialMapContext);
+specialMapContext.estadoVisualPosMesa = evaluatePosFunction('function estadoVisualPosMesa', '\n  function reservacionProximaMesa', specialMapContext);
+specialMapContext.mesaEstadoPorId = () => ({
+  id: 92,
+  estado_visual_pos: 'no-utilizable',
+  modificadores_visual_pos: [],
+  activo: true,
+  utilizable: false,
+  reservable: false,
+  ticket_bloquea_consulta: false
+});
+specialMapContext.ticketActual = () => null;
+specialMapContext.reservaParaModal = () => null;
+specialMapContext.insetPos = (value) => value;
+const cajaContract = vm.runInNewContext('(' + sourceBetween('function contratoMesaMapa(mesa, estado)', '\n  // El contrato de Llevar') + ')', specialMapContext);
+const cajaVisual = cajaContract({ id: 90, tipo: 'especial', nombre: 'Caja' }, 'zona');
+assertContract(cajaVisual.estado_visual_pos === 'libre', 'Caja conserva su estado visual operativo propio sin datos de ocupación');
+
+const llevarContract = vm.runInNewContext('(' + sourceBetween('function contratoLlevarMapa(mesa)', '\n  function contratoVisualMesaValido') + ')', specialMapContext);
+const llevarVisual = llevarContract({ id: 91, tipo: 'especial', nombre: 'Llevar' });
+assertContract(llevarVisual.estado_visual_pos === 'libre' && llevarVisual.independienteDeConsulta, 'Llevar conserva su contrato operativo independiente de la consulta de mesas');
+
+const specialOptions = vm.runInNewContext('(' + sourceBetween('function opcionesVisualesMesa(mesa, estado)', '\n  function mesaPuedeSeleccionarse') + ')', specialMapContext);
+const cajaOptions = specialOptions({ id: 90, tipo: 'especial', nombre: 'Caja', pos_x: 20, pos_y: 30 }, 'zona');
+assertContract(cajaOptions.interactivo && cajaOptions.independienteDeConsulta && !cajaOptions.seleccionValida, 'Caja conserva su acción propia y no entra en selección multimesa');
+const llevarOptions = specialOptions({ id: 91, tipo: 'especial', nombre: 'Llevar', pos_x: 40, pos_y: 30 }, 'zona');
+assertContract(llevarOptions.interactivo && llevarOptions.independienteDeConsulta, 'Llevar conserva la apertura de su tablero');
+
+const barra = { id: 92, tipo: 'barra', nombre: 'Barra', reservable: false, pos_x: 50, pos_y: 50 };
+const barraContract = cajaContract(barra, 'zona');
+const barraOptions = specialOptions(barra, 'zona');
+const mapRuntime = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(root, 'src/js/operation/map-visual.js'), 'utf8'), mapRuntime);
+vm.runInNewContext(fs.readFileSync(path.join(root, 'src/js/operation/table-state-adapter.js'), 'utf8'), mapRuntime);
+const barraProjection = mapRuntime.window.MesaEstadoAdapter.paraMapaVisual(barraContract, barraOptions);
+assertContract(barraContract.estado_visual_pos === 'libre', 'Barra activa no reservable recibe el contrato visual operativo de POS');
+assertContract(barraProjection.interactivo && barraProjection.estadoNoVerificado === false, 'Barra sigue operable según su permiso POS aunque no sea reservable');
+
+console.log('POS: apertura y contratos de elementos operativos OK');

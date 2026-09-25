@@ -62,40 +62,43 @@
         return aliases[state] || '';
     }
 
-    function normalizeVisualState(value) {
-        var state = String(value || '').toLowerCase();
-        var aliases = {
-            disponible: 'libre',
-            libre: 'libre',
-            ocupada: 'ocupada',
-            'reservacion-proxima': 'reservacion-proxima',
-            proxima: 'reservacion-proxima',
-            bloqueada: 'reservacion-proxima',
-            seleccionada: 'seleccionada',
-            'no-utilizable': 'no-utilizable',
-            no_utilizable: 'no-utilizable'
+    function inspectVisualContract(value, previousState) {
+        if (window.MapaVisual && typeof window.MapaVisual.validarEstadoVisual === 'function') {
+            return window.MapaVisual.validarEstadoVisual(value, previousState);
+        }
+        // La validación sin el renderer disponible falla de forma cerrada.
+        return {
+            valido: false,
+            estadoVisual: 'no-utilizable',
+            seleccionHeredada: false
         };
-        return aliases[state] || 'no-utilizable';
     }
 
-    function validVisualContract(value, previousState) {
-        var rawState = String(value || '').toLowerCase();
-        var aliases = {
-            disponible: true,
-            libre: true,
-            ocupada: true,
-            'reservacion-proxima': true,
-            proxima: true,
-            bloqueada: true,
-            seleccionada: true,
-            'no-utilizable': true,
-            no_utilizable: true
-        };
-        if (!Object.prototype.hasOwnProperty.call(aliases, rawState)) return false;
-        if (rawState !== 'seleccionada') return true;
+    function validModifierContract(value) {
+        return window.MapaVisual
+            && typeof window.MapaVisual.validarModificadoresVisuales === 'function'
+            ? window.MapaVisual.validarModificadoresVisuales(value)
+            : false;
+    }
 
-        var previous = String(previousState || '').toLowerCase();
-        return Object.prototype.hasOwnProperty.call(aliases, previous) && previous !== 'seleccionada';
+    function contractModifiersValid(raw) {
+        var fields = ['modificadores_visual_pos', 'modificadores_visual_mapa'];
+        for (var i = 0; i < fields.length; i += 1) {
+            if (Object.prototype.hasOwnProperty.call(raw, fields[i])
+                && !validModifierContract(raw[fields[i]])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function firstPresent(values) {
+        for (var i = 0; i < values.length; i += 1) {
+            if (values[i] !== null && values[i] !== undefined) {
+                return values[i];
+            }
+        }
+        return null;
     }
 
     function isUnusable(raw, options, state) {
@@ -133,17 +136,15 @@
         var previousState = options.estadoVisualAnterior
             || raw.estado_visual_previo
             || raw.estadoVisualAnterior;
-        var visualValue = options.estadoVisual
-            || raw.estado_visual_pos
-            || raw.estadoVisual
-            || raw.estado_visual;
-        if (!validVisualContract(visualValue, previousState)) return 'no-utilizable';
-
-        var explicitVisualState = normalizeVisualState(visualValue);
-        if (explicitVisualState === 'seleccionada') {
-            return normalizeVisualState(previousState);
-        }
-        return explicitVisualState;
+        var visualValue = firstPresent([
+            options.estadoVisual,
+            raw.estado_visual_pos,
+            raw.estado_visual_mapa,
+            raw.estadoVisual,
+            raw.estado_visual
+        ]);
+        var visualContract = inspectVisualContract(visualValue, previousState);
+        return visualContract.valido ? visualContract.estadoVisual : 'no-utilizable';
     }
 
     function toMapVisual(raw, options) {
@@ -156,22 +157,54 @@
         var selected = options.seleccionActual != null
             ? booleanValue(options.seleccionActual)
             : booleanValue(raw.seleccion_actual);
-        var visualValue = options.estadoVisual
-            || raw.estado_visual_pos
-            || raw.estadoVisual
-            || raw.estado_visual;
+        var visualValue = firstPresent([
+            options.estadoVisual,
+            raw.estado_visual_pos,
+            raw.estado_visual_mapa,
+            raw.estadoVisual,
+            raw.estado_visual
+        ]);
         var previousState = options.estadoVisualAnterior
             || raw.estado_visual_previo
             || raw.estadoVisualAnterior;
-        var contractValid = validVisualContract(visualValue, previousState);
+        var visualContract = inspectVisualContract(visualValue, previousState);
+        var contractValid = visualContract.valido && contractModifiersValid(raw);
+        var estadoNoVerificado = booleanValue(options.estadoNoVerificado)
+            || booleanValue(raw.estadoNoVerificado)
+            || !contractValid;
         var noUtilizable = isUnusable(raw, options, stateBase);
         var disponibleParaAsignacion = raw.disponible_para_asignacion == null
             ? null
             : booleanValue(raw.disponible_para_asignacion);
-        var seleccionValida = selectionValidity(raw, options) && !noUtilizable && contractValid;
-        selected = selected && seleccionValida;
+        var seleccionValidaSolicitada = selectionValidity(raw, options)
+            && !noUtilizable
+            && !estadoNoVerificado
+            && visualContract.estadoVisual !== 'no-utilizable';
+        var seleccionValida = seleccionValidaSolicitada && !estadoNoVerificado;
+        var interactivoSolicitado = options.interactivo != null
+            ? booleanValue(options.interactivo)
+            : booleanValue(raw.reservable)
+                && (disponibleParaAsignacion === null || disponibleParaAsignacion);
+        var estadoVisual = estadoNoVerificado
+            ? 'no-utilizable'
+            : visualContract.estadoVisual;
+        selected = (selected || visualContract.seleccionHeredada) && seleccionValida;
         if (selected && modifiers.indexOf('seleccion_actual') === -1) {
             modifiers.push('seleccion_actual');
+        }
+        if (estadoNoVerificado) {
+            modifiers = modifiers.filter(function (modifier) {
+                return modifier !== 'seleccion_actual' && modifier !== 'seleccionada';
+            });
+        }
+
+        var stateClasses = (options.clasesEstado || []).filter(function (className) {
+            return typeof className === 'string';
+        });
+        if (estadoNoVerificado) {
+            stateClasses = stateClasses.filter(function (className) {
+                return !/(^|[-_])(selected|seleccionada|highlight)([-_]|$)/i.test(className);
+            });
         }
 
         return {
@@ -180,30 +213,29 @@
             nombre: String(raw.etiqueta || raw.nombre || ''),
             tipo: String(raw.tipo || 'mesa'),
             estadoBase: stateBase,
+            estadoNoVerificado: estadoNoVerificado,
             x: options.x != null ? options.x : raw.pos_x,
             y: options.y != null ? options.y : raw.pos_y,
             ancho: options.ancho != null ? options.ancho : raw.ancho,
             alto: options.alto != null ? options.alto : raw.alto,
             reservable: booleanValue(raw.reservable),
+            activo: raw.activo,
+            motivo_bloqueo: raw.motivo_bloqueo,
             capacidad: parseInt(raw.capacidad || '0', 10) || 0,
             seleccionada: selected,
             seleccionValida: seleccionValida,
-            interactivo: options.interactivo != null
-                ? booleanValue(options.interactivo) && contractValid
-                : contractValid && booleanValue(raw.reservable)
-                    && (disponibleParaAsignacion === null || disponibleParaAsignacion),
+            seleccionValidaSolicitada: seleccionValidaSolicitada,
+            interactivoSolicitado: interactivoSolicitado,
+            interactivo: !estadoNoVerificado
+                && estadoVisual !== 'no-utilizable'
+                && interactivoSolicitado,
+            independienteDeConsulta: booleanValue(options.independienteDeConsulta)
+                || booleanValue(raw.independienteDeConsulta),
             titulo: String(options.titulo || raw.titulo || raw.nombre || ''),
             ariaLabel: String(options.ariaLabel || raw.titulo_mapa || raw.aria_label || ''),
             modificadores: modifiers,
-            estadoVisual: resolverEstadoVisualMesa(raw, Object.assign({}, options, {
-                estadoBase: stateBase,
-                modificadores: modifiers,
-                seleccionActual: selected,
-                seleccionValida: seleccionValida,
-                noUtilizable: noUtilizable,
-                estadoVisual: options.estadoVisual || ''
-            })),
-            clasesEstado: modifiers.map(modifierClass).concat(options.clasesEstado || []),
+            estadoVisual: estadoVisual,
+            clasesEstado: modifiers.map(modifierClass).concat(stateClasses),
             atributos: Object.assign({
                 'data-estado-base': stateBase,
                 'data-modificadores': modifiers.join(' ')
