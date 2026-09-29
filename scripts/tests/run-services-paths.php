@@ -46,7 +46,7 @@ $normalizedAreasPath = str_replace('\\', '/', $areasPath);
 $normalizedExpectedAreasPath = str_replace('\\', '/', $root . '/storage/areas_de_mejora.json');
 $assert($normalizedAreasPath === $normalizedExpectedAreasPath, 'AreasMejora apunta a storage en la raíz del proyecto.');
 
-$clientSession = file_get_contents($root . '/services/Reservations/ReservationClientSession.php');
+$clientSession = file_get_contents($root . '/services/Security/ReservationClientSession.php');
 $assert(
     is_string($clientSession)
         && str_contains(

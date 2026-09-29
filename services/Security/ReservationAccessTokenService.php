@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Security;
 
 /** Genera y presenta tokens de gestión sin persistir su valor plano. */
 final class ReservationAccessTokenService

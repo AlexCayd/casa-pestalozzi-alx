@@ -10,6 +10,7 @@ use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Notifications\ReservationNotificationContract;
+use Services\Security\ReservationAccessTokenService;
 
 /**
  * Autoridad del seguimiento que nace al cambiar el horario efectivo.

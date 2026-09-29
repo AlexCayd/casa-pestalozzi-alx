@@ -7,7 +7,7 @@
 namespace Services\Contact;
 use Services\Reservations\ReservacionService;
 use Services\Reservations\ReservacionConfig;
-use Services\Reservations\ReservationClientSession;
+use Services\Security\ReservationClientSession;
 
 use DateTimeImmutable;
 use InvalidArgumentException;

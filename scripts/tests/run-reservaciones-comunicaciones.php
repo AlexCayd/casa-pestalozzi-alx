@@ -10,7 +10,7 @@ use Services\Security\AdminCsrfService;
 use Services\Integrations\N8nClient;
 use Services\Notifications\NotificationConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\Reservations\ReservationAccessTokenService;
+use Services\Security\ReservationAccessTokenService;
 use Services\Notifications\ReservacionNotificacionConfigService;
 use Services\Notifications\ReservationNotificationContract;
 use Services\Notifications\ReservationNotificationResultService;

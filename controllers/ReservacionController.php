@@ -13,7 +13,7 @@ use Model\Reservacion;
 use MVC\Router;
 use Services\Contact\ContactoAccesoService;
 use Services\Reservations\DisponibilidadReservacionService;
-use Services\Reservations\ReservationClientSession;
+use Services\Security\ReservationClientSession;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionPublicaService;
