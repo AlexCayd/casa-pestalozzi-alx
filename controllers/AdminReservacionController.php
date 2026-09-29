@@ -20,7 +20,7 @@ use Services\Reservations\HorarioReservacionService;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\ReservacionService;
-use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioOperacionImpactoService;
 
 class AdminReservacionController
 {

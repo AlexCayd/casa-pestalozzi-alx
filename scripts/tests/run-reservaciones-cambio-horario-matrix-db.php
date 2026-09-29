@@ -11,7 +11,7 @@ require dirname(__DIR__, 2) . '/includes/app.php';
 use Model\ActiveRecord;
 use Services\Integrations\N8nClient;
 use Services\Notifications\ScheduleChangeNotificationService;
-use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioOperacionImpactoService;
 
 function scheduleMatrixAssert(bool $condition, string $message): void
 {

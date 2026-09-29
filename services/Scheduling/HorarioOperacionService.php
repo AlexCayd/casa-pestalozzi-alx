@@ -9,7 +9,6 @@ use Model\HorarioOperacion;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\HorarioReservacionService;
 use Services\Notifications\ScheduleChangeNotificationService;
-use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Shared\FechaOperacionLock;
 
 class HorarioOperacionService

@@ -11,6 +11,7 @@ use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Shared\FechaOperacionLock;
 
 /**

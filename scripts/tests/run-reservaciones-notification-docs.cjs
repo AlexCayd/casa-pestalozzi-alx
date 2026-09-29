@@ -57,6 +57,17 @@ for (const domain of [
 assert.match(architecture, /Controller → Service → Model/);
 assert.match(architecture, /nivel por dominio/);
 assert.match(architecture, /Shared` es una excepción/);
+for (const responsibility of [
+  '`Notifications` prepara y coordina las comunicaciones',
+  '`Security` administra',
+  '`Scheduling` resuelve horarios',
+  '`Reservations` conserva las reglas',
+  'no significa que pertenezca a `Reservations/`',
+  '`HorarioReservacionService` permanece en `Reservations`',
+  '`HorarioOperacionImpactoService` pertenece a `Scheduling`'
+]) {
+  assert.ok(architecture.includes(responsibility), `arquitectura documenta ${responsibility}`);
+}
 
 const config = source('docs/config.md');
 for (const token of ['APP_ENV', 'APP_TIMEZONE', 'DB_HOST', 'N8N_BASE_URL', 'N8N_RESERVATIONS_WEBHOOK_SECRET', 'N8N_RESERVATIONS_CALLBACK_SECRET']) {

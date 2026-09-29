@@ -6,7 +6,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\ReservacionErrorCatalog;
-use Services\Reservations\HorarioOperacionImpactoService;
+use Services\Scheduling\HorarioOperacionImpactoService;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Reservations\ReservacionBuzonService;
 
@@ -71,7 +71,7 @@ $publicJs = file_get_contents($root . '/src/js/modules/schedule-change-access.js
 $accessService = file_get_contents($root . '/services/Security/ReservationManagementAccessService.php');
 $accessSession = file_get_contents($root . '/services/Security/ReservationManagementAccessSession.php');
 $accessController = file_get_contents($root . '/controllers/ReservationManagementAccessController.php');
-$impactService = file_get_contents($root . '/services/Reservations/HorarioOperacionImpactoService.php');
+$impactService = file_get_contents($root . '/services/Scheduling/HorarioOperacionImpactoService.php');
 $buzonRules = file_get_contents($root . '/services/Reservations/ReservacionBuzonService.php');
 $impactView = file_get_contents($root . '/views/admin/configuration/hours.php');
 $layout = file_get_contents($root . '/views/admin/layout.php');

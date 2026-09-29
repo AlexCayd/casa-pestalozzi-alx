@@ -10,6 +10,7 @@
 namespace Services\Security;
 
 use Services\Contact\ContactoService;
+use Services\Reservations\ReservacionConfig;
 
 class ReservationClientSession
 {

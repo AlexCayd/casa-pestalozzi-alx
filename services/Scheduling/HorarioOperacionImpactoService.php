@@ -1,15 +1,16 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Scheduling;
 
 use DateTimeImmutable;
 use Model\ActiveRecord;
 use Model\Reservacion;
 use Services\Contact\ContactoService;
-use Services\Scheduling\HorarioOperacionService;
 use Services\Notifications\NotificationConfig;
 use Services\Notifications\BuzonNotificacionesService;
 use Services\Notifications\ReservationNotificationContract;
+use Services\Reservations\ReservacionBuzonService;
+use Services\Reservations\ReservacionConfig;
 use Services\Security\ReservationAccessTokenService;
 
 /**

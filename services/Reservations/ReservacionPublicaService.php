@@ -11,6 +11,7 @@
 namespace Services\Reservations;
 use Services\Contact\ContactoAccesoService;
 use Services\Contact\ContactoService;
+use Services\Notifications\ReservationConfirmationService;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -21,6 +22,9 @@ use Model\ReservacionMesa;
 use Model\TicketMesa;
 use Model\VerificacionContacto;
 use Services\Scheduling\HorarioConfigLock;
+use Services\Scheduling\HorarioOperacionImpactoService;
+use Services\Security\ReservationClientSession;
+use Services\Security\ReservationManagementAccessService;
 use Services\Shared\ContactoOperacionLock;
 use Services\Shared\FechaOperacionLock;
 

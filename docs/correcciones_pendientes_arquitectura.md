@@ -21,9 +21,9 @@
 **Archivos:** `services/Scheduling/HorarioOperacionService.php`, `services/Reservations/HorarioReservacionService.php`.
 **Impacto:** comparar una hora operativa requiere una clase de otro dominio.
 
-## ARQ-005 · Dependencia circular entre horario e impactos de reservaciones
+## ARQ-005 · Dependencia circular entre horario e impactos de agenda
 
 **Estado:** pendiente
-**Problema:** `HorarioOperacionService` delega impactos a `HorarioOperacionImpactoService`; éste vuelve a consultar `HorarioOperacionService::estaAbierto()`.
-**Archivos:** `services/Scheduling/HorarioOperacionService.php`, `services/Reservations/HorarioOperacionImpactoService.php`.
-**Impacto:** los dos dominios no se prueban ni evolucionan de forma independiente con facilidad.
+**Problema:** `HorarioOperacionService` delega impactos a `HorarioOperacionImpactoService`; éste vuelve a consultar `HorarioOperacionService::estaAbierto()`. Ambos servicios ahora pertenecen a `Scheduling`, pero conservan llamadas estáticas recíprocas.
+**Archivos:** `services/Scheduling/HorarioOperacionService.php`, `services/Scheduling/HorarioOperacionImpactoService.php`.
+**Impacto:** los dos servicios no se prueban ni evolucionan de forma independiente con facilidad; separarlos requiere un contrato de agenda compartido.
