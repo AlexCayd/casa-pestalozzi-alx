@@ -696,8 +696,15 @@ function initMapa() {
   }
 
   // ── Lookups de ticket y reserva ───────────────────────────
+  function capacidadesPosMesa(mesa) {
+    var backend = mesaEstadoPorId(parseInt(mesa && mesa.id, 10));
+    return backend && backend.capacidades_pos && typeof backend.capacidades_pos === 'object'
+      ? backend.capacidades_pos
+      : {};
+  }
+
   function isLlevar(mesa) {
-    return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Llevar';
+    return capacidadesPosMesa(mesa).crear_pedido_llevar === true;
   }
 
   /*
@@ -899,34 +906,19 @@ function initMapa() {
 
   // ── Render: estados de todos los pines ────────────────────
   function mesaReservable(mesa) {
-    return Boolean(mesa && (mesa.reservable === true || mesa.reservable === 1 || mesa.reservable === '1'));
+    return Boolean(mesa && capacidadesPosMesa(mesa).reservable === true);
   }
 
   function mesaTicketable(mesa) {
-    return Boolean(mesa && (mesaReservable(mesa) || mesa.tipo === 'barra'
-      || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja')));
+    return Boolean(mesa && capacidadesPosMesa(mesa).ticketable === true);
   }
 
   // La "Caja" es una zona estática del mapa que abre el corte de caja del día.
   function esCaja(mesa) {
-    return Boolean(mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja');
-  }
-
-  function esElementoPosOperativoNoReservable(mesa, backend) {
-    if (!mesa || !backend || backend.estado_visual_pos !== 'no-utilizable'
-      || backend.activo !== true || backend.utilizable !== false
-      || mesaReservable(mesa)
-      || !window.MapaVisual
-      || !window.MapaVisual.validarModificadoresVisuales
-      || !window.MapaVisual.validarModificadoresVisuales(backend.modificadores_visual_pos)) return false;
-    return mesa.tipo === 'barra'
-      || (mesa.tipo === 'especial' && mesa.nombre !== 'Caja' && mesa.nombre !== 'Llevar');
+    return Boolean(mesa && capacidadesPosMesa(mesa).abrir_caja === true);
   }
 
   function estadoVisualPosMesa(mesa, backend, estadoFallback) {
-    if (esElementoPosOperativoNoReservable(mesa, backend)) {
-      return backend.ticket_bloquea_consulta === true ? 'ocupada' : 'libre';
-    }
     return backend && backend.estado_visual_pos != null
       ? backend.estado_visual_pos
       : estadoFallback;
@@ -996,8 +988,9 @@ function initMapa() {
   function tituloMesaMapa(mesa, estado, ticket, proxima, ticketBloquea) {
     var partes = [String(mesa.nombre || 'Mesa') + '.'];
     var ticketHora = horaCortaTicket(ticket);
-    var elementoOperativo = mesa.tipo === 'barra' || esCaja(mesa) || isLlevar(mesa)
-      || (mesa.tipo === 'especial' && mesaTicketable(mesa));
+    var capacidades = capacidadesPosMesa(mesa);
+    var etiquetaOperacion = String(capacidades.etiqueta_operacion || '');
+    var elementoOperativo = capacidades.operable === true;
 
     if (ticket && ticketBloquea !== false) {
       partes.push('Ocupada. Ticket abierto.');
@@ -1011,10 +1004,8 @@ function initMapa() {
       partes.push('Caja operativa. Abre el corte de caja.');
     } else if (isLlevar(mesa)) {
       partes.push('Pedidos para llevar. Disponible para un nuevo pedido.');
-    } else if (mesa.tipo === 'barra') {
-      partes.push('Barra operativa. Disponible para abrir un ticket.');
-    } else if (mesa.tipo === 'especial' && elementoOperativo) {
-      partes.push('Elemento operativo. Disponible para abrir un ticket.');
+    } else if (etiquetaOperacion) {
+      partes.push(etiquetaOperacion + ' operativa. Disponible para abrir un ticket.');
     } else if (!mesaReservable(mesa) && !elementoOperativo) {
       partes.push('No utilizable.');
     } else if (estado === 'ocupada') {
@@ -1071,28 +1062,8 @@ function initMapa() {
         estado_visual_pos: 'libre'
       });
     }
-    var ticketLeido = ticketActual(parseInt(mesa.id, 10));
     var backend = mesaEstadoPorId(parseInt(mesa.id, 10)) || {};
-    if (esElementoPosOperativoNoReservable(mesa, backend)) {
-      var ticketEspecial = backend.ticket && typeof backend.ticket === 'object' ? ticketLeido : null;
-      var ticketEspecialBloquea = backend.ticket_bloquea_consulta === true;
-      var estadoEspecial = estadoVisualPosMesa(mesa, backend, estado);
-      var tituloEspecial = ticketEspecial
-        ? tituloMesaMapa(mesa, estadoEspecial, ticketEspecial, null, ticketEspecialBloquea)
-        : (ticketEspecialBloquea
-          ? String(mesa.nombre || 'Elemento') + '. Ocupada por un ticket abierto.'
-          : (mesa.tipo === 'barra'
-            ? String(mesa.nombre || 'Barra') + '. Barra operativa. Disponible para abrir un ticket.'
-            : String(mesa.nombre || 'Elemento') + '. Elemento operativo. Disponible para abrir un ticket.'));
-      return Object.assign({}, mesa, {
-        estado_base: estadoEspecial === 'ocupada' ? 'ocupada' : 'disponible',
-        modificadores: ticketEspecialBloquea ? ['ticket_abierto'] : [],
-        ticket_abierto: ticketEspecial,
-        titulo: tituloEspecial,
-        estado_visual_pos: estadoEspecial,
-        modificadores_visual_pos: ticketEspecialBloquea ? ['ticket_abierto'] : []
-      });
-    }
+    var ticketLeido = ticketActual(parseInt(mesa.id, 10));
     // El ticket sólo entra al contrato del bloque si el backend lo proyectó
     // para la consulta. Una fecha futura puede tener tickets abiertos en el
     // listado global, pero no debe pintarlos ni usarlos como bloqueo.
@@ -1104,18 +1075,22 @@ function initMapa() {
     var ticketBloquea = backend.ticket_bloquea_consulta === true;
     var proxima = reservacionProximaMesa(parseInt(mesa.id, 10));
     var estadoVisualPos = estadoVisualPosMesa(mesa, backend, estado);
+    var capacidades = capacidadesPosMesa(mesa);
+    var titulo = backend.aria_label_pos || tituloMesaMapa(mesa, estado, ticket, proxima, ticketBloquea);
+    if (capacidades.mostrar_estado_ticket === true) {
+      titulo = ticket
+        ? tituloMesaMapa(mesa, estadoVisualPos, ticket, null, ticketBloquea)
+        : (ticketBloquea
+          ? String(mesa.nombre || 'Elemento') + '. Ocupada por un ticket abierto.'
+          : String(mesa.nombre || 'Elemento') + '. ' + (capacidades.etiqueta_operacion || 'Elemento') +
+            ' operativa. Disponible para abrir un ticket.');
+    }
     var stateBase = estadoVisualPos === 'ocupada'
       ? 'ocupada'
       : (estadoVisualPos === 'reservacion-proxima' ? 'bloqueada' : (estado === 'zona' ? 'no_reservable' : 'disponible'));
     var modifiers = Array.isArray(backend.modificadores_visual_pos)
       ? backend.modificadores_visual_pos.slice()
       : [];
-
-    // Barras, llevar y caja siguen siendo operables en POS aunque no sean
-    // reservables para el módulo de reservaciones.
-    if (mesaTicketable(mesa) || esCaja(mesa)) {
-      stateBase = stateBase === 'no_reservable' ? 'disponible' : stateBase;
-    }
 
     if (ticket && ticketBloquea) {
       stateBase = 'ocupada';
@@ -1135,11 +1110,9 @@ function initMapa() {
       accion_pendiente: backend.accion_pendiente || (proxima && proxima.accion_pendiente) || null,
       motivo_bloqueo: backend.motivo_bloqueo || (estado === 'bloqueada' ? 'Bloqueada por reservación próxima.' : null),
       bloqueo: backend.bloqueo || (proxima && proxima.bloqueo) || null,
-      titulo: backend.aria_label_pos || tituloMesaMapa(mesa, estado, ticket, proxima, ticketBloquea),
+      titulo: titulo,
       estado_visual_pos: estadoVisualPos,
-      modificadores_visual_pos: esElementoPosOperativoNoReservable(mesa, backend)
-        ? (backend.ticket_bloquea_consulta === true ? ['ticket_abierto'] : [])
-        : backend.modificadores_visual_pos,
+      modificadores_visual_pos: backend.modificadores_visual_pos,
       ticket_abierto: ticket
         ? Object.assign({}, ticket, { bloquea_en_consulta: Boolean(ticketBloquea) })
         : null
@@ -1164,19 +1137,18 @@ function initMapa() {
       bloqueo: null,
       titulo: tituloLlevarMapa(mesa, total),
       estado_visual_pos: 'libre',
-      independienteDeConsulta: true
+      independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true
     });
   }
 
   function contratoVisualMesaValido(mesa) {
     if (esCaja(mesa) || isLlevar(mesa)) return true;
     var backend = mesaEstadoPorId(parseInt(mesa && mesa.id, 10)) || {};
-    if (esElementoPosOperativoNoReservable(mesa, backend)) return true;
-    var estado = window.MapaVisual && window.MapaVisual.validarEstadoVisual
-      ? window.MapaVisual.validarEstadoVisual(backend.estado_visual_pos)
+    var estado = window.MapaContrato && window.MapaContrato.validarEstado
+      ? window.MapaContrato.validarEstado(backend.estado_visual_pos)
       : { valido: false };
-    var modificadoresValidos = window.MapaVisual && window.MapaVisual.validarModificadoresVisuales
-      && window.MapaVisual.validarModificadoresVisuales(backend.modificadores_visual_pos);
+    var modificadoresValidos = window.MapaContrato
+      && window.MapaContrato.validarModificadores(backend.modificadores_visual_pos);
     return estado.valido && modificadoresValidos;
   }
 
@@ -1189,12 +1161,11 @@ function initMapa() {
         ancho: mesa.ancho,
         alto: mesa.alto,
         interactivo: !ticketSelectionMode,
-        independienteDeConsulta: true,
+        independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
         seleccionValida: false,
         estadoVisual: 'libre',
         ariaLabel: tituloLlevarMapa(mesa, totalLlevar),
         seleccionActual: false,
-        noUtilizable: false,
         clasesEstado: totalLlevar ? ['mesa-pin--con-pedidos'] : [],
         atributos: {
           'data-id': mesa.id,
@@ -1214,12 +1185,11 @@ function initMapa() {
         ancho: mesa.ancho,
         alto: mesa.alto,
         interactivo: !ticketSelectionMode,
-        independienteDeConsulta: true,
+        independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
         seleccionValida: false,
         estadoVisual: 'libre',
         ariaLabel: 'Caja operativa. Abre el corte de caja.',
         seleccionActual: false,
-        noUtilizable: false,
         clasesEstado: [],
         atributos: {
           'data-id': mesa.id,
@@ -1247,11 +1217,14 @@ function initMapa() {
         ? seleccionValida
         : ticketable,
       seleccionValida: seleccionValida,
+      independienteDeConsulta: capacidadesPosMesa(mesa).independiente_consulta === true,
       estadoVisual: estadoVisualPosMesa(mesa, backend, estado),
+      etiquetaEstado: capacidadesPosMesa(mesa).operable
+        ? null
+        : 'No disponible para esta operación',
       ariaLabel: backend.aria_label_pos || null,
       seleccionActual: selectedMesaIds.indexOf(parseInt(mesa.id, 10)) !== -1,
-      noUtilizable: !mesaTicketable(mesa) && !esCaja(mesa),
-      clasesEstado: !mesaReservable(mesa) && !mesaTicketable(mesa) ? ['mesa-pin--no-utilizable'] : [],
+      clasesEstado: !capacidadesPosMesa(mesa).operable ? ['mesa-pin--no-utilizable'] : [],
       atributos: {
         'data-id': mesa.id,
         'data-numero': mesa.numero == null ? '' : mesa.numero,
@@ -5538,6 +5511,45 @@ function initMapa() {
     }
   }
 
+  function validatePosMapResponse(data, expectedDate) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || data.ok !== true) {
+      return { valida: false, motivo: 'incompleta' };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.fecha || ''))
+      || String(data.fecha) !== String(expectedDate || '')) {
+      return { valida: false, motivo: 'contexto' };
+    }
+
+    var collections = ['mesas', 'mesas_estado', 'reservaciones', 'tickets', 'meseros', 'alertas_impresion'];
+    for (var i = 0; i < collections.length; i += 1) {
+      var collection = data[collections[i]];
+      if (!Array.isArray(collection)) {
+        return { valida: false, motivo: 'incompleta' };
+      }
+      if (collections[i] === 'mesas' || collections[i] === 'mesas_estado') {
+        var validItems = collection.every(function (item) {
+          var valid = item && typeof item === 'object' && !Array.isArray(item)
+            && Number.isInteger(Number(item.id)) && Number(item.id) > 0;
+          if (valid && collections[i] === 'mesas_estado') {
+            var capabilities = item.capacidades_pos;
+            var flags = [
+              'reservable', 'operable', 'ticketable', 'independiente_consulta',
+              'abrir_caja', 'crear_pedido_llevar', 'mostrar_estado_ticket', 'decorativo'
+            ];
+            valid = capabilities && typeof capabilities === 'object' && !Array.isArray(capabilities)
+              && flags.every(function (flag) { return typeof capabilities[flag] === 'boolean'; })
+              && typeof capabilities.etiqueta_operacion === 'string';
+          }
+          return valid;
+        });
+        if (!validItems) {
+          return { valida: false, motivo: 'incompleta' };
+        }
+      }
+    }
+    return { valida: true, motivo: '' };
+  }
+
   function fetchData(fecha, silent) {
     var requestSequence = ++dataRequestSequence;
     if (dataAbortTimer) {
@@ -5586,10 +5598,7 @@ function initMapa() {
         if (requestSequence !== dataRequestSequence || fechaSeleccionada !== fecha) {
           return { stale: true };
         }
-        var responseValidation = window.MapaVisual.validarRespuestaMapa(data, {
-          fecha: fecha,
-          colecciones: ['mesas', 'mesas_estado', 'reservaciones', 'tickets', 'meseros', 'alertas_impresion']
-        });
+        var responseValidation = validatePosMapResponse(data, fecha);
         if (!responseValidation.valida) {
           throw { kind: responseValidation.motivo === 'contexto' ? 'context' : 'invalid_response' };
         }
@@ -5628,18 +5637,17 @@ function initMapa() {
         if (error && error.name === 'AbortError' && !timedOut) return;
         if (requestSequence !== dataRequestSequence) return { stale: true };
         mapSnapshotStale = true;
-        var mapFailureCopy = error && error.kind === 'context'
+        var mapFailureCause = error && error.kind === 'context'
           ? 'La respuesta del mapa correspondía a otra fecha y se descartó.'
           : (error && error.kind === 'invalid_response'
             ? 'La respuesta del mapa estaba incompleta y se descartó.'
             : (timedOut
               ? 'La consulta del mapa tardó demasiado y se canceló.'
-              : (loadedMapDate
-                ? 'No se pudo actualizar el mapa. Se conserva la consulta del ' + loadedMapDate + '; las operaciones que dependen de ella están deshabilitadas.'
-                : 'No fue posible cargar el mapa.')));
-        mapFailureCopy += loadedMapDate
+              : 'No fue posible actualizar el mapa.'));
+        var mapFailureConsequence = loadedMapDate
           ? ' Se conserva la consulta del ' + loadedMapDate + '; las operaciones que dependen de ella están deshabilitadas.'
           : ' Intenta actualizar la consulta.';
+        var mapFailureCopy = mapFailureCause + mapFailureConsequence;
         if (mapVisual && typeof mapVisual.setConsultaEstado === 'function') {
           mapVisual.setConsultaEstado(mapFailureCopy, true);
         }

@@ -1,8 +1,9 @@
 /**
  * Componente visual compartido del mapa de mesas.
  *
- * Renderiza y actualiza pines, pero no interpreta su seleccion. Cada
- * controlador de contexto escucha `mapa:mesa-click` y decide que hacer.
+ * Recibe objetos ya normalizados y renderiza pines y su lista accesible. No
+ * valida el contrato ni las respuestas HTTP; cada consumidor decide qué hacer
+ * con los eventos `mapa:mesa-click`.
  */
 (function () {
     var STATE_CLASSES = [
@@ -13,113 +14,10 @@
         'mesa-pin--no-utilizable'
     ];
 
-    var STATE_LABELS = {
-        libre: 'disponible',
-        ocupada: 'ocupada',
-        'reservacion-proxima': 'con reservación próxima',
-        seleccionada: 'seleccionada',
-        'no-utilizable': 'no utilizable'
-    };
-
     var UNVERIFIED_CLASS = 'mesa-pin--estado-no-verificado';
-    var VISUAL_STATE_ALIASES = {
-        disponible: 'libre',
-        libre: 'libre',
-        ocupada: 'ocupada',
-        'reservacion-proxima': 'reservacion-proxima',
-        proxima: 'reservacion-proxima',
-        bloqueada: 'reservacion-proxima',
-        seleccionada: 'seleccionada',
-        'no-utilizable': 'no-utilizable',
-        no_utilizable: 'no-utilizable',
-        no_reservable: 'no-utilizable',
-        'no-reservable': 'no-utilizable',
-        zona: 'no-utilizable',
-        'con-ticket': 'ocupada'
-    };
 
     function toBoolean(value) {
         return value === true || value === 1 || value === '1' || value === 'true';
-    }
-
-    function numberOrNull(value) {
-        var parsed = parseFloat(value);
-        return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    function clampPercent(value, fallback) {
-        var parsed = numberOrNull(value);
-        return parsed === null ? fallback : Math.max(0, Math.min(100, parsed));
-    }
-
-    function canonicalState(value) {
-        var state = String(value == null ? '' : value).trim().toLowerCase();
-        return Object.prototype.hasOwnProperty.call(VISUAL_STATE_ALIASES, state)
-            ? VISUAL_STATE_ALIASES[state]
-            : null;
-    }
-
-    function inspectVisualState(value, previousState) {
-        var state = String(value == null ? '' : value).trim().toLowerCase();
-        if (state === 'seleccionada') {
-            var previous = canonicalState(previousState);
-            if (previous && previous !== 'seleccionada') {
-                return {
-                    valido: true,
-                    estadoVisual: previous,
-                    seleccionHeredada: true
-                };
-            }
-            return {
-                valido: false,
-                estadoVisual: 'no-utilizable',
-                seleccionHeredada: false
-            };
-        }
-
-        var normalized = canonicalState(state);
-        return {
-            valido: normalized !== null,
-            estadoVisual: normalized || 'no-utilizable',
-            seleccionHeredada: false
-        };
-    }
-
-    function normalizeState(value) {
-        // Un estado ausente no demuestra disponibilidad. El contrato comparte
-        // el mismo fallback neutral que usan los adaptadores.
-        return inspectVisualState(value).estadoVisual;
-    }
-
-    function validModifierContract(value) {
-        return Array.isArray(value) && value.every(function (modifier) {
-            return typeof modifier === 'string'
-                && /^[a-z0-9_-]+$/i.test(modifier.trim());
-        });
-    }
-
-    function unverifiedFrom(raw) {
-        var contract = inspectVisualState(
-            raw.estadoVisual != null ? raw.estadoVisual
-                : (raw.estado_visual_pos != null ? raw.estado_visual_pos
-                    : (raw.estado_visual_mapa != null ? raw.estado_visual_mapa
-                        : (raw.estado_visual != null ? raw.estado_visual : raw.estado))),
-            raw.estadoVisualAnterior != null ? raw.estadoVisualAnterior : raw.estado_visual_previo
-        );
-        var modifiersValid = true;
-        ['modificadores_visual_pos', 'modificadores_visual_mapa'].forEach(function (field) {
-            if (Object.prototype.hasOwnProperty.call(raw, field)
-                && !validModifierContract(raw[field])) {
-                modifiersValid = false;
-            }
-        });
-        if (Object.prototype.hasOwnProperty.call(raw, 'modificadores')
-            && !validModifierContract(raw.modificadores)) {
-            modifiersValid = false;
-        }
-        return toBoolean(raw.estadoNoVerificado || raw.estado_no_verificado)
-            || !contract.valido
-            || !modifiersValid;
     }
 
     function normalizeClasses(value) {
@@ -148,72 +46,39 @@
         return attributes;
     }
 
-    function normalizeTable(raw) {
+    // El adapter ya entregó el contrato visual listo. Esta copia sólo protege
+    // el estado mutable interno del renderer y normaliza clases/atributos DOM.
+    function snapshotTable(raw) {
         raw = raw || {};
-
         var id = parseInt(raw.id || '0', 10);
-        var visualValue = raw.estadoVisual || raw.estado_visual_pos || raw.estado_visual_mapa || raw.estado_visual || raw.estado;
-        var previousState = raw.estadoVisualAnterior || raw.estado_visual_previo;
-        var visualContract = inspectVisualState(visualValue, previousState);
-        var estadoNoVerificado = unverifiedFrom(raw);
-        var state = estadoNoVerificado ? 'no-utilizable' : visualContract.estadoVisual;
-        var legacySelected = visualContract.seleccionHeredada;
-        var seleccionValidaSolicitada = raw.seleccionValida == null
-            ? true
-            : toBoolean(raw.seleccionValida);
-        var seleccionValida = seleccionValidaSolicitada && !estadoNoVerificado;
-        var selected = (toBoolean(raw.seleccionada) || legacySelected)
-            && seleccionValida
-            && state !== 'no-utilizable';
-        var reservable = toBoolean(raw.reservable);
-        var interactivoSolicitado = raw.interactivoSolicitado == null
-            ? (raw.interactivo == null
-                ? reservable && state !== 'no-utilizable'
-                : toBoolean(raw.interactivo))
-            : toBoolean(raw.interactivoSolicitado);
-        var modifiers = normalizeClasses(raw.modificadores);
-        var stateClasses = normalizeClasses(raw.clasesEstado || raw.clases_estado);
-        if (estadoNoVerificado) {
-            modifiers = modifiers.filter(function (modifier) {
-                return modifier !== 'seleccion_actual' && modifier !== 'seleccionada';
-            });
-            stateClasses = stateClasses.filter(function (className) {
-                return !/(^|[-_])(selected|seleccionada|highlight)([-_]|$)/i.test(className);
-            });
-        }
-
-        return {
+        return Object.assign({}, raw, {
             id: id,
             nombre: String(raw.nombre || ('Mesa ' + id)),
             tipo: String(raw.tipo || 'mesa').toLowerCase().replace(/[^a-z0-9_-]/g, '') || 'mesa',
-            estadoVisual: state,
-            estadoNoVerificado: estadoNoVerificado,
-            x: clampPercent(raw.x != null ? raw.x : raw.pos_x, 50),
-            y: clampPercent(raw.y != null ? raw.y : raw.pos_y, 50),
-            ancho: numberOrNull(raw.ancho != null ? raw.ancho : raw.width),
-            alto: numberOrNull(raw.alto != null ? raw.alto : raw.height),
-            reservable: reservable,
-            activo: raw.activo == null ? null : toBoolean(raw.activo),
+            estadoVisual: String(raw.estadoVisual || 'no-utilizable'),
+            estadoNoVerificado: toBoolean(raw.estadoNoVerificado),
+            x: raw.x,
+            y: raw.y,
+            ancho: raw.ancho,
+            alto: raw.alto,
+            reservable: toBoolean(raw.reservable),
             capacidad: Math.max(0, parseInt(raw.capacidad || '0', 10) || 0),
-            reservacionProxima: raw.reservacion_proxima || null,
-            motivoBloqueo: String(raw.motivo_bloqueo || raw.motivoBloqueo || ''),
-            seleccionada: selected,
-            interactivoSolicitado: interactivoSolicitado,
-            interactivo: !estadoNoVerificado && state !== 'no-utilizable' && interactivoSolicitado,
+            seleccionada: toBoolean(raw.seleccionada),
+            interactivo: toBoolean(raw.interactivo),
+            interactivoSolicitado: toBoolean(raw.interactivoSolicitado),
             independienteDeConsulta: toBoolean(raw.independienteDeConsulta),
-            titulo: String(raw.titulo || raw.title || raw.nombre || ('Mesa ' + id)),
-            ariaLabel: String(raw.ariaLabel || raw.aria_label || ''),
-            // Rótulo bajo el nombre de un área operativa. Vacío deja el
-            // genérico; Llevar lo usa para contar sus pedidos abiertos.
+            titulo: String(raw.titulo || raw.nombre || ('Mesa ' + id)),
+            ariaLabel: String(raw.ariaLabel || ''),
+            etiquetaEstado: String(raw.etiquetaEstado || ''),
             subtitulo: String(raw.subtitulo || ''),
             numero: raw.numero == null ? '' : String(raw.numero),
-            estadoBase: String(raw.estadoBase || raw.estado_base || ''),
-            modificadores: modifiers,
-            seleccionValida: seleccionValida,
-            seleccionValidaSolicitada: seleccionValidaSolicitada,
-            clasesEstado: stateClasses,
+            estadoBase: String(raw.estadoBase || ''),
+            modificadores: normalizeClasses(raw.modificadores),
+            seleccionValida: raw.seleccionValida === true,
+            seleccionValidaSolicitada: raw.seleccionValidaSolicitada === true,
+            clasesEstado: normalizeClasses(raw.clasesEstado),
             atributos: normalizeAttributes(raw.atributos)
-        };
+        });
     }
 
     function createMapVisual(options) {
@@ -289,7 +154,7 @@
             if (table.capacidad > 0) {
                 parts.push('capacidad ' + table.capacidad);
             }
-            parts.push(STATE_LABELS[table.estadoVisual] || table.estadoVisual);
+            parts.push(table.etiquetaEstado || table.estadoVisual);
             if (table.modificadores.indexOf('reservacion_advertencia') !== -1) {
                 parts.push('con reservación cercana');
             }
@@ -306,48 +171,11 @@
         }
 
         function visibleTableState(table) {
-            if (table.estadoNoVerificado) {
-                return 'Estado no verificado';
-            }
-            if (table.estadoVisual === 'no-utilizable') {
-                if (table.tipo === 'zona') {
-                    return 'Elemento representativo';
-                }
-                if (table.activo === false) {
-                    return 'Mesa fuera de servicio';
-                }
-                if (context === 'operacion-reservaciones') {
-                    return 'No asignable en Reservaciones';
-                }
-                if (table.independienteDeConsulta && table.interactivo) {
-                    return 'Elemento operativo';
-                }
-                return 'No disponible para esta operación';
-            }
-            if (table.modificadores.indexOf('ausencia_pendiente') !== -1) {
-                return 'Ausencia pendiente';
-            }
-            if (table.modificadores.indexOf('reservacion_advertencia') !== -1
-                || table.estadoVisual === 'reservacion-proxima') {
-                return 'Reserva próxima';
-            }
-            return (STATE_LABELS[table.estadoVisual] || table.estadoVisual)
-                .replace(/^./, function (letter) { return letter.toUpperCase(); });
+            return table.estadoNoVerificado ? 'Estado no verificado' : table.etiquetaEstado;
         }
 
         function visibleTableContext(table) {
-            if (table.estadoNoVerificado) {
-                return '';
-            }
-            if (table.estadoVisual === 'no-utilizable' && table.motivoBloqueo) {
-                return table.motivoBloqueo;
-            }
-            var reservation = table.reservacionProxima || null;
-            var hour = reservation && (reservation.hora || reservation.hora_reservacion)
-                ? String(reservation.hora || reservation.hora_reservacion).slice(0, 5)
-                : '';
-            var capacity = table.capacidad > 0 ? table.capacidad + ' lugares' : '';
-            return [hour, capacity].filter(Boolean).join(' · ');
+            return table.estadoNoVerificado ? '' : table.subtitulo;
         }
 
         function dispatch(name, detail) {
@@ -576,7 +404,7 @@
             var visualTables = [];
 
             (payload.mesas || []).concat(payload.elementos || []).forEach(function (table) {
-                var normalized = normalizeTable(table);
+                var normalized = snapshotTable(table);
                 if (normalized.id > 0) {
                     visualTables.push(normalized);
                 }
@@ -641,16 +469,18 @@
 
             if (changes.interactivo != null) {
                 table.interactivoSolicitado = toBoolean(changes.interactivo);
+                table.interactivo = table.interactivoSolicitado;
             }
             if (changes.seleccionValida != null) {
                 table.seleccionValidaSolicitada = toBoolean(changes.seleccionValida);
+                table.seleccionValida = table.seleccionValidaSolicitada;
             }
             if (changes.clasesEstado != null) {
                 table.clasesEstado = normalizeClasses(changes.clasesEstado);
             }
-            if (changes.modificadores != null) {
-                table.modificadores = normalizeClasses(changes.modificadores);
-            }
+            if (changes.modificadores != null) table.modificadores = normalizeClasses(changes.modificadores);
+            if (changes.estadoVisual != null) table.estadoVisual = String(changes.estadoVisual);
+            if (changes.estadoNoVerificado != null) table.estadoNoVerificado = toBoolean(changes.estadoNoVerificado);
             if (changes.titulo != null) {
                 table.titulo = String(changes.titulo);
                 pin.title = table.titulo;
@@ -665,40 +495,8 @@
                 }
             }
 
-            if (changes.estadoVisual != null || changes.estadoNoVerificado != null) {
-                var stateValue = changes.estadoVisual != null ? changes.estadoVisual : table.estadoVisual;
-                var statePrevious = changes.estadoVisualAnterior != null
-                    ? changes.estadoVisualAnterior
-                    : table.estadoVisual;
-                var visualContract = inspectVisualState(stateValue, statePrevious);
-                var explicitlyClearingError = changes.estadoNoVerificado != null
-                    && !toBoolean(changes.estadoNoVerificado)
-                    && changes.estadoVisual != null;
-                table.estadoNoVerificado = toBoolean(changes.estadoNoVerificado)
-                    || !visualContract.valido
-                    || (table.estadoNoVerificado && !explicitlyClearingError);
-                table.estadoVisual = table.estadoNoVerificado
-                    ? 'no-utilizable'
-                    : visualContract.estadoVisual;
-            }
-            table.interactivo = !table.estadoNoVerificado
-                && table.estadoVisual !== 'no-utilizable'
-                && table.interactivoSolicitado;
-            table.seleccionValida = !table.estadoNoVerificado
-                && table.estadoVisual !== 'no-utilizable'
-                && table.seleccionValidaSolicitada;
-            if (table.estadoNoVerificado) {
-                table.modificadores = table.modificadores.filter(function (modifier) {
-                    return modifier !== 'seleccion_actual' && modifier !== 'seleccionada';
-                });
-                table.clasesEstado = table.clasesEstado.filter(function (className) {
-                    return !/(^|[-_])(selected|seleccionada|highlight)([-_]|$)/i.test(className);
-                });
-            }
             if (changes.seleccionada != null) {
-                table.seleccionada = toBoolean(changes.seleccionada) && table.seleccionValida;
-            } else if (table.estadoNoVerificado) {
-                table.seleccionada = false;
+                table.seleccionada = toBoolean(changes.seleccionada);
             }
 
             if (changes.atributos) {
@@ -828,65 +626,11 @@
             actualizarEstado: updateState,
             setSeleccionadas: setSelected,
             setConsultaEstado: setConsultaEstado,
-            normalizarMesa: normalizeTable,
             destroy: destroy
         };
     }
 
-    function validResponseCollection(payload, name) {
-        if (!Array.isArray(payload[name])) return false;
-        if (name !== 'mesas' && name !== 'mesas_estado') return true;
-        return payload[name].every(function (item) {
-            if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-            var id = Number(item.id);
-            return Number.isInteger(id) && id > 0;
-        });
-    }
-
-    function validResponseObject(payload, name) {
-        return Object.prototype.hasOwnProperty.call(payload, name)
-            && payload[name] !== null
-            && typeof payload[name] === 'object';
-    }
-
-    function validateMapResponse(payload, expected) {
-        expected = expected || {};
-        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.ok !== true) {
-            return { valida: false, motivo: 'incompleta' };
-        }
-        if (expected.fecha != null && String(payload.fecha || '') !== String(expected.fecha)) {
-            return { valida: false, motivo: 'contexto' };
-        }
-        var expectedHour = String(expected.hora || '').trim().slice(0, 5);
-        if (expectedHour) {
-            var responseHour = String(payload.hora || payload.hora_sugerida || '').trim().slice(0, 5);
-            if (responseHour !== expectedHour) {
-                return { valida: false, motivo: 'contexto' };
-            }
-        }
-        var collections = Array.isArray(expected.colecciones)
-            ? expected.colecciones
-            : ['mesas', 'mesas_estado'];
-        for (var i = 0; i < collections.length; i += 1) {
-            if (!validResponseCollection(payload, collections[i])) {
-                return { valida: false, motivo: 'incompleta' };
-            }
-        }
-        var objects = Array.isArray(expected.objetos) ? expected.objetos : [];
-        for (var j = 0; j < objects.length; j += 1) {
-            if (!validResponseObject(payload, objects[j])) {
-                return { valida: false, motivo: 'incompleta' };
-            }
-        }
-        return { valida: true, motivo: '' };
-    }
-
     window.MapaVisual = {
-        crear: createMapVisual,
-        normalizarMesa: normalizeTable,
-        normalizarEstado: normalizeState,
-        validarEstadoVisual: inspectVisualState,
-        validarModificadoresVisuales: validModifierContract,
-        validarRespuestaMapa: validateMapResponse
+        crear: createMapVisual
     };
 })();

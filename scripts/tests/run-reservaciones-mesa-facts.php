@@ -154,4 +154,58 @@ $ticketFuturo = MesaEstadoService::normalizarMesas(
 assertMesaFacts($ticketFuturo['ticket_abierto'] === false, 'ticket actual no aplica a fecha futura');
 assertMesaFacts($ticketFuturo['ticket_bloquea_consulta'] === false, 'ticket futuro no bloquea');
 
+$capacidadesPorElemento = [
+    ['Mesa 8', 'mesa', 'Mesa 8', 1, 1, [true, true, true, false, false]],
+    ['Barra 8', 'barra', 'Barra 8', 0, 1, [false, true, true, false, false]],
+    ['Caja', 'especial', 'Caja', 0, 1, [false, true, false, true, false]],
+    ['Llevar', 'especial', 'Llevar', 0, 1, [false, true, false, false, true]],
+    ['Elemento 8', 'mesa', 'Elemento 8', 0, 1, [false, false, false, false, false]],
+    ['Mesa 9', 'mesa', 'Mesa 9', 1, 0, [false, false, false, false, false]],
+];
+foreach ($capacidadesPorElemento as [$id, $tipo, $nombre, $reservable, $activo, $esperadas]) {
+    $estado = MesaEstadoService::normalizarMesas(
+        [[
+            'id' => (int)preg_replace('/\D+/', '', $id) ?: 90,
+            'tipo' => $tipo,
+            'nombre' => $nombre,
+            'activo' => $activo,
+            'reservable' => $reservable,
+            'capacidad' => $tipo === 'mesa' ? 4 : 0,
+        ]],
+        [],
+        [],
+        '2026-08-06',
+        $ahora,
+        '12:00:00',
+        ['mesa_ids_bloqueadas' => []]
+    )[0];
+    $capacidad = $estado['capacidades_pos'];
+    [$participaReservaciones, $operable, $ticketable, $abrirCaja, $crearLlevar] = $esperadas;
+    assertMesaFacts($capacidad['reservable'] === $participaReservaciones, "capacidad Reservaciones {$nombre}");
+    assertMesaFacts($capacidad['operable'] === $operable, "operabilidad POS {$nombre}");
+    assertMesaFacts($capacidad['ticketable'] === $ticketable, "ticketable POS {$nombre}");
+    assertMesaFacts($capacidad['abrir_caja'] === $abrirCaja, "flujo de Caja {$nombre}");
+    assertMesaFacts($capacidad['crear_pedido_llevar'] === $crearLlevar, "flujo de Llevar {$nombre}");
+    assertMesaFacts(
+        $capacidad['independiente_consulta'] === ($abrirCaja || $crearLlevar || ($activo && !$operable)),
+        "dependencia del snapshot {$nombre}"
+    );
+}
+$estadoBarra = MesaEstadoService::normalizarMesas(
+    [[
+        'id' => 12,
+        'tipo' => 'barra',
+        'nombre' => 'Barra 12',
+        'activo' => 1,
+        'reservable' => 0,
+    ]],
+    [],
+    [],
+    '2026-08-06',
+    $ahora,
+    '12:00:00',
+    ['mesa_ids_bloqueadas' => []]
+)[0];
+assertMesaFacts($estadoBarra['estado_visual_pos'] === 'libre', 'Barra operativa recibe su estado POS desde backend');
+
 fwrite(STDOUT, "Reservaciones: hechos de mesa OK\n");

@@ -102,54 +102,58 @@ function sourceBetween(startMarker, endMarker) {
 }
 
 const specialMapContext = {
-  window: { MapaVisual: { validarModificadoresVisuales: Array.isArray } },
-  isLlevar(mesa) { return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Llevar'; },
-  esCaja(mesa) { return mesa && mesa.tipo === 'especial' && mesa.nombre === 'Caja'; },
+  window: { MapaContrato: { validarEstado: (value) => ({ valido: ['libre', 'ocupada', 'reservacion-proxima', 'no-utilizable'].includes(value) }), validarModificadores: Array.isArray } },
+  mesasEstado: new Map(),
   pedidosLlevar() { return []; },
   rotuloPedidosLlevar(total) { return total ? `${total} pedidos` : ''; },
   tituloLlevarMapa() { return 'Llevar. Disponible para un nuevo pedido.'; },
   insetPos(value) { return value; },
+  reservaParaModal() { return null; },
+  ticketActual() { return null; },
+  reservacionProximaMesa() { return null; },
   ticketSelectionMode: false,
   selectedMesaIds: []
 };
 function evaluatePosFunction(startMarker, endMarker, targetContext) {
   return vm.runInNewContext('(' + sourceBetween(startMarker, endMarker) + ')', targetContext);
 }
+specialMapContext.mesaEstadoPorId = (id) => specialMapContext.mesasEstado.get(Number(id)) || null;
+specialMapContext.capacidadesPosMesa = evaluatePosFunction('function capacidadesPosMesa(mesa)', '\n  function isLlevar', specialMapContext);
+specialMapContext.isLlevar = evaluatePosFunction('function isLlevar(mesa)', '\n  /*', specialMapContext);
 specialMapContext.mesaReservable = evaluatePosFunction('function mesaReservable(mesa)', '\n  function mesaTicketable', specialMapContext);
 specialMapContext.mesaTicketable = evaluatePosFunction('function mesaTicketable(mesa)', '\n  // La "Caja"', specialMapContext);
-specialMapContext.esCaja = evaluatePosFunction('function esCaja(mesa)', '\n  function esElementoPosOperativoNoReservable', specialMapContext);
-specialMapContext.esElementoPosOperativoNoReservable = evaluatePosFunction('function esElementoPosOperativoNoReservable', '\n  function estadoVisualPosMesa', specialMapContext);
+specialMapContext.esCaja = evaluatePosFunction('function esCaja(mesa)', '\n  function estadoVisualPosMesa', specialMapContext);
 specialMapContext.estadoVisualPosMesa = evaluatePosFunction('function estadoVisualPosMesa', '\n  function reservacionProximaMesa', specialMapContext);
-specialMapContext.mesaEstadoPorId = () => ({
+specialMapContext.mesasEstado.set(90, { id: 90, capacidades_pos: { abrir_caja: true, operable: true, independiente_consulta: true } });
+specialMapContext.mesasEstado.set(91, { id: 91, capacidades_pos: { crear_pedido_llevar: true, operable: true, independiente_consulta: true } });
+specialMapContext.mesasEstado.set(92, {
   id: 92,
-  estado_visual_pos: 'no-utilizable',
+  estado_visual_pos: 'libre',
+  aria_label_pos: 'Barra operativa. Disponible para abrir un ticket.',
   modificadores_visual_pos: [],
-  activo: true,
-  utilizable: false,
-  reservable: false,
-  ticket_bloquea_consulta: false
+  ticket_bloquea_consulta: false,
+  capacidades_pos: { ticketable: true, operable: true, reservable: false, mostrar_estado_ticket: true, etiqueta_operacion: 'Barra' }
 });
-specialMapContext.ticketActual = () => null;
-specialMapContext.reservaParaModal = () => null;
 specialMapContext.insetPos = (value) => value;
 const cajaContract = vm.runInNewContext('(' + sourceBetween('function contratoMesaMapa(mesa, estado)', '\n  // El contrato de Llevar') + ')', specialMapContext);
-const cajaVisual = cajaContract({ id: 90, tipo: 'especial', nombre: 'Caja' }, 'zona');
+const cajaVisual = cajaContract({ id: 90, tipo: 'mesa', nombre: 'Elemento con flujo de caja' }, 'zona');
 assertContract(cajaVisual.estado_visual_pos === 'libre', 'Caja conserva su estado visual operativo propio sin datos de ocupación');
 
 const llevarContract = vm.runInNewContext('(' + sourceBetween('function contratoLlevarMapa(mesa)', '\n  function contratoVisualMesaValido') + ')', specialMapContext);
-const llevarVisual = llevarContract({ id: 91, tipo: 'especial', nombre: 'Llevar' });
+const llevarVisual = llevarContract({ id: 91, tipo: 'mesa', nombre: 'Elemento con flujo de llevar' });
 assertContract(llevarVisual.estado_visual_pos === 'libre' && llevarVisual.independienteDeConsulta, 'Llevar conserva su contrato operativo independiente de la consulta de mesas');
 
 const specialOptions = vm.runInNewContext('(' + sourceBetween('function opcionesVisualesMesa(mesa, estado)', '\n  function mesaPuedeSeleccionarse') + ')', specialMapContext);
-const cajaOptions = specialOptions({ id: 90, tipo: 'especial', nombre: 'Caja', pos_x: 20, pos_y: 30 }, 'zona');
+const cajaOptions = specialOptions({ id: 90, tipo: 'mesa', nombre: 'Elemento con flujo de caja', pos_x: 20, pos_y: 30 }, 'zona');
 assertContract(cajaOptions.interactivo && cajaOptions.independienteDeConsulta && !cajaOptions.seleccionValida, 'Caja conserva su acción propia y no entra en selección multimesa');
-const llevarOptions = specialOptions({ id: 91, tipo: 'especial', nombre: 'Llevar', pos_x: 40, pos_y: 30 }, 'zona');
+const llevarOptions = specialOptions({ id: 91, tipo: 'mesa', nombre: 'Elemento con flujo de llevar', pos_x: 40, pos_y: 30 }, 'zona');
 assertContract(llevarOptions.interactivo && llevarOptions.independienteDeConsulta, 'Llevar conserva la apertura de su tablero');
 
-const barra = { id: 92, tipo: 'barra', nombre: 'Barra', reservable: false, pos_x: 50, pos_y: 50 };
+const barra = { id: 92, tipo: 'mesa', nombre: 'Mesa 92', reservable: false, pos_x: 50, pos_y: 50 };
 const barraContract = cajaContract(barra, 'zona');
 const barraOptions = specialOptions(barra, 'zona');
 const mapRuntime = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(root, 'src/js/operation/map-contract.js'), 'utf8'), mapRuntime);
 vm.runInNewContext(fs.readFileSync(path.join(root, 'src/js/operation/map-visual.js'), 'utf8'), mapRuntime);
 vm.runInNewContext(fs.readFileSync(path.join(root, 'src/js/operation/table-state-adapter.js'), 'utf8'), mapRuntime);
 const barraProjection = mapRuntime.window.MesaEstadoAdapter.paraMapaVisual(barraContract, barraOptions);

@@ -146,6 +146,7 @@ final class MesaEstadoService
             $reservable = self::booleano(self::valor($mesa, 'reservable', true));
             $tipoMesa = (string)self::valor($mesa, 'tipo', 'mesa');
             $utilizable = $activada && $reservable && $tipoMesa === 'mesa';
+            $capacidadesPos = self::capacidadesPos($mesa, $activada, $reservable, $utilizable);
             $estadoBase = self::DISPONIBLE;
             $modificadores = [];
             $reservacionProxima = null;
@@ -337,7 +338,8 @@ final class MesaEstadoService
                 $causasBloqueo,
                 $ocupacionActual,
                 $asignadaActualmente,
-                $causaConflictoAsignacion
+                $causaConflictoAsignacion,
+                $capacidadesPos
             );
             $titulo = self::tituloAccesible(
                 (string)self::valor($mesa, 'nombre', 'Mesa ' . $mesaId),
@@ -423,8 +425,42 @@ final class MesaEstadoService
                 'causa_conflicto_asignacion' => $causaConflictoAsignacion,
                 'motivo_bloqueo' => $motivoBloqueo,
                 'titulo' => $titulo,
+                'capacidades_pos' => $capacidadesPos,
             ] + $hechosMesa;
         }, $mesas);
+    }
+
+    /** @return array<string, bool|string> */
+    private static function capacidadesPos($mesa, bool $activada, bool $reservable, bool $utilizable): array
+    {
+        $tipo = (string)self::valor($mesa, 'tipo', 'mesa');
+        $nombre = (string)self::valor($mesa, 'nombre', '');
+        $caja = $activada && $tipo === 'especial' && $nombre === 'Caja';
+        $llevar = $activada && $tipo === 'especial' && $nombre === 'Llevar';
+        $barra = $activada && $tipo === 'barra';
+        $ticketable = $activada && (
+            $utilizable
+            || $tipo === 'barra'
+            || ($tipo === 'especial' && $nombre !== 'Caja' && $nombre !== 'Llevar')
+        );
+        $mostrarTicketEnMapa = $activada
+            && !$reservable
+            && !$utilizable
+            && ($tipo === 'barra' || ($tipo === 'especial' && !$caja && !$llevar));
+        $operable = $ticketable || $caja || $llevar;
+        $decorativo = $activada && !$operable;
+
+        return [
+            'reservable' => $utilizable,
+            'operable' => $operable,
+            'ticketable' => $ticketable,
+            'independiente_consulta' => $caja || $llevar || $decorativo,
+            'abrir_caja' => $caja,
+            'crear_pedido_llevar' => $llevar,
+            'mostrar_estado_ticket' => $mostrarTicketEnMapa,
+            'decorativo' => $decorativo,
+            'etiqueta_operacion' => $barra ? 'Barra' : ($ticketable && !$utilizable ? 'Elemento' : ''),
+        ];
     }
 
     private static function proyeccionVisualMapa(
@@ -503,11 +539,14 @@ final class MesaEstadoService
         array $causasBloqueo,
         bool $ocupadaFisicamente,
         bool $asignadaActualmente,
-        ?string $causaConflictoAsignacion
+        ?string $causaConflictoAsignacion,
+        array $capacidadesPos
     ): array {
         $presentacionPos = PosMesaProjectionPresenter::presentar([
             'mesa_id' => $mesaId,
             'utilizable' => $utilizable,
+            'mostrar_estado_ticket_pos' => $capacidadesPos['mostrar_estado_ticket'] ?? false,
+            'etiqueta_operacion_pos' => $capacidadesPos['etiqueta_operacion'] ?? '',
             'ticket_abierto' => $ticketAbierto !== null,
             'ocupada_fisicamente' => $ocupadaFisicamente,
             'ticket_bloquea_consulta' => $ticketBloqueaEnConsulta,
@@ -524,6 +563,7 @@ final class MesaEstadoService
 
         return [
             'mesa_id' => $mesaId,
+            'capacidades_pos' => $capacidadesPos,
             'asignada_actualmente' => $asignadaActualmente,
             'causa_conflicto_asignacion' => $causaConflictoAsignacion,
             'utilizable' => $utilizable,

@@ -17,6 +17,9 @@ $mapHelpSubtitle = $mapHelpContext === 'reservations'
 $mapHelpOccupiedCopy = $mapHelpContext === 'reservations'
     ? 'El intervalo está bloqueado por un ticket, una reservación u otra restricción.'
     : 'Mesa ocupada por un ticket o una restricción operativa.';
+$mapHelpUnavailableCopy = $mapHelpContext === 'reservations'
+    ? 'Mesa no disponible para esta operación.'
+    : 'Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.';
 $mapHelpWarningCopy = 'Hay una reservación cercana. El borde azul discontinuo es una alerta; el color de fondo sigue indicando la disponibilidad.';
 $mapHelpWarningStateClass = $mapHelpContext === 'reservations'
     ? 'mesa-pin--ocupada mesa-pin--mod-reservacion_advertencia'
@@ -165,7 +168,7 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
                             </li>
                             <li class="map-help-dialog__state">
                                 <span class="map-help-dialog__sample" aria-hidden="true"><span class="mesa-pin mesa-pin--no-utilizable"><span class="mesa-pin__label">Mesa</span></span></span>
-                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span>Mesa o elemento no disponible para esta operación.</span></span>
+                                <span class="map-help-dialog__copy"><strong>No utilizable</strong><span><?php echo $mapEscape($mapHelpUnavailableCopy); ?></span></span>
                             </li>
                         </ul>
                     </section>
@@ -216,4 +219,4 @@ $mapShowHeader = $mapShowHeading || $mapHasHeaderActions || $mapLegendPosition =
     <?php endif; ?>
 </section>
 
-<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapHelpWarningCopy, $mapHelpWarningStateClass, $mapHelpAbsenceCopy, $mapHelpAbsenceStateClass, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>
+<?php unset($mapVisual, $mapEscape, $mapContext, $mapHelpContext, $mapHelpSubtitle, $mapHelpAvailableCopy, $mapHelpOccupiedCopy, $mapHelpUnavailableCopy, $mapHelpWarningCopy, $mapHelpWarningStateClass, $mapHelpAbsenceCopy, $mapHelpAbsenceStateClass, $mapSectionClass, $mapTitle, $mapAriaLabel, $mapTitleId, $mapSubtitle, $mapToolbarActionsHtml, $mapHelpPosition, $mapHelpIdSuffix, $mapHelpDialogId, $mapHelpTitleId, $mapHelpButtonHtml, $mapHasHeaderActions, $mapCanvasId, $mapCanvasMode, $mapLoadingMode, $mapLegendPosition, $mapStructuredList, $mapShowHeading, $mapHeadClass, $mapShowHeader, $mapLegendBlueLabel); ?>

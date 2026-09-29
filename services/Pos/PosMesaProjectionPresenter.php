@@ -14,6 +14,19 @@ final class PosMesaProjectionPresenter
     public static function presentar(array $hechos): array
     {
         if (!self::booleano($hechos['utilizable'] ?? false)) {
+            if (self::booleano($hechos['mostrar_estado_ticket_pos'] ?? false)) {
+                $ticketBloquea = self::booleano($hechos['ticket_bloquea_consulta'] ?? false);
+                $etiqueta = trim((string)($hechos['etiqueta_operacion_pos'] ?? 'Elemento'));
+                $ocupada = $ticketBloquea;
+                return self::resultado(
+                    $ocupada ? 'ocupada' : 'libre',
+                    $ocupada ? ['ticket_abierto'] : [],
+                    $ocupada ? 'ticket' : 'disponible',
+                    $ocupada
+                        ? $etiqueta . ' ocupada por un ticket abierto.'
+                        : $etiqueta . ' operativa. Disponible para abrir un ticket.'
+                );
+            }
             return self::resultado('no-utilizable', [], 'no-utilizable', 'Mesa no utilizable.');
         }
 
@@ -147,12 +160,4 @@ final class PosMesaProjectionPresenter
         return filter_var($valor, FILTER_VALIDATE_BOOL);
     }
 
-    private static function enteroNulo($valor): ?int
-    {
-        if ($valor === null || $valor === '') {
-            return null;
-        }
-
-        return (int)$valor;
-    }
 }

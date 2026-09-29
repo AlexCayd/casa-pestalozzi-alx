@@ -15,7 +15,8 @@ const files = [
   'src/js/modules/reservation-access.js',
   'src/js/modules/schedule-change-access.js',
   'src/js/admin/buzon.js',
-  'src/js/operation/map-help.js'
+  'src/js/operation/map-help.js',
+  'src/js/operation/map-contract.js'
 ];
 
 function assertContract(condition, message) {
@@ -39,6 +40,8 @@ const form = fs.readFileSync(path.join(root, files[2]), 'utf8');
 const operation = fs.readFileSync(path.join(root, files[3]), 'utf8');
 const mapVisual = fs.readFileSync(path.join(root, files[4]), 'utf8');
 const tableAdapter = fs.readFileSync(path.join(root, files[5]), 'utf8');
+const mapContract = fs.readFileSync(path.join(root, files[12]), 'utf8');
+const gulpfile = fs.readFileSync(path.join(root, 'gulpfile.js'), 'utf8');
 const operationPolicy = fs.readFileSync(path.join(root, files[6]), 'utf8');
 const mapShell = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
@@ -77,7 +80,26 @@ assertContract(operation.includes('responseHour'), 'operacion valida la hora de 
 assertContract(!operation.includes('normalized.modificadores_mapa'), 'operacion no usa alias de modificadores del mapa');
 assertContract(!operation.includes("estadoVisualMapa = 'reservacion-proxima'"), 'operacion no reconstruye proximidad visual');
 assertContract(operation.includes('renderOperationAvailability'), 'operacion centraliza disponibilidad del boton crear');
-assertContract(operation.includes('validarRespuestaMapa(responseForValidation'), 'operacion valida la fecha, hora y estructura del snapshot recibido');
+assertContract(operation.includes('validarRespuestaMapaOperacion('), 'operacion valida fecha, hora y estructura del snapshot recibido');
+assertContract(!operation.includes('MapaVisual.validarRespuestaMapa'), 'el renderer no valida respuestas HTTP');
+assertContract(!mapVisual.includes('validarRespuestaMapa'), 'el renderer no conserva validacion de respuestas HTTP');
+assertContract(!mapVisual.includes('validarEstadoVisual'), 'el renderer no valida el contrato visual');
+for (const endpointField of ['fecha', 'hora', 'mesas_estado', 'reservaciones', 'tickets', 'alertas_impresion', 'ocupacion_fisica', 'capacidad_horario']) {
+  assertContract(!mapVisual.includes(endpointField), `el renderer no consume el campo de endpoint ${endpointField}`);
+}
+assertContract(!mapContract.includes('document'), 'map-contract.js no depende del DOM');
+for (const bundleName of ['adminMapJs: [', 'adminReservationOperationJs: [']) {
+  const bundleStart = gulpfile.indexOf(bundleName);
+  const bundleEnd = gulpfile.indexOf('],', bundleStart);
+  const bundleSources = gulpfile.slice(bundleStart, bundleEnd);
+  assertContract(bundleStart >= 0 && bundleEnd > bundleStart, `gulpfile declara ${bundleName}`);
+  assertContract(
+    bundleSources.indexOf('map-contract.js') < bundleSources.indexOf('table-state-adapter.js')
+      && bundleSources.indexOf('table-state-adapter.js') < bundleSources.indexOf('map-visual.js'),
+    `${bundleName} carga el contrato antes del adaptador y renderer`
+  );
+}
+assertContract(tableAdapter.includes('window.MapaContrato.validarEstado'), 'el adapter consulta el contrato visual compartido');
 assertContract(operation.includes('estadoNoVerificado: mapProjection.estadoNoVerificado'), 'el mapa propaga el error individual de proyeccion');
 assertContract(operation.includes('return mapaTieneContratoVisualValido(mesaId)'), 'la seleccion revalidada excluye mesas con contrato visual incompleto');
 assertContract(operation.includes('requestSequence !== state.requestSequence'), 'operacion protege respuestas fuera de orden');
@@ -99,8 +121,9 @@ assertContract(mapVisual.includes('ariaLabel'), 'mapa visual expone etiqueta acc
 assertContract(mapVisual.includes('aria-disabled'), 'mapa visual expone estado disabled accesible');
 assertContract(mapVisual.includes("data-disabled', isInteractive ? '0' : '1'"), 'mapa visual conserva data-disabled al actualizar');
 assertContract(mapVisual.includes('previousClasses.forEach'), 'mapa visual remueve clases stale antes de actualizar');
-assertContract(tableAdapter.includes('modificadores: modifiers'), 'adaptador conserva modificadores del backend');
-assertContract(tableAdapter.includes('disponible_para_asignacion'), 'adaptador consume asignabilidad sin usar el gris como bloqueo');
+assertContract(tableAdapter.includes('modificadores: visualModifiers'), 'adaptador conserva modificadores del backend');
+assertContract(!tableAdapter.includes('disponible_para_asignacion'), 'adaptador no decide ni reconstruye la asignabilidad');
+assertContract(operation.includes('disponible_para_asignacion'), 'el consumidor de Reservaciones determina la selección con el hecho de asignabilidad');
 assertContract(tableAdapter.includes('function selectionValidity'), 'adaptador consume la validez de seleccion del contrato');
 assertContract(!tableAdapter.includes('if (hasPendingAbsence) return'), 'adaptador no sustituye estado por ausencia');
 assertContract(mapShell.includes('mesa-pin--mod-ausencia_pendiente::after'), 'CSS compone ausencia con pseudo-elemento gris');
@@ -202,6 +225,7 @@ assertContract(
 );
 
 const adapterContext = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(root, files[12]), 'utf8'), adapterContext, { filename: files[12] });
 vm.runInNewContext(mapVisual, adapterContext, { filename: files[4] });
 vm.runInNewContext(tableAdapter, adapterContext, { filename: files[5] });
 const adapter = adapterContext.window.MesaEstadoAdapter;
@@ -250,13 +274,13 @@ assertContract(
   'azul conserva estado base con ausencia'
 );
 assertContract(
-  adapter.paraMapaVisual({ id: 6, reservable: 1, estado_base: 'disponible', modificadores: ['reservacion_advertencia', 'ausencia_pendiente'] }, { estadoBase: 'disponible' }).modificadores.join(' ') === 'reservacion_advertencia ausencia_pendiente',
+  adapter.paraMapaVisual({ id: 6, reservable: 1, estado_base: 'disponible', estado_visual_pos: 'libre', modificadores: ['reservacion_advertencia', 'ausencia_pendiente'] }, { estadoBase: 'disponible' }).modificadores.join(' ') === 'reservacion_advertencia ausencia_pendiente',
   'verde conserva warning y ausencia como modificadores'
 );
 assertContract(
   adapter.paraMapaVisual(
     { id: 7, reservable: 1, disponible_para_asignacion: true, estado_base: 'disponible', modificadores: ['ausencia_pendiente'] },
-    { estadoBase: 'disponible', estadoVisual: 'libre' }
+    { estadoBase: 'disponible', estadoVisual: 'libre', interactivo: true }
   ).interactivo === true,
   'ausencia pendiente no deshabilita una mesa asignable'
 );

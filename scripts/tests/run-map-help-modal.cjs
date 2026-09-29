@@ -30,7 +30,7 @@ check(helpGroups.map((group) => (group[1].match(/<li class="map-help-dialog__sta
 check((view.match(/class="mesa-pin__label">Mesa</g) || []).length === 7 && !/mesa-pin__label">Mesa \d+/.test(view), 'las siete muestras usan la etiqueta uniforme Mesa');
 check(view.includes('Seleccionada</strong><span>El contorno amarillo indica selección. El color de fondo conserva el estado real de la mesa.'), 'la selección se explica con el fondo ocupado y un contorno secundario');
 check(view.includes('mesa-pin--mod-reservacion_advertencia'), 'la muestra de advertencia reutiliza clases reales');
-check(view.includes("? 'mesa-pin--ocupada mesa-pin--mod-reservacion_advertencia'\n    : 'mesa-pin--libre mesa-pin--mod-reservacion_advertencia'"), 'POS muestra fondo disponible y Reservaciones conserva ocupación bajo la alerta');
+check(/\?\s*'mesa-pin--ocupada mesa-pin--mod-reservacion_advertencia'\s*:\s*'mesa-pin--libre mesa-pin--mod-reservacion_advertencia'/.test(view), 'POS muestra fondo disponible y Reservaciones conserva ocupación bajo la alerta');
 check(view.includes('mesa-pin--mod-accion_pendiente'), 'la muestra de ausencia incluye su indicador');
 check(view.includes("? 'mesa-pin--ocupada mesa-pin--mod-ausencia_pendiente'"), 'Reservaciones muestra ausencia sobre el estado ocupado');
 check(view.includes("? 'El intervalo está bloqueado por un ticket, una reservación u otra restricción.'"), 'Reservaciones explica el bloqueo del intervalo');
@@ -40,6 +40,8 @@ check(view.includes('class="map-help-dialog__note" role="note"') && view.include
 check(view.includes('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle>'), 'la nota incluye un icono decorativo de información');
 check(view.includes('Reserva cercana') && view.includes('Ausencia pendiente') && view.includes('No utilizable'), 'el modal usa las etiquetas breves acordadas');
 check(view.includes('Mesa disponible en el contexto mostrado.') && view.includes('Mesa ocupada por un ticket o una restricción operativa.'), 'POS conserva una explicación contextual del estado ocupado');
+check(view.includes('Puede representar un área operativa o un elemento no disponible. Revisa su etiqueta.'), 'POS explica los elementos no utilizable por su etiqueta');
+check(view.includes('Mesa no disponible para esta operación.'), 'Reservaciones explica el estado no utilizable en su contexto');
 check(view.includes('Consulta el estado actual de las mesas.') && view.includes('Consulta la disponibilidad para la fecha y hora seleccionadas.'), 'el modal define un subtítulo para cada contexto');
 check(view.includes('El fondo representa la disponibilidad del intervalo seleccionado; los bordes y los iconos muestran alertas adicionales.') && view.includes('Una reservación iniciada puede aparecer roja antes de que llegue el cliente.') && view.includes('La ausencia pendiente puede coexistir con distintos colores de fondo.'), 'Reservaciones explica el fondo y las alertas del intervalo consultado');
 check(view.includes('Entre 60 y 30 minutos antes aparece una advertencia.') && view.includes('A partir de 30 minutos antes, se bloquea el walk-in.') && view.includes('Hasta 15 minutos después del inicio hay tolerancia; después puede quedar una ausencia pendiente.') && view.includes('En POS, el rojo suele indicar un ticket abierto; también puede reflejar una restricción operativa.'), 'POS describe sus ventanas temporales y el contexto del rojo');

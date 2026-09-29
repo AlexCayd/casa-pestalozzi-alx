@@ -5,6 +5,69 @@
 (function () {
     var API_BASE = '/admin/api/reservaciones/operacion';
 
+    function validarRespuestaMapaOperacion(payload, fecha, hora) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || payload.ok !== true) {
+            return { valida: false, motivo: 'incompleta' };
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.fecha || ''))
+            || String(payload.fecha) !== String(fecha || '')) {
+            return { valida: false, motivo: 'contexto' };
+        }
+        var expectedHour = String(hora || '').trim().slice(0, 5);
+        var responseHour = String(payload.hora || payload.hora_sugerida || '').trim();
+        var responseSchedules = Array.isArray(payload.horarios_mapa)
+            ? payload.horarios_mapa
+            : payload.horarios;
+        var responseHourRequired = Boolean(expectedHour)
+            || (Array.isArray(responseSchedules) && responseSchedules.length > 0);
+        var hourFormatValid = responseHour === ''
+            || /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(responseHour);
+        if (!hourFormatValid || (responseHourRequired && responseHour === '')) {
+            return { valida: false, motivo: 'contexto' };
+        }
+        if (expectedHour) {
+            if (responseHour.slice(0, 5) !== expectedHour) {
+                return { valida: false, motivo: 'contexto' };
+            }
+        }
+
+        var collections = [
+            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa',
+            'ocupacion_fisica', 'alertas_operativas'
+        ];
+        for (var i = 0; i < collections.length; i += 1) {
+            var collection = payload[collections[i]];
+            if (!Array.isArray(collection)) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+            if (collections[i] === 'mesas' || collections[i] === 'mesas_estado') {
+                var validItems = collection.every(function (item) {
+                    return item && typeof item === 'object' && !Array.isArray(item)
+                        && Number.isInteger(Number(item.id)) && Number(item.id) > 0;
+                });
+                if (!validItems) {
+                    return { valida: false, motivo: 'incompleta' };
+                }
+            }
+        }
+
+        var objects = ['ocupacion_por_reservacion', 'capacidad_horario'];
+        for (var j = 0; j < objects.length; j += 1) {
+            var name = objects[j];
+            var value = payload[name];
+            var emptyAssociativeMap = name === 'ocupacion_por_reservacion'
+                && Array.isArray(value)
+                && value.length === 0;
+            if (!Object.prototype.hasOwnProperty.call(payload, name)
+                || value === null
+                || typeof value !== 'object'
+                || (Array.isArray(value) && !emptyAssociativeMap)) {
+                return { valida: false, motivo: 'incompleta' };
+            }
+        }
+        return { valida: true, motivo: '' };
+    }
+
     function initReservationOperation() {
         var root = document.querySelector('[data-page="reservation-operation"]');
 
@@ -1703,11 +1766,11 @@
 
         function mapProjectionFor(mesaEstado) {
             mesaEstado = mesaEstado || {};
-            var validation = window.MapaVisual && window.MapaVisual.validarEstadoVisual
-                ? window.MapaVisual.validarEstadoVisual(mesaEstado.estado_visual_mapa)
+            var validation = window.MapaContrato && window.MapaContrato.validarEstado
+                ? window.MapaContrato.validarEstado(mesaEstado.estado_visual_mapa)
                 : { valido: false, estadoVisual: 'no-utilizable' };
-            var modificadoresValidos = window.MapaVisual && window.MapaVisual.validarModificadoresVisuales
-                && window.MapaVisual.validarModificadoresVisuales(mesaEstado.modificadores_visual_mapa);
+            var modificadoresValidos = window.MapaContrato
+                && window.MapaContrato.validarModificadores(mesaEstado.modificadores_visual_mapa);
             var estado = validation.estadoVisual;
             var modificadores = Array.isArray(mesaEstado.modificadores_visual_mapa)
                 ? mesaEstado.modificadores_visual_mapa.slice()
@@ -1715,10 +1778,11 @@
             var ariaLabel = String(mesaEstado.aria_label_mapa || '').trim();
             if (!validation.valido || !modificadoresValidos || !ariaLabel) {
                 var tableName = String(mesaEstado.nombre || mesaEstado.etiqueta || ('Mesa ' + (mesaEstado.id || ''))).trim();
+                var fallback = window.MapaContrato.fallbackSeguro();
                 return {
-                    estado: 'no-utilizable',
-                    modificadores: [],
-                    estadoNoVerificado: true,
+                    estado: fallback.estadoVisual,
+                    modificadores: fallback.modificadores,
+                    estadoNoVerificado: fallback.estadoNoVerificado,
                     ariaLabel: tableName + ': Estado no verificado. La información visual está incompleta; no se puede asignar hasta recibir información válida.'
                 };
             }
@@ -1728,6 +1792,42 @@
                 estadoNoVerificado: false,
                 ariaLabel: ariaLabel
             };
+        }
+
+        function mapStateLabel(mesaEstado, projection) {
+            if (projection.estadoNoVerificado) {
+                return 'Estado no verificado';
+            }
+            if (projection.estado === 'no-utilizable') {
+                return mesaEstado.activo === false
+                    ? 'Mesa fuera de servicio'
+                    : 'No asignable en Reservaciones';
+            }
+            if (projection.modificadores.indexOf('ausencia_pendiente') !== -1) {
+                return 'Ausencia pendiente';
+            }
+            if (projection.modificadores.indexOf('reservacion_advertencia') !== -1
+                || projection.estado === 'reservacion-proxima') {
+                return 'Reserva próxima';
+            }
+            return {
+                libre: 'Disponible',
+                ocupada: 'Ocupada'
+            }[projection.estado] || projection.estado;
+        }
+
+        function mapSubtitle(mesaEstado, projection) {
+            if (projection.estado === 'no-utilizable' && mesaEstado.motivo_bloqueo) {
+                return String(mesaEstado.motivo_bloqueo);
+            }
+            var reservation = mesaEstado.reservacion_proxima || null;
+            var hour = reservation && reservation.hora
+                ? String(reservation.hora).slice(0, 5)
+                : '';
+            var capacity = Number(mesaEstado.capacidad) > 0
+                ? Number(mesaEstado.capacidad) + ' lugares'
+                : '';
+            return [hour, capacity].filter(Boolean).join(' · ');
         }
 
         function renderTableMap() {
@@ -1845,6 +1945,8 @@
                     titulo: title,
                     ariaLabel: mapAriaLabel,
                     estadoVisual: mapProjection.estado,
+                    etiquetaEstado: mapStateLabel(normalized, mapProjection),
+                    subtitulo: mapSubtitle(normalized, mapProjection),
                     modificadores: modifiers,
                     clasesEstado: (candidate ? ['reservation-operation-pin--selected'] : [])
                         .concat(assigned ? ['reservation-operation-pin--assigned'] : []),
@@ -2191,15 +2293,11 @@
                     var responseForValidation = Object.assign({}, data, {
                         horarios_mapa: data.horarios_mapa || data.horarios
                     });
-                    var responseValidation = window.MapaVisual.validarRespuestaMapa(responseForValidation, {
-                        fecha: fecha,
-                        hora: queryRequestedHour,
-                        colecciones: [
-                            'mesas', 'mesas_estado', 'reservaciones', 'horarios_mapa',
-                            'ocupacion_fisica', 'alertas_operativas'
-                        ],
-                        objetos: ['ocupacion_por_reservacion', 'capacidad_horario']
-                    });
+                    var responseValidation = validarRespuestaMapaOperacion(
+                        responseForValidation,
+                        fecha,
+                        queryRequestedHour
+                    );
                     if (!responseValidation.valida) {
                         throw { kind: responseValidation.motivo === 'contexto' ? 'consistency' : 'invalid_response' };
                     }

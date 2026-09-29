@@ -111,16 +111,17 @@ class FakeCustomEvent {
 const context = { window: {}, document: fakeDocument, CustomEvent: FakeCustomEvent };
 
 for (const file of [
+  'src/js/operation/map-contract.js',
+  'src/js/operation/table-state-adapter.js',
   'src/js/operation/map-visual.js',
-  'src/js/operation/table-state-adapter.js'
 ]) {
   const source = fs.readFileSync(path.join(root, file), 'utf8');
   vm.runInNewContext(source, context, { filename: file });
 }
 
-const normalize = context.window.MapaVisual.normalizarMesa;
 const adapt = context.window.MesaEstadoAdapter.paraMapaVisual;
-const validateResponse = context.window.MapaVisual.validarRespuestaMapa;
+const normalize = adapt;
+const mapContract = context.window.MapaContrato;
 const mapStyles = fs.readFileSync(path.join(root, 'src/scss/operation/_map-shell.scss'), 'utf8');
 
 function styleRule(pattern, label) {
@@ -256,7 +257,7 @@ const occupiedSelection = adapt({
   estado_visual_pos: 'ocupada',
   seleccion_actual: true,
   disponible_para_asignacion: false
-});
+}, { seleccionValida: true });
 assert.equal(occupiedSelection.estadoVisual, 'ocupada', 'la selección conserva el hecho base ocupado');
 assert.equal(occupiedSelection.seleccionada, true, 'la selección se representa como capa secundaria');
 
@@ -276,12 +277,12 @@ const ticketWarningSelection = adapt({
   estado_visual_pos: 'ocupada',
   seleccion_actual: true,
   modificadores: ['ticket_abierto', 'reservacion_advertencia']
-});
+}, { seleccionValida: true });
 assert.equal(ticketWarningSelection.estadoVisual, 'ocupada', 'ticket y advertencia conservan ocupación');
 assert.equal(ticketWarningSelection.seleccionada, true, 'ticket puede conservar selección como anillo secundario');
 assert.ok(ticketWarningSelection.modificadores.includes('reservacion_advertencia'));
 
-const upcomingSelection = adapt({ id: 7, reservable: true, estado_visual_pos: 'reservacion-proxima', seleccion_actual: true });
+const upcomingSelection = adapt({ id: 7, reservable: true, estado_visual_pos: 'reservacion-proxima', seleccion_actual: true }, { seleccionValida: true });
 assert.equal(upcomingSelection.estadoVisual, 'reservacion-proxima');
 assert.equal(upcomingSelection.seleccionada, true, 'seleccionar una mesa próxima no la vuelve disponible');
 const upcomingWarningSelectionRule = styleRule(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^{}]+)\}/, 'próxima con advertencia y selección');
@@ -296,7 +297,7 @@ const warningSelection = adapt({
   estado_visual_pos: 'libre',
   seleccion_actual: true,
   modificadores: ['reservacion_advertencia']
-});
+}, { seleccionValida: true });
 assert.equal(warningSelection.estadoVisual, 'libre');
 assert.equal(warningSelection.seleccionada, true);
 const warningSelectionRule = mapStyles.match(/:is\(\.mesas-map, \.map-help-dialog__sample\) \.mesa-pin--libre\.mesa-pin--seleccionada\.mesa-pin--mod-reservacion_advertencia\s*\{([^}]+)\}/);
@@ -356,7 +357,7 @@ const absenceSelection = adapt({
   estado_visual_pos: 'reservacion-proxima',
   seleccion_actual: true,
   modificadores: ['ausencia_pendiente', 'accion_pendiente']
-});
+}, { seleccionValida: true });
 assert.equal(absenceSelection.estadoVisual, 'reservacion-proxima');
 assert.equal(absenceSelection.seleccionada, true, 'selección conserva la señal de ausencia pendiente');
 assert.ok(absenceSelection.modificadores.includes('ausencia_pendiente'));
@@ -372,8 +373,8 @@ assert.equal(assignmentConflict.estadoVisual, 'ocupada', 'la asignación actual 
 assert.ok(assignmentConflict.modificadores.includes('asignada_actualmente'));
 
 const multipleSelection = [
-  adapt({ id: 11, reservable: true, estado_visual_pos: 'libre', seleccion_actual: true }),
-  adapt({ id: 12, reservable: true, estado_visual_pos: 'ocupada', seleccion_actual: true })
+  adapt({ id: 11, reservable: true, estado_visual_pos: 'libre', seleccion_actual: true }, { seleccionValida: true }),
+  adapt({ id: 12, reservable: true, estado_visual_pos: 'ocupada', seleccion_actual: true }, { seleccionValida: true })
 ];
 assert.deepEqual(multipleSelection.map((mesa) => mesa.id), [11, 12]);
 assert.deepEqual(multipleSelection.map((mesa) => mesa.seleccionada), [true, true]);
@@ -403,31 +404,24 @@ const validLegacySelection = normalize({
   estadoVisual: 'seleccionada',
   estadoVisualAnterior: 'libre',
   interactivo: true
-});
+}, { seleccionValida: true });
 assert.equal(validLegacySelection.estadoVisual, 'libre', 'la selección heredada válida conserva el estado base');
 assert.equal(validLegacySelection.estadoNoVerificado, false, 'la selección heredada con estado previo no es error');
 assert.equal(validLegacySelection.seleccionada, true);
 
-const responseBase = {
-  ok: true,
-  fecha: '2030-01-05',
-  hora: '18:00',
-  mesas: [{ id: 1 }],
-  mesas_estado: [{ id: 1 }],
-  reservaciones: [],
-  tickets: [],
-  meseros: [],
-  alertas_impresion: []
-};
-assert.equal(validateResponse(responseBase, {
-  fecha: '2030-01-05',
-  colecciones: ['mesas', 'mesas_estado', 'reservaciones', 'tickets', 'meseros', 'alertas_impresion']
-}).valida, true, 'una respuesta POS íntegra y del contexto consultado se acepta');
-assert.equal(validateResponse(Object.assign({}, responseBase, { mesas_estado: null }), {
-  fecha: '2030-01-05', colecciones: ['mesas', 'mesas_estado']
-}).motivo, 'incompleta', 'una colección requerida ausente se rechaza como respuesta incompleta');
-assert.equal(validateResponse(responseBase, { fecha: '2030-01-06' }).motivo, 'contexto', 'una respuesta de otra fecha se descarta');
-assert.equal(validateResponse(responseBase, { fecha: '2030-01-05', hora: '19:00' }).motivo, 'contexto', 'una respuesta de otra hora se descarta');
+assert.equal(mapContract.validarEstado('libre').valido, true, 'libre forma parte del contrato visual');
+assert.equal(mapContract.validarEstado('ocupada').valido, true, 'ocupada forma parte del contrato visual');
+assert.equal(mapContract.validarEstado('reservacion-proxima').valido, true, 'reservación próxima forma parte del contrato visual');
+assert.equal(mapContract.validarEstado('no-utilizable').valido, true, 'no utilizable forma parte del contrato visual');
+assert.equal(mapContract.validarEstado('seleccionada').valido, false, 'seleccionada no es un estado base');
+assert.equal(mapContract.identificarSeleccionHeredada('seleccionada', 'ocupada'), true, 'seleccionada se reconoce sólo con estado previo válido');
+assert.equal(mapContract.identificarSeleccionHeredada('seleccionada', 'estado-ajeno'), false, 'un estado previo inválido no habilita selección heredada');
+assert.equal(mapContract.validarModificadores(['ticket_abierto', 'ausencia_pendiente']), true);
+assert.equal(mapContract.validarModificadores(null), false, 'un contrato de modificadores incompleto se rechaza');
+assert.deepEqual(Object.keys(mapContract.fallbackSeguro()).sort(), [
+  'estadoNoVerificado', 'estadoVisual', 'interactivo', 'modificadores', 'seleccionValida', 'seleccionada'
+].sort(), 'el fallback neutral no concede selección ni interacción');
+assert.equal(context.window.MapaVisual.validarRespuestaMapa, undefined, 'el renderer no valida respuestas HTTP');
 
 const card = new FakeElement('section');
 const canvas = new FakeElement('div');
@@ -445,9 +439,9 @@ canvas.mapCard = card;
 canvas.closest = function (selector) { return selector === '[data-map-component]' ? card : null; };
 const renderer = context.window.MapaVisual.crear({ canvas, contexto: 'operacion-reservaciones', seleccionMultiple: true });
 renderer.render({ mesas: [
-  { id: 101, nombre: 'Mesa válida', estadoVisual: 'libre', reservable: true, interactivo: true, seleccionValida: true },
-  { id: 102, nombre: 'Mesa desconocida', estadoVisual: 'estado-ajeno', reservable: true, interactivo: true, seleccionada: true },
-  { id: 103, nombre: 'Caja', estadoVisual: 'libre', reservable: false, interactivo: true, independienteDeConsulta: true }
+  adapt({ id: 101, nombre: 'Mesa válida', estadoVisual: 'libre', reservable: true, interactivo: true, seleccionValida: true }),
+  adapt({ id: 102, nombre: 'Mesa desconocida', estadoVisual: 'estado-ajeno', reservable: true, interactivo: true, seleccionada: true }),
+  adapt({ id: 103, nombre: 'Caja', estadoVisual: 'libre', reservable: false, interactivo: true, independienteDeConsulta: true })
 ] });
 const validPin = canvas.querySelector('[data-mapa-mesa="101"]');
 const invalidPin = canvas.querySelector('[data-mapa-mesa="102"]');
