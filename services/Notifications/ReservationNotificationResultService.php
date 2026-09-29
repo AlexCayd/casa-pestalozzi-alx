@@ -1,6 +1,6 @@
 <?php
 
-namespace Services\Reservations;
+namespace Services\Notifications;
 
 use Model\ActiveRecord;
 use Services\Notifications\BuzonNotificacionesService;

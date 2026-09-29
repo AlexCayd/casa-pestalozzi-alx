@@ -424,7 +424,7 @@ final class ReservacionPublicaService
             $id = (int)$row['id'];
             $extra = ['request_token' => $token, 'hold_expires_at' => self::fechaAtom((string)$row['hold_expires_at'])];
         }
-        return array_merge(\Services\Reservations\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
+        return array_merge(\Services\Notifications\ConfirmationResendPolicy::estado($tipo, $contacto, $id), $extra);
     }
 
     /** Crea directamente usando exclusivamente la identidad de sesión. */
@@ -1456,8 +1456,8 @@ final class ReservacionPublicaService
                     'request_token' => (string)$fila['request_token'],
                     'hold_expires_at' => self::fechaAtom((string)$fila['hold_expires_at']),
                     'idempotente' => true,
-                ], \Services\Reservations\ConfirmationResendPolicy::camposPublicos(
-                    \Services\Reservations\ConfirmationResendPolicy::estado(
+                ], \Services\Notifications\ConfirmationResendPolicy::camposPublicos(
+                    \Services\Notifications\ConfirmationResendPolicy::estado(
                         (string)$fila['contacto_tipo'], (string)$fila['contacto'], (int)$fila['id']
                     )
                 ));
@@ -1771,7 +1771,7 @@ final class ReservacionPublicaService
 
     private static function camposOtpPublicos(array $otp): array
     {
-        return array_merge(\Services\Reservations\ConfirmationResendPolicy::camposPublicos($otp), [
+        return array_merge(\Services\Notifications\ConfirmationResendPolicy::camposPublicos($otp), [
             'otp_expires_at' => $otp['expires_at'] ?? null,
             '_notification_payload' => $otp['_notification_payload'] ?? null,
             '_confirmation_code' => $otp['_confirmation_code'] ?? null,

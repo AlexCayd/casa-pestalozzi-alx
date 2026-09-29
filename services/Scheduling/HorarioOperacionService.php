@@ -8,7 +8,7 @@ use Model\ExcepcionOperacion;
 use Model\HorarioOperacion;
 use Services\Reservations\ReservacionConfig;
 use Services\Reservations\HorarioReservacionService;
-use Services\Reservations\ScheduleChangeNotificationService;
+use Services\Notifications\ScheduleChangeNotificationService;
 use Services\Reservations\HorarioOperacionImpactoService;
 use Services\Shared\FechaOperacionLock;
 

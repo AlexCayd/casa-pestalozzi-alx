@@ -6,7 +6,7 @@ use MVC\Router;
 use Services\Security\AdminCsrfService;
 use Services\Reservations\ReservacionErrorCatalog;
 use Services\Reservations\HorarioOperacionImpactoService;
-use Services\Reservations\ScheduleChangeNotificationService;
+use Services\Notifications\ScheduleChangeNotificationService;
 
 /** Endpoints administrativos del seguimiento de cambios de horario. */
 final class AdminHorarioImpactoController
