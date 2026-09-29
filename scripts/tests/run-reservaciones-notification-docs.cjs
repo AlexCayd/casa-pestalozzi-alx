@@ -72,8 +72,13 @@ for (const token of ['POST /api/enviar-comanda', 'print_ok', 'impresion_activa',
 assert.match(operation, /últimas 16 horas/);
 
 const reservations = source('docs/reservaciones/reservaciones.md');
-for (const section of ['## Mapas y estados visuales', '### Prioridad visual', '### Límites temporales', '### Modal de ayuda', '## Cambios de horario y afectaciones']) {
+for (const section of ['## Mapas y estados visuales', '## Responsabilidad de las reglas', '### Elementos especiales del POS', '### Qué no hace el frontend', '### Prioridad visual', '### Límites temporales', '### Modal de ayuda', '## Cambios de horario y afectaciones']) {
   assert.ok(reservations.includes(section), `reservaciones tiene la fuente normativa ${section}`);
+}
+assert.ok(reservations.includes('| Regla | Responsable | Resultado producido | Consumidor |'), 'la matriz de responsabilidades separa regla, responsable, resultado y consumidor');
+assert.ok(reservations.includes('| Elemento decorativo activo | No | No | No | No | `MesaEstadoService` |'), 'la matriz distingue elementos POS decorativos e independientes del snapshot');
+for (const rule of ['capacidades_pos', 'Caja activa', 'Llevar activo', 'Mesa desactivada', 'ReservacionConfig', 'map-contract.js', 'table-state-adapter.js', 'map-visual.js']) {
+  assert.ok(reservations.includes(rule), `responsabilidades documenta ${rule}`);
 }
 for (const rule of ['Disponible', 'Advertencia', 'Próxima', 'Inicio', 'Tolerancia', 'Ausencia pendiente', 'Ticket abierto', 'No utilizable', 'Seleccionada', 'fuera_horario_operacion', 'en_proyeccion_mapa']) {
   assert.ok(reservations.includes(rule), `reservaciones cubre ${rule}`);

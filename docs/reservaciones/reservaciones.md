@@ -65,6 +65,105 @@ siguen en los cálculos canónicos de capacidad y disponibilidad.
 
 ## Mapas y estados visuales
 
+## Responsabilidad de las reglas
+
+El flujo de presentación es:
+
+```text
+ReservacionConfig
+    ↓
+ReservacionVigenciaService ── ReservacionPoliticaPosService
+    ↓
+MesaEstadoService
+    ↓
+PosMesaProjectionPresenter ── ReservacionMapaMesaPresenter
+    ↓ contrato JSON
+map-contract.js
+    ↓
+table-state-adapter.js
+    ↓
+map-visual.js
+```
+
+| Regla | Responsable | Resultado producido | Consumidor |
+| --- | --- | --- | --- |
+| Umbrales de advertencia, bloqueo y tolerancia (`60`, `30` y `15` minutos) | `ReservacionConfig` | Valores temporales canónicos | `ReservacionVigenciaService` y `ReservacionPoliticaPosService` |
+| Clasificación temporal y elegibilidad de no-show | `ReservacionVigenciaService` | Ventana temporal, influencia operativa y `ausencia_pendiente` | Política POS, estado de mesa y acciones de Reservaciones |
+| Política de ticket y walk-in | `ReservacionPoliticaPosService` | `disponible_para_ticket`, advertencia y bloqueo de walk-in | `MesaEstadoService` y POS |
+| Ocupación física actual | `MesaEstadoService` | `ocupada_fisicamente` y hechos de tickets abiertos | Presenters POS y de Reservaciones |
+| Bloqueo del intervalo consultado | `OcupacionMesasService` | Mesas bloqueadas y causas para fecha/hora | `MesaEstadoService` y asignación |
+| Disponibilidad final para asignación | `AsignacionMesasService`; `MesaEstadoService` proyecta el hecho de lectura | `disponible_para_asignacion` y causa de conflicto | Operación de Reservaciones y endpoint de asignación |
+| Capacidades POS de Mesa, Barra, Caja, Llevar y elementos decorativos | `MesaEstadoService` | `capacidades_pos` derivadas de tipo, nombre, actividad y reservabilidad | `punto-de-venta.js` |
+| Estado visual POS | `PosMesaProjectionPresenter` | Estado base, modificadores y etiqueta accesible del POS | POS y contrato JSON |
+| Estado visual de Reservaciones | `ReservacionMapaMesaPresenter` | Estado base, modificadores y etiqueta del intervalo | Operación de Reservaciones y contrato JSON |
+| Color, borde e indicador visual | Tokens y clases de `_map-shell.scss` | Estilos para el estado y modificadores recibidos | `map-visual.js` |
+| Selección de mesas POS | `punto-de-venta.js` | Permiso de selección para la acción y snapshot actuales | Adaptador y renderer |
+| Selección para asignación | `operation.js` más `AsignacionMesasService` en la mutación | Permiso visual de selección; el servidor vuelve a validar la asignación | Adaptador, renderer y endpoint de asignación |
+| Contrato visual inválido | `map-contract.js` | Estado seguro `no-utilizable`, no verificado, sin selección ni interacción | Adaptador y consumidores del mapa |
+| Snapshot HTTP inválido, timeout y contexto stale | El consumidor HTTP (`punto-de-venta.js` u `operation.js`) | Aceptar o descartar el snapshot y mensaje de actualización | Pantalla del POS u operación de Reservaciones |
+| Dibujo, ARIA y eventos de interacción | `map-visual.js` | Pines, lista accesible, selección visual y eventos | `punto-de-venta.js` y `operation.js` |
+
+`ReservacionConfig` concentra los valores temporales que usan los clasificadores.
+`ReservacionVigenciaService` determina la vigencia y la ausencia;
+`ReservacionPoliticaPosService` traduce esos hechos a permisos de POS.
+
+`MesaEstadoService` reúne ocupación, bloqueos del intervalo, reservaciones y
+capacidades POS en hechos de mesa. No vuelve a calcular el intervalo ni los
+umbrales temporales.
+
+`PosMesaProjectionPresenter` y `ReservacionMapaMesaPresenter` traducen esos
+hechos a estados, modificadores y etiquetas propias de cada contexto. No
+consultan el DOM ni conceden permisos de mutación.
+
+El contrato JSON entrega por separado hechos y proyección visual.
+`map-contract.js` valida únicamente los cuatro estados visuales permitidos y
+los modificadores.
+
+`table-state-adapter.js` produce el objeto visual que necesita el mapa:
+normaliza el contrato, posiciones, atributos, selección solicitada y texto de
+presentación. No decide disponibilidad ni reglas temporales.
+
+`map-visual.js` dibuja los objetos adaptados, mantiene ARIA y la lista accesible
+y emite interacciones. El consumidor le pasa cualquier aviso general y si debe
+bloquear operaciones dependientes.
+
+`map-contract.js` no usa DOM. Los cuatro estados base admitidos son `libre`,
+`ocupada`, `reservacion-proxima` y `no-utilizable`. La cadena heredada
+`seleccionada` sólo se acepta con un estado previo válido y se convierte en
+selección secundaria; nunca reemplaza el estado base.
+
+Al iniciar o fallar una consulta, el consumidor marca el snapshot como
+desactualizado y pasa al mapa el aviso y la instrucción de bloquear operaciones
+dependientes. El renderer aplica esa instrucción al dibujo; no infiere el estado
+de la red ni clasifica la respuesta HTTP.
+
+### Elementos especiales del POS
+
+Las capacidades se derivan en `MesaEstadoService` de los campos existentes. No
+requieren columnas nuevas. Llevar conserva su flujo propio de pedido, y Caja su
+acción de corte; ambos se mantienen independientes del snapshot de disponibilidad.
+El objeto `capacidades_pos` contiene `reservable`, `operable`, `ticketable`,
+`independiente_consulta`, `abrir_caja`, `crear_pedido_llevar`,
+`mostrar_estado_ticket`, `decorativo` y `etiqueta_operacion`.
+
+| Elemento | Participa en Reservaciones | Operable en POS | Ticketable | Depende del snapshot | Responsable de la capacidad |
+| --- | --- | --- | --- | --- | --- |
+| Mesa activa y reservable | Sí | Sí | Sí | Sí | `MesaEstadoService` |
+| Barra activa | No | Sí | Sí | Sí | `MesaEstadoService` |
+| Caja activa | No | Sí | No; abre el corte | No | `MesaEstadoService` |
+| Llevar activo | No | Sí | Flujo propio de pedido | No | `MesaEstadoService` |
+| Elemento decorativo activo | No | No | No | No | `MesaEstadoService` |
+| Mesa desactivada | No | No | No | No | `MesaEstadoService` |
+
+### Qué no hace el frontend
+
+El frontend no decide la ventana que bloquea una mesa, el fin de la tolerancia,
+si una ausencia ya permite marcar no-show, la capacidad, la disponibilidad, si
+una mesa se puede asignar ni si se puede abrir un ticket. Valida la estructura y
+el contexto de la respuesta HTTP, presenta las proyecciones del servidor,
+descarta contratos inválidos de forma segura, gestiona la interacción y solicita
+la mutación al backend para su validación final.
+
 El POS representa la operación actual. El mapa de Reservaciones representa la
 fecha y hora consultadas. La misma mesa puede verse distinta en esos contextos.
 
